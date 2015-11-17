@@ -27,7 +27,8 @@
 #ifndef NIDAS_DNYLD_ISFF_SONICANEMOMETER_H
 #define NIDAS_DNYLD_ISFF_SONICANEMOMETER_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
+#include <nidas/core/Sample.h>
 #include <nidas/core/AdaptiveDespiker.h>
 #include <nidas/Config.h>
 
@@ -201,7 +202,7 @@ private:
  * A class for performing the common processes on
  * wind data from a 3D sonic anemometer.
  */
-class SonicAnemometer: public DSMSerialSensor
+class SonicAnemometer: public nidas::core::SerialSensor
 {
 public:
 
@@ -214,7 +215,7 @@ public:
      * u,v,w,tc parsed from an ASCII sample. Applies despiking,
      * orientation corrections, bias, tilts and horizontal rotations, as configured.
      */
-    bool process(const Sample* samp, std::list<const Sample*>& results) throw();
+    bool process(const nidas::core::Sample* samp, std::list<const nidas::core::Sample*>& results) throw();
 
     void setBias(int i,float val)
     {
@@ -337,7 +338,7 @@ public:
         _tiltCorrection = val;
     }
 
-    void despike(dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
+    void despike(nidas::core::dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
     	throw();
     /**
      * Do standard bias removal, tilt correction and horizontal
@@ -348,7 +349,7 @@ public:
      *    u,v,w and tc(virtual temperature). New values
      *    are written back via the pointers.
      */
-    void offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw();
+    void offsetsTiltAndRotate(nidas::core::dsm_time_t tt,float* uvwt) throw();
 
     /**
      * Validate the configuration of this sensor. Calls the base class
@@ -377,16 +378,16 @@ public:
      * transducer coordinates to orthoganal UVW coordinates. These values are typically
      * in a CalFile.
      */
-    virtual void getTransducerRotation(dsm_time_t tt) throw();
+    virtual void getTransducerRotation(nidas::core::dsm_time_t tt) throw();
 
-    virtual void transducerShadowCorrection(dsm_time_t, float *) throw();
+    virtual void transducerShadowCorrection(nidas::core::dsm_time_t, float *) throw();
 #endif
 
 protected:
 
     static const int DATA_GAP_USEC = 60000000;
 
-    dsm_time_t _ttlast[4];
+    nidas::core::dsm_time_t _ttlast[4];
 
     float _bias[3];
 
@@ -394,7 +395,7 @@ protected:
 
     bool _despike;
 
-    AdaptiveDespiker _despiker[4];
+    nidas::core::AdaptiveDespiker _despiker[4];
  
     WindRotator _rotator;
 
@@ -417,7 +418,7 @@ protected:
     /**
      * Id of output sample.
      */
-    dsm_sample_id_t _sampleId;
+    nidas::core::dsm_sample_id_t _sampleId;
 
     /**
      * If user requests wind speed, variable name "spd", its index
@@ -480,6 +481,7 @@ protected:
     gsl_matrix* _atMatrixGSL;
 
     gsl_permutation* _atPermutationGSL;
+#endif
 
     /**
      * Transducer shadow (aka flow distortion) correction factor.
@@ -487,7 +489,6 @@ protected:
      * "shadowFactor".
      */
     float _shadowFactor;
-#endif
 
 private:
 

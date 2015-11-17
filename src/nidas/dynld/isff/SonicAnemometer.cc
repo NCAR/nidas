@@ -47,9 +47,9 @@ SonicAnemometer::SonicAnemometer():
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
     _sampleId(0), _spdIndex(-1), _dirIndex(-1),
-    _oaCalFile(0), _unusualOrientation(false)
+    _oaCalFile(0), _unusualOrientation(false),
 #ifdef HAVE_LIBGSL
-    , _atCalFile(0),
+    _atCalFile(0),
     _atMatrix(),
 #ifdef COMPUTE_ABC2UVW_INVERSE
     _atInverse(),
@@ -59,8 +59,8 @@ SonicAnemometer::SonicAnemometer():
 #endif
     _atMatrixGSL(gsl_matrix_alloc(3,3)),
     _atPermutationGSL(gsl_permutation_alloc(3)),
-    _shadowFactor(0.0)
 #endif
+    _shadowFactor(0.0)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -180,7 +180,7 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
 void SonicAnemometer::validate() throw(n_u::InvalidParameterException)
 {
 
-    DSMSerialSensor::validate();
+    SerialSensor::validate();
 
     parseParameters();
 
@@ -398,7 +398,6 @@ void SonicAnemometer::checkSampleTags()
 
     for ( ; si != tags.end(); ++si) {
         const SampleTag* stag = *si;
-        size_t nvars = stag->getVariables().size();
         _sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
@@ -539,7 +538,7 @@ bool SonicAnemometer::process(const Sample* samp,
 
     std::list<const Sample*> parseResults;
 
-    DSMSerialSensor::process(samp,parseResults);
+    SerialSensor::process(samp,parseResults);
 
     if (parseResults.empty()) return false;
 
@@ -583,7 +582,7 @@ bool SonicAnemometer::process(const Sample* samp,
     // new sample
     SampleT<float>* wsamp = getSample<float>(numOut);
 
-    // any defined time lag has been applied by DSMSerialSensor
+    // any defined time lag has been applied by SerialSensor
     wsamp->setTimeTag(psamp->getTimeTag());
     wsamp->setId(_sampleId);
 

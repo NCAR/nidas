@@ -314,7 +314,7 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 void CSAT3_Sonic::open(int flags)
 throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 
     if (!_checkConfiguration) return;
 

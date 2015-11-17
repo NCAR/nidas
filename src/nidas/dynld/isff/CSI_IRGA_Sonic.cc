@@ -293,7 +293,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     else {
         std::list<const Sample*> parseResults;
 
-        DSMSerialSensor::process(samp,parseResults);
+        SerialSensor::process(samp,parseResults);
 
         if (parseResults.empty()) return false;
 

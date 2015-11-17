@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_ISFF_ATIK_SONIC_H
 #define NIDAS_DYNLD_ISFF_ATIK_SONIC_H
 
-#include <nidas/dynld/isff/SonicAnemometer.h>
+#include "SonicAnemometer.h"
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -48,14 +48,14 @@ public:
     void checkSampleTags()
             throw(nidas::util::InvalidParameterException);
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
+    bool process(const nidas::core::Sample* samp,std::list<const nidas::core::Sample*>& results)
     	throw();
 
     /**
      * Apply the path shadow correction and described in the comments
      * for _maxShadowAngle, and _shadowFactor.
      */
-    void transducerShadowCorrection(dsm_time_t tt, float* uvwt) throw();
+    void transducerShadowCorrection(nidas::core::dsm_time_t tt, float* uvwt) throw();
 
     /**
      * Placeholder for a method to remove a shadow correction that 
@@ -64,7 +64,7 @@ public:
      * been implemented yet, and will need parameters indicating
      * what factor and angle were applied by the sonic.
      */
-    void removeShadowCorrection(dsm_time_t tt, float* ) throw();
+    void removeShadowCorrection(nidas::core::dsm_time_t tt, float* ) throw();
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.

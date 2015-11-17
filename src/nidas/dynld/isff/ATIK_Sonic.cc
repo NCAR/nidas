@@ -28,10 +28,12 @@
 
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
+#include <nidas/core/Parameter.h>
 
 #include <byteswap.h>
 
 using namespace nidas::dynld::isff;
+using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
@@ -195,7 +197,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     if (getScanfers().size() > 0) {
         std::list<const Sample*> parseResults;
-        DSMSerialSensor::process(samp,parseResults);
+        SerialSensor::process(samp,parseResults);
         if (parseResults.empty()) return false;
 
         // result from base class parsing of ASCII
