@@ -29,7 +29,7 @@
  EB7022597 cage code 55939 "Air Data Computer"    (pages A-53..79).
 
  */
-#include <nidas/dynld/raf/ADC_HW_EB7022597.h>
+#include "ADC_HW_EB7022597.h"
 
 using namespace nidas::dynld::raf;
 

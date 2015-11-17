@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/SPP300_Serial.h>
+#include "SPP300_Serial.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/util/Logger.h>

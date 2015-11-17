@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/CVIProcessor.h>
-#include <nidas/dynld/raf/CVI_LV_Input.h>
+#include "CVIProcessor.h"
+#include "CVI_LV_Input.h"
 
 #include <nidas/core/Project.h>
 #include <nidas/core/SampleOutputRequestThread.h>

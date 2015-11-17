@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/Arinc_IRS.h>
+#include "Arinc_IRS.h"
 //#include <iostream>
 
 using namespace std;

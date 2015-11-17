@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/TwoD_House.h>
+#include "TwoD_House.h"
 #include <nidas/util/Logger.h>
 
 #include <sstream>

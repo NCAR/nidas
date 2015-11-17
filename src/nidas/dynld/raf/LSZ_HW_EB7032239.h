@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_RAF_LSZ_HW_EB7032239_H
 #define NIDAS_DYNLD_RAF_LSZ_HW_EB7032239_H
 
-#include <nidas/dynld/raf/DSMArincSensor.h>
+#include "DSMArincSensor.h"
 
 namespace nidas { namespace dynld { namespace raf {
 

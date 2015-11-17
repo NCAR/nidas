@@ -23,7 +23,7 @@
  **
  ********************************************************************
 */
-#include <nidas/dynld/raf/IRS_HW_HG2001GD.h>
+#include "IRS_HW_HG2001GD.h"
 
 using namespace nidas::dynld::raf;
 

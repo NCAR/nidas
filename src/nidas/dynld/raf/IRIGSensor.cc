@@ -26,7 +26,7 @@
 
 #include <nidas/linux/irig/pc104sg.h>
 
-#include <nidas/dynld/raf/IRIGSensor.h>
+#include "IRIGSensor.h"
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>
 

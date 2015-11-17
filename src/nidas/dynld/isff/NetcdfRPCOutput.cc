@@ -25,11 +25,11 @@
 */
 
 
-#include <nidas/dynld/isff/NetcdfRPCOutput.h>
+#include "NetcdfRPCOutput.h"
 
 #ifdef HAVE_LIBNC_SERVER_RPC
 
-#include <nidas/dynld/isff/NetcdfRPCChannel.h>
+#include "NetcdfRPCChannel.h"
 #include <nidas/util/Logger.h>
 
 using namespace nidas::dynld::isff;

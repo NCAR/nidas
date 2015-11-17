@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/SyncRecordReader.h>
-#include <nidas/dynld/raf/SyncRecordSource.h>
+#include "SyncRecordReader.h"
+#include "SyncRecordSource.h"
 #include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>

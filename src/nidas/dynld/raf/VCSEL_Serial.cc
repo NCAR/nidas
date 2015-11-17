@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/VCSEL_Serial.h>
+#include "VCSEL_Serial.h"
 #include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>

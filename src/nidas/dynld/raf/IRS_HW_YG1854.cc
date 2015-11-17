@@ -23,7 +23,7 @@
  **
  ********************************************************************
 */
-#include <nidas/dynld/raf/IRS_HW_YG1854.h>
+#include "IRS_HW_YG1854.h"
 #include <cstdio>
 
 using namespace nidas::dynld::raf;

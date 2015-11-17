@@ -24,6 +24,6 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/UDPSocketSensor.h>
+#include "UDPSocketSensor.h"
 
 NIDAS_CREATOR_FUNCTION_NS(raf,UDPSocketSensor)

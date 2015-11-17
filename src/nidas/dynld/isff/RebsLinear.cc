@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/RebsLinear.h>
+#include "RebsLinear.h"
 #include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>

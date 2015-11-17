@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/Packets.h>
-#include <nidas/dynld/isff/GOES.h>
+#include "Packets.h"
+#include "GOES.h"
 #include <nidas/core/Sample.h>
 #include <nidas/util/Logger.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/CVIOutput.h>
+#include "CVIOutput.h"
 #include <nidas/core/UnixIOChannel.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/SampleTag.h>

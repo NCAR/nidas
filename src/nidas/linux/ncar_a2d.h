@@ -35,8 +35,8 @@
 #ifndef NCAR_A2D_H
 #define NCAR_A2D_H
 
-#include <nidas/linux/types.h>              // get nidas typedefs
-#include <nidas/linux/a2d.h>
+#include "types.h"              // get nidas typedefs
+#include "a2d.h"
 
 /* 
  * User programs need these for the _IO macros, but kernel modules get

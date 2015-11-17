@@ -26,7 +26,7 @@
 #ifndef NIDAS_DYNLD_RAF_IRS_HW_HG2001GD_H
 #define NIDAS_DYNLD_RAF_IRS_HW_HG2001GD_H
 
-#include <nidas/dynld/raf/Arinc_IRS.h>
+#include "Arinc_IRS.h"
 
 namespace nidas { namespace dynld { namespace raf {
 

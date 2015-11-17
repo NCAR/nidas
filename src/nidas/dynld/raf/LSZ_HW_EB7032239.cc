@@ -30,7 +30,7 @@
 
  */
 
-#include <nidas/dynld/raf/LSZ_HW_EB7032239.h>
+#include "LSZ_HW_EB7032239.h"
 
 using namespace nidas::dynld::raf;
 

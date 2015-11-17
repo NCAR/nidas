@@ -26,7 +26,7 @@
 #ifndef NIDAS_DYNLD_RAF_GPS_HW_HG2021GB02_H
 #define NIDAS_DYNLD_RAF_GPS_HW_HG2021GB02_H
 
-#include <nidas/dynld/raf/DSMArincSensor.h>
+#include "DSMArincSensor.h"
 
 namespace nidas { namespace dynld { namespace raf {
 

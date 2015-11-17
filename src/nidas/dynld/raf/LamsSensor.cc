@@ -29,7 +29,7 @@
 */
 
 
-#include <nidas/dynld/raf/LamsSensor.h>
+#include "LamsSensor.h"
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>

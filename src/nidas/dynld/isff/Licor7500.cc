@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/Licor7500.h>
+#include "Licor7500.h"
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/AsciiSscanf.h>

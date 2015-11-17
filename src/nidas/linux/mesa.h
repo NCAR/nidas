@@ -39,9 +39,9 @@
  * the definition of the structures.
  */
 
-#include <nidas/linux/types.h>
-#include <nidas/linux/util.h>
-#include <nidas/linux/irigclock.h>
+#include "types.h"
+#include "util.h"
+#include "irigclock.h"
 
 // Sample ID's
 #define ID_COUNTERS	1

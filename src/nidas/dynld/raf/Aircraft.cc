@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/Aircraft.h>
+#include "Aircraft.h"
 #include <nidas/core/Project.h>
 
 #include <iostream>

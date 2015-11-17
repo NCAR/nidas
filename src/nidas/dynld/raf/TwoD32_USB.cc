@@ -26,7 +26,7 @@
 
 
 #include <nidas/linux/usbtwod/usbtwod.h>
-#include <nidas/dynld/raf/TwoD32_USB.h>
+#include "TwoD32_USB.h"
 #include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/UTime.h>

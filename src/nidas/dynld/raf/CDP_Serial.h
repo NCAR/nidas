@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_RAF_CDP_SERIAL_H
 #define NIDAS_DYNLD_RAF_CDP_SERIAL_H
 
-#include <nidas/dynld/raf/SppSerial.h>
+#include "SppSerial.h"
 
 #include <iostream>
 

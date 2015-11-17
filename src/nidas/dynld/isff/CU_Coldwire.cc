@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/CU_Coldwire.h>
+#include "CU_Coldwire.h"
 #include <nidas/util/EndianConverter.h>
 
 #include <nidas/core/Variable.h>

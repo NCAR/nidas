@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/GroundStation.h>
+#include "GroundStation.h"
 
 #include <iostream>
 

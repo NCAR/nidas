@@ -29,7 +29,7 @@
  Table 207 "GNSSU ARINC 429 Output Data" (GPS)  (pages 217-219).
 
  */
-#include <nidas/dynld/raf/GPS_HW_HG2021GB02.h>
+#include "GPS_HW_HG2021GB02.h"
 
 using namespace nidas::dynld::raf;
 

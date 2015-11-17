@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/MOSMote.h>
+#include "MOSMote.h"
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Looper.h>
 #include <nidas/util/Logger.h>

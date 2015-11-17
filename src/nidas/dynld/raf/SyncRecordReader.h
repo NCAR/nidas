@@ -31,8 +31,8 @@
 
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/dynld/raf/SyncRecordVariable.h>
-#include <nidas/dynld/raf/SyncServer.h>
+#include "SyncRecordVariable.h"
+#include "SyncServer.h"
 
 #include <nidas/util/ThreadSupport.h>
 

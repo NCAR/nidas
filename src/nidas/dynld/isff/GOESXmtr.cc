@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/GOESXmtr.h>
+#include "GOESXmtr.h"
 
 #include <nidas/util/Logger.h>
 

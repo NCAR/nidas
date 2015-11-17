@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/PSI9116_Sensor.h>
+#include "PSI9116_Sensor.h"
 #include <nidas/core/TCPSocketIODevice.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/core/SampleTag.h>

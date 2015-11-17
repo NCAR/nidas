@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/CS_Krypton.h>
+#include "CS_Krypton.h"
 #include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>

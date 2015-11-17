@@ -28,7 +28,7 @@
  * 
  */
 
-#include <nidas/dynld/raf/LamsNetSensor.h>
+#include "LamsNetSensor.h"
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>

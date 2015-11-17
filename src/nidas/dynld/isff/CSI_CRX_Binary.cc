@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/CSI_CRX_Binary.h>
+#include "CSI_CRX_Binary.h"
 #include <nidas/util/EndianConverter.h>
 
 #include <nidas/core/Variable.h>

@@ -25,7 +25,7 @@
 */
 
 
-#include <nidas/dynld/isff/GOES.h>
+#include "GOES.h"
 
 #include <iostream>
 #include <iomanip>

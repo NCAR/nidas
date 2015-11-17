@@ -37,7 +37,7 @@
 #include <linux/slab.h>
 #include <asm/uaccess.h>        /* access_ok */
 
-#include <nidas/linux/diamond/ir104.h>
+#include "ir104.h"
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
 // #define DEBUG

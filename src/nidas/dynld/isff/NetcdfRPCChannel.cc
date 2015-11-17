@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/NetcdfRPCChannel.h>
+#include "NetcdfRPCChannel.h"
 
 #ifdef HAVE_LIBNC_SERVER_RPC
 

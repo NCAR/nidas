@@ -28,7 +28,7 @@
 #define NIDAS_DYNLD_RAF_SYNCRECORDGENERATOR_H
 
 #include <nidas/core/SampleIOProcessor.h>
-#include <nidas/dynld/raf/SyncRecordSource.h>
+#include "SyncRecordSource.h"
 
 #include <vector>
 #include <map>

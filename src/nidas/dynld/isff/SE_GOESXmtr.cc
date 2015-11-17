@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/SE_GOESXmtr.h>
-#include <nidas/dynld/isff/GOES.h>
+#include "SE_GOESXmtr.h"
+#include "GOES.h"
 #include <nidas/util/IOTimeoutException.h>
-#include <nidas/dynld/isff/GOESException.h>
+#include "GOESException.h"
 #include <nidas/util/UTime.h>
 
 #include <nidas/util/Logger.h>

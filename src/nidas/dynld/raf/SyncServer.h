@@ -32,7 +32,7 @@
 #include <memory>
 
 #include <nidas/core/Socket.h>
-#include <nidas/dynld/raf/SyncRecordGenerator.h>
+#include "SyncRecordGenerator.h"
 #include <nidas/core/SamplePipeline.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>

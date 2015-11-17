@@ -27,7 +27,7 @@
 #ifndef _nidas_dynld_raf_2d64_usb_h_
 #define _nidas_dynld_raf_2d64_usb_h_
 
-#include <nidas/dynld/raf/TwoD_USB.h>
+#include "TwoD_USB.h"
 
 namespace nidas { namespace dynld { namespace raf {
 

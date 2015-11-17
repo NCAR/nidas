@@ -26,7 +26,7 @@
 #ifndef NIDAS_DYNLD_RAF_ARINC_IRS_H
 #define NIDAS_DYNLD_RAF_ARINC_IRS_H
 
-#include <nidas/dynld/raf/DSMArincSensor.h>
+#include "DSMArincSensor.h"
 
 namespace nidas { namespace dynld { namespace raf {
 

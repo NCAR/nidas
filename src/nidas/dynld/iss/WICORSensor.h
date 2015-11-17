@@ -32,7 +32,7 @@
 #ifndef WICORSENSOR_H_
 #define WICORSENSOR_H_
 
-#include "nidas/dynld/raf/UDPSocketSensor.h"
+#include "nidas/dynld/UDPSocketSensor.h"
 
 #include <vector>
 #include <string>
@@ -43,7 +43,7 @@
 
 namespace nidas { namespace dynld { namespace iss {
 
-class WICORSensor : public virtual nidas::dynld::raf::UDPSocketSensor
+class WICORSensor : public virtual nidas::dynld::UDPSocketSensor
 {
 public:
     WICORSensor();

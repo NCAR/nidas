@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/SimGOESXmtr.h>
+#include "SimGOESXmtr.h"
 #include <nidas/util/IOTimeoutException.h>
-#include <nidas/dynld/isff/GOESException.h>
+#include "GOESException.h"
 #include <nidas/util/UTime.h>
 
 #include <nidas/util/Logger.h>

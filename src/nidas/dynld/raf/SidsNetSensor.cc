@@ -28,7 +28,7 @@
  * 
  */
 
-#include <nidas/dynld/raf/SidsNetSensor.h>
+#include "SidsNetSensor.h"
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>

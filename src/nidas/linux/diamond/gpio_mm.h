@@ -166,7 +166,7 @@ struct GPIO_MM_event_status
 
 #include <linux/cdev.h>
 #include <nidas/linux/util.h>
-#include <nidas/linux/diamond/gpio_mm_regs.h>
+#include "gpio_mm_regs.h"
 
 typedef void (*gpio_timer_callback_func_t) (void* privateData);
 

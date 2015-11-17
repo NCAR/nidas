@@ -36,7 +36,7 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
-#include <nidas/linux/filters/short_filters.h>
+#include "short_filters.h"
 
 #ifndef REPO_REVISION
 #define REPO_REVISION "unknown"

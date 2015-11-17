@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/PacketInputStream.h>
-#include <nidas/dynld/isff/GOESOutput.h>
-#include <nidas/dynld/isff/GOESProject.h>
+#include "PacketInputStream.h"
+#include "GOESOutput.h"
+#include "GOESProject.h"
 #include <nidas/core/Project.h>
 #include <nidas/core/SampleTag.h>
 

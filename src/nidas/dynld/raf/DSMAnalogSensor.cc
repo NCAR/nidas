@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/DSMAnalogSensor.h>
+#include "DSMAnalogSensor.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>

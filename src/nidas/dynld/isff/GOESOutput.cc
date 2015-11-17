@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/GOESOutput.h>
-#include <nidas/dynld/isff/GOESXmtr.h>
+#include "GOESOutput.h"
+#include "GOESXmtr.h"
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/Looper.h>

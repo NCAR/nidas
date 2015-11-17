@@ -25,7 +25,7 @@
 */
 
 #include <nidas/linux/arinc/arinc.h>
-#include <nidas/dynld/raf/DSMArincSensor.h>
+#include "DSMArincSensor.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/Variable.h>

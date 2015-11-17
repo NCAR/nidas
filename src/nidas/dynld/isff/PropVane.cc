@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/PropVane.h>
+#include "PropVane.h"
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/AsciiSscanf.h>

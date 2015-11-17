@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/TwoD_USB.h>
+#include "TwoD_USB.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>

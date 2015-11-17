@@ -26,8 +26,8 @@
 
 // #define DEBUG
 
-#include <nidas/dynld/raf/SyncRecordSource.h>
-#include <nidas/dynld/raf/Aircraft.h>
+#include "SyncRecordSource.h"
+#include "Aircraft.h"
 #include <nidas/core/SampleInput.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMSensor.h>

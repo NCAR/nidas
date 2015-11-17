@@ -41,7 +41,7 @@
 #  include <sys/time.h>
 #endif
 
-#include <nidas/linux/types.h>
+#include "types.h"
 
 /**
  * Enumeration of the callback rates supported by this module.

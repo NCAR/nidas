@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/GOESProject.h>
-#include <nidas/dynld/isff/GOESOutput.h>
+#include "GOESProject.h"
+#include "GOESOutput.h"
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>

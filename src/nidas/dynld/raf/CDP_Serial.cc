@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/CDP_Serial.h>
+#include "CDP_Serial.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Variable.h>

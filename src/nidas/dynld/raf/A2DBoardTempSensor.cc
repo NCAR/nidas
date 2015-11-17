@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/A2DBoardTempSensor.h>
+#include "A2DBoardTempSensor.h"
 #include <nidas/linux/ncar_a2d.h>
 
 #include <nidas/core/DSMEngine.h>

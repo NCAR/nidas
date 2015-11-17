@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_RAF_SPP200_SERIAL_H
 #define NIDAS_DYNLD_RAF_SPP200_SERIAL_H
 
-#include <nidas/dynld/raf/SppSerial.h>
+#include "SppSerial.h"
 #include <nidas/util/RunningAverage.h>
 
 #include <iostream>

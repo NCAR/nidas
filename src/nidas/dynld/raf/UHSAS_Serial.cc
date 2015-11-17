@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/UHSAS_Serial.h>
+#include "UHSAS_Serial.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>

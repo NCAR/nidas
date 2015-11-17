@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/raf/SppSerial.h>
+#include "SppSerial.h"
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
