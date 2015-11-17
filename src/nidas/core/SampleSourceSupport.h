@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SAMPLESOURCESUPPORT_H
 #define NIDAS_CORE_SAMPLESOURCESUPPORT_H
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleClientList.h>
+#include "SampleSource.h"
+#include "SampleClientList.h"
 
 #include <set>
 #include <map>

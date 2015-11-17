@@ -31,8 +31,8 @@
 #ifndef NIDAS_UTIL_BLUETOOTHRFCOMMSOCKET_H
 #define NIDAS_UTIL_BLUETOOTHRFCOMMSOCKET_H
 
-#include <nidas/util/BluetoothRFCommSocketAddress.h>
-#include <nidas/util/IOException.h>
+#include "BluetoothRFCommSocketAddress.h"
+#include "IOException.h"
 
 namespace nidas { namespace util {
 

@@ -28,10 +28,10 @@
 #define NIDAS_CORE_SAMPLEINPUT_H
 
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/IOStream.h>
-#include <nidas/core/SampleSorter.h>
-#include <nidas/core/SampleInputHeader.h>
+#include "SampleSource.h"
+#include "IOStream.h"
+#include "SampleSorter.h"
+#include "SampleInputHeader.h"
 
 namespace nidas { namespace core {
 

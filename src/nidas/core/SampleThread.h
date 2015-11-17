@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SAMPLETHREAD_H
 #define NIDAS_CORE_SAMPLETHREAD_H
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleClient.h>
+#include "SampleSource.h"
+#include "SampleClient.h"
 
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>

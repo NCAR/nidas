@@ -28,7 +28,7 @@
 #ifndef NIDAS_CORE_LOOPER_H
 #define NIDAS_CORE_LOOPER_H
 
-#include <nidas/core/LooperClient.h>
+#include "LooperClient.h"
 
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>

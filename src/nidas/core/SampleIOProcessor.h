@@ -28,11 +28,11 @@
 #define NIDAS_CORE_SAMPLEIOPROCESSOR_H
 
 
-#include <nidas/core/ConnectionRequester.h>
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleSourceSupport.h>
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Sample.h>  // dsm_sample_id_t
+#include "ConnectionRequester.h"
+#include "SampleSource.h"
+#include "SampleSourceSupport.h"
+#include "DOMable.h"
+#include "Sample.h"  // dsm_sample_id_t
 
 namespace nidas { namespace core {
 

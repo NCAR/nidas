@@ -26,7 +26,7 @@
 #ifndef NIDAS_CORE_TCPSOCKETIODEVICE_H
 #define NIDAS_CORE_TCPSOCKETIODEVICE_H
 
-#include <nidas/core/SocketIODevice.h>
+#include "SocketIODevice.h"
 
 namespace nidas { namespace core {
 

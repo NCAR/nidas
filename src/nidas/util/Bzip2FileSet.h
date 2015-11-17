@@ -47,7 +47,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include <nidas/util/FileSet.h>
+#include "FileSet.h"
 
 #include <bzlib.h>
 

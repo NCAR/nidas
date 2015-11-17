@@ -27,10 +27,10 @@
 #ifndef NIDAS_CORE_SITE_H
 #define NIDAS_CORE_SITE_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/Dictionary.h>
+#include "DOMable.h"
+#include "DSMConfig.h"
+#include "Parameter.h"
+#include "Dictionary.h"
 
 #include <list>
 #include <map>

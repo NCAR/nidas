@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_NEARESTRESAMPLER_H
 #define NIDAS_CORE_NEARESTRESAMPLER_H
 
-#include <nidas/core/Resampler.h>
-#include <nidas/core/SampleTag.h>
+#include "Resampler.h"
+#include "SampleTag.h"
 
 #include <vector>
 

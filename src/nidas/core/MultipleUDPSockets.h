@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_MULTIPLESOCKETUDP_H
 #define NIDAS_CORE_MULTIPLESOCKETUDP_H
 
-#include <nidas/core/McSocketUDP.h>
+#include "McSocketUDP.h"
 
 #include <string>
 #include <iostream>

@@ -27,11 +27,11 @@
 #ifndef NIDAS_CORE_PROJECT_H
 #define NIDAS_CORE_PROJECT_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Sample.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/Dictionary.h>
-#include <nidas/core/Datasets.h>
+#include "DOMable.h"
+#include "Sample.h"
+#include "NidsIterators.h"
+#include "Dictionary.h"
+#include "Datasets.h"
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/IOException.h>

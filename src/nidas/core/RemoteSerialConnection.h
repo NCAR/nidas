@@ -28,11 +28,11 @@
 #define NIDAS_CORE_REMOTESERIALCONNECTION_H
 
 #include <nidas/util/Socket.h>
-#include <nidas/core/SerialSensor.h>
-#include <nidas/core/SampleClient.h>
+#include "SerialSensor.h"
+#include "SampleClient.h"
 #include <nidas/util/EOFException.h>
 
-#include <nidas/core/Polled.h>
+#include "Polled.h"
 
 namespace nidas { namespace core {
 

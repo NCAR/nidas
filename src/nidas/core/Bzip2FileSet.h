@@ -31,7 +31,7 @@
 #ifndef NIDAS_CORE_BZIP2FILESET_H
 #define NIDAS_CORE_BZIP2FILESET_H
 
-#include <nidas/core/FileSet.h>
+#include "FileSet.h"
 #include <nidas/util/Bzip2FileSet.h>
 
 namespace nidas { namespace core {

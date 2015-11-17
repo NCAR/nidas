@@ -28,7 +28,7 @@
 #define NIDAS_UTIL_IOTIMEOUTEXCEPTION_H
 
 #include <string>
-#include <nidas/util/IOException.h>
+#include "IOException.h"
 
 namespace nidas { namespace util {
 

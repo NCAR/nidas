@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SAMPLEPIPELINE_H
 #define NIDAS_CORE_SAMPLEPIPELINE_H
 
-#include <nidas/core/SampleThread.h>
-#include <nidas/core/NidsIterators.h>
+#include "SampleThread.h"
+#include "NidsIterators.h"
 
 namespace nidas { namespace core {
 

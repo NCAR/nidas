@@ -32,8 +32,8 @@
 #include <sys/types.h>
 #include <regex.h>
 
-#include <nidas/util/Termios.h>
-#include <nidas/util/ParseException.h>
+#include "Termios.h"
+#include "ParseException.h"
 
 namespace nidas { namespace util {
 

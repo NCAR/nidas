@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_ENGINEINTF_H
 #define NIDAS_CORE_ENGINEINTF_H
 
-#include <nidas/core/XmlRpcThread.h>
+#include "XmlRpcThread.h"
 #include <nidas/util/IOException.h>
 #include <xmlrpcpp/XmlRpcException.h>
 

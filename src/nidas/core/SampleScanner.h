@@ -26,7 +26,7 @@
 #ifndef NIDAS_CORE_SAMPLESCANNER_H
 #define NIDAS_CORE_SAMPLESCANNER_H
 
-#include <nidas/core/SampleClock.h>
+#include "SampleClock.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>

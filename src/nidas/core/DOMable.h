@@ -29,9 +29,9 @@
 
 #include <nidas/util/InvalidParameterException.h>
 
-#include <nidas/core/DOMObjectFactory.h>
-#include <nidas/core/XDOM.h>
-#include <nidas/core/XMLStringConverter.h>
+#include "DOMObjectFactory.h"
+#include "XDOM.h"
+#include "XMLStringConverter.h"
 
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/util/XMLString.hpp>

@@ -27,7 +27,7 @@
 #define NIDAS_CORE_UDPSOCKETIODEVICE_H
 
 #include <nidas/util/Socket.h>
-#include <nidas/core/SocketIODevice.h>
+#include "SocketIODevice.h"
 
 #include <iostream>
 

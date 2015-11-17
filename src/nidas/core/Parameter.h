@@ -32,7 +32,7 @@
 #ifndef NIDAS_CORE_PARAMETER_H
 #define NIDAS_CORE_PARAMETER_H
 
-#include <nidas/core/DOMable.h>
+#include "DOMable.h"
 
 #include <string>
 #include <vector>

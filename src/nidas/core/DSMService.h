@@ -29,8 +29,8 @@
 #define NIDAS_CORE_DSMSERVICE_H
 
 #include <nidas/util/Thread.h>
-#include <nidas/core/DOMable.h>
-#include <nidas/core/NidsIterators.h>
+#include "DOMable.h"
+#include "NidsIterators.h"
 
 namespace nidas { namespace core {
 

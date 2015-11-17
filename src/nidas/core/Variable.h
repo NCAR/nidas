@@ -26,9 +26,9 @@
 #ifndef NIDAS_CORE_VARIABLE_H
 #define NIDAS_CORE_VARIABLE_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/VariableConverter.h>
+#include "DOMable.h"
+#include "Site.h"
+#include "VariableConverter.h"
 #include <nidas/util/InvalidParameterException.h>
 
 #include <string>

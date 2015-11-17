@@ -27,9 +27,9 @@
 #ifndef NIDAS_CORE_SAMPLESORTER_H
 #define NIDAS_CORE_SAMPLESORTER_H
 
-#include <nidas/core/SampleThread.h>
-#include <nidas/core/SampleSourceSupport.h>
-#include <nidas/core/SortedSampleSet.h>
+#include "SampleThread.h"
+#include "SampleSourceSupport.h"
+#include "SortedSampleSet.h"
 
 namespace nidas { namespace core {
 

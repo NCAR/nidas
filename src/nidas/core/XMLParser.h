@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_XMLPARSER_H
 #define NIDAS_CORE_XMLPARSER_H
 
-#include <nidas/core/XMLException.h>
+#include "XMLException.h"
 
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>

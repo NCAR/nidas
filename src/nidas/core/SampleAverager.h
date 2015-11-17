@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SAMPLEAVERAGER_H
 #define NIDAS_CORE_SAMPLEAVERAGER_H
 
-#include <nidas/core/Resampler.h>
-#include <nidas/core/SampleTag.h>
+#include "Resampler.h"
+#include "SampleTag.h"
 
 namespace nidas { namespace core {
 

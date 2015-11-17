@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_XMLWRITER_H
 #define NIDAS_CORE_XMLWRITER_H
 
-#include <nidas/core/XMLParser.h>
+#include "XMLParser.h"
 
 #include <string>
 

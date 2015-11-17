@@ -32,7 +32,7 @@
 #ifndef NIDAS_CORE_SAMPLET_H
 #define NIDAS_CORE_SAMPLET_H
 
-#include <nidas/core/SampleLengthException.h>
+#include "SampleLengthException.h"
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/MutexCount.h>
 #include <nidas/util/time_constants.h>
@@ -691,7 +691,7 @@ Sample* getSample(sampleType type, unsigned int len);
 // the SampleT class defined. We must exit the dsm namespace before
 // including SamplePool.h
 
-#include <nidas/core/SamplePool.h>
+#include "SamplePool.h"
 
 namespace nidas { namespace core {
 

@@ -36,7 +36,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#include <nidas/util/IOException.h>
+#include "IOException.h"
 
 #include <string>
 

@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_XDOM_H
 #define NIDAS_CORE_XDOM_H
 
-#include <nidas/core/XMLStringConverter.h>
+#include "XMLStringConverter.h"
 
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMAttr.hpp>

@@ -29,8 +29,8 @@
 
 #include <csignal>
 
-#include <nidas/util/Exception.h>
-#include <nidas/util/ThreadSupport.h>
+#include "Exception.h"
+#include "ThreadSupport.h"
 
 #include <string>
 #include <map>

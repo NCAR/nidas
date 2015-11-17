@@ -27,12 +27,12 @@
 #ifndef NIDAS_CORE_SAMPLEOUTPUT_H
 #define NIDAS_CORE_SAMPLEOUTPUT_H
 
-#include <nidas/core/Sample.h>
-#include <nidas/core/SampleClient.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/IOStream.h>
-#include <nidas/core/HeaderSource.h>
-#include <nidas/core/ConnectionRequester.h>
+#include "Sample.h"
+#include "SampleClient.h"
+#include "Parameter.h"
+#include "IOStream.h"
+#include "HeaderSource.h"
+#include "ConnectionRequester.h"
 
 // #include <nidas/util/McSocket.h>
 

@@ -27,7 +27,7 @@
 #ifndef _nidas_core_DerivedDataClient_h_
 #define _nidas_core_DerivedDataClient_h_
 
-#include <nidas/core/DerivedDataReader.h>
+#include "DerivedDataReader.h"
 
 namespace nidas { namespace core {
 

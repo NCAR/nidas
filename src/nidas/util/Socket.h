@@ -32,14 +32,14 @@
 #ifndef NIDAS_UTIL_SOCKET_H
 #define NIDAS_UTIL_SOCKET_H
 
-#include <nidas/util/Inet4SocketAddress.h>
-#include <nidas/util/Inet4NetworkInterface.h>
-#include <nidas/util/Inet4PacketInfo.h>
-#include <nidas/util/UnixSocketAddress.h>
-#include <nidas/util/Inet4Address.h>
-#include <nidas/util/IOException.h>
-#include <nidas/util/EOFException.h>
-#include <nidas/util/DatagramPacket.h>
+#include "Inet4SocketAddress.h"
+#include "Inet4NetworkInterface.h"
+#include "Inet4PacketInfo.h"
+#include "UnixSocketAddress.h"
+#include "Inet4Address.h"
+#include "IOException.h"
+#include "EOFException.h"
+#include "DatagramPacket.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>

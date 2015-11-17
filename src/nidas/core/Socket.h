@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SOCKET_H
 #define NIDAS_CORE_SOCKET_H
 
-#include <nidas/core/IOChannel.h>
-#include <nidas/core/DOMable.h>
+#include "IOChannel.h"
+#include "DOMable.h"
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>

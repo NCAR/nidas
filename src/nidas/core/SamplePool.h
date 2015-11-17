@@ -28,7 +28,7 @@
 #define NIDAS_CORE_SAMPLEPOOL_H
 
 #include <nidas/util/ThreadSupport.h>
-#include <nidas/core/SampleLengthException.h>
+#include "SampleLengthException.h"
 #include <nidas/util/Logger.h>
 
 #include <cassert>

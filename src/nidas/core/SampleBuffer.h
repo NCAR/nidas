@@ -30,8 +30,8 @@
 #include <iostream>
 #include <deque>
 
-#include <nidas/core/SampleThread.h>
-#include <nidas/core/SampleSourceSupport.h>
+#include "SampleThread.h"
+#include "SampleSourceSupport.h"
 
 namespace nidas { namespace core {
 

@@ -27,9 +27,9 @@
 #ifndef NIDAS_CORE_RESAMPLER_H
 #define NIDAS_CORE_RESAMPLER_H
 
-#include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleClient.h>
-#include <nidas/core/SampleInput.h>
+#include "SampleSource.h"
+#include "SampleClient.h"
+#include "SampleInput.h"
 
 namespace nidas { namespace core {
 

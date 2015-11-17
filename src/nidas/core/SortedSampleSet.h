@@ -26,7 +26,7 @@
 #ifndef NIDAS_CORE_SORTEDSAMPLESET_H
 #define NIDAS_CORE_SORTEDSAMPLESET_H
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 
 #include <set>
 

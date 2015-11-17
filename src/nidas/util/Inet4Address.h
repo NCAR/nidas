@@ -27,8 +27,8 @@
 #ifndef NIDAS_UTIL_INET4ADDRESS
 #define NIDAS_UTIL_INET4ADDRESS
 
-#include <nidas/util/UnknownHostException.h>
-#include <nidas/util/ThreadSupport.h>
+#include "UnknownHostException.h"
+#include "ThreadSupport.h"
 
 #include <arpa/inet.h>
 

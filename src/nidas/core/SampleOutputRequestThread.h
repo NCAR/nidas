@@ -29,7 +29,7 @@
 
 #include <list>
 
-#include <nidas/core/SampleOutput.h>
+#include "SampleOutput.h"
 #include <nidas/util/Thread.h>
 
 namespace nidas { namespace core {

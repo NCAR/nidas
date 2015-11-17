@@ -41,8 +41,8 @@
 #ifndef NIDAS_UTIL_FILESET_H
 #define NIDAS_UTIL_FILESET_H
 
-#include <nidas/util/IOException.h>
-#include <nidas/util/UTime.h>
+#include "IOException.h"
+#include "UTime.h"
 
 #include <list>
 #include <set>

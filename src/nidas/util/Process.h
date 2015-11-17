@@ -27,8 +27,8 @@
 #ifndef NIDAS_UTIL_PROCESS_H
 #define NIDAS_UTIL_PROCESS_H
 
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/IOException.h>
+#include "ThreadSupport.h"
+#include "IOException.h"
 
 #include <string>
 #include <vector>

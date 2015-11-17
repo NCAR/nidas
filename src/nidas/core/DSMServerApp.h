@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_DSMSERVERAPP_H
 #define NIDAS_CORE_DSMSERVERAPP_H
 
-#include <nidas/core/Datasets.h>
-#include <nidas/core/XMLException.h>
+#include "Datasets.h"
+#include "XMLException.h"
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>

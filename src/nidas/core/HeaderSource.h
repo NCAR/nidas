@@ -28,7 +28,7 @@
 #ifndef NIDAS_CORE_HEADERSOURCE_H
 #define NIDAS_CORE_HEADERSOURCE_H
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 #include <nidas/util/IOException.h>
 
 namespace nidas { namespace core {

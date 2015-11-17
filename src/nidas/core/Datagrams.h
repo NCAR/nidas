@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_DATAGRAMS_H
 #define NIDAS_CORE_DATAGRAMS_H
 
-#include <nidas/core/SocketAddrs.h>
+#include "SocketAddrs.h"
 
 namespace nidas { namespace core {
 

@@ -29,7 +29,7 @@
 
 #include <string>
 #include <sstream>
-#include <nidas/util/Exception.h>
+#include "Exception.h"
 
 namespace nidas { namespace util {
 

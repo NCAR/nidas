@@ -27,10 +27,10 @@
 #ifndef NIDAS_CORE_XMLCONFIGWRITER_H
 #define NIDAS_CORE_XMLCONFIGWRITER_H
 
-#include <nidas/core/DSMConfig.h>
+#include "DSMConfig.h"
 
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/XMLWriter.h>
+#include "XMLParser.h"
+#include "XMLWriter.h"
 
 #include <nidas/util/IOException.h>
 

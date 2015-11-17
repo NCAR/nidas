@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_CHARACTERSENSOR_H
 #define NIDAS_CORE_CHARACTERSENSOR_H
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Prompt.h>
+#include "DSMSensor.h"
+#include "Prompt.h"
 #include <nidas/util/util.h>
 
 namespace nidas { namespace core {

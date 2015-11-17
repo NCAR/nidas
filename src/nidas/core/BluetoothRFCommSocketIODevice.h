@@ -32,7 +32,7 @@
 #define NIDAS_CORE_BLUETOOTHRFCOMMSOCKETIODEVICE_H
 
 #include <nidas/util/BluetoothRFCommSocket.h>
-#include <nidas/core/SocketIODevice.h>
+#include "SocketIODevice.h"
 
 namespace nidas { namespace core {
 

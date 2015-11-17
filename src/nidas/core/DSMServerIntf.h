@@ -28,7 +28,7 @@
 #define NIDAS_CORE_DSMSERVERINTF_H
 
 #include <iostream>
-#include <nidas/core/XmlRpcThread.h>
+#include "XmlRpcThread.h"
 
 namespace nidas { namespace core {
 

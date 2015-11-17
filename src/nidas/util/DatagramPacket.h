@@ -27,7 +27,7 @@
 #ifndef NIDAS_UTIL_DATAGRAMPACKET_H
 #define NIDAS_UTIL_DATAGRAMPACKET_H
 
-#include <nidas/util/Inet4SocketAddress.h>
+#include "Inet4SocketAddress.h"
 
 #include <sys/param.h>	// MIN
 

@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_UNIXIOCHANNEL_H
 #define NIDAS_CORE_UNIXIOCHANNEL_H
 
-#include <nidas/core/IOChannel.h>
+#include "IOChannel.h"
 
 #include <fcntl.h>
 #include <unistd.h>  // read(), write(), close(), ...

@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_SERVICECATALOG_H
 #define NIDAS_CORE_SERVICECATALOG_H
 
-#include <nidas/core/DOMable.h>
+#include "DOMable.h"
 
 #include <map>
 

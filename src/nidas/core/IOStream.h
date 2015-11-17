@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_IOSTREAM_H
 #define NIDAS_CORE_IOSTREAM_H
 
-#include <nidas/core/IOChannel.h>
+#include "IOChannel.h"
 
 #include <iostream>
 

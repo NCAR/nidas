@@ -27,8 +27,8 @@
 #ifndef NIDAS_UTIL_INET4NETWORKINTERFACE_H
 #define NIDAS_UTIL_INET4NETWORKINTERFACE_H
 
-#include <nidas/util/Inet4Address.h>
-#include <nidas/util/IOException.h>
+#include "Inet4Address.h"
+#include "IOException.h"
 
 namespace nidas { namespace util {
 

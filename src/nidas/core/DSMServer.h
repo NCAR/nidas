@@ -27,9 +27,9 @@
 #ifndef NIDAS_CORE_DSMSERVER_H
 #define NIDAS_CORE_DSMSERVER_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/XMLException.h>
+#include "DOMable.h"
+#include "NidsIterators.h"
+#include "XMLException.h"
 #include <nidas/util/SocketAddress.h>
 
 #include <list>

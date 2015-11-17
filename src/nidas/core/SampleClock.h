@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_SAMPLEDATER_H
 #define NIDAS_CORE_SAMPLEDATER_H
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 
 namespace nidas { namespace core {
 

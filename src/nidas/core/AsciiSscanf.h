@@ -42,7 +42,7 @@
 #include <FlexLexer.h>		// Header that comes with flex. In /usr/include.
 #endif
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 #include <nidas/util/ParseException.h>
 
 #include <vector>

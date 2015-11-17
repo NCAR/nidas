@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_SAMPLESOURCE_H
 #define NIDAS_CORE_SAMPLESOURCE_H
 
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/SampleStats.h>
+#include "NidsIterators.h"
+#include "SampleStats.h"
 #include <nidas/util/InvalidParameterException.h>
 
 namespace nidas { namespace core {

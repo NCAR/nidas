@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_DSMENGINE_H
 #define NIDAS_CORE_DSMENGINE_H
 
-#include <nidas/core/ConnectionRequester.h>
-#include <nidas/core/XMLException.h>
+#include "ConnectionRequester.h"
+#include "XMLException.h"
 #include <nidas/util/Inet4SocketAddress.h>
 #include <nidas/util/InvalidParameterException.h>
 

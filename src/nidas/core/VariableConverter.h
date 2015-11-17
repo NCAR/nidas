@@ -27,9 +27,9 @@
 #ifndef NIDAS_CORE_VARIABLECONVERTER_H
 #define NIDAS_CORE_VARIABLECONVERTER_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Sample.h>
-#include <nidas/core/Parameter.h>
+#include "DOMable.h"
+#include "Sample.h"
+#include "Parameter.h"
 
 #include <string>
 #include <vector>

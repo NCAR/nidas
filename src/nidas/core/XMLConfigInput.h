@@ -29,7 +29,7 @@
 #define NIDAS_CORE_XMLCONFIGINPUT_H
 
 #include <nidas/util/McSocket.h>
-#include <nidas/core/Datagrams.h>
+#include "Datagrams.h"
 
 namespace nidas { namespace core {
 

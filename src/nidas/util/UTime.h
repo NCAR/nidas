@@ -43,10 +43,10 @@
 #include <locale>
 #include <string>
 
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/ParseException.h>
-#include <nidas/util/time_constants.h>
-#include <nidas/util/IOException.h>
+#include "ThreadSupport.h"
+#include "ParseException.h"
+#include "time_constants.h"
+#include "IOException.h"
 
 /**
  * If UTIME_BASIC_STREAM_IO is defined, then the UTime class

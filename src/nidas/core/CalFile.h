@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_CALFILE_H
 #define NIDAS_CORE_CALFILE_H
 
-#include <nidas/core/DOMable.h>
+#include "DOMable.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>

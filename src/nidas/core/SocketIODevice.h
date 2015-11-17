@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_SOCKETIODEVICE_H
 #define NIDAS_CORE_SOCKETIODEVICE_H
 
-#include <nidas/core/IODevice.h>
+#include "IODevice.h"
 #include <nidas/util/Socket.h>
 #include <nidas/util/ParseException.h>
 

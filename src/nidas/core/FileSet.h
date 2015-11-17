@@ -27,8 +27,8 @@
 #ifndef NIDAS_CORE_FILESET_H
 #define NIDAS_CORE_FILESET_H
 
-#include <nidas/core/IOChannel.h>
-#include <nidas/core/FsMount.h>
+#include "IOChannel.h"
+#include "FsMount.h"
 
 #include <nidas/util/FileSet.h>
 

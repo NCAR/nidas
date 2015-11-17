@@ -30,7 +30,7 @@
 #include <list>
 
 #include <nidas/util/ThreadSupport.h>
-#include <nidas/core/SampleClient.h>
+#include "SampleClient.h"
 
 namespace nidas { namespace core {
 

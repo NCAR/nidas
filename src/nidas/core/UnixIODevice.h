@@ -26,7 +26,7 @@
 #ifndef NIDAS_CORE_UNIXIODEVICE_H
 #define NIDAS_CORE_UNIXIODEVICE_H
 
-#include <nidas/core/IODevice.h>
+#include "IODevice.h"
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/time_constants.h>

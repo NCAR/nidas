@@ -27,7 +27,7 @@
 #ifndef NIDAS_CORE_SAMPLESTATS_H
 #define NIDAS_CORE_SAMPLESTATS_H
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 
 namespace nidas { namespace core {
 

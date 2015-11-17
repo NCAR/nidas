@@ -27,7 +27,7 @@
 #ifndef NIDAS_UTIL_UNIXSOCKETADDRESS
 #define NIDAS_UTIL_UNIXSOCKETADDRESS
 
-#include <nidas/util/SocketAddress.h>
+#include "SocketAddress.h"
 #include <sys/un.h>
 
 namespace nidas { namespace util {

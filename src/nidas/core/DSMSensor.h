@@ -26,13 +26,13 @@
 #ifndef NIDAS_CORE_DSMSENSOR_H
 #define NIDAS_CORE_DSMSENSOR_H
 
-#include <nidas/core/SampleClient.h>
-#include <nidas/core/SampleSourceSupport.h>
-#include <nidas/core/SampleScanner.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/IODevice.h>
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Dictionary.h>
+#include "SampleClient.h"
+#include "SampleSourceSupport.h"
+#include "SampleScanner.h"
+#include "SampleTag.h"
+#include "IODevice.h"
+#include "DOMable.h"
+#include "Dictionary.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>

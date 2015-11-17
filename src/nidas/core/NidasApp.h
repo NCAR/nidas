@@ -17,10 +17,10 @@
 #ifndef NIDAS_CORE_NIDASAPP_H
 #define NIDAS_CORE_NIDASAPP_H
 
-#include <nidas/core/SampleTag.h>
+#include "SampleTag.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
-#include <nidas/core/Project.h>
+#include "Project.h"
 
 #include <string>
 #include <list>

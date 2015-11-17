@@ -27,8 +27,8 @@
 #ifndef NIDAS_UTIL_INET4PACKETINFO_H
 #define NIDAS_UTIL_INET4PACKETINFO_H
 
-#include <nidas/util/Inet4NetworkInterface.h>
-#include <nidas/util/Inet4SocketAddress.h>
+#include "Inet4NetworkInterface.h"
+#include "Inet4SocketAddress.h"
 
 namespace nidas { namespace util {
 

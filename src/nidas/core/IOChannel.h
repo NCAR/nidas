@@ -27,12 +27,12 @@
 #ifndef NIDAS_CORE_IOCHANNEL_H
 #define NIDAS_CORE_IOCHANNEL_H
 
-#include <nidas/core/ConnectionInfo.h>
+#include "ConnectionInfo.h"
 
-#include <nidas/core/Datagrams.h>
-#include <nidas/core/DOMable.h>
+#include "Datagrams.h"
+#include "DOMable.h"
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/Inet4Address.h>

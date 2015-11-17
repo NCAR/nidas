@@ -27,10 +27,10 @@
 #ifndef NIDAS_CORE_DSMCONFIG_H
 #define NIDAS_CORE_DSMCONFIG_H
 
-#include <nidas/core/Sample.h>
-#include <nidas/core/DOMable.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/Dictionary.h>
+#include "Sample.h"
+#include "DOMable.h"
+#include "NidsIterators.h"
+#include "Dictionary.h"
 
 #include <nidas/util/SocketAddress.h>
 #include <nidas/util/IOException.h>

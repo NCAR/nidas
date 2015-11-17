@@ -43,10 +43,10 @@
 
 #include <nidas/Config.h>   // HAVE_PPOLL
 
-#include <nidas/util/Socket.h>
-#include <nidas/util/DatagramPacket.h>
-#include <nidas/util/Thread.h>
-#include <nidas/util/UTime.h>
+#include "Socket.h"
+#include "DatagramPacket.h"
+#include "Thread.h"
+#include "UTime.h"
 
 #ifdef HAVE_PPOLL
 #include <poll.h>
@@ -595,7 +595,7 @@ private:
 
 }}	// namespace nidas namespace util
 
-#include <nidas/util/Logger.h>
+#include "Logger.h"
 #include <memory>
 
 namespace nidas { namespace util {

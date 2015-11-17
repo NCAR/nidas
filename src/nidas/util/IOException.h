@@ -28,7 +28,7 @@
 #define NIDAS_UTIL_IOEXCEPTION_H
 
 #include <string>
-#include <nidas/util/Exception.h>
+#include "Exception.h"
 
 #include <cerrno>	// not used here, but by many users of IOException
 

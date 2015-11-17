@@ -30,7 +30,7 @@
 #include <cstring> // memcpy
 #include <stdint.h>
 
-#include <nidas/util/ThreadSupport.h>
+#include "ThreadSupport.h"
 
 namespace nidas { namespace util {
 

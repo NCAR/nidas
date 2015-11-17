@@ -30,9 +30,9 @@
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Socket.h>
-#include <nidas/core/SampleClient.h>
-#include <nidas/core/RemoteSerialConnection.h>
-#include <nidas/core/Polled.h>
+#include "SampleClient.h"
+#include "RemoteSerialConnection.h"
+#include "Polled.h"
 
 namespace nidas { namespace core {
 

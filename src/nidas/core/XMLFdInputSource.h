@@ -28,7 +28,7 @@
 #define NIDAS_CORE_XMLFDINPUTSOURCE_H
                                                                                 
 #include <xercesc/sax/InputSource.hpp>
-#include <nidas/core/XMLFdBinInputStream.h>
+#include "XMLFdBinInputStream.h"
 
 namespace nidas { namespace core {
 

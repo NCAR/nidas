@@ -38,8 +38,8 @@
 #include <string>
 #include <map>
 
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/UnknownHostException.h>
+#include "ThreadSupport.h"
+#include "UnknownHostException.h"
 
 namespace nidas { namespace util {
 

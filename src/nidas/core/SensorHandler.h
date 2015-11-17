@@ -29,10 +29,10 @@
 
 #include <nidas/Config.h>
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Polled.h>
-#include <nidas/core/SensorOpener.h>
-#include <nidas/core/RemoteSerialListener.h>
+#include "DSMSensor.h"
+#include "Polled.h"
+#include "SensorOpener.h"
+#include "RemoteSerialListener.h"
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>

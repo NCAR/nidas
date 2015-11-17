@@ -26,9 +26,9 @@
 #ifndef NIDAS_CORE_SAMPLETAG_H
 #define NIDAS_CORE_SAMPLETAG_H
 
-#include <nidas/core/DOMable.h>
-#include <nidas/core/Sample.h>
-#include <nidas/core/NidsIterators.h>
+#include "DOMable.h"
+#include "Sample.h"
+#include "NidsIterators.h"
 
 #include <vector>
 #include <list>

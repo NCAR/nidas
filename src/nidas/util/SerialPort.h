@@ -35,8 +35,8 @@
 #include <string>
 #include <iostream>
 
-#include <nidas/util/Termios.h>
-#include <nidas/util/IOException.h>
+#include "Termios.h"
+#include "IOException.h"
 
 namespace nidas { namespace util {
 

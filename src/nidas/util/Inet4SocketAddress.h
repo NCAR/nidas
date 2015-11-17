@@ -27,8 +27,8 @@
 #ifndef NIDAS_UTIL_INETSOCKETADDRESS
 #define NIDAS_UTIL_INETSOCKETADDRESS
 
-#include <nidas/util/SocketAddress.h>
-#include <nidas/util/Inet4Address.h>
+#include "SocketAddress.h"
+#include "Inet4Address.h"
 
 namespace nidas { namespace util {
 

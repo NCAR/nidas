@@ -28,9 +28,9 @@
 #ifndef NIDAS_CORE_SAMPLEARCHIVER_H
 #define NIDAS_CORE_SAMPLEARCHIVER_H
 
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/SampleSorter.h>
-#include <nidas/core/FileSet.h>
+#include "SampleIOProcessor.h"
+#include "SampleSorter.h"
+#include "FileSet.h"
 #include <nidas/util/ThreadSupport.h>
 
 namespace nidas { namespace core {

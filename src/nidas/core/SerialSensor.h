@@ -26,9 +26,9 @@
 #ifndef NIDAS_DYNLD_SERIALSENSOR_H
 #define NIDAS_DYNLD_SERIALSENSOR_H
 
-#include <nidas/core/CharacterSensor.h>
-#include <nidas/core/LooperClient.h>
-#include <nidas/core/SerialPortIODevice.h>
+#include "CharacterSensor.h"
+#include "LooperClient.h"
+#include "SerialPortIODevice.h"
 
 namespace nidas { namespace core {
 

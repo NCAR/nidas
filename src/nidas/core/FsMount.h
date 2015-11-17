@@ -31,7 +31,7 @@
 #include <nidas/util/Process.h>
 #include <nidas/util/IOException.h>
 
-#include <nidas/core/DOMable.h>
+#include "DOMable.h"
 
 #include <sys/mount.h>
 

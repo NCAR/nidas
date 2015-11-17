@@ -28,7 +28,7 @@
 #define NIDAS_UTIL_UNKNOWNHOSTEXCEPTION
 
 #include <string>
-#include <nidas/util/Exception.h>
+#include "Exception.h"
 
 namespace nidas { namespace util {
 
