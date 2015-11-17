@@ -25,11 +25,11 @@ if ! $installed; then
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build/; then
+    if ! which data_dump | fgrep -q build/; then
         echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
+    if ! ldd `which data_dump` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
         echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
@@ -72,7 +72,7 @@ test_csat3() {
     export WIND3D_HORIZ_ROTATION=$4
     local compare_to=$5
     local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
-    local data_file=data/centnet_20120601_000000.dat.bz 
+    local data_file=data/centnet_20120601_000000.dat.bz2
     echo "Testing CSAT3: $msg"
     data_dump -l 6 -i 6,11 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
@@ -81,6 +81,10 @@ test_csat3() {
     gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSAT3 test of $msg failed, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
+
+export ATIK_SHADOW_FACTOR=0
+export ATIK_SHADOW_ANGLE=70
+export ATIK_ORIENTATION=normal
 
 # "Truth" files were created with the data_dump program.
 # They have not been verified otherwise, so this test is
@@ -123,6 +127,33 @@ if false; then
 test_csi_irga 0.16 normal      true  true  data/csi_irga_shadow_cor.txt.gz
 test_csi_irga 0.16 normal      false false data/csi_irga_shadow_cor_only.txt.gz
 fi
+
+test_atik() {
+    export ATIK_SHADOW_FACTOR=$1
+    export ATIK_SHADOW_ANGLE=70
+    export ATIK_ORIENTATION=$2
+    export WIND3D_TILT_CORRECTION=$3
+    export WIND3D_HORIZ_ROTATION=$4
+    local compare_to=$5
+    local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
+    local data_file=data/centnet_20120601_000000.dat.bz2
+    echo "Testing ATIK: $msg"
+    data_dump -l 6 -i 6,81 -p -x config/test.xml \
+        $data_file 2> $tmperr > $tmpout || error_exit
+    # cat $tmperr
+
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: ATIK test of $msg failed, diff=" $tmperr $compare_to $tmpout
+    echo "Test successful"
+}
+
+#          shadow orient   tilt  rotate truth-file
+test_atik 0.00 normal     false false data/atik_no_cors.txt.gz
+test_atik 0.00 normal     false true  data/atik_horiz_rot.txt.gz
+test_atik 0.00 normal     true  true  data/atik_tilt_cor.txt.gz
+test_atik 0.16 normal     true  true  data/atik_shadow_cor.txt.gz
+test_atik 0.16 normal     false false data/atik_shadow_cor_only.txt.gz
+test_atik 0.00 flipped    false false data/atik_flipped.txt.gz
+test_atik 0.16 flipped    true  true  data/atik_flipped_all_cors.txt.gz
 
 echo "Sonic tests succeeded"
 exit 0

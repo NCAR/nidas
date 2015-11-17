@@ -71,15 +71,39 @@
             </sample>
             <message separator="\x55\xaa" position="end" length="58"/>
         </serialSensor>
+        <serialSensor class="isff.ATIK_Sonic" ID="ATIK"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <parameter type="float" name="shadowFactor" value="$ATIK_SHADOW_FACTOR"/>
+            <parameter type="float" name="maxShadowAngle" value="$ATIK_SHADOW_ANGLE"/>
+            <parameter type="int" name="expectedCounts" value="10"/>
+            <parameter type="float" name="maxMissingFraction" value="0.10"/>
+            <parameter type="bool" name="despike" value="false"/>
+            <parameter type="string" name="orientation" value="$ATIK_ORIENTATION"/>
+            <calfile path="$PWD/cal_files" file="atik.dat"/>
+            <sample id="1" scanfFormat="%f%f%f%f S%f%f%f">
+                <variable name="u" units="m/s" longname="ATIK u"/>
+                <variable name="v" units="m/s" longname="ATIK v"/>
+                <variable name="w" units="m/s" longname="ATIK w"/>
+                <variable name="tc" units="degC" longname="ATIK sonic virtual temperature"/>
+                <variable name="ldiag" units="" longname="ATIK fraction of missing u,v,w values"/>
+                <variable name="spd" units="" longname="ATIK scalar wind speed"/>
+                <variable name="dir" units="" longname="ATIK wind direction"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
     </sensorcatalog>
 
     <site name="test" class="isff.GroundStation">
-        <dsm rserialPort="30002" name="csat3" id="6">
+        <dsm rserialPort="30002" name="test-dsm1" id="6">
             <serialSensor IDREF="CSAT3"
-                devicename="/dev/ttyS1" id="10">
+                devicename="/dev/ttyS1" id="10" suffix=".csat3">
+            </serialSensor>
+            <serialSensor IDREF="ATIK"
+                devicename="/dev/ttyS8" id="80" suffix=".atik">
             </serialSensor>
         </dsm>
-        <dsm rserialPort="30002" name="csat3_irga" id="1">
+        <dsm rserialPort="30002" name="test-dsm2" id="1">
             <serialSensor IDREF="CSAT3_IRGA_BIN" suffix=".csi_irga"
                 devicename="/dev/ttyS1" id="40">
             </serialSensor>
