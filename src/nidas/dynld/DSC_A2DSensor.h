@@ -26,11 +26,9 @@
 #ifndef NIDAS_DYNLD_DSC_A2DSENSOR_H
 #define NIDAS_DYNLD_DSC_A2DSENSOR_H
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/dynld/A2DSensor.h>
+#include "A2DSensor.h"
 
 #include <nidas/linux/diamond/dmd_mmat.h>
-// #include <nidas/linux/filters/short_filters.h>
 
 #include <vector>
 #include <map>

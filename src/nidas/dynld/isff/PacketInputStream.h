@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_ISFF_PACKETINPUTSTREAM_H
 #define NIDAS_DYNLD_ISFF_PACKETINPUTSTREAM_H
 
-#include <nidas/dynld/isff/Packets.h>
+#include "Packets.h"
 #include <nidas/dynld/SampleInputStream.h>
 
 namespace nidas {

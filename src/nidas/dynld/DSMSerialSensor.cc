@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include "DSMSerialSensor.h"
 
 using namespace nidas::dynld;
 

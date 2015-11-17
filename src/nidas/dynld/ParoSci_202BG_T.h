@@ -26,8 +26,8 @@
 #ifndef NIDAS_DYNLD_PAROSCI_202BG_T_h
 #define NIDAS_DYNLD_PAROSCI_202BG_T_h
 
-#include <nidas/dynld/DSC_FreqCounter.h>
-#include <nidas/dynld/ParoSci_202BG_Calibration.h>
+#include "DSC_FreqCounter.h"
+#include "ParoSci_202BG_Calibration.h"
 
 using namespace nidas::core;
 

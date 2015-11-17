@@ -27,8 +27,6 @@
 #define NIDAS_DYNLD_DSMSERIALSENSOR_H
 
 #include <nidas/core/SerialSensor.h>
-#include <nidas/core/LooperClient.h>
-#include <nidas/util/Termios.h>
 
 namespace nidas { namespace dynld {
 

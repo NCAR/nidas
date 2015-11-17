@@ -28,7 +28,7 @@
 #ifndef NIDAS_DYNLD_XMLCONFIGALLSERVICE_H
 #define NIDAS_DYNLD_XMLCONFIGALLSERVICE_H
 
-#include <nidas/dynld/XMLConfigService.h>
+#include "XMLConfigService.h"
 
 namespace nidas { namespace dynld {
 

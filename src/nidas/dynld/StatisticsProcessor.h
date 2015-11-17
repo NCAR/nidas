@@ -28,7 +28,7 @@
 #define NIDAS_DYNLD_STATISTICSPROCESSOR_H
 
 #include <nidas/core/SampleIOProcessor.h>
-#include <nidas/dynld/StatisticsCruncher.h>
+#include "StatisticsCruncher.h"
 #include <nidas/util/UTime.h>
 
 namespace nidas { namespace dynld {

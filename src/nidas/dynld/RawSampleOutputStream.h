@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_RAWSAMPLEOUTPUTSTREAM_H
 #define NIDAS_DYNLD_RAWSAMPLEOUTPUTSTREAM_H
 
-#include <nidas/dynld/SampleOutputStream.h>
+#include "SampleOutputStream.h"
 
 namespace nidas { namespace dynld {
 

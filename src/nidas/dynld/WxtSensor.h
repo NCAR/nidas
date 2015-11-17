@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_WXTSENSOR_H
 #define NIDAS_DYNLD_WXTSENSOR_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include "DSMSerialSensor.h"
 
 namespace nidas { namespace dynld {
 

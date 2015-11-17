@@ -28,7 +28,7 @@
 #ifndef NIDAS_DYNLD_RAWSAMPLEINPUTSTREAM_H
 #define NIDAS_DYNLD_RAWSAMPLEINPUTSTREAM_H
 
-#include <nidas/dynld/SampleInputStream.h>
+#include "SampleInputStream.h"
 
 namespace nidas {
 

@@ -27,7 +27,7 @@
 #ifndef NIDIS_DYNLD_GPS_NOVATEL_SERIAL_H
 #define NIDIS_DYNLD_GPS_NOVATEL_SERIAL_H
 
-#include <nidas/dynld/GPS_NMEA_Serial.h>
+#include "GPS_NMEA_Serial.h"
 
 namespace nidas { namespace dynld {
 

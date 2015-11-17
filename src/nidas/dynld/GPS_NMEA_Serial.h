@@ -27,7 +27,7 @@
 #ifndef NIDIS_DYNLD_GPS_NMEA_SERIAL_H
 #define NIDIS_DYNLD_GPS_NMEA_SERIAL_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include "DSMSerialSensor.h"
 
 namespace nidas { namespace dynld {
 

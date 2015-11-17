@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_ISFF_GOESOUTPUT_H
 #define NIDAS_DYNLD_ISFF_GOESOUTPUT_H
 
-#include <nidas/dynld/isff/GOESXmtr.h>
+#include "GOESXmtr.h"
 #include <nidas/core/SampleOutput.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Thread.h>

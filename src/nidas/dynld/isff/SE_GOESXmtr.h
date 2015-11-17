@@ -27,9 +27,9 @@
 #ifndef NIDAS_DYNLD_ISFF_SE_GOESXMTR_H
 #define NIDAS_DYNLD_ISFF_SE_GOESXMTR_H
 
+#include "GOESXmtr.h"
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/dynld/isff/GOESXmtr.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/EndianConverter.h>

@@ -27,7 +27,7 @@
 #ifndef NIDIS_DYNLD_TSI_CPC3772_H
 #define NIDIS_DYNLD_TSI_CPC3772_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include "DSMSerialSensor.h"
 
 namespace nidas { namespace dynld {
 
