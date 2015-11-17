@@ -68,7 +68,7 @@ public:
      * In order to use the Process methods to perform I/O with a process,
      * it must be started with one of the spawn methods.
      */
-    Process(int pid);
+    Process(pid_t pid);
 
     /**
      * Default constructor. Does not point to any process.

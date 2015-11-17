@@ -49,9 +49,9 @@ using nidas::util::InvalidParameterException;
  *
  * Support is also provided for derivation of wind U,V components
  * from wind speed and direction. To produce a derived U and V, add
- * a <sample> element to the WxtSensor without a scanFormat attribute,
+ * a `<sample>` element to the WxtSensor without a scanFormat attribute,
  * containing the U and V variables:
- /code
+ @verbatim
     <serialSensor ID="WXT510" class="WxtSensor" ... >
         <parameter name="u" type="string" value="wu"/>
         <parameter name="v" type="string" value="wv"/>
@@ -66,15 +66,15 @@ using nidas::util::InvalidParameterException;
            <variable name="wv" longname="Wind V component" units="m/s"/>
         </sample>
     </serialSensor>
- /endcode
+ @endverbatim
  * The WxtSensor code makes no assumption about which sample contains the
  * U and V variables, and their names. As above, you must tell NIDAS
  * the names of the U and V variables via the "u" and "v" parameters.
  * The u and v are calculated from the wind speed and direction as:
-/code
+ @code
        float u = -spd * ::sin(dir * M_PI / 180.0);
        float v = -spd * ::cos(dir * M_PI / 180.0);
-/endcode
+ @endcode
  * These calculations are done after the speed and direction have been
  * corrected by any optional linear or polynomical conversion with
  * a possible cal file.
@@ -106,7 +106,7 @@ public:
 private:
 
     /**
-     * For each <sample> with an scanfFormat, the parse format
+     * For each `<sample>` with an scanfFormat, the parse format
      * tokenized by commas.
      */
     std::map<dsm_sample_id_t,std::vector<std::string> > _field_formats;

@@ -183,7 +183,7 @@ void DSMSensor::setSuffix(const std::string& val)
         setFullSuffix(_suffix);
 }
 
-void DSMSensor::setHeight(const string& val)
+void DSMSensor::setHeight(const std::string& val)
 {
     _heightString = val;
     _depthString = "";
@@ -222,7 +222,7 @@ void DSMSensor::setHeight(float val)
     else setFullSuffix(getSuffix());
 }
 
-void DSMSensor::setDepth(const string& val)
+void DSMSensor::setDepth(const std::string& val)
 {
     _depthString = val;
     _heightString = "";

@@ -426,7 +426,7 @@ Polynomial::~Polynomial()
     delete _calFile;
 }
 
-void Polynomial::setCoefficients(const vector<float>& vals) 
+void Polynomial::setCoefficients(const std::vector<float>& vals) 
 {
     setCoefficients(&(vals[0]), vals.size());
 }

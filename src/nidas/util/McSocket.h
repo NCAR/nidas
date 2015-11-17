@@ -836,8 +836,8 @@ void McSocket<SocketT>::close() throw(IOException)
 #endif
 }
 
-template<class SocketT>
-McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
+template<class SocketTT>
+McSocketMulticaster<SocketTT>::McSocketMulticaster(McSocket<SocketTT>* mcsock) :
     Thread("McSocketMulticaster"),
     _mcsocket(mcsock),_serverSocket(0),_datagramSocket(0),_requestSocket(0),
     _mcsocketMutex()

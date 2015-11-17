@@ -167,7 +167,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
 }
 
 /*---------------------------------------------------------------------------*/
-bool SidsNetSensor::acceptThisParticle(const Particle& p) const
+bool SidsNetSensor::acceptThisParticle(const Particle& /*p*/) const
 {
 //    if (p.height <= 0 || p.height >= HEIGHT_SIZE || p.width <= 0 || p.width >= WIDTH_SIZE)
 //        return false;

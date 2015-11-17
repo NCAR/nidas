@@ -1312,7 +1312,7 @@ bool SocketImpl::getBroadcastEnable() const throw(IOException)
     return bcast != 0;
 }
 
-Inet4NetworkInterface SocketImpl::getInterface(const string& name) const throw(IOException)
+Inet4NetworkInterface SocketImpl::getInterface(const std::string& name) const throw(IOException)
 {
     struct ifreq ifreq;
     strncpy(ifreq.ifr_name,name.c_str(),IF_NAMESIZE);

@@ -959,9 +959,11 @@ protected:
      * to correct for inherent, constant, sampling lags of a sensor.
      * A fixed sample lag, in fractional seconds, can be set for a
      * sensor in the XML:
+     * @code
      * <sensor>
      *     <parameter name="lag" type = "float" value="0.186"/>
      * </sensor>
+     * @endcode
      * The DSMSensor::fromDOM() method parses this parameter
      * and sets the value of the lag.
      */
@@ -995,7 +997,9 @@ protected:
      * of the actual time to be associated for each sample.
      * A fixed sample lag, in fractional seconds, can be set for a
      * sensor in the XML:
+     * @code
      * <parameter name="lag" type = "float" value="0.186"/>
+     * @endcode
      * The DSMSensor::fromDOM() method parses this parameter
      * and calls this method to set the lag.  process() methods
      * in derived classes must apply this lag value. The DSMSensor

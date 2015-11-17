@@ -33,11 +33,11 @@
 namespace nidas { namespace dynld { namespace isff {
 
 /**
- * A DSMSerialSensor for support of an early, buggy version of
- * a Mantis OS Mote, which insert null ('\x00') characters
- * in the middle of their output, after about every 64 characters.
- * The MOSMote::process method simply creates another sample
- * without the nulls and passes it to the DSMSerialSensor process method.
+ * A DSMSerialSensor for support of an early, buggy version of a Mantis OS
+ * Mote, which insert null @verbatim ('\x00') @endverbatim characters in
+ * the middle of their output, after about every 64 characters.  The
+ * MOSMote::process method simply creates another sample without the nulls
+ * and passes it to the DSMSerialSensor process method.
  */
 class MOSMote: public nidas::dynld::DSMSerialSensor
 {

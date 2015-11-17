@@ -160,8 +160,8 @@ public:
     static std::string fix(const std::string& msg);
 
     /**
-     * Unfix a string that was read from a SE GOES transmitter,
-     * looking for '#c' where c is any character, and replacing
+     * Unfix a string that was read from a SE GOES transmitter, looking for
+     * @verbatim '#c' @endverbatim where c is any character, and replacing
      * the two characters with the one's complement of c.
      */
     static std::string unfix(const std::string& msg);

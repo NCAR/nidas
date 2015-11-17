@@ -37,7 +37,9 @@ class SampleMatcher
     struct RangeMatcher
     {
         /**
-         * Construct a RangeMatcher with the given range endpoints.
+         * Construct a RangeMatcher with the given range endpoints: d1 <=
+         * DSM ID <= d2, s1 <= Sample ID <= s2, and if @p inc is false,
+         * then matching sample IDs are excluded rather than included.
          **/ 
         RangeMatcher(int d1, int d2, int s1, int s2, int inc);
 
@@ -51,13 +53,20 @@ class SampleMatcher
 public:
 
     /**
-     * Construct an empty SampleMatcher with no ranges, which implicitly
-     * matches all samples.
+     * Construct an empty SampleMatcher with no ranges.  An empty
+     * SampleMatcher implicitly matches all samples.
      **/
     SampleMatcher();
 
     /**
-     * Add a sample range in the form [^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}.
+     * Add a sample range using this syntax:
+     * @verbatim
+     *   [^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}
+     * @endverbatim
+     * The leading '^' will exclude any sample IDs in the given range
+     * instead of including them.  The '*' matches any ID.  The older
+     * convention where -1 matches all IDs is deprecated but still
+     * supported.
      **/
     bool
     addCriteria(const std::string& ctext);
@@ -75,7 +84,7 @@ public:
     /**
      * Return true if this matcher can only match a single ID pair
      * (DSM,SID), meaning only one range has been added and it specifies
-     * two IDs not equal to -1.
+     * two specific positive IDs.
      **/
     bool
     exclusiveMatch();
@@ -98,6 +107,10 @@ private:
 };
 
 
+/**
+ * The NidasApp class throws a NidasAppException when command-line options
+ * do not parse.
+ **/
 class NidasAppException : public nidas::util::Exception
 {
 public:
@@ -128,10 +141,14 @@ typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
 class NidasAppArg
 {
 public:
+    /**
+     * Indicates whether this argument is accepted by it's NidasApp
+     * instance.
+     **/
     bool enabled;
 
     /**
-     * Provide an alternative flag for the argument.
+     * Provide an alternative but deprecated flag for the argument.
      **/
     void
     setDeprecatedFlag(const std::string& flag)
@@ -161,6 +178,9 @@ public:
         return args;
     }
 
+    /**
+     * Return the usage string for this particular argument.
+     **/
     std::string
     usage()
     {
@@ -220,6 +240,10 @@ private:
 };
 
 
+/**
+ * Extend NidasAppArg so the default input specifier and port can be
+ * customized, which in turn updates the usage string.
+ **/
 class NidasAppInputFilesArg : public NidasAppArg
 {
 public:
@@ -277,13 +301,121 @@ operator|(NidasAppArg& arg1, NidasAppArg& arg2)
 
 
 /**
- * A class to handle common options for NIDAS applications.  The
- * application specifies which of the options are valid and it can specify
- * defaults if necessary, and then command-line arguments can be parsed and
- * their settings retrieved through this instance.  This class allows for
- * consistent option letters and syntax across NIDAS applications.
- * Applications can extend this class with their own options, either as a
- * subclass or by delegation to an instance.
+ * Handle common options for NIDAS applications.  The application specifies
+ * which of the options are valid and it can specify defaults if necessary,
+ * and then command-line arguments can be parsed and their settings
+ * retrieved through this instance.  This class allows for consistent
+ * option letters and syntax across NIDAS applications.  Applications can
+ * extend this class with their own options, either as a subclass or by
+ * delegation to an instance.
+ *
+ * There are several NIDAS applications with common options that can be
+ * consolidated in this class:
+ * 
+ * - data_dump
+ * - data_stats
+ * - nidsmerge
+ * - sensor_extract
+ * - statsproc (uses -B and -E for time range)
+ * - data_nc
+ * - dsm (esp logging)
+ * - dsm_server (esp logging)
+ * - sync_server
+ * - nimbus
+ *
+ * The goal is to keep syntax for common arguments consistent across
+ * applications.
+ *
+ * <table>
+<tr>
+<td><b>Standard option</b></td>
+<td><b>Description</b></td>
+<td><b>Replacement Syntax</b></td>
+</tr>
+<tr>
+<td>-i dsmid,sampleid</td><td>Sample IDs to include.</td><td></td>
+</tr>
+<tr>
+<td>-x dsmid,sampleid</td><td>Sample IDs to exclude.</td><td>-i ^dsmid,sampid</td>
+</tr>
+<tr>
+<td>-l loglevel</td><td>Numeric log level.</td><td>-l number_or_name</td>
+</tr>
+<tr>
+<td>-l interval</td><td>Output file interval.</td><td>output\@interval</td>
+</tr>
+<tr>
+<td>-h</td><td>Help</td><td></td>
+</tr>
+<tr>
+<td>-p</td><td>Process samples</td><td></td>
+</tr>
+<tr>
+<td>-X</td><td>Print Hex IDs</td><td></td>
+</tr>
+<tr>
+<td>-v</td><td>Report version.</td><td></td>
+</tr>
+<tr>
+<td>-x xmlfile</td><td>Explicit header file.</td><td></td>
+</tr>
+<tr>
+<td>input</td><td>Socket or files.</td><td></td>
+</tr>
+<tr>
+<td>output[\@interval]</td><td>Output pattern, interval</td><td></td>
+</tr>
+<tr>
+<td>-s starttime</td><td>Skip samps before <em>start</em></td><td></td>
+</tr>
+<tr>
+<td>-e endtime</td><td>Skip samps after <em>end</em></td><td></td>
+</tr>
+</table>
+ *
+ * Notes:
+ *
+ * ### -x exclude samples ###
+ *
+ * Where -x is accepted but deprecated, -x A,B translates to -i ^A,B.
+ *
+ * ### -l interval ###
+ *
+ * Since -l conflicts with log level and output file length, the separate
+ * -l for file length is being deprecated in favor of specifying the length
+ * in the output file pattern:
+ *
+ * _strptime_pattern_[\@_number_[_units_]]
+ *
+ * Units can be (s)econds, (m)inutes, (h)ours, seconds is the default.
+ * Maybe later add units for size like kb, mb.
+ *
+ * The -l option needs to be accepted for a while, perhaps differntiated
+ * automatically by whether it's a number greater than 10 (for apps which
+ * enable that option).  But it should produce a warning.  Is there ever a
+ * case where the output-file-length needs to be specified without an
+ * output file name pattern?  Is there a reasonable default filename
+ * pattern if the output is simply @<interval>?
+ *
+ * ### -l loglevel ###
+ *
+ * _loglevel_ can be a number or the name of a log level:
+ *
+ * 7=debug,6=info,5=notice,4=warn,3=err
+ *
+ * The default is *info*.  Eventually the log argument could also be the
+ * name of a logging scheme in the XML file.
+ * 
+ * ### -s translating sample ids ###
+ *
+ * `sensor_extract` uses -s to map id selection to a new id, eg 10,1,10,3.
+ * Rather than add another option letter, maybe it would be better to
+ * extend the -i syntax: -i 10,1=10,3 where the = part is only allowed if
+ * specifically enabled.  Then sensor_extract just needs a way to enable
+ * that extension and to get to that mapping.  Or, maybe the mapping can be
+ * completely internal to the sample filter: if app passes the sample
+ * pointer to the filter, the filter can modify the sample id as specified
+ * after checking that the sample is selected.
  **/
 class NidasApp
 {
@@ -302,6 +434,10 @@ public:
     NidasAppInputFilesArg InputFiles;
     NidasAppArg OutputFiles;
 
+    /**
+     * Give the NidasApp instance a name, to be used for the usage info and
+     * the logging scheme.
+     **/
     NidasApp(const std::string& name);
 
     /**
@@ -334,7 +470,14 @@ public:
     /**
      * Set the enabled flag on the given list of NidasApp instances.  There
      * is no check that the passed arguments are actually members of this
-     * NidasApp instance, but that should usually be the case.
+     * NidasApp instance, but that should usually be the case.  The arglist
+     * can be created implicitly from the NidasAppArg instances, as in this
+     * example:
+     *
+     * @code
+     * NidasApp app('na');
+     * app.enableArguments(app.LogLevel | app.ProcessData);
+     * @endcode
      **/
     void
     enableArguments(const nidas_app_arglist_t& arglist)
@@ -375,17 +518,31 @@ public:
     void
     parseArguments(std::vector<std::string>& args) throw (NidasAppException);
 
+    /**
+     * Parse a number 1-7 or a string into a LogLevel and set that level
+     * for this NidasApp instance.
+     **/
     void
     parseLogLevel(const std::string& optarg) throw (NidasAppException);
 
     nidas::util::UTime
     parseTime(const std::string& optarg);
 
+    /**
+     * Parse one or more input URLs from a list of non-option command-line
+     * arguments.  The @p default_input and @p default_port can be passed
+     * here to override the defaults set in the InputFiles argument
+     * instance.  If no inputs are provided, then the defaults are used.
+     * If no default is specified, then inputsProvided() will return false.
+     * An exception is not thrown just because no inputs were provided.
+     **/
     void
     parseInputs(std::vector<std::string>& inputs,
                 std::string default_input = "",
                 int default_port = 0) throw (NidasAppException);
 
+    /**
+     **/
     bool
     inputsProvided()
     {
@@ -474,12 +631,20 @@ public:
     static void
     setupSignals(void (*callback)() = 0);
 
+    /**
+     * Return true when a help option was parsed, meaning the usage info
+     * has been requested.
+     **/
     bool
     helpRequested()
     {
         return _help;
     }
 
+    /**
+     * Store the format in which sample IDs should be shown, as listed in
+     * the id_format_t enum.
+     **/
     void
     setIdFormat(id_format_t idt);
 
@@ -493,23 +658,49 @@ public:
     std::ostream&
     formatSampleId(std::ostream&, id_format_t, dsm_sample_id_t);
 
+    /**
+     * Use this method to access the SampleMatcher instance for this
+     * NidasApp.  After the SampleMatcher is configured by parsing
+     * command-line options, it can be used to select sample IDs like so:
+     *
+     * @code
+     * bool DumpClient::receive(const Sample* samp) throw()
+     * {
+     *   dsm_sample_id_t sampid = samp->getId();
+     *   if (!app.sampleMatcher().match(sampid))
+     *   {
+     *     return false;
+     *   }
+     *   ...
+     * }
+     * @endcode
+     **/
     SampleMatcher&
     sampleMatcher()
     {
         return _sampleMatcher;
     }
 
+    /**
+     * Return the list of filenames parsed from the input URLs with
+     * parseInputs().  If the input URL specified a network socket, then
+     * this list is empty.  See socketAddress().
+     **/
     std::list<std::string>&
     dataFileNames()
     {
         return _dataFileNames;
     }
 
-    
-    nidas::util::SocketAddress&
+    /**
+     * If parseInputs() parsed a network socket specifier, then this method
+     * returns a pointer to the corresponding SocketAddress.  Otherwise it
+     * returns null.  The NidasApp instance owns the pointer.
+     **/    
+    nidas::util::SocketAddress*
     socketAddress()
     {
-        return *_sockAddr.get();
+        return _sockAddr.get();
     }
 
 private:
@@ -546,7 +737,21 @@ private:
 
 
 /**
- * Convert vector<string> args to argc, argv.
+ * Convert vector<string> args to dynamically allocated (argc, argv) pair
+ * which will be freed when the instance is destroyed.  This is useful for
+ * passing leftover NidasApp command-line arguments to getopt() functions:
+ *
+ * @code
+ * NidasApp app('data_dump');
+ * vector<string> args(argv, argv+argc);
+ * // Parse standard arguments and leave the rest.
+ * app.parseArguments(args);
+ * NidasAppArgv left(args);
+ * int opt_char;
+ * while ((opt_char = getopt(left.argc, left.argv, "...")) != -1) {
+ *    ...
+ * }
+ * @endcode
  **/
 struct NidasAppArgv
 {

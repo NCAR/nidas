@@ -433,7 +433,7 @@ const DSMConfig* Site::findDSM(unsigned int id) const
     return 0;
 }
 
-const DSMConfig* Site::findDSM(const string& name) const
+const DSMConfig* Site::findDSM(const std::string& name) const
 {
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
 	di != _dsms.end(); ++di) {

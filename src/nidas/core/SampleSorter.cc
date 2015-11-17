@@ -75,7 +75,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SampleSorter::SampleSorter(const string& name,bool raw) :
+SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
     _sorterLengthUsec(250*USECS_PER_MSEC),
     _samples(),_sampleSetCond(),_flushCond(),

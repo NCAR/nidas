@@ -529,7 +529,9 @@ int DataDump::run() throw()
             iochan = fset->connect();
 	}
 	else {
-	    n_u::Socket* sock = new n_u::Socket(app.socketAddress());
+            // We know a default socket address was provided, so it's safe
+            // to dereference it.
+	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
             iochan = new nidas::core::Socket(sock);
 	}
 

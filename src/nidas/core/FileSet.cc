@@ -72,7 +72,7 @@ void FileSet::setName(const std::string& val)
     _name = val;
 }
 
-void FileSet::setFileName(const string& val)
+void FileSet::setFileName(const std::string& val)
 {
     if (getDSMConfig())
 	_fset->setFileName(getDSMConfig()->expandString(val));
@@ -82,7 +82,7 @@ void FileSet::setFileName(const string& val)
     setName(string("FileSet: ") + _fset->getPath());
 }
 
-void FileSet::setDir(const string& val)
+void FileSet::setDir(const std::string& val)
 {
     if (getDSMConfig())
 	_fset->setDir(getDSMConfig()->expandString(val));

@@ -92,7 +92,7 @@ public:
     /**
      * little utility for translating newlines to
      * carriage-return + newlines in a string.
-     * @input   string of characters, altered in place.
+     * @param input   string of characters, altered in place.
      */
     void nlTocrnl(std::string& input);
 
@@ -104,7 +104,7 @@ public:
      * ESC-peven set parity to even
      * ESC-podd set parity to odd
      * ESC-ESC send ESC to sensor
-     * @buf   input string
+     * @param inputstr input string
      * @return output string, with recognized escape sequences removed.
      */
     std::string doEscCmds(const std::string& inputstr) throw(nidas::util::IOException);

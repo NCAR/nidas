@@ -146,10 +146,9 @@ public:
      * or completely fails (no buffers written).
      * This prevents partial data samples from being written,
      * and also reduces the need for copying to a temporary buffer.
-     * @param bufs Array of pointers to buffers of data to be written.
-     * @param lens Array specifying length of each buffer.
-     * @param nbufs Number of buffers, the length of bufs and lens.
-     * @flush: force a write to the physical device.
+     * @param iov Array of pointers to buffers of data to be written.
+     * @param nbufs Number of buffers, the length of iov.
+     * @param flush: force a write to the physical device.
      * @return true: all data in bufs was copied to output buffer;
      *    false: no data copied because the buffer was full and the
      *    physical device is bogged down. Typically one must

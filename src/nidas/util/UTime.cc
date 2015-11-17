@@ -175,7 +175,7 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
 }
 
 /* static */
-UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
+UTime UTime::parse(bool utc,const std::string& str,int *ncharp) throw(ParseException)
 {
     char cmon[32];
     int year,mon,day,hour,min;
@@ -251,18 +251,18 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
     return UTime(utc,year,mon,day,hour,min,dsec);
 }
 
-void UTime::set(bool utc, const string& str,int* nparsed) throw(ParseException)
+void UTime::set(bool utc, const std::string& str,int* nparsed) throw(ParseException)
 {
     *this = UTime::parse(utc,str,nparsed);
 }
 
-void UTime::set(bool utc,const string& str,const string& format,int* nparsed) throw(ParseException)
+void UTime::set(bool utc,const std::string& str,const std::string& format,int* nparsed) throw(ParseException)
 {
     *this = UTime::parse(utc,str,format,nparsed);
 }
 
 /* static */
-UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
+UTime UTime::parse(bool utc,const std::string& str, const std::string& fmt,int *ncharp)
 	throw(ParseException)
 {
     struct tm tms = ::tm();
@@ -345,7 +345,7 @@ string UTime::format() const
 }
 
 // method for conversion to string.
-string UTime::format(bool utc, const string& fmt) const
+std::string UTime::format(bool utc, const std::string& fmt) const
 {
     //
     // Add support for %nf format to print fractional seconds,
@@ -454,7 +454,7 @@ string UTime::format(bool utc, const string& fmt) const
 #endif
 }
 
-string UTime::format(const string& fmt) const
+string UTime::format(const std::string& fmt) const
 {
     return format(_utc,fmt);
 }

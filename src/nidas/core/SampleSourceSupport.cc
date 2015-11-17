@@ -184,7 +184,7 @@ void SampleSourceSupport::distribute(const Sample* sample) throw()
     sample->freeReference();
 }
 
-void SampleSourceSupport::distribute(const list<const Sample*>& samples)
+void SampleSourceSupport::distribute(const std::list<const Sample*>& samples)
 	throw()
 {
     list<const Sample*>::const_iterator si;

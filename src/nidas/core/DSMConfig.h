@@ -49,7 +49,7 @@ class SampleOutput;
 /**
  * Class that should include all that is configurable about a
  * DSM.  It should be able to initialize itself from a
- * <dsm> XML element, and provide get methods to access
+ * `<dsm>` XML element, and provide get methods to access
  * its essential pieces, like sensors.
  */
 class DSMConfig : public DOMable {
