@@ -185,8 +185,6 @@ void SonicAnemometer::validate() throw(n_u::InvalidParameterException)
     parseParameters();
 
     checkSampleTags();
-
-    initShadowCorrection();
 }
 
 void SonicAnemometer::parseParameters()
@@ -384,6 +382,11 @@ void SonicAnemometer::parseParameters()
 
     _oaCalFile =  getCalFile("offsets_angles");
     if (!_oaCalFile) _oaCalFile =  getCalFile("");
+
+#ifdef HAVE_LIBGSL
+    // transformation matrix from non-orthogonal axes to UVW
+    _atCalFile = getCalFile("abc2uvw");
+#endif
 }
 
 void SonicAnemometer::checkSampleTags()
@@ -408,18 +411,6 @@ void SonicAnemometer::checkSampleTags()
                 _dirIndex = i;
         }
     }
-}
-
-void SonicAnemometer::initShadowCorrection() throw(n_u::InvalidParameterException)
-{
-#ifdef HAVE_LIBGSL
-    // transformation matrix from non-orthogonal axes to UVW
-    _atCalFile = getCalFile("abc2uvw");
-
-    if (_shadowFactor != 0.0 && !_atCalFile) 
-            throw n_u::InvalidParameterException(getName(),
-                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
-#endif
 }
 
 #ifdef HAVE_LIBGSL

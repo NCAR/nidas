@@ -46,8 +46,7 @@ ATIK_Sonic::ATIK_Sonic():
     _cntsIndex(-1),
     _expectedCounts(0),
     _diagThreshold(0.1),
-    _maxShadowAngle(70.0 * M_PI / 180.0),
-    _shadowFactor(0.16)
+    _maxShadowAngle(70.0 * M_PI / 180.0)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -73,14 +72,7 @@ void ATIK_Sonic::parseParameters()
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
-        if (parameter->getName() == "shadowFactor") {
-            if (parameter->getType() != Parameter::FLOAT_PARAM ||
-                    parameter->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                            "shadowFactor","must be one float");
-            _shadowFactor = parameter->getNumericValue(0);
-        }
-        else if (parameter->getName() == "maxShadowAngle") {
+        if (parameter->getName() == "maxShadowAngle") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
                     parameter->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),
@@ -101,6 +93,8 @@ void ATIK_Sonic::parseParameters()
                             "maxMissingFraction","must be one float");
             _diagThreshold = parameter->getNumericValue(0);
         }
+        else if (parameter->getName() == "shadowFactor");
+        else if (parameter->getName() == "orientation");
         else if (parameter->getName() == "despike");
         else if (parameter->getName() == "outlierProbability");
         else if (parameter->getName() == "discLevelMultiplier");
@@ -156,7 +150,7 @@ void ATIK_Sonic::checkSampleTags()
     _numOut = nvars;
 
 }
-void ATIK_Sonic::pathShadowCorrection(float* uvw)
+void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()
 {
     if (_shadowFactor == 0.0) return;
 
@@ -184,7 +178,7 @@ void ATIK_Sonic::pathShadowCorrection(float* uvw)
     memcpy(uvw,nuvw,3*sizeof(float));
 }
 
-void ATIK_Sonic::removeShadowCorrection(float* )
+void ATIK_Sonic::removeShadowCorrection(dsm_time_t, float* ) throw()
 {
     // TODO. The shadow correction is somewhat difficult to invert,
     // though I think Tom has an approximation in his notes somewhere...
@@ -289,7 +283,7 @@ bool ATIK_Sonic::process(const Sample* samp,
     double c2 = GAMMA_R * (uvwt[3] + KELVIN_AT_0C);
     c2 -= uv2;
 
-    removeShadowCorrection(uvwt);
+    removeShadowCorrection(samp->getTimeTag(), uvwt);
 
     /*
      * Three situations:
@@ -309,7 +303,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         despike(samp->getTimeTag(),uvwt,4,spikes);
     }
 
-    pathShadowCorrection(uvwt);
+    transducerShadowCorrection(samp->getTimeTag(), uvwt);
 
     /*
      * Recompute Tc with speed of sound corrected

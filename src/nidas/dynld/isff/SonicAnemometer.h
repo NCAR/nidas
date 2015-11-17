@@ -351,8 +351,8 @@ public:
     void offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw();
 
     /**
-     * Validate the configuration of this sensor. Calls parseParameters(),
-     * checkSampleTags() and initShadowCorrection().
+     * Validate the configuration of this sensor. Calls the base class
+     * validate(), parseParameters(), and checkSampleTags().
      */
     void validate()
 	throw(nidas::util::InvalidParameterException);
@@ -371,11 +371,6 @@ public:
      */
     virtual void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Perform what is necessary to initialize the shadow correction./
-     */
-    virtual void initShadowCorrection() throw(nidas::util::InvalidParameterException);
-
 #ifdef HAVE_LIBGSL
     /**
      * Read 3x3 matrix to be used for the transformation of wind vectors in ABC
@@ -384,7 +379,7 @@ public:
      */
     virtual void getTransducerRotation(dsm_time_t tt) throw();
 
-    virtual void transducerShadowCorrection(dsm_time_t,float *) throw();
+    virtual void transducerShadowCorrection(dsm_time_t, float *) throw();
 #endif
 
 protected:

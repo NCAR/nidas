@@ -55,7 +55,7 @@ public:
      * Apply the path shadow correction and described in the comments
      * for _maxShadowAngle, and _shadowFactor.
      */
-    void pathShadowCorrection(float* uvwt);
+    void transducerShadowCorrection(dsm_time_t tt, float* uvwt) throw();
 
     /**
      * Placeholder for a method to remove a shadow correction that 
@@ -64,7 +64,7 @@ public:
      * been implemented yet, and will need parameters indicating
      * what factor and angle were applied by the sonic.
      */
-    void removeShadowCorrection(float* );
+    void removeShadowCorrection(dsm_time_t tt, float* ) throw();
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
@@ -158,15 +158,6 @@ private:
      * "maxShadowAngle".
      */
     float _maxShadowAngle;
-
-    /**
-     * Transducer shadow (aka flow distortion) correction factor.
-     * The default value, and ATI's suggested value for _shadowFactor is 0.16.
-     *
-     * This value can be set in the XML with a sensor parameter called
-     * "shadowFactor".
-     */
-    float _shadowFactor;
 
 };
 

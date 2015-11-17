@@ -749,6 +749,12 @@ void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
             _checkCounter = (int)parameter->getNumericValue(0);
         }
     }
+
+#ifdef HAVE_LIBGSL
+    if (_shadowFactor != 0.0 && !_atCalFile) 
+            throw n_u::InvalidParameterException(getName(),
+                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
+#endif
 }
 
 void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
