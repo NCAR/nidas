@@ -97,7 +97,10 @@ SyncServer::
 initProject()
 {
     DLOG(("SyncServer::initProject() starting."));
-    Project::getInstance()->parseXMLConfigFile(_xmlFileName);
+    std::string expxmlpath = n_u::Process::expandEnvVars(_xmlFileName);
+    Project* project = Project::getInstance();
+    project->parseXMLConfigFile(expxmlpath);
+    project->setConfigName(_xmlFileName);
     DLOG(("SyncServer::initProject() finished."));
 }
 
@@ -207,7 +210,6 @@ openStream()
     SampleInputHeader header = sis.getInputHeader();
     if (_xmlFileName.length() == 0)
         _xmlFileName = header.getConfigName();
-    _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
 
     // Read the very first sample from the stream, before any clients are
     // connected, just to get the start time.  It will be distributed after
