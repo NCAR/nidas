@@ -68,7 +68,8 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
     softwareVersion(), startTime(0),_debug(false),
-    _header(), _qcond(), _eoq(false),_syncRecords()
+    _header(), _qcond(), _eoq(false),_syncRecords(),
+    _sampleStreamConfigName()
 {
     init();
 }
@@ -81,7 +82,8 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
     softwareVersion(), startTime(0),_debug(false),
-    _header(), _qcond(), _eoq(false), _syncRecords()
+    _header(), _qcond(), _eoq(false), _syncRecords(),
+    _sampleStreamConfigName()
 {
     // We have two possible implementations using the SyncServer: let the
     // SyncServer run in its own thread to keep pushing samples down the
@@ -112,7 +114,17 @@ SyncRecordReader::
 init()
 {
     try {
-	// inputStream.init();
+        // When receiving sync records through a sample stream, such as in
+        // real-time from a dsm_server, access the SampleInputHeader and
+        // stash the config file path.
+        if (inputStream)
+        {
+            inputStream->readInputHeader();
+            const SampleInputHeader& header = inputStream->getInputHeader();
+            _sampleStreamConfigName = header.getConfigName();
+            DLOG(("config name from sample input stream header: ")
+                 << _sampleStreamConfigName);
+        }
 	for (;;) {
 	    const Sample* samp;
 

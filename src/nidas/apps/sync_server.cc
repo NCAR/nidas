@@ -44,14 +44,21 @@ using nidas::dynld::raf::SyncServer;
 
 int usage(const std::string& argv0)
 {
-    std::cerr << "\
-Usage: " << argv0 << " [-l sorterSecs] [-p port] [nidas-app-options] raw_data_file ...\n\
-    -l sorterSecs: length of sample sorter, in fractional seconds\n\
-        default=" << (float)SyncServer::SORTER_LENGTH_SECS << "\n\
-    -p port: sync record output socket port number: default="
-              << SyncServer::DEFAULT_PORT << "\n\
-    raw_data_file: names of one or more raw data files, separated by spaces\n"
-              << std::endl;
+    std::cerr <<
+        "Usage: " << argv0 << " [options] [nidas-app-options] raw_data_file ...\n"
+        "Options:\n"
+        " -l|--procsorterlength <sorterSecs>\n"
+        "   length of processed sample sorter, in fractional seconds\n"
+        "   default=" << (float)SyncServer::SORTER_LENGTH_SECS << "\n"
+        " -r|--rawsorterlength <sorterSecs>\n"
+        "   length of raw sample sorter, in fractional seconds\n"
+        "   default=" << (float)SyncServer::RAW_SORTER_LENGTH_SECS << "\n"
+        " -p <port>\n"
+        "   sync record output socket port number: default="
+                  << SyncServer::DEFAULT_PORT << "\n"
+        " <raw_data_file> ...\n"
+        "   names of one or more raw data files, separated by spaces\n"
+                  << std::endl;
     
     NidasApp& app = *NidasApp::getApplicationInstance();
     std::cerr << "NIDAS options:\n" << app.usage();
@@ -74,7 +81,7 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
         if (i+1 < args.size())
             optarg = args[i+1];
 
-        if (arg == "-l" && !optarg.empty())
+        if ((arg == "-l" || arg == "--procsorterlength") && !optarg.empty())
         {
             std::istringstream ist(optarg);
             float sorter_secs;
@@ -82,6 +89,16 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
             if (ist.fail()) 
                 return usage(args[0]);
             sync.setSorterLengthSeconds(sorter_secs);
+            ++i;
+        }
+        else if ((arg == "-r" || arg == "--rawsorterlength") && !optarg.empty())
+        {
+            std::istringstream ist(optarg);
+            float sorter_secs;
+            ist >> sorter_secs;
+            if (ist.fail()) 
+                return usage(args[0]);
+            sync.setRawSorterLengthSeconds(sorter_secs);
             ++i;
         }
         else if (arg == "-p" && !optarg.empty())

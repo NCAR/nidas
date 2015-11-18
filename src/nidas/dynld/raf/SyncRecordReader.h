@@ -170,6 +170,16 @@ public:
     getLagOffset(const nidas::core::Variable* var)
         throw (SyncRecHeaderException);
 
+    /**
+     * After creating a SyncRecordReader on a socket, this method returns
+     * the config name from the SampleInputStream header.
+     **/
+    const std::string&
+    getConfigName()
+    {
+        return _sampleStreamConfigName;
+    }
+
 private:
 
     void init();
@@ -221,6 +231,8 @@ private:
 
     /** Place to stash sample records received as a SampleClient. */
     std::deque<const Sample*> _syncRecords;
+
+    std::string _sampleStreamConfigName;
 
     /** No copying. */
     SyncRecordReader(const SyncRecordReader&);

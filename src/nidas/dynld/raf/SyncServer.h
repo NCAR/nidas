@@ -117,6 +117,12 @@ public:
         _sorterLengthSecs = sorter_secs;
     }
 
+    void
+    setRawSorterLengthSeconds(float sorter_secs)
+    {
+        _rawSorterLengthSecs = sorter_secs;
+    }
+
     /**
      * Return the current XML filename setting.  If called after calling
      * openStream() and before setting it explicitly with setXMLFileName(),
@@ -176,6 +182,8 @@ public:
 
     static const float SORTER_LENGTH_SECS = 2.0;
 
+    static const float RAW_SORTER_LENGTH_SECS = 1.0;
+
     /**
      * Implementation of SampleConnectionRequester::connect().
      * Does nothing.
@@ -188,25 +196,6 @@ public:
      * and exit.
      */
     void disconnect(SampleOutput* output) throw();
-
-#ifdef notdef
-    /**
-     * Implementation of SampleClient::receive().
-     * We want to receive the first raw sample, to get the first
-     * time-tag of the input data, and then call
-     * SyncRecordGenerator::init(sample->getTimeTag()).
-     * This reads the calibration coefficients for the given
-     * time, which are put in the sync record header.
-     * Reading the CalFiles early in this way, before the
-     * real sample processing starts, avoids threading problems.
-     * Otherwise if we wait until the sync record header is sent
-     * out, then the thread that is creating processed samples
-     * will also be reading the cal files.
-     */
-    bool receive(const Sample *s) throw();
-
-    void flush() throw();
-#endif
 
 private:
 
@@ -235,6 +224,8 @@ private:
     std::auto_ptr<nidas::util::SocketAddress> _address;
 
     float _sorterLengthSecs;
+
+    float _rawSorterLengthSecs;
 
     SampleClient* _sampleClient;
 

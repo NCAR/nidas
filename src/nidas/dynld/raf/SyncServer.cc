@@ -58,6 +58,7 @@ SyncServer::SyncServer():
     _xmlFileName(), _dataFileNames(),
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
     _sorterLengthSecs(SORTER_LENGTH_SECS),
+    _rawSorterLengthSecs(RAW_SORTER_LENGTH_SECS),
     _sampleClient(0),
     _stop_signal(0),
     _firstSample(0),
@@ -239,7 +240,7 @@ init() throw(n_u::Exception)
     initSensors(*_inputStream);
 
     _pipeline.setRealTime(false);
-    _pipeline.setRawSorterLength(1.0);
+    _pipeline.setRawSorterLength(_rawSorterLengthSecs);
     _pipeline.setProcSorterLength(_sorterLengthSecs);
 	
     // Even though the time length of the raw sorter is typically
