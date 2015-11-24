@@ -99,11 +99,10 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     ss->addSampleClient(this);
     ss->setStopSignal(new SyncReaderStop(this));
     
-    // Rather than start the SyncServer so it triggers the header from
-    // SyncRecordSource, request the header directly so it can be read
-    // immediately.
+    // SyncServer::init() adds this SyncRecordReader as a SampleClient of
+    // the SyncRecordGenerator, at which point a sync header sample will be
+    // distributed for us to read in our init() method.
     ss->init();
-    ss->sendSyncHeader();
     init();
 }
 

@@ -155,17 +155,22 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
+
+void SyncRecordGenerator::addSampleClient(SampleClient* client) throw()
+{
+    // Add the client, then immediately send the sync header sample.
+    _syncRecSource.addSampleClient(client);
+    DLOG(("Added client, sending sync header sample."));
+    _syncRecSource.sendSyncHeader();
+}
+
+
 void SyncRecordGenerator::sendHeader(dsm_time_t, SampleOutput* output)
 	throw(n_u::IOException)
 {
     HeaderSource::sendDefaultHeader(output);
-    // SyncRecordSource now sends a header sample when the first sample is
-    // receive()d, prior to sending the sync samples, since technically
-    // that was never part of the real header required by a SampleOutput.
-    // This way every SampleClient gets the sync header sample, not just
-    // the SampleOutput instances.
-    //
-    //    _syncRecSource.sendHeader(thead);
+    DLOG(("Stream header written, sending sync header sample."));
+    _syncRecSource.sendSyncHeader();
 }
 
 void SyncRecordGenerator::init(dsm_time_t sampleTime) throw()

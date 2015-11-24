@@ -93,10 +93,7 @@ public:
     /**
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClient(SampleClient* client) throw()
-    {
-        _syncRecSource.addSampleClient(client);
-    }
+    void addSampleClient(SampleClient* client) throw();
 
     void removeSampleClient(SampleClient* client) throw()
     {

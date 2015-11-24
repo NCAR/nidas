@@ -546,26 +546,6 @@ sampleIndexFromId(dsm_sample_id_t sampleId)
 
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
-    if (_syncTime[_current] == LONG_LONG_MIN && _headerStream.str().empty())
-    {
-        // Send the sync header sample upon receiving the first sample,
-        // unless a header has already been generated and sent (ie, with an
-        // explicit call to sendSyncHeader() from a SyncServer).  This is
-        // similar to how a SampleOutputStream triggers sendHeader(),
-        // except this is a sync header sample full of specially formatted
-        // text and not really a NIDAS stream header.  However, the time
-        // tag of the header *may not be* the time tag of the first
-        // received sample.  The header start time is the first raw sample
-        // read from the input stream, set in the call to
-        // preLoadCalibrations().  The time tag of the first sorted and
-        // processed sample may be different because of time shifting and
-        // re-ordering.  Saving off the header time in
-        // preLoadCalibrations() ensures that the header time is consistent
-        // even when the sync record stream is suspended before processing
-        // any samples, as is the case for nimbus' use of SyncServer and
-        // SyncRecordReader for post-processing.
-        sendSyncHeader();
-    }
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 

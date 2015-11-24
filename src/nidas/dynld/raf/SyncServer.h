@@ -58,10 +58,6 @@ private:
 
 class SyncServer : public nidas::util::Thread,
                    public nidas::core::SampleConnectionRequester
-#ifdef notdef
-                 ,
-                   public nidas::core::SampleClient
-#endif
 {
 public:
 
@@ -97,16 +93,6 @@ public:
     run() throw(nidas::util::Exception);
 
     virtual void interrupt();
-
-    /**
-     * Trigger sendSyncHeader() on the SyncRecordSource, using the start
-     * time retrieved from the first sample in the SampleInputStream.
-     * SyncRecordReader calls this method when connecting to a SyncServer
-     * instance, so the SyncRecordReader can receive the header immediately
-     * without requiring any samples to be processed first.
-     **/
-    void
-    sendSyncHeader();
 
     void
     read(bool once = false) throw(nidas::util::IOException);

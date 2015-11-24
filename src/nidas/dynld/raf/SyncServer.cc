@@ -224,19 +224,6 @@ openStream()
 
 void
 SyncServer::
-sendSyncHeader()
-{
-    DLOG(("SyncServer::sendHeader()"));
-    SyncRecordSource* syncsource = _syncGen.getSyncRecordSource();
-    // Trigger the sync header in the SyncRecordSource.  The time tag for
-    // the header should have already been set by the call to
-    // SyncRecordGenerator::init().
-    syncsource->sendSyncHeader();
-}
-
-
-void
-SyncServer::
 init() throw(n_u::Exception)
 {
     DLOG(("SyncServer::init() starting."));
