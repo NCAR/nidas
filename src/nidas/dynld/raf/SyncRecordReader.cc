@@ -103,8 +103,7 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     // SyncRecordSource, request the header directly so it can be read
     // immediately.
     ss->init();
-    ss->sendHeader();
-
+    ss->sendSyncHeader();
     init();
 }
 

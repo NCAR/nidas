@@ -58,7 +58,7 @@ SyncRecordSource::SyncRecordSource():
     _offsetUsec(),_sampleLengths(),_sampleOffsets(),
     _varOffsets(),_varLengths(),_numVars(),_variables(),
     _syncRecordHeaderSampleTag(),_syncRecordDataSampleTag(),
-    _recSize(0),_syncTime(),
+    _recSize(0),_syncHeaderTime(),_syncTime(),
     _current(0),
     _syncRecord(),_dataPtr(),_unrecognizedSamples(),
     _headerStream(), _badLaterTimes(0),_badEarlierTimes(0),
@@ -377,7 +377,10 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
 {
-    ILOG(("pre-loading calibrations..."));
+    _syncHeaderTime = sampleTime;
+    ILOG(("initialized sync header time to ")
+         << n_u::UTime(_syncHeaderTime).format(true,"%Y %m %d %H:%M:%S.%3f")
+         << ", pre-loading calibrations...");
     list<const Variable*>::iterator vi;
     for (vi = _variables.begin(); vi != _variables.end(); ++vi) {
         Variable* var = const_cast<Variable*>(*vi);
@@ -407,7 +410,7 @@ void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
 
 
 
-void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
+void SyncRecordSource::sendSyncHeader() throw()
 {
     _headerStream.str("");	// initialize header to empty string
 
@@ -420,16 +423,16 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
     string headstr = _headerStream.str();
 
     SampleT<char>* headerRec = getSample<char>(headstr.length()+1);
-    headerRec->setTimeTag(thead);
+    headerRec->setTimeTag(_syncHeaderTime);
 
-    DLOG(("SyncRecordSource::sendHeader timetag=") << headerRec->getTimeTag());
+    DLOG(("SyncRecordSource::sendSyncHeader timetag=")
+         << headerRec->getTimeTag());
     DLOG(("sync header=\n") << headstr);
 
     headerRec->setId(SYNC_RECORD_HEADER_ID);
-    strcpy(headerRec->getDataPtr(),headstr.c_str());
+    strcpy(headerRec->getDataPtr(), headstr.c_str());
 
     _source.distribute(headerRec);
-
 }
 
 void SyncRecordSource::flush() throw()
@@ -543,18 +546,28 @@ sampleIndexFromId(dsm_sample_id_t sampleId)
 
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
-    dsm_time_t tt = samp->getTimeTag();
-    dsm_sample_id_t sampleId = samp->getId();
-
     if (_syncTime[_current] == LONG_LONG_MIN && _headerStream.str().empty())
     {
-        // Send the header sample upon receiving the first sample, unless a
-        // header has already been generated and sent (ie, with an explicit
-        // call to sendHeader() from a SyncServer).  This is similar to how
-        // a SampleOutputStream triggers sendHeader(), except this is a
-        // header sample and not really a NIDAS stream header.
-        sendHeader(tt);
+        // Send the sync header sample upon receiving the first sample,
+        // unless a header has already been generated and sent (ie, with an
+        // explicit call to sendSyncHeader() from a SyncServer).  This is
+        // similar to how a SampleOutputStream triggers sendHeader(),
+        // except this is a sync header sample full of specially formatted
+        // text and not really a NIDAS stream header.  However, the time
+        // tag of the header *may not be* the time tag of the first
+        // received sample.  The header start time is the first raw sample
+        // read from the input stream, set in the call to
+        // preLoadCalibrations().  The time tag of the first sorted and
+        // processed sample may be different because of time shifting and
+        // re-ordering.  Saving off the header time in
+        // preLoadCalibrations() ensures that the header time is consistent
+        // even when the sync record stream is suspended before processing
+        // any samples, as is the case for nimbus' use of SyncServer and
+        // SyncRecordReader for post-processing.
+        sendSyncHeader();
     }
+    dsm_time_t tt = samp->getTimeTag();
+    dsm_sample_id_t sampleId = samp->getId();
 
     int sampleIndex = sampleIndexFromId(sampleId);
     if (sampleIndex < 0)

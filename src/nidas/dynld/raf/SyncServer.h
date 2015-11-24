@@ -99,14 +99,14 @@ public:
     virtual void interrupt();
 
     /**
-     * Trigger sendHeader() on the SyncRecordSource, using the start time
-     * retrieved from the first sample in the SampleInputStream.
+     * Trigger sendSyncHeader() on the SyncRecordSource, using the start
+     * time retrieved from the first sample in the SampleInputStream.
      * SyncRecordReader calls this method when connecting to a SyncServer
      * instance, so the SyncRecordReader can receive the header immediately
      * without requiring any samples to be processed first.
      **/
     void
-    sendHeader();
+    sendSyncHeader();
 
     void
     read(bool once = false) throw(nidas::util::IOException);
