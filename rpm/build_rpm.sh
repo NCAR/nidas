@@ -51,7 +51,8 @@ topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 [ -d $topdir/RPMS ] || mkdir -p $topdir/RPMS
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
-trap "{ rm -f $log; }" EXIT
+tmpspec=`mktemp /tmp/${script}_XXXXXX.spec`
+trap "{ rm -f $log $tmpspec; }" EXIT
 
 set -o pipefail
 
@@ -69,6 +70,11 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     release=${gitdesc#*-}       # 14-gabcdef123
     release=${release%-*}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
+
+    # create change log from git log messages since v1.2
+    # Truncate subject line at 60 characters 
+    # git convention is that the subject line is supposed to be 50 or shorter
+    git log --format="* %cd %aN%n- (%h) %s%d%n" --date=local  v1.2.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //'  | sed -r 's/(^- \([^)]+\) .{,60}).*/\1/' | cat rpm/${pkg}.spec - > $tmpspec
 
     cd src   # to src
     scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
@@ -110,7 +116,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
-        rpm/${pkg}.spec 2>&1 | tee -a $log  || exit $?
+        $tmpspec 2>&1 | tee -a $log  || exit $?
 
 fi
 

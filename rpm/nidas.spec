@@ -417,12 +417,3 @@ rm -rf $RPM_BUILD_ROOT
 %files buildeol
 
 %changelog
-* Fri May 17 2013 John Wasinger <wasinger@ucar.edu> 1.1-1
-- Removed editcal as a packaged target, no longer in NIDAS tree.
-- Changed '/var/run/nidas/dsm?.pid' to '/tmp/run/nidas/dsm?.pid'. 
-* Mon Dec  5 2011 Gordon Maclean <maclean@ucar.edu> 1.1-0
-- Rework of package structure and installation directory:
-- /opt/nidas/{bin,lib[64],modules,share,arm,armbe}.
-- arm and armbe directories have bin,lib,modules subdirectories.
-* Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1
-- original
