@@ -14,9 +14,10 @@ Version: %{version}
 Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
-Url: http://www.eol.ucar.edu/
+Url: https://github.com/ncareol/nidas
 Vendor: UCAR
-Source: %{name}-%{version}.tar.gz
+# Source: %{name}-%{version}.tar.gz
+Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
@@ -128,13 +129,13 @@ Overwrites /var/lib/nidas/BuildUserGroup with "root(0):eol(1342)" so that build 
 
 %build
 cd src
-scons -j 4 --config=force BUILDS=x86
+scons -j 4 --config=force BUILDS=x86 REPO_TAG=v%{version}
  
 %install
 rm -rf $RPM_BUILD_ROOT
 
 cd src
-scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
+scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
@@ -313,8 +314,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/dmd_mmat_test
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
-# %{nidas_prefix}/bin/dsm
-# %{nidas_prefix}/bin/dsm_server
 %{nidas_prefix}/bin/extract2d
 %{nidas_prefix}/bin/ir104
 %{nidas_prefix}/bin/lidar_vel

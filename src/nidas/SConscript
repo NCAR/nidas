@@ -1,7 +1,6 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-
 ##
 ##  Import the build environment.
 ##
@@ -109,6 +108,10 @@ if conf.CheckCXXHeader('gsl/gsl_linalg.h'):
 env = conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
+
+# So that sharedlibrary builder uses lib64 for the library directory
+# on 64 bit machines.
+env["USE_ARCHLIBDIR"] = 1
 
 # Update Revision.h from git describe
 info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
