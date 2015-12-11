@@ -262,6 +262,7 @@ bool WxtSensor::process(const Sample* samp,
         nfptr[_vIndex] = v;
 
         results.push_back(news);
+        break;
     }
     return true;
 }
