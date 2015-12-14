@@ -86,6 +86,9 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
 	(this->*paramSet[i].setFunc)(param->getStringValue(0));
     }
 
+    int unl = getUName().length();
+    int vnl = getVName().length();
+
     for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
 	const SampleTag* stag = si.next();
 
@@ -97,14 +100,17 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
             const Variable* var = vi.next();
             const string& vname = var->getName();
             dsm_sample_id_t uvId = 0;
-            if (vname.length() >= getUName().length() &&
-                    vname.substr(0,getUName().length()) == getUName()) {
+
+            if (vname == getUName() ||
+                (vname.length() >= unl + 1 &&
+                 vname.substr(0,unl+1) == getUName() + '.')) {
                 _uIndex = i;
                 uvId = stag->getId();
                 _uvlen = stag->getVariables().size();
             }
-            else if (vname.length() >= getVName().length() &&
-                    vname.substr(0,getVName().length()) == getVName()) {
+            else if (vname == getVName() ||
+                (vname.length() >= vnl + 1 &&
+                 vname.substr(0,vnl+1) == getVName() + '.')) {
                 _vIndex = i;
                 uvId = stag->getId();
             }
