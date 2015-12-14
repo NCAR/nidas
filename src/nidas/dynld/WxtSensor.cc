@@ -86,8 +86,8 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
 	(this->*paramSet[i].setFunc)(param->getStringValue(0));
     }
 
-    int unl = getUName().length();
-    int vnl = getVName().length();
+    unsigned int unl = getUName().length();
+    unsigned int vnl = getVName().length();
 
     for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
 	const SampleTag* stag = si.next();
