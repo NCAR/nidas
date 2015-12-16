@@ -1,7 +1,7 @@
 
 #include "NidasApp.h"
-
-#include <nidas/core/Version.h>
+#include "Project.h"
+#include "Version.h"
 
 #include <unistd.h>
 #include <signal.h>

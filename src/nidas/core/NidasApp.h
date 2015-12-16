@@ -20,13 +20,14 @@
 #include "SampleTag.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
-#include "Project.h"
 
 #include <string>
 #include <list>
 #include <memory>
 
 namespace nidas { namespace core {
+
+class Project;
 
 /**
  * Match samples according to DSM and Sample ID ranges, and configure the

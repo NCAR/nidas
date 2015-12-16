@@ -27,6 +27,7 @@
 #include <nidas/dynld/raf/SyncServer.h>
 #include <nidas/core/NidasApp.h>
 #include <nidas/util/Logger.h>
+#include <nidas/core/Project.h>
 
 using nidas::core::NidasApp;
 using nidas::core::NidasAppException;
