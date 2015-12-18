@@ -168,14 +168,17 @@ void
 SyncServer::
 signalStop()
 {
-    // This only happens once in case the receiver deletes itself after
-    // being interrupted.
+    // This can happen from within the SyncServer thread (if there is one)
+    // in the stop() method or in another thread calling interrupt().
+    // Therefore the value of _stop_signal cannot change since it is not
+    // guarded, so it cannot be deleted and zeroed out here.  Instead the
+    // callback is allowed multiple times, and that adds the constraint
+    // that the receiver is re-entrant and the receiver lifetime exceeds
+    // the life of the SyncServer thread.
     if (_stop_signal)
     {
         DLOG(("triggering stop signal..."));
         _stop_signal->stop();
-        delete _stop_signal;
-        _stop_signal = 0;
     }
 }    
 
