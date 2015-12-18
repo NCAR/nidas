@@ -165,7 +165,9 @@ init()
 
 SyncRecordReader::~SyncRecordReader()
 {
+    DLOG(("entering SyncRecordReader destructor"));
     _qcond.lock();
+    DLOG(("...releasing ") << _syncRecords.size() << " queued samples.");
     while (! _syncRecords.empty())
     {
         const Sample* sample = _syncRecords.front();
@@ -682,17 +684,21 @@ SyncRecordReader::
 receive(const Sample *samp) throw()
 {
     _qcond.lock();
-    samp->holdReference();
-    _syncRecords.push_back(samp);
-    _qcond.signal();
-
-    // Limit the number of samples in the buffer.  I believe holding up
-    // this method will suspend the SyncRecordSource, then the pipeline
-    // will hold up because its samples are not being read.
-    while (_syncRecords.size() > 60)
+    // Do not handle any more samples if end-of-queue already indicated.
+    if (!_eoq)
     {
-        _qcond.wait();
-    }        
+        samp->holdReference();
+        _syncRecords.push_back(samp);
+        _qcond.signal();
+
+        // Limit the number of samples in the buffer.  I believe holding up
+        // this method will suspend the SyncRecordSource, then the pipeline
+        // will hold up because its samples are not being read.
+        while (!_eoq && _syncRecords.size() > 60)
+        {
+            _qcond.wait();
+        }
+    }
     _qcond.unlock();
     return true;
 }

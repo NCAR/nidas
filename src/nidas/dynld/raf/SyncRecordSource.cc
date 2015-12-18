@@ -437,7 +437,7 @@ void SyncRecordSource::sendSyncHeader() throw()
 
 void SyncRecordSource::flush() throw()
 {
-    // cerr << "SyncRecordSource::flush" << endl;
+    DLOG(("SyncRecordSource::flush()"));
     for (int i = 0; i < NSYNCREC; i++) sendSyncRecord();
 }
 

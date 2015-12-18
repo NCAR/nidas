@@ -147,8 +147,8 @@ void
 SyncServer::
 interrupt()
 {
+    DLOG(("interrupting SyncServer..."));
     Thread::interrupt();
-    _pipeline.interrupt();
 }
 
 
@@ -158,13 +158,43 @@ stop()
 {
     // This should not throw any exceptions since it gets called from
     // within exception handlers.
-    _inputStream->close();
-    _syncGen.disconnect(_pipeline.getProcessedSampleSource());
-    if (_outputStream)
+    DLOG(("SyncServer::stop():"));
+
+    // If we have a client with a stop callback, ie a SyncRecordReader,
+    // call it so it stops handling sync records and more importantly does
+    // not block anywhere.
+    if (_stop_signal)
+    {
+        _stop_signal->stop();
+        delete _stop_signal;
+        _stop_signal = 0;
+    }
+
+    // Work backwards disconnecting the processing chain that was created
+    // in init().  This avoids deadlocks caused by the SyncRecordGenerator
+    // trying to flush() samples from the SyncRecordSource to a
+    // SyncRecordReader client, which in turn may fill up its queue and
+    // block because nothing is reading sync records anymore.
+    if (_sampleClient)
+    {
+        _syncGen.removeSampleClient(_sampleClient);
+    }
+    else if (_outputStream)
+    {
         _syncGen.disconnect(_outputStream);
+    }
+    SampleOutputRequestThread::destroyInstance();
+
+    DLOG(("Disconnecting pipeline processed sample source from sync gen..."));
+    _syncGen.disconnect(_pipeline.getProcessedSampleSource());
+
+    DLOG(("Disconnecting pipeline from input stream and closing input..."));
+    _pipeline.disconnect(_inputStream);
+    _inputStream->close();
+    DLOG(("Interrupt() and join() SamplePipeline..."));
     _pipeline.interrupt();
     _pipeline.join();
-    SampleOutputRequestThread::destroyInstance();
+    DLOG(("SamplePipeline should be finished now."));
     // Can't do this here since there may be other objects (eg
     // SyncRecordReader) still holding onto samples.  Programs which want
     // to do this cleanup (like sync_server) need to do it on their own
@@ -175,12 +205,6 @@ stop()
     delete _outputStream;
     _inputStream = 0;
     _outputStream = 0;
-    if (_stop_signal)
-    {
-        _stop_signal->stop();
-        delete _stop_signal;
-        _stop_signal = 0;
-    }
 }
 
 
@@ -246,8 +270,11 @@ init() throw(n_u::Exception)
     // a value.
     _pipeline.setRawHeapMax(50 * 1000 * 1000);
     _pipeline.setProcHeapMax(100 * 1000 * 1000);
-    _pipeline.connect(_inputStream);
 
+    // Once SamplePipeline::connect() or SamplePipeline::addSampleClient()
+    // is called, the sorter threads are running and will need to be
+    // stopped.
+    _pipeline.connect(_inputStream);
     _syncGen.connect(_pipeline.getProcessedSampleSource());
 
     // The SyncRecordGenerator::init() method pre-loads calibrations into
@@ -361,6 +388,11 @@ read(bool once) throw(n_u::IOException)
     if (eof)
     {
         _pipeline.flush();
+        stop();
+    }
+    // If explicitly interrupted, just stop without flushing anything.
+    else if (isInterrupted())
+    {
         stop();
     }
 }
