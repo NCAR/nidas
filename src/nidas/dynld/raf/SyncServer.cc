@@ -149,7 +149,35 @@ interrupt()
 {
     DLOG(("interrupting SyncServer..."));
     Thread::interrupt();
+    DLOG(("interrupting pipeline..."));
+    _pipeline.interrupt();
+    // The SyncServer is not necessarily in the read() loop where it checks
+    // for an interruption, it could be waiting while the processing chain
+    // is flushed.  So we need to interrupt all the pieces in the chain so
+    // none of them blocks waiting on samples somehow.  For example, a
+    // client of the SyncRecordSource, like SyncRecordReader, might block
+    // once it's queue is full waiting for samples to be read, and so the
+    // flush() will not finish until the reader is interrupted.  If there
+    // is a Reader client, then it can be interrupted through the stop
+    // signal callback.
+    signalStop();
 }
+
+
+void
+SyncServer::
+signalStop()
+{
+    // This only happens once in case the receiver deletes itself after
+    // being interrupted.
+    if (_stop_signal)
+    {
+        DLOG(("triggering stop signal..."));
+        _stop_signal->stop();
+        delete _stop_signal;
+        _stop_signal = 0;
+    }
+}    
 
 
 void
@@ -163,12 +191,7 @@ stop()
     // If we have a client with a stop callback, ie a SyncRecordReader,
     // call it so it stops handling sync records and more importantly does
     // not block anywhere.
-    if (_stop_signal)
-    {
-        _stop_signal->stop();
-        delete _stop_signal;
-        _stop_signal = 0;
-    }
+    signalStop();
 
     // Work backwards disconnecting the processing chain that was created
     // in init().  This avoids deadlocks caused by the SyncRecordGenerator
@@ -387,7 +410,13 @@ read(bool once) throw(n_u::IOException)
     // In the normal eof case, flush the sorter pipeline.
     if (eof)
     {
+        DLOG(("SyncServer EOF, flushing pipeline..."));
         _pipeline.flush();
+        // Flush the generator also, so the rest of the samples make it out
+        // of the SyncRecordSource to its SampleOutputStream or
+        // SampleClient.
+        DLOG(("SyncServer EOF, flushing sync record generator..."));
+        _syncGen.flush();
         stop();
     }
     // If explicitly interrupted, just stop without flushing anything.

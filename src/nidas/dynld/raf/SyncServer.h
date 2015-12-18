@@ -195,6 +195,9 @@ private:
     stop();
 
     void
+    signalStop();
+
+    void
     handleSample(nidas::core::Sample* sample);
 
     SamplePipeline _pipeline;
