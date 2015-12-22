@@ -52,12 +52,20 @@ topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
 tmpspec=`mktemp /tmp/${script}_XXXXXX.spec`
-trap "{ rm -f $log $tmpspec; }" EXIT
+awkcom=`mktemp /tmp/${script}_XXXXXX.awk`
+trap "{ rm -f $log $tmpspec $awkcom; }" EXIT
 
 set -o pipefail
 
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
+
+    # In the RPM changelog, copy most recent commit subject lines
+    # since this tag (max of 100).
+    sincetag=v1.2
+
+    # to get the most recent tag of the form: vN
+    # sincetag=$(git tag -l --sort=version:refname "[vV][0-9]*" | tail -n 1)
 
     if ! gitdesc=$(git describe --match "v[0-9]*"); then
         echo "git describe failed, looking for a tag of the form v[0-9]*"
@@ -71,10 +79,28 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     release=${release%-*}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
 
-    # create change log from git log messages since v1.2
+    # run git describe on each hash to create a version
+    cat << \EOD > $awkcom
+/^[0-9a-f]+/ {
+    hash = $0
+    cmd = "git describe --match '[vV][0-9]*' " hash " 2>/dev/null"
+    res = (cmd | getline version)
+    close(cmd)
+    if (res == 0) {
+        version = ""
+    }
+}
+/^\*/ { print $0,version }
+/^-/ { print $0 }
+/^$/ { print $0 }
+EOD
+
+    # create change log from git log messages since the tag $sincetag.
+    # Put SHA hash by itself on first line. Above awk script then
+    # converts it to the output of git describe, and appends it to "*" line.
     # Truncate subject line at 60 characters 
     # git convention is that the subject line is supposed to be 50 or shorter
-    git log --format="* %cd %aN%n- (%h) %s%d%n" --date=local  v1.2.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //'  | sed -r 's/(^- \([^)]+\) .{,60}).*/\1/' | cat rpm/${pkg}.spec - > $tmpspec
+    git log --max-count=100 --date-order --format="%h%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
 
     cd src   # to src
     scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
