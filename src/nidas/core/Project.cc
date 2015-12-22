@@ -42,6 +42,8 @@
 
 #include <iostream>
 
+#include <sys/utsname.h>    // uname
+
 using namespace nidas::core;
 using namespace std;
 
@@ -471,12 +473,16 @@ list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(const std::s
     return filesets;
 }
     
-list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() const
+list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets(const std::string& name) const
 {
     list<nidas::core::FileSet*> filesets;
+    // filesets corresponding to the "any" server, with name "".
+    list<nidas::core::FileSet*> anysets;
 
     for (DSMServerIterator si = getDSMServerIterator(); si.hasNext(); ) {
         DSMServer* server = si.next();
+        if (server->getName().length() > 0 && server->getName() != name)
+            continue;
         ProcessorIterator pi = server->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
@@ -492,11 +498,29 @@ list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() cons
                     IOChannel* ioc = output->getIOChannel();
                     nidas::core::FileSet* fset =
                             dynamic_cast<nidas::core::FileSet*>(ioc);
-                    if (fset) filesets.push_back(fset);
+                    if (fset) {
+                        if (server->getName().length() > 0)
+                            filesets.push_back(fset);
+                        else
+                            anysets.push_back(fset);
+                    }
                 }
             }
         }
     }
+    if (!filesets.empty()) return filesets;
+    return anysets;
+}
+
+list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() const throw(nidas::util::Exception)
+{
+    struct utsname utsbuf;
+    if (::uname(&utsbuf) < 0)
+        throw nidas::util::Exception("uname",errno);
+    list<nidas::core::FileSet*> filesets =
+        findServerSampleOutputStreamFileSets(utsbuf.nodename);
+    if (filesets.empty())
+        WLOG(("No filesets found for server %s", utsbuf.nodename));
     return filesets;
 }
 

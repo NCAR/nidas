@@ -142,10 +142,18 @@ public:
     const DSMConfig* findDSM(unsigned int id) const;
 
     /**
-     * Find all SampleOutputStreamFileSets belonging to SampleArchivers
-     * of all DSMServers on this configuration.
+     * Find SampleOutputStreamFileSets belonging to SampleArchivers
+     * of DSMServers whose name matches the argument name.
+     * If no DSMServer names exactly match, then return the filesets
+     * corresponding to a DSMServer with an empty name.
      */
-    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets() const;
+    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets(const std::string& name) const;
+
+    /**
+     * Call findServerSampleOutputStreamFileSets(name) passing
+     * the nodename returned by uname(2).
+     */
+    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets() const throw(nidas::util::Exception);
 
     /**
      * Find SampleOutputStreamFileSets belonging to the given DSM.
