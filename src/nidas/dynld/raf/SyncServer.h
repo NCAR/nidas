@@ -162,6 +162,9 @@ public:
     }
 
     void
+    getTimeWindow(nidas::util::UTime* start, nidas::util::UTime* end);
+
+    void
     setTimeWindow(nidas::util::UTime start, nidas::util::UTime end);
 
     static const int DEFAULT_PORT = 30001;

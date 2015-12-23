@@ -345,10 +345,29 @@ init() throw(n_u::Exception)
 
 void
 SyncServer::
+getTimeWindow(nidas::util::UTime* start, nidas::util::UTime* end)
+{
+    if (start)
+    {
+        *start = nidas::util::UTime(_startWindow);
+    }
+    if (end)
+    {
+        *end = nidas::util::UTime(_endWindow);
+    }
+}
+
+
+void
+SyncServer::
 setTimeWindow(nidas::util::UTime start, nidas::util::UTime end)
 {
     _startWindow = start.toUsecs();
     _endWindow = end.toUsecs();
+    DLOG(("time window: ")
+         << n_u::UTime(_startWindow).format()
+         << " - "
+         << n_u::UTime(_endWindow).format());
 }
 
 
