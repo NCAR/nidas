@@ -27,7 +27,7 @@ opts.AddVariables(('OTHER_PREFIX',
 # opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
 opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install: host, arm or armbe.',
+         'Space-separated list of architectures to build and install: host, arm, armbe or armel.',
          'host arm armbe')
 
 opts.Add('MACHS',
@@ -56,14 +56,20 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', 'path to linux kernel source for build host, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
-    opts.Add('KERNELDIR_viper', 'path to linux kernel source for Viper:',
+    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel source for Viper:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-viper')
-    opts.Add('KERNELDIR_titan', 'path to linux kernel source for Titan:',
+    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel source for Titan:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-titan')
 
 if 'armbe' in BUILDS:
-    opts.Add('KERNELDIR_vulcan', 'path to linux kernel source for Vulcan:',
+    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel source for Vulcan:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
+
+if 'armel' in BUILDS:
+    opts.Add('KERNELDIR_viper_armel', 'path to linux kernel source for Viper/armel:',
+             '/usr/src/linux-headers-3.16.0-viper2')
+    opts.Add('KERNELDIR_titan_armel', 'path to linux kernel source for Titan/armel:',
+             '/usr/src/linux-headers-3.16.0-titan2')
 
 opts.Update(env)
 
@@ -183,7 +189,7 @@ if 'arm' in BUILDS:
         ARCH = 'arm',
     )
     arm_env['MACHS'] = machs
-    arm_env['PREFIX'] = env['PREFIX'] + '/arm'
+    arm_env['PREFIX'] = arm_env['PREFIX'] + '/arm'
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
@@ -195,7 +201,7 @@ if 'arm' in BUILDS:
 
     SConscript('nidas/SConscript',
                variant_dir='build_arm',
-               duplicate=0, exports=[{'env':arm_env}])
+               duplicate=0, exports={'env':arm_env})
     Alias('arm','build_arm')
     Clean('build_arm','build_arm')
 
@@ -219,7 +225,7 @@ if 'armbe' in BUILDS:
         ARCH = 'armbe'
     )
     armbe_env['MACHS'] = machs
-    armbe_env['PREFIX'] = env['PREFIX'] + '/armbe',
+    armbe_env['PREFIX'] = armbe_env['PREFIX'] + '/armbe',
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
     if re.search("^3",armbe_env['CXXVERSION']):
@@ -232,6 +238,36 @@ if 'armbe' in BUILDS:
                duplicate=0, exports={'env':armbe_env})
     Alias('armbe','build_armbe')
     Clean('build_armbe','build_armbe')
+
+if 'armel' in BUILDS:
+    print "Setting up for armel build ..."
+
+    # supported machine types for armel. Add viper to "all" when ready
+    amachs = { 'all': ['titan'], 'viper':['viper'], 'titan': ['titan']}
+    # build list of machine types to build from MACHS="x y z" command line
+    machs = []
+    for m in MACHS:
+        if amachs.has_key(m):
+            machs.extend(amachs[m])
+    machs = list(set(machs))    # unique-ify
+
+    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
+        ARCH = 'armel',
+    )
+    armel_env['ENV']['PKG_CONFIG_LIBDIR'] = '/usr/lib/arm-linux-gnueabi/pkgconfig'
+    armel_env['MACHS'] = machs
+    armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
+
+    if not armel_env.has_key('DEBUG') or not armel_env['DEBUG']:
+        armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+    armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+
+    SConscript('nidas/SConscript',
+               variant_dir='build_armel',
+               duplicate=0, exports={'env':armel_env})
+    Alias('armel','build_armel')
+    Clean('build_armel','build_armel')
 
 
 Default([BUILDS])

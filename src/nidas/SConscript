@@ -139,7 +139,7 @@ subdirs=Split("""util core dynld apps linux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
-               duplicate=0,exports={'env':env})
+               duplicate=0,exports=['env'])
 
 Alias('lib', subdirs[0:3])
 Clean('lib', subdirs[0:3])

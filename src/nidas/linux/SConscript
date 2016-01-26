@@ -60,10 +60,10 @@ for mach in machs:
         # For the native host, mach is a null string, and
         # modpath is then simply $PREFIX/modules
 
-        # Look for 'KERNELDIR_' + mach.
+        # Look for 'KERNELDIR_' + mach + '_' + arch.
         # If not found, look for KERNELDIR.
         kdir = ''
-        kkey = 'KERNELDIR_' + mach
+        kkey = 'KERNELDIR_' + mach + '_' + arch
         if env.has_key(kkey):
             kdir = env[kkey]
         else:
