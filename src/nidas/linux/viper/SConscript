@@ -39,5 +39,4 @@ headers = Split("""
     viper_dio.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/viper',headers)
+env.Install('$PREFIX/include/nidas/linux/viper',headers)

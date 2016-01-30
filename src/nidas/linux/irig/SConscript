@@ -41,8 +41,7 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
 shared_headers = Split("""
 """)
 
-if arch == '':
-    Alias('install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
+Alias('install',env.Install('$PREFIX/include/nidas/linux/irig', shared_headers))
 
 apps = Split("""
 """)

@@ -243,8 +243,7 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ##
 nodes = []
 nodes.extend(env.SharedLibrary3Install('$PREFIX',lib))
-if arch == '':
-    nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
+nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
 
 Alias('install', nodes)
 Clean('install', nodes)

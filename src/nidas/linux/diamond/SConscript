@@ -48,5 +48,4 @@ headers = Split("""
     ir104.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/diamond',headers)
+env.Install('$PREFIX/include/nidas/linux/diamond',headers)

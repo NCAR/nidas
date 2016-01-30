@@ -43,5 +43,4 @@ headers = Split("""
     lamsx.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/lams',headers)
+env.Install('$PREFIX/include/nidas/linux/lams',headers)

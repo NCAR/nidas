@@ -102,5 +102,4 @@ else:
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)
+env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)

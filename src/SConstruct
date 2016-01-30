@@ -254,7 +254,6 @@ if 'armel' in BUILDS:
     armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
         ARCH = 'armel',
     )
-    armel_env['ENV']['PKG_CONFIG_LIBDIR'] = '/usr/lib/arm-linux-gnueabi/pkgconfig'
     armel_env['MACHS'] = machs
     armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
 

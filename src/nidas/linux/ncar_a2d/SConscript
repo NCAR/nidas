@@ -42,5 +42,4 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
 shared_headers = Split("""
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/ncar_a2d', shared_headers)
+env.Install('$PREFIX/include/nidas/linux/ncar_a2d', shared_headers)

@@ -40,5 +40,4 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
 shared_headers = Split("""
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/mesa', shared_headers)
+env.Install('$PREFIX/include/nidas/linux/mesa', shared_headers)
