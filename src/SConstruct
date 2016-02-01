@@ -142,12 +142,17 @@ if 'host' in BUILDS or 'x86' in BUILDS:
         ARCH = ''
     )
     host_env['MACHS'] = ['']
-    host_env.AppendUnique(CCFLAGS = ['-g', '-fPIE',
+    host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-fstack-protector-strong',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
-    host_env.AppendUnique(LINKFLAGS = ['-fPIE', '-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+
+# hardening option "-pie" in LINKFLAGS results in this error:
+# /usr/bin/ld: /opt/local/lib/libraf++.a(PMSspex.o): relocation R_X86_64_32
+# against `.rodata.str1.1' can not be used when making a shared object; recompile with -fPIC
+
+    host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
 
     exports = {'env':host_env}
 
@@ -260,12 +265,12 @@ if 'armel' in BUILDS:
     )
     armel_env['MACHS'] = machs
     armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
-    armel_env.AppendUnique(CCFLAGS = ['-g', '-fPIE',
+    armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-fstack-protector-strong',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
-    armel_env.AppendUnique(LINKFLAGS = ['-fPIE', '-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if not armel_env.has_key('DEBUG') or not armel_env['DEBUG']:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
