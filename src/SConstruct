@@ -133,6 +133,20 @@ SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 ##
 SConscript("../filters/SConscript",exports={'env':env})
 
+# Check for supported -fstack-protector options in compiler
+def CheckStackProtectorOptions(env):
+    stack_opts = ['-fstack-protector-strong', '-fstack-protector']
+    for opt in stack_opts:
+        test_env = env.Clone()
+        test_env.AppendUnique(CCFLAGS = [opt])
+        conf = Configure(test_env)
+        print('Checking gcc option ' + opt + '...')
+        ok = conf.CheckCC()
+        conf.Finish()
+        if ok:
+            env.AppendUnique(CCFLAGS = [opt])
+            break
+
 ##
 ##  Create the env for building to the host processor...
 ##
@@ -143,10 +157,10 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     )
     host_env['MACHS'] = ['']
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
-            '-fstack-protector-strong',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+    CheckStackProtectorOptions(host_env)
 
 # hardening option "-pie" in LINKFLAGS results in this error:
 # /usr/bin/ld: /opt/local/lib/libraf++.a(PMSspex.o): relocation R_X86_64_32
@@ -199,6 +213,7 @@ if 'arm' in BUILDS:
     )
     arm_env['MACHS'] = machs
     arm_env['PREFIX'] = arm_env['PREFIX'] + '/arm'
+    CheckStackProtectorOptions(arm_env)
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
@@ -236,6 +251,7 @@ if 'armbe' in BUILDS:
     armbe_env['MACHS'] = machs
     armbe_env['PREFIX'] = armbe_env['PREFIX'] + '/armbe',
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
         armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
@@ -265,8 +281,8 @@ if 'armel' in BUILDS:
     )
     armel_env['MACHS'] = machs
     armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
+    CheckStackProtectorOptions(armel_env)
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
-            '-fstack-protector-strong',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
