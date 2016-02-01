@@ -84,7 +84,7 @@ Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
 expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
-Contains /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DaqUser
+Contains /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DacUser
 which can be modified to specify the desired user to run NIDAS real-time data
 acquisition processes.
 
@@ -141,10 +141,6 @@ cd -
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
 
 echo "/opt/nidas/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
-
-install -m 0755 -d $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
-echo "root(0):root(0)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
-echo "root" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/DaqUser
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
@@ -222,7 +218,7 @@ fi
 
 %pre daq
 if [ "$1" -eq 1 ]; then
-    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes"
+    echo "Edit %{_sharedstatedir}/nidas/DacUser to specify the user to run NIDAS processes"
 fi
 
 %pre builduser
@@ -386,7 +382,7 @@ rm -rf $RPM_BUILD_ROOT
 %files daq
 %defattr(0775,root,root,0775)
 %config %{_sysconfdir}/udev/rules.d/99-nidas.rules
-%config(noreplace) %{_sharedstatedir}/nidas/DaqUser
+%config(noreplace) %{_sharedstatedir}/nidas/DacUser
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
 

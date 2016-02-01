@@ -8,6 +8,18 @@ export DH_OPTIONS = -v
 DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
 
+include /usr/share/dpkg/architecture.mk
+
+# To check hardening options. Since we don't pass
+# these to scons, they must be set in src/SConscript.
+# include /usr/share/hardening-includes/hardening.make
+# CFLAGS=$(shell dpkg-buildflags --get CFLAGS)
+# LDFLAGS=$(shell dpkg-buildflags --get LDFLAGS)
+# CFLAGS+=$(HARDENING_CFLAGS)
+# LDFLAGS+=$(HARDENING_LDFLAGS)
+# $(info CFLAGS=$(CFLAGS))
+# $(info LDFLAGS=$(LDFLAGS))
+
 # see FEATURE AREAS in dpkg-buildflags(1)
 #export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
@@ -22,6 +34,9 @@ DEBVERSION := $(shell debver="$(DEBVER)"; echo "$${debver%-*}")
 
 # $(info $(DEBVER))
 # $(info $(DEBVERSION))
+
+$(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
+$(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
 
 ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
     $(info native build)
@@ -42,7 +57,10 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
-
 override_dh_auto_clean:
 	dh_auto_clean -- BUILDS=$(BUILDS)
+
+override_dh_shlibdeps:
+	# dh_shlibdeps -l$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
+	dh_shlibdeps -l$(shell pwd)/debian/nidas-libs/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
 
