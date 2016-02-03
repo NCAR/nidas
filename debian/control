@@ -2,7 +2,7 @@ Source: nidas
 Section: science
 Priority: optional
 Maintainer: Gordon Maclean <maclean@debian-build.eol.ucar.edu>
-Build-Depends: debhelper (>= 9), scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev
+Build-Depends: debhelper (>= 9), scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git
@@ -43,7 +43,7 @@ Description: Package for doing data acquistion with NIDAS
 
 Package: nidas-build
 Architecture: all
-Depends: ${misc:Depends}, scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev
+Depends: ${misc:Depends}, scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
 Description: Meta-package with dependencies for building NIDAS by hand
  Meta-package with dependencies so that users can build NIDAS by hand.
 
