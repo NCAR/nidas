@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 key='<eol-prog@eol.ucar.edu>'
 
 usage() {
@@ -84,15 +86,29 @@ karg=
 if $sign; then
     karg=-k"$key"
 else
-    args+=" -us -uc"
+    args="$args -us -uc"
 fi
 
-rm -f ../nidas*.changes
+rm -f ../nidas_*_$arch.changes
 
 debuild $args "$karg" \
     --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 
+# debuild puts results in parent directory
+cd ..
+
 if [ -n "$repo" ]; then
-    flock $repo reprepro -V -b $repo include jessie ../nidas*.changes
+    umask 0002
+    chngs=nidas_*_$arch.changes 
+    pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
+    flock $repo sh -c "
+        reprepro -V -b $repo remove jessie $pkgs
+        reprepro -V -b $repo deleteunreferenced;
+        reprepro -V -b $repo include jessie $chngs"
+
+    rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
+
+else
+    echo "build results are in $PWD"
 fi
 

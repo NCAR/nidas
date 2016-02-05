@@ -9,13 +9,9 @@ REPO_TAG ?= v1.2
 PREFIX=/opt/nidas
 
 LDCONF = $(DESTDIR)/etc/ld.so.conf.d/nidas-$(DEB_HOST_GNU_TYPE).conf
-PROFSH = $(DESTDIR)/etc/profile.d/nidas.sh
-UDEVRULES = $(DESTDIR)/etc/udev/rules.d/99-nidas.rules
-SYSTEMD = $(DESTDIR)$(PREFIX)/systemd/user/dsm_server.service
 
 LIBDIR = $(DESTDIR)$(PREFIX)/lib/$(DEB_HOST_GNU_TYPE)
 MODDIR = $(DESTDIR)/lib/modules
-VARLIBDIR = $(DESTDIR)/var/lib/nidas
 
 PKGCONFIG = $(DESTDIR)/usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig/nidas.pc
 
@@ -34,8 +30,7 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     SCONSMODDIR = $(DESTDIR)$(PREFIX)/armel/modules
 endif
 
-.PHONY : build install clean scons_install $(LDCONF) $(PROFSH) $(UDEVRULES) $(SYSTEMD) \
-	$(PKGCONFIG) $(VARLIBDIR)
+.PHONY : build install clean scons_install $(LDCONF) $(PKGCONFIG)
 
 $(info DESTDIR=$(DESTDIR))
 $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
@@ -48,32 +43,15 @@ $(LDCONF):
 	@mkdir -p $(@D)
 	echo "/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)" > $@
 
-$(PROFSH):
-	@mkdir -p $(@D)
-	cp pkg_files/root/etc/profile.d/* $(@D)
-
-$(UDEVRULES):
-	@mkdir -p $(@D)
-	cp pkg_files/root/etc/udev/rules.d/* $(@D)
-
-$(SYSTEMD):
-	@mkdir -p $(@D)
-	cp pkg_files/systemd/user/* $(@D)
-
 $(PKGCONFIG): pkg_files/root/usr/lib/pkgconfig/nidas.pc
 	@mkdir -p $(@D)
 	sed -e 's,@PREFIX@,$(PREFIX),g' -e 's/@DEB_HOST_GNU_TYPE@/$(DEB_HOST_GNU_TYPE)/g' -e 's/@REPO_TAG@/$(REPO_TAG)/g' $< > $@
-
-$(VARLIBDIR):
-	@mkdir -p $@
-	cp pkg_files/var/lib/nidas/DacUser $@
-	cp pkg_files/var/lib/nidas/BuildUserGroup $@
 
 scons_install:
 	cd src; \
 	$(SCONS) -j 4 BUILDS=$(BUILDS) REPO_TAG=$(REPO_TAG) PREFIX=$(DESTDIR)$(PREFIX) install
 
-install: scons_install $(LDCONF) $(PROFSH) $(UDEVRULES) $(SYSTEMD) $(PKGCONFIG) $(VARLIBDIR)
+install: scons_install $(LDCONF) $(PKGCONFIG)
 	mkdir -p $(LIBDIR);\
 	mv $(SCONSLIBDIR)/*.so* $(LIBDIR);\
 	if [ -n "$(SCONSBINDIR)" ]; then\
