@@ -37,7 +37,7 @@ $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
 $(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
 
 build:
-	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) REPO_TAG=$(REPO_TAG)
+	cd src; $(SCONS) --config=force -j 4 BUILDS=$(BUILDS) REPO_TAG=$(REPO_TAG)
 
 $(LDCONF):
 	@mkdir -p $(@D)

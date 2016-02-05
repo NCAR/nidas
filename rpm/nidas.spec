@@ -175,7 +175,7 @@ install -m 0664 pkg_files/root/etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/
 cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
-install -m 0664 pkg_files%{_sharedstatedir}/nidas/* $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
+install -m 0664 pkg_files/root%{_sharedstatedir}/nidas/* $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
 
 %post min
 
