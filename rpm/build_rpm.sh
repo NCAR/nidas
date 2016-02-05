@@ -81,7 +81,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
 
     # run git describe on each hash to create a version
     cat << \EOD > $awkcom
-/^[0-9a-f]+/ {
+/^[0-9a-f]{7}/ {
     hash = $0
     cmd = "git describe --match '[vV][0-9]*' " hash " 2>/dev/null"
     res = (cmd | getline version)

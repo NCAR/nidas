@@ -1,0 +1,15 @@
+*.log
+*substvars
+*.debhelper
+nidas/
+nidas-build/
+nidas-buildeol/
+nidas-builduser/
+nidas-daq/
+nidas-dev/
+nidas-doc/
+nidas-libs/
+nidas-min/
+nidas-modules/
+tmp/
+files

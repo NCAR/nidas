@@ -16,15 +16,21 @@ Description: NCAR In-Situ Data Acquistion Software
  Useful on systems that NFS mount /opt/nidas, or do their own builds.
  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
+Package: nidas
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
+Description: NIDAS executable programs
+ NIDAS programs, such as dsm, dsm_server, etc.
+
 Package: nidas-libs
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-min
 Description: NIDAS shareable libraries
  Shareable libraries used by NIDAS, libnidas*.so.x.y
 
 Package: nidas-dev
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
 Description: Headers, library symbolic links and pkg-config for NIDAS
  NIDAS C/C++ headers, shareable library links, pkg-config.
 
@@ -36,7 +42,7 @@ Description: NIDAS Linux kernel modules
 
 Package: nidas-daq
 Architecture: all
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, nidas
 Description: Package for doing data acquistion with NIDAS
  Some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
  /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DaqUser.

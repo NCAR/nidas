@@ -1,7 +1,11 @@
 #!/bin/sh
 
+key='<eol-prog@eol.ucar.edu>'
+
 usage() {
-    echo "Usage: ${1##*/} arch"
+    echo "Usage: ${1##*/} [-s] [-i repository ] arch"
+    echo "-s: sign the package files with $key"
+    echo "-i: install them with reprepro to the repository"
     echo "arch is armel or amd64"
     exit 1
 }
@@ -9,9 +13,34 @@ usage() {
 if [ $# -lt 1 ]; then
     usage $0
 fi
-arch=$1
 
-dir=$(dirname $0)/..
+sign=false
+arch=amd64
+while [ $# -gt 0 ]; do
+    case $1 in
+    -s)
+        sign=true
+        ;;
+    -i)
+        shift
+        repo=$1
+        ;;
+    armel)
+        export CC=arm-linux-gnueabi-gcc
+        arch=$1
+        ;;
+    amd64)
+        arch=$1
+        ;;
+    *)
+        usage $0
+        ;;
+    esac
+    shift
+done
+
+sdir=$(dirname $0)
+dir=$sdir/..
 cd $dir
 
 # This
@@ -30,16 +59,8 @@ cd $dir
 # To check the environment set by dpkg-architecture:
 #   dpkg-architecture -aarmel -c env
 
-case $arch in
-    armel):
-        export CC=arm-linux-gnueabi-gcc
-        ;;
-    amd64)
-        ;;
-    *)
-        usage $0
-        ;;
-esac
+# create changelog
+$sdir/deb_changelog.sh > debian/changelog
 
 # The package tools report that using DEB_BUILD_HARDENING is obsolete,
 # so we set the appropriate compiler and link options in the SConscript
@@ -58,5 +79,20 @@ esac
 #       This seems to be the result of having multiple libraries 
 #       in one package?
 
-debuild -sa -a$arch -k'<eol-prog@eol.ucar.edu>' \
+args="--no-tgz-check -sa -a$arch"
+karg=
+if $sign; then
+    karg=-k"$key"
+else
+    args+=" -us -uc"
+fi
+
+rm -f ../nidas*.changes
+
+debuild $args "$karg" \
     --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
+
+if [ -n "$repo" ]; then
+    flock $repo reprepro -V -b $repo include jessie ../nidas*.changes
+fi
+
