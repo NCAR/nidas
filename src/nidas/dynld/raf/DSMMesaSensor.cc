@@ -316,11 +316,11 @@ throw(n_u::IOException)
             throw n_u::EOFException(fname,"read");
         }
         // Number of bytes in device image portion of file.
-        long ImageLen = (((unsigned long)b[0] << 24) |
-                ((unsigned long)b[1] << 16) |
-                ((unsigned long)b[2] << 8) |
-                (unsigned long)b[3]) ;
-        ILOG(("%s: is a .BIT file, configuration length = %d bytes",
+        unsigned int ImageLen = (((unsigned int)b[0] << 24) |
+                ((unsigned int)b[1] << 16) |
+                ((unsigned int)b[2] << 8) |
+                (unsigned int)b[3]) ;
+        ILOG(("%s: is a .BIT file, configuration length = %u bytes",
                     fname.c_str(),ImageLen));
         /* We leave the file position set to the next byte in the file,
            which should be the first byte of the body of the data image. */
