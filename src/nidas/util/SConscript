@@ -112,9 +112,7 @@ slib = env.StaticLibrary('nidas_util' , objects)
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
 nodes += env.Install('$PREFIX' + '/' + env['ARCHLIBDIR'],slib)
-
-if arch == '':
-    nodes += env.Install('$PREFIX/include/nidas/util',headers)
+nodes += env.Install('$PREFIX/include/nidas/util',headers)
 
 Alias('install',nodes)
 env.Clean('install', nodes)

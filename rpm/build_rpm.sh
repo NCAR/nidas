@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 script=`basename $0`
 dir=`dirname $0`
@@ -81,7 +81,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
 
     # run git describe on each hash to create a version
     cat << \EOD > $awkcom
-/^[0-9a-f]+/ {
+/^[0-9a-f]{7}/ {
     hash = $0
     cmd = "git describe --match '[vV][0-9]*' " hash " 2>/dev/null"
     res = (cmd | getline version)
@@ -107,7 +107,7 @@ EOD
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz \
-            rpm src/SConstruct src/nidas src/build/include \
+            rpm pkg_files src/SConstruct src/nidas src/build/include \
             src/xml || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then

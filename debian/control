@@ -1,0 +1,69 @@
+Source: nidas
+Section: science
+Priority: optional
+Maintainer: Gordon Maclean <maclean@debian-build.eol.ucar.edu>
+Build-Depends: debhelper (>= 9), scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
+Standards-Version: 3.9.6
+Homepage: https://github.com/ncareol/nidas.git
+Vcs-Git: git://github.com/ncareol/nidas.git
+#Vcs-Browser: http://anonscm.debian.org/?p=collab-maint/nidas.git;a=summary
+
+Package: nidas-min
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: NCAR In-Situ Data Acquistion Software
+ Minimal run-time setup for NIDAS, namely /etc/ld.so.conf.d/nidas.conf.
+ Useful on systems that NFS mount /opt/nidas, or do their own builds.
+ Also creates /usr/lib[64]/pkgconfig/nidas.pc.
+
+Package: nidas
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
+Description: NIDAS executable programs
+ NIDAS programs, such as dsm, dsm_server, etc.
+
+Package: nidas-libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-min
+Description: NIDAS shareable libraries
+ Shareable libraries used by NIDAS, libnidas*.so.x.y
+
+Package: nidas-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
+Description: Headers, library symbolic links and pkg-config for NIDAS
+ NIDAS C/C++ headers, shareable library links, pkg-config.
+
+Package: nidas-modules
+Architecture: any
+Depends: ${misc:Depends}
+Description: NIDAS Linux kernel modules
+ Kernel modules for data acquisition cards used by NIDAS.
+
+Package: nidas-daq
+Architecture: all
+Depends: ${misc:Depends}, nidas
+Description: Package for doing data acquistion with NIDAS
+ Some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
+ /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DaqUser.
+
+Package: nidas-build
+Architecture: all
+Depends: ${misc:Depends}, scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
+Description: Meta-package with dependencies for building NIDAS by hand
+ Meta-package with dependencies so that users can build NIDAS by hand.
+
+Package: nidas-builduser
+Architecture: any
+Depends: ${misc:Depends}
+Description: Support specification of owner and group of /opt/nidas
+ Contains /var/lib/nidas/BuildUserGroup, which can be modified to specify the
+ desired user and group owner of /opt/nidas.
+
+Package: nidas-buildeol
+Architecture: any
+Depends: ${misc:Depends}
+Description: Sets ower and group of /opt/nidas to root.eol
+ Overwrites /var/lib/nidas/BuildUserGroup with "root(0):eol(1342)" so that
+ build tree will group writable by eol.
+

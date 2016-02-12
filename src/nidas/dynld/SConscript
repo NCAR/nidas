@@ -124,9 +124,7 @@ Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
 ##
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
-
-if arch == '':
-    nodes += env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
+nodes += env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 
 Alias('install',nodes)
 Clean('install',nodes)

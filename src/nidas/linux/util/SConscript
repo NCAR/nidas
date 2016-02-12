@@ -47,5 +47,4 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
 headers = Split("""
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/filters',headers)
+env.Install('$PREFIX/include/nidas/linux/filters',headers)

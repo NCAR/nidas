@@ -21,6 +21,5 @@ instlibs.extend(env.SharedLibrary3Install('$PREFIX', libwicor))
 
 env.Clean('install',instlibs)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/dynld/iss', headers)
+env.Install('$PREFIX/include/nidas/dynld/iss', headers)
 

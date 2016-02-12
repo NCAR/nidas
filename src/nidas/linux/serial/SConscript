@@ -36,6 +36,5 @@ headers = Split("""
     pcmcom8.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/serial',headers)
+env.Install('$PREFIX/include/nidas/linux/serial',headers)
 

@@ -38,7 +38,6 @@ headers = Split("""
     usbtwod.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/usbtwod',headers)
+env.Install('$PREFIX/include/nidas/linux/usbtwod',headers)
 # env.Program('test/twod', 'test/twod.c')
 

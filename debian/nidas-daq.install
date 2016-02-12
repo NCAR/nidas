@@ -1,0 +1,2 @@
+pkg_files/root/var/lib/nidas/DacUser var/lib/nidas
+pkg_files/root/etc/udev/rules.d/* etc/udev/rules.d

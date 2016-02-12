@@ -94,9 +94,7 @@ for mach in machs:
                    variant_dir=vdir,
                    duplicate=1,exports=['first_mach',{'env':mach_env}])
 
-        # On native host, install the headers
-        if arch == '':
-            env.Install('$PREFIX/include/nidas/linux', headers)
+        env.Install('$PREFIX/include/nidas/linux', headers)
 
         vdirs = [vdirs,vdir]
         first_mach = False

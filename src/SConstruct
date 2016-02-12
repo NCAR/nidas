@@ -133,6 +133,20 @@ SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 ##
 SConscript("../filters/SConscript",exports={'env':env})
 
+# Check for supported -fstack-protector options in compiler
+def CheckStackProtectorOptions(env):
+    stack_opts = ['-fstack-protector-strong', '-fstack-protector']
+    for opt in stack_opts:
+        test_env = env.Clone()
+        test_env.AppendUnique(CCFLAGS = [opt])
+        conf = Configure(test_env)
+        print('Checking gcc option ' + opt + '...')
+        ok = conf.CheckCC()
+        conf.Finish()
+        if ok:
+            env.AppendUnique(CCFLAGS = [opt])
+            break
+
 ##
 ##  Create the env for building to the host processor...
 ##
@@ -142,8 +156,17 @@ if 'host' in BUILDS or 'x86' in BUILDS:
         ARCH = ''
     )
     host_env['MACHS'] = ['']
-    host_env.AppendUnique(CCFLAGS = ["-g"])
+    host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
+            '-Wformat', '-Werror=format-security',
+            '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+    CheckStackProtectorOptions(host_env)
+
+# hardening option "-pie" in LINKFLAGS results in this error:
+# /usr/bin/ld: /opt/local/lib/libraf++.a(PMSspex.o): relocation R_X86_64_32
+# against `.rodata.str1.1' can not be used when making a shared object; recompile with -fPIC
+
+    host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
 
     exports = {'env':host_env}
 
@@ -190,6 +213,7 @@ if 'arm' in BUILDS:
     )
     arm_env['MACHS'] = machs
     arm_env['PREFIX'] = arm_env['PREFIX'] + '/arm'
+    CheckStackProtectorOptions(arm_env)
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
@@ -227,6 +251,7 @@ if 'armbe' in BUILDS:
     armbe_env['MACHS'] = machs
     armbe_env['PREFIX'] = armbe_env['PREFIX'] + '/armbe',
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
         armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
@@ -254,9 +279,14 @@ if 'armel' in BUILDS:
     armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
         ARCH = 'armel',
     )
-    armel_env['ENV']['PKG_CONFIG_LIBDIR'] = '/usr/lib/arm-linux-gnueabi/pkgconfig'
     armel_env['MACHS'] = machs
     armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
+    CheckStackProtectorOptions(armel_env)
+    armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
+            '-Wformat', '-Werror=format-security',
+            '-D_FORTIFY_SOURCE=2'])
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if not armel_env.has_key('DEBUG') or not armel_env['DEBUG']:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])

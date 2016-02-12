@@ -33,6 +33,5 @@ if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
             ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in so)
         ])
 
-        if arch == '':
-            myenv.Install('$PREFIX/include/nidas/dynld/psql', headers)
+        myenv.Install('$PREFIX/include/nidas/dynld/psql', headers)
 

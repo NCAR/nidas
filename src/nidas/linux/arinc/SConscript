@@ -43,8 +43,7 @@ headers = Split("""
     arinc.h
 """)
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/linux/arinc',headers)
+env.Install('$PREFIX/include/nidas/linux/arinc',headers)
 
 
 # Proceed with building the module only if we have the needed settings

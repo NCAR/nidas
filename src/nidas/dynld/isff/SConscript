@@ -44,6 +44,5 @@ headers = Split("""
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
-if arch == '':
-    env.Install('$PREFIX/include/nidas/dynld/isff', headers)
+env.Install('$PREFIX/include/nidas/dynld/isff', headers)
 
