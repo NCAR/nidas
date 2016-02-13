@@ -62,7 +62,7 @@
 #include <linux/fcntl.h>    /* O_ACCMODE */
 #include <linux/ioport.h>
 #include <linux/sched.h>    /* schedule() */
-#include <asm/io.h>		/* outb, inb */
+#include <linux/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
 // #include <linux/delay.h>     /* msleep */
 
@@ -77,7 +77,7 @@
 
 static dev_t emerald_device = MKDEV(0,0);
 
-static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
+static unsigned long ioport_base = (unsigned long) SYSTEM_ISA_IOPORT_BASE;
 
 static unsigned int ioports[EMERALD_MAX_NR_DEVS] = {0,0,0,0};
 static int emerald_nr_addrs = 0;
@@ -934,13 +934,6 @@ static int __init emerald_init_module(void)
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
-                KLOG_DEBUG("addr=0x%lx\n",ebrd->addr);
-                if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
-                        result = -EBUSY;
-                        goto fail;
-                }
-                ebrd->addr = addr;
-                mutex_init(&ebrd->brd_mutex);
 
                 /* create device name for printk messages.
                  * The actual device file used to open the device is
@@ -948,6 +941,15 @@ static int __init emerald_init_module(void)
                  * match this name.
                  */
                 sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
+
+                if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
+                        KLOG_ERR("%s: request_region(%#lx,%d,\"emerald\") failed\n",
+                                ebrd->deviceName, addr, EMERALD_IO_REGION_SIZE);
+                        result = -EBUSY;
+                        goto fail;
+                }
+                ebrd->addr = addr;
+                mutex_init(&ebrd->brd_mutex);
 
                 /*
                  * Read ioport and irq configuration from EEPROM and see if
