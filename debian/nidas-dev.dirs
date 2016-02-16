@@ -1,5 +1,0 @@
-opt/nidas
-opt/nidas/include
-opt/nidas/lib
-opt/nidas/lib/*
-usr/lib/*/pkgconfig
