@@ -89,7 +89,9 @@ else
     args="$args -us -uc"
 fi
 
-rm -f ../nidas_*_$arch.changes
+# clean old results
+rm -f ../nidas_*.tar.xz ../nidas_*.dsc
+rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
 debuild $args "$karg" \
     --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames

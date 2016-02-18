@@ -6,7 +6,7 @@
 # such as 1.2-14, because that indicates there is an upstream
 # tarball *-1.2.orig.tar.gz.
 # So when git describe returns v1.2-14-g..., that gets converted
-# to a debian version 1.2.14.
+# to a debian version 1.2+14.
 
 awkcom=`mktemp /tmp/${script}_XXXXXX.awk`
 trap "{ rm -f $awkcom; }" EXIT
@@ -38,8 +38,8 @@ cat << \EOD > $awkcom
     else {
         # print "gitdesc=" gitdesc
         hash = gensub(".*-g([0-9a-f]+)","\\1",1,gitdesc)
-        # convert v2.0-14-g9abcdef to 2.0.14
-        version = gensub("^v([^-]+)-([0-9]+)-.*$","\\1.\\2",1,gitdesc)
+        # convert v2.0-14-g9abcdef to 2.0+14
+        version = gensub("^v([^-]+)-([0-9]+)-.*$","\\1+\\2",1,gitdesc)
         # print "version=" version ",hash=" hash
     }
 }
