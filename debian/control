@@ -19,8 +19,8 @@ Description: NCAR In-Situ Data Acquistion Software
 Package: nidas
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
-Description: NIDAS executable programs
- NIDAS programs, such as dsm, dsm_server, etc.
+Description: Executable programs for NIDAS
+ Executable programs for NIDAS, such as dsm, dsm_server, etc.
 
 Package: nidas-libs
 Architecture: any

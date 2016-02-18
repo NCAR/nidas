@@ -68,13 +68,6 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	    mv $(SCONSMODDIR)/titan/* $(MODDIR)/$(VIPER_KERN)/nidas;\
 	fi
 
-	# 
-	# look in /usr/src/linux-headers-3.16.0-titan2
-	# for "titan", grab string after linux-headers-
-	# move /opt/nidas/arm/modules/titan to
-	# /lib/modules/3.16.0-titan2/nidas
-	# Do depmod -a in postinst
-
 clean:
 	# Specify all BUILDS in the clean, since we don't want
 	# other architecture binaries in the package.  Also have to clean
