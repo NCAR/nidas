@@ -1,0 +1,74 @@
+#!/bin/sh
+
+# set the "mode" of an emerald serial port to 232,422,485 or 485 no-echo.
+
+usage() {
+    echo "usage: ${0##*/} port [ mode ]"
+    echo "port is an Emerald serial port 5-20"
+    echo "mode:  232, 422, 485 485ne (ne=no echo)"
+}
+
+if [ $# -lt 1 ]; then
+    usage
+    exit 1
+fi
+
+port=$1
+shift
+
+if [ $port -lt 5 -o $port -gt 20 ]; then
+    usage
+    exit 1
+fi
+
+# /dev/ttyS5 is first port on first card
+
+# emerald card
+en=$((($port - 5) / 8))
+
+# port on card
+pn=$((($port - 5) % 8))
+
+# echo "en=$en, pn=$pn"
+
+if [ $# -gt 0 ]; then
+    mode=$1
+    shift
+
+    case $mode in
+    232)
+        m=0
+        ;;
+    422)
+        m=1
+        ;;
+    485)
+        m=2
+        ;;
+    485ne)
+        m=3
+        ;;
+    *)
+    	echo "unknown mode $mode, should be 232,422,485 or 485ne"
+    	exit 1
+    	;;
+    esac
+
+    echo "Setting /dev/ttyS$port to $m"
+    set_emerald -p /dev/emerald$en $pn $m
+    if [ $? -ne 0 ]; then
+        echo "Perhaps this emerald is not an 8P?"
+        exit 1
+    fi    
+else
+    modes=(232 422 485 485ne)
+    m=$(set_emerald -p /dev/emerald$en $pn)
+    if [ $? -ne 0 ]; then
+        echo "Perhaps this emerald is not an 8P?"
+        exit 1
+    fi    
+    echo "/dev/ttyS$port is ${modes[$m]}"
+fi
+
+
+

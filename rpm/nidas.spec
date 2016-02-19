@@ -99,7 +99,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
 Summary: Package for building NIDAS for the native architecture systems with scons
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons nidas-builduser
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 Obsoletes: nidas-x86-build <= 1.0
@@ -162,6 +162,9 @@ Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
 EOD
+
+install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
+install -m 0775 pkg_files/opt/nidas/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 install -m 0775 pkg_files/root/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
@@ -241,10 +244,6 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
     # where user and group are alphanumeric names, uid and gid are numeric ids.
     # Also accept a dot betwee user and group.
     delim=:
-    if ! grep -F -q "$delim" %{_sharedstatedir}/nidas/BuildUserGroup; then
-        grep -F -q "." %{_sharedstatedir}/nidas/BuildUserGroup && delim=.
-    fi
-
     user=`cut -d "$delim" -f 1 %{_sharedstatedir}/nidas/BuildUserGroup`
     group=`cut -d "$delim" -f 2 %{_sharedstatedir}/nidas/BuildUserGroup`
 
@@ -285,9 +284,9 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
 
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
-             echo "trigger, doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
-            /usr/sbin/setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
-            /usr/sbin/setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
+            echo "trigger, doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
+            setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
+            setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
         fi
     fi
 fi
@@ -333,6 +332,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/nidas_udp_relay
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
+%{nidas_prefix}/scripts/*
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh

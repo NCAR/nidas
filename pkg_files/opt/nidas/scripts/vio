@@ -1,0 +1,63 @@
+#!/bin/sh
+
+# shortcut script for controlling digital I/O lines
+# on Viper CPU card.
+
+usage ()
+{
+    local script=${0##*/}
+    echo "$script n val"
+    echo "n: port number, 0-7 for digital I/O ports on a Viper"
+    echo "val=0: turn digital output line off"
+    echo "val=1: turn digital output line on"
+    echo "If val not specified, report current input (not output) line"
+    echo "Example:   $script 2 1"
+    echo "With a Viper interface panel, the Viper outputs are wired to control these FETS:
+port    FET
+0       aux power
+1       ttyS1
+2       ttyS2
+3       ttyS3
+4       ttyS4
+5       eth0
+6       USB
+7       DC-DC"
+    echo "With a Titan interface panel, the Viper outputs are wired to control these FETS:
+port    FET
+0       ttyS4
+1       ttyS3
+2       ttyS2
+3       ttyS1
+4       eth0
+5       +5V
+6       ttyS0
+7       N/C"
+    exit 1
+}
+
+[ $# -lt 1 ] && usage
+
+case $1 in
+[0-9]*)
+    port=$1
+    shift
+    ;;
+*)
+    usage
+    ;;
+esac
+
+if [ $# -ge 1 ]; then
+  case $1 in
+  0|1)
+      val=$1
+      shift
+      ;;
+  *)
+      usage
+      ;;
+  esac
+fi
+
+viper_dio /dev/viper_dio0 $port $val
+

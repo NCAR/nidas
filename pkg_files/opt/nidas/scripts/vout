@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# script for controlling analog output pins
+# on the Diamond MMAT cards (/dev/dmmat_d2a0, and /dev/dmmat_d2a1).
+# Intended for bench testing.
+
+usage() {
+    echo "usage: $0 p v p v p v ..."
+    echo "where p is an output pin number (0-7) and v is a voltage 0-5"
+    exit 1
+}
+
+[ $# -eq 0 ] && usage
+
+# pins 0-3 are on the first board
+# pins 4-7 are on the second board
+# One can control all pins 0-7 via /dev/dmmat_d2a0
+# (or pins 4-7 are 0-3 on /dev/dmmat_d2a1)
+
+dev=/dev/dmmat_d2a0
+args=()
+
+while [ $# -gt 1 ]; do
+    
+    case $1 in
+        [0-7])
+            args=(${args[*]} $1)
+            shift
+            args=(${args[*]} $1)
+            shift
+            ;;
+        *)
+            usage
+            ;;
+
+    esac
+done
+
+if [ ${#args[*]} -gt 0 ]; then
+    ck_aout $dev ${args[*]}
+fi

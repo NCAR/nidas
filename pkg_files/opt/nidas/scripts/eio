@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# shortcut script for controlling digital I/O lines
+# on an Emerald serial card
+
+usage ()
+{
+    local script=${0##*/}
+    echo "$script n val"
+    echo "n: emerald serial port number, 5 -99"
+    echo "val=0: turn digital I/O line off"
+    echo "val=1: turn digital I/O line on"
+    echo "If val not specified, report current setting"
+    echo "Example:   $script 6 1"
+    exit 1
+}
+
+[ $# -lt 1 ] && usage
+
+case $1 in
+[0-9]*)
+    port=$1
+    shift
+    ;;
+*)
+    usage
+    ;;
+esac
+
+if [ $# -ge 1 ]; then
+  case $1 in
+  0|1)
+      val=$1
+      shift
+      ;;
+  *)
+      usage
+      ;;
+  esac
+fi
+
+if [ $port -lt 5 ]; then
+    echo "use a port number of 5 or greater to talk to Emerald serial ports"
+else
+    emerald_dio /dev/ttyD$port $val
+fi
+

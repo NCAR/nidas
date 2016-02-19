@@ -1,4 +1,5 @@
 opt/nidas/bin/*
 pkg_files/systemd/user/* opt/nidas/systemd/user
-pkg_files/root/etc/profile.d/* etc/profile.d/nidas.sh
+pkg_files/root/etc/profile.d/* etc/profile.d
+pkg_files/opt/nidas/scripts/* opt/nidas/scripts
 

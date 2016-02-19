@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# shortcut script for controlling relays on a Diamond IR104
+
+usage ()
+{
+    local script=${0##*/}
+    echo "Usage:"
+    echo "$script -h"
+    echo "    Show this help"
+    echo "$script n val"
+    echo "    n: ir104 relay number, 0 -19"
+    echo "    val=0: turn relay off"
+    echo "    val=1: turn relay on"
+    echo "    If val not specified, report current setting"
+    echo "    Example:   $0 6 1"
+    echo "$script 0xHHHHH"
+    echo "    Set relays to hex bit value: 0x0=all off, 0xfffff=all on"
+    echo "    0xa3=relays 0,1,5 and 7 on, others off"
+    echo "$script"
+    echo "    Query current relay values, report back in hex"
+    exit 1
+}
+
+if [ $# -gt 0 ]; then
+
+    case $1 in
+    [0-9]*)
+        relay=$1
+        shift
+        ;;
+    *)
+        usage
+        ;;
+    esac
+fi
+
+if [ $# -ge 1 ]; then
+  case $1 in
+  0|1)
+      val=$1
+      shift
+      ;;
+  *)
+      usage
+      ;;
+  esac
+fi
+
+ir104 /dev/ir104_0 $relay $val
+
