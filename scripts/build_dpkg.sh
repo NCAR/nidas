@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
@@ -84,6 +84,10 @@ $sdir/deb_changelog.sh > debian/changelog
 args="--no-tgz-check -sa -a$arch"
 karg=
 if $sign; then
+    if [ -z "$GPG_AGENT_INFO" -a -f $HOME/.gpg-agent-info ]; then
+        . $HOME/.gpg-agent-info
+        export GPG_AGENT_INFO
+    fi
     karg=-k"$key"
 else
     args="$args -us -uc"

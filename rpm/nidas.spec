@@ -84,9 +84,9 @@ Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
 expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
-Contains /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DacUser
-which can be modified to specify the desired user to run NIDAS real-time data
-acquisition processes.
+Contains /etc/init.d/{dsm,dsm_server} boot scripts.
+Edit /etc/default/nidas-daq to specify the desired user
+to run NIDAS real-time data acquisition processes.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
@@ -180,6 +180,8 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 install -m 0755 -d $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
 install -m 0664 pkg_files/root%{_sharedstatedir}/nidas/* $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
 
+install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
+install -m 0664 pkg_files/root/etc/default/nidas-daq $RPM_BUILD_ROOT%{_sysconfdir}/default
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
@@ -224,7 +226,7 @@ fi
 
 %pre daq
 if [ "$1" -eq 1 ]; then
-    echo "Edit %{_sharedstatedir}/nidas/DacUser to specify the user to run NIDAS processes"
+    echo "Edit %{_sysconfdir}/default/nidas-daq to set the DAQ_USER and DAQ_GROUP"
 fi
 
 %pre builduser
@@ -385,9 +387,9 @@ rm -rf $RPM_BUILD_ROOT
 %files daq
 %defattr(0775,root,root,0775)
 %config %{_sysconfdir}/udev/rules.d/99-nidas.rules
-%config(noreplace) %{_sharedstatedir}/nidas/DacUser
-%config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
-%config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
+%config(noreplace) %{_sysconfdir}/default/nidas-daq
+%config(noreplace) %{_sysconfdir}/init.d/dsm_server
+%config(noreplace) %{_sysconfdir}/init.d/dsm
 
 
 %files devel

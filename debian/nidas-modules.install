@@ -1,2 +1,0 @@
-lib/modules/*/nidas/*.ko
-pkg_files/root/etc/modprobe.d/diamond.conf etc/modprobe.d
