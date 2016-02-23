@@ -3,8 +3,8 @@
 # Provides:          emerald
 # Required-Start:    $local_fs $network $remote_fs $syslog
 # Required-Stop:     $local_fs $network $remote_fs $syslog
-# Default-Start:
-# Default-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
 # Short-Description: Load kernel module for Emerald serial card, create its device files
 # Description:       Diamond Systems Emerald is an 8-port PC104 serial communications card.
 #                    The emerald kernel module provides a device interface for each card.
@@ -106,6 +106,7 @@ create_emerald() {
         emajor=$(fgrep emerald /proc/devices | head -n 1 | cut -d\  -f1)
         rm -f $tmpdevdir/emerald0
         mknod $tmpdevdir/emerald0 c $emajor 0
+        chmod 0666 $tmpdevdir/emerald0
         return 0
 }
 
@@ -126,7 +127,10 @@ get_nboards() {
         local brd
         for (( brd = 0; brd < $NBOARDS; brd++ )); do
                 local dev=emerald$brd
-                [ -c $tmpdevdir/$dev ] || mknod $tmpdevdir/$dev c $emajor $eminor
+                if ! [ -c $tmpdevdir/$dev ]; then
+                    mknod $tmpdevdir/$dev c $emajor $eminor
+                    chmod 0666 $tmpdevdir/$dev
+                fi
                 # symbolic link on /dev
                 [ -h /dev/$dev ] || ln -s $tmpdevdir/$dev /dev
                 chmod 666 $tmpdevdir/$dev
@@ -228,13 +232,18 @@ create_ports()
                                 portval=$(($port))
                                 if [ $portval -ge 256 -a $portval -le 1016 ]; then
                                         tty=/dev/ttyS$ttynum
-                                        [ -c $tty ] || mknod $tty c $tmajor $tminor
+                                        if ! [ -c $tty ]; then
+                                            mknod $tty c $tmajor $tminor
+                                            chmod 0666 $tty
+                                        fi
 
                                         # device for accessing the digital out pin
                                         # associated with a port on the emerald
                                         dio=ttyD$ttynum
-                                        [ -c $tmpdir/$dio ] || mknod $tmpdir/$dio c $emajor $eminor
-                                        [ -h /dev/$dio ] || ln -s $tmpdir/$dio /dev
+                                        if ! [ -c $tmpdevdir/$dio ]; then
+                                            mknod $tmpdevdir/$dio c $emajor $eminor
+                                            chmod 0666 $tmpdevdir/$dio
+                                        fi
 
                                         portstr=`printf "%#x" $(( $baseaddr + $port ))`
                                         nirq=${isairqs[$irq]}
@@ -313,7 +322,7 @@ case "$1" in
 	esac
 	;;
   status)
-        lsmod $NAME && exit 0 || exit $?
+        modprobe $NAME && exit 0 || exit $?
 	;;
   #reload|force-reload)
 	#

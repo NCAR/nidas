@@ -84,7 +84,6 @@ Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
 expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
-Contains /etc/init.d/{dsm,dsm_server} boot scripts.
 Edit /etc/default/nidas-daq to specify the desired user
 to run NIDAS real-time data acquisition processes.
 
@@ -166,8 +165,8 @@ EOD
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files/opt/nidas/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 
-install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
-install -m 0775 pkg_files/root/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
+# install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
+# install -m 0775 pkg_files/root/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0664 pkg_files/root/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
@@ -388,8 +387,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(0775,root,root,0775)
 %config %{_sysconfdir}/udev/rules.d/99-nidas.rules
 %config(noreplace) %{_sysconfdir}/default/nidas-daq
-%config(noreplace) %{_sysconfdir}/init.d/dsm_server
-%config(noreplace) %{_sysconfdir}/init.d/dsm
+# %config(noreplace) %{_sysconfdir}/init.d/dsm_server
+# %config(noreplace) %{_sysconfdir}/init.d/dsm
 
 
 %files devel
