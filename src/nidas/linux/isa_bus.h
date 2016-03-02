@@ -45,13 +45,19 @@
 #include <asm/arch/viper.h>
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+#define SYSTEM_ISA_IOPORT_BASE 0
+#elif defined(VIPER_PC104IO_BASE)
 #define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
+#endif
+
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
 #define ISA_16BIT_ADDR_OFFSET 0
 /*
- * Special versions of 16 bit I/O operations, that add an address
- * offset as necessary on a given CPU. See VULCAN section below
+ * Special versions of 16 bit I/O operations, that can an address
+ * offset as necessary on a given CPU. See VULCAN section below.
+ * Offset is not needed on VIPER.
  */
 #define inw_16o(a)        inw(a)
 #define insw_16o(a,p,n)   insw(a,p,n)
@@ -104,7 +110,7 @@
 #else
 
 /* Starting in kernel 2.6.35 the viper maps ISA irq 3,4,5,...
- * to system irqs 3,4,5,...  How about that! They're equal.
+ * to system irqs 3,4,5,...  How about that! Simple.
  * PXA_ISA_IRQ(0) is 0.
  * See linux-source_2.6.35.../arch/arm/mach-pxa/viper.c.
  * Return -1 if interrupt is not available.
@@ -199,6 +205,7 @@
 /*
  * Special versions of 16 bit I/O operations, that add an address
  * offset as necessary on a given CPU. See VULCAN section.
+ * Offset is not needed on VIPER.
  */
 #define inw_16o(a)        inw(a)
 #define insw_16o(a,p,n)   insw(a,p,n)
@@ -206,10 +213,7 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
 /* The titan maps ISA irqs 3,4,5,... to system irqs 3,4,5,...
- * How about that! They're equal.
  * PXA_ISA_IRQ(0) is 0.
- * See linux-source_2.6.35.../arch/arm/mach-pxa/titan.c.
- * Return -1 if interrupt is not available.
  */
 #define GET_SYSTEM_ISA_IRQ(x) \
 ({                                          \
