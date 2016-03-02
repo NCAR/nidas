@@ -11,6 +11,11 @@ nidas-doc/
 nidas-libs/
 nidas-min/
 nidas-modules/
+nidas-modules-titan/
+nidas-modules-viper/
+nidas-titan/
+nidas-viper/
 tmp/
 files
 changelog
+

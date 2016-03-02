@@ -1,7 +1,7 @@
 Source: nidas
 Section: science
 Priority: optional
-Maintainer: Gordon Maclean <maclean@debian-build.eol.ucar.edu>
+Maintainer: Gordon Maclean <maclean@ucar.edu>
 Build-Depends: debhelper (>= 9), scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
@@ -72,4 +72,16 @@ Depends: ${misc:Depends}
 Description: Sets ower and group of /opt/nidas to root.eol
  Overwrites /var/lib/nidas/BuildUserGroup with "root(0):eol(1342)" so that
  build tree will group writable by eol.
+
+Package: nidas-titan
+Architecture: armel
+Depends:  nidas, nidas-modules-titan
+Description: Meta-package for installation of NIDAS onto a Eurotech Titan
+ Metapackage with sufficient dependencies to run NIDAS on a Eurotech Titan
+
+Package: nidas-viper
+Architecture: armel
+Depends:  nidas, nidas-modules-viper
+Description: Meta-package for installation of NIDAS onto a Eurotech Viper
+ Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
 
