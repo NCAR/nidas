@@ -1,2 +1,2 @@
-pkg_files/root/etc/modprobe.d/diamond.conf etc/modprobe.d/diamond.conf 
+pkg_files/root/etc/modprobe.d/diamond.conf etc/modprobe.d
 lib/modules/*-viper*/nidas/*.ko

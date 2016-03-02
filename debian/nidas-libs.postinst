@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# postinst script for nidas-modules
+# postinst script for nidas-libs
 #
 # see: dh_installdeb(1)
 
