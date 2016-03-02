@@ -8,6 +8,7 @@ usage() {
     echo "Usage: ${1##*/} [-s] [-i repository ] arch"
     echo "-s: sign the package files with $key"
     echo "-i: install them with reprepro to the repository"
+    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackate"
     echo "arch is armel or amd64"
     exit 1
 }
@@ -18,6 +19,7 @@ fi
 
 sign=false
 arch=amd64
+args="--no-tgz-check -sa"
 while [ $# -gt 0 ]; do
     case $1 in
     -s)
@@ -25,6 +27,10 @@ while [ $# -gt 0 ]; do
         ;;
     -i)
         shift
+        repo=$1
+        ;;
+    -n)
+        args="$args -nc -F"
         repo=$1
         ;;
     armel)
@@ -40,6 +46,8 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+args="$args -a$arch"
 
 sdir=$(dirname $0)
 dir=$sdir/..
@@ -81,7 +89,6 @@ $sdir/deb_changelog.sh > debian/changelog
 #       This seems to be the result of having multiple libraries 
 #       in one package?
 
-args="--no-tgz-check -sa -a$arch"
 karg=
 if $sign; then
     if [ -z "$GPG_AGENT_INFO" -a -f $HOME/.gpg-agent-info ]; then
@@ -97,7 +104,9 @@ fi
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
-debuild $args "$karg" \
+# export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
+
+debuild $args "$karg" -F \
     --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 
 # debuild puts results in parent directory

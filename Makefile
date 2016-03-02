@@ -1,5 +1,6 @@
 #
-# Makefile which invokes scons in the src directory.
+# Makefile which invokes scons in the src directory to build nidas.
+# 
 # This simplifies the debian packaging, primarily so that
 # $DESTDIR is known.
 #
@@ -65,7 +66,7 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	fi
 	if [ -n "$(VIPER_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(VIPER_KERN)/nidas;\
-	    mv $(SCONSMODDIR)/titan/* $(MODDIR)/$(VIPER_KERN)/nidas;\
+	    mv $(SCONSMODDIR)/viper/* $(MODDIR)/$(VIPER_KERN)/nidas;\
 	fi
 
 clean:

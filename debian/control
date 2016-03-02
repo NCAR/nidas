@@ -34,11 +34,17 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, nidas-libs
 Description: Headers, library symbolic links and pkg-config for NIDAS
  NIDAS C/C++ headers, shareable library links, pkg-config.
 
-Package: nidas-modules
+Package: nidas-modules-titan
 Architecture: any
 Depends: ${misc:Depends}
 Description: NIDAS Linux kernel modules
- Kernel modules for data acquisition cards used by NIDAS.
+ NIDAS kernel modules, built for Eurotech Titan, running Debian armel
+
+Package: nidas-modules-viper
+Architecture: any
+Depends: ${misc:Depends}
+Description: NIDAS Linux kernel modules
+ NIDAS kernel modules, built for Eurotech Viper, running Debian armel
 
 Package: nidas-daq
 Architecture: all
