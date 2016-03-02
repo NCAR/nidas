@@ -4,7 +4,7 @@
 ##
 ##  Import the build environment.
 ##
-Import(['env'])
+Import(['env','first_mach'])
 arch = env['ARCH']  # empty string for native builds
 
 import re
@@ -43,7 +43,8 @@ headers = Split("""
     arinc.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux/arinc',headers)
+if first_mach:
+    env.Install('$PREFIX/include/nidas/linux/arinc',headers)
 
 
 # Proceed with building the module only if we have the needed settings

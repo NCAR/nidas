@@ -66,9 +66,9 @@ if 'armbe' in BUILDS:
              '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
 
 if 'armel' in BUILDS:
-    opts.Add('KERNELDIR_viper_armel', 'path to linux kernel source for Viper/armel:',
+    opts.Add('KERNELDIR_viper_armel', 'kernel headers for Viper/armel. See Debian package linux-headers-3.16.0-viper2:armel',
              '/usr/src/linux-headers-3.16.0-viper2')
-    opts.Add('KERNELDIR_titan_armel', 'path to linux kernel source for Titan/armel:',
+    opts.Add('KERNELDIR_titan_armel', 'kernel headers for Titan/armel. See Debian package linux-headers-3.16.0-titan2:armel',
              '/usr/src/linux-headers-3.16.0-titan2')
 
 opts.Update(env)
@@ -267,8 +267,8 @@ if 'armbe' in BUILDS:
 if 'armel' in BUILDS:
     print "Setting up for armel build ..."
 
-    # supported machine types for armel. Add viper to "all" when ready
-    amachs = { 'all': ['titan'], 'viper':['viper'], 'titan': ['titan']}
+    # supported machine types for armel.
+    amachs = { 'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']}
     # build list of machine types to build from MACHS="x y z" command line
     machs = []
     for m in MACHS:

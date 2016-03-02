@@ -5,7 +5,7 @@
 ##
 ##  Import the build environment.
 ##
-Import(['env'])
+Import(['env','first_mach'])
 arch = env['ARCH']  # empty string for native builds
 
 # The Makefile must be listed in the source dependencies
@@ -48,4 +48,5 @@ headers = Split("""
     ir104.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux/diamond',headers)
+if first_mach:
+    env.Install('$PREFIX/include/nidas/linux/diamond',headers)

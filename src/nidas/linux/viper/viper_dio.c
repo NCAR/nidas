@@ -41,7 +41,7 @@ Original author:	Gordon Maclean
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
 #include <mach/hardware.h>
-#include <mach/gpio.h>
+#include <linux/gpio.h>
 #include <mach/pxa2xx-regs.h>
 #else
 #include <asm/arch-pxa/hardware.h>

@@ -5,7 +5,7 @@
 ##
 ##  Import the build environment.
 ##
-Import(['env'])
+Import(['env','first_mach'])
 mach = env['MACH']
 arch = env['ARCH']  # empty string for native builds
 
@@ -39,4 +39,5 @@ headers = Split("""
     viper_dio.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux/viper',headers)
+if first_mach:
+    env.Install('$PREFIX/include/nidas/linux/viper',headers)
