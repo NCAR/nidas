@@ -97,7 +97,8 @@ for mach in machs:
         env.Install('$PREFIX/include/nidas/linux', headers)
 
         vdirs = [vdirs,vdir]
-        first_mach = False
+
+    first_mach = False
 
 # if arch != '':
 #     Alias(arch,vdirs)
