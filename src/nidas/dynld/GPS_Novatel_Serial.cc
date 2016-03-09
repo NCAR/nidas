@@ -91,7 +91,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
     float latdev=floatNAN, londev=floatNAN, altdev=floatNAN, und, sol_age;
     int nsat;
-    char refid[4];
+    int refid;
     const char *valid = 0;
 
     int iout = 0;
@@ -158,9 +158,8 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 18:        // Base station ID (1008?)
-            if (sscanf(input,"%s",refid) == 1) 
-                dout[iout++] = double(atoi(refid));
-                //dout[iout++] = double(refid);
+            if (sscanf(input,"\"%d", &refid) == 1) 
+                dout[iout++] = double(refid);
             else dout[iout++] = doubleNAN;
             break;
 
