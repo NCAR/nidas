@@ -349,7 +349,6 @@ rm -rf $RPM_BUILD_ROOT
 # %config(noreplace) %{_sysconfdir}/init.d/dsm_server
 # %config(noreplace) %{_sysconfdir}/init.d/dsm
 
-
 %files devel
 %defattr(0664,root,root,2775)
 %{nidas_prefix}/include/nidas/Config.h
@@ -367,11 +366,7 @@ rm -rf $RPM_BUILD_ROOT
 %config %{_libdir}/pkgconfig/nidas.pc
 
 %files build
-
-%files build
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,-,-) %{_sysconfdir}/default/nidas-build
-
-%files buildeol
 
 %changelog
