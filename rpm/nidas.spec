@@ -250,12 +250,10 @@ if [ -f $cf ]; then
 fi
 
 %post buildeol
-if [ "$1" -eq 1 ]; then
-    cf=%{_sysconfdir}/default/nidas-build 
-    . $cf
-    if [ "$BUILD_GROUP" != eol ]; then
-        sed -i -r -e 's/^ *BUILD_GROUP=.*/BUILD_GROUP=eol/g' $cf
-    fi
+cf=%{_sysconfdir}/default/nidas-build 
+. $cf
+if [ "$BUILD_GROUP" != eol ]; then
+    sed -i -r -e 's/^ *BUILD_GROUP=.*/BUILD_GROUP=eol/g' $cf
 fi
 
 %clean
