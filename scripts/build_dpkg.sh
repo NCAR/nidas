@@ -8,7 +8,7 @@ usage() {
     echo "Usage: ${1##*/} [-s] [-i repository ] arch"
     echo "-s: sign the package files with $key"
     echo "-i: install them with reprepro to the repository"
-    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackate"
+    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
     echo "arch is armel or amd64"
     exit 1
 }

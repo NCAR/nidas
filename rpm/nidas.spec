@@ -35,7 +35,7 @@ Obsoletes: nidas <= 1.0, nidas-run
 Requires: xerces-c xmlrpc++
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
-that NFS mount /opt/nidas, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
+that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
 %package libs
 Summary: NIDAS shareable libraries
@@ -97,31 +97,21 @@ Prefix: %{nidas_prefix}
 NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
-Summary: Package for building NIDAS for the native architecture systems with scons
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons nidas-builduser
+Summary: Package for building NIDAS by hand
 Group: Applications/Engineering
-Prefix: %{nidas_prefix}
-Obsoletes: nidas-x86-build <= 1.0
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+Obsoletes: nidas-builduser <= 1.2-189
 %description build
-Requirements for building NIDAS on x86 systems with scons. Changes ownership of
-/opt/nidas to the user and group specifid in /var/lib/nidas/BuildUserGroup,
-which can first be installed from builduser package, then modified
-to match a user and group who will be building NIDAS.
-
-%package builduser
-Summary: User and group owner of %{nidas_prefix}
-Group: Applications/Engineering
-Requires: nidas-build
-%description builduser
-Contains /var/lib/nidas/BuildUserGroup, which can be modified to specify the
-desired user and group owner of /opt/nidas.
+Contains software dependencies needed to build NIDAS by hand,
+and /etc/default/nidas-build containing the desired user and group owner
+of %{nidas_prefix}.
 
 %package buildeol
 Summary: Set build user and group to nidas.eol.
 Group: Applications/Engineering
-Requires: nidas-builduser
+Requires: nidas-build
 %description buildeol
-Overwrites /var/lib/nidas/BuildUserGroup with "root(0):eol(1342)" so that build tree will group writable by eol.
+Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be group writable by eol.
 
 %prep
 %setup -q -c
@@ -139,7 +129,7 @@ cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
 
-echo "/opt/nidas/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
+echo "%{nidas_prefix}/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
@@ -163,7 +153,7 @@ Requires: xerces-c,xmlrpcpp
 EOD
 
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
-install -m 0775 pkg_files/opt/nidas/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
+install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 
 # install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 # install -m 0775 pkg_files/root/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
@@ -176,11 +166,8 @@ install -m 0664 pkg_files/root/etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/
 
 cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
-install -m 0755 -d $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
-install -m 0664 pkg_files/root%{_sharedstatedir}/nidas/* $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
-
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
-install -m 0664 pkg_files/root/etc/default/nidas-daq $RPM_BUILD_ROOT%{_sysconfdir}/default
+install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
@@ -228,64 +215,34 @@ if [ "$1" -eq 1 ]; then
     echo "Edit %{_sysconfdir}/default/nidas-daq to set the DAQ_USER and DAQ_GROUP"
 fi
 
-%pre builduser
+%pre build
 if [ $1 -eq 1 ]; then
-    echo "Edit user(uid):group(gid) in %{_sharedstatedir}/nidas/BuildUserGroup.
-Installation of nidas packages will then create the user and group and set ownership of %{nidas_prefix}."
+    echo "Set BUILD_USER and BUILD_GROUP in %{_sysconfdir}/default/nidas-build.
+Files installed in %{nidas_prefix} will then be owned by that user and group"
 fi
 
-%triggerin -n nidas-builduser -- nidas nidas-libs nidas-devel nidas-modules nidas-build nidas-buildeol 
+%triggerin -n nidas-build -- nidas nidas-libs nidas-devel nidas-modules nidas-buildeol 
 
 [ -d %{nidas_prefix} ] || mkdir -p -m u=rwx,g=rwxs,o=rx %{nidas_prefix}
 
-if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
+cf=%{_sysconfdir}/default/nidas-build
 
-    # read BuildUserGroup, containing one line with the following format:
-    #   user(uid):group(gid)
-    # where user and group are alphanumeric names, uid and gid are numeric ids.
-    # Also accept a dot betwee user and group.
-    delim=:
-    user=`cut -d "$delim" -f 1 %{_sharedstatedir}/nidas/BuildUserGroup`
-    group=`cut -d "$delim" -f 2 %{_sharedstatedir}/nidas/BuildUserGroup`
+if [ -f $cf ]; then
 
-    if echo $user | grep -F -q "("; then
-        uid=`echo $user | cut -d "(" -f 2 | cut -d ")" -f 1`
-        user=`echo $user | cut -d "(" -f 1`
-    fi
-    if echo $group | grep -F -q "("; then
-        gid=`echo $group | cut -d "(" -f 2 | cut -d ")" -f 1`
-        group=`echo $group | cut -d "(" -f 1`
-    fi
+    .  $cf 
 
-    echo "user=$user, group=$group read from %{_sharedstatedir}/nidas/BuildUserGroup"
+    echo "nidas-build trigger: BUILD_USER=$BUILD_USER, BUILD_GROUP=$BUILD_GROUP read from $cf"
 
-    if [ "$user" != root -o "$group" != root ]; then
+    if [ "$BUILD_USER" != root -o "$BUILD_GROUP" != root ]; then
 
-        # Add a user and group to system, so that installed files on
-        # /opt/nidas are owned and writable by the group, rather than root.
-        adduser=false
-        addgroup=false
-        grep -q "^$user" /etc/passwd || adduser=true
-        grep -q "^$group" /etc/group || addgroup=true
-
-        # check if NIS is running. If so, check if user.group is known to NIS
-        if which ypwhich > /dev/null 2>&1 && ypwhich > /dev/null 2>&1; then
-            ypmatch $user passwd > /dev/null 2>&1 && adduser=false
-            ypmatch $group group > /dev/null 2>&1 && addgroup=false
-        fi
-
-        $addgroup && /usr/sbin/groupadd -g $gid -o eol
-        export USERGROUPS_ENAB=no
-        $adduser && /usr/sbin/useradd  -u $uid -o -M -g $group -s /sbin/nologin -d /tmp -c "NIDAS build user" -K PASS_MAX_DAYS=-1 $user || :
-
-        n=`find %{nidas_prefix} \( \! -user $user -o \! -group $group \) -execdir chown $user:$group {} + -print | wc -l`
-        [ $n -gt 0 ] && echo "Set owner of files under %{nidas_prefix} to $user.$group"
+        n=`find %{nidas_prefix} \( \! -user $BUILD_USER -o \! -group $BUILD_GROUP \) -execdir chown $BUILD_USER:$BUILD_GROUP {} + -print | wc -l`
+        [ $n -gt 0 ] && echo "nidas-build trigger: ownership of files under %{nidas_prefix} set to $BUILD_USER.$BUILD_GROUP, with group write"
 
         find %{nidas_prefix} \! -perm /g+w -execdir chmod g+w {} +
 
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
-            echo "trigger, doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
+            echo "nidas-build trigger: doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
             setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
             setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
         fi
@@ -294,7 +251,11 @@ fi
 
 %post buildeol
 if [ "$1" -eq 1 ]; then
-    echo "root(0):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
+    cf=%{_sysconfdir}/default/nidas-build 
+    . $cf
+    if [ "$BUILD_GROUP" != eol ]; then
+        sed -i -r -e 's/^ *BUILD_GROUP=.*/BUILD_GROUP=eol/g' $cf
+    fi
 fi
 
 %clean
@@ -409,9 +370,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files build
 
-%files builduser
+%files build
 %defattr(-,root,root,-)
-%config(noreplace) %attr(0664,-,-) %{_sharedstatedir}/nidas/BuildUserGroup
+%config(noreplace) %attr(0664,-,-) %{_sysconfdir}/default/nidas-build
 
 %files buildeol
 

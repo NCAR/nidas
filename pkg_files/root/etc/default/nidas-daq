@@ -2,16 +2,8 @@
 # User to run nidas data acquistion processes
 # DAQ_USER=daq
 #
-# Numeric user id if account needs to be created.
-# If empty, adduser command will use next available.
-# DAQ_UID=
-#
 # Group that DAQ_USER belongs to
 # DAQ_GROUP=users
-#
-# Numeric group id if group needs to be created.
-# If empty, adduser command will use next available.
-# DAQ_GID=
 #
 # directories to add to PATH before executing processes
 # DAQ_PATH=$HOME/$DAC_USER/bin

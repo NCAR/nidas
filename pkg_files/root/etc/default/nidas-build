@@ -1,0 +1,5 @@
+# After files are installed in /opt/nidas by the various nidas,
+# the ownership will be set the following user and group. Set to
+# something other than root to be able to do your own installation there.
+BUILD_USER=root
+BUILD_GROUP=root
