@@ -99,7 +99,7 @@ EOD
     # converts it to the output of git describe, and appends it to "*" line.
     # Truncate subject line at 60 characters 
     # git convention is that the subject line is supposed to be 50 or shorter
-    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
+    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk --re-interval -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
 
     cd src   # to src
     scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
