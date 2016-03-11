@@ -10,7 +10,7 @@
 
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
-Version: %{version}
+Version: %{gitversion}
 Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
@@ -33,6 +33,7 @@ Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0, nidas-run
 Requires: xerces-c xmlrpc++
+BuildArch: noarch
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
 that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
@@ -81,6 +82,7 @@ GUI editor for NIDAS configurations
 Summary: Package for doing data acquisition with NIDAS.
 Requires: nidas-min
 Group: Applications/Engineering
+BuildArch: noarch
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
 expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
@@ -101,6 +103,7 @@ Summary: Package for building NIDAS by hand
 Group: Applications/Engineering
 Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Obsoletes: nidas-builduser <= 1.2-189
+BuildArch: noarch
 %description build
 Contains software dependencies needed to build NIDAS by hand,
 and /etc/default/nidas-build containing the desired user and group owner
@@ -110,6 +113,7 @@ of %{nidas_prefix}.
 Summary: Set build user and group to nidas.eol.
 Group: Applications/Engineering
 Requires: nidas-build
+BuildArch: noarch
 %description buildeol
 Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be group writable by eol.
 
@@ -368,5 +372,7 @@ rm -rf $RPM_BUILD_ROOT
 %files build
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,-,-) %{_sysconfdir}/default/nidas-build
+
+%files buildeol
 
 %changelog
