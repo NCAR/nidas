@@ -82,8 +82,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     # run git describe on each hash to create a version
     cat << \EOD > $awkcom
 /^[0-9a-f]{7}/ {
-    hash = $0
-    cmd = "git describe --match '[vV][0-9]*' " hash " 2>/dev/null"
+    cmd = "git describe --match '[vV][0-9]*' " $0 " 2>/dev/null"
     res = (cmd | getline version)
     close(cmd)
     if (res == 0) {
@@ -100,7 +99,7 @@ EOD
     # converts it to the output of git describe, and appends it to "*" line.
     # Truncate subject line at 60 characters 
     # git convention is that the subject line is supposed to be 50 or shorter
-    git log --max-count=100 --date-order --format="%h%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
+    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
 
     cd src   # to src
     scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
