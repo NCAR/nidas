@@ -9,7 +9,7 @@ usage() {
     echo "-s: sign the package files with $key"
     echo "-i: install them with reprepro to the repository"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
-    echo "arch is armel or amd64"
+    echo "arch is armel, armhf or amd64"
     exit 1
 }
 
@@ -35,6 +35,10 @@ while [ $# -gt 0 ]; do
         ;;
     armel)
         export CC=arm-linux-gnueabi-gcc
+        arch=$1
+        ;;
+    armhf)
+        export CC=arm-linux-gnueabihf-gcc
         arch=$1
         ;;
     amd64)

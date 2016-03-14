@@ -27,7 +27,7 @@ opts.AddVariables(('OTHER_PREFIX',
 # opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
 opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install: host, arm, armbe or armel.',
+         'Space-separated list of architectures to build and install: host, arm, armbe, armel or armhf.',
          'host arm armbe')
 
 opts.Add('MACHS',
@@ -70,6 +70,9 @@ if 'armel' in BUILDS:
              '/usr/src/linux-headers-3.16.0-viper2')
     opts.Add('KERNELDIR_titan_armel', 'kernel headers for Titan/armel. See Debian package linux-headers-3.16.0-titan2:armel',
              '/usr/src/linux-headers-3.16.0-titan2')
+
+if 'armhf' in BUILDS:
+    opts.Add('KERNELDIR_rpi2', 'kernel headers for Raspberry Pi2. Not yet installed','')
 
 opts.Update(env)
 
@@ -298,6 +301,41 @@ if 'armel' in BUILDS:
                duplicate=0, exports={'env':armel_env})
     Alias('armel','build_armel')
     Clean('build_armel','build_armel')
+
+if 'armhf' in BUILDS:
+    print "Setting up for armhf build ..."
+
+    # supported machine types for armhf.
+    amachs = { 'all': ['rpi2'], 'rpi2': ['rpi2'], }
+    # build list of machine types to build from MACHS="x y z" command line
+    machs = []
+    for m in MACHS:
+        if amachs.has_key(m):
+            machs.extend(amachs[m])
+    machs = list(set(machs))    # unique-ify
+
+    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary'],
+        ARCH = 'armhf',
+    )
+    armhf_env['MACHS'] = machs
+    armhf_env['PREFIX'] = armhf_env['PREFIX'] + '/armhf'
+    CheckStackProtectorOptions(armhf_env)
+    armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
+            '-Wformat', '-Werror=format-security',
+            '-D_FORTIFY_SOURCE=2'])
+    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+    armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+
+    if not armhf_env.has_key('DEBUG') or not armhf_env['DEBUG']:
+        armhf_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+# armhf_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+
+    SConscript('nidas/SConscript',
+               variant_dir='build_armhf',
+               duplicate=0, exports={'env':armhf_env})
+    Alias('armhf','build_armhf')
+    Clean('build_armhf','build_armhf')
 
 
 Default([BUILDS])
