@@ -31,7 +31,6 @@ while [ $# -gt 0 ]; do
         ;;
     -n)
         args="$args -nc -F"
-        repo=$1
         ;;
     armel)
         export CC=arm-linux-gnueabi-gcc

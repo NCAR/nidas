@@ -29,6 +29,13 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed s/.*linux-headers-//)
     VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed s/.*linux-headers-//)
     SCONSMODDIR = $(DESTDIR)$(PREFIX)/armel/modules
+else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
+    SCONSLIBDIR = $(DESTDIR)$(PREFIX)/armhf/lib
+    SCONSBINDIR = $(DESTDIR)$(PREFIX)/armhf/bin
+    SCONSINCDIR = $(DESTDIR)$(PREFIX)/armhf/include
+    BINDIR = $(DESTDIR)$(PREFIX)/bin
+    INCDIR = $(DESTDIR)$(PREFIX)/include
+    SCONSMODDIR = $(DESTDIR)$(PREFIX)/armhf/modules
 endif
 
 .PHONY : build install clean scons_install $(LDCONF) $(PKGCONFIG)
@@ -75,5 +82,5 @@ clean:
 	# the armel binaries too, otherwise they'll end up in the source tar.
 	# For now armel is not in the list of default BUILDS
 	# so we have to list them all.
-	cd src; $(SCONS) -c BUILDS="armel host arm armbe"
+	cd src; $(SCONS) -c BUILDS="armel armhf host arm armbe"
 

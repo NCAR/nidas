@@ -35,13 +35,13 @@ Description: Headers, library symbolic links and pkg-config for NIDAS
  NIDAS C/C++ headers, shareable library links, pkg-config.
 
 Package: nidas-modules-titan
-Architecture: any
+Architecture: armel
 Depends: ${misc:Depends}
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Eurotech Titan, running Debian armel
 
 Package: nidas-modules-viper
-Architecture: any
+Architecture: armel
 Depends: ${misc:Depends}
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Eurotech Viper, running Debian armel
@@ -80,4 +80,10 @@ Architecture: armel
 Depends:  nidas, nidas-modules-viper
 Description: Meta-package for installation of NIDAS onto a Eurotech Viper
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
+
+Package: nidas-rpi2
+Architecture: armhf
+Depends:  nidas
+Description: Meta-package for installation of NIDAS onto a Raspberry Pi2
+ Metapackage with sufficient dependencies to run NIDAS on a Raspberry Pi2
 
