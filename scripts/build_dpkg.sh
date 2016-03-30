@@ -119,8 +119,28 @@ if [ -n "$repo" ]; then
     umask 0002
     chngs=nidas_*_$arch.changes 
     pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
+    debs=$(awk '/Checksums-Sha1:/,/Checksums-Sha256:/{print $3}' $chngs)
+    archalls=
+    for d in $debs; do
+        if [[ $d =~ .*\.deb ]]; then
+            arch=${d%.*}
+            arch=${arch##*_}
+            # echo "d=$d, arch=$arch"
+            [ $arch == all ] && archalls+=" ${d%%_*}"
+        fi
+    done
+
+    # nidas-daq is an architecture all package.
+    # We want to specify -A "arch" when removing packages
+    # so that packages of the same name for other architectures
+    # are not deleted.
+    # Doing a remove of nidas-daq with -A "source|$arch|all" doesn't work
+    # however.  It is only removed when -A is not specified.
+    # So I guess we have to look for architecture all packages
+    # and remove them separately without a -A.
     flock $repo sh -c "
-        reprepro -V -b $repo remove jessie $pkgs
+        reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
+        reprepro -V -b $repo remove jessie $archalls;
         reprepro -V -b $repo deleteunreferenced;
         reprepro -V -b $repo include jessie $chngs"
 

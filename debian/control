@@ -64,7 +64,7 @@ Description: Package for building NIDAS by hand
  of /opt/nidas.
 
 Package: nidas-buildeol
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}
 Description: Sets ower and group of /opt/nidas to root.eol
  Sets BUILD_USER=root and BUILD_GROUP=eol in /etc/default/nidas-build.
