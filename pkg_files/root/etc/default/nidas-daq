@@ -5,8 +5,11 @@
 # Group that DAQ_USER belongs to
 # DAQ_GROUP=users
 #
+# Group id of DAQ_GROUP
+# DAQ_GID=
+#
 # directories to add to PATH before executing processes
-# DAQ_PATH=$HOME/$DAC_USER/bin
+# DAQ_PATH=$HOME/$DAQ_USER/bin:/opt/nidas/bin
 #
 # Script to run to start dsm process
-# START_DSM=start_dsm
+# START_DSM=$HOME/$DAQ_USER/bin/start_dsm

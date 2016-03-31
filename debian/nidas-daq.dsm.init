@@ -1,17 +1,15 @@
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          dsm
-# Required-Start:    $local_fs $network $remote_fs $syslog
-# Required-Stop:     $local_fs $network $remote_fs $syslog
-# Default-Start:
-# Default-Stop:
+# Required-Start:    $local_fs $network $syslog
+# Required-Stop:     $local_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
 # Short-Description: Start NIDAS data acquision process
-# Description:       The process will run under the DAQ_USER specified in
-#                    /etc/default/nidas-daq. The values of DAQ_PATH and
-#                    START_DSM in that file will also be used,  DAQ_PATH
-#                    will be added to the PATH, and START_DSM will be run
-#                    with a "start" argument, and the value of DAQ_ROOT set
-#                    in the environment.
+# Description:       Shell variables will be sourced from /etc/default/nidas-daq.
+#                    DAQ_PATH will be added to PATH. The script START_DSM will
+#                    be executed with a "start"argument, under DAQ_USER and DAQ_GROUP.
+#                    DAQ_ROOT will be set in the environment.
 ### END INIT INFO
 
 # Author: Gordon Maclean <maclean@ucar.edu>
@@ -29,6 +27,9 @@ DAEMON=/opt/nidas/bin/dsm
 # Exit if nidas-daq doesn't exit
 [ -r /etc/default/nidas-daq ] || exit 0
 . /etc/default/nidas-daq
+
+[ $DAQ_PATH ] && PATH=$PATH:$DAQ_PATH
+export DAQ_ROOT
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
