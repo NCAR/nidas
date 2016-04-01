@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # script for controlling analog output pins
 # on the Diamond MMAT cards (/dev/dmmat_d2a0, and /dev/dmmat_d2a1).

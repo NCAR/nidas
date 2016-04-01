@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # set the "mode" of an emerald serial port to 232,422,485 or 485 no-echo.
 
