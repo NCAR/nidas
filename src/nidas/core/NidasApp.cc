@@ -27,7 +27,9 @@ RangeMatcher(int d1, int d2, int s1, int s2, int inc) :
 SampleMatcher::
 SampleMatcher() :
   _ranges(),
-  _lookup()
+  _lookup(),
+  _startTime(LONG_LONG_MIN),
+  _endTime(LONG_LONG_MAX)
 {
 }
 
@@ -141,6 +143,21 @@ match(dsm_sample_id_t id)
     result = true;
   _lookup[id] = result;
   return result;
+}
+
+
+bool
+SampleMatcher::
+match(const Sample* samp)
+{
+  dsm_time_t tt = samp->getTimeTag();
+  dsm_sample_id_t sampid = samp->getId();
+  DLOG(("sampid=") << samp->getDSMId() << ',' << samp->getSpSId());
+  if (tt < _startTime.toUsecs() || tt > _endTime.toUsecs() || !match(sampid))
+  {
+    return false;
+  }
+  return true;
 }
 
 
@@ -359,10 +376,12 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
     else if (EndTime.accept(arg))
     {
       _endTime = parseTime(xarg(args, ++i));
+      _sampleMatcher.setEndTime(_endTime);
     }
     else if (StartTime.accept(arg))
     {
       _startTime = parseTime(xarg(args, ++i));
+      _sampleMatcher.setStartTime(_startTime);
     }
     else if (OutputFiles.accept(arg))
     {

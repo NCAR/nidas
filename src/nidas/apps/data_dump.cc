@@ -150,15 +150,13 @@ typeToFormat(sampleType t)
 
 bool DumpClient::receive(const Sample* samp) throw()
 {
-    dsm_time_t tt = samp->getTimeTag();
-    static dsm_time_t prev_tt = 0;
-
-    dsm_sample_id_t sampid = samp->getId();
-    DLOG(("sampid=") << samp->getDSMId() << ',' << samp->getSpSId());
-    if (!_samples.match(sampid))
+    if (!_samples.match(samp))
     {
         return false;
     }
+    dsm_time_t tt = samp->getTimeTag();
+    static dsm_time_t prev_tt = 0;
+    dsm_sample_id_t sampid = samp->getId();
 
     // Format the line leader into a separate string before handling the
     // chosen output format, in case the output format is naked.

@@ -83,6 +83,13 @@ public:
     match(dsm_sample_id_t id);
 
     /**
+     * Return true if this sample matches all the criteria in this matcher,
+     * both sample ids and time range.
+     **/
+    bool
+    match(const Sample* samp);
+
+    /**
      * Return true if this matcher can only match a single ID pair
      * (DSM,SID), meaning only one range has been added and it specifies
      * two specific positive IDs.
@@ -99,12 +106,44 @@ public:
         return _ranges.size();
     }
 
+    /**
+     * Set the time before which samples will not match.
+     **/
+    void
+    setStartTime(nidas::util::UTime start)
+    {
+        _startTime = start;
+    }
+
+    nidas::util::UTime
+    getStartTime()
+    {
+        return _startTime;
+    }
+
+    /**
+     * Set the time after which samples will not match.
+     **/
+    void
+    setEndTime(nidas::util::UTime end)
+    {
+        _endTime = end;
+    }
+
+    nidas::util::UTime
+    getEndTime()
+    {
+        return _endTime;
+    }
+
 private:
     typedef std::map<dsm_sample_id_t, bool> id_lookup_t;
     typedef std::vector<RangeMatcher> range_matches_t;
 
     range_matches_t _ranges;
     id_lookup_t _lookup;
+    nidas::util::UTime _startTime;
+    nidas::util::UTime _endTime;
 };
 
 
