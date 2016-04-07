@@ -285,6 +285,7 @@ void replace_util(string& str,char c1, char c2) {
 
 void SyncRecordSource::createHeader(ostream& ost) throw()
 {
+    std::streamsize oldprecision = ost.precision();
 
     ost << "project  \"" << _aircraft->getProject()->getName() << '"' << endl;
     ost << "aircraft \"" << _aircraft->getTailNumber() << '"' << endl;
@@ -331,6 +332,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 	const VariableConverter* conv = var->getConverter();
 	if (conv) {
             const Linear* lconv = dynamic_cast<const Linear*>(conv);
+            ost << setprecision(16);
             if (lconv) {
                 ost << lconv->getIntercept() << ' ' <<
                         lconv->getSlope();
@@ -343,6 +345,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
                         ost << coefs[i] << ' ';
                 }
             }
+            ost.precision(oldprecision);
             ost << " \"" << conv->getUnits() << "\" ";
             const CalFile* cfile = conv->getCalFile();
             if (cfile) {
