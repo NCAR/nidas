@@ -13,6 +13,7 @@ nidas-min/
 nidas-modules/
 nidas-modules-titan/
 nidas-modules-viper/
+nidas-modules-amd64/
 nidas-titan/
 nidas-viper/
 tmp/
