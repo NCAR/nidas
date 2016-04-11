@@ -335,7 +335,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 if (aname[0] == 'r') setRawLateSampleCacheSize(val);
                 else setProcLateSampleCacheSize(val);
 	    }
-            else if (aname == "xml:base" || aname == "xmlns");
+            else if (aname == "xml:base" || aname == "xmlns") {}
 	    else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
 		"unrecognized attribute",aname);
