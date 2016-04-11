@@ -2,7 +2,7 @@ Source: nidas
 Section: science
 Priority: optional
 Maintainer: Gordon Maclean <maclean@ucar.edu>
-Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl, libgsl0-dev, libcap-dev, eol-scons
+Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl, libgsl0-dev, libcap-dev, eol-scons, xmlrpc++-dev
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git
@@ -45,6 +45,12 @@ Architecture: armel
 Depends: ${misc:Depends}
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Eurotech Viper, running Debian armel
+
+Package: nidas-modules-amd64
+Architecture: amd64
+Depends: ${misc:Depends}
+Description: NIDAS Linux kernel modules
+ NIDAS kernel modules, built for Intel 64
 
 Package: nidas-daq
 Architecture: all
