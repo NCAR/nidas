@@ -58,21 +58,9 @@ baud_base=460800
 defports=(0x100 0x140 0x180 0x1c0)
 defirqs=(3 4 5 6)
 
-tmpdevdir=/var/run/dev
+devdir=/dev
 
 NBOARDS=0
-
-#
-# Clear dev files from $tmpdevdir
-# emerald major number may change from boot to boot
-# device files are created on $tmpdevdir, and symbolic links
-# are created to them from from /dev.
-#
-clear_tmpdevdir() {
-    [ -d $tmpdevdir ] || mkdir -p $tmpdevdir
-    rm -f $tmpdevdir/emerald*
-    rm -f $tmpdevdir/ttyD*
-}
 
 #
 # load the emerald kernel module
@@ -99,41 +87,38 @@ rmmod_emerald()
 }
 
 #
-# Create emerald0 device on $tmpdevdir
+# Create emerald0 device on /dev
 #
 create_emerald() {
         modprobe_emerald || return 1
         emajor=$(fgrep emerald /proc/devices | head -n 1 | cut -d\  -f1)
-        rm -f $tmpdevdir/emerald0
-        mknod $tmpdevdir/emerald0 c $emajor 0
-        chmod 0666 $tmpdevdir/emerald0
+        rm -f $devdir/emerald0
+        mknod $devdir/emerald0 c $emajor 0
+        chmod 0666 $devdir/emerald0
         return 0
 }
 
 get_isabase() {
         # ISA base address on system.
         # Titan kernel has been updated so that this is 0, 
-        set_emerald -b $tmpdevdir/emerald0 || echo -1
+        set_emerald -b $devdir/emerald0 || echo -1
 }
 
 get_nboards() {
         create_emerald || return 2
         # number of boards with acceptable config in eeprom
-        NBOARDS=$(set_emerald -n $tmpdevdir/emerald0 || echo -1)
+        NBOARDS=$(set_emerald -n $devdir/emerald0 || echo -1)
         [ $NBOARDS -lt 0 ] && return 2
 
         # Create /dev/emeraldN for each board
         local eminor=0
         local brd
         for (( brd = 0; brd < $NBOARDS; brd++ )); do
-                local dev=emerald$brd
-                if ! [ -c $tmpdevdir/$dev ]; then
-                    mknod $tmpdevdir/$dev c $emajor $eminor
-                    chmod 0666 $tmpdevdir/$dev
+                local emdev=$devdir/emerald$brd
+                if ! [ -c $emdev ]; then
+                    mknod $emdev c $emajor $eminor
+                    chmod 0666 $emdev
                 fi
-                # symbolic link on /dev
-                [ -h /dev/$dev ] || ln -s $tmpdevdir/$dev /dev
-                chmod 666 $tmpdevdir/$dev
                 # increment eminor by number of uart ports
                 while read portstr port irqstr irq; do
                         case "$irqstr" in
@@ -141,7 +126,7 @@ get_nboards() {
                                 let eminor++
                                 ;;
                         esac
-                done < <(set_emerald /dev/$dev)
+                done < <(set_emerald $emdev)
         done
         return 0
 }
@@ -152,7 +137,7 @@ check_ports() {
         local -a irqs=()
         local -a birqs=()
         for (( brd = 0; brd < $NBOARDS; brd++ )); do
-                local dev=emerald$brd
+                local emdev=$devdir/emerald$brd
                 local birq=-1
 
                 # read ioport and irq configuration
@@ -166,19 +151,19 @@ check_ports() {
                                 if [ $portval -ge 256 -a $portval -le 1016 ];then
                                         # If a duplicate ioport address is found, report the error.
                                         if echo ${ports[*]} | fgrep -q $port; then
-                                                echo "Duplicate port=$port on /dev/$dev"
+                                                echo "Duplicate port=$port on $emdev"
                                                 result=1
                                                 break
                                         fi
                                         [ $birq -lt 0 ] && birq=$irq
                                         if [ $birq -ne $irq ]; then
-                                                echo "irq=$irq on /dev/$dev, port $port does not match board irq=$birq"
+                                                echo "irq=$irq on $emdev, port $port does not match board irq=$birq"
                                                 result=1
                                                 break
                                         fi
                                         # Also don't share interrupts across boards
                                         if echo ${birqs[*]} | fgrep -q $birq; then
-                                                echo "Duplicate irq=$irq on /dev/$dev, port $port"
+                                                echo "Duplicate irq=$irq on $emdev, port $port"
                                                 result=1
                                                 break
                                         fi
@@ -187,10 +172,10 @@ check_ports() {
                                 # echo ${ports[*]}
                                 ;;
                         esac
-                done < <(set_emerald /dev/$dev)
+                done < <(set_emerald $emdev)
                 birqs[$brd]=$irq
                 # If OK, enable the ports on the board
-                [ $result -eq 0 ] && set_emerald -u /dev/$dev || return 1
+                [ $result -eq 0 ] && set_emerald -u $emdev || return 1
         done
         return $result
 }
@@ -199,11 +184,11 @@ check_ports() {
 default_config()
 {
         for (( brd = 0; brd < $NBOARDS; brd++ )); do
-                dev=emerald$brd
-                echo "doing: set_emerald $tmpdevdir/$dev ${defports[$brd]} ${defirqs[$brd]}"
-                set_emerald $tmpdevdir/$dev ${defports[$brd]} ${defirqs[$brd]} > /dev/null
+                emdev=$devdir/emerald$brd
+                echo "doing: set_emerald $emdev ${defports[$brd]} ${defirqs[$brd]}"
+                set_emerald $emdev ${defports[$brd]} ${defirqs[$brd]} > /dev/null
                 # enable the ports after configuring them.
-                set_emerald -u $tmpdevdir/$dev || return 1
+                set_emerald -u $emdev || return 1
         done
 }
 
@@ -223,7 +208,7 @@ create_ports()
         # minor number of emerald devices
         eminor=0
         for (( brd = 0; brd < $NBOARDS; brd++ )); do
-                dev=emerald$brd
+                emdev=$devdir/emerald$brd
 
                 # read ioport and irq configuration
                 while read portstr port irqstr irq; do
@@ -231,32 +216,32 @@ create_ports()
                         irq)
                                 portval=$(($port))
                                 if [ $portval -ge 256 -a $portval -le 1016 ]; then
-                                        tty=/dev/ttyS$ttynum
-                                        if ! [ -c $tty ]; then
-                                            mknod $tty c $tmajor $tminor
-                                            chmod 0666 $tty
+                                        ttydev=$devdir/ttyS$ttynum
+                                        if ! [ -c $ttydev ]; then
+                                            mknod $ttydev c $tmajor $tminor
+                                            chmod 0666 $ttydev
                                         fi
 
                                         # device for accessing the digital out pin
                                         # associated with a port on the emerald
-                                        dio=ttyD$ttynum
-                                        if ! [ -c $tmpdevdir/$dio ]; then
-                                            mknod $tmpdevdir/$dio c $emajor $eminor
-                                            chmod 0666 $tmpdevdir/$dio
+                                        diodev=$devdir/ttyD$ttynum
+                                        if ! [ -c $diodev ]; then
+                                            mknod $diodev c $emajor $eminor
+                                            chmod 0666 $diodev
                                         fi
 
                                         portstr=`printf "%#x" $(( $baseaddr + $port ))`
                                         nirq=${isairqs[$irq]}
                                         # Aug 2012, kernel 2.6.35, tried the low_latency setserial option.
                                         # See comment in isff-etc/etc/serial.conf
-                                        setserial -zvb $tty port $portstr irq $nirq baud_base $baud_base autoconfig
+                                        setserial -zvb $ttydev port $portstr irq $nirq baud_base $baud_base autoconfig
                                         let tminor++
                                         let ttynum++
                                 fi
                                 let eminor++
                                 ;;
                         esac
-                done < <(set_emerald /dev/$dev)
+                done < <(set_emerald $emdev)
         done
         return 0
 }
@@ -267,7 +252,6 @@ do_start()
         #   0 if daemon has been started
         #   1 if daemon was already running
         #   2 if daemon could not be started
-        clear_tmpdevdir || return 2
         get_nboards
         RETVAL="$?"
         [ $RETVAL -eq 2 ] && return "$RETVAL"
