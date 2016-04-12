@@ -24,7 +24,10 @@
  ********************************************************************
 */
 
-// #define SLICE_DEBUG
+// Verbose log messages are now compiled by default, but they can only be
+// enabled by explicitly enabling verbose logging in a LogConfig, such as
+// with a command-line option.
+#define SLICE_DEBUG
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include "TwoD64_USB.h"
@@ -43,6 +46,7 @@ using namespace std;
 using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
+using nidas::util::endlog;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB)
 
@@ -112,6 +116,29 @@ bool TwoD64_USB::processSOR(const Sample * samp,
     return true;
 }
 
+struct PTime
+{
+    PTime(dsm_time_t tt, bool showdate=true) :
+        _tt(tt),
+        _showdate(showdate)
+    {}
+
+    dsm_time_t _tt;
+    bool _showdate;
+};
+
+inline
+std::ostream&
+operator<<(std::ostream& out, const PTime& ptime)
+{
+    if (ptime._showdate)
+        out << n_u::UTime(ptime._tt).format(true, "%y/%m/%d %H:%M:%S.%6f");
+    else
+        out << n_u::UTime(ptime._tt).format(true, "%H:%M:%S.%6f");
+    return out;
+}
+
+
 bool TwoD64_USB::processImageRecord(const Sample * samp,
                              list < const Sample * >&results, int stype) throw()
 {
@@ -168,9 +195,21 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     setupBuffer(&cp,&eod);
 
 #ifdef SLICE_DEBUG
+    // Create a log point here for verbose slice logging.  If active, then
+    // the message accumulates while iterating through slices, and then it
+    // is logged.  There should be minimal overhead as long as nothing is
+    // streamed when this log context is not enabled.
+    static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
+    static n_u::LogMessage sdmsg(&sdlog);
     const unsigned char* sod = cp;
-    cerr << endl << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
-        " image=" << (slen - 8) << " + " <<  ((eod-cp) - (slen - 8)) << " bytes -----"<< endl;
+    if (sdlog.active())
+    {
+        sdmsg << endlog
+              << PTime(samp->getTimeTag())
+              << ", start@" << PTime(startTime, false)
+              << " image=" << (slen - 8) << " + " <<  ((eod-cp) - (slen - 8))
+              << " bytes -----" << endlog;
+    }
 #endif
 
     // Loop through all slices in record.
@@ -187,10 +226,19 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
         const unsigned char* sos = cp;
 
 #ifdef SLICE_DEBUG
-        cerr << dec << _totalRecords << ' ' << setw(3) <<
-            (unsigned long)(cp - sod)/wordSize << ' ' << (unsigned long)cp % 8 << ' ';
-        cerr << hex;
-        bool suspect = false;
+        if (sdlog.active())
+        {
+            // Put only so many of the slice dumps on a line.
+            if (sdmsg.length() > 80)
+            {
+                sdmsg.log();
+            }
+            sdmsg << dec << _totalRecords << ' ' << setw(3)
+                  << (unsigned long)(cp - sod)/wordSize << ' '
+                  << (unsigned long)cp % 8 << ' ';
+            sdmsg << hex;
+        }
+        // bool suspect = false;
 #endif
 
         /* Scan next 8 bytes starting at current pointer, cp, for
@@ -199,7 +247,10 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
         for (; cp < eow; ) {
 #ifdef SLICE_DEBUG
-            cerr << setw(2) << (int)*cp << ' ';
+            if (sdlog.active())
+            {
+                sdmsg << setw(2) << (int)*cp << ' ';
+            }
 #endif
             switch (*cp) {
             case 0x55:  // start of possible overload string
@@ -218,22 +269,33 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << ", duration " << (thisTimeWord - prevTimeWord) / 1000 << endl;
+                    WLOG(("Fast2D") << getSuffix() << " overload at : "
+                         << PTime(samp->getTimeTag())
+                         << ", duration "
+                         << (thisTimeWord - prevTimeWord) / 1000);
 
 #ifdef SLICE_DEBUG
-                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        cerr << setw(2) << (int)*xp << ' ';
+                    if (sdlog.active())
+                    {
+                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                            sdmsg << setw(2) << (int)*xp << ' ';
+                    }
 #endif
                     // overload word, reject particle.
                     _overLoadSliceCount++;
-                    if (((unsigned long)cp - _savedBytes) % wordSize) {
+                    if (((unsigned long)cp - _savedBytes) % wordSize)
+                    {
                         _misAligned++;
 #ifdef SLICE_DEBUG
-                        cerr << dec << " misaligned ovld" << endl;
+                        if (sdlog.active())
+                            sdmsg << dec << " misaligned ovld" << endlog;
 #endif
                     }
 #ifdef SLICE_DEBUG
-                    else cerr << dec << " ovld" << endl;
+                    else if (sdlog.active())
+                    {
+                        sdmsg << dec << " ovld" << endlog;
+                    }
 #endif
                     _particle.zero();
                     _blankLine = false;
@@ -244,19 +306,22 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     long usec = thisParticleTime % USECS_PER_SEC;
                     long dt = (thisTimeWord - prevTimeWord);	// actual overload/dead time.
 
-                    /* dt can go negative if the probe has been reset and the internal clock
-                     * starts at zero again.  Ignore if that is the case since we have no
-                     * meaningful delta time.  
+                    /* dt can go negative if the probe has been reset and
+                     * the internal clock starts at zero again.  Ignore if
+                     * that is the case since we have no meaningful delta
+                     * time.
                      */
                     if (dt > 0) {	// If probe was not reset.
                         if (dt < usec)
                             // Dead time falls in normal boundaries, add it in.
                             _dead_time += dt;
                         else
-                            /* Dead time is large, perhaps more than a second, but don't add
-                             * all that into this second, dead time can not exceed 1 second.
-                             * Make dead from the beginning of the second to the actual time
-                             * stamp of the overload time slice.
+                            /* Dead time is large, perhaps more than a
+                             * second, but don't add all that into this
+                             * second, dead time can not exceed 1 second.
+                             * Make dead from the beginning of the second
+                             * to the actual time stamp of the overload
+                             * time slice.
                              */
                             _dead_time += usec;
                     }
@@ -265,9 +330,14 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 else if (*(cp+1) == (unsigned char)'\x55') {
                     // 0x5555 but not complete overload string
 #ifdef SLICE_DEBUG
-                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        cerr << setw(2) << (int)*xp << ' ';
-                    cerr << dec << " 5555 ovld" << endl;
+                    if (sdlog.active())
+                    {
+                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        {
+                            sdmsg << setw(2) << (int)*xp << ' ';
+                        }
+                        sdmsg << dec << " 5555 ovld" << endlog;
+                    }
 #endif
                     cp += wordSize;     // skip
                     sos = 0;    // not a particle slice
@@ -275,9 +345,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 else {
                     // 0x55 is not an expected particle shadow.
                     _suspectSlices++;
-#ifdef SLICE_DEBUG
-                    suspect = true;
-#endif
+                    // suspect = true;
                     cp++;
                 }
                 break;
@@ -291,22 +359,30 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     // syncword
                     _totalParticles++;
 #ifdef SLICE_DEBUG
-                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        cerr << setw(2) << (int)*xp << ' ';
+                    if (sdlog.active())
+                    {
+                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                            sdmsg << setw(2) << (int)*xp << ' ';
+                    }
 #endif
                     if (((unsigned long)cp - _savedBytes) % wordSize) {
-#ifndef SLICE_DEBUG
-                          cerr << "Misaligned data at " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
-#endif
                         _misAligned++;
 #ifdef SLICE_DEBUG
-                        cerr << dec << " misaligned sync" << endl;
+                        if (sdlog.active())
+                        {
+                            sdmsg << dec << " misaligned sync" << endlog;
+                            sdmsg << "Misaligned data at "
+                                  << PTime(samp->getTimeTag())
+                                  << endlog;
+                        }
 #endif
                     }
 #ifdef SLICE_DEBUG
-                    else cerr << dec << " sync" << endl;
+                    else if (sdlog.active())
+                    {
+                        sdmsg << dec << " sync" << endlog;
+                    }
 #endif
-
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
                         (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
@@ -318,31 +394,48 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
 
 #ifdef SLICE_DEBUG
-                    cerr << n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
-                        " p.edgeTouch=" << hex << setw(2) << (int)_particle.edgeTouch << dec <<
-                        " height=" << setw(2) << _particle.height <<
-                        " width=" << setw(4) << _particle.width <<
-                        " syncTdiff=" << (thisTimeWord - firstTimeWord) << 
-                        " sampTdiff=" << sampTdiff << endl;
+                    if (sdlog.active())
+                    {
+                        sdmsg
+                            << PTime(thisParticleTime)
+                            << " p.edgeTouch=" << hex << setw(2)
+                            << (int)_particle.edgeTouch
+                            << dec
+                            << " height=" << setw(2) << _particle.height
+                            << " width=" << setw(4) << _particle.width
+                            << " syncTdiff=" << (thisTimeWord - firstTimeWord)
+                            << " sampTdiff=" << sampTdiff << endlog;
+                    }
 #endif
-                    // If we have crossed the end of the histogram period, send existing
-                    // data and reset.  Don't create samples too far in the future, say
-                    // 5 seconds.  @TODO look into what is wrong, or why this offset is needed.
+                    // If we have crossed the end of the histogram period,
+                    // send existing data and reset.  Don't create samples
+                    // too far in the future, say 5 seconds.  @TODO look
+                    // into what is wrong, or why this offset is needed.
                     if (thisParticleTime <= samp->getTimeTag()+5000000)
                         createSamples(thisParticleTime, results);
-//#ifdef SLICE_DEBUG
-                    else { cerr << "Fast2DC" << getSuffix() <<
-			" thisParticleTime in the future, not calling createSamples()" << endl;
-                        cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
-					n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") << endl;
+                    else
+                    {
+                        WLOG(("Fast2DC")
+                             << getSuffix()
+                             <<
+                             " thisParticleTime in the future, "
+                             "not calling createSamples()");
+                        WLOG(("  ")
+                             << PTime(samp->getTimeTag()) << " "
+                             << PTime(thisParticleTime));
                     }
-//#endif
 
                     // If there are any extra bytes between last particle slice
                     // and syncword then ignore last particle.
-                    if (cp == sos) countParticle(_particle, resolutionUsec);
+                    if (cp == sos)
+                    {
+                        countParticle(_particle, resolutionUsec);
+                    }
 #ifdef SLICE_DEBUG
-                    else cerr << "discarded particle" << endl;
+                    else if (sdlog.active())
+                    {
+                        sdmsg << "discarded particle" << endlog;
+                    }
 #endif
                     _particle.zero();
                     _blankLine = false;
@@ -354,8 +447,10 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     // 0xaaaa but not complete syncword
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        cerr << setw(2) << (int)*xp << ' ';
-                    cerr << dec << " aaaa word" << endl;
+                    {
+                        sdmsg << setw(2) << (int)*xp << ' ';
+                    }
+                    sdmsg << dec << " aaaa word" << endlog;
 #endif
                     cp += wordSize;
                     sos = 0;    // not a particle slice
@@ -365,7 +460,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     sos = 0;    // not a particle slice
                     _suspectSlices++;
 #ifdef SLICE_DEBUG
-                    suspect = true;
+                    // suspect = true;
 #endif
                     cp++;
                 }
@@ -404,12 +499,57 @@ bool TwoD64_USB::process(const Sample * samp,
     int stype = bigEndian->int32Value(samp->getConstVoidDataPtr());
 
     /* From the usbtwod driver: stype=0 is image data, stype=1 is SOR.  */
+    bool result = false;
     switch (stype) {
         case TWOD_IMG_TYPE:
         case TWOD_IMGv2_TYPE:
-            return processImageRecord(samp, results, stype);
+            result = processImageRecord(samp, results, stype);
         case TWOD_SOR_TYPE:	// Shadow-or counter.
-            return processSOR(samp, results);
+            result = processSOR(samp, results);
     }
-    return false;
+
+    static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
+    if (sdlog.active())
+    {
+        static n_u::LogMessage sdmsg(&sdlog);
+
+        for (list<const Sample*>::iterator it = results.begin();
+             it != results.end(); ++it)
+        {
+            const SampleT<float>* outs =
+                dynamic_cast<const SampleT<float>*>(*it);
+            dsm_time_t timetag = outs->getTimeTag();
+            dsm_sample_id_t sid = outs->getId();
+            const float* dout = outs->getConstDataPtr();
+            const float* dend = dout + outs->getDataLength();
+            if (sid == _1dcID)
+            {
+                sdmsg << "1D sample@" << PTime(timetag) << ": ";
+                unsigned int nsizes = NumberOfDiodes();
+                stream_histogram(sdmsg, dout, nsizes);
+                dout += nsizes;
+                if (dout < dend)
+                    sdmsg << ", dt=" << *dout++;
+                if (dout < dend)
+                    sdmsg << ", rps=" << *dout++;
+                sdmsg << endlog;
+            }
+            else if (sid == _2dcID)
+            {
+                sdmsg << "1D sample@" << PTime(timetag) << ": ";
+                unsigned int nsizes = NumberOfDiodes() << 1;
+                stream_histogram(sdmsg, dout, nsizes);
+                dout += nsizes;
+                if (dout < dend)
+                    sdmsg << ", dt=" << *dout++;
+                sdmsg << endlog;
+            }
+            else if (sid == _sorID)
+            {
+                sdmsg << "SOR sample@" << PTime(timetag) << ": "
+                      << *dout << endlog;
+            }
+        }
+    }
+    return result;
 }
