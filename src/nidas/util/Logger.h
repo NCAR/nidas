@@ -55,15 +55,15 @@ namespace nidas { namespace util {
  *  - nidas::util::LogConfig
  *
  * The intended use of this interface is through the @ref LoggerMacros.
- * These macros automatically instantiate the LogContext for the log point
- * and control the formatting and sending of the log message according to
- * the current logging configuration.  The advantage of the macros is that
- * they are less verbose, and there is no overhead formatting the message
- * parameters if the log message is not currently enabled.  However, the
- * original form of calling the Logger::log() method directly still works.
- * That form could be more natural in some cases.  It is equivalent to the
- * macros except the log message call cannot suppressed: the message itself
- * is suppressed within the log() method by checking the LogContext against
+ * These macros automatically instantiate a LogContext and control the
+ * formatting and sending of the log message according to the current
+ * logging configuration.  The advantage of the macros is that they are
+ * less verbose and there is no overhead formatting the message parameters
+ * if the log message is not currently enabled.  However, the original form
+ * of calling the Logger::log() method directly still works.  That form
+ * could be more natural in some cases.  It is equivalent to the macros
+ * except the log message call cannot suppressed: the message itself is
+ * suppressed within the log() method by checking the LogContext against
  * the current configuration.  The syslog macros like LOG_EMERG are
  * redefined to be a comma-separated list of the LogContext parameters, so
  * those parameters are passed into the log() call.  In other words,
@@ -90,6 +90,12 @@ namespace nidas { namespace util {
  * ILOG(("~DSMEngine %s: %s",output->getName().c_str(),e.what()));
  * @endcode
  * 
+ * or alternatively with ostream operators:
+ *
+ * @code
+ * ILOG(("~DSMEngine ") << output->getName() << ": " << e.what());
+ * @endcode
+ *
  * LogConfig objects can be created to configure the set of log points
  * which will be active.  See @ref LoggerSchemes.
  *
@@ -168,6 +174,7 @@ namespace nidas { namespace util {
     const int LOGGER_NOTICE = LOG_NOTICE;
     const int LOGGER_INFO = LOG_INFO;
     const int LOGGER_DEBUG = LOG_DEBUG;
+    const int LOGGER_VERBOSE = LOG_DEBUG+1;
     /**@}*/
 
 #undef	LOG_EMERG
@@ -191,6 +198,7 @@ namespace nidas { namespace util {
 #define	LOG_NOTICE LOG_CONTEXT(LOGGER_NOTICE)
 #define	LOG_INFO LOG_CONTEXT(LOGGER_INFO)
 #define	LOG_DEBUG LOG_CONTEXT(LOGGER_DEBUG)
+#define	LOG_VERBOSE LOG_CONTEXT(LOGGER_VERBOSE)
 
 /**
  * Provide Synchronized functionality without exposing the Logger mutex member.
@@ -211,15 +219,18 @@ public:
 };
 
 /**
- * This macro creates a static LogContext instance in thread-local storage.
- * So the initial write of the active flag and subsequent reads happen in
- * only one thread, unless the log configuration changes and all the log
- * points are reconfigured from a different thread.
+ * This macro creates a static LogContext instance that is not in
+ * thread-local storage and therefore is not thread-safe.  The active flag
+ * will be written from any thread which changes the log configuration, and
+ * reads of the active flag happen in all threads which execute this log
+ * point.  TLS was implemented at one point, but it turned out not to be
+ * portable enough.  Locking is not really warranted given that in practice
+ * logging configurations do not change during runtime.
  *
- * If TLS is not used but thread-safety is required, then an automatic lock
- * can be added to the beginning of the do-while block.  I don't think the
- * static initialization needs to happen inside the lock, at least for GCC.
- * GCC already guards static initialization, but helgrind or DRD may not be
+ * If thread-safety is required, then an automatic lock can be added to the
+ * beginning of the do-while block.  I don't think the static
+ * initialization needs to happen inside the lock, at least for GCC.  GCC
+ * already guards static initialization, but helgrind or DRD may not be
  * able to recognize that without surrounding the block with a pthread
  * lock.  The actual check of the active flag probably should be
  * thread-safe, since presumably one thread will initially write it and
@@ -228,10 +239,18 @@ public:
  * the reconfiguration of running log points does not happen in practice.
  *
  * The lock used cannot be the global logging lock unless it is unlocked
- * before calling the log() method,
- * since the global lock is locked by the log() method and the lock is
- * not recurisve.  One goal for all this is to make things look reasonable
- * and consistent to program checkers like helgrind.
+ * before calling the log() method, since the global lock is locked by the
+ * log() method and the lock is not recurisve.  One goal for all this is to
+ * make things look reasonable and consistent to program checkers like
+ * helgrind.
+ *
+ * The VERBOSE log level is intended for very verbose log messages which
+ * typically would only be used by developers.  They are never enabled by a
+ * default LogConfig, they are above the DEBUG threshold, and in practice
+ * their overhead should be minimized by testing whether the log point is
+ * active() before generating any log output.  It should be safe to compile
+ * them into code, and that should be preferred over surrounding them in a
+ * pre-processor conditional compilation block.
  **/
 #define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)                                 \
     do {                                                                \
@@ -252,11 +271,8 @@ public:
      * logging.  The active() status is tested without locking, so if
      * multiple threads are sharing a log point, or if logging is
      * reconfigured while threads are running, then that could be
-     * considered a violation of mutual exclusion.  To alleviate this
-     * somewhat but not completely, these macros create the LogContext in
-     * thread-local storage, so only one thread will ever access the
-     * active() status without locking it.  However, a reconfiguration in
-     * another thread might still collide with the unlocked check.
+     * considered a violation of mutual exclusion.  Concurrency checkers
+     * like helgrind may complain about this in multithreaded code.
      *
      * The @p MSG argument must be in parentheses, so that it can be a
      * variable argument list.  The whole argument list is passed to
@@ -295,6 +311,7 @@ public:
 #define NLOG(MSG) LOGGER_LOGPOINT(LOGGER_NOTICE,"",MSG)
 #define ILOG(MSG) LOGGER_LOGPOINT(LOGGER_INFO,"",MSG)
 #define DLOG(MSG) LOGGER_LOGPOINT(LOGGER_DEBUG,"",MSG)
+#define VLOG(MSG) LOGGER_LOGPOINT(LOGGER_VERBOSE,"",MSG)
 
 #define ELOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_EMERG,TAGS,MSG)
 #define ALOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_ALERT,TAGS,MSG)
@@ -304,10 +321,12 @@ public:
 #define NLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_NOTICE,TAGS,MSG)
 #define ILOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_INFO,TAGS,MSG)
 #define DLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_DEBUG,TAGS,MSG)
+#define VLOGT(TAGS,MSG) LOGGER_LOGPOINT(LOGGER_VERBOSE,TAGS,MSG)
     /**@}*/
 
     class Logger;
     class LoggerPrivate;
+    class LogMessage;
 
     /**
      * Convert the name of a log level to its integer value.
@@ -363,7 +382,9 @@ public:
      *
      * A LogContext has no support for concurrency.  If it might be shared
      * among multiple threads, then it should be guarded with a lock or
-     * created in thread-local storage.
+     * created in thread-local storage.  However, a LogContext does record
+     * the thread which created it, and the name of that thread is returned 
+     * by the threadName() method.
      **/
     class LogContext
     {
@@ -383,6 +404,11 @@ public:
 
         ~LogContext();
 
+        /**
+         * Return true if log messages from this context would be accepted.
+         * If this returns false, then there is no point in generating and
+         * submitting a log message.
+         **/
         bool
         active() const
         {
@@ -419,6 +445,12 @@ public:
             return _tags;
         }
 
+        /**
+         * Return the name of the thread which created this context.  This
+         * is *not* necessarily the name of the currently running thread,
+         * so it may not be the same as the thread named in a log message
+         * when LogScheme::ThreadField is enabled in the LogScheme.
+         **/
         std::string
         threadName() const;
 
@@ -445,6 +477,26 @@ public:
         inline void
         log(const std::string& msg) const;
 
+        /**
+         * Return a LogMessage associated with this LogContext, so the
+         * message will be logged through this context when the LogMessage
+         * goes out of scope.  Typically this is used as a temporary object
+         * to which the log message content can be streamed, which can be a
+         * little more convenient than formatting the message separately
+         * and then passing it to log(const std::string& msg).  Also see
+         * the LogMessage() constructor which takes a LogContext.
+         *
+         * @code
+         * static LogContext lp(LOG_INFO);
+         * if (lp.active())
+         * {
+         *     lp.log() << "complicated info output...";
+         * }
+         * @endcode
+         **/
+        inline LogMessage
+        log() const;
+
     private:
         int _level;
         const char* _file;
@@ -468,17 +520,19 @@ public:
 
 
     /**
-     * A configuration to enable or disable a matching set of log points.  A
-     * LogConfig specifies which log points to match and whether to activate or
-     * disable them.  The set of log points are matched by filename, function
-     * name, line number, and level.  For example, all the log messages in a
-     * given file can be enabled with a LogConfig that sets @c filename_match
-     * to the filename and @c level to @c LOGGER_DEBUG.  Methods within an
-     * object all include the class name in the function signature, so those
-     * can be enabled with a function_match set to the class name.  The default
-     * LogConfig matches every log point.  File and function names are matched
-     * as substrings, so a @c function_match set to "Logger::" will match all
-     * methods of the Logger class.
+     * A configuration to enable or disable a matching set of log points.
+     * A LogConfig specifies which log points to match and whether to
+     * activate or disable them.  The set of log points are matched by
+     * filename, function name, line number, and level.  For example, all
+     * the log messages in a given file can be enabled with a LogConfig
+     * that sets @c filename_match to the filename and @c level to @c
+     * LOGGER_DEBUG.  Methods within an object all include the class name
+     * in the function signature, so those can be enabled with a
+     * function_match set to the class name.  The default LogConfig matches
+     * every log point with threshold DEBUG or lower, ie, not VERBOSE
+     * messages.  File and function names are matched as substrings, so a
+     * @c function_match set to "Logger::" will match all methods of the
+     * Logger class.
      **/
     class LogConfig
     {
@@ -676,60 +730,181 @@ public:
 
     /**
      * A class for formatting and streaming a log message.  Text can be
-     * appended to the message with a printf() format, or streamed with the
-     * stream output operator<<.
+     * appended to the message with a printf() format or streamed with the
+     * stream output operator<<.  The implementation essentially wraps an
+     * ostringstream.
      **/
     class LogMessage
     {
     public:
-        LogMessage(const std::string& s = "") : msg(s)
+        /**
+         * Create a LogMessage, optionally set to an initial string.
+         **/
+        LogMessage(const std::string& s = "") :
+            msg(),
+            _log_context(0)
         {
+            msg << s;
+        }
+
+        /**
+         * Associate this LogMessage with a LogContext.  When the
+         * LogMessage is destroyed (eg, goes out of scope) or when the
+         * log() method is called, the current message (if any) is logged
+         * through the LogContext::log() method.  The message optionally
+         * can be given an initial value.
+         *
+         * This can be used to build up complicated logging messages which
+         * must be streamed incrementally, possibly dispersed throughout
+         * the code.  Instantiate a LogContext and associate a LogMessage
+         * with it, then stream to the LogMessage if the context is active.
+         * The LogMessage can be reused to send multiple log messages, or
+         * to stream data and push the log message when it gets too long.
+         *
+         * @code
+         * static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
+         * static n_u::LogMessage sdmsg(&sdlog);
+         * if (sdlog.active())
+         * {
+         *    sdmsg << "initial data: " << value;
+         * }
+         * ...
+         * if (sdlog.active())
+         * {
+         *    sdmsg << "more data: " << value2;
+         *    if (sdmsg.length() > 80)
+         *    {
+         *       sdmsg << endlog;
+         *    }
+         * }
+         * @endcode
+         **/
+        LogMessage(const LogContext* lp, const std::string& s = "") :
+            msg(),
+            _log_context(lp)
+        {
+            msg << s;
+        }
+
+        LogMessage(const LogMessage& right) :
+            msg(),
+            _log_context(right._log_context)
+        {
+            msg << right.msg.str();
         }
 
         LogMessage&
-            format(const char *fmt, ...);
-
-        const std::string&
-            getMessage() const
-            {
-                return msg;
-            }
-
-        operator const std::string& () const
+        operator=(const LogMessage& right)
         {
-            return msg;
+            msg << right.msg.str();
+            _log_context = right._log_context;
+            return *this;
+        }
+
+        LogMessage&
+        format(const char *fmt, ...);
+
+        std::string
+        getMessage() const
+        {
+            return msg.str();
+        }
+
+        operator std::string () const
+        {
+            return msg.str();
         }
 
         template <typename T>
         LogMessage&
         operator<< (const T& t);
 
-        std::string msg;
+        /**
+         * If this message was associated with a LogContext, then send the
+         * completed message to it when this instance is destroyed, ie,
+         * when it goes out of scope.
+         **/
+        ~LogMessage()
+        {
+            log();
+        }
+
+        /**
+         * Return the length of the current message buffer.  This can be
+         * used to test whether there is anything to log yet, or to cut off
+         * a stream of log info to limit the line length.
+         *
+         * @code
+         * if (logmsg.length() > 80)
+         * {
+         *     logmsg << endlog;
+         * }
+         * logmsg << data << ",";
+         * @endcode
+         **/
+        inline std::streampos
+        length()
+        {
+            return msg.tellp();
+        }
+
+        /**
+         * If this LogMessage is associated with a LogContext and if the
+         * current message is not empty, then log the current message with
+         * the LogContext.  Clear the buffer and start a new message.
+         **/
+        void
+        log()
+        {
+            if (_log_context && length() > 0)
+            {
+                _log_context->log(*this);
+            }
+            msg.str("");
+            msg.clear();
+        }
+
+    private:
+        std::ostringstream msg;
+        const LogContext* _log_context;
     };
 
 
+    /**
+     * Everything streamed to a LogMessage is passed on to the underlying
+     * ostringstream, including ostream manipulators.
+     **/
     template <typename T>
     inline
     LogMessage&
     LogMessage::
     operator<< (const T& t)
     {
-        std::ostringstream oss;
-        oss << t;
-        msg += oss.str();
+        msg << t;
         return *this;
     }
 
-    template <>
-    inline
-    LogMessage&
-    LogMessage::
-    operator<< (const std::string& t)
+
+    /**
+     * LogMessage manipulator which logs the current message buffer, if
+     * any, and then clears the message.
+     **/
+    inline LogMessage&
+    endlog(LogMessage& logmsg)
     {
-        msg += t;
-        return *this;
+        logmsg.log();
+        return logmsg;
     }
 
+    /**
+     * Template to call LogMessage manipulators like endlog when streamed
+     * to a LogMessage.
+     **/
+    inline LogMessage&
+    operator<<(LogMessage& logmsg, LogMessage& (*op)(LogMessage&))
+    {
+        return (*op)(logmsg);
+    }
 
     /**
      * Simple logging class, based on UNIX syslog interface.  The Logger is a
@@ -841,14 +1016,14 @@ public:
          * Trying to set the current scheme to an empty name has no effect.
          **/
         void
-            setScheme(const std::string& name);
+        setScheme(const std::string& name);
 
         /**
          * Set the current scheme to the given @p scheme.  The scheme is first
          * added with updateScheme(), then it becomes the current scheme.
          **/
         void
-            setScheme(const LogScheme& scheme);
+        setScheme(const LogScheme& scheme);
 
         /**
          * Update or insert this scheme in the collection of log configuration
@@ -858,7 +1033,7 @@ public:
          * also.
          **/
         void
-            updateScheme(const LogScheme& scheme);
+        updateScheme(const LogScheme& scheme);
 
         /**
          * Get a copy of the scheme with the given @p name.  If the name does not
@@ -866,7 +1041,7 @@ public:
          * the current scheme is returned.
          **/
         LogScheme
-            getScheme(const std::string& name = "") const;
+        getScheme(const std::string& name = "") const;
 
         /**@}*/
 
@@ -910,6 +1085,13 @@ public:
     log(const std::string& msg) const
     {
         Logger::getInstance()->msg (*this, msg);
+    }
+
+    inline LogMessage
+    LogContext::
+    log() const
+    {
+        return LogMessage(this);
     }
 
     inline
