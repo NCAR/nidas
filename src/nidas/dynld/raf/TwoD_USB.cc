@@ -480,28 +480,48 @@ bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
     return true;
 }
 
+
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::countParticle(const Particle& p, float /* resolutionUsec */)
 {
+    static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
+    static n_u::LogMessage sdmsg(&sdlog);
+
     // 1D
     if (acceptThisParticle1D(p))
+    {
         _size_dist_1D[p.height]++;
-    else {
+    }
+    else
+    {
         // float liveTime = resolutionUsec * p.width;
         _rejected1D_Cntr++;
     }
 
     // 2D - Center-in algo
-    if (acceptThisParticle2D(p)) {
+    if (acceptThisParticle2D(p))
+    {
         int n = std::max(p.height, p.width);
         if (n < (NumberOfDiodes()<<1))
             _size_dist_2D[n]++;
         else
             _overSizeCount_2D++;
     }
-    else {
+    else
+    {
         // float liveTime = resolutionUsec * p.width;
         _rejected2D_Cntr++;
+    }
+
+    if (sdlog.active())
+    {
+        sdmsg << "1D: [";
+        stream_histogram(sdmsg, _size_dist_1D, NumberOfDiodes());
+        sdmsg << "]; reject=" << _rejected1D_Cntr << n_u::endlog;
+        sdmsg << "2D: [";
+        stream_histogram(sdmsg, _size_dist_2D, NumberOfDiodes() << 1);
+        sdmsg << "]; reject=" << _rejected2D_Cntr
+              << ", oversize=" << _overSizeCount_2D << n_u::endlog;
     }
 }
 

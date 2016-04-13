@@ -377,5 +377,34 @@ private:
     TwoD_USB& operator=(const TwoD_USB&);
 };
 
+
+template <typename T, typename V>
+inline
+void
+stream_histogram(T& out, V* sizedist, unsigned int nbins)
+{
+    bool zeros = true;
+    for (unsigned int i = 0; i < nbins; ++i)
+    {
+        if (sizedist[i] == 0)
+        {
+            out << ".";
+            zeros = true;
+        }
+        else if (zeros)
+        {
+            out << sizedist[i];
+            zeros = false;
+        }
+        else
+        {
+            out << ",";
+            out << sizedist[i];
+        }
+    }
+}
+
+            
+
 }}}                     // namespace nidas namespace dynld namespace raf
 #endif

@@ -431,7 +431,7 @@ format(const char *fmt, ...)
   char buffer[512];
   vsnprintf(buffer, sizeof(buffer), newfmt.c_str(), args);
   va_end(args);
-  this->msg += buffer;
+  this->msg << buffer;
   return *this;
 }
 
@@ -648,6 +648,7 @@ namespace {
             _map["notice"] = LOGGER_NOTICE;
             _map["info"] = LOGGER_INFO;
             _map["debug"] = LOGGER_DEBUG;
+            _map["verbose"] = LOGGER_VERBOSE;
         }
         level_strings_t _map;
     } _level_strings;
