@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # set -e
 
@@ -56,7 +56,7 @@ for hostarch in armel armhf; do
 	${dist} $bootstrapdir http://httpredir.debian.org/debian/
 
     # remove unique suffix on chroot config file. Should be only one file
-    cfs=(/etc/schroot/chroot.d/$chr_name-*)
+    cfs=(/etc/schroot/chroot.d/${chr_name}-*)
     for cf in ${cfs[*]}; do
         sudo mv $cf ${cf%-*}
     done
