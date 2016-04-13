@@ -132,15 +132,14 @@ if $use_chroot; then
     # sbuild-shell ${dist}-${arch}-sbuild
     # but could
     schroot -c $chr_name --directory=$PWD << EOD
-        if [ -z "$GPG_AGENT_INFO" -a -f $HOME/.gpg-agent-info ]; then
-            . $HOME/.gpg-agent-info
-            export GPG_AGENT_INFO
-        fi
-        debuild $args "$karg" -F \
+        set -e
+        . $HOME/.gpg-agent-info
+        export GPG_AGENT_INFO
+        debuild $args "$karg" \
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args "$karg" -F \
+    debuild $args "$karg" \
         --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 fi
 

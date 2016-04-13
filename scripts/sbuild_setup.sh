@@ -79,7 +79,7 @@ for hostarch in armel armhf; do
     # instead run a shell in the chroot by hand
     sudo sbuild-shell $chr_name << EOD
         dpkg --add-architecture $hostarch
-        apt-get -y install curl apt-utils
+        apt-get -y install curl apt-utils gnupg2
         echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
         echo "deb http://emdebian.org/tools/debian/ jessie main" > /etc/apt/sources.list.d/crosstools.list 
         curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
@@ -95,6 +95,4 @@ EOD
         apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}
 EOD
     fi
-
-
 done
