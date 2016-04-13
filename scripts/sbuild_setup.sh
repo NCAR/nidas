@@ -96,12 +96,5 @@ EOD
 EOD
     fi
 
-    # as normal user, could not
-    # sbuild-shell ${dist}-${arch}-sbuild
-    # but could
-    # schroot -c ${dist}-${buildarch}-${hostarch} --directory=$HOME << EOD
-    #     cd git/nidas
-    #     scripts/build_dpkg.sh ${hostarch}
-# EOD
 
 done
