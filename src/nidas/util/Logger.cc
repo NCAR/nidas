@@ -40,6 +40,8 @@ using nidas::util::Thread;
 #include <algorithm>
 #include <cctype>
 
+#include <cstdlib>
+
 using namespace nidas::util;
 using namespace std;
 
@@ -86,6 +88,8 @@ namespace nidas { namespace util {
 
 struct LoggerPrivate
 {
+  static const int DEFAULT_LOGLEVEL = LOGGER_NOTICE;
+
   // Return the appropriate setting for the given context's active flag
   // according to all the current log configs.
   static bool
@@ -98,9 +102,11 @@ struct LoggerPrivate
     LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
     LogScheme::log_configs_v::iterator ic;
 
-    // If there are no configs, then disable the log point.
+    // If there are no configs, then check it against the default level.
     if (firstconfig == log_configs.end())
-      active = false;
+    {
+      active = (lc->_level <= DEFAULT_LOGLEVEL);
+    }
     for (ic = firstconfig ; ic != log_configs.end(); ++ic)
     {
       if (ic->matches(*lc))
@@ -437,6 +443,139 @@ format(const char *fmt, ...)
 
 
 //================================================================
+// LogConfig
+//================================================================
+
+
+LogConfig::
+LogConfig() :
+  filename_match(),
+  function_match(),
+  tag_match(),
+  line(0),
+  level(LOGGER_DEBUG),
+  activate(true)
+{
+}
+
+
+bool
+LogConfig::
+matches(const LogContext& lc) const
+{
+  return
+    (filename_match.length() == 0 || lc.filename() == 0 ||
+     std::strstr(lc.filename(), filename_match.c_str())) &&
+    (function_match.length() == 0 || lc.function() == 0 ||
+     std::strstr(lc.function(), function_match.c_str())) &&
+    (tag_match.length() == 0 || lc.tags() == 0 ||
+     std::strstr(lc.tags(), tag_match.c_str())) &&
+    (line == 0 || line == lc.line()) &&
+    (lc.level() <= level);
+}
+
+
+bool
+parse_log_level(int& level_out, const std::string& text)
+{
+  if (text.empty())
+    return false;
+  std::string arg(text);
+  const char* start = arg.c_str();
+  char* end;
+  int level = ::strtol(start, &end, 0);
+  if (*end == '\0')
+  {
+    // Integer parse succeeded, check for valid range.
+    if (level <= LOGGER_NONE || level > LOGGER_VERBOSE)
+      return false;
+  }
+  else
+  {
+    level = nidas::util::stringToLogLevel(arg);
+    if (level == LOGGER_NONE)
+      return false;
+  }
+  level_out = level;
+  return true;
+}
+
+bool
+LogConfig::
+parse(const std::string& fields)
+{
+  // An empty string is specifically allowed, but it changes nothing.
+  if (fields.empty())
+    return true;
+
+  // Break the string at commas, then parse the fields as <field>=<value>.
+  string::size_type at = 0;
+  do {
+    string::size_type comma = fields.find(',', at);
+    if (comma == string::npos) 
+      comma = fields.length();
+
+    std::string field = fields.substr(at, comma-at);
+    at = comma+1;
+
+    string::size_type equal = field.find('=');
+    string value;
+    if (equal != string::npos)
+    {
+      ++equal;
+      value = field.substr(equal, field.length()-equal);
+      field = field.substr(0, equal-1);
+    }
+    if (field == "enable")
+    {
+      this->activate = true;
+    }
+    else if (field == "disable")
+    {
+      this->activate = false;
+    }
+    else if (equal == string::npos)
+    {
+      // No equal sign and not enable or disable, so this must be a log
+      // level.
+      if (!parse_log_level(this->level, field))
+        return false;
+    }
+    else if (field == "level")
+    {
+      if (!parse_log_level(this->level, value))
+        return false;
+    }
+    else if (field == "file")
+    {
+      this->filename_match = value;
+    }
+    else if (field == "function")
+    {
+      this->function_match = value;
+    }
+    else if (field == "tag")
+    {
+      this->tag_match = value;
+    }
+    else if (field == "line")
+    {
+      int line = atoi(value.c_str());
+      if (line < 1)
+        return false;
+      this->line = line;
+    }
+    else
+    {
+      return false;
+    }
+  }
+  while (at < fields.length());
+  return true;
+}
+
+
+//================================================================
 // LogScheme
 //================================================================
 
@@ -468,24 +607,15 @@ namespace {
 
 LogScheme::
 LogScheme(const std::string& name) :
-  _name (name),log_configs(),log_fields()
+  _name(name), log_configs(), log_fields(), _parameters(),
+  _showlogpoints(false)
 {
   // Force an empty name to the default, non-empty name.
   if (name.length() == 0)
   {
-    *this = LogScheme();
+    _name = LogScheme().getName();
   }
-  else
-  {
-    log_fields.push_back(TimeField);
-    log_fields.push_back(LevelField);
-    log_fields.push_back(MessageField);
-
-    // Default to logging everything warning and above.
-    LogConfig lc;
-    lc.level = LOGGER_NOTICE;
-    addConfig (lc);
-  }
+  setShowFields("time,level,message");
 }
 
 
@@ -553,6 +683,32 @@ addConfig(const LogConfig& lc)
 }
 
 
+LogScheme::log_configs_v
+LogScheme::
+getConfigs()
+{
+  return log_configs;
+}
+
+
+int
+LogScheme::
+logLevel()
+{
+  LogScheme::log_configs_v::iterator ic;
+  if (log_configs.empty())
+  {
+    return LoggerPrivate::DEFAULT_LOGLEVEL;
+  }
+  int level = LOGGER_NONE;
+  for (ic = log_configs.begin(); ic != log_configs.end(); ++ic)
+  {
+    level = std::max(level, ic->level);
+  }
+  return level;
+}
+
+
 LogScheme::LogField
 LogScheme::
 stringToField(const std::string& sin)
@@ -581,6 +737,101 @@ fieldToString(LogScheme::LogField lf)
   return "none";
 }
 
+
+bool
+LogScheme::
+parseParameter(const std::string& text)
+{
+  string::size_type equal = text.find('=');
+  if (equal == string::npos)
+  {
+    return false;
+  }
+  ++equal;
+  string name = text.substr(0, equal-1);
+  string value = text.substr(equal, text.length()-equal);
+  if (name.empty())
+  {
+    return false;
+  }
+  setParameter(name, value);
+  return true;
+}
+
+
+void
+LogScheme::
+setParameter(const std::string& name, const std::string& value)
+{
+  _parameters[name] = value;
+}
+
+
+std::string
+LogScheme::
+getParameter(const std::string& name, const std::string& dvalue)
+{
+  std::map<std::string, std::string>::iterator it;
+  it = _parameters.find(name);
+  if (it != _parameters.end())
+  {
+    return it->second;
+  }
+  return dvalue;
+}
+
+
+std::string
+LogScheme::
+getEnvParameter(const std::string& name, const std::string& dvalue)
+{
+  std::map<std::string, std::string>::iterator it;
+  it = _parameters.find(name);
+  if (it != _parameters.end())
+  {
+    return it->second;
+  }
+  std::string value = dvalue;
+  const char* ev = std::getenv(name.c_str());
+  if (ev)
+    value = ev;
+  return value;
+}
+
+
+static LogContext show_point(LOG_INFO, "show_log_points");
+
+void
+show_log_point(LogContext& lp)
+{
+  show_point.log()
+    << "Show log point: "
+    << lp.levelName() << "[" << lp.tags() << "]"
+    << " in " << lp.function() << "@"
+    << lp.filename() << ":" << lp.line()
+    << " is" << (lp.active() ? "" : " not") << " active";
+}
+
+
+void
+LogScheme::
+showLogPoints(bool show)
+{
+  _showlogpoints = show;
+  if (_showlogpoints)
+  {
+    // Do not to create any LogContext in this block or otherwise modify
+    // the log points vector while it's locked.
+    Synchronized sync(Logger::mutex);
+    log_points_v::iterator it;
+    for (it = log_points.begin(); it != log_points.end(); ++it)
+    {
+      show_log_point(*(*it));
+    }
+  }
+}
+
+
 //================================================================
 // LogContext
 //================================================================
@@ -601,10 +852,14 @@ LogContext (int level, const char* file, const char* function, int line,
     active = LoggerPrivate::get_active_flag(this, matched);
     //  LoggerPrivate::reconfig (--log_points.end());
   }
-  // Write the flag outside the lock.  If this object is in TLS, then then
+  // Write the flag outside the lock.  If this object is in TLS, then
   // generally only one thread will read and write this flag, but it may
-  // confuse checkers the write happens with a lock held.
+  // confuse checkers if the write happens with a lock held.
   _active = active;
+  if (current_scheme.getShowLogPoints())
+  {
+    show_log_point(*this);
+  }
 }
 
 
@@ -667,7 +922,7 @@ stringToLogLevel(const std::string& slevel)
   level_strings_t::iterator it = level_strings.find(s);
   if (it != level_strings.end())
     return it->second;
-  return -1;
+  return LOGGER_NONE;
 }
 
 string
@@ -679,7 +934,7 @@ logLevelToString(int level)
     if (it->second == level)
       return it->first;
   }
-  return "emergency";
+  return "none";
 }
 
 }}

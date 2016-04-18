@@ -437,15 +437,45 @@ operator|(NidasAppArg& arg1, NidasAppArg& arg2)
  * output file name pattern?  Is there a reasonable default filename
  * pattern if the output is simply @<interval>?
  *
- * ### -l loglevel ###
+ * ### --logconfig <config>, -l <config> ###
+ *
+ * The older option --loglevel is an alias for the newer --logconfig
+ * option.
+ *
+ * The log config string is a comma-separated list of LogConfig fields,
+ * where the field names are level, tag, file, function, file, and line.
+ * Additionally, a field can have the value 'enable' or 'disable' to set
+ * the active flag accordingly for matching log contexts. All the settings
+ * are combined into a single LogConfig and added to the current scheme.
+ *
+ * If a field does not have an equal sign and is not 'enable' or 'disable',
+ * then it is interpreted as just a log level, compatible with what the
+ * --loglevel option supported.
  *
  * _loglevel_ can be a number or the name of a log level:
  *
  * 7=debug,6=info,5=notice,4=warn,3=err
  *
- * The default is *info*.  Eventually the log argument could also be the
- * name of a logging scheme in the XML file.
+ * The default log level when a NidasApp is created is *info*.
  * 
+ * 
+ * ### --logshow ###
+ *
+ * Show log points as they are encountered while the code is running.  This
+ * shows what log points would log messages if enabled by the logging
+ * configuration, and it gives information about each log point that can be
+ * used to enable only that log point.
+ *
+ * ### --logfields <fields> ###
+ *
+ * Set the log message fields which will be shown in log messages.  The
+ * <fields> argument is passed to the LogScheme::setShowFields() method of
+ * the current logging scheme.
+ *
+ * ### --logparam <param>=<value> ###
+ *
+ * Set a log parameter in the application log scheme.
+ *
  * ### -s translating sample ids ###
  *
  * `sensor_extract` uses -s to map id selection to a new id, eg 10,1,10,3.
@@ -464,7 +494,11 @@ public:
     typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
 
     NidasAppArg XmlHeaderFile;
+    NidasAppArg LogShow;
+    NidasAppArg LogConfig;
     NidasAppArg LogLevel;
+    NidasAppArg LogFields;
+    NidasAppArg LogParam;
     NidasAppArg Help;
     NidasAppArg ProcessData;
     NidasAppArg StartTime;
@@ -474,9 +508,15 @@ public:
     NidasAppInputFilesArg InputFiles;
     NidasAppArg OutputFiles;
 
+    nidas_app_arglist_t
+    loggingArgs();
+
     /**
      * Give the NidasApp instance a name, to be used for the usage info and
-     * the logging scheme.
+     * the logging scheme.  When a NidasApp is created, it replaces an
+     * existing default logging scheme to set the default log level to
+     * INFO.  If there is already a logging scheme without the default
+     * name, then it will not be changed.
      **/
     NidasApp(const std::string& name);
 
@@ -559,11 +599,21 @@ public:
     parseArguments(std::vector<std::string>& args) throw (NidasAppException);
 
     /**
-     * Parse a number 1-7 or a string into a LogLevel and set that level
-     * for this NidasApp instance.
+     * Parse a LogConfig from the given argument using the LogConfig string
+     * syntax, and add that LogConfig to the current LogScheme.
      **/
     void
-    parseLogLevel(const std::string& optarg) throw (NidasAppException);
+    parseLogConfig(const std::string& optarg) throw (NidasAppException);
+
+    /**
+     * This is an alias for parseLogConfig(), since the LogConfig string
+     * syntax is backwards compatible with parsing just log levels.
+     **/
+    void
+    parseLogLevel(const std::string& optarg) throw (NidasAppException)
+    {
+        parseLogConfig(optarg);
+    }
 
     nidas::util::UTime
     parseTime(const std::string& optarg);
@@ -615,11 +665,19 @@ public:
         return _outputFileLength;
     }
 
+    /**
+     * Return LogScheme::logLevel() for the current log scheme.
+     **/
     int
-    logLevel()
-    {
-        return _logLevel;
-    }
+    logLevel();
+
+    /**
+     * Reset the logging configuration to the NidasApp default, meaning any
+     * current log scheme is cleared of configs and the default scheme is
+     * set to log level INFO.
+     **/
+    void
+    resetLogging();
 
     bool
     processData()
@@ -749,7 +807,9 @@ private:
 
     std::string _appname;
 
+#ifdef notdef
     int _logLevel;
+#endif
 
     bool _processData;
 

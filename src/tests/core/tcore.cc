@@ -194,29 +194,48 @@ BOOST_AUTO_TEST_CASE(test_match_implicit_include)
 
 BOOST_AUTO_TEST_CASE(test_log_level_parse)
 {
+  // These tests assume the logging scheme is at its initial state and with
+  // no configs, so reset it each time.  Otherwise they would accumulate.
+  // Maybe there needs to be a method which explicitly sets the config,
+  // meaning any existing configs are first cleared.
   NidasApp app("test");
+  app.resetLogging();
 
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_INFO);
 
   app.parseLogLevel("debug");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
 
+  app.resetLogging();
   app.parseLogLevel("7");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
 
+  app.resetLogging();
   app.parseLogLevel("5");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_NOTICE);
 
+  app.resetLogging();
   app.parseLogLevel("error");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_ERROR);
+
+  // Emergency can be set as 0 or as a string.
+  app.resetLogging();
+  app.parseLogLevel("0");
+  BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_EMERG);
+
+  app.resetLogging();
+  app.parseLogLevel("verbose");
+  BOOST_CHECK_EQUAL(app.logLevel(), 8);
+
+  app.resetLogging();
+  app.parseLogLevel("emergency");
+  BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_EMERG);
 
   // These should throw exceptions without changing level.
   int last = app.logLevel();
   BOOST_CHECK_THROW(app.parseLogLevel("x"), NidasAppException);
   BOOST_CHECK_EQUAL(app.logLevel(), last);
-  BOOST_CHECK_THROW(app.parseLogLevel("0"), NidasAppException);
-  BOOST_CHECK_EQUAL(app.logLevel(), last);
-  BOOST_CHECK_THROW(app.parseLogLevel("8"), NidasAppException);
+  BOOST_CHECK_THROW(app.parseLogLevel("9"), NidasAppException);
   BOOST_CHECK_EQUAL(app.logLevel(), last);
   BOOST_CHECK_THROW(app.parseLogLevel("-1"), NidasAppException);
   BOOST_CHECK_EQUAL(app.logLevel(), last);
@@ -255,6 +274,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_args)
 BOOST_AUTO_TEST_CASE(test_nidas_app_output)
 {
   NidasApp app("test");
+  app.resetLogging();
 
   BOOST_CHECK_EQUAL(app.getName(), "test");
 
@@ -300,6 +320,7 @@ private:
 BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
 {
   NidasApp app("test");
+  app.resetLogging();
 
   const char* argv[] = { "-x", "xmlfile", "-m", "myargument", "-l", "debug" };
   int argc = sizeof(argv)/sizeof(argv[0]);

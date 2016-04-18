@@ -9,12 +9,15 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <iomanip>
+
 using std::string;
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
+using nidas::util::Logger;
+using nidas::util::LogScheme;
 
-#include <iomanip>
 using namespace std;
 
 SampleMatcher::
@@ -184,11 +187,31 @@ NidasApp(const std::string& name) :
    "taken from the header and expanded "
    "using the current environment settings.",
    "<xmlfile>"),
-  LogLevel
-  ("-l", "--loglevel",
-   "Specify the log level as either a number or string: \n"
+  LogShow
+  ("", "--logshow",
+   "As log points are created, show information for each one that can\n"
+   "be used to enable log messages from that log point."),
+  LogConfig
+  ("-l", "--logconfig",
+   "Add a log config to the log scheme.  The log config settings are\n"
+   "specified as a comma-separated list of fields, using syntax \n"
+   "<field>=<value>, where fields are tag, file, function, line, enable,\n"
+   "and disable.\n"
+   "The log level can be specified as either a number or string: \n"
    "7=debug,6=info,5=notice,4=warning,3=error,2=critical. Default is info.",
    "<loglevel>"),
+  LogLevel
+  ("-l", "--loglevel", "Alias for --logconfig.", "<loglevel>"),
+  LogFields
+  ("", "--logfields",
+   "Set the log fields to be shown in log messages, as a comma-separated list\n"
+   "of log field names: thread,function,file,level,time,message.\n"
+   "The default log message fields are these: time,level,message",
+   "<logfields>"),
+  LogParam
+  ("", "--logparam",
+   "Set a log scheme parameter from syntax <name>=<value>.",
+   "<name>=<value>"),
   Help
   ("-h", "--help", "Print usage information."),
   ProcessData
@@ -231,7 +254,6 @@ NidasApp(const std::string& name) :
    "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n",
    "<strptime_path>[@<number>[units]]"),
   _appname(name),
-  _logLevel(n_u::LOGGER_INFO),
   _processData(false),
   _xmlFileName(),
   _idFormat(DECIMAL),
@@ -245,6 +267,25 @@ NidasApp(const std::string& name) :
   _help(false),
   _deleteProject(false)
 {
+  enableArguments(LogShow | LogFields);
+
+  // We want to setup a "default" LogScheme which will be overridden if any
+  // other log configs are explicitly added through this NidasApp.  So
+  // create our own scheme with a reserved name, and then that scheme will
+  // be replaced if a new one is created with the app name of this NidasApp
+  // instance.  If a named scheme has already been set as the current
+  // scheme, then do not replace it.
+  n_u::LogConfig lc;
+  Logger* logger = Logger::getInstance();
+  // Fetch the scheme instead of creating it from scratch in case one was
+  // already installed and modified.
+  LogScheme scheme = logger->getScheme("NidasAppDefault");
+  lc.level = n_u::LOGGER_INFO;
+  scheme.addConfig(lc);
+  if (logger->getScheme().getName() == n_u::LogScheme().getName())
+  {
+    logger->setScheme(scheme);
+  }
 }
 
 
@@ -289,24 +330,19 @@ getApplicationInstance()
 
 void
 NidasApp::
-parseLogLevel(const std::string& optarg) throw (NidasAppException)
+parseLogConfig(const std::string& optarg) throw (NidasAppException)
 {
-  // log level can be a number 1-7 or the name of a log level.
-  int level = atoi(optarg.c_str());
-  if (level < 1 || level > 7)
-    level = nidas::util::stringToLogLevel(optarg);
-  if (level < 0)
+  // Create a LogConfig from this argument and add it to the current scheme.
+  n_u::LogConfig lc;
+  Logger* logger = Logger::getInstance();
+  LogScheme scheme = logger->getScheme(getName());
+
+  if (!lc.parse(optarg))
   {
-    throw NidasAppException("unknown log level: " + string(optarg));
+    throw NidasAppException("error parsing log level: " + string(optarg));
   }
-  {
-    _logLevel = level;
-    nidas::util::LogConfig lc;
-    lc.level = _logLevel;
-    nidas::util::Logger::getInstance()->setScheme
-      (nidas::util::LogScheme(getName()).addConfig (lc));
-    DLOG(("logging level set to ") << nidas::util::logLevelToString(_logLevel));
-  }
+  scheme.addConfig(lc);
+  logger->setScheme(scheme);
 }
 
 
@@ -367,7 +403,32 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
     }
     else if (LogLevel.accept(arg))
     {
-      parseLogLevel(xarg(args, ++i));
+      parseLogConfig(xarg(args, ++i));
+    }
+    else if (LogConfig.accept(arg))
+    {
+      parseLogConfig(xarg(args, ++i));
+    }
+    else if (LogFields.accept(arg))
+    {
+      Logger* logger = Logger::getInstance();
+      LogScheme scheme = logger->getScheme(getName());
+      scheme.setShowFields(xarg(args, ++i));
+      logger->setScheme(scheme);
+    }
+    else if (LogParam.accept(arg))
+    {
+      Logger* logger = Logger::getInstance();
+      LogScheme scheme = logger->getScheme(getName());
+      scheme.parseParameter(xarg(args, ++i));
+      logger->setScheme(scheme);
+    }
+    else if (LogShow.accept(arg))
+    {
+      Logger* logger = Logger::getInstance();
+      LogScheme scheme = logger->getScheme(getName());
+      scheme.showLogPoints(true);
+      logger->setScheme(scheme);
     }
     else if (ProcessData.accept(arg))
     {
@@ -562,6 +623,16 @@ setupSignals(void (*callback)())
 }
 
 
+nidas_app_arglist_t
+NidasApp::
+loggingArgs()
+{
+  nidas_app_arglist_t args = 
+    LogShow | LogConfig | LogLevel | LogFields | LogParam;
+  return args;
+}
+
+
 std::string
 NidasApp::
 usage()
@@ -576,8 +647,10 @@ usage()
   // Description
 
   nidas_app_arglist_t args = 
-    XmlHeaderFile | LogLevel | Help | ProcessData | StartTime |
-    EndTime | SampleRanges | Version | InputFiles | OutputFiles;
+    XmlHeaderFile |
+    LogShow | LogConfig | LogLevel | LogFields | LogParam |
+    Help | ProcessData | StartTime | EndTime |
+    SampleRanges | Version | InputFiles | OutputFiles;
 
   nidas_app_arglist_t::iterator it;
   for (it = args.begin(); it != args.end(); ++it)
@@ -672,4 +745,29 @@ formatSampleId(std::ostream& leader, id_format_t idFormat, dsm_sample_id_t sampi
     break;
   }
   return leader;
+}
+
+
+int
+NidasApp::
+logLevel()
+{
+  Logger* logger = Logger::getInstance();
+  // Just return the logLevel() of the current scheme, whether that's
+  // the default scheme or one set explicitly through this NidasApp.
+  return logger->getScheme().logLevel();
+}
+
+void
+NidasApp::
+resetLogging()
+{
+  // Reset logging to the NidasApp default scheme (with the default log
+  // level) and reset the user-configured scheme too.
+  LogScheme scheme = n_u::LogScheme("NidasAppDefault");
+  n_u::LogConfig lc;
+  lc.level = n_u::LOGGER_INFO;
+  scheme.addConfig(lc);
+  Logger::getInstance()->updateScheme(LogScheme(getName()));
+  Logger::getInstance()->setScheme(scheme);
 }

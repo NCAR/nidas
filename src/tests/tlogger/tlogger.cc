@@ -36,6 +36,8 @@ using boost::unit_test_framework::test_suite;
 #include "sstream"
 #include "errno.h"
 
+#include <cstdlib>
+
 using namespace boost;
 using namespace nidas::util;
 
@@ -322,6 +324,45 @@ BOOST_AUTO_TEST_CASE(test_scheme_names)
   Logger* log = Logger::createInstance(&oss);
   log->setScheme("boo");
   BOOST_CHECK_EQUAL (log->getScheme().getName(), "boo");
+}
+
+BOOST_AUTO_TEST_CASE(test_scheme_parameters)
+{
+  LogScheme scheme("");
+
+  BOOST_CHECK_EQUAL(scheme.getParameter("x", "y"), "y");
+  BOOST_CHECK_EQUAL(scheme.getParameter("x"), "");
+  scheme.setParameter("variables", "x,y,z");
+  BOOST_CHECK_EQUAL(scheme.getParameter("variables"), "x,y,z");
+  ::setenv("x", "ray", true);
+  BOOST_CHECK_EQUAL(scheme.getEnvParameter("x"), "ray");
+  BOOST_CHECK_EQUAL(scheme.getParameter("x"), "");
+  scheme.setParameter("x", "men");
+  BOOST_CHECK_EQUAL(scheme.getEnvParameter("x"), "men");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_logconfig_parse)
+{
+  LogConfig lc;
+
+  BOOST_CHECK_EQUAL(lc.level, LOGGER_DEBUG);
+  BOOST_CHECK_EQUAL(lc.filename_match, "");
+
+  BOOST_CHECK_EQUAL(lc.parse(""), true);
+  BOOST_CHECK_EQUAL(lc.parse("info"), true);
+  BOOST_CHECK_EQUAL(lc.level, LOGGER_INFO);
+
+  BOOST_CHECK_EQUAL(lc.parse("file=dynld"), true);
+  BOOST_CHECK_EQUAL(lc.level, LOGGER_INFO);
+  BOOST_CHECK_EQUAL(lc.filename_match, "dynld");
+
+  BOOST_CHECK_EQUAL(lc.parse("line=99,tag=slices"), true);
+  BOOST_CHECK_EQUAL(lc.line, 99);
+  BOOST_CHECK_EQUAL(lc.tag_match, "slices");
+
+  BOOST_CHECK_EQUAL(lc.parse("x"), false);
+  BOOST_CHECK_EQUAL(lc.parse("x=y"), false);
 }
 
 

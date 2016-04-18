@@ -38,6 +38,7 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <map>
 
 #if !defined(SVR4) && ( defined(__GNUC__) && __GNUC__ < 2)
 #include <varargs.h>
@@ -175,6 +176,7 @@ namespace nidas { namespace util {
     const int LOGGER_INFO = LOG_INFO;
     const int LOGGER_DEBUG = LOG_DEBUG;
     const int LOGGER_VERBOSE = LOG_DEBUG+1;
+    const int LOGGER_NONE = LOG_EMERG-1;
     /**@}*/
 
 #undef	LOG_EMERG
@@ -580,30 +582,40 @@ public:
          * Return true if this config matches the given LogContext @p lc.
          **/
         bool
-        matches(const LogContext& lc) const
-        {
-            return
-                (filename_match.length() == 0 || lc.filename() == 0 ||
-                 std::strstr(lc.filename(), filename_match.c_str())) &&
-                (function_match.length() == 0 || lc.function() == 0 ||
-                 std::strstr(lc.function(), function_match.c_str())) &&
-                (tag_match.length() == 0 || lc.tags() == 0 ||
-                 std::strstr(lc.tags(), tag_match.c_str())) &&
-                (line == 0 || line == lc.line()) &&
-                (lc.level() <= level);
-        }
+        matches(const LogContext& lc) const;
 
         /**
-         * Construct a default LogConfig, which matches and enables every
-         * log point.
+         * Parse LogConfig settings from a string specifier, using
+         * comma-separated fields to assign to each of the config fields.
+         * Return true if the parse is successful, otherwise return false
+         * and leave the config in an indeterminate state.
+         *
+         * Here are the fields:
+         *
+         * <loglevelint>|<loglevelname>
+         * tag=<tag>
+         * file=<file>
+         * function=<function>
+         * line=<line>
+         * enable|disable
+         *
+         * This example enables all log messages for filenames which
+         * contain the string 'TwoD':
+         *
+         * verbose,file=TwoD
+         *
+         * Enable all debug messages in the core library:
+         *
+         * debug,file=nidas/core
          **/
-        LogConfig() :
-            filename_match(),function_match(),tag_match(),
-            line(0),
-            level(LOGGER_DEBUG),
-            activate(true)
-        {}
+        bool
+        parse(const std::string& text);
 
+        /**
+         * Construct a default LogConfig which matches and enables every
+         * log point with level DEBUG or higher.
+         **/
+        LogConfig();
     };
 
 
@@ -628,6 +640,11 @@ public:
         };
 
         /**
+         * The type for the vector of LogConfigs returned by getConfigs().
+         **/
+        typedef std::vector<LogConfig> log_configs_v;
+
+        /**
          * Convert the name of a log information field to its enum, such as
          * Logger::ThreadField.  Returns NoneField if the name is not
          * recognized.
@@ -648,6 +665,9 @@ public:
          * and above.  The default name is "default".  Explicitly passing an
          * empty name will also force a name of "default", since a LogScheme is
          * prohibited from having an empty name.
+         *
+         * Initially a LogScheme has no LogConfig entries, and so a
+         * default scheme does not enable any log messages, 
          **/
         explicit
         LogScheme(const std::string& name = "default");
@@ -693,6 +713,28 @@ public:
         addConfig(const LogConfig& lc);
 
         /**
+         * Return a copy of the LogConfig instances added to this
+         * LogScheme.
+         **/
+        log_configs_v
+        getConfigs();
+
+        /**
+         * Return the highest level of log messages enabled in all the
+         * LogConfig instances added to this LogScheme.  For basic
+         * configurations, where a single LogConfig just enables all
+         * messages of a certain level, this method returns that level.  In
+         * more complicated configurations, there may be only a few log
+         * messages enabled at the returned level, but there will be no
+         * messages enabled at a higher level.
+         *
+         * Since a LogScheme with no configs enables no messages, it
+         * returns LOGGER_NONE.
+         **/
+        int
+        logLevel();
+
+        /**
          * Set the fields to show in log messages and their order.  The fields
          * in @p fields will be shown in the same order as in the vector.  Any
          * fields not included will be omitted.
@@ -705,6 +747,8 @@ public:
         /**
          * Parse a comma-separated string of field names, with no spaces,
          * into a vector of LogField values, and pass that to setShowFields().
+         *
+         * Valid fields: thread,function,file,level,time,message
          **/
         LogScheme&
         setShowFields(const std::string& fields);
@@ -716,12 +760,57 @@ public:
         std::string
         getShowFieldsString () const;
 
+        /**
+         * Parse a parameter setting using syntax <name>=<value>.
+         **/
+        bool
+        parseParameter(const std::string& text);
+
+        /**
+         * Set a parameter for this scheme.
+         **/
+        void
+        setParameter(const std::string& name, const std::string& value);
+
+        /**
+         * Return the value of the parameter.  If the parameter has not
+         * been set, then return the default.
+         **/
+        std::string
+        getParameter(const std::string& name, const std::string& dvalue="");
+
+        /**
+         * Return the value of the parameter.  If the parameter has not
+         * been set, then look for a value in the environment, and
+         * otherwise return the default.
+         **/
+        std::string
+        getEnvParameter(const std::string& name, const std::string& dvalue="");
+
+        /**
+         * If @p show is true, then all the known log points will be listed
+         * in log messages, and all future log points will be logged as
+         * they are created.  Disable this logging by passing false.
+         **/
+        void
+        showLogPoints(bool show);
+
+        /**
+         * Return true if showLogPoints() is enabled.
+         **/
+        bool
+        getShowLogPoints()
+        {
+            return _showlogpoints;
+        }
+
     private:
 
         std::string _name;
-        typedef std::vector<LogConfig> log_configs_v;
         log_configs_v log_configs;
         std::vector<LogField> log_fields;
+        std::map<std::string, std::string> _parameters;
+        bool _showlogpoints;
 
         friend class nidas::util::LoggerPrivate;
         friend class nidas::util::Logger;
@@ -1070,6 +1159,7 @@ public:
 
         friend class nidas::util::LogLock;
         friend class nidas::util::LogContext;
+        friend class nidas::util::LogScheme;
 
         static nidas::util::Mutex mutex;
 
