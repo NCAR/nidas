@@ -288,7 +288,9 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                         _misAligned++;
 #ifdef SLICE_DEBUG
                         if (sdlog.active())
+                        {
                             sdmsg << dec << " misaligned ovld" << endlog;
+                        }
 #endif
                     }
 #ifdef SLICE_DEBUG
@@ -446,11 +448,14 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 else if (*(cp+1) == (unsigned char)'\xaa') {
                     // 0xaaaa but not complete syncword
 #ifdef SLICE_DEBUG
-                    for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                    if (sdlog.active())
                     {
-                        sdmsg << setw(2) << (int)*xp << ' ';
+                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
+                        {
+                            sdmsg << setw(2) << (int)*xp << ' ';
+                        }
+                        sdmsg << dec << " aaaa word" << endlog;
                     }
-                    sdmsg << dec << " aaaa word" << endlog;
 #endif
                     cp += wordSize;
                     sos = 0;    // not a particle slice
