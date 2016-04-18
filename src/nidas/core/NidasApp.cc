@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sstream>
 #include <stdexcept>
+#include <algorithm>
 
 #include <iomanip>
 
@@ -630,6 +631,15 @@ loggingArgs()
   nidas_app_arglist_t args = 
     LogShow | LogConfig | LogLevel | LogFields | LogParam;
   return args;
+}
+
+
+nidas_app_arglist_t
+nidas::core::
+operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
+{
+    std::copy(arglist2.begin(), arglist2.end(), std::back_inserter(arglist1));
+    return arglist1;
 }
 
 

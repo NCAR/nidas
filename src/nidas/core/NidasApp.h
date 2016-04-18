@@ -324,20 +324,8 @@ private:
 };
 
 
-inline nidas_app_arglist_t
-operator|(nidas_app_arglist_t arglist, NidasAppArg& arg2)
-{
-    arglist.push_back(&arg2);
-    return arglist;
-}
-
-
-inline nidas_app_arglist_t
-operator|(NidasAppArg& arg1, NidasAppArg& arg2)
-{
-    nidas_app_arglist_t result;
-    return result | arg1 | arg2;
-}
+nidas_app_arglist_t
+operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 
 
 /**
