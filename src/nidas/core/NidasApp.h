@@ -795,10 +795,6 @@ private:
 
     std::string _appname;
 
-#ifdef notdef
-    int _logLevel;
-#endif
-
     bool _processData;
 
     std::string _xmlFileName;
