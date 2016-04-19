@@ -239,9 +239,17 @@ void
 Logger::
 msg(const nidas::util::LogContext& lc, const std::string& msg)
 {
+  Synchronized sync(Logger::mutex);
+  msg_locked(lc, msg);
+}
+
+
+void
+Logger::
+msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
+{
   static const char* fixedsep = "|";
   const char* sep = "";
-  Synchronized sync(Logger::mutex);
 
   if (loggerTZ) {
     putenv(loggerTZ);
@@ -802,14 +810,17 @@ getEnvParameter(const std::string& name, const std::string& dvalue)
 static LogContext show_point(LOG_INFO, "show_log_points");
 
 void
+LogScheme::
 show_log_point(LogContext& lp)
 {
-  show_point.log()
+  std::ostringstream buf;
+  buf 
     << "Show log point: "
     << lp.levelName() << "[" << lp.tags() << "]"
     << " in " << lp.function() << "@"
     << lp.filename() << ":" << lp.line()
     << " is" << (lp.active() ? "" : " not") << " active";
+  Logger::getInstance()->msg_locked(show_point, buf.str());
 }
 
 
@@ -845,20 +856,21 @@ LogContext (int level, const char* file, const char* function, int line,
   _threadId(Thread::currentThreadId())
 {
   bool matched;
-  bool active = false;
   {
     Synchronized sync(Logger::mutex);
     log_points.push_back(this);
-    active = LoggerPrivate::get_active_flag(this, matched);
-    //  LoggerPrivate::reconfig (--log_points.end());
-  }
-  // Write the flag outside the lock.  If this object is in TLS, then
-  // generally only one thread will read and write this flag, but it may
-  // confuse checkers if the write happens with a lock held.
-  _active = active;
-  if (current_scheme.getShowLogPoints())
-  {
-    show_log_point(*this);
+    // At one point the active flag was set outside the critical section,
+    // so concurrency checkers would not complain when later on the same
+    // flag was tested by other threads without a lock.  However, in case
+    // the log point will be shown by the current log scheme, the flag
+    // should be set before showing it.  And it seemed excessive to release
+    // the lock just to set the flag and then lock again to show the log
+    // point.
+    _active = LoggerPrivate::get_active_flag(this, matched);
+    if (current_scheme.getShowLogPoints())
+    {
+      current_scheme.show_log_point(*this);
+    }
   }
 }
 

@@ -806,6 +806,9 @@ public:
 
     private:
 
+        void
+        show_log_point(LogContext& lp);
+
         std::string _name;
         log_configs_v log_configs;
         std::vector<LogField> log_fields;
@@ -814,6 +817,7 @@ public:
 
         friend class nidas::util::LoggerPrivate;
         friend class nidas::util::Logger;
+        friend class nidas::util::LogContext;
     };
 
 
@@ -1156,6 +1160,13 @@ public:
         char* loggerTZ;
         char* saveTZ;
     private:
+
+        /**
+         * Other Log classes call this method to log a message when the log
+         * mutex is already locked.
+         **/
+        void
+        msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
 
         friend class nidas::util::LogLock;
         friend class nidas::util::LogContext;
