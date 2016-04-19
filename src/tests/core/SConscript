@@ -31,6 +31,14 @@ env.ValgrindLog('threadcheck',
                             " --gen-suppressions=all ${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
+def write_env(env, target, source):
+    "Write a sh file with env settings which can be sourced to run tests."
+    out = open(str(target[0]), "w")
+    for s in source:
+        out.write("export LD_LIBRARY_PATH=%s:${LD_LIBRARY_PATH}\n" %
+                  (str(s.dir.get_abspath())))
+    out.close()
 
+env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL"], write_env)
 
 
