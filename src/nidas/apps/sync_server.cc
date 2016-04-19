@@ -70,6 +70,12 @@ int usage(const std::string& argv0)
 int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
 {
     NidasApp& app = *NidasApp::getApplicationInstance();
+
+    // We want the default showfields to be just message, but set it now so
+    // it can be overridden by log options on the command line.
+    n_u::Logger* logger = n_u::Logger::getInstance();
+    logger->setScheme(logger->getScheme().setShowFields("message"));
+
     app.parseArguments(args);
 
     std::list<std::string> dataFileNames;
@@ -155,9 +161,11 @@ void setupSignals(SyncServer& sync)
 int main(int argc, char** argv)
 {
     NidasApp app("sync_server");
-    app.enableArguments(app.LogLevel | app.XmlHeaderFile);
+    app.enableArguments(app.LogLevel | app.XmlHeaderFile |
+                        app.loggingArgs() | app.Help);
     // Because -l is overloaded for sorter seconds.
     app.requireLongFlag(app.LogLevel);
+    app.requireLongFlag(app.LogConfig);
     app.setApplicationInstance();
 
     SyncServer sync;
