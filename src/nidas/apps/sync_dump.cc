@@ -36,6 +36,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <vector>
+#include <iterator>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -79,14 +80,17 @@ private:
 
     static const int DEFAULT_PORT = 30001;
 
-    string _varname;
+    vector<string> _varnames;
+    vector<const SyncRecordVariable*> _vars;
 
     string _dumpHeader;
 
     string _dumpJSON;
 };
 
-SyncDumper::SyncDumper(): _dataFileName(),_sockAddr(0),_varname(),
+SyncDumper::SyncDumper(): _dataFileName(),_sockAddr(0),
+			  _varnames(),
+			  _vars(),
 			  _dumpHeader(),
 			  _dumpJSON()
 {
@@ -110,9 +114,15 @@ int SyncDumper::parseRunstring(int argc, char** argv)
 	    return usage(argv[0]);
 	}
     }
-    if (optind != argc - 2) return usage(argv[0]);
+    while (optind < argc-1)
+    {
+	_varnames.push_back(argv[optind++]);
+    }
 
-    _varname = string(argv[optind++]);
+    if (optind > argc - 1)
+    {
+      return usage(argv[0]);
+    }
 
     string url(argv[optind++]);
     if (url.length() > 5 && !url.compare(0,5,"sock:")) {
@@ -141,15 +151,18 @@ int SyncDumper::parseRunstring(int argc, char** argv)
         url = url.substr(5);
         _sockAddr.reset(new n_u::UnixSocketAddress(url));
     }
-    else _dataFileName = url;
+    else
+    {
+      _dataFileName = url;
+    }
     return 0;
 }
 
 int SyncDumper::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-h <file>] [-j <file>] variable inputURL\n\
-    var: a variable name\n\
+Usage: " << argv0 << " [-h <file>] [-j <file>] [<variable> ...] inputURL\n\
+    <variable>: A variable name.  If none specified, then all variables.\n\
     -h <file>  Print the header to <file>, where <file> can be - for stdout.\n\
     -j <file>  Dump all sync samples as JSON to the given <file>.\n\
     inputURL: data input (required). One of the following:\n\
@@ -209,6 +222,12 @@ void SyncDumper::setupSignals()
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
+inline std::string
+time_format(dsm_time_t tt)
+{
+  return n_u::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f");
+}
+
 int SyncDumper::run()
 {
     IOChannel* iochan = 0;
@@ -260,78 +279,98 @@ int SyncDumper::run()
     const list<const SyncRecordVariable*>& vars = reader.getVariables();
     cerr << "num of variables=" << vars.size() << endl;
 
-#ifdef USE_FIND_IF
-    // predicate class which compares variable names against a string.
-    class MatchName {
-    public:
-        MatchName(const string& name): _name(name) {}
-	bool operator()(const SyncRecordVariable* v) const {
-	    return _name.compare(v->getName()) == 0;
-	}
-    private:
-	string _name;
-    } matcher(_varname);
-
-    list<const SyncRecordVariable*>::const_iterator vi =
-	std::find_if(vars.begin(), vars.end(), matcher);
-#else
+    // Traverse in record order so they will be printed in that order.
     list<const SyncRecordVariable*>::const_iterator vi;
-    for (vi = vars.begin(); vi != vars.end(); ++vi) {
-        const SyncRecordVariable *var = *vi;
-	if (_varname == var->getName()) break;
+    for (vi = vars.begin(); vi != vars.end(); ++vi)
+    {
+	const SyncRecordVariable *var = *vi;
+	for (vector<string>::iterator iname = _varnames.begin();
+	     iname != _varnames.end(); ++iname)
+	{
+	    if (*iname == var->getName())
+	    {
+		_vars.push_back(var);
+		_varnames.erase(iname);
+		break;
+	    }
+	}
     }
-#endif
-
-    if (vi == vars.end()) {
-        cerr << "Can't find variable " << _varname << endl;
+    if (_varnames.size())
+    {
+        cerr << "*** Unknown variables: ";
+	std::copy(_varnames.begin(), _varnames.end(),
+		  std::ostream_iterator<std::string>(cerr, ", "));
+	cerr << endl;
 	return 1;
     }
+    else if (_vars.empty())
+    {
+	// Nothing was selected, so default to everything.
+	std::copy(vars.begin(), vars.end(), std::back_inserter(_vars));
+    }
 
-    const SyncRecordVariable* var = *vi;
-    size_t varoffset = var->getSyncRecOffset();
-    size_t lagoffset = var->getLagOffset();
-    int irate = (int)ceil(var->getSampleRate());
-    int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
-    int vlen = var->getLength();
+    // Dump metadata for the selected variables.
+    vector<const SyncRecordVariable*>::const_iterator it;
+    for (it = _vars.begin(); it != _vars.end(); ++it)
+    {
+	const SyncRecordVariable* var = *it;
+	cout << var->getName() << " (" << var->getUnits() << ") \""
+	     << var->getLongName() << "\"" << endl;
+    }
 
-
-    dsm_time_t tt,ttlast=LONG_LONG_MIN;
+    dsm_time_t tt, ttlast=LONG_LONG_MIN;
     vector<double> rec(numValues);
-    cout << var->getName() << " (" << var->getUnits() << ") \"" <<
-    	var->getLongName() << "\"" << endl;
-
     try {
 	for (;;) {
 	    size_t len = reader.read(&tt,&rec.front(),numValues);
-#ifdef SYNC_RECORD_JSON_OUTPUT
-	    if (_dumpJSON.length())
-	    {
-		write_sync_record_data_as_json(json, tt, &(rec[0]),
-					       numValues);
-	    }
-#endif
 	    if (interrupted) {
 		// reader.interrupt();
 		break;
 	    }
-	    if (len == 0) continue;
+	    if (len == 0)
+	    {
+	      continue;
+	    }
+#ifdef SYNC_RECORD_JSON_OUTPUT
+	    if (_dumpJSON.length())
+	    {
+	        write_sync_record_as_json(json, tt, &rec.front(), len, _vars);
+	    }
+#endif
 
-	    // cout << "lag= " << rec[lagoffset] << endl;
-	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
-            if (tt <= ttlast) {
-                cerr << "timetag=" <<
-                    n_u::UTime(tt).format(true,"%F %T.%3f") <<
-                    " is less than or equal to previous " <<
-                    n_u::UTime(ttlast).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
-            }
+	    for (it = _vars.begin(); it != _vars.end(); ++it)
+	    {
+		const SyncRecordVariable *var = *it;
 
-	    for (int i = 0; i < irate; i++) {
-                ttlast = tt;
-                cout << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f");
-		for (int j = 0; j < vlen; j++)
-		    cout << ' ' << rec[varoffset + i*vlen + j];
-		cout << endl;
-		tt += deltatUsec;
+		size_t varoffset = var->getSyncRecOffset();
+		size_t lagoffset = var->getLagOffset();
+		int irate = (int)ceil(var->getSampleRate());
+		int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
+		int vlen = var->getLength();
+
+		cout << " === " << var->getName()
+		     << " @ record:" << time_format(tt)
+		     << " === " << endl;
+		// cout << "lag= " << rec[lagoffset] << endl;
+
+		if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
+		if (tt <= ttlast && _vars.size() == 1)
+		{
+		    cerr << "timetag=" << time_format(tt)
+			 << " is less than or equal to previous "
+			 << time_format(ttlast) << endl;
+		}
+
+		for (int i = 0; i < irate; i++) {
+		    ttlast = tt;
+		    cout << time_format(tt);
+		    for (int j = 0; j < vlen; j++)
+		    {
+			cout << ' ' << rec[varoffset + i*vlen + j];
+		    }
+		    cout << endl;
+		    tt += deltatUsec;
+		}
 	    }
 	}
     }

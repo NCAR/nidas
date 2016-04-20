@@ -310,6 +310,68 @@ write_sync_record_data_as_json(std::ostream& json,
     json << root;
 }           
 
+inline std::string
+double_to_string(double value)
+{
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.16g", value);
+    return buf;
+}
+
+inline
+Json::Value
+write_sync_variable_as_json(const SyncRecordVariable* var,
+                            dsm_time_t tt,
+                            const double* rec)
+{
+    Json::Value variable;
+    Json::Value values(Json::arrayValue);
+
+    // Unfortunately the JSON spec does not support NAN, and so
+    // the data values are written as strings. NANs have a
+    // string form like 'nan' which strtod() can reliably
+    // convert back to a double.  Likewise for infinity (inf*),
+    // but those are not as likely to be seen in nidas data.
+    size_t varoffset = var->getSyncRecOffset();
+    int irate = (int)ceil(var->getSampleRate());
+    int vlen = var->getLength();
+
+    values.resize(vlen*irate);
+    for (int i = 0; i < vlen*irate; ++i)
+    {
+        values[i] = double_to_string(rec[varoffset+i]);
+    }
+    variable["name"] = var->getName();
+    variable["values"] = values;
+
+    size_t lagoffset = var->getLagOffset();
+    // int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
+    dsm_time_t vtime = tt;
+    if (!isnan(rec[lagoffset]))
+        vtime += (int) rec[lagoffset];
+    variable["time"] = vtime;
+    variable["lagoffset"] = double_to_string(rec[lagoffset]);
+    return variable;
+}           
+
+inline
+void
+write_sync_record_as_json(std::ostream& json, dsm_time_t tt,
+                          const double* record, int nvalues,
+                          std::vector<const SyncRecordVariable*>& vars)
+{
+    Json::Value root;
+    root["time"] = tt;
+    root["numValues"] = nvalues;
+    Json::Value& data = root["data"];
+    std::vector<const SyncRecordVariable*>::const_iterator it;
+    for (it = vars.begin(); it != vars.end(); ++it)
+    {
+        Json::Value variable = write_sync_variable_as_json(*it, tt, record);
+        data.append(variable);
+    }
+    json << root;
+}
 #endif
 
 }}}	// namespace nidas namespace dynld namespace raf
