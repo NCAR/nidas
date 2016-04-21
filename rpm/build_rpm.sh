@@ -4,20 +4,9 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=all
-install=false
-rsync_install=false
-rsync_host=unknown
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -i)
-            install="true"
-            ;;
-        -r)
-            rsync_install="true"
-	    shift
-	    rsync_host=$1
-            ;;
         *)
             dopkg=$1
             ;;
@@ -27,16 +16,6 @@ done
 
 cd $dir || exit 1
 cd ..    # to top of nidas tree
-
-rroot=unknown
-rf=repo_scripts/repo_funcs.sh
-[ -f $rf ] || rf=/net/www/docs/software/rpms/scripts/repo_funcs.sh
-if [ -f $rf ]; then
-    source $rf
-    rroot=`get_eol_repo_root`
-else
-    [ -d /net/www/docs/software/rpms ] && rroot=/net/www/docs/software/rpms
-fi
 
 # Change topdir for a machine specific build. Use $TOPDIR if it exists.
 # So that we don't compile from scratch everytime, do not --clean the BUILD
@@ -154,18 +133,6 @@ echo "RPMS:"
 egrep "^Wrote:" $log
 rpms=`egrep '^Wrote:' $log | egrep RPMS/ | awk '{print $2}'`
 echo "rpms=$rpms"
-
-if $install && [ -d $rroot ]; then
-    echo "Moving rpms to $rroot"
-    copy_rpms_to_eol_repo $rpms
-elif $rsync_install; then
-    echo "Rsyncing rpms to $rsync_host"
-    rsync_rpms_to_eol_repo $rsync_host $rpms
-elif $install; then
-    echo "$rroot not found. Leaving RPMS in $topdir"
-else
-    echo "-i or -r options not specified. RPMS will not be installed"
-fi
 
 # print out warnings: and the following file list
 sed -n '
