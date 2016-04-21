@@ -1550,6 +1550,11 @@ void WisardMote::initFuncMap()
     _unpackMap[0x49] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackPower,6);
     _typeNames[0x49] = "Power Monitor";
 
+    for (int i = 0x4c; i < 0x50; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw,8);
+        _typeNames[i] = "Hukseflux NR01";
+    }
+
     for (int i = 0x50; i < 0x54; i++) {
         _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRnet,1);
         _typeNames[i] = "Q7 Net Radiometer";
@@ -1700,6 +1705,18 @@ SampInfo WisardMote::_samps[] = {
                       { "XbeeStatus.%m", "", "Xbee status", "-10 10" },
                       {0, 0, 0, 0 }
                   }, WST_IGNORED
+    },
+    { 0x4c, 0x4f, {
+                      { "Rsw.in.%c_%m", "W/m^2", "Incoming Short Wave, Hukseflux NR01", "$RSWIN_RANGE" },
+                      { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RSWOUT_RANGE" },
+                      { "Rsw.in.%c_%m", "W/m^2", "Incoming Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.%c_%m", "degC", "Average case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Wetness.%c_%m", "V", "Leaf wetness", "$WETNESS_RANGE" },
+                      { "Tcase.in.%c_%m", "degC", "Incoming case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.out.%c_%m", "degC", "Outgoing case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      {0, 0, 0, 0 }
+                  }, WST_NORMAL
     },
     { 0x49, 0x49, {
                       { "Vdsm.m%m", "V", "System voltage", "$VIN_RANGE" },
