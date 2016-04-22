@@ -59,7 +59,8 @@ Original author:	Gordon Maclean
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
-MODULE_LICENSE("Dual BSD/GPL");
+MODULE_LICENSE("GPL");
+
 MODULE_DESCRIPTION("Driver for VIPER DIO pins");
 MODULE_VERSION(REPO_REVISION);
 
@@ -276,8 +277,19 @@ static void viper_dio_cleanup(void)
 #endif
 
         if (MAJOR(viper_dio.cdev.dev) != 0) cdev_del(&viper_dio.cdev);
+
+        if (viper_dio.vclass && !IS_ERR(viper_dio.vclass)) {
+                if (viper_dio.device && !IS_ERR(viper_dio.device))
+                        device_destroy(viper_dio.vclass, viper_dio.devno);
+                class_destroy(viper_dio.vclass);
+        }
         if (MAJOR(viper_dio.devno) != 0)
             unregister_chrdev_region(viper_dio.devno,1);
+
+        viper_dio.vclass = 0;
+        viper_dio.cdev.dev =  MKDEV(0,0);
+        viper_dio.devno = MKDEV(0,0);
+
         KLOG_DEBUG("complete\n");
 }
 
@@ -312,6 +324,19 @@ static int __init viper_dio_init(void)
 
         // for informational messages only at this point
         sprintf(viper_dio.deviceName,"/dev/viper_dio%d",0);
+
+        viper_dio.vclass = class_create(THIS_MODULE, "viper_dio");
+        if (IS_ERR(viper_dio.vclass)) {
+                result = PTR_ERR(viper_dio.vclass);
+                goto err;
+        }
+
+        viper_dio.device = device_create(viper_dio.vclass, NULL,
+                        viper_dio.devno, NULL, "viper_dio%d", 0);
+        if (IS_ERR(viper_dio.device)) {
+                result = PTR_ERR(viper_dio.device);
+                goto err;
+        }
 
         cdev_init(&viper_dio.cdev,&viper_dio_fops);
         viper_dio.cdev.owner = THIS_MODULE;
