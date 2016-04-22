@@ -73,6 +73,7 @@ headers = Split("""
     SampleInputHeader.h
     SampleIOProcessor.h
     SampleLengthException.h
+    SampleMatcher.h
     SampleOutput.h
     SampleOutputRequestThread.h
     SampleParseException.h
@@ -170,6 +171,7 @@ sources = Split("""
     SampleClock.cc
     SampleInputHeader.cc
     SampleIOProcessor.cc
+    SampleMatcher.cc
     SampleOutput.cc
     SampleOutputRequestThread.cc
     SamplePipeline.cc
