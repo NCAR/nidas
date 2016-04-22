@@ -89,6 +89,7 @@
 #include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/types.h>
+#include <linux/device.h>
 #include <linux/cdev.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
@@ -120,6 +121,10 @@ struct VIPER_DIO {
 #else
         struct semaphore reg_mutex;     // enforce atomic access to dio regs
 #endif
+
+        struct class* vclass;
+
+        struct device* device;
 };
 
 #endif
