@@ -613,9 +613,11 @@ public:
 
         /**
          * Construct a default LogConfig which matches and enables every
-         * log point with level DEBUG or higher.
+         * log point with level DEBUG or higher, then configure it further
+         * by calling parse() on the passed text string.  Throws
+         * std::runtime_error if the text fails to parse.
          **/
-        LogConfig();
+        LogConfig(const std::string& text = "");
     };
 
 
@@ -658,6 +660,13 @@ public:
          **/
         static std::string
         fieldToString(LogScheme::LogField lf);
+
+        /**
+         * Return the LogScheme currently in effect for the global Logger
+         * instance.
+         **/
+        static LogScheme
+        current();
 
         /**
          * The default LogScheme has show fields set to "time,level,message" and
@@ -778,6 +787,10 @@ public:
          **/
         std::string
         getParameter(const std::string& name, const std::string& dvalue="");
+
+        template <typename T>
+        T
+        getParameterT(const std::string& name, const T& dvalue = T());
 
         /**
          * Return the value of the parameter.  If the parameter has not
@@ -1207,6 +1220,20 @@ public:
         nidas::util::Logger::mutex.unlock();
     }
 
+    template <typename T>
+    T
+    LogScheme::
+    getParameterT(const std::string& name, const T& dvalue)
+    {
+        // A rudimentary implementation which converts strings
+        // to the given type.
+        T value;
+        std::istringstream text(getParameter(name));
+        text >> value;
+        if (text.fail())
+            value = dvalue;
+        return value;
+    }
 
     /**@}*/
 

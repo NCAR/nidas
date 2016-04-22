@@ -456,7 +456,7 @@ format(const char *fmt, ...)
 
 
 LogConfig::
-LogConfig() :
+LogConfig(const std::string& text) :
   filename_match(),
   function_match(),
   tag_match(),
@@ -464,6 +464,10 @@ LogConfig() :
   level(LOGGER_DEBUG),
   activate(true)
 {
+  if (!parse(text))
+  {
+    throw std::runtime_error("LogConfig error parsing: " + text);
+  }
 }
 
 
@@ -612,6 +616,15 @@ namespace {
 
     show_strings_t& show_strings = _show_strings._map;
 }
+
+
+LogScheme
+LogScheme::
+current()
+{
+  return nidas::util::Logger::getInstance()->getScheme();
+}
+
 
 LogScheme::
 LogScheme(const std::string& name) :

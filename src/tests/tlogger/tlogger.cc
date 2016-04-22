@@ -339,6 +339,10 @@ BOOST_AUTO_TEST_CASE(test_scheme_parameters)
   BOOST_CHECK_EQUAL(scheme.getParameter("x"), "");
   scheme.setParameter("x", "men");
   BOOST_CHECK_EQUAL(scheme.getEnvParameter("x"), "men");
+
+  BOOST_CHECK_EQUAL(scheme.getParameterT("limit", 1000), 1000);
+  scheme.setParameter("limit", "999");
+  BOOST_CHECK_EQUAL(scheme.getParameterT("limit", 1000), 999);
 }
 
 
