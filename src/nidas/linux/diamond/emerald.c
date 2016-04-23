@@ -27,20 +27,63 @@
 
     Linux driver module for Diamond Emerald serial IO cards.
     This just queries and sets the ioport addresses and irqs of the UARTs.
-    The normal linux serial driver for the 8250 family of UARTs does the heavy work.
+    The normal linux serial driver for the 8250 family of UARTs does
+    the heavy work.
 
-    This driver also supports the 8 digital I/O lines on a Diamond Emerald card.
-    Each digio line is accessed via a minor number, ranging from 0 to 7 for the
-    eight lines. Each digio line then has an associated device, which can be
-    named similarly to the serial ports:
-        serial port: /dev/ttyS9 
-        digio line:  /dev/ttyD9 
 
-    Any of the minor device numbers 0-7 can be used when doing any of the ioctls to
-    set/get parameters on the whole board.
+    This driver can handle up to EMERALD_MAX_NR_DEVS boards, 
+    which is currently set to 4.
 
-    This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
+    The following devices are created:
+    /dev/emerald0, minor 0, board 0
+    /dev/emerald1, minor 1, board 1
+    /dev/emerald2, minor 2, board 2
+    /dev/emerald3, minor 3, board 3
 
+    Each board has EMERALD_NR_PORTS=8 serial ports.
+
+    The ioports and irqs of the serial ports on a board
+    can be set/get by ioctls to the /dev/emeraldN devices.
+
+    Typically an init script sets/gets the ioport and irq values
+    of the serial ports on an Emerald, and then creates the usual
+    /dev/ttySn devices and configures them with the setserial
+    system command.
+    
+    Each Emerald serial port has a digital I/O pin, which can
+    be controlled through this driver via a /dev/ttyDn device
+    for each port.
+
+    To make things easier for the user, the device names
+    of the Emerald digital ports are the same as the tty serial port
+    names, with a 'D' instead of an 'S':
+        serial port: /dev/ttyS5 
+        digio pin:  /dev/ttyD5 
+
+    Since there are likely to be other serial ports,
+    on the system, the N in /dev/ttySN of first serial port
+    of the first Emerald board, will likely be N > 0.
+    This N is passed as a driver parameter, tty_port_offset, and
+    defaults to 5, since our usual systems have 4 serial ports
+    on the motherboard, and the Emerald ports begin at /dev/ttyS5.
+
+    This module can also set the RS232/422/485 mode for each serial
+    port on an EMM-8P via the /dev/ttyDn device.
+
+    The serial ports have minor numbers starting at
+    EMERALD_MAX_NR_DEVS (4), up to
+    (EMERALD_MAX_NR_DEVS * (EMERALD_NR_PORTS+1))-1 = 35.
+
+    For, tty_port_offset = 5,
+    /dev/ttyD5, minor 4, port 0, board 0
+            ...
+    /dev/ttyD12, minor 11, port 7, board 0
+
+    /dev/ttyD13, minor 12, port 0, board 1
+            ...
+    /dev/ttyD20, minor 19, port 7, board 1
+            ...
+    /dev/ttyD36, minor 35, port 7, board 3
 */
 
 #ifndef __KERNEL__
@@ -86,12 +129,24 @@ static emerald_board* emerald_boards = 0;
 static emerald_port* emerald_ports = 0;
 static int emerald_nports = 0;
 
+/*
+ * In order to number the emerald port devices /dev/ttyDn, to correspond
+ * to the associated serial port device, /dev/ttySn, we need to know
+ * serial port number /dev/ttySn assigned to the first emerald serial port. 
+ * Once the user has fetched the ioport and irq configuration of
+ * ane
+ */
+static int tty_port_offset = 5;
+
+static struct class* emerald_class;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports, uint, &emerald_nr_addrs, S_IRUGO);	/* io port address */
 #else
 module_param_array(ioports, uint, emerald_nr_addrs, S_IRUGO);	/* io port address */
 #endif
+
+module_param(tty_port_offset, int, S_IRUGO);
 
 #ifndef REPO_REVISION
 #define REPO_REVISION "unknown"
@@ -639,11 +694,29 @@ static int emerald_open (struct inode *inode, struct file *filp)
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        /*  check the device number */
+        /* Assuming EMERALD_MAX_NR_DEVS is 4, and EMERALD_NR_PORTS is 8
+         *  minor number
+         *  0: is board 0, and port 0 on that board
+         *  1: is board 1, and port 0 on that board
+         *  2: is board 2, and port 0 on that board
+         *  3: is board 3, and port 0 on that board
+         *  4-11: is ports 0-7 on board 0
+         *  12-19: is ports 0-7 on board 1
+         *  20-27: is ports 0-7 on board 2
+         *  28-35: is ports 0-7 on board 3
+         *
+         *  If 4 boards are reporting, then there will be
+         *  4*8=32 emerald_port structures. Convert
+         *  the minor number to a pointer to the emerald_port.
+         */      
+
+        if (num < EMERALD_MAX_NR_DEVS) num *= EMERALD_NR_PORTS;
+        else num -= EMERALD_MAX_NR_DEVS; 
+
         if (num >= emerald_nports) return -ENODEV;
         port = emerald_ports + num;
 
-        /* and use filp->private_data to point to the device data */
+        /* use filp->private_data to point to the device data */
         filp->private_data = port;
 
         // Don't access the ioport/irq configuration registers here.
@@ -660,11 +733,12 @@ static int emerald_release (struct inode *inode, struct file *filp)
  * The ioctl() implementation
  */
 
-static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
+static long emerald_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         emerald_port* port = filp->private_data;
         emerald_board* brd = port->board;
-        int err= 0, ret = 0;
+        int portNum = port->portNum;
+        int err= 0, ret = 0, val;
 
         if (_IOC_TYPE(cmd) != EMERALD_IOC_MAGIC) return -ENOTTY;
         if (_IOC_NR(cmd) > EMERALD_IOC_MAXNR) return -ENOTTY;
@@ -682,13 +756,17 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
         if (err) return -EFAULT;
 
         switch(cmd) {
-        case EMERALD_IOCGPORTCONFIG:	/* get current irq and ioport configuration for all serial ports */
+        case EMERALD_IOCGPORTCONFIG:
+                /* get current irq and ioport configuration for all
+                 * serial ports */
                 if (copy_to_user((emerald_config *) arg,&brd->config,
                         sizeof(emerald_config)) != 0) ret = -EFAULT;
                 break;
-        case EMERALD_IOCSPORTCONFIG:	/* set irq and ioport configuration in board registers */
-                /* Warning: interferes with concurrent serial driver operations on the ports.
-                 * Can cause system crash if serial driver is accessing tty ports. */
+        case EMERALD_IOCSPORTCONFIG:
+                /* set irq and ioport configuration in board registers */
+                /* Warning: interferes with concurrent serial driver
+                 * operations on the ports.  Can cause system crash if
+                 * serial driver is accessing tty ports. */
                 {
                         emerald_config tmpconfig;
                         if (copy_from_user(&tmpconfig,(emerald_config *) arg,
@@ -700,7 +778,8 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCGEEPORTCONFIG:	/* get irq/ioport configuration from eeprom */
+        case EMERALD_IOCGEEPORTCONFIG:
+                /* get irq/ioport configuration from eeprom */
                 {
                         emerald_config eeconfig;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
@@ -710,7 +789,8 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                                 sizeof(emerald_config)) != 0) ret = -EFAULT;
                 }
                 break;
-        case EMERALD_IOCSEEPORTCONFIG:	/* set irq/ioport configuration in eeprom. User should then load it */
+        case EMERALD_IOCSEEPORTCONFIG:
+                /* set irq/ioport configuration in eeprom. User should then load it */
                 {
                         emerald_config eeconfig;
                         if (copy_from_user(&eeconfig,(emerald_config *) arg,
@@ -720,84 +800,80 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCEECONFIGLOAD:	/* load EEPROM config */
-                /* Warning: interferes with concurrent serial driver operations on the ports.
-                 * Can cause system crash is serial driver is accessing tty ports. */
-                {
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emm_load_config_from_eeprom(brd);
-                        mutex_unlock(&brd->brd_mutex);
-                }
+        case EMERALD_IOCEECONFIGLOAD:
+                /* load EEPROM config */
+                /* Warning: interferes with concurrent serial driver
+                 * operations on the ports.  Can cause system crash
+                 * if serial driver is accessing tty ports. */
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                ret = emm_load_config_from_eeprom(brd);
+                mutex_unlock(&brd->brd_mutex);
                 break;
         case EMERALD_IOCPORTENABLE:
-                /* Warning: interferes with concurrent serial driver operations on the ports.
-                 * Can cause system crash is serial driver is accessing tty ports. */
-                {
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emm_enable_ports(brd);
-                        mutex_unlock(&brd->brd_mutex);
-                }
+                /* Warning: interferes with concurrent serial driver
+                 * operations on the ports.  Can cause system crash if
+                 * serial driver is accessing tty ports. */
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                emm_enable_ports(brd);
+                mutex_unlock(&brd->brd_mutex);
                 break;
-        case EMERALD_IOCGNBOARD:    /* how many boards are responding at the given ioport addresses */
+        case EMERALD_IOCGNBOARD:
+                /* how many boards are responding at the given
+                 * ioport addresses */
                 if (copy_to_user((int*) arg,&emerald_nr_ok,
                         sizeof(int)) != 0) ret = -EFAULT;
                 break;
-        case EMERALD_IOCGISABASE:   /* what is the base ISA address on this system */
+        case EMERALD_IOCGISABASE:
+                /* what is the base ISA address on this system */
                 if (copy_to_user((unsigned long*) arg,&ioport_base,
                         sizeof(unsigned long)) != 0) ret = -EFAULT;
                 break;
-        case EMERALD_IOCGDIOOUT:    /* get digio direction for a port, 1=out, 0=in */
-                {
-                        int iport = port->portNum;
-                        int val;
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        val = emm_get_digio_port_out(brd,iport);
-                        if (copy_to_user((int*) arg,&val,
-                                sizeof(int)) != 0) ret = -EFAULT;
-                        mutex_unlock(&brd->brd_mutex);
-                }
+        case EMERALD_IOCGDIOOUT:
+                /* get digio direction for a port, 1=out, 0=in */
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                val = emm_get_digio_port_out(brd, portNum);
+                if (copy_to_user((int*) arg,&val,
+                        sizeof(int)) != 0) ret = -EFAULT;
+                mutex_unlock(&brd->brd_mutex);
                 break;
-        case EMERALD_IOCSDIOOUT:    /* set digio direction for a port, 1=out, 0=in */
-                {
-                        int iport = port->portNum;
-                        int val = (int) arg;
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emm_set_digio_port_out(brd,iport,val);
-                        mutex_unlock(&brd->brd_mutex);
-                }
+        case EMERALD_IOCSDIOOUT:
+                /* set digio direction for a port, 1=out, 0=in */
+                val = (int) arg;
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                emm_set_digio_port_out(brd, portNum, val);
+                mutex_unlock(&brd->brd_mutex);
                 break;
-        case EMERALD_IOCGDIO:   /* get digio value for a port */
-                {
-                        int iport = port->portNum;
-                        int val;
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        val = emm_read_digio_port(brd,iport);
-                        if (copy_to_user((int*) arg,&val,
-                                sizeof(int)) != 0) ret = -EFAULT;
-                        mutex_unlock(&brd->brd_mutex);
-                }
+        case EMERALD_IOCGDIO:
+                /* get digio value for a port */
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                val = emm_read_digio_port(brd, portNum);
+                if (copy_to_user((int*) arg,&val,
+                        sizeof(int)) != 0) ret = -EFAULT;
+                mutex_unlock(&brd->brd_mutex);
                 break;
-        case EMERALD_IOCSDIO:   /* set digio value for a port */
-                {
-                        int iport = port->portNum;
-                        int val = (int) arg;
-
-                        // digio line must be an output
-                        if (! (brd->digioout & (1 << iport))) return -EINVAL;
-                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emm_write_digio_port(brd,iport,val);
-                        mutex_unlock(&brd->brd_mutex);
-                }
+        case EMERALD_IOCSDIO:
+                /* set digio value for a port */
+                val = (int) arg;
+                // digio line must be an output
+                if (! (brd->digioout & (1 << portNum))) return -EINVAL;
+                if ((ret = mutex_lock_interruptible(&brd->brd_mutex)))
+                        return ret;
+                emm_write_digio_port(brd, portNum, val);
+                mutex_unlock(&brd->brd_mutex);
                 break;
-        case EMERALD_IOCG_MODE:	/* get current mode for a port */
+        case EMERALD_IOCG_MODE:
+                /* get current mode for a port */
                 {
                         emerald_mode tmp;
                         if (copy_from_user(&tmp,(emerald_mode *) arg,
                             sizeof(emerald_mode)) != 0) ret = -EFAULT;
-                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
-                                return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emm_get_port_mode(brd,tmp.port);
+                        ret = emm_get_port_mode(brd, portNum);
                         mutex_unlock(&brd->brd_mutex);
                         if (ret >= 0) {
                                 tmp.mode = ret;
@@ -807,29 +883,27 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         }
                 }
                 break;
-        case EMERALD_IOCS_MODE:	/* set mode for a port */
+        case EMERALD_IOCS_MODE:
+                /* set mode for a port */
                 {
                         emerald_mode tmp;
                         if (copy_from_user(&tmp,(emerald_mode *) arg,
                             sizeof(emerald_mode)) != 0) ret = -EFAULT;
-                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
-                                return -EINVAL;
                         if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emm_set_port_mode(brd,tmp.port,tmp.mode);
+                        ret = emm_set_port_mode(brd, portNum, tmp.mode);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCG_EEMODE:	/* get current mode from eeprom for a port */
+        case EMERALD_IOCG_EEMODE:
+                /* get current mode from eeprom for a port */
                 {
                         emerald_mode tmp;
                         if (copy_from_user(&tmp,(emerald_mode *) arg,
                             sizeof(emerald_mode)) != 0) ret = -EFAULT;
-                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
-                                return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emm_get_port_mode_eeprom(brd,tmp.port);
+                        ret = emm_get_port_mode_eeprom(brd, portNum);
                         mutex_unlock(&brd->brd_mutex);
                         if (ret >= 0) {
                                 tmp.mode = ret;
@@ -839,17 +913,16 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         }
                 }
                 break;
-        case EMERALD_IOCS_EEMODE:	/* set mode in eeprom for a port */
+        case EMERALD_IOCS_EEMODE:
+                /* set mode in eeprom for a port */
                 {
                         emerald_mode tmp;
                         if (copy_from_user(&tmp,(emerald_mode *) arg,
                             sizeof(emerald_mode)) != 0) ret = -EFAULT;
-                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
-                                return -EINVAL;
                         if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emm_set_port_mode_eeprom(brd,tmp.port,tmp.mode);
+                        ret = emm_set_port_mode_eeprom(brd, portNum, tmp.mode);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -885,21 +958,38 @@ static void emerald_cleanup_module(void)
         if (emerald_ports) {
                 for (i=0; i < emerald_nports; i++) {
                         emerald_port* eport = emerald_ports + i;
-                        if (MAJOR(eport->cdev.dev) != 0) cdev_del(&eport->cdev);
+                        if (MAJOR(eport->cdev.dev) != 0) {
+                                if (eport->device && !IS_ERR(eport->device))
+                                        device_destroy(emerald_class, eport->cdev.dev);
+                                cdev_del(&eport->cdev);
+                        }
                 }
                 kfree(emerald_ports);
+                emerald_ports = 0;
         }
 
         if (emerald_boards) {
                 for (i=0; i<emerald_nr_ok; i++) {
-                        if (emerald_boards[i].addr) 
-                            release_region(emerald_boards[i].addr,EMERALD_IO_REGION_SIZE);
+                        emerald_board* ebrd = emerald_boards + i;
+                        if (MAJOR(ebrd->cdev.dev) != 0) {
+                                if (ebrd->device && !IS_ERR(ebrd->device))
+                                        device_destroy(emerald_class, ebrd->cdev.dev);
+                                cdev_del(&ebrd->cdev);
+                        }
+                        if (ebrd->addr) 
+                            release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
                 }
                 kfree(emerald_boards);
+                emerald_boards = 0;
         }
 
         if (MAJOR(emerald_device) != 0)
-            unregister_chrdev_region(emerald_device, emerald_nr_addrs);
+                unregister_chrdev_region(emerald_device, emerald_nr_addrs);
+
+        if (emerald_class && !IS_ERR(emerald_class))
+                class_destroy(emerald_class);
+
+        emerald_class = 0;
 }
 
 static int __init emerald_init_module(void)
@@ -913,7 +1003,8 @@ static int __init emerald_init_module(void)
                 if (ioports[ib] == 0) break;
         emerald_nr_addrs = ib;
 
-        result = alloc_chrdev_region(&emerald_device,0,emerald_nr_addrs, "emerald");
+        result = alloc_chrdev_region(&emerald_device, 0,
+                emerald_nr_addrs, "emerald");
         if (result < 0) goto fail;
         
         /*
@@ -925,6 +1016,12 @@ static int __init emerald_init_module(void)
                 goto fail;
         }
         memset(emerald_boards, 0, emerald_nr_addrs * sizeof(emerald_board));
+
+        emerald_class = class_create(THIS_MODULE, "emerald");
+        if (IS_ERR(emerald_class)) {
+                result = PTR_ERR(emerald_class);
+                goto fail;
+        }
 
         ebrd = emerald_boards;
         for (ib=0; ib < emerald_nr_addrs; ib++) {
@@ -1011,16 +1108,27 @@ static int __init emerald_init_module(void)
                 
                 if (boardOK) {
                         char* modelstrs[] = {"UNKNOWN","EMM=8","EMM-8P"};
+                        dev_t devno;
                         ebrd->model = emm_check_model(ebrd);
 
                         KLOG_INFO("%s at ioport %#x is an %s\n",ebrd->deviceName,ioports[ib],modelstrs[ebrd->model]);
                         emm_printk_port_modes(ebrd);
-                        emerald_nr_ok++;
 
                         emm_enable_ports(ebrd);
                         emm_set_digio_out(ebrd,0);
                         emm_read_digio(ebrd);
 
+                        cdev_init(&ebrd->cdev, &emerald_fops);
+                        ebrd->cdev.owner = THIS_MODULE;
+
+                        devno = MKDEV(MAJOR(emerald_device),emerald_nr_ok);
+                        ebrd->device = device_create(emerald_class, NULL,
+                                devno, NULL, "emerald%d", emerald_nr_ok);
+
+                        result = cdev_add(&ebrd->cdev, devno, 1);
+                        if (result) goto fail;
+
+                        emerald_nr_ok++;
                         ebrd++;
                 }
                 else release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
@@ -1069,16 +1177,27 @@ static int __init emerald_init_module(void)
         }
         memset(emerald_ports, 0,emerald_nports * sizeof(emerald_port));
 
+
         for (ip=0; ip < emerald_nports; ip++) {
                 dev_t devno;
                 emerald_port* eport = emerald_ports + ip;
                 emerald_board* ebrd = emerald_boards + (ip / EMERALD_NR_PORTS);
                 eport->board = ebrd;
                 eport->portNum = ip % EMERALD_NR_PORTS;	// 0-7
-                cdev_init(&eport->cdev,&emerald_fops);
+
+                cdev_init(&eport->cdev, &emerald_fops);
                 eport->cdev.owner = THIS_MODULE;
-                devno = MKDEV(MAJOR(emerald_device),ip);
-                /* After calling cdev_add the device is "live" and ready for user operation. */
+                devno = MKDEV(MAJOR(emerald_device),ip + EMERALD_MAX_NR_DEVS);
+
+                eport->device = device_create(emerald_class, NULL,
+                        devno, NULL, "ttyD%d", ip + tty_port_offset);
+                if (IS_ERR(eport->device)) {
+                        result = PTR_ERR(eport->device);
+                        goto fail;
+                }
+
+                /* After calling cdev_add the device is "live"
+                 * and ready for user operation. */
                 result = cdev_add(&eport->cdev, devno, 1);
                 if (result) goto fail;
         }

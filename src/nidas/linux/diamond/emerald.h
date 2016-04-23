@@ -166,6 +166,7 @@
 #ifdef __KERNEL__
 
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
 
 #define EMERALD_MAX_NR_DEVS 4	/* maximum number of emerald cards in sys */
@@ -196,7 +197,7 @@ typedef struct emerald_config {
 } emerald_config;
 
 /*
- * Enumeration of software-setable serial modes for Emm-8P card.
+ * Enumeration of software-setable serial modes for ports on Emm-8P card.
  */
 enum EMERALD_MODE {
         EMERALD_RS232,
@@ -215,12 +216,14 @@ enum EMERALD_MODEL {
 };
 
 typedef struct emerald_mode {
-        int port;	                /* serial port, 0-7 */
-        enum EMERALD_MODE mode;         /* desired mode */
+        enum EMERALD_MODE mode;         /* desired mode of a port */
 } emerald_mode;
 
 #ifdef __KERNEL__
 
+/*
+ * An emerald board. May be more than one on a system.
+ */
 typedef struct emerald_board {
         unsigned long addr;	/* virtual ioport addr of the emerald card */
         emerald_config config;	/* ioport and irq of 8 serial ports */
@@ -233,12 +236,21 @@ typedef struct emerald_board {
 #endif
         int digioval;		/* current digital I/O value */
         int digioout;		/* bit=1, dig I/O direction = out */
+
+        struct cdev cdev;
+        struct device* device;  
+
 } emerald_board;
 
+/*
+ * struct for each of the emerald ports, 8 per board. User can
+ * control the digital I/O pin on each port.
+ */
 typedef struct emerald_port {
         emerald_board* board;
         struct cdev cdev;
         int portNum;            /* serial port number on  this board, 0-7 */
+        struct device* device;  
 } emerald_port;
 
 

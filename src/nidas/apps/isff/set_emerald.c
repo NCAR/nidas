@@ -122,34 +122,32 @@ int enablePorts(int fd,const char* devname) {
     return 0;
 }
 
-int getPortMode(int fd,const char* devname,int eepromAccess, int sport)
+int getPortMode(int fd,const char* devname,int eepromAccess)
 {
-    emerald_mode prot;
-    prot.port = sport;
+    emerald_mode emode;
 
     if (eepromAccess) {
-        if (ioctl(fd,EMERALD_IOCG_EEMODE,&prot) < 0) {
+        if (ioctl(fd,EMERALD_IOCG_EEMODE,&emode) < 0) {
             fprintf(stderr,"ioctl EMERALD_IOCG_EEMODE: %s: %s\n",devname,strerror(errno));
             return -1;
         }
     }
     else {
-        if (ioctl(fd,EMERALD_IOCG_MODE,&prot) < 0) {
+        if (ioctl(fd,EMERALD_IOCG_MODE,&emode) < 0) {
             fprintf(stderr,"ioctl EMERALD_IOCG_MODE: %s: %s\n",devname,strerror(errno));
             return -1;
         }
     }
-    return prot.mode;
+    return emode.mode;
 }
 
-int setPortMode(int fd,const char* devname,int eepromAccess, int sport,int mode)
+int setPortMode(int fd,const char* devname,int eepromAccess, int mode)
 {
-    emerald_mode prot;
-    prot.port = sport;
-    prot.mode = mode;
+    emerald_mode emode;
+    emode.mode = mode;
 
     if (eepromAccess) {
-        if (ioctl(fd,EMERALD_IOCS_EEMODE,&prot) < 0) {
+        if (ioctl(fd,EMERALD_IOCS_EEMODE,&emode) < 0) {
             fprintf(stderr,"ioctl EMERALD_IOCS_EEMODE: %s: %s\n",devname,strerror(errno));
             return -1;
         }
@@ -159,7 +157,7 @@ int setPortMode(int fd,const char* devname,int eepromAccess, int sport,int mode)
         }
     }
     else {
-        if (ioctl(fd,EMERALD_IOCS_MODE,&prot) < 0) {
+        if (ioctl(fd,EMERALD_IOCS_MODE,&emode) < 0) {
             fprintf(stderr,"ioctl EMERALD_IOCS_MODE: %s: %s\n",devname,strerror(errno));
             return -1;
         }
@@ -170,16 +168,16 @@ int setPortMode(int fd,const char* devname,int eepromAccess, int sport,int mode)
 
 void usage(const char* argv0) {
     fprintf(stderr,"Usage: %s [-n] [-b] [-e] [-u] device [port0 irq ...]\n",argv0);
-    fprintf(stderr,"       %s [-e] -p device serial_port [mode]\n\n",argv0);
+    fprintf(stderr,"       %s [-e] -m device [mode]\n\n",argv0);
     fprintf(stderr,"\
     -n: display the number of boards with acceptable EEPROM configuration\n\
     -b: display the ISA base address on the system, in 0xhhhh form\n\
     -e: set values in EEPROM, not temporary RAM\n\
     -u: up (enable) the ports\n\
-    -p: get or set RS232/422/485 mode on a serial port\n\
-        serial_port: serial port number, 0-7\n\
+    -m: get or set RS232/422/485 mode on a serial port\n\
         mode: 0=RS232,1=RS422,2=RS485_ECHO, 3=RS485_NOECHO\n\
-    device: device name, /dev/emerald0, /dev/emerald1, etc\n\
+    device: device name, /dev/emerald0, /dev/emerald1, or
+        /dev/ttyD5, etc for setting RS232/422/485 mode\n\
     port0: ioport address of serial port 0 on the board\n\
         the 8 ports will be configured and enabled at port0, port0+0x8,\n\
         port0+0x10, ..., up to port0+0x38\n\
@@ -217,14 +215,13 @@ int main(int argc, char** argv) {
     int eepromAccess = 0;
     int enable = 0;
     int do_mode = 0;
-    int sport = -1;
     int mode = -1;
 
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "enbpu")) != -1) {
+    while ((opt_char = getopt(argc, argv, "enbmu")) != -1) {
         switch (opt_char) {
         case 'e':
             eepromAccess = 1;
@@ -238,7 +235,7 @@ int main(int argc, char** argv) {
         case 'u':
             enable = 1;
             break;
-        case 'p':
+        case 'm':
             do_mode = 1;
             break;
         case '?':
@@ -251,9 +248,6 @@ int main(int argc, char** argv) {
     devname = argv[optind++];
 
     if (do_mode) {
-        if (optind == argc) usage(argv[0]);
-        if (sscanf(argv[optind++],"%d",&sport) != 1) usage(argv[0]);
-
         if (optind < argc &&
             sscanf(argv[optind++],"%d",&mode) != 1) usage(argv[0]);
     }
@@ -268,21 +262,25 @@ int main(int argc, char** argv) {
         for (i = nirq; i < 8; i++) irqs[i] = irqs[nirq-1];
     }
 
+    if (optind != argc) {
+        fprintf(stderr,"Extra argument: %s\n",argv[optind]);
+        usage(argv[0]);
+    }
 
     int res = 0;
-    fd = open(devname,port0Addr < 0 ? O_RDONLY : O_RDWR);
+    fd = open(devname,port0Addr < 0 && mode < 0 ? O_RDONLY : O_RDWR);
     if (fd < 0) {
         fprintf(stderr,"open %s: %s\n",devname,strerror(errno));
         return 1;
     }
     if (do_mode) {
         if (mode < 0) {
-            res = getPortMode(fd,devname,eepromAccess,sport);
+            res = getPortMode(fd,devname,eepromAccess);
             fprintf(stdout,"%d\n",res);
             if (res > 0) res = 0;
         }
         else {
-            res = setPortMode(fd,devname,eepromAccess,sport,mode);
+            res = setPortMode(fd,devname,eepromAccess,mode);
         }
     }
     else if (getnumber) {
