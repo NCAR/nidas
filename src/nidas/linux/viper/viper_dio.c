@@ -276,19 +276,19 @@ static void viper_dio_cleanup(void)
                 gpio_free(VIPER_PL9_OUT0 + i);
 #endif
 
-        if (MAJOR(viper_dio.cdev.dev) != 0) cdev_del(&viper_dio.cdev);
-
         if (viper_dio.vclass && !IS_ERR(viper_dio.vclass)) {
                 if (viper_dio.device && !IS_ERR(viper_dio.device))
-                        device_destroy(viper_dio.vclass, viper_dio.devno);
+                        device_destroy(viper_dio.vclass, viper_dio.cdev.dev);
                 class_destroy(viper_dio.vclass);
         }
-        if (MAJOR(viper_dio.devno) != 0)
-            unregister_chrdev_region(viper_dio.devno,1);
+
+        if (MAJOR(viper_dio.cdev.dev) != 0) {
+                cdev_del(&viper_dio.cdev);
+                unregister_chrdev_region(viper_dio.cdev.dev,1);
+        }
 
         viper_dio.vclass = 0;
         viper_dio.cdev.dev =  MKDEV(0,0);
-        viper_dio.devno = MKDEV(0,0);
 
         KLOG_DEBUG("complete\n");
 }
@@ -297,6 +297,7 @@ static int __init viper_dio_init(void)
 {	
         int result = -EINVAL;
         int i;
+        dev_t devno = MKDEV(0,0);
 
         KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
@@ -316,8 +317,7 @@ static int __init viper_dio_init(void)
         }
 #endif
 
-        viper_dio.devno = MKDEV(0,0);
-        result = alloc_chrdev_region(&viper_dio.devno,0,1,"viper_dio");
+        result = alloc_chrdev_region(&devno,0,1,"viper_dio");
         if (result < 0) goto err;
 
         mutex_init(&viper_dio.reg_mutex);
@@ -332,7 +332,7 @@ static int __init viper_dio_init(void)
         }
 
         viper_dio.device = device_create(viper_dio.vclass, NULL,
-                        viper_dio.devno, NULL, "viper_dio%d", 0);
+                        devno, NULL, "viper_dio%d", 0);
         if (IS_ERR(viper_dio.device)) {
                 result = PTR_ERR(viper_dio.device);
                 goto err;
@@ -344,7 +344,7 @@ static int __init viper_dio_init(void)
         /* After calling cdev_all the device is "live"
          * and ready for user operation.
          */
-        result = cdev_add(&viper_dio.cdev, viper_dio.devno, 1);
+        result = cdev_add(&viper_dio.cdev, devno, 1);
 
         KLOG_DEBUG("complete.\n");
 

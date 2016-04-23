@@ -112,8 +112,6 @@ struct VIPER_DIO {
 
         char deviceName[64];
 
-        dev_t devno;
-
         struct cdev cdev;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
