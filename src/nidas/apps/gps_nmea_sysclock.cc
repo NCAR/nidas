@@ -41,6 +41,7 @@
 #include <fcntl.h>
 #include <cstdio> // sscanf()
 #include <iostream>
+#include <iomanip>
 #include <cstring>
 #include <sys/time.h>
 #include <cstdlib> // atoi()
@@ -267,8 +268,9 @@ int GPS_SetClock::run()
                     if (::fabs(sdiff) > (double)clockDiffMaxSeconds) {
                         setSysTime(tgps);
                     }
-                    else " << endl;
-                        cerr << "System-GPS time=" << sdiff <<  " sec. System clock not changed" << endl;
+                    else {
+                        cerr << "System-GPRMC time=" << setprecision(1) <<
+                            sdiff <<  " sec. System clock not changed" << endl;
                     }
 		    break;
 		}
