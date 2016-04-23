@@ -24,8 +24,6 @@
  ********************************************************************
 */
 
-// #define DEBUG
-
 #include "SyncRecordSource.h"
 #include "Aircraft.h"
 #include <nidas/core/SampleInput.h>
@@ -37,19 +35,22 @@
 
 #include <nidas/util/Logger.h>
 #include <nidas/core/Version.h>
+#include <nidas/core/SampleTracer.h>
 
 #include <iomanip>
 
 #include <cmath>
 #include <algorithm>
 
-// #define DEBUG
-
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::endlog;
+using nidas::util::LogScheme;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 
 SyncRecordSource::SyncRecordSource():
     _source(false),_varsByIndex(),_sampleIndices(),
@@ -313,9 +314,8 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 	string varname = var->getName();
 	if (varname.find(' ') != string::npos) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"variable name \"%s\" has one or more embedded spaces, replacing with \'_\'",
-		varname.c_str());
+	    WLOG(("variable name \"%s\" has one or more embedded spaces, "
+                  "replacing with \'_\'", varname.c_str()));
 	    replace_util(varname,' ','_');
 	}
 
@@ -392,19 +392,23 @@ void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
             conv->readCalFile(sampleTime);
             Linear* lconv = dynamic_cast<Linear*>(conv);
             Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
-            if (lconv) {
-                ILOG(("") << var->getName()
-                     << " has linear calibration: "
-                     << lconv->getIntercept() << " "
-                     << lconv->getSlope());
-            }
-            else if (pconv) {
-                std::vector<float> coefs = pconv->getCoefficients();
-                std::ostringstream msg;
-                msg << var->getName() << " has poly calibration: ";
-                for (unsigned int i = 0; i < coefs.size(); ++i)
-                    msg << coefs[i] << " ";
-                ILOG(("") << msg.str());
+            static LogContext ilog(LOG_INFO, "calibrations");
+            static LogMessage imsg(&ilog);
+            if (ilog.active())
+            {
+                if (lconv) {
+                    imsg << var->getName()
+                         << " has linear calibration: "
+                         << lconv->getIntercept() << " "
+                         << lconv->getSlope() << endlog;
+                }
+                else if (pconv) {
+                    std::vector<float> coefs = pconv->getCoefficients();
+                    imsg << var->getName() << " has poly calibration: ";
+                    for (unsigned int i = 0; i < coefs.size(); ++i)
+                        imsg << coefs[i] << " ";
+                    imsg << endlog;
+                }
             }
 	}
     }
@@ -549,6 +553,11 @@ sampleIndexFromId(dsm_sample_id_t sampleId)
 
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
+    static SampleTracer st;
+    static int earlier_times_interval =
+        LogScheme::current().getParameterT("warn_sync_earlier_times_interval",
+                                           1000);
+    
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
@@ -562,13 +571,12 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     int isync = _current;
     if (!_syncRecord[isync]) allocateRecord(isync,tt);
 
-#ifdef DEBUG
-    cerr << "SyncRecordSource::receive: " << GET_DSM_ID(sampleId) << ',' <<
-        GET_SPS_ID(sampleId) <<
-        ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << isync << "]=" <<
-        n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
-#endif
+    if (st.active(samp))
+    {
+        st.msg(samp, "SyncRecordSource::receive: ")
+            << ", syncTime[" << isync << "]="
+            << st.format_time(_syncTime[isync]) << endlog;
+    }
 
     // Screen bad times.
     // 
@@ -585,7 +593,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     // inside the _syncRecord, and thus that call must happen after the
     // comparisons to the current _syncTime to find problem times.
     if (tt < _syncTime[isync]) {
-        if (!(_badEarlierTimes++ % 1000))
+        if (!(_badEarlierTimes++ % earlier_times_interval))
 	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
                 n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
                 n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
@@ -655,7 +663,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * previously, tt here could be less than _syncTime[isync] and then timeIndex < 0.
      */
     if (timeIndex < 0) {
-        if (!(_badEarlierTimes++ % 1000))
+        if (!(_badEarlierTimes++ % earlier_times_interval))
 	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
                 n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
                 n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
@@ -664,22 +672,19 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	return false;
     }
 
-#ifdef DEBUG
-    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId) == 4081)
-        cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
-            ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-            ",_current=" << _current <<
-        ", syncTime[" << 0 << "]=" <<
-        n_u::UTime(_syncTime[0]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << 1 << "]=" <<
-        n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<
-        ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex] <<
-        ", offsetUsec=" << offsetUsec <<
-        ", timeIndex=" << timeIndex <<
-        ",_halfMaxUsecsPerSample=" << _halfMaxUsecsPerSample <<
-        endl;
-#endif
+    if (st.active(samp))
+    {
+        st.msg(samp, "SyncRecordSource: ")
+            << ", _current=" << _current
+            << ", syncTime[" << 0 << "]=" << st.format_time(_syncTime[0])
+            << ", syncTime[" << 1 << "]=" << st.format_time(_syncTime[1])
+            << ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex]
+            << ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex]
+            << ", offsetUsec=" << offsetUsec
+            << ", timeIndex=" << timeIndex
+            << ",_halfMaxUsecsPerSample=" << _halfMaxUsecsPerSample
+            << endlog;
+    }
 
     if (timeIndex >= intSamplesPerSec) {
         /* belongs in next sync record */
@@ -709,23 +714,19 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
         _dataPtr[isync][offsetIndex] = offsetUsec;
     }
 
-#ifdef DEBUG
-    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId) == 4081)
-        cerr << "SyncRecordSource done: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
-        ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << 0 << "]=" <<
-            n_u::UTime(_syncTime[0]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << 1 << "]=" <<
-            n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", _current=" << _current <<
-        ", isync=" << isync <<
-        ", usecsPerSamp=" << usecsPerSamp <<
-        ", offsetUsec=" << offsetUsec <<
-        ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<
-        ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex] <<
-        ", timeIndex=" << timeIndex <<
-        ", offsetIndex=" << _sampleOffsets[sampleIndex] <<  endl;
-#endif
+    if (st.active(samp))
+    {
+        st.msg(samp, "SyncRecordSource done: ")
+            << ", _current=" << _current
+            << ", syncTime[" << 0 << "]=" << st.format_time(_syncTime[0])
+            << ", syncTime[" << 1 << "]=" << st.format_time(_syncTime[1])
+            << ", _offsetUsec[0][sampleIndex]=" << _offsetUsec[0][sampleIndex]
+            << ", _offsetUsec[1][sampleIndex]=" << _offsetUsec[1][sampleIndex]
+            << ", offsetUsec=" << offsetUsec
+            << ", timeIndex=" << timeIndex
+            << ", _halfMaxUsecsPerSample=" << _halfMaxUsecsPerSample
+            << endlog;
+    }
 
     if (timeIndex >= intSamplesPerSec) {
         ELOG(("SyncRecordSource, timeIndex >= N: id=") << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
@@ -753,21 +754,19 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     size_t numVar = _numVars[sampleIndex];
     assert(numVar);
 
-#ifdef DEBUG
-    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId)  == 155) {
-        cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
-        ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << isync << "]=" <<
-            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", usecsPerSamp=" << usecsPerSamp <<
-        ", offsetUsec=" << offsetUsec <<
-        ", timeIndex=" << timeIndex <<
-        ", offsetIndex=" << _sampleOffsets[sampleIndex] << 
-        ", numVar=" << numVar <<
-        ", varOffset[0]=" << varOffset[0] <<
-        ", varLen[0]=" << varLen[0] << endl;
+    if (st.active(samp))
+    {
+        st.msg(samp, "SyncRecordSource: ")
+            << ", syncTime[" << isync << "]="
+            << st.format_time(_syncTime[isync])
+            << ", usecsPerSamp=" << usecsPerSamp
+            << ", offsetUsec=" << offsetUsec
+            << ", timeIndex=" << timeIndex
+            << ", offsetIndex=" << _sampleOffsets[sampleIndex]
+            << ", numVar=" << numVar
+            << ", varOffset[0]=" << varOffset[0]
+            << ", varLen[0]=" << varLen[0] << endlog;
     }
-#endif
 	
     switch (samp->getType()) {
 
