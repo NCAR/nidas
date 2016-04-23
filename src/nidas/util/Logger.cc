@@ -305,7 +305,9 @@ msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
     }
     else
     {
-      *output << oss.str() << "\n";
+      // We want to flush the stream as well write a newline, in the hopes
+      // of keeping log messages intact.
+      *output << oss.str() << std::endl;
     }
   }
   if (loggerTZ) {
