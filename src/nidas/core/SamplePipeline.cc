@@ -35,6 +35,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::endlog;
 
 SamplePipeline::SamplePipeline() :
 	_name("SamplePipeline"),
@@ -129,15 +130,14 @@ void SamplePipeline::rawinit()
         _rawSorter->setHeapBlock(getHeapBlock());
         _rawSorter->setRealTime(getRealTime());
         _rawSorter->setKeepStats(_keepStats);
-#ifdef DEBUG
-        DLOG(("RawSorter: length=%.3f secs, heapMax=%d MB, stats=%d",
-            _rawSorter->getLengthSecs(),_rawSorter->getHeapMax()/1000000,
-            _rawSorter->getKeepStats()));
-#endif
-	if (getRealTime())
-	{
-	  _rawSorter->setRealTimeFIFOPriority(40);
-	}
+        VLOG(("RawSorter: length=%.3f secs, heapMax=%d MB, "
+              "stats=%d, realtime=",
+              _rawSorter->getLengthSecs(),_rawSorter->getHeapMax()/1000000,
+              _rawSorter->getKeepStats()) << _rawSorter->getRealTime());
+        if (getRealTime())
+        {
+            _rawSorter->setRealTimeFIFOPriority(40);
+        }
         _rawSorter->start();
     }
 }
@@ -158,15 +158,14 @@ void SamplePipeline::procinit()
         _procSorter->setHeapBlock(getHeapBlock());
         _procSorter->setRealTime(getRealTime());
         _procSorter->setKeepStats(_keepStats);
-#ifdef DEBUG
-        DLOG(("ProcSorter: length=%f secs, heapMax=%d MB, stats=%d",
-            _procSorter->getLengthSecs(),_procSorter->getHeapMax()/1000000,
-            _procSorter->getKeepStats()));
-#endif
-	if (getRealTime())
-	{
-	  _procSorter->setRealTimeFIFOPriority(30);
-	}
+        VLOG(("ProcSorter: length=%f secs, heapMax=%d MB, "
+              "stats=%d, realtime=",
+              _procSorter->getLengthSecs(),_procSorter->getHeapMax()/1000000,
+              _procSorter->getKeepStats()) << _procSorter->getRealTime());
+        if (getRealTime())
+        {
+            _procSorter->setRealTimeFIFOPriority(30);
+        }
         _procSorter->start();
     }
 }
@@ -176,24 +175,28 @@ void SamplePipeline::connect(SampleSource* src) throw()
     rawinit();
     procinit();
 
+    static n_u::LogContext clog(LOG_VERBOSE, "slice_debug");
+    static n_u::LogMessage cmsg(&clog);
     SampleSource* rawsrc = src->getRawSampleSource();
 
     if (rawsrc) {
         SampleTagIterator si = rawsrc->getSampleTagIterator();
         for ( ; si.hasNext(); ) {
             const SampleTag* stag = si.next();
-#ifdef DEBUG
-            dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
-            cerr << "connect rawid=" << GET_DSM_ID(rawid) << ',' <<
-                GET_SPS_ID(rawid) << endl;
-            cerr << "connect id=" << GET_DSM_ID(stag->getId()) << ',' <<
-                GET_SPS_ID(stag->getId()) << endl;
-#endif
+            if (clog.active())
+            {
+                dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
+                cmsg << "connect rawid=" << GET_DSM_ID(rawid) << ','
+                     << GET_SPS_ID(rawid) << endlog;
+                cmsg << "connect id=" << GET_DSM_ID(stag->getId()) << ','
+                     << GET_SPS_ID(stag->getId()) << endlog;
+            }
             const DSMSensor* sensor = stag->getDSMSensor();
             if (sensor) {
-#ifdef DEBUG
-                cerr << "sensor=" << sensor->getName() << endl;
-#endif
+                if (clog.active())
+                {
+                    cmsg << "sensor=" << sensor->getName() << endlog;
+                }
                 SampleTagIterator si2 = sensor->getSampleTagIterator();
                 for ( ; si2.hasNext(); ) {
                     const SampleTag* stag2 = si2.next();
@@ -277,9 +280,7 @@ void SamplePipeline::addSampleClient(SampleClient* client) throw()
         // dsm_sample_id_t rawid = stag->getId();
         DSMSensor* sensor = const_cast<DSMSensor*>(stag->getDSMSensor());
         if (sensor) {
-#ifdef DEBUG
-            cerr << "addSampleClient sensor=" << sensor->getName() << endl;
-#endif
+            VLOG(("addSampleClient sensor=") << sensor->getName());
             sensor->addSampleClient(_procSorter);
             stag = sensor->getRawSampleTag();
             _rawSorter->addSampleClientForTag(sensor,stag);
