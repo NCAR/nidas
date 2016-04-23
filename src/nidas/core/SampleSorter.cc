@@ -74,6 +74,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::endlog;
 
 SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
@@ -97,9 +98,7 @@ SampleSorter::~SampleSorter()
     if (isRunning()) interrupt();
     if (!isJoined()) {
         try {
-#ifdef DEBUG
-            cerr << "~SampleSorter, joining" << endl;
-#endif
+            VLOG(("~SampleSorter, joining"));
             join();
         }
         catch(const n_u::Exception& e) {
@@ -182,10 +181,9 @@ int SampleSorter::run() throw(n_u::Exception)
 	getName().c_str(), (double)_sorterLengthUsec/USECS_PER_SEC,
         _heapMax,_heapBlock));
 
-
-#ifdef DEBUG
-    dsm_time_t tlast;
-#endif
+    static n_u::LogContext sslog(LOG_VERBOSE, "sample_sorter");
+    static n_u::LogMessage ssmsg(&sslog);
+    dsm_time_t tlast = 0;
 
     _sampleSetCond.lock();
 
@@ -259,12 +257,12 @@ int SampleSorter::run() throw(n_u::Exception)
         savg += nsamp;
         nloop++;
 #endif
-
-#ifdef DEBUG
-	n_u::UTime now;
-	cerr << getFullName() << now.format(true,"%H:%M:%S.%6f") <<
-		" agedsamples.size=" << agedsamples.size() << endl;
-#endif
+    if (sslog.active())
+    {
+        n_u::UTime now;
+        ssmsg << getFullName() << now.format(true,"%H:%M:%S.%6f")
+              << " agedsamples.size=" << agedsamples.size() << endlog;
+    }
 
 	// remove samples from sorted multiset
 	_samples.erase(rsb,rsi);
@@ -289,16 +287,22 @@ int SampleSorter::run() throw(n_u::Exception)
 	    const Sample *s = *si;
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 
-#ifdef DEBUG
-	    dsm_time_t tsamp = s->getTimeTag();
-	    if (tsamp < tlast) {
-		cerr << "tsamp=" << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f") <<
-		    " tlast=" << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f") <<
-                    " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SHORT_ID(s->getId()) <<
-                        " sorterLength=" << _sorterLengthUsec/USECS_PER_MSEC << " msec"<< endl;
-	    }
-	    tlast = tsamp;
-#endif
+        if (sslog.active())
+        {
+            dsm_time_t tsamp = s->getTimeTag();
+            if (tsamp < tlast) {
+                ssmsg << "tsamp="
+                      << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f")
+                      << " tlast="
+                      << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f")
+                      << " id=" << GET_DSM_ID(s->getId()) << ','
+                      << GET_SHORT_ID(s->getId())
+                      << " sorterLength=" << _sorterLengthUsec/USECS_PER_MSEC
+                      << " msec"
+                      << endlog;
+            }
+            tlast = tsamp;
+        }
 #ifdef TEST_CPU_TIME
             if (ntotal++ == 10 * 60 * 60 * 5) {
                 cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
@@ -468,13 +472,14 @@ bool SampleSorter::receive(const Sample *s) throw()
 	// On DSMs with samples which are timetagged by an IRIG, the IRIG clock
 	// can be off if it doesn't have a lock
         if (samptt > systt + USECS_PER_SEC * 2) {
-	    if (!(_realTimeFutureSamples++ % _discardWarningCount))
-	    	WLOG(("sample with timetag in future by %f secs. time: ",
-                    (float)(samptt - systt) / USECS_PER_SEC) <<
-                    n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f") <<
-                    " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SPS_ID(s->getId()) <<
-                    " total future samples=" << _realTimeFutureSamples);
-	    return false;
+            if (!(_realTimeFutureSamples++ % _discardWarningCount))
+                WLOG(("sample with timetag in future by %f secs. time: ",
+                      (float)(samptt - systt) / USECS_PER_SEC)
+                     << n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f")
+                     << " id=" << GET_DSM_ID(s->getId()) << ','
+                     << GET_SPS_ID(s->getId())
+                     << " total future samples=" << _realTimeFutureSamples);
+            return false;
         }
     }
 
@@ -486,8 +491,9 @@ bool SampleSorter::receive(const Sample *s) throw()
             _heapExceeded = true;
 	    _heapCond.unlock();
 	    if (!(_discardedSamples++ % _discardWarningCount))
-	    	WLOG(("%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
-		_discardedSamples,_heapSize,slen,_heapMax));
+	    	WLOG(("%d discarded samples because "
+                  "heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
+                  _discardedSamples,_heapSize,slen,_heapMax));
 	    return false;
 	}
 	_heapSize += slen;
