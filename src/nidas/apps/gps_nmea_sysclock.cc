@@ -69,9 +69,17 @@ private:
     int baudRate;
     int gpsOffsetUsecs;
 
+    /**
+     * If the difference between the GPS and system clock
+     * is more than this, set the system clock from the GPS.
+     */
+    static int clockDiffMaxSeconds;
+
 };
 int GPS_SetClock::dataTimeoutDefault = 30;
 int GPS_SetClock::lockTimeoutDefault = 600;
+#define CLOCK_DIFF_MAX_DEFAULT 2
+int GPS_SetClock::clockDiffMaxSeconds = CLOCK_DIFF_MAX_DEFAULT;
 
 GPS_SetClock::GPS_SetClock():
         device(),
@@ -88,7 +96,7 @@ int GPS_SetClock::parseRunstring(int argc, char** argv)
     int opt_char;     /* option character */
     char * cp;
 
-    while ((opt_char = getopt(argc, argv, "b:d:l:o:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:s:d:l:o:")) != -1) {
 	switch (opt_char) {
 	case 'b':
 	    baudRate = atoi(optarg);
@@ -98,6 +106,9 @@ int GPS_SetClock::parseRunstring(int argc, char** argv)
 	    break;
 	case 'd':
 	    dataTimeout = atoi(optarg);
+	    break;
+	case 's':
+	    clockDiffMaxSeconds = atoi(optarg);
 	    break;
 	case 'o':
 	    gpsOffsetUsecs = lroundf(strtof(optarg,&cp) * USECS_PER_SEC);
@@ -126,6 +137,8 @@ Usage: " << argv0 << "[-b baud] [-d data_timeout] [-l lock_timeout] device\n\
   	dataTimeoutDefault << ")\n\
   -l lock_timeout: seconds to wait until receipt of a valid \'A\' $GPRMC record (default=" << lockTimeoutDefault << ")\n\
   -o offset: Receipt lag of the $GPRMC message in seconds, default is 0.5\n\
+  -s sec: if system and GPS clocks differ by more than this, set system clock.\
+          Default value = " << CLOCK_DIFF_MAX_DEFAULT <<"\
   device: Name of serial device or pseudo-terminal, e.g. /dev/gps0\n\
 " << endl;
     return 1;
@@ -250,7 +263,13 @@ int GPS_SetClock::run()
 
 		if (status == 'A') {
 		    cerr << "$GPRMC status 'A' received" << endl;
-		    setSysTime(tgps);
+                    double sdiff = (double)(tnow - tgps) / USECS_PER_SEC;
+                    if (::fabs(sdiff) > (double)clockDiffMaxSeconds) {
+                        setSysTime(tgps);
+                    }
+                    else " << endl;
+                        cerr << "System-GPS time=" << sdiff <<  " sec. System clock not changed" << endl;
+                    }
 		    break;
 		}
 	    }
