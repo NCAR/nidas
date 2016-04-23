@@ -176,7 +176,7 @@ void usage(const char* argv0) {
     -u: up (enable) the ports\n\
     -m: get or set RS232/422/485 mode on a serial port\n\
         mode: 0=RS232,1=RS422,2=RS485_ECHO, 3=RS485_NOECHO\n\
-    device: device name, /dev/emerald0, /dev/emerald1, or
+    device: device name, /dev/emerald0, /dev/emerald1, or\n\
         /dev/ttyD5, etc for setting RS232/422/485 mode\n\
     port0: ioport address of serial port 0 on the board\n\
         the 8 ports will be configured and enabled at port0, port0+0x8,\n\
