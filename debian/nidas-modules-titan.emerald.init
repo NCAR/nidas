@@ -8,9 +8,10 @@
 # Short-Description: Load kernel module for Emerald serial card, create its device files
 # Description:       Diamond Systems Emerald is an 8-port PC104 serial communications card.
 #    The emerald kernel module provides a device interface for each card.
-#    Loading the kernel module will result a device /dev/emeraldN for each board,
-#    and /dev/ttyDN for each port on each board.
-#    This script executes /opt/nidas/bin/set_emerald on each board
+#    On load the kernel module creates a device /dev/emeraldN for each board,
+#    and /dev/ttyDn for each port on each board, starting at n=tty_port_offset
+#    which is passed as a module parameter from this script.
+#    This script executes set_emerald from /opt/nidas/bin on each board
 #    to set the ISA ioport and interrupts for each serial port on the card, and then
 #    runs setserial to configure the 8 serial ports, /dev/ttySn,
 #    for the stock 8250 serial driver.
