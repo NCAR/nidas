@@ -15,4 +15,4 @@ KERNEL=="usbtwod*",          MODE="0666"
 KERNEL=="rfcomm[0-9]*",          MODE="0666"
 
 # Viper digital I/O
-NAME="viper_dio[0-9]", MODE="0666"
+KERNEL=="viper_dio[0-9]", MODE="0666"
