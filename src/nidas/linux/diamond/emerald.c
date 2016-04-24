@@ -30,15 +30,17 @@
     The normal linux serial driver for the 8250 family of UARTs does
     the heavy work.
 
-
     This driver can handle up to EMERALD_MAX_NR_DEVS boards, 
     which is currently set to 4.
 
-    The following devices are created:
-    /dev/emerald0, minor 0, board 0
-    /dev/emerald1, minor 1, board 1
-    /dev/emerald2, minor 2, board 2
-    /dev/emerald3, minor 3, board 3
+    The following devices will be created for each board that
+    responds in an expected manner at the ioport addresses that
+    are passed as module parameters.
+
+    /dev/emerald0, minor 0
+    /dev/emerald1, minor 1
+    /dev/emerald2, minor 2
+    /dev/emerald3, minor 3
 
     Each board has EMERALD_NR_PORTS=8 serial ports.
 
@@ -47,7 +49,7 @@
 
     Typically an init script sets/gets the ioport and irq values
     of the serial ports on an Emerald, and then creates the usual
-    /dev/ttySn devices and configures them with the setserial
+    /dev/ttySn serial ports and configures them with the setserial
     system command.
     
     Each Emerald serial port has a digital I/O pin, which can
@@ -60,21 +62,22 @@
         serial port: /dev/ttyS5 
         digio pin:  /dev/ttyD5 
 
-    Since there are likely to be other serial ports,
-    on the system, the N in /dev/ttySN of first serial port
-    of the first Emerald board, will likely be N > 0.
+    Since there are likely to be other serial ports
+    on the system, the device name, /dev/ttySN, of the first
+    serial port on the first Emerald board, will likely have N > 0.
     This N is passed as a driver parameter, tty_port_offset, and
-    defaults to 5, since our usual systems have 4 serial ports
-    on the motherboard, and the Emerald ports begin at /dev/ttyS5.
+    defaults to 5, since our usual systems have 5 serial ports
+    on the motherboard, so the Emerald ports begin at /dev/ttyS5.
 
     This module can also set the RS232/422/485 mode for each serial
     port on an EMM-8P via the /dev/ttyDn device.
 
-    The serial ports have minor numbers starting at
+    The ttyDn devices will have minor numbers starting at
     EMERALD_MAX_NR_DEVS (4), up to
-    (EMERALD_MAX_NR_DEVS * (EMERALD_NR_PORTS+1))-1 = 35.
+    (EMERALD_MAX_NR_DEVS * EMERALD_NR_PORTS)+4-1 = 35.
 
-    For, tty_port_offset = 5,
+    With tty_port_offset = 5:
+
     /dev/ttyD5, minor 4, port 0, board 0
             ...
     /dev/ttyD12, minor 11, port 7, board 0
@@ -107,7 +110,6 @@
 #include <linux/sched.h>    /* schedule() */
 #include <linux/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
-// #include <linux/delay.h>     /* msleep */
 
 /* for testing UART registers */
 #include <linux/serial_reg.h>
@@ -942,10 +944,10 @@ static struct file_operations emerald_fops = {
 
 /*
  * The cleanup function is used to handle initialization failures as well.
- * Thefore, it must be careful to work correctly even if some of the items
+ * Thefore, it must be work correctly even if some of the items
  * have not been initialized
- */
-/* Don't add __exit macro to the declaration of this cleanup function
+ *
+ * Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
 static void emerald_cleanup_module(void)
 {
@@ -983,13 +985,12 @@ static void emerald_cleanup_module(void)
                 emerald_boards = 0;
         }
 
-        if (MAJOR(emerald_device) != 0)
-                unregister_chrdev_region(emerald_device, emerald_nr_addrs);
-
         if (emerald_class && !IS_ERR(emerald_class))
                 class_destroy(emerald_class);
-
         emerald_class = 0;
+
+        if (MAJOR(emerald_device) != 0)
+                unregister_chrdev_region(emerald_device, emerald_nr_addrs);
 }
 
 static int __init emerald_init_module(void)
@@ -1032,11 +1033,7 @@ static int __init emerald_init_module(void)
                 // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
 
-                /* create device name for printk messages.
-                 * The actual device file used to open the device is
-                 * created outside of this module, and may not necessarily
-                 * match this name.
-                 */
+                /* device name for printk messages  */
                 sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
 
                 if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
@@ -1122,11 +1119,18 @@ static int __init emerald_init_module(void)
                         ebrd->cdev.owner = THIS_MODULE;
 
                         devno = MKDEV(MAJOR(emerald_device),emerald_nr_ok);
-                        ebrd->device = device_create(emerald_class, NULL,
-                                devno, NULL, "emerald%d", emerald_nr_ok);
 
+                        /* After calling cdev_add the device is "live"
+                         * and ready for user operation. */
                         result = cdev_add(&ebrd->cdev, devno, 1);
                         if (result) goto fail;
+
+                        ebrd->device = device_create(emerald_class, NULL,
+                                devno, NULL, "emerald%d", emerald_nr_ok);
+                        if (IS_ERR(ebrd->device)) {
+                                result = PTR_ERR(ebrd->device);
+                                goto fail;
+                        }
 
                         emerald_nr_ok++;
                         ebrd++;
@@ -1189,17 +1193,17 @@ static int __init emerald_init_module(void)
                 eport->cdev.owner = THIS_MODULE;
                 devno = MKDEV(MAJOR(emerald_device),ip + EMERALD_MAX_NR_DEVS);
 
+                /* After calling cdev_add the device is "live"
+                 * and ready for user operation. */
+                result = cdev_add(&eport->cdev, devno, 1);
+                if (result) goto fail;
+
                 eport->device = device_create(emerald_class, NULL,
                         devno, NULL, "ttyD%d", ip + tty_port_offset);
                 if (IS_ERR(eport->device)) {
                         result = PTR_ERR(eport->device);
                         goto fail;
                 }
-
-                /* After calling cdev_add the device is "live"
-                 * and ready for user operation. */
-                result = cdev_add(&eport->cdev, devno, 1);
-                if (result) goto fail;
         }
 
 #ifdef EMERALD_DEBUG /* only when debugging */

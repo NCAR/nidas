@@ -165,6 +165,7 @@ struct GPIO_MM_event_status
 /********  Start of definitions used by driver modules only **********/
 
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <nidas/linux/util.h>
 #include "gpio_mm_regs.h"
 
@@ -286,6 +287,8 @@ struct GPIO_MM_fcntr
 {
         struct GPIO_MM* brd;
 
+        struct device* device;
+
         int num;                            // which freq counter on board
 
         struct GPIO_MM_fcntr_status status;
@@ -335,6 +338,8 @@ struct GPIO_MM_fcntr
 struct GPIO_MM_event
 {
         struct GPIO_MM* brd;
+
+        struct device* device;
 
         struct GPIO_MM_event_status status;
 

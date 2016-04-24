@@ -24,6 +24,8 @@
  ********************************************************************
 */
 /*
+ * Driver for Diamond Systems IR104 Relay Board
+ *
  * Original author:	Gordon Maclean
 */
 
@@ -73,6 +75,8 @@ MODULE_VERSION(REPO_REVISION);
 #endif
 
 static struct IR104* boards = 0;
+
+static struct class* ir104_class;
 
 static void add_sample(struct IR104* brd)
 {
@@ -341,13 +345,21 @@ static void ir104_cleanup(void)
         if (boards) {
                 for (i=0; i < num_boards; i++) {
                         struct IR104* brd = boards + i;
-                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
+                        if (MAJOR(brd->cdev.dev) != 0) {
+                                if (brd->device && !IS_ERR(brd->device))
+                                        device_destroy(ir104_class, brd->cdev.dev);
+                                cdev_del(&brd->cdev);
+                        }
                         if (brd->addr)
                             release_region(brd->addr,IR104_IO_REGION_SIZE);
                         free_dsm_circ_buf(&brd->relay_samples);
                 }
                 kfree(boards);
         }
+
+        if (ir104_class && !IS_ERR(ir104_class))
+                class_destroy(ir104_class);
+        ir104_class = 0;
 
         if (MAJOR(ir104_device) != 0)
             unregister_chrdev_region(ir104_device, num_boards);
@@ -376,6 +388,12 @@ static int __init ir104_init(void)
                 goto err;
         }
         memset(boards, 0, num_boards * sizeof(struct IR104));
+
+        ir104_class = class_create(THIS_MODULE, "ir104");
+        if (IS_ERR(ir104_class)) {
+                result = PTR_ERR(ir104_class);
+                goto err;
+        }
 
         for (ib=0; ib < num_boards; ib++) {
                 struct IR104* brd = boards + ib;
@@ -429,12 +447,19 @@ static int __init ir104_init(void)
                 cdev_init(&brd->cdev,&ir104_fops);
                 brd->cdev.owner = THIS_MODULE;
 
-                /* After calling cdev_all the device is "live"
+                /* After calling cdev_add the device is "live"
                  * and ready for user operation.
                  */
                 devno = MKDEV(MAJOR(ir104_device),ib);
                 result = cdev_add(&brd->cdev, devno, 1);
                 if (result) break;
+
+                brd->device = device_create(ir104_class, NULL,
+                        devno, NULL, "ir104_%d", ib);
+                if (IS_ERR(brd->device)) {
+                        result = PTR_ERR(brd->device);
+                        break;
+                }
         }
 
         return result;

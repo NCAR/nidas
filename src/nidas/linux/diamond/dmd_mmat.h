@@ -256,6 +256,7 @@ private:
 #include <linux/version.h>
 
 #include <linux/cdev.h>
+#include <linux/device.h>
 // #include <linux/timer.h>
 
 #include <linux/workqueue.h>
@@ -443,6 +444,8 @@ struct waveform_bh_data
 struct DMMAT_A2D
 {
         struct DMMAT* brd;
+
+        struct device* device;
 
         struct DMMAT_A2D_Status status;
 
@@ -651,8 +654,9 @@ struct cntr_sample
  */
 struct DMMAT_CNTR
 {
-
         struct DMMAT* brd;
+
+        struct device* device;
 
         struct cdev cdev;
 
@@ -704,6 +708,8 @@ struct DMMAT_CNTR
 struct DMMAT_D2A
 {
         struct DMMAT* brd;
+
+        struct device* device;
 
         struct cdev cdev;
 
@@ -770,6 +776,8 @@ struct DMMAT_D2D
 {
 	struct DMMAT* brd;
 	
+        struct device* device;
+
 	struct cdev cdev;
   
 	char deviceName[32];

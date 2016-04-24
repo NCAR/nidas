@@ -91,6 +91,7 @@
 /********  Start of definitions used by the driver module only **********/
 
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/types.h>
 
 #include <nidas/linux/util.h>
@@ -108,6 +109,8 @@ struct IR104 {
 
         /** device structure */
         struct cdev cdev;
+
+        struct device* device;
 
         /** number of times opened */
         atomic_t num_opened;

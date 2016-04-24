@@ -24,13 +24,11 @@
  **
  ********************************************************************
 */
-/*  a2d_driver.c/
-
-Driver and utility modules for Diamond System MM AT analog IO cards.
-
-Original author:	Gordon Maclean
-
-*/
+/*
+ * Driver for Diamond System MM AT analog IO cards.
+ *
+ * Original author:	Gordon Maclean
+ */
 
 #include "dmd_mmat.h"
 
@@ -116,6 +114,8 @@ MODULE_VERSION(REPO_REVISION);
  * Holds the major number of all DMMAT devices.
  */
 static dev_t dmmat_device = MKDEV(0,0);
+
+static struct class* dmmat_class;
 
 /*
  * Pointer to first of dynamically allocated structures containing
@@ -3871,6 +3871,13 @@ static int init_a2d(struct DMMAT* brd)
          * and ready for user operation.
          */
         result = cdev_add(&a2d->cdev, devno, 1);
+        if (result) return result;
+
+        a2d->device = device_create(dmmat_class, NULL,
+                 devno, NULL, "dmmat_a2d%d", brd->num);
+        if (IS_ERR(a2d->device)) {
+                result = PTR_ERR(a2d->device);
+        }
         return result;
 }
 
@@ -3883,7 +3890,11 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         if (!a2d) return;
 
-        if (MAJOR(a2d->cdev.dev) != 0) cdev_del(&a2d->cdev);
+        if (MAJOR(a2d->cdev.dev) != 0) {
+                if (a2d->device && !IS_ERR(a2d->device))
+                        device_destroy(dmmat_class, a2d->cdev.dev);
+                cdev_del(&a2d->cdev);
+        }
 
         free_dsm_circ_buf(&a2d->samples);
 
@@ -4029,10 +4040,17 @@ static int __init init_cntr(struct DMMAT* brd)
         cntr->timer.function = cntr_timer_fn;
         cntr->timer.data = (unsigned long)cntr;
 
-        /* After calling cdev_all the device is "live"
+        /* After calling cdev_add the device is "live"
          * and ready for user operation.
          */
         result = cdev_add (&cntr->cdev, devno,1);
+        if (result) return result;
+
+        cntr->device = device_create(dmmat_class, NULL,
+                 devno, NULL, "dmmat_cntr%d", brd->num);
+        if (IS_ERR(cntr->device)) {
+                result = PTR_ERR(cntr->device);
+        }
         return result;
 }
 
@@ -4042,7 +4060,11 @@ static void cleanup_cntr(struct DMMAT* brd)
 {
         struct DMMAT_CNTR* cntr = brd->cntr;
         if (!cntr) return;
-        if (MAJOR(cntr->cdev.dev) != 0) cdev_del(&cntr->cdev);
+        if (MAJOR(cntr->cdev.dev) != 0) {
+                if (cntr->device && !IS_ERR(cntr->device))
+                        device_destroy(dmmat_class, cntr->cdev.dev);
+                cdev_del(&cntr->cdev);
+        }
 
         free_dsm_circ_buf(&cntr->samples);
 
@@ -4136,10 +4158,17 @@ static int __init init_d2a(struct DMMAT* brd)
                 return -EINVAL;
         }
 
-        /* After calling cdev_all the device is "live"
+        /* After calling cdev_add the device is "live"
          * and ready for user operation.
          */
         result = cdev_add (&d2a->cdev, devno,1);
+        if (result) return result;
+
+        d2a->device = device_create(dmmat_class, NULL,
+                 devno, NULL, "dmmat_d2a%d", brd->num);
+        if (IS_ERR(d2a->device)) {
+                result = PTR_ERR(d2a->device);
+        }
         return result;
 }
 
@@ -4151,7 +4180,11 @@ static void cleanup_d2a(struct DMMAT* brd)
         struct DMMAT_D2A* d2a = brd->d2a;
         if (!d2a) return;
 
-        if (MAJOR(d2a->cdev.dev) != 0) cdev_del(&d2a->cdev);
+        if (MAJOR(d2a->cdev.dev) != 0) {
+                if (d2a->device && !IS_ERR(d2a->device))
+                        device_destroy(dmmat_class, d2a->cdev.dev);
+                cdev_del(&d2a->cdev);
+        }
 
         kfree(d2a);
         brd->d2a = 0;
@@ -4197,11 +4230,17 @@ static int __init init_d2d(struct DMMAT* brd)
                 break;
         }
 
-        /* After calling cdev_all the device is "live"
+        /* After calling cdev_add the device is "live"
          * and ready for user operation.
          */
         result = cdev_add (&d2d->cdev, devno,1);
+        if (result) return result;
 
+        d2d->device = device_create(dmmat_class, NULL,
+                 devno, NULL, "dmmat_d2d%d", brd->num);
+        if (IS_ERR(d2d->device)) {
+                result = PTR_ERR(d2d->device);
+        }
         return result;
 }
 
@@ -4210,7 +4249,11 @@ static void cleanup_d2d(struct DMMAT* brd)
         struct DMMAT_D2D* d2d = brd->d2d;
         if (!d2d) return;
 
-        if (MAJOR(d2d->cdev.dev) != 0) cdev_del(&d2d->cdev);
+        if (MAJOR(d2d->cdev.dev) != 0) {
+                if (d2d->device && !IS_ERR(d2d->device))
+                        device_destroy(dmmat_class, d2d->cdev.dev);
+                cdev_del(&d2d->cdev);
+        }
 
         kfree(d2d);
         brd->d2d = 0;
@@ -4223,38 +4266,42 @@ static void cleanup_d2d(struct DMMAT* brd)
 static void dmd_mmat_cleanup(void)
 {
 
-    int ib;
+        int ib;
 
-    if (board) {
+        if (board) {
 
-        for (ib = 0; ib < numboards; ib++) {
-            struct DMMAT* brd = board + ib;
+                for (ib = 0; ib < numboards; ib++) {
+                        struct DMMAT* brd = board + ib;
 
-            cleanup_a2d(brd);
-            cleanup_cntr(brd);
-            cleanup_d2a(brd);
-            cleanup_d2d(brd);
+                        cleanup_a2d(brd);
+                        cleanup_cntr(brd);
+                        cleanup_d2a(brd);
+                        cleanup_d2d(brd);
 
-            if (brd->irq) {
-                    KLOG_NOTICE("freeing irq %d\n",brd->irq);
-                    free_irq(brd->irq,brd);
-            }
+                        if (brd->irq) {
+                                KLOG_NOTICE("freeing irq %d\n",brd->irq);
+                                free_irq(brd->irq,brd);
+                        }
 
-            if (brd->addr)
-                release_region(brd->addr, DMMAT_IOPORT_WIDTH);
+                        if (brd->addr)
+                                release_region(brd->addr, DMMAT_IOPORT_WIDTH);
+                }
+                kfree(board);
+                board = 0;
         }
-        kfree(board);
-        board = 0;
-    }
 
-    if (MAJOR(dmmat_device) != 0)
-        unregister_chrdev_region(dmmat_device, numboards * DMMAT_DEVICES_PER_BOARD);
+        if (dmmat_class && !IS_ERR(dmmat_class))
+                class_destroy(dmmat_class);
+        dmmat_class = 0;
 
-    if (work_queue) destroy_workqueue(work_queue);
+        if (MAJOR(dmmat_device) != 0)
+                unregister_chrdev_region(dmmat_device, numboards * DMMAT_DEVICES_PER_BOARD);
 
-    KLOG_DEBUG("complete\n");
+        if (work_queue) destroy_workqueue(work_queue);
 
-    return;
+        KLOG_DEBUG("complete\n");
+
+        return;
 }
 
 static int __init dmd_mmat_init(void)
@@ -4296,6 +4343,12 @@ static int __init dmd_mmat_init(void)
         board = kmalloc( numboards * sizeof(struct DMMAT),GFP_KERNEL);
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct DMMAT));
+
+        dmmat_class = class_create(THIS_MODULE, "emerald");
+        if (IS_ERR(dmmat_class)) {
+                result = PTR_ERR(dmmat_class);
+                goto err;
+        }
 
         numActualBoards = numboards;
 

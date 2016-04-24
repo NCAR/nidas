@@ -23,12 +23,10 @@
  **
  ********************************************************************
 */
-/*  gpio_mm driver
-
-Driver and utility modules for Diamond System MM AT analog IO cards.
-
-Original author:	Gordon Maclean
-
+/*
+ * Driver for Diamond Systems GPIO-MM Digital I/O
+ *
+ * Original author:	Gordon Maclean
 */
 
 #include <linux/types.h>
@@ -132,6 +130,8 @@ static dev_t gpio_mm_device = MKDEV(0,0);
  * all data pertaining to the configured GPIO_MM boards on the system.
  */
 static struct GPIO_MM* board = 0;
+
+static struct class* gpio_mm_class;
 
 /* Greatest common divisor. Use Euclidian algorimthm, thanks to Wikipedia */
 static int gcd(unsigned int a, unsigned int b)
@@ -1741,7 +1741,11 @@ static int cleanup_fcntrs(struct GPIO_MM* brd)
         for (ic = 0; ic < GPIO_MM_FCNTR_PER_BOARD; ic++) {
                 struct GPIO_MM_fcntr* fcntr = fcntrs + ic;
                 result = stop_fcntr(fcntr);
-                if (MAJOR(fcntr->cdev.dev) != 0) cdev_del(&fcntr->cdev);
+                if (MAJOR(fcntr->cdev.dev) != 0) {
+                        if (fcntr->device && !IS_ERR(fcntr->device))
+                                device_destroy(gpio_mm_class, fcntr->cdev.dev);
+                        cdev_del(&fcntr->cdev);
+                }
                 free_dsm_circ_buf(&fcntr->samples);
         }
         kfree(fcntrs);
@@ -1798,6 +1802,14 @@ static int init_fcntrs(struct GPIO_MM* brd)
                  */
                 result = cdev_add(&fcntr->cdev, devno, 1);
                 if (result) return result;
+
+                fcntr->device = device_create(gpio_mm_class, NULL,
+                        devno, NULL, "gpiomm_fcntr%d",
+                        brd->num * GPIO_MM_FCNTR_PER_BOARD + ic);
+                if (IS_ERR(fcntr->device)) {
+                        result = PTR_ERR(fcntr->device);
+                        return result;
+                }
         }
         return result;
 }
@@ -1810,7 +1822,11 @@ static int cleanup_event(struct GPIO_MM* brd)
         struct GPIO_MM_event* event = brd->event;
         if (!event) return 0;
         result = stop_event(event);
-        if (MAJOR(event->cdev.dev) != 0) cdev_del(&event->cdev);
+        if (MAJOR(event->cdev.dev) != 0) {
+                if (event->device && !IS_ERR(event->device))
+                        device_destroy(gpio_mm_class, event->cdev.dev);
+                cdev_del(&event->cdev);
+        }
         free_dsm_circ_buf(&event->samples);
         kfree(event);
         return result;
@@ -1854,10 +1870,17 @@ static int init_event(struct GPIO_MM* brd)
 
         init_waitqueue_head(&event->rwaitq);
 
-        /* After calling cdev_all the device is "live"
+        /* After calling cdev_add the device is "live"
          * and ready for user operation.
          */
         result = cdev_add(&event->cdev, devno, 1);
+        if (result) return result;
+
+        event->device = device_create(gpio_mm_class, NULL,
+                devno, NULL, "gpiomm_event%d", brd->num);
+        if (IS_ERR(event->device)) {
+                result = PTR_ERR(event->device);
+        }
         return result;
 }
 
@@ -2077,6 +2100,10 @@ static void gpio_mm_cleanup(void)
                 board = 0;
         }
 
+        if (gpio_mm_class && !IS_ERR(gpio_mm_class))
+                class_destroy(gpio_mm_class);
+        gpio_mm_class = 0;
+
         if (MAJOR(gpio_mm_device) != 0)
                 unregister_chrdev_region(gpio_mm_device,
                     numboards_alloc * GPIO_MM_MINORS_PER_BOARD);
@@ -2129,6 +2156,12 @@ static int __init gpio_mm_init(void)
         board = kmalloc(numboards * sizeof(struct GPIO_MM),GFP_KERNEL);
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct GPIO_MM));
+
+        gpio_mm_class = class_create(THIS_MODULE, "gpio_mm");
+        if (IS_ERR(gpio_mm_class)) {
+                result = PTR_ERR(gpio_mm_class);
+                goto err;
+        }
 
         for (ib = 0; ib < numboards; ib++) {
                 struct GPIO_MM* brd = board + ib;
