@@ -266,8 +266,8 @@ openStream()
     // the clients are connected.
     _firstSample = sis.readSample();
     _startTime = _firstSample->getTimeTag();
-    DLOG(("SyncServer: first sample ") << _firstSample 
-         << " at time " << n_u::UTime(_startTime).format());
+    DLOG(("SyncServer: first sample ")
+         << "at time " << n_u::UTime(_startTime).format());
     DLOG(("SyncServer::openStream() finished."));
 }
 
