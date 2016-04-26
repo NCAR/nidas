@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 8; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -69,6 +69,8 @@
 
 // #include <unistd.h>	// for sleep
 #include <iostream>
+
+#include "SampleTracer.h"
 
 using namespace nidas::core;
 using namespace std;
@@ -177,12 +179,14 @@ int SampleSorter::run() throw(n_u::Exception)
      * sys     0m4.370s
      */
 
-    ILOG(("%s: sorterLength=%.3f sec, heapMax=%d, heapBlock=%d",
-	getName().c_str(), (double)_sorterLengthUsec/USECS_PER_SEC,
-        _heapMax,_heapBlock));
+    ILOG(("%s: sorterLength=%.3f sec, lateSampleCache=%d, "
+          "heapMax=%d, heapBlock=%d",
+          getName().c_str(), (double)_sorterLengthUsec/USECS_PER_SEC,
+          _lateSampleCacheSize, _heapMax,_heapBlock));
 
     static n_u::LogContext sslog(LOG_VERBOSE, "sample_sorter");
     static n_u::LogMessage ssmsg(&sslog);
+    static SampleTracer st;
     dsm_time_t tlast = 0;
 
     _sampleSetCond.lock();
@@ -210,18 +214,20 @@ int SampleSorter::run() throw(n_u::Exception)
 
         SortedSampleSet::const_iterator rsb = _samples.begin();
         SortedSampleSet::const_iterator rsi;
+        SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
+        SortedSampleSet::const_reverse_iterator late = latest;
         dsm_time_t ttlatest = 0;
 
-        if (_doFlush) rsi = _samples.end();
+        if (_doFlush) {
+            rsi = _samples.end();
+        }
         else {
             // back up over _lateSampleCacheSize number of latest samples before
             // using a sample time to use for the age off.
-            SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
-            SortedSampleSet::const_reverse_iterator late = latest;
             for (unsigned int i = 0; i < _lateSampleCacheSize; i++) late++;
 
             // age-off samples with timetags before this
-            dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;              
+            dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;
             _dummy.setTimeTag(tt);
 
             // get iterator pointing at first sample not less than dummy
@@ -257,12 +263,21 @@ int SampleSorter::run() throw(n_u::Exception)
         savg += nsamp;
         nloop++;
 #endif
-    if (sslog.active())
-    {
-        n_u::UTime now;
-        ssmsg << getFullName() << now.format(true,"%H:%M:%S.%6f")
-              << " agedsamples.size=" << agedsamples.size() << endlog;
-    }
+        if (sslog.active())
+        {
+            ssmsg << getName() << ": "
+                  << agedsamples.size() << " samples";
+            if (_doFlush)
+                ssmsg << " being flushed";
+            else
+                ssmsg << " aged off by sample at "
+                      << st.format_time((*late)->getTimeTag());
+            ssmsg << ", from "
+                  << st.format_time((*agedsamples.begin())->getTimeTag())
+                  << " to "
+                  << st.format_time((*agedsamples.rbegin())->getTimeTag())
+                  << endlog;
+        }
 
 	// remove samples from sorted multiset
 	_samples.erase(rsb,rsi);
@@ -287,28 +302,29 @@ int SampleSorter::run() throw(n_u::Exception)
 	    const Sample *s = *si;
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 
-        if (sslog.active())
-        {
-            dsm_time_t tsamp = s->getTimeTag();
-            if (tsamp < tlast) {
-                ssmsg << "tsamp="
-                      << n_u::UTime(tsamp).format(true,"%Y %m %d %H:%M:%S.%6f")
-                      << " tlast="
-                      << n_u::UTime(tlast).format(true,"%Y %m %d %H:%M:%S.%6f")
-                      << " id=" << GET_DSM_ID(s->getId()) << ','
-                      << GET_SHORT_ID(s->getId())
-                      << " sorterLength=" << _sorterLengthUsec/USECS_PER_MSEC
-                      << " msec"
-                      << endlog;
+            if (sslog.active())
+            {
+                dsm_time_t tsamp = s->getTimeTag();
+                if (tsamp < tlast) {
+                    ssmsg << "tsamp=" << st.format_time(tsamp)
+                          << " tlast=" << st.format_time(tlast)
+                          << " id=" << GET_DSM_ID(s->getId()) << ','
+                          << GET_SHORT_ID(s->getId())
+                          << " sorterLength=" << _sorterLengthUsec/USECS_PER_MSEC
+                          << " msec" << endlog;
+                }
+                tlast = tsamp;
             }
-            tlast = tsamp;
-        }
 #ifdef TEST_CPU_TIME
             if (ntotal++ == 10 * 60 * 60 * 5) {
                 cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
                 exit(1);
             }
 #endif
+            if (st.active(s))
+            {
+                st.msg(s, "distribute ") << " from " << getName() << endlog;
+            }
             _source.distribute(s);
 	}
 	heapDecrement(ssum);
