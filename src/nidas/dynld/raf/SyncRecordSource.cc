@@ -52,6 +52,14 @@ using nidas::util::LogScheme;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 
+inline
+std::string
+format_time(dsm_time_t tt, const std::string& fmt = "%Y %m %d %H:%M:%S.%3f")
+{
+    return n_u::UTime(tt).format(true, fmt);
+}
+
+
 SyncRecordSource::SyncRecordSource():
     _source(false),_varsByIndex(),_sampleIndices(),
     _intSamplesPerSec(),_rates(),_usecsPerSample(),
@@ -455,8 +463,10 @@ SyncRecordSource::sendSyncRecord()
         static nidas::util::LogContext lp(LOG_DEBUG);
         if (lp.active()) 
         {
+            dsm_time_t tt = _syncRecord[_current]->getTimeTag();
             lp.log(nidas::util::LogMessage().format("distribute syncRecord, ")
-                   << " syncTime=" << _syncRecord[_current]->getTimeTag());
+                   << " syncTime=" << tt
+                   << " (" << format_time(tt) << ")");
         }
         _source.distribute(_syncRecord[_current]);
         _syncRecord[_current] = 0;
@@ -551,11 +561,12 @@ sampleIndexFromId(dsm_sample_id_t sampleId)
     return gi->second;
 }
 
+
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
     static SampleTracer st;
-    static int earlier_times_interval =
-        LogScheme::current().getParameterT("warn_sync_earlier_times_interval",
+    static int warn_times_interval =
+        LogScheme::current().getParameterT("sync_warn_times_interval",
                                            1000);
     
     dsm_time_t tt = samp->getTimeTag();
@@ -593,22 +604,28 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     // inside the _syncRecord, and thus that call must happen after the
     // comparisons to the current _syncTime to find problem times.
     if (tt < _syncTime[isync]) {
-        if (!(_badEarlierTimes++ % earlier_times_interval))
-	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
-                n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
-                n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
-		(double)(_syncTime[isync]-tt)/USECS_PER_SEC,
-                GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
+        if (!(_badEarlierTimes++ % warn_times_interval))
+	    WLOG(("SyncRecordSource: timetag (%s) < syncTime (%s) by %f sec, "
+                  "dropping sample [%d,%d]",
+                  format_time(tt, "%F %T.%4f").c_str(),
+                  format_time(_syncTime[isync], "%F %T.%4f").c_str(),
+                  (double)(_syncTime[isync]-tt)/USECS_PER_SEC,
+                  GET_DSM_ID(sampleId), GET_SHORT_ID(sampleId)));
 	return false;
     }
 
-    if (tt >= _syncTime[isync] + 2 * USECS_PER_SEC && _syncTime[isync] > LONG_LONG_MIN) {
-        if (!(_badLaterTimes++ % 1))
-	    WLOG(("SyncRecordSource: sample timetag (%s) > syncTime (%s) by %f sec, dsm=%d, id=%d\n",
-                n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
-                n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
-		(double)(tt-_syncTime[isync])/USECS_PER_SEC,
-                GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
+    if (tt >= _syncTime[isync] + 2 * USECS_PER_SEC &&
+        _syncTime[isync] > LONG_LONG_MIN)
+    {
+        if (!(_badLaterTimes++ % warn_times_interval))
+        {
+	    WLOG(("SyncRecordSource: timetag (%s) > syncTime (%s) by %f sec, "
+                  "jumping sync time for sample [%d, %d]",
+                  format_time(tt, "%F %T.%4f").c_str(),
+                  format_time(_syncTime[isync], "%F %T.%4f").c_str(),
+                  (double)(tt-_syncTime[isync])/USECS_PER_SEC,
+                  GET_DSM_ID(sampleId), GET_SHORT_ID(sampleId)));
+        }
     }
 
     /*
@@ -663,7 +680,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * previously, tt here could be less than _syncTime[isync] and then timeIndex < 0.
      */
     if (timeIndex < 0) {
-        if (!(_badEarlierTimes++ % earlier_times_interval))
+        if (!(_badEarlierTimes++ % warn_times_interval))
 	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
                 n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
                 n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
