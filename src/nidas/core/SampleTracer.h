@@ -30,7 +30,7 @@ public:
         return _context.active() && _matcher.match(samp);
     }
 
-    inline std::string
+    inline static std::string
     format_time(dsm_time_t tt)
     {
         return nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f");

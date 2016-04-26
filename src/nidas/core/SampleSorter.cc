@@ -122,9 +122,10 @@ SampleSorter::~SampleSorter()
     }
     _samples.clear();
 
-    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec",
-	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
-            (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC));
+    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec, discarded=%d",
+          getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
+          (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC,
+          _discardedSamples));
 }
 
 /**
@@ -539,6 +540,31 @@ bool SampleSorter::receive(const Sample *s) throw()
     _heapCond.unlock();
 
     _sampleSetCond.lock();
+    // We only ever allow samples into the sorter which are within the
+    // sorter length window, meaning the sample time is within sorter
+    // length seconds of the most recent sample.  Otherwise lots of extra
+    // samples could be inserted into the set before the consumer thread
+    // gets around to aging some off, so that the samples which get through
+    // the sorter in order depends on how often the consumer thread runs.
+    SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
+    if (latest != _samples.rend() &&
+        s->getTimeTag() < (*latest)->getTimeTag() - _sorterLengthUsec)
+    {
+        if (!(_discardedSamples++ % _discardWarningCount))
+        {
+            dsm_time_t wend = (*latest)->getTimeTag();
+            dsm_time_t wbegin = wend - _sorterLengthUsec;
+            WLOG(("Discarding sample @ ")
+                 << SampleTracer::format_time(s->getTimeTag())
+                 << " (" << _discardedSamples << " total)"
+                 << ": sorter window ["
+                 << SampleTracer::format_time(wbegin) << ", "
+                 << SampleTracer::format_time(wend) << "]");
+        }
+        _sampleSetCond.unlock();
+        return false;
+    }
+
     // If the sorter has been interrupted or is not otherwise running, then
     // this does not accept any more samples.  However, rather than
     // increase thread contention by checking the thread in every call to
