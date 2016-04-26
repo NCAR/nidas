@@ -40,6 +40,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+NIDAS_CREATOR_FUNCTION_NS(isff,SonicAnemometer)
+
 SonicAnemometer::SonicAnemometer():
     _allBiasesNaN(false),
     _despike(false),
