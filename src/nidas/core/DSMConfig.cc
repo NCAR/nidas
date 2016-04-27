@@ -183,7 +183,8 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     string idstr = xnode.getAttributeValue("id");
     if (idstr.length() > 0) {
 	unsigned int id;
-	idstr = project->expandString(idstr);
+	idstr = (getSite() ? getSite()->expandString(idstr) :
+                project->expandString(idstr));
 	istringstream ist(idstr);
 	ist >> id;
 	if (ist.fail()) throw n_u::InvalidParameterException(
@@ -191,9 +192,13 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	setId(id);
     }
     const string& dname = xnode.getAttributeValue("name");
-    if (dname.length() > 0) setName(project->expandString(dname));
+    if (dname.length() > 0) setName(
+        getSite() ? getSite()->expandString(dname) :
+            project->expandString(dname));
 
-    string idref = project->expandString(xnode.getAttributeValue("IDREF"));
+    string idref = xnode.getAttributeValue("IDREF");
+    idref = (getSite() ? getSite()->expandString(idref) :
+                project->expandString(idref));
     // then parse catalog entry, then main entry
     if (idref.length() > 0) {
 	// cerr << "idref=" << idref << endl;
