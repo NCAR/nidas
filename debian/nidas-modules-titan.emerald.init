@@ -49,10 +49,12 @@ SCRIPTNAME=/etc/init.d/$NAME
 # in which case these should be the actual IRQs for the ISA interrupts, 0-15.
 isairqs=(0 0 0 3 4 5 6 7 0 9 10 11 12 0 14 15)
 
-# For whatever reason, if CK is not installed, then set baud_base=460800.
-# Haven't tested what one should use if CK is installed.
-# baud_base=115200
-baud_base=460800
+# If CK jumper is not installed, use baud_base=115200, and one can
+# run at baud rates up to 115200.
+# If CK is installed, set baud_base to 460800 to support
+# higher baud rates
+baud_base=115200
+# baud_base=460800
 
 # default configuration of first 4 boards
 defports=(0x100 0x140 0x180 0x1c0)
