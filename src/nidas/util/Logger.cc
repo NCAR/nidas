@@ -38,8 +38,9 @@ using nidas::util::Thread;
 #include <vector>
 #include <map>
 #include <algorithm>
-#include <cctype>
+#include <stdexcept>
 
+#include <cctype>
 #include <cstdlib>
 
 using namespace nidas::util;
