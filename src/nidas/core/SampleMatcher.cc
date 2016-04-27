@@ -1,6 +1,8 @@
 
 #include "SampleMatcher.h"
 
+#include <stdexcept>
+
 using namespace nidas::core;
 using std::string;
 
