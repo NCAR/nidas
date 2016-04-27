@@ -228,9 +228,9 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
 
-            if (aname == "name") setName(project->expandString(aval));
+            if (aname == "name") {} // set above
             else if (aname == "location") setLocation(aval);
-            else if (aname == "id");	// already scanned
+            else if (aname == "id") {}	// set above
             else if (aname == "rserialPort") {
 		unsigned short port;
 		istringstream ist(aval);
