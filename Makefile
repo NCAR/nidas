@@ -103,6 +103,8 @@ LDCONF = $(DESTDIR)/etc/ld.so.conf.d/nidas-$(DEB_HOST_GNU_TYPE).conf
 
 LIBDIR = $(DESTDIR)$(PREFIX)/lib/$(DEB_HOST_GNU_TYPE)
 MODDIR = $(DESTDIR)/lib/modules
+BINDIR = $(DESTDIR)$(PREFIX)/bin
+INCDIR = $(DESTDIR)$(PREFIX)/include
 
 PKGCONFIG = $(DESTDIR)/usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig/nidas.pc
 
@@ -117,8 +119,6 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     SCONSLIBDIR = $(DESTDIR)$(PREFIX)/armel/lib
     SCONSBINDIR = $(DESTDIR)$(PREFIX)/armel/bin
     SCONSINCDIR = $(DESTDIR)$(PREFIX)/armel/include
-    BINDIR = $(DESTDIR)$(PREFIX)/bin
-    INCDIR = $(DESTDIR)$(PREFIX)/include
     TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed s/.*linux-headers-//)
     VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed s/.*linux-headers-//)
     SCONSMODDIR = $(DESTDIR)$(PREFIX)/armel/modules
@@ -126,8 +126,6 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
     SCONSLIBDIR = $(DESTDIR)$(PREFIX)/armhf/lib
     SCONSBINDIR = $(DESTDIR)$(PREFIX)/armhf/bin
     SCONSINCDIR = $(DESTDIR)$(PREFIX)/armhf/include
-    BINDIR = $(DESTDIR)$(PREFIX)/bin
-    INCDIR = $(DESTDIR)$(PREFIX)/include
     SCONSMODDIR = $(DESTDIR)$(PREFIX)/armhf/modules
 endif
 
@@ -158,6 +156,9 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	if [ -n "$(SCONSBINDIR)" ]; then\
 	    mkdir -p $(BINDIR);\
 	    mv $(SCONSBINDIR)/* $(BINDIR);\
+	fi
+	if [ -n "$(SCONSINCDIR)" ]; then\
+	    mkdir -p $(INCDIR);\
 	    mv $(SCONSINCDIR)/* $(INCDIR);\
 	fi
 	if [ -n "$(TITAN_KERN)" ]; then\
