@@ -1,6 +1,8 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+import subprocess
+
 ##
 ##  Import the build environment.
 ##
@@ -63,7 +65,8 @@ env.Append(LINKFLAGS=
 # source directory.
 # log_file=Dir('#build').File('quack.log'),
 # log_file=Dir('#log' + arch).File('quack.log').abspath,
-conf = env.Configure(conf_dir=".sconf_temp",
+tmp_env = env.Clone()
+conf = tmp_env.Configure(conf_dir=".sconf_temp",
         log_file='#/config' + arch +'.log',
         config_h="include/nidas/Config.h")
 
@@ -83,29 +86,26 @@ conf.CheckFunc("ppoll")
 
 conf.CheckFunc("epoll_pwait")
 
-# Check for nc_server header and library on /opt/nc_server
-env.GlobalVariables().Update(env)
-nc_server_prefix = env.get('NC_SERVER_PREFIX', '/opt/nc_server')
-nclibpath = Dir(nc_server_prefix).Dir(arch).Dir('lib')
-env_save = env.Clone()
-conf.env.Append(LIBPATH=nclibpath.path)
-print("Checking for libnc_server_rpc in %s..." % (str(nclibpath)))
-if conf.CheckLib('nc_server_rpc'):
-    conf.env.Append(CPPPATH=Dir(nc_server_prefix).Dir('include'))
-    conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
-        'xdr_connection(0,0);',autoadd=1)
-else:
-    conf.env = env_save
+if subprocess.call(['pkg-config', '--cflags', '--libs', 'nc_server']) == 0:
+    conf.env.MergeFlags('!pkg-config --cflags --libs nc_server')
 
-if conf.CheckCXXHeader('gsl/gsl_linalg.h'):
-    if not conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
-        'gsl_linalg_LU_solve(0,0,0,0);',autoadd=1):
-        # Prior to version 1.15 of gsl, have to also search gslcblas.
-        conf.env.Append(LIBS=['gslcblas'])
-        conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
-            'gsl_linalg_LU_solve(0,0,0,0);',autoadd=1)
+if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
+        'nc_server_rpc', 'nc_server_rpc.h','C++',
+        'xdr_connection(0,0);'):
+# append nc_server library to build environment
+    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
 
-env = conf.Finish()
+if subprocess.call(['pkg-config', '--libs', 'gsl']) == 0:
+    conf.env.MergeFlags('!pkg-config --libs gsl')
+
+if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
+        'gsl', 'gsl/gsl_linalg.h','C',
+        'gsl_linalg_LU_solve(0,0,0,0);'):
+# append gsl library to build environment
+    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
+#
+
+tmp_env = conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
 

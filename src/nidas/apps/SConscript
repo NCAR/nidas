@@ -1,6 +1,7 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+import subprocess
 
 ##
 ##  Import the build environment.
@@ -56,8 +57,12 @@ sdenv.NidasProgram(SDSRCS)
 
 env.NidasProgram('sync_server.cc')
 env.NidasProgram('xml_dump.cc')
-env.NidasProgram('isff/prep.cc')
 env.NidasProgram('isff/datasets.cc')
+
+ncenv = env.Clone()
+if subprocess.call(['pkg-config', '--cflags', 'nc_server']) == 0:
+    ncenv.MergeFlags('!pkg-config --cflags nc_server')
+ncenv.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
 env.NidasUtilProgram('sing.cc')

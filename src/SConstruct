@@ -13,9 +13,6 @@ opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
-opts.AddVariables(('NC_SERVER_PREFIX', 'nc_server installation',
-                   '/opt/nc_server', None, eol_scons.PathToAbsolute))
-
 #  Create construction environment with user's PATH.
 env = Environment(ENV = {'PATH' : os.environ['PATH']},
     tools=['default','gitinfo'])
@@ -47,8 +44,14 @@ opts.Add(BoolVariable('LINUX_MODULES',
                       'Build linux modules when possible.', 'on'))
 opts.Add('REPO_TAG', 
          'git tag of the source, in the form "vX.Y", when building outside of a git repository')
+opts.Add('PKG_CONFIG_PATH', 
+         'Path to pkg-config files, if you need other than the system default')
 
 opts.Update(env)
+
+if env.has_key('PKG_CONFIG_PATH'):
+    env['ENV']['PKG_CONFIG_PATH'] = env['PKG_CONFIG_PATH']
+
 BUILDS = Split(env['BUILDS'])
 MACHS = Split(env['MACHS'])
 

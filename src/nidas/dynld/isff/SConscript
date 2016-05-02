@@ -1,8 +1,13 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+import subprocess
+
 Import('env')
 arch = env['ARCH']  # empty string for native builds
+
+if subprocess.call(['pkg-config','--cflags','nc_server']) == 0:
+    env.MergeFlags('!pkg-config --cflags nc_server')
 
 sources = Split("""
     ATIK_Sonic.cc
