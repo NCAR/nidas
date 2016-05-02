@@ -93,7 +93,8 @@ if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
         'nc_server_rpc', 'nc_server_rpc.h','C++',
         'xdr_connection(0,0);'):
 # append nc_server library to build environment
-    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
+    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
+            RPATH=conf.env['LIBPATH'])
 
 if subprocess.call(['pkg-config', '--libs', 'gsl']) == 0:
     conf.env.MergeFlags('!pkg-config --libs gsl')
