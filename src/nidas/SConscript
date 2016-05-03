@@ -86,7 +86,7 @@ conf.CheckFunc("ppoll")
 
 conf.CheckFunc("epoll_pwait")
 
-if subprocess.call(['pkg-config', '--cflags', '--libs', 'nc_server']) == 0:
+if subprocess.call(['pkg-config', 'nc_server']) == 0:
     conf.env.MergeFlags('!pkg-config --cflags --libs nc_server')
 
 if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
@@ -96,7 +96,7 @@ if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
     env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
             RPATH=conf.env['LIBPATH'])
 
-if subprocess.call(['pkg-config', '--libs', 'gsl']) == 0:
+if subprocess.call(['pkg-config', 'gsl']) == 0:
     conf.env.MergeFlags('!pkg-config --libs gsl')
 
 if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
@@ -110,10 +110,6 @@ if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
 tmp_env = conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
-
-# So that sharedlibrary builder uses lib64 for the library directory
-# on 64 bit machines.
-env["USE_ARCHLIBDIR"] = 1
 
 # Update Revision.h from git describe
 info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")

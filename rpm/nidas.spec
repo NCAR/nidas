@@ -94,7 +94,7 @@ Summary: Headers, symbolic links and pkg-config for building software which uses
 Requires: nidas-libs
 Obsoletes: nidas-bin-devel <= 1.0
 Group: Applications/Engineering
-Prefix: %{nidas_prefix}
+# Prefix: %{nidas_prefix}
 %description devel
 NIDAS C/C++ headers, shareable library links, pkg-config.
 
@@ -122,7 +122,7 @@ Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be
 
 %build
 cd src
-scons -j 4 --config=force BUILDS=x86 REPO_TAG=v%{version}
+scons -j 4 --config=force BUILDS=x86 REPO_TAG=v%{version} PREFIX=%{nidas_prefix}
  
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -132,29 +132,15 @@ scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} REPO_TAG=v%{versio
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
-
 echo "%{nidas_prefix}/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
-# Create the pkgconfig file that is part of nidas-devel.
-# Note that one is also created below by the post script section of
-# nidas-min. That should probably be changed so that it is
-# owned by nidas-min, since nidas-min is required by nidas-devel.
+# scons puts entire $RPM_BUILD_ROOT%{nidas_prefix} in nidas.pc, remove it for package
+sed -r -i "s,$RPM_BUILD_ROOT,," $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 
-# the value of %{nidas_prefix} and  %{_lib} will be set to lib or lib64 by rpmbuild
-cat << \EOD > $RPM_BUILD_ROOT%{_libdir}/pkgconfig/nidas.pc
-prefix=%{nidas_prefix}
-libdir=${prefix}/%{_lib}
-includedir=${prefix}/include
-
-Name: nidas
-Description: NCAR In-Situ Data Acquisition Software
-Version: %{version}-%{releasenum}
-Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
-Cflags: -I${includedir}
-Requires: xerces-c,xmlrpcpp
-EOD
+cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
+	$RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
@@ -173,27 +159,6 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 %post min
-
-# Create nidas.pc file in the post script of the nidas-min package. That file
-# is owned by the nidas-devel package, but we'll provide it here
-# for people who build their own nidas, and want the pkg-config file for
-# building other software.
-# the value of %{nidas_prefix} and  %{_lib} will be replaced by lib or lib64 by rpmbuild
-cf=%{_libdir}/pkgconfig/nidas.pc
-if [ ! -f $cf ]; then
-    cat << \EOD > $cf
-prefix=%{nidas_prefix}
-libdir=${prefix}/%{_lib}
-includedir=${prefix}/include
-
-Name: nidas
-Description: NCAR In-Situ Data Acquisition Software
-Version: %{version}-%{releasenum}
-Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
-Cflags: -I${includedir}
-Requires: xerces-c,xmlrpcpp
-EOD
-fi
 
 /sbin/ldconfig
 
@@ -367,6 +332,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so
 %{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
 %{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
+%config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 
 %files build
