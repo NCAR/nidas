@@ -89,7 +89,7 @@ for hostarch in armel armhf; do
         apt-get update
         # hack: install xmlrpc++-dev for build (amd64) architecture too, fakes out scons when
         # it looks for the library in /usr/lib
-        apt-get -y install crossbuild-essential-${hostarch} git scons flex gawk devscripts pkg-config eol-scons libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} xmlrpc++-dev:${hostarch} xmlrpc++-dev:${hostarch} libnetcdf-dev:${hostarch}
+        apt-get -y install crossbuild-essential-${hostarch} git scons flex gawk devscripts pkg-config eol-scons libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} xmlrpc++-dev:${hostarch} libnetcdf-dev:${hostarch}
 EOD
 
     if [ $hostarch == armel ]; then
@@ -102,6 +102,4 @@ done
 # To use the schroot
 #   cd /scr/tmp/...
 # schroot --directory=$PWD --chroot=jessie-amd64-cross-armel-sbuild
-
-
 

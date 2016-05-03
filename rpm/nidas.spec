@@ -135,9 +135,9 @@ install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
 echo "%{nidas_prefix}/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
-
-# scons puts entire $RPM_BUILD_ROOT%{nidas_prefix} in nidas.pc, remove it for package
-sed -r -i "s,$RPM_BUILD_ROOT,," $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
+# scons puts entire $RPM_BUILD_ROOT in nidas.pc, remove it for package
+sed -r -i "s,$RPM_BUILD_ROOT,," \
+        $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 
 cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
 	$RPM_BUILD_ROOT%{_libdir}/pkgconfig

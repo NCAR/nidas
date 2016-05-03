@@ -84,22 +84,23 @@ ARCHLIBDIR := lib/$(DEB_HOST_GNU_TYPE)
 
 MODDIR := $(DESTDIR)/lib/modules
 
-# Copy nidas.pc from $(PREFIX) to /usr/lib
-PKGCONFIG := $(DESTDIR)/usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig/nidas.pc
-
 SCONSMODDIR := $(DESTDIR)$(PREFIX)/modules
 
 ifeq ($(DEB_HOST_GNU_TYPE),x86_64-linux-gnu)
     TITAN_KERN :=
     VIPER_KERN :=
     X86_64_KERN := $(shell uname -r)
-    ARCHLIBDIR := lib64
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed s/.*linux-headers-//)
     VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed s/.*linux-headers-//)
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
 endif
 
+# Where to find pkg-configs of other software
+PKG_CONFIG_PATH := /usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+
+# Copy nidas.pc from $(PREFIX) to /usr/lib
+PKGCONFIG := $(DESTDIR)/usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig/nidas.pc
 SCONSPKGCONFIG := $(DESTDIR)$(PREFIX)/$(ARCHLIBDIR)/pkgconfig/nidas.pc
 
 .PHONY : build clean scons_install $(LDCONF)
@@ -110,21 +111,28 @@ $(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
 
 build:
 	cd src; $(SCONS) --config=force -j 4 BUILDS=$(BUILDS) \
-		REPO_TAG=$(REPO_TAG) PREFIX=$(PREFIX)
+		REPO_TAG=$(REPO_TAG) \
+		PREFIX=$(PREFIX) \
+		ARCHLIBDIR=$(ARCHLIBDIR) \
+		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 
 $(LDCONF):
 	@mkdir -p $(@D); \
 	echo "/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)" > $@
 
 scons_install:
-	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) REPO_TAG=$(REPO_TAG) \
-		PREFIX=$(DESTDIR)$(PREFIX) install
+	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) \
+		REPO_TAG=$(REPO_TAG) \
+		PREFIX=$(DESTDIR)$(PREFIX) \
+		ARCHLIBDIR=$(ARCHLIBDIR) \
+		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install
 
 $(SCONSPKGCONFIG): scons_install
 
 $(PKGCONFIG): $(SCONSPKGCONFIG)
 	@mkdir -p $(@D); \
-	mv $< $@
+	sed -i -e "s,$(DESTDIR),," $<; \
+	cp $< $@
 
 install: scons_install $(LDCONF) $(PKGCONFIG)
 	if [ -n "$(TITAN_KERN)" ]; then\
@@ -141,5 +149,6 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	fi
 
 clean:
-	cd src; $(SCONS) -c BUILDS="host armel armhf arm armbe"
+	cd src; $(SCONS) -c BUILDS="$(BUILDS)" \
+		ARCHLIBDIR=$(ARCHLIBDIR) PREFIX=$(DESTDIR)$(PREFIX)
 

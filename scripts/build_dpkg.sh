@@ -131,6 +131,7 @@ if $use_chroot; then
     # as normal user, could not
     # sbuild-shell ${dist}-${arch}-sbuild
     # but could
+    echo "Starting schroot, which takes some time ..."
     schroot -c $chr_name --directory=$PWD << EOD
         set -e
         # . $HOME/.gpg-agent-info
