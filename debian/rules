@@ -62,10 +62,10 @@ override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
 
 override_dh_shlibdeps:
-	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/x86_64-linux-gnu
+	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
 	# didn't work: dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
 	# didn't work: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
-	# worked, but "-Lnidas-libs" is unnecessary: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/x86_64-linux-gnu
+	# worked, but "-Lnidas-libs" is unnecessary: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
 
 override_dh_installinit:
 	dh_installinit --no-start --name=emerald
