@@ -184,18 +184,19 @@ Process Process::spawn(const std::string& cmd,
     switch (pid=fork()) {
     case 0: // child
     {
+        // Note: these exceptions will be thrown in the child
         ::close(0);
         if (dup(infd[0]) < 0)
-            cerr << cmd.c_str() << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stdin pipe",errno);
 
         ::close(1);
         if (dup(outfd[1]) < 0)
-            cerr << cmd.c_str() << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stdout pipe",errno);
 
         ::close(2);
         // stderr is closed, so an error here must go to stdout
         if (dup(errfd[1]) < 0)
-            cout << cmd.c_str() << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stderr pipe",errno);
 
         /* Close other open file descriptors */
         unsigned int i;
@@ -281,17 +282,18 @@ Process Process::spawn(const std::string& cmd) throw(IOException)
     switch (pid=fork()) {
     case 0: // child
     {
+        // Note: these exceptions will be thrown in the child
         ::close(0);
         if (dup(infd[0]) < 0)
-            cerr << cmd << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stdin pipe",errno);
 
         ::close(1);
         if (dup(outfd[1]) < 0)
-            cerr << cmd << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stdout pipe",errno);
 
         ::close(2);
         if (dup(errfd[1]) < 0)
-            cout << cmd << ": " << strerror(errno) << endl;
+            throw IOException(cmd,"stderr pipe",errno);
 
         /* Close other open file descriptors */
         unsigned int i;
