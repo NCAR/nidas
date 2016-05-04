@@ -5,6 +5,10 @@ import os, re
 import eol_scons
 
 # eol_scons.SetDebug(True)
+#
+# Don't load tools that perform compiler or pkg-config checks
+# until the cross tool is loaded, and PKG_CONFIG_PATH is set.
+env = Environment(tools=['default','gitinfo'])
 
 # Create the eol_scons global variables and the NIDAS variables from the same config file.
 gopts = eol_scons.GlobalVariables('nidas.conf')
@@ -13,19 +17,24 @@ opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
-#  Create construction environment with user's PATH.
-env = Environment(ENV = {'PATH' : os.environ['PATH']},
-    tools=['default','gitinfo'])
-
 opts.AddVariables(('OTHER_PREFIX',
                    'Optional prefix for other dependencies.',
                    None, None, eol_scons.PathToAbsolute))
 
 # opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
+# May want to change this so that only single vales in BUILDS are allowed.
+# Specifiying multiple BUILDS becomes problematic with the
+# MACHS and ARCHLIBDIR parameters. Seems like overkill to
+# make them arrays or dictionaries for each BUILD type.
+# Specifying multiple BUILDS can result in this error:
+#   "Multiple ways to build the same target were specified for ..."
+# related to the MakeSymLink method in SharedLibrary3Install,
+# even when just doing a clean.  Not sure how to fix it...
+# So if you get that error, resort to single BUILDS.
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install: host, arm, armbe, armel or armhf.',
-         'host arm armbe')
+         'host')
 
 opts.Add('MACHS',
          'Space-separated list of machine names for the architecture (viper, vulcan, titan or all), for building and installing machine-specific code, such as kernel modules.',
@@ -47,7 +56,18 @@ opts.Add('REPO_TAG',
 opts.Add('PKG_CONFIG_PATH', 
          'Path to pkg-config files, if you need other than the system default')
 
+# Generally can let this default to the values set below.
+# For x86_64 builds it defaults to 'lib64'. When building
+# a Debian package for x86_64 (amd64), the Makefile that calls
+# scons pre-sets it to lib/x86_64-linux-gnu to be similar with
+# the arm libs and be more Debian-multiarch-like.
+opts.Add('ARCHLIBDIR',
+         'Where to install NIDAS libraries relative to $PREFIX')
+
 opts.Update(env)
+
+# Threads
+env.MergeFlags('-pthread')
 
 if env.has_key('PKG_CONFIG_PATH'):
     env['ENV']['PKG_CONFIG_PATH'] = env['PKG_CONFIG_PATH']
@@ -158,10 +178,9 @@ def CheckStackProtectorOptions(env):
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
     print "Setting up for host builds..."
-    host_env = env.Clone(tools = ['symlink','sharedlibrary'],
-        ARCH = ''
-    )
-    host_env['MACHS'] = ['']
+    host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = '', MACHS=[''])
+
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
@@ -214,11 +233,10 @@ if 'arm' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary'],
-        ARCH = 'arm',
-    )
-    arm_env['MACHS'] = machs
-    arm_env['PREFIX'] = arm_env['PREFIX'] + '/arm'
+    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'arm', ARCHLIBDIR='lib/arm', MACH=machs)
+
+# arm_env['PREFIX'] = arm_env['PREFIX'] + '/arm'
     CheckStackProtectorOptions(arm_env)
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
@@ -251,11 +269,13 @@ if 'armbe' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary'],
-        ARCH = 'armbe'
-    )
-    armbe_env['MACHS'] = machs
-    armbe_env['PREFIX'] = armbe_env['PREFIX'] + '/armbe',
+    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'armbe', ARCHLIBDIR='lib/armbe', MACHS=machs)
+
+    if not armbe_env.has_key('ARCHLIBDIR'):
+        armbe_env['ARCHLIBDIR'] = 'lib/armbe'
+#    armbe_env['PREFIX'] = armbe_env['PREFIX'] + '/armbe',
+#
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     CheckStackProtectorOptions(armbe_env)
 
@@ -282,11 +302,12 @@ if 'armel' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
-        ARCH = 'armel',
-    )
-    armel_env['MACHS'] = machs
-    armel_env['PREFIX'] = armel_env['PREFIX'] + '/armel'
+    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'armel', MACHS=machs)
+
+    if not armel_env.has_key('ARCHLIBDIR'):
+        armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
+
     CheckStackProtectorOptions(armel_env)
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
@@ -317,11 +338,11 @@ if 'armhf' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary'],
-        ARCH = 'armhf',
-    )
-    armhf_env['MACHS'] = machs
-    armhf_env['PREFIX'] = armhf_env['PREFIX'] + '/armhf'
+    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'armhf', MACHS=machs)
+
+    if not armhf_env.has_key('ARCHLIBDIR'):
+        armhf_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
     CheckStackProtectorOptions(armhf_env)
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',

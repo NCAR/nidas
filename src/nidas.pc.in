@@ -1,5 +1,5 @@
 prefix=@PREFIX@
-libdir=${prefix}/lib/@DEB_HOST_GNU_TYPE@
+libdir=${prefix}/@ARCHLIBDIR@
 includedir=${prefix}/include
 
 Name: nidas

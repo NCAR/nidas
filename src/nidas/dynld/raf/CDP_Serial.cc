@@ -73,11 +73,6 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     _nChannels = 0; // back to zero until it gets set via configuration
     
     //
-    // Model number is fixed
-    //
-    _model = 100;
-
-    //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //

@@ -71,11 +71,6 @@ SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
     _nChannels = 0; // back to zero until it gets set via configuration
 
     //
-    // Model number is fixed
-    //
-    _model = 200;
-
-    //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //

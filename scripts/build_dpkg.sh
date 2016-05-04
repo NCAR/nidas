@@ -131,9 +131,10 @@ if $use_chroot; then
     # as normal user, could not
     # sbuild-shell ${dist}-${arch}-sbuild
     # but could
+    echo "Starting schroot, which takes some time ..."
     schroot -c $chr_name --directory=$PWD << EOD
         set -e
-        . $HOME/.gpg-agent-info
+        [ -f $HOME/.gpg-agent-info ] && . $HOME/.gpg-agent-info
         export GPG_AGENT_INFO
         debuild $args "$karg" \
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames

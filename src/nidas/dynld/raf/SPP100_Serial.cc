@@ -67,11 +67,6 @@ SPP100_Serial::SPP100_Serial(): SppSerial("SPP100"),
     _nChannels = 0; // back to zero until it gets set via configuration
     
     //
-    // Model number is fixed
-    //
-    _model = 100;
-
-    //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //

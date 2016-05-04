@@ -35,6 +35,7 @@
 #include <cassert>
 #include <cstring>
 #include <sstream>
+#include <errno.h>
 
 #include <iostream>
 #include <iomanip>
@@ -184,20 +185,24 @@ Process Process::spawn(const std::string& cmd,
     case 0: // child
     {
         ::close(0);
-        dup(infd[0]);
+        if (dup(infd[0]) < 0)
+            cerr << cmd.c_str() << ": " << strerror(errno) << endl;
 
         ::close(1);
-        dup(outfd[1]);
+        if (dup(outfd[1]) < 0)
+            cerr << cmd.c_str() << ": " << strerror(errno) << endl;
 
         ::close(2);
-        dup(errfd[1]);
+        // stderr is closed, so an error here must go to stdout
+        if (dup(errfd[1]) < 0)
+            cout << cmd.c_str() << ": " << strerror(errno) << endl;
 
         /* Close other open file descriptors */
         unsigned int i;
         struct rlimit rl;
         rl.rlim_max = 0;
         getrlimit(RLIMIT_NOFILE, &rl);
-        for (i = 3; i < rl.rlim_max; i++) (void) ::close(i);
+        for (i = 3; i < rl.rlim_max; i++) ::close(i);
 
         // since we're overwriting this process we don't need to delete [] this.
         const char **newargs = new const char*[args.size()+1];
@@ -221,7 +226,8 @@ Process Process::spawn(const std::string& cmd,
                 putenv(newenv[i]);
             }
         }
-        nice(niceval);
+        if (nice(niceval) < 0)
+            cerr << cmd.c_str() << ": " << strerror(errno) << endl;
 
         execvp(cmd.c_str(),(char *const *)newargs); // shouldn't return
 
@@ -276,20 +282,23 @@ Process Process::spawn(const std::string& cmd) throw(IOException)
     case 0: // child
     {
         ::close(0);
-        dup(infd[0]);
+        if (dup(infd[0]) < 0)
+            cerr << cmd << ": " << strerror(errno) << endl;
 
         ::close(1);
-        dup(outfd[1]);
+        if (dup(outfd[1]) < 0)
+            cerr << cmd << ": " << strerror(errno) << endl;
 
         ::close(2);
-        dup(errfd[1]);
+        if (dup(errfd[1]) < 0)
+            cout << cmd << ": " << strerror(errno) << endl;
 
         /* Close other open file descriptors */
         unsigned int i;
         struct rlimit rl;
         rl.rlim_max = 0;
         getrlimit(RLIMIT_NOFILE, &rl);
-        for (i = 3; i < rl.rlim_max; i++) (void) ::close(i);
+        for (i = 3; i < rl.rlim_max; i++) ::close(i);
 
         const char **newargs = new const char*[4];
 
