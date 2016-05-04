@@ -130,7 +130,7 @@ scons_install:
 $(SCONSPKGCONFIG): scons_install
 
 $(PKGCONFIG): $(SCONSPKGCONFIG)
-	@mkdir -p $(@D); \
+	mkdir -p $(@D); \
 	sed -i -e "s,$(DESTDIR),," $<; \
 	cp $< $@
 

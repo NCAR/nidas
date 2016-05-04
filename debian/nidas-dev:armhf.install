@@ -1,3 +1,0 @@
-opt/nidas/include/*
-opt/nidas/lib/*/*.so
-usr/lib/*/pkgconfig/*
