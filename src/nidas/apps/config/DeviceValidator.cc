@@ -38,6 +38,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"ADC-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"AMS", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Butanol_CN_Counter", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"BCPD", "/dev/ttyS", 10, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"CCN", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"CDP", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"CDP016", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
