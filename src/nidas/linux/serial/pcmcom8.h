@@ -34,6 +34,7 @@
 #include <linux/version.h>
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
 #include <linux/cdev.h>
+#include <linux/device.h>
 
 #ifndef PCMCOM8_MAJOR
 /* look in Documentation/devices.txt 
@@ -81,6 +82,9 @@ typedef struct pcmcom8_board {
         struct semaphore mutex;
 #endif
         struct cdev cdev;
+
+        struct device *device;
+
         int region_req;     /* ioport region requested */
         int cdev_ready;          /* cdev_add done */
 } pcmcom8_board;

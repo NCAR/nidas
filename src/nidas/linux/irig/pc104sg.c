@@ -36,6 +36,7 @@
 
 #include <linux/fs.h>           /* has to be before <linux/cdev.h>! GRRR! */
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/poll.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
@@ -255,6 +256,10 @@ struct pc104sg_board
         unsigned long addr;
 
         int irq;
+
+        struct class* class;
+
+        struct device* device;
 
         char deviceName[32];    /* assumed device name for log messages */
 
@@ -2423,7 +2428,7 @@ static struct file_operations pc104sg_fops = {
 
 
 /* -- MODULE ---------------------------------------------------------- */
-static void __exit pc104sg_cleanup(void)
+static void pc104sg_cleanup(void)
 {
 
         disableAllInts();
@@ -2443,7 +2448,13 @@ static void __exit pc104sg_cleanup(void)
 
         tasklet_disable(&board.tasklet100Hz);
 
-        if (MAJOR(board.pc104sg_cdev.dev) != 0) cdev_del(&board.pc104sg_cdev);
+        if (MAJOR(board.pc104sg_cdev.dev) != 0) {
+		if (board.device && !IS_ERR(board.device))
+			device_destroy(board.class, board.pc104sg_cdev.dev);
+		cdev_del(&board.pc104sg_cdev);
+                board.pc104sg_cdev.dev = MKDEV(0,0);
+	}
+
 
         if (MAJOR(board.pc104sg_device) != 0)
             unregister_chrdev_region(board.pc104sg_device, 1);
@@ -2451,6 +2462,11 @@ static void __exit pc104sg_cleanup(void)
         /* free up the I/O region and remove /proc entry */
         if (board.addr)
                 release_region(board.addr, PC104SG_IOPORT_WIDTH);
+
+        if (board.class && !IS_ERR(board.class))
+                class_destroy(board.class);
+
+        memset(&board,0,sizeof(board));
         KLOG_NOTICE("done\n");
 }
 
@@ -2542,6 +2558,12 @@ static int __init pc104sg_init(void)
                 goto err0;
 
         board.addr = addr;
+
+        board.class = class_create(THIS_MODULE, "irig");
+        if (IS_ERR(board.class)) {
+                errval = PTR_ERR(board.class);
+                goto err0;
+        }
 
         /* shutoff pc104sg interrupts just in case */
         disableAllInts();
@@ -2656,41 +2678,24 @@ static int __init pc104sg_init(void)
                     MAJOR(board.pc104sg_device));
 #endif
         cdev_init(&board.pc104sg_cdev, &pc104sg_fops);
-        if ((errval =
-             cdev_add(&board.pc104sg_cdev, board.pc104sg_device, 1)) < 0) {
+        errval = cdev_add(&board.pc104sg_cdev, board.pc104sg_device, 1);
+        if (errval) {
                 KLOG_ERR("cdev_add() for PC104SG failed!\n");
                 goto err0;
         }
+
+	board.device = device_create(board.class, NULL,
+		 board.pc104sg_cdev.dev, NULL, "irig%d", 0);
+	if (IS_ERR(board.device)) {
+		errval = PTR_ERR(board.device);
+		goto err0;
+	}
+
         return 0;
 
 err0:
-        if (board.oneHzCallback) {
-                unregister_irig_callback(board.oneHzCallback);
-#ifdef WATCHDOG_CHECK
-                del_timer_sync(&board.watchdog);
-#endif
-        }
-
-        /* free up our pool of callbacks */
-        free_callbacks();
-
-        if (MAJOR(board.pc104sg_cdev.dev) != 0) cdev_del(&board.pc104sg_cdev);
-
-        if (MAJOR(board.pc104sg_device) != 0)
-            unregister_chrdev_region(board.pc104sg_device, 1);
-
-        tasklet_disable(&board.tasklet100Hz);
-
-        disableAllInts();
-
-        if (board.irq)
-                free_irq(board.irq, &board);
-
-        /* free up the I/O region */
-        if (board.addr)
-                release_region(board.addr, PC104SG_IOPORT_WIDTH);
-
-        return errval;
+        pc104sg_cleanup();
+	return errval;
 }
 
 module_init(pc104sg_init);

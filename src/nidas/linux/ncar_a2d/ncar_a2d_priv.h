@@ -36,6 +36,7 @@ NCAR A/D driver private header
 #include <nidas/linux/ncar_a2d.h>       // shared stuff
 
 #include <linux/wait.h>
+#include <linux/device.h>
 
 #define A2D_MAX_RATE    5000
 
@@ -175,6 +176,8 @@ struct A2DBoard
         unsigned long cmd_addr;  // Address for commands to the board
 
         char deviceName[32];
+
+        struct device* device;
 
         unsigned short    ser_num;        // A/D card serial number
 

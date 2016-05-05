@@ -4344,7 +4344,7 @@ static int __init dmd_mmat_init(void)
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct DMMAT));
 
-        dmmat_class = class_create(THIS_MODULE, "emerald");
+        dmmat_class = class_create(THIS_MODULE, "dmd_mmat");
         if (IS_ERR(dmmat_class)) {
                 result = PTR_ERR(dmmat_class);
                 goto err;

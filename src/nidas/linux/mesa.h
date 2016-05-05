@@ -119,6 +119,7 @@ struct mesa_status
 
 #include <linux/types.h>
 #include <linux/wait.h>
+#include <linux/device.h>
 
 #define MESA_4I34_MAX_NR_DEVS	4       // maximum number of Mesa 4I34 cards in sys
 #define MESA_REGION_SIZE	16    // # of reserved ioport addresses
@@ -175,6 +176,9 @@ struct radar_state
 struct MESA_Board
 {
         unsigned long addr;     // Base address of board
+
+        struct device* device;
+
         char devName[64];
         long latencyJiffies;	// buffer latency in jiffies
         unsigned long lastWakeup;   // when were read & poll methods last woken

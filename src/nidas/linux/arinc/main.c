@@ -56,6 +56,7 @@
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>
 #include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/ioport.h>
 #include <asm/atomic.h>
 #include <asm/io.h>             // readb
@@ -120,6 +121,10 @@ struct arinc_board
         void* phys_membase;
 
         unsigned long basemem;
+
+        struct class* class;
+
+        struct device* device;
 
 #ifdef USE_IRIG_CALLBACK
         enum irigClockRates sync_rate;
@@ -836,7 +841,13 @@ static void arinc_cleanup(void)
 #endif
 
         // remove device
-        if (MAJOR(arinc_cdev.dev) != 0) cdev_del(&arinc_cdev);
+        if (MAJOR(arinc_cdev.dev) != 0) {
+		if (board.device && !IS_ERR(board.device))
+			device_destroy(board.class, arinc_cdev.dev);
+		cdev_del(&arinc_cdev);
+                arinc_cdev.dev = MKDEV(0,0);
+	}
+
         if (MAJOR(arinc_device) != 0)
                 unregister_chrdev_region(arinc_device, N_ARINC_RX+N_ARINC_TX);
 
@@ -856,6 +867,10 @@ static void arinc_cleanup(void)
         // unmap the DPRAM address 
         if (board.phys_membase)
                 iounmap(board.phys_membase);
+
+        if (board.class && !IS_ERR(board.class))
+                class_destroy(board.class);
+
 }
 
 // -- UTILITY --------------------------------------------------------- 
@@ -961,6 +976,13 @@ static int __init arinc_init(void)
         KLOG_DEBUG("basemem:      %X\n", (unsigned int) board.basemem);
         KLOG_DEBUG("phys_membase: %X\n", (unsigned int) board.phys_membase);
 
+
+        board.class = class_create(THIS_MODULE, "arinc");
+        if (IS_ERR(board.class)) {
+                err = PTR_ERR(board.class);
+                goto fail;
+        }
+
         // scan the ISA bus for the device 
         err = scan_ceiisa();
         if (err) goto fail;
@@ -1060,12 +1082,15 @@ static int __init arinc_init(void)
 
         // after calling cdev_add the devices are live and ready for user operations.
         err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX+N_ARINC_TX);
-        if (err < 0) goto fail;
+        if (err) goto fail;
+
+	board.device = device_create(board.class, NULL,
+                         arinc_cdev.dev, NULL, "arinc%d", 0);
 
         KLOG_DEBUG("ARINC init_module complete.\n");
         return 0;               // success 
 
-      fail:
+fail:
         arinc_cleanup();
         if (err < 0)
                 return err;

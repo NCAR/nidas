@@ -197,6 +197,7 @@ static struct file_operations ncar_a2d_fops = {
 #define DEVNAME_A2D "ncar_a2d"
 static dev_t ncar_a2d_device = MKDEV(0, 0);
 static struct cdev ncar_a2d_cdev;
+static struct class* ncar_a2d_class;
 
 // Clock/data line bits for i2c interface
 static const unsigned long I2CSCL = 0x2;
@@ -2519,20 +2520,56 @@ ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
         return ret;
 }
 
+/*
+ * 16 bit writes of alternating 0x5555 and 0xaaaa to a channel,
+ * with a 1/2 second sleep between.
+ */ 
+static int test_ISA_Writes(struct A2DBoard *brd,int ioport)
+{
+        unsigned short instr = 0x5555;
+        unsigned int ntry;
+
+        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
+
+        for (ntry = 0; ntry < dtestcnt; ntry++) {
+                if (!(ntry % 10)) KLOG_INFO("test %d to addr %#x, chan=%d, n=%u, cnt=%u\n",
+                        dtestnum,ioport,dtestchan,ntry,dtestcnt);
+                outw(instr, CHAN_ADDR16(brd, dtestchan));
+                instr ^= 0xffff;
+                msleep(500);            
+        } 
+        KLOG_INFO("test %d finished, returning -EINVAL\n",dtestnum);
+        return -EINVAL;
+}
+
 /*-----------------------Module------------------------------*/
-// Stops the A/D and releases reserved memory
-static void __exit ncar_a2d_cleanup(void)
+/*
+ * Stop the A/D and release reserved memory
+ * Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails.
+ */
+static void ncar_a2d_cleanup(void)
 {
         int ib;
         int i;
 
-
-        if (MAJOR(ncar_a2d_device)) {
-                if (MAJOR(ncar_a2d_cdev.dev) != 0) cdev_del(&ncar_a2d_cdev);
-                unregister_chrdev_region(ncar_a2d_device, NumBoards);
-        }
-
         if (BoardInfo) {
+                if (MAJOR(ncar_a2d_device)) {
+                        if (MAJOR(ncar_a2d_cdev.dev) != 0) {
+                                for (ib = 0; ib < NumBoards; ib++) {
+                                        struct A2DBoard *brd = BoardInfo + ib;
+                                        if (brd->device && !IS_ERR(brd->device)) {
+                                                dev_t devno = MKDEV(MAJOR(ncar_a2d_cdev.dev),ib);
+                                                device_destroy(ncar_a2d_class, devno);
+                                                brd->device = 0;
+                                        }
+                                }
+                                cdev_del(&ncar_a2d_cdev);
+                                ncar_a2d_cdev.dev = MKDEV(0,0);
+                        }
+                        unregister_chrdev_region(ncar_a2d_device, NumBoards);
+                }
+
                 for (ib = 0; ib < NumBoards; ib++) {
                         struct A2DBoard *brd = BoardInfo + ib;
 
@@ -2568,42 +2605,22 @@ static void __exit ncar_a2d_cleanup(void)
                         brd->base_addr = 0;
 
                 }
+                kfree(BoardInfo);
+                BoardInfo = 0;
         }
 
-        kfree(BoardInfo);
-        BoardInfo = 0;
+	if (ncar_a2d_class && !IS_ERR(ncar_a2d_class))
+                class_destroy(ncar_a2d_class);
+        ncar_a2d_class = 0;
 
         if (work_queue)
                 destroy_workqueue(work_queue);
+        work_queue = 0;
 
         KLOG_NOTICE("NCAR A/D cleanup complete\n");
 
         return;
 }
-
-/*
- * 16 bit writes of alternating 0x5555 and 0xaaaa to a channel,
- * with a 1/2 second sleep between.
- */ 
-static int test_ISA_Writes(struct A2DBoard *brd,int ioport)
-{
-        unsigned short instr = 0x5555;
-        unsigned int ntry;
-
-        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
-
-        for (ntry = 0; ntry < dtestcnt; ntry++) {
-                if (!(ntry % 10)) KLOG_INFO("test %d to addr %#x, chan=%d, n=%u, cnt=%u\n",
-                        dtestnum,ioport,dtestchan,ntry,dtestcnt);
-                outw(instr, CHAN_ADDR16(brd, dtestchan));
-                instr ^= 0xffff;
-                msleep(500);            
-        } 
-        KLOG_INFO("test %d finished, returning -EINVAL\n",dtestnum);
-        return -EINVAL;
-}
-
-/*-----------------------Module------------------------------*/
 
 static int __init ncar_a2d_init(void)
 {
@@ -2653,6 +2670,12 @@ static int __init ncar_a2d_init(void)
 	// initialize structure to zero, then initialize things
 	// that are non-zero
 	memset(BoardInfo, 0, NumBoards * sizeof (struct A2DBoard));
+
+        ncar_a2d_class = class_create(THIS_MODULE, "ncar_a2d");
+        if (IS_ERR(ncar_a2d_class)) {
+                error = PTR_ERR(ncar_a2d_class);
+                goto err;
+        }
 
         /* initialize each A2DBoard structure */
         for (ib = 0; ib < NumBoards; ib++) {
@@ -2734,6 +2757,7 @@ static int __init ncar_a2d_init(void)
                 KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, system address 0x%08lx, serial number=%hd\n",
                         brd->deviceName,IoPort[ib],brd->base_addr,brd->ser_num);
 
+
                 brd->tempRate = IRIG_NUM_RATES;
 
                 /*
@@ -2789,48 +2813,29 @@ static int __init ncar_a2d_init(void)
 
         cdev_init(&ncar_a2d_cdev, &ncar_a2d_fops);
         ncar_a2d_cdev.owner = THIS_MODULE;
-        if ((error = cdev_add(&ncar_a2d_cdev, ncar_a2d_device, NumBoards)) < 0) {
+        error = cdev_add(&ncar_a2d_cdev, ncar_a2d_device, NumBoards);
+        if (error) {
                 KLOG_ERR("cdev_add() for NCAR A/D failed!\n");
                 goto err;
+        }
+
+        for (ib = 0; ib < NumBoards; ib++) {
+                struct A2DBoard *brd = BoardInfo + ib;
+                dev_t devno = MKDEV(MAJOR(ncar_a2d_cdev.dev),ib);
+                brd->device = device_create(ncar_a2d_class, NULL,
+			 devno, NULL, DEVNAME_A2D "%d", ib);
+		if (IS_ERR(brd->device)) {
+			error = PTR_ERR(brd->device);
+			goto err;
+		}
         }
 
         KLOG_INFO("A2D ncar_a2d_init complete.\n");
 
         return error;
 
-      err:
-
-        if (MAJOR(ncar_a2d_device) > 0) {
-                if (MAJOR(ncar_a2d_cdev.dev) != 0) cdev_del(&ncar_a2d_cdev);
-                unregister_chrdev_region(ncar_a2d_device, NumBoards);
-        }
-
-        if (BoardInfo) {
-                for (ib = 0; ib < NumBoards; ib++) {
-                        struct A2DBoard *brd = BoardInfo + ib;
-
-                        if (brd->filters) {
-                                int i;
-                                for (i = 0; i < brd->nfilters; i++) {
-                                        if (brd->filters[i].channels)
-                                                kfree(brd->filters[i].
-                                                      channels);
-                                        brd->filters[i].channels = 0;
-                                }
-                                kfree(brd->filters);
-                                brd->filters = 0;
-                        }
-                        if (brd->base_addr)
-                                release_region(brd->base_addr, A2DIOWIDTH);
-                        brd->base_addr16 = brd->base_addr = 0;
-                }
-                kfree(BoardInfo);
-                BoardInfo = 0;
-        }
-
-        if (work_queue)
-                destroy_workqueue(work_queue);
-
+err:
+        ncar_a2d_cleanup();
         return error;
 }
 

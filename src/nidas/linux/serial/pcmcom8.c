@@ -56,6 +56,8 @@
 #include "pcmcom8.h"	/* local definitions */
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
+#define DRIVER_NAME "pcmcom8"
+
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
 
 static int pcmcom8_major =   PCMCOM8_MAJOR;
@@ -65,6 +67,8 @@ static int pcmcom8_nr_ok = 0;
 static pcmcom8_board* pcmcom8_boards = 0;
 
 static dev_t pcmcom8_device = MKDEV(0,0);
+
+static struct class* pcmcom8_class;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports,ulong,&pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
@@ -291,7 +295,7 @@ static int pcmcom8_read_procmem(char *buf, char **start, off_t offset,
 static void pcmcom8_create_proc(void)
 {
         KLOG_DEBUG("within pcmcom8_create_proc\n");
-        create_proc_read_entry("pcmcom8", 0644 /* default mode */,
+        create_proc_read_entry(DRIVER_NAME, 0644 /* default mode */,
                            NULL /* parent dir */, pcmcom8_read_procmem,
                            NULL /* client data */);
 }
@@ -299,7 +303,7 @@ static void pcmcom8_create_proc(void)
 static void pcmcom8_remove_proc(void)
 {
         /* no problem if it was not registered */
-        remove_proc_entry("pcmcom8", NULL /* parent dir */);
+        remove_proc_entry(DRIVER_NAME, NULL /* parent dir */);
 }
 
 #endif
@@ -453,7 +457,7 @@ static void pcmcom8_cleanup_module(void)
 {
         int i;
         /* cleanup_module is never called if registering failed */
-        unregister_chrdev(pcmcom8_major, "pcmcom8");
+        unregister_chrdev(pcmcom8_major, DRIVER_NAME);
                                                                                 
 #ifdef DEBUG /* use proc only if debugging */
         pcmcom8_remove_proc();
@@ -462,15 +466,23 @@ static void pcmcom8_cleanup_module(void)
         if (pcmcom8_boards) {
                 for (i=0; i<pcmcom8_nr_ok; i++) {
                         pcmcom8_board* brd = pcmcom8_boards + i;
+                        if (MAJOR(brd->cdev.dev) != 0) {
+				if (brd->device && !IS_ERR(brd->device))
+                                        device_destroy(pcmcom8_class, brd->cdev.dev);
+                                cdev_del(&brd->cdev);
+                        }
                         if (brd->region_req)
                             release_region(brd->ioport,PCMCOM8_IO_REGION_SIZE);
-                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
                 }
                 kfree(pcmcom8_boards);
         }
 
         if (MAJOR(pcmcom8_device) != 0)
                unregister_chrdev_region(pcmcom8_device,pcmcom8_numboards);
+
+        if (pcmcom8_class && !IS_ERR(pcmcom8_class))
+                class_destroy(pcmcom8_class);
+        pcmcom8_class = 0;
 }
 
 static int __init pcmcom8_init_module(void)
@@ -491,7 +503,7 @@ static int __init pcmcom8_init_module(void)
          * fops in pcmcom8_cleanup_module()
          */
         result = alloc_chrdev_region(&pcmcom8_device, 0,
-            pcmcom8_numboards,"pcmcom8");
+            pcmcom8_numboards,DRIVER_NAME);
         if (result < 0) goto fail;
 
         /*
@@ -503,10 +515,17 @@ static int __init pcmcom8_init_module(void)
                 goto fail;
         }
         memset(pcmcom8_boards, 0, pcmcom8_numboards * sizeof(pcmcom8_board));
+
+        pcmcom8_class = class_create(THIS_MODULE, DRIVER_NAME);
+        if (IS_ERR(pcmcom8_class)) {
+                result = PTR_ERR(pcmcom8_class);
+                goto fail;
+        }
+
         for (ib = 0; ib < pcmcom8_numboards; ib++) {
                 pcmcom8_board* brd = pcmcom8_boards + ib;
                 unsigned long addr = ioports[ib] + ioport_base;
-                if (!request_region(addr,PCMCOM8_IO_REGION_SIZE,"pcmcom8")) {
+                if (!request_region(addr,PCMCOM8_IO_REGION_SIZE,DRIVER_NAME)) {
                     result = -ENODEV;
                     goto fail;
                 }
@@ -541,7 +560,15 @@ static int __init pcmcom8_init_module(void)
                 devno = MKDEV(MAJOR(pcmcom8_device),ib);
                 // after calling cdev_add the device is ready for operations
                 result = cdev_add(&brd->cdev,devno,1);
-                if (result) return result;
+                if (result) goto fail;
+
+                brd->device = device_create(pcmcom8_class, NULL,
+                         devno, NULL, DRIVER_NAME "%d", ib);
+                if (IS_ERR(brd->device)) {
+                        result = PTR_ERR(brd->device);
+                        goto fail;
+                }
+
         }
   
 #ifdef DEBUG /* only when debugging */

@@ -79,6 +79,7 @@ MODULE_PARM_DESC(ioport, "ISA memory base of each board (default 0x220)");
 #define DEVNAME_MESA "mesa"
 static dev_t mesa_device = MKDEV(0, 0);
 static struct cdev mesa_cdev;
+static struct class* mesa_class;
 
 #define MESA_CNTR_SAMPLE_QUEUE_SIZE 128
 #define MESA_RADAR_SAMPLE_QUEUE_SIZE 32
@@ -803,6 +804,20 @@ static void mesa_cleanup(void)
 {
         int ib;
 
+        if (MAJOR(mesa_cdev.dev) != 0) {
+                for (ib = 0; ib < numboards; ib++) {
+                        struct MESA_Board *brd = boards + ib;
+
+			if (brd->device && !IS_ERR(brd->device)) {
+				dev_t devno = MKDEV(MAJOR(mesa_cdev.dev),ib);
+				device_destroy(mesa_class, devno);
+				brd->device = 0;
+			}
+		}
+		cdev_del(&mesa_cdev);
+		mesa_cdev.dev = MKDEV(0,0);
+	}
+
         if (boards) {
 
                 for (ib = 0; ib < numboards; ib++) {
@@ -815,7 +830,10 @@ static void mesa_cleanup(void)
                 boards = 0;
         }
 
-        if (MAJOR(mesa_cdev.dev) != 0) cdev_del(&mesa_cdev);
+        if (mesa_class && !IS_ERR(mesa_class))
+                class_destroy(mesa_class);
+        mesa_class = 0;
+
         if (MAJOR(mesa_device) != 0)
                 unregister_chrdev_region(mesa_device, numboards);
 }
@@ -861,6 +879,12 @@ static int __init mesa_init(void)
         if (!boards) goto err;
         memset(boards, 0, numboards * sizeof(struct MESA_Board));
 
+        mesa_class = class_create(THIS_MODULE, DEVNAME_MESA);
+        if (IS_ERR(mesa_class)) {
+                error = PTR_ERR(mesa_class);
+                goto err;
+        }
+
         /* initialize each board structure */
         for (ib = 0; ib < numboards; ib++) {
                 struct MESA_Board *brd = boards + ib;
@@ -888,6 +912,17 @@ static int __init mesa_init(void)
          */
         error = cdev_add(&mesa_cdev, mesa_device, numboards);
         if (error) goto err;
+
+        for (ib = 0; ib < numboards; ib++) {
+                struct MESA_Board *brd = boards + ib;
+                dev_t devno = MKDEV(MAJOR(mesa_cdev.dev),ib);
+                brd->device = device_create(mesa_class, NULL,
+                         devno, NULL, DEVNAME_MESA "%d", ib);
+                if (IS_ERR(brd->device)) {
+                        error = PTR_ERR(brd->device);
+                        goto err;
+                }
+	}
 
         KLOG_DEBUG("A2D init_module complete.\n");
         return 0;       // success

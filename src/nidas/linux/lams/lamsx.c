@@ -85,6 +85,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
+#include <linux/device.h>
 
 #include "lamsx.h"
 #include <nidas/linux/Revision.h>    // REPO_REVISION
@@ -160,6 +161,8 @@ MODULE_VERSION(REPO_REVISION);
  */
 static dev_t lams_device = MKDEV(0,0);
 
+static struct class* lams_class;
+
 /*
  * Data used by bottom-half processing.
  */
@@ -196,6 +199,9 @@ struct LAMS_board {
         spinlock_t reglock;
 
         char deviceName[32];
+
+        
+        struct device* device;
 
         struct cdev cdev;
 
@@ -769,7 +775,11 @@ static void lams_cleanup(void)
                 for (ib = 0; ib < numboards; ib++) {
                         struct LAMS_board* brd = boards + ib;
 
-                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
+                        if (MAJOR(brd->cdev.dev) != 0) {
+                                if (brd->device && !IS_ERR(brd->device))
+                                        device_destroy(lams_class, brd->cdev.dev);
+                                cdev_del(&brd->cdev);
+                        }
 
                         if (brd->irq) {
                                 KLOG_NOTICE("freeing irq %d\n",brd->irq);
@@ -785,6 +795,10 @@ static void lams_cleanup(void)
 
         if (MAJOR(lams_device) != 0)
             unregister_chrdev_region(lams_device, numboards);
+
+        if (lams_class && !IS_ERR(lams_class))
+                class_destroy(lams_class);
+                lams_class = 0;
 
         if (work_queue) destroy_workqueue(work_queue);
 
@@ -821,6 +835,12 @@ static int __init lams_init(void)
         boards = kmalloc( numboards * sizeof(struct LAMS_board),GFP_KERNEL);
         if (!boards) goto err;
         memset(boards,0,numboards * sizeof(struct LAMS_board));
+
+        lams_class = class_create(THIS_MODULE, driver_name);
+        if (IS_ERR(lams_class)) {
+                result = PTR_ERR(lams_class);
+                goto err;
+        }
 
         for (ib = 0; ib < numboards; ib++) {
                 struct LAMS_board* brd = boards + ib;
@@ -889,6 +909,14 @@ static int __init lams_init(void)
                  * and ready for user operation.
                  */
                 result = cdev_add(&brd->cdev, devno, 1);
+                if (result) goto err;
+
+                brd->device = device_create(lams_class, NULL,
+                        brd->cdev.dev, NULL, "%s%d", driver_name, brd->num);
+                if (IS_ERR(brd->device)) {
+                        result = PTR_ERR(brd->device);
+                        goto err;
+                }
         }
 
         KLOG_DEBUG("complete.\n");

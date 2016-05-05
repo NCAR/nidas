@@ -452,13 +452,13 @@ static int __init ir104_init(void)
                  */
                 devno = MKDEV(MAJOR(ir104_device),ib);
                 result = cdev_add(&brd->cdev, devno, 1);
-                if (result) break;
+                if (result) goto err;
 
                 brd->device = device_create(ir104_class, NULL,
                         devno, NULL, "ir104_%d", ib);
                 if (IS_ERR(brd->device)) {
                         result = PTR_ERR(brd->device);
-                        break;
+                        goto err;
                 }
         }
 

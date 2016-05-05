@@ -284,11 +284,11 @@ static void viper_dio_cleanup(void)
 
         if (MAJOR(viper_dio.cdev.dev) != 0) {
                 cdev_del(&viper_dio.cdev);
+                viper_dio.cdev.dev =  MKDEV(0,0);
                 unregister_chrdev_region(viper_dio.cdev.dev,1);
         }
 
         viper_dio.vclass = 0;
-        viper_dio.cdev.dev =  MKDEV(0,0);
 
         KLOG_DEBUG("complete\n");
 }
@@ -331,13 +331,6 @@ static int __init viper_dio_init(void)
                 goto err;
         }
 
-        viper_dio.device = device_create(viper_dio.vclass, NULL,
-                        devno, NULL, "viper_dio%d", 0);
-        if (IS_ERR(viper_dio.device)) {
-                result = PTR_ERR(viper_dio.device);
-                goto err;
-        }
-
         cdev_init(&viper_dio.cdev,&viper_dio_fops);
         viper_dio.cdev.owner = THIS_MODULE;
 
@@ -345,6 +338,14 @@ static int __init viper_dio_init(void)
          * and ready for user operation.
          */
         result = cdev_add(&viper_dio.cdev, devno, 1);
+        if (result) goto err;
+
+        viper_dio.device = device_create(viper_dio.vclass, NULL,
+                        devno, NULL, "viper_dio%d", 0);
+        if (IS_ERR(viper_dio.device)) {
+                result = PTR_ERR(viper_dio.device);
+                goto err;
+        }
 
         KLOG_DEBUG("complete.\n");
 
