@@ -31,7 +31,6 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     irigsyms = Dir('./../irig_' + arch).File('Module.symvers')
 
     modules = ['emerald.ko', 'dmd_mmat.ko','gpio_mm.ko','ir104.ko']
-    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath + ' ' + filtsyms.abspath + ' ' + irigsyms.abspath 
     env.Kmake(modules,
               ['emerald.c', 'emerald.h', 'dmd_mmat.c', 'dmd_mmat.h',
                'gpio_mm.c', 'gpio_mm.h', 'gpio_mm_regs.h', 'ir104.c', 'ir104.h',

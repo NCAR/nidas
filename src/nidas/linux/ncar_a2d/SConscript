@@ -35,8 +35,6 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
 
     modules = ['ncar_a2d.ko']
 
-#env['KBUILD_EXTRA_SYMBOLS'] = '../util_' + arch + '/Module.symvers'
-    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath + ' ' + filtsyms.abspath + ' ' + irigsyms.abspath 
     env.Kmake(modules, headers + ['ncar_a2d.c', 'Makefile', revinfo, utilsyms, filtsyms, irigsyms])
 
     env.Install('$LINUX_MODULES_INST_PATH', modules)

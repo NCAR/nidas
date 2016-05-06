@@ -22,9 +22,10 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
 
     modules = ['usbtwod.ko']
-    env.Kmake(modules,['usbtwod.c','usbtwod.h','Makefile', revinfo])
+    env.Kmake(modules,['usbtwod.c','usbtwod.h','Makefile', revinfo, utilsyms])
 
     env.Install('$LINUX_MODULES_INST_PATH',modules)
 
