@@ -56,7 +56,7 @@ if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
     irigsyms = Dir('./../irig_' + arch).File('Module.symvers')
 
     modules = ['arinc.ko']
-    env.Kmake(modules,[arinc_files, revinfo, utilsyms, irigsyms])
+    arincmod = env.Kmake(modules,[arinc_files, revinfo, utilsyms, irigsyms])
 
     # The Condor code is in a separate, private git submodule since
     # the license says it must not be redistributed.
@@ -88,7 +88,7 @@ if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
 
     if not found:
         print "Condor file %s not found, %s will not be built " % (condor, str(modules))
-        env.Ignore('.',modules)
+        env.Ignore('.', arincmod)
     else:
         print "Condor code found, %s will be built " % (str(modules))
         env.Install('$LINUX_MODULES_INST_PATH',modules)
