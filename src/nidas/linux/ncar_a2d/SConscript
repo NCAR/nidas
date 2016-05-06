@@ -27,9 +27,17 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
+    filtsyms = Dir('./../filters_' + arch).File('Module.symvers')
+    irigsyms = Dir('./../irig_' + arch).File('Module.symvers')
+
+# print("symvers=%s" % symvers)
 
     modules = ['ncar_a2d.ko']
-    env.Kmake(modules, headers + ['ncar_a2d.c', 'Makefile', revinfo])
+
+#env['KBUILD_EXTRA_SYMBOLS'] = '../util_' + arch + '/Module.symvers'
+    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath + ' ' + filtsyms.abspath + ' ' + irigsyms.abspath 
+    env.Kmake(modules, headers + ['ncar_a2d.c', 'Makefile', revinfo, utilsyms, filtsyms, irigsyms])
 
     env.Install('$LINUX_MODULES_INST_PATH', modules)
 

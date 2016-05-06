@@ -26,10 +26,12 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
 
     modules = ['lamsx.ko']
+    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath
     env.Kmake(modules,
-              ['lamsx.c','lamsx.h','Makefile',revinfo])
+              ['lamsx.c', 'lamsx.h', 'Makefile', revinfo, utilsyms])
 
     env.Install('$LINUX_MODULES_INST_PATH',modules)
 

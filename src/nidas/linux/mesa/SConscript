@@ -25,9 +25,11 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
 
     modules = ['mesa.ko']
-    env.Kmake(modules, headers + ['mesa.c', 'Makefile', revinfo])
+    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath
+    env.Kmake(modules, headers + ['mesa.c', 'Makefile', revinfo, utilsyms])
 
     env.Install('$LINUX_MODULES_INST_PATH', modules)
 

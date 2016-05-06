@@ -52,9 +52,11 @@ if first_mach:
 if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
+    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
 
     modules = ['arinc.ko']
-    env.Kmake(modules,[arinc_files,revinfo])
+    env['KBUILD_EXTRA_SYMBOLS'] = utilsyms.abspath
+    env.Kmake(modules,[arinc_files, revinfo, utilsyms])
 
     # The Condor code is in a separate, private git submodule since
     # the license says it must not be redistributed.
