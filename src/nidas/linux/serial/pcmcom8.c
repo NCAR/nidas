@@ -563,19 +563,22 @@ static int __init pcmcom8_init_module(void)
                 if (result) goto fail;
 
                 brd->device = device_create(pcmcom8_class, NULL,
-                         devno, NULL, DRIVER_NAME "%d", ib);
+                         devno, NULL, DRIVER_NAME "_%d", ib);
                 if (IS_ERR(brd->device)) {
                         result = PTR_ERR(brd->device);
                         goto fail;
                 }
 
         }
+        if (pcmcom8_nr_ok == 0) {
+                result = -ENODEV;
+                goto fail;
+        }
   
 #ifdef DEBUG /* only when debugging */
         KLOG_DEBUG("create_proc\n");
         pcmcom8_create_proc();
 #endif
-        if (pcmcom8_nr_ok == 0) result = -ENODEV;
         return result; /* succeed */
 
 fail:
