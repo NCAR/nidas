@@ -5,8 +5,8 @@
 ##
 ##  Import the build environment.
 ##
-Import(['env'])
-arch = env['ARCH']  # empty string for native builds
+Import(['env', 'first_mach'])
+mach = env['MACH']
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -25,8 +25,8 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-    utilsyms = Dir('./../util_' + arch).File('Module.symvers')
-    irigsyms = Dir('./../irig_' + arch).File('Module.symvers')
+    utilsyms = Dir('./../util_' + mach).File('Module.symvers')
+    irigsyms = Dir('./../irig_' + mach).File('Module.symvers')
 
     modules = ['mesa.ko']
     env.Kmake(modules, headers + ['mesa.c', 'Makefile', revinfo, utilsyms, irigsyms])
