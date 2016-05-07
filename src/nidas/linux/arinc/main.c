@@ -59,7 +59,7 @@
 #include <linux/device.h>
 #include <linux/ioport.h>
 #include <asm/atomic.h>
-#include <asm/io.h>             // readb
+#include <asm/io.h>             // ioread8
 #include <asm/uaccess.h>        // VERIFY_???
 
 // DSM includes... 
@@ -117,10 +117,11 @@ MODULE_PARM_DESC(iomem, "ISA memory base (default 0xd0000)");
 
 struct arinc_board
 {
-        /* Set the base address of the ARINC card */
-        void* phys_membase;
+        /* physical I/O memory address of the board */
+        unsigned long physaddr;
 
-        unsigned long basemem;
+        /* remapped address of board */
+        void* mapaddr;
 
         struct class* class;
 
@@ -835,9 +836,11 @@ static void arinc_cleanup(void)
 #ifdef USE_IRIG_CALLBACK
         if (board.timeSyncCallback)
                 unregister_irig_callback(board.timeSyncCallback);
+        board.timeSyncCallback = 0;
 #else
         if (board.syncer.data > 0)
                 del_timer_sync(&board.syncer);
+        board.syncer.data = 0;
 #endif
 
         // remove device
@@ -850,14 +853,7 @@ static void arinc_cleanup(void)
 
         if (MAJOR(arinc_device) != 0)
                 unregister_chrdev_region(arinc_device, N_ARINC_RX+N_ARINC_TX);
-
-        // free up the ISA memory region 
-        if (board.basemem)
-                release_region(board.basemem, PAGE_SIZE);
-
-        // free up the chn_info
-        if (chn_info)
-                kfree(chn_info);
+        arinc_device = MKDEV(0, 0);
 
         // close the board 
         err = ar_close(BOARD_NUM);
@@ -865,8 +861,19 @@ static void arinc_cleanup(void)
                 log_error(BOARD_NUM, err);
 
         // unmap the DPRAM address 
-        if (board.phys_membase)
-                iounmap(board.phys_membase);
+        if (board.mapaddr)
+                iounmap(board.mapaddr);
+        board.mapaddr = 0;
+
+        // free up the ISA memory region 
+        if (board.physaddr)
+                release_mem_region(board.physaddr, PAGE_SIZE);
+        board.physaddr = 0;
+
+        // free up the chn_info
+        if (chn_info)
+                kfree(chn_info);
+        chn_info = 0;
 
         if (board.class && !IS_ERR(board.class))
                 class_destroy(board.class);
@@ -885,7 +892,7 @@ static void arinc_cleanup(void)
 ///
 static int scan_ceiisa(void)
 {
-        unsigned char value;
+        unsigned int value;
         unsigned int indx;
 
         char *boardID[] = { "Standard CEI-220",
@@ -897,11 +904,11 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
-        value = readb(board.phys_membase + 0x808);
+        value = ioread8(board.mapaddr + 0x808);
         value >>= 4;
         if (value != 0x0) {
                 // passed register 1 test... 
-                value = readb(board.phys_membase + 0x80A);
+                value = ioread8(board.mapaddr + 0x80A);
                 value >>= 4;
                 if (value == 0x5)
                         KLOG_ERR("Obsolete CEI-420a\n");
@@ -912,16 +919,16 @@ static int scan_ceiisa(void)
                         indx = value;
                         KLOG_DEBUG("cei220/420 found.  Board = %s\n",
                                    boardID[indx]);
-                        value = readb(board.phys_membase + 0x80C);
+                        value = ioread8(board.mapaddr + 0x80C);
                         if (value == 0x0) {
                                 // passed register 3 test... 
-                                value = readb(board.phys_membase + 0x80E);
+                                value = ioread8(board.mapaddr + 0x80E);
                                 value >>= 4;
                                 if (value == 0) {
                                         // passed register 4 test... 
                                         KLOG_DEBUG
-                                            ("found CEI-220/420 at 0x%lX\n",
-                                             board.basemem);
+                                            ("found CEI-220/420 at 0x%lx\n",
+                                             board.physaddr);
                                         return 0;
                                 }
                         }
@@ -938,6 +945,7 @@ static int __init arinc_init(void)
         int err;
         char api_version[150];
         struct arinc_dev *dev;
+        unsigned long physaddr;
 #ifndef USE_IRIG_CALLBACK
         unsigned int msecs;
 #endif
@@ -959,23 +967,26 @@ static int __init arinc_init(void)
         spin_lock_init(&board.lock);
         atomic_set(&board.numRxChannelsOpen,0);
 
-        // map ISA card memory into kernel memory 
-        board.basemem = SYSTEM_ISA_IOMEM_BASE + iomem;
-        board.phys_membase = ioremap(board.basemem, PAGE_SIZE);
-        if (!board.phys_membase) {
-                KLOG_ERR("ioremap failed.\n");
-                return -EIO;
-        }
+        physaddr = SYSTEM_ISA_IOMEM_BASE + (unsigned long)iomem;
+        KLOG_INFO("physaddr: %#lx\n", physaddr);
+
         // reserve the ISA memory region 
-        if (!request_region(board.basemem, PAGE_SIZE, "arinc")) {
-                KLOG_ERR("couldn't allocate I/O range %lX - %lX\n",
-                           board.basemem, board.basemem + PAGE_SIZE - 1);
+        if (!request_mem_region(physaddr, PAGE_SIZE, "arinc")) {
+                KLOG_ERR("couldn't allocate I/O memory: %#lx - %#lx\n",
+                           physaddr, physaddr + PAGE_SIZE - 1);
                 err = -EBUSY;
                 goto fail;
         }
-        KLOG_DEBUG("basemem:      %X\n", (unsigned int) board.basemem);
-        KLOG_DEBUG("phys_membase: %X\n", (unsigned int) board.phys_membase);
+        board.physaddr = physaddr;
 
+        // map ISA card memory into kernel memory 
+        board.mapaddr = ioremap(board.physaddr, PAGE_SIZE);
+        if (!board.mapaddr) {
+                KLOG_ERR("ioremap(%#lx,%d) failed.\n",
+                        board.physaddr,PAGE_SIZE);
+                return -EIO;
+        }
+        KLOG_INFO("mapaddr:  0x%p\n", board.mapaddr);
 
         board.class = class_create(THIS_MODULE, "arinc");
         if (IS_ERR(board.class)) {
@@ -992,7 +1003,7 @@ static int __init arinc_init(void)
         KLOG_DEBUG("API Version %s\n", api_version);
 
         // load the board (the size and address are not used - must specify zero) 
-        err = ar_loadslv(BOARD_NUM,(unsigned long)board.phys_membase, 0, 0);
+        err = ar_loadslv(BOARD_NUM, (unsigned long) board.mapaddr, 0, 0);
         if (err != ARS_NORMAL) goto fail;
 
         // initialize the board 
@@ -1087,7 +1098,7 @@ static int __init arinc_init(void)
 	board.device = device_create(board.class, NULL,
                          arinc_cdev.dev, NULL, "arinc%d", 0);
 
-        KLOG_DEBUG("ARINC init_module complete.\n");
+        KLOG_DEBUG("arinc_init complete.\n");
         return 0;               // success 
 
 fail:
