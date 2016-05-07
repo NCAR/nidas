@@ -313,7 +313,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files daq
 %defattr(0775,root,root,0775)
-%config %{_sysconfdir}/udev/rules.d/99-nidas.rules
+%config /usr/lib/udev/rules.d/99-nidas.rules
 %config(noreplace) %{_sysconfdir}/default/nidas-daq
 # %config(noreplace) %{_sysconfdir}/init.d/dsm_server
 # %config(noreplace) %{_sysconfdir}/init.d/dsm
