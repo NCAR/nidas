@@ -135,7 +135,7 @@ install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
 echo "%{nidas_prefix}/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
-# scons puts entire $RPM_BUILD_ROOT in nidas.pc, remove it for package
+# scons puts entire $RPM_BUILD_ROOT string in nidas.pc, remove it for package
 sed -r -i "s,$RPM_BUILD_ROOT,," \
         $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 
@@ -151,8 +151,8 @@ install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0664 pkg_files/root/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
-install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
-install -m 0664 pkg_files/root/etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
+install -m 0755 -d $RPM_BUILD_ROOT%/usr/lib/udev/rules.d
+install -m 0664 pkg_files/root/lib/udev/rules.d/* $RPM_BUILD_ROOT%/usr/lib/udev/rules.d
 
 cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 

@@ -1,17 +1,15 @@
 #!/bin/bash
 ### BEGIN INIT INFO
-# Provides:          emerald
+# Provides:          pcmcom8
 # Required-Start:    $local_fs $network $syslog
 # Required-Stop:     $local_fs $network $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Load kernel module for Emerald serial card, create its device files
-# Description:       Diamond Systems Emerald is an 8-port PC104 serial communications card.
-#    The emerald kernel module provides a device interface for each card.
-#    On load the kernel module creates a device /dev/emeraldN for each board,
-#    and /dev/ttyDn for each port on each board, starting at n=tty_port_offset
-#    which is passed as a module parameter from this script.
-#    This script executes set_emerald from /opt/nidas/bin on each board
+# Short-Description: Load kernel module for WinSystems PCM-COM8 serial card, create its device files
+# Description:       WinSystems PCM-COM8 is an 8-port PC104 serial communications card.
+#    The pcmcom8 kernel module provides a device interface for each card.
+#    On load the kernel module creates a device /dev/pcmcom8_N for each board.
+#    This script executes set_pcmcom8 from /opt/nidas/bin on each board
 #    to set the ISA ioport and interrupts for each serial port on the card, and then
 #    runs setserial to configure the 8 serial ports, /dev/ttySn,
 #    for the stock 8250 serial driver.
@@ -25,14 +23,14 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin:/opt/nidas/bin
-DESC="emerald initialization"
-NAME=emerald
-MODULE=emerald
+DESC="pcmcom8 initialization"
+NAME=pcmcom8
+MODULE=pcmcom8
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
 [ -e "/lib/modules/$(uname -r)/nidas/$NAME.ko" ] || exit 0
-[ -x "/opt/nidas/bin/set_emerald" ] || exit 0
+[ -x "/opt/nidas/bin/set_pcmcom8" ] || exit 0
 
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
@@ -49,27 +47,22 @@ SCRIPTNAME=/etc/init.d/$NAME
 # in which case these should be the actual IRQs for the ISA interrupts, 0-15.
 isairqs=(0 0 0 3 4 5 6 7 0 9 10 11 12 0 14 15)
 
-# If CK jumper is not installed, use baud_base=115200, and one can
-# run at baud rates up to 115200.
-# If CK is installed, set baud_base to 460800 to support
-# higher baud rates
 baud_base=115200
-# baud_base=460800
 
 # default configuration of first 4 boards
 defports=(0x100 0x140 0x180 0x1c0)
-defirqs=(3 4 5 6)
+defirqs=(11 11 11 11)
 
 # First TTY port on this card, can be set in /etc/default/$NAME
 :${FIRST_TTY:=5}
 
-MODULE_ARGS=tty_port_offset=$FIRST_TTY
+MODULE_ARGS=
 
 boardevs=()
 #
-# load the emerald kernel module
+# load the pcmcom8 kernel module
 #
-modprobe_emerald()
+modprobe_pcmcom8()
 {
         # returns 0 if already loaded
 
@@ -82,14 +75,14 @@ modprobe_emerald()
             modprobe $NAME $MODULE_ARGS
         fi
         RETVAL="$?"
-        boardevs=(/dev/emerald[0-9])
+        boardevs=(/dev/pcmcom8_[0-9])
         return "$RETVAL"
 }
 
 #
-# unload the emerald kernel module
+# unload the pcmcom8 kernel module
 #
-rmmod_emerald()
+rmmod_pcmcom8()
 {
         lsmod | fgrep -q $NAME || return 1
         rmmod $NAME
@@ -100,7 +93,7 @@ rmmod_emerald()
 get_isabase() {
         # ISA base address on system.
         # Titan kernel has been updated so that this is 0, 
-        set_emerald -b ${boardevs[0]} || echo -1
+        set_pcmcom8 -b ${boardevs[0]} || echo -1
 }
 
 check_ports() {
@@ -144,23 +137,21 @@ check_ports() {
                                 # echo ${ports[*]}
                                 ;;
                         esac
-                done < <(set_emerald $brddev)
+                done < <(set_pcmcom8 $brddev)
                 birqs[$brd]=$irq
                 # If OK, enable the ports on the board
-                [ $result -eq 0 ] && set_emerald -u $brddev || return 1
+                [ $result -eq 0 ] && set_pcmcom8 -u $brddev || return 1
         done
         return $result
 }
 
-# Set register configuration on Emerald board to default values
+# Set register configuration on PCM-COM8 board to default values
 default_config()
 {
         for (( brd = 0; brd < ${#boardevs[*]}; brd++ )); do
                 local brddev=${boardevs[$brd]}; 
-                echo "doing: set_emerald $brddev ${defports[$brd]} ${defirqs[$brd]}"
-                set_emerald $brddev ${defports[$brd]} ${defirqs[$brd]} > /dev/null
-                # enable the ports after configuring them.
-                set_emerald -u $brddev || return 1
+                echo "doing: set_pcmcom8 $brddev ${defports[$brd]} ${defirqs[$brd]}"
+                set_pcmcom8 $brddev ${defports[$brd]} ${defirqs[$brd]} > /dev/null
         done
 }
 
@@ -194,15 +185,13 @@ create_ports()
 
                                         portstr=`printf "%#x" $(( $baseaddr + $port ))`
                                         nirq=${isairqs[$irq]}
-                                        # Aug 2012, kernel 2.6.35, tried the low_latency setserial option.
-                                        # See comment in isff-etc/etc/serial.conf
                                         setserial -zvb $ttydev port $portstr irq $nirq baud_base $baud_base autoconfig
                                         let tminor++
                                         let ttynum++
                                 fi
                                 ;;
                         esac
-                done < <(set_emerald $brddev)
+                done < <(set_pcmcom8 $brddev)
         done
         return 0
 }
@@ -213,7 +202,7 @@ do_start()
         #   0 if daemon has been started
         #   1 if daemon was already running
         #   2 if daemon could not be started
-        modprobe_emerald
+        modprobe_pcmcom8
         RETVAL="$?"
         [ $RETVAL -eq 2 ] && return "$RETVAL"
         check_ports || default_config || return 2
@@ -231,7 +220,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-        rmmod_emerald
+        rmmod_pcmcom8
         RETVAL="$?"
         return "$RETVAL"
 }

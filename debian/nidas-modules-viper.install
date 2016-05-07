@@ -1,2 +1,4 @@
-pkg_files/root/etc/modprobe.d/diamond.conf etc/modprobe.d
+pkg_files/root/etc/modprobe.d/* etc/modprobe.d
+pkg_files/root/etc/default/emerald etc/default
+pkg_files/root/etc/default/pcmcom8 etc/default
 lib/modules/*-viper*/nidas/*.ko

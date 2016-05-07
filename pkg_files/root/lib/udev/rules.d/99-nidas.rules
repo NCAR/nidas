@@ -1,8 +1,8 @@
 #
-# Changes to system device permissions which are useful for NIDAS data
-# acquisition
+# Changes to system device permissions which are
+# useful for NIDAS data acquisition
 #
-# world read/write access to /dev/ttyS*
+# world read/write access to /dev/ttyS*, ttyUSB*, and ttyD*
 # I suppose if there is a login service running on one of these
 # serial ports that this is a (small) security hole, but
 # that is not common.
@@ -29,3 +29,14 @@ KERNEL=="ir104_[0-9]", MODE="0666"
 # Diamond GPIO-MM
 KERNEL=="gpiomm_*[0-9]", MODE="0666"
 
+# PC104SG IRIG
+KERNEL=="irig[0-9]", MODE="0666"
+
+# Condor ARINC
+KERNEL=="arinc[0-9]", MODE="0666"
+
+# NCAR A2D
+KERNEL=="ncar_a2d[0-9]", MODE="0666"
+
+# Mesa Anything I/O
+KERNEL=="mesa[0-9]", MODE="0666"

@@ -9,7 +9,6 @@
 # Description:       Shell variables will be sourced from /etc/default/nidas-daq.
 #                    DAQ_PATH will be added to PATH. The script START_DSM will
 #                    be executed with a "start"argument, under DAQ_USER and DAQ_GROUP.
-#                    DAQ_ROOT will be set in the environment.
 ### END INIT INFO
 
 # Author: Gordon Maclean <maclean@ucar.edu>
@@ -24,12 +23,12 @@ NAME=dsm
 SCRIPTNAME=/etc/init.d/$NAME
 DAEMON=/opt/nidas/bin/dsm
 
-# Exit if nidas-daq doesn't exit
-[ -r /etc/default/nidas-daq ] || exit 0
-. /etc/default/nidas-daq
+[ -r /etc/default/nidas-daq ] && . /etc/default/nidas-daq
+
+# Exit if we don't know DAQ_USER
+[ $DAQ_USER ] || exit 1
 
 [ $DAQ_PATH ] && PATH=$PATH:$DAQ_PATH
-export DAQ_ROOT
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh

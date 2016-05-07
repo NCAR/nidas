@@ -69,5 +69,6 @@ override_dh_shlibdeps:
 
 override_dh_installinit:
 	dh_installinit --no-start --name=emerald
+	dh_installinit --no-start --name=pcmcom8
 	dh_installinit --no-start --name=dsm
 

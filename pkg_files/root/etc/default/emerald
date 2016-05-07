@@ -1,0 +1,4 @@
+# First TTY port on Diamond Emerald card.
+# Serial devices, /dev/ttySN, starting at N=FIRST_TTY
+# will be created for each serial port on the card.
+FIRST_TTY=5
