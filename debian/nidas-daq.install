@@ -1,3 +1,3 @@
 pkg_files/root/etc/default/nidas-daq etc/default
-pkg_files/root/etc/modprobe.d/nidas.conf etc/modprobe.d
+pkg_files/root/etc/modprobe.d/*.conf etc/modprobe.d
 pkg_files/root/lib/udev/rules.d/* lib/udev/rules.d
