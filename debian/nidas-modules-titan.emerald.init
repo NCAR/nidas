@@ -61,7 +61,7 @@ defports=(0x100 0x140 0x180 0x1c0)
 defirqs=(3 4 5 6)
 
 # First TTY port on this card, can be set in /etc/default/$NAME
-:${FIRST_TTY:=5}
+FIRST_TTY=${FIRST_TTY:-5}
 
 MODULE_ARGS=tty_port_offset=$FIRST_TTY
 
@@ -79,7 +79,7 @@ modprobe_emerald()
                 modprobe $NAME $MODULE_ARGS || return 2
             fi
         else
-            modprobe $NAME $MODULE_ARGS
+            modprobe $NAME $MODULE_ARGS || return 2
         fi
         RETVAL="$?"
         boardevs=(/dev/emerald[0-9])

@@ -54,7 +54,7 @@ defports=(0x100 0x140 0x180 0x1c0)
 defirqs=(11 11 11 11)
 
 # First TTY port on this card, can be set in /etc/default/$NAME
-:${FIRST_TTY:=5}
+FIRST_TTY=${FIRST_TTY:-5}
 
 MODULE_ARGS=
 
@@ -72,7 +72,7 @@ modprobe_pcmcom8()
                 modprobe $NAME $MODULE_ARGS || return 2
             fi
         else
-            modprobe $NAME $MODULE_ARGS
+            modprobe $NAME $MODULE_ARGS || return 2
         fi
         RETVAL="$?"
         boardevs=(/dev/pcmcom8_[0-9])
@@ -139,8 +139,6 @@ check_ports() {
                         esac
                 done < <(set_pcmcom8 $brddev)
                 birqs[$brd]=$irq
-                # If OK, enable the ports on the board
-                [ $result -eq 0 ] && set_pcmcom8 -u $brddev || return 1
         done
         return $result
 }
