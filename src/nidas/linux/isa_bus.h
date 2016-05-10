@@ -191,9 +191,9 @@
 #include <asm/arch/titan.h>
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-#define SYSTEM_ISA_IOPORT_BASE 0
-#elif defined(TITAN_PC104IO_BASE)
+// #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+// #define SYSTEM_ISA_IOPORT_BASE 0
+#if defined(TITAN_PC104IO_BASE)
 #define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_BASE
 #elif defined(TITAN_PC104IO_VIRT)
 #define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_VIRT
@@ -205,7 +205,7 @@
 /*
  * Special versions of 16 bit I/O operations, that add an address
  * offset as necessary on a given CPU. See VULCAN section.
- * Offset is not needed on VIPER.
+ * Offset is not needed on a Titan
  */
 #define inw_16o(a)        inw(a)
 #define insw_16o(a,p,n)   insw(a,p,n)
