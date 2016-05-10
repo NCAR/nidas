@@ -86,7 +86,7 @@ static unsigned int A2DClockFreq = 10000;
 /* module parameters (can be passed in via command line) */
 static unsigned int Irq = 10;
 
-static int IoPort = 0x2a0;
+static unsigned int IoPort = 0x2a0;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,17)
 module_param(Irq, int, 0);
@@ -2071,9 +2071,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         unsigned char status = inb(board.addr + Status_Port);
         irqreturn_t ret = IRQ_NONE;
 
-        if ((status & Heartbeat) && (board.IntMask & Heartbeat_Int_Enb)) {
+        /*
+         * Clear the heartbeat latch every time we're called, not just
+         * when (status & Heartbeat) is non-zero. Otherwise PC104SG
+         * interrupts would drop-out regularly on a Titan.
+         * I'm a bit baffled why this is needed, but whatever works ...
+         */
+        resetHeartBeatLatch();
 
-                resetHeartBeatLatch();
+        if ((status & Heartbeat) && (board.IntMask & Heartbeat_Int_Enb)) {
 
                 ret = IRQ_HANDLED;
 
@@ -2154,6 +2160,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                  * schedule the bottom half tasklet.
                  */
                 tasklet_hi_schedule(&board.tasklet100Hz);
+
         }
 #ifdef CHECK_EXT_EVENT
         if ((status & Ext_Ready) && (board.IntMask & Ext_Ready_Int_Enb)) {
@@ -2461,7 +2468,7 @@ static void pc104sg_cleanup(void)
 
         /* free up the I/O region and remove /proc entry */
         if (board.addr)
-                release_region(board.addr, PC104SG_IOPORT_WIDTH);
+                release_region(IoPort, PC104SG_IOPORT_WIDTH);
 
         if (board.class && !IS_ERR(board.class))
                 class_destroy(board.class);
@@ -2554,8 +2561,11 @@ static int __init pc104sg_init(void)
 
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
-        if (!request_region(addr, PC104SG_IOPORT_WIDTH,driver_name))
+        if (!request_region(IoPort, PC104SG_IOPORT_WIDTH,driver_name)) {
+                KLOG_ERR("%s: Error requesting ioport addresses %#x-%#x\n",
+                         board.deviceName,IoPort,IoPort+PC104SG_IOPORT_WIDTH-1);
                 goto err0;
+        }
 
         board.addr = addr;
 
