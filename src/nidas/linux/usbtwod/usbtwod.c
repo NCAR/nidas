@@ -603,7 +603,11 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 				sizeof(osamp->data) +
 				urb->actual_length;
                 osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
-                // stuff the current TAS value in the data.
+                /*
+                 * stuff the current TAS value in the data.
+                 * It is little-endian, since it was converted
+                 * before being sent to the probe.
+                 */
                 spin_lock(&dev->taslock);
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
                 spin_unlock(&dev->taslock);
