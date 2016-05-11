@@ -109,19 +109,40 @@ void DSMAnalogSensor::open(int flags)
         ioctlcmd = "NIDAS_A2D_SET_CONFIG";
         ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
 
-        string filterPath("/usr/local/firmware");
+        vector<string> filterPaths;
+
         const Parameter* pparm = getParameter("filterPath");
-        
         if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
             pparm->getLength() == 1)
-                filterPath = pparm->getStringValue(0);
+                filterPaths.push_back(pparm->getStringValue(0));
 
-        ostringstream ost;
-        if (getScanRate() >= 1000)
-            ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
-        else
-            ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
-        string filtername = ost.str();
+        // If not specified, look in these paths for the filter files
+        if (filterPaths.empty()) {
+            filterPaths.push_back("/opt/nidas/firmware");
+            filterPaths.push_back("/usr/local/firmware");
+        }
+        string filtername;
+
+        bool found = false;
+        for (unsigned int i = 0; i < filterPaths.size(); i++) {
+            ostringstream ost;
+            if (getScanRate() >= 1000)
+                ost << filterPaths[i] << "/fir" << getScanRate()/1000. << "KHz.cfg";
+            else
+                ost << filterPaths[i] << "/fir" << getScanRate() << "Hz.cfg";
+            filtername = ost.str();
+
+            struct stat statbuf;
+
+            if (::stat(filtername.c_str(), &statbuf) == 0) found = true;
+            if (found) break;
+        }
+
+        // The first path, the "filterPath" param if it is specified, or, if not,
+        // /opt/nidas/firmware, is where the firmware should be found.
+        // so put that path in the error message.
+        if (!found)
+            throw n_u::IOException(filterPaths[0],"open",errno);
 
         ncar_a2d_ocfilter_config ocfcfg;
 

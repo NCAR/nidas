@@ -13,10 +13,10 @@ a2dfilts = Split("""
     fir5KHz.cfg
 """)
 
-env.Install('$PREFIX/arm/filters', a2dfilts)
+env.Install('$PREFIX/firmware', a2dfilts)
 
 env.Clean(['install','arm_install'], [
-    '$PREFIX/arm/filters/' + l for l in a2dfilts
+    '$PREFIX/firmware/' + l for l in a2dfilts
     ])
 
 

@@ -85,7 +85,7 @@ EOD
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz \
-            rpm pkg_files src/SConstruct src/nidas src/nidas.pc.in src/build/include \
+            rpm pkg_files filters src/SConstruct src/nidas src/firmware src/nidas.pc.in src/build/include \
             src/xml || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then

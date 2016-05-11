@@ -250,11 +250,32 @@ throw(n_u::InvalidParameterException)
 /*---------------------------------------------------------------------------*/
 void DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 {
-    string fname("/usr/local/firmware/mesa_fpga_file.bit");
+    vector<string> fnames;
     const Parameter* pparm = getParameter("firmware");
     if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
             pparm->getLength() == 1)
-        fname= pparm->getStringValue(0);
+        fnames.push_back(pparm->getStringValue(0));
+
+    // If not specified, look in these paths for the firmware
+    if (fnames.empty()) {
+        fnames.push_back("/opt/nidas/firmware/mesa_fpga_file.bit");
+        fnames.push_back("/usr/local/firmware/mesa_fpga_file.bit");
+    }
+    string fname;
+
+    bool found = false;
+    for (unsigned int i = 0; i < fnames.size(); i++) {
+        struct stat statbuf;
+        fname = fnames[i];
+        if (::stat(fname.c_str(), &statbuf) == 0) found = true;
+        if (found) break;
+    }
+
+    // The first path, the "firmware" param if it is specified, or, if not
+    // /opt/nidas/firmware, is where the firmware should be found.
+    // so put that path in the error message.
+    if (!found)
+        throw n_u::IOException(fnames[0],"open",errno);
 
     FILE * fp;
     int ilen = 0;

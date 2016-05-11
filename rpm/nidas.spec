@@ -294,6 +294,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/pcmcom8.ko
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
+%{nidas_prefix}/firmware
 
 %if %{with autocal}
 %files autocal
