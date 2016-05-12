@@ -152,7 +152,7 @@ install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0664 pkg_files/root/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
 install -m 0755 -d $RPM_BUILD_ROOT/usr/lib/udev/rules.d
-install -m 0664 pkg_files/root/lib/udev/rules.d/* $RPM_BUILD_ROOT/usr/lib/udev/rules.d
+install -m 0664 pkg_files/udev/rules.d/* $RPM_BUILD_ROOT/usr/lib/udev/rules.d
 
 cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
