@@ -250,9 +250,10 @@ struct irig_device
 struct pc104sg_board
 {
 
-        /**
-         * Actual physical address of this card. Set in init_module
-         */
+        /* ioport address of board */
+        unsigned int ioport;
+
+        /* ioport address plus system ISA base address */
         unsigned long addr;
 
         int irq;
@@ -735,8 +736,7 @@ static void enableHeartBeatInt(void)
 #ifdef DEBUG
         KLOG_DEBUG("IntMask=0x%x\n", board.IntMask);
 #endif
-        // also reset heart beat latch to avoid immediate interrupt
-        resetHeartBeatLatch();     
+        outb(board.IntMask, board.addr + Reset_Port);
 }
 
 // /**
@@ -2068,18 +2068,62 @@ static irqreturn_t
 pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 #endif
 {
-        unsigned char status = inb(board.addr + Status_Port);
+        unsigned char status;
         irqreturn_t ret = IRQ_NONE;
 
-        /*
-         * Clear the heartbeat latch every time we're called, not just
-         * when (status & Heartbeat) is non-zero. Otherwise PC104SG
-         * interrupts would drop-out regularly on a Titan.
-         * I'm a bit baffled why this is needed, but whatever works ...
-         */
-        resetHeartBeatLatch();
+        if (board.IntMask & Heartbeat_Int_Enb) {
 
-        if ((status & Heartbeat) && (board.IntMask & Heartbeat_Int_Enb)) {
+                /* Prior to May 2016, on Vipers/Vulcans, this driver would run in
+                 * a shared interrupt mode (even though IRQ 10 was never shared).
+                 * It would read from Status_Port and if the Heartbeat bit was not
+                 * set, it would return IRQ_NONE, without doing anything, including
+                 * not doing resetHeartBeatLatch().
+                 *
+                 * On testing of Titans (without IRIG-B or PPS signals),
+                 * resetHeartBeatLatch() must be called, even if status is 0, otherwise
+                 * interrupts are dropped.
+                 *
+                 * In looking at IRQ 10 on a scope, a Titan has about 3x better interrupt
+                 * performance than a Viper.  On a Titan the IRQ goes low typically
+                 * within 15 usec, sometimes extending to about 70 usec. On a Viper,
+                 * the times are 50 usec, sometimes up to 150 usec.  
+                 *
+                 * So it's as if the Status_Port value is not ready when the Titan
+                 * checks it. However by adding a loop containing a udelay(5) and a status
+                 * read, the status was still zero, even after 30 tries (150 usecs).
+                 *
+                 * Maybe its due to the lack of input IRIG/PPS signals during testing.
+                 * Or it is due to different ISA bus timing with the Titan. I tried a
+                 * variety of settings in the MCIO1 register, which controls the ISA
+                 * timing, and saw no change. And we don't see any other issues.
+                 *
+                 * Perhaps the old way of doing things on Vipers was the cause
+                 * of the intermittent A2D FIFO overflows.
+                 */
+
+#ifdef HAMMER_ON_STATUS
+                int i, ntry = 30;
+                static unsigned int nbad;
+                static unsigned int ngood;
+
+                for (i = 0; i < ntry; i++) {
+                        status = inb(board.addr + Status_Port);
+                        if (status & Heartbeat) break;
+                        udelay(5);
+                }
+
+                if (i == ntry) {
+                        nbad++;
+                        KLOG_WARNING("Heartbeat bit not set in status, nbad=%u, ngood=%u\n", nbad, ngood);
+                }
+                else if (i > 0)
+                        KLOG_INFO("Heartbeat bit set after %d tries\n",i);
+                else ngood++;
+#else
+                status = inb(board.addr + Status_Port);
+#endif
+
+                resetHeartBeatLatch();
 
                 ret = IRQ_HANDLED;
 
@@ -2467,8 +2511,8 @@ static void pc104sg_cleanup(void)
             unregister_chrdev_region(board.pc104sg_device, 1);
 
         /* free up the I/O region and remove /proc entry */
-        if (board.addr)
-                release_region(IoPort, PC104SG_IOPORT_WIDTH);
+        if (board.ioport)
+                release_region(board.ioport, PC104SG_IOPORT_WIDTH);
 
         if (board.class && !IS_ERR(board.class))
                 class_destroy(board.class);
@@ -2484,7 +2528,6 @@ static int __init pc104sg_init(void)
 {
         int i;
         int errval = 0;
-        unsigned int addr;
         int irq;
         struct timeval unix_timeval;
         struct timeval32 irig_timeval;
@@ -2556,8 +2599,6 @@ static int __init pc104sg_init(void)
         board.clockAction = RESET_COUNTERS;
         board.notifyClients = NO_NOTIFY;
 
-        /* check for module parameters */
-        addr = (unsigned long) IoPort + SYSTEM_ISA_IOPORT_BASE;
 
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
@@ -2567,7 +2608,8 @@ static int __init pc104sg_init(void)
                 goto err0;
         }
 
-        board.addr = addr;
+        board.ioport = IoPort;
+        board.addr = board.ioport + SYSTEM_ISA_IOPORT_BASE;
 
         board.class = class_create(THIS_MODULE, "irig");
         if (IS_ERR(board.class)) {
@@ -2601,7 +2643,7 @@ static int __init pc104sg_init(void)
         }
 
         errval =
-            request_irq(irq, pc104sg_isr, IRQF_SHARED, "PC104-SG IRIG",
+            request_irq(irq, pc104sg_isr, 0, "PC104-SG IRIG",
                         &board);
         if (errval < 0) {
                 /* failed... */
@@ -2647,7 +2689,7 @@ static int __init pc104sg_init(void)
                 board.DP_RamExtStatusRequested = 1;
         }
 
-        /* start interrupts */
+        /* enable interrupts */
         enableHeartBeatInt();
 
         /*
