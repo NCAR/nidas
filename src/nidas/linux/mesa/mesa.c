@@ -823,8 +823,8 @@ static void mesa_cleanup(void)
                 for (ib = 0; ib < numboards; ib++) {
                         struct MESA_Board *brd = boards + ib;
                         close_ports(brd);
-                        if (brd->addr)
-                                release_region(brd->addr, MESA_REGION_SIZE);
+                        if (brd->ioport)
+                                release_region(brd->ioport, MESA_REGION_SIZE);
                 }
                 kfree(boards);
                 boards = 0;
@@ -843,7 +843,6 @@ static int __init mesa_init(void)
 {
         int ib;
         int error = -EINVAL;
-        unsigned long addr;
 
         boards = 0;
 
@@ -891,15 +890,14 @@ static int __init mesa_init(void)
 
                 sprintf(brd->devName, "/dev/%s%d", DEVNAME_MESA, ib);
 
-                addr = SYSTEM_ISA_IOPORT_BASE + ioport[ib];
-
                 // reserve the ISA memory region
-                if (!request_region(addr, MESA_REGION_SIZE,DEVNAME_MESA)) {
-                        KLOG_ERR("%s: ioport at 0x%lx already in use\n",
-                                 brd->devName, addr);
+                if (!request_region(ioport[ib], MESA_REGION_SIZE,DEVNAME_MESA)) {
+                        KLOG_ERR("%s: ioport at %#x already in use\n",
+                                 brd->devName, ioport[ib]);
                         goto err;
                 }
-                brd->addr = addr;
+                brd->ioport = ioport[ib];
+                brd->addr = brd->ioport + SYSTEM_ISA_IOPORT_BASE;
 		atomic_set(&brd->available,1);
 
                 init_waitqueue_head(&brd->rwaitq);

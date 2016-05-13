@@ -67,13 +67,13 @@
 static const char* driver_name = "gpio_mm";
 
 /* C/T ioport addresses of installed boards, 0=board not used */
-static unsigned long ioports[MAX_GPIO_MM_BOARDS] ={ 0x080, 0, 0, 0 , 0};
+static unsigned int ioports[MAX_GPIO_MM_BOARDS] ={ 0x080, 0, 0, 0 , 0};
 
 /* DIO ioport addresses of installed boards, 0=DIO not used.
  * If the DIO ports are used on a board, then the ioports address must
  * also be specified.
  */
-static unsigned long ioports_dio[MAX_GPIO_MM_BOARDS] = { 0x040, 0, 0, 0, 0 };
+static unsigned int ioports_dio[MAX_GPIO_MM_BOARDS] = { 0x040, 0, 0, 0, 0 };
 
 /* number of GPIO_MM boards in system (number of non-zero ioport_ct values) */
 static int numboards = 0;
@@ -98,13 +98,13 @@ static int numirqb = 0;
 static int clockHZ = GPIO_MM_CT_CLOCK_HZ;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
-module_param_array(ioports_dio,ulong,&numboards_dio,0);
-module_param_array(ioports,ulong,&numboards,0);
+module_param_array(ioports_dio,uint,&numboards_dio,0);
+module_param_array(ioports,uint,&numboards,0);
 module_param_array(irqa,int,&numirqa,0);
 module_param_array(irqb,int,&numirqb,0);
 #else
-module_param_array(ioports_dio,ulong,numboards_dio,0);
-module_param_array(ioports,ulong,numboards,0);
+module_param_array(ioports_dio,uint,numboards_dio,0);
+module_param_array(ioports,uint,numboards,0);
 module_param_array(irqa,int,numirqa,0);
 module_param_array(irqb,int,numirqb,0);
 #endif
@@ -2084,16 +2084,13 @@ static void gpio_mm_cleanup(void)
                         cleanup_gpio_timer(brd->timer);
                         brd->timer = 0;
                     }
-                    if (ioports_dio[ib]) {
-                        if (brd->dio_addr)
-                            release_region(brd->dio_addr, GPIO_MM_DIO_IOPORT_WIDTH);
+                    if (brd->ioport_dio) {
+                            release_region(brd->ioport_dio, GPIO_MM_DIO_IOPORT_WIDTH);
                     }
-                    if (ioports[ib]) {
-                        if (brd->ct_addr) {
+                    if (brd->ioport_ct) {
                             // reset board
                             outb(0x01,brd->ct_addr + GPIO_MM_RESET_ID);
-                            release_region(brd->ct_addr, GPIO_MM_CT_IOPORT_WIDTH);
-                        }
+                            release_region(brd->ioport_ct, GPIO_MM_CT_IOPORT_WIDTH);
                     }
                 }
                 kfree(board);
@@ -2117,7 +2114,6 @@ static int __init gpio_mm_init(void)
         int result = -EINVAL;
         int ib;
         int chip;
-        unsigned long addr;
 	unsigned char fpgaRev;
 
         board = 0;
@@ -2169,15 +2165,15 @@ static int __init gpio_mm_init(void)
                 spin_lock_init(&brd->reglock);
                 mutex_init(&brd->brd_mutex);
                 result = -EBUSY;
-                addr =  ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 // Get the mapped board address
-                if (!request_region(addr, GPIO_MM_CT_IOPORT_WIDTH, driver_name)) {
-                    KLOG_ERR("ioport at 0x%lx already in use\n", addr);
+                if (!request_region(ioports[ib], GPIO_MM_CT_IOPORT_WIDTH, driver_name)) {
+                    KLOG_ERR("ioport at %#x already in use\n", ioports[ib]);
                     goto err;
                 }
-                brd->ct_addr = addr;
+                brd->ioport_ct = ioports[ib];
+                brd->ct_addr = brd->ioport_ct + SYSTEM_ISA_IOPORT_BASE;
                 result = -ENODEV;
-                brd->boardID = inb(addr + GPIO_MM_RESET_ID);
+                brd->boardID = inb(brd->ct_addr + GPIO_MM_RESET_ID);
 
                 /* We'll try to be resilient here. If there does not seem
                  * to be a board at the given address, but one or more
@@ -2194,25 +2190,25 @@ static int __init gpio_mm_init(void)
 		// GPIO-MM boardID is 0x11, GPIO-MM-12 boardID is 0x12
 		// GPIO-MM-12 v1.00 manual is incorrect
                 if (brd->boardID != 0x11 && brd->boardID != 0x12) {
-                    KLOG_ERR("Does not seem to be a GPIO-MM board present at ioport address %lx, ID read from %lx is 0x%x (should be 0x11 or 0x12)\n",
-                        ioports[ib],ioports[ib]+GPIO_MM_RESET_ID,
+                    KLOG_ERR("Does not seem to be a GPIO-MM board present at ioport address %x, ID read from %x is %#x (should be 0x11 or 0x12)\n",
+                        brd->ioport_ct,brd->ioport_ct+GPIO_MM_RESET_ID,
                         brd->boardID);
                     if (ib == 0) goto err;      // nutt'in working
-                    ioports[ib] = 0;
-                    release_region(brd->ct_addr, GPIO_MM_CT_IOPORT_WIDTH);
+                    release_region(brd->ioport_ct, GPIO_MM_CT_IOPORT_WIDTH);
+                    brd->ioport_ct = 0;
                     brd->ct_addr = 0;
                     numboards = ib;
                     continue;
                 }
                 if (ioports_dio[ib] > 0) {
                         result = -EBUSY;
-                        addr =  ioports_dio[ib] + SYSTEM_ISA_IOPORT_BASE;
                         // Get the mapped board address
-                        if (!request_region(addr, GPIO_MM_DIO_IOPORT_WIDTH, driver_name)) {
-                            KLOG_ERR("ioport at 0x%lx already in use\n", addr);
+                        if (!request_region(ioports_dio[ib], GPIO_MM_DIO_IOPORT_WIDTH, driver_name)) {
+                            KLOG_ERR("ioport at %#x already in use\n", ioports_dio[ib]);
                             goto err;
                         }
-                        brd->dio_addr = addr;
+                        brd->ioport_dio = ioports_dio[ib];
+                        brd->dio_addr = brd->ioport_dio + SYSTEM_ISA_IOPORT_BASE;
                 }
 
                 result = -EINVAL;

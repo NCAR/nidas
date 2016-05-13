@@ -58,10 +58,10 @@
 
 #define DRIVER_NAME "pcmcom8"
 
-static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
+static unsigned long ioport_base = (unsigned long) SYSTEM_ISA_IOPORT_BASE;
 
 static int pcmcom8_major =   PCMCOM8_MAJOR;
-static unsigned long ioports[PCMCOM8_MAX_NR_DEVS] = {0,0,0,0};
+static unsigned int ioports[PCMCOM8_MAX_NR_DEVS] = {0,0,0,0};
 static int pcmcom8_numboards = 0;
 static int pcmcom8_nr_ok = 0;
 static pcmcom8_board* pcmcom8_boards = 0;
@@ -71,9 +71,9 @@ static dev_t pcmcom8_device = MKDEV(0,0);
 static struct class* pcmcom8_class;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
-module_param_array(ioports,ulong,&pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
+module_param_array(ioports,uint,&pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
 #else
-module_param_array(ioports,ulong,pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
+module_param_array(ioports,uint,pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
 #endif
 
 #ifndef REPO_REVISION
@@ -122,10 +122,10 @@ static void pcmcom8_enable_ports(pcmcom8_board* brd)
         int i;
         unsigned char bar;
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
-                outb(i,brd->ioport+PCMCOM8_IDX);
-                bar = inb(brd->ioport+PCMCOM8_ADR);
+                outb(i,brd->addr + PCMCOM8_IDX);
+                bar = inb(brd->addr + PCMCOM8_ADR);
                 bar |= 0x80;
-                outb(bar,brd->ioport+PCMCOM8_ADR);	/* enable port */
+                outb(bar,brd->addr + PCMCOM8_ADR);	/* enable port */
                 brd->config.ports[i].enable = 1;
         }
 }
@@ -137,11 +137,11 @@ static void pcmcom8_read_config(pcmcom8_board* brd)
         unsigned char val;
         /* read ioport and irq values. */
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
-                outb(i,brd->ioport+PCMCOM8_IDX);
-                val = inb(brd->ioport+PCMCOM8_ADR);
+                outb(i,brd->addr + PCMCOM8_IDX);
+                val = inb(brd->addr + PCMCOM8_ADR);
                 brd->config.ports[i].ioport = (val & 0x7f) << 3;
                 brd->config.ports[i].enable = ((val & 0x80) != 0);
-                brd->config.ports[i].irq = inb(brd->ioport+PCMCOM8_IAR);
+                brd->config.ports[i].irq = inb(brd->addr + PCMCOM8_IAR);
         }
 }
 
@@ -150,11 +150,11 @@ static int pcmcom8_write_config(pcmcom8_board* brd,struct pcmcom8_config* config
         unsigned char val;
         /* write ioport and irq values. */
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
-                outb(i,brd->ioport+PCMCOM8_IDX);
+                outb(i,brd->addr + PCMCOM8_IDX);
                 val = config->ports[i].ioport >> 3;
                 if (config->ports[i].enable) val |= 0x80;
-                outb(val,brd->ioport+PCMCOM8_ADR);
-                outb(config->ports[i].irq,brd->ioport+PCMCOM8_IAR);
+                outb(val,brd->addr + PCMCOM8_ADR);
+                outb(config->ports[i].irq,brd->addr + PCMCOM8_IAR);
         }
         brd->config = *config;
         return 0;
@@ -168,7 +168,7 @@ static int pcmcom8_wait_eedone(pcmcom8_board* brd)
         while (--cnt) {
                 set_current_state(TASK_INTERRUPTIBLE);
                 schedule_timeout(1);
-                status = inb(brd->ioport + PCMCOM8_STA);
+                status = inb(brd->addr + PCMCOM8_STA);
                 if ((status & 0xc0) == 0x80) break;
         }
         KLOG_DEBUG("read EEPROM cnt=%d\n",cnt);
@@ -183,11 +183,11 @@ static int pcmcom8_write_eeprom(pcmcom8_board* brd,int eeaddr, unsigned int valu
 {
         int res = 0;
 
-        outb(eeaddr | 0x40,brd->ioport+PCMCOM8_ECR);
+        outb(eeaddr | 0x40,brd->addr + PCMCOM8_ECR);
 
-        outb((value >> 8) & 0xff,brd->ioport+PCMCOM8_EHR);
-        outb(value & 0xff,brd->ioport+PCMCOM8_ELR);
-        outb(0x01,brd->ioport+PCMCOM8_CMD);
+        outb((value >> 8) & 0xff,brd->addr + PCMCOM8_EHR);
+        outb(value & 0xff,brd->addr + PCMCOM8_ELR);
+        outb(0x01,brd->addr + PCMCOM8_CMD);
 
         res = pcmcom8_wait_eedone(brd);
         return res;
@@ -206,14 +206,14 @@ static int pcmcom8_read_eeconfig(pcmcom8_board* brd,
 
         /* get ioport, irq and enable EEPROM addresses 0-7 */
         for (i = 0; i < PCMCOM8_NR_PORTS; i++) {
-                outb((eeaddr + i) | 0x80,brd->ioport+PCMCOM8_ECR);
-                outb(0x01,brd->ioport+PCMCOM8_CMD);
+                outb((eeaddr + i) | 0x80,brd->addr + PCMCOM8_ECR);
+                outb(0x01,brd->addr + PCMCOM8_CMD);
 
                 if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
-                val = inb(brd->ioport + PCMCOM8_EHR);
+                val = inb(brd->addr + PCMCOM8_EHR);
                 config->ports[i].ioport = (val & 0x7f) << 3;
                 config->ports[i].enable = ((val & 0x80) != 0);
-                config->ports[i].irq = inb(brd->ioport + PCMCOM8_ELR);
+                config->ports[i].irq = inb(brd->addr + PCMCOM8_ELR);
         }
         return 0;
 }
@@ -229,8 +229,8 @@ static int pcmcom8_write_eeconfig(pcmcom8_board* brd,
         int res = 0;
 
         // enable EEPROM writes
-        outb(0x30,brd->ioport + PCMCOM8_ECR);
-        outb(0x01,brd->ioport + PCMCOM8_CMD);
+        outb(0x30,brd->addr + PCMCOM8_ECR);
+        outb(0x01,brd->addr + PCMCOM8_CMD);
         if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
 
         /* write ioport values to EEPROM addresses 0-7 */
@@ -243,8 +243,8 @@ static int pcmcom8_write_eeconfig(pcmcom8_board* brd,
         }
 
         // disable EEPROM writes
-        outb(0x00,brd->ioport + PCMCOM8_ECR);
-        outb(0x01,brd->ioport + PCMCOM8_CMD);
+        outb(0x00,brd->addr + PCMCOM8_ECR);
+        outb(0x01,brd->addr + PCMCOM8_CMD);
         if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
         return res;
 }
@@ -255,8 +255,8 @@ static int pcmcom8_write_eeconfig(pcmcom8_board* brd,
 static int pcmcom8_load_config_from_eeprom(pcmcom8_board* brd,int eeaddr)
 {
         int res = 0;
-        outb(eeaddr+0x80,brd->ioport+PCMCOM8_ECR);
-        outb(0x03,brd->ioport + PCMCOM8_CMD);
+        outb(eeaddr+0x80,brd->addr + PCMCOM8_ECR);
+        outb(0x03,brd->addr + PCMCOM8_CMD);
         if ((res = pcmcom8_wait_eedone(brd)) != 0) return res;
         pcmcom8_read_config(brd);
         return res;
@@ -279,7 +279,7 @@ static int pcmcom8_read_procmem(char *buf, char **start, off_t offset,
                 KLOG_DEBUG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
                 if ((result = PCMCOM8_LOCK(&brd->mutex))) return result;
                 pcmcom8_read_config(brd);
-                len += sprintf(buf+len,"\nWinSystems PCMCOM8 board %i: ioport %lx\n",
+                len += sprintf(buf+len,"\nWinSystems PCMCOM8 board %i: ioport %x\n",
                                i, brd->ioport);
                 /* loop over serial ports */
                 for (j = 0; len <= limit && j < PCMCOM8_NR_PORTS; j++) {
@@ -364,10 +364,6 @@ static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
 
         switch(cmd) {
 
-        case PCMCOM8_IOCGIOPORT:
-                if (copy_to_user((unsigned long*) arg,&brd->ioport,
-                        sizeof(unsigned long)) != 0) ret = -EFAULT;
-                break;
         case PCMCOM8_IOCGPORTCONFIG:	/* get port config */
                 if (copy_to_user((struct pcmcom8_config *) arg,&brd->config,
                         sizeof(struct pcmcom8_config)) != 0) ret = -EFAULT;
@@ -524,12 +520,12 @@ static int __init pcmcom8_init_module(void)
 
         for (ib = 0; ib < pcmcom8_numboards; ib++) {
                 pcmcom8_board* brd = pcmcom8_boards + ib;
-                unsigned long addr = ioports[ib] + ioport_base;
-                if (!request_region(addr,PCMCOM8_IO_REGION_SIZE,DRIVER_NAME)) {
+                if (!request_region(ioports[ib],PCMCOM8_IO_REGION_SIZE,DRIVER_NAME)) {
                     result = -ENODEV;
                     goto fail;
                 }
-                brd->ioport = addr;
+                brd->ioport = ioports[ib];
+                brd->addr = brd->ioport + ioport_base;
                 brd->region_req = 1;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
@@ -545,11 +541,11 @@ static int __init pcmcom8_init_module(void)
                 if (!pcmcom8_read_eeconfig(brd,&brd->config,0)) {
                         pcmcom8_nr_ok = ib + 1;
                         itmp = pcmcom8_check_config(&brd->config);
-                        KLOG_INFO("EEPROM config for board %d,ioport %#lx=%s\n",
-                            ib,ioports[ib],(itmp ? "OK":"looks invalid"));
+                        KLOG_INFO("EEPROM config for board %d,ioport %#x=%s\n",
+                            ib,brd->ioport,(itmp ? "OK":"looks invalid"));
                 }
                 else {
-                        release_region(brd->ioport,PCMCOM8_IO_REGION_SIZE);
+                        release_region(brd->ioport, PCMCOM8_IO_REGION_SIZE);
                         brd->ioport = 0;
                         brd->region_req = 0;
                         break;

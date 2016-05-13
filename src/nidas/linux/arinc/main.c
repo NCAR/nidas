@@ -967,7 +967,7 @@ static int __init arinc_init(void)
         spin_lock_init(&board.lock);
         atomic_set(&board.numRxChannelsOpen,0);
 
-        physaddr = SYSTEM_ISA_IOMEM_BASE + (unsigned long)iomem;
+        physaddr = iomem + SYSTEM_ISA_IOMEM_BASE;
         KLOG_INFO("physaddr: %#lx\n", physaddr);
 
         // reserve the ISA memory region 
@@ -982,7 +982,7 @@ static int __init arinc_init(void)
         // map ISA card memory into kernel memory 
         board.mapaddr = ioremap(board.physaddr, PAGE_SIZE);
         if (!board.mapaddr) {
-                KLOG_ERR("ioremap(%#lx,%d) failed.\n",
+                KLOG_ERR("ioremap(%#lx,%ld) failed.\n",
                         board.physaddr,PAGE_SIZE);
                 return -EIO;
         }

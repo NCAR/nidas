@@ -186,7 +186,9 @@ struct LAMS_board {
 
         int num;
 
-        unsigned long addr;
+        unsigned int ioport;    /* ioport address of board */
+
+        unsigned long addr;     /* ioport plus system ISA base address */
 
         unsigned long ram_clear_addr;
         unsigned long avg_lsw_data_addr;
@@ -845,7 +847,6 @@ static int __init lams_init(void)
         for (ib = 0; ib < numboards; ib++) {
                 struct LAMS_board* brd = boards + ib;
                 dev_t devno;
-                unsigned long addr =  (unsigned long)ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
 
                 brd->num = ib;
@@ -854,24 +855,25 @@ static int __init lams_init(void)
 
                 result = -EBUSY;
                 // Get the mapped board address
-                if (!request_region(addr, IOPORT_REGION_SIZE,driver_name)) {
-                    KLOG_ERR("ioport at 0x%lx already in use\n", addr);
+                if (!request_region(ioports[ib], IOPORT_REGION_SIZE,driver_name)) {
+                    KLOG_ERR("ioport at %#x already in use\n", ioports[ib]);
                     goto err;
                 }
-                brd->addr = addr;
+                brd->ioport = ioports[ib];
+                brd->addr = brd->ioport + SYSTEM_ISA_IOPORT_BASE;
 
                 // save values of oft-used addresses
-                brd->ram_clear_addr = addr + RAM_CLEAR_OFFSET;
-                brd->avg_lsw_data_addr = addr + AVG_LSW_DATA_OFFSET;
-                brd->avg_msw_data_addr = addr + AVG_MSW_DATA_OFFSET;
-                brd->peak_data_addr = addr + PEAK_DATA_OFFSET;
-                brd->peak_clear_addr = addr + PEAK_CLEAR_OFFSET;
+                brd->ram_clear_addr = brd->addr + RAM_CLEAR_OFFSET;
+                brd->avg_lsw_data_addr = brd->addr + AVG_LSW_DATA_OFFSET;
+                brd->avg_msw_data_addr = brd->addr + AVG_MSW_DATA_OFFSET;
+                brd->peak_data_addr = brd->addr + PEAK_DATA_OFFSET;
+                brd->peak_clear_addr = brd->addr + PEAK_CLEAR_OFFSET;
 
                 result = -EINVAL;
                 // irqs are requested at open time.
                 if (irqs[ib] <= 0) {
-                    KLOG_ERR("missing irq value for board #%d at addr 0x%x\n",
-                        ib,ioports[ib]);
+                    KLOG_ERR("missing irq value for board #%d at addr %#x\n",
+                        ib,brd->ioport);
                     goto err;
                 }
 

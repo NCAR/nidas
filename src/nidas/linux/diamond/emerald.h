@@ -225,7 +225,8 @@ typedef struct emerald_mode {
  * An emerald board. May be more than one on a system.
  */
 typedef struct emerald_board {
-        unsigned long addr;	/* virtual ioport addr of the emerald card */
+        unsigned int ioport;    /* ioport address of emerald */
+        unsigned long addr;	/* ioport plus system ISA base address */
         emerald_config config;	/* ioport and irq of 8 serial ports */
         enum EMERALD_MODEL model;       /* model of card */
         char deviceName[32];

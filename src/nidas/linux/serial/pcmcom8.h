@@ -74,8 +74,13 @@ struct pcmcom8_config {
 #  ifdef __KERNEL__
 
 typedef struct pcmcom8_board {
-        unsigned long ioport;	/* virtual ioport addr of the pcmcom8 card */
+
+        unsigned int ioport;	/* ioport addr of the pcmcom8 card */
+
+        unsigned long addr;	/* ioport plus system ISA base address */
+
         struct pcmcom8_config config;	/* ioport and irq of 8 serial ports */
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         struct mutex mutex;
 #else
@@ -94,15 +99,14 @@ typedef struct pcmcom8_board {
 
 /* Look in Documentation/ioctl-number.txt */
 #define PCMCOM8_IOC_MAGIC  'p'
-#define PCMCOM8_IOCGIOPORT _IOR(PCMCOM8_IOC_MAGIC,  1, unsigned long)
-#define PCMCOM8_IOCSPORTCONFIG _IOW(PCMCOM8_IOC_MAGIC,  2, struct pcmcom8_config)
-#define PCMCOM8_IOCGPORTCONFIG _IOR(PCMCOM8_IOC_MAGIC,  3, struct pcmcom8_config)
-#define PCMCOM8_IOCSEEPORTCONFIG _IOW(PCMCOM8_IOC_MAGIC,  4, struct pcmcom8_config)
-#define PCMCOM8_IOCGEEPORTCONFIG _IOR(PCMCOM8_IOC_MAGIC,  5, struct pcmcom8_config)
-#define PCMCOM8_IOCEECONFIGLOAD _IO(PCMCOM8_IOC_MAGIC,  6)
-#define PCMCOM8_IOCPORTENABLE _IO(PCMCOM8_IOC_MAGIC,  7)
-#define PCMCOM8_IOCGNBOARD _IOR(PCMCOM8_IOC_MAGIC,  8, int)
-#define PCMCOM8_IOCGISABASE _IOR(PCMCOM8_IOC_MAGIC,9,unsigned long)
+#define PCMCOM8_IOCSPORTCONFIG _IOW(PCMCOM8_IOC_MAGIC,  1, struct pcmcom8_config)
+#define PCMCOM8_IOCGPORTCONFIG _IOR(PCMCOM8_IOC_MAGIC,  2, struct pcmcom8_config)
+#define PCMCOM8_IOCSEEPORTCONFIG _IOW(PCMCOM8_IOC_MAGIC,  3, struct pcmcom8_config)
+#define PCMCOM8_IOCGEEPORTCONFIG _IOR(PCMCOM8_IOC_MAGIC,  4, struct pcmcom8_config)
+#define PCMCOM8_IOCEECONFIGLOAD _IO(PCMCOM8_IOC_MAGIC,  5)
+#define PCMCOM8_IOCPORTENABLE _IO(PCMCOM8_IOC_MAGIC,  6)
+#define PCMCOM8_IOCGNBOARD _IOR(PCMCOM8_IOC_MAGIC,  7, int)
+#define PCMCOM8_IOCGISABASE _IOR(PCMCOM8_IOC_MAGIC,8,unsigned long)
 
 #define PCMCOM8_IOC_MAXNR 9
 

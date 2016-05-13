@@ -451,7 +451,10 @@ struct GPIO_MM_timer
 struct GPIO_MM
 {
         int num;                        // which board in system, from 0
+        unsigned int ioport_dio;         // ioport address of DIO regs
         unsigned long dio_addr;         // Base address of 8255 DIO regs
+
+        unsigned int ioport_ct;         // ioport address of cntr/timer
         unsigned long ct_addr;        // Base address of 9513 cntr/timer regs
         int irqs[2];		        // values of ISA irq A and B
         int reqirqs[2];		        // requested system irqs A and B

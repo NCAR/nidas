@@ -978,8 +978,8 @@ static void emerald_cleanup_module(void)
                                         device_destroy(emerald_class, ebrd->cdev.dev);
                                 cdev_del(&ebrd->cdev);
                         }
-                        if (ebrd->addr) 
-                            release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
+                        if (ebrd->ioport) 
+                            release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
                 }
                 kfree(emerald_boards);
                 emerald_boards = 0;
@@ -995,13 +995,15 @@ static void emerald_cleanup_module(void)
 
 static int __init emerald_init_module(void)
 {
-        int result, ib,ip;
+        int ib,ip;
         emerald_board* ebrd;
+        int result = -EINVAL;
 
         KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)
                 if (ioports[ib] == 0) break;
+        if (ib == 0) goto fail;
         emerald_nr_addrs = ib;
 
         result = alloc_chrdev_region(&emerald_device, 0,
@@ -1027,7 +1029,6 @@ static int __init emerald_init_module(void)
         ebrd = emerald_boards;
         for (ib=0; ib < emerald_nr_addrs; ib++) {
                 int boardOK = 0;
-                unsigned long addr = ioports[ib] + ioport_base;
 
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
@@ -1036,13 +1037,14 @@ static int __init emerald_init_module(void)
                 /* device name for printk messages  */
                 sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
 
-                if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
-                        KLOG_ERR("%s: request_region(%#lx,%d,\"emerald\") failed\n",
-                                ebrd->deviceName, addr, EMERALD_IO_REGION_SIZE);
+                if (!request_region(ioports[ib],EMERALD_IO_REGION_SIZE, "emerald")) {
+                        KLOG_ERR("%s: request_region(%#x,%d,\"emerald\") failed\n",
+                                ebrd->deviceName, ioports[ib], EMERALD_IO_REGION_SIZE);
                         result = -EBUSY;
                         goto fail;
                 }
-                ebrd->addr = addr;
+                ebrd->ioport = ioports[ib];
+                ebrd->addr = ebrd->ioport + ioport_base;
                 mutex_init(&ebrd->brd_mutex);
 
                 /*
@@ -1052,7 +1054,8 @@ static int __init emerald_init_module(void)
                  */
                 result = emm_read_eeconfig(ebrd,&ebrd->config);
                 if (result == -ENODEV) {
-                        release_region(addr,EMERALD_IO_REGION_SIZE);
+                        release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
+                        ebrd->ioport = 0;
                         ebrd->addr = 0;
                         continue;
                 }
@@ -1135,7 +1138,7 @@ static int __init emerald_init_module(void)
                         emerald_nr_ok++;
                         ebrd++;
                 }
-                else release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
+                else release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
         }
         if (emerald_nr_ok == 0 && result != 0) goto fail;
 

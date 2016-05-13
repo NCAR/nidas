@@ -101,7 +101,10 @@
  */
 struct IR104 {
 
-        /** virtual ioport addr of the IR104 */
+        /** ioport addr of the IR104 */
+        unsigned int ioport;
+
+        /** ioport plus system ISA base address */
         unsigned long addr;
 
         /** for log messages */

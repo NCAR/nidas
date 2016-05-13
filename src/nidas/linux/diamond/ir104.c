@@ -350,8 +350,8 @@ static void ir104_cleanup(void)
                                         device_destroy(ir104_class, brd->cdev.dev);
                                 cdev_del(&brd->cdev);
                         }
-                        if (brd->addr)
-                            release_region(brd->addr,IR104_IO_REGION_SIZE);
+                        if (brd->ioport)
+                            release_region(brd->ioport,IR104_IO_REGION_SIZE);
                         free_dsm_circ_buf(&brd->relay_samples);
                 }
                 kfree(boards);
@@ -374,6 +374,7 @@ static int __init ir104_init(void)
 
         for (ib=0; ib < IR104_MAX_BOARDS; ib++)
                 if (ioports[ib] == 0) break;
+        if (ib == 0) goto err;
         num_boards = ib;
 
         result = alloc_chrdev_region(&ir104_device,0,num_boards, "ir104");
@@ -397,18 +398,18 @@ static int __init ir104_init(void)
 
         for (ib=0; ib < num_boards; ib++) {
                 struct IR104* brd = boards + ib;
-                unsigned long addr = ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 int i;
                 dev_t devno;
 
                 /* for informational messages only */
                 sprintf(brd->deviceName,"/dev/ir104_%d",ib);
 
-                if (!request_region(addr,IR104_IO_REGION_SIZE, "ir104")) {
+                if (!request_region(ioports[ib] ,IR104_IO_REGION_SIZE, "ir104")) {
                         result = -EBUSY;
                         goto err;
                 }
-                brd->addr = addr;
+                brd->ioport = ioports[ib];
+                brd->addr = brd->ioport + SYSTEM_ISA_IOPORT_BASE;
                 mutex_init(&brd->mutex);
                 atomic_set(&brd->num_opened,0);
 
@@ -426,7 +427,8 @@ static int __init ir104_init(void)
                                         brd->deviceName,ioports[ib]);
                         if (ib > 0) {
                                 num_boards = ib;
-                                release_region(brd->addr,IR104_IO_REGION_SIZE);
+                                release_region(brd->ioport,IR104_IO_REGION_SIZE);
+                                brd->ioport = 0;
                                 brd->addr = 0;
                                 break;
                         }

@@ -4283,8 +4283,8 @@ static void dmd_mmat_cleanup(void)
                                 free_irq(brd->irq,brd);
                         }
 
-                        if (brd->addr)
-                                release_region(brd->addr, DMMAT_IOPORT_WIDTH);
+                        if (brd->ioport)
+                                release_region(brd->ioport, DMMAT_IOPORT_WIDTH);
                 }
                 kfree(board);
                 board = 0;
@@ -4355,21 +4355,21 @@ static int __init dmd_mmat_init(void)
         for (ib = 0; ib < numActualBoards; ib++) {
                 unsigned char FPGArev;
                 struct DMMAT* brd = board + ib;
-                unsigned long addr =  (unsigned long)ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
-                KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
+                KLOG_DEBUG("isa base=%p\n",SYSTEM_ISA_IOPORT_BASE);
 
                 brd->num = ib;
                 spin_lock_init(&brd->reglock);
                 mutex_init(&brd->irqreq_mutex);
                 result = -EBUSY;
                 // Get the mapped board address
-                if (!request_region(addr, DMMAT_IOPORT_WIDTH, "dmd_mmat")) {
-                    KLOG_ERR("ioport at 0x%lx already in use\n", addr);
+                if (!request_region(ioports[ib], DMMAT_IOPORT_WIDTH, "dmd_mmat")) {
+                    KLOG_ERR("ioport at 0x%x already in use\n", ioports[ib]);
                     goto err;
                 }
 
-                brd->addr = addr;
-                brd->addr16 = addr + ISA_16BIT_ADDR_OFFSET;
+                brd->ioport = ioports[ib];
+                brd->addr = (unsigned long)brd->ioport + SYSTEM_ISA_IOPORT_BASE;
+                brd->addr16 = brd->addr + ISA_16BIT_ADDR_OFFSET;
 
                 brd->type = types[ib];
 
@@ -4377,7 +4377,7 @@ static int __init dmd_mmat_init(void)
                 // irqs are requested at open time.
                 if (irqs[ib] <= 0) {
                     KLOG_ERR("missing irq value for board #%d at addr 0x%x\n",
-                        ib,ioports[ib]);
+                        ib,brd->ioport);
                     goto err;
                 }
 
@@ -4390,8 +4390,8 @@ static int __init dmd_mmat_init(void)
                         ioports[ib],FPGArev);
 
                         if (ib == 0) goto err;      // nutt'in working
-                        ioports[ib] = 0;
-                        release_region(brd->addr, DMMAT_IOPORT_WIDTH);
+                        release_region(brd->ioport, DMMAT_IOPORT_WIDTH);
+                        brd->ioport = 0;
                         brd->addr = 0;
                         numActualBoards = ib;
                         break;

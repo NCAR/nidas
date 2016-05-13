@@ -361,7 +361,10 @@ struct DMMAT
         /** which board in system, from 0 */
         int num;
 
-        /** Base address of board */
+        /** ioport address of board */
+        unsigned int ioport;
+
+        /** usable address of board, ioport + system ISA base */
         unsigned long addr;
 
         unsigned long addr16;

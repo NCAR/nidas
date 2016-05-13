@@ -175,7 +175,9 @@ struct radar_state
 
 struct MESA_Board
 {
-        unsigned long addr;     // Base address of board
+        unsigned int ioport;    // ioport address of board
+
+        unsigned long addr;     // ioport plus system ISA base
 
         struct device* device;
 
