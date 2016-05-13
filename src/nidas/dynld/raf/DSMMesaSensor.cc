@@ -281,7 +281,7 @@ void DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
     int ilen = 0;
 
     // Open up the FPGA program from disk...
-    ILOG(("opening ") << fname);
+    NLOG(("opening ") << fname);
     if ((fp = fopen(fname.c_str(), "rb")) == NULL)
         throw n_u::IOException(fname,"open",errno);
 
