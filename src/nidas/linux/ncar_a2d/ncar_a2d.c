@@ -1171,12 +1171,14 @@ static void ppsCallback1(void *ptr)
 {
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
         unsigned short stat;
-	stat = A2DBoardStatus(brd);
+
+        // PPS is an inverted signal, 10 milliseconds long
+        stat = A2DBoardStatus(brd);
         if ((stat & INV1PPS) == 0) {
-		KLOG_DEBUG("%s: found PPS, GET_MSEC_CLOCK=%d\n",
-			brd->deviceName,GET_MSEC_CLOCK);
-		brd->havePPS = 1;
-		wake_up_interruptible(&brd->ppsWaitQ);
+                KLOG_DEBUG("%s: found PPS, GET_MSEC_CLOCK=%d\n",
+                        brd->deviceName,GET_MSEC_CLOCK);
+                brd->havePPS = 1;
+                wake_up_interruptible(&brd->ppsWaitQ);
         }
 }
 
@@ -1720,7 +1722,6 @@ static void ReadSampleCallback(void *ptr)
          * If the fifo level is 4 (3/4 to 4/4 full) (or greater)
          * it could overflow before the next poll.
          */
-#ifdef POLL_WHEN_QUARTER_FULL
         if (preFlevel < 2 || preFlevel > 3) {
                 brd->resets++;
 #ifdef USE_RESET_WORKER
@@ -1735,30 +1736,6 @@ static void ReadSampleCallback(void *ptr)
 #endif
                 return;
         }
-#else
-        /*
-         * If overflows due to missed IRIG interrupts are a recurring issue, we could
-         * allow a preFlevel of 4 at this point, indicating that the FIFO
-         * is over 3/4 but not completely full. However there is a danger that it
-         * could overflow before readA2DFifo() gets around to reading.
-         * It is probably a better idea to fix the missed interrupts, or
-         * try to detect them with something like watchdog tasklet.
-         */
-        if (preFlevel < 1 || preFlevel > 3) {
-                brd->resets++;
-#ifdef USE_RESET_WORKER
-		KLOG_ERR("%s: restarting due to bad FIFO level %d, expected 1 (less than 1/4 full). #resets=%d\n",
-                                    brd->deviceName,preFlevel,brd->resets);
-                brd->errorState = WAITING_FOR_RESET;
-                queue_work(work_queue, &brd->resetWorker);
-#else
-		KLOG_ERR("%s: bad FIFO level %d, expected 1 (less than 1/4 full). #resets=%d\n",
-                                    brd->deviceName,preFlevel,brd->resets);
-                brd->errorState = -EIO;
-#endif
-                return;
-        }
-#endif
 
         /*
          * Read the fifo.
@@ -1949,6 +1926,8 @@ static int resetBoard(struct A2DBoard *brd)
         KLOG_DEBUG("%s: IRIG callbacks registered @ %d\n", brd->deviceName,GET_MSEC_CLOCK);
 
         KLOG_INFO("%s: reset succeeded\n", brd->deviceName);
+        KLOG_DEBUG("%s: reset done, FIFO level=%d\n", brd->deviceName,
+                getA2DFIFOLevel(brd));
         return ret;
 }
 
@@ -2064,13 +2043,15 @@ static int startBoard(struct A2DBoard *brd)
         pollRate = FIXED_POLL_RATE;
 #else
         /*
-         * Set the pollRate to read the maximum amount, but less
-         * than 1/4 the FIFO size.
-         * wordsPerSec is 4000 for a scan rate of 500/sec, so the
-         * minimum possible poll rate is 15.6 Hz which will get
-         * rounded up to 20 here.
+         * Set the pollRate to read a max of (1 / FIFO_READ_FRACTION)
+         * of the FIFO size.
+         * wordsPerSec is 4000 for a scan rate of 500/sec. To setup
+         * reads of about 1/4 of the FIFO (256 words) will need a
+         * poll rate of 4000/256 = 15.6 read/sec, which will be rounded
+         * up to 20, resulting in reads of 200 words per poll.
          */
-        pollRate = wordsPerSec / (HWFIFODEPTH / 4);
+#define FIFO_READ_FRACTION 4
+        pollRate = wordsPerSec / (HWFIFODEPTH / FIFO_READ_FRACTION);
         if (pollRate < 10) pollRate = 10;
         else if (pollRate < 20) pollRate = 20;
         else if (pollRate < 25) pollRate = 25;
@@ -2600,10 +2581,8 @@ static void ncar_a2d_cleanup(void)
                                 brd->filters = 0;
                         }
 
-                        if (brd->base_addr)
-                                release_region(brd->base_addr, A2DIOWIDTH);
-                        brd->base_addr = 0;
-
+                        if (brd->ioport)
+                                release_region(brd->ioport, A2DIOWIDTH);
                 }
                 kfree(BoardInfo);
                 BoardInfo = 0;
@@ -2680,7 +2659,6 @@ static int __init ncar_a2d_init(void)
         /* initialize each A2DBoard structure */
         for (ib = 0; ib < NumBoards; ib++) {
                 struct A2DBoard *brd = BoardInfo + ib;
-                unsigned long addr;
 
                 // for informational messages only at this point
                 sprintf(brd->deviceName, "/dev/%s%d", DEVNAME_A2D, ib);
@@ -2688,18 +2666,16 @@ static int __init ncar_a2d_init(void)
                 /*
                  * Base address and command address
                  */
-                addr = IoPort[ib] + SYSTEM_ISA_IOPORT_BASE;
 
                 // Request the necessary I/O region
-                if (!request_region(addr, A2DIOWIDTH, "NCAR A/D")) {
-                        KLOG_ERR("ioport %#x already in use at virtual address %#lx\n",
-                                        IoPort[ib],addr);
+                if (!request_region(IoPort[ib], A2DIOWIDTH, "NCAR A/D")) {
+                        KLOG_ERR("ioport %#x already in use\n",IoPort[ib]);
                         goto err;
                 }
-
-                brd->base_addr = addr;
-                brd->base_addr16 = addr + ISA_16BIT_ADDR_OFFSET;
-                brd->cmd_addr = addr + A2DCMDADDR;
+                brd->ioport = IoPort[ib];
+                brd->base_addr = brd->ioport + SYSTEM_ISA_IOPORT_BASE;
+                brd->base_addr16 = brd->base_addr + ISA_16BIT_ADDR_OFFSET;
+                brd->cmd_addr = brd->base_addr + A2DCMDADDR;
 
                 mutex_init(&brd->mutex);
 
@@ -2746,16 +2722,16 @@ static int __init ncar_a2d_init(void)
                                              brd->deviceName,IoPort[ib]);
 
                         if (ib == 0) goto err;
-                        release_region(brd->base_addr, A2DIOWIDTH);
-                        brd->base_addr16 = brd->base_addr = 0;
+                        release_region(brd->ioport, A2DIOWIDTH);
+                        brd->ioport = 0;
                         NumBoards = ib;
                         break;
                 }
 
                 brd->ser_num = getSerialNumber(brd);
 
-                KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, system address 0x%08lx, serial number=%hd\n",
-                        brd->deviceName,IoPort[ib],brd->base_addr,brd->ser_num);
+                KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, serial number=%hd\n",
+                        brd->deviceName,IoPort[ib], brd->ser_num);
 
 
                 brd->tempRate = IRIG_NUM_RATES;

@@ -171,8 +171,12 @@ struct a2d_sample
 
 struct A2DBoard
 {
+        unsigned int ioport; // Base address of board
+
         unsigned long base_addr; // Base address of board
+
         unsigned long base_addr16; // address for 16 bit transfers
+
         unsigned long cmd_addr;  // Address for commands to the board
 
         char deviceName[32];
