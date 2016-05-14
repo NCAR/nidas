@@ -1,7 +1,7 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
-import subprocess
+import eol_scons.parseconfig as pc
 
 ##
 ##  Import the build environment.
@@ -60,8 +60,12 @@ env.NidasProgram('xml_dump.cc')
 env.NidasProgram('isff/datasets.cc')
 
 ncenv = env.Clone()
-if subprocess.call(['pkg-config', 'nc_server']) == 0:
-    ncenv.MergeFlags('!pkg-config --cflags nc_server')
+try:
+    if pc.CheckConfig(env, 'pkg-config nc_server'):
+        ncenv.MergeFlags('!pkg-config --cflags nc_server')
+except OSerror:
+    pass
+
 ncenv.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.

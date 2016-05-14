@@ -1,7 +1,7 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-import subprocess
+import eol_scons.parseconfig as pc
 
 ##
 ##  Import the build environment.
@@ -86,29 +86,34 @@ conf.CheckFunc("ppoll")
 
 conf.CheckFunc("epoll_pwait")
 
-if subprocess.call(['pkg-config', 'nc_server']) == 0:
-    conf.env.MergeFlags('!pkg-config --cflags --libs nc_server')
+try:
+    if pc.CheckConfig(env, 'pkg-config nc_server'):
+        conf.env.MergeFlags('!pkg-config --cflags --libs nc_server')
 
-if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
-        'nc_server_rpc', 'nc_server_rpc.h','C++',
-        'xdr_connection(0,0);'):
+    if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
+            'nc_server_rpc', 'nc_server_rpc.h','C++',
+            'xdr_connection(0,0);'):
 # append nc_server library to build environment
 # I don't grok all the issues related to using RPATH. Debian
 # advises against it in most, but not all situations. We'll
 # enable it here and see what happens...
-    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
-        RPATH=conf.env['LIBPATH'])
+        env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
+            RPATH=conf.env['LIBPATH'])
+except OSError:
+    pass
 
-if subprocess.call(['pkg-config', 'gsl']) == 0:
-    conf.env.MergeFlags('!pkg-config --libs gsl')
+try:
+    if pc.CheckConfig(env, 'pkg-config gsl'):
+        conf.env.MergeFlags('!pkg-config --libs gsl')
 
-if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
-        'gsl', 'gsl/gsl_linalg.h','C',
-        'gsl_linalg_LU_solve(0,0,0,0);'):
+    if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
+            'gsl', 'gsl/gsl_linalg.h','C',
+            'gsl_linalg_LU_solve(0,0,0,0);'):
 # append gsl library to build environment
-    env.AppendUnique(LIBS=conf.env['LIBS'],
-            LIBPATH=(conf.env['LIBPATH'] if conf.env.has_key('LIBPATH') else None))
-#
+        env.AppendUnique(LIBS=conf.env['LIBS'],
+                LIBPATH=(conf.env['LIBPATH'] if conf.env.has_key('LIBPATH') else None))
+except OSError:
+    pass
 
 tmp_env = conf.Finish()
 

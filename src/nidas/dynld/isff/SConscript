@@ -1,13 +1,16 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-import subprocess
+import eol_scons.parseconfig as pc
 
 Import('env')
 arch = env['ARCH']  # empty string for native builds
 
-if subprocess.call(['pkg-config', 'nc_server']) == 0:
-    env.MergeFlags('!pkg-config --cflags nc_server')
+try:
+    if pc.CheckConfig(env, 'pkg-config nc_server'):
+        env.MergeFlags('!pkg-config --cflags nc_server')
+except OSError:
+    pass
 
 sources = Split("""
     ATIK_Sonic.cc
