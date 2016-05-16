@@ -2743,6 +2743,9 @@ static int __init pc104sg_init(void)
 		goto err0;
 	}
 
+        /* trigger an interrupt */
+        resetHeartBeatLatch();
+
         return 0;
 
 err0:
