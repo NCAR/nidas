@@ -70,7 +70,7 @@ opts.Update(env)
 env.MergeFlags('-pthread')
 
 if env.has_key('PKG_CONFIG_PATH'):
-    env['ENV']['PKG_CONFIG_PATH'] = env['PKG_CONFIG_PATH']
+    env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 BUILDS = Split(env['BUILDS'])
 MACHS = Split(env['MACHS'])
