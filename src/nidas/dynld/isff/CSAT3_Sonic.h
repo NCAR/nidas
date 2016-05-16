@@ -120,9 +120,19 @@ private:
     /**
      * Send a "??CR" string, and read the response, parsing out the
      * acquisition rate, osc parameter, serial number and the software revision.
+     *
+     * rtsIndep is the setting of the "ri" parameter. For our free-running
+     * 3-wire mode, we want it to be ri=1, so that the RS232 drivers
+     * on the sonic are always on, not dependent on RTS.
+     *
+     * recSep is the setting of the "rs" parameter. NIDAS expects a record
+     * separator (0x55AA), so it is set to rs=1.
+     *
+     * Both of these can be set in EEPROM, following the procedure in
+     * section 12 of the CSAT3 manual.
      */
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
-        std::string& revsion)
+        std::string& revsion, int& rtsIndep, int& recSep)
         throw(nidas::util::IOException);
 
     const char* getRateCommand(int rate,bool overSample) const;

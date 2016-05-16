@@ -128,7 +128,7 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
     return false;
 }
 
-string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision)
+string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision, int& rtsIndep, int& recSep)
 throw(n_u::IOException)
 {
     string result;
@@ -137,6 +137,8 @@ throw(n_u::IOException)
     osc = ' ';
     serialNumber = "unknown";
     revision = "unknown";
+    rtsIndep = -1;  // ri setting, RTS independent, -1=unknown
+    recSep = -1;  // rs setting, record separator, -1=unknown
 
     /*
      * Make this robust around the following situations:
@@ -246,6 +248,19 @@ throw(n_u::IOException)
         bl = result.find(' ',fs+4);
         revision = result.substr(fs+4,bl-fs-4);
     }
+
+    // get RI=n setting. 0=power RS-232 drivers on RTS, 1=power always
+    fs = result.find("RI=");
+    if (fs != string::npos && fs + 3 < ql)
+        rtsIndep = atoi(result.substr(fs+3).c_str());
+
+    // get RS=n setting. 0=no record separator, 1=0x55AA
+    fs = result.find("RS=");
+    if (fs != string::npos && fs + 3 < ql)
+        recSep = atoi(result.substr(fs+3).c_str());
+
+
+
     return result;
 }
 
@@ -361,9 +376,11 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     string serialNumber = "unknown";
     char osc = ' ';
     string revision;
+    int rtsIndep, recSep;
 
-    string query = querySonic(acqrate,osc,serialNumber,revision);
-    DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
+    string query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
+    DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
+            ", recSep(RS)=" << recSep);
 
     if (serialNumber != "unknown") {
         // Is current sonic rate OK?  If requested rate is 0, don't change.
@@ -377,13 +394,24 @@ throw(n_u::IOException,n_u::InvalidParameterException)
             if (_rate == 20 && osc == 'h') rateOK = true;
         }
 
+        // set RI=1, always power RS232, independent of RTS
+        if (rtsIndep != 1) {
+            write("ri 1\r",5);
+            sleep(1);
+        }
+        // set RS=1, send 0x55AA record separator
+        if (recSep != 1) {
+            write("rs 1\r",5);
+            sleep(1);
+        }
+
         string rateResult;
         // set rate if it is different from what is desired, or sonic doesn't respond to first query.
         if (!rateOK) {
             assert(rateCmd != 0);
             rateResult = sendRateCommand(rateCmd);
             sleep(2);
-            query = querySonic(acqrate,osc,serialNumber,revision);
+            query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
             DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
         }
 
@@ -490,7 +518,13 @@ bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
     bool rcvdTimeout = false;
     for (int i = 0; i < 2; i++) {
         DLOG(("%s: sending T (nocr)",getName().c_str()));
-        write("T",1);
+        /*
+         * P means print status and turn off internal triggering.
+         * If rev 5 sonics are set to 60 Hz raw sampling or
+         * 3x or 6x oversampling, they don't respond until sent a P
+         */
+        if (i > 1) write("PT",2);
+        else write("T",1);
         try {
             for (int j = 0; j < 20; j++) {
                 unsigned int l;
