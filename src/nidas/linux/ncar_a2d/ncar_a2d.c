@@ -128,9 +128,12 @@ static uint dtestcnt;
 static uint a2dchans[NUM_NCAR_A2D_CHANNELS] = { 0,1,2,3,4,5,6,7 };
 static uint numa2ds = NUM_NCAR_A2D_CHANNELS;
 
+static int fifoReadFrac = 8;
+
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
 module_param_array(Master, int, &nMaster, S_IRUGO);
+module_param(fifoReadFrac, int, S_IRUGO);
 module_param(dtestnum, int, S_IRUGO | S_IWUSR );
 module_param(dtestchan, int, S_IRUGO | S_IWUSR );
 module_param(dtestcnt, uint, S_IRUGO | S_IWUSR );
@@ -140,6 +143,7 @@ module_param_array(a2dchans, uint, &numa2ds, S_IRUGO | S_IWUSR );
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Master,
                  "Master A/D for the board, default=first requested channel");
+MODULE_PARM_DESC(fifoReadFrac, "N: read 1/N of FIFO on each poll, N >= 4");
 MODULE_PARM_DESC(dtestnum, "Test to run: 0=no test, 1=16 bit write of 0x5555/0xaaaa in 1/2 second loop");
 MODULE_PARM_DESC(dtestchan, "Channel number for write test 0-7");
 MODULE_PARM_DESC(dtestcnt, "Number of tests to run");
@@ -1208,7 +1212,8 @@ static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
         }
 	mutex_unlock(&brd->mutex);
 
-	waitTimeout = 2 * HZ;
+        /* wait for 5 seconds */
+	waitTimeout = 5 * HZ;
 
         /* this wait does a general memory barrier before checking the event,
          * so the above STORE of brd->havePPS will be visible.
@@ -1733,6 +1738,7 @@ static void ReadSampleCallback(void *ptr)
 		KLOG_ERR("%s: bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full). #resets=%d\n",
                                     brd->deviceName,preFlevel,brd->resets);
                 brd->errorState = -EIO;
+                wake_up_interruptible(&brd->rwaitq_a2d);
 #endif
                 return;
         }
@@ -1941,6 +1947,8 @@ static void resetBoardWorkFunc(void *work)
         struct A2DBoard *brd =
             container_of(work, struct A2DBoard, resetWorker);
         brd->errorState = resetBoard(brd);
+        if (brd->errorState)
+                wake_up_interruptible(&brd->rwaitq_a2d);
 }
 #endif
 
@@ -2043,15 +2051,14 @@ static int startBoard(struct A2DBoard *brd)
         pollRate = FIXED_POLL_RATE;
 #else
         /*
-         * Set the pollRate to read a max of (1 / FIFO_READ_FRACTION)
+         * Set the pollRate to read a max of (1 / fifoReadFrac)
          * of the FIFO size.
          * wordsPerSec is 4000 for a scan rate of 500/sec. To setup
          * reads of about 1/4 of the FIFO (256 words) will need a
          * poll rate of 4000/256 = 15.6 read/sec, which will be rounded
          * up to 20, resulting in reads of 200 words per poll.
          */
-#define FIFO_READ_FRACTION 4
-        pollRate = wordsPerSec / (HWFIFODEPTH / FIFO_READ_FRACTION);
+        pollRate = wordsPerSec / (HWFIFODEPTH / fifoReadFrac);
         if (pollRate < 10) pollRate = 10;
         else if (pollRate < 20) pollRate = 20;
         else if (pollRate < 25) pollRate = 25;
@@ -2087,8 +2094,8 @@ static int startBoard(struct A2DBoard *brd)
         brd->delaysBeforeFirstPoll = 1;
 #endif
 
-        KLOG_INFO("%s: pollRate=%d, nFifoValues=%d, first poll delay=%d\n",
-                   brd->deviceName, pollRate,nFifoValues,brd->delaysBeforeFirstPoll);
+        KLOG_INFO("%s: fifoReadFrac=%d, pollRate=%d, nFifoValues=%d, first poll delay=%d\n",
+                   brd->deviceName, fifoReadFrac, pollRate, nFifoValues, brd->delaysBeforeFirstPoll);
 
         /*
          * If nFifoValues increases or polling rate changes, re-allocate samples
@@ -2623,6 +2630,11 @@ static int __init ncar_a2d_init(void)
         // KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         KLOG_NOTICE("numa2ds=%d\n",numa2ds);
+
+        if (fifoReadFrac < 4) {
+                KLOG_ERR("fifoReadFrac must be >= 4\n");
+                goto err;
+        }
 
         BoardInfo = 0;
 
