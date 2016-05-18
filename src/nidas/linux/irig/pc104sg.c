@@ -736,7 +736,8 @@ static void enableHeartBeatInt(void)
 #ifdef DEBUG
         KLOG_DEBUG("IntMask=0x%x\n", board.IntMask);
 #endif
-        outb(board.IntMask, board.addr + Reset_Port);
+        resetHeartBeatLatch();
+        // outb(board.IntMask, board.addr + Reset_Port);
 }
 
 // /**
@@ -2068,60 +2069,10 @@ static irqreturn_t
 pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 #endif
 {
-        unsigned char status;
+        unsigned char status = inb(board.addr + Status_Port);
         irqreturn_t ret = IRQ_NONE;
 
-        if (board.IntMask & Heartbeat_Int_Enb) {
-
-                /* Prior to May 2016, on Vipers/Vulcans, this driver would run in
-                 * a shared interrupt mode (even though IRQ 10 was never shared).
-                 * It would read from Status_Port and if the Heartbeat bit was not
-                 * set, it would return IRQ_NONE, without doing anything, including
-                 * not doing resetHeartBeatLatch().
-                 *
-                 * On testing of Titans (without IRIG-B or PPS signals),
-                 * resetHeartBeatLatch() must be called, even if status is 0, otherwise
-                 * interrupts are dropped.
-                 *
-                 * In looking at IRQ 10 on a scope, a Titan has about 3x better interrupt
-                 * performance than a Viper.  On a Titan the IRQ goes low typically
-                 * within 15 usec, sometimes extending to about 70 usec. On a Viper,
-                 * the times are 50 usec, sometimes up to 150 usec.  
-                 *
-                 * So it's as if the Status_Port value is not ready when the Titan
-                 * checks it. However by adding a loop containing a udelay(5) and a status
-                 * read, the status was still zero, even after 30 tries (150 usecs).
-                 *
-                 * Maybe its due to the lack of input IRIG/PPS signals during testing.
-                 * Or it is due to different ISA bus timing with the Titan. I tried a
-                 * variety of settings in the MCIO1 register, which controls the ISA
-                 * timing, and saw no change. And we don't see any other issues.
-                 *
-                 * Perhaps the old way of doing things on Vipers was the cause
-                 * of the intermittent A2D FIFO overflows.
-                 */
-
-#ifdef HAMMER_ON_STATUS
-                int i, ntry = 30;
-                static unsigned int nbad;
-                static unsigned int ngood;
-
-                for (i = 0; i < ntry; i++) {
-                        status = inb(board.addr + Status_Port);
-                        if (status & Heartbeat) break;
-                        udelay(5);
-                }
-
-                if (i == ntry) {
-                        nbad++;
-                        KLOG_WARNING("Heartbeat bit not set in status, nbad=%u, ngood=%u\n", nbad, ngood);
-                }
-                else if (i > 0)
-                        KLOG_INFO("Heartbeat bit set after %d tries\n",i);
-                else ngood++;
-#else
-                status = inb(board.addr + Status_Port);
-#endif
+        if (board.IntMask & Heartbeat_Int_Enb && status & Heartbeat) {
 
                 resetHeartBeatLatch();
 
@@ -2742,9 +2693,6 @@ static int __init pc104sg_init(void)
 		errval = PTR_ERR(board.device);
 		goto err0;
 	}
-
-        /* trigger an interrupt */
-        resetHeartBeatLatch();
 
         return 0;
 
