@@ -40,3 +40,6 @@ KERNEL=="ncar_a2d[0-9]", MODE="0666"
 
 # Mesa Anything I/O
 KERNEL=="mesa[0-9]", MODE="0666"
+
+# Winsystems PCMCOM8
+KERNEL=="pcmcom8_[0-9]", MODE="0666"
