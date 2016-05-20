@@ -128,10 +128,25 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
     return false;
 }
 
+/* static */
+string::size_type CSAT3_Sonic::getSerialNumberIndex(const string& str)
+{
+    // Version 3 and 4 serial numbers: "SNXXXX", version 5: "SnXXXX".
+    // Serial number of a special test version 4 sonic was "PR0001"
+    const char* sn[] = {
+        "SN", "Sn", "PR"
+    };
+    string::size_type n = string::npos;
+    for (unsigned int i = 0; i < sizeof(sn)/sizeof(sn[0]); i++)
+        n = std::min(n,str.find(sn[i]));
+    return n;
+}
+
 string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision, int& rtsIndep, int& recSep)
 throw(n_u::IOException)
 {
     string result;
+
 
     acqrate = 0;
     osc = ' ';
@@ -200,8 +215,9 @@ throw(n_u::IOException)
                 DLOG(("%s: timeout",getName().c_str()));
                 break;
             }
-            if (result.length() > 400 && result.find("SN") < string::npos &&
-                    result.find("rev")) break;
+            if (result.length() > 400 && 
+                    getSerialNumberIndex(result) < string::npos &&
+                    result.find("rev") < string::npos) break;
             if (n_u::UTime() > quit) break;
         }
         // Status message is over 400 characters
@@ -211,9 +227,10 @@ throw(n_u::IOException)
     }
     clearBuffer();
 
-    // Version 3 output starts with "ET=", version 4 with "SNXXXX"
-    // Serial number of a special test version 4 sonic was "PR0001"
-    string::size_type fs = std::min(std::min(result.find("ET="),result.find("SN")),result.find("PR"));
+    // Look for start of ?? output (there may be some junk before that).
+    // Version 3 output starts with "ET=", others with the serial number
+    string::size_type fs = getSerialNumberIndex(result);
+    fs = std::min(fs,result.find("ET="));
     if (fs != string::npos && fs > 0) result = result.substr(fs);
 
     while (result.length() > 0 && result[result.length() - 1] == '>')
@@ -236,8 +253,8 @@ throw(n_u::IOException)
     fs = result.find("os=");
     if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
 
-    // get serial number, e.g. "SN1124" (hopefully is the only string with "SN")
-    fs = std::min(result.find("SN"),result.find("PR"));
+    // get serial number
+    fs = getSerialNumberIndex(result);
     string::size_type bl = result.find(' ',fs);
     if (fs != string::npos && bl != string::npos)
         serialNumber = result.substr(fs,bl-fs);
@@ -258,8 +275,6 @@ throw(n_u::IOException)
     fs = result.find("RS=");
     if (fs != string::npos && fs + 3 < ql)
         recSep = atoi(result.substr(fs+3).c_str());
-
-
 
     return result;
 }

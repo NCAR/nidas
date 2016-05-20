@@ -96,6 +96,11 @@ public:
     */
     static const float GAMMA_R = 402.684;
 
+    /**
+     * Get index of serial number field in "??" query output.
+     */
+    std::string::size_type getSerialNumberIndex(const std::string& str);
+
 protected:
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);
