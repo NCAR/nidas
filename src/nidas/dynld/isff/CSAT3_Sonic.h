@@ -97,9 +97,10 @@ public:
     static const float GAMMA_R = 402.684;
 
     /**
-     * Get index of serial number field in "??" query output.
+     * Get serial number field and its index in "??" query output.
      */
-    std::string::size_type getSerialNumberIndex(const std::string& str);
+    std::string getSerialNumber(const std::string& str,
+            std::string::size_type & index );
 
 protected:
 

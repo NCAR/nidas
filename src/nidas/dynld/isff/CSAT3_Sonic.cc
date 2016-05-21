@@ -78,7 +78,7 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
 
     DLOG(("%s: sending D (nocr)",getName().c_str()));
     write("D",1);
-    sleep(1);
+    usleep(250 * USECS_PER_MSEC);
     size_t ml = getMessageLength() + getMessageSeparator().length();
 
     // read until we get an actual sample or 5 seconds have elapsed.
@@ -129,28 +129,37 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
 }
 
 /* static */
-string::size_type CSAT3_Sonic::getSerialNumberIndex(const string& str)
+string CSAT3_Sonic::getSerialNumber(const string& str,
+        string::size_type & idx)
 {
     // Version 3 and 4 serial numbers: "SNXXXX", version 5: "SnXXXX".
     // Serial number of a special test version 4 sonic was "PR0001"
     const char* sn[] = {
         "SN", "Sn", "PR"
     };
-    string::size_type n = string::npos;
-    for (unsigned int i = 0; i < sizeof(sn)/sizeof(sn[0]); i++)
-        n = std::min(n,str.find(sn[i]));
-    return n;
+
+    idx = string::npos;
+    for (unsigned int i = 0; idx == string::npos &&
+            i < sizeof(sn)/sizeof(sn[0]); i++)
+        idx = str.find(sn[i]);
+
+    string empty;
+    if (idx == string::npos) return empty;
+
+    string::size_type bl = str.find(' ',idx);
+    if (bl != string::npos) return str.substr(idx,bl-idx);
+    return empty;
 }
 
-string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision, int& rtsIndep, int& recSep)
+string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber,
+        string& revision, int& rtsIndep, int& recSep)
 throw(n_u::IOException)
 {
     string result;
 
-
     acqrate = 0;
     osc = ' ';
-    serialNumber = "unknown";
+    serialNumber = "";
     revision = "unknown";
     rtsIndep = -1;  // ri setting, RTS independent, -1=unknown
     recSep = -1;  // rs setting, record separator, -1=unknown
@@ -180,16 +189,18 @@ throw(n_u::IOException)
 
     n_u::UTime quit;
     quit += USECS_PER_SEC * 5;
+    bool scanned = false;
 
-    for (;;) {
+    for ( ; !scanned && n_u::UTime() < quit; ) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
         // sonic takes a while to respond to ??
         int timeout = 4 * MSECS_PER_SEC;
         result.clear();
+        string::size_type stidx = string::npos;
 
-        // read until timeout
-        for (;;) {
+        // read until timeout, or complete message
+        for ( ; !scanned && n_u::UTime() < quit; ) {
             try {
                 readBuffer(timeout);
                 for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -203,11 +214,7 @@ throw(n_u::IOException)
                     DLOG(("%s: CSAT3 query: len=",getName().c_str())
                             << rec.length() << ", \"" << rec << '"');
 
-                    // after the rate is set, sonic responds with "Acq sigs...>".
-                    // Don't return that as part of the status.
-                    // if (rec.find("Acq sigs") == string::npos) result += rec;
                     result += rec;
-
                     distributeRaw(samp);
                 }
             }
@@ -215,34 +222,39 @@ throw(n_u::IOException)
                 DLOG(("%s: timeout",getName().c_str()));
                 break;
             }
-            if (result.length() > 400 && 
-                    getSerialNumberIndex(result) < string::npos &&
-                    result.find("rev") < string::npos) break;
-            if (n_u::UTime() > quit) break;
-        }
-        // Status message is over 400 characters
-        if (result.length() > 400) break;
 
-        if (n_u::UTime() > quit) break;
+            // rev 3 message, starts with ET=, contains serial number
+            // rev 4 or 5 message, starts with serial number
+            if (stidx == string::npos) {
+                string::size_type etidx = result.find("ET=");
+                string::size_type snidx;
+                serialNumber = getSerialNumber(result, snidx);
+                stidx = std::min(snidx, etidx);
+
+                if (stidx != string::npos) {
+                    result = result.substr(stidx);
+                    stidx = 0;
+                }
+            }
+            if (stidx != string::npos) {
+                string::size_type ri = result.find("\n>");
+                if (ri != string::npos) {
+                    result.resize(ri);
+                    scanned = true;
+                }
+            }
+        }
     }
     clearBuffer();
 
-    // Look for start of ?? output (there may be some junk before that).
-    // Version 3 output starts with "ET=", others with the serial number
-    string::size_type fs = getSerialNumberIndex(result);
-    fs = std::min(fs,result.find("ET="));
-    if (fs != string::npos && fs > 0) result = result.substr(fs);
+    if (result.empty()) return result;
 
-    while (result.length() > 0 && result[result.length() - 1] == '>')
-        result.resize(result.length()-1);
-
-    unsigned int ql = result.length();
-    DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << ql);
-    if (ql == 0) return result;
+    string::size_type rlen = result.length();
+    DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << rlen);
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
-    fs = result.find("AQ=");
-    if (fs != string::npos && fs + 3 < ql)
+    string::size_type fs = result.find("AQ=");
+    if (fs != string::npos && fs + 3 < rlen)
         acqrate = atoi(result.substr(fs+3).c_str());
 
     // get os parameter, e.g. "os=g"
@@ -251,29 +263,23 @@ throw(n_u::IOException)
     // ' ' otherwise
     // For version 4, os=0 means no oversampling
     fs = result.find("os=");
-    if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
-
-    // get serial number
-    fs = getSerialNumberIndex(result);
-    string::size_type bl = result.find(' ',fs);
-    if (fs != string::npos && bl != string::npos)
-        serialNumber = result.substr(fs,bl-fs);
+    if (fs != string::npos && fs + 3 < rlen) osc = result[fs+3];
 
     // get software revision, e.g. "rev 3.0f"
     fs = result.find("rev");
-    if (fs != string::npos && fs + 4 < ql) {
-        bl = result.find(' ',fs+4);
+    if (fs != string::npos && fs + 4 < rlen) {
+        string::size_type bl = result.find(' ',fs+4);
         revision = result.substr(fs+4,bl-fs-4);
     }
 
     // get RI=n setting. 0=power RS-232 drivers on RTS, 1=power always
     fs = result.find("RI=");
-    if (fs != string::npos && fs + 3 < ql)
+    if (fs != string::npos && fs + 3 < rlen)
         rtsIndep = atoi(result.substr(fs+3).c_str());
 
     // get RS=n setting. 0=no record separator, 1=0x55AA
     fs = result.find("RS=");
-    if (fs != string::npos && fs + 3 < ql)
+    if (fs != string::npos && fs + 3 < rlen)
         recSep = atoi(result.substr(fs+3).c_str());
 
     return result;
@@ -388,16 +394,28 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     terminalMode();
 
     int acqrate = 0;
-    string serialNumber = "unknown";
+    string serialNumber;
     char osc = ' ';
     string revision;
     int rtsIndep, recSep;
 
-    string query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
-    DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
+    string query = querySonic(acqrate, osc, serialNumber, revision,
+            rtsIndep, recSep);
+    DLOG(("%s: AQ=%d,os=%c,serial number=\"",getName().c_str(),acqrate,osc) << serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
             ", recSep(RS)=" << recSep);
 
-    if (serialNumber != "unknown") {
+    // set RI=1, always power RS232, independent of RTS
+    if (rtsIndep != 1) {
+        write("ri 1\r",5);
+        usleep(100 * USECS_PER_MSEC);
+    }
+    // set RS=1, send 0x55AA record separator
+    if (recSep != 1) {
+        write("rs 1\r",5);
+        usleep(100 * USECS_PER_MSEC);
+    }
+
+    if (!serialNumber.empty()) {
         // Is current sonic rate OK?  If requested rate is 0, don't change.
         bool rateOK = _rate == 0;
         if (!_oversample && acqrate == _rate) {
@@ -409,29 +427,18 @@ throw(n_u::IOException,n_u::InvalidParameterException)
             if (_rate == 20 && osc == 'h') rateOK = true;
         }
 
-        // set RI=1, always power RS232, independent of RTS
-        if (rtsIndep != 1) {
-            write("ri 1\r",5);
-            sleep(1);
-        }
-        // set RS=1, send 0x55AA record separator
-        if (recSep != 1) {
-            write("rs 1\r",5);
-            sleep(1);
-        }
-
         string rateResult;
         // set rate if it is different from what is desired, or sonic doesn't respond to first query.
         if (!rateOK) {
             assert(rateCmd != 0);
             rateResult = sendRateCommand(rateCmd);
-            sleep(2);
+            sleep(3);
             query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
             DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
         }
 
         // On rate or serial number change, log to file.
-        if (serialNumber != "unknown" && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+        if (!serialNumber.empty() && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
             n_u::UTime now;
             string fname = getDSMConfig()->expandString(_sonicLogFile);
             ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
@@ -484,7 +491,7 @@ throw(n_u::IOException,n_u::InvalidParameterException)
      *      and data doesn't start arriving in that amount of time, then this
      *      DSMSensor will be scheduled for another open.
      */
-    if (serialNumber == "unknown") {
+    if (serialNumber.empty()) {
         // can't query sonic
         _consecutiveOpenFailures++;
         if (dataok) {
@@ -503,17 +510,17 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         if (!dataok) {
             _consecutiveOpenFailures++;
             if (_consecutiveOpenFailures >= NOPEN_TRY) {
-                WLOG(("%s: Sonic serial number=%s, but no data received. %d open failures. Will try to read.",
+                WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
                             getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
                 return; // return from open, proceed to read data.
             }
-            WLOG(("%s: Sonic serial number=%s, but no data received. %d open failures.",
+            WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
                         getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
             throw n_u::IOTimeoutException(getName(),"open");
         }
         else
-            DLOG(("%s: successful open of CSAT3: serial number=",
-                            getName().c_str()) << serialNumber);
+            DLOG(("%s: successful open of CSAT3: serial number=\"",
+                            getName().c_str()) << serialNumber << "\"");
         _consecutiveOpenFailures = 0;   // what-a-ya-know, success!
     }
 }
