@@ -46,6 +46,9 @@ public:
 
     ~CSI_IRGA_Sonic();
 
+    void open(int flags)
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+
     void parseParameters() throw(nidas::util::InvalidParameterException);
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);

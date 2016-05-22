@@ -58,6 +58,12 @@ CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
 }
 
+void CSI_IRGA_Sonic::open(int flags)
+    throw(n_u::IOException,n_u::InvalidParameterException)
+{
+    SerialSensor::open(flags);
+}
+
 void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
     CSAT3_Sonic::parseParameters();
