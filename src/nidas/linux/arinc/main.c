@@ -1103,6 +1103,10 @@ static int __init arinc_init(void)
                 dev_t dev = MKDEV(MAJOR(arinc_cdev.dev), chn);
                 board.device[chn] = device_create(board.class, NULL,
                         dev, NULL, "arinc%d", chn);
+                if (IS_ERR(board.device[chn])) {
+                        err = PTR_ERR(board.device[chn]);
+                        goto fail;
+                }
         }
 
         KLOG_DEBUG("arinc_init complete.\n");
