@@ -125,7 +125,7 @@ struct arinc_board
 
         struct class* class;
 
-        struct device* device;
+        struct device* device[N_ARINC_RX + N_ARINC_TX];
 
 #ifdef USE_IRIG_CALLBACK
         enum irigClockRates sync_rate;
@@ -337,7 +337,7 @@ static int arinc_open(struct inode *inode, struct file *filp)
         int txChn = chn - N_ARINC_RX;
         int err;
 
-        if (chn >= N_ARINC_RX+N_ARINC_TX) return -ENXIO;
+        if (chn >= N_ARINC_RX + N_ARINC_TX) return -ENXIO;
 
         if (chn >= N_ARINC_RX) {    
                 /* transmit channel */
@@ -843,16 +843,20 @@ static void arinc_cleanup(void)
         board.syncer.data = 0;
 #endif
 
-        // remove device
+        // remove devices
         if (MAJOR(arinc_cdev.dev) != 0) {
-		if (board.device && !IS_ERR(board.device))
-			device_destroy(board.class, arinc_cdev.dev);
+                for (chn = 0; chn < N_ARINC_RX + N_ARINC_TX; chn++) {
+                        dev_t dev = MKDEV(MAJOR(arinc_cdev.dev), chn);
+                        if (board.device[chn] && !IS_ERR(board.device[chn]))
+                                device_destroy(board.class, dev);
+                        board.device[chn] = 0;
+                }
 		cdev_del(&arinc_cdev);
                 arinc_cdev.dev = MKDEV(0,0);
 	}
 
         if (MAJOR(arinc_device) != 0)
-                unregister_chrdev_region(arinc_device, N_ARINC_RX+N_ARINC_TX);
+                unregister_chrdev_region(arinc_device, N_ARINC_RX + N_ARINC_TX);
         arinc_device = MKDEV(0, 0);
 
         // close the board 
@@ -1066,7 +1070,7 @@ static int __init arinc_init(void)
 #endif
 
         // Initialize and add user-visible devices
-        err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX+N_ARINC_TX, "arinc");
+        err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX + N_ARINC_TX, "arinc");
         if (err < 0) goto fail;
         KLOG_DEBUG("major device number %d\n", MAJOR(arinc_device));
 
@@ -1092,11 +1096,14 @@ static int __init arinc_init(void)
         cdev_init(&arinc_cdev, &arinc_fops);
 
         // after calling cdev_add the devices are live and ready for user operations.
-        err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX+N_ARINC_TX);
+        err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX + N_ARINC_TX);
         if (err) goto fail;
 
-	board.device = device_create(board.class, NULL,
-                         arinc_cdev.dev, NULL, "arinc%d", 0);
+        for (chn = 0; chn < N_ARINC_RX + N_ARINC_TX; chn++) {
+                dev_t dev = MKDEV(MAJOR(arinc_cdev.dev), chn);
+                board.device[chn] = device_create(board.class, NULL,
+                        dev, NULL, "arinc%d", chn);
+        }
 
         KLOG_DEBUG("arinc_init complete.\n");
         return 0;               // success 
