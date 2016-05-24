@@ -55,6 +55,7 @@ int    PTCHSTEP   = 10;
 int    ROLLSTEP   = 20;
 int    GAP        = 0;
 bool   SWEEP      = false;
+char   DEVICE[64] = "/dev/arinc4";
 
 using namespace nidas::dynld::raf;
 using namespace std;
@@ -72,7 +73,8 @@ public:
 int usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-f ... ] [-m ... ] [-s ... ] [-g ... ] [-S]\n\
+Usage: " << argv0 << " [-d ... ] [-f ... ] [-m ... ] [-s ... ] [-g ... ] [-S]\n\
+  -d: Device (default is " << DEVICE << ")\n\
   -f: frequency or transmission (default is " << FREQ << " Hz)\n\
   -p: maximum pitch angle (default is " << MAXPTCHDEG << ")\n\
   -r: maximum roll angle (default is " << MAXROLLDEG << ")\n\
@@ -102,9 +104,12 @@ int parseRunstring(int argc, char** argv)
     extern char *optarg;       /* set by getopt()  */
     int opt_char;              /* option character */
 
-    while ((opt_char = getopt(argc, argv, "f:p:r:P:R:s:g:h?S")) != -1) {
+    while ((opt_char = getopt(argc, argv, "d:f:p:r:P:R:s:g:h?S")) != -1) {
 
 	switch (opt_char) {
+	case 'd':
+            strcpy(DEVICE, optarg);
+	    break;
 	case 'f':
             FREQ = atoi(optarg);
 	    break;
@@ -144,7 +149,7 @@ int main(int argc, char** argv)
     std::cout << __FILE__ << " creating sensors...\n";
 
     TestArinc sensor_out_0;
-    sensor_out_0.setDeviceName("/dev/arinc4");
+    sensor_out_0.setDeviceName(DEVICE);
 
     std::cout << __FILE__ << " opening sensors...\n";
 
