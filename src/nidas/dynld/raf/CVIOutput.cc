@@ -153,16 +153,14 @@ bool CVIOutput::receive(const Sample* samp) throw()
     const float* fp = fsamp->getConstDataPtr();
 
     _ostr << setprecision(6);
+
+    // write out true air speed first
+    if (isnan(_tas)) _ostr << ',' << -99.99;
+    else _ostr << ',' << _tas;
+
     for (unsigned int i = 0; i < samp->getDataLength(); i++) {
-        // kludge in true air speed
-        if (i == 0) {
-            if (isnan(_tas)) _ostr << ',' << -99.99;
-            else _ostr << ',' << _tas;
-        }
-        else {
-            if (isnan(fp[i])) _ostr << ',' << -99.99;
-            else _ostr << ',' << fp[i];
-        }
+        if (isnan(fp[i])) _ostr << ',' << -99.99;
+        else _ostr << ',' << fp[i];
     }
     _ostr << '\r' << endl;
 
@@ -171,6 +169,7 @@ bool CVIOutput::receive(const Sample* samp) throw()
         // cerr << _ostr.str();
     }
     catch(const n_u::IOException& ioe) {
+        _ostr.str("");
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	"%s: %s",getName().c_str(),ioe.what());
         // this disconnect will schedule this object to be deleted
