@@ -28,6 +28,7 @@
 #include "CVI_LV_Input.h"
 
 #include <nidas/core/Project.h>
+#include <nidas/core/DSMConfig.h>
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
@@ -84,17 +85,9 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
     if (getSampleTags().size() > 1)
         throw n_u::InvalidParameterException("CVIProcessor","sample","cannot have more than one sample");
 
-    // There should be one site (aircraft) for the project.
-    // Set the site on each requested variable.
     if (!_site) {
-        const Project* project = Project::getInstance();
-        const list<Site*>& sites = project->getSites();
-        for (list<Site*>::const_iterator si = sites.begin();
-                si != sites.end(); ++si)
-        {
-            if (si == sites.begin()) _site = *si;
-            else _site = 0;
-        }
+        const DSMConfig* dsm = getDSMConfig();
+        if (dsm) _site = dsm->getSite();
     }
 
     _outputSampleTag = tag;

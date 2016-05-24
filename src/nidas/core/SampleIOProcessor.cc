@@ -39,7 +39,7 @@ namespace n_u = nidas::util;
 
 SampleIOProcessor::SampleIOProcessor(bool rawSource): _source(rawSource),
     _tagsMutex(),_requestedTags(),_name(),_id(0),_constRequestedTags(),
-    _origOutputs(), _optional(false),_service(0),
+    _origOutputs(), _optional(false),_service(0),_dsm(0),
     _parameters(),_constParameters()
 {
 }

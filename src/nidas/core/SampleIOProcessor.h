@@ -86,6 +86,19 @@ public:
         _service = val;
     }
 
+    /**
+     * What DSM am I associated with?
+     */
+    virtual const DSMConfig* getDSMConfig() const
+    {
+        return _dsm;
+    }
+
+    virtual void setDSMConfig(const DSMConfig* val)
+    {
+        _dsm = val;
+    }
+
     dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
 
     void setSampleId(int val) { _id = SET_SPS_ID(_id,val); }
@@ -260,6 +273,11 @@ private:
      * What service am I a part of?
      */
     const DSMService* _service;
+
+    /**
+     * Or, what DSM am I a part of?
+     */
+    const DSMConfig* _dsm;
 
     std::list<Parameter*> _parameters;
 

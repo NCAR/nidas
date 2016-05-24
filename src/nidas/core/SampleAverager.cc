@@ -122,6 +122,19 @@ void SampleAverager::connect(SampleSource* source)
                 iout < _outSample.getVariables().size(); iout++) {
 
                 Variable& myvar = _outSample.getVariable(iout);
+
+#ifdef DEBUG
+                if (myvar.getName().substr(0,4) == "CNT1") {
+		    cerr << "SampleAverager::connect, var=" << var->getName() <<
+			"(" << (var->getSite() ? var->getSite()->getName() : "null") << ")" <<
+			"(" << var->getStation() << ")" <<
+			", myvar=" << myvar.getName() <<
+			"(" << (myvar.getSite() ? myvar.getSite()->getName() : "null") << ")" <<
+			"(" << myvar.getStation() << ")" <<
+			", match=" << (*var == myvar) << endl;
+		}
+#endif
+
                 if (*var == myvar) {
                     varMatched[iout] = true;
                     nMatch++;

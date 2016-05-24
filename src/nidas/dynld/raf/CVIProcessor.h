@@ -161,7 +161,7 @@ private:
 
     int _douts[4];
 
-    Site* _site;
+    const Site* _site;
 
     /**
      * Copy not supported

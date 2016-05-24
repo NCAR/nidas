@@ -429,6 +429,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException("dsm",
                     classattr,"is not of type SampleIOProcessor");
 	    }
+            processor->setDSMConfig(this);
             processor->fromDOMElement((xercesc::DOMElement*)child);
 	    addProcessor(processor);
         }
