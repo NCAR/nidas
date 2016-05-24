@@ -228,6 +228,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
     }
     catch(const n_u::IOException& ioe) {
+        _ostr.str("");
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	"%s: %s",getName().c_str(),ioe.what());
         // this disconnect may schedule this object to be deleted
