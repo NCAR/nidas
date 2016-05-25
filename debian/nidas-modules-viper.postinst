@@ -32,7 +32,7 @@ case "$1" in
 esac
 
 if [ "$1" = "configure" -o "$1" = "triggered" ]; then
-    depmod -A
+    depmod
 fi
 
 # dh_installdeb will replace this with shell code automatically

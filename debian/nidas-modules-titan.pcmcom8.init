@@ -66,14 +66,11 @@ modprobe_pcmcom8()
 {
         # returns 0 if already loaded
 
-        if false; then  # don't try depmod
-            if ! modprobe $NAME $MODULE_ARGS; then
-                depmod -a
-                modprobe $NAME $MODULE_ARGS || return 2
-            fi
-        else
+        if ! modprobe $NAME $MODULE_ARGS; then
+            depmod
             modprobe $NAME $MODULE_ARGS || return 2
         fi
+
         RETVAL="$?"
         boardevs=(/dev/pcmcom8_[0-9])
         return "$RETVAL"
