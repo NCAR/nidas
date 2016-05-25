@@ -106,7 +106,6 @@ MODULE_VERSION(REPO_REVISION);
 #define ARINC_SAMPLE_QUEUE_SIZE 8
 #define BOARD_NUM   0
 
-
 unsigned int iomem = 0xd0000;
 
 /* module prameters (can be passed in via command line) */
@@ -1015,8 +1014,8 @@ static int __init arinc_init(void)
         if (err != ARS_NORMAL) goto fail;
 
         // Display the board type 
-        KLOG_DEBUG("Board %s detected\n", ar_get_boardname(BOARD_NUM, NULL));
-        KLOG_DEBUG("Supporting %d transmitters and %d receivers.\n",
+        KLOG_INFO("Board %s detected\n", ar_get_boardname(BOARD_NUM, NULL));
+        KLOG_INFO("Supporting %d transmitters and %d receivers.\n",
                    ar_num_xchans(BOARD_NUM), ar_num_rchans(BOARD_NUM));
 
         // select buffered mode 
