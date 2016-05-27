@@ -37,20 +37,30 @@ Description: Headers, library symbolic links and pkg-config for NIDAS
 Package: nidas-modules-titan
 Architecture: armel
 Depends: ${misc:Depends}
+Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Eurotech Titan, running Debian armel
 
 Package: nidas-modules-viper
 Architecture: armel
 Depends: ${misc:Depends}
+Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Eurotech Viper, running Debian armel
 
 Package: nidas-modules-amd64
 Architecture: amd64
 Depends: ${misc:Depends}
+Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Intel 64
+
+Package: nidas-modules-rpi2
+Architecture: armhf
+Depends: ${misc:Depends}
+Provides: nidas-modules
+Description: NIDAS Linux kernel modules
+ NIDAS kernel modules, built for RaspberryPi 2
 
 Package: nidas-daq
 Architecture: all
@@ -78,20 +88,18 @@ Description: Sets ower and group of /opt/nidas to root.eol
 Package: nidas-titan
 Architecture: armel
 Depends:  nidas, nidas-modules-titan
-Provides: nidas-modules
 Description: Meta-package for installation of NIDAS onto a Eurotech Titan
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Titan
 
 Package: nidas-viper
 Architecture: armel
 Depends:  nidas, nidas-modules-viper
-Provides: nidas-modules
 Description: Meta-package for installation of NIDAS onto a Eurotech Viper
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
 
 Package: nidas-rpi2
 Architecture: armhf
-Depends:  nidas
+Depends:  nidas, nidas-modules-rpi2
 Description: Meta-package for installation of NIDAS onto a Raspberry Pi2
  Metapackage with sufficient dependencies to run NIDAS on a Raspberry Pi2
 

@@ -16,6 +16,8 @@ nidas-modules-viper/
 nidas-modules-amd64/
 nidas-titan/
 nidas-viper/
+nidas-modules-rpi2/
+nidas-rpi2/
 tmp/
 files
 changelog

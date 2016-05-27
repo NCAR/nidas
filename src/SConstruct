@@ -37,7 +37,7 @@ opts.Add('BUILDS',
          'host')
 
 opts.Add('MACHS',
-         'Space-separated list of machine names for the architecture (viper, vulcan, titan or all), for building and installing machine-specific code, such as kernel modules.',
+         'Space-separated list of machine names for the architecture (viper, vulcan, titan, rpi2 or all), for building and installing machine-specific code, such as kernel modules.',
          'all')
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
@@ -94,8 +94,15 @@ if 'armel' in BUILDS:
     opts.Add('KERNELDIR_titan_armel', 'kernel headers for Titan/armel. See Debian package linux-headers-3.16.0-titan2:armel',
              '/usr/src/linux-headers-3.16.0-titan2')
 
+# This isn't quite ready for cross building modules for armhf, RPi2.
+# linux-headers contains an executable scripts/genksyms/genksyms that is used
+# in building modules. The package we have on our Debian chroots has a genksyms
+# that is an armhf binary, meant for building on a RPi. Until that is sorted out,
+# don't set KERNELDIR_rpi2_armhf.
+
 if 'armhf' in BUILDS:
-    opts.Add('KERNELDIR_rpi2', 'kernel headers for Raspberry Pi2. Not yet installed','')
+# opts.Add('KERNELDIR_rpi2_armhf', 'kernel headers for Raspberry Pi2. See raspberrypi-kernel-headers package ','/usr/src/linux-headers-4.4.9-v7+')
+    pass
 
 opts.Update(env)
 

@@ -32,7 +32,7 @@
 #     scons: $DESTDIR/$PREFIX/armel/modules
 #     deb (nidas-modules-titan, nidas-modules-viper):
 #	/lib/modules/$(uname -r)/nidas
-#	e.g.:/lib/modules/3.16.0-titan2
+#	e.g.:/lib/modules/3.16.0-titan2/nidas
 # armhf: rpi2
 #   libs:
 #     scons: $DESTDIR/$PREFIX/lib/arm-linux-gnueabihf
@@ -40,7 +40,8 @@
 #   modules:
 #     scons: $DESTDIR/$PREFIX/armhf/modules
 #     deb (nidas-modules-rpi2): 
-#	/lib/modules/?
+#	/lib/modules/$(uname -r)/nidas
+#	e.g.: /lib/modules/4.4.9-v7+/nidas (RPi2, May 2016)
 # arm (old, non-EABI): viper, titan (not built from this Makefile)
 #   libs:
 #     scons: $DESTDIR/$PREFIX/arm/lib
@@ -57,7 +58,7 @@
 #     deb: /lib/modules/$kernel/local
 #		$kernel is from modinfo *.ko | fgrep vermagic
 #		e.g.:   2.6.35.9-ael1-1-viper
-# arm (old, non-EABI): viper, titan (not built from this Makefile)
+# armbe (old, non-EABI): vulcan (not built from this Makefile)
 #   libs:
 #     scons: $DESTDIR/$PREFIX/armbe/lib
 #     deb: /usr/local/lib
@@ -94,6 +95,7 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed s/.*linux-headers-//)
     VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed s/.*linux-headers-//)
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
+    RPI2_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*" -type d | tail -n 1 | sed s/.*linux-headers-//)
 endif
 
 # Where to find pkg-configs of other software
@@ -142,6 +144,10 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	if [ -n "$(VIPER_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(VIPER_KERN)/nidas;\
 	    mv $(SCONSMODDIR)/viper/* $(MODDIR)/$(VIPER_KERN)/nidas;\
+	fi
+	if [ -n "$(RPI2_KERN)" ]; then\
+	    mkdir -p $(MODDIR)/$(RPI2_KERN)/nidas;\
+	    mv $(SCONSMODDIR)/rpi2/* $(MODDIR)/$(RPI2_KERN)/nidas;\
 	fi
 	if [ -n "$(X86_64_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(X86_64_KERN)/nidas;\

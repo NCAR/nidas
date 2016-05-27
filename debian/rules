@@ -74,3 +74,7 @@ override_dh_installinit:
 
 override_dh_installudev:
 	dh_installudev --priority=99
+
+override_dh_auto_clean:
+	dh_auto_clean -- BUILDS=$(BUILDS) PREFIX=/opt/nidas
+
