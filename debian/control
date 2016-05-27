@@ -70,7 +70,7 @@ Description: Package for doing data acquistion with NIDAS
  /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /etc/default/nidas-daq.
 
 Package: nidas-build
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}, scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
 Breaks: nidas-builduser (<= 1.2+189)
 Replaces: nidas-builduser (<= 1.2+189)
