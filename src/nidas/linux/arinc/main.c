@@ -108,6 +108,8 @@ MODULE_VERSION(REPO_REVISION);
 
 unsigned int iomem = 0xd0000;
 
+#define ARINC_IOMEM_SIZE (4096)
+
 /* module prameters (can be passed in via command line) */
 module_param(iomem, uint, 0);
 MODULE_PARM_DESC(iomem, "ISA memory base (default 0xd0000)");
@@ -870,7 +872,7 @@ static void arinc_cleanup(void)
 
         // free up the ISA memory region 
         if (board.physaddr)
-                release_mem_region(board.physaddr, PAGE_SIZE);
+                release_mem_region(board.physaddr, ARINC_IOMEM_SIZE);
         board.physaddr = 0;
 
         // free up the chn_info
@@ -974,19 +976,19 @@ static int __init arinc_init(void)
         KLOG_INFO("physaddr: %#lx\n", physaddr);
 
         // reserve the ISA memory region 
-        if (!request_mem_region(physaddr, PAGE_SIZE, "arinc")) {
+        if (!request_mem_region(physaddr, ARINC_IOMEM_SIZE, "arinc")) {
                 KLOG_ERR("couldn't allocate I/O memory: %#lx - %#lx\n",
-                           physaddr, physaddr + PAGE_SIZE - 1);
+                           physaddr, physaddr + ARINC_IOMEM_SIZE - 1);
                 err = -EBUSY;
                 goto fail;
         }
         board.physaddr = physaddr;
 
         // map ISA card memory into kernel memory 
-        board.mapaddr = ioremap(board.physaddr, PAGE_SIZE);
+        board.mapaddr = ioremap(board.physaddr, ARINC_IOMEM_SIZE);
         if (!board.mapaddr) {
-                KLOG_ERR("ioremap(%#lx,%ld) failed.\n",
-                        board.physaddr,PAGE_SIZE);
+                KLOG_ERR("ioremap(%#lx,%d) failed.\n",
+                        board.physaddr,ARINC_IOMEM_SIZE);
                 return -EIO;
         }
         KLOG_INFO("mapaddr:  0x%p\n", board.mapaddr);
@@ -1005,7 +1007,8 @@ static int __init arinc_init(void)
         ar_version(api_version);
         KLOG_DEBUG("API Version %s\n", api_version);
 
-        // load the board (the size and address are not used - must specify zero) 
+        // load the board, passing its mapped memory address.
+        // The base_port and ram_size args are not used - must specify zero.
         err = ar_loadslv(BOARD_NUM, (unsigned long) board.mapaddr, 0, 0);
         if (err != ARS_NORMAL) goto fail;
 
