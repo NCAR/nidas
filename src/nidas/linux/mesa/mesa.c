@@ -47,6 +47,7 @@
 #include <linux/slab.h>		/* kmalloc, kfree */
 
 #include <nidas/linux/mesa.h>
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/util.h>
@@ -914,8 +915,8 @@ static int __init mesa_init(void)
         for (ib = 0; ib < numboards; ib++) {
                 struct MESA_Board *brd = boards + ib;
                 dev_t devno = MKDEV(MAJOR(mesa_cdev.dev),ib);
-                brd->device = device_create(mesa_class, NULL,
-                         devno, NULL, DEVNAME_MESA "%d", ib);
+                brd->device = device_create_x(mesa_class, NULL,
+                         devno, DEVNAME_MESA "%d", ib);
                 if (IS_ERR(brd->device)) {
                         error = PTR_ERR(brd->device);
                         goto err;

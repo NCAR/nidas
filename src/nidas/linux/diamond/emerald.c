@@ -116,6 +116,7 @@
 
 #include "emerald.h"	/* local definitions */
 
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
@@ -1128,8 +1129,8 @@ static int __init emerald_init_module(void)
                         result = cdev_add(&ebrd->cdev, devno, 1);
                         if (result) goto fail;
 
-                        ebrd->device = device_create(emerald_class, NULL,
-                                devno, NULL, "emerald%d", emerald_nr_ok);
+                        ebrd->device = device_create_x(emerald_class, NULL,
+                                devno, "emerald%d", emerald_nr_ok);
                         if (IS_ERR(ebrd->device)) {
                                 result = PTR_ERR(ebrd->device);
                                 goto fail;
@@ -1201,8 +1202,8 @@ static int __init emerald_init_module(void)
                 result = cdev_add(&eport->cdev, devno, 1);
                 if (result) goto fail;
 
-                eport->device = device_create(emerald_class, NULL,
-                        devno, NULL, "ttyD%d", ip + tty_port_offset);
+                eport->device = device_create_x(emerald_class, NULL,
+                        devno, "ttyD%d", ip + tty_port_offset);
                 if (IS_ERR(eport->device)) {
                         result = PTR_ERR(eport->device);
                         goto fail;

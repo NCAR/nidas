@@ -49,6 +49,7 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
@@ -2810,8 +2811,8 @@ static int __init ncar_a2d_init(void)
         for (ib = 0; ib < NumBoards; ib++) {
                 struct A2DBoard *brd = BoardInfo + ib;
                 dev_t devno = MKDEV(MAJOR(ncar_a2d_cdev.dev),ib);
-                brd->device = device_create(ncar_a2d_class, NULL,
-			 devno, NULL, DEVNAME_A2D "%d", ib);
+                brd->device = device_create_x(ncar_a2d_class, NULL,
+			 devno, DEVNAME_A2D "%d", ib);
 		if (IS_ERR(brd->device)) {
 			error = PTR_ERR(brd->device);
 			goto err;

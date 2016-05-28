@@ -49,6 +49,7 @@
 #include <linux/version.h>
 #include <linux/utsname.h>
 
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/isa_bus.h>
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -558,8 +559,8 @@ static int __init pcmcom8_init_module(void)
                 result = cdev_add(&brd->cdev,devno,1);
                 if (result) goto fail;
 
-                brd->device = device_create(pcmcom8_class, NULL,
-                         devno, NULL, DRIVER_NAME "_%d", ib);
+                brd->device = device_create_x(pcmcom8_class, NULL,
+                         devno, DRIVER_NAME "_%d", ib);
                 if (IS_ERR(brd->device)) {
                         result = PTR_ERR(brd->device);
                         goto fail;

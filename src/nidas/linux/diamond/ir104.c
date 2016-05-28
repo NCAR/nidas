@@ -43,6 +43,7 @@
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
 // #define DEBUG
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -456,8 +457,8 @@ static int __init ir104_init(void)
                 result = cdev_add(&brd->cdev, devno, 1);
                 if (result) goto err;
 
-                brd->device = device_create(ir104_class, NULL,
-                        devno, NULL, "ir104_%d", ib);
+                brd->device = device_create_x(ir104_class, NULL,
+                        devno, "ir104_%d", ib);
                 if (IS_ERR(brd->device)) {
                         result = PTR_ERR(brd->device);
                         goto err;

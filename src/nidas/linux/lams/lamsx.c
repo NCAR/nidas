@@ -88,6 +88,7 @@
 #include <linux/device.h>
 
 #include "lamsx.h"
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -913,8 +914,8 @@ static int __init lams_init(void)
                 result = cdev_add(&brd->cdev, devno, 1);
                 if (result) goto err;
 
-                brd->device = device_create(lams_class, NULL,
-                        brd->cdev.dev, NULL, "%s%d", driver_name, brd->num);
+                brd->device = device_create_x(lams_class, NULL,
+                        brd->cdev.dev, "%s%d", driver_name, brd->num);
                 if (IS_ERR(brd->device)) {
                         result = PTR_ERR(brd->device);
                         goto err;

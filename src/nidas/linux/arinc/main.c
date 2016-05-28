@@ -66,6 +66,7 @@
 #include "arinc.h"
 #include "Condor/CEI420A/Include/utildefs.h"
 
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/types.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
@@ -1103,8 +1104,8 @@ static int __init arinc_init(void)
 
         for (chn = 0; chn < N_ARINC_RX + N_ARINC_TX; chn++) {
                 dev_t dev = MKDEV(MAJOR(arinc_cdev.dev), chn);
-                board.device[chn] = device_create(board.class, NULL,
-                        dev, NULL, "arinc%d", chn);
+                board.device[chn] = device_create_x(board.class, NULL,
+                        dev, "arinc%d", chn);
                 if (IS_ERR(board.device[chn])) {
                         err = PTR_ERR(board.device[chn]);
                         goto fail;

@@ -48,6 +48,7 @@
 #include <asm/io.h>
 
 #include <nidas/linux/Revision.h>    // REPO_REVISION
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -3873,8 +3874,8 @@ static int init_a2d(struct DMMAT* brd)
         result = cdev_add(&a2d->cdev, devno, 1);
         if (result) return result;
 
-        a2d->device = device_create(dmmat_class, NULL,
-                 devno, NULL, "dmmat_a2d%d", brd->num);
+        a2d->device = device_create_x(dmmat_class, NULL,
+                 devno, "dmmat_a2d%d", brd->num);
         if (IS_ERR(a2d->device)) {
                 result = PTR_ERR(a2d->device);
         }
@@ -4046,8 +4047,8 @@ static int __init init_cntr(struct DMMAT* brd)
         result = cdev_add (&cntr->cdev, devno,1);
         if (result) return result;
 
-        cntr->device = device_create(dmmat_class, NULL,
-                 devno, NULL, "dmmat_cntr%d", brd->num);
+        cntr->device = device_create_x(dmmat_class, NULL,
+                 devno, "dmmat_cntr%d", brd->num);
         if (IS_ERR(cntr->device)) {
                 result = PTR_ERR(cntr->device);
         }
@@ -4164,8 +4165,8 @@ static int __init init_d2a(struct DMMAT* brd)
         result = cdev_add (&d2a->cdev, devno,1);
         if (result) return result;
 
-        d2a->device = device_create(dmmat_class, NULL,
-                 devno, NULL, "dmmat_d2a%d", brd->num);
+        d2a->device = device_create_x(dmmat_class, NULL,
+                 devno, "dmmat_d2a%d", brd->num);
         if (IS_ERR(d2a->device)) {
                 result = PTR_ERR(d2a->device);
         }
@@ -4236,8 +4237,8 @@ static int __init init_d2d(struct DMMAT* brd)
         result = cdev_add (&d2d->cdev, devno,1);
         if (result) return result;
 
-        d2d->device = device_create(dmmat_class, NULL,
-                 devno, NULL, "dmmat_d2d%d", brd->num);
+        d2d->device = device_create_x(dmmat_class, NULL,
+                 devno, "dmmat_d2d%d", brd->num);
         if (IS_ERR(d2d->device)) {
                 result = PTR_ERR(d2d->device);
         }

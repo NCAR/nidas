@@ -53,6 +53,7 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
@@ -2687,8 +2688,8 @@ static int __init pc104sg_init(void)
                 goto err0;
         }
 
-	board.device = device_create(board.class, NULL,
-		 board.pc104sg_cdev.dev, NULL, "irig%d", 0);
+	board.device = device_create_x(board.class, NULL,
+		 board.pc104sg_cdev.dev, "irig%d", 0);
 	if (IS_ERR(board.device)) {
 		errval = PTR_ERR(board.device);
 		goto err0;

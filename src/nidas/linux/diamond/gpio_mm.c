@@ -48,6 +48,7 @@
 #include "gpio_mm.h"
 
 // #define DEBUG
+#include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
@@ -1803,8 +1804,8 @@ static int init_fcntrs(struct GPIO_MM* brd)
                 result = cdev_add(&fcntr->cdev, devno, 1);
                 if (result) return result;
 
-                fcntr->device = device_create(gpio_mm_class, NULL,
-                        devno, NULL, "gpiomm_fcntr%d",
+                fcntr->device = device_create_x(gpio_mm_class, NULL,
+                        devno, "gpiomm_fcntr%d",
                         brd->num * GPIO_MM_FCNTR_PER_BOARD + ic);
                 if (IS_ERR(fcntr->device)) {
                         result = PTR_ERR(fcntr->device);
@@ -1876,8 +1877,8 @@ static int init_event(struct GPIO_MM* brd)
         result = cdev_add(&event->cdev, devno, 1);
         if (result) return result;
 
-        event->device = device_create(gpio_mm_class, NULL,
-                devno, NULL, "gpiomm_event%d", brd->num);
+        event->device = device_create_x(gpio_mm_class, NULL,
+                devno, "gpiomm_event%d", brd->num);
         if (IS_ERR(event->device)) {
                 result = PTR_ERR(event->device);
         }
