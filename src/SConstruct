@@ -241,7 +241,7 @@ if 'arm' in BUILDS:
     machs = list(set(machs))    # unique-ify
 
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = 'arm', ARCHLIBDIR='lib', MACH=machs,
+        ARCH = 'arm', ARCHLIBDIR='lib', MACHS=machs,
         PREFIX=env['PREFIX'] + '/arm')
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
