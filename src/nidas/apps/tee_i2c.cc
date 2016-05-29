@@ -25,8 +25,11 @@
 */
 /*
 
-    Simple program to "tee" I/O from a serial port to one
-    or more pseudo-terminals.
+    Simple program to "tee" the byte stream read from an I2C device
+    to one or more pseudo-terminals.
+
+    TODO: As necessary, support other device protocols.
+    Currently it is targeted at a ublox NEO 5Q GPS.
 
 */
 
@@ -55,21 +58,35 @@ class TeeI2C {
 public:
     TeeI2C();
     ~TeeI2C();
+
     int parseRunstring(int argc, char** argv);
+
     int run() throw();
+
+    void i2c_bytes() throw(n_u::IOException);
+
+    void i2c_block() throw(n_u::IOException);
+
+    void writeptys(const unsigned char* buf, int len) throw(n_u::IOException);
+
     void setFIFOPriority(int val);
+
     static int usage(const char* argv0);
-    void setupSignals();
+
+    void setupSignals() throw(n_u::IOException);
+
 private:
     string progname;
 
-    string i2cname;
+    string _i2cname;
 
-    unsigned int i2caddr;
+    unsigned int _i2caddr;
 
-    int i2cfd;
+    int _i2cfd;
 
-    list<string> ptys;
+    vector<string> _ptynames;
+
+    vector<int> _ptyfds;
 
     bool asDaemon;
 
@@ -77,7 +94,25 @@ private:
 
     sigset_t _signalMask;
 
+    fd_set _writefdset;
+
+    int _maxwfd;
+
 };
+
+TeeI2C::TeeI2C():progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
+    _ptynames(), _ptyfds(),
+    asDaemon(true),priority(-1),_signalMask(), _writefdset(), _maxwfd(0)
+{
+}
+
+TeeI2C::~TeeI2C(){
+    if (_i2cfd >= 0) close(_i2cfd);
+    for (unsigned int i = 0; i < _ptynames.size(); i++) {
+        if (_ptyfds[i] >= 0) ::close(_ptyfds[i]);
+        ::unlink(_ptynames[i].c_str());
+    }
+}
 
 static void sigAction(int sig, siginfo_t* siginfo, void*) {
 
@@ -95,37 +130,28 @@ static void sigAction(int sig, siginfo_t* siginfo, void*) {
     }
 }
 
-
-TeeI2C::TeeI2C():progname(),i2cname(),i2caddr(0), i2cfd(-1) ,ptys(),
-    asDaemon(true),priority(-1),_signalMask()
+void TeeI2C::setupSignals() throw(n_u::IOException)
 {
-}
-
-TeeI2C::~TeeI2C(){
-    if (i2cfd >= 0) close(i2cfd);
-}
-
-void TeeI2C::setupSignals()
-{
-    // block HUP, TERM, INT, and unblock them in pselect
-    sigset_t sigs;
-    sigemptyset(&sigs);
-    sigaddset(&_signalMask,SIGHUP);
-    sigaddset(&_signalMask,SIGTERM);
-    sigaddset(&_signalMask,SIGINT);
-    if (sigprocmask(SIG_BLOCK,&sigs,&_signalMask) < 0) cerr << "Error in sigprocmask" << endl;
-
-    sigdelset(&_signalMask,SIGHUP);
-    sigdelset(&_signalMask,SIGTERM);
-    sigdelset(&_signalMask,SIGINT);
-
     struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = sigAction;
-    if (sigaction(SIGHUP,&act,(struct sigaction *)0) < 0) cerr << "Error in sigaction" << endl;
-    if (sigaction(SIGINT,&act,(struct sigaction *)0) < 0) cerr << "Error in sigaction" << endl;
-    if (sigaction(SIGTERM,&act,(struct sigaction *)0) < 0) cerr << "Error in sigaction" << endl;
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+    // block HUP, TERM, INT, and unblock them in pselect
+    sigset_t sigs;
+    sigemptyset(&sigs);
+    sigaddset(&sigs, SIGHUP);
+    sigaddset(&sigs, SIGTERM);
+    sigaddset(&sigs, SIGINT);
+    if (sigprocmask(SIG_BLOCK, &sigs, &_signalMask) < 0)
+        throw n_u::IOException("tee_i2c","sigprocmask",errno);
+
+    sigdelset(&_signalMask,SIGHUP);
+    sigdelset(&_signalMask,SIGTERM);
+    sigdelset(&_signalMask,SIGINT);
 
 }
 int TeeI2C::parseRunstring(int argc, char** argv)
@@ -146,18 +172,18 @@ int TeeI2C::parseRunstring(int argc, char** argv)
         }
 	else if (arg[0] == '-') return usage(argv[0]);
 	else {
-	    if (i2cname.length() == 0) i2cname = argv[iarg];
-	    else if (i2caddr == 0) i2caddr = strtol(argv[iarg], NULL, 0);
-	    else ptys.push_back(argv[iarg]);	// user will only read from this pty
+	    if (_i2cname.length() == 0) _i2cname = argv[iarg];
+	    else if (_i2caddr == 0) _i2caddr = strtol(argv[iarg], NULL, 0);
+	    else _ptynames.push_back(argv[iarg]);	// user will only read from this pty
 	}
     }
 
-    if (i2cname.length() == 0) return usage(argv[0]);
-    if (i2caddr < 3 || i2caddr > 255) {
+    if (_i2cname.length() == 0) return usage(argv[0]);
+    if (_i2caddr < 3 || _i2caddr > 255) {
         cerr << "i2caddr out of range" << endl;
         return usage(argv[0]);
     }
-    if (ptys.empty()) return usage(argv[0]);
+    if (_ptynames.empty()) return usage(argv[0]);
 
 
     return 0;
@@ -196,16 +222,13 @@ void TeeI2C::setFIFOPriority(int val)
 int TeeI2C::run() throw()
 {
 
-    setupSignals();
-
-    vector<int> ptyfds;
-    vector<string> ptynames;
     int result = 0;
+
 
     try {
         nidas::util::Logger* logger = 0;
 	n_u::LogConfig lc;
-	n_u::LogScheme logscheme("dsm");
+	n_u::LogScheme logscheme("tee_i2c");
 	lc.level = 6;
 
 	if (asDaemon) {
@@ -219,30 +242,35 @@ int TeeI2C::run() throw()
 
         if (priority >= 0) setFIFOPriority(priority);
 
+        setupSignals();
+
 	fd_set readfds;
-	fd_set writefds;
 	FD_ZERO(&readfds);
-	FD_ZERO(&writefds);
+	FD_ZERO(&_writefdset);
 
-        i2cfd = open(i2cname.c_str(), O_RDONLY);
-        if (i2cfd < 0)
-            throw n_u::IOException(i2cname, "open", errno);
+        _i2cfd = open(_i2cname.c_str(), O_RDONLY);
+        if (_i2cfd < 0)
+            throw n_u::IOException(_i2cname, "open", errno);
 
-        if (ioctl(i2cfd, I2C_SLAVE, i2caddr) < 0) {
+        if (ioctl(_i2cfd, I2C_TIMEOUT, 5 * MSECS_PER_SEC / 10) < 0) {
             ostringstream ost;
-            ost << "ioctl(,I2C_SLAVE," << hex << i2caddr << ")";
-            throw n_u::IOException(i2cname, ost.str(), errno);
+            ost << "ioctl(,I2C_TIMEOUT,)";
+            throw n_u::IOException(_i2cname, ost.str(), errno);
         }
 
-	FD_SET(i2cfd,&readfds);
-	int maxfd = i2cfd + 1;
-	int maxwfd = 0;
+        if (ioctl(_i2cfd, I2C_SLAVE, _i2caddr) < 0) {
+            ostringstream ost;
+            ost << "ioctl(,I2C_SLAVE," << hex << _i2caddr << ")";
+            throw n_u::IOException(_i2cname, ost.str(), errno);
+        }
 
-	struct timeval writeTimeout;
+	FD_SET(_i2cfd,&readfds);
+	int maxfd = _i2cfd + 1;
+	_maxwfd = 0;
 
 	// user will only read from these ptys, so we only write to them.
-	list<string>::const_iterator li = ptys.begin();
-	for ( ; li != ptys.end(); ++li) {
+	vector<string>::const_iterator li = _ptynames.begin();
+	for ( ; li != _ptynames.end(); ++li) {
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
@@ -250,83 +278,129 @@ int TeeI2C::run() throw()
             pterm.setRaw(true);
             pterm.apply(fd,name);
 
-	    FD_SET(fd,&writefds);
-	    maxwfd = std::max(maxwfd,fd + 1);
+	    FD_SET(fd,&_writefdset);
+	    _maxwfd = std::max(_maxwfd,fd + 1);
 
-	    ptyfds.push_back(fd);
-	    ptynames.push_back(name);
+	    _ptyfds.push_back(fd);
 	}
 
 	for (interrupted = false; !interrupted; ) {
 
+            // sleep a bit before next read
+            // usleep(USECS_PER_SEC / 2);
+
 	    int nfd;
 	    fd_set rfds = readfds;
-	    if ((nfd = ::pselect(maxfd,&rfds,0,0,0,&_signalMask)) < 0) {
+	    fd_set efds = readfds;
+	    if ((nfd = ::pselect(maxfd,&rfds,0,&efds,0,&_signalMask)) < 0) {
                 if (errno == EINTR) break;
-	    	throw n_u::IOException(i2cname,"select",errno);
+	    	throw n_u::IOException(_i2cname,"select",errno);
+            }
+	    if (FD_ISSET(_i2cfd,&efds)) {
+                cerr << "Exception in pselect" << endl;
             }
 
-	    if (FD_ISSET(i2cfd,&rfds)) {
+	    if (FD_ISSET(_i2cfd,&rfds)) {
 		nfd--;
-                // address 0xfd, number of bytes available, high byte
-		int hb = i2c_smbus_read_byte_data(i2cfd, 0xfd);
-                if (hb < 0)
-                    throw n_u::IOException(i2cname,"read",errno);
-                // address 0xfe, number of bytes available, low byte
-		int lb = i2c_smbus_read_byte_data(i2cfd, 0xfe);
-                if (lb < 0)
-                    throw n_u::IOException(i2cname,"read",errno);
-                int len = (hb & 0xff) << 8 | (lb & 0xff);
-
-                for (int nzero = 0; len > 0 && nzero < 5; ) {
-                    unsigned char i2cbuf[32];
-                    // address 0xff, data stream
-                    int l = i2c_smbus_read_block_data(i2cfd, 0xff, i2cbuf);
-                    if (l < 0)
-                        throw n_u::IOException(i2cname,"select",errno);
-
-                    if (l == 0) {
-                        nzero++;
-                        usleep(USECS_PER_SEC / 10);
-                    }
-                    else {
-                        int nwfd;
-                        fd_set wfds = writefds;
-                        writeTimeout.tv_sec = 0;
-                        writeTimeout.tv_usec = USECS_PER_SEC / 10;
-                        /*
-                         * Only write to whomever is ready, so that
-                         * one can't block everybody.
-                         */
-                        if ((nwfd = ::select(maxwfd,0,&wfds,0,&writeTimeout)) < 0)
-                            throw n_u::IOException(i2cname,"select",errno);
-                        for (unsigned int i = 0; nwfd > 0 && i < ptyfds.size(); i++)  {
-                            if (FD_ISSET(ptyfds[i],&wfds)) {
-                                nwfd--;
-                                for (unsigned int i = 0; i < ptyfds.size(); i++)  {
-                                    ssize_t lw = ::write(ptyfds[i],i2cbuf,l);
-                                    if (lw < 0) throw n_u::IOException(ptynames[i],"write",errno);
-                                }
-                            }
-                        }
-                    }
-                    len -= l;
-                }
-	    }
-
-            // sleep a bit before next read
-            usleep(USECS_PER_SEC / 10);
-	}
+                // i2c_block();
+                i2c_bytes();
+            }
+        }
     }
     catch(n_u::IOException& ioe) {
 	PLOG(("%s",ioe.what()));
         result = 1;
     }
-    for (unsigned int i = 0; i < ptynames.size(); i++) {
-        if (ptyfds[i] >= 0) ::close(ptyfds[i]);
-        ::unlink(ptynames[i].c_str());
-    }
     return result;
+}
+
+void TeeI2C::i2c_block() throw(n_u::IOException)
+{
+    unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
+
+    // Registers 0xfd and 0xfe don't seem to work as suspected
+    // on a ublox NEO 5Q. They contain '$' 'G', the first
+    // two bytes in the stream.
+    // And calling i2c_smbus_read_block_data on a ublox on a RPi2
+    // locks up the system.
+
+    // address 0xfd, number of bytes available, high byte
+    int hb = i2c_smbus_read_byte_data(_i2cfd, 0xfd);
+    if (hb < 0)
+        throw n_u::IOException(_i2cname,"read",errno);
+    if (hb == '\xff') return;
+    // address 0xfe, number of bytes available, low byte
+    int lb = i2c_smbus_read_byte_data(_i2cfd, 0xfe);
+    if (lb < 0)
+        throw n_u::IOException(_i2cname,"read",errno);
+    if (lb == '\xff') return;
+    int len = (hb & 0xff) << 8 | (lb & 0xff);
+
+    cerr << "len=" << len << endl;
+
+    for (int nzero = 0; len > 0 && nzero < 5; ) {
+
+        // address 0xff, data stream
+        int l = i2c_smbus_read_block_data(_i2cfd, 0xff, i2cbuf);
+        if (l < 0)
+            throw n_u::IOException(_i2cname,"read_block",errno);
+
+        if (l == 0) {
+            nzero++;
+            usleep(USECS_PER_SEC / 10);
+            continue;
+        }
+        cerr << "l=" << l << endl;
+        writeptys(i2cbuf,l);
+
+        len -= l;
+    }
+}
+
+void TeeI2C::i2c_bytes() throw(n_u::IOException)
+{
+    unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
+    for ( ; ; ) {
+        int len;
+        for (len = 0; len < (signed) sizeof(i2cbuf); len++) {
+            int db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
+#ifdef GIVE_UP
+            if (db < 0) 
+                throw n_u::IOException(_i2cname,"read_byte",errno);
+#else
+            if (db < 0) break;
+#endif
+            if (db == '\xff') break;
+            i2cbuf[len] = (db & 0xff);
+        }
+        if (len == 0) break;
+        writeptys(i2cbuf,len);
+    }
+}
+
+void TeeI2C::writeptys(const unsigned char* buf, int len)
+    throw(n_u::IOException)
+{
+    int nwfd;
+    fd_set wfds = _writefdset;
+
+    struct timeval writeTimeout = {0,USECS_PER_SEC / 10};
+
+    /*
+     * Only write to which ever pty is ready, so that
+     * one can't block everybody.
+     */
+    if ((nwfd = ::select(_maxwfd,0,&wfds,0,&writeTimeout)) < 0)
+        throw n_u::IOException(_i2cname,"select",errno);
+    for (unsigned int i = 0; nwfd > 0 && i < _ptyfds.size(); i++)  {
+        if (FD_ISSET(_ptyfds[i],&wfds)) {
+            nwfd--;
+            for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
+                ssize_t lw = ::write(_ptyfds[i],buf, len);
+                if (lw < 0) throw n_u::IOException(_ptynames[i],"write",errno);
+            }
+        }
+    }
 }
 
 int main(int argc, char** argv)
