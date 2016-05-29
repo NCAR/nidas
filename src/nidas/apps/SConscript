@@ -51,6 +51,14 @@ if bool(False and
 if sdconf.CheckLibWithHeader('jsoncpp', 'jsoncpp/json/json.h', 'C++'):
     sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
 
+# linux/i2c-dev.h contains only macros, no library needed.
+# It exists on RedHat systems, but does not contain
+# macros such as i2c_smbus_read_byte_data
+has_i2c = False
+if sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
+        'i2c_smbus_read_byte_data(0,0);'):
+    has_i2c = True
+
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')
 sdenv.NidasProgram(SDSRCS)
@@ -71,6 +79,8 @@ ncenv.NidasProgram('isff/prep.cc')
 # Programs which only use libnidas_util.so, not libnidas.
 env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
+if has_i2c:
+    env.NidasUtilProgram('tee_i2c.cc')
 env.NidasUtilProgram('utime.cc')
 
 if 'viper' in machs:
