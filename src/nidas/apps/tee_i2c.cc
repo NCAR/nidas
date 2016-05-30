@@ -25,12 +25,30 @@
 */
 /*
 
-    Simple program to "tee" the byte stream read from an I2C device
+    Simple program to "tee" the byte stream from an I2C device
     to one or more pseudo-terminals.
 
     TODO: As necessary, support other device protocols.
-    Currently it is targeted at a ublox NEO 5Q GPS.
 
+    Currently it is targeted at a ublox NEO 5Q GPS, that
+    is attached to a Raspberry Pi2.
+
+    The 5Q is obsolete, but this doc is available on the web:
+
+    u-blox5_Protocol_Specifications(GPS.G5-X-07036).pdf
+
+    Things work in a minimal, but perhaps sufficient, way.
+    Can read the stream of NMEA packets from address 0xff.
+    Reads of the length bytes at addresses 0xfd and 0xfe just
+    return characters from the NMEA stream.
+    Attempts at sending configure packets fail, such as trying
+    to disable some NMEA messages.
+    Have to put a usleep in the read loop, otherwise after several
+    minutes, all reads fail, with timeout errors until a reboot.
+    I forget whether a power cycle was necessary in this case.
+
+    Need to test i2c_block again, without reading the length
+    bytes from 0xfd, 0xfe.
 */
 
 #include <nidas/util/SerialPort.h>
@@ -54,6 +72,138 @@ namespace n_u = nidas::util;
 
 bool interrupted = false;
 
+/**
+ * UBX configure packets.
+ */
+struct ubx_cfg_msg {
+    unsigned char header[2];
+    unsigned char cls;
+    unsigned char id;
+    unsigned short length;
+    unsigned char payload[8];
+    unsigned char cksum[2];
+};
+
+struct ubx_cfg_prt {
+    unsigned char header[2];
+    unsigned char cls;
+    unsigned char id;
+    unsigned short length;
+    unsigned char payload[20];
+    unsigned char cksum[2];
+};
+
+struct cfg_prt_payload {
+    unsigned char portID;
+    unsigned char res0[3];
+    unsigned int mode;
+    unsigned int res1;
+    unsigned short inProtoMask;
+    unsigned short outProtoMask;
+    unsigned short flags;
+    unsigned short res2;
+};
+
+void ubx_cksum(const unsigned char* cp, unsigned char* cksum)
+{
+    unsigned char ck_a = 0, ck_b = 0;
+    for ( ; cp < cksum; cp++) {
+        ck_a += *cp;
+        ck_b += ck_a;
+    }
+    cksum[0] = ck_a;
+    cksum[1] = ck_b;
+}
+
+/**
+ * Attempt at sending configuration packets to a ublox NEO-5Q.
+ * Doesn't work. Writes just return timeout errors, and no
+ * acks are received back.  Not sure where the problem lies. 
+ */
+void ubx_config(int fd, const string& name) throw(n_u::IOException)
+{
+    unsigned char *mp;
+    int wrres;
+
+    struct ubx_cfg_prt pmsg;
+    struct cfg_prt_payload ppay;
+    pmsg.header[0] = 0xb5;
+    pmsg.header[1] = 0x62;
+    pmsg.cls = 0x06;
+    pmsg.id = 0x00;
+    pmsg.length = 20;
+    memset(&ppay,0,sizeof(ppay));
+    ppay.mode = 0x42;           // i2c address
+    ppay.inProtoMask = 0x3;     // NMEA and UBX
+    ppay.outProtoMask = 0x3;        // NMEA and UBX
+    memcpy(pmsg.payload,&ppay,20);
+    ubx_cksum(&pmsg.cls,&pmsg.cksum[0]);
+    mp = (unsigned char*) &pmsg;
+
+#ifdef DO_SMBUS_WRITE
+    for ( ; mp <= &pmsg.cksum[1]; mp++) {
+        wrres = i2c_smbus_write_byte(fd, *mp);
+        if (wrres < 0) {
+            n_u::IOException e(name,"write",errno);
+            cerr << "Write error: " << e.what() << endl;
+        }
+    }
+#else
+    wrres = write(fd, mp, sizeof(pmsg));
+    if (wrres < 0) {
+        n_u::IOException e(name,"write",errno);
+        cerr << "Write error: " << e.what() << endl;
+    }
+#endif
+    for (int i = 0; i < 10; i++) {
+        int db = i2c_smbus_read_byte(fd);
+        if (db < 0) {
+            n_u::IOException e(name,"read",errno);
+            cerr << "read error: " << e.what() << endl;
+        }
+        cerr << "db=" << db << ' ' <<  hex << ((unsigned int)db & 0xff) << dec << endl;
+    }
+
+    struct ubx_cfg_msg msg;
+    msg.header[0] = 0xb5;
+    msg.header[1] = 0x62;
+    msg.cls = 0x06;
+    msg.id = 0x01;
+    msg.length = 8;
+    msg.payload[0] = 0xf0;
+    msg.payload[1] = 0x05;  // turn off VTG
+    for (int i = 2; i < 8; i++) msg.payload[i] = 0;
+
+    ubx_cksum(&msg.cls,&msg.cksum[0]);
+    cerr << "cksum=" << hex << (unsigned int) msg.cksum[0] <<
+        ' ' << (unsigned int) msg.cksum[1] << dec << endl;
+
+    mp = (unsigned char*) &msg;
+#ifdef DO_SMBUS_WRITE
+    for ( ; mp <= &msg.cksum[1]; mp++) {
+        wrres = i2c_smbus_write_byte(fd, *mp);
+        if (wrres < 0) {
+            n_u::IOException e(name,"write",errno);
+            cerr << "Write error: " << e.what() << endl;
+        }
+    }
+#else
+    wrres = write(fd, mp, sizeof(msg));
+    if (wrres < 0) {
+        n_u::IOException e(name,"write",errno);
+        cerr << "Write error: " << e.what() << endl;
+    }
+#endif
+    for (int i = 0; i < 10; i++) {
+        int db = i2c_smbus_read_byte(fd);
+        if (db < 0) {
+            n_u::IOException e(name,"read",errno);
+            cerr << "read error: " << e.what() << endl;
+        }
+        cerr << "db=" << db << ' ' <<  hex << ((unsigned int)db & 0xff) << dec << endl;
+    }
+}
+
 class TeeI2C {
 public:
     TeeI2C();
@@ -74,6 +224,7 @@ public:
     static int usage(const char* argv0);
 
     void setupSignals() throw(n_u::IOException);
+
 
 private:
     string progname;
@@ -106,7 +257,8 @@ TeeI2C::TeeI2C():progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
 {
 }
 
-TeeI2C::~TeeI2C(){
+TeeI2C::~TeeI2C()
+{
     if (_i2cfd >= 0) close(_i2cfd);
     for (unsigned int i = 0; i < _ptynames.size(); i++) {
         if (_ptyfds[i] >= 0) ::close(_ptyfds[i]);
@@ -114,7 +266,8 @@ TeeI2C::~TeeI2C(){
     }
 }
 
-static void sigAction(int sig, siginfo_t* siginfo, void*) {
+static void sigAction(int sig, siginfo_t* siginfo, void*)
+{
 
     NLOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -224,7 +377,6 @@ int TeeI2C::run() throw()
 
     int result = 0;
 
-
     try {
         nidas::util::Logger* logger = 0;
 	n_u::LogConfig lc;
@@ -244,32 +396,15 @@ int TeeI2C::run() throw()
 
         setupSignals();
 
-	fd_set readfds;
-	FD_ZERO(&readfds);
+#ifdef USE_SELECT
+	fd_set readfdset;
+	FD_ZERO(&readfdset);
+#endif
 	FD_ZERO(&_writefdset);
-
-        _i2cfd = open(_i2cname.c_str(), O_RDONLY);
-        if (_i2cfd < 0)
-            throw n_u::IOException(_i2cname, "open", errno);
-
-        if (ioctl(_i2cfd, I2C_TIMEOUT, 5 * MSECS_PER_SEC / 10) < 0) {
-            ostringstream ost;
-            ost << "ioctl(,I2C_TIMEOUT,)";
-            throw n_u::IOException(_i2cname, ost.str(), errno);
-        }
-
-        if (ioctl(_i2cfd, I2C_SLAVE, _i2caddr) < 0) {
-            ostringstream ost;
-            ost << "ioctl(,I2C_SLAVE," << hex << _i2caddr << ")";
-            throw n_u::IOException(_i2cname, ost.str(), errno);
-        }
-
-	FD_SET(_i2cfd,&readfds);
-	int maxfd = _i2cfd + 1;
-	_maxwfd = 0;
 
 	// user will only read from these ptys, so we only write to them.
 	vector<string>::const_iterator li = _ptynames.begin();
+	_maxwfd = 0;
 	for ( ; li != _ptynames.end(); ++li) {
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
@@ -284,20 +419,53 @@ int TeeI2C::run() throw()
 	    _ptyfds.push_back(fd);
 	}
 
+        _i2cfd = open(_i2cname.c_str(), O_RDWR);
+        if (_i2cfd < 0)
+            throw n_u::IOException(_i2cname, "open", errno);
+
+        if (ioctl(_i2cfd, I2C_TIMEOUT, MSECS_PER_SEC / 10) < 0) {
+            ostringstream ost;
+            ost << "ioctl(,I2C_TIMEOUT,)";
+            throw n_u::IOException(_i2cname, ost.str(), errno);
+        }
+
+        if (ioctl(_i2cfd, I2C_SLAVE, _i2caddr) < 0) {
+            ostringstream ost;
+            ost << "ioctl(,I2C_SLAVE," << hex << _i2caddr << ")";
+            throw n_u::IOException(_i2cname, ost.str(), errno);
+        }
+
+        // ubx_config(_i2cfd, _i2cname) throw(n_u::IOException)
+
+#ifdef USE_SELECT
+	FD_SET(_i2cfd,&readfdset);
+	int maxfd = _i2cfd + 1;
+#endif
+
 	for (interrupted = false; !interrupted; ) {
 
-            // sleep a bit before next read
-            // usleep(USECS_PER_SEC / 2);
+            /* Sleep a bit before next read
+             * This seems to be important. Without it
+             * things eventually lock up after several minutes;
+             * no data until a power cycle.  Posts on the net
+             * talk about ublox GPSs "appling arbitrary clock stretches"
+             * whatever that means.  Some folks have resorted to
+             * doing direct bit-banging. 
+             *
+             * The i2c chip/driver on the RPi seems to be a minimal
+             * implementation not really supporting blocking reads.
+             */
+            usleep(USECS_PER_SEC / 10);
 
+#ifdef USE_SELECT
+            /* this use of select is a leftover from tee_tty, which
+             * reads from more than one device.
+             */
 	    int nfd;
-	    fd_set rfds = readfds;
-	    fd_set efds = readfds;
-	    if ((nfd = ::pselect(maxfd,&rfds,0,&efds,0,&_signalMask)) < 0) {
+	    fd_set rfds = readfdset;
+	    if ((nfd = ::pselect(maxfd,&rfds,0,0,0,&_signalMask)) < 0) {
                 if (errno == EINTR) break;
 	    	throw n_u::IOException(_i2cname,"select",errno);
-            }
-	    if (FD_ISSET(_i2cfd,&efds)) {
-                cerr << "Exception in pselect" << endl;
             }
 
 	    if (FD_ISSET(_i2cfd,&rfds)) {
@@ -305,6 +473,9 @@ int TeeI2C::run() throw()
                 // i2c_block();
                 i2c_bytes();
             }
+#else
+            i2c_bytes();
+#endif
         }
     }
     catch(n_u::IOException& ioe) {
@@ -317,6 +488,8 @@ int TeeI2C::run() throw()
 void TeeI2C::i2c_block() throw(n_u::IOException)
 {
     unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
+
+#ifdef READ_LEN_BYTES
 
     // Registers 0xfd and 0xfe don't seem to work as suspected
     // on a ublox NEO 5Q. They contain '$' 'G', the first
@@ -337,19 +510,18 @@ void TeeI2C::i2c_block() throw(n_u::IOException)
     int len = (hb & 0xff) << 8 | (lb & 0xff);
 
     cerr << "len=" << len << endl;
+#else
+    int len = 512;  // arbitrary
+#endif
 
-    for (int nzero = 0; len > 0 && nzero < 5; ) {
+    for ( ; len > 0; ) {
 
         // address 0xff, data stream
         int l = i2c_smbus_read_block_data(_i2cfd, 0xff, i2cbuf);
         if (l < 0)
             throw n_u::IOException(_i2cname,"read_block",errno);
 
-        if (l == 0) {
-            nzero++;
-            usleep(USECS_PER_SEC / 10);
-            continue;
-        }
+        if (l == 0) break;
         cerr << "l=" << l << endl;
         writeptys(i2cbuf,l);
 
@@ -373,6 +545,7 @@ void TeeI2C::i2c_bytes() throw(n_u::IOException)
             if (db == '\xff') break;
             i2cbuf[len] = (db & 0xff);
         }
+        // cerr << "len=" << len << endl;
         if (len == 0) break;
         writeptys(i2cbuf,len);
     }
@@ -394,6 +567,7 @@ void TeeI2C::writeptys(const unsigned char* buf, int len)
         throw n_u::IOException(_i2cname,"select",errno);
     for (unsigned int i = 0; nwfd > 0 && i < _ptyfds.size(); i++)  {
         if (FD_ISSET(_ptyfds[i],&wfds)) {
+            // cerr << _ptyfds[i] << " is writable, len=" << len << endl;
             nwfd--;
             for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
                 ssize_t lw = ::write(_ptyfds[i],buf, len);
