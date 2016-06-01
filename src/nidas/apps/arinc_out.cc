@@ -203,6 +203,8 @@ int main(int argc, char** argv)
     int arnSweep;
     int sweep = 0;
 
+    ssize_t wrlen;
+
     for (int i=0; i<20; i++) numValue[i] = 0;
 
     while (active) {
@@ -332,11 +334,24 @@ int main(int argc, char** argv)
             }
         }
         if (SWEEP) {
-            ::write(sensor_out_0.getWriteFd(), &arnSweep, sizeof(int));
+            wrlen = ::write(sensor_out_0.getWriteFd(), &arnSweep,
+                        sizeof(int));
+            if (wrlen < 0)
+                throw n_u::IOException(DEVICE, "write", errno);
+            if (wrlen != sizeof(int))
+                cerr << "incomplete write, " << wrlen << " bytes, should be " << sizeof(int) << endl;
         } else {
-            ::write(sensor_out_0.getWriteFd(), &arnPitch, sizeof(int));
+            wrlen = ::write(sensor_out_0.getWriteFd(), &arnPitch, sizeof(int));
+            if (wrlen < 0)
+                throw n_u::IOException(DEVICE, "write", errno);
+            if (wrlen != sizeof(int))
+                cerr << "incomplete write, " << wrlen << " bytes, should be " << sizeof(int) << endl;
             usleep(GAP);  // space the bursted messages apart
-            ::write(sensor_out_0.getWriteFd(), &arnRoll,  sizeof(int));
+            wrlen = ::write(sensor_out_0.getWriteFd(), &arnRoll,  sizeof(int));
+            if (wrlen < 0)
+                throw n_u::IOException(DEVICE, "write", errno);
+            if (wrlen != sizeof(int))
+                cerr << "incomplete write, " << wrlen << " bytes, should be " << sizeof(int) << endl;
         }
         // delay for the remaining 1/Nth of a second...
         ::gettimeofday(&tvEnd, NULL);
