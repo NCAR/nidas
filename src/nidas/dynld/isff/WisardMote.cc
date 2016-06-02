@@ -1706,23 +1706,23 @@ SampInfo WisardMote::_samps[] = {
                       {0, 0, 0, 0 }
                   }, WST_IGNORED
     },
-    { 0x4c, 0x4f, {
-                      { "Rsw.in.%c_%m", "W/m^2", "Incoming Short Wave, Hukseflux NR01", "$RSWIN_RANGE" },
-                      { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RSWOUT_RANGE" },
-                      { "Rsw.in.%c_%m", "W/m^2", "Incoming Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Tcase.%c_%m", "degC", "Average case temperature, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Wetness.%c_%m", "V", "Leaf wetness", "$WETNESS_RANGE" },
-                      { "Tcase.in.%c_%m", "degC", "Incoming case temperature, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Tcase.out.%c_%m", "degC", "Outgoing case temperature, Hukseflux NR01", "$RPILE_RANGE" },
-                      {0, 0, 0, 0 }
-                  }, WST_NORMAL
-    },
     { 0x49, 0x49, {
                       { "Vdsm.m%m", "V", "System voltage", "$VIN_RANGE" },
                       { "Idsm.m%m", "A", "Load current", "$IIN_RANGE" },
                       { "Icharge.m%m", "A", "Charging current", "$IIN_RANGE" },
                       { "Tcharge.m%m", "degC", "Charging system temperature", "$T_RANGE" },
+                      {0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x4c, 0x4f, {
+                      { "Rsw.in.%c_%m", "W/m^2", "Incoming Short Wave, Hukseflux NR01", "$RSWIN_RANGE" },
+                      { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RSWOUT_RANGE" },
+                      { "Rpile.in.%c_%m", "W/m^2", "Incoming Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Rpile.out.%c_%m", "W/m^2", "Outgoing Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.%c_%m", "degC", "Average case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Wetness.%c_%m", "V", "Leaf wetness", "$WETNESS_RANGE" },
+                      { "Tcase.in.%c_%m", "degC", "Incoming case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.out.%c_%m", "degC", "Outgoing case temperature, Hukseflux NR01", "$RPILE_RANGE" },
                       {0, 0, 0, 0 }
                   }, WST_NORMAL
     },
