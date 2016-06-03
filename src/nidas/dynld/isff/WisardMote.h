@@ -307,6 +307,10 @@ private:
             unsigned int, const struct MessageHeader*,
             SampleTag*, SampleT<float>*);
 
+    const char* unpackNR01(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            SampleTag*, SampleT<float>*);
+
     const char* unpackRsw2(const char *, const char *,
             unsigned int, const struct MessageHeader*,
             SampleTag*, SampleT<float>*);

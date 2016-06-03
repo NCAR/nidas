@@ -1374,7 +1374,7 @@ const char* WisardMote::unpackRsw(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    cp = readInt16(cp,eos,nfields,0.1,fp);
+    cp = readInt16(cp,eos,nfields,0.1,fp);  // multiplies by 0.1
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
     convert(stag,osamp);
@@ -1456,11 +1456,38 @@ const char* WisardMote::unpackRsw2(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    cp = readInt16(cp,eos,nfields,0.1,fp);
+    cp = readInt16(cp,eos,nfields,0.1,fp);  // multiplies by 0.1
 
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
     convert(stag,osamp);
+    return cp;
+}
+
+const char* WisardMote::unpackNR01(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        SampleTag* stag, SampleT<float>* osamp)
+{
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
+    }
+
+    cp = readInt16(cp,eos,nfields,1.0,fp);
+    if (fp) {
+        unsigned int n;
+        for (n = 0; n < 4 && n < nfields; n++) {
+            fp[n] *= 0.1;   // 2xRsw, 2xRpile
+        }
+        if (n < nfields) fp[n++] *= 0.01;   // Tcase
+        if (n < nfields) fp[n++] *= 0.001;  // Wetness
+        for (int i = 0; i < 2 && n < nfields; n++)
+            fp[n] *= 0.01;                  // possible extra 2xTcase
+        for ( ; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
+    }
     return cp;
 }
 
@@ -1551,7 +1578,7 @@ void WisardMote::initFuncMap()
     _typeNames[0x49] = "Power Monitor";
 
     for (int i = 0x4c; i < 0x50; i++) {
-        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw,8);
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackNR01,8);
         _typeNames[i] = "Hukseflux NR01";
     }
 
@@ -1719,10 +1746,10 @@ SampInfo WisardMote::_samps[] = {
                       { "Rsw.out.%c_%m", "W/m^2", "Outgoing Short Wave, Hukseflux NR01", "$RSWOUT_RANGE" },
                       { "Rpile.in.%c_%m", "W/m^2", "Incoming Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
                       { "Rpile.out.%c_%m", "W/m^2", "Outgoing Thermopile, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Tcase.%c_%m", "degC", "Average case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.%c_%m", "degC", "Average case temperature, Hukseflux NR01", "$T_RANGE" },
                       { "Wetness.%c_%m", "V", "Leaf wetness", "$WETNESS_RANGE" },
-                      { "Tcase.in.%c_%m", "degC", "Incoming case temperature, Hukseflux NR01", "$RPILE_RANGE" },
-                      { "Tcase.out.%c_%m", "degC", "Outgoing case temperature, Hukseflux NR01", "$RPILE_RANGE" },
+                      { "Tcase.in.%c_%m", "degC", "Incoming case temperature, Hukseflux NR01", "$T_RANGE" },
+                      { "Tcase.out.%c_%m", "degC", "Outgoing case temperature, Hukseflux NR01", "$T_RANGE" },
                       {0, 0, 0, 0 }
                   }, WST_NORMAL
     },
