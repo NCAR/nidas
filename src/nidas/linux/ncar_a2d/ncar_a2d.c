@@ -2733,11 +2733,10 @@ static int __init ncar_a2d_init(void)
                          * user actually tries to open the device.  */
                         KLOG_NOTICE("%s: NCAR A/D card not detected at ioport=%#x\n",
                                              brd->deviceName,IoPort[ib]);
-
-                        if (ib == 0) goto err;
                         release_region(brd->ioport, A2DIOWIDTH);
                         brd->ioport = 0;
                         NumBoards = ib;
+                        if (ib == 0) goto err;
                         break;
                 }
 
