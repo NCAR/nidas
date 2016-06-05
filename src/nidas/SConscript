@@ -79,7 +79,7 @@ conf.CheckCHeader('bzlib.h')
 conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
                       'bluetooth/rfcomm.h'],"<>")
 
-conf.CheckCHeader(['time.h','timepps.h'])
+conf.CheckCHeader(['time.h','sys/timepps.h'])
 
 # glibcs on Eurotech systems don't currently have ppoll or epoll_pwait
 conf.CheckFunc("ppoll")

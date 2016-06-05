@@ -101,7 +101,7 @@ if 'armel' in BUILDS:
 # don't set KERNELDIR_rpi2_armhf.
 
 if 'armhf' in BUILDS:
-    opts.Add('KERNELDIR_rpi2_armhf', 'kernel headers for Raspberry Pi2. See raspberrypi-kernel-headers package ','/usr/src/linux-headers-4.4.11-v7+')
+    opts.Add('KERNELDIR_rpi2_armhf', 'kernel headers for Raspberry Pi2. See raspberrypi-kernel-headers package ','/usr/src/linux-headers-4.4.11-v7n')
 
 opts.Update(env)
 
