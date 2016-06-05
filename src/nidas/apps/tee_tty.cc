@@ -38,7 +38,7 @@
 #include <nidas/util/Logger.h>
 
 #ifdef HAVE_TIMEPPS_H
-#include <timepps.h>
+#include <sys/timepps.h>
 #endif
 #include <linux/tty.h>
 
@@ -106,11 +106,12 @@ TeeTTy::TeeTTy():progname(),ttyname(),ttyopts(),rwptys(),roptys(),
 void TeeTTy::setupSignals()
 {
     // block HUP, TERM, INT, and unblock them in pselect
-    sigemptyset(&_signalMask);
-    sigaddset(&_signalMask,SIGHUP);
-    sigaddset(&_signalMask,SIGTERM);
-    sigaddset(&_signalMask,SIGINT);
-    sigprocmask(SIG_BLOCK,&_signalMask,(sigset_t*)0);
+    sigset_t sigs;
+    sigemptyset(&sigs);
+    sigaddset(&sigs, SIGHUP);
+    sigaddset(&sigs, SIGTERM);
+    sigaddset(&sigs, SIGINT);
+    sigprocmask(SIG_BLOCK, &sigs, &_signalMask);
 
     sigdelset(&_signalMask,SIGHUP);
     sigdelset(&_signalMask,SIGTERM);
@@ -242,11 +243,19 @@ int TeeTTy::run()
     int result = 0;
 
     try {
+        nidas::util::Logger* logger = 0;
+	n_u::LogConfig lc;
+	n_u::LogScheme logscheme("tee_tty");
+	lc.level = 6;
+
 	if (asDaemon) {
             if (daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
-            n_u::Logger::createInstance(progname.c_str(),LOG_CONS,LOG_LOCAL5);
+            logger = n_u::Logger::createInstance(progname.c_str(),LOG_CONS,LOG_LOCAL5);
         }
-        else n_u::Logger::createInstance(&std::cerr);
+        else logger = n_u::Logger::createInstance(&std::cerr);
+
+        logscheme.addConfig(lc);
+        logger->setScheme(logscheme);
 
         if (priority >= 0) setFIFOPriority(priority);
 
