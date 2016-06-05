@@ -2725,7 +2725,8 @@ static int __init ncar_a2d_init(void)
                                         brd->deviceName,chan,instr,(status&A2DSTAT_INSTR_MASK),expected,status,ntry);
                         }
                         if ((status & A2DSTAT_INSTR_MASK) == expected) nconfirmed++;
-                        else if (status != 0xffff) KLOG_INFO("channel %d not confirmed\n\n",chan);
+                        else if (status != 0xffff) KLOG_INFO("%s: channel %d not confirmed\n",
+                                        brd->deviceName, chan);
                 }
                 if (nconfirmed < numa2ds)
                 {
@@ -2736,7 +2737,10 @@ static int __init ncar_a2d_init(void)
                         release_region(brd->ioport, A2DIOWIDTH);
                         brd->ioport = 0;
                         NumBoards = ib;
-                        if (ib == 0) goto err;
+                        if (ib == 0) {
+                                error = -ENODEV;
+                                goto err;
+                        }
                         break;
                 }
 
