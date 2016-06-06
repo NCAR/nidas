@@ -130,6 +130,9 @@ check_ports() {
                                                 break
                                         fi
                                         ports=(${ports[*]} $port)
+                                else
+                                    # bad port number
+                                    result=1
                                 fi
                                 # echo ${ports[*]}
                                 ;;
