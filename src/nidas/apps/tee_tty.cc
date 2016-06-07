@@ -47,6 +47,7 @@
 
 #include <sched.h>
 #include <signal.h>
+#include <cstdlib>
 
 using namespace std;
 
@@ -286,8 +287,11 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
-            if (fchmod(fd, 0666) < 0) {
-	    	n_u::IOException e(name,"fchmod",errno);
+            // set perms on slave device
+            char slavename[PATH_MAX];
+            if (ptsname_r(fd,slavename, sizeof(slavename)) < 0 ||
+                    chmod(slavename, 0666) < 0) {
+	    	n_u::IOException e(name,"chmod",errno);
                 WLOG(("")  << e.what());
             }
 
@@ -313,8 +317,11 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
-            if (fchmod(fd, 0664) < 0) {
-	    	n_u::IOException e(name,"fchmod",errno);
+            // set perms on slave device
+            char slavename[PATH_MAX];
+            if (ptsname_r(fd,slavename, sizeof(slavename)) < 0 ||
+                    chmod(slavename, 0444) < 0) {
+	    	n_u::IOException e(name,"chmod",errno);
                 WLOG(("")  << e.what());
             }
 
