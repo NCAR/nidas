@@ -286,6 +286,11 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
+            if (fchmod(fd, 0664) < 0) {
+	    	n_u::IOException e(name,"fchmod",errno);
+                WLOG(("")  << e.what());
+            }
+
             // Copy some attributes from the real serial port
             // to the pseudo-terminal. Currently only copying
             // the "raw" attribute

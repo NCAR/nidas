@@ -69,7 +69,7 @@
 #include <sched.h>
 #include <signal.h>
 
-#define USE_SELECT
+// #define USE_SELECT
 
 using namespace std;
 
@@ -145,6 +145,7 @@ void ubx_config(int fd, const string& name) throw(n_u::IOException)
     ubx_cksum(&pmsg.cls,&pmsg.cksum[0]);
     mp = (unsigned char*) &pmsg;
 
+#define DO_SMBUS_WRITE
 #ifdef DO_SMBUS_WRITE
     for ( ; mp <= &pmsg.cksum[1]; mp++) {
         wrres = i2c_smbus_write_byte(fd, *mp);
@@ -177,7 +178,8 @@ void ubx_config(int fd, const string& name) throw(n_u::IOException)
     msg.length = 8;
     msg.payload[0] = 0xf0;
     msg.payload[1] = 0x05;  // turn off VTG
-    for (int i = 2; i < 8; i++) msg.payload[i] = 0;
+    for (int i = 2; i < 7; i++) msg.payload[i] = 0;
+    msg.payload[7] = 1;
 
     ubx_cksum(&msg.cls,&msg.cksum[0]);
     cerr << "cksum=" << hex << (unsigned int) msg.cksum[0] <<
@@ -431,6 +433,11 @@ int TeeI2C::run() throw()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
+            if (fchmod(fd, 0664) < 0) {
+	    	n_u::IOException e(name,"fchmod",errno);
+                WLOG(("")  << e.what());
+            }
+
             n_u::Termios pterm(fd,name);
             pterm.setRaw(true);
             pterm.apply(fd,name);
@@ -457,7 +464,7 @@ int TeeI2C::run() throw()
             throw n_u::IOException(_i2cname, ost.str(), errno);
         }
 
-        // ubx_config(_i2cfd, _i2cname) throw(n_u::IOException)
+        ubx_config(_i2cfd, _i2cname);
 
 #ifdef USE_SELECT
 	FD_SET(_i2cfd,&readfdset);
