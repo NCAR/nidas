@@ -44,10 +44,13 @@
     Attempts at sending configure packets fail, such as trying
     to disable some NMEA messages.
     Have to put a usleep in the read loop, otherwise after several
-    minutes, all reads fail, with timeout errors until a reboot.
-    I forget whether a power cycle was necessary in this case.
+    minutes, all I2C reads fail, with timeout errors until power cycle.
+    Soft reboot doesn't fix it.
+    This was a power cycle of both the RPI2 and the ublox.
+    Don't know if we have the capability to power cycle only the
+    ublox. Until we get writes to work, can't reset it by software.
 
-    Need to test i2c_block again, without reading the length
+    Need to test i2c_block_reads again, without reading the length
     bytes from 0xfd, 0xfe.
 */
 
@@ -65,6 +68,8 @@
 
 #include <sched.h>
 #include <signal.h>
+
+#define USE_SELECT
 
 using namespace std;
 
@@ -213,9 +218,9 @@ public:
 
     int run() throw();
 
-    void i2c_bytes() throw(n_u::IOException);
+    void i2c_byte_reads() throw(n_u::IOException);
 
-    void i2c_block() throw(n_u::IOException);
+    void i2c_block_reads() throw(n_u::IOException);
 
     void writeptys(const unsigned char* buf, int len) throw(n_u::IOException);
 
@@ -223,7 +228,9 @@ public:
 
     static int usage(const char* argv0);
 
+#ifdef USE_SELECT
     void setupSignals() throw(n_u::IOException);
+#endif
 
 
 private:
@@ -274,17 +281,21 @@ static void sigAction(int sig, siginfo_t* siginfo, void*)
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
 	", si_code=" << (siginfo ? siginfo->si_code : -1));
 
+
     switch(sig) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
+    case SIGUSR1:
         interrupted = true;
     break;
     }
 }
 
+#ifdef USE_SELECT
 void TeeI2C::setupSignals() throw(n_u::IOException)
 {
+
     struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_SIGINFO;
@@ -292,6 +303,9 @@ void TeeI2C::setupSignals() throw(n_u::IOException)
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
+    sigaction(SIGUSR1,&act,(struct sigaction *)0);
+#ifdef DO_SIGACTON
+#endif
 
     // block HUP, TERM, INT, and unblock them in pselect
     sigset_t sigs;
@@ -299,14 +313,22 @@ void TeeI2C::setupSignals() throw(n_u::IOException)
     sigaddset(&sigs, SIGHUP);
     sigaddset(&sigs, SIGTERM);
     sigaddset(&sigs, SIGINT);
+#ifdef USE_SIGPROCMASK
     if (sigprocmask(SIG_BLOCK, &sigs, &_signalMask) < 0)
         throw n_u::IOException("tee_i2c","sigprocmask",errno);
+#else
+    if (pthread_sigmask(SIG_BLOCK, &sigs, &_signalMask) < 0)
+        throw n_u::IOException("tee_i2c","pthread_sigmask",errno);
+#endif
 
-    sigdelset(&_signalMask,SIGHUP);
-    sigdelset(&_signalMask,SIGTERM);
-    sigdelset(&_signalMask,SIGINT);
+    sigemptyset(&_signalMask);
+    // sigdelset(&_signalMask,SIGHUP);
+    // sigdelset(&_signalMask,SIGTERM);
+    // sigdelset(&_signalMask,SIGINT);
 
 }
+#endif
+
 int TeeI2C::parseRunstring(int argc, char** argv)
 {
     progname = argv[0];
@@ -394,9 +416,9 @@ int TeeI2C::run() throw()
 
         if (priority >= 0) setFIFOPriority(priority);
 
+#ifdef USE_SELECT
         setupSignals();
 
-#ifdef USE_SELECT
 	fd_set readfdset;
 	FD_ZERO(&readfdset);
 #endif
@@ -423,7 +445,7 @@ int TeeI2C::run() throw()
         if (_i2cfd < 0)
             throw n_u::IOException(_i2cname, "open", errno);
 
-        if (ioctl(_i2cfd, I2C_TIMEOUT, MSECS_PER_SEC / 10) < 0) {
+        if (ioctl(_i2cfd, I2C_TIMEOUT, 30 * MSECS_PER_SEC / 10) < 0) {
             ostringstream ost;
             ost << "ioctl(,I2C_TIMEOUT,)";
             throw n_u::IOException(_i2cname, ost.str(), errno);
@@ -446,9 +468,10 @@ int TeeI2C::run() throw()
 
             /* Sleep a bit before next read
              * This seems to be important. Without it
-             * things eventually lock up after several minutes;
-             * no data until a power cycle.  Posts on the net
-             * talk about ublox GPSs "appling arbitrary clock stretches"
+             * reads eventually continually fail with timeout errors,
+             * after several minutes; no data until a power cycle.
+             * Posts on the net talk about ublox GPSs
+             * "appling arbitrary clock stretches"
              * whatever that means.  Some folks have resorted to
              * doing direct bit-banging. 
              *
@@ -463,18 +486,18 @@ int TeeI2C::run() throw()
              */
 	    int nfd;
 	    fd_set rfds = readfdset;
-	    if ((nfd = ::pselect(maxfd,&rfds,0,0,0,&_signalMask)) < 0) {
+	    if ((nfd = ::select(maxfd,&rfds,0,0,0)) < 0) {
                 if (errno == EINTR) break;
 	    	throw n_u::IOException(_i2cname,"select",errno);
             }
 
 	    if (FD_ISSET(_i2cfd,&rfds)) {
 		nfd--;
-                // i2c_block();
-                i2c_bytes();
+                // i2c_block_reads();
+                i2c_byte_reads();
             }
 #else
-            i2c_bytes();
+            i2c_byte_reads();
 #endif
         }
     }
@@ -485,16 +508,16 @@ int TeeI2C::run() throw()
     return result;
 }
 
-void TeeI2C::i2c_block() throw(n_u::IOException)
+void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 {
     unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
 
 #ifdef READ_LEN_BYTES
 
-    // Registers 0xfd and 0xfe don't seem to work as suspected
-    // on a ublox NEO 5Q. They contain '$' 'G', the first
-    // two bytes in the stream.
-    // And calling i2c_smbus_read_block_data on a ublox on a RPi2
+    // Registers 0xfd and 0xfe don't seem to work as documented
+    // for a ublox NEO 5Q. They contain '$' 'G', the first
+    // two bytes in the NMEA stream.
+    // Calling i2c_smbus_read_block_data on a ublox on a RPi2
     // locks up the system.
 
     // address 0xfd, number of bytes available, high byte
@@ -509,7 +532,7 @@ void TeeI2C::i2c_block() throw(n_u::IOException)
     if (lb == '\xff') return;
     int len = (hb & 0xff) << 8 | (lb & 0xff);
 
-    cerr << "len=" << len << endl;
+    // cerr << "len=" << len << endl;
 #else
     int len = 512;  // arbitrary
 #endif
@@ -522,14 +545,14 @@ void TeeI2C::i2c_block() throw(n_u::IOException)
             throw n_u::IOException(_i2cname,"read_block",errno);
 
         if (l == 0) break;
-        cerr << "l=" << l << endl;
+        // cerr << "l=" << l << endl;
         writeptys(i2cbuf,l);
 
         len -= l;
     }
 }
 
-void TeeI2C::i2c_bytes() throw(n_u::IOException)
+void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
     unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
     for ( ; ; ) {
@@ -557,14 +580,14 @@ void TeeI2C::writeptys(const unsigned char* buf, int len)
     int nwfd;
     fd_set wfds = _writefdset;
 
-    struct timeval writeTimeout = {0,USECS_PER_SEC / 10};
+    struct timespec writeTimeout = {0,NSECS_PER_SEC / 10};
 
     /*
-     * Only write to which ever pty is ready, so that
+     * Only write to the ptys that are ready, so that
      * one can't block everybody.
      */
-    if ((nwfd = ::select(_maxwfd,0,&wfds,0,&writeTimeout)) < 0)
-        throw n_u::IOException(_i2cname,"select",errno);
+    if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
+        throw n_u::IOException("ptys","pselect",errno);
     for (unsigned int i = 0; nwfd > 0 && i < _ptyfds.size(); i++)  {
         if (FD_ISSET(_ptyfds[i],&wfds)) {
             // cerr << _ptyfds[i] << " is writable, len=" << len << endl;
