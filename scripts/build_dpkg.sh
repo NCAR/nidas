@@ -162,6 +162,10 @@ if [ -n "$repo" ]; then
         fi
     done
 
+    echo "pkgs=$pkgs"
+    echo "archalls=$archalls"
+    echo "chngs=$chngs"
+
     # nidas-daq is an architecture all package.
     # We want to specify -A "arch" when removing packages
     # so that packages of the same name for other architectures
@@ -170,6 +174,7 @@ if [ -n "$repo" ]; then
     # however.  It is only removed when -A is not specified.
     # So I guess we have to look for architecture all packages
     # and remove them separately without a -A.
+
     flock $repo sh -c "
         reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
         reprepro -V -b $repo remove jessie $archalls;
