@@ -150,14 +150,20 @@ cd ..
 if [ -n "$repo" ]; then
     umask 0002
 
-    echo "Results"
+    echo "Build results:"
     ls
+    echo ""
 
     chngs=nidas_*_$arch.changes 
-    pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
+    # display changes file
+    echo "Contents of $chngs"
+    cat $chngs
+    echo ""
+
+    # pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
     debs=$(awk '/Checksums-Sha1:/,/Checksums-Sha256:/{print $3}' $chngs)
     archalls=
-    archpkgs=
+    archdebs=
     for d in $debs; do
         if [[ $d =~ .*\.deb ]]; then
             pkgarch=${d%.*}
@@ -166,40 +172,24 @@ if [ -n "$repo" ]; then
             if [ $pkgarch == all ]; then
                 archalls+=" ${d%%_*}"
             else
-                archpkgs+=" ${d%%_*}"
+                archdebs+=" ${d}"
             fi
         fi
     done
 
-    echo "pkgs=$pkgs"
-    echo "archalls=$archalls"
-    echo "chngs=$chngs"
+    # echo "pkgs=$pkgs"
+    # echo "archalls=$archalls"
+    # echo "chngs=$chngs"
 
-    # display changes file
-    echo "Changes file"
-    cat $chngs
-
-    # nidas-daq is an architecture all package.
-    # We want to specify -A "arch" when removing packages
-    # so that packages of the same name for other architectures
-    # are not deleted.
-    # Doing a remove of nidas-daq with -A "source|$arch|all" doesn't work
-    # however.  It is only removed when -A is not specified.
-    # So I guess we have to look for architecture all packages
-    # and remove them separately without a -A.
-
-
-    #     reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
-    #     reprepro -V -b $repo remove jessie $archalls;
-
-    # only install arch alls and sources for armel.
+    # only install arch "all" packages and sources for armel.
     if [ $arch == armel ]; then
         flock $repo sh -c "
-            reprepro -V -b $repo $archopt include jessie $chngs;
+            reprepro -V -b $repo -C main include jessie $chngs;
             reprepro -V -b $repo deleteunreferenced"
     else
+        echo "Installing $archdebs"
         flock $repo sh -c "
-            reprepro -V -b $repo -A $arch includedeb jessie $archpkgs"
+            reprepro -V -b $repo -C main -A $arch includedeb jessie $archdebs"
     fi
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
