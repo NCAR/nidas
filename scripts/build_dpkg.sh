@@ -149,6 +149,9 @@ cd ..
 
 if [ -n "$repo" ]; then
     umask 0002
+
+    ls
+
     chngs=nidas_*_$arch.changes 
     pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
     debs=$(awk '/Checksums-Sha1:/,/Checksums-Sha256:/{print $3}' $chngs)
@@ -162,9 +165,13 @@ if [ -n "$repo" ]; then
         fi
     done
 
+    set -x
     echo "pkgs=$pkgs"
     echo "archalls=$archalls"
     echo "chngs=$chngs"
+
+    # display changes file
+    cat $chngs
 
     # nidas-daq is an architecture all package.
     # We want to specify -A "arch" when removing packages
@@ -176,7 +183,6 @@ if [ -n "$repo" ]; then
     # and remove them separately without a -A.
 
     # only install arch alls and sources for armel.
-
     archopt=
     if [ $arch != armel ]; then
         archopt="-A $arch"
@@ -188,6 +194,8 @@ if [ -n "$repo" ]; then
     flock $repo sh -c "
         reprepro -V -b $repo $archopt include jessie $chngs;
         reprepro -V -b $repo deleteunreferenced"
+
+    set +x
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
 
