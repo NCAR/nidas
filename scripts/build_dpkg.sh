@@ -155,10 +155,10 @@ if [ -n "$repo" ]; then
     archalls=
     for d in $debs; do
         if [[ $d =~ .*\.deb ]]; then
-            arch=${d%.*}
-            arch=${arch##*_}
-            # echo "d=$d, arch=$arch"
-            [ $arch == all ] && archalls+=" ${d%%_*}"
+            pkgarch=${d%.*}
+            pkgarch=${pkgarch##*_}
+            # echo "d=$d, pkgarch=$pkgarch"
+            [ $pkgarch == all ] && archalls+=" ${d%%_*}"
         fi
     done
 
@@ -175,11 +175,19 @@ if [ -n "$repo" ]; then
     # So I guess we have to look for architecture all packages
     # and remove them separately without a -A.
 
+    # only install arch alls and sources for armel.
+
+    archopt=
+    if [ $arch != armel ]; then
+        archopt="-A $arch"
+    fi
+
+    #     reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
+    #     reprepro -V -b $repo remove jessie $archalls;
+
     flock $repo sh -c "
-        reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
-        reprepro -V -b $repo remove jessie $archalls;
-        reprepro -V -b $repo deleteunreferenced;
-        reprepro -V -b $repo include jessie $chngs"
+        reprepro -V -b $repo $archopt include jessie $chngs;
+        reprepro -V -b $repo deleteunreferenced"
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
 
