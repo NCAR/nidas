@@ -150,27 +150,33 @@ cd ..
 if [ -n "$repo" ]; then
     umask 0002
 
+    echo "Results"
     ls
 
     chngs=nidas_*_$arch.changes 
     pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
     debs=$(awk '/Checksums-Sha1:/,/Checksums-Sha256:/{print $3}' $chngs)
     archalls=
+    archpkgs=
     for d in $debs; do
         if [[ $d =~ .*\.deb ]]; then
             pkgarch=${d%.*}
             pkgarch=${pkgarch##*_}
             # echo "d=$d, pkgarch=$pkgarch"
-            [ $pkgarch == all ] && archalls+=" ${d%%_*}"
+            if [ $pkgarch == all ]; then
+                archalls+=" ${d%%_*}"
+            else
+                archpkgs+=" ${d%%_*}"
+            fi
         fi
     done
 
-    set -x
     echo "pkgs=$pkgs"
     echo "archalls=$archalls"
     echo "chngs=$chngs"
 
     # display changes file
+    echo "Changes file"
     cat $chngs
 
     # nidas-daq is an architecture all package.
@@ -182,20 +188,19 @@ if [ -n "$repo" ]; then
     # So I guess we have to look for architecture all packages
     # and remove them separately without a -A.
 
-    # only install arch alls and sources for armel.
-    archopt=
-    if [ $arch != armel ]; then
-        archopt="-A $arch"
-    fi
 
     #     reprepro -A 'source|$arch' -V -b $repo remove jessie $pkgs;
     #     reprepro -V -b $repo remove jessie $archalls;
 
-    flock $repo sh -c "
-        reprepro -V -b $repo $archopt include jessie $chngs;
-        reprepro -V -b $repo deleteunreferenced"
-
-    set +x
+    # only install arch alls and sources for armel.
+    if [ $arch == armel ]; then
+        flock $repo sh -c "
+            reprepro -V -b $repo $archopt include jessie $chngs;
+            reprepro -V -b $repo deleteunreferenced"
+    else
+        flock $repo sh -c "
+            reprepro -V -b $repo -A $arch includedeb jessie $archpkgs"
+    fi
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
 
