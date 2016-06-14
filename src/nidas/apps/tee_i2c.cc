@@ -448,7 +448,7 @@ int TeeI2C::run() throw()
 
 void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 {
-    unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
+    unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX + 2];
 
 #ifdef READ_LEN_BYTES
 
@@ -479,41 +479,46 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 
 // #define READ_BLOCK_DATA
 #ifdef READ_BLOCK_DATA
+        // This locks up the Pi.
         // address 0xff, data stream
-        i2cbuf[0] = sizeof(i2cbuf);
+        i2cbuf[0] = 32;
         int l = i2c_smbus_read_block_data(_i2cfd, 0xff, i2cbuf);
         if (l < 0)
             throw n_u::IOException(_i2cname,"read_block",errno);
+        cerr << "block_reads, l=" << l << ", buf[0]=" << (int)i2cbuf[0] << endl;
 
-        if (l == 0) break;
+        // if (l == 0) break;
 #else
         // address 0xff, data stream
         int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff,
                 sizeof(i2cbuf), i2cbuf);
         if (l < 0)
             throw n_u::IOException(_i2cname,"read_block",errno);
+        if (l == 0) break;
 #endif
 
-        if (l == 0) break;
         if (l > (signed) sizeof(i2cbuf)) l = (signed) sizeof(i2cbuf);
 
         int l2;
         for (l2 = 0; l2 < l && i2cbuf[l2] != 0xff; l2++);
-        // cerr << "l=" << l << endl;
+        cerr << "block_reads, l=" << l << ", l2=" << l2 << endl;
+        cerr << "buf= \"" << string((const char*)i2cbuf,l2) << "\"" << endl;
         writeptys(i2cbuf,l2);
-
         len -= l2;
     }
 }
 
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
-    unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX];
-    // unsigned char i2cbuf[8192];
+    unsigned char i2cbuf[8192];
     for ( ; ; ) {
         int len;
         for (len = 0; len < (signed) sizeof(i2cbuf); len++) {
+#ifdef READ_BYTE_DATA
             int db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
+#else
+            int db = i2c_smbus_read_byte(_i2cfd);
+#endif
 #ifdef GIVE_UP
             if (db < 0) 
                 throw n_u::IOException(_i2cname,"read_byte",errno);
@@ -539,7 +544,8 @@ void TeeI2C::writeptys(const unsigned char* buf, int len)
 
     /*
      * Only write to the ptys that are ready, so that
-     * one can't block everybody.
+     * one laggard doesn't block everybody.
+     * TODO: should we use NON_BLOCK writes?
      */
     if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
         throw n_u::IOException("ptys","pselect",errno);
@@ -558,7 +564,6 @@ int main(int argc, char** argv)
     TeeI2C tee;
     int res;
     if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
-
     return tee.run();
 }
 
