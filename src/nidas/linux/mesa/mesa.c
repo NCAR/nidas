@@ -335,14 +335,18 @@ static int load_start(struct MESA_Board *brd)
             M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
 
         outb(config, brd->addr + R_4I34CONTROL);
-        KLOG_DEBUG("outb(%#x)\n", config);
+        KLOG_DEBUG("mesa load_start, outb(%#x) OFF | INITASSERT | WRITEDISABLE | LEDOFF\n", config);
+
         status = inb(brd->addr + R_4I34STATUS);
-        KLOG_DEBUG("inb = %#x\n", status);
+        KLOG_DEBUG("mesa load_start, status inb = %#x\n", status);
 
         /* Note that if we see DONE at the start of programming, it's most likely due
          * to an attempt to access the 4I34 at the wrong I/O location.
          */
         if (status & M_4I34PROGDUN) {
+                config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT | 
+                        M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
+                outb(config, brd->addr + R_4I34CONTROL);
                 KLOG_ERR
                     ("failed - attempted to access the 4I34 at the wrong I/O location?\n");
                 return -ENODEV;
@@ -351,14 +355,16 @@ static int load_start(struct MESA_Board *brd)
             M_4I34CFGWRITEENABLE | M_4I34LEDON;
 
         outb(config, brd->addr + R_4I34CONTROL);
-        KLOG_DEBUG("outb(%#x)\n", config);
+        KLOG_DEBUG("mesa load_start, outb(%#x) ON | INITDEASSERT | WRITEENABLE | LEDON\n", config);
 
         // Multi task for 100 us
         /* Delay 100 uS. */
         status = inb(brd->addr + R_4I34STATUS);
+        KLOG_DEBUG("mesa load_start, status inb = %#x\n", status);
         j = jiffies + 1;
         while (time_before(jiffies, j))
                 schedule();
+        status = inb(brd->addr + R_4I34STATUS);
         KLOG_DEBUG("load_start done, status=%#x\n", status);
 
         brd->progNbytes = 0;
@@ -378,6 +384,7 @@ static int load_finish(struct MESA_Board *brd)
         config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
             M_4I34CFGWRITEDISABLE | M_4I34LEDON;
         outb(config, brd->addr + R_4I34CONTROL);
+        KLOG_DEBUG("mesa load_finish, outb(%#x) OFF | INITDEASSERT | WRITEDISABLE | LEDON\n", config);
 
         // Wait for Done bit set
         for (waitcount = 0; waitcount < 200; ++waitcount) {
@@ -386,13 +393,13 @@ static int load_finish(struct MESA_Board *brd)
                 unsigned char status;
                 if ((status =
                      inb(brd->addr + R_4I34STATUS)) & M_4I34PROGDUN) {
-                        KLOG_INFO
+                        KLOG_DEBUG
                             ("waitcount: %d, status=%#x,donebit=%#x\n",
                              waitcount, status, M_4I34PROGDUN);
                         success = 1;
                         break;
                 }
-                KLOG_INFO("waitcount: %d, status=%#x,donebit=%#x\n",
+                KLOG_DEBUG("waitcount: %d, status=%#x,donebit=%#x\n",
                             waitcount, status, M_4I34PROGDUN);
                 j = jiffies + 1;  // 1/100 of a second.
                 while (time_before(jiffies, j))
@@ -413,6 +420,9 @@ static int load_finish(struct MESA_Board *brd)
 
                 ret = 0;
         } else
+                config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
+                        M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
+                outb(config, brd->addr + R_4I34CONTROL);
                 KLOG_ERR("FPGA programming not successful.\n");
 
         return ret;
@@ -422,6 +432,8 @@ static int load_program(struct MESA_Board *brd, struct mesa_prog *buf)
 {
         int i, ret = buf->len;
         unsigned char *bptr;
+
+        KLOG_DEBUG("load_program, len=%d, nbytes=%d\n", buf->len, brd->progNbytes);
 
         // Now program the FPGA
         bptr = buf->buffer;
