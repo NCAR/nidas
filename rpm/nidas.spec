@@ -33,7 +33,6 @@ Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0, nidas-run
 Requires: xerces-c xmlrpc++
-BuildArch: noarch
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
 that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
