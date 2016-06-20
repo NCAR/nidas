@@ -81,6 +81,8 @@ env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
     env.NidasUtilProgram('tee_i2c.cc')
+    env.NidasUtilProgram('ublox.cc')
+
 env.NidasUtilProgram('utime.cc')
 
 if 'viper' in machs:
