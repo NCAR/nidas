@@ -24,18 +24,27 @@
  ********************************************************************
 */
 /*
-    Configure a ublox GPS via I2C.
+  Configure a Ublox GPS via I2C.
+
+  The Ublox 6Q has 3 boot-time configuration pins:
+  CFG_COM0, CFG_COM1 and CFG_GPS0. See the NEO 6 data sheet.
+
+  On the HAT board for the ISFS RaspberryPi2 these
+  pins are at 3.3V, which results in the following settings:
+  CFG_COM0=1, CFG_COM1=1: NMEA, 9600 baud
+  CFG_GPS0=1, max performance mode.
 */
 
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <linux/i2c-dev.h>
 #include <cstdlib>
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
-#include <linux/i2c-dev.h>
+#include <ctype.h>
 
 #include <iostream>
 #include <iomanip>
@@ -514,11 +523,14 @@ int ublox::read_rdwr_simple2(string& str) throw()
         cerr << "read_rdwr_simple(str), ioctl res=" << res << endl;
         return res;
     }
+
     int l = 0;
-    
     for (const char* cp = buffer;
-            cp < buffer + sizeof(buffer) && *cp != 0xff && *cp; cp++,l++)
-        cerr << *cp << ' ';
+            cp < buffer + sizeof(buffer) && *cp != 0xff && *cp; cp++,l++) {
+        if (isprint(*cp)) cerr << *cp << ' ';
+        else cerr << "\\x" << setw(2) << setfill('0') << hex <<
+            (int)*cp << dec << ' ';
+    }
     cerr << endl;
     cerr << "l=" << l << endl;
     str.assign(buffer,l);
@@ -561,12 +573,17 @@ int ublox::read_rdwr(string& str) throw()
     cerr << "received: ";
     int l = 0;
     
-    for (const char* cp = buffer + 2; *cp != 0xff && *cp; cp++,l++) cerr << (int)*cp << ' ';
+    for (const char* cp = buffer + 2; *cp != 0xff && *cp; cp++,l++) {
+        if (isprint(*cp)) cerr << *cp << ' ';
+        else cerr << "\\x" << setw(2) << setfill('0') << hex <<
+            (int)*cp << dec << ' ';
+    }
     cerr << endl;
     cerr << "l=" << l << endl;
     str.assign(buffer,l);
     return l;
 }
+
 int ublox::write_rdwr(const ublox_pkt& pkt) throw()
 {
 
@@ -778,9 +795,14 @@ int ublox::parseRunstring(int argc, char** argv)
 int ublox::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << "[-f] i2cdev i2caddr ptyname ... \n\
+Usage: " << argv0 << "i2cdev i2caddr [-d msg] [-e msg]...\n\
   i2cdev: name of I2C bus to open, e.g. /dev/i2c-1\n\
-  i2caddr: address of I2C device, usually in hex: e.g. 0x42" << endl;
+  i2caddr: address of I2C device, usually in hex: e.g. 0x42\n\
+  -d msg: a NMEA message to disable\n\
+  -e msg: a NMEA message to enabl\n\
+\n\
+    msg is one of: GGA, GLL, GSA, GSV, RMC, VTG, GRS, GST, ZDA, GBS, DTM, GPQ, TXT\n\
+" << endl;
     return 1;
 }
 
@@ -806,10 +828,8 @@ int ublox::run() throw()
             ost << "ioctl(,I2C_SLAVE," << hex << _addr << ")";
             throw n_u::IOException(_name, ost.str(), errno);
         }
-#ifdef DO_THIS
-#endif
 
-        // config_nmea("VTG", false);
+
 #ifdef DO_THIS
         // config_ubx();
         sleep(1);
@@ -834,10 +854,9 @@ int ublox::run() throw()
 // #define DO_READ_RDWR
 #ifdef DO_READ_RDWR
             string str;
-
-            int res = read_rdwr_simple2(str);
+            int res = read_rdwr(str);
             if (res > 0) cerr << "config_nmea, read_rdwr len=" << res << endl;
-            cerr << "string=" << str << endl;
+            cerr << "string, len=" << str.length() << "," << str << endl;
 #else
             string str = read_smbus();
             cerr << "string=" << str << endl;
