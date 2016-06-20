@@ -350,9 +350,11 @@ void ublox::config_nmea(const string& msg, bool enable) throw()
     string cs = nmea_cksum(ost.str());
 
     ost << '*' << cs << "\r\n";
+#ifdef DEBUG
     cerr << "config_nmea, ost=" << ost.str() << endl;
+#endif
 
-// #define WRITE_RDWR
+#define WRITE_RDWR
 #ifdef WRITE_RDWR
     write_rdwr(ost.str());
 #else
@@ -452,7 +454,10 @@ int ublox::write_rdwr(const string& str) throw()
         cerr << "write_rdwr(str), ioctl 1 res=" << res << endl;
         return res;
     }
+
+#ifdef DEBUG
     cerr << "write_rdwr(str), ioctl 1 res=" << res << endl; // 1
+#endif
 
     return res;
 }
@@ -847,7 +852,7 @@ int ublox::run() throw()
             usleep(USECS_PER_SEC / 4);
         }
 
-#define READ_BACK
+// #define READ_BACK
 #ifdef READ_BACK
         for (int i = 0; i < 20; i++) {
             usleep(USECS_PER_SEC / 4);
@@ -859,7 +864,9 @@ int ublox::run() throw()
             cerr << "string, len=" << str.length() << "," << str << endl;
 #else
             string str = read_smbus();
+#ifdef DEBUG
             cerr << "string=" << str << endl;
+#endif
 #endif
         }
 #endif
