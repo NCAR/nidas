@@ -87,19 +87,19 @@ Description: Sets ower and group of /opt/nidas to root.eol
 
 Package: nidas-titan
 Architecture: armel
-Depends:  nidas, nidas-modules-titan
+Depends:  nidas, nidas-modules-titan, pxaregs
 Description: Meta-package for installation of NIDAS onto a Eurotech Titan
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Titan
 
 Package: nidas-viper
 Architecture: armel
-Depends:  nidas, nidas-modules-viper
+Depends:  nidas, nidas-modules-viper, pxaregs
 Description: Meta-package for installation of NIDAS onto a Eurotech Viper
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
 
 Package: nidas-rpi2
 Architecture: armhf
-Depends:  nidas, nidas-modules-rpi2
+Depends:  nidas, nidas-modules-rpi2, network-manager
 Description: Meta-package for installation of NIDAS onto a Raspberry Pi2
  Metapackage with sufficient dependencies to run NIDAS on a Raspberry Pi2
 
