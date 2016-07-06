@@ -180,47 +180,47 @@ public:
 
     int run() throw();
 
-    int write_smbus(const ublox_pkt& pkt) throw();
+    void write_smbus(const ublox_pkt& pkt) throw(n_u::IOException);
 
-    int write_smbus(const string& str) throw();
+    void write_smbus(const string& str) throw(n_u::IOException);
 
-    int write_rdwr(const ublox_pkt& pkt) throw();
+    void write_rdwr(const ublox_pkt& pkt) throw(n_u::IOException);
 
-    int write_rdwr(const string& str) throw();
+    void write_rdwr(const string& str) throw(n_u::IOException);
 
-    int read_rdwr_simple(string& str) throw();
+    void read_rdwr_simple(string& str) throw(n_u::IOException);
 
-    int read_rdwr_simple2(string& str) throw();
+    void read_rdwr_simple2(string& str) throw(n_u::IOException);
 
-    int read_rdwr(string& str) throw();
+    void read_rdwr(string& str) throw(n_u::IOException);
 
-    string read_smbus() throw();
+    string read_smbus() throw(n_u::IOException);
 
-    int read_byte() throw();
+    int read_byte() throw(n_u::IOException);
 
-    int read_byte_data(unsigned char reg) throw();
+    int read_byte_data(unsigned char reg) throw(n_u::IOException);
 
-    int write_byte(unsigned char b) throw();
+    void write_byte(unsigned char b) throw(n_u::IOException);
 
-    int write_byte_data(unsigned char b, unsigned char reg) throw();
+    void write_byte_data(unsigned char b, unsigned char reg) throw(n_u::IOException);
 
-    void reset() throw();
+    void reset() throw(n_u::IOException);
 
-    void config_port() throw();
+    void config_port() throw(n_u::IOException);
 
-    void set_rate(int rate) throw();
+    void set_rate(int rate) throw(n_u::IOException);
 
-    void config_ubx() throw();
+    void config_ubx() throw(n_u::IOException);
 
-    void config_nmea(enum NMEA_ID id, bool enable) throw();
+    void config_nmea(enum NMEA_ID id, bool enable) throw(n_u::IOException);
 
     /**
      * Send a "$PUBX,40,..." proprietory message to enable/disable
      * NMEA messages.
      */
-    void config_nmea(const string&, bool enable) throw();
+    void config_nmea(const string&, bool enable) throw(n_u::IOException);
 
-    void config_nmea_all_targets(enum NMEA_ID id, bool enable) throw();
+    void config_nmea_all_targets(enum NMEA_ID id, bool enable) throw(n_u::IOException);
 
     static string nmea_cksum(const string& msg);
 
@@ -239,10 +239,13 @@ private:
 
     vector<string> _disable_msgs;
 
+    bool _readback;
+
 };
 
 ublox::ublox():progname(),_name(),_addr(0), _fd(-1),
-    _nmea_map(), _enable_msgs(), _disable_msgs()
+    _nmea_map(), _enable_msgs(), _disable_msgs(),
+    _readback(false)
 {
     _nmea_map["GGA"] = GGA;
     _nmea_map["GLL"] = GLL;
@@ -271,7 +274,7 @@ enum reset_type
     COLDSTART = 0xffff
 };
 
-void ublox::set_rate(int rate) throw()
+void ublox::set_rate(int rate) throw(n_u::IOException)
 {
     ublox_pkt pkt(0x06, 0x08, 6);  // CFG-RST packet
 
@@ -289,7 +292,7 @@ void ublox::set_rate(int rate) throw()
     write_rdwr(pkt);
 }
 
-void ublox::reset() throw()
+void ublox::reset() throw(n_u::IOException)
 {
     ublox_pkt pkt(0x06, 0x04, 4);  // CFG-RST packet
     struct rst {
@@ -307,7 +310,7 @@ void ublox::reset() throw()
     write_smbus(pkt);
 }
 
-void ublox::config_port() throw()
+void ublox::config_port() throw(n_u::IOException)
 {
 
     ublox_pkt msg(0x06, 0x00, 20);  // CFG-PRT packet
@@ -341,7 +344,7 @@ void ublox::config_port() throw()
 
 }
 
-void ublox::config_nmea(const string& msg, bool enable) throw()
+void ublox::config_nmea(const string& msg, bool enable) throw(n_u::IOException)
 {
     ostringstream ost;
     ost << "$PUBX,40," << msg << ',' <<
@@ -360,11 +363,9 @@ void ublox::config_nmea(const string& msg, bool enable) throw()
 #else
     write_smbus(ost.str());
 #endif
-
-    return;
 }
 
-void ublox::config_ubx() throw()
+void ublox::config_ubx() throw(n_u::IOException)
 {
     int portId = 0;                 // port id is 0 for DDC (I2C)
     string inputProtMask = "0003";  // 2=NMEA, 1=UBX
@@ -387,11 +388,9 @@ void ublox::config_ubx() throw()
     cerr << "config_ubx, ost=" << ost.str() << endl;
 
     write_rdwr(ost.str());
-
-    return;
 }
 
-void ublox::config_nmea_all_targets(enum NMEA_ID id, bool enable) throw()
+void ublox::config_nmea_all_targets(enum NMEA_ID id, bool enable) throw(n_u::IOException)
 {
 
     ublox_pkt pkt(0x06, 0x01, 8);
@@ -408,7 +407,7 @@ void ublox::config_nmea_all_targets(enum NMEA_ID id, bool enable) throw()
 
 }
 
-void ublox::config_nmea(enum NMEA_ID id, bool enable) throw()
+void ublox::config_nmea(enum NMEA_ID id, bool enable) throw(n_u::IOException)
 {
     ublox_pkt pkt(0x06, 0x01, 3);
     pkt.payload()[0] = 0xf0;
@@ -435,7 +434,7 @@ string ublox::nmea_cksum(const string& msg)
     return ost.str();
 }
 
-int ublox::write_rdwr(const string& str) throw()
+void ublox::write_rdwr(const string& str) throw(n_u::IOException)
 {
 
     struct i2c_msg rdwr_msgs[2];
@@ -451,15 +450,14 @@ int ublox::write_rdwr(const string& str) throw()
     
     int res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "write_rdwr(str), ioctl 1 res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, write 1 msg, len=" << str.length();
+        throw n_u::IOException(_name, ost.str(), errno);
     }
 
 #ifdef DEBUG
     cerr << "write_rdwr(str), ioctl 1 res=" << res << endl; // 1
 #endif
-
-    return res;
 }
 
 short len_swab(const char* cp)
@@ -468,7 +466,7 @@ short len_swab(const char* cp)
         (unsigned char)cp[1];
 }
 
-int ublox::read_rdwr_simple(string& str) throw()
+void ublox::read_rdwr_simple(string& str) throw(n_u::IOException)
 {
     struct i2c_msg rdwr_msgs[3];
     struct i2c_rdwr_ioctl_data rdwr_data;
@@ -493,8 +491,9 @@ int ublox::read_rdwr_simple(string& str) throw()
 
     res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "read_rdwr_simple(str), ioctl res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, write/read";
+        throw n_u::IOException(_name, ost.str(), errno);
     }
     int l = 0;
     
@@ -503,10 +502,9 @@ int ublox::read_rdwr_simple(string& str) throw()
     cerr << endl;
     cerr << "l=" << l << endl;
     str.assign(buffer,l);
-    return l;
 }
 
-int ublox::read_rdwr_simple2(string& str) throw()
+void ublox::read_rdwr_simple2(string& str) throw(n_u::IOException)
 {
     struct i2c_msg rdwr_msgs[1];
     struct i2c_rdwr_ioctl_data rdwr_data;
@@ -525,8 +523,9 @@ int ublox::read_rdwr_simple2(string& str) throw()
 
     res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "read_rdwr_simple(str), ioctl res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, read 1 msg";
+        throw n_u::IOException(_name, ost.str(), errno);
     }
 
     int l = 0;
@@ -539,10 +538,9 @@ int ublox::read_rdwr_simple2(string& str) throw()
     cerr << endl;
     cerr << "l=" << l << endl;
     str.assign(buffer,l);
-    return l;
 }
 
-int ublox::read_rdwr(string& str) throw()
+void ublox::read_rdwr(string& str) throw(n_u::IOException)
 {
     struct i2c_msg rdwr_msgs[3];
     struct i2c_rdwr_ioctl_data rdwr_data;
@@ -567,8 +565,9 @@ int ublox::read_rdwr(string& str) throw()
 
     res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "read_rdwr(str), ioctl 2 res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, write/read";
+        throw n_u::IOException(_name, ost.str(), errno);
     }
     cerr << "read_rdwr(str), ioctl 2 res=" << res << endl; // 2
     short len = len_swab(buffer);
@@ -586,10 +585,9 @@ int ublox::read_rdwr(string& str) throw()
     cerr << endl;
     cerr << "l=" << l << endl;
     str.assign(buffer,l);
-    return l;
 }
 
-int ublox::write_rdwr(const ublox_pkt& pkt) throw()
+void ublox::write_rdwr(const ublox_pkt& pkt) throw(n_u::IOException)
 {
 
     struct i2c_msg rdwr_msgs[2];
@@ -605,8 +603,9 @@ int ublox::write_rdwr(const ublox_pkt& pkt) throw()
     
     int res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "ioctl res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, write 1 msg, len=" << pkt.len();
+        throw n_u::IOException(_name, ost.str(), errno);
     }
 
     ublox_pkt ack(2);
@@ -626,8 +625,9 @@ int ublox::write_rdwr(const ublox_pkt& pkt) throw()
 
     res = ioctl(_fd, I2C_RDWR, &rdwr_data );
     if (res < 0) {
-        cerr << "ioctl res=" << res << endl;
-        return res;
+        ostringstream ost;
+        ost << "I2C_RDWR, write/read";
+        throw n_u::IOException(_name, ost.str(), errno);
     }
 
     cerr << hex << "sync1=" << (unsigned int)ack.sync1() <<
@@ -639,39 +639,27 @@ int ublox::write_rdwr(const ublox_pkt& pkt) throw()
 
 #ifdef READ_BACK
 #endif
-    return res;
 }
 
-int ublox::write_smbus(const string& str) throw()
+void ublox::write_smbus(const string& str) throw(n_u::IOException)
 {
     string::const_iterator cp = str.begin();
     int res = 0;
-    for ( ; cp != str.end(); cp++) {
-        res = write_byte(*cp);
-        if (res < 0) {
-            cerr << "write res=" << res << endl;
-            break;
-        }
+    for ( ; cp != str.end(); cp++,res++) {
+        write_byte(*cp);
     }
-    return res;
 }
-int ublox::write_smbus(const ublox_pkt& pkt) throw()
+void ublox::write_smbus(const ublox_pkt& pkt) throw(n_u::IOException)
 {
     char *mp = pkt.beginp();
-    int res = 0;
     for (int i = 0; mp < pkt.endp(); mp++,i++) {
         cerr << "write byte " << i << "=" << hex <<
             (unsigned int) *mp <<  dec << endl;
-        res = write_byte_data((unsigned char)*mp, 0);
-        if (res < 0) {
-            cerr << "write res=" << res << endl;
-            break;
-        }
+        write_byte_data((unsigned char)*mp, 0);
     }
-    return res;
 }
 
-string ublox::read_smbus() throw()
+string ublox::read_smbus() throw(n_u::IOException)
 {
     string res;
 
@@ -685,10 +673,6 @@ string ublox::read_smbus() throw()
 
         for (int i = 0; i < len; i++) {
             int db = read_byte();
-            if (db < 0) {
-                cerr << "read: byte " << i << " res=" << db << endl;
-                break;
-            }
             cerr << "read: byte " << i << "=" << hex <<
                 (unsigned int)(db & 0xff) << dec << endl;
         }
@@ -697,10 +681,6 @@ string ublox::read_smbus() throw()
         cerr << "read: no len info from 0xfd, 0xfe" << endl;
         for (int i = 0; ; i++) {
             int db = read_byte();
-            if (db < 0) {
-                cerr << "read: byte " << i << " res=" << db << endl;
-                break;
-            }
             cerr << "read: byte " << i << "=" << hex <<
                 (unsigned int)(db & 0xff) << dec << endl;
             if ((db & 0xff) == 0xff) break;
@@ -709,10 +689,6 @@ string ublox::read_smbus() throw()
 #else
     for (int i = 0; ; i++) {
         int db = read_byte();
-        if (db < 0) {
-            cerr << "read: byte " << i << " res=" << db << endl;
-            break;
-        }
 #ifdef DEBUG
         cerr << "read: byte " << i << "=" << hex <<
             (unsigned int)(db & 0xff) << dec << endl;
@@ -724,48 +700,40 @@ string ublox::read_smbus() throw()
     return res;
 }
 
-int ublox::read_byte() throw()
+int ublox::read_byte() throw(n_u::IOException)
 {
     int res = i2c_smbus_read_byte(_fd);
-    if (res < 0) {
-        n_u::IOException e(_name,"read_byte",errno);
-        cerr << "Error: " << e.what() << endl;
-    }
+    if (res < 0)
+        throw n_u::IOException(_name,"i2c_smbus_read_byte",errno);
     return res;
 }
 
-int ublox::read_byte_data(unsigned char reg) throw()
+int ublox::read_byte_data(unsigned char reg) throw(n_u::IOException)
 {
     int res = i2c_smbus_read_byte_data(_fd,reg);
     if (res < 0) {
         ostringstream ost;
-        ost << "read_byte_data, reg=" << hex << (unsigned int) reg;
-        n_u::IOException e(_name,ost.str(),errno);
-        cerr << "Error: " << e.what() << endl;
+        ost << "i2c_smbus_read_byte_data, reg=" << hex << (unsigned int) reg;
+        throw n_u::IOException(_name, ost.str(), errno);
     }
     return res;
 }
 
-int ublox::write_byte(unsigned char b) throw()
+void ublox::write_byte(unsigned char b) throw(n_u::IOException)
 {
     int res = i2c_smbus_write_byte(_fd, b);
-    if (res < 0) {
-        n_u::IOException e(_name,"write_byte",errno);
-        cerr << "Error: " << e.what() << endl;
-    }
-    return res;
+    if (res < 0)
+        throw n_u::IOException(_name, "i2c_smbus_write_byte", errno);
 }
 
-int ublox::write_byte_data(unsigned char b, unsigned char reg) throw()
+void ublox::write_byte_data(unsigned char b, unsigned char reg) throw(n_u::IOException)
 {
     int res = i2c_smbus_write_byte_data(_fd, reg, b);
     if (res < 0) {
         ostringstream ost;
-        ost << "write_byte_data, reg=" << hex << (unsigned int) reg;
-        n_u::IOException e(_name,ost.str(),errno);
-        cerr << "Error: " << e.what() << endl;
+        ost << "i2c_smbus_write_byte_data, reg=" << hex << (unsigned int) reg;
+        throw n_u::IOException(_name, ost.str(), errno);
     }
-    return res;
 }
 
 int ublox::parseRunstring(int argc, char** argv)
@@ -782,6 +750,9 @@ int ublox::parseRunstring(int argc, char** argv)
         else if (arg == "-e") {
             if (++iarg == argc) return usage(argv[0]);
             _enable_msgs.push_back(argv[iarg]);
+        }
+        else if (arg == "-r") {
+            _readback = true;
         }
         else {
             if (_name.length() == 0) _name = argv[iarg];
@@ -842,14 +813,48 @@ int ublox::run() throw()
         sleep(1);
 #endif
 
+        int ntry = 5;
         for (unsigned int i = 0; i < _disable_msgs.size(); i++) {
-            config_nmea(_disable_msgs[i], false);
-            usleep(USECS_PER_SEC / 4);
+            for (int j = 1; j <= ntry; j++) {
+                try {
+                    config_nmea(_disable_msgs[i], false);
+                    break;
+                }
+                catch (const n_u::IOException& e) {
+                    if (j == ntry) throw e;
+                    usleep(USECS_PER_SEC/4);
+                }
+            }
+
+            if (_readback) {
+                for (int i = 0; i < 4; i++) {
+                    usleep(USECS_PER_SEC / 2);
+                    string str = read_smbus();
+                    if (str.length()) cout << str;
+                }
+            }
+            else usleep(USECS_PER_SEC / 4);
         }
 
         for (unsigned int i = 0; i < _enable_msgs.size(); i++) {
-            config_nmea(_enable_msgs[i], true);
-            usleep(USECS_PER_SEC / 4);
+            for (int j = 1; j <= ntry; j++) {
+                try {
+                    config_nmea(_enable_msgs[i], true);
+                    break;
+                }
+                catch (const n_u::IOException& e) {
+                    if (j == ntry) throw e;
+                    usleep(USECS_PER_SEC/4);
+                }
+            }
+            if (_readback) {
+                for (int i = 0; i < 4; i++) {
+                    usleep(USECS_PER_SEC / 2);
+                    string str = read_smbus();
+                    if (str.length()) cout << str;
+                }
+            }
+            else usleep(USECS_PER_SEC / 4);
         }
 
 // #define READ_BACK
@@ -859,8 +864,7 @@ int ublox::run() throw()
 // #define DO_READ_RDWR
 #ifdef DO_READ_RDWR
             string str;
-            int res = read_rdwr(str);
-            if (res > 0) cerr << "config_nmea, read_rdwr len=" << res << endl;
+            read_rdwr(str);
             cerr << "string, len=" << str.length() << "," << str << endl;
 #else
             string str = read_smbus();
