@@ -92,6 +92,10 @@ SampleSorter::SampleSorter(const std::string& name,bool raw) :
     _doFlush(false),_flushed(true),_dummy(),
     _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
+    // Allow the discard warning count to be overridden.
+    _discardWarningCount =
+        LogScheme::current().getParameterT("sample_sorter_discard_warning_count",
+                                           _discardWarningCount);
 }
 
 SampleSorter::~SampleSorter()
