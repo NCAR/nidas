@@ -77,6 +77,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 using nidas::util::endlog;
+using nidas::util::LogScheme;
 
 SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
