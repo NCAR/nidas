@@ -65,6 +65,7 @@ static unsigned int periodMsec = 0;
 static bool testModemLines = false;
 
 static n_u::SerialPort port;
+static string shortName;
 
 /**
  * Format of test packet:
@@ -606,7 +607,7 @@ int Receiver::scanBuffer()
 
 void Receiver::report()
 {
-    if (_sender) cout << "sent#:" << setw(5) << _sender->getNout() << ' ';
+    if (_sender) cout << shortName << " sent#:" << setw(5) << _sender->getNout() << ' ';
     cout << "rcvd#:" << setw(5) << _Nlast <<
         ", " << setw(2) << _ngood10 << '/' << std::min(_Nlast+1,(unsigned int)10) <<
         ", " << setw(3) << _ngood100 << '/' << std::min(_Nlast+1,(unsigned int)100);
@@ -639,11 +640,11 @@ int ModemLineSetter::run() throw(n_u::Exception)
 
         int outbits = (dte? dtebits : dcebits);
         port.setModemStatus(outbits);
-        cout << "setting modem lines: " << port.modemFlagsToString(outbits) << endl;
+        cout << shortName << " setting modem lines: " << port.modemFlagsToString(outbits) << endl;
 
         int inbits = port.getModemStatus();
         if (inbits != outbits)
-            cout << "current modem lines: " << port.modemFlagsToString(inbits) << endl;
+            cout << shortName << " current modem lines: " << port.modemFlagsToString(inbits) << endl;
         cerr << '\n';
 
         dte = !dte;
@@ -659,7 +660,7 @@ int ModemLineMonitor::run() throw(n_u::Exception)
     for ( ;!isInterrupted() && !interrupted; ) {
         int cval = port.getModemStatus();
         if (cval != val) {
-            cout << "current modem lines: " << port.modemFlagsToString(cval) << endl;
+            cout << shortName << " current modem lines: " << port.modemFlagsToString(cval) << endl;
             val = cval;
         }
         usleep(USECS_PER_SEC/10);
@@ -775,6 +776,12 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     options.parse(termioOpts);
 
     port.setName(device);
+
+    // remove common "/dev/tty" prefix from device name to shorten output
+    shortName = device;
+    if (shortName.substr(0,5) == "/dev/")  shortName = shortName.substr(5);
+    if (shortName.substr(0,3) == "tty")  shortName = shortName.substr(3);
+
     n_u::Termios& tio = port.termios();
     tio = options.getTermios();
     tio.setRaw(true);
@@ -782,6 +789,7 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     tio.setRawTimeout(0);
     port.setBlocking(true);
     port.open(O_RDWR | O_NOCTTY | O_NONBLOCK);
+
     // port.setTermioConfig();
     // cerr << "port opened" << endl;
     int modembits = port.getModemStatus();
