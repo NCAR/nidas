@@ -607,8 +607,9 @@ int Receiver::scanBuffer()
 
 void Receiver::report()
 {
-    if (_sender) cout << shortName << " sent#:" << setw(5) << _sender->getNout() << ' ';
-    cout << "rcvd#:" << setw(5) << _Nlast <<
+    cout << shortName;
+    if (_sender) cout << " sent#:" << setw(5) << _sender->getNout();
+    cout << " rcvd#:" << setw(5) << _Nlast <<
         ", " << setw(2) << _ngood10 << '/' << std::min(_Nlast+1,(unsigned int)10) <<
         ", " << setw(3) << _ngood100 << '/' << std::min(_Nlast+1,(unsigned int)100);
     if (_sender) {
