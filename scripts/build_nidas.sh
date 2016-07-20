@@ -5,6 +5,7 @@ set -e
 usage() {
     echo "Usage: ${1##*/} arch"
     echo "arch is armel, armhf or amd64"
+    echo "Run this within a chroot"
     exit 1
 }
 
@@ -16,15 +17,16 @@ arch=amd64
 while [ $# -gt 0 ]; do
     case $1 in
     armel)
-        export CC=arm-linux-gnueabi-gcc
         arch=$1
+        PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabi/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
         ;;
     armhf)
-        export CC=arm-linux-gnueabihf-gcc
         arch=$1
+        PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
         ;;
     amd64)
         arch=$1
+        PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
         ;;
     *)
         usage $0
@@ -33,25 +35,11 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-dist=$(lsb_release -c | awk '{print $2}')
-if [ $arch == amd64 ]; then
-    chr_name=${dist}-amd64-sbuild
-else
-    chr_name=${dist}-amd64-cross-${arch}-sbuild
-fi
-if ! schroot -l | grep -F chroot:${chr_name}; then
-    echo "chroot named ${chr_name} not found"
-    exit 1
-fi
-
 sdir=$(dirname $0)
 dir=$sdir/..
 cd $dir
 
-echo "Starting schroot, which takes some time ..."
-schroot -c $chr_name --directory=$PWD << EOD
-    set -e
-    cd src
-    scons BUILDS=$arch
-EOD
+cd src
+# scons BUILDS=$arch --config=force PKG_CONFIG_PATH=$PKG_CONFIG_PATH
+scons BUILDS=$arch PKG_CONFIG_PATH=$PKG_CONFIG_PATH
 
