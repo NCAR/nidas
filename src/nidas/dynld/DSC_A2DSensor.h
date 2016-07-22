@@ -81,6 +81,16 @@ public:
 
 private:
 
+    /**
+     * Each card can only support one gain value.
+     */
+    int _gain;
+
+    /**
+     * Each card can only support one polarity.
+     */
+    bool _bipolar;
+
 };
 
 }}	// namespace nidas namespace dynld

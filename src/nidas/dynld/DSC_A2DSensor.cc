@@ -43,7 +43,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor()
+    A2DSensor(),_gain(-1),_bipolar(false)
 {
     setLatency(0.1);
 }
@@ -146,7 +146,7 @@ void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
         ost << "value=" << ichan << " doesn't exist";
         throw n_u::InvalidParameterException(getName(), "channel",ost.str());
     }
-        
+
     // screen invalid gains
     switch(gain) {
     case 1:
@@ -165,6 +165,20 @@ void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
             throw n_u::InvalidParameterException(getName(),"gain",ost.str());
         }
     }
+
+    if (_gain < 0) {
+        _gain = gain;
+        _bipolar = bipolar;
+    }
+
+    if (_gain != gain)
+        throw n_u::InvalidParameterException(getName(),
+            "gain","board does not support multiple gains");
+
+    if (_bipolar != bipolar)
+        throw n_u::InvalidParameterException(getName(),
+            "gain","board does not support multiple polarities");
+        
     A2DSensor::setA2DParameters(ichan,gain,bipolar);
 
 }
