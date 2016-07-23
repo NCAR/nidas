@@ -92,10 +92,10 @@ ifeq ($(DEB_HOST_GNU_TYPE),x86_64-linux-gnu)
     VIPER_KERN :=
     X86_64_KERN := $(shell uname -r)
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
-    TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed s/.*linux-headers-//)
-    VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed s/.*linux-headers-//)
+    TITAN_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*titan*" -type d | sed "s/.*linux-headers-//")
+    VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed "s/.*linux-headers-//")
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
-    RPI2_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*" -type d | tail -n 1 | sed s/.*linux-headers-//)
+    RPI2_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*" -type d | tail -n 1 | sed "s/.*linux-headers-//")
 endif
 
 # Where to find pkg-configs of other software
