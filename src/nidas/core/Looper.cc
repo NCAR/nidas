@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/Looper.h>
+#include "Looper.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

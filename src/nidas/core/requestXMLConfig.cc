@@ -23,10 +23,10 @@
  **
  ********************************************************************
 */
-#include <nidas/core/requestXMLConfig.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/XMLConfigInput.h>
-#include <nidas/core/XMLFdInputSource.h>
+#include "requestXMLConfig.h"
+#include "XMLParser.h"
+#include "XMLConfigInput.h"
+#include "XMLFdInputSource.h"
 #include <nidas/util/Logger.h>
 
 namespace n_c = nidas::core;

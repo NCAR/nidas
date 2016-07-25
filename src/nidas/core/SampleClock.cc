@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleClock.h>
+#include "SampleClock.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

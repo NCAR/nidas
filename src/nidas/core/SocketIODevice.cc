@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/SocketIODevice.h>
+#include "SocketIODevice.h"
 #include <nidas/util/BluetoothRFCommSocketAddress.h>
 
 #include <nidas/util/Logger.h>

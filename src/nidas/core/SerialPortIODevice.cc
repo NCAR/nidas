@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/SerialPortIODevice.h>
-#include <nidas/core/Looper.h>
-#include <nidas/core/Prompt.h>
+#include "SerialPortIODevice.h"
+#include "Looper.h"
+#include "Prompt.h"
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>

@@ -24,11 +24,11 @@
  ********************************************************************
 */
 
-#include <nidas/core/Socket.h>
-#include <nidas/core/McSocket.h>
-#include <nidas/core/McSocketUDP.h>
-#include <nidas/core/DatagramSocket.h>
-#include <nidas/core/MultipleUDPSockets.h>
+#include "Socket.h"
+#include "McSocket.h"
+#include "McSocketUDP.h"
+#include "DatagramSocket.h"
+#include "MultipleUDPSockets.h"
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 

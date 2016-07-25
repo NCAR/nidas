@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/XMLStringConverter.h>
+#include "XMLParser.h"
+#include "XMLStringConverter.h"
 #include <nidas/util/Logger.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>

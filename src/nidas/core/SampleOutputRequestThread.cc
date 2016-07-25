@@ -25,7 +25,7 @@
 */
 
 #include <nidas/util/Logger.h>
-#include <nidas/core/SampleOutputRequestThread.h>
+#include "SampleOutputRequestThread.h"
 
 #include <unistd.h> // sleep()
 

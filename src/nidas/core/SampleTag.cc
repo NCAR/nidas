@@ -24,14 +24,14 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/CalFile.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/DSMSensor.h>
+#include "SampleTag.h"
+#include "Project.h"
+#include "Site.h"
+#include "DSMConfig.h"
+#include "CalFile.h"
+#include "Parameter.h"
+#include "Variable.h"
+#include "DSMSensor.h"
 
 #include <sstream>
 #include <iostream>

@@ -24,13 +24,13 @@
  ********************************************************************
 */
 
-#include <nidas/core/StatusThread.h>
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/DSMService.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Datagrams.h>
+#include "StatusThread.h"
+#include "SensorHandler.h"
+#include "DSMEngine.h"
+#include "DSMServer.h"
+#include "DSMService.h"
+#include "DSMConfig.h"
+#include "Datagrams.h"
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/Logger.h>

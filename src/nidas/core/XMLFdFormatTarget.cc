@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/XMLFdFormatTarget.h>
+#include "XMLFdFormatTarget.h"
 
 #include <iostream>
 

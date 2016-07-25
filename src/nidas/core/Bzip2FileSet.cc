@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/Bzip2FileSet.h>
+#include "Bzip2FileSet.h"
 
 #ifdef HAVE_BZLIB_H
 

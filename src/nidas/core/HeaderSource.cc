@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/HeaderSource.h>
-#include <nidas/core/SampleInputHeader.h>
-#include <nidas/core/Version.h>
-#include <nidas/core/Project.h>
+#include "HeaderSource.h"
+#include "SampleInputHeader.h"
+#include "Version.h"
+#include "Project.h"
 
 using namespace nidas::core;
 using namespace std;

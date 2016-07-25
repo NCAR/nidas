@@ -24,18 +24,18 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/DSMCatalog.h>
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/FileSet.h>
+#include "DSMConfig.h"
+#include "Project.h"
+#include "Site.h"
+#include "SensorHandler.h"
+#include "DSMCatalog.h"
+#include "SampleIOProcessor.h"
+#include "SampleOutput.h"
+#include "FileSet.h"
 
 #include <nidas/util/Logger.h>
 
-#include <nidas/core/DOMObjectFactory.h>
+#include "DOMObjectFactory.h"
 
 #include <iostream>
 #include <sstream>

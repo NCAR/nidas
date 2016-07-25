@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/Project.h>
-#include <nidas/core/XMLConfigWriter.h>
-#include <nidas/core/XDOM.h>
+#include "Project.h"
+#include "XMLConfigWriter.h"
+#include "XDOM.h"
 
 #include <xercesc/dom/DOMImplementationLS.hpp>
 #include <xercesc/dom/DOMNamedNodeMap.hpp>

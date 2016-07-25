@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/ProjectConfigs.h>
-#include <nidas/core/XMLWriter.h>
-#include <nidas/core/XDOM.h>
-#include <nidas/core/DSMEngine.h>
+#include "ProjectConfigs.h"
+#include "XMLWriter.h"
+#include "XDOM.h"
+#include "DSMEngine.h"
 
 #include <nidas/util/Process.h>
 

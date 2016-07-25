@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleArchiver.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/SampleOutputRequestThread.h>
+#include "SampleArchiver.h"
+#include "DSMConfig.h"
+#include "DSMServer.h"
+#include "SampleOutputRequestThread.h"
 
 #include <nidas/util/Logger.h>
 

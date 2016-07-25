@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/FsMount.h>
-#include <nidas/core/FileSet.h>
+#include "FsMount.h"
+#include "FileSet.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/util.h>

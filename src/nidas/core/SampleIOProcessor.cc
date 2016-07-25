@@ -24,12 +24,12 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/Project.h>
+#include "SampleIOProcessor.h"
+#include "NidsIterators.h"
+#include "SampleOutput.h"
+#include "SampleTag.h"
+#include "Parameter.h"
+#include "Project.h"
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;

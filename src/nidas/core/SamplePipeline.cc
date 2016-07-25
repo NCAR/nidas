@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/SamplePipeline.h>
-#include <nidas/core/SampleBuffer.h>
-#include <nidas/core/SampleSorter.h>
-#include <nidas/core/DSMSensor.h>
+#include "SamplePipeline.h"
+#include "SampleBuffer.h"
+#include "SampleSorter.h"
+#include "DSMSensor.h"
 
 #include <nidas/util/Logger.h>
 

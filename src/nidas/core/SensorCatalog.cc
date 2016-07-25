@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/SensorCatalog.h>
+#include "SensorCatalog.h"
 
 #include <iostream>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/TCPSocketIODevice.h>
+#include "TCPSocketIODevice.h"
 
 #include <nidas/util/Logger.h>
 

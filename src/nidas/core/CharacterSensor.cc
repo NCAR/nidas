@@ -26,15 +26,15 @@
 
 #include <nidas/Config.h>   // HAVE_BLUETOOTH_RFCOMM_H
 
-#include <nidas/core/CharacterSensor.h>
-#include <nidas/core/AsciiSscanf.h>
-#include <nidas/core/IODevice.h>
-#include <nidas/core/TCPSocketIODevice.h>
-#include <nidas/core/UDPSocketIODevice.h>
-#include <nidas/core/BluetoothRFCommSocketIODevice.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/UnixIODevice.h>
+#include "CharacterSensor.h"
+#include "AsciiSscanf.h"
+#include "IODevice.h"
+#include "TCPSocketIODevice.h"
+#include "UDPSocketIODevice.h"
+#include "BluetoothRFCommSocketIODevice.h"
+#include "Variable.h"
+#include "Parameter.h"
+#include "UnixIODevice.h"
 
 #include <nidas/util/Logger.h>
 

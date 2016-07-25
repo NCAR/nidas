@@ -24,27 +24,27 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/StatusThread.h>
-#include <nidas/core/DSMEngineIntf.h>
-#include <nidas/core/DerivedDataReader.h>
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/SamplePipeline.h>
-#include <nidas/core/requestXMLConfig.h>
+#include "DSMEngine.h"
+#include "Project.h"
+#include "Site.h"
+#include "DSMConfig.h"
+#include "StatusThread.h"
+#include "DSMEngineIntf.h"
+#include "DerivedDataReader.h"
+#include "SensorHandler.h"
+#include "SamplePipeline.h"
+#include "requestXMLConfig.h"
 
-#include <nidas/core/XMLStringConverter.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/Version.h>
+#include "XMLStringConverter.h"
+#include "XMLParser.h"
+#include "Version.h"
 
-#include <nidas/core/XMLConfigInput.h>
-#include <nidas/core/XMLFdInputSource.h>
+#include "XMLConfigInput.h"
+#include "XMLFdInputSource.h"
 
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/SampleOutputRequestThread.h>
+#include "SampleIOProcessor.h"
+#include "NidsIterators.h"
+#include "SampleOutputRequestThread.h"
 #include <nidas/util/Process.h>
 #include <nidas/util/FileSet.h>
 

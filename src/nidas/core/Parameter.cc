@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/Parameter.h>
-#include <nidas/core/Sample.h>	// floatNAN
-#include <nidas/core/Dictionary.h>
+#include "Parameter.h"
+#include "Sample.h"	// floatNAN
+#include "Dictionary.h"
 
 #include <sstream>
 #include <iostream>

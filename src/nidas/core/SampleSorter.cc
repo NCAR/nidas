@@ -59,7 +59,7 @@
  *
  */
 
-#include <nidas/core/SampleSorter.h>
+#include "SampleSorter.h"
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>

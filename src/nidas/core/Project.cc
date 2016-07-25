@@ -24,17 +24,17 @@
  ********************************************************************
 */
 
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/SensorCatalog.h>
-#include <nidas/core/DSMCatalog.h>
-#include <nidas/core/ServiceCatalog.h>
-#include <nidas/core/DOMObjectFactory.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/SampleArchiver.h>
-#include <nidas/core/FileSet.h>
+#include "Project.h"
+#include "Site.h"
+#include "DSMServer.h"
+#include "SampleTag.h"
+#include "SensorCatalog.h"
+#include "DSMCatalog.h"
+#include "ServiceCatalog.h"
+#include "DOMObjectFactory.h"
+#include "SampleOutput.h"
+#include "SampleArchiver.h"
+#include "FileSet.h"
 
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>

@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/VariableConverter.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/CalFile.h>
+#include "VariableConverter.h"
+#include "Variable.h"
+#include "DSMSensor.h"
+#include "CalFile.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

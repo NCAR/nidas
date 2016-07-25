@@ -24,18 +24,18 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMServerIntf.h>
+#include "DSMServerIntf.h"
 #include <nidas/linux/ncar_a2d.h>
 
-#include <nidas/core/FileSet.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/CalFile.h>
-#include <nidas/core/SocketAddrs.h> // defines DSM_SERVER_XMLRPC_PORT_TCP
+#include "FileSet.h"
+#include "Project.h"
+#include "Site.h"
+#include "DSMConfig.h"
+#include "DSMSensor.h"
+#include "Variable.h"
+#include "DSMServer.h"
+#include "CalFile.h"
+#include "SocketAddrs.h" // defines DSM_SERVER_XMLRPC_PORT_TCP
 
 // #include <nidas/util/Logger.h>
 

@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/McSocketUDP.h>
-#include <nidas/core/DatagramSocket.h>
+#include "McSocketUDP.h"
+#include "DatagramSocket.h"
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 

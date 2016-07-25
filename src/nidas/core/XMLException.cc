@@ -26,8 +26,8 @@
 
 #include <sstream>
 
-#include <nidas/core/XMLException.h>
-#include <nidas/core/XMLStringConverter.h>
+#include "XMLException.h"
+#include "XMLStringConverter.h"
 
 using namespace std;
 using namespace nidas::core;

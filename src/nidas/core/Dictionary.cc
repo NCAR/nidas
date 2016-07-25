@@ -25,7 +25,7 @@
 */
 
 
-#include <nidas/core/Dictionary.h>
+#include "Dictionary.h"
 
 using namespace std;
 using namespace nidas::core;

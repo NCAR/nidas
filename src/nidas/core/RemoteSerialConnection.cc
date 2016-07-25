@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/RemoteSerialConnection.h>
-#include <nidas/core/SerialSensor.h>
-#include <nidas/core/SensorHandler.h>
+#include "RemoteSerialConnection.h"
+#include "SerialSensor.h"
+#include "SensorHandler.h"
 
 #include <nidas/util/Logger.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/IOStream.h>
+#include "IOStream.h"
 
 #include <iostream>
 

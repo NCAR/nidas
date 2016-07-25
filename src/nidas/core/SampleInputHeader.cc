@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleInputHeader.h>
+#include "SampleInputHeader.h"
 
-#include <nidas/core/Project.h>
+#include "Project.h"
 #include <nidas/util/Logger.h>
 
 #include <sstream>

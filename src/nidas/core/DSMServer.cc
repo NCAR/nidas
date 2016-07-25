@@ -24,14 +24,14 @@
  ********************************************************************
 */
 
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/DSMService.h>
+#include "Project.h"
+#include "Site.h"
+#include "DSMServer.h"
+#include "DSMService.h"
 
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/DOMObjectFactory.h>
-#include <nidas/core/SampleOutputRequestThread.h>
+#include "XMLParser.h"
+#include "DOMObjectFactory.h"
+#include "SampleOutputRequestThread.h"
 
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/Logger.h>

@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/RemoteSerialListener.h>
-#include <nidas/core/SensorHandler.h>
+#include "RemoteSerialListener.h"
+#include "SensorHandler.h"
 
 #include <unistd.h>
 #include <fcntl.h>

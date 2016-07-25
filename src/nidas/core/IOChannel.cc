@@ -26,8 +26,8 @@
 
 #include <nidas/Config.h>   // HAVE_BZLIB_H
 
-#include <nidas/core/IOChannel.h>
-#include <nidas/core/Socket.h>
+#include "IOChannel.h"
+#include "Socket.h"
 #include <nidas/util/Process.h>
 
 using namespace nidas::core;

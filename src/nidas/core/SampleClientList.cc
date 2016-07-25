@@ -25,7 +25,7 @@
 */
 
 
-#include <nidas/core/SampleClientList.h>
+#include "SampleClientList.h"
 #include <algorithm>
 
 using namespace nidas::core;

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/UDPSocketIODevice.h>
+#include "UDPSocketIODevice.h"
 
 #include <nidas/util/Logger.h>
 

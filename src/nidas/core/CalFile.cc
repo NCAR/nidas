@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/CalFile.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Sample.h>      // floatNAN
-#include <nidas/core/Project.h>
+#include "CalFile.h"
+#include "DSMSensor.h"
+#include "Sample.h"      // floatNAN
+#include "Project.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/util.h>
 

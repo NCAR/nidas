@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMCatalog.h>
+#include "DSMCatalog.h"
 
 #include <iostream>
 

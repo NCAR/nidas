@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/MultipleUDPSockets.h>
-#include <nidas/core/DatagramSocket.h>
+#include "MultipleUDPSockets.h"
+#include "DatagramSocket.h"
 #include <nidas/util/Process.h>
 
 using namespace nidas::core;

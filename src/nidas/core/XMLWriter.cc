@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/XMLWriter.h>
-#include <nidas/core/XMLStringConverter.h>
+#include "XMLWriter.h"
+#include "XMLStringConverter.h"
 
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 

@@ -24,15 +24,15 @@
  ********************************************************************
 */
 
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMService.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/SampleInput.h>
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/DOMObjectFactory.h>
-#include <nidas/core/ServiceCatalog.h>
+#include "Project.h"
+#include "Site.h"
+#include "DSMService.h"
+#include "DSMServer.h"
+#include "SampleInput.h"
+#include "SampleIOProcessor.h"
+#include "NidsIterators.h"
+#include "DOMObjectFactory.h"
+#include "ServiceCatalog.h"
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;

@@ -24,16 +24,16 @@
  ********************************************************************
 */
 
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/DSMService.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/SampleIOProcessor.h>
+#include "NidsIterators.h"
+#include "Project.h"
+#include "Site.h"
+#include "DSMServer.h"
+#include "DSMService.h"
+#include "DSMConfig.h"
+#include "DSMSensor.h"
+#include "SampleTag.h"
+#include "Variable.h"
+#include "SampleIOProcessor.h"
 
 using namespace nidas::core;
 using namespace std;

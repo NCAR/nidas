@@ -24,16 +24,16 @@
  ********************************************************************
 */
 
-#include <nidas/core/DSMServerApp.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/DSMServerIntf.h>
-#include <nidas/core/StatusThread.h>
-#include <nidas/core/DSMService.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/ProjectConfigs.h>
-#include <nidas/core/SampleOutputRequestThread.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/Version.h>
+#include "DSMServerApp.h"
+#include "DSMServer.h"
+#include "DSMServerIntf.h"
+#include "StatusThread.h"
+#include "DSMService.h"
+#include "Site.h"
+#include "ProjectConfigs.h"
+#include "SampleOutputRequestThread.h"
+#include "XMLParser.h"
+#include "Version.h"
 
 #include <nidas/util/Process.h>
 #include <nidas/util/FileSet.h>

@@ -26,9 +26,9 @@
 
 #include <nidas/Config.h>   // HAVE_PPOLL
 
-#include <nidas/core/DerivedDataReader.h>
-#include <nidas/core/DerivedDataClient.h>
-#include <nidas/core/Sample.h>
+#include "DerivedDataReader.h"
+#include "DerivedDataClient.h"
+#include "Sample.h"
 #include <nidas/util/Socket.h>
 #include <nidas/util/Logger.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/AdaptiveDespiker.h>
+#include "AdaptiveDespiker.h"
 
 #include <cmath>
 

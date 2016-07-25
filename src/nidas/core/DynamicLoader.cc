@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/DynamicLoader.h>
+#include "DynamicLoader.h"
 
 #include <dlfcn.h>
 

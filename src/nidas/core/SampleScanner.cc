@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleScanner.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Project.h>
+#include "SampleScanner.h"
+#include "DSMSensor.h"
+#include "Project.h"
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>

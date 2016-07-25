@@ -25,7 +25,7 @@
 */
 
 
-#include <nidas/core/DOMable.h>
+#include "DOMable.h"
 
 #include<xercesc/util/XMLString.hpp>
 

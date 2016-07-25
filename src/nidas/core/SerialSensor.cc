@@ -24,12 +24,12 @@
  ********************************************************************
 */
 
-#include <nidas/core/SerialSensor.h>
-#include <nidas/core/TCPSocketIODevice.h>
-#include <nidas/core/UDPSocketIODevice.h>
-#include <nidas/core/BluetoothRFCommSocketIODevice.h>
-#include <nidas/core/Looper.h>
-#include <nidas/core/Prompt.h>
+#include "SerialSensor.h"
+#include "TCPSocketIODevice.h"
+#include "UDPSocketIODevice.h"
+#include "BluetoothRFCommSocketIODevice.h"
+#include "Looper.h"
+#include "Prompt.h"
 
 #include <nidas/util/Logger.h>
 

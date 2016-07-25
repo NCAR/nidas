@@ -24,12 +24,12 @@
  ********************************************************************
 */
 
-#include <nidas/core/FileSet.h>
-#include <nidas/core/Bzip2FileSet.h>
+#include "FileSet.h"
+#include "Bzip2FileSet.h"
 
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/Project.h>
+#include "DSMConfig.h"
+#include "Site.h"
+#include "Project.h"
 
 #include <nidas/util/Logger.h>
 

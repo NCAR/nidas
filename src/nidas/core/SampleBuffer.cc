@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleBuffer.h>
+#include "SampleBuffer.h"
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>

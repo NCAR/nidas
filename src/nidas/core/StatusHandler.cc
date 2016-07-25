@@ -25,10 +25,10 @@
 */
 #include <xercesc/sax2/Attributes.hpp>
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/StatusHandler.h>
-#include <nidas/core/StatusListener.h>
-#include <nidas/core/XMLStringConverter.h>
+#include "DSMSensor.h"
+#include "StatusHandler.h"
+#include "StatusListener.h"
+#include "XMLStringConverter.h"
 
 #include <nidas/util/Logger.h>
 

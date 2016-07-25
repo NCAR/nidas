@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/Sample.h>
+#include "Sample.h"
 
 #include <iostream>
 

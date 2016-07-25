@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/ServerSocketIODevice.h>
-#include <nidas/core/SocketIODevice.h>
+#include "ServerSocketIODevice.h"
+#include "SocketIODevice.h"
 
 #include <nidas/util/Logger.h>
 

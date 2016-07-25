@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/DSMEngine.h>
+#include "SensorHandler.h"
+#include "DSMEngine.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
 

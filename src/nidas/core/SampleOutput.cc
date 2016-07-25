@@ -24,11 +24,11 @@
  ********************************************************************
 */
 
-#include <nidas/core/StatusThread.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Version.h>
-#include <nidas/core/Project.h>
+#include "StatusThread.h"
+#include "SampleOutput.h"
+#include "SampleTag.h"
+#include "Version.h"
+#include "Project.h"
 
 #include <nidas/util/Logger.h>
 

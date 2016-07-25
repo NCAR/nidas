@@ -28,10 +28,10 @@
 
 #include <nidas/util/Socket.h>
 
-#include <nidas/core/Datagrams.h>
-#include <nidas/core/XMLStringConverter.h>
-#include <nidas/core/StatusListener.h>
-#include <nidas/core/StatusHandler.h>
+#include "Datagrams.h"
+#include "XMLStringConverter.h"
+#include "StatusListener.h"
+#include "StatusHandler.h"
 
 #include <nidas/util/Logger.h>
 

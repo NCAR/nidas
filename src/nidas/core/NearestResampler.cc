@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/NearestResampler.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/Variable.h>
+#include "NearestResampler.h"
+#include "Project.h"
+#include "Site.h"
+#include "Variable.h"
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

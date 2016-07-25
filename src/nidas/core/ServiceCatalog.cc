@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/ServiceCatalog.h>
+#include "ServiceCatalog.h"
 
 #include <iostream>
 

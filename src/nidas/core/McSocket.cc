@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/McSocket.h>
-#include <nidas/core/Socket.h>
-#include <nidas/core/Datagrams.h>
+#include "McSocket.h"
+#include "Socket.h"
+#include "Datagrams.h"
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 

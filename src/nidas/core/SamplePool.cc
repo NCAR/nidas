@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/SamplePool.h>
+#include "SamplePool.h"
 
 #include <algorithm>
 

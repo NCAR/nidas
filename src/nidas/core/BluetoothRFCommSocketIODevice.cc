@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/BluetoothRFCommSocketIODevice.h>
+#include "BluetoothRFCommSocketIODevice.h"
 
 #ifdef HAVE_BLUETOOTH_RFCOMM_H
 

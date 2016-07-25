@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include <nidas/core/SampleAverager.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/Project.h>
+#include "SampleAverager.h"
+#include "SampleTag.h"
+#include "Variable.h"
+#include "Project.h"
 #include <nidas/util/UTime.h>
 
 #include <iomanip>

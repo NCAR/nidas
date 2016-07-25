@@ -26,7 +26,7 @@
 
 #include <nidas/Config.h>   // HAVE_PPOLL
 
-#include <nidas/core/UnixIODevice.h>
+#include "UnixIODevice.h"
 
 #ifdef HAVE_PPOLL
 #include <poll.h>

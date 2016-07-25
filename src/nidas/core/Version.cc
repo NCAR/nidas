@@ -25,7 +25,7 @@
  ********************************************************************
 */
 
-#include <nidas/core/Version.h>
+#include "Version.h"
 #include <nidas/Revision.h>
 
 #ifndef REPO_REVISION

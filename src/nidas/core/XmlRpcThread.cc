@@ -24,9 +24,9 @@
  ********************************************************************
 */
 
-#include <nidas/core/XmlRpcThread.h>
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/Datagrams.h>
+#include "XmlRpcThread.h"
+#include "DSMEngine.h"
+#include "Datagrams.h"
 #include <nidas/util/Logger.h>
 
 #include <iostream>
