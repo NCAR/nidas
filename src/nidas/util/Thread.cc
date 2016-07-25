@@ -29,9 +29,9 @@
 #define _GNU_SOURCE
 #endif
 
-#include <nidas/util/Thread.h>
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/Logger.h>
+#include "Thread.h"
+#include "ThreadSupport.h"
+#include "Logger.h"
 
 #include <cstdlib>
 #include <unistd.h>

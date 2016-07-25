@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/util/Exception.h>
+#include "Exception.h"
 // #include <iostream>
 #include <cstring>
 

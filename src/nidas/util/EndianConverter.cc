@@ -27,8 +27,8 @@
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
-#include <nidas/util/EndianConverter.h>
-#include <nidas/util/Logger.h>
+#include "EndianConverter.h"
+#include "Logger.h"
 
 using namespace nidas::util;
 using namespace std;

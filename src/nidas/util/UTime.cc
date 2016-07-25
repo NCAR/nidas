@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/util/UTime.h>
-#include <nidas/util/Process.h>
+#include "UTime.h"
+#include "Process.h"
 
 #include <sys/time.h>
 #include <cstdio>

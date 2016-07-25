@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/util/BitArray.h>
+#include "BitArray.h"
 
 #include <sstream>
 #include <iostream>

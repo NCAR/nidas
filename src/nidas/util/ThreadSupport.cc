@@ -30,11 +30,11 @@
 #include <iostream>
 #include <sstream>
 
-#include <nidas/util/Thread.h>
-#include <nidas/util/ThreadSupport.h>
-#include <nidas/util/InvalidParameterException.h>
-#include <nidas/util/IOException.h>
-#include <nidas/util/Logger.h>
+#include "Thread.h"
+#include "ThreadSupport.h"
+#include "InvalidParameterException.h"
+#include "IOException.h"
+#include "Logger.h"
 
 using namespace std;
 using namespace nidas::util;

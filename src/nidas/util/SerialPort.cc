@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/util/SerialPort.h>
-#include <nidas/util/Logger.h>
+#include "SerialPort.h"
+#include "Logger.h"
 #include <sys/ioctl.h>
 #include <sys/param.h>	// MAXPATHLEN
 #include <cerrno>

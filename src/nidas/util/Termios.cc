@@ -30,7 +30,7 @@
 #include <sstream>
 #endif
 
-#include <nidas/util/Termios.h>
+#include "Termios.h"
 #include <sys/ioctl.h>
 #include <cerrno>
 #include <cstring>

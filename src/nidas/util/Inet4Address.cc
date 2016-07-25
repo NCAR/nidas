@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/util/Inet4Address.h>
-#include <nidas/util/Logger.h>
+#include "Inet4Address.h"
+#include "Logger.h"
 
 #include <netdb.h>
 #include <cctype>	// isdigit

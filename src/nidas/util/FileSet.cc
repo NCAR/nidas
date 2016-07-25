@@ -26,10 +26,10 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include <nidas/util/FileSet.h>
-#include <nidas/util/EOFException.h>
-#include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>
+#include "FileSet.h"
+#include "EOFException.h"
+#include "Logger.h"
+#include "UTime.h"
 
 
 using namespace nidas::util;

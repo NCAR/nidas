@@ -23,7 +23,7 @@
  **
  ********************************************************************
 */
-#include <nidas/util/SerialOptions.h>
+#include "SerialOptions.h"
 #include <cstdlib>  // atoi()
 
 using namespace nidas::util;

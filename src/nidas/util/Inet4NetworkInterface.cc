@@ -26,9 +26,9 @@
 
 #include <list>
 
-#include <nidas/util/Inet4NetworkInterface.h>
-#include <nidas/util/Socket.h>
-#include <nidas/util/Logger.h>
+#include "Inet4NetworkInterface.h"
+#include "Socket.h"
+#include "Logger.h"
 
 using namespace nidas::util;
 using namespace std;

@@ -26,13 +26,13 @@
 
 #include <nidas/Config.h>   // HAVE_PPOLL
 
-#include <nidas/util/Socket.h>
-#include <nidas/util/Inet4SocketAddress.h>
-#include <nidas/util/UnixSocketAddress.h>
-#include <nidas/util/EOFException.h>
-#include <nidas/util/IOTimeoutException.h>
-#include <nidas/util/Logger.h>
-#include <nidas/util/time_constants.h>
+#include "Socket.h"
+#include "Inet4SocketAddress.h"
+#include "UnixSocketAddress.h"
+#include "EOFException.h"
+#include "IOTimeoutException.h"
+#include "Logger.h"
+#include "time_constants.h"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>

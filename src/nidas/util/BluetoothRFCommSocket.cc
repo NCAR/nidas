@@ -25,14 +25,15 @@
 */
 
 
-#include <nidas/util/BluetoothRFCommSocket.h>
+#include "BluetoothRFCommSocket.h"
 
 #ifdef HAVE_BLUETOOTH_RFCOMM_H
 
-#include <nidas/util/Logger.h>
-#include <nidas/util/IOTimeoutException.h>
-#include <nidas/util/EOFException.h>
-#include <nidas/util/time_constants.h>
+#include "Logger.h"
+#include "IOTimeoutException.h"
+#include "EOFException.h"
+#include "time_constants.h"
+
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>

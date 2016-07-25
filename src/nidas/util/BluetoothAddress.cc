@@ -25,11 +25,11 @@
 */
 
 
-#include <nidas/util/BluetoothAddress.h>
+#include "BluetoothAddress.h"
 
 #ifdef HAVE_BLUETOOTH_RFCOMM_H
 
-#include <nidas/util/IOException.h>
+#include "IOException.h"
 
 #include <unistd.h>
 #include <sys/socket.h>

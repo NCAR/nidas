@@ -25,12 +25,12 @@
 */
 
 
-#include <nidas/util/Bzip2FileSet.h>
+#include "Bzip2FileSet.h"
 
 #ifdef HAVE_BZLIB_H
 
-#include <nidas/util/EOFException.h>
-#include <nidas/util/Logger.h>
+#include "EOFException.h"
+#include "Logger.h"
 
 #include <assert.h>
 

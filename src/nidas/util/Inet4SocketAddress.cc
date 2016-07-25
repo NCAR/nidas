@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/util/Inet4SocketAddress.h>
+#include "Inet4SocketAddress.h"
 
 #include <sstream>
 #include <cstring>

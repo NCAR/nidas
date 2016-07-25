@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/util/UnixSocketAddress.h>
+#include "UnixSocketAddress.h"
 
 #include <iostream>
 #include <sstream>

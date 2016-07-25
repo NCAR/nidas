@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/util/Process.h>
-#include <nidas/util/Logger.h>
+#include "Process.h"
+#include "Logger.h"
 
 #include <sys/stat.h>
 #include <sys/resource.h>

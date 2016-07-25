@@ -38,10 +38,10 @@
 
 */
 
-#include <nidas/util/McSocket.h>
-#include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>       // MSECS_PER_SEC
-#include <nidas/util/IOTimeoutException.h>
+#include "McSocket.h"
+#include "Logger.h"
+#include "UTime.h"       // MSECS_PER_SEC
+#include "IOTimeoutException.h"
 
 #include <iostream>
 #include <memory>  // auto_ptr
