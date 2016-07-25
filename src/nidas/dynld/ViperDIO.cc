@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/ViperDIO.h>
+#include "ViperDIO.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

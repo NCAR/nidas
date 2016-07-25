@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/UDPSampleOutput.h>
+#include "UDPSampleOutput.h"
 #include <nidas/core/Project.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/XMLFdFormatTarget.h>

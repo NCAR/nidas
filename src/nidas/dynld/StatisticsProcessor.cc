@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/StatisticsProcessor.h>
+#include "StatisticsProcessor.h"
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>

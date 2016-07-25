@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/FileSet.h>
+#include "FileSet.h"
 
 using namespace nidas::dynld;
 

@@ -28,7 +28,7 @@
 
 #ifdef HAVE_SYS_INOTIFY_H
 
-#include <nidas/dynld/WatchedFileSensor.h>
+#include "WatchedFileSensor.h"
 
 #include <nidas/util/Logger.h>
 

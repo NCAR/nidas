@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/IR104_Relays.h>
+#include "IR104_Relays.h"
 #include <nidas/core/UnixIODevice.h>
 
 #include <sys/types.h>

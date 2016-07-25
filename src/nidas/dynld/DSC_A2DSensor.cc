@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSC_A2DSensor.h>
+#include "DSC_A2DSensor.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSC_FreqCounter.h>
+#include "DSC_FreqCounter.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/gpio_mm.h>
 

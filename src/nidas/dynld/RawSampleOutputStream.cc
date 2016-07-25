@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/RawSampleOutputStream.h>
+#include "RawSampleOutputStream.h"
 #include <nidas/core/Datagrams.h>
 
 #include <nidas/util/Logger.h>

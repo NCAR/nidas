@@ -27,7 +27,7 @@
 #include <nidas/Config.h>
 
 #ifdef HAVE_BZLIB_H
-#include <nidas/dynld/Bzip2FileSet.h>
+#include "Bzip2FileSet.h"
 
 using namespace nidas::dynld;
 

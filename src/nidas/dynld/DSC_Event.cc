@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSC_Event.h>
+#include "DSC_Event.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/gpio_mm.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSC_PulseCounter.h>
+#include "DSC_PulseCounter.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 

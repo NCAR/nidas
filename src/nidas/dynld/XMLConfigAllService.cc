@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/XMLConfigAllService.h>
+#include "XMLConfigAllService.h"
 
 #include <algorithm>
 

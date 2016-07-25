@@ -24,6 +24,6 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/SampleArchiver.h>
+#include "SampleArchiver.h"
 
 NIDAS_CREATOR_FUNCTION(SampleArchiver)

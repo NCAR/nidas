@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/SampleOutputStream.h>
+#include "SampleOutputStream.h"
 #include <nidas/core/StatusThread.h>
 
 #include <nidas/util/Logger.h>

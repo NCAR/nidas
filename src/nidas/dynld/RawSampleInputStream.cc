@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/RawSampleInputStream.h>
+#include "RawSampleInputStream.h"
 #include <nidas/core/IOChannel.h>
 
 #include <nidas/util/Logger.h>

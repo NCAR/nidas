@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/ParoSci_202BG_T.h>
-#include <nidas/dynld/ParoSci_202BG_P.h>
+#include "ParoSci_202BG_T.h"
+#include "ParoSci_202BG_P.h"
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/GPS_NMEA_Serial.h>
+#include "GPS_NMEA_Serial.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>

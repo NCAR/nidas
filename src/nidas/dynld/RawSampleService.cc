@@ -26,10 +26,10 @@
 
 #include <nidas/Config.h>   // HAVE_PPOLL
 
-#include <nidas/dynld/RawSampleInputStream.h>
-#include <nidas/dynld/RawSampleService.h>
+#include "RawSampleInputStream.h"
+#include "RawSampleService.h"
 #include <nidas/core/DOMObjectFactory.h>
-#include <nidas/dynld/raf/Aircraft.h>
+#include "raf/Aircraft.h"
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DSMSensor.h>

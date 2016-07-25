@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/DSC_AnalogOut.h>
+#include "DSC_AnalogOut.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

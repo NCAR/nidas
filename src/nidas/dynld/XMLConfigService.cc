@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/XMLConfigService.h>
+#include "XMLConfigService.h"
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMServer.h>

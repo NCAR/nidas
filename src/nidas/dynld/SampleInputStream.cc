@@ -25,7 +25,7 @@
 */
 
 #include <nidas/core/Project.h>
-#include <nidas/dynld/SampleInputStream.h>
+#include "SampleInputStream.h"
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DSMService.h>
 #include <nidas/core/IOChannel.h>

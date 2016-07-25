@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/ParoSci_202BG_Calibration.h>
+#include "ParoSci_202BG_Calibration.h"
 #include <nidas/util/Logger.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/VariableConverter.h>

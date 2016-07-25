@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/A2DSensor.h>
+#include "A2DSensor.h"
 #include <nidas/core/Variable.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>

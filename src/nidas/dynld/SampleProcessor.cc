@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/SampleProcessor.h>
+#include "SampleProcessor.h"
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/Project.h>
