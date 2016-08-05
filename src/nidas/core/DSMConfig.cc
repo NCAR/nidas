@@ -189,6 +189,8 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	ist >> id;
 	if (ist.fail()) throw n_u::InvalidParameterException(
 	    string("dsm") + ": " + getName(),"id",idstr);
+        if (id > 0x3ff) throw n_u::InvalidParameterException(
+	    string("dsm") + ": " + getName(),"id exceeds 1023",idstr);
 	setId(id);
     }
     const string& dname = xnode.getAttributeValue("name");

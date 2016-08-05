@@ -334,7 +334,7 @@ private:
         DSMConfig* _dsm;
     } _dictionary;
 
-    unsigned char _id;
+    unsigned int _id;
 
     /**
      * A list of the sensors on this DSM that have not been passed to

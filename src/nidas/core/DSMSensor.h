@@ -99,10 +99,7 @@ public:
     /**
      * Set the DSMConfig for this sensor.
      */
-    void setDSMConfig(const DSMConfig* val)
-    {
-        _dsm = val;
-    }
+    void setDSMConfig(const DSMConfig* val);
 
     /**
      * What DSMConfig am I associated with?

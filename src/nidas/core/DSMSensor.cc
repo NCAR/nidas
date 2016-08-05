@@ -93,6 +93,12 @@ DSMSensor::~DSMSensor()
     removeCalFiles();
 }
 
+void DSMSensor::setDSMConfig(const DSMConfig* val)
+{
+    _dsm = val;
+    if (_dsm) setDSMId(_dsm->getId());
+}
+
 void DSMSensor::addSampleTag(SampleTag* val)
     throw(n_u::InvalidParameterException)
 {
@@ -518,7 +524,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      * element, then parse the catalog element, then do a full parse
      * of the actual element.
      */
-    setDSMId(getDSMConfig()->getId());
     setStation(getDSMConfig()->getSite()->getNumber());
 
     /* Check the site as to whether we apply variable conversions. */
