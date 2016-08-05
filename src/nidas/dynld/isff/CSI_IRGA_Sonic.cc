@@ -133,11 +133,17 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         else if (vname.length() > 2 && vname.substr(0,3) == "co2")
             _co2Index = i;
     }
-    if (_spdIndex < 0 || _dirIndex < 0 || _ldiagIndex < 0)
-        throw n_u::InvalidParameterException(getName() +
-                " CSI_IRGA_Sonic cannot find speed, direction or ldiag variables");
 
-    if (_numOut - _spdIndex > 3 || _numOut -_dirIndex > 3 || _numOut - _ldiagIndex > 3)
+    if (_numParsed  < 5)
+        throw n_u::InvalidParameterException(getName() +
+                ": expect at least 5 variables in sample: u,v,w,tc,diag");
+
+    bool ok = true;
+    if (_spdIndex >= 0 && _numOut - _spdIndex > 3) ok = false;
+    if (_dirIndex >= 0 && _numOut - _dirIndex > 3) ok = false;
+    if (_ldiagIndex >= 0 && _numOut - _ldiagIndex > 3) ok = false;
+
+    if (!ok)
         throw n_u::InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
 
@@ -256,11 +262,11 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
             pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
             bptr += sizeof(int);
         }
-        for (int i = 0; bptr + sizeof(float) <= eob && i < 2; i++) {
+        for (int i = 0; bptr + sizeof(float) <= eob && i < 2 && nvals < nbinvals; i++) {
             pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) <= eob) {
+        if (bptr + sizeof(uint32_t) <= eob && nvals < nbinvals) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
             bptr += sizeof(int);
         }
