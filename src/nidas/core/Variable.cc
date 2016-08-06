@@ -434,9 +434,9 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
     }
 
     float pmin = _plotRange[0];
-    if (isnan(pmin)) pmin = -10.0;
+    if (std::isnan(pmin)) pmin = -10.0;
     float pmax = _plotRange[1];
-    if (isnan(pmax)) pmax = 10.0;
+    if (std::isnan(pmax)) pmax = 10.0;
     ostringstream ost;
     ost << pmin << ' ' << pmax;
     xelem.setAttributeValue("plotrange",ost.str());

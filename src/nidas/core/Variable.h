@@ -296,7 +296,7 @@ public:
     void setMinValue(float val)
     {
         _minValue = val;
-        if (isnan(_plotRange[0])) _plotRange[0] = val;
+        if (std::isnan(_plotRange[0])) _plotRange[0] = val;
     }
 
     float getMinValue() const
@@ -307,7 +307,7 @@ public:
     void setMaxValue(float val)
     {
         _maxValue = val;
-        if (isnan(_plotRange[1])) _plotRange[1] = val;
+        if (std::isnan(_plotRange[1])) _plotRange[1] = val;
     }
 
     float getMaxValue() const
