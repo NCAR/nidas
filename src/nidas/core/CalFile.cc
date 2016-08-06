@@ -277,7 +277,7 @@ void CalFile::open() throw(n_u::IOException)
     _nextTime = LONG_LONG_MIN;
 }
 
-void CalFile::close()
+void CalFile::close() throw()
 {
     if (_include) {
         _include->close();

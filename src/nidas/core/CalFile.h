@@ -259,7 +259,7 @@ public:
      * Close file. An opened CalFile is closed in the destructor,
      * so it is not necessary to call close.
      */
-    void close();
+    void close() throw();
 
     /**
      * Have we reached eof.
