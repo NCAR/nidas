@@ -51,6 +51,9 @@ namespace n_u = nidas::util;
 
 using nidas::dynld::raf::SyncServer;
 
+const float SyncServer::RAW_SORTER_LENGTH_SECS = 5.0;
+const float SyncServer::SORTER_LENGTH_SECS = 5.0;
+
 SyncServer::SyncServer():
     Thread("SyncServer"),
     _pipeline(), _syncGen(), 
@@ -67,7 +70,6 @@ SyncServer::SyncServer():
     _endWindow(LONG_LONG_MAX)
 {
 }
-
 
 SyncServer::
 ~SyncServer()

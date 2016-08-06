@@ -40,6 +40,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,ATIK_Sonic)
 
+const float ATIK_Sonic::GAMMA_R = 403.242;
+
 ATIK_Sonic::ATIK_Sonic():
     SonicAnemometer(),
     _numOut(0),

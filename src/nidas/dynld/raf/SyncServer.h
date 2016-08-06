@@ -169,9 +169,9 @@ public:
 
     static const int DEFAULT_PORT = 30001;
 
-    static const float SORTER_LENGTH_SECS = 5.0;
+    static const float SORTER_LENGTH_SECS;
 
-    static const float RAW_SORTER_LENGTH_SECS = 5.0;
+    static const float RAW_SORTER_LENGTH_SECS;
 
     /**
      * Implementation of SampleConnectionRequester::connect().

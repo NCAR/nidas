@@ -94,7 +94,7 @@ public:
      * However, up to early 2012 (NIDAS revision 6420) we used 20.067^2=402.684
      * for GAMMA_R, so until we clear this matter up, we'll use that value.
     */
-    static const float GAMMA_R = 402.684;
+    static const float GAMMA_R;
 
     /**
      * Get serial number field and its index in "??" query output.

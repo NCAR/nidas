@@ -171,7 +171,7 @@ protected:
     /**
      * Conversion factor from 16 bit raw temperature to degC
      */
-    static const float DEGC_PER_CNT = 0.0625;
+    static const float DEGC_PER_CNT;
     /**
      * On the NCAR A/D card for the purpose of A/D temperature compensation, we need
      * to keep the basic conversion slope/offset around for the process() method.

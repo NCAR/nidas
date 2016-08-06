@@ -104,7 +104,7 @@ public:
      * like the CSAT3. In this case the temperature at 340 m/s differs by
      * 0.4 degC using the two values of GAMMA_R.
      */
-    static const float GAMMA_R = 403.242;
+    static const float GAMMA_R;
 
 private:
 
