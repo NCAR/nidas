@@ -116,20 +116,20 @@ void VariableComboDialog::accept()
    bool useCalfile = false;
    if (calFileCheckBox->checkState() == Qt::Checked) useCalfile=true;
     
-   std::cerr << " Name: " + VariableText->text().toStdString() + "\n";
-   std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
-   std::cerr << " Sample Rate: " << SRText->text().toStdString() <<
-   std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
+   std::cerr << " Name: " << VariableText->text().toStdString() << "\n";
+   std::cerr << " Long Name: " << LongNameText->text().toStdString() << "\n";
+   std::cerr << " Sample Rate: " << SRText->text().toStdString() << "\n";
+   std::cerr << " Units: " << UnitsText->text().toStdString() << "\n";
    std::string uCf = "No";
    if (useCalfile) uCf = "Yes";
    std::cerr << " UseCalFile: " + uCf + "\n";
    if (_xmlCals) {
-      std::cerr << " XML Cals: " + Calib1Text->text().toStdString() 
-                                 + Calib2Text->text().toStdString() 
-                                 + Calib3Text->text().toStdString() 
-                                 + Calib4Text->text().toStdString() 
-                                 + Calib5Text->text().toStdString() 
-                                 + Calib6Text->text().toStdString() + "\n";
+      std::cerr << " XML Cals: " << Calib1Text->text().toStdString() 
+                                 << Calib2Text->text().toStdString() 
+                                 << Calib3Text->text().toStdString() 
+                                 << Calib4Text->text().toStdString() 
+                                 << Calib5Text->text().toStdString() 
+                                 << Calib6Text->text().toStdString() << "\n";
    }
 
      try {
