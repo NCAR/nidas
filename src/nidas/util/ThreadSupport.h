@@ -189,9 +189,9 @@ public:
 
     /** 
      * Destruct a Mutex. See man page for pthread_mutex_destroy.
-     * Will throw an exception if the Mutex is currently locked.
+     * Mutex must not be locked, otherwise std::terminate() is called.
      */
-    ~Mutex() throw(Exception);
+    ~Mutex();
 
     /**
      * Lock the Mutex.
@@ -260,10 +260,10 @@ public:
 
     /** 
      * Destruct a Cond. See man page for pthread_cond_destroy.
-     * Will throw an exception if the Cond is being waited on by
-     * another thread.
+     * Cond must not be waited on by any thread, otherwise
+     * std::terminate() is called.
      */
-    ~Cond() throw(Exception);
+    ~Cond();
 
     /**
      * Lock the mutex associated with the condition variable.
@@ -374,9 +374,9 @@ public:
 
     /** 
      * Destruct a RWLock. See man page for pthread_rwlock_destroy.
-     * Will throw an exception if the RWLock is currently locked.
+     * RwLock must not be locked, otherwise std::terminate() is called.
      */
-    ~RWLock() throw(Exception);
+    ~RWLock();
 
     /**
      * Acquire a read lock. May throw an exception if the maximum
@@ -545,37 +545,37 @@ class Synchronized
 {
 public:
 
-  /**
-   * Construct the guard object and lock() the lock.  As for Lock, be wary
-   * of recursively entering sections Synchronized on the same lock within
-   * the same thread.  The default, posix mutexes are not recursive and so
-   * the thread will deadlock.
-   **/
-  Synchronized (Cond &cond_) throw(Exception): mutexp(0),condp(&cond_)
-  {
-    condp->lock();
-  }
-  Synchronized (Mutex &mutex_) throw(Exception): mutexp(&mutex_),condp(0) 
-  {
-    mutexp->lock();
-  }
+    /**
+     * Construct the guard object and lock() the lock.  As for Lock, be wary
+     * of recursively entering sections Synchronized on the same lock within
+     * the same thread.  The default, posix mutexes are not recursive and so
+     * the thread will deadlock.
+     **/
+    Synchronized (Cond &cond_) throw(Exception): mutexp(0),condp(&cond_)
+    {
+        condp->lock();
+    }
+    Synchronized (Mutex &mutex_) throw(Exception): mutexp(&mutex_),condp(0) 
+    {
+        mutexp->lock();
+    }
 
-  /**
-   * On destruction, unlock the lock.
-   **/
-  ~Synchronized ()
-  {
-    if (condp) condp->unlock();
-    else if (mutexp) mutexp->unlock();
-  }
-
-private:
-  Mutex *mutexp;
-  Cond *condp;
+    /**
+     * On destruction, unlock the lock.
+     **/
+    ~Synchronized ()
+    {
+        if (condp) condp->unlock();
+        else if (mutexp) mutexp->unlock();
+    }
 
 private:
-  Synchronized (const Synchronized &);
-  Synchronized &operator= (const Synchronized &);
+    Mutex *mutexp;
+    Cond *condp;
+
+private:
+    Synchronized (const Synchronized &);
+    Synchronized &operator= (const Synchronized &);
     
 };
 
@@ -591,37 +591,37 @@ class Autolock
 {
 public:
 
-  /**
-   * Construct the guard object and lock() the lock.
-   **/
-  Autolock (Cond &cond) throw(Exception): _mutexp(0),_condp(&cond)
-  {
-    cond.lock();
-  }
-  /**
-   * Construct the guard object and lock() the lock.
-   **/
-  Autolock (Mutex &mutex) throw(Exception): _mutexp(&mutex),_condp(0)
-  {
-    mutex.lock();
-  }
+    /**
+     * Construct the guard object and lock() the lock.
+     **/
+    Autolock (Cond &cond) throw(Exception): _mutexp(0),_condp(&cond)
+    {
+        cond.lock();
+    }
+    /**
+     * Construct the guard object and lock() the lock.
+     **/
+    Autolock (Mutex &mutex) throw(Exception): _mutexp(&mutex),_condp(0)
+    {
+        mutex.lock();
+    }
 
-  /**
-   * On destruction, unlock the lock.
-   **/
-  ~Autolock ()
-  {
-    if (_condp) _condp->unlock();
-    else if (_mutexp) _mutexp->unlock();
-  }
+    /**
+     * On destruction, unlock the lock.
+     **/
+    ~Autolock ()
+    {
+        if (_condp) _condp->unlock();
+        else if (_mutexp) _mutexp->unlock();
+    }
 
-private:
-  Mutex *_mutexp;
-  Cond *_condp;
+  private:
+      Mutex *_mutexp;
+      Cond *_condp;
 
-private:
-  Autolock (const Autolock &);
-  Autolock &operator= (const Autolock &);
+  private:
+      Autolock (const Autolock &);
+      Autolock &operator= (const Autolock &);
     
 };
 
@@ -632,28 +632,28 @@ class AutoRdLock
 {
 public:
 
-  /**
-   * Construct the guard object and lock() the lock.
-   **/
-  AutoRdLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
-  {
-    _rwlock.rdlock();
-  }
+    /**
+     * Construct the guard object and lock() the lock.
+     **/
+    AutoRdLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
+    {
+        _rwlock.rdlock();
+    }
 
-  /**
-   * On destruction, unlock the lock.
-   **/
-  ~AutoRdLock ()
-  {
-    _rwlock.unlock();
-  }
-
-private:
-  RWLock& _rwlock;
+    /**
+     * On destruction, unlock the lock.
+     **/
+    ~AutoRdLock ()
+    {
+        _rwlock.unlock();
+    }
 
 private:
-  AutoRdLock (const Autolock &);
-  AutoRdLock &operator= (const Autolock &);
+    RWLock& _rwlock;
+
+private:
+    AutoRdLock (const Autolock &);
+    AutoRdLock &operator= (const Autolock &);
 };
 
 /**
@@ -663,28 +663,28 @@ class AutoWrLock
 {
 public:
 
-  /**
-   * Construct the guard object and lock() the lock.
-   **/
-  AutoWrLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
-  {
-    _rwlock.wrlock();
-  }
+    /**
+     * Construct the guard object and lock() the lock.
+     **/
+    AutoWrLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
+    {
+        _rwlock.wrlock();
+    }
 
-  /**
-   * On destruction, unlock the lock.
-   **/
-  ~AutoWrLock ()
-  {
-    _rwlock.unlock();
-  }
-
-private:
-  RWLock& _rwlock;
+    /**
+     * On destruction, unlock the lock.
+     **/
+    ~AutoWrLock ()
+    {
+        _rwlock.unlock();
+    }
 
 private:
-  AutoWrLock (const Autolock &);
-  AutoWrLock &operator= (const Autolock &);
+    RWLock& _rwlock;
+
+private:
+    AutoWrLock (const Autolock &);
+    AutoWrLock &operator= (const Autolock &);
 };
 
 

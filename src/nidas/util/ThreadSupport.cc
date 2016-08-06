@@ -33,7 +33,7 @@
 #include "Thread.h"
 #include "ThreadSupport.h"
 #include "InvalidParameterException.h"
-#include "IOException.h"
+#include "Exception.h"
 #include "Logger.h"
 
 using namespace std;
@@ -237,26 +237,20 @@ Mutex::Mutex(const Mutex& x) throw() :_p_mutex(),_attrs(x._attrs)
     ::pthread_mutex_init (&_p_mutex,_attrs.ptr());
 }
 
-Mutex::~Mutex() throw(Exception)
+Mutex::~Mutex()
 {
     int ret = 0;
     if ((ret = ::pthread_mutex_destroy(&_p_mutex))) {
+        Exception e("~Mutex(): pthread_mutex_destroy",errno);
         switch(ret) {
-        case EBUSY:
-// If you're getting terminate messages with Exception "~Mutex", then #define this
-// and run in valgrind in order to figure out where it is happening.
-#define DO_SEGFAULT_FOR_MUTEX_DEBUGGING
-#ifdef DO_SEGFAULT_FOR_MUTEX_DEBUGGING
-            {
-            cerr << "~Mutex: Mutex is locked, forcing seg fault" << endl;
-            int* p = 0;
-            *p = 0;
-            }
-#endif
-            throw Exception("~Mutex","Mutex is locked");
-        default:
-            throw IOException("~Mutex","destroy",errno);
+            case EBUSY:
+                CLOG(("~Mutex: Mutex is locked (EBUSY)."));
+                break;
+            default:
+                CLOG((e.what()));
+                break;
         }
+        std::terminate();
     }
 }
 
@@ -284,16 +278,19 @@ Cond::Cond(const Cond& x) throw() : _p_cond(x._p_cond),_mutex(x._mutex)
     ::pthread_cond_init (&_p_cond, 0);
 }
 
-Cond::~Cond() throw(Exception)
+Cond::~Cond()
 {
-    if (::pthread_cond_destroy (&_p_cond) && errno != EINTR) {
+    if (::pthread_cond_destroy(&_p_cond) && errno != EINTR) {
+        Exception e("~Cond: pthread_cond_destroy",errno);
         switch(errno) {
-        case EBUSY:
-            throw Exception("~Cond",
-                "Cond is being waited on by another thread");
-        default:
-            throw Exception("~Cond",errno);
+            case EBUSY:
+                CLOG(("~Cond: Cond is being waited on by another thread (EBUSY)."));
+                break;
+            default:
+                CLOG((e.what()));
+                break;
         }
+        std::terminate();
     }
 }
 
@@ -340,15 +337,19 @@ RWLock::RWLock(const RWLock& x) throw() :
       ::pthread_rwlock_init (&_p_rwlock, _attrs.ptr());
 }
 
-RWLock::~RWLock() throw(Exception)
+RWLock::~RWLock()
 {
     if (::pthread_rwlock_destroy(&_p_rwlock)) {
+        Exception e("~RWLock: pthread_rwlock_destroy",errno);
         switch(errno) {
-        case EBUSY:
-            throw Exception("~RWLock","RWLock is locked");
-        default:
-            throw Exception("~RWLock",errno);
+            case EBUSY:
+                CLOG(("~RWLock: RWLock is locked (EBUSY)."));
+                break;
+            default:
+                CLOG((e.what()));
+                break;
         }
+        std::terminate();
     }
 }
 
