@@ -54,6 +54,7 @@ SppSerial::~SppSerial()
 }
 
 SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
+    _model(0),
     _nChannels(0),_nHskp(0),
     _probeName(probe),
     _range(0),_triggerThreshold(0),
