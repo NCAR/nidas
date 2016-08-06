@@ -87,7 +87,12 @@ DatagramSocket::DatagramSocket(nidas::util::DatagramSocket* sock):
 
 DatagramSocket::~DatagramSocket()
 {
-    close();
+    try {
+        close();
+    }
+    catch (const n_u::IOException& e) {
+        WLOG(("") << getName() << ": " << e.what());
+    }
     delete _nusocket;
 }
 

@@ -107,7 +107,12 @@ Socket::~Socket()
     // interrupt closes and deletes the _nusocket, and the thread joins itself
     if (_connectionThread) _connectionThread->interrupt();
     else {
-        close();
+	try {
+	    close();
+	}
+	catch (const n_u::IOException& e) {
+	    WLOG(("%s",e.what()));
+	}
         delete _nusocket;
     }
 }
