@@ -169,9 +169,11 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         return (data<<4>>14) * 0.015625 * KTS_MS; // no sign
 
     case 0324:  // BNR - pitch_angle          (deg)
-        carry = _irs_ptch_corr; goto corr;
+        carry = _irs_ptch_corr;
+        goto corr;
     case 0325:  // BNR - roll_angle           (deg)
-        carry = _irs_roll_corr; goto corr;
+        carry = _irs_roll_corr;
+        goto corr;
     case 0314:  // BNR - true_heading         (deg)
         carry = _irs_thdg_corr;
     case 0313:  // BNR - track_angle_true     (deg)
@@ -179,7 +181,8 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
     case 0317:  // BNR - trk angle mag        (deg)
     case 0320:  // BNR - mag heading          (deg)
     case 0334:  // BNR - platform_hdg         (deg)
-        if (data & 0x10000000) carry += 360.0; goto corr;
+        if (data & 0x10000000) carry += 360.0;
+        goto corr;
     case 0321:  // BNR - drift_angle          (deg)
     case 0322:  // BNR - flt pth angle        (deg)
 corr:
