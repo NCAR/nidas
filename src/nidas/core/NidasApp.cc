@@ -121,7 +121,7 @@ NidasApp(const std::string& name) :
   _startTime(LONG_LONG_MIN),
   _endTime(LONG_LONG_MAX),
   _dataFileNames(),
-  _sockAddr(0),
+  _sockAddr(),
   _outputFileName(),
   _outputFileLength(0),
   _help(false),

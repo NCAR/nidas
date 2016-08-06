@@ -219,7 +219,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 
 StatsProcess::StatsProcess():
     _argv0(),_xmlFileName(),_dataFileNames(),_dsmName(),
-    _configName(),_sockAddr(0),
+    _configName(),_sockAddr(),
     _sorterLength(5.0),_daemonMode(false),
     _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
     _niceValue(0),_period(DEFAULT_PERIOD),

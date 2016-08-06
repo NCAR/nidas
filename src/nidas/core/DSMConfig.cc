@@ -563,11 +563,11 @@ void DSMConfig::validateSensorAndSampleIds()
                     sensor->getName(),string(" has same id=") + ost.str() + " as " +
                         other->getName()," (both must set duplicatID=true, if that is what you want)");
             }
-            dupSensorIdCheck.insert(make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+            dupSensorIdCheck.insert(make_pair(sensor->getId(),sensor));
         }
         else {
             ins = sensorIdCheck.insert(
-                    make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+                    make_pair(sensor->getId(),sensor));
             it = dupSensorIdCheck.find(sensor->getId());
             if (!ins.second || it != dupSensorIdCheck.end()) {
                 ostringstream ost;
@@ -595,11 +595,11 @@ void DSMConfig::validateSensorAndSampleIds()
                     sensor->getName() + " id=" + ost.str() +
                     " is equal to a sensor or sample id belonging to " + other->getName());
             }
-            dupSampleIdCheck.insert(make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+            dupSampleIdCheck.insert(make_pair(sensor->getId(),sensor));
         }
         else {
             ins = sampleIdCheck.insert(
-                make_pair<unsigned int,DSMSensor*>(sensor->getId(),sensor));
+                make_pair(sensor->getId(),sensor));
             it = dupSampleIdCheck.find(sensor->getId());
             if (!ins.second || it != dupSampleIdCheck.end()) {
                 ostringstream ost;
@@ -632,11 +632,11 @@ void DSMConfig::validateSensorAndSampleIds()
                         sensor->getName() + " & " + other->getName() +
                         " have equivalent sample ids: " + ost.str());
                 }
-                dupSampleIdCheck.insert(make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
+                dupSampleIdCheck.insert(make_pair(stag->getId(),sensor));
             }
             else {
                 ins = sampleIdCheck.insert(
-                    make_pair<unsigned int,DSMSensor*>(stag->getId(),sensor));
+                    make_pair(stag->getId(),sensor));
                 it = dupSampleIdCheck.find(stag->getId());
                 if (!ins.second || it != dupSampleIdCheck.end()) {
                     ostringstream ost;

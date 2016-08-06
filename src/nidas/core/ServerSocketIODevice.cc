@@ -36,7 +36,7 @@ namespace n_u = nidas::util;
 
 ServerSocketIODevice::ServerSocketIODevice():
     _addrtype(-1),_unixPath(),
-    _sockPort(-1),_sockAddr(0),
+    _sockPort(-1),_sockAddr(),
     _serverSocket(0),_socket(0),_tcpNoDelay(false)
 {
 }

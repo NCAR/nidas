@@ -128,7 +128,7 @@ bool CounterClient::receive(const Sample* samp) throw()
 	t1s.find(sampid);
     if (t1i == t1s.end()) {
 	t1s.insert(
-	    make_pair<dsm_sample_id_t,dsm_time_t>(sampid,sampt));
+	    make_pair(sampid,sampt));
 	minDeltaTs[sampid] = INT_MAX;
     }
     else {
@@ -310,7 +310,7 @@ void DataStats::setupSignals()
 DataStats::DataStats():
     logLevel(n_u::LOGGER_NOTICE),
     processData(false),xmlFileName(),dataFileNames(),
-    sockAddr(0), hexIds(false)
+    sockAddr(), hexIds(false)
 {
 }
 

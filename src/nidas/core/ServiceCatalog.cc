@@ -92,7 +92,7 @@ void ServiceCatalog::fromDOMElement(const xercesc::DOMElement* node)
 		    throw n_u::InvalidParameterException(
 			"ServiceCatalog::fromDOMElement",
 			"duplicate service in catalog, ID",id);
-		_services.insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
+		_services.insert(make_pair(id,(xercesc::DOMElement*)child));
 
 		/*
 		cerr << "serviceCatalog.size=" << size() << endl;

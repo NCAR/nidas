@@ -91,7 +91,7 @@ void DSMCatalog::fromDOMElement(const xercesc::DOMElement* node)
 		    throw n_u::InvalidParameterException(
 			"DSMCatalog::fromDOMElement",
 			"duplicate sensor in catalog, ID",id);
-		_dsms.insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
+		_dsms.insert(make_pair(id,(xercesc::DOMElement*)child));
 
 		/*
 		cerr << "sensorCatalog.size=" << size() << endl;

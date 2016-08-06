@@ -134,8 +134,7 @@ void Site::initSensors(DSMConfig* dsm) throw(n_u::IOException)
  */
 void Site::addParameter(Parameter* val)
 {
-    _parameterMap.insert(make_pair<string,Parameter*>(
-	    val->getName(),val));
+    _parameterMap.insert(make_pair(val->getName(),val));
     _constParameters.push_back(val);
 }
 

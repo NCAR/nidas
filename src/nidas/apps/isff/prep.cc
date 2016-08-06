@@ -158,7 +158,7 @@ public:
     static const int defaultLogLevel = n_u::LOGGER_INFO;
     static const int defaultNCInterval = 1;
     static const int defaultNCLength = 86400;
-    static const float defaultNCFillValue = 1.e37;
+    static const float defaultNCFillValue;
     static const int defaultNCTimeout = 60;
     static const int defaultNCBatchPeriod = 300;
 
@@ -236,8 +236,10 @@ private:
 
 };
 
+const float DataPrep::defaultNCFillValue = 1.e37;
+
 DataPrep::DataPrep(): 
-    _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(0),
+    _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(),
     _sorterLength(1.00), _format(DumpClient::ASCII),
     _reqVarsByRate(),_sites(),
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
