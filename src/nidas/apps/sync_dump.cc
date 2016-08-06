@@ -28,6 +28,7 @@
 
 #include <nidas/core/FileSet.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/auto_ptr.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/raf/SyncRecordReader.h>
@@ -76,7 +77,7 @@ private:
 
     string _dataFileName;
 
-    auto_ptr<n_u::SocketAddress> _sockAddr;
+    n_u::auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30001;
 

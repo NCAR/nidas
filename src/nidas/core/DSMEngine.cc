@@ -51,7 +51,6 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
-#include <memory>  // auto_ptr<>
 #include <pwd.h>
 #include <sys/resource.h>
 #include <sys/mman.h>

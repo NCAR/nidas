@@ -12,10 +12,10 @@
 #include "SampleMatcher.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <string>
 #include <list>
-#include <memory>
 
 namespace nidas { namespace core {
 
@@ -683,7 +683,7 @@ private:
 
     std::list<std::string> _dataFileNames;
 
-    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
     std::string _outputFileName;
     int _outputFileLength;

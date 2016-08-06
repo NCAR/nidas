@@ -43,7 +43,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>  // MAXHOSTNAMELEN
-#include <memory> // auto_ptr<>
 #include <pwd.h>
 
 #include <nidas/Config.h>

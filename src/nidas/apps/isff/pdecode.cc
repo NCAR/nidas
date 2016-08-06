@@ -40,8 +40,7 @@
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/EOFException.h>
-
-#include <memory>
+#include <nidas/util/auto_ptr.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -188,7 +187,7 @@ int PacketDecode::run() throw()
 	XMLParser parser;
 
 	cerr << "parsing: " << xmlFileName << endl;
-	auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+        n_u::auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
 
 	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

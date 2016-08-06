@@ -34,7 +34,6 @@
 #include <sstream>
 
 #ifdef NEEDED
-#include <memory> // auto_ptr<>
 #include <sys/stat.h>
 #endif
 

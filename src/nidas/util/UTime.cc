@@ -26,6 +26,7 @@
 
 #include "UTime.h"
 #include "Process.h"
+#include "auto_ptr.h"
 
 #include <sys/time.h>
 #include <cstdio>

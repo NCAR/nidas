@@ -34,6 +34,7 @@
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
+#include <nidas/util/auto_ptr.h>
 #include <vector>
 #include <cstring>
 #include <memory>
@@ -890,7 +891,7 @@ int main(int argc, char**argv)
         return 0;
     }
 
-    std::auto_ptr<Sender> sender;
+    n_u::auto_ptr<Sender> sender;
 
     if (isSender) {
         sender.reset(new Sender(ascii,dataSize));

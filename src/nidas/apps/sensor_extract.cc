@@ -38,6 +38,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <csignal>
 #include <climits>
@@ -86,7 +87,7 @@ private:
 
     list<string> inputFileNames;
 
-    auto_ptr<n_u::SocketAddress> sockAddr;
+    n_u::auto_ptr<n_u::SocketAddress> sockAddr;
 
     string outputFileName;
 

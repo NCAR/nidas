@@ -39,6 +39,7 @@
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/Socket.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <iostream>
 
@@ -116,7 +117,7 @@ parseXMLConfigFile(const std::string& xmlfilepath)
     throw(nidas::core::XMLException)
 {
     {
-        auto_ptr<xercesc::DOMDocument> 
+        n_u::auto_ptr<xercesc::DOMDocument> 
             doc(nidas::core::parseXMLConfigFile(xmlfilepath));
         this->fromDOMElement(doc->getDocumentElement());
     }

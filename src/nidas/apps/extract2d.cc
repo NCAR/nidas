@@ -49,12 +49,12 @@
 #include <nidas/util/util.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <nidas/dynld/raf/TwoD64_USB.h>
 #include <nidas/dynld/raf/TwoD32_USB.h>
 
 #include <fstream>
-#include <memory> // auto_ptr<>
 #include <sys/stat.h>
 
 #include <unistd.h>
@@ -425,7 +425,7 @@ int Extract2D::run() throw()
         struct stat statbuf;
         if (::stat(xmlFileName.c_str(), &statbuf) == 0)
         {
-            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
             Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

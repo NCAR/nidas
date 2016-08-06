@@ -29,6 +29,7 @@
 
 #include "ThreadSupport.h"
 #include "IOException.h"
+#include "auto_ptr.h"
 
 #include <string>
 #include <vector>
@@ -332,9 +333,9 @@ private:
      * GNU extension filebuf which is needed to create a ostream
      * from a file descriptor.
      */
-    mutable std::auto_ptr<__gnu_cxx::stdio_filebuf<char> > _inbuf_ap;
+    mutable auto_ptr<__gnu_cxx::stdio_filebuf<char> > _inbuf_ap;
 
-    mutable std::auto_ptr<std::ostream> _instream_ap;
+    mutable auto_ptr<std::ostream> _instream_ap;
 
     /**
      * File descriptor that is connected via a pipe to the
@@ -344,9 +345,9 @@ private:
 
     void setOutFd(int val);
 
-    mutable std::auto_ptr<__gnu_cxx::stdio_filebuf<char> > _outbuf_ap;
+    mutable auto_ptr<__gnu_cxx::stdio_filebuf<char> > _outbuf_ap;
 
-    mutable std::auto_ptr<std::istream> _outstream_ap;
+    mutable auto_ptr<std::istream> _outstream_ap;
 
     /**
      * File descriptor that is connected via a pipe to the
@@ -356,9 +357,9 @@ private:
 
     void setErrFd(int val);
 
-    mutable std::auto_ptr<__gnu_cxx::stdio_filebuf<char> > _errbuf_ap;
+    mutable auto_ptr<__gnu_cxx::stdio_filebuf<char> > _errbuf_ap;
 
-    mutable std::auto_ptr<std::istream> _errstream_ap;
+    mutable auto_ptr<std::istream> _errstream_ap;
 
     static std::map<std::string,char*> _environment;
 

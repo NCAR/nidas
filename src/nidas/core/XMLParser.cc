@@ -27,6 +27,7 @@
 #include "XMLParser.h"
 #include "XMLStringConverter.h"
 #include <nidas/util/Logger.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/dom/DOMImplementationRegistry.hpp>
@@ -35,7 +36,6 @@
 
 #include <iostream>
 #include <sstream>
-#include <memory>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -271,7 +271,7 @@ xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const std::string& xmlFile
 {
     // NLOG(("parsing: ") << xmlFileName);
 
-    auto_ptr<XMLParser> parser(new XMLParser());
+    n_u::auto_ptr<XMLParser> parser(new XMLParser());
     // throws XMLException
 
     // If parsing a local file, turn on validation

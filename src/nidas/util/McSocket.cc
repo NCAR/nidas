@@ -41,10 +41,10 @@
 #include "McSocket.h"
 #include "Logger.h"
 #include "UTime.h"       // MSECS_PER_SEC
+#include "auto_ptr.h"
 #include "IOTimeoutException.h"
 
 #include <iostream>
-#include <memory>  // auto_ptr
 
 using namespace nidas::util;
 using namespace std;

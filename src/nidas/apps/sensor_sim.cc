@@ -28,13 +28,13 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
-#include <memory> // auto_ptr<>
 
 #include <nidas/core/Looper.h>
 
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
+#include <nidas/util/auto_ptr.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -677,8 +677,8 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
 int SensorSimApp::main()
 {
     try {
-	auto_ptr<n_u::SerialPort> port;
-	auto_ptr<SensorSimulator> sim;
+        n_u::auto_ptr<n_u::SerialPort> port;
+        n_u::auto_ptr<SensorSimulator> sim;
 
 	if (_openpty) {
 	    int fd = n_u::SerialPort::createPtyLink(_device);

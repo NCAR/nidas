@@ -32,7 +32,6 @@
 #include <nidas/util/Process.h>
 
 #include <iostream>
-#include <memory> // auto_ptr<>
 #include <sys/stat.h>
 #include <unistd.h> // close()
 

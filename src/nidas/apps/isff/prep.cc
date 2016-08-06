@@ -49,12 +49,12 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <set>
 #include <map>
 #include <iostream>
 #include <iomanip>
-#include <memory> // auto_ptr<>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -176,7 +176,7 @@ private:
 
     list<string> _dataFileNames;
 
-    auto_ptr<n_u::SocketAddress> _sockAddr;
+    n_u::auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30000;
 
@@ -846,7 +846,7 @@ int DataPrep::run() throw()
 
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
 
-            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
 
             project.fromDOMElement(doc->getDocumentElement());
         }
@@ -993,7 +993,7 @@ int DataPrep::run() throw()
 	    _xmlFileName = header.getConfigName();
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
 
-            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
 
 	    project.fromDOMElement(doc->getDocumentElement());
         }

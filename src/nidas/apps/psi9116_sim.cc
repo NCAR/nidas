@@ -31,12 +31,12 @@
 #include <unistd.h>
 #include <ctime>
 #include <cassert>
-#include <memory> // auto_ptr<>
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/McSocket.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <nidas/core/DSMTime.h>
 
@@ -106,7 +106,7 @@ public:
     int run() throw(n_u::Exception)
     {
 	n_u::Inet4SocketAddress addr(n_u::Inet4Address(),9000);
-	auto_ptr<n_u::Socket> socket;
+        n_u::auto_ptr<n_u::Socket> socket;
 	{
 	    n_u::ServerSocket waiter(addr);
 	    socket.reset(waiter.accept());
@@ -134,7 +134,7 @@ private:
 int PSI::main() throw()
 {
 
-    auto_ptr<PSI> psi;
+    n_u::auto_ptr<PSI> psi;
     try {
 	psi.reset(new PSI());
 	psi->start();

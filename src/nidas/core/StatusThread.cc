@@ -36,8 +36,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/Exception.h>
 #include <nidas/util/UTime.h>
-
-#include <memory>
+#include <nidas/util/auto_ptr.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -143,7 +142,7 @@ DSMServerStat::DSMServerStat(const std::string& name,DSMServer* server):
 
 int DSMServerStat::run() throw(n_u::Exception)
 {
-    auto_ptr<n_u::SocketAddress> saddr(_server->getStatusSocketAddr().clone());
+    n_u::auto_ptr<n_u::SocketAddress> saddr(_server->getStatusSocketAddr().clone());
     n_u::Inet4Address mcaddr;
 
     if (saddr->getFamily() == AF_INET) {
@@ -153,7 +152,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 	mcaddr= i4saddr.getInet4Address();
     }
 
-    auto_ptr<n_u::DatagramSocket> dsock;
+    n_u::auto_ptr<n_u::DatagramSocket> dsock;
     n_u::MulticastSocket* msock = 0;
 
 // #define SEND_ALL_INTERFACES

@@ -30,10 +30,10 @@
 #include "IOChannel.h"
 #include "DOMable.h"
 #include <nidas/util/Socket.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <string>
 #include <iostream>
-#include <memory>  // auto_ptr<>
 
 namespace nidas { namespace core {
 
@@ -194,7 +194,7 @@ public:
 
 private:
 
-    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
     std::string _host;
 

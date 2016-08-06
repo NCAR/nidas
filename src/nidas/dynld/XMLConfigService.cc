@@ -38,13 +38,13 @@
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/auto_ptr.h>
 
 // #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
 
 #include <algorithm>
 #include <iostream>
-#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -160,7 +160,7 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
 
     XMLFdFormatTarget formatter(_iochan->getName(),_iochan->getFd());
 
-    std::auto_ptr <XMLConfigWriter> writer;
+    n_u::auto_ptr <XMLConfigWriter> writer;
     if (_dsm)
         writer.reset( new XMLConfigWriter(_dsm) );
     else

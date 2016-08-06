@@ -28,6 +28,7 @@
 #include "XMLConfigInput.h"
 #include "XMLFdInputSource.h"
 #include <nidas/util/Logger.h>
+#include <nidas/util/auto_ptr.h>
 
 namespace n_c = nidas::core;
 namespace n_u = nidas::util;
@@ -36,7 +37,7 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
   const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask)
  throw(n_u::Exception)
 {
-    std::auto_ptr<n_c::XMLParser> parser(new n_c::XMLParser());
+    n_u::auto_ptr<n_c::XMLParser> parser(new n_c::XMLParser());
     // throws XMLException
 
     // If parsing xml received from a server over a socket,
@@ -54,7 +55,7 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
     if (all) xmlRequestSocket.setRequestType(XML_ALL_CONFIG);
     xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
 
-    std::auto_ptr<n_u::Socket> configSock;
+    n_u::auto_ptr<n_u::Socket> configSock;
     n_u::Inet4PacketInfoX pktinfo;
 
     try {

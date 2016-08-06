@@ -41,6 +41,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/util.h>
+#include <nidas/util/auto_ptr.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/core/NidasApp.h>
 
@@ -550,7 +551,7 @@ int DataDump::run() throw()
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || app.processData()) {
-	    auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

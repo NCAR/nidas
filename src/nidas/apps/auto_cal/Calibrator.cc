@@ -36,6 +36,7 @@
 
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 
@@ -132,7 +133,7 @@ bool Calibrator::setup(QString host) throw()
             return true;
         }
         // Pull in the XML configuration from the DSM server.
-        auto_ptr<xercesc::DOMDocument> doc(requestXMLConfig(true,_configSockAddr));
+        n_u::auto_ptr<xercesc::DOMDocument> doc(requestXMLConfig(true,_configSockAddr));
 
         Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         doc.release();

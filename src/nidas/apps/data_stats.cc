@@ -40,6 +40,7 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <set>
 #include <map>
@@ -264,7 +265,7 @@ private:
 
     list<string> dataFileNames;
 
-    auto_ptr<n_u::SocketAddress> sockAddr;
+    n_u::auto_ptr<n_u::SocketAddress> sockAddr;
 
     bool hexIds;
 
@@ -466,7 +467,7 @@ int DataStats::run() throw()
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
 
-	    auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

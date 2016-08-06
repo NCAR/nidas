@@ -29,8 +29,8 @@
 #include "IODevice.h"
 #include <nidas/util/Socket.h>
 #include <nidas/util/ParseException.h>
+#include <nidas/util/auto_ptr.h>
 
-#include <memory> // auto_ptr<>
 
 namespace nidas { namespace core {
 
@@ -161,7 +161,7 @@ private:
     /**
      * The destination socket address.
      */
-    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
     /**
      * The listen socket.  This isn't in an auto_ptr because

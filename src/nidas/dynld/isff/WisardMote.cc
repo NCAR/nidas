@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <memory>               // auto_ptr<>
+
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;
 using namespace nidas::core;

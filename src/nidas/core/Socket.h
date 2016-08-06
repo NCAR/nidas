@@ -32,10 +32,10 @@
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <string>
 #include <iostream>
-#include <memory>  // auto_ptr<>
 
 namespace nidas { namespace core {
 
@@ -257,7 +257,7 @@ protected:
 
 private:
 
-    std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
 
     std::string _remoteHost;
 
@@ -430,7 +430,7 @@ protected:
 
 private:
 
-    std::auto_ptr<nidas::util::SocketAddress> _localSockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _localSockAddr;
 
     std::string _name;
 

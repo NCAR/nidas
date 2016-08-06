@@ -30,8 +30,7 @@
 #include "IODevice.h"
 #include <nidas/util/Socket.h>
 #include <nidas/util/ParseException.h>
-
-#include <memory> // auto_ptr<>
+#include <nidas/util/auto_ptr.h>
 
 namespace nidas { namespace core {
 
@@ -111,7 +110,7 @@ protected:
     /**
      * The destination socket address.
      */
-    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
     /**
      * The local bind socket address.

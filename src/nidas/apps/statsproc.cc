@@ -95,7 +95,7 @@ private:
 
     string _configName;
 
-    auto_ptr<n_u::SocketAddress> _sockAddr;
+    n_u::auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30000;
 
@@ -538,7 +538,7 @@ int StatsProcess::run() throw()
 
         if (_xmlFileName.length() > 0) {
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
         XMLImplementation::terminate();
@@ -684,7 +684,7 @@ int StatsProcess::run() throw()
             // parse the config file.
             _xmlFileName = header.getConfigName();
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 
@@ -843,7 +843,7 @@ int StatsProcess::listOutputSamples()
 
         if (_xmlFileName.length() > 0) {
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
         else {

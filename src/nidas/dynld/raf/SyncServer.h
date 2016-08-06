@@ -37,6 +37,7 @@
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/auto_ptr.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -213,7 +214,7 @@ private:
 
     std::list<std::string> _dataFileNames;
 
-    std::auto_ptr<nidas::util::SocketAddress> _address;
+    nidas::util::auto_ptr<nidas::util::SocketAddress> _address;
 
     float _sorterLengthSecs;
 

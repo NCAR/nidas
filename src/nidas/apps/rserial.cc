@@ -28,11 +28,11 @@
 #include <nidas/dynld/DSMSerialSensor.h>
 
 #include <nidas/util/Socket.h>
+#include <nidas/util/auto_ptr.h>
 
 #include <cstdio>
 #include <iostream>
 #include <sstream>
-#include <memory> // auto_ptr<>
 
 #include <poll.h>
 #include <termios.h>
@@ -417,7 +417,7 @@ void RemoteSerial::restoreStdin() throw(n_u::IOException)
 
 int main(int argc, char *argv[])
 {
-  auto_ptr<RemoteSerial> rserial(RemoteSerial::getInstance());
+    n_u::auto_ptr<RemoteSerial> rserial(RemoteSerial::getInstance());
   return rserial->main(argc,argv);
 }
 
