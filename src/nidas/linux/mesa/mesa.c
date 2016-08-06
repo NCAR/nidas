@@ -406,24 +406,18 @@ static int load_finish(struct MESA_Board *brd)
                         schedule();
         }
 
+        // Indicate end of programming by turning off 4I34 led
+        config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
+                M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
+        outb(config, brd->addr + R_4I34CONTROL);
+
         if (success) {
                 KLOG_NOTICE("FPGA programming done.\n");
-
-                // Indicate end of programming by turning off 4I34 led
-                config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
-                    M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
-                outb(config, brd->addr + R_4I34CONTROL);
-
                 // Now send out extra configuration completion clocks
                 for (count = 24; count != 0; --count)
                         outb(0xFF, brd->addr + R_4I34DATA);
-
                 ret = 0;
-        } else
-                config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT |
-                        M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
-                outb(config, brd->addr + R_4I34CONTROL);
-                KLOG_ERR("FPGA programming not successful.\n");
+        } else KLOG_ERR("FPGA programming not successful.\n");
 
         return ret;
 }
