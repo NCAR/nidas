@@ -16,6 +16,7 @@ arch = env['ARCH']  # empty string for native builds
 ##  List of headers files
 ##
 headers = [ Split("""
+    auto_ptr.h
     BitArray.h
     BluetoothAddress.h
     BluetoothRFCommSocket.h
