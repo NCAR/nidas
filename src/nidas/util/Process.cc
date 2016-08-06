@@ -83,34 +83,45 @@ Process::Process(): _pid(-1),
 
 Process::Process(const Process& x):
     _pid(x._pid),
-    _infd(x._infd),_inbuf_ap(),_instream_ap(),
-    _outfd(x._outfd),_outbuf_ap(),_outstream_ap(),
-    _errfd(x._errfd),_errbuf_ap(),_errstream_ap()
+    _infd(x._infd),
+    _inbuf_ap(x._inbuf_ap.release()),
+    _instream_ap(x._instream_ap.release()),
+    _outfd(x._outfd),
+    _outbuf_ap(x._outbuf_ap.release()),
+    _outstream_ap(x._outstream_ap.release()),
+    _errfd(x._errfd),
+    _errbuf_ap(x._errbuf_ap.release()),
+    _errstream_ap(x._errstream_ap.release())
 {
+    /*
+     * auto_ptrs and fds are declared mutable so they
+     * can be changed in this method.
+     */
     x._infd = -1;
     x._outfd = -1;
     x._errfd = -1;
-    _inbuf_ap.reset(x._inbuf_ap.release());
-    _instream_ap.reset(x._instream_ap.release());
-    _outbuf_ap.reset(x._outbuf_ap.release());
-    _outstream_ap.reset(x._outstream_ap.release());
-    _errbuf_ap.reset(x._errbuf_ap.release());
-    _errstream_ap.reset(x._errstream_ap.release());
 }
 
 Process& Process::operator = (const Process& rhs)
 {
     if (this != &rhs) {
+        /*
+         * auto_ptrs and fds are declared mutable so they
+         * can be changed in this method.
+         */
         _pid = rhs._pid;
         _infd = rhs._infd;
+        rhs._infd = -1;
         _inbuf_ap.reset(rhs._inbuf_ap.release());
         _instream_ap.reset(rhs._instream_ap.release());
 
         _outfd = rhs._outfd;
+        rhs._outfd = -1;
         _outbuf_ap.reset(rhs._outbuf_ap.release());
         _outstream_ap.reset(rhs._outstream_ap.release());
 
         _errfd = rhs._errfd;
+        rhs._errfd = -1;
         _errbuf_ap.reset(rhs._errbuf_ap.release());
         _errstream_ap.reset(rhs._errstream_ap.release());
     }
