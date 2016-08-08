@@ -216,9 +216,11 @@ if [ -f $cf ]; then
 
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
-            echo "nidas-build trigger: doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
-            setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
-            setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
+            if [ -f %{nidas_prefix}/bin/dsm_server ]; then
+                echo "nidas-build trigger: doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
+                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
+                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
+            fi
         fi
     fi
 fi
