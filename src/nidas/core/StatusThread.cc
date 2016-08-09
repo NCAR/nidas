@@ -69,67 +69,75 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
 
-    try {
-	for (;;) {
-	    dsm_time_t tnow = n_u::getSystemTime();
+    // arbitrary limit on number of errors, like "no route to host"
+    // if link drops out for a bit
+    const int MAX_SOCK_ERR = 20;
 
-	    // wakeup (approx) 100 usecs after exact period time
-	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
+    for (int nerr = 0;;) {
+        dsm_time_t tnow = n_u::getSystemTime();
 
-	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
-	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
+        // wakeup (approx) 100 usecs after exact period time
+        int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
 
-            // previously this did a break if errno==EINTR
-            // Apparently when a system is suspended, processes
-            // receive a SIGSTOP and then SIGCONT on wakeup. On
-            // receipt of these (likely the latter) nanosleep
-            // would fail with errno=EINTR. We'll ignore it.
-	    nanosleep(&nsleep,0);
-	    if (isInterrupted()) break;
+        nsleep.tv_sec = tdiff / USECS_PER_SEC;
+        nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
 
-	    dsm_time_t tt = n_u::getSystemTime();
+        // previously this did a break if errno==EINTR
+        // Apparently when a system is suspended, processes
+        // receive a SIGSTOP and then SIGCONT on wakeup. On
+        // receipt of these (likely the latter) nanosleep
+        // would fail with errno=EINTR. We'll ignore it.
+        nanosleep(&nsleep,0);
+        if (isInterrupted()) break;
 
-            statStream << "<?xml version=\"1.0\"?><group>"
-	               << "<name>" << dsm_name << "</name>"
-                       << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>";
+        dsm_time_t tt = n_u::getSystemTime();
 
-            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
-	    // Send status at 00:00, 00:03, etc.
-            if ( completeStatus ) {
+        statStream << "<?xml version=\"1.0\"?><group>"
+                   << "<name>" << dsm_name << "</name>"
+                   << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>";
 
-                statStream << "<samplepool>" <<
-                    "#s=" << charPool->getNSmallSamplesIn() << ',' <<
-                    "#m=" << charPool->getNMediumSamplesIn() << ',' <<
-                    "#l=" << charPool->getNLargeSamplesIn() << ',' <<
-                    "#o=" << charPool->getNSamplesOut() <<
-                    "</samplepool>";
+        bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
+        // Send status at 00:00, 00:03, etc.
+        if ( completeStatus ) {
 
-                // Make a copy of list of selector sensors
-                std::list<DSMSensor*> sensors = selector->getAllSensors();
-                std::list<DSMSensor*>::const_iterator si;
-                statStream << "<status><![CDATA[";
-                DSMSensor* sensor = 0;
-                for (si = sensors.begin(); si != sensors.end(); ++si) {
-                  sensor = *si;
-                  if (si == sensors.begin())
-                          sensor->printStatusHeader(statStream);
-                  sensor->printStatus(statStream);
-                }
-                if (sensor) sensor->printStatusTrailer(statStream);
-                statStream << "]]></status>";
+            statStream << "<samplepool>" <<
+                "#s=" << charPool->getNSmallSamplesIn() << ',' <<
+                "#m=" << charPool->getNMediumSamplesIn() << ',' <<
+                "#l=" << charPool->getNLargeSamplesIn() << ',' <<
+                "#o=" << charPool->getNSamplesOut() <<
+                "</samplepool>";
+
+            // Make a copy of list of selector sensors
+            std::list<DSMSensor*> sensors = selector->getAllSensors();
+            std::list<DSMSensor*>::const_iterator si;
+            statStream << "<status><![CDATA[";
+            DSMSensor* sensor = 0;
+            for (si = sensors.begin(); si != sensors.end(); ++si) {
+              sensor = *si;
+              if (si == sensors.begin())
+                      sensor->printStatusHeader(statStream);
+              sensor->printStatus(statStream);
             }
-            statStream << "</group>" << endl;
+            if (sensor) sensor->printStatusTrailer(statStream);
+            statStream << "]]></status>";
+        }
+        statStream << "</group>" << endl;
 
-	    string statstr = statStream.str();
-	    statStream.str("");
+        string statstr = statStream.str();
+        statStream.str("");
+
+        try {
 	    dsock.sendto(statstr.c_str(),statstr.length()+1,0,*_sockAddr);
 	}
-    }
-    catch(const n_u::IOException& e) {
-	dsock.close();
-        WLOG(("%s: %s",dsock.getLocalSocketAddress().toAddressString().c_str(),
-                e.what()));
-	throw e;
+        catch(const n_u::IOException& e) {
+            nerr++;
+            WLOG(("%s: %s, nerr=%d",dsock.getLocalSocketAddress().toAddressString().c_str(),
+                    e.what(),nerr));
+            if (nerr > MAX_SOCK_ERR) {
+                dsock.close();
+                throw e;
+            }
+        }
     }
     dsock.close();
     return 0;
