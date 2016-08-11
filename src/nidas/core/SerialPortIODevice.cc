@@ -53,9 +53,16 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     // header.
     if (_rts485) {
         int bits = TIOCM_RTS;
-        // clear RTS
-        if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
-            throw n_u::IOException(getName(),"ioctl TIOCMBIC",errno);
+        if (_rts485 > 0) {
+            // clear RTS
+            if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                throw n_u::IOException(getName(),"ioctl TIOCMBIC",errno);
+        }
+        else {
+            // set RTS
+            if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                throw n_u::IOException(getName(),"ioctl TIOCMBIS",errno);
+        }
         _usecsperbyte = getUsecsPerByte();
     }
 }

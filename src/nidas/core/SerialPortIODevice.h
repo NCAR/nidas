@@ -52,7 +52,7 @@ public:
      * Constructor. Does not open any actual device.
      */
     SerialPortIODevice():
-        UnixIODevice(),_termios(),_rts485(false),_usecsperbyte(0)
+        UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -64,7 +64,7 @@ public:
      * the device.
      */
     SerialPortIODevice(const std::string& name):
-        UnixIODevice(name),_termios(),_rts485(false),_usecsperbyte(0)
+        UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -162,14 +162,21 @@ public:
      * Use 232 or 422 if you need read/write.
      *
      */
-    void setRTS485(bool val) throw(nidas::util::IOException)
+    void setRTS485(int val) throw(nidas::util::IOException)
     {
         _rts485 = val;
         if (_rts485 && _fd >= 0) {
             int bits = TIOCM_RTS;
-            // clear RTS
-            if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
-                throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+            if (_rts485 > 0) {
+                // clear RTS
+                if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+            }
+            else {
+                // set RTS
+                if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            }
             _usecsperbyte = getUsecsPerByte();
         }
     }
@@ -187,9 +194,16 @@ public:
             // see the above discussion about RTS and 485. Here we
             // try an in-exact set/clear of RTS on either side of a write.
             bits = TIOCM_RTS;
-            // set RTS before write
-            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIS, &bits) < 0)
-                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            if (_rts485 > 0) {
+                // set RTS before write
+                if (_fd >= 0 && ::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            }
+            else {
+                // clear RTS before write
+                if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            }
         }
 
         if ((result = ::write(_fd,buf,len)) < 0)
@@ -197,10 +211,17 @@ public:
 
         if (_rts485) {
             // sleep until we think the last bit has been transmitted,
-            // then clear RTS
             ::usleep(len * _usecsperbyte);
-            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)
-                throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+            if (_rts485 > 0) {
+                // then clear RTS
+                if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+            }
+            else {
+                // then set RTS
+                if (_fd >= 0 && ::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                    throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            }
         }
 	return result;
     }
@@ -209,7 +230,7 @@ protected:
 
     nidas::util::Termios _termios;
 
-    bool _rts485;
+    int _rts485;
 
     unsigned int _usecsperbyte;
 

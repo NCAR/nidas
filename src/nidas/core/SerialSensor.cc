@@ -46,7 +46,7 @@ namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
     _termios(),_serialDevice(0),_prompters(),_prompting(false),
-    _rts485(false)
+    _rts485(0)
 {
     setDefaultMode(O_RDWR);
     _termios.setRaw(true);
@@ -292,8 +292,7 @@ void SerialSensor::fromDOMElement(
 	    }
 	    else if (aname == "rts485") {
 		istringstream ist(aval);
-		ist >> boolalpha;
-		bool val;
+		int val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(
