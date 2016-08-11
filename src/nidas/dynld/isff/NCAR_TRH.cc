@@ -53,6 +53,8 @@ NCAR_TRH::~NCAR_TRH()
 
 void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
 {
+    nidas::core::SerialSensor::validate();
+
     list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator ti = tags.begin();
     for ( ; ti != tags.end(); ++ti) {
