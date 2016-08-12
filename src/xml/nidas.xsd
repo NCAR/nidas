@@ -81,6 +81,16 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="rts485type">
+    <xsd:restriction base="xsd:integer">
+        <!-- 0: don't toggle RTS on read/write -->
+        <!-- 1: raise RTS on write, lower on read -->
+        <!-- -11: lower RTS on write, raise on read -->
+	<xsd:minInclusive value="-1"/>
+	<xsd:maxInclusive value="1"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="messageDesc">
     <xsd:attribute name="separator" type="xsd:normalizedString"/>
     <xsd:attribute name="position" use="optional">
@@ -281,7 +291,7 @@
 	    <xsd:attribute name="parity" type="paritytype"/>
 	    <xsd:attribute name="databits" type="databitstype"/>
 	    <xsd:attribute name="stopbits" type="stopbitstype"/>
-	    <xsd:attribute name="rts485" type="xsd:boolean"/>
+	    <xsd:attribute name="rts485" type="rts485type"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
