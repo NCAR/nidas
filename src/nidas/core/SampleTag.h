@@ -254,6 +254,13 @@ public:
 
     const std::string& getPromptString() const { return _promptString; }
 
+    void setPromptOffset(double val)
+    {
+        _promptOffset = val;
+    }
+
+    double getPromptOffset() const { return _promptOffset; }
+
     /**
      * Add a variable to this SampleTag.  SampleTag
      * will own the Variable, and will delete
@@ -361,6 +368,8 @@ private:
     std::string _scanfFormat;
 
     std::string _promptString;
+
+    double _promptOffset;
 
     /**
      * List of pointers to Parameters.

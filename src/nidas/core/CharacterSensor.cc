@@ -54,6 +54,7 @@ CharacterSensor::CharacterSensor():
     _prompts(),
     _promptString(),
     _promptRate(0.0),
+    _promptOffset(0.0),
     _sscanfers(),
     _nextSscanfer(),
     _maxScanfFields(0),
@@ -263,23 +264,45 @@ void CharacterSensor::fromDOMElement(
             }
 	}
 	else if (elname == "prompt") {
-	    std::string prompt = xchild.getAttributeValue("string");
 
-	    setPromptString(prompt);
+            xercesc::DOMNamedNodeMap *promptAttrs = child->getAttributes();
+            int nSize = promptAttrs->getLength();
 
-	    istringstream ist(xchild.getAttributeValue("rate"));
-	    double rate;
-	    ist >> rate;
-	    if (ist.fail())
-		throw n_u::InvalidParameterException(getName(),
-		    "prompt rate", xchild.getAttributeValue("rate"));
+            for(int i=0;i<nSize;++i) {
+                XDOMAttr attr((xercesc::DOMAttr*) promptAttrs->item(i));
+                const string& aname = attr.getName();
+                const string aval = attr.getValue();
+                // get attribute name
+                if (aname == "string") {
+                    setPromptString(aval);
+                }
+                else if (aname == "rate") {
+                    istringstream ist(aval);
+                    double rate;
+                    ist >> rate;
+                    if (ist.fail())
+                        throw n_u::InvalidParameterException(getName(),
+                            "prompt rate", aval);
 
-	    if (rate < 0.0)
-		throw n_u::InvalidParameterException
-			(getName(),"prompt rate",
-			    xchild.getAttributeValue("rate"));
-            setPromptRate(rate);
-            //addPrompt(prompt, rate);
+                    if (rate < 0.0)
+                        throw n_u::InvalidParameterException
+                                (getName(),"prompt rate", aval);
+                    setPromptRate(rate);
+                }
+                else if (aname == "offset") {
+                    istringstream ist(aval);
+                    double offset;
+                    ist >> offset;
+                    if (ist.fail())
+                        throw n_u::InvalidParameterException(getName(),
+                            "prompt offset", aval);
+
+                    if (offset < 0.0)
+                        throw n_u::InvalidParameterException
+                                (getName(),"prompt offset", aval);
+                    setPromptOffset(offset);
+                }
+            }
 	}
     }
 }
@@ -288,7 +311,8 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
 {
     DSMSensor::validate();
 
-    if (!getPromptString().empty()) addPrompt(getPromptString(), getPromptRate());
+    if (!getPromptString().empty()) addPrompt(getPromptString(),
+            getPromptRate(), getPromptOffset());
 
     /* determine if any of the samples have associated prompts */
     const list<SampleTag*>& tags = getSampleTags();
@@ -298,7 +322,8 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
 	if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
 	    samp->setRate(getPromptRate());
 	if (!samp->getPromptString().empty()) {
-	    addPrompt(samp->getPromptString(), samp->getRate());
+	    addPrompt(samp->getPromptString(),
+                    samp->getRate(), samp->getPromptOffset());
 	    if (samp->getRate() <= 0.0)
 	        throw n_u::InvalidParameterException(
 		    getName() + " prompted sensor has sample rate <= 0.0");

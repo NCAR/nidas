@@ -55,7 +55,7 @@ void MOSMote::open(int flags)
     if (_tsyncPeriodSecs > 0) {
 	// send a time sync on open
 	_mosSyncher.looperNotify();
-    	getLooper()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC);
+    	getLooper()->addClient(&_mosSyncher,_tsyncPeriodSecs*MSECS_PER_SEC,0);
     }
 
 }

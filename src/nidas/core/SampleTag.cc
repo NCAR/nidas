@@ -45,18 +45,20 @@ namespace n_u = nidas::util;
 SampleTag::SampleTag():
     _id(0),_sampleId(0),_sensorId(0),_suffix(),
     _station(-1),
-    _rate(0.0),_processed(true),_dsm(0),_sensor(0),
+    _rate(0.0),
+    _processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
-    _scanfFormat(),_promptString(),
+    _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
     _id(0),_sampleId(0),_sensorId(0),_suffix(),
     _station(sensor->getStation()),
-    _rate(0.0),_processed(true),_dsm(sensor->getDSMConfig()),_sensor(sensor),
+    _rate(0.0),_processed(true),
+    _dsm(sensor->getDSMConfig()),_sensor(sensor),
     _constVariables(),_variables(),_variableNames(),
-    _scanfFormat(),_promptString(),
+    _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true)
 {
     setSensorId(_sensor->getId());
@@ -75,6 +77,7 @@ SampleTag::SampleTag(const SampleTag& x):
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(x._scanfFormat),
     _promptString(x._promptString),
+    _promptOffset(x._promptOffset),
     _parameters(), _constParameters(),_enabled(x._enabled)
 {
     const vector<const Variable*>& vars = x.getVariables();
@@ -109,6 +112,7 @@ SampleTag& SampleTag::operator=(const SampleTag& rhs)
 	_sensor = rhs._sensor;
 	_scanfFormat = rhs._scanfFormat;
         _promptString = rhs._promptString;
+        _promptOffset = rhs._promptOffset;
         _enabled = rhs._enabled;
 
         const vector<const Variable*>& vars = rhs.getVariables();
@@ -425,6 +429,20 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                     "prompt rate", xchild.getAttributeValue("rate"));
             }
             setRate(promptrate);
+
+            std::string offsetStr = xchild.getAttributeValue("offset");
+            if (!offsetStr.empty()) {
+                istringstream ist(offsetStr);
+                double offset;
+                ist >> offset;
+                if (ist.fail()) {
+                    ostringstream ost;
+                    ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+                    throw n_u::InvalidParameterException(ost.str(),
+                        "prompt offset", offsetStr);
+                }
+                setPromptOffset(offset);
+            }
         }
 	else {
             ostringstream ost;

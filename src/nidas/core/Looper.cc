@@ -35,12 +35,15 @@ namespace n_u = nidas::util;
 
 Looper::Looper():
     n_u::Thread("Looper"),
-    _clientMutex(),_clientsByPeriod(),_clientsByCntrMod(),_cntrMods(),
+    _clientMutex(), _clients(),
+    _clientPeriods(), _clientOffsets(),
+    _clientDivs(), _clientMods(),
     _sleepMsec(0)
 {
 }
 
-void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)
+void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod,
+        unsigned int msecOffset)
 	throw(n_u::InvalidParameterException)
 {
 
@@ -53,36 +56,25 @@ void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)
 
     n_u::Synchronized autoLock(_clientMutex);
 
-    map<unsigned int,std::set<LooperClient*> >::iterator
-    	ci = _clientsByPeriod.find(msecPeriod);
+    _clientPeriods[clnt] = msecPeriod;
+    _clientOffsets[clnt] = msecOffset;
 
-    if (ci != _clientsByPeriod.end()) ci->second.insert(clnt);
-    else {
-	/* new period value */
-        set<LooperClient*> clnts;
-	clnts.insert(clnt);
-	_clientsByPeriod[msecPeriod] = clnts;
-    }
     setupClientMaps();
 }
 
 void Looper::removeClient(LooperClient* clnt)
 {
     _clientMutex.lock();
+    map<LooperClient*, unsigned int>::iterator ci = _clientPeriods.find(clnt);
+    if (ci != _clientPeriods.end()) _clientPeriods.erase(ci);
 
-    map<unsigned int,std::set<LooperClient*> >::iterator
-    	ci = _clientsByPeriod.begin();
+    ci = _clientOffsets.find(clnt);
+    if (ci != _clientOffsets.end()) _clientOffsets.erase(ci);
 
-    bool foundClient = false;
-    for ( ; ci != _clientsByPeriod.end(); ++ci) {
-        set<LooperClient*>::iterator si = ci->second.find(clnt);
-	if (si != ci->second.end()) {
-	    ci->second.erase(si);
-	    foundClient = true;
-	}
-    }
-    if (foundClient) setupClientMaps();
-    bool haveClients = !_cntrMods.empty();
+
+    setupClientMaps();
+
+    bool haveClients = !_clients.empty();
     _clientMutex.unlock();
 
     if (!haveClients && isRunning()) {
@@ -105,32 +97,39 @@ int Looper::gcd(unsigned int a, unsigned int b)
 
 void Looper::setupClientMaps()
 {
-    map<unsigned int,std::set<LooperClient*> >::iterator ci;
+    map<LooperClient*, unsigned int>::iterator ci;
     unsigned int sleepval = 0;
 
     /* determine greatest common divisor of periods */
-    for (ci = _clientsByPeriod.begin(); ci != _clientsByPeriod.end(); ) {
-        if (ci->second.size() == 0) _clientsByPeriod.erase(ci++);
-	else {
-	    unsigned int per = ci->first;
-	    if (sleepval == 0) sleepval = per;
-	    else sleepval = gcd(sleepval,per);
-	    ++ci;
-	}
+    for (ci = _clientPeriods.begin(); ci != _clientPeriods.end(); ) {
+        unsigned int per = ci->second;
+        if (sleepval == 0) sleepval = per;
+        else sleepval = gcd(sleepval,per);
+        ++ci;
+    }
+    for (ci = _clientOffsets.begin(); ci != _clientOffsets.end(); ) {
+        unsigned int off = ci->second;
+        if (off != 0) sleepval = gcd(sleepval,off);
+        ++ci;
     }
 
-    _clientsByCntrMod.clear();
-    _cntrMods.clear();
+    _clientDivs.clear();
+    _clientMods.clear();
+    _clients.clear();
     if (sleepval == 0) return;      // no clients
 
-    for (ci = _clientsByPeriod.begin(); ci != _clientsByPeriod.end(); ++ci) {
-	assert (ci->second.size() > 0);
-	unsigned int per = ci->first;
+    for (ci = _clientPeriods.begin(); ci != _clientPeriods.end(); ++ci) {
+        LooperClient* clnt = ci->first;
+	unsigned int per = ci->second;
+	unsigned int offset = _clientOffsets[clnt];
+
 	assert((per % sleepval) == 0);
-	int cntrMod = per / sleepval;
-	list<LooperClient*> clnts(ci->second.begin(),ci->second.end());
-	_clientsByCntrMod[cntrMod] = clnts;
-	_cntrMods.insert(cntrMod);
+	_clientDivs[clnt] = per / sleepval;
+
+	assert((offset % sleepval) == 0);
+	_clientMods[clnt] = offset / sleepval;
+
+        _clients.push_back(clnt);
     }
     _sleepMsec = sleepval;
     n_u::Logger::getInstance()->log(LOG_INFO,
@@ -155,25 +154,19 @@ int Looper::run() throw(n_u::Exception)
 
 	_clientMutex.lock();
 	// make a copy of the list
-	list<int> mods(_cntrMods.begin(),_cntrMods.end());
+	list<LooperClient*> clnts(_clients.begin(),_clients.end());
 	_clientMutex.unlock();
 
-	list<int>::const_iterator mi = mods.begin();
-	for ( ; mi != mods.end(); ++mi) {
-	    int modval = *mi;
+	list<LooperClient*>::const_iterator ci = _clients.begin();
+	for ( ; ci != _clients.end(); ++ci) {
+	    LooperClient* clnt = *ci;
 
-	    if (!(cntr % modval)) {
-		_clientMutex.lock();
-		// make a copy of the list
-		list<LooperClient*> clients = _clientsByCntrMod[modval];
-		_clientMutex.unlock();
+            _clientMutex.lock();
+            unsigned int cdiv = _clientDivs[clnt];
+            unsigned int cmod = _clientMods[clnt];
+            _clientMutex.unlock();
 
-		list<LooperClient*>::const_iterator li = clients.begin();
-		for ( ; li != clients.end(); ++li) {
-		    LooperClient* clnt = *li;
-		    clnt->looperNotify();
-		}
-	    }
+            if (cdiv > 0 && cntr % cdiv == cmod) clnt->looperNotify();
 	}
 	if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
     }

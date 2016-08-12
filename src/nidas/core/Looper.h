@@ -62,7 +62,8 @@ public:
      * to about 10 milliseconds, and to reduce system load,
      * this value is rounded to the nearest 10 milliseconds.
      */
-    void addClient(LooperClient *clnt,unsigned int msecPeriod)
+    void addClient(LooperClient *clnt,unsigned int msecPeriod,
+            unsigned int msecOffset)
     	throw(nidas::util::InvalidParameterException);
 
     /**
@@ -86,11 +87,13 @@ private:
 
     nidas::util::Mutex _clientMutex;
 
-    std::map<unsigned int,std::set<LooperClient*> > _clientsByPeriod;
+    std::list<LooperClient*> _clients;
 
-    std::map<int,std::list<LooperClient*> > _clientsByCntrMod;
+    std::map<LooperClient*, unsigned int> _clientPeriods;
+    std::map<LooperClient*, unsigned int> _clientOffsets;
 
-    std::set<int> _cntrMods;
+    std::map<LooperClient*, unsigned int> _clientDivs;
+    std::map<LooperClient*, unsigned int> _clientMods;
 
     unsigned int _sleepMsec;
 

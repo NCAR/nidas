@@ -136,11 +136,13 @@ public:
      * @param promptString May contain backslash excape sequences.
      * @param promptRate prompts/sec.
      */
-    virtual void addPrompt(const std::string& promptString, const double promptRate)
+    virtual void addPrompt(const std::string& promptString, double promptRate,
+            double promptOffset)
     {
         Prompt prompt;
         prompt.setString(promptString);
         prompt.setRate(promptRate);
+        prompt.setOffset(promptOffset);
 
         _prompts.push_back(prompt);
         _prompted = true;
@@ -261,7 +263,11 @@ protected:
      */
     void setPromptRate(const double val) {_promptRate = val;}
 
-    double getPromptRate() { return (_promptRate);}
+    double getPromptRate() const { return (_promptRate);}
+
+    void setPromptOffset(const double val) {_promptOffset = val;}
+
+    double getPromptOffset()const { return (_promptOffset);}
 
     /**
      * Set the `<sensor>` prompt string for this sensor.
@@ -269,7 +275,7 @@ protected:
      */
     void setPromptString(const std::string& val) { _promptString = val; }
 
-    const std::string& getPromptString() { return (_promptString);}
+    const std::string& getPromptString() const { return (_promptString);}
 
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
 			   float* data_ptr);
@@ -287,6 +293,8 @@ private:
     std::string _promptString;
 
     double _promptRate;
+
+    double _promptOffset;
    
     std::list<AsciiSscanf*> _sscanfers;
 

@@ -192,7 +192,8 @@ private:
     {
     public:
         Prompter(SerialSensor* sensor): _sensor(sensor),
-		_prompt(0),_promptLen(0), _promptPeriodMsec(0) {}
+            _prompt(0),_promptLen(0), _promptPeriodMsec(0),
+            _promptOffsetMsec(0) {}
 
         ~Prompter();
 
@@ -201,6 +202,9 @@ private:
 
         void setPromptPeriodMsec(const int);
         int getPromptPeriodMsec() const { return _promptPeriodMsec; }
+
+        void setPromptOffsetMsec(const int);
+        int getPromptOffsetMsec() const { return _promptOffsetMsec; }
 
         /**
          * Method called by Looper in order to send a prompt.
@@ -211,6 +215,7 @@ private:
         char* _prompt;
 	int _promptLen;
         int _promptPeriodMsec;
+        int _promptOffsetMsec;
 
         /** copy not necessary */
         Prompter(const Prompter&);

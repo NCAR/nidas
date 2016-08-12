@@ -159,6 +159,7 @@ void SerialSensor::initPrompting() throw(n_u::IOException)
            Prompter* prompter = new Prompter(this);
            prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
            prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
+           prompter->setPromptOffsetMsec((int) rint(MSECS_PER_SEC / prompt.getOffset()));
 
            _prompters.push_back(prompter);
            //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
@@ -183,7 +184,9 @@ void SerialSensor::startPrompting() throw(n_u::IOException)
         //for (pi = getPrompters().begin(); pi != getPrompters.end(); ++pi) {
         for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
             Prompter* prompter = *pi;
-            getLooper()->addClient(prompter,prompter->getPromptPeriodMsec());
+            getLooper()->addClient(prompter,
+                    prompter->getPromptPeriodMsec(),
+                    prompter->getPromptOffsetMsec());
         }
 	_prompting = true;
     }
@@ -352,6 +355,11 @@ void SerialSensor::Prompter::setPrompt(const string& val)
 void SerialSensor::Prompter::setPromptPeriodMsec(const int val)
 {
     _promptPeriodMsec = val;
+}
+
+void SerialSensor::Prompter::setPromptOffsetMsec(const int val)
+{
+    _promptOffsetMsec = val;
 }
 
 void SerialSensor::Prompter::looperNotify() throw()

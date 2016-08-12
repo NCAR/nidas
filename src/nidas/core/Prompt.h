@@ -40,7 +40,7 @@ namespace nidas { namespace core {
 class Prompt {
 
 public: 
-    Prompt(): _promptString(),_promptRate(0.0) {}
+    Prompt(): _promptString(),_promptRate(0.0), _promptOffset(0.0) {}
 
     void setString(const std::string& val) { 
         _promptString = val; }
@@ -48,16 +48,33 @@ public:
     const std::string& getString() const { 
         return _promptString; }
 
+    /**
+     * Set rate of desired prompting, in Hz (sec^-1).
+     */
     void setRate(const double val) {
          _promptRate = val; }
 
     double getRate() const {
          return _promptRate; }
 
+    /**
+     * Set prompt offset in seconds.  For example, for a rate of 10Hz, an offset
+     * of 0 would result in prompts at 0.0, 0.1, 0.2 seconds after each second.
+     * An offset of 0.01 would result in prompts at 0.01, 0.11, 0.21 seconds after the second.
+     */
+    void setOffset(const double val) {
+         _promptOffset = val; }
+
+    double getOffset() const {
+         return _promptOffset; }
+
 private:
 
     std::string  _promptString;
+
     double        _promptRate;
+
+    double        _promptOffset;
 
 };
 

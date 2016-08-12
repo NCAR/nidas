@@ -187,7 +187,7 @@ void SensorSimulator::run() throw(n_u::Exception)
 	// cerr << "msecPeriod=" << msecPeriod << endl;
 
         getLooper();
-        _looper->addClient(this,msecPeriod);
+        _looper->addClient(this,msecPeriod,0);
         _looper->join();
     }
 }
