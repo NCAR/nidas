@@ -139,19 +139,18 @@ void Looper::setupClientMaps()
     if (!isRunning()) start();
 }
 
-/**
+/*
  * Thread function, the loop.
  */
-
 int Looper::run() throw(n_u::Exception)
 {
     if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
 
-    n_u::Logger::getInstance()->log(LOG_INFO,
-    	"Looper starting, sleepMsec=%d", _sleepMsec);
+    ILOG(("Looper starting, sleepMsec=%d", _sleepMsec));
     while (!amInterrupted()) {
-	long long tnow = n_u::getSystemTime() / USECS_PER_MSEC;
-	unsigned int cntr = (unsigned int)(tnow % MSECS_PER_DAY) / _sleepMsec;
+	unsigned int tnow =
+            (unsigned int)(n_u::getSystemTime() / USECS_PER_MSEC % MSECS_PER_DAY);
+	unsigned int cntr = (tnow + _sleepMsec / 2) / _sleepMsec;
 
 	_clientMutex.lock();
 	// make a copy of the list
@@ -167,9 +166,8 @@ int Looper::run() throw(n_u::Exception)
             unsigned int cmod = _clientMods[clnt];
             _clientMutex.unlock();
 
-            VLOG(("cntr=%u, cdiv=%u cmod=%u\n",
+            DLOG(("cntr=%u, cdiv=%u cmod=%u\n",
                     cntr, cdiv, cmod));
-
             if (cdiv > 0 && (cntr % cdiv) == cmod) clnt->looperNotify();
 	}
 	if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
