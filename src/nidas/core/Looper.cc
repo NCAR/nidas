@@ -71,7 +71,6 @@ void Looper::removeClient(LooperClient* clnt)
     ci = _clientOffsets.find(clnt);
     if (ci != _clientOffsets.end()) _clientOffsets.erase(ci);
 
-
     setupClientMaps();
 
     bool haveClients = !_clients.empty();
@@ -123,6 +122,9 @@ void Looper::setupClientMaps()
 	unsigned int per = ci->second;
 	unsigned int offset = _clientOffsets[clnt];
 
+        DLOG(("sleepval=%u, per=%u offset=%u\n",
+                    sleepval, per, offset));
+
 	assert((per % sleepval) == 0);
 	_clientDivs[clnt] = per / sleepval;
 
@@ -132,8 +134,7 @@ void Looper::setupClientMaps()
         _clients.push_back(clnt);
     }
     _sleepMsec = sleepval;
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"Looper, sleepMsec=%d",_sleepMsec);
+    ILOG(("Looper, sleepMsec=%d",_sleepMsec));
 
     if (!isRunning()) start();
 }
@@ -166,11 +167,13 @@ int Looper::run() throw(n_u::Exception)
             unsigned int cmod = _clientMods[clnt];
             _clientMutex.unlock();
 
-            if (cdiv > 0 && cntr % cdiv == cmod) clnt->looperNotify();
+            VLOG(("cntr=%u, cdiv=%u cmod=%u\n",
+                    cntr, cdiv, cmod));
+
+            if (cdiv > 0 && (cntr % cdiv) == cmod) clnt->looperNotify();
 	}
 	if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
     }
     return RUN_OK;
 }
-
 

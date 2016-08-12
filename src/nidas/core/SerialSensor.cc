@@ -159,7 +159,7 @@ void SerialSensor::initPrompting() throw(n_u::IOException)
            Prompter* prompter = new Prompter(this);
            prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
            prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
-           prompter->setPromptOffsetMsec((int) rint(MSECS_PER_SEC / prompt.getOffset()));
+           prompter->setPromptOffsetMsec((int) rint(MSECS_PER_SEC * prompt.getOffset()));
 
            _prompters.push_back(prompter);
            //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
