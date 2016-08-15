@@ -176,6 +176,8 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
         for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
         if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
     }
+    // Apply correction to Tc
+    uvwt[3] = uvwt[3] * _tcSlope + _tcOffset;
     if (_horizontalRotation) _rotator.rotate(uvwt,uvwt+1);
 }
 
