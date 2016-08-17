@@ -9,9 +9,7 @@ using boost::unit_test_framework::test_suite;
 
 #include <sys/types.h>
 #include <signal.h>
-#include <boost/assign/list_of.hpp>
 
-using namespace boost::assign;
 using namespace nidas::util;
 using namespace nidas::core;
 
@@ -399,7 +397,8 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
 
   // Now try parsing a line with a valid but disabled option, so it should
   // not be consumed when parsed.
-  args = list_of("-l")("debug")("-x")("/tmp/header2.xml");
+  args = make_vector<std::string>()
+    << "-l" << "debug" << "-x" << "/tmp/header2.xml";
 
   app.parseArguments(args);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
@@ -418,12 +417,14 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
   app.requireLongFlag(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
   
   // Short flags should not be allowed.
-  std::vector<std::string> args = list_of("-x")("/tmp/header.xml");
+  std::vector<std::string> args = make_vector<std::string>()
+    << "-x" << "/tmp/header.xml";
   app.parseArguments(args);
   BOOST_CHECK_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
-  args = list_of("--xml")("/tmp/header.xml")("--process")("--samples")("1,1");
+  args = make_vector<std::string>()
+    << "--xml" << "/tmp/header.xml" << "--process" << "--samples" << "1,1";
   app.parseArguments(args);
   BOOST_CHECK_EQUAL(args.size(), 0);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
@@ -438,7 +439,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
 
   app.enableArguments(app.XmlHeaderFile);
   
-  std::vector<std::string> args = list_of("--xml");
+  std::vector<std::string> args = make_vector<std::string>() << "--xml";
   BOOST_CHECK_THROW(app.parseArguments(args), NidasAppException);
   BOOST_CHECK_EQUAL(args.size(), 1);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
