@@ -294,15 +294,21 @@ void SerialSensor::fromDOMElement(
 		_termios.setStopBits(val);
 	    }
 	    else if (aname == "rts485") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-			string("SerialSensor:") + getName(),
-		    	aname, aval);
-                _rts485 = val;
+            if (aval == "true" || aval == "1") {
+                _rts485 = 1;
             }
+            else if (aval == "false" || aval == "0") {
+                _rts485 = 0;
+            }
+            else if (aval == "-1") {
+                _rts485 = -1;
+            }
+            else {
+                throw n_u::InvalidParameterException(
+                string("SerialSensor:") + getName(),
+                    aname, aval);
+            }
+        }
 	    else if (aname == "nullterm");
 	    else if (aname == "init_string");
 	    else if (aname == "suffix");

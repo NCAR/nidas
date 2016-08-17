@@ -82,12 +82,15 @@
 </xsd:simpleType>
 
 <xsd:simpleType name="rts485type">
-    <xsd:restriction base="xsd:integer">
-        <!-- 0: don't toggle RTS on read/write -->
-        <!-- 1: raise RTS on write, lower on read -->
-        <!-- -11: lower RTS on write, raise on read -->
-	<xsd:minInclusive value="-1"/>
-	<xsd:maxInclusive value="1"/>
+    <xsd:restriction base="xsd:token">
+        <!-- 0 or false: don't toggle RTS on read/write -->
+        <!-- 1 or true: raise RTS on write, lower on read -->
+        <!-- -1: lower RTS on write, raise on read -->
+	<xsd:enumeration value="true"/>
+	<xsd:enumeration value="false"/>
+	<xsd:enumeration value="-1"/>
+	<xsd:enumeration value="0"/>
+	<xsd:enumeration value="1"/>
     </xsd:restriction>
 </xsd:simpleType>
 
