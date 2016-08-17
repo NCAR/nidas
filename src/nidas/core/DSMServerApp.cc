@@ -69,6 +69,7 @@ DSMServerApp::DSMServerApp():
     _xmlFileName(), _configsXMLName(),
     _rafXML("$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml"),
     _isffXML("$ISFF/projects/$PROJECT/ISFF/config/configs.xml"),
+    _isfsXML("$ISFS/projects/$PROJECT/ISFS/config/configs.xml"),
     _runState(RUN),
     _username(),_userid(0),_groupid(0),
     _xmlrpcThread(0),_statusThread(0),
@@ -97,14 +98,16 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                     const char* re = getenv("PROJ_DIR");
                     const char* pe = getenv("PROJECT");
                     const char* ae = getenv("AIRCRAFT");
-                    const char* ie = getenv("ISFF");
+                    const char* ie = getenv("ISFS");
+                    const char* ieo = getenv("ISFS");
                     if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+                    else if (ieo && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                 }
                 if (_configsXMLName.length() == 0) {
                     cerr <<
                         "Environment variables not set correctly to find XML file of project configurations." << endl;
-                    cerr << "Cannot find " << _rafXML << endl << "or " << _isffXML << endl;
+                    cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
                     return usage(argv[0]);
                 }
 	    }
@@ -174,7 +177,7 @@ int DSMServerApp::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-S dataSet_name] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
-    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isffXML << "\n\
+    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isfsXML << "\n\
   -d: debug, run in foreground and send messages to stderr with log level of debug\n\
       Otherwise run in the background, cd to /, and log messages to syslog\n\
       Specify a -l option after -d to change the log level from debug\n\
@@ -184,7 +187,7 @@ Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-S dataSet_name] [-u user
   -r: rpc, start XML RPC thread to respond to external commands\n\
   -S dataSet_name: set environment variables specifed for the dataset\n\
      as found in the xml file specifed by $NIDAS_DATASETS or \n\
-     $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
+     $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
   -u username: after startup, switch userid to username\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
@@ -596,14 +599,18 @@ Dataset DSMServerApp::getDataset() throw(n_u::InvalidParameterException, XMLExce
     else {
         const char* isffDatasetsXML =
             "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
-        const char* ie = ::getenv("ISFF");
+        const char* isfsDatasetsXML =
+            "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
+        const char* ie = ::getenv("ISFS");
+        const char* ieo = ::getenv("ISFF");
         const char* pe = ::getenv("PROJECT");
-        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
+        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isfsDatasetsXML);
+        else if (ieo && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
     }
 
     if (XMLName.length() == 0)
         throw n_u::InvalidParameterException("environment variables",
-            "NIDAS_DATASETS, ISFF, PROJECT","not found");
+            "NIDAS_DATASETS, ISFS, PROJECT","not found");
     Datasets datasets;
     datasets.parseXML(XMLName);
 

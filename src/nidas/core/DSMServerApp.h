@@ -146,6 +146,8 @@ private:
 
     std::string _isffXML;
 
+    std::string _isfsXML;
+
     enum runState _runState;
 
     std::string _username;

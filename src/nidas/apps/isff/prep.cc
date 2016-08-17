@@ -204,7 +204,11 @@ private:
 
     static const char* _isffXML;
 
+    static const char* _isfsXML;
+
     static const char* _isffDatasetsXML;
+
+    static const char* _isfsDatasetsXML;
 
     int _asciiPrecision;
 
@@ -274,7 +278,13 @@ const char* DataPrep::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/fli
 const char* DataPrep::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
 /* static */
+const char* DataPrep::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
+
+/* static */
 const char* DataPrep::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+
+/* static */
+const char* DataPrep::_isfsDatasetsXML = "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
 
 DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 	_format(fmt),_ostr(outstr),_startTime((time_t)0),_endTime((time_t)0),
@@ -286,12 +296,14 @@ DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 Dataset DataPrep::getDataset() throw(n_u::InvalidParameterException, XMLException)
 {
     string XMLName;
-    const char* ie = ::getenv("ISFF");
+    const char* ie = ::getenv("ISFS");
+    const char* ieo = ::getenv("ISFF");
     const char* pe = ::getenv("PROJECT");
-    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
+    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isfsDatasetsXML);
+    else if (ieo && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
     if (XMLName.length() == 0)
         throw n_u::InvalidParameterException("environment variables",
-            "ISFF,PROJECT","not found");
+            "ISFS,PROJECT","not found");
     Datasets datasets;
     datasets.parseXML(XMLName);
 
@@ -667,11 +679,11 @@ Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B tim
     -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
        As with the -r option, prep can output at more than one rate\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
-    -S dataSet_name from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
+    -S dataSet_name from $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
     -v : show version\n\
     -w : windows/dos output (records terminated by CRNL instead of just NL)\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
-       the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
+       the data file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n\
     input: data input (optional). One of the following:\n\
         sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
         unix:sockpath             unix socket name\n\
@@ -679,7 +691,7 @@ Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B tim
 \n\
 \n\
 If no inputs are specified, then the -B time option must be given, and\n" <<
-argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\
+argv0 << " will read $ISFS/projects/$PROJECT/ISFS/config/configs.xml, to\n\
 find an xml configuration for the begin time, read it to find a\n\
 <fileset> archive for the given variables, and then open data files\n\
 matching the <fileset> path descriptor and time period.\n\
@@ -856,13 +868,15 @@ int DataPrep::run() throw()
                 const char* re = ::getenv("PROJ_DIR");
                 const char* pe = ::getenv("PROJECT");
                 const char* ae = ::getenv("AIRCRAFT");
-                const char* ie = ::getenv("ISFF");
+                const char* ie = ::getenv("ISFS");
+                const char* ieo = ::getenv("ISFF");
                 string configsXMLName;
                 if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+                else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                 if (configsXMLName.length() == 0)
                     throw n_u::InvalidParameterException("environment variables",
-                        "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
+                        "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
                 ILOG(("parsed:") <<  configsXMLName);
@@ -909,13 +923,15 @@ int DataPrep::run() throw()
                     const char* re = ::getenv("PROJ_DIR");
                     const char* pe = ::getenv("PROJECT");
                     const char* ae = ::getenv("AIRCRAFT");
-                    const char* ie = ::getenv("ISFF");
+                    const char* ie = ::getenv("ISFS");
+                    const char* ieo = ::getenv("ISFF");
                     string configsXMLName;
                     if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+                    else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                     if (configsXMLName.length() == 0)
                         throw n_u::InvalidParameterException("environment variables",
-                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
+                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
 
                     ProjectConfigs configs;
                     configs.parseXML(configsXMLName);

@@ -121,8 +121,8 @@ NIDAS (ncar.ucar.edu)\n\
 archive version: 1\n\
 software version: 3893M\n\
 project name: CHATS\n\
-system name: ISFF\n\
-config name: $ISFF/projects/$PROJECT/ISFF/config/low.xml\n\
+system name: ISFS\n\
+config name: $ISFS/projects/$PROJECT/ISFS/config/low.xml\n\
 \n\
 config version: $LastChangedRevision: 511 $\n\
 end header\n\

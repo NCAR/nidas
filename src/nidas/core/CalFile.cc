@@ -514,10 +514,6 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
             throw n_u::ParseException(getCurrentFileName(),
                 ost.str() + '"' + (_curline + _curpos) + '"',getLineNumber());
         }
-        // cerr << "data[" << id << "]=" << data[id] << endl;
-        /*
-         * The NCAR ISFF C++ code uses +-1.e37 as a no-data flag 
-         */
         if (::fabs(data[id]) > 1.e36) data[id] = floatNAN;
     }
     for (int i = id; i < ndata; i++) data[i] = floatNAN;
