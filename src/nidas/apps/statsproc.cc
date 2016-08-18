@@ -737,8 +737,18 @@ int StatsProcess::run() throw()
             }
         }
         if (!sproc) {
+            char myhostname[256];
+            size_t hlen = sizeof(myhostname);
+            if (gethostname(myhostname,hlen-1) < 0) {
+                if (errno == ENAMETOOLONG) myhostname[hlen-1] = 0;
+                else myhostname[0] = 0;
+            }
             // Find a server with a StatisticsProcessor
-            list<DSMServer*> servers = project.findServers(_dsmName);
+            // If no match is found, the name up to the first
+            // dot is tried. If still no match, returns
+            // servers in the project with no associated name.
+            list<DSMServer*> servers = project.findServers(myhostname);
+
             DSMServer* server;
             list<DSMServer*>::const_iterator svri = servers.begin();
             for ( ; !sproc && svri != servers.end(); ++svri) {
