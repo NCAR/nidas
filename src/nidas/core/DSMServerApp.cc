@@ -321,23 +321,25 @@ int DSMServerApp::initProcess(const char* argv0)
 #endif
 
     // Open and check the pid file after the above setuid() and daemon() calls.
-    try {
-        string pidname = "/tmp/run/nidas";
-        mode_t mask = ::umask(0);
-        n_u::FileSet::createDirectory(pidname,01777);
+    if (!_debug) {
+        try {
+            string pidname = "/tmp/run/nidas";
+            mode_t mask = ::umask(0);
+            n_u::FileSet::createDirectory(pidname,01777);
 
-        pidname += "/dsm_server.pid";
-        pid_t pid = n_u::Process::checkPidFile(pidname);
-        ::umask(mask);
+            pidname += "/dsm_server.pid";
+            pid_t pid = n_u::Process::checkPidFile(pidname);
+            ::umask(mask);
 
-        if (pid > 0) {
-            PLOG(("%s: pid=%d is already running",argv0,pid));
+            if (pid > 0) {
+                PLOG(("%s: pid=%d is already running",argv0,pid));
+                return 1;
+            }
+        }
+        catch(const n_u::IOException& e) {
+            PLOG(("%s: %s",argv0,e.what()));
             return 1;
         }
-    }
-    catch(const n_u::IOException& e) {
-        PLOG(("%s: %s",argv0,e.what()));
-        return 1;
     }
 
     return 0;
