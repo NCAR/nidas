@@ -72,8 +72,8 @@ static int numboards = 0;
 /* number of DMMAT boards which actually respond */
 static int numActualBoards = 0;
 
-/* ISA irqs, required for each board. They should be unique, i.e. not shared.
- * Shared interrupts cause intermittent missed interrupts on a Viper. */
+/* ISA irqs, required for each board. Sharing seems to cause IRQ dropouts
+ * from time to time, so it is not recommended. */
 static int irqs[MAX_DMMAT_BOARDS] = { 12, 0, 0, 0 };
 static int numirqs = 0;
 
