@@ -66,7 +66,7 @@ kill_dsm() {
 }
 
 kill_dsm_server() {
-    # send a TERM signal to dsm_server process
+    # send a TERM signal to valgrind dsm_server process
     nkill=0
     dsmpid=`pgrep -f "valgrind .*dsm_server"`
     if [ -n "$dsmpid" ]; then
@@ -104,13 +104,6 @@ find_udp_port() {
 # kill any existing dsm processes
 kill_dsm
 kill_dsm_server
-
-for f in /tmp/run/nidas/dsm.pid /tmp/run/nidas/dsm_server.pid; do
-    if [ -f $f ]; then
-        echo "$f exists, deleting"
-        rm $f || exit 1
-    fi
-done
 
 [ -d tmp ] && rm -rf tmp
 [ -d tmp ] || mkdir tmp
