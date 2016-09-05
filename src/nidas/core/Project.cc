@@ -270,7 +270,7 @@ list<DSMServer*> Project::findServers(const string& hostname) const
 		break;
 	    }
 	}
-	if (servers.size() == 0) {
+	if (servers.empty()) {
 	    // Not found, remove domain name, try again
 	    int dot = hostname.find('.');
 	    sitr = getDSMServerIterator();
@@ -285,7 +285,7 @@ list<DSMServer*> Project::findServers(const string& hostname) const
 	    }
 	}
 
-	if (servers.size() == 0) {
+	if (servers.empty()) {
 	    // look for address match
             try {
                 list<n_u::Inet4Address> addrs =
