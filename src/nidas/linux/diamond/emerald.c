@@ -267,14 +267,13 @@ static int emm_check_model(emerald_board* brd)
         return EMERALD_MM_8P;
 }
 
-static int emm_read_config(emerald_board* brd)
+static void emm_read_config(emerald_board* brd)
 {
         int i,val;
         /* read ioport values. */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
                 outb(i,brd->addr+EMERALD_APER);
                 val = inb(brd->addr+EMERALD_ARR);
-                if (val == 0xff) return -ENODEV;
                 brd->config.ports[i].ioport = val << 3;
 
                 // According to the Emerald manual the IRQ registers
@@ -283,11 +282,9 @@ static int emm_read_config(emerald_board* brd)
 #ifdef TRY_READ_IRQ_FROM_REGISTER
                 outb(i+EMERALD_NR_PORTS,brd->addr+EMERALD_APER);
                 val = inb(brd->addr+EMERALD_ARR);
-                if (val == 0xff) return -ENODEV;
                 brd->config.ports[i].irq = val;
 #endif
         }
-        return 0;
 }
 
 static int emm_write_config(emerald_board* brd,emerald_config* config)
@@ -415,7 +412,8 @@ static int emm_load_config_from_eeprom(emerald_board* brd)
         // read back. Must get IRQs from EEPROM
         result = emm_read_eeconfig(brd,&brd->config);
         // re-read registers to make sure
-        if (!result) result = emm_read_config(brd);
+        emm_read_config(brd);
+        if (!emm_check_config(&brd->config,brd->deviceName)) result = -EINVAL;
         return result;
 }
 
@@ -689,7 +687,7 @@ static void emerald_remove_proc(void)
 
 #endif
 
-static int emerald_open (struct inode *inode, struct file *filp)
+static int emerald_open(struct inode *inode, struct file *filp)
 {
         int num = MINOR(inode->i_rdev);
         emerald_port *port; /* device information */
@@ -777,7 +775,7 @@ static long emerald_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
                         ret = emm_write_config(brd,&tmpconfig);
                         // read the ioport values back
-                        if (!ret) ret = emm_read_config(brd);
+                        emm_read_config(brd);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -1050,11 +1048,11 @@ static int __init emerald_init_module(void)
                 mutex_init(&ebrd->brd_mutex);
 
                 /*
-                 * Check if board is responding at this address.
+                 * Simple check if board is responding at this address.
                  */
                 regval = 0x05;
-                outb(regval,brd->addr+EMERALD_APER);
-                regval = inb(brd->addr+EMERALD_APER);
+                outb(regval,ebrd->addr+EMERALD_APER);
+                regval = inb(ebrd->addr+EMERALD_APER);
                 if (regval != 0x05) {
                         KLOG_WARNING("%s: Emerald not responding at ioports[%d]=0x%x\n",
                                 ebrd->deviceName,ib,ioports[ib]);
@@ -1065,46 +1063,19 @@ static int __init emerald_init_module(void)
                         continue;
                 }
 
-                /*
-                 * Read ioport and irq configuration from EEPROM and see if
-                 * it looks OK.  emerald_nr_ok will be the number of boards
-                 * that are configured correctly or are configurable.
-                 */
-                result = emm_read_eeconfig(ebrd,&ebrd->config);
-                if (result == -ENODEV) {
-                        release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
-                        ebrd->ioport = 0;
-                        ebrd->addr = 0;
-                        continue;
+                emm_read_config(ebrd);
+                if (emm_check_config(&ebrd->config,ebrd->deviceName)) {
+                        boardOK = 1;
                 }
+                else {
+                        emerald_config tmpconfig;
+                        KLOG_NOTICE("invalid ioport/irq config on emerald at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
+                            ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
 
-                if (result) {
-                        /*
-                         * We have seen situations where the EMM-8P EEPROM is not
-                         * accessible, which appeared to be due to a +0.4 V
-                         * over-voltage on the 5V PC104 power supply. (This doesn't effect
-                         * an EMM-8). When the EEPROM accesses fail here, we try
-                         * to read the register values with emm_read_config,
-                         * since they should have been initialized from EEPROM at boot.
-                         * However it appears that the boot initialization must have
-                         * failed too, since the register values are all zeroes.
-                         * In this case we initialize the register values with
-                         * some defaults, and proceed.
-                         */
-                        KLOG_WARNING("%s: failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",
-                                        ebrd->deviceName,ib,ioports[ib]);
                         /* disable the ports in case of a conflict between board address and
                          * uart address */
                         emm_disable_ports(ebrd);
-                        result = emm_read_config(ebrd);
-                }
-                if (!result && emm_check_config(&ebrd->config,ebrd->deviceName)) boardOK = 1;
-                else {
-                        emerald_config tmpconfig;
 
-                        emm_disable_ports(ebrd);
-                        KLOG_NOTICE("invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
-                            ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
                         // write a default configuration to registers and check
                         // to see if it worked.
                         for (ip = 0; ip < EMERALD_NR_PORTS; ip++) {
@@ -1112,16 +1083,20 @@ static int __init emerald_init_module(void)
                                 tmpconfig.ports[ip].irq = 3;
                         }
                         emm_write_config(ebrd,&tmpconfig);
-                        result = emm_read_config(ebrd);
-                        if (!result && emm_check_config(&ebrd->config,ebrd->deviceName)) {
-                                KLOG_NOTICE("%s: valid config written to registers on board at ioports[%d]=0x%x\n",
+                        emm_read_config(ebrd);
+                        if (emm_check_config(&ebrd->config,ebrd->deviceName)) {
+                                KLOG_NOTICE("%s: valid ioport/irq config written to emerald at ioports[%d]=0x%x\n",
+                                                ebrd->deviceName,ib,ioports[ib]);
+                                // update EEPROM. Issue warning on failure, but don't make it fatal
+                                if (emm_write_eeconfig(ebrd,&tmpconfig))
+                                        KLOG_WARNING("%s: cannot write ioport/irq config to emerald EEPROM at ioports[%d]=0x%x\n",
                                                 ebrd->deviceName,ib,ioports[ib]);
                                 boardOK = 1;
                         }
                         else {
-                                KLOG_ERR("%s: cannot write valid config to registers on board at ioports[%d]=0x%x\n",
+                                KLOG_ERR("%s: cannot write valid ioport/irq config to board at ioports[%d]=0x%x\n",
                                         ebrd->deviceName,ib,ioports[ib]);
-                                if (!result) result = -EINVAL;
+                                result = -ENODEV;
                         }
                 }
                 
