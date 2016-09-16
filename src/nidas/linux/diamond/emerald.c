@@ -1049,6 +1049,11 @@ static int __init emerald_init_module(void)
 
                 /*
                  * Simple check if board is responding at this address.
+                 * Note that this disables the ports, setting bit 7 in APER to 0.
+                 * This may help in the (unlikely) situation that a port is
+                 * wrongly configured with the same ioport address as the board.
+                 * It is probably a good idea to set the jumper on the board so the
+                 * ports are not enabled on power up.
                  */
                 regval = 0x05;
                 outb(regval,ebrd->addr+EMERALD_APER);
@@ -1071,10 +1076,6 @@ static int __init emerald_init_module(void)
                         emerald_config tmpconfig;
                         KLOG_NOTICE("invalid ioport/irq config on emerald at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
                             ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
-
-                        /* disable the ports in case of a conflict between board address and
-                         * uart address */
-                        emm_disable_ports(ebrd);
 
                         // write a default configuration to registers and check
                         // to see if it worked.
