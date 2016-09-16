@@ -326,8 +326,8 @@ static int emm_read_eeconfig(emerald_board* brd,emerald_config* config)
                         unsigned long jwait = jiffies + 1;
                         while (time_before(jiffies,jwait)) schedule();
                         busy = inb(brd->addr+EMERALD_EBR);
-                        if (busy == 0xff) return -ENODEV;
                 } while(busy & 0x80 && --ntry);
+                // if (busy == 0xff) return -ENODEV;
                 if (!ntry) return -ETIMEDOUT;
                 config->ports[i].ioport = (int)inb(brd->addr+EMERALD_EDR) << 3;
         }
@@ -553,8 +553,8 @@ static int emm_set_port_mode_eeprom(emerald_board* brd,int port, int mode)
                 unsigned long jwait = jiffies + 1;
                 while (time_before(jiffies,jwait)) schedule();
                 busy = inb(brd->addr+EMERALD_EBR);
-                if (busy == 0xff) return -ENODEV;
         } while(busy & 0x80 && --ntry);
+        // if (busy == 0xff) return -ENODEV;
         if (!ntry) return -ETIMEDOUT;
         val = (int)inb(brd->addr+EMERALD_EDR);
 
@@ -599,8 +599,8 @@ static int emm_get_port_mode_eeprom(emerald_board* brd,int port)
                 unsigned long jwait = jiffies + 1;
                 while (time_before(jiffies,jwait)) schedule();
                 busy = inb(brd->addr+EMERALD_EBR);
-                if (busy == 0xff) return -ENODEV;
         } while(busy & 0x80 && --ntry);
+        // if (busy == 0xff) return -ENODEV;
         if (!ntry) return -ETIMEDOUT;
         val = (int)inb(brd->addr+EMERALD_EDR);
 
@@ -1030,6 +1030,7 @@ static int __init emerald_init_module(void)
         ebrd = emerald_boards;
         for (ib=0; ib < emerald_nr_addrs; ib++) {
                 int boardOK = 0;
+                unsigned char regval;
 
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
@@ -1047,6 +1048,22 @@ static int __init emerald_init_module(void)
                 ebrd->ioport = ioports[ib];
                 ebrd->addr = ebrd->ioport + ioport_base;
                 mutex_init(&ebrd->brd_mutex);
+
+                /*
+                 * Check if board is responding at this address.
+                 */
+                regval = 0x05;
+                outb(regval,brd->addr+EMERALD_APER);
+                regval = inb(brd->addr+EMERALD_APER);
+                if (regval != 0x05) {
+                        KLOG_WARNING("%s: Emerald not responding at ioports[%d]=0x%x\n",
+                                ebrd->deviceName,ib,ioports[ib]);
+                        result = -ENODEV;
+                        release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
+                        ebrd->ioport = 0;
+                        ebrd->addr = 0;
+                        continue;
+                }
 
                 /*
                  * Read ioport and irq configuration from EEPROM and see if
@@ -1076,7 +1093,8 @@ static int __init emerald_init_module(void)
                          */
                         KLOG_WARNING("%s: failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",
                                         ebrd->deviceName,ib,ioports[ib]);
-                        /* disable the ports in case of a conflict between board address and uart address */
+                        /* disable the ports in case of a conflict between board address and
+                         * uart address */
                         emm_disable_ports(ebrd);
                         result = emm_read_config(ebrd);
                 }
