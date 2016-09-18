@@ -340,15 +340,16 @@ static int load_start(struct MESA_Board *brd)
         status = inb(brd->addr + R_4I34STATUS);
         KLOG_DEBUG("mesa load_start, status inb = %#x\n", status);
 
-        /* Note that if we see DONE at the start of programming, it's most likely due
-         * to an attempt to access the 4I34 at the wrong I/O location.
+        /* Note that if we see DONE at the start of programming,
+         * it's most likely due to an attempt to access the 4I34
+         * at the wrong I/O location, i.e. no 4I34 there.
          */
         if (status & M_4I34PROGDUN) {
                 config = M_4I34CFGCSOFF | M_4I34CFGINITDEASSERT | 
                         M_4I34CFGWRITEDISABLE | M_4I34LEDOFF;
                 outb(config, brd->addr + R_4I34CONTROL);
                 KLOG_ERR
-                    ("failed - attempted to access the 4I34 at the wrong I/O location?\n");
+                    ("%s: M_4I34PROGDUN at load_start. 4I34 not responding at ioport %#x\n",brd->devName, brd->ioport);
                 return -ENODEV;
         }
         config = M_4I34CFGCSON | M_4I34CFGINITDEASSERT |
@@ -412,12 +413,14 @@ static int load_finish(struct MESA_Board *brd)
         outb(config, brd->addr + R_4I34CONTROL);
 
         if (success) {
-                KLOG_NOTICE("FPGA programming done.\n");
+                KLOG_NOTICE("%s: FPGA programming done.\n",
+                        brd->devName);
                 // Now send out extra configuration completion clocks
                 for (count = 24; count != 0; --count)
                         outb(0xFF, brd->addr + R_4I34DATA);
                 ret = 0;
-        } else KLOG_ERR("FPGA programming not successful.\n");
+        } else KLOG_ERR("%s: FPGA programming not successful.\n",
+                        brd->devName);
 
         return ret;
 }
