@@ -1057,10 +1057,11 @@ static int __init emerald_init_module(void)
                  */
                 regval = 0x05;
                 outb(regval,ebrd->addr+EMERALD_APER);
-                regval = inb(ebrd->addr+EMERALD_APER);
+                regval = inb(ebrd->addr+EMERALD_APER) & 0x8f;
                 if (regval != 0x05) {
-                        KLOG_WARNING("%s: Emerald not responding at ioports[%d]=0x%x\n",
-                                ebrd->deviceName,ib,ioports[ib]);
+                        KLOG_WARNING("%s: Emerald not responding at ioports[%d]=%#x, val=%#x\n",
+                                ebrd->deviceName,ib,ioports[ib],
+                                (unsigned int) regval);
                         result = -ENODEV;
                         release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
                         ebrd->ioport = 0;
