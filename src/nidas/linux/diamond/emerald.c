@@ -1069,6 +1069,10 @@ static int __init emerald_init_module(void)
                         continue;
                 }
 
+                /*
+                 * Read config from eeprom which has the irq #s
+                 */
+                emm_read_eeconfig(ebrd,&ebrd->config);
                 emm_read_config(ebrd);
                 if (emm_check_config(&ebrd->config,ebrd->deviceName)) {
                         boardOK = 1;
