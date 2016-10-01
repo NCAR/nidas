@@ -397,20 +397,59 @@ ServerThread::ServerThread(PacketReader& reader):
     unblockSignal(SIGHUP);
 }
 
+static bool serverSocketRetry(int err)
+{
+    /* from "man 2 accept":
+     * For reliable operation the application should detect the
+     * network errors defined for the protocol after accept() and treat them like  EAGAIN
+     * by  retrying.   In  case of TCP/IP these are ENETDOWN, EPROTO, ENOPROTOOPT, EHOST-
+     * DOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and ENETUNREACH.
+     */
+    switch (err) {
+    case ENETDOWN:
+    case EPROTO:
+    case ENOPROTOOPT:
+    case EHOSTDOWN:
+    case ENONET:
+    case EHOSTUNREACH:
+    case EOPNOTSUPP:
+    case ENETUNREACH:
+        return true;
+    default:
+        return false;
+    }
+}
+
 int ServerThread::run() throw(n_u::Exception)
 {
     try {
-        n_u::ServerSocket ssock(_port);
-        for ( ;! isInterrupted(); ) {
-            n_u::Socket* sock = ssock.accept();
-            sock->setKeepAliveIdleSecs(60);
-            // Detached thread deletes itself.
-            WriterThread* writer = new WriterThread(sock,_reader);
-            writer->start();
+        for ( ; !isInterrupted(); ) {
+            n_u::ServerSocket ssock(_port);
+            for ( ; !isInterrupted(); ) {
+                n_u::Socket* sock;
+                try {
+                    sock = ssock.accept();
+                    sock->setKeepAliveIdleSecs(60);
+                }
+                catch(const n_u::IOException& e) {
+                    ssock.close();
+                    if (serverSocketRetry(e.getErrno())) {
+                        WLOG(("%s", e.what()));
+                        sleep(5);
+                        continue;
+                    }
+                    throw;
+                }
+                // Detached thread deletes itself.
+                WriterThread* writer = new WriterThread(sock,_reader);
+                writer->start();
+            }
+            // interrupted
+            ssock.close();
         }
     }
     catch(const n_u::IOException& e) {
-        PLOG(("%s",e.what()));
+        PLOG(("%s", e.what()));
     }
     interrupted = true;
     return RUN_EXCEPTION;
