@@ -70,8 +70,7 @@ public:
 
     int usage(const char* argv0);
 
-    const std::deque<n_u::DatagramPacket*>& getPackets() const { return _packets; }
-
+    const deque<n_u::DatagramPacket*>& getPackets() const { return _packets; }
     nidas::util::Cond& dataReady() { return _dataReady; }
 
     void loop() throw();
@@ -93,7 +92,7 @@ private:
     int _tcpport;
     int _packetsize;
     string _header;
-    std::deque<n_u::DatagramPacket*> _packets;
+    deque<n_u::DatagramPacket*> _packets;
     nidas::util::Cond _dataReady;
     bool _debug;
     static const int DEFAULT_PACKET_SIZE = 16384;
@@ -119,11 +118,21 @@ PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),
 
 PacketReader::~PacketReader()
 {
-    while (_packets.size()) {
-        n_u::DatagramPacket* pkt = _packets.back();
-        delete [] pkt->getData();
-        delete pkt;
-        _packets.pop_back();
+    try {
+        _dataReady.lock();
+        while (!_packets.empty()) {
+            n_u::DatagramPacket* pkt = _packets.back();
+            delete [] pkt->getData();
+            delete pkt;
+            _packets.pop_back();
+        }
+        _dataReady.unlock();
+    }
+    catch(const n_u::Exception& e) {
+        // shouldn't happen. _dataReady should be unlocked
+        // when this destructor is called
+        CLOG(("~PacketReader: ") << e.what());
+        std::terminate();
     }
 }
 
@@ -256,6 +265,7 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
 
 void PacketReader::loop() throw()
 {
+
     for (int i = 0; i < 2; i++)
     {
         char* buf = new char[_packetsize];
@@ -263,45 +273,46 @@ void PacketReader::loop() throw()
         _packets.push_front(pkt);
     }
 
-    for (; !interrupted;) {
+    for (; !interrupted; ) {
 
-        try {
-            n_u::DatagramSocket sock(_udpport);
+	try {
+	    n_u::DatagramSocket sock(_udpport);
 
-            try {
-                _dataReady.lock();
-                for (unsigned int n = 0; !interrupted; n++) {
+	    try {
+		_dataReady.lock();
+		for (unsigned int n = 0; !interrupted; n++) {
 
-                    n_u::DatagramPacket* pkt = _packets.back();
+		    n_u::DatagramPacket* pkt = _packets.back();
                     _packets.pop_back();
-                    _dataReady.unlock();
+		    _dataReady.unlock();
 
-                    sock.receive(*pkt);
+		    sock.receive(*pkt);
 
-                    // screen for non NIDAS packets
-                    checkPacket(*pkt);
+		    // screen for non NIDAS packets
+		    checkPacket(*pkt);
 #ifdef DEBUG
-                    if (!(n % 100))
-                        cerr << "received packet, length=" << pkt->getLength() << " from " <<
-                            pkt->getSocketAddress().toString() << endl;
+		    if (!(n % 100))
+			cerr << "received packet, length=" << pkt->getLength() << " from " <<
+			    pkt->getSocketAddress().toString() << endl;
 #endif
-
-                    _dataReady.lock();
-                    _packets.push_front(pkt);
-                    _dataReady.broadcast();
-                }
-                _dataReady.unlock();
-            }
-            catch(const n_u::IOException& e) {
-                PLOG(("%s",e.what()));
+		    _dataReady.lock();
+		    _packets.push_front(pkt);
+		    _dataReady.broadcast();
+		}
+		_dataReady.unlock();
+	    }
+	    catch(const n_u::IOException& e) {
+		// _dataReady will be unlocked
+		PLOG(("%s",e.what()));
                 sleep(5);
-            }
-            sock.close();
-        }
-        catch(const n_u::IOException& e) {
-            PLOG(("%s",e.what()));
-            sleep(5);
-        }
+	    }
+	    sock.close();
+            // try to re-open, until interrupted
+	}
+	catch(const n_u::IOException& e) {
+	    PLOG(("%s",e.what()));
+	    sleep(5);
+	}
     }
 }
 
@@ -376,26 +387,30 @@ private:
 };
 
 ServerThread::ServerThread(PacketReader& reader):
-    n_u::DetachedThread("TCPServer"),_reader(reader),_header(reader.getHeader()),_port(reader.getTCPPort())
+    n_u::DetachedThread("TCPServer"),_reader(reader),
+    _header(reader.getHeader()),_port(reader.getTCPPort())
 {
+    unblockSignal(SIGTERM);
+    unblockSignal(SIGINT);
+    unblockSignal(SIGHUP);
 }
 
 int ServerThread::run() throw(n_u::Exception)
 {
-        try {
-            n_u::ServerSocket ssock(_port);
-            for ( ;! interrupted; ) {
-                n_u::Socket* sock = ssock.accept();
-                sock->setKeepAliveIdleSecs(60);
-                // Detached thread deletes itself.
-                WriterThread* writer = new WriterThread(sock,_reader);
-                writer->start();
-            }
+    try {
+        n_u::ServerSocket ssock(_port);
+        for ( ;! isInterrupted(); ) {
+            n_u::Socket* sock = ssock.accept();
+            sock->setKeepAliveIdleSecs(60);
+            // Detached thread deletes itself.
+            WriterThread* writer = new WriterThread(sock,_reader);
+            writer->start();
         }
-        catch(const n_u::IOException& e) {
-            PLOG(("%s",e.what()));
-            interrupted = true;
-        }
+    }
+    catch(const n_u::IOException& e) {
+        PLOG(("%s",e.what()));
+    }
+    interrupted = true;
     return RUN_EXCEPTION;
 }
 
@@ -429,6 +444,14 @@ int main(int argc, char** argv)
     logscheme.addConfig(lc);
     logger->setScheme(logscheme);
     NLOG(("nidas_udp_relay starting"));
+
+    // block these signals in the main thread. They will be
+    // caught by the ServerThread
+    sigset_t signals;
+    sigaddset(&signals,SIGTERM);
+    sigaddset(&signals,SIGHUP);
+    sigaddset(&signals,SIGINT);
+    sigprocmask(SIG_BLOCK,&signals,NULL);
 
     // detached thread. Will delete itself.
     ServerThread* server = new ServerThread(reader);
