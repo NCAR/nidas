@@ -241,9 +241,11 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
         }
 
         memcpy(&header,dptr,nidas::core::SampleHeader::getSizeOf()); 
+        const char* eos = dptr + nidas::core::SampleHeader::getSizeOf() + header.getDataByteLength();
 
         if (header.getType() != nidas::core::CHAR_ST ||
             (signed) GET_DSM_ID(header.getId()) > _maxDsmId ||
+            eos > eod ||
             header.getDataByteLength() > _maxSampleLength ||
             header.getDataByteLength() == 0 ||
             header.getTimeTag() < _minSampleTime ||
@@ -258,7 +260,7 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
             }
             break;
         }
-        dptr += nidas::core::SampleHeader::getSizeOf() + header.getDataByteLength();
+        dptr = eos;
     }
     pkt.setLength((size_t)(dptr - sod));
 }
