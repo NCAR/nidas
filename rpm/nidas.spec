@@ -220,6 +220,7 @@ if [ -f $cf ]; then
                 echo "nidas-build trigger: doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
                 setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
                 setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
+                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/nidas_udp_relay
             fi
         fi
     fi

@@ -39,6 +39,11 @@
  Because it uses UDP, there is no guarantee of 100% data recovery, and the data packets
  may arrive out of order.  This is intended to be used for real-time, QC/quicklook
  purposes, and not for the data system archive.
+
+ This program basically does no buffering of packets.  A read packet is
+ placed in a deque and a Cond::broadcast is done to notify
+ the writer threads that a packet is available to write. This may need
+ to be improved.
 */
 
 #include <deque>
@@ -442,6 +447,12 @@ int ServerThread::run() throw(n_u::Exception)
                 }
                 // Detached thread deletes itself.
                 WriterThread* writer = new WriterThread(sock,_reader);
+                try {
+                    writer->setRealTimeRoundRobinPriority(50);
+                }
+                catch (const n_u::Exception& e) {
+                    NLOG(("%s. Will continue without RT priority", e.what()));
+                }
                 writer->start();
             }
             // interrupted
