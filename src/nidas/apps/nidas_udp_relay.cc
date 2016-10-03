@@ -48,6 +48,7 @@
 
 #include <deque>
 
+#include <nidas/util/Process.h>
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/Logger.h>
@@ -501,6 +502,15 @@ int main(int argc, char** argv)
     logscheme.addConfig(lc);
     logger->setScheme(logscheme);
     NLOG(("nidas_udp_relay starting"));
+
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
+#endif
 
     // block these signals in the main thread. They will be
     // caught by the ServerThread
