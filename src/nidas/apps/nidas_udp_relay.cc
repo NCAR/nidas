@@ -212,16 +212,18 @@ int PacketReader::parseRunstring(int argc, char** argv)
 
 void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& msg)
 {
-    char outstr[64],*outp = outstr;
+    char outstr[32],*outp = outstr;
     const char* cp = (const char*) pkt.getConstDataVoidPtr();
     for (int i = 0; i < 8 && i < pkt.getLength(); cp++) {
         if (isprint(*cp)) *outp++ = *cp;
-        else outp += sprintf(outp,"%#02x",(unsigned int)*cp);
+        else outp += sprintf(outp,"%02x",(unsigned int)*cp);
     }
     *outp = '\0';
 
-    WLOG(("bad packet #%zd from %s: %s, initial 8 bytes: %s",
-                _rejectedPackets,pkt.getSocketAddress().toString().c_str(),msg.c_str(),outstr));
+    WLOG(("bad packet #%zd from %s: %s, initial 8 bytes in hex: %s",
+        _rejectedPackets,
+        pkt.getSocketAddress().toString().c_str(),
+        msg.c_str(),outstr));
 }
 
 void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
@@ -376,7 +378,7 @@ int WriterThread::run() throw(n_u::Exception)
     }
     catch(const n_u::IOException& e) {
         _reader.dataReady().unlock();
-        ILOG(("%s",e.what()));
+        NLOG(("%s",e.what()));
         _sock->close();
     }
     return RUN_OK;
