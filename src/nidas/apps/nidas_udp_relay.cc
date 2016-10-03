@@ -214,16 +214,14 @@ void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& ms
 {
     char outstr[32],*outp = outstr;
     const char* cp = (const char*) pkt.getConstDataVoidPtr();
-    for (int i = 0; i < 8 && i < pkt.getLength(); cp++) {
-        if (isprint(*cp)) *outp++ = *cp;
-        else outp += sprintf(outp,"%02x",(unsigned int)*cp);
+    for (int i = 0; i < 8 && i < pkt.getLength(); i++,cp++) {
+        outp += sprintf(outp,"%02x",(unsigned int)*cp);
     }
     *outp = '\0';
 
-    WLOG(("bad packet #%zd from %s: %s, initial 8 bytes in hex: %s",
-        _rejectedPackets,
-        pkt.getSocketAddress().toString().c_str(),
-        msg.c_str(),outstr));
+    WLOG(("bad packet #" << _rejectedPackets <<
+        " from " << pkt.getSocketAddress().toString() <<
+        ": " << msg << ", initial 8 bytes in hex: " << outstr);
 }
 
 void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
