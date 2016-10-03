@@ -378,7 +378,10 @@ int WriterThread::run() throw(n_u::Exception)
     }
     catch(const n_u::IOException& e) {
         _reader.dataReady().unlock();
-        NLOG(("%s",e.what()));
+        if (e.getErrno() == EPIPE)  // normal shutdown
+            ILOG(("%s",e.what()));
+        else
+            WLOG(("%s",e.what()));
         _sock->close();
     }
     return RUN_OK;
@@ -437,6 +440,8 @@ int ServerThread::run() throw(n_u::Exception)
                 try {
                     sock = ssock.accept();
                     sock->setKeepAliveIdleSecs(60);
+                    ILOG(("New TCP Connection: ") <<
+                        sock->getRemoteSocketAddress().toString());
                 }
                 catch(const n_u::IOException& e) {
                     ssock.close();
@@ -493,7 +498,7 @@ int main(int argc, char** argv)
         }
         logger = n_u::Logger::createInstance("nidas_udp_relay",LOG_PID,LOG_LOCAL5);
         logscheme.setShowFields("level,message");
-        lc.level = 5;
+        lc.level = 6;
     }
     logscheme.addConfig(lc);
     logger->setScheme(logscheme);
