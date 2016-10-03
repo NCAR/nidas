@@ -212,7 +212,7 @@ int PacketReader::parseRunstring(int argc, char** argv)
 
 void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& msg)
 {
-    char outstr[32],*outp = outstr;
+    char outstr[64],*outp = outstr;
     const char* cp = (const char*) pkt.getConstDataVoidPtr();
     for (int i = 0; i < 8 && i < pkt.getLength(); cp++) {
         if (isprint(*cp)) *outp++ = *cp;
