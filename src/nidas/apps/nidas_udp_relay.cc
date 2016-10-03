@@ -331,7 +331,7 @@ public:
 private:
     PacketReader& _reader;
     string _header;
-    n_u::Socket* _sock;
+    nidas::core::Socket _ncSock;
     /** No copying. */
     WriterThread(const WriterThread&);
     /** No assignment. */
@@ -340,7 +340,7 @@ private:
 
 WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
     n_u::DetachedThread("TCPWriter"),_reader(reader),
-    _header(reader.getHeader()),_sock(sock)
+    _header(reader.getHeader()),_ncSock(sock)
 {
 }
 
@@ -349,9 +349,9 @@ int WriterThread::run() throw(n_u::Exception)
     try {
 
         // set to non blocking since we hold a lock during the write
-        _sock->setNonBlocking(true);
-        nidas::core::Socket ncSock(_sock);
-        nidas::core::IOStream ios(ncSock,_reader.getMaxPacketSize());
+        _ncSock.setNonBlocking(true);
+
+        nidas::core::IOStream ios(_ncSock,_reader.getMaxPacketSize());
 
         ios.write(_header.c_str(),_header.length(),false);
 
@@ -365,7 +365,7 @@ int WriterThread::run() throw(n_u::Exception)
 #ifdef DEBUG
                     if (!(n % 100))
                         cerr << "writing packet, length=" << pkt->getLength() << " to " <<
-                            _sock->getRemoteSocketAddress().toString() << endl;
+                            _ncSock.getRemoteSocketAddress().toString() << endl;
 #endif
                     // lock is held while writing... We'll try non-blocking writes
                     ios.write(pkt->getData(),pkt->getLength(),false);
@@ -380,7 +380,7 @@ int WriterThread::run() throw(n_u::Exception)
             ILOG(("%s",e.what()));
         else
             WLOG(("%s",e.what()));
-        _sock->close();
+        _ncSock.close();
     }
     return RUN_OK;
 }
