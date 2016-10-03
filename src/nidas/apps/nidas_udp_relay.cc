@@ -219,7 +219,7 @@ void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& ms
     }
     *outp = '\0';
 
-    WLOG(("bad packet #" << _rejectedPackets <<
+    WLOG(("bad packet #") << _rejectedPackets <<
         " from " << pkt.getSocketAddress().toString() <<
         ": " << msg << ", initial 8 bytes in hex: " << outstr);
 }
