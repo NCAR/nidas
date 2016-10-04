@@ -208,6 +208,9 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
     _nusocket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     _nusocket->setNonBlocking(_nonBlocking);
 
+    _newInput = true;
+    _firstRead = true;
+
     setName(_nusocket->getRemoteSocketAddress().toAddressString());
     
     std::list<n_u::Inet4NetworkInterface> ifaces = _nusocket->getInterfaces();
