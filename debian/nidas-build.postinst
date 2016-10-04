@@ -53,9 +53,10 @@ if [ "$1" = "configure" -o "$1" = "triggered" ]; then
 
         # chown on a file removes any associated capabilities
         if which setcap > /dev/null; then
-            echo "trigger, doing setcap on $nidas_prefix/bin/{dsm_server,dsm}"
+            echo "trigger, doing setcap on $nidas_prefix/bin/{dsm_server,dsm,nidas_udp_relay}"
             setcap cap_sys_nice,cap_net_admin+p $nidas_prefix/bin/dsm_server
             setcap cap_sys_nice,cap_net_admin+p $nidas_prefix/bin/dsm
+            setcap cap_sys_nice,cap_net_admin+p $nidas_prefix/bin/nidas_udp_relay
         fi
     fi
 fi
