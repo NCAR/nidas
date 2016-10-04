@@ -42,8 +42,7 @@
 
  This program basically does no buffering of packets.  A read packet is
  placed in a deque and a Cond::broadcast is done to notify
- the writer threads that a packet is available to write. This may need
- to be improved.
+ the writer threads that a packet is available to write.
 */
 
 #include <deque>
@@ -453,12 +452,6 @@ int ServerThread::run() throw(n_u::Exception)
                 }
                 // Detached thread deletes itself.
                 WriterThread* writer = new WriterThread(sock,_reader);
-                try {
-                    writer->setRealTimeRoundRobinPriority(50);
-                }
-                catch (const n_u::Exception& e) {
-                    NLOG(("%s. Will continue without RT priority", e.what()));
-                }
                 writer->start();
             }
             // interrupted
@@ -508,9 +501,17 @@ int main(int argc, char** argv)
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
     }
     catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+        NLOG(("%s: %s. Will not be able to change process priority",argv[0],e.what()));
     }
 #endif
+
+    // Lower process nice value a little
+    if (nice(-10) == -1) {
+        ostringstream ost;
+        ost << argv[0] << ": nice";
+        n_u::Exception e(ost.str(),errno);
+        NLOG(("%s, continuing anyway",e.what()));
+    }
 
     // block these signals in the main thread. They will be
     // caught by the ServerThread

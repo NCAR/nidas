@@ -249,6 +249,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/dmd_mmat_test
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
+%caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/nidas_udp_relay
 %{nidas_prefix}/bin/extract2d
 %{nidas_prefix}/bin/ir104
 %{nidas_prefix}/bin/lidar_vel
@@ -266,7 +267,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/sync_dump
 %{nidas_prefix}/bin/sync_server
 %{nidas_prefix}/bin/tee_tty
-%{nidas_prefix}/bin/nidas_udp_relay
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
