@@ -246,7 +246,8 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
         }
 
         memcpy(&header,dptr,nidas::core::SampleHeader::getSizeOf()); 
-        const char* eos = dptr + nidas::core::SampleHeader::getSizeOf() + header.getDataByteLength();
+        const char* eos = dptr + nidas::core::SampleHeader::getSizeOf() +
+            header.getDataByteLength();
 
         if (header.getType() != nidas::core::CHAR_ST ||
             (signed) GET_DSM_ID(header.getId()) > _maxDsmId ||
@@ -400,9 +401,6 @@ ServerThread::ServerThread(PacketReader& reader):
     n_u::DetachedThread("TCPServer"),_reader(reader),
     _header(reader.getHeader()),_port(reader.getTCPPort())
 {
-    unblockSignal(SIGTERM);
-    unblockSignal(SIGINT);
-    unblockSignal(SIGHUP);
 }
 
 static bool serverSocketRetry(int err)
@@ -462,6 +460,7 @@ int ServerThread::run() throw(n_u::Exception)
         PLOG(("%s", e.what()));
     }
     interrupted = true;
+
     return RUN_EXCEPTION;
 }
 
@@ -512,14 +511,6 @@ int main(int argc, char** argv)
         n_u::Exception e(ost.str(),errno);
         NLOG(("%s, continuing anyway",e.what()));
     }
-
-    // block these signals in the main thread. They will be
-    // caught by the ServerThread
-    sigset_t signals;
-    sigaddset(&signals,SIGTERM);
-    sigaddset(&signals,SIGHUP);
-    sigaddset(&signals,SIGINT);
-    sigprocmask(SIG_BLOCK,&signals,NULL);
 
     // detached thread. Will delete itself.
     ServerThread* server = new ServerThread(reader);
