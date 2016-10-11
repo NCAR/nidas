@@ -177,16 +177,17 @@ void StatisticsCruncher::connect(SampleSource* source)
     assert(_outSample.getVariables().size() == 0);
     assert (!_resampler);
 
-    SampleTagIterator inti = source->getSampleTagIterator();
-    bool needResampler = false;
-    bool match = false;
-    for ( ; inti.hasNext(); ) {
-        const SampleTag* intag = inti.next();
-        // loop over variables in this input, checking
-        // for a match against one of my variable names.
-        unsigned int nTagVarMatch = 0;
+    set<dsm_sample_id_t> matchingTags; 
 
-        for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+    bool needResampler = false;
+    for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+        bool match = false;
+
+        SampleTagIterator inti = source->getSampleTagIterator();
+        for ( ; inti.hasNext(); ) {
+            const SampleTag* intag = inti.next();
+            // loop over variables in this input, checking
+            // for a match against one of my variable names.
 
             VariableIterator vi = intag->getVariableIterator();
             for ( ; vi.hasNext(); ) {
@@ -210,21 +211,28 @@ void StatisticsCruncher::connect(SampleSource* source)
                 }
             }
         }
-        // If there are cross terms in requested statistics, and
-        // not all variables are in one SampleTag, then need to resample
-        if (_crossTerms && nTagVarMatch > 0 && nTagVarMatch < _reqVariables.size())
-            needResampler = true;
-    }
-
-    if (!match) {
-        ostringstream ost;
-        for (unsigned int i = 0; i < _nvars; i++) {
-            if (ost.str().length() > 0) ost << ", ";
-            ost << _reqVariables[i]->getName();
+        if (!match) {
+            ostringstream ost;
+            ost << _reqVariables[i]->getName() <<
+                "(" << _reqVariables[i]->getSite()->getName() << "," <<
+                _reqVariables[i]->getStation() << ")";
+            WLOG(("StatisticsCruncher: no match for variable: ") << ost.str());
         }
         WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
         return;
     }
+#ifdef DEBUG
+    cerr << _reqVariables[0]->getName() << " " <<
+        "(" << _reqVariables[0]->getSite()->getName() << ")" <<
+        "(" << _reqVariables[0]->getStation() << 
+        ", matchingTags.size()=" << matchingTags.size() << endl;
+#endif
+    if (matchingTags.empty()) return;
+
+    // If there are cross terms in requested statistics, and
+    // multiple input tags match, then need to resample
+    if (_crossTerms && matchingTags.size() > 1)
+        needResampler = true;
 
     if (needResampler && !_resampler) {
 #ifdef DEBUG
