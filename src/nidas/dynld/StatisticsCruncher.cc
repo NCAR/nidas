@@ -206,8 +206,7 @@ void StatisticsCruncher::connect(SampleSource* source)
 #endif
                     _reqTag.getVariable(i) = *var;
                     match = true;
-                    nTagVarMatch++;
-                    break;  // no need to check other variables in this sample against _reqVariables[i]
+                    matchingTags.insert(intag->getId());
                 }
             }
         }
@@ -218,8 +217,6 @@ void StatisticsCruncher::connect(SampleSource* source)
                 _reqVariables[i]->getStation() << ")";
             WLOG(("StatisticsCruncher: no match for variable: ") << ost.str());
         }
-        WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
-        return;
     }
 #ifdef DEBUG
     cerr << _reqVariables[0]->getName() << " " <<
