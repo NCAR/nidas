@@ -31,6 +31,8 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
+#include <set>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -207,6 +209,9 @@ void StatisticsCruncher::connect(SampleSource* source)
                     _reqTag.getVariable(i) = *var;
                     match = true;
                     matchingTags.insert(intag->getId());
+                    break;  // no need to check other variables in this
+                            // sample against _reqVariables[i]
+
                 }
             }
         }
