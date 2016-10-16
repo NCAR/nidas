@@ -53,7 +53,7 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
         // vector of pointers to Variables, which become invalid when the
         // temporary is deleted.
         _reqVariables(((const SampleTag&)_reqTag).getVariables()),
-        _nvars(_reqVariables.size()),
+        _ninvars(_reqVariables.size()),
 	_countsName(cntsName),
 	_numpoints(_countsName.length() > 0),_periodUsecs(0),
 	_crossTerms(false),
@@ -64,13 +64,13 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
 	_tout(LONG_LONG_MIN),_sampleMap(),
 	_xMin(0),_xMax(0),_xSum(0),_xySum(0),_xyzSum(0),_x4Sum(0),
 	_nSamples(0),_triComb(0),
-	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
+	_nsum(0),_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
         _site(0),_station(-1),
         _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
-    assert(_nvars > 0);
+    assert(_ninvars > 0);
 
     switch(_statsType) {
     case STATS_UNKNOWN:
@@ -88,6 +88,9 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     case STATS_SFLUX:
         _crossTerms = true;
 	_numpoints = true;
+        break;
+    case STATS_WINDDIR:
+        _crossTerms = true;
 	break;
     }
 
@@ -167,6 +170,7 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
     else if (type == "scalarflux")			stype = STATS_SFLUX;
     else if (type == "trivar")				stype = STATS_TRIVAR;
     else if (type == "prunedtrivar")			stype = STATS_PRUNEDTRIVAR;
+    else if (type == "winddir")  			stype = STATS_WINDDIR;
     else throw n_u::InvalidParameterException(
     	"StatisticsCruncher","unrecognized type type",type);
 
@@ -284,7 +288,7 @@ void StatisticsCruncher::attach(SampleSource* source)
     // (for example if a sensor's input is moved between motes), this code
     // allows matching of a variable from more than one input sample.
 
-    vector <bool> varMatches(_nvars);
+    vector <bool> varMatches(_ninvars);
     unsigned int nmatches = 0;
     int sourceStation = -1;
 
@@ -311,7 +315,7 @@ void StatisticsCruncher::attach(SampleSource* source)
 
         // If the input source is a NearestResampler, the sample 
         // will contain a weights variable, indicating how
-        // man non-NaNs are in each sample. If our sample
+        // many non-NaNs are in each sample. If our sample
         // contains cross terms we must have a complete input sample
         // with no NaNs. Having a weights variable reduces
         // the overhead, so we don't have to pre-scan the data.
@@ -421,9 +425,9 @@ void StatisticsCruncher::attach(SampleSource* source)
             source->addSampleClientForTag(this,intag);
 	}
     }
-    if (nmatches < _nvars) {
+    if (nmatches < _ninvars) {
         ostringstream ost;
-        for (unsigned int i = 0; i < _nvars; i++) {
+        for (unsigned int i = 0; i < _ninvars; i++) {
             if (!varMatches[i]) {
                 if (ost.str().length() > 0) ost << ", ";
                 ost << _reqVariables[i]->getName() + ":" <<
@@ -721,6 +725,7 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
 	    units = makeUnits(i);
             // on first moments set longname from variable's longname
             longname = _reqVariables[i]->getLongName();
+	    _nsum = nv;
 	    _n1mom = nv;
 	    break;
 	case 2:
@@ -755,12 +760,47 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
     }
 }
 
+void StatisticsCruncher::setupWindDir()
+    throw(n_u::InvalidParameterException)
+{
+    /*
+     * From u,U and v,V, create dir,Dir
+     */
+
+    if (_splitVarNames.size() != 2 || _splitVarNames[0].empty() || _splitVarNames[1].empty()) throw n_u::InvalidParameterException(
+    	"StatisticsCruncher","winddir","input variables must be u or U and v or V");
+    string uname = _splitVarNames[0][0];
+    if (uname != "u" && uname != "U") throw n_u::InvalidParameterException(
+    	"StatisticsCruncher","winddir","first input variable must be u or U");
+
+    string vname = _splitVarNames[1][0];
+    if (vname != "v" && vname != "V" ) throw n_u::InvalidParameterException(
+    	"StatisticsCruncher","winddir","second input variable must be v or V");
+
+    string dir = "Dir";
+    if (uname == "u") dir = "dir";
+    dir += _leadCommon;
+    dir += _commonSuffix;
+
+    if (_nOutVar < 1) {
+        Variable* nv = new Variable();
+        nv->setName(dir);
+        nv->setLongName("Vector wind direction");
+        nv->setUnits("deg");
+        _outSample.addVariable(nv);
+        _nOutVar++;
+    }
+    _nsum = 2;  // number of sums to maintain
+    _n1mom = 1; // number of 1st moments out: dir
+}
+
 void StatisticsCruncher::setupCovariances()
 {
-    _ncov = (_nvars * (_nvars + 1)) / 2;
+    _nsum = _ninvars;
+    _ncov = (_ninvars * (_ninvars + 1)) / 2;
 
-    for (unsigned int i = 0; i < _nvars; i++) {
-	for (unsigned int j = i; j < _nvars; j++) {
+    for (unsigned int i = 0; i < _ninvars; i++) {
+	for (unsigned int j = i; j < _ninvars; j++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -779,10 +819,11 @@ void StatisticsCruncher::setupCovariances()
 
 void StatisticsCruncher::setupTrivariances()
 {
+    _nsum = _ninvars;
     _ntri = 0;
-    for (unsigned int i = 0; i < _nvars; i++) {
-	for (unsigned int j = i; j < _nvars; j++) {
-	    for (unsigned int k = j; k < _nvars; k++,_ntri++) {
+    for (unsigned int i = 0; i < _ninvars; i++) {
+	for (unsigned int j = i; j < _ninvars; j++) {
+	    for (unsigned int k = j; k < _ninvars; k++,_ntri++) {
 		string name = makeName(i,j,k);
 		string units = makeUnits(i,j,k);
 
@@ -823,7 +864,8 @@ void StatisticsCruncher::setupPrunedTrivariances()
 
     unsigned int i,j;
 
-    _ntri = 5 * _nvars - 7;
+    _nsum = _ninvars;
+    _ntri = 5 * _ninvars - 7;
 
     /*
      * Warning, the indices in triComb must be increasing.
@@ -841,14 +883,14 @@ void StatisticsCruncher::setupPrunedTrivariances()
     unsigned int nt = 0;
 
     /* x^3 3rd moments */
-    for (i = 0; i < _nvars; i++,nt++)
+    for (i = 0; i < _ninvars; i++,nt++)
 	_triComb[nt][0] = _triComb[nt][1] = _triComb[nt][2] = i;
-    setupMoments(_nvars,3);
+    setupMoments(_ninvars,3);
     _n3mom = 0;	// accounted for in ntri
 
     // wws trivariances
     i = 2;
-    for (j = 3; j < _nvars; j++,nt++) {
+    for (j = 3; j < _ninvars; j++,nt++) {
 	_triComb[nt][0] = i;
 	_triComb[nt][1] = i;
 	_triComb[nt][2] = j;
@@ -868,7 +910,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
     }
     // ws^2 trivariances
     i = 2;
-    for (j = 3; j < _nvars; j++,nt++) {
+    for (j = 3; j < _ninvars; j++,nt++) {
 	_triComb[nt][0] = i;
 	_triComb[nt][1] = j;
 	_triComb[nt][2] = j;
@@ -910,7 +952,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
     }
     // uws, vws trivariances
     for (i = 0; i < 2; i++) {
-	for (unsigned int k = 3; k < _nvars; k++,nt++) {
+	for (unsigned int k = 3; k < _ninvars; k++,nt++) {
 
 	    _triComb[nt][0] = i;
 	    _triComb[nt][1] = 2;
@@ -947,10 +989,11 @@ void StatisticsCruncher::setupPrunedTrivariances()
  */
 void StatisticsCruncher::setupFluxes()
 {
-    _ncov = 4 * _nvars - 6;
+    _nsum = _ninvars;
+    _ncov = 4 * _ninvars - 6;
     unsigned int nc = 0;
-    for (unsigned int i = 0; i < _nvars; i++) {
-	for (unsigned int j = i; j < (i > 2 ? i + 1 : _nvars); j++,nc++) {
+    for (unsigned int i = 0; i < _ninvars; i++) {
+	for (unsigned int j = i; j < (i > 2 ? i + 1 : _ninvars); j++,nc++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -976,10 +1019,11 @@ void StatisticsCruncher::setupFluxes()
  */
 void StatisticsCruncher::setupReducedFluxes()
 {
-    _ncov = 3 * _nvars - 3;	// no scalar:scalar terms
+    _nsum = _ninvars;
+    _ncov = 3 * _ninvars - 3;	// no scalar:scalar terms
     unsigned int nc = 0;
-    for (unsigned int i = 0; i < _nvars && i < 3; i++) {
-	for (unsigned int j = i; j < _nvars; j++,nc++) {
+    for (unsigned int i = 0; i < _ninvars && i < 3; i++) {
+	for (unsigned int j = i; j < _ninvars; j++,nc++) {
 	    string name = makeName(i,j);
 	    string units = makeUnits(i,j);
 
@@ -1006,9 +1050,10 @@ void StatisticsCruncher::setupReducedFluxes()
  */
 void StatisticsCruncher::setupReducedScalarFluxes()
 {
-    _ncov = _nvars;		// covariance of first scalar 
+    _nsum = _ninvars;
+    _ncov = _ninvars;		// covariance of first scalar 
     				// against all others
-    for (unsigned int j = 0; j < _nvars; j++) {
+    for (unsigned int j = 0; j < _ninvars; j++) {
 	string name = makeName(j,0);	// flip names
 	string units = makeUnits(j,0);
 
@@ -1026,9 +1071,10 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 
 void StatisticsCruncher::setupMinMax(const string& suffix)
 {
-    _n1mom = _nvars;
+    _nsum = 0;
+    _n1mom = _ninvars;
 
-    for (unsigned int i = 0; i < _nvars; i++) {
+    for (unsigned int i = 0; i < _ninvars; i++) {
 	// add the suffix to the first word
 	string name = _splitVarNames[i][0] + suffix;
         name += _leadCommon;
@@ -1048,6 +1094,7 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 }
 
 void StatisticsCruncher::createCombinations()
+    throw(n_u::InvalidParameterException)
 {
     if (_triComb) {
 	for (unsigned int i=0; i < _ntri; i++) delete [] _triComb[i];
@@ -1061,11 +1108,11 @@ void StatisticsCruncher::createCombinations()
 
     switch(_statsType) {
     case STATS_MEAN:
-	setupMoments(_nvars,1);
+	setupMoments(_ninvars,1);
 	break;
     case STATS_VAR:
-	setupMoments(_nvars,1);
-	setupMoments(_nvars,2);
+	setupMoments(_ninvars,1);
+	setupMoments(_ninvars,2);
 	break;
     case STATS_MINIMUM:
 	setupMinMax("_min");
@@ -1074,33 +1121,33 @@ void StatisticsCruncher::createCombinations()
 	setupMinMax("_max");
 	break;
     case STATS_COV:
-	setupMoments(_nvars,1);
+	setupMoments(_ninvars,1);
 	setupCovariances();
         if (_higherMoments) {
-            setupMoments(_nvars,3);
-            setupMoments(_nvars,4);
+            setupMoments(_ninvars,3);
+            setupMoments(_ninvars,4);
         }
 	break;
     case STATS_TRIVAR:
-	setupMoments(_nvars,1);
+	setupMoments(_ninvars,1);
 	setupCovariances();
 	setupTrivariances();
         if (_higherMoments)
-            setupMoments(_nvars,4);
+            setupMoments(_ninvars,4);
 	break;
     case STATS_PRUNEDTRIVAR:
-	setupMoments(_nvars,1);
+	setupMoments(_ninvars,1);
 	setupCovariances();
 	setupPrunedTrivariances();
         if (_higherMoments)
-            setupMoments(_nvars,4);
+            setupMoments(_ninvars,4);
 	break;
     case STATS_FLUX:
-	setupMoments(_nvars,1);
+	setupMoments(_ninvars,1);
 	setupFluxes();
         if (_higherMoments) {
-            setupMoments(_nvars,3);
-            setupMoments(_nvars,4);
+            setupMoments(_ninvars,3);
+            setupMoments(_ninvars,4);
         }
 	break;
     case STATS_RFLUX:
@@ -1119,6 +1166,9 @@ void StatisticsCruncher::createCombinations()
             setupMoments(1,4);
         }
 	break;
+    case STATS_WINDDIR:
+	setupWindDir();
+        break;
     default:
 	break;
     }
@@ -1180,18 +1230,18 @@ void StatisticsCruncher::initStats()
 
     if (_statsType == STATS_MINIMUM) {
 	delete [] _xMin;
-	_xMin = new float[_nvars];
+	_xMin = new float[_ninvars];
     }
     else if (_statsType == STATS_MAXIMUM) {
 	delete [] _xMax;
-	_xMax = new float[_nvars];
+	_xMax = new float[_ninvars];
     }
     else {
 	delete [] _xSum;
-	_xSum = new double[_nvars];
+	_xSum = new double[_nsum];
     }
 
-    _nSamples = new unsigned int[_nvars];
+    _nSamples = new unsigned int[_nsum];
 
     /*
      * Create array of pointers so that xySum[i][j], for j >= i,
@@ -1203,21 +1253,21 @@ void StatisticsCruncher::initStats()
     if (_ncov > 0) {
 	double *xySumArray = new double[_ncov];
 
-	n = (_statsType == STATS_SFLUX ? 1 : _nvars);
+	n = (_statsType == STATS_SFLUX ? 1 : _ninvars);
 	_xySum = new double*[n];
 
 	for (i = 0; i < n; i++) {
 	    _xySum[i] = xySumArray - i;
 	    if ((_statsType == STATS_FLUX || _statsType == STATS_RFLUX) && i > 2)
 	    	xySumArray++;
-	    else xySumArray += _nvars - i;
+	    else xySumArray += _ninvars - i;
 	}
     }
     else if (_n2mom > 0) {
-	assert(_n2mom == _nvars);
+	assert(_n2mom == _ninvars);
 	double *xySumArray = new double[_n2mom];
 	_xySum = new double*[_n2mom];
-	for (i = 0; i < _nvars; i++)
+	for (i = 0; i < _ninvars; i++)
 	    _xySum[i] = xySumArray;
     }
 
@@ -1234,15 +1284,15 @@ void StatisticsCruncher::initStats()
 void StatisticsCruncher::zeroStats()
 {
     unsigned int i;
-    if (_xSum) for (i = 0; i < _nvars; i++) _xSum[i] = 0.;
+    if (_xSum) for (i = 0; i < _nsum; i++) _xSum[i] = 0.;
     for (i = 0; i < _ncov; i++) _xySum[0][i] = 0.;
     for (i = 0; i < _n2mom; i++) _xySum[0][i] = 0.;
     for (i = 0; i < _ntri; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n3mom; i++) _xyzSum[i] = 0.;
     for (i = 0; i < _n4mom; i++) _x4Sum[i] = 0.;
-    if (_xMin) for (i = 0; i < _nvars; i++) _xMin[i] = 1.e37;
-    if (_xMax) for (i = 0; i < _nvars; i++) _xMax[i] = -1.e37;
-    for (i = 0; i < _nvars; i++) _nSamples[i] = 0;
+    if (_xMin) for (i = 0; i < _ninvars; i++) _xMin[i] = 1.e37;
+    if (_xMax) for (i = 0; i < _ninvars; i++) _xMax[i] = -1.e37;
+    for (i = 0; i < _nsum; i++) _nSamples[i] = 0;
 }
 
 bool StatisticsCruncher::receive(const Sample* samp) throw()
@@ -1303,7 +1353,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     cerr << endl;
 #endif
 
-    if (_crossTerms && nonNANs < _nvars) return false;
+    if (_crossTerms && nonNANs < _ninvars) return false;
 
     switch (_statsType) {
     case STATS_MINIMUM:
@@ -1334,6 +1384,19 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 		_xSum[vo] += x;
 		_nSamples[vo]++;
 	    }
+	}
+	return true;
+    case STATS_WINDDIR:
+        {
+            vi = vindices[0][0];
+            double u = samp->getDataValue(vi);
+            vi = vindices[1][0];
+            double v = samp->getDataValue(vi);
+            if (!isnan(u) && !isnan(v)) {
+                _xSum[0] += u;
+                _xSum[1] += v;
+		_nSamples[0]++;
+            }
 	}
 	return true;
     case STATS_VAR:
@@ -1533,22 +1596,35 @@ void StatisticsCruncher::computeStats()
     l = 0;
     switch (_statsType) {
     case STATS_MINIMUM:
-	for (i=0; i < _nvars; i++) {
+	for (i=0; i < _ninvars; i++) {
 	    if (_nSamples[i] > 0) outData[l++] = _xMin[i];
 	    else outData[l++] = floatNAN;
 	}
 	break;
     case STATS_MAXIMUM:
-	for (i=0; i < _nvars; i++) {
+	for (i=0; i < _ninvars; i++) {
 	    if (_nSamples[i] > 0) outData[l++] = _xMax[i];
 	    else outData[l++] = floatNAN;
 	}
 	break;
     case STATS_MEAN:
-	for (i=0; i < _nvars; i++) {
+	for (i=0; i < _ninvars; i++) {
 	    if (_nSamples[i] > 0) outData[l++] = _xSum[i] / _nSamples[i];
 	    else outData[l++] = floatNAN;
 	}
+	break;
+    case STATS_WINDDIR:
+        if (_nSamples[0] > 0) {
+            double u = _xSum[0] / _nSamples[0];
+            double v = _xSum[1] / _nSamples[0];
+            // wind direction: atan2(-U,-V)
+            u = ::atan2(-u,-v) * 180.0 / M_PI;
+            if (u < 0.0) u += 360.0;
+            outData[l++] = u;
+	}
+        else {
+            outData[l++] = floatNAN;
+        }
 	break;
     default:
 	/* All other types have cross-terms and use only nSamples[0] counter */
@@ -1557,19 +1633,19 @@ void StatisticsCruncher::computeStats()
 	    break;
 	}
 
-	for (i=0; i < _nvars; i++) {
+	for (i=0; i < _ninvars; i++) {
 	    _xSum[i] /= nSamp;  	// compute mean
 	    if (i < _n1mom) outData[l++] = (float)_xSum[i];
 	}
 
 	// 2nd order
-	nr = _nvars;
-	if (_statsType == STATS_RFLUX && _nvars > 3) nr = 3;
-	if (_statsType == STATS_SFLUX && _nvars > 3) nr = 1;
+	nr = _ninvars;
+	if (_statsType == STATS_RFLUX && _ninvars > 3) nr = 3;
+	if (_statsType == STATS_SFLUX && _ninvars > 3) nr = 1;
 
 	for (i = 0; i < nr; i++) {
 	    // no cross terms in STATS_VAR or in STATS_FLUX for scalar:scalar terms
-	    nx = (_statsType == STATS_VAR || (_statsType == STATS_FLUX && i > 2) ? i+1 : _nvars);
+	    nx = (_statsType == STATS_VAR || (_statsType == STATS_FLUX && i > 2) ? i+1 : _ninvars);
 	    for (j=i; j < nx; j++,l++) {
 		xr = _xySum[i][j] / nSamp - _xSum[i] * _xSum[j];
 		if ((i == j && xr < 0.0) || nSamp < 2) xr = 0.0;
@@ -1581,10 +1657,10 @@ void StatisticsCruncher::computeStats()
 	switch (_statsType) {
 	case STATS_TRIVAR:
 	    xyzSump = _xyzSum;
-	    for (i = 0; i < _nvars; i++) {
+	    for (i = 0; i < _ninvars; i++) {
 		xm = _xSum[i];
-		for (j = i; j < _nvars; j++)
-		  for (k = j; k < _nvars; k++,l++) {
+		for (j = i; j < _ninvars; j++)
+		  for (k = j; k < _ninvars; k++,l++) {
 		    xr = (((x = *xyzSump++)
 			 - xm      * _xySum[j][k]
 			 - _xSum[j] * _xySum[i][k]
@@ -1600,7 +1676,7 @@ void StatisticsCruncher::computeStats()
 		  }
 	    }
             if (_higherMoments) {
-                for (i = 0; i < _nvars; i++,l++) {
+                for (i = 0; i < _ninvars; i++,l++) {
                     xr = _x4Sum[i];
                     if (xr < 0.) xr = 0.;
                     outData[l] = xr;
@@ -1629,7 +1705,7 @@ void StatisticsCruncher::computeStats()
 			     - 3. * xm * xm * xm * xm;
 	    }
             if (_higherMoments) {
-                for (i = 0; i < _nvars; i++,l++) {
+                for (i = 0; i < _ninvars; i++,l++) {
                     xr = _x4Sum[i];
                     if (xr < 0.) xr = 0.;
                     outData[l] = xr;
@@ -1686,7 +1762,7 @@ void StatisticsCruncher::flush() throw()
     // calculate and send out the last set of statistics
     bool out = false;
     if (_nSamples) {
-        for (unsigned int i=0; i < _nvars; i++)
+        for (unsigned int i=0; i < _ninvars; i++)
             if (_nSamples[i] > 0) out = true;
     }
     if (out) {

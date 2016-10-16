@@ -54,7 +54,7 @@ public:
     typedef enum statsEnumType {
         STATS_UNKNOWN,STATS_MINIMUM,STATS_MAXIMUM,STATS_MEAN,STATS_VAR,
 	STATS_COV, STATS_FLUX, STATS_RFLUX,STATS_SFLUX,
-        STATS_TRIVAR,STATS_PRUNEDTRIVAR
+        STATS_TRIVAR,STATS_PRUNEDTRIVAR, STATS_WINDDIR
     } statisticsType;
 
     /**
@@ -211,11 +211,15 @@ protected:
 
     std::string makeUnits(const std::vector<std::string>&);
 
-    void createCombinations();
+    void createCombinations()
+        throw(nidas::util::InvalidParameterException);
 
     void setupMoments(unsigned int nvars, unsigned int moment);
 
     void setupMinMax(const std::string&);
+
+    void setupWindDir()
+        throw(nidas::util::InvalidParameterException);
 
     void setupCovariances();
 
@@ -262,7 +266,7 @@ private:
     /**
      * Number of input variables.
      */
-    unsigned int _nvars;
+    unsigned int _ninvars;
 
     /**
      * Name of counts variable.
@@ -334,6 +338,11 @@ private:
     unsigned int *_nSamples;
 
     unsigned int **_triComb;
+
+    /**
+     * Number of simple sums to maintain
+     */
+    unsigned int _nsum;
 
     /**
      * Number of covariances to compute.
