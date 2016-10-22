@@ -26,6 +26,7 @@
 
 #include "SonicAnemometer.h"
 #include <nidas/core/PhysConstants.h>
+#include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Project.h>
@@ -48,7 +49,11 @@ SonicAnemometer::SonicAnemometer():
     _rotator(),_tilter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
-    _sampleId(0), _spdIndex(-1), _dirIndex(-1),
+    _sampleId(0),
+    _diagIndex(-1), _ldiagIndex(-1),
+    _spdIndex(-1), _dirIndex(-1),
+    _noutVals(0),
+    _numParsed(0),
     _oaCalFile(0), _unusualOrientation(false),
 #ifdef HAVE_LIBGSL
     _atCalFile(0),
@@ -400,18 +405,60 @@ void SonicAnemometer::checkSampleTags()
     list<SampleTag*>& tags= getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
+    _noutVals = 4;  // u,v,w,tc
+    _numParsed = 4;  // u,v,w,tc
+
     for ( ; si != tags.end(); ++si) {
         const SampleTag* stag = *si;
         _sampleId = stag->getId();
 
         VariableIterator vi = stag->getVariableIterator();
-        for (int i = 0; vi.hasNext(); i++) {
+        for (unsigned int i = 0; vi.hasNext(); i++) {
             const Variable* var = vi.next();
             const string& vname = var->getName();
-            if (vname.length() > 2 && vname.substr(0,3) == "spd")
+            if (vname.length() > 2 && vname.substr(0,3) == "spd") {
                 _spdIndex = i;
-            else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+                if (i >= _noutVals) _noutVals = i + 1;
+            }
+            else if (vname.length() > 2 && vname.substr(0,3) == "dir") {
                 _dirIndex = i;
+                if (i >= _noutVals) _noutVals = i + 1;
+            }
+            else if (vname == "diag" || (vname.length() > 4 && vname.substr(0,5) == "diag.")) {
+                _diagIndex = i;
+                if (i >= _noutVals) _noutVals = i + 1;
+                if (i >= _numParsed) _numParsed = i + 1;
+            }
+            else if (vname == "status" || (vname.length() > 5 && vname.substr(0,6) == "status.")) {
+                _diagIndex = i;
+                if (i >= _noutVals) _noutVals = i + 1;
+            }
+            else if (vname == "ldiag" || (vname.length() > 5 && vname.substr(0,6) == "ldiag.")) {
+                _ldiagIndex = i;
+                if (i >= _noutVals) _noutVals = i + 1;
+            }
+        }
+    }
+}
+
+void SonicAnemometer::validateSscanfs() throw(n_u::InvalidParameterException)
+{
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+
+    // binary sensor
+    if (sscanfers.empty()) return;
+
+    std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
+
+    for ( ; si != sscanfers.end(); ++si) {
+        AsciiSscanf* sscanf = *si;
+        unsigned int nf = sscanf->getNumberOfFields();
+
+        if (nf != _numParsed) {
+            ostringstream ost;
+            ost << "number of scanf fields (" << nf <<
+                ") is less than the number expected (" << _numParsed;
+            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
         }
     }
 }
@@ -549,65 +596,86 @@ bool SonicAnemometer::process(const Sample* samp,
     // result from base class parsing of ASCII
     const Sample* psamp = parseResults.front();
 
-    unsigned int nvals = psamp->getDataLength();
+    unsigned int nParsedVals = psamp->getDataLength();
     const float* pdata = (const float*) psamp->getConstVoidDataPtr();
 
-    const float* pend = pdata + nvals;
+    const float* pend = pdata + nParsedVals;
 
-    // u,v,w,tc
-    float uvwt[4];
+    // u,v,w,tc,diag
+    float uvwtd[5];
 
-    for (unsigned int i = 0; i < 4; i++) {
-        if (pdata < pend) uvwt[i] = *pdata++;
-        else uvwt[i] = floatNAN;
+    for (unsigned int i = 0; i < sizeof(uvwtd) / sizeof(uvwtd[0]); i++) {
+        if (pdata < pend) uvwtd[i] = *pdata++;
+        else uvwtd[i] = floatNAN;
+    }
+
+    // get diagnostic value from parsed sample
+    float diagval = floatNAN;
+    bool diagOK = false;
+
+    if (_diagIndex >= 0 && (unsigned) _diagIndex < sizeof(uvwtd)/sizeof(uvwtd[0])) {
+        diagval = uvwtd[_diagIndex];
+        diagOK = !isnan(diagval) && diagval == 0.0;
     }
 
     if (getDespike()) {
         bool spikes[4] = {false,false,false,false};
-        despike(samp->getTimeTag(),uvwt,4,spikes);
+        despike(samp->getTimeTag(),uvwtd,4,spikes);
     }
 
 #ifdef HAVE_LIBGSL
     // apply shadow correction before correcting for unusual orientation
-    transducerShadowCorrection(samp->getTimeTag(),uvwt);
+    transducerShadowCorrection(samp->getTimeTag(),uvwtd);
 #endif
 
     if (_unusualOrientation) {
         float dn[3];
         for (int i = 0; i < 3; i++)
-            dn[i] = _sx[i] * uvwt[_tx[i]];
-        memcpy(uvwt,dn,sizeof(dn));
+            dn[i] = _sx[i] * uvwtd[_tx[i]];
+        memcpy(uvwtd,dn,sizeof(dn));
     }
 
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwt);
-
-    const unsigned int numOut = 6;  // u,v,w,tc, spd, dir
+    offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
 
     // new sample
-    SampleT<float>* wsamp = getSample<float>(numOut);
+    SampleT<float>* wsamp = getSample<float>(_noutVals);
 
     // any defined time lag has been applied by SerialSensor
     wsamp->setTimeTag(psamp->getTimeTag());
     wsamp->setId(_sampleId);
 
-    float* dout = wsamp->getDataPtr();
-    float* dend = dout + numOut;
-    float *dptr = dout;
-
-    memcpy(dptr,uvwt,sizeof(uvwt));
-
     // finished with parsed sample
     psamp->freeReference();
 
-    dptr += sizeof(uvwt) / sizeof(uvwt[0]);
+    float* dout = wsamp->getDataPtr();
+
+    float* dend = dout + _noutVals;
+
+    float *dptr = dout;
+
+    int nvals = ::min(nParsedVals,_noutVals);
+
+    memcpy(dptr,uvwtd,sizeof(float) * nvals);
+
+    dptr += nvals;
 
     for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
-    if (_spdIndex >= 0 && _spdIndex < (signed)numOut) {
-        dout[_spdIndex] = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
+    // If user asks for ldiag, use it to flag data values
+    if (_ldiagIndex >= 0) {
+        dout[_ldiagIndex] = (float)!diagOK;
+        if (!diagOK) {
+            for (unsigned int i = 0; i < 4 && i < _noutVals; i++) {
+                dout[i] = floatNAN;
+            }
+        }
     }
-    if (_dirIndex >= 0 &&_dirIndex < (signed)numOut) {
-        float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
+
+    if (_spdIndex >= 0) {
+        dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
+    }
+    if (_dirIndex >= 0) {
+        float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;
     }

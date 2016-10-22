@@ -44,9 +44,9 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),
-    _irgaDiagIndex(numeric_limits<unsigned int>::max()),
-    _h2oIndex(numeric_limits<unsigned int>::max()),
-    _co2Index(numeric_limits<unsigned int>::max()),
+    _irgaDiagIndex(-1),
+    _h2oIndex(-1),
+    _co2Index(-1),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),
@@ -117,16 +117,13 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 
     if (_spdIndex >= 0) _numParsed--; // derived, not parsed
     if (_dirIndex >= 0) _numParsed--; // derived, not parsed
+    if (_ldiagIndex >= 0) _numParsed--; // derived, not parsed
 
     VariableIterator vi = stag->getVariableIterator();
     for (int i = 0; vi.hasNext(); i++) {
         const Variable* var = vi.next();
         const string& vname = var->getName();
-        if (vname.length() > 4 && vname.substr(0,5) == "ldiag") {
-            _ldiagIndex = i;
-            _numParsed--; // derived, not parsed
-        }
-        else if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
+        if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
             _irgaDiagIndex = i;
         else if (vname.length() > 2 && vname.substr(0,3) == "h2o")
             _h2oIndex = i;
@@ -139,6 +136,7 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
                 ": expect at least 5 variables in sample: u,v,w,tc,diag");
 
     bool ok = true;
+    /* Make sure derived quantities are last. */
     if (_spdIndex >= 0 && _numOut - _spdIndex > 3) ok = false;
     if (_dirIndex >= 0 && _numOut - _dirIndex > 3) ok = false;
     if (_ldiagIndex >= 0 && _numOut - _ldiagIndex > 3) ok = false;
@@ -174,6 +172,7 @@ void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
         }
     }
 }
+
 unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigned char* eob)
 {
     /* The last field of the EC150 output is a CRC. From the EC150 manual,
@@ -380,7 +379,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
     // logical diagnostic value: 0=OK,1=bad
-    if (_ldiagIndex < (signed)_numOut) dout[_ldiagIndex] = (float) !diagOK;
+    if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float) !diagOK;
 
     if (_spdIndex >= 0 && _spdIndex < (signed)_numOut) {
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
@@ -392,12 +391,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     }
 
     // screen h2o and co2 values when the IRGA diagnostic value is non-zero.
-    // If _irgaDiagIndex is > _numOut, then we're not checking against it.
-    bool irgaOK = (_irgaDiagIndex > _numOut);
-    if (_irgaDiagIndex < nvals) irgaOK = (dout[_irgaDiagIndex] == 0.0);
+    // If _irgaDiagIndex is -1, then we're not checking against it.
+    bool irgaOK = (_irgaDiagIndex < 0);
+    if (_irgaDiagIndex >= 0) irgaOK = (dout[_irgaDiagIndex] == 0.0);
     if (!irgaOK) {
-        if (_h2oIndex < _numOut) dout[_h2oIndex] = floatNAN;
-        if (_co2Index < _numOut) dout[_co2Index] = floatNAN;
+        if (_h2oIndex >= 0) dout[_h2oIndex] = floatNAN;
+        if (_co2Index >= 0) dout[_co2Index] = floatNAN;
     }
 
     if (psamp) psamp->freeReference();

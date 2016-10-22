@@ -50,7 +50,6 @@ const float CSAT3_Sonic::GAMMA_R = 402.684;
 
 CSAT3_Sonic::CSAT3_Sonic():
     SonicAnemometer(),
-    _ldiagIndex(-1),
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),

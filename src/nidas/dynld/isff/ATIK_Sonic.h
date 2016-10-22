@@ -114,11 +114,6 @@ private:
     int _numOut;
 
     /**
-     * Index in output sample of ldiag value.
-     */
-    int _ldiagIndex;
-
-    /**
      * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
      * the index of "uflag" in the output variables.
      */

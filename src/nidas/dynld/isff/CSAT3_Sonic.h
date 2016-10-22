@@ -106,11 +106,6 @@ protected:
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
-    /**
-     * "Logical" sonic diagnostic, 0 if all diagnostic flags are 0, otherwise 1.
-     */
-    int _ldiagIndex;
-
 private:
 
     /**

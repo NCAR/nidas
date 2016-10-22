@@ -91,11 +91,11 @@ private:
      */
     unsigned int _badCRCs;
 
-    unsigned int _irgaDiagIndex;
+    int _irgaDiagIndex;
 
-    unsigned int _h2oIndex;
+    int _h2oIndex;
 
-    unsigned int _co2Index;
+    int _co2Index;
 
     /**
      * Campbell has provided custom firmware on the EC100 logger box so that

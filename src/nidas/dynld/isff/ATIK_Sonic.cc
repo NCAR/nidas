@@ -45,7 +45,6 @@ const float ATIK_Sonic::GAMMA_R = 403.242;
 ATIK_Sonic::ATIK_Sonic():
     SonicAnemometer(),
     _numOut(0),
-    _ldiagIndex(-1),
     _spikeIndex(-1),
     _cntsIndex(-1),
     _expectedCounts(0),
@@ -123,15 +122,15 @@ void ATIK_Sonic::checkSampleTags()
     size_t nvars = stag->getVariables().size();
     /*
      * nvars
-     * 7	u,v,w,tc,ldiag,spd,dir
-     * 10	u,v,w,tc,ldiag,spd,dir,counts*3
-     * 11	u,v,w,tc,ldiag,spd,dir,uflag,vflag,wflag,tcflag
+     * 7	u,v,w,tc,diag,spd,dir
+     * 10	u,v,w,tc,diag,spd,dir,counts*3
+     * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
      */
 
     if (_expectedCounts == 0 && stag->getRate() > 0.0)
         _expectedCounts = (int)rint(200.0 / stag->getRate());
 
-    _ldiagIndex = 4;
+    _diagIndex = 4;
 
     switch(nvars) {
     case 7:
@@ -144,7 +143,7 @@ void ATIK_Sonic::checkSampleTags()
         break;
     default:
         throw n_u::InvalidParameterException(getName() +
-                " unsupported number of variables. Must be: u,v,w,tc,ldiag,spd,dir,[3 x counts or 4 x flags]]");
+                " unsupported number of variables. Must be: u,v,w,tc,diag,spd,dir,[3 x counts or 4 x flags]]");
     }
 
     if (_spdIndex < 0 || _dirIndex < 0)
@@ -338,7 +337,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         dout[_dirIndex] = dr;
     }
 
-    if (_ldiagIndex >= 0) dout[_ldiagIndex] = diag;
+    if (_diagIndex >= 0) dout[_diagIndex] = diag;
     if (_cntsIndex >= 0) memcpy(dout + _cntsIndex,counts,3 * sizeof(float));
     if (_spikeIndex >= 0) {
         for (int i = 0; i < 4; i++)

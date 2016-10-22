@@ -359,6 +359,12 @@ public:
 	throw(nidas::util::InvalidParameterException);
 
     /**
+     * Warn user if number of scanf fields does not match
+     * number expected from variables in sample.
+     */
+    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+
+    /**
      * Parse the list of nidas::core::Parameter that are associated with this sensor.
      * This also checks the parameters "wind3d_tilt_correction",
      * and "wind3d_horiz_rotation" that may have been set on the Project
@@ -421,6 +427,18 @@ protected:
     nidas::core::dsm_sample_id_t _sampleId;
 
     /**
+     * If user requests "diag" or "status", its index
+     * in the output sample.
+     */
+    int _diagIndex;
+
+    /**
+     * If user requests "ldiag", its index
+     * in the output sample.
+     */
+    int _ldiagIndex;
+
+    /**
      * If user requests wind speed, variable name "spd", its index
      * in the output sample.
      */
@@ -431,6 +449,14 @@ protected:
      * in the output sample.
      */
     int _dirIndex;
+
+    unsigned int _noutVals;
+
+    /**
+     * Number of variables that are parsed from input, i.e.
+     * not derived.
+     */
+    unsigned int _numParsed;
 
     /**
      * CalFile containing wind offsets and rotation angles.
