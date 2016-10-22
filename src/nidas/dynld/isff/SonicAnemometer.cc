@@ -99,8 +99,8 @@ SonicAnemometer::~SonicAnemometer()
 void SonicAnemometer::despike(dsm_time_t tt,
 	float* uvwt,int n,bool* spikeOrMissing) throw()
 {
-    vector<float> dvec(n);	// despiked data
-    float* duvwt = &dvec.front();
+    vector<double> dvec(n);	// despiked data
+    double* duvwt = &dvec.front();
     /*
      * Despike data
      */
@@ -115,7 +115,11 @@ void SonicAnemometer::despike(dsm_time_t tt,
     }
 
     // If user wants despiked data, copy results back to passed array.
-    if (getDespike()) memcpy(uvwt,duvwt,n*sizeof(float));
+    if (getDespike()) {
+        for (int i=0; i < n; i++) {
+            uvwt[i] = duvwt[i];
+        }
+    }
 }
 
 void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
@@ -688,14 +692,14 @@ WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0)
 {
 }
 
-float WindRotator::getAngleDegrees() const
+double WindRotator::getAngleDegrees() const
 {
-    return (float)(_angle * 180.0 / M_PI);
+    return _angle * 180.0 / M_PI;
 }
 
-void WindRotator::setAngleDegrees(float val)
+void WindRotator::setAngleDegrees(double val)
 {
-    _angle = (float)(val * M_PI / 180.0);
+    _angle = val * M_PI / 180.0;
     _sinAngle = ::sin(_angle);
     _cosAngle = ::cos(_angle);
 }
@@ -722,16 +726,16 @@ void WindTilter::rotate(float* up, float* vp, float* wp) const
     if (_identity) return;
 
     float vin[3] = {*up,*vp,*wp};
-    float out[3];
+    double out[3];
 
     for (int i = 0; i < 3; i++) {
 	out[i] = 0.0;
 	for (int j = 0; j < 3; j++)
-	    out[i] += (float)(_mat[i][j] * vin[j]);
+	    out[i] += _mat[i][j] * vin[j];
     }
-    *up = out[0];
-    *vp = out[1];
-    *wp = out[2];
+    *up = (float) out[0];
+    *vp = (float) out[1];
+    *wp = (float) out[2];
 }
 
 void WindTilter::computeMatrix()

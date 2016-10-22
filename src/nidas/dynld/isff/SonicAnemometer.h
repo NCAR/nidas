@@ -50,15 +50,15 @@ public:
 
     WindRotator();
 
-    float getAngleDegrees() const;
+    double getAngleDegrees() const;
 
-    void setAngleDegrees(float val);
+    void setAngleDegrees(double val);
 
     void rotate(float* up, float* vp) const;
 
 private:
 
-    float _angle;
+    double _angle;
 
     double _sinAngle;
 
@@ -155,23 +155,23 @@ public:
 
     WindTilter();
 
-    float getLeanDegrees() const
+    double getLeanDegrees() const
     {
-	return (float)(_lean * 180.0 / M_PI);
+	return _lean * 180.0 / M_PI;
     }
-    void setLeanDegrees(float val)
+    void setLeanDegrees(double val)
     {
-	_lean = (float)(val * M_PI / 180.0);
+	_lean = val * M_PI / 180.0;
 	computeMatrix();
     }
 
-    float getLeanAzimuthDegrees() const
+    double getLeanAzimuthDegrees() const
     {
-	return (float)(_leanaz * 180.0 / M_PI);
+	return _leanaz * 180.0 / M_PI;
     }
-    void setLeanAzimuthDegrees(float val)
+    void setLeanAzimuthDegrees(double val)
     {
-	_leanaz = (float)(val * M_PI / 180.);
+	_leanaz = val * M_PI / 180.;
 	if (!_identity) computeMatrix();
     }
 
@@ -186,9 +186,9 @@ private:
 
     void computeMatrix();
 
-    float _lean;
+    double _lean;
 
-    float _leanaz;
+    double _leanaz;
 
     bool _identity;
 
@@ -217,17 +217,17 @@ public:
      */
     bool process(const nidas::core::Sample* samp, std::list<const nidas::core::Sample*>& results) throw();
 
-    void setBias(int i,float val)
+    void setBias(int i,double val)
     {
         if (i >= 0 && i < 3) _bias[i] = val;
     }
 
-    float getBias(int i) const
+    double getBias(int i) const
     {
         return _bias[i];
     }
 
-    float getVazimuth() const
+    double getVazimuth() const
     {
 	return _rotator.getAngleDegrees();
     }
@@ -242,25 +242,25 @@ public:
      * (0=north,90=east, etc) of the sonic +V axis is the
      * angle between geographic and sonic coordinates.
      */
-    void setVazimuth(float val)
+    void setVazimuth(double val)
     {
 	_rotator.setAngleDegrees(val);
     }
 
-    float getLeanDegrees() const
+    double getLeanDegrees() const
     {
 	return _tilter.getLeanDegrees();
     }
-    void setLeanDegrees(float val)
+    void setLeanDegrees(double val)
     {
 	_tilter.setLeanDegrees(val);
     }
 
-    float getLeanAzimuthDegrees() const
+    double getLeanAzimuthDegrees() const
     {
 	return _tilter.getLeanAzimuthDegrees();
     }
-    void setLeanAzimuthDegrees(float val)
+    void setLeanAzimuthDegrees(double val)
     {
 	_tilter.setLeanAzimuthDegrees(val);
     }
@@ -275,7 +275,7 @@ public:
         return _despike;
     }
 
-    void setOutlierProbability(float val)
+    void setOutlierProbability(double val)
     {
 	for (int i = 0; i < 4; i++)
 	    _despiker[i].setOutlierProbability(val);
@@ -302,22 +302,22 @@ public:
         return _despiker[0].getDiscLevel();
     }
 
-    void setTcOffset(float val) 
+    void setTcOffset(double val) 
     {
         _tcOffset = val;
     }
 
-    float getTcOffset() const
+    double getTcOffset() const
     {
         return _tcOffset;
     }
 
-    void setTcSlope(float val) 
+    void setTcSlope(double val) 
     {
         _tcSlope = val;
     }
 
-    float getTcSlope() const
+    double getTcSlope() const
     {
         return _tcSlope;
     }
@@ -395,7 +395,7 @@ protected:
 
     nidas::core::dsm_time_t _ttlast[4];
 
-    float _bias[3];
+    double _bias[3];
 
     bool _allBiasesNaN;
 
@@ -407,9 +407,9 @@ protected:
 
     WindTilter _tilter;
 
-    float _tcOffset;
+    double _tcOffset;
 
-    float _tcSlope;
+    double _tcSlope;
 
     /**
      * Should horizontal rotation of U,V be performed?
@@ -494,11 +494,11 @@ protected:
     /**
      * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
      */
-    float _atMatrix[3][3];
+    double _atMatrix[3][3];
 
 #define COMPUTE_ABC2UVW_INVERSE
 #ifdef COMPUTE_ABC2UVW_INVERSE
-    float _atInverse[3][3];
+    double _atInverse[3][3];
 #else
     gsl_vector* _atVectorGSL1;
     gsl_vector* _atVectorGSL2;
@@ -514,7 +514,7 @@ protected:
      * This value can be set in the XML with a sensor parameter called
      * "shadowFactor".
      */
-    float _shadowFactor;
+    double _shadowFactor;
 
 private:
 
