@@ -49,8 +49,7 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _co2Index(-1),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
-    _converter(0),
-    _numParsed(0)
+    _converter(0)
 {
 }
 
@@ -145,32 +144,12 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
 
-}
-
-void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
-{
-    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
-
-    if (sscanfers.empty()) {
-        _binary = true;
-        _converter = n_u::EndianConverter::getConverter(_endian,
-                n_u::EndianConverter::getHostEndianness());
-        return;
-    }
-
-    std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
-
-    for ( ; si != sscanfers.end(); ++si) {
-        AsciiSscanf* sscanf = *si;
-        unsigned int nf = sscanf->getNumberOfFields();
-
-        if (nf != _numParsed) {
-            ostringstream ost;
-            ost << "number of scanf fields (" << nf <<
-                ") is less than the number expected (" << _numParsed;
-            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
-        }
-    }
+     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+     if (sscanfers.empty()) {
+         _binary = true;
+         _converter = n_u::EndianConverter::getConverter(_endian,
+            n_u::EndianConverter::getHostEndianness());
+     }
 }
 
 unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigned char* eob)

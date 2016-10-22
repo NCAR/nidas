@@ -53,8 +53,6 @@ public:
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
-    void validateSscanfs() throw(nidas::util::InvalidParameterException);
-
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
@@ -113,8 +111,6 @@ private:
      * Converter for binary values.
      */
     const nidas::util::EndianConverter* _converter;
-
-    unsigned int _numParsed;
 
     /// No copying
     CSI_IRGA_Sonic(const CSI_IRGA_Sonic &);
