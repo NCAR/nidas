@@ -151,6 +151,7 @@ void ATIK_Sonic::checkSampleTags()
                 " ATIK cannot find speed or direction variables");
 
     _numOut = nvars;
+    _numParsed =  7;    // u,v,w,tc,ucount,vcount,wcount
 
 }
 void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()

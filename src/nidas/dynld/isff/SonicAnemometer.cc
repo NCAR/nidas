@@ -454,10 +454,10 @@ void SonicAnemometer::validateSscanfs() throw(n_u::InvalidParameterException)
         AsciiSscanf* sscanf = *si;
         unsigned int nf = sscanf->getNumberOfFields();
 
-        if (nf != _numParsed) {
+        if (nf < _numParsed) {
             ostringstream ost;
             ost << "number of scanf fields (" << nf <<
-                ") is less than the number expected (" << _numParsed;
+                ") is less than the number expected (" << _numParsed << ")";
             throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
         }
     }
