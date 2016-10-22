@@ -49,11 +49,46 @@ valgrind_errors() {
 
 tmperr=$(mktemp /tmp/sonic_test_XXXXXX)
 tmpout=$(mktemp /tmp/sonic_test_XXXXXX)
-trap "{ rm $f $tmpout $tmperr; }" EXIT
+tmpout1=$(mktemp /tmp/sonic_test_XXXXXX)
+tmpout2=$(mktemp /tmp/sonic_test_XXXXXX)
+awkcom=$(mktemp /tmp/sonic_test_XXXXXX)
+trap "{ rm $f $tmpout $tmperr $tmpout1 $tmpout2 $awkcom; }" EXIT
+
+cat << \EOD > $awkcom
+# BEGIN { CONVFMT="%.4g" }
+/^2.*/{ 
+    for (i = 1; i < 6 && i < NF; i++) {
+        printf("%s ",$i)
+    }
+    for ( ; i < NF; i++) {
+        n = $i
+        printf("%.3g ",n)
+    }
+    printf("\n")
+}
+EOD
 
 error_exit() {
     cat $tmperr 1>&2
     exit 1
+}
+
+diff_warn() {
+    echo "$1" 1>&2
+    cat $2 1>&2
+
+    echo "Repeating diff with fewer significant digits"
+
+    zcat $3 | awk -f $awkcom > $tmpout1
+    cat $4 | awk -f $awkcom > $tmpout2
+
+    if ! diff -w $tmpout1 $tmpout2; then
+        echo "Second diff failed also"
+        exit 1
+    fi
+
+    # Uncomment to create a "truth" file.
+    # [ -f $3 ] || cat $4 | gzip -c > $3
 }
 
 diff_exit() {
@@ -78,7 +113,7 @@ test_csat3() {
         $data_file 2> $tmperr > $tmpout || error_exit
     # cat $tmperr
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSAT3 test of $msg failed, diff=" $tmperr $compare_to $tmpout
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in CSAT3 test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
@@ -112,9 +147,8 @@ test_csi_irga() {
     local data_file=data/centnet_20151104_120000.dat.bz2 
     data_dump -l 6 -i 1,41 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
-    # cat $tmperr
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSI_IRGA test of $msg failed, diff=" $tmperr $compare_to $tmpout
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in CSI_IRGA test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
@@ -138,9 +172,8 @@ test_atik() {
     echo "Testing ATIK: $msg"
     data_dump -l 6 -i 6,81 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
-    # cat $tmperr
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: ATIK test of $msg failed, diff=" $tmperr $compare_to $tmpout
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in ATIK test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
