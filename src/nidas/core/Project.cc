@@ -557,7 +557,9 @@ dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 {
     n_u::Synchronized autolock(_sensorMapLock);
     set<dsm_sample_id_t> ids;
-    if (_usedIds.size() == 0) {
+
+    if (_usedIds.empty()) {
+        // initialize _usedIds
 	SampleTagIterator sti = getSampleTagIterator();
 	for (; sti.hasNext(); ) {
 	    const SampleTag* stag = sti.next();
