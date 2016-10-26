@@ -258,8 +258,8 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
             header.getTimeTag() > _maxSampleTime) {
             if (!(_rejectedPackets++ % 100)) {
                 ostringstream ost;
-                ost << "bad header: type=" << header.getType() << ", id=" <<
-                    GET_DSM_ID(header.getId()) << ',' << GET_SPS_ID(header.getId()) <<
+                ost << "bad header: type=0x" << hex << (int)header.getType() << dec <<
+                    ", id=" << GET_DSM_ID(header.getId()) << ',' << GET_SPS_ID(header.getId()) <<
                     ", len=" << header.getDataByteLength() << ",ttag=" <<
                     n_u::UTime(header.getTimeTag()).format(true,"%Y %m %d %H:%M:%S");
                 logBadPacket(pkt,ost.str());
