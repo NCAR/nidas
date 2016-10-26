@@ -1586,6 +1586,8 @@ void StatisticsCruncher::computeStats()
     unsigned int i,j,k,l,n,nx,nr;
     double x,xm,xr;
 
+    if (_tout == LONG_LONG_MIN) return;
+
     SampleT<float>* osamp = getSample<float>(_outlen);
     osamp->setTimeTag(_tout - _periodUsecs / 2);
     osamp->setId(_outSample.getId());
@@ -1761,7 +1763,7 @@ void StatisticsCruncher::flush() throw()
 {
     // calculate and send out the last set of statistics
     bool out = false;
-    if (_nSamples) {
+    if (_tout != LONG_LONG_MIN && _nSamples) {
         for (unsigned int i=0; i < _ninvars; i++)
             if (_nSamples[i] > 0) out = true;
     }
