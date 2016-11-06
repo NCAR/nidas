@@ -217,7 +217,7 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	Variable* var = new Variable();
 	string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
         if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
-            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname));
+            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname.c_str()));
             return;
         }
 	var->setName(vname);
