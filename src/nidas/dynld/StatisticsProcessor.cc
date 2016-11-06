@@ -129,6 +129,12 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
     outputInfo.type = StatisticsCruncher::STATS_UNKNOWN;
     outputInfo.higherMoments = false;
 
+    // If a wind direction statistics group for a "u" variable
+    // (lower case indicating it is from a 3D sonic)
+    // and horizontal rotations of 3D sonics are not enabled,
+    // then skip that group.
+    bool winddirCheck = false;
+
     for (pi = parms.begin(); pi != parms.end(); ++pi) {
         const Parameter* p = *pi;
 	if (p->getType() == Parameter::STRING_PARAM &&
@@ -139,6 +145,19 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 		p->getName() == "type" && p->getLength() == 1) {
 	    outputInfo.type =
 	    	StatisticsCruncher::getStatisticsType(p->getStringValue(0));
+            // Only compute WINDDIR statistics if horizontal rotations
+            // are enabled.
+            if (outputInfo.type == StatisticsCruncher::STATS_WINDDIR) {
+                const Parameter* parameter =
+                    Project::getInstance()->getParameter("wind3d_horiz_rotation");
+                if (parameter &&
+                    (parameter->getType() == Parameter::BOOL_PARAM ||
+                    parameter->getType() == Parameter::INT_PARAM) &&
+                    parameter->getLength() == 1) {
+                    bool val = (bool) parameter->getNumericValue(0);
+                    if (!val) winddirCheck = true;
+                }
+            }
 	}
 	else if (p->getType() == Parameter::STRING_PARAM &&
 		p->getName() == "counts" && p->getLength() == 1) {
@@ -196,7 +215,12 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
     vector<string> vnames;
     for (int i = 0; i < vparm->getLength(); i++) {
 	Variable* var = new Variable();
-	var->setName(Project::getInstance()->expandString(vparm->getStringValue(i)));
+	string vname = Project::getInstance()->expandString(vparm->getStringValue(i));
+        if (winddirCheck && vname.length() > 1 && vname[0] == 'u') {
+            ILOG(("wind direction statistics group for %s skipped since horizontal rotations are not enabled",vname));
+            return;
+        }
+	var->setName(vname);
 	tag->addVariable(var);
     }
 
