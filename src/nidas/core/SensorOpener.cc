@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 8; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -128,10 +128,20 @@ int SensorOpener::run() throw(n_u::Exception)
 	    _sensors.pop_front();
 	}
 	else {
-	    // don't pound on the recalcitrant sensors too fast
+	    // Don't pound on the recalcitrant sensors too fast.  There's
+            // some implication in VERTEX that bluetooth devices (btspp:)
+            // can take more than 10 seconds to recover, so try using 30
+            // seconds.  It might be nice to use a back-off delay scheme,
+            // but for now just see if 30 seconds works.  Another option is
+            // to use the longer delay only if sensor->getDeviceName()
+            // starts with "btspp:". Yet another option is to check for the
+            // "Operation now in progress" (EINPROGRESS) error in
+            // BluetoothRFCommSocketIODevice::open() from the connect()
+            // call, and at that point sleep for a longer time before
+            // trying again.
 
 	    _sensorCond.unlock();
-	    struct timespec sleepPeriod = {10,0};
+	    struct timespec sleepPeriod = {30,0};
 	    nanosleep(&sleepPeriod,0);
 	    _sensorCond.lock();
 
