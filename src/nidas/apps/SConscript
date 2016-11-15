@@ -12,6 +12,7 @@ env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
 machs = env['MACHS']
 
+env.NidasProgram('arl-ingest.cc')
 env.NidasProgram('arinc_out.cc')
 env.NidasProgram('ck_aout.cc')
 env.NidasProgram('ck_calfile.cc')
