@@ -161,7 +161,11 @@ bool WatchedFileSensor::readSamples() throw(n_u::IOException)
     struct inotify_event event;
 
     ssize_t len = ::read(_inotifyfd,&event,sizeof(event));
-    if (len < 0) throw n_u::IOException(getDeviceName(),"inotify read",errno);
+    if (len < 0) {
+        // seeing Resource temporarily unavailable
+        if (errno == EAGAIN) return true;
+        throw n_u::IOException(getDeviceName(),"inotify read",errno);
+    }
 
     if (len < (signed) sizeof(event)) {
         // shouldn't happen
