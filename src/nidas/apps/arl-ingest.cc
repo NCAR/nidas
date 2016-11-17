@@ -51,7 +51,7 @@ class ARLIngest: public HeaderSource
 {
 public:
 
-    ARLIngest(): inputFileNames(), outputFileName(), configName(), outputFileLength(0), leapSeconds(0.0), header() {}
+    ARLIngest(): inputFileNames(), outputFileName(), configName(), outputFileLength(0), dsmid(0), spsid(0), leapSeconds(0.0), header() {}
 
     int parseRunstring(int argc, char** argv) throw();
 
@@ -94,13 +94,13 @@ private:
 	/**
 	* writeLine
 	*/
-	void writeLine(SampleOutputStream &, string &, n_u::UTime, int);
+	void writeLine(SampleOutputStream &, string &, n_u::UTime);
 
     static bool interrupted; //catch those pesky Ctrl- actions
     list<string> inputFileNames; //input files
     string outputFileName; //output sample file
     string configName;
-    int outputFileLength;
+    int outputFileLength, dsmid, spsid;
     double leapSeconds;
     SampleInputHeader header;
 };
@@ -153,36 +153,32 @@ void ARLIngest::setupSignals()
 
 /* static */
 int ARLIngest::usage(const char* argv0) {
-    cerr << "\
-" << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format\n\n\
-Usage: " << argv0 << " [-c config] -o output <list of input files>\n\
-  -h Help: this message\n\
-  -o: output file (NIDAS Sample file)\n\
-  -l: output file length (per NIDAS rules)\n\
-  -c: config: Update the configuration name in the output header\n\
-             example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n\
-  -s: Leap seconds between sample time and UTC.  Defined as:\n\
-             s := Sampletime-UTC w/o leap seconds\n\
-      such that stored timetag is corrected by (Sample time - s).\n\
-" << endl;
+    cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format\n\n" << \
+    "Usage: " << argv0 << " -d <dsm> -s <spsid> -o <output> <list of input files>\n" << \
+  	"-h|--help   : Show this message\n" << \
+  	"-o|--output : output file (NIDAS Sample file)\n" << \
+  	"-l|--length : output file length (per NIDAS rules)\n" << \
+  	"-d|--dsmid  : Set the DSM ID to this.  Default of 0 is an error\n" << \
+  	"-s|--spsid  : Set the Sensor+Sample ID (per normal xml configuration file) Default of 0 is an error\n" << \
+ 	endl;
+	/* "-c: config: Update the configuration name in the output header\n" << \
+	//  "    example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n" << \
+	// "-t: Leap seconds between sample time and UTC.  Defined as:\n\"
+	//    "    t := Sampletime-UTC w/o leap seconds\n\"
+	//    "such that stored timetag is corrected by (Sample time - t).\n\"*/
     return 1;
 }
 
 /* static */
 int ARLIngest::main(int argc, char** argv) throw() {
     setupSignals();
-
     ARLIngest ingest;
     int res = ingest.parseRunstring(argc,argv);
     if (res != 0) {
-    	cerr << "Error: " << res << endl;
     	return res;
     }
     return ingest.run();
 }
-
-
-
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
 	int c = 0;
@@ -193,26 +189,22 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
 	    {"config", required_argument, 0, 'c'},
 	    {"output", required_argument, 0, 'o'},
 	    {"length", required_argument, 0, 'l'},
-	    {"leapsecs", required_argument, 0, 's'},
+	   	{"dsmid",  required_argument, 0, 'd'},
+	   	{"spsid",  required_argument, 0, 's'},
+	    // {"leapsecs", required_argument, 0, 't'},
 	    {NULL, 0, NULL, 0}
 	};
 
-	c = getopt_long(argc, argv, "hc:o:l:s:", long_options, &option_index);
+	c = getopt_long(argc, argv, "hc:o:l:s:d:t:", long_options, &option_index);
 	if (c == -1) break;
 
 	switch (c) {
-		case 'c':
-			configName = string(optarg);
-			break;
-		case 'o':
-			outputFileName = string(optarg);
-			break;
-		case 'l':
-	    	outputFileLength = atoi(optarg);
-	    	break;
-	    case 's':
-	    	leapSeconds = atof(optarg);
-	    	break;
+		case 'c': configName = string(optarg); break;
+		case 'o': outputFileName = string(optarg); break;
+		case 'l': outputFileLength = atoi(optarg); break;
+	    case 'd': dsmid = atoi(optarg); break;
+   		case 's': spsid = atoi(optarg); break;
+	 // case 't': leapSeconds = atof(optarg); break;
 		case 'h':
 			usage(argv[0]);
 	        return 0;
@@ -233,13 +225,17 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     	cout << "Not enough, or bad args provided. See --help" << endl;
     	return -1;
     }
+    if ( dsmid == 0 || spsid == 0) {
+    	cout << "DSMID or SpSID not set. See --help" << endl;
+    	return -1;
+    }
     return 0;
 }
 
 void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
     if (configName.length() > 0)
         header.setConfigName(configName);
-    printHeader();
+    // printHeader();
     header.write(out);
 }
 
@@ -253,6 +249,7 @@ void ARLIngest::printHeader() {
 }
 
 int ARLIngest::run() throw() {
+	// cout << "Using UTC - Sample Time leap second offset of " << leapSeconds << endl;
     try {
     	nidas::core::FileSet* outSet = 0;
 #ifdef HAVE_BZLIB_H
@@ -265,12 +262,11 @@ int ARLIngest::run() throw() {
 		outSet->setFileLengthSecs(outputFileLength);
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
-
-        cout << "Using UTC - Sample Time leap second offset of " << leapSeconds << endl;
+        
         //iterate through files ingesting each file
-        while (!inputFileNames.empty() && arl_ingest_one(outStream, inputFileNames.front())) {
+        while (!inputFileNames.empty() && \
+        	arl_ingest_one(outStream, inputFileNames.front()))
         	inputFileNames.pop_front();
-        }
 		outStream.flush();
 		outStream.close();
 	} catch (n_u::IOException& ioe) {
@@ -290,8 +286,8 @@ bool ARLIngest::arl_ingest_one(SampleOutputStream &sout, string filename) throw(
 		return false;
 	}
 	
+	//beginning line should look something like "20160711, 1800,  01, 02"
 	std::getline(datfile, line);
-	//first line should look something like "20160711, 1800,  01, 02"
 	if (line.size() < 22) {
 		datfile.close();
 		cerr << "File '" << filename << "' has invalid data header '" << line << "'" << endl;
@@ -305,38 +301,37 @@ bool ARLIngest::arl_ingest_one(SampleOutputStream &sout, string filename) throw(
 		cerr << "File '" << filename << "' time is badly formed in header '" << line << "'" << endl;
 		return false;
 	}
-	cout << filename << " starts at " << start << endl;
+	cout << filename << " begins at " << start << endl;
 	start = n_u::UTime(start.toDoubleSecs() - leapSeconds); // apply any known leapsecond correction
-	
+	writeLine(sout, line, start);
 
 	//extract tower ID and height ??
-
-	writeLine(sout, line, start, 0);
-	while (std::getline(datfile,line)) { //parse lines
+	while (std::getline(datfile,line)) {
 		//lines nominally look like "00.011,A,+000.03,+000.00,-000.01,M,+348.85,+028.97,00,+2.4225,+2.4225,+0.6750,+0.3050,39"
 		size_t comma = line.find_first_of(',');
-		if (line.find_first_of(',') == std::string::npos) {
+		
+		if (comma == std::string::npos || line.length()  == 0) {
 			cerr << "Line does not have valid formatting and is being ignored " << line << endl;
-			continue;
+			continue; 
 		}
 		try {
 			n_u::UTime offset(atof(line.substr(0, comma).c_str()) + start.toDoubleSecs());
-			writeLine(sout, line, offset, 0);
+			writeLine(sout, line, offset);
 		} catch (n_u::IOException& ioe) {
 			cerr << "Unable to parse time from " << line.substr(0, comma) << endl;
 		}
 	}
-
 	datfile.close();
 	return true;
 }
 
 
-void ARLIngest::writeLine(SampleOutputStream &sout, string &line, n_u::UTime time, int dsmId) {
-	//insert sample 
+void ARLIngest::writeLine(SampleOutputStream &sout, string &line, n_u::UTime time) {
+	line += "\n"; //add newline back in
 	SampleT<char>* samp = getSample<char>(line.length()+1);
+	samp->setDSMId(dsmid);
+	samp->setSpSId(spsid);
 	samp->setTimeTag(time.toUsecs());
-	//samps.setId(); //TODO: Fetch from config file that sample ID 
 	memcpy(samp->getDataPtr(), line.c_str(), line.length()+1); //copy up to and including null
 	sout.receive(samp);
 }
