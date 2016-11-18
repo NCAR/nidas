@@ -26,6 +26,8 @@
 
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Bzip2FileSet.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/Version.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -33,11 +35,13 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
+
 #include <unistd.h>
 #include <getopt.h>
 
 #include <csignal>
 #include <climits>
+ #include <sys/stat.h>
 
 #include <iomanip>
 
@@ -243,11 +247,27 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     return 0;
 }
 
-void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException)
-{
-    if (configName.length() > 0)
-        header.setConfigName(configName);
-    // printHeader();
+/*sendHeader conforms to nidas::core::HeaderSource interface and should write useful pieces of
+metadata to the output header stream*/
+void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
+    header.setArchiveVersion(Version::getArchiveVersion());
+    header.setSoftwareVersion(Version::getSoftwareVersion());
+    header.setConfigName (configName);
+
+    struct stat statbuf;
+    configName = n_u::Process::expandEnvVars(configName);
+    
+    if (::stat(configName.c_str(),&statbuf) == 0) {
+        n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(configName));
+        static ::Project* project = Project::getInstance();
+        project->fromDOMElement(doc->getDocumentElement());
+        header.setProjectName (project->getName());
+        header.setSystemName(project->getSystemName());
+        header.setConfigVersion (project->getConfigVersion());
+        // printHeader();
+    } else {
+        cout << "Warning: cannot open or find file '"<< configName << "' and as such, there will be a partially filled data header" << endl;
+    }
     header.write(out);
 }
 
@@ -274,8 +294,7 @@ int ARLIngest::run() throw() {
             return 1;
 #endif
         }
-        else
-        {
+        else {
             outSet = new nidas::core::FileSet();
         }
         outSet->setFileName(outputFileName);
@@ -285,16 +304,13 @@ int ARLIngest::run() throw() {
         outStream.setHeaderSource(this);
         
         //iterate through files ingesting each file
-        while (!inputFileNames.empty() && 
-               arl_ingest_one(outStream, inputFileNames.front()))
-        {
+        while (!inputFileNames.empty() && arl_ingest_one(outStream, inputFileNames.front())) {
             inputFileNames.pop_front();
-	}
+        }
         outStream.flush();
         outStream.close();
     }
-    catch (n_u::IOException& ioe)
-    {
+    catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;
         return 1;
     }
