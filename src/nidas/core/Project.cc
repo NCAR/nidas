@@ -254,9 +254,10 @@ void Project::initSensors(DSMConfig* dsm) throw(n_u::IOException)
 }
 
 /**
- * Look for a server for this project that either has no name or whose
- * name matches hostname.  If none found, remove any domain names
- * and try again.
+ * Look for a server for this project that whose name matches my
+ * hostname.  If none found, remove any domain names and try again.
+ * If still none found return any configured servers with
+ * no name.
  */
 list<DSMServer*> Project::findServers(const string& hostname) const
 {
@@ -303,11 +304,13 @@ list<DSMServer*> Project::findServers(const string& hostname) const
 	}
     }
 
-    // empty name
-    DSMServerIterator sitr = getDSMServerIterator();
-    for ( ; sitr.hasNext(); ) {
-        DSMServer* srvr = sitr.next();
-        if (srvr->getName().length() == 0) servers.push_back(srvr);
+    if (servers.empty()) {
+        // empty name in the config is a wildcard, matching all hostnames
+        DSMServerIterator sitr = getDSMServerIterator();
+        for ( ; sitr.hasNext(); ) {
+            DSMServer* srvr = sitr.next();
+            if (srvr->getName().length() == 0) servers.push_back(srvr);
+        }
     }
     return servers;
 }
@@ -480,10 +483,12 @@ list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets(const 
     // filesets corresponding to the "any" server, with name "".
     list<nidas::core::FileSet*> anysets;
 
-    for (DSMServerIterator si = getDSMServerIterator(); si.hasNext(); ) {
-        DSMServer* server = si.next();
-        if (server->getName().length() > 0 && server->getName() != name)
-            continue;
+    list<DSMServer*> servers = findServers(name);
+
+    list<DSMServer*>::const_iterator si = servers.begin();
+
+    for ( ; si != servers.end(); ++si ) {
+        DSMServer* server = *si;
         ProcessorIterator pi = server->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
@@ -586,7 +591,6 @@ const Parameter* Project::getParameter(const string& name) const
     }
     return 0;
 }
-
 
 static void
 LogSchemeFromDOMElement(const xercesc::DOMElement* node)
