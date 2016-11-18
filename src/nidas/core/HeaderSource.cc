@@ -35,11 +35,10 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-void HeaderSource::sendDefaultHeader(SampleOutput* output)
-	throw(n_u::IOException)
+void
+HeaderSource::
+setDefaults(SampleInputHeader& header)
 {
-    // cerr << "ConnectionRequester::sendHeader" << endl;
-    SampleInputHeader header;
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());
     header.setProjectName(Project::getInstance()->getName());
@@ -49,7 +48,15 @@ void HeaderSource::sendDefaultHeader(SampleOutput* output)
 
     header.setConfigName(Project::getInstance()->getConfigName());
     header.setConfigVersion(Project::getInstance()->getConfigVersion());
-    header.write(output);
 }
 
 
+/* static */
+void HeaderSource::sendDefaultHeader(SampleOutput* output)
+	throw(n_u::IOException)
+{
+    // cerr << "ConnectionRequester::sendHeader" << endl;
+    SampleInputHeader header;
+    setDefaults(header);
+    header.write(output);
+}

@@ -34,6 +34,7 @@
 namespace nidas { namespace core {
 
 class SampleOutput;
+class SampleInputHeader;
 
 /**
  * An interface for sending a SampleHeader to a SampleOutput.
@@ -42,6 +43,8 @@ class HeaderSource
 {
 public:
     virtual ~HeaderSource() {}
+
+    static void setDefaults(SampleInputHeader& header);
 
     static void sendDefaultHeader(SampleOutput* output)
     	throw(nidas::util::IOException);

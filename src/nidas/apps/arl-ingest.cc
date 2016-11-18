@@ -51,7 +51,18 @@ class ARLIngest: public HeaderSource
 {
 public:
 
-    ARLIngest(): inputFileNames(), outputFileName(), configName(), outputFileLength(0), dsmid(0), spsid(0), leapSeconds(0.0), header() {}
+    ARLIngest():
+        inputFileNames(),
+        outputFileName(),
+        configName(),
+        outputFileLength(0),
+        dsmid(0),
+        spsid(0),
+        leapSeconds(0.0),
+        header()
+    {
+        HeaderSource::setDefaults(header);
+    }
 
     int parseRunstring(int argc, char** argv) throw();
 
@@ -232,7 +243,8 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     return 0;
 }
 
-void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
+void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException)
+{
     if (configName.length() > 0)
         header.setConfigName(configName);
     // printHeader();
@@ -249,27 +261,40 @@ void ARLIngest::printHeader() {
 }
 
 int ARLIngest::run() throw() {
-	// cout << "Using UTC - Sample Time leap second offset of " << leapSeconds << endl;
+    // cout << "Using UTC - Sample Time leap second offset of "
+    //      << leapSeconds << endl;
     try {
     	nidas::core::FileSet* outSet = 0;
-#ifdef HAVE_BZLIB_H
         if (outputFileName.find(".bz2") != string::npos)
+        {
+#ifdef HAVE_BZLIB_H
             outSet = new nidas::core::Bzip2FileSet();
-        else
+#else
+            cerr << "bz2 output not supported by this software build." << endl;
+            return 1;
 #endif
-    	outSet = new nidas::core::FileSet();
-		outSet->setFileName(outputFileName);
-		outSet->setFileLengthSecs(outputFileLength);
+        }
+        else
+        {
+            outSet = new nidas::core::FileSet();
+        }
+        outSet->setFileName(outputFileName);
+        outSet->setFileLengthSecs(outputFileLength);
+
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
         
         //iterate through files ingesting each file
-        while (!inputFileNames.empty() && \
-        	arl_ingest_one(outStream, inputFileNames.front()))
-        	inputFileNames.pop_front();
-		outStream.flush();
-		outStream.close();
-	} catch (n_u::IOException& ioe) {
+        while (!inputFileNames.empty() && 
+               arl_ingest_one(outStream, inputFileNames.front()))
+        {
+            inputFileNames.pop_front();
+	}
+        outStream.flush();
+        outStream.close();
+    }
+    catch (n_u::IOException& ioe)
+    {
         cerr << ioe.what() << endl;
         return 1;
     }
