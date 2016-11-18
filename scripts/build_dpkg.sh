@@ -182,14 +182,19 @@ if [ -n "$repo" ]; then
     # echo "chngs=$chngs"
 
     # only install arch "all" packages and sources for armel.
+
+    # Use --keepunreferencedfiles so that the previous version .deb files 
+    # are not removed. Then user's who don't do an apt-get update will
+    # get the old version without an error. Nightly, or once-a-week one could do
+    # a deleteunreferenced.
     if [ $arch == armel ]; then
         flock $repo sh -c "
-            reprepro -V -b $repo -C main include jessie $chngs;
-            reprepro -V -b $repo deleteunreferenced"
+            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs;
+            # reprepro -V -b $repo deleteunreferenced"
     else
         echo "Installing $archdebs"
         flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch includedeb jessie $archdebs"
+            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs"
     fi
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
