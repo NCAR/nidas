@@ -644,6 +644,16 @@ bool SonicAnemometer::process(const Sample* samp,
     // new sample
     SampleT<float>* wsamp = getSample<float>(_noutVals);
 
+    // First fill the output sample with the parsed values.  The
+    // CharacterSensor::process() method takes care of filling any unparsed
+    // values in the output sample with nan.  This way any extra variables
+    // beyond the first 5 standard sonic variables (u,v,w,tc,diag) will get
+    // passed on to the output.  Any derived sonic variables
+    // (ldiag,dir,spd) will overwrite the value at their respective index.
+    memcpy(wsamp->getVoidDataPtr(), psamp->getConstVoidDataPtr(),
+           std::min(psamp->getDataByteLength(),
+                    wsamp->getDataByteLength()));
+
     // any defined time lag has been applied by SerialSensor
     wsamp->setTimeTag(psamp->getTimeTag());
     wsamp->setId(_sampleId);
@@ -653,17 +663,23 @@ bool SonicAnemometer::process(const Sample* samp,
 
     float* dout = wsamp->getDataPtr();
 
-    float* dend = dout + _noutVals;
-
     float *dptr = dout;
 
-    int nvals = ::min(nParsedVals,_noutVals);
+    // Do not copy more than will fit into the output sample nor more than
+    // exists in the uvwtd array.
+    int nvals = ::min(_noutVals, (unsigned int)(sizeof(uvwtd)/sizeof(uvwtd[0])));
 
-    memcpy(dptr,uvwtd,sizeof(float) * nvals);
+    memcpy(dptr, uvwtd, sizeof(float) * nvals);
 
+#ifdef notdef
+    // This is skipped now that the output sample is first seeded with all
+    // the values from the parsed sample, otherwise it overwrites valid
+    // parsed values.
+    float* dend = dout + _noutVals;
     dptr += nvals;
 
     for ( ; dptr < dend; ) *dptr++ = floatNAN;
+#endif
 
     // If user asks for ldiag, use it to flag data values
     if (_ldiagIndex >= 0) {
