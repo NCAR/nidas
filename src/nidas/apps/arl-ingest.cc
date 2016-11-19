@@ -28,12 +28,16 @@
 #include <nidas/core/Bzip2FileSet.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Version.h>
+#include <nidas/core/DSMConfig.h>
+ #include <nidas/core/DSMSensor.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
 #include <nidas/core/HeaderSource.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/Exception.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/IOException.h>
 
 
 #include <unistd.h>
@@ -58,14 +62,12 @@ public:
     ARLIngest():
         inputFileNames(),
         outputFileName(),
-        configName(),
         outputFileLength(0),
         dsmid(0),
         spsid(0),
         leapSeconds(0.0),
-        header()
-    {
-        HeaderSource::setDefaults(header);
+        header() {
+        // HeaderSource::setDefaults(header);
     }
 
     int parseRunstring(int argc, char** argv) throw();
@@ -107,14 +109,14 @@ private:
 	 */
 	bool arl_ingest_one(SampleOutputStream&,  string) throw(); 
 	/**
-	* writeLine
+	* writeLine writes a single sample line to the passed output stream applying the needed offset UTime
 	*/
 	void writeLine(SampleOutputStream &, string &, n_u::UTime);
+    void prepareHeaderIds(string xmlfilename, string dsmName, string height) throw(n_u::Exception);
 
     static bool interrupted; //catch those pesky Ctrl- actions
     list<string> inputFileNames; //input files
     string outputFileName; //output sample file
-    string configName;
     int outputFileLength, dsmid, spsid;
     double leapSeconds;
     SampleInputHeader header;
@@ -169,18 +171,26 @@ void ARLIngest::setupSignals()
 /* static */
 int ARLIngest::usage(const char* argv0) {
     cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format\n\n" << \
-    "Usage: " << argv0 << " -d <dsm> -s <spsid> -o <output> <list of input files>\n" << \
+    "Usage: " << argv0 << " [-l <length>] -x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << \
+    "\n" << \
+    "\n" << \
+    "Flag & Args   Definition" << \
   	"-h|--help   : Show this message\n" << \
-  	"-o|--output : output file (NIDAS Sample file)\n" << \
+    "-x:--xml    : File path to project XML file (eg $ISFF/projects/$PROJECT/\n" <<\
+    "              ISFF/config/$PROJECT.xml). The DSM and Sample ID will be defered\n" <<\
+    "              from a combination of this XML file, the dsm name (keep reading),\n" <<\
+    "              and height parameters.  Enviromental vars will be expanded\n" <<\
+    "              internally, so per convention, it would be best to escape\n" <<\
+    "              the $ character\n" << \
+  	"-o|--output : nidsmerge compat output file (NIDAS Sample file)\n" << \
   	"-l|--length : output file length (per NIDAS rules)\n" << \
-  	"-d|--dsmid  : Set the DSM ID to this.  Default of 0 is an error\n" << \
-  	"-s|--spsid  : Set the Sensor+Sample ID (per normal xml configuration file) Default of 0 is an error\n" << \
+    "-d|--dsm    : The human readable name of the DSM the ARL sonde is connected to.\n" <<\
+    "              Usually this is the same as the tower site name (eg 'tnw12') but\n" <<\
+    "              not always. This will be checked against the configuration\n" << \
+    "-e|--height : Inform this tool the data sets to be ingested are associated\n" <<\
+    "              with this height level. Levels are defined in the XML config,\n" <<\
+    "              but should be something like '10m', '50m' or '1km'.\n" << \
  	endl;
-	/* "-c: config: Update the configuration name in the output header\n" << \
-	//  "    example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n" << \
-	// "-t: Leap seconds between sample time and UTC.  Defined as:\n\"
-	//    "    t := Sampletime-UTC w/o leap seconds\n\"
-	//    "such that stored timetag is corrected by (Sample time - t).\n\"*/
     return 1;
 }
 
@@ -197,33 +207,34 @@ int ARLIngest::main(int argc, char** argv) throw() {
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
 	int c = 0;
+    string dsmName, height, configName;;
 	while (1) {
 	int option_index = 0;
 	static struct option long_options[] = {
-	    {"help", no_argument, 0, 'h'},
-	    {"config", required_argument, 0, 'c'},
+	    {"help",   no_argument,       0, 'h'},
+	    {"xml",    required_argument, 0, 'x'},
 	    {"output", required_argument, 0, 'o'},
 	    {"length", required_argument, 0, 'l'},
-	   	{"dsmid",  required_argument, 0, 'd'},
-	   	{"spsid",  required_argument, 0, 's'},
-	    // {"leapsecs", required_argument, 0, 't'},
+	   	{"dsm",    required_argument, 0, 'd'},
+	   	{"height", required_argument, 0, 'e'},
 	    {NULL, 0, NULL, 0}
 	};
 
-	c = getopt_long(argc, argv, "hc:o:l:s:d:t:", long_options, &option_index);
+	c = getopt_long(argc, argv, "hx:o:l:d:e:", long_options, &option_index);
 	if (c == -1) break;
 
 	switch (c) {
-		case 'c': configName = string(optarg); break;
+        case 'h':
+            usage(argv[0]);
+            return 0;
+            break;
+		case 'x': configName = string(optarg); break;
 		case 'o': outputFileName = string(optarg); break;
 		case 'l': outputFileLength = atoi(optarg); break;
-	    case 'd': dsmid = atoi(optarg); break;
-   		case 's': spsid = atoi(optarg); break;
-	 // case 't': leapSeconds = atof(optarg); break;
-		case 'h':
-			usage(argv[0]);
-	        return 0;
-	        break;
+	    // case 'd': dsmid = atoi(optarg); break;
+   		// case 's': spsid = atoi(optarg); break;
+        case 'd': dsmName = string(optarg); break;
+        case 'e': height = string(optarg); break;
 		case '?':
 		default:
 		    // printf("?? getopt returned character code 0%o ??\n", c);
@@ -231,43 +242,83 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
 		}
 	}
 
-    if (optind < argc) {
+    if (optind < argc)
         while (optind < argc)
         	inputFileNames.push_back(argv[optind++]);
-    }
+
     //rudimentary checking for proper arguments
     if ( inputFileNames.size() == 0 || outputFileName.size() == 0 || outputFileLength < 0) {
-    	cout << "Not enough, or bad args provided. See --help" << endl;
-    	return -1;
+        cout << "Not enough, or bad args provided. See --help" << endl;
+        return -1;
     }
-    if ( dsmid == 0 || spsid == 0) {
-    	cout << "DSMID or SpSID not set. See --help" << endl;
-    	return -1;
-    }
+
+    //throws error if missing needed parameters
+    //sets dsmid and spsid per config file
+    prepareHeaderIds(configName, dsmName, height); 
+    
     return 0;
 }
 
-/*sendHeader conforms to nidas::core::HeaderSource interface and should write useful pieces of
-metadata to the output header stream*/
-void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
+/**
+* prepareHeaderIds parses the xml files pointed to by xmlfilename and using the
+* passed dsm name and height, modifies dsmid and spsid to the proper values.  It throws
+* exceptions on file IO errors, or when no configuration match is found. Additionally,
+* it loads proper values into the stored header which is attached to samples when
+* sendHeader is called
+*/
+void ARLIngest::prepareHeaderIds(string xmlfilename, string dsmName, string height)  throw(n_u::Exception){
+    //easy peasy
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());
-    header.setConfigName (configName);
+    header.setConfigName(xmlfilename);
 
     struct stat statbuf;
-    configName = n_u::Process::expandEnvVars(configName);
+    xmlfilename = n_u::Process::expandEnvVars(xmlfilename);
     
-    if (::stat(configName.c_str(),&statbuf) == 0) {
-        n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(configName));
+    //a weeee  bit harder
+    if (::stat(xmlfilename.c_str(),&statbuf) == 0) {
+        n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlfilename));
         static ::Project* project = Project::getInstance();
         project->fromDOMElement(doc->getDocumentElement());
         header.setProjectName (project->getName());
         header.setSystemName(project->getSystemName());
         header.setConfigVersion (project->getConfigVersion());
-        // printHeader();
+
+        //iterate and locate the DSM id by site and sensor id by sensor height tag
+        DSMConfigIterator di = project->getDSMConfigIterator();
+        for ( ; di.hasNext(); ) {
+            const DSMConfig* dsm = di.next();
+            if (dsm->getName() == dsmName) {
+                dsmid = dsm->getId(); //keep hunting for the correct height
+                SensorIterator si = dsm->getSensorIterator();
+                for ( ; si.hasNext(); ) {
+                    const DSMSensor* sensor = si.next();
+                    if (sensor->getHeightString() == height) {
+                        spsid = sensor->getSensorId();
+                    }
+                }
+            }
+        }
     } else {
-        cout << "Warning: cannot open or find file '"<< configName << "' and as such, there will be a partially filled data header" << endl;
+        cerr << "File '" << xmlfilename << "' does not exist.  Cannot parse required configuration" << endl;
+        exit(-1);
     }
+    if (dsmid == 0) {
+        cerr << "Unable to find a DSM configuration named '" << dsmName << "' in '" << xmlfilename << "'" << endl;
+        exit(-1);
+    }
+    if (spsid == 0) {
+        cerr << "Unable to find sensor at named height '" << height << "' attached to DSM '" << dsmName << "' in '" << xmlfilename << "'" << endl;
+        exit(-1);
+    }
+    cout << "Found DSM with Id:" << dsmid << " and Sensor Id:" << spsid << endl;
+    // printHeader();
+
+} 
+
+/*sendHeader conforms to nidas::core::HeaderSource interface and should write useful pieces of
+metadata to the output header stream*/
+void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
     header.write(out);
 }
 
@@ -365,7 +416,6 @@ bool ARLIngest::arl_ingest_one(SampleOutputStream &sout, string filename) throw(
 	datfile.close();
 	return true;
 }
-
 
 void ARLIngest::writeLine(SampleOutputStream &sout, string &line, n_u::UTime time) {
 	line += "\n"; //add newline back in
