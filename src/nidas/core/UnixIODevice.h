@@ -95,8 +95,8 @@ public:
     {
 	ssize_t result;
         if ((result = ::read(_fd,buf,len)) < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-		throw nidas::util::IOException(getName(),"read",errno);
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+            throw nidas::util::IOException(getName(),"read",errno);
         }
 	if (result == 0) 
 		throw nidas::util::EOFException(getName(),"read");
@@ -114,8 +114,10 @@ public:
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException)
     {
 	ssize_t result;
-        if ((result = ::write(_fd,buf,len)) < 0)
-		throw nidas::util::IOException(getName(),"write",errno);
+        if ((result = ::write(_fd,buf,len)) < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+            throw nidas::util::IOException(getName(),"write",errno);
+        }
 	return result;
     }
 

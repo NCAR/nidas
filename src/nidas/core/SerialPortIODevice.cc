@@ -85,3 +85,69 @@ int SerialPortIODevice::getUsecsPerByte() const
     return usecs;
 }
 
+void SerialPortIODevice::setRTS485(int val) throw(nidas::util::IOException)
+{
+    _rts485 = val;
+    if (_rts485 && _fd >= 0) {
+        int bits = TIOCM_RTS;
+        if (_rts485 > 0) {
+            // clear RTS
+            if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+        }
+        else {
+            // set RTS
+            if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+        }
+        _usecsperbyte = getUsecsPerByte();
+    }
+}
+
+/**
+ * Write to the device.
+ */
+size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util::IOException)
+{
+    ssize_t result;
+    int bits;
+
+
+    if (_rts485) {
+        // see the above discussion about RTS and 485. Here we
+        // try an in-exact set/clear of RTS on either side of a write.
+        bits = TIOCM_RTS;
+        if (_rts485 > 0) {
+            // set RTS before write
+            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+        }
+        else {
+            // clear RTS before write
+            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+        }
+    }
+
+    if ((result = ::write(_fd,buf,len)) < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) result = 0;
+        else throw nidas::util::IOException(getName(),"write",errno);
+    }
+
+    if (_rts485) {
+        // sleep until we think the last bit has been transmitted,
+        ::usleep(len * _usecsperbyte);
+        if (_rts485 > 0) {
+            // then clear RTS
+            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+        }
+        else {
+            // then set RTS
+            if (_fd >= 0 && ::ioctl(_fd, TIOCMBIS, &bits) < 0)
+                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+        }
+    }
+    return result;
+}
+
