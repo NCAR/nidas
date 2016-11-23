@@ -256,6 +256,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/merge_verify
 %{nidas_prefix}/bin/n_hdr_util
 %{nidas_prefix}/bin/nidsmerge
+%{nidas_prefix}/bin/arl-ingest
 %{nidas_prefix}/bin/proj_configs
 %{nidas_prefix}/bin/prep
 %{nidas_prefix}/bin/rserial
