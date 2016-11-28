@@ -149,30 +149,30 @@ void NidsMerge::setupSignals()
 /* static */
 int NidsMerge::usage(const char* argv0)
 {
-    cerr << "\
-Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
-	[-s start_time] [-e end_time]\n\
-	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
-    -c config: Update the configuration name in the output header\n\
-        example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n\
-    -f : filter sample timetags. If a sample timetag does not fall\n\
-         between start and end time, assume sample header is corrupt\n\
-         and scan ahead for a good header. Use only on corrupt data files.\n\
-    -i input ...: one or more input file name or file name formats\n\
-    -s start_time\n\
-    -e end_time: time period to merge\n\
-    -o output: output file name or file name format\n\
-    -l output_file_length: length of output files, in seconds\n\
-    -r read_ahead_secs: how much time to read ahead and sort the input samples\n\
-    	before outputting the sorted, merged samples\n\n\
-Example (from ISFF/TREX): \n" << argv0 << " \
--i /data1/isff_%Y%m%d_%H%M%S.dat \n\
-	-i /data2/central_%Y%m%d_%H%M%S.dat\n\
-	-i /data2/south_%Y%m%d_%H%M%S.dat\n\
-	-i /data2/west_%Y%m%d_%H%M%S.dat\n\
-	-o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10\n\
-	-s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"\n\
-" << endl;
+    cerr << "Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ..." << endl;
+	cerr << "    [-s start_time] [-e end_time]" << endl;
+	cerr << endl;
+	cerr << "    -o output [-l output_file_length] [-r read_ahead_secs]" << endl;
+	cerr << "    -c config: Update the configuration name in the output header" << endl;
+	cerr << "        example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml" << endl;
+	cerr << "    -f : filter sample timetags. If a sample timetag does not fall" << endl;
+	cerr << "         between start and end time, assume sample header is corrupt" << endl;
+	cerr << "         and scan ahead for a good header. Use only on corrupt data files." << endl;
+	cerr << "    -i input ...: one or more input file name or file name formats" << endl;
+	cerr << "    -s start_time" << endl;
+	cerr << "    -e end_time: time period to merge" << endl;
+	cerr << "    -o output: output file name or file name format" << endl;
+	cerr << "    -l output_file_length: length of output files, in seconds" << endl;
+	cerr << "    -r read_ahead_secs: how much time to read ahead and sort the input samples" << endl;
+	cerr << "    	before outputting the sorted, merged samples" << endl;
+	cerr << endl;
+	cerr << "Example (from ISFF/TREX): \n" << argv0 << endl;
+	cerr << "   -i /data1/isff_%Y%m%d_%H%M%S.dat " << endl;
+	cerr << "	-i /data2/central_%Y%m%d_%H%M%S.dat" << endl;
+	cerr << "	-i /data2/south_%Y%m%d_%H%M%S.dat" << endl;
+	cerr << "	-i /data2/west_%Y%m%d_%H%M%S.dat" << endl;
+	cerr << "	-o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10" << endl;
+	cerr << "	-s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"" << endl;
     return 1;
 }
 
@@ -416,31 +416,31 @@ int NidsMerge::run() throw()
 		try {
 		    dsm_time_t lastTime = lastTimes[ii];
 		    while (!interrupted && lastTime < tcur + readAheadUsecs) {
-			Sample* samp = input->readSample();
-                        lastTime = samp->getTimeTag();
-                        // set startTime to the first time read if user
-                        // did not specify it in the runstring.
-                        if (startTime.toUsecs() == LONG_LONG_MIN) {
-                            startTime = lastTime;
-                            tcur = startTime.toUsecs();
-                        }
-			if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
-                            samp->freeReference();
-                        else nunique++;
-			nread++;
+				Sample* samp = input->readSample();
+                lastTime = samp->getTimeTag();
+                // set startTime to the first time read if user
+                // did not specify it in the runstring.
+                if (startTime.toUsecs() == LONG_LONG_MIN) {
+                    startTime = lastTime;
+                    tcur = startTime.toUsecs();
+                }
+				if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
+	                samp->freeReference();
+                else nunique++;
+				nread++;
 		    }
 		    lastTimes[ii] = lastTime;
 		}
 		catch (const n_u::EOFException& e) {
 		    cerr << e.what() << endl;
 		    lastTimes[ii] = LONG_LONG_MAX;
-                    neof++;
+            neof++;
 		}
 		catch (const n_u::IOException& e) {
 		    if (e.getErrno() != ENOENT) throw e;
 		    cerr << e.what() << endl;
 		    lastTimes[ii] = LONG_LONG_MAX;
-                    neof++;
+            neof++;
 		}
 		samplesRead[ii] = nread;
 		samplesUnique[ii] = nunique;
