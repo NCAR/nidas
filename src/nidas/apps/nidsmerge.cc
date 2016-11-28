@@ -76,6 +76,8 @@ public:
 
 private:
 
+    bool receiveAllowedDsm(SampleOutputStream &, const Sample *); //Write sample if allowed
+
     static bool interrupted;
 
     vector<list<string> > inputFileNames;
@@ -98,6 +100,8 @@ private:
 
     bool _filterTimes;
 
+    list<unsigned int> allowed_dsms; /* DSMs to require.  If empty*/
+
 };
 
 int main(int argc, char** argv)
@@ -112,10 +116,10 @@ bool NidsMerge::interrupted = false;
 /* static */
 void NidsMerge::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+        "received signal " << strsignal(sig) << '(' << sig << ')' <<
+    ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+    ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+    ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
                                                                                 
     switch(sig) {
     case SIGHUP:
@@ -149,30 +153,35 @@ void NidsMerge::setupSignals()
 /* static */
 int NidsMerge::usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ..." << endl;
-	cerr << "    [-s start_time] [-e end_time]" << endl;
-	cerr << endl;
-	cerr << "    -o output [-l output_file_length] [-r read_ahead_secs]" << endl;
-	cerr << "    -c config: Update the configuration name in the output header" << endl;
-	cerr << "        example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml" << endl;
-	cerr << "    -f : filter sample timetags. If a sample timetag does not fall" << endl;
-	cerr << "         between start and end time, assume sample header is corrupt" << endl;
-	cerr << "         and scan ahead for a good header. Use only on corrupt data files." << endl;
-	cerr << "    -i input ...: one or more input file name or file name formats" << endl;
-	cerr << "    -s start_time" << endl;
-	cerr << "    -e end_time: time period to merge" << endl;
-	cerr << "    -o output: output file name or file name format" << endl;
-	cerr << "    -l output_file_length: length of output files, in seconds" << endl;
-	cerr << "    -r read_ahead_secs: how much time to read ahead and sort the input samples" << endl;
-	cerr << "    	before outputting the sorted, merged samples" << endl;
-	cerr << endl;
-	cerr << "Example (from ISFF/TREX): \n" << argv0 << endl;
-	cerr << "   -i /data1/isff_%Y%m%d_%H%M%S.dat " << endl;
-	cerr << "	-i /data2/central_%Y%m%d_%H%M%S.dat" << endl;
-	cerr << "	-i /data2/south_%Y%m%d_%H%M%S.dat" << endl;
-	cerr << "	-i /data2/west_%Y%m%d_%H%M%S.dat" << endl;
-	cerr << "	-o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10" << endl;
-	cerr << "	-s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"" << endl;
+    cerr << "Usage: " << argv0 << " [-x config] -i input ...  [-i input ... ] ..." << endl;
+    cerr << "    [-s start_time] [-e end_time]" << endl;
+    cerr << endl;
+    cerr << "    -o output [-l output_file_length] [-r read_ahead_secs]" << endl;
+    cerr << "    -c config: Legacy flag for -x." << endl;
+    cerr << "    -x config: Update the configuration name in the output header. Legacy -c" << endl;
+    cerr << "         example: -x $ISFF/projects/AHATS/ISFF/config/ahats.xml" << endl;
+    cerr << "    -f : filter sample timetags. If a sample timetag does not fall" << endl;
+    cerr << "         between start and end time, assume sample header is corrupt" << endl;
+    cerr << "         and scan ahead for a good header. Use only on corrupt data files." << endl;
+    cerr << "    -i input ...: one or more input file name or file name formats" << endl;
+    cerr << "    -d dsm ...: one or more DSM IDs to require input data tagged with. If this"  << endl;
+    cerr << "         option is ommited (default), then any input data will be passed"  << endl;
+    cerr << "         blindly to the output.  If any dsms are defined here, only input"  << endl;
+    cerr << "         samples with same DSM IDs given here will be passed to the output." << endl;
+    cerr << "    -s start_time" << endl;
+    cerr << "    -e end_time: time period to merge" << endl;
+    cerr << "    -o output: output file name or file name format" << endl;
+    cerr << "    -l output_file_length: length of output files, in seconds" << endl;
+    cerr << "    -r read_ahead_secs: how much time to read ahead and sort the input samples" << endl;
+    cerr << "         before outputting the sorted, merged samples" << endl;
+    cerr << endl;
+    cerr << "Example (from ISFF/TREX): \n" << argv0 << endl;
+    cerr << "   -i /data1/isff_%Y%m%d_%H%M%S.dat " << endl;
+    cerr << "    -i /data2/central_%Y%m%d_%H%M%S.dat" << endl;
+    cerr << "    -i /data2/south_%Y%m%d_%H%M%S.dat" << endl;
+    cerr << "    -i /data2/west_%Y%m%d_%H%M%S.dat" << endl;
+    cerr << "    -o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10" << endl;
+    cerr << "    -s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"" << endl;
     return 1;
 }
 
@@ -195,7 +204,7 @@ NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
     endTime(LONG_LONG_MAX), outputFileLength(0),header(),
-    configName(),_filterTimes(false)
+    configName(),_filterTimes(false), allowed_dsms()
 {
 }
 
@@ -205,53 +214,58 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "-c:e:fil:o:s:r:")) != -1) {
-	switch (opt_char) {
-	case 'c':
-            configName = optarg;
-	    break;
-	case 'e':
-	    try {
-		endTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-	case 'f':
-	    _filterTimes = true;
-	    break;
-	case 'i':
-	    {
-		list<string> fileNames;
-		while(optind < argc && argv[optind][0] != '-') {
-		    fileNames.push_back(argv[optind++]);
-		}
-		inputFileNames.push_back(fileNames);
-	    }
-	    break;
-	case 'l':
-	    outputFileLength = atoi(optarg);
-	    break;
-	case 'o':
-	    outputFileName = optarg;
-	    break;
-	case 'r':
-	    readAheadUsecs = atoi(optarg) * (long long)USECS_PER_SEC;
-	    break;
-	case 's':
-	    try {
-		startTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
+    while ((opt_char = getopt(argc, argv, "-c:x:e:fil:o:s:r:d:")) != -1) {
+    switch (opt_char) {
+    case 'x':
+    case 'c':
+        configName = optarg;
+        break;
+    case 'e':
+        try {
+            endTime = n_u::UTime::parse(true,optarg);
+        }
+        catch (const n_u::ParseException& pe) {
+            cerr << pe.what() << endl;
+            return usage(argv[0]);
+        }
+        break;
+    case 'f':
+        _filterTimes = true;
+        break;
+    case 'i':
+        {
+        list<string> fileNames;
+        while(optind < argc && argv[optind][0] != '-') {
+            fileNames.push_back(argv[optind++]);
+        }
+        inputFileNames.push_back(fileNames);
+        }
+        break;
+    case 'l':
+        outputFileLength = atoi(optarg);
+        break;
+    case 'o':
+        outputFileName = optarg;
+        break;
+    case 'r':
+        readAheadUsecs = atoi(optarg) * (long long)USECS_PER_SEC;
+        break;
+    case 's':
+        try {
+            startTime = n_u::UTime::parse(true,optarg);
+        }
+        catch (const n_u::ParseException& pe) {
+            cerr << pe.what() << endl;
+            return usage(argv[0]);
+        }
+        break;
+    case 'd':
+        cout << "Allowing Data with ID=" << optarg << endl;
+        allowed_dsms.push_back(atoi(optarg));
+        break;
+    case '?':
+        return usage(argv[0]);
+    }
     }
     if (inputFileNames.size() == 0) return usage(argv[0]);
     for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
@@ -264,6 +278,9 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
             return usage(argv[0]);
         }
     }
+
+    //setup DSM IDs if provided
+
     return 0;
 }
 
@@ -286,32 +303,50 @@ void NidsMerge::printHeader()
     cerr << "ConfigVersion:" << header.getConfigVersion() << endl;
 }
 
+/**
+    receiveAllowedDsm writes the passed sample to the passed stream if the DSM id of the sample
+    is in allowed_dsms.  If allowed_dsms is empty, the sample is written to the stream.  Returns
+    whatever stream.receive(sample) returns if the sample's DSM is in the correct range, otherwise
+    false, 
+*/
+bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample) {
+    if (allowed_dsms.size() == 0) {
+        return stream.receive(sample);
+    }
+    unsigned int want = sample->getDSMId();
+    for (list<unsigned int>::const_iterator i = allowed_dsms.begin(); i !=  allowed_dsms.end(); i++) {
+        if (*i == want) 
+            return stream.receive(sample);
+    }
+    return false;
+}
+
 int NidsMerge::run() throw()
 {
 
     try {
-	nidas::core::FileSet* outSet = 0;
+    nidas::core::FileSet* outSet = 0;
 #ifdef HAVE_BZLIB_H
         if (outputFileName.find(".bz2") != string::npos)
             outSet = new nidas::core::Bzip2FileSet();
         else
 #endif
             outSet = new nidas::core::FileSet();
-	outSet->setFileName(outputFileName);
-	outSet->setFileLengthSecs(outputFileLength);
+    outSet->setFileName(outputFileName);
+    outSet->setFileLengthSecs(outputFileLength);
 
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
 
-	vector<SampleInputStream*> inputs;
+    vector<SampleInputStream*> inputs;
 
-	for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
+    for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
 
-	    const list<string>& inputFiles = inputFileNames[ii];
+        const list<string>& inputFiles = inputFileNames[ii];
 
-	    nidas::core::FileSet* fset;
+        nidas::core::FileSet* fset;
 
-	    list<string>::const_iterator fi = inputFiles.begin();
+        list<string>::const_iterator fi = inputFiles.begin();
             if (inputFiles.size() == 1 && fi->find('%') != string::npos) {
 #ifdef HAVE_BZLIB_H
                 if (fi->find(".bz2") != string::npos)
@@ -326,14 +361,14 @@ int NidsMerge::run() throw()
             else fset = nidas::core::FileSet::getFileSet(inputFiles);
 
 #ifdef DEBUG
-	    cerr << "getName=" << fset->getName() << endl;
-	    cerr << "start time=" << startTime.format(true,"%c") << endl;
-	    cerr << "end time=" << endTime.format(true,"%c") << endl;
+        cerr << "getName=" << fset->getName() << endl;
+        cerr << "start time=" << startTime.format(true,"%c") << endl;
+        cerr << "end time=" << endTime.format(true,"%c") << endl;
 #endif
 
-	    // SampleInputStream owns the iochan ptr.
-	    SampleInputStream* input = new SampleInputStream(fset);
-	    inputs.push_back(input);
+        // SampleInputStream owns the iochan ptr.
+        SampleInputStream* input = new SampleInputStream(fset);
+        inputs.push_back(input);
             input->setMaxSampleLength(32768);
 
             if (_filterTimes) {
@@ -343,25 +378,25 @@ int NidsMerge::run() throw()
                 input->setMaxSampleTime(filter2);
             }
 
-	    lastTimes.push_back(LONG_LONG_MIN);
+        lastTimes.push_back(LONG_LONG_MIN);
 
-	    // input->init();
+        // input->init();
 
-	    try {
-		input->readInputHeader();
+        try {
+        input->readInputHeader();
                 // save header for later writing to output
-		header = input->getInputHeader();
-	    }
-	    catch (const n_u::EOFException& e) {
-		cerr << e.what() << endl;
-		lastTimes[ii] = LONG_LONG_MAX;
-	    }
-	    catch (const n_u::IOException& e) {
-		if (e.getErrno() != ENOENT) throw e;
-		cerr << e.what() << endl;
-		lastTimes[ii] = LONG_LONG_MAX;
-	    }
-	}
+        header = input->getInputHeader();
+        }
+        catch (const n_u::EOFException& e) {
+        cerr << e.what() << endl;
+        lastTimes[ii] = LONG_LONG_MAX;
+        }
+        catch (const n_u::IOException& e) {
+        if (e.getErrno() != ENOENT) throw e;
+        cerr << e.what() << endl;
+        lastTimes[ii] = LONG_LONG_MAX;
+        }
+    }
 
         /*
          * SortedSampleSet2 does a sort by the full sample header -
@@ -380,27 +415,27 @@ int NidsMerge::run() throw()
          * and allow the user to choose Set2 or Set3 with a command line option.
          */
         
-	SortedSampleSet3 sorter;
-	SampleT<char> dummy;
-	vector<size_t> samplesRead(inputs.size(),0);
-	vector<size_t> samplesUnique(inputs.size(),0);
+    SortedSampleSet3 sorter;
+    SampleT<char> dummy;
+    vector<size_t> samplesRead(inputs.size(),0);
+    vector<size_t> samplesUnique(inputs.size(),0);
 
-	cout << "     date(GMT)      ";
-	for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-	    cout << "  input" << ii;
-	    cout << " unique" << ii;
+    cout << "     date(GMT)      ";
+    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        cout << "  input" << ii;
+        cout << " unique" << ii;
         }
-	cout << "    before   after  output" << endl;
+    cout << "    before   after  output" << endl;
 
         unsigned int neof = 0;
 
-	dsm_time_t tcur;
-	for (tcur = startTime.toUsecs(); neof < inputs.size() && tcur < endTime.toUsecs();
-	    tcur += readAheadUsecs) {
-	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-		SampleInputStream* input = inputs[ii];
-		size_t nread = 0;
-		size_t nunique = 0;
+    dsm_time_t tcur;
+    for (tcur = startTime.toUsecs(); neof < inputs.size() && tcur < endTime.toUsecs();
+        tcur += readAheadUsecs) {
+        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        SampleInputStream* input = inputs[ii];
+        size_t nread = 0;
+        size_t nunique = 0;
 
 #ifdef ADDITIONAL_TIME_FILTERS
                 /* this won't really work, since the next sample from input
@@ -413,10 +448,10 @@ int NidsMerge::run() throw()
                 input->setMaxSampleTime(filter2);
 #endif
 
-		try {
-		    dsm_time_t lastTime = lastTimes[ii];
-		    while (!interrupted && lastTime < tcur + readAheadUsecs) {
-				Sample* samp = input->readSample();
+        try {
+            dsm_time_t lastTime = lastTimes[ii];
+            while (!interrupted && lastTime < tcur + readAheadUsecs) {
+                Sample* samp = input->readSample();
                 lastTime = samp->getTimeTag();
                 // set startTime to the first time read if user
                 // did not specify it in the runstring.
@@ -424,95 +459,95 @@ int NidsMerge::run() throw()
                     startTime = lastTime;
                     tcur = startTime.toUsecs();
                 }
-				if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
-	                samp->freeReference();
+                if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
+                    samp->freeReference();
                 else nunique++;
-				nread++;
-		    }
-		    lastTimes[ii] = lastTime;
-		}
-		catch (const n_u::EOFException& e) {
-		    cerr << e.what() << endl;
-		    lastTimes[ii] = LONG_LONG_MAX;
-            neof++;
-		}
-		catch (const n_u::IOException& e) {
-		    if (e.getErrno() != ENOENT) throw e;
-		    cerr << e.what() << endl;
-		    lastTimes[ii] = LONG_LONG_MAX;
-            neof++;
-		}
-		samplesRead[ii] = nread;
-		samplesUnique[ii] = nunique;
-		if (interrupted) break;
-	    }
-	    if (interrupted) break;
-
-	    SortedSampleSet3::const_iterator rsb = sorter.begin();
-
-	    // get iterator pointing at first sample equal to or greater
-	    // than dummy sample
-	    dummy.setTimeTag(tcur);
-	    SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
-
-	    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-		const Sample *s = *si;
-		if (s->getTimeTag() >= startTime.toUsecs())
-		    outStream.receive(s);
-		s->freeReference();
-	    }
-
-	    // remove samples from sorted set
-	    size_t before = sorter.size();
-	    if (rsi != rsb) sorter.erase(rsb,rsi);
-	    size_t after = sorter.size();
-
-	    cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
-	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-	    	cout << ' ' << setw(7) << samplesRead[ii];
-	    	cout << ' ' << setw(7) << samplesUnique[ii];
+                nread++;
             }
-	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
-	    	setw(7) << before - after << endl;
-	}
-        if (!interrupted) {
-	    SortedSampleSet3::const_iterator rsb = sorter.begin();
-
-	    // get iterator pointing at first sample equal to or greater
-	    // than dummy sample
-	    dummy.setTimeTag(tcur);
-	    SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
-
-	    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-		const Sample *s = *si;
-		if (s->getTimeTag() >= startTime.toUsecs())
-		    outStream.receive(s);
-		s->freeReference();
-	    }
-
-	    // remove samples from sorted set
-	    size_t before = sorter.size();
-	    if (rsi != rsb) sorter.erase(rsb,rsi);
-	    size_t after = sorter.size();
-
-	    cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
-	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-	    	cout << ' ' << setw(7) << samplesRead[ii];
-	    	cout << ' ' << setw(7) << samplesUnique[ii];
-            }
-	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
-	    	setw(7) << before - after << endl;
+            lastTimes[ii] = lastTime;
         }
-	outStream.flush();
-	outStream.close();
-	for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-	    SampleInputStream* input = inputs[ii];
-	    delete input;
-	}
+        catch (const n_u::EOFException& e) {
+            cerr << e.what() << endl;
+            lastTimes[ii] = LONG_LONG_MAX;
+            neof++;
+        }
+        catch (const n_u::IOException& e) {
+            if (e.getErrno() != ENOENT) throw e;
+            cerr << e.what() << endl;
+            lastTimes[ii] = LONG_LONG_MAX;
+            neof++;
+        }
+        samplesRead[ii] = nread;
+        samplesUnique[ii] = nunique;
+        if (interrupted) break;
+        }
+        if (interrupted) break;
+
+        SortedSampleSet3::const_iterator rsb = sorter.begin();
+
+        // get iterator pointing at first sample equal to or greater
+        // than dummy sample
+        dummy.setTimeTag(tcur);
+        SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+
+        for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+        const Sample *s = *si;
+        if (s->getTimeTag() >= startTime.toUsecs())
+            receiveAllowedDsm(outStream, s);
+        s->freeReference();
+        }
+
+        // remove samples from sorted set
+        size_t before = sorter.size();
+        if (rsi != rsb) sorter.erase(rsb,rsi);
+        size_t after = sorter.size();
+
+        cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+            cout << ' ' << setw(7) << samplesRead[ii];
+            cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+        cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+            setw(7) << before - after << endl;
+    }
+        if (!interrupted) {
+        SortedSampleSet3::const_iterator rsb = sorter.begin();
+
+        // get iterator pointing at first sample equal to or greater
+        // than dummy sample
+        dummy.setTimeTag(tcur);
+        SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+
+        for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+        const Sample *s = *si;
+        if (s->getTimeTag() >= startTime.toUsecs())
+            receiveAllowedDsm(outStream, s);
+        s->freeReference();
+        }
+
+        // remove samples from sorted set
+        size_t before = sorter.size();
+        if (rsi != rsb) sorter.erase(rsb,rsi);
+        size_t after = sorter.size();
+
+        cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+            cout << ' ' << setw(7) << samplesRead[ii];
+            cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+        cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+            setw(7) << before - after << endl;
+        }
+    outStream.flush();
+    outStream.close();
+    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+        SampleInputStream* input = inputs[ii];
+        delete input;
+    }
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;
-	return 1;
+    return 1;
     }
     return 0;
 }
