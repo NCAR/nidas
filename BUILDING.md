@@ -4,6 +4,7 @@
 
 #Building
 
+
 #General
 You will need the eol_scons addon in order to manually build.  You can add it via the following (brute force, assumes no other scons addons):
 
@@ -13,6 +14,9 @@ You will need the eol_scons addon in order to manually build.  You can add it vi
     git clone https://github.com/ncareol/eol_scons site_scons
     popd
 ```
+
+# Documentation
+There are 2 scripts that can build the documentation.  One is a bit older and still uses svn (```scripts/make_doxy.sh```)  to create and rsync the data to an internal server, where as ```scripts/create-doxygen-ghpages.sh```  builds the doxygen API doc off HEAD and pushes them to github.io via the gh-pages branch. If you dont care to push data just running ```doxygen doc/doxygen_conf/nidas.doxy``` from the git checkout root should suffice.
 
 # Getting Nida on Debian (For the truly impatient)
 
