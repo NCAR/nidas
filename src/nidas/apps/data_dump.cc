@@ -82,6 +82,12 @@ public:
 
     DumpClient::format_t typeToFormat(sampleType t);
 
+    void
+    setWarningTime(float w)
+    {
+        warntime = w;
+    }
+
 private:
 
     SampleMatcher _samples;
@@ -93,6 +99,8 @@ private:
     const n_u::EndianConverter* fromLittle;
 
     NidasApp::id_format_t _idFormat;
+
+    float warntime;
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
@@ -106,7 +114,8 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
     _samples(matcher),
     format(fmt), ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
-    _idFormat(idfmt)
+    _idFormat(idfmt),
+    warntime(0.0)
 {
 }
 
@@ -169,6 +178,12 @@ bool DumpClient::receive(const Sample* samp) throw()
     if (prev_tt != 0) {
         double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
         leader << setw(7) << tdiff << ' ';
+        if ((warntime < 0 && tdiff < warntime) ||
+            (warntime > 0 && tdiff > warntime))
+        {
+            cerr << "Warning: Sample time skips "
+                 << tdiff << " seconds." << endl;
+        }
     }
     else leader << setw(7) << 0 << ' ';
 
@@ -359,6 +374,8 @@ private:
     
     DumpClient::format_t format;
 
+    float warntime;
+
     NidasApp app;
 };
 
@@ -367,6 +384,7 @@ DataDump::DataDump():
     xmlFileName(),
     idFormat(NidasApp::DECIMAL),
     format(DumpClient::DEFAULT),
+    warntime(0.0),
     app("data_dump")
 {
     app.setApplicationInstance();
@@ -395,7 +413,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     NidasAppArgv left(args);
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSUX")) != -1) {
+    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSUXw:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -427,6 +445,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	case 'X':
 	    app.setIdFormat(NidasApp::HEX_ID);
 	    break;
+        case 'w':
+            warntime = atof(optarg);
+            break;
 	case '?':
 	    return usage(argv[0]);
 	}
@@ -445,7 +466,7 @@ int DataDump::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0
-         << " [std-options] [-A | -7 | -F | -H | -n | -I | -L | -S | -X] "
+         << " [std-options] [-A | -7 | -F | -H | -n | -I | -L | -S | -X] [-w seconds]"
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
@@ -464,6 +485,10 @@ Standard options:\n"
     -L: ASCII output of signed 32 bit integers\n\
     -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
     -X: print sample ids in hex format\n\
+    -w: Warn when sample time succeeds the previous more than <seconds>.\n\
+        If <seconds> is negative, then warn when the succeeding time skips\n\
+        backwards.\n\
+\
     If a format is specified, that format is used for all the samples, except\n\
     that a floating point format is always used for floating point samples.\n\
     Otherwise the format is chosen according to the type in the sample, so\n\
@@ -584,6 +609,7 @@ int DataDump::run() throw()
 	}
 
         DumpClient dumper(app.sampleMatcher(), format, cout, app.getIdFormat());
+        dumper.setWarningTime(warntime);
 
 	if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.

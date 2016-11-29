@@ -559,7 +559,8 @@ bool SampleSorter::receive(const Sample *s) throw()
         {
             dsm_time_t wend = (*latest)->getTimeTag();
             dsm_time_t wbegin = wend - _sorterLengthUsec;
-            WLOG(("Discarding sample @ ")
+            WLOG(("Discarding sample (%d,%d) @ ", 
+                  s->getDSMId(), s->getSpSId())
                  << SampleTracer::format_time(s->getTimeTag())
                  << " (" << _discardedSamples << " total)"
                  << ": sorter window ["
