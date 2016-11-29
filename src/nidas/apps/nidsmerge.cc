@@ -32,6 +32,7 @@
 #include <nidas/core/HeaderSource.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/core/NidasApp.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -64,7 +65,7 @@ public:
 
     static int main(int argc, char** argv) throw();
 
-    static int usage(const char* argv0);
+    int usage(const char* argv0);
 
     void sendHeader(dsm_time_t thead,SampleOutput* out)
         throw(n_u::IOException);
@@ -98,6 +99,7 @@ private:
 
     bool _filterTimes;
 
+    NidasApp _app;
 };
 
 int main(int argc, char** argv)
@@ -150,7 +152,7 @@ void NidsMerge::setupSignals()
 int NidsMerge::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
+Usage: " << argv0 << " [-c config] -i input [-i input ... ] ...\n\
 	[-s start_time] [-e end_time]\n\
 	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
     -c config: Update the configuration name in the output header\n\
@@ -164,7 +166,10 @@ Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
     -o output: output file name or file name format\n\
     -l output_file_length: length of output files, in seconds\n\
     -r read_ahead_secs: how much time to read ahead and sort the input samples\n\
-    	before outputting the sorted, merged samples\n\n\
+    	before outputting the sorted, merged samples\n\n" 
+        "Standard nidas options:\n"
+         << _app.usage() << "\n"
+         << "\
 Example (from ISFF/TREX): \n" << argv0 << " \
 -i /data1/isff_%Y%m%d_%H%M%S.dat \n\
 	-i /data2/central_%Y%m%d_%H%M%S.dat\n\
@@ -195,29 +200,40 @@ NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
     endTime(LONG_LONG_MAX), outputFileLength(0),header(),
-    configName(),_filterTimes(false)
+    configName(),_filterTimes(false),
+    _app("nidsmerge")
 {
 }
 
 int NidsMerge::parseRunstring(int argc, char** argv) throw()
 {
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
+    // Use LogConfig instead of the older LogLevel option to avoid -l
+    // conflict with the output file length option.  Also the -i input
+    // files option is specialized in that there can be one -i option for
+    // each input file set, and multiple files can be added to an input
+    // file set by passing multiple filenames after each -i.
+    NidasApp& app = _app;
+    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields | app.LogParam |
+                        app.StartTime | app.EndTime |
+                        app.Version | app.OutputFiles |
+                        app.Help);
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = false;
+
+    vector<string> args(argv, argv+argc);
+    app.parseArguments(args);
+    if (app.helpRequested())
+    {
+        usage(argv[0]);
+    }
+
+    NidasAppArgv left(args);
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "-c:e:fil:o:s:r:")) != -1) {
+    while ((opt_char = getopt(left.argc, left.argv, "-c:fil:r:")) != -1) {
 	switch (opt_char) {
 	case 'c':
             configName = optarg;
-	    break;
-	case 'e':
-	    try {
-		endTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
 	    break;
 	case 'f':
 	    _filterTimes = true;
@@ -234,25 +250,20 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 	case 'l':
 	    outputFileLength = atoi(optarg);
 	    break;
-	case 'o':
-	    outputFileName = optarg;
-	    break;
 	case 'r':
 	    readAheadUsecs = atoi(optarg) * (long long)USECS_PER_SEC;
-	    break;
-	case 's':
-	    try {
-		startTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
+    outputFileName = app.outputFileName();
+    if (outputFileLength == 0)
+    {
+        outputFileLength = app.outputFileLength();
+    }
+    startTime = app.getStartTime();
+    endTime = app.getEndTime();
     if (inputFileNames.size() == 0) return usage(argv[0]);
     for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
         const list<string>& inputFiles = inputFileNames[ii];
