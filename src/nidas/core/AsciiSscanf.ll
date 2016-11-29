@@ -29,8 +29,9 @@
  */
 %option prefix="Sscanf"
 
-/* tells flex that we further subclass SscanfFlexLexer with AsciiSscanf */
-%option yyclass="AsciiSscanf"
+/* tells flex that we further subclass SscanfFlexLexer with AsciiSscanfAdapter,
+ * which hooks the custom lexer code back to the AsciiSscanf class.  */
+%option yyclass="AsciiSscanfAdapter"
 
 %option never-interactive
 %option noyywrap
@@ -49,6 +50,24 @@ using namespace nidas::core;
 
 /* forward declarations */
 
+class AsciiSscanfAdapter: public SscanfFlexLexer
+{
+public:
+    AsciiSscanfAdapter(AsciiSscanf* target) :
+        _target(target)
+    {}
+
+    /**
+     * SscanfFlexLexer virtual function that we override in order
+     * to provide input to the lexical scanner.
+     */
+    int LexerInput( char* buf, int max_size );
+
+    int yylex();
+
+    AsciiSscanf* _target;
+};
+
 %}
 
 DIGIT	[0-9]
@@ -59,30 +78,30 @@ LETTER	[a-zA-Z]
 %{
 /* rules section */
 %}
-	_currentField->length = 1;
+	_target->_currentField->length = 1;
 
 \%\%		;	/* two percent signs */
 
-\%{DIGIT}*lf	{ return(DOUBLE); }
+\%{DIGIT}*lf	{ return(AsciiSscanf::DOUBLE); }
 \%\*{DIGIT}*lf	;	/* %*lf means skip field */
 
-\%{DIGIT}*lg	{ return(DOUBLE); }
+\%{DIGIT}*lg	{ return(AsciiSscanf::DOUBLE); }
 \%\*{DIGIT}*lg	;	/* %*lg means skip field */
 
-\%{DIGIT}*f	{ return(FLOAT); }
+\%{DIGIT}*f	{ return(AsciiSscanf::FLOAT); }
 \%\*{DIGIT}*f	;	/* %*f means skip field */
 
-\%{DIGIT}*g	{ return(FLOAT); }
+\%{DIGIT}*g	{ return(AsciiSscanf::FLOAT); }
 \%\*{DIGIT}*g	;	/* %*g means skip field */
 
-\%{DIGIT}*d	{ return(INT); }
-\%{DIGIT}*o	{ return(INT); }
-\%{DIGIT}*x	{ return(INT); }
-\%{DIGIT}*ld	{ return(LONG); }
-\%{DIGIT}*lo	{ return(LONG); }
-\%{DIGIT}*lx	{ return(LONG); }
-\%{DIGIT}*u	{ return(UINT); }
-\%{DIGIT}*lu	{ return(ULONG); }
+\%{DIGIT}*d	{ return(AsciiSscanf::INT); }
+\%{DIGIT}*o	{ return(AsciiSscanf::INT); }
+\%{DIGIT}*x	{ return(AsciiSscanf::INT); }
+\%{DIGIT}*ld	{ return(AsciiSscanf::LONG); }
+\%{DIGIT}*lo	{ return(AsciiSscanf::LONG); }
+\%{DIGIT}*lx	{ return(AsciiSscanf::LONG); }
+\%{DIGIT}*u	{ return(AsciiSscanf::UINT); }
+\%{DIGIT}*lu	{ return(AsciiSscanf::ULONG); }
 \%\*{DIGIT}*d	;	/* %*d means skip field */
 \%\*{DIGIT}*o	;
 \%\*{DIGIT}*x	;
@@ -93,10 +112,10 @@ LETTER	[a-zA-Z]
 \%\*{DIGIT}*lu	;
 \%\*\[[^]]+\]	;       /* %*[xxx] or %*[^xxx] for skipping fields */
 
-\%{DIGIT}*hd	{ return(SHORT); }
-\%{DIGIT}*ho	{ return(SHORT); }
-\%{DIGIT}*hx	{ return(SHORT); }
-\%{DIGIT}*hu	{ return(USHORT); }
+\%{DIGIT}*hd	{ return(AsciiSscanf::SHORT); }
+\%{DIGIT}*ho	{ return(AsciiSscanf::SHORT); }
+\%{DIGIT}*hx	{ return(AsciiSscanf::SHORT); }
+\%{DIGIT}*hu	{ return(AsciiSscanf::USHORT); }
 
 \%\*{DIGIT}*hd	;	/* %*hd means skip field */
 \%\*{DIGIT}*ho	;
@@ -104,18 +123,18 @@ LETTER	[a-zA-Z]
 \%\*{DIGIT}*hu	;
 
 \%{DIGIT}+c	{
-		  _currentField->length = atoi((char *)(yytext+1));
-		  return(CHAR);
+          _target->_currentField->length = atoi((char *)(yytext+1));
+		  return(AsciiSscanf::CHAR);
 		}
 \%c		{
-		  _currentField->length = 1;
-		  return(CHAR);
+		  _target->_currentField->length = 1;
+		  return(AsciiSscanf::CHAR);
 		}
 
 \%\*{DIGIT}*c	;
 
 \%{LETTER}	{
-		  return(UNKNOWN);
+		  return(AsciiSscanf::UNKNOWN);
 		}
 [ \t]+		;
 
@@ -125,14 +144,18 @@ LETTER	[a-zA-Z]
 
 /* user code section */
 
+
 AsciiSscanf::AsciiSscanf(): 
 	MAX_OUTPUT_VALUES(120),_format(),_charfmt(0),
         _lexpos(0),_currentField(0),_fields(),_allFloats(true),
         _databuf0(0),_bufptrs(new char*[MAX_OUTPUT_VALUES]),
-	_sampleTag(0)
+	_sampleTag(0), _lexer(0)
 {
     for (int i = 0; i < MAX_OUTPUT_VALUES; i++)
     	_bufptrs[i] = 0;
+
+    // Tie a new lexer to this instance.
+    _lexer = new AsciiSscanfAdapter(this);
 }
     
 AsciiSscanf::~AsciiSscanf()
@@ -142,16 +165,17 @@ AsciiSscanf::~AsciiSscanf()
     delete [] _bufptrs;
     for (int i = 0; i < (int)_fields.size(); i++)
     	delete _fields[i];
+    delete _lexer;
 }
 
-int AsciiSscanf::LexerInput(char* buf, int max_size)
+int AsciiSscanfAdapter::LexerInput(char* buf, int max_size)
 {
-    int l = _format.size() - _lexpos;
+    int l = _target->_format.size() - _target->_lexpos;
     if (l > max_size) l = max_size;
     if (l == 0) return l;
 
-    _format.copy(buf,l,_lexpos);
-    _lexpos += l;
+    _target->_format.copy(buf,l,_target->_lexpos);
+    _target->_lexpos += l;
 
     return l;
 }
@@ -182,7 +206,7 @@ void AsciiSscanf::setFormat(const std::string& val)
 
         _currentField = new FormatField();
 
-        lexres = yylex();
+        lexres = _lexer->yylex();
 	if (!lexres) {
 	    delete _currentField;
 	    break;
