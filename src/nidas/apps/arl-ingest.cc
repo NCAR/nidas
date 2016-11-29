@@ -38,6 +38,7 @@
 #include <nidas/util/Exception.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOException.h>
+#include <nidas/core/NidasApp.h>
 
 
 #include <unistd.h>
@@ -66,22 +67,15 @@ public:
         dsmid(0),
         spsid(0),
         leapSeconds(0.0),
-        header() {
-        // HeaderSource::setDefaults(header);
+        header(),
+        _app("arl-ingest")
+         {
     }
 
     int parseRunstring(int argc, char** argv) throw();
 
     int run() throw();
 
-	/**
-	 *sigAction is the callback when a signals are captured
-	*/
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-    /**
-	 *setupSignals registers the sigAction callback
-	*/
-    static void setupSignals();
     /**
 	 * main is the entry point for the ARLIngest class.  argc and argv are taken from 
 	 * the normal places.
@@ -91,7 +85,7 @@ public:
     /**
 	 * usage emits a generic usage message to std::cout
 	*/
-    static int usage(const char* argv0);
+    int usage(const char* argv0);
 
     /**
 	 * sendHeader does something I still dont understand
@@ -114,12 +108,13 @@ private:
 	void writeLine(SampleOutputStream &, string &, n_u::UTime);
     void prepareHeaderIds(string xmlfilename, string dsmName, string height) throw(n_u::Exception);
 
-    static bool interrupted; //catch those pesky Ctrl- actions
     list<string> inputFileNames; //input files
     string outputFileName; //output sample file
     int outputFileLength, dsmid, spsid;
     double leapSeconds;
     SampleInputHeader header;
+
+    NidasApp _app;
 };
 
 
@@ -127,135 +122,86 @@ int main(int argc, char** argv) {
     return ARLIngest::main(argc,argv);
 }
 
-
-/* static */
-bool ARLIngest::interrupted = false;
-
-/* static */
-void ARLIngest::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    "received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            ARLIngest::interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void ARLIngest::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = ARLIngest::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
-
-/* static */
-int ARLIngest::usage(const char* argv0) {
-    cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format\n\n" << \
-    "Usage: " << argv0 << " [-l <length>] -x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << \
-    "\n" << \
-    "\n" << \
-    "Flag & Args   Definition" << \
-  	"-h|--help   : Show this message\n" << \
-    "-x:--xml    : File path to project XML file (eg $ISFF/projects/$PROJECT/\n" <<\
-    "              ISFF/config/$PROJECT.xml). The DSM and Sample ID will be defered\n" <<\
-    "              from a combination of this XML file, the dsm name (keep reading),\n" <<\
-    "              and height parameters.  Enviromental vars will be expanded\n" <<\
-    "              internally, so per convention, it would be best to escape\n" <<\
-    "              the $ character\n" << \
-  	"-o|--output : nidsmerge compat output file (NIDAS Sample file)\n" << \
-  	"-l|--length : output file length (per NIDAS rules)\n" << \
-    "-d|--dsm    : The human readable name of the DSM the ARL sonde is connected to.\n" <<\
-    "              Usually this is the same as the tower site name (eg 'tnw12') but\n" <<\
-    "              not always. This will be checked against the configuration\n" << \
-    "-e|--height : Inform this tool the data sets to be ingested are associated\n" <<\
-    "              with this height level. Levels are defined in the XML config,\n" <<\
-    "              but should be something like '10m', '50m' or '1km'.\n" << \
- 	endl;
-    return 1;
-}
-
-/* static */
+/* main entry point */
 int ARLIngest::main(int argc, char** argv) throw() {
-    setupSignals();
+    NidasApp::setupSignals();
     ARLIngest ingest;
     int res = ingest.parseRunstring(argc,argv);
     if (res != 0) {
-    	return res;
+        return res;
     }
     return ingest.run();
 }
 
+
+/* static */
+int ARLIngest::usage(const char* argv0) {
+    cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format" << endl << endl;
+    cerr << "Usage: " << argv0 << "-x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
+    cerr << endl;
+    cerr << endl;
+    cerr << "Standard nidas options:" << endl << _app.usage();
+    cerr << argv0 << " additional options:" << endl;
+    cerr << "-d <dsm-name>" << endl;
+    cerr << "The human readable name of the DSM the ARL sonde is connected to. Usually this"<< endl;
+    cerr << "is the same as the tower site name (eg 'tnw12') but not always. This will be"<< endl;
+    cerr << "checked against the configuration, which is required" << endl << endl;
+    cerr << "-e <height>" << endl;
+    cerr << "Inform this tool the data sets to be ingested are associated with this height"<< endl;
+    cerr << "level. Levels are defined in the XML config, but should be something like '10m',"<< endl;
+    cerr << "'50m' or '1km'.  This is checked against the configuration, which is required" << endl;
+    cerr << endl;
+    exit(1);
+    return 1;
+}
+
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
-	int c = 0;
-    string dsmName, height, configName;;
-	while (1) {
-	int option_index = 0;
-	static struct option long_options[] = {
-	    {"help",   no_argument,       0, 'h'},
-	    {"xml",    required_argument, 0, 'x'},
-	    {"output", required_argument, 0, 'o'},
-	    {"length", required_argument, 0, 'l'},
-	   	{"dsm",    required_argument, 0, 'd'},
-	   	{"height", required_argument, 0, 'e'},
-	    {NULL, 0, NULL, 0}
-	};
+    NidasApp& app = _app;
+    app.enableArguments(app.XmlHeaderFile | app.OutputFiles | app.Version | app.Help);
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = false;
 
-	c = getopt_long(argc, argv, "hx:o:l:d:e:", long_options, &option_index);
-	if (c == -1) break;
+    vector<string> args(argv, argv+argc);
+    app.parseArguments(args);
+    if (app.helpRequested()) {
+        usage(argv[0]);
+    }
 
-	switch (c) {
-        case 'h':
-            usage(argv[0]);
-            return 0;
-            break;
-		case 'x': configName = string(optarg); break;
-		case 'o': outputFileName = string(optarg); break;
-		case 'l': outputFileLength = atoi(optarg); break;
-	    // case 'd': dsmid = atoi(optarg); break;
-   		// case 's': spsid = atoi(optarg); break;
+    string dsmName, height;
+    extern char *optarg; //set by getopt
+    extern int   optind; //"
+    NidasAppArgv left(args);
+    argc = left.argc;
+    argv = left.argv;
+    int opt_char; /* option character */
+    while ((opt_char = getopt(left.argc, left.argv, "d:e:")) != -1) {
+        switch (opt_char) {
         case 'd': dsmName = string(optarg); break;
         case 'e': height = string(optarg); break;
-		case '?':
-		default:
-		    // printf("?? getopt returned character code 0%o ??\n", c);
-			break;
-		}
-	}
+        case '?':
+        default:
+            break;
+        }
+    }
 
     if (optind < argc)
         while (optind < argc)
         	inputFileNames.push_back(argv[optind++]);
+
+    outputFileName = app.outputFileName();
+    outputFileLength = app.outputFileLength();
+    cout << "out file name" <<  outputFileName << " length" << outputFileLength << " dsm name" << dsmName << " height" << height << endl;
 
     //rudimentary checking for proper arguments
     if ( inputFileNames.size() == 0 || outputFileName.size() == 0 || outputFileLength < 0) {
         cout << "Not enough, or bad args provided. See --help" << endl;
         return -1;
     }
+    
 
     //throws error if missing needed parameters
-    //sets dsmid and spsid per config file
-    prepareHeaderIds(configName, dsmName, height); 
-    
+    //sets dsmid and spsid per config file    
+    prepareHeaderIds(app.xmlHeaderFile(), dsmName, height);     
     return 0;
 }
 
@@ -332,8 +278,6 @@ void ARLIngest::printHeader() {
 }
 
 int ARLIngest::run() throw() {
-    // cout << "Using UTC - Sample Time leap second offset of "
-    //      << leapSeconds << endl;
     try {
     	nidas::core::FileSet* outSet = 0;
         if (outputFileName.find(".bz2") != string::npos)
@@ -399,6 +343,7 @@ bool ARLIngest::arl_ingest_one(SampleOutputStream &sout, string filename) throw(
 
 	//extract tower ID and height ??
 	while (std::getline(datfile,line)) {
+        if (_app.interrupted()) break;
 		//lines nominally look like "00.011,A,+000.03,+000.00,-000.01,M,+348.85,+028.97,00,+2.4225,+2.4225,+0.6750,+0.3050,39"
 		size_t comma = line.find_first_of(',');
 		
