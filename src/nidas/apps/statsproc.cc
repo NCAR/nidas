@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 8; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -47,6 +47,7 @@
 #include <nidas/core/Version.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
+#include <nidas/core/NidasApp.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -67,11 +68,9 @@ public:
     // static functions
     static void sigAction(int sig, siginfo_t* siginfo, void*);
 
-    static void setupSignals();
-
     static int main(int argc, char** argv) throw();
 
-    static int usage(const char* argv0);
+    int usage(const char* argv0);
 
     int getLogLevel() const { return _logLevel; }
 
@@ -89,8 +88,6 @@ public:
 private:
 
     string _argv0;
-
-    static bool _interrupted;
 
     string _xmlFileName;
 
@@ -136,6 +133,7 @@ private:
 
     string _datasetName;
 
+    NidasApp _app;
 };
 
 /* static */
@@ -150,45 +148,6 @@ const char* StatsProcess::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/config
 int main(int argc, char** argv)
 {
     return StatsProcess::main(argc,argv);
-}
-
-/* static */
-bool StatsProcess::_interrupted = false;
-
-/* static */
-void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void*) {
-    ILOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1));
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            StatsProcess::_interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void StatsProcess::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = StatsProcess::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
 /* static */
@@ -211,7 +170,7 @@ void getmyhostname()
 /* static */
 int StatsProcess::main(int argc, char** argv) throw()
 {
-    setupSignals();
+    NidasApp::setupSignals();
 
     getmyhostname();
 
@@ -219,6 +178,13 @@ int StatsProcess::main(int argc, char** argv) throw()
 
     int res;
     
+    // We want default log files of "level,message", so use modify the
+    // default scheme before parsing any log configs which might override
+    // it.
+    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
+    ls.setShowFields("level,message");
+    n_u::Logger::getInstance()->setScheme(ls);
+
     if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
 
     if (stats._daemonMode) {
@@ -228,19 +194,8 @@ int StatsProcess::main(int argc, char** argv) throw()
 	    cerr << "Warning: " << e.toString() << endl;
 	}
         n_u::Logger::createInstance("statsproc",LOG_PID,LOG_LOCAL5);
-        n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
-        ls.setShowFields("level,message");
     }
     else n_u::Logger::createInstance(&cerr);
-
-    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
-    ls.setShowFields("level,message");
-
-    n_u::LogConfig lc;
-    lc.level = stats.getLogLevel();
-    ls.addConfig(lc);
-
-    n_u::Logger::getInstance()->setScheme(ls);
 
     if (stats._doListOutputSamples) return stats.listOutputSamples();
 
@@ -256,7 +211,8 @@ StatsProcess::StatsProcess():
     _configsXMLName(),
     _logLevel(n_u::LOGGER_INFO),
     _fillGaps(false),_doListOutputSamples(false),
-    _selectedOutputSampleIds(),_datasetName()
+    _selectedOutputSampleIds(),_datasetName(),
+    _app("statsproc")
 {
 }
 
@@ -291,13 +247,30 @@ namespace {
 
 int StatsProcess::parseRunstring(int argc, char** argv) throw()
 {
+    NidasApp& app = _app;
+
+    // For now we just want to add extended logging, consolidate the other
+    // options later.
+    app.enableArguments(app.LogConfig | app.LogLevel | app.LogShow | app.LogFields | app.LogParam |
+                        app.Version | app.Help);
+
+    vector<string> args(argv, argv+argc);
+    app.parseArguments(args);
+    if (app.helpRequested())
+    {
+        usage(argv[0]);
+    }
+
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
+    NidasAppArgv left(args);
+    argc = left.argc;
+    argv = left.argv;
     int opt_char;     /* option character */
 
     _argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:o:Op:s:S:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:fn:o:Op:s:S:x:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -326,19 +299,6 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	case 'f':
 	    _fillGaps = true;
 	    break;
-	case 'h':
-	    return usage(argv[0]);
-	    break;
-        case 'l':
-	    {
-	        istringstream ist(optarg);
-		ist >> _logLevel;
-		if (ist.fail()) {
-                    cerr << "Invalid log level: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-            break;
 	case 'n':
 	    {
 	        istringstream ist(optarg);
@@ -399,9 +359,6 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	case 'S':
 	    _datasetName = optarg;
 	    break;
-	case 'v':
-	    cout << "Version: " << Version::getSoftwareVersion() << endl;
-	    exit(0);
 	case 'x':
 	    _xmlFileName = optarg;
 	    break;
@@ -504,8 +461,10 @@ matching the <fileset> path descriptor and time period.\n\
 \n" <<
 argv0 << " scans the xml file for a <processor> of class StatisticsProcessor\n\
 in order to determine what statistics to generate.\n\
-\n\
-Examples:\n" <<
+\n"
+         << "Standard nidas options:\n"
+         << _app.usage() << "\n"
+"Examples:\n" <<
 	argv0 << " -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
 	argv0 << " sock:dsmhost\n" <<
 	argv0 << " unix:/tmp/data_socket\n" <<
@@ -604,7 +563,7 @@ int StatsProcess::run() throw()
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
 	    n_u::Socket* sock = 0;
-	    for (int i = 0; !sock && !_interrupted; i++) {
+	    for (int i = 0; !sock && !_app.interrupted(); i++) {
                 try {
                     sock = new n_u::Socket(*_sockAddr.get());
                 }
@@ -808,7 +767,7 @@ int StatsProcess::run() throw()
             }
 
 	    for (;;) {
-		if (_interrupted) break;
+		if (_app.interrupted()) break;
 		sis.readSamples();
 	    }
 	}
