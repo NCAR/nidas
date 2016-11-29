@@ -58,11 +58,6 @@ public:
 
     int run() throw();
 
-// static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-
-    static void setupSignals();
-
     static int main(int argc, char** argv) throw();
 
     int usage(const char* argv0);
@@ -79,7 +74,6 @@ private:
 
     bool receiveAllowedDsm(SampleOutputStream &, const Sample *); //Write sample if allowed
 
-    static bool interrupted;
 
     vector<list<string> > inputFileNames;
 
@@ -109,47 +103,6 @@ private:
 int main(int argc, char** argv)
 {
     return NidsMerge::main(argc,argv);
-}
-
-
-/* static */
-bool NidsMerge::interrupted = false;
-
-/* static */
-void NidsMerge::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-        "received signal " << strsignal(sig) << '(' << sig << ')' <<
-    ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-    ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-    ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            NidsMerge::interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void NidsMerge::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = NidsMerge::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
 /* static */
@@ -192,7 +145,7 @@ int NidsMerge::usage(const char* argv0)
 /* static */
 int NidsMerge::main(int argc, char** argv) throw()
 {
-    setupSignals();
+    NidasApp::setupSignals();
 
     NidsMerge merge;
 
@@ -460,7 +413,7 @@ int NidsMerge::run() throw()
 
         try {
             dsm_time_t lastTime = lastTimes[ii];
-            while (!interrupted && lastTime < tcur + readAheadUsecs) {
+            while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
                 Sample* samp = input->readSample();
                 lastTime = samp->getTimeTag();
                 // set startTime to the first time read if user
@@ -489,9 +442,9 @@ int NidsMerge::run() throw()
         }
         samplesRead[ii] = nread;
         samplesUnique[ii] = nunique;
-        if (interrupted) break;
+        if (_app.interrupted()) break;
         }
-        if (interrupted) break;
+        if (_app.interrupted()) break;
 
         SortedSampleSet3::const_iterator rsb = sorter.begin();
 
@@ -520,7 +473,7 @@ int NidsMerge::run() throw()
         cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
             setw(7) << before - after << endl;
     }
-        if (!interrupted) {
+        if (!_app.interrupted()) {
         SortedSampleSet3::const_iterator rsb = sorter.begin();
 
         // get iterator pointing at first sample equal to or greater
