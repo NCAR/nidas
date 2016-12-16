@@ -1331,7 +1331,7 @@ static int twod_probe(struct usb_interface *interface,
                   interface->num_altsetting);
 	
         /* use the first sor-in and tas-out endpoints */
-        /* use the second ing_in endpoint */
+        /* use the second img_in endpoint */
         iface_desc = interface->cur_altsetting;
         dev->ptype = TWOD_64;
 
