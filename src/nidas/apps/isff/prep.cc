@@ -424,10 +424,10 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	case 'D':
 	    {
 		p1 = optarg;
-		while ( (p2=strchr(p1,','))) {
+		while ((p2 = strchr(p1,','))) {
 		    Variable *var = new Variable();
                     char* ph = strchr(p1,'#');
-                    if (ph) {
+                    if (ph && ph < p2) {
                         var->setName(string(p1,ph-p1));
                         ph++;
                         _sites[var] = string(ph,p2-ph);
@@ -776,7 +776,8 @@ int DataPrep::main(int argc, char** argv)
 }
 
 map<double, vector<const Variable*> >
-DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsms,
+DataPrep::matchVariables(const Project& project,
+    set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
     map<double, vector<const Variable*> > variables;
@@ -814,15 +815,16 @@ DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsm
                             ", reqvar=" << reqvar->getName() <<
                             ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
                             '(' << reqvar->getStation() << "), " <<
-                            ", match=" << ((*var == *reqvar) || var->closeMatch(*reqvar)) << endl;
+                            ", match=" << ((*var == *reqvar)) << endl;
 #endif
-                        if (*var == *reqvar || var->closeMatch(*reqvar)) {
-                            // if (uniqueVariables.find(var) == uniqueVariables.end())
-                            variables[rate].push_back(var);
+                        if (*var == *reqvar) {
+                            // Add variable once for a match
+                            // A variable by a given name for a site
+                            // may come from more than one sensor and sample.
+                            if (!match) variables[rate].push_back(var);
                             activeSensors.insert(sensor);
                             activeDsms.insert(dsm);
                             match = true;
-                            break;
                         }
                     }
                 }
