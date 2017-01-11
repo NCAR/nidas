@@ -263,6 +263,8 @@ private:
 
     std::string _username;
 
+    std::string _hostname;
+
     uid_t _userid;
 
     gid_t _groupid;

@@ -76,7 +76,7 @@ void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlR
 void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
     throw()
 {
-    // cerr << "params: " << params.toXml().c_str() << endl << endl;
+    DLOG(("SensorAction(") << params.toXml() << ")");
 
     string devname = "unknown";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)

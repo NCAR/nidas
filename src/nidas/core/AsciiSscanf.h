@@ -28,19 +28,19 @@
 #define NIDAS_CORE_ASCIISSCANF_H
 
 /*
- * flex reads AsciiSscanf.ll and creates AsciiSscanf.cc.
- * In AsciiSscanf.cc FLEX_SCANNER is defined, and it also defines
- * yyFlexlexer as below, and includes <FlexLexer.h>.  We
- * put the #ifndef FLEX_SCANNER here to prevent AsciiSscanf.cc
- * from including FlexLexer.h twice which causes problems 
- * at least in flex versions 2.5.4 and 2.5.31.
+ * flex reads AsciiSscanf.ll and creates AsciiSscanf.cc, and that contains
+ * the implementation for three classes: the public class AsciiSscanf
+ * defined in this header, the private lexer implementation class
+ * SscanfFlexLexer, and a subclass of SscanfFlexLexer called
+ * AsciiSscanfAdapter.  The public class refers to the adapter class only
+ * by pointer, so the flex implementation does not need to be exposed in
+ * this public header file.  The AsciiSscanfAdapter class extends
+ * SscanfFlexLexer to tie the flex implementation into the AsciiSscanf
+ * class.  The friend declaration allows the adapter to manipulate private
+ * members of the AsciiSscanf class during parsing.
  */
 
-#ifndef FLEX_SCANNER
-#undef yyFlexLexer
-#define yyFlexLexer SscanfFlexLexer
-#include <FlexLexer.h>		// Header that comes with flex. In /usr/include.
-#endif
+class AsciiSscanfAdapter;
 
 #include "Sample.h"
 #include <nidas/util/ParseException.h>
@@ -59,7 +59,7 @@ class SampleTag;
  * format string to determine the number and types of the
  * conversions.
  */
-class AsciiSscanf: public SscanfFlexLexer {
+class AsciiSscanf {
 public:
 
     AsciiSscanf();
@@ -102,12 +102,6 @@ public:
      */
     int sscanf(const char* input, float* output, int nout) throw();
 
-    /**
-     * SscanfFlexLexer virtual function that we override in order
-     * to provide input to the lexical scanner.
-     */
-    int LexerInput( char* buf, int max_size );
-
     int getNumberOfFields() const { return _fields.size(); }
 
     /**
@@ -124,14 +118,6 @@ public:
 	int size;
 	int length;
     };
-
-protected:
-
-    /**
-     * Function created for us by flex. Does the lexical scanning
-     * of the format string.
-     */
-    int yylex();
 
 private:
 
@@ -188,12 +174,15 @@ private:
      */
     SampleTag* _sampleTag;
 
+    AsciiSscanfAdapter* _lexer;
+
     /** No copying */
     AsciiSscanf(const AsciiSscanf& );
 
     /** No assignment */
     AsciiSscanf & operator=(const AsciiSscanf& );
 
+    friend AsciiSscanfAdapter;
 };
 
 }}	// namespace nidas namespace core
