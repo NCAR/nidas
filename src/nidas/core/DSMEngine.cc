@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -80,7 +80,7 @@ DSMEngine::DSMEngine():
     _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _outputSet(),_outputMutex(),
-    _username(),_userid(0),_groupid(0),
+    _username(),_hostname(),_userid(0),_groupid(0),
     _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self())
 {
     try {
@@ -190,7 +190,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 {
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dl:ru:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dl:ru:h:v")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
@@ -223,6 +223,9 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
                 _groupid = pwdbuf.pw_gid;
             }
 	    break;
+    case 'h':
+        _hostname = optarg;
+        break;
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;
 	    return 1;
@@ -289,6 +292,7 @@ Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
      The default level if no -d option is " << defaultLogLevel << "\n\
   -r: rpc, start XML RPC thread to respond to external commands\n\
   -u user: switch user id to given user after setting required capabilities\n\
+  -h host: Specify the hostname of the dsm config.\n\
   -v: display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
@@ -770,14 +774,16 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     if (_configFile.length() > 0)
 	_project->setConfigName(_configFile);
 
-    char hostnamechr[256];
-    gethostname(hostnamechr,sizeof(hostnamechr));
-
-    string hostname(hostnamechr);
+    if (_hostname.empty())
+    {
+        char hostnamechr[256];
+        gethostname(hostnamechr,sizeof(hostnamechr));
+        _hostname = hostnamechr;
+    }
 
     // location of first dot of hostname, or if not found 
     // the host string match will be done against entire hostname
-    string::size_type dot = hostname.find('.');
+    string::size_type dot = _hostname.find('.');
 
     _dsmConfig = 0;
     DSMConfig* dsm = 0;
@@ -793,11 +799,12 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
         for (di = dsms.begin(); !_dsmConfig && di != dsms.end(); ++di) {
             dsm = *di;
             ndsms++;
-            if (dsm->getName() == hostname || dsm->getName() == hostname.substr(0,dot)) {
+            if (dsm->getName() == _hostname ||
+                dsm->getName() == _hostname.substr(0,dot)) {
                 _dsmConfig = dsm;
                 n_u::Logger::getInstance()->log(LOG_INFO,
                     "DSMEngine: found <dsm> for %s",
-                    hostname.c_str());
+                    _hostname.c_str());
                 break;
             }
         }
@@ -806,7 +813,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 
     if (!_dsmConfig)
     	throw n_u::InvalidParameterException("dsm","no match for hostname",
-		hostname);
+		_hostname);
 }
 
 void DSMEngine::openSensors() throw(n_u::IOException)
