@@ -220,6 +220,22 @@
     <xsd:attribute name="disable" type="xsd:token"/>
 </xsd:complexType>
 
+<xsd:complexType name="schedule">
+    <xsd:annotation>
+        <xsd:documentation>
+	  A schedule contains states and time specifiers.  The most recent
+	  time specifier which matches a given time indicates the state of
+	  the sensor at that time.  The currently known states are just on
+	  and off.  The time specifier is given in the 'when' attribute of
+	  the state.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:choice minOccurs="0" maxOccurs="unbounded">
+	<xsd:element name="on" type="schedule_event"/>
+	<xsd:element name="off" type="schedule_event"/>
+    </xsd:choice>
+</xsd:complexType>
+
 <xsd:complexType name="sensorT" abstract="false">
     <xsd:annotation>
         <xsd:documentation>
