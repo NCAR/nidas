@@ -1,32 +1,29 @@
 Summary: Metapackage for installing Arcom Embedded Linux (AEL) for NIDAS development.
 Name: nidas-ael
 Version: 1.0
-Release: 8
+Release: 9
 License: GPL
 Group: Development
 BuildArch: noarch
 
 Requires: ael-base
 
-Requires: xmlrpc++-cross-arm-linux
 Requires: xmlrpc++-cross-armbe-linux
-
-Requires: xerces-c-cross-arm-linux
-Requires: xerces-c-cross-devel-arm-linux
 
 Requires: xerces-c-cross-armbe-linux
 Requires: xerces-c-cross-devel-armbe-linux
 
-Requires: bzip2-cross-arm-linux
 Requires: bzip2-cross-armbe-linux
 
 %description
 Package with dependencies needed for NIDAS cross development for
-Arcom Embedded Linux (AEL) targets (Viper, Vulcan and Titan).
+Arcom Embedded Linux (AEL) targets (Vulcan).
 
 %files
 
 %changelog
+* Mon Jan 16 2017 Gordon Maclean <maclean@ucar.edu> 1.0-9
+- Removed requires for Viper (arm)
 * Wed Aug 14 2013 Gordon Maclean <maclean@ucar.edu> 1.0-8
 - Removed requires for viper,vulcan,titan kernel source, which
 - are already required in ael-base.
