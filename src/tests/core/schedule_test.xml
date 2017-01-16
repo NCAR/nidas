@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<!-- Covers flights ff01 - rf10.  FSSP109 was switched to FSSP122 on RF11. -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="schedule_test"
+    system="ISFS"
+    version="$LastChangedRevision$"
+    >
+
+<sensorcatalog>
+
+    <!-- Fast Scalars -->
+    <!-- LICOR 7500 -->
+    <serialSensor ID="LI7500" class="DSMSerialSensor"
+        baud="19200" parity="none" databits="8" stopbits="1">
+        <!-- LICOR 7500 has an inherent 0.186 sec sampling lag. This assumes
+             the additional delay has been set to 0: (Outputs (Delay 0)) -->
+        <parameter name="lag" type="float" value="0.186"/>
+        <sample id="1" scanfFormat="%f%f%f%f%f%f%f">
+            <variable name="lidiag" units="" longname="LICOR 7500 diagnostic value"
+                plotrange="$LIDIAG_RANGE" minValue="246" maxValue="252"/>
+            <variable name="co2raw" units=""/>
+            <variable name="co2" units="mmol/m^3">
+                <linear units="g/m^3">
+                    <calfile 
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+			file="irga_co2.dat"/>
+                </linear>
+            </variable>
+            <variable name="h2oraw" units=""/>
+            <variable name="h2o" units="mmol/m^3">
+                <linear units="g/m^3">
+                    <calfile 
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+			file="irga_h2o.dat"/>
+                </linear>
+            </variable>
+            <variable name="Tcell" units="degC"/>
+            <variable name="Pcell" units="kPa"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- RMY 81000 3D sonic
+        cabled for rs232
+        Baud: 38400
+        Output rate: 20Hz
+        Averaging: 0
+        Units: 2 (m/s, degC)
+        Serial Output Format: custom, 5BE   (5=u,v,w,  B=Tc, E=error code)
+
+	On some of the ARL RM Young 81000 sonics, for some reason, the
+	custom serial output format codes are 178: 1=uvw, 7=sonic
+	temperature, 8=error code.
+    -->
+    <serialSensor ID="RMY81000" class="isff.SonicAnemometer"
+        baud="38400" parity="none" databits="8" stopbits="1">
+        <parameter type="float" name="shadowFactor" value="0.0"/>
+        <calfile name="offsets_angles"
+	    path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+            file="rmy_${HEIGHT}_${SITE}.dat"/>
+        <sample id="1" scanfFormat="%f%f%f%f%f">
+            <variable name="u" units="m/s" longname="Wind U component, RMY81000" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component, RMY81000" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, RMY81000" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, RMY81000" plotrange="$T_RANGE"/>
+            <variable name="diag" units="" longname="RMY81000 status" plotrange="$DIAG_RANGE"/>
+            <variable name="ldiag" units="" longname="RMY8100 logical diagnostic, 0=OK, 1=(status!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="Horizontal wind speed, RMY81000" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="Wind direction, RMY81000" plotrange="0 360"/>
+        </sample>
+        <message separator="\r" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- CSAT3A through EC150 without an IRGA, so no co2, h2o or associated variables -->
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3A_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <calfile
+	    path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+            file="csat3a_${HEIGHT}_${SITE}.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR:$ISFS/cal_files"
+            file="csat_abc2uvw_${HEIGHT}_${DSM}.dat"/>
+        <sample id="1">
+            <variable name="u" units="m/s" longname="Wind U component from CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component from CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component from CSAT3" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                plotrange="$T_RANGE"/>
+            <variable name="diagbits" units=""
+                longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                plotrange="$DIAG_RANGE"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+
+    <serialSensor ID="NCAR_SHT" class="isff.NCAR_TRH"
+        baud="9600" parity="none" databits="8" stopbits="1" init_string="\x12">
+        <!-- TRH004 23.35 26.76 6301 820\r\n -->
+        <sample id="1" scanfFormat="TRH%d%f%f%f%f%f%f">
+            <!-- generous minValue,maxValue range to screen periods when TRH goes batty -->
+            <variable name="ID" units=""/>
+            <variable name="T" units="degC" longname="Air Temperature, NCAR hygrothermometer"
+                plotrange="$T_RANGE" minValue="-40" maxValue="40">
+                <linear units="degC">
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="T_${HEIGHT}.dat"/>
+                </linear>
+            </variable>
+            <variable name="RH" units="%" longname="Relative Humidity, NCAR hygrothermometer"
+                plotrange="$RH_RANGE" minValue="-5" maxValue="105">
+                <!-- note we're using the T_ cal file for RH too -->
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="RH_${HEIGHT}.dat"/>
+                </linear>
+            </variable>
+            <variable name="Ifan" units="mA" minValue="20" maxValue="70"
+                longname="Aspiration fan current, NCAR hygrothermometer"
+                plotrange="$IFAN_RANGE"/>
+            <variable name="Traw" units=""/>
+            <variable name="RHraw" units=""/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <!-- GPS config which only parses GPSnsat from GGA record -->
+    <serialSensor ID="Garmin_GPS_LITE" class="GPS_NMEA_Serial"
+        baud="4800" parity="none" databits="8" stopbits="1" readonly="true">
+        <!-- GGA record -->
+        <sample id="1">
+            <variable name="GPSnsat" units="count" longname="Number of GPS satellites tracked" plotrange="0 14"/>
+        </sample>
+        <!-- RMC record -->
+        <sample id="2">
+            <variable name="GPSstat" units="none" longname="GPS rcvr status: 1=OK(A), 0=warning(V)" plotrange="-1 2"/>
+            <variable name="GPSdiff" units="s" longname="GPS NMEA receipt time - NMEA time value" plotrange="-1 3"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <calfile
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+            file="csatirga.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR:$ISFS/cal_files"
+            file="csat_abc2uvw_${HEIGHT}_${DSM}.dat"/>
+        <sample id="1">
+            <variable name="u" units="m/s" longname="Wind U component from CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component from CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component from CSAT3" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                plotrange="$T_RANGE"/>
+            <variable name="diagbits" units=""
+                longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                plotrange="$DIAG_RANGE"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA" plotrange="$CO2_G_M3_RANGE">
+                <linear units="g/m^3">
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="irga_co2.dat"/>
+                </linear>
+            </variable>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" plotrange="$H2O_G_M3_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="irga_h2o.dat"/>
+                </linear>
+            </variable>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature" plotrange="$T_RANGE">
+                <linear>
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="irga_T.dat"/>
+                </linear>
+            </variable>
+            <variable name="Pirga" units="kPa" longname="CSI IRGA pressure" plotrange="$P_RANGE">
+                <linear units="mb" slope="10.0" intercept="0.0">
+                    <calfile
+			path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${DSM}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="irga_P.dat"/>
+                </linear>
+            </variable>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength" plotrange="0 10"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength" plotrange="0 10"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure" plotrange="100 300"/>
+            <!-- Tirga_src, Tirga_det are not in binary output of software version EC100.04.2. Results will be nan -->
+            <variable name="Tirga_src" units="degC" longname="CSI IRGA source temperature" plotrange="$T_RANGE"/>
+            <variable name="Tirga_det" units="degC" longname="CSI IRGA detector temperature" plotrange="$T_RANGE"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+
+</sensorcatalog>
+
+    <dsmcatalog>
+        <dsm ID="BASEPI" rserialPort="30002">
+            <!-- GPS input is tee'd to this pseudo-terminal -->
+            <serialSensor IDREF="Garmin_GPS_LITE" devicename="/dev/gps_pty0" id="2">
+            </serialSensor>
+
+            <output class="RawSampleOutputStream">
+                <socket type="server" port="30000" maxIdle="60" block="false"/>
+            </output>
+
+            <output class="RawSampleOutputStream">
+                <socket type="dgrequest" maxIdle="60" block="false"
+                    address="flux"/>
+            </output>
+
+            <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+                    file="${DSM}_%Y%m%d_%H%M%S.dat"
+                    length="28800">
+                    <mount dir="$DATAMNT"/>
+                </fileset>
+            </output>
+        </dsm>
+    </dsmcatalog>
+
+
+    <site name="tnw05" class="isff.GroundStation" suffix=".$SITE">
+        <!-- Sensors at heights 4 6 8 and 12 are slated for the IOP -->
+        <dsm IDREF="BASEPI" name="${SITE}b" id="5">
+            <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB1" height="4m" id="40">
+  	    </serialSensor>
+            <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB2" height="6m" id="60">
+  	    </serialSensor>
+            <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB3" height="8m" id="80">
+  	    </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyUSB4" height="2m" id="22">
+  	    </serialSensor>
+            <serialSensor IDREF="NCAR_SHT" devicename="/dev/ttyUSB5" height="10m" id="102">
+  	    </serialSensor>
+        </dsm>
+        <dsm IDREF="BASEPI" name="${SITE}t" id="105">
+            <!-- override this sensor in order to provide suffix. -->
+            <serialSensor devicename="/dev/gps_pty0" suffix=".topdsm">
+            </serialSensor>
+
+            <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB4" height="2m" id="20">
+  	    </serialSensor>
+            <serialSensor IDREF="CSAT3A_BIN" devicename="/dev/ttyUSB0" height="10m" id="100">
+  	    </serialSensor>
+            <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB1" height="12m" id="120">
+	      <schedule>
+	      </schedule>
+  	    </serialSensor>
+            <serialSensor IDREF="CSAT3_IRGA_BIN"
+			  devicename="/dev/ttyUSB2"
+			  height="20m" id="200">
+	      <schedule>
+		<!-- For first couple months sensor is only on half the time.-->
+		<loop start="2016-12-15,00:00:00">
+		  <on duration="3600"/>
+		  <off duration="3600"/>
+		</loop>
+		<on start="2017-04-01,00:00:00"/>
+	      </schedule>
+  	    </serialSensor>
+        </dsm>
+    </site>
+
+
+
+</project>

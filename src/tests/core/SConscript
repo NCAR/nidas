@@ -31,6 +31,15 @@ env.ValgrindLog('threadcheck',
                             " --gen-suppressions=all ${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
+schema = env.File("#/xml/nidas.xsd")
+xml = env.File("schedule_test.xml")
+xmllint = env.Command("xmllint", [schema, xml],
+                      ["xmllint --noout --schema ${SOURCES[0].abspath} "
+                       "${SOURCES[1]}"])
+AlwaysBuild(xmllint)
+Alias('test', xmllint)
+
+
 def write_env(env, target, source):
     "Write a sh file with env settings which can be sourced to run tests."
     out = open(str(target[0]), "w")
