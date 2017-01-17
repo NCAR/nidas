@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 
-#include "SonicAnemometer.h"
+#include "Wind3D.h"
 #include "CS_Krypton.h"
 
 namespace nidas { namespace dynld { namespace isff {
@@ -40,7 +40,7 @@ namespace nidas { namespace dynld { namespace isff {
  * of the sonic and inserts additional 2-byte A2D counts in the
  * CSAT3 sample.
  */
-class CSAT3_Sonic: public SonicAnemometer
+class CSAT3_Sonic: public Wind3D
 {
 public:
 

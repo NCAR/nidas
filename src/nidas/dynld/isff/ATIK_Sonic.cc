@@ -43,7 +43,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,ATIK_Sonic)
 const float ATIK_Sonic::GAMMA_R = 403.242;
 
 ATIK_Sonic::ATIK_Sonic():
-    SonicAnemometer(),
+    Wind3D(),
     _numOut(0),
     _spikeIndex(-1),
     _cntsIndex(-1),
@@ -67,7 +67,7 @@ ATIK_Sonic::~ATIK_Sonic()
 void ATIK_Sonic::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-    SonicAnemometer::parseParameters();
+    Wind3D::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -110,7 +110,7 @@ void ATIK_Sonic::checkSampleTags()
     throw(n_u::InvalidParameterException)
 {
 
-    SonicAnemometer::checkSampleTags();
+    Wind3D::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 

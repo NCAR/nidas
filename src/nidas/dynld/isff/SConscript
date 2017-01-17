@@ -28,6 +28,8 @@ sources = Split("""
     PropVane.cc
     RebsLinear.cc
     SonicAnemometer.cc
+    Wind2D.cc
+    Wind3D.cc
     WisardMote.cc
 """)
 
@@ -47,6 +49,8 @@ headers = Split("""
     PropVane.h
     RebsLinear.h
     SonicAnemometer.h
+    Wind2D.h
+    Wind3D.h
     WisardMote.h
 """)
 

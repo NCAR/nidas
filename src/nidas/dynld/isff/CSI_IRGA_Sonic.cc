@@ -93,7 +93,7 @@ void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 {
 
-    SonicAnemometer::checkSampleTags();
+    CSAT3_Sonic::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 

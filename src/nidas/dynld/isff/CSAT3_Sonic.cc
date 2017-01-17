@@ -49,7 +49,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 const float CSAT3_Sonic::GAMMA_R = 402.684;
 
 CSAT3_Sonic::CSAT3_Sonic():
-    SonicAnemometer(),
+    Wind3D(),
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),
@@ -765,7 +765,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
 
-    SonicAnemometer::parseParameters();
+    Wind3D::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -817,7 +817,7 @@ void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 {
 
-    SonicAnemometer::checkSampleTags();
+    Wind3D::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 
