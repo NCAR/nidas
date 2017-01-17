@@ -142,7 +142,6 @@ Looper* SensorSimulator::getLooper()
 void SensorSimulator::looperNotify() throw()
 {
     if (_interrupted) {
-        getLooper();
         _looper->removeClient(this);
         _looper->interrupt();
         return;
@@ -282,8 +281,8 @@ public:
 	    // reopen flag so we don't keep attempting it.
 	    try {
 		_infile.clear();
-		_infile.exceptions(ios::failbit);
-		_infile.open (_path.c_str());
+		_infile.exceptions(ios::failbit | ios::badbit);
+		_infile.open(_path.c_str());
 		_infile.exceptions(std::ios::goodbit);
 		_in = &_infile;
 		_reopen = true;
@@ -291,7 +290,7 @@ public:
 	    catch (const std::exception& failure)
 	    {
 		_reopen = false;
-		throw n_u::Exception(failure.what());
+		throw n_u::IOException(_path,"open",errno);
 	    }
 	}
 	if (_verbose)
