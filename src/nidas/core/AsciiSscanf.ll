@@ -31,7 +31,7 @@
 
 /* tells flex that we further subclass SscanfFlexLexer with AsciiSscanfAdapter,
  * which hooks the custom lexer code back to the AsciiSscanf class.  */
-%option yyclass="AsciiSscanfAdapter"
+%option yyclass="nidas::core::AsciiSscanfAdapter"
 
 %option never-interactive
 %option noyywrap
@@ -50,7 +50,7 @@ using namespace nidas::core;
 
 /* forward declarations */
 
-class AsciiSscanfAdapter: public SscanfFlexLexer
+class nidas::core::AsciiSscanfAdapter: public SscanfFlexLexer
 {
 public:
     AsciiSscanfAdapter(AsciiSscanf* target) :
@@ -155,7 +155,7 @@ AsciiSscanf::AsciiSscanf():
     	_bufptrs[i] = 0;
 
     // Tie a new lexer to this instance.
-    _lexer = new AsciiSscanfAdapter(this);
+    _lexer = new nidas::core::AsciiSscanfAdapter(this);
 }
     
 AsciiSscanf::~AsciiSscanf()
@@ -168,7 +168,7 @@ AsciiSscanf::~AsciiSscanf()
     delete _lexer;
 }
 
-int AsciiSscanfAdapter::LexerInput(char* buf, int max_size)
+int nidas::core::AsciiSscanfAdapter::LexerInput(char* buf, int max_size)
 {
     int l = _target->_format.size() - _target->_lexpos;
     if (l > max_size) l = max_size;
