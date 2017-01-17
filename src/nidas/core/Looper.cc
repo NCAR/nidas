@@ -157,8 +157,8 @@ int Looper::run() throw(n_u::Exception)
 	list<LooperClient*> clnts(_clients.begin(),_clients.end());
 	_clientMutex.unlock();
 
-	list<LooperClient*>::const_iterator ci = _clients.begin();
-	for ( ; ci != _clients.end(); ++ci) {
+	list<LooperClient*>::const_iterator ci = clnts.begin();
+	for ( ; ci != clnts.end(); ++ci) {
 	    LooperClient* clnt = *ci;
 
             _clientMutex.lock();
