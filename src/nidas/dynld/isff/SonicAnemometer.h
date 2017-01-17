@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_ISFF_GILL_2D_SONIC_H
-#define NIDAS_DYNLD_ISFF_GILL_2D_SONIC_H
+#ifndef NIDAS_DYNLD_ISFF_SONICANEMOMETER_H
+#define NIDAS_DYNLD_ISFF_SONICANEMOMETER_H
 
 #include "Wind3D.h"
 
