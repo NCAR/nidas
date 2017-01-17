@@ -182,7 +182,7 @@ private:
     /** No assignment */
     AsciiSscanf & operator=(const AsciiSscanf& );
 
-    friend AsciiSscanfAdapter;
+    friend class AsciiSscanfAdapter;
 };
 
 }}	// namespace nidas namespace core
