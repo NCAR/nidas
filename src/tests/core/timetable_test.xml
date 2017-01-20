@@ -263,20 +263,20 @@
             <serialSensor IDREF="CSAT3A_BIN" devicename="/dev/ttyUSB0" height="10m" id="100">
   	    </serialSensor>
             <serialSensor IDREF="RMY81000" devicename="/dev/ttyUSB1" height="12m" id="120">
-	      <schedule>
-	      </schedule>
+	      <timetable>
+	      </timetable>
   	    </serialSensor>
             <serialSensor IDREF="CSAT3_IRGA_BIN"
 			  devicename="/dev/ttyUSB2"
 			  height="20m" id="200">
-	      <schedule>
+	      <timetable>
 		<!-- For first couple months sensor is only on half the time.-->
-		<loop start="2016-12-15,00:00:00">
+		<repeat start="2016-12-15,00:00:00">
 		  <on duration="3600"/>
 		  <off duration="3600"/>
-		</loop>
+		</repeat>
 		<on start="2017-04-01,00:00:00"/>
-	      </schedule>
+	      </timetable>
   	    </serialSensor>
         </dsm>
     </site>

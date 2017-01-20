@@ -25,7 +25,7 @@
 */
 
 
-#include "Schedule.h"
+#include "Timetable.h"
 
 #include <iostream>
 #include <sstream>
@@ -37,18 +37,19 @@ using std::setfill;
 using std::istringstream;
 using namespace nidas::core;
 
-const std::string ScheduleState::ON = "on";
-const std::string ScheduleState::OFF = "off";
-const std::string ScheduleState::DEFAULT = "default";
+const std::string TimetablePeriod::ON = "on";
+const std::string TimetablePeriod::OFF = "off";
+const std::string TimetablePeriod::DEFAULT = "";
 
-const int ScheduleTime::ANYTIME = -1;
+const int TimetableTime::ANYTIME = -1;
 
 
 using std::string;
+using nidas::util::UTime;
 
 
-ScheduleTime::
-ScheduleTime() :
+TimetableTime::
+TimetableTime(const std::string& when) throw (TimetableException):
     year(ANYTIME),
     month(ANYTIME),
     day(ANYTIME),
@@ -56,6 +57,10 @@ ScheduleTime() :
     minute(ANYTIME),
     second(ANYTIME)
 {
+    if (!when.empty())
+    {
+        parse(when);
+    }
 }
 
 
@@ -64,16 +69,16 @@ namespace
     int
     parse_time_field(const std::string& name, const std::string& when,
                      string::size_type& begin, char token)
-        throw (ScheduleException)
+        throw (TimetableException)
     {
-        int value = ScheduleTime::ANYTIME;
+        int value = TimetableTime::ANYTIME;
         string::size_type end = when.length();
         if (token)
         {
             end = when.find(token, begin);
             if (end == string::npos)
             {
-                throw ScheduleException("time field " + name +
+                throw TimetableException("time field " + name +
                                         " missing separator '" +
                                         token + "': " + when);
             }
@@ -86,7 +91,7 @@ namespace
             ist >> value;
             if (ist.fail())
             {
-                throw ScheduleException("could not parse " + name + " field: " +
+                throw TimetableException("could not parse " + name + " field: " +
                                         field);
             }
         }
@@ -99,7 +104,7 @@ namespace
     std::ostream&
     fieldToStream(std::ostream& os, int value)
     {
-        if (value == ScheduleTime::ANYTIME)
+        if (value == TimetableTime::ANYTIME)
         {
             os << "*";
         }
@@ -119,7 +124,7 @@ namespace
 
 
 bool
-ScheduleTime::
+TimetableTime::
 isValid()
 {
     bool valid = true;
@@ -142,10 +147,10 @@ isValid()
 
 
 void
-ScheduleTime::
-parse(const std::string& when) throw (ScheduleException)
+TimetableTime::
+parse(const std::string& when) throw (TimetableException)
 {
-    ScheduleTime dtime;
+    TimetableTime dtime;
 
     // format is yyyy-mm-dd,hh:mm:ss
     string::size_type begin = 0;
@@ -158,7 +163,7 @@ parse(const std::string& when) throw (ScheduleException)
     dtime.second = parse_time_field("second", when, begin, 0);
     if (! dtime.isValid())
     {
-        throw ScheduleException("a time field is out of range: " + when);
+        throw TimetableException("a time field is out of range: " + when);
     }
     *this = dtime;
 }
@@ -166,8 +171,8 @@ parse(const std::string& when) throw (ScheduleException)
 
 
 bool
-ScheduleTime::
-match(const nidas::util::UTime& when, nidas::util::UTime* begin = 0)
+TimetableTime::
+match(const nidas::util::UTime& when)
 {
     // Split the time up into components and compare them individually.
     struct tm tm;
@@ -180,78 +185,42 @@ match(const nidas::util::UTime& when, nidas::util::UTime* begin = 0)
     match = match && (minute == ANYTIME || tm.tm_min == minute);
     match = match && (second == ANYTIME || tm.tm_sec == second);
 
-    // Now if there's match, figure out when the time period begins which
-    // first matches this time and contains when.  So we set all the fields
-    // to match when, but then the rightmost (least significant) time field
-    // with ANYTIME is set to it's starting index, and those fields are
-    // converted to a UTime.
-    //
-    // But then how do set a time which takes place once a day?
-    //
-    // *-*-*,12:00:00
-    //
-    // How about once every hour?
-    //
-    // *-*-*,*:00:00
-    //
-    // The start of every minute during hour 12.
-    // 
-    // *-*-*,12:*:00
-    //
-    // So if we want to turn something one and off alternating every hour?
-    //
-    // on   *-*-*,00:00:00
-    // off  *-*-*,01:00:00
-    // on   *-*-*,02:00:00
-    // off  *-*-*,04:00:00
-    // on   *-*-*,05:00:00
-    // off  *-*-*,06:00:00
-    // on   *-*-*,07:00:00
-    //
-    // Seems verbose.  We may want to define a schedule like in the sensor
-    // catalog.
-
-    // The notion above contradicts the intention of the match() method,
-    // since a time in the first hour but not exactly 00:00:00 would not
-    // match it.  We don't really want to know if a time matches so much as
-    // what the begin time is of a period which contains it, if any.
-
-    // Further, how to turn off an intermittent schedule when it no longer
-    // applies?  For example, once the days get long enough, stop turning a
-    // sensor off regularly.  A schedule event needs an anchor time, and
-    // that event ends when the next schedule starts?  Or maybe a fixed
-    // time is used in the schedule to separate different schedules?
-
-    // off when=<fixed>
-    // on period="2 hours"
-
-    // A schedule should be able to contain a loop of states with a
-    // duration:
-
-    // on/off when=<fixed>
-    // <loop when='<fixed>'>
-    //   <on duration="2 hours"><off duration="1 hour">
-    // </loop>
-
-    // Even though chronological order may not be strictly necessary, it
-    // might be a good idea to warn when it happens.
-
-
-    if (begin)
-    {
-        ScheduleTime dtime;
-        dtime.setFixedTime(when);
-        if (second == ANYTIME)
-            ...
-
-    }
-
     return match;
 }
 
 
+nidas::util::UTime
+TimetableTime::
+getStartTime()
+{
+    struct tm tm;
+
+    tm.tm_year = year+1900;
+    tm.tm_mon = month;
+    tm.tm_mday = day;
+    tm.tm_hour = hour;
+    tm.tm_min = minute;
+    tm.tm_sec = second;
+
+    if (year == ANYTIME)
+        tm.tm_year = 1900;
+    if (month == ANYTIME)
+        tm.tm_mon = 0;
+    if (day == ANYTIME)
+        tm.tm_mday = 1;
+    if (hour == ANYTIME)
+        tm.tm_hour = 0;
+    if (minute == ANYTIME)
+        tm.tm_min = 0;
+    if (second == ANYTIME)
+        tm.tm_sec = 0;
+
+    return nidas::util::UTime(true, &tm);
+}
+
+
 void
-ScheduleTime::
+TimetableTime::
 setFixedTime(const nidas::util::UTime& when)
 {
     struct tm tm;
@@ -266,7 +235,7 @@ setFixedTime(const nidas::util::UTime& when)
 
 
 std::ostream&
-ScheduleTime::
+TimetableTime::
 toStream(std::ostream& os)
 {
     std::ostringstream ours;
@@ -286,12 +255,20 @@ toStream(std::ostream& os)
 }
 
 
-ScheduleState::
-ScheduleState(const std::string& id, const std::string& when) :
-    _id(id),
-    _when(when)
+TimetablePeriod::
+TimetablePeriod(const std::string& tag, const nidas::util::UTime& start,
+                long duration):
+    _tag(tag),
+    _start(start),
+    _duration(duration)
 {
 }
 
-
+TimetablePeriod::
+TimetablePeriod(const std::string& tag, long duration):
+    _tag(tag),
+    _start(UTime(static_cast<long long>(0))),
+    _duration(duration)
+{
+}
 

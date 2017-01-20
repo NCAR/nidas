@@ -220,35 +220,36 @@
     <xsd:attribute name="disable" type="xsd:token"/>
 </xsd:complexType>
 
-<xsd:complexType name="schedule_event">
+<xsd:complexType name="timetable_period">
     <xsd:attribute name="start" type="xsd:normalizedString" use="optional"/>
     <xsd:attribute name="duration" type="xsd:normalizedString" use="optional"/>
 </xsd:complexType>
 
-<xsd:complexType name="loop_event">
+<xsd:complexType name="repeat_period">
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
-	<xsd:element name="on" type="schedule_event"/>
-	<xsd:element name="off" type="schedule_event"/>
-	<xsd:element name="loop" type="loop_event"/>
+	<xsd:element name="on" type="timetable_period"/>
+	<xsd:element name="off" type="timetable_period"/>
+	<xsd:element name="repeat" type="repeat_period"/>
     </xsd:choice>
     <xsd:attribute name="start" type="xsd:normalizedString" use="optional"/>
     <xsd:attribute name="duration" type="xsd:normalizedString" use="optional"/>
 </xsd:complexType>
 
-<xsd:complexType name="schedule">
+<xsd:complexType name="timetable">
     <xsd:annotation>
         <xsd:documentation>
-	  A schedule contains states and time specifiers.  The most recent
-	  time specifier which matches a given time indicates the state of
-	  the sensor at that time.  The currently known states are just on
-	  and off.  The time specifier is given in the 'when' attribute of
-	  the state.
+	    A timetable contains a sequence of time periods which are
+	    delineated by a start time or a duration.  A special repeat
+	    period contains a sequence of periods through which the
+	    timetable repeats until the next time period takes effect.  The
+	    timetable can be used to associate time-specific tags with a
+	    sensor or DSM, such as on or off.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
-	<xsd:element name="on" type="schedule_event"/>
-	<xsd:element name="off" type="schedule_event"/>
-	<xsd:element name="loop" type="loop_event"/>
+	<xsd:element name="on" type="timetable_period"/>
+	<xsd:element name="off" type="timetable_period"/>
+	<xsd:element name="repeat" type="repeat_period"/>
     </xsd:choice>
 </xsd:complexType>
 
@@ -275,7 +276,7 @@
 	<xsd:element name="sample" type="sample"/>
 	<xsd:element name="parameter" type="parameter"/>
         <xsd:element name="calfile" type="calfile" />
-	<xsd:element name="schedule" type="schedule"/>
+	<xsd:element name="timetable" type="timetable"/>
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>

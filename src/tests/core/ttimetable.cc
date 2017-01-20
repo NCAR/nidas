@@ -4,7 +4,7 @@ using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
 
-#include "Schedule.h"
+#include "Timetable.h"
 #include "nidas/util/UTime.h"
 
 #include <sys/types.h>
@@ -16,19 +16,25 @@ using namespace nidas::core;
 
 
 
-BOOST_AUTO_TEST_CASE(test_default_schedule_state)
+BOOST_AUTO_TEST_CASE(test_default_timetable_time)
 {
-  ScheduleState ss(ScheduleState::ON, "2017-12-01,00:00:00");
+  TimetablePeriod ss(TimetablePeriod::ON,
+		     TimetableTime("2017-12-01,00:00:00").getStartTime());
 
-  BOOST_CHECK_EQUAL(ss.getState(), ScheduleState::ON);
-  BOOST_CHECK_EQUAL("on", ScheduleState::ON);
-    
+  BOOST_CHECK_EQUAL(ss.getTag(), TimetablePeriod::ON);
+  BOOST_CHECK_EQUAL("on", TimetablePeriod::ON);
+  BOOST_CHECK_EQUAL(TimetablePeriod().getTag(), TimetablePeriod::DEFAULT);
+
+  UTime ut = UTime::parse(true, "1900 01 01 00:00:00");
+  TimetableTime glob;
+  glob.parse("*-*-*,*:*:*");
+  BOOST_CHECK_EQUAL(ut, glob.getStartTime());
 }
 
 
 BOOST_AUTO_TEST_CASE(test_time_parse)
 {
-  ScheduleTime stime;
+  TimetableTime stime;
 
   stime.parse("2017-12-01,01:02:30");
   BOOST_CHECK_EQUAL(stime.year, 2017);
@@ -40,7 +46,7 @@ BOOST_AUTO_TEST_CASE(test_time_parse)
 
   UTime ut = UTime::parse(true, "2017 12 01 01:02:30");
 
-  ScheduleTime fixed;
+  TimetableTime fixed;
   fixed.setFixedTime(ut);
   std::cerr << "UTime=" << ut << ", fixed=";
   fixed.toStream(std::cerr);
@@ -63,7 +69,7 @@ BOOST_AUTO_TEST_CASE(test_time_parse)
   ut = UTime::parse(true, "2017 12 02 01:02:30");
   BOOST_CHECK_EQUAL(stime.match(ut), false);
     
-  stime.day = ScheduleTime::ANYTIME;
+  stime.day = TimetableTime::ANYTIME;
   ut = UTime::parse(true, "2017 12 02 01:02:30");
   BOOST_CHECK_EQUAL(stime.match(ut), true);
 
@@ -74,10 +80,10 @@ BOOST_AUTO_TEST_CASE(test_time_parse)
   }
 
   stime.parse("*-*-*,*:30:00");
-  BOOST_CHECK_EQUAL(stime.year, ScheduleTime::ANYTIME);
-  BOOST_CHECK_EQUAL(stime.month, ScheduleTime::ANYTIME);
-  BOOST_CHECK_EQUAL(stime.day, ScheduleTime::ANYTIME);
-  BOOST_CHECK_EQUAL(stime.hour, ScheduleTime::ANYTIME);
+  BOOST_CHECK_EQUAL(stime.year, TimetableTime::ANYTIME);
+  BOOST_CHECK_EQUAL(stime.month, TimetableTime::ANYTIME);
+  BOOST_CHECK_EQUAL(stime.day, TimetableTime::ANYTIME);
+  BOOST_CHECK_EQUAL(stime.hour, TimetableTime::ANYTIME);
   BOOST_CHECK_EQUAL(stime.minute, 30);
   BOOST_CHECK_EQUAL(stime.second, 00);
 
@@ -86,7 +92,7 @@ BOOST_AUTO_TEST_CASE(test_time_parse)
 
 BOOST_AUTO_TEST_CASE(test_decimal_parse)
 {
-  ScheduleTime stime;
+  TimetableTime stime;
 
   stime.parse("2017-12-09,01:02:30");
   BOOST_CHECK_EQUAL(stime.year, 2017);

@@ -7,7 +7,7 @@ env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
-tests = env.Program('tcore', ["tcore.cc", "tutil.cc", "tschedule.cc"])
+tests = env.Program('tcore', ["tcore.cc", "tutil.cc", "ttimetable.cc"])
 # env.Depends(tests, libs)
 #
 
@@ -32,7 +32,7 @@ env.ValgrindLog('threadcheck',
                             " >& ${TARGET.abspath}"))
 
 schema = env.File("#/xml/nidas.xsd")
-xml = env.File("schedule_test.xml")
+xml = env.File("timetable_test.xml")
 xmllint = env.Command("xmllint", [schema, xml],
                       ["xmllint --noout --schema ${SOURCES[0].abspath} "
                        "${SOURCES[1]}"])
