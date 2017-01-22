@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -213,13 +213,13 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 
     int ncoef;
     for(ncoef = 0; ; ) {
+	if (feof(fp)) break;
 	unsigned short val;
 	int n = fscanf(fp, "%4hx", &val);
 	if (ferror(fp)) {
 	    fclose(fp);
 	    throw n_u::IOException(name,"fscanf",errno);
 	}
-	if (feof(fp)) break;
 	if (n != 1) {
 	    if ((n = getc(fp)) != '#') {
 		fclose(fp);
@@ -227,7 +227,17 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 			string("bad input character: \'") +
 			string((char)n,1) + "\'");
 	    }
-	    fscanf(fp,"%*[^\n]");	// skip to newline
+            // glibc adds warn_unused_result attribute to fscanf, so work
+            // around that to suppress the warning.
+#if 1
+            int unused __attribute__((unused));
+	    unused = fscanf(fp,"%*[^\n]");	// skip to newline
+#else
+            do {
+                n = getc(fp);
+            }
+            while (n != '\n' && !feof(fp));
+#endif
 	}
 	else {
 	    if (ncoef < nexpect) coefs[ncoef] = val;
