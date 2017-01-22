@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -60,6 +60,26 @@
 #define UTIME_BASIC_STREAM_IO
 
 namespace nidas { namespace util {
+
+template <typename T, int usecs_per_unit>
+struct UTimeDuration
+{
+    UTimeDuration(T t):
+        _duration(t)
+    {}
+
+    long long
+    microseconds()
+    {
+        return _duration * usecs_per_unit;
+    }
+
+    T _duration;
+};
+
+
+typedef UTimeDuration<long long, USECS_PER_SEC> UTSeconds;
+typedef UTimeDuration<long long, USECS_PER_SEC*60> UTMinutes;
 
 /**
  * A class for parsing, formatting and doing operations on time, based
@@ -262,6 +282,38 @@ public:
     UTime operator+ (long long u) const { return UTime(_utime + u); }
 
     UTime operator- (long long u) const { return UTime(_utime - u); }
+
+    template <typename T, int U>
+    UTime
+    operator+ (UTimeDuration<T,U> duration) const
+    {
+        return UTime(_utime + duration.microseconds());
+    }
+
+    template <typename T, int U>
+    UTime
+    operator- (UTimeDuration<T,U> duration) const
+    {
+        return UTime(_utime - duration.microseconds());
+    }
+
+    // Using a template method for the assignment operator from a
+    // UTimeDuration template did not work, because the effc++ warnings for
+    // some reason warn that the method does not return a reference to
+    // *this, when clearly it does.
+    UTime&
+    operator= (UTSeconds duration)
+    {
+        _utime = duration.microseconds();
+        return *this;
+    }
+
+    UTime&
+    operator= (UTMinutes duration)
+    {
+        _utime = duration.microseconds();
+        return *this;
+    }
 
     long long operator- (const UTime& u) const { return _utime - u._utime; }
 
