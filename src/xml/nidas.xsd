@@ -222,7 +222,7 @@
 
 <xsd:complexType name="timetable_period">
     <xsd:attribute name="start" type="xsd:normalizedString" use="optional"/>
-    <xsd:attribute name="duration" type="xsd:normalizedString" use="optional"/>
+    <xsd:attribute name="duration" type="xsd:positiveInteger" use="optional"/>
 </xsd:complexType>
 
 <xsd:complexType name="repeat_period">
@@ -232,7 +232,7 @@
 	<xsd:element name="repeat" type="repeat_period"/>
     </xsd:choice>
     <xsd:attribute name="start" type="xsd:normalizedString" use="optional"/>
-    <xsd:attribute name="duration" type="xsd:normalizedString" use="optional"/>
+    <xsd:attribute name="duration" type="xsd:positiveInteger" use="optional"/>
 </xsd:complexType>
 
 <xsd:complexType name="timetable">
