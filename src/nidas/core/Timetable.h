@@ -89,7 +89,7 @@ public:
     isValid();
 
     std::ostream&
-    toStream(std::ostream& os);
+    toStream(std::ostream& os) const;
 
     void
     setFixedTime(const nidas::util::UTime& when);
@@ -101,6 +101,13 @@ public:
     int minute;
     int second;
 };
+
+
+inline std::ostream&
+operator<<(std::ostream& out, const TimetableTime& ttime)
+{
+    return ttime.toStream(out);
+}
 
 
 /**
@@ -120,13 +127,16 @@ public:
     static const std::string OFF;
     static const std::string DEFAULT;
 
+    static const nidas::util::UTime DEFAULT_START;
+    static const nidas::util::UTime DEFAULT_END;
+
     /**
      * Create a TimetablePeriod with the given @p tag and @p duration in
      *  seconds.  When tag is empty and duration is zero, that is the
      *  default constructor, which creates a time period with no tags, no
      *  start time, and infinite duration.
      **/
-    TimetablePeriod(const std::string& tag = "", long duration = 0);
+    TimetablePeriod(const std::string& tag = DEFAULT, long duration = 0);
 
     /**
      * Create a TimetablePeriod with the given @p tag and @p start time,
@@ -159,12 +169,45 @@ public:
         return _duration;
     }
     
+    /**
+     * Given the end time of a previous period and the start time of the
+     * following period, determine the begin and end time of this period.
+     * The end of the previous period is used as the start of this one if
+     * no start time is set, and the beginning of the next period is used
+     * if this period has no duration.
+     **/
+    void
+    resolve(const nidas::util::UTime& pend,
+            const nidas::util::UTime& nstart,
+            nidas::util::UTime* begin,
+            nidas::util::UTime* end);
+            
+    /**
+     * Use resolve() to compute begin and end times for this
+     * TimetablePeriod relative to the previous end and the next start,
+     * then return true if the time @p when is between those times.
+     **/
+    bool
+    contains(const nidas::util::UTime& pend,
+             const nidas::util::UTime& nstart,
+             const nidas::util::UTime& when);
+
+    std::ostream&
+    toStream(std::ostream& os) const;
+
 private:
 
     std::string _tag;
     nidas::util::UTime _start;
     long _duration;
 };
+
+
+inline std::ostream&
+operator<<(std::ostream& out, const TimetablePeriod& period)
+{
+    return period.toStream(out);
+}
 
 
 /**
@@ -210,7 +253,7 @@ public:
     	throw(nidas::util::InvalidParameterException);
 
 private:
-    std::vector<TimetablePeriod> _states;
+    std::vector<TimetablePeriod> _periods;
 
 };
 

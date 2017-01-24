@@ -34,6 +34,7 @@
 #include "DOMable.h"
 #include "Dictionary.h"
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -50,6 +51,7 @@ class DSMConfig;
 class Parameter;
 class CalFile;
 class Looper;
+class Timetable;
 
 /**
  * DSMSensor provides the basic support for reading, processing
@@ -902,6 +904,13 @@ public:
         return _sampleTags;
     }
 
+    /**
+     * Return the tag for the timetable period which contains the given
+     * time, if any.  Otherwise return an empty string.
+     **/
+    std::string
+    getTimetableTag(const nidas::util::UTime& when);
+
 protected:
 
     /**
@@ -1127,6 +1136,8 @@ private:
     int _lag;
 
     int _station;
+
+    Timetable* _timetable;
 
 private:
 

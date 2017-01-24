@@ -339,6 +339,7 @@ void SerialSensor::fromDOMElement(
 	else if (elname == "sample");
 	else if (elname == "parameter");
 	else if (elname == "calfile");
+	else if (elname == "timetable");
 	else throw n_u::InvalidParameterException(
 	    string("SerialSensor:") + getName(),
 	    "unknown element",elname);

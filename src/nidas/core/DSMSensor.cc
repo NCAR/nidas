@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 
 /*
@@ -33,6 +33,7 @@
 #include "Parameter.h"
 #include "SensorCatalog.h"
 #include "Looper.h"
+#include "Timetable.h"
 
 #include "SamplePool.h"
 #include "CalFile.h"
@@ -72,7 +73,8 @@ DSMSensor::DSMSensor() :
     _duplicateIdOK(false),
     _applyVariableConversions(),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
-    _nTimeouts(0),_lag(0),_station(-1)
+    _nTimeouts(0),_lag(0),_station(-1),
+    _timetable(0)
 {
 }
 
@@ -91,6 +93,7 @@ DSMSensor::~DSMSensor()
 	delete pi->second;
 
     removeCalFiles();
+    delete _timetable;
 }
 
 void DSMSensor::setDSMConfig(const DSMConfig* val)
@@ -722,6 +725,10 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
             cf->fromDOMElement((xercesc::DOMElement*)child);
 	    addCalFile(cf);
 	}
+        else if (elname == "timetable") {
+            _timetable = new Timetable();
+            _timetable->fromDOMElement((xercesc::DOMElement*)child);
+        }
     }
 
     _rawSampleTag.setSampleId(0);
@@ -847,4 +854,15 @@ void DSMSensor::deleteLooper()
     }
 }
 
+
+std::string
+DSMSensor::
+getTimetableTag(const nidas::util::UTime& when)
+{
+    if (_timetable)
+    {
+        return _timetable->lookupTag(when);
+    }
+    return TimetablePeriod::DEFAULT;
+}
 

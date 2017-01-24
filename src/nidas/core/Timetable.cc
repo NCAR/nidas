@@ -26,11 +26,13 @@
 
 
 #include "Timetable.h"
+#include "nidas/util/Logger.h"
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <ios>     // ios::dec
+#include <limits>
 
 using std::setw;
 using std::setfill;
@@ -41,11 +43,17 @@ const std::string TimetablePeriod::ON = "on";
 const std::string TimetablePeriod::OFF = "off";
 const std::string TimetablePeriod::DEFAULT = "";
 
-const int TimetableTime::ANYTIME = -1;
-
-
 using std::string;
 using nidas::util::UTime;
+using nidas::util::UTSeconds;
+using nidas::util::InvalidParameterException;
+
+const nidas::util::UTime TimetablePeriod::DEFAULT_START =
+    UTime(static_cast<long long>(0));
+const nidas::util::UTime TimetablePeriod::DEFAULT_END =
+    UTime(std::numeric_limits<long long>::max());
+
+const int TimetableTime::ANYTIME = -1;
 
 
 TimetableTime::
@@ -194,16 +202,17 @@ TimetableTime::
 getStartTime()
 {
     struct tm tm;
+    bzero(&tm, sizeof(tm));
 
-    tm.tm_year = year+1900;
-    tm.tm_mon = month;
+    tm.tm_year = year - 1900;
+    tm.tm_mon = month-1;
     tm.tm_mday = day;
     tm.tm_hour = hour;
     tm.tm_min = minute;
     tm.tm_sec = second;
 
     if (year == ANYTIME)
-        tm.tm_year = 1900;
+        tm.tm_year = 1970 - 1900;
     if (month == ANYTIME)
         tm.tm_mon = 0;
     if (day == ANYTIME)
@@ -215,6 +224,8 @@ getStartTime()
     if (second == ANYTIME)
         tm.tm_sec = 0;
 
+    DLOG(("converted ") << *this << " to start time: "
+         << UTime(UTime::fromTm(true, &tm)));
     return nidas::util::UTime(true, &tm);
 }
 
@@ -236,7 +247,7 @@ setFixedTime(const nidas::util::UTime& when)
 
 std::ostream&
 TimetableTime::
-toStream(std::ostream& os)
+toStream(std::ostream& os) const
 {
     std::ostringstream ours;
     fieldToStream(ours, year);
@@ -272,3 +283,192 @@ TimetablePeriod(const std::string& tag, long duration):
 {
 }
 
+
+void
+TimetablePeriod::
+resolve(const nidas::util::UTime& pend,
+        const nidas::util::UTime& nstart,
+        nidas::util::UTime* begin,
+        nidas::util::UTime* end)
+{
+    UTime tbegin = _start;
+    UTime tend = DEFAULT_START;
+
+    // If previous period has no end, and this period has no start,
+    // then equate that to an empty period at the end of time.
+    if (_start == DEFAULT_START && pend == DEFAULT_END)
+    {
+        tbegin = DEFAULT_END;
+        tend = DEFAULT_END;
+    }
+    else if (_start == DEFAULT_START)
+    {
+        tbegin = pend;
+    }
+    if (tend == DEFAULT_START)
+    {
+        // If this period has a duration, use it.  Otherwise use the start
+        // of the next period.  If there is no start to the next period,
+        // then this period goes forever.
+        if (_duration)
+        {
+            tend = tbegin + UTSeconds(_duration);
+        }
+        else
+        {
+            tend = nstart;
+            if (tend == DEFAULT_START)
+            {
+                tend = DEFAULT_END;
+            }
+        }
+    }
+    if (begin)
+        *begin = tbegin;
+    if (end)
+        *end = tend;
+    DLOG(("") << "period " << *this << " with pend=" << pend
+         << " and nstart=" << nstart << " resolved to [" << begin
+         << "--" << end << "]");
+}
+
+
+bool
+TimetablePeriod::
+contains(const nidas::util::UTime& pend,
+         const nidas::util::UTime& nstart,
+         const nidas::util::UTime& when)
+{
+    UTime begin;
+    UTime end;
+    resolve(pend, nstart, &begin, &end);
+    return (begin <= when && when < end);
+}
+
+
+std::ostream&
+TimetablePeriod::
+toStream(std::ostream& os) const
+{
+    os << "tag=" << _tag << "[";
+    if (_start == DEFAULT_START)
+    {
+        os << "open";
+    }
+    else
+    {
+        os << _start;
+    }
+    os << "@" << _duration << "]";
+    return os;
+}
+
+
+Timetable::
+Timetable():
+    _periods()
+{
+}
+
+
+TimetablePeriod
+Timetable::
+lookupPeriod(const nidas::util::UTime& when)
+{
+    // For each time period, if the time precedes it, then it is the
+    // default.  If it contains it, then use it.  If after checking each
+    // time period nothing contains it, then return the default.  Keep
+    // track of the running start time of each period by when the current
+    // period ends.
+    TimetablePeriod result;
+    std::ostringstream out;
+    out << "Lookup " << when << " in timetable: [";
+    unsigned int i = 0;
+    UTime lastend = TimetablePeriod::DEFAULT_START;
+    for (i = 0; i < _periods.size(); ++i)
+    {
+        TimetablePeriod& period = _periods[i];
+        UTime nextstart = TimetablePeriod::DEFAULT_END;
+        // Use start time of next period, if it has one.
+        if (i+1 < _periods.size())
+        {
+            nextstart = _periods[i+1].getStart();
+            if (nextstart == TimetablePeriod::DEFAULT_START)
+                nextstart = TimetablePeriod::DEFAULT_END;
+        }
+
+        UTime begin;
+        UTime end;
+        period.resolve(lastend, nextstart, &begin, &end);
+        if (when < begin)
+        {
+            // We passed the time, so it belongs to a default time period.
+            break;
+        }
+        if (begin <= when && when < end)
+        {
+            // Found it.
+            result = period;
+        }
+        // Keep looking.
+        lastend = end;
+    }
+    // If we finish the time periods without a match, then return the
+    // default.
+    out << "]; returning " << result;
+    DLOG(("") << out.str());
+    return result;
+}
+
+
+void
+Timetable::
+fromDOMElement(const xercesc::DOMElement* node)
+    throw(nidas::util::InvalidParameterException)
+{
+    xercesc::DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+         child=child->getNextSibling())
+    {
+	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+            continue;
+	XDOMElement xchild((xercesc::DOMElement*) child);
+	const string& elname = xchild.getNodeName();
+
+        // Whatever it is, we expect it to have attributes 'start' or
+        // 'duration', and the name becomes the tag.
+        string tag = elname;
+        long duration = 0;
+        UTime start = TimetablePeriod::DEFAULT_START;
+
+        string estart = xchild.getAttributeValue("start");
+        string eduration = xchild.getAttributeValue("duration");
+
+        if (!eduration.empty())
+        {
+            // The schema validation means this shouldn't fail.
+            istringstream ist(eduration);
+            ist >> duration;
+            if (ist.fail())
+                throw InvalidParameterException
+                    ("not a valid value '" + eduration +
+                     "' for duration attribute for element: " + elname);
+        }
+        if (!estart.empty())
+        {
+            try {
+                TimetableTime ttime;
+                ttime.parse(estart);
+                start = ttime.getStartTime();
+            }
+            catch (const TimetableException& ttex)
+            {
+                throw InvalidParameterException
+                    ("not a valid value '" + estart +
+                     "' for start attribute for element: " + elname);
+            }
+        }
+        
+        TimetablePeriod tperiod(tag, start, duration);
+    }
+}

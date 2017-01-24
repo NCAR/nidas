@@ -12,7 +12,8 @@ tests = env.Program('tcore', ["tcore.cc", "tutil.cc", "ttimetable.cc"])
 #
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
-runtest = env.Command("xtest", tests, ["$SOURCE.abspath --log_level=all"])
+runtest = env.Command("xtest", tests,
+                      ["cd $SOURCE.dir && $SOURCE.abspath --log_level=all"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
