@@ -58,7 +58,7 @@ NidasApp(const std::string& name) :
    "<field>=<value>, where fields are tag, file, function, line, enable,\n"
    "and disable.\n"
    "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical. Default is info.",
+   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.",
    "<loglevel>"),
   LogLevel
   ("-l", "--loglevel", "Alias for --logconfig.", "<loglevel>"),
