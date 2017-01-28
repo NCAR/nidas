@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -164,6 +164,9 @@ public:
 
     Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
 
+    std::string
+    getConfigsXML();
+    
 private:
 
     string _progname;
@@ -268,6 +271,11 @@ DataPrep::~DataPrep()
             delete v;
         }
     }
+    list<Resampler*>::iterator ri;
+    for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
+    {
+        delete (*ri);
+    }
 }
 
 
@@ -296,6 +304,7 @@ DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 Dataset DataPrep::getDataset() throw(n_u::InvalidParameterException, XMLException)
 {
     string XMLName;
+
     const char* ie = ::getenv("ISFS");
     const char* ieo = ::getenv("ISFF");
     const char* pe = ::getenv("PROJECT");
@@ -304,6 +313,7 @@ Dataset DataPrep::getDataset() throw(n_u::InvalidParameterException, XMLExceptio
     if (XMLName.length() == 0)
         throw n_u::InvalidParameterException("environment variables",
             "ISFS,PROJECT","not found");
+
     Datasets datasets;
     datasets.parseXML(XMLName);
 
@@ -343,10 +353,8 @@ bool DumpClient::receive(const Sample* samp) throw()
         return false;
     }
 
-#ifdef DEBUG
-    cerr << "sampid=" << GET_DSM_ID(samp->getId()) << ',' <<
-    	GET_SHORT_ID(samp->getId()) << endl;
-#endif
+    VLOG(("") << "sampid=" << GET_DSM_ID(samp->getId()) << ','
+         << GET_SHORT_ID(samp->getId()));
 
     switch(_format) {
     case ASCII:
@@ -807,16 +815,14 @@ DataPrep::matchVariables(const Project& project,
                     VariableIterator vi = sensor->getVariableIterator();
                     for ( ; vi.hasNext(); ) {
                         const Variable* var = vi.next();
-    // #define DEBUG
-#ifdef DEBUG
-                        cerr << "var=" << var->getName() <<
-                            ":" << var->getSite()->getName() <<
-                            '(' << var->getStation() << "), " <<
-                            ", reqvar=" << reqvar->getName() <<
-                            ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
-                            '(' << reqvar->getStation() << "), " <<
-                            ", match=" << ((*var == *reqvar)) << endl;
-#endif
+                        VLOG(("")
+                             << "var=" << var->getName() <<
+                             ":" << var->getSite()->getName() <<
+                             '(' << var->getStation() << "), " <<
+                             ", reqvar=" << reqvar->getName() <<
+                             ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
+                             '(' << reqvar->getStation() << "), " <<
+                             ", match=" << ((*var == *reqvar)));
                         if (*var == *reqvar) {
                             // Add variable once for a match
                             // A variable by a given name for a site
@@ -846,6 +852,29 @@ public:
 };
 #endif
 
+
+std::string
+DataPrep::
+getConfigsXML()
+{
+    const char* re = ::getenv("PROJ_DIR");
+    const char* pe = ::getenv("PROJECT");
+    const char* ae = ::getenv("AIRCRAFT");
+    const char* ie = ::getenv("ISFS");
+    const char* ieo = ::getenv("ISFF");
+    string configsXMLName;
+    if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+    else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+    if (configsXMLName.length() == 0)
+        throw n_u::InvalidParameterException("environment variables",
+                                             "PROJ_DIR,AIRCRAFT,PROJECT "
+                                             "or ISFS,PROJECT","not found");
+    return configsXMLName;
+}
+
+
+
 int DataPrep::run() throw()
 {
     try {
@@ -867,18 +896,8 @@ int DataPrep::run() throw()
 
         if (_sockAddr.get()) {
             if (_xmlFileName.length() == 0) {
-                const char* re = ::getenv("PROJ_DIR");
-                const char* pe = ::getenv("PROJECT");
-                const char* ae = ::getenv("AIRCRAFT");
-                const char* ie = ::getenv("ISFS");
-                const char* ieo = ::getenv("ISFF");
-                string configsXMLName;
-                if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-                else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-                if (configsXMLName.length() == 0)
-                    throw n_u::InvalidParameterException("environment variables",
-                        "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
+
+                string configsXMLName = getConfigsXML();
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
                 ILOG(("parsed:") <<  configsXMLName);
@@ -921,20 +940,9 @@ int DataPrep::run() throw()
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (_xmlFileName.length() == 0) {
-                    const char* re = ::getenv("PROJ_DIR");
-                    const char* pe = ::getenv("PROJECT");
-                    const char* ae = ::getenv("AIRCRAFT");
-                    const char* ie = ::getenv("ISFS");
-                    const char* ieo = ::getenv("ISFF");
-                    string configsXMLName;
-                    if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-                    else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-                    if (configsXMLName.length() == 0)
-                        throw n_u::InvalidParameterException("environment variables",
-                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
-
+                if (_xmlFileName.length() == 0)
+                {
+                    string configsXMLName = getConfigsXML();
                     ProjectConfigs configs;
                     configs.parseXML(configsXMLName);
                     ILOG(("parsed:") <<  configsXMLName);
@@ -1057,15 +1065,30 @@ int DataPrep::run() throw()
 
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
-	map<double, vector<const Variable*> > variablesByRate =
+        typedef map<double, vector<const Variable*> > var_by_rate_t;
+        var_by_rate_t variablesByRate =
             matchVariables(project,activeDsms,activeSensors);
 
-#ifdef DEBUG
-        for (unsigned int i = 0; i < variablesByRate.size(); i++)
-            cerr << "var=" << variablesByRate[i]->getName() <<
-                        "(" << variablesByRate[i]->getStation() << ")" << endl;
-#endif
-
+    {
+        static n_u::LogContext lp(LOG_VERBOSE);
+        if (lp.active())
+        {
+            n_u::LogMessage msg(&lp);
+            for (var_by_rate_t::iterator it = variablesByRate.begin();
+                 it != variablesByRate.end(); ++it)
+            {
+                vector<const Variable*> &variables = it->second;
+                msg << "rate=" << it->first << ":";
+                for (vector<const Variable*>::iterator iv = variables.begin();
+                     iv != variables.end(); ++it)
+                {
+                    msg << " " << (*iv)->getName()
+                        << "(" << (*iv)->getStation() << ")";
+                }
+                msg << "; ";
+            }
+        }
+    }
 
 	set<DSMSensor*>::const_iterator si = activeSensors.begin();
 	for ( ; si != activeSensors.end(); ++si) {
