@@ -165,10 +165,8 @@ int Looper::run() throw(n_u::Exception)
             unsigned int cdiv = _clientDivs[clnt];
             unsigned int cmod = _clientMods[clnt];
             _clientMutex.unlock();
-#ifdef DEBUG
-            DLOG(("cntr=%u, cdiv=%u cmod=%u\n",
+            VLOG(("cntr=%u, cdiv=%u cmod=%u\n",
                     cntr, cdiv, cmod));
-#endif
             if (cdiv > 0 && (cntr % cdiv) == cmod) clnt->looperNotify();
 	}
 	if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
