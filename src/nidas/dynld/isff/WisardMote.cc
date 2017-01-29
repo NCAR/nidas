@@ -78,6 +78,7 @@ WisardMote::WisardMote() :
     _unconfiguredMotes(),
     _noSampleTags(),
     _ignoredSensorTypes(),
+    _nowarnSensorTypes(),
     _tsoilData()
 {
     setDuplicateIdOK(true);
@@ -148,9 +149,8 @@ void WisardMote::validate()
 
     _processorSensor->addImpliedSampleTags(motev);
 
-    // for all possible sensor types, create sample ids for mote 0, the
-    // unconfigured, unexpected mote.
-    if (_processorSensor == this) addMote0SampleTags();
+    if (_processorSensor == this) 
+        checkLessUsedSensors();
 
 #ifdef DEBUG
     cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
@@ -283,30 +283,25 @@ void WisardMote::addImpliedSampleTags(const vector<int>& sensorMotes)
         }
     }
 }
-
-void WisardMote::addMote0SampleTags()
+void WisardMote::checkLessUsedSensors()
 {
-    // add sample tags for all possible sensor types, setting
-    // the mote value to 0, the "match-all" mote
+    // accumulate sets of WST_IGNORED and WST_NOWARN sensor types.
     for (unsigned int itype = 0;; itype++) {
         int stype1 = _samps[itype].firstst;
         if (stype1 == 0) break;
-        if (_samps[itype].type != WST_IGNORED) {
-            int stype2 = _samps[itype].lastst;
-            for (int stype = stype1; stype <= stype2; stype++) {
-                int mote = 0;
-                SampleTag* newtag = createSampleTag(_samps[itype],mote,stype);
-                _processorSensor->addMoteSampleTag(newtag);
+        WISARD_SAMPLE_TYPE type = _samps[itype].type;
+        int stype2 = _samps[itype].lastst;
+        for (int stype = stype1; stype <= stype2; stype++) {
+            switch (type) {
+                case WST_IGNORED:
+                    _ignoredSensorTypes.insert(stype);
+                    break;
+                case WST_NOWARN:
+                    _nowarnSensorTypes.insert(stype);
+                    break;
+                default:
+                    break;
             }
-        }
-    }
-    // create a list of sensor types to be ignored.
-    for (unsigned int itype = 0;; itype++) {
-        int stype1 = _samps[itype].firstst;
-        if (stype1 == 0) break;
-        if (_samps[itype].type == WST_IGNORED) {
-            int stype2 = _samps[itype].lastst;
-            for (int stype = stype1; stype <= stype2; stype++) _ignoredSensorTypes.insert(stype);
         }
     }
 }
@@ -430,19 +425,6 @@ throw ()
         SampleTag* stag = _sampleTagsById[sid];
         SampleT<float>* osamp = 0;
 
-        bool ignore = _ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end();
-
-        if (!stag && !ignore) {
-            if (!(_unconfiguredMotes[header.moteId]++ % 1000))
-                WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#.2x, #times=%u, sid=%d,%#x",
-                    getName().c_str(),
-                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                    header.moteId,sensorType,_unconfiguredMotes[header.moteId],
-                    GET_DSM_ID(sid),GET_SPS_ID(sid)));
-            // no match for this mote, try mote id 0
-            stag = _sampleTagsById[getId() + sensorType];
-        }
-
         /* create an output floating point sample */
         if (stag) {
             const vector<Variable*>& vars = stag->getVariables();
@@ -451,12 +433,19 @@ throw ()
             osamp->setId(stag->getId());
             osamp->setTimeTag(ttag);
         }
-        else if (!ignore) {
-            if (!( _noSampleTags[header.moteId][sensorType]++ % 1000))
-                WLOG(("%s: %s, no sample tag for %d,%#x, moteid=%d, sensorType=%#.2x, #times=%u",
-                        getName().c_str(),
-                        n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                        GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId,sensorType,_noSampleTags[header.moteId][sensorType]));
+        else {
+
+            bool ignore = _ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end();
+            if (ignore) return false;
+
+            bool warn = _nowarnSensorTypes.find(sensorType) == _nowarnSensorTypes.end();
+            if (warn) {
+                if (!( _noSampleTags[header.moteId][sensorType]++ % 1000))
+                    WLOG(("%s: %s, no sample tag for %d,%#x, mote=%d, sensorType=%#.2x, #times=%u",
+                            getName().c_str(),
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                            GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId,sensorType,_noSampleTags[header.moteId][sensorType]));
+            }
             osamp = getSample<float> (nfields);
             osamp->setId(sid);
             osamp->setTimeTag(ttag);
