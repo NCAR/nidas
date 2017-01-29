@@ -57,7 +57,7 @@ public:
      */
     VariableConverter& operator=(const VariableConverter& x);
 
-    virtual ~VariableConverter() {}
+    virtual ~VariableConverter();
 
     virtual VariableConverter* clone() const = 0;
 

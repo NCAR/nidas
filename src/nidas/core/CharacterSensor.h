@@ -133,7 +133,7 @@ public:
     /**
      * Prompting Sensors can have multiple prompts and rates.
      * Add another prompt and rate to this sensor.
-     * @param promptString May contain backslash excape sequences.
+     * @param promptString May contain backslash escape sequences.
      * @param promptRate prompts/sec.
      */
     virtual void addPrompt(const std::string& promptString, double promptRate,
@@ -271,7 +271,8 @@ protected:
 
     /**
      * Set the `<sensor>` prompt string for this sensor.
-     * The prompt string may contain backslash escape sequences.
+     * The prompt string may contain backslash escape sequences and
+     * null characters, so be carefull when copying to a char*.
      */
     void setPromptString(const std::string& val) { _promptString = val; }
 

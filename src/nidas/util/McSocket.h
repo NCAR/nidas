@@ -122,7 +122,7 @@ public:
     void setRequestType(int val) { mcdata._requestType = htonl(val); }
 
     /**
-     * What TCP port is the requester listening on for the connection back?
+     * What port is the requester listening on for the connection back?
      */
     int getRequesterListenPort() const { return ntohs(mcdata._listenPort); }
 

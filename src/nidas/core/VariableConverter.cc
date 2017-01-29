@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -59,6 +59,18 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	addParameter(newp);
     }
 }
+
+
+VariableConverter::
+~VariableConverter()
+{
+    list<const Parameter*>::iterator pi;
+    for (pi = _constParameters.begin(); pi != _constParameters.end(); ++pi)
+    {
+        delete *pi;
+    }
+}
+
 
 VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
 {

@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -33,10 +33,10 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/VariableConverter.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/core/NidasApp.h>
 
 #include <iostream>
 #include <list>
-#include <algorithm>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -47,11 +47,21 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+using nidas::util::LogScheme;
+using nidas::util::Logger;
+using nidas::util::LogConfig;
+
 class PConfig
 {
 public:
-    PConfig():_xmlFile(),_sensorClasses(),_showCalFiles(false) {}
-    int parseRunstring(int argc, char** argv);
+    PConfig():
+        _xmlFile(),
+        _sensorClasses(),
+        _showCalFiles(false),
+        _showHosts(false)
+    {}
+
+    int parseRunstring(NidasApp& app, int argc, char** argv);
     void usage(const char* argv0);
 
     int main();
@@ -60,21 +70,46 @@ public:
     void showSensorClasses(const Project& project);
     void showCalFiles(const Project& project);
 
+    void
+    showHostNames(const Project& project);
+
+    void
+    getHostNames(const Project& project, std::vector<std::string>& dsmnames);
+
 private:
     string _xmlFile;
 
     list<string> _sensorClasses;
 
     bool _showCalFiles;
+    bool _showHosts;
 };
 
 
-int PConfig::parseRunstring(int argc, char** argv)
+int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
 {
+    app.enableArguments(app.LogConfig | app.LogLevel |
+                        app.LogShow | app.LogFields | app.LogParam |
+                        app.Version | app.Help);
+    app.requireLongFlag(app.LogLevel);
+
+    vector<string> args(argv, argv+argc);
+    app.parseArguments(args);
+    if (app.helpRequested())
+    {
+        usage(argv[0]);
+        return 1;
+    }
+
+    NidasAppArgv left(args);
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "cs:")) != -1) {
+    while ((opt_char = getopt(left.argc, left.argv, "dcs:")) != -1)
+    {
 	switch (opt_char) {
+        case 'd':
+            _showHosts = true;
+            break;
 	case 'c':
 	    _showCalFiles = true;
 	    break;
@@ -86,9 +121,13 @@ int PConfig::parseRunstring(int argc, char** argv)
 	    return 1;
 	}
     }
-    if (optind == argc - 1) _xmlFile = argv[optind++];
+    if (optind == left.argc - 1)
+    {
+        _xmlFile = left.argv[optind++];
+    }
 
-    if (optind != argc || _xmlFile.length() == 0) {
+    if (optind != left.argc || _xmlFile.length() == 0)
+    {
 	usage(argv[0]);
 	return 1;
     }
@@ -97,15 +136,20 @@ int PConfig::parseRunstring(int argc, char** argv)
 
 void PConfig::usage(const char* argv0) 
 {
-    cerr << "Usage: " << argv0 << "[-s sensorClass [-s ...] ] xml_file\n\
-    -c: display a listing of all cal files referenced in the xml\n\
-    -s sensorClass: display dsm and sensor id for sensors of the given class\n\
-" << endl;
+    cerr <<
+        "Usage: " << argv0 << " [-s sensorClass [-s ...] ] xml_file\n"
+        "  -s sensorClass\n"
+        "  -c   display a listing of all cal files referenced in the xml\n"
+        "       display dsm and sensor id for sensors of the given class\n"
+        "  -d   list the DSM names (hostnames)\n" <<
+        "Standard options:\n" <<
+        NidasApp::getApplicationInstance()->usage() <<
+        "The default log level is warnings." <<
+        endl;
 }
 
 int PConfig::main()
 {
-
     int res = 0;
     try {
 
@@ -123,14 +167,18 @@ int PConfig::main()
 	parser.setXercesDoXInclude(true);
 	parser.setDOMDatatypeNormalization(false);
 
-	cerr << "parsing: " << _xmlFile << endl;
 	xercesc::DOMDocument* doc = parser.parse(_xmlFile);
 	project.fromDOMElement(doc->getDocumentElement());
         doc->release();
 
-        if (!_sensorClasses.empty()) showSensorClasses(project);
-        else if (_showCalFiles) showCalFiles(project);
-        else showAll(project);
+        if (!_sensorClasses.empty())
+            showSensorClasses(project);
+        else if (_showCalFiles)
+            showCalFiles(project);
+        else if (_showHosts)
+            showHostNames(project);
+        else
+            showAll(project);
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
@@ -262,11 +310,65 @@ void PConfig::showSensorClasses(const Project& project)
                 sensor->getClassName() << endl;
     }
 }
+
+
+
+void
+PConfig::
+getHostNames(const Project& project, std::vector<std::string>& dsmnames)
+{
+    // Traverse the project and write the results to the output stream
+    // as selected in the query parameters.
+    for (SiteIterator si = project.getSiteIterator(); si.hasNext(); )
+    {
+        Site* site = si.next();
+        for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); )
+        {
+            const DSMConfig* dsm = di.next();
+            dsmnames.push_back(site->expandString(dsm->getName()));
+        }
+    }
+}
+
+
+void
+PConfig::
+showHostNames(const Project& project)
+{
+    std::vector<std::string> names;
+    getHostNames(project, names);
+    for (unsigned int i = 0; i < names.size(); ++i)
+    {
+        std::cout << names[i] << "\n";
+    }
+}
+
+
+
 int main(int argc, char** argv)
 {
+    NidasApp app("ck_xml");
     PConfig pconfig;
 
-    if (pconfig.parseRunstring(argc,argv)) return 1;
+    app.setApplicationInstance();
 
+    // Set a default for warnings only.
+    Logger* logger = Logger::getInstance();
+    LogScheme scheme = logger->getScheme("ck_xml_default");
+    scheme.addConfig(LogConfig("level=warning"));
+    logger->setScheme(scheme);
+
+    try {
+        if (pconfig.parseRunstring(app, argc, argv))
+        {
+            return 1;
+        }
+    }
+    catch (const NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        std::cerr << "Use -h option to get usage information." << std::endl;
+        return 1;
+    }
     return pconfig.main();
 }

@@ -95,7 +95,7 @@
 </xsd:simpleType>
 
 <xsd:complexType name="messageDesc">
-    <xsd:attribute name="separator" type="xsd:normalizedString"/>
+    <xsd:attribute name="separator" type="xsd:string"/>
     <xsd:attribute name="position" use="optional">
 	<xsd:simpleType>
 	    <xsd:restriction base="xsd:token">
@@ -108,9 +108,9 @@
 </xsd:complexType>
 
 <xsd:complexType name="promptType">
-    <xsd:attribute name="string" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="string" type="xsd:string" use="required"/>
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
-    <xsd:attribute name="offset" type="xsd:nonNegativeInteger" default="0"/>
+    <xsd:attribute name="offset" type="xsd:float" default="0"/>
 </xsd:complexType>
 
 <xsd:complexType name="calfile">
@@ -162,7 +162,7 @@
 
 <xsd:complexType name="parameter">
     <xsd:attribute name="name" type="xsd:token" use="required"/>
-    <xsd:attribute name="value" type="xsd:normalizedString" use="required"/>
+    <xsd:attribute name="value" type="xsd:string" use="required"/>
     <xsd:attribute name="type" type="parameterType" use="required"/>
 </xsd:complexType>
 
@@ -278,7 +278,7 @@
 	     not null terminating strings.
 	     -->
 	    <xsd:attribute name="nullterm" type="xsd:boolean"/>
-	    <xsd:attribute name="init_string" type="xsd:normalizedString"/>
+	    <xsd:attribute name="init_string" type="xsd:string"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>

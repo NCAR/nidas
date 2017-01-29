@@ -40,7 +40,6 @@
  * members of the AsciiSscanf class during parsing.
  */
 
-class AsciiSscanfAdapter;
 
 #include "Sample.h"
 #include <nidas/util/ParseException.h>
@@ -49,6 +48,7 @@ class AsciiSscanfAdapter;
 
 namespace nidas { namespace core {
 
+class AsciiSscanfAdapter;
 class SampleTag;
 
 /**
@@ -182,7 +182,7 @@ private:
     /** No assignment */
     AsciiSscanf & operator=(const AsciiSscanf& );
 
-    friend AsciiSscanfAdapter;
+    friend class AsciiSscanfAdapter;
 };
 
 }}	// namespace nidas namespace core
