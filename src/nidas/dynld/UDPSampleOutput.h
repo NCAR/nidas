@@ -140,11 +140,24 @@ private:
     {
     public:
         ConnectionMonitor(nidas::core::MultipleUDPSockets* msock);
+
         ~ConnectionMonitor();
+
         int run() throw(nidas::util::Exception);
+
+        /**
+         * A TCP connection has been made.
+         */
         void addConnection(nidas::util::Socket*,unsigned short udpport);
+
         void removeConnection(nidas::util::Socket*,unsigned short udpport);
-        void addDestination(const nidas::core::ConnectionInfo&);
+
+        /**
+         * A UDP request packet has arrived.
+         * Register info for a future connection.
+         */
+        void addDestination(const nidas::core::ConnectionInfo&,
+            unsigned short udpport);
     private:
         void updatePollfds();
         nidas::core::MultipleUDPSockets* _msock;
@@ -202,7 +215,7 @@ private:
 
     unsigned short _xmlPortNumber;
 
-    unsigned short _dataPortNumber;
+    unsigned short _multicastOutPort;
 
     XMLSocketListener* _listener;
 

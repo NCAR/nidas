@@ -53,7 +53,7 @@ UDPSampleOutput::UDPSampleOutput():
     _projectChanged(true), _docLock(),_docRWLock(),
     _listenerLock(),
     _xmlPortNumber(NIDAS_VARIABLE_LIST_PORT_TCP),
-    _dataPortNumber(NIDAS_DATA_PORT_UDP),
+    _multicastOutPort(NIDAS_DATA_PORT_UDP),
     _listener(0),_monitor(0),
     _nbytesOut(0),_buffer(0),_head(0),_tail(0),_buflen(0),_eob(0),
     _lastWrite(0),_maxUsecs(USECS_PER_SEC/4)
@@ -65,7 +65,7 @@ UDPSampleOutput::UDPSampleOutput(UDPSampleOutput&,IOChannel*):
     _projectChanged(true), _docLock(),_docRWLock(),
     _listenerLock(),
     _xmlPortNumber(NIDAS_VARIABLE_LIST_PORT_TCP),
-    _dataPortNumber(NIDAS_DATA_PORT_UDP),
+    _multicastOutPort(NIDAS_DATA_PORT_UDP),
     _listener(0),_monitor(0),
     _nbytesOut(0),_buffer(0),_head(0),_tail(0),_buflen(0),_eob(0),
     _lastWrite(0),_maxUsecs(USECS_PER_SEC/4)
@@ -123,6 +123,8 @@ void UDPSampleOutput::allocateBuffer(size_t len)
 
 SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
 {
+    // A packet was received on a DatagramSocket, asking
+    // for data.
     // ochan is a new nidas::core::DatagramSocket
     assert(_mochan);
     assert(_mochan != ochan);
@@ -137,7 +139,17 @@ SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
         if (!_buffer) allocateBuffer(ochan->getBufferSize());
     }
 
-    _monitor->addDestination(ochan->getConnectionInfo());
+    /* The connection info contains
+     *      remoteSocketAddress: 
+     *          address of sender's interface, port it was sent from
+     *      destination address
+     *          where it was sent to on this server, could be a
+     *          multicast address
+     * If the destination is a multicast address, then the
+     * outgoing data packets will be sent to the _multicastOutPort
+     * and the multicast address group.
+     */
+    _monitor->addDestination(ochan->getConnectionInfo(), _multicastOutPort);
 
     list<string> strings;
     // strings.push_back(NIDAS_MULTICAST_ADDR);
@@ -183,7 +195,7 @@ SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
     try {
         reply->magic = htonl(reply->MAGIC);
         reply->xmlTcpPort = htons(_xmlPortNumber);
-        reply->dataMulticastPort = htons(_dataPortNumber);
+        reply->dataMulticastPort = htons(_multicastOutPort);
         ochan->write(reply,rlen);
     }
     catch(const n_u::IOException& e) {
@@ -379,11 +391,11 @@ void UDPSampleOutput::fromDOMElement(const xercesc::DOMElement* node)
                 if (param->getType() != Parameter::INT_PARAM ||
                     param->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),"UDPSampleOutput",
-                        "xmlPort parameter is not an integer");
-                _dataPortNumber = (int)param->getNumericValue(0);
+                        "dataPort parameter is not an integer");
+                _multicastOutPort = (int)param->getNumericValue(0);
         }
     }
-    _mochan->setDataPort(_dataPortNumber);
+    _mochan->setDataPort(_multicastOutPort);
 }
 
 UDPSampleOutput::ConnectionMonitor::ConnectionMonitor(MultipleUDPSockets* msock):
@@ -420,16 +432,39 @@ UDPSampleOutput::ConnectionMonitor::~ConnectionMonitor()
     delete [] _fds;
 }
 
-void UDPSampleOutput::ConnectionMonitor::addDestination(const ConnectionInfo& info)
+void UDPSampleOutput::ConnectionMonitor::addDestination(
+    const ConnectionInfo& info, unsigned short mcport)
 {
+    /* The connection info is the information associated with
+     * the request packet on the UDP port.
+     *      remoteSocketAddress: 
+     *          address of sender's interface, port it was sent from
+     *      destination address
+     *          where it was sent to. Could be a multicast address
+     *      local interface address that the packet was received on.
+     *          An output multicast socket is created for every
+     *          interface that clients request on.
+     * mcport is the multicast port where multicast clients will listen
+     * for data packets.
+     */
     n_u::Autolock al(_sockLock);
     n_u::Inet4SocketAddress s4addr = info.getRemoteSocketAddress();
+
+    // remote client will switch its port to the multicast port
+    if (info.getDestinationAddress().isMultiCastAddress())
+        s4addr.setPort(udpport);
+
     ILOG(("ConnectionMonitor: addDestination: ") << s4addr.toAddressString());
     _destinations[s4addr] = info;
 }
 
-void UDPSampleOutput::ConnectionMonitor::addConnection(n_u::Socket* sock,unsigned short udpport)
+void UDPSampleOutput::ConnectionMonitor::addConnection(n_u::Socket* sock,
+        unsigned short udpport)
 {
+    // remote client has established a TCP connection in order to
+    // fetch the XML. It has sent a packet containing the udpport
+    // that it expects data to be sent to, which can be either
+    // unicast or multicast.
     const n_u::SocketAddress& saddr = sock->getRemoteSocketAddress();
     if (saddr.getFamily() == AF_INET) {
         n_u::Inet4SocketAddress s4addr =
@@ -441,6 +476,8 @@ void UDPSampleOutput::ConnectionMonitor::addConnection(n_u::Socket* sock,unsigne
         map<n_u::Inet4SocketAddress,ConnectionInfo>::const_iterator mi =
             _destinations.find(s4addr);
         if (mi != _destinations.end()) {
+            // send the connection info to the
+            // nidas::core::MultipleUDPSockets
             _msock->addClient(mi->second);
             _pendingSockets.push_back(pair<n_u::Socket*,unsigned short>(sock,udpport));
             _changed = true;
@@ -527,7 +564,7 @@ int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
                     res--;
                     pair<n_u::Socket*,unsigned short> p = _sockets[i];
                     n_u::Socket* sock = p.first;
-                    DLOG(("Monitor received POLLHUP/POLLERR on socket ") << i << ' ' <<
+                    ILOG(("Monitor received POLLHUP/POLLERR on socket ") << i << ' ' <<
                         sock->getRemoteSocketAddress().toAddressString());
                     removeConnection(sock,p.second);
                 }
@@ -686,7 +723,8 @@ void UDPSampleOutput::XMLSocketListener::interrupt()
 
 UDPSampleOutput::VariableListWorker::VariableListWorker(UDPSampleOutput* output,
     n_u::Socket* sock,bool keepOpen):
-        Thread("VariableListWorker"), _output(output),_sock(sock),_keepOpen(keepOpen)
+        Thread("VariableListWorker"),
+        _output(output),_sock(sock), _keepOpen(keepOpen)
 {
 }
 UDPSampleOutput::VariableListWorker::~VariableListWorker()
