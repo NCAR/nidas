@@ -419,14 +419,15 @@ int McSocketListener::run() throw(Exception)
 
         _readsock->receive(dgram,pktinfo,0);
 
-	Logger::getInstance()->log(LOG_DEBUG,
-	"received dgram, magic=0x%x, requestType=%d, reply to port=%d, socketType=%d, len=%d\n",
-		dgram.getMagic(),dgram.getRequestType(),
-		dgram.getRequesterListenPort(),dgram.getSocketType(),
-		dgram.getLength());
+	ILOG((
+	"McSocket request from %s, magic=0x%x, reqtype=%d, port=%d, socktype=%d, len=%d\n",
+            dgram.getSocketAddress().toAddressString().c_str(),
+            dgram.getMagic(),dgram.getRequestType(),
+            dgram.getRequesterListenPort(),dgram.getSocketType(),
+            dgram.getLength()));
 
-	if (dgram.getMagic() != dgram.magicVal) continue;
 	if (dgram.getLength() != sizeof(struct McSocketData)) continue;
+	if (dgram.getMagic() != dgram.magicVal) continue;
 
 	Inet4SocketAddress remoteAddr;
         if (dgram.getSocketAddress().getFamily() == AF_INET) {
