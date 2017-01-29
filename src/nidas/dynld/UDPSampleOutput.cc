@@ -452,7 +452,7 @@ void UDPSampleOutput::ConnectionMonitor::addDestination(
 
     // remote client will switch its port to the multicast port
     if (info.getDestinationAddress().isMultiCastAddress())
-        s4addr.setPort(udpport);
+        s4addr.setPort(mcport);
 
     ILOG(("ConnectionMonitor: addDestination: ") << s4addr.toAddressString());
     _destinations[s4addr] = info;
