@@ -1051,6 +1051,25 @@ int DataPrep::run() throw()
                     }
                     var->setSite(site);
                 }
+                else {
+                    // if last field of a requested variable matches a site, set it.
+                    // This is a hack, since the last field may not necessarily
+                    // be a site name, but...
+                    const string& vname = var->getName();
+                    size_t dot = vname.rfind('.');
+                    if (dot != string::npos) {
+                        const string sitestr = vname.substr(dot+1);
+                        if (!sitestr.empty()) {
+                            Site* site;
+                            site = Project::getInstance()->findSite(sitestr);
+                            if (site) {
+                                var->setName(vname.substr(0, dot));
+                                var->setSite(site);
+                            }
+                        }
+
+                    }
+                }
             }
         }
 
