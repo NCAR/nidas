@@ -93,7 +93,9 @@ void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 {
 
-    CSAT3_Sonic::checkSampleTags();
+    // Don't call CSAT3_Sonic::checkSampleTags, as it makes different
+    // assumptions about the expected number variables.
+    Wind3D::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 
