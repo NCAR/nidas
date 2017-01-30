@@ -463,9 +463,11 @@ void Csat3Sim::run() throw(n_u::Exception)
 
         int res = ::select(nfds,&rtfds,0,0,&tval);
         if (res < 0) throw n_u::IOException(_port->getName(),"select",errno);
-        if (res == 0 && running && datamode) {
-            if (_cntr == _nmessages) break;
-            sendMessage();
+        if (res == 0) {
+            if (running && datamode) {
+                if (_cntr == _nmessages) break;
+                sendMessage();
+            }
         }
         else if (FD_ISSET(_port->getFd(),&rtfds)) {
             res--;
@@ -482,6 +484,8 @@ void Csat3Sim::run() throw(n_u::Exception)
                 case 'D':
                     datamode = true;
                     nquest = 0;
+                    break;
+                case 'P':
                     break;
                 case 'T':
                     datamode = false;
