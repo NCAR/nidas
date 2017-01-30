@@ -365,6 +365,7 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
 throw ()
 {
+
     if (_processorSensor != this) return false;
 
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
@@ -430,25 +431,26 @@ throw ()
             const vector<Variable*>& vars = stag->getVariables();
             unsigned int slen = vars.size();
             osamp = getSample<float> (std::max(slen,nfields));
-            osamp->setId(stag->getId());
+            osamp->setId(sid);
             osamp->setTimeTag(ttag);
         }
         else {
-
+            // if a sample is ignored, we don't create a sample, but still
+            // need to keep parsing this raw sample.
             bool ignore = _ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end();
-            if (ignore) return false;
-
-            bool warn = _nowarnSensorTypes.find(sensorType) == _nowarnSensorTypes.end();
-            if (warn) {
-                if (!( _noSampleTags[header.moteId][sensorType]++ % 1000))
-                    WLOG(("%s: %s, no sample tag for %d,%#x, mote=%d, sensorType=%#.2x, #times=%u",
-                            getName().c_str(),
-                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                            GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId,sensorType,_noSampleTags[header.moteId][sensorType]));
+            if (!ignore) {
+                bool warn = _nowarnSensorTypes.find(sensorType) == _nowarnSensorTypes.end();
+                if (warn) {
+                    if (!( _noSampleTags[header.moteId][sensorType]++ % 1000))
+                        WLOG(("%s: %s, no sample tag for %d,%#x, mote=%d, sensorType=%#.2x, #times=%u",
+                                getName().c_str(),
+                                n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                                GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId,sensorType,_noSampleTags[header.moteId][sensorType]));
+                }
+                osamp = getSample<float> (nfields);
+                osamp->setId(sid);
+                osamp->setTimeTag(ttag);
             }
-            osamp = getSample<float> (nfields);
-            osamp->setId(sid);
-            osamp->setTimeTag(ttag);
         }
 
         /* unpack the sample for this sensorType.
