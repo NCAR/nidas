@@ -102,6 +102,7 @@ if arch != '':
     env.NidasUtilProgram('garmin.cc')
 
 # build auto_cal and config
-SConscript("auto_cal/SConscript", exports=['env'])
-SConscript("config/SConscript", exports=['env'])
+if not env.has_key("BUILD_RAF") or env['BUILD_RAF']:
+    SConscript("auto_cal/SConscript", exports=['env'])
+    SConscript("config/SConscript", exports=['env'])
 
