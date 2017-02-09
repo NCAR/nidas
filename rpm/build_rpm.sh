@@ -4,9 +4,13 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=all
+buildraf=true
 
 while [ $# -gt 0 ]; do
     case $1 in
+        -nr)
+            buildraf=false
+            ;;
         *)
             dopkg=$1
             ;;
@@ -38,6 +42,14 @@ set -o pipefail
 
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
+
+    if $buildraf; then
+        args=
+        withraf="--with raf"
+    else
+        withraf=
+        args='BUILD_RAF=no'
+    fi
 
     # In the RPM changelog, copy most recent commit subject lines
     # since this tag (max of 100).
@@ -81,7 +93,7 @@ EOD
     git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk --re-interval -f $awkcom | cat rpm/${pkg}.spec - > $tmpspec
 
     cd src   # to src
-    scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
+    scons BUILDS=host $args build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz \
@@ -90,10 +102,10 @@ EOD
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then
     # build configedit package
-    [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
+    $buildraf && [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
 
     # If moc-qt4 is in PATH, build autocal
-    type -p moc-qt4 > /dev/null && withac="--with autocal"
+    $buildraf && type -p moc-qt4 > /dev/null && withac="--with autocal"
 
     # edit_cal has an rpath of /usr/{lib,lib64}
     # Setting QA_RPATHS here prevents rpmbuild from dying until
@@ -115,7 +127,7 @@ EOD
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild -ba $withce $withac \
+    rpmbuild -ba $withraf $withce $withac \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
