@@ -16,6 +16,7 @@
 
 #include <string>
 #include <list>
+#include <set>
 
 namespace nidas { namespace core {
 
@@ -43,32 +44,60 @@ class NidasAppArg;
  **/
 typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
 
+/**
+ * Convenience typedef for handling the command-line argv as a vector of
+ * strings.
+ **/
+typedef std::vector<std::string> ArgVector;
+
 
 /**
- * A NidasAppArg identifies a particular kind of command-line argument
- * which can be handled by NidasApp.  The base class defines basic state
- * and behavior about the argument, then each type of argument has its own
- * instance member in the NidasApp.  Arguments can be subclassed from this
- * class to provide extra customization.  Only NidasApp can create
- * instances of NidasAppArg.
+ * A NidasAppArg is command-line argument which can be handled by NidasApp.
+ * The base class defines basic state and behavior about the argument, then
+ * arguments can be subclassed from this class to provide extra
+ * customization.  More standard arguments, shared by more than one nidas
+ * app, are defined as members of the NidasApp class.  NIDAS applications
+ * can add their own arguments.
  **/
 class NidasAppArg
 {
 public:
     /**
-     * Indicates whether this argument is accepted by it's NidasApp
-     * instance.
+     * Construct a NidasAppArg from a list of accepted short and long
+     * flags, the syntax for any arguments to the flag, a usage string, and
+     * a default value.  @p flags is a comma-separated list of the
+     * command-line flags recognized this argument.  The usage string
+     * describes the argument, something which can be printed as part of an
+     * application's usage information.
+     *
+     * Example:
+     *
+     * This specifier shows the three forms that are accepted for an
+     * argument.  The -l is obviously the short form, and it will not be
+     * accepted if acceptShortFlag() is not true.  The other two are long
+     * forms, each equivalent to the other.  If an option is deprecated,
+     * that can be noted in the usage.  The default is "info".
+     *
+     * -l,--loglevel,--logconfig <logconfig> [info]
+     * 
+     * If an argument takes only a flag and no additional parameter, then
+     * the syntax must be empty.
+     *
+     * Typically an application's arguments are instantiated as part of the
+     * application's class, so they have the same lifetime as the
+     * application instance and can be referenced to generate usage
+     * information.  See NidasApp::enableArguments().
+     *
+     * When the application's arguments are parsed, then this argument 
+     * is updated with the flag and value
      **/
-    bool enabled;
+    NidasAppArg(const std::string& flags,
+                const std::string& syntax = "",
+                const std::string& usage = "",
+                const std::string& default_ = "");
 
-    /**
-     * Provide an alternative but deprecated flag for the argument.
-     **/
-    void
-    setDeprecatedFlag(const std::string& flag)
-    {
-        deprecatedFlag = flag;
-    }
+    virtual
+    ~NidasAppArg();
 
     /**
      * Set whether short flags are enabled or not.  Pass @p enable as false
@@ -78,8 +107,24 @@ public:
     void
     acceptShortFlag(bool enable)
     {
-        enableShortFlag = enable;
+        _enableShortFlag = enable;
     }
+
+    /**
+     * Add a flag which this argument should accept.  Use this to allow an
+     * application to accept deprecated flags like -B and -E.
+     **/
+    void
+    addFlag(const std::string& flag);
+
+    /**
+     * Completely replace the flags which this argument should accept.
+     * This should be avoided if possible, otherwise the flags will not be
+     * consistent across applications.  However, in some cases this is
+     * necessary to remove a conflicting short flag.
+     **/
+    void
+    setFlags(const std::string& flags);
 
     /**
      * Provide conversion to an arglist so a single NidasAppArg can be
@@ -93,47 +138,94 @@ public:
     }
 
     /**
-     * Return the usage string for this particular argument.
+     * Return the usage string for this particular argument, taking into
+     * account which flags are enabled.  The returned string is formatted like
+     * below, and always ends in a newline:
+     *
+     * <flag>[,<flag>...] [<syntax>] [default: <default>]
+     * Description
      **/
     std::string
-    usage()
-    {
-        return usageString;
-    }
+    usage();
 
-protected:
-    NidasAppArg(const std::string& flag_ = "", 
-                const std::string& longflag_ = "",
-                const std::string& usage = "",
-                const std::string& spec = "") :
-        enabled(false),
-        flag(flag_),
-        longFlag(longflag_),
-        usageString(usage),
-        specifier(spec),
-        deprecatedFlag(),
-        enableShortFlag(true)
-    {}
-
-    virtual
-    ~NidasAppArg()
-    {}
-
+    /**
+     * Return true if this argument has been filled in from a command-line
+     * argument list, such as after a call to NidasApp::parseArguments().
+     * If true, then this argument stores the flag that was recognized, and
+     * also the value of any additional parameters to this argument.
+     **/
     bool
-    accept(const std::string& flag)
-    {
-        return enabled && 
-            !flag.empty() &&
-            ((enableShortFlag && (flag == this->flag)) ||
-             (flag == longFlag) ||
-             (flag == this->deprecatedFlag));
-    }
+    specified();
+
+    /**
+     * If this argument has been parsed from a command line list
+     * (specified() returns true), then return the value passed after the
+     * flag.  Otherwise return the default value.
+     **/
+    const std::string&
+    getValue();
+
+    /**
+     * Return the command-line flag which this argument consumed.  For
+     * example, if an argument which has multiple flags -l, --loglevel, and
+     * --logconfig matches --loglevel, then getFlag() will return
+     * --loglevel.
+     **/
+    const std::string&
+    getFlag();
+
+    /**
+     * An argument is true if it is a stand-alone flag and was specified in
+     * the arguments, or else if the flag value evaluates to true.
+     **/
+    bool
+    asBool();
+
+    /**
+     * Parse the argument value as an integer, where the value could be the
+     * default if no value has been explicitly parsed with parse().  Throw
+     * NidasAppException if the whole value cannot be parsed as an integer.
+     * See also asFloat().
+     **/
+    int
+    asInt();
+
+    /**
+     * Same as asInt(), except parse the argument value as a float.
+     **/
+    float
+    asFloat();
+
+    /**
+     * If argv[argi] matches this argument, then set the flag that was
+     * found and also the value if this argument takes a value, and return
+     * true.  Otherwise return false.  The vector is not modified, but if
+     * argi is nonzero, then it is used as the starting index into argv,
+     * and it is advanced according to the number of elements of argv
+     * consumed by this argument.
+     **/
+    bool
+    parse(ArgVector& argv, int* argi = 0);
+
+    /**
+     * Return true if the given command-line @p flag matches one of this
+     * argument's flags.
+     **/
+    bool
+    accept(const std::string& flag);
 
     void
     setUsageString(const std::string& text)
     {
-        usageString = text;
+        _usage = text;
     }
+
+    /**
+     * Return the string of flags accepted by this NidasAppArg according to
+     * the acceptShortFlag() setting.
+     **/
+    std::string
+    getUsageFlags();
 
 private:
 
@@ -143,12 +235,13 @@ private:
     operator=(const NidasAppArg&);
     NidasAppArg(const NidasAppArg&);
 
-    std::string flag;
-    std::string longFlag;
-    std::string usageString;
-    std::string specifier;
-    std::string deprecatedFlag;
-    bool enableShortFlag;
+    std::string _flags;
+    std::string _syntax;
+    std::string _usage;
+    std::string _default;
+    std::string _arg;
+    std::string _value;
+    bool _enableShortFlag;
 
     friend class NidasApp;
 };
@@ -176,7 +269,7 @@ public:
 private:
 
     NidasAppInputFilesArg() :
-        NidasAppArg("", "", "", "input-url [...]"),
+        NidasAppArg("", "input-url [...]"),
         allowFiles(true),
         allowSockets(true),
         default_input(),
@@ -268,10 +361,10 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 <td>output[\@interval]</td><td>Output pattern, interval</td><td></td>
 </tr>
 <tr>
-<td>-s starttime</td><td>Skip samps before <em>start</em></td><td></td>
+<td>-s starttime</td><td>Skip samples before <em>start</em></td><td></td>
 </tr>
 <tr>
-<td>-e endtime</td><td>Skip samps after <em>end</em></td><td></td>
+<td>-e endtime</td><td>Skip samples after <em>end</em></td><td></td>
 </tr>
 </table>
  *
@@ -301,7 +394,8 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  *
  * ### --logconfig <config>, -l <config> ###
  *
- * The older option --loglevel is an alias for the newer --logconfig
+ * The older option --loglevel, and the short version -l for the
+ * applications which accept it, are an alias for the newer --logconfig
  * option.
  *
  * The log config string is a comma-separated list of LogConfig fields,
@@ -312,7 +406,7 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  *
  * If a field does not have an equal sign and is not 'enable' or 'disable',
  * then it is interpreted as just a log level, compatible with what the
- * --loglevel option supported.
+ * --loglevel,-l option supported.
  *
  * _loglevel_ can be a number or the name of a log level:
  *
@@ -353,12 +447,21 @@ class NidasApp
 {
 public:
 
-    typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
+    /**
+     * The four possible output formats for sensor-plus-sample IDs:
+     *
+     * auto - Use decimal for samples less than 0x8000, and hex otherwise.
+     * decimal - Use decimal for all samples.
+     * hex - Use hex for all samples.
+     * octal - Use octal for all samples.  Not really used.
+     *
+     * The default is auto.  Set it with --id-format {auto|decimal|hex}.
+     **/
+    typedef enum idfmt { AUTO_ID, DECIMAL_ID, HEX_ID, OCTAL_ID } id_format_t;
 
     NidasAppArg XmlHeaderFile;
     NidasAppArg LogShow;
     NidasAppArg LogConfig;
-    NidasAppArg LogLevel;
     NidasAppArg LogFields;
     NidasAppArg LogParam;
     NidasAppArg Help;
@@ -366,6 +469,8 @@ public:
     NidasAppArg StartTime;
     NidasAppArg EndTime;
     NidasAppArg SampleRanges;
+    NidasAppArg FormatHexId;
+    NidasAppArg FormatSampleId;
     NidasAppArg Version;
     NidasAppInputFilesArg InputFiles;
     NidasAppArg OutputFiles;
@@ -410,32 +515,46 @@ public:
     getApplicationInstance();
 
     /**
-     * Set the enabled flag on the given list of NidasApp instances.  There
-     * is no check that the passed arguments are actually members of this
-     * NidasApp instance, but that should usually be the case.  The arglist
-     * can be created implicitly from the NidasAppArg instances, as in this
-     * example:
+     * Add the list of NidasAppArg pointers to the set of arguments
+     * accepted by this NidasApp instance.  Since the arguments are
+     * referenced by pointer, their lifetime should match the lifetime of
+     * the NidasApp instance.  For example, define additional non-standard
+     * arguments as members of the same class in which NidasApp is a
+     * member.
+     *
+     * @code
+     * class MyApp {
+     * NidasAppArg FixEverything;
+     * NidasApp app;
+     * }
+     * ...
+     * app.enableArguments(FixEverything);
+     * @endcode
+     *
+     * The arglist can be created implicitly from the NidasAppArg
+     * instances, as in this example:
      *
      * @code
      * NidasApp app('na');
-     * app.enableArguments(app.LogLevel | app.ProcessData);
+     * app.enableArguments(app.LogConfig | app.ProcessData);
      * @endcode
      **/
     void
-    enableArguments(const nidas_app_arglist_t& arglist)
+    enableArguments(const nidas_app_arglist_t& arglist);
+
+    /**
+     * Return the list of arguments which are supported by this NidasApp,
+     * in other words, the arguments enabled by enableArguments().
+     **/
+    nidas_app_arglist_t
+    getArguments()
     {
-        nidas_app_arglist_t::const_iterator it;
-        for (it = arglist.begin(); it != arglist.end(); ++it)
-        {
-            (*it)->enabled = true;
-        }
+        return nidas_app_arglist_t(_app_arguments.begin(), _app_arguments.end());
     }
 
     /**
      * Call acceptShortFlag(false) on the given list of NidasApp instances,
-     * meaning only the long flag will be recognized.  There is no check
-     * that the passed arguments are actually members of this NidasApp
-     * instance, but that should usually be the case.
+     * meaning only the long flag will be recognized.
      **/
     void
     requireLongFlag(const nidas_app_arglist_t& arglist, bool require=true)
@@ -448,17 +567,63 @@ public:
     }
 
     /**
-     * Set the options from the given argument list.  Raise
-     * NidasAppException if there was an error parsing any of the options.
-     * Recognized arguments are removed from the argument list, so upon
-     * return it only contains the arguments not handled by NidasApp.
-     * Position arguments like input sockets and file names are not handled
-     * here, since they cannot be differentiated from app-specific
-     * arguments yet.  Instead those arguments can be passed explicitly to
-     * the parseInputs() method.
+     * Set the list of command-line argument strings to be parsed and
+     * handled by successive calls to nextArgument().  The usual calling
+     * sequence is this:
+     *
+     * @code
+     * app.enableArguments(...);
+     * app.startParsing(ArgVector(argv, argv+argc));
+     * NidasAppArg* arg;
+     * while ((arg = app.parseNext())) {
+     *    if (arg == &FixEverything)
+     *        _fixeverything = True;
+     *    else if (arg == &FixCount)
+     *        _fixcount = FixCount.asInt();
+     * }
+     * @endcode
      **/
     void
-    parseArguments(std::vector<std::string>& args) throw (NidasAppException);
+    startParsing(ArgVector& args);
+
+    /**
+     * Parse the next recognized argument from the list set in
+     * startParsing().  If it is one of the standard arguments which are
+     * members of NidasApp, then handle the argument also.  Either way,
+     * fill in the NidasAppArg with the flag and value (if any) extracted
+     * from the command-line, and return the pointer to that NidasAppArg.
+     * If no more arguments are left or none are recognized, then return
+     * null.  Raise NidasAppException if there is an error parsing any of
+     * the standard arguments.
+     * 
+     * Recognized arguments are removed from the argument list.  Call
+     * parseRemaining() to return the arguments which have not been parsed,
+     * such as to access positional arguments or detect unrecognized
+     * arguments.  Positional arguments like input sockets and file names
+     * are not handled here, since they cannot be differentiated from
+     * app-specific arguments yet.  Instead those arguments can be passed
+     * explicitly to the parseInputs() method.
+     **/
+    NidasAppArg*
+    parseNext() throw (NidasAppException);
+
+    ArgVector
+    parseRemaining();
+
+    /**
+     * Parse all arguments accepted by this NidasApp in the command-line
+     * argument list @p args, but only handle the standard arguments.  Any
+     * application-specific arguments are only parsed and filled in.  This
+     * is equivalent to calling startParsing() and then looping over
+     * parseNext(), except the caller can not handle individual arguments
+     * when they are parsed.  For some arguments this works fine, since the
+     * last occurrence of an argument on the command-line will be the final
+     * value returned by getValue().  parseRemaining() also still works to
+     * return the unparsed and positional arguments.  Upon returning, @p
+     * args contains exactly what would be returned by parseRemaining().
+     **/
+    void
+    parseArguments(ArgVector& args) throw (NidasAppException);
 
     /**
      * Parse a LogConfig from the given argument using the LogConfig string
@@ -583,13 +748,28 @@ public:
     usage();
 
     /**
-     * Setup signal handling for HUP, INT, and TERM signals.  If non-zero,
-     * @p callback is a function which will be called when the application
-     * receives an interrupt signal.  The callback is called
-     * asynchronously, directly from the signal handler function.
+     * Setup signal handling for HUP, INT, and TERM, equivalent to
+     * calling addSignal() for each.
      **/
     static void
-    setupSignals(void (*callback)() = 0);
+    setupSignals(void (*callback)(int signum) = 0);
+
+    /**
+     * Add the given signal @p signum to the list of signals handled by the
+     * NidasApp signal handler, and optionally set an additional callback.
+     * If non-zero, @p callback is a function which will be called when the
+     * application receives an interrupt signal.  The callback is called
+     * asynchronously, directly from the NidasApp signal handler function.
+     * There can only be one callback, so the one in effect is whatever was
+     * set last in setupSignals() and addSignal().  The NidasApp handler
+     * sets the flag returned by interrupted(), and then calls the @p
+     * callback function with the signal number as a parameter. @p signum
+     * is a symbol like SIGALRM, SIGHUP, SIGINT, and SIGTERM from signal.h.
+     * @p signum can be zero, in which case only the callback function
+     * changes.
+     **/
+    static void
+    addSignal(int signum, void (*callback)(int signum) = 0);
 
     /**
      * Return true when a help option was parsed, meaning the usage info
@@ -614,9 +794,23 @@ public:
         return _idFormat;
     }
 
+    /**
+     * Write the sensor-plus-sample ID part of @p sid to stream @p out
+     * using the format specified in @p idfmt.  This does not print the DSM
+     * ID, only the SPS ID.
+     **/
     static
     std::ostream&
-    formatSampleId(std::ostream&, id_format_t, dsm_sample_id_t);
+    formatSampleId(std::ostream& out, id_format_t idfmt, dsm_sample_id_t sid);
+
+    /**
+     * Write the sensor-plus-sample ID part of @p sid to @p out using the
+     * ID format of this NidasApp instance, the format returned by
+     * getIdFormat(), same as calling formatSampleId(out, getIdFormat(),
+     * sid).
+     **/
+    std::ostream&
+    formatSampleId(std::ostream& out, dsm_sample_id_t sid);
 
     /**
      * Use this method to access the SampleMatcher instance for this
@@ -673,6 +867,7 @@ private:
 
     std::string _xmlFileName;
 
+    bool _idFormat_set;
     enum idfmt _idFormat;
 
     SampleMatcher _sampleMatcher;
@@ -691,6 +886,11 @@ private:
     bool _help;
 
     bool _deleteProject;
+
+    std::set<NidasAppArg*> _app_arguments;
+
+    ArgVector _argv;
+    int _argi;
 };
 
 

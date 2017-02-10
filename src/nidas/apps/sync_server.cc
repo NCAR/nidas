@@ -142,7 +142,7 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
 SyncServer* signal_target = 0;
 
 void
-interrupt_sync_server()
+interrupt_sync_server(int)
 {
     if (signal_target)
     {
@@ -161,10 +161,8 @@ void setupSignals(SyncServer& sync)
 int main(int argc, char** argv)
 {
     NidasApp app("sync_server");
-    app.enableArguments(app.LogLevel | app.XmlHeaderFile |
-                        app.loggingArgs() | app.Help);
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Help);
     // Because -l is overloaded for sorter seconds.
-    app.requireLongFlag(app.LogLevel);
     app.requireLongFlag(app.LogConfig);
     app.setApplicationInstance();
 

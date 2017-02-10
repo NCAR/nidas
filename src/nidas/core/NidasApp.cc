@@ -1,3 +1,4 @@
+// -*- mode: C++; c-basic-offset: 2; -*-
 
 #include "NidasApp.h"
 #include "Project.h"
@@ -36,56 +37,294 @@ namespace
     }
     return num;
   }
+
+  float
+  float_from_string(const std::string& text)
+  {
+    float num;
+    errno = 0;
+    char* endptr;
+    num = strtof(text.c_str(), &endptr);
+    if (text.empty() || errno != 0 || *endptr != '\0')
+    {
+      throw std::invalid_argument(text);
+    }
+    return num;
+  }
+
+  std::string
+  xarg(std::vector<std::string>& args, int i)
+  {
+    if (i < (int)args.size())
+    {
+      return args[i];
+    }
+    throw NidasAppException("expected argument for option " + args[i-1]);
+  }
+
 }
+
+
+NidasAppArg::
+NidasAppArg(const std::string& flags,
+	    const std::string& syntax,
+	    const std::string& usage,
+	    const std::string& default_) :
+  _flags(flags),
+  _syntax(syntax),
+  _usage(usage),
+  _default(default_),
+  _arg(),
+  _value(),
+  _enableShortFlag(true)
+{}
+
+
+NidasAppArg::
+~NidasAppArg()
+{}
+
+
+bool
+NidasAppArg::
+specified()
+{
+  return !_arg.empty();
+}
+
+
+const std::string&
+NidasAppArg::
+getValue()
+{
+  if (specified())
+  {
+    return _value;
+  }
+  return _default;
+}
+
+
+const std::string&
+NidasAppArg::
+getFlag()
+{
+  return _arg;
+}
+
+
+void
+NidasAppArg::
+addFlag(const std::string& flag)
+{
+  if (_flags.length())
+  {
+    _flags += ",";
+  }
+  _flags += flag;
+}
+
+
+void
+NidasAppArg::
+setFlags(const std::string& flags)
+{
+  _flags = flags;
+}
+
+
+bool
+NidasAppArg::
+asBool()
+{
+  return specified();
+}
+
+
+int
+NidasAppArg::
+asInt()
+{
+  try {
+    return int_from_string(getValue());
+  }
+  catch (const std::invalid_argument& ex)
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " is not an integer: " << getValue();
+    throw NidasAppException(msg.str());
+  }
+#ifdef notdef
+  std::istringstream ist(getValue());
+  ist >> result;
+  if (ist.fail())
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " is not an integer: " << getValue();
+    throw NidasAppException(msg.str());
+  }
+  return result;
+#endif
+}
+
+
+float
+NidasAppArg::
+asFloat()
+{
+  try {
+    return float_from_string(getValue());
+  }
+  catch (const std::invalid_argument& ex)
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " is not a float: " << getValue();
+    throw NidasAppException(msg.str());
+  }
+#ifdef notdef
+  float result;
+  std::istringstream ist(getValue());
+  ist >> result;
+  if (ist.fail())
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " is not a float: " << getValue();
+    throw NidasAppException(msg.str());
+  }
+  return result;
+#endif
+}
+
+
+bool
+NidasAppArg::
+parse(ArgVector& argv, int* argi)
+{
+  bool result = false;
+  int i = 0;
+  if (argi)
+    i = *argi;
+  std::string flag = argv[i];
+  if (accept(flag))
+  {
+    if (_syntax.length())
+    {
+      _value = xarg(argv, ++i);
+    }
+    _arg = flag;
+    result = true;
+  }
+  if (argi)
+    *argi = i;
+  return result;
+}
+
+
+bool
+NidasAppArg::
+accept(const std::string& flag)
+{
+  size_t start = 0;
+  while (start < _flags.length())
+  {
+    size_t comma = _flags.find(',', start);
+    if (comma == std::string::npos)
+      comma = _flags.length();
+    if (_flags.substr(start, comma) == flag &&
+	(flag.length() > 2 || _enableShortFlag))
+    {
+      return true;
+    }
+    start = comma+1;
+  }
+  return false;
+}
+  
+
+std::string
+NidasAppArg::
+getUsageFlags()
+{
+  std::string flags;
+  size_t start = 0;
+  while (start < _flags.length())
+  {
+    size_t comma = _flags.find(',', start);
+    if (comma == std::string::npos)
+      comma = _flags.length();
+    if (comma - start > 2 || _enableShortFlag)
+    {
+      if (flags.length())
+	flags += ",";
+      flags += _flags.substr(start, comma);
+    }
+    start = comma+1;
+  }
+  return flags;
+}
+  
+
+std::string
+NidasAppArg::
+usage()
+{
+  std::ostringstream oss;
+  oss << getUsageFlags();
+  if (!_syntax.empty())
+  {
+    oss << " " << _syntax;
+    if (!_default.empty())
+      oss << " [default: " << _default << "]";
+  }
+  oss << "\n";
+  oss << _usage << "\n";
+  if (_usage.length() && _usage[_usage.length()-1] != '\n')
+  {
+    oss << "\n";
+  }
+  return oss.str();
+}
+
 
 
 NidasApp::
 NidasApp(const std::string& name) :
   XmlHeaderFile
-  ("-x", "--xml",
+  ("-x,--xml", "<xmlfile>",
    "Path to the NIDAS XML header file.  The default path is\n"
-   "taken from the header and expanded "
-   "using the current environment settings.",
-   "<xmlfile>"),
+   "taken from the header and expanded with the current environment."),
   LogShow
-  ("", "--logshow",
+  ("--logshow", "",
    "As log points are created, show information for each one that can\n"
    "be used to enable log messages from that log point."),
   LogConfig
-  ("-l", "--logconfig",
+  ("-l,--logconfig,--loglevel", "<logconfig>",
    "Add a log config to the log scheme.  The log config settings are\n"
    "specified as a comma-separated list of fields, using syntax \n"
    "<field>=<value>, where fields are tag, file, function, line, enable,\n"
    "and disable.\n"
    "The log level can be specified as either a number or string: \n"
    "7=debug,6=info,5=notice,4=warning,3=error,2=critical.",
-   "<loglevel>"),
-  LogLevel
-  ("-l", "--loglevel", "Alias for --logconfig.", "<loglevel>"),
+   "info"),
   LogFields
-  ("", "--logfields",
+  ("--logfields", "{thread|function|file|level|time|message},...",
    "Set the log fields to be shown in log messages, as a comma-separated list\n"
-   "of log field names: thread,function,file,level,time,message.\n"
-   "The default log message fields are these: time,level,message",
-   "<logfields>"),
+   "of log field names: thread, function, file, level, time, and message.\n"),
   LogParam
-  ("", "--logparam",
-   "Set a log scheme parameter from syntax <name>=<value>.",
-   "<name>=<value>"),
+  ("--logparam", "<name>=<value>",
+   "Set a log scheme parameter with syntax <name>=<value>."),
   Help
-  ("-h", "--help", "Print usage information."),
+  ("-h,--help", "", "Print usage information."),
   ProcessData
-  ("-p", "--process", "Enable processed samples rather than raw samples."),
+  ("-p,--process", "", "Enable processed samples."),
   StartTime
-  ("-s", "--start",
-   "Skip samples until start-time, in the form '2006 Apr 1 00:00'",
-   "<start-time>"),
+  ("-s,--start", "<start-time>",
+   "Skip samples until start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   EndTime
-  ("-e", "--end",
-   "Skip samples after end-time, in the form '2006 Apr 1 00:00'",
-   "<end-time>"),
+  ("-e,--end", "<end-time>",
+   "Skip samples after end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
-  ("-i", "--samples", 
+  ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
    "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
    "S is a sample id or range of sample ids separated by '-', "
    "or * (or -1) for all.\n"
@@ -101,22 +340,30 @@ NidasApp(const std::string& name) :
    "Examples: \n"
    " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
    " -i '^5,*' --samples 1-10,1-2\n"
-   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n",
-   "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}"),
+   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n"),
+  FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
+  FormatSampleId
+  ("--id-format", "auto|decimal|hex|octal",
+   "Set the output format for sensor-plus-sample IDs. The default is auto.\n"
+   " auto    Use decimal for samples less than 0x8000, and hex otherwise.\n"
+   " decimal Use decimal for all samples.\n"
+   " hex     Use hex for all samples.\n"
+   " octal   Use octal for all samples.  Not really used.",
+   "auto"),
   Version
-  ("-v", "--version", "Print version information and exit."),
+  ("-v,--version", "", "Print version information and exit."),
   InputFiles(),
   OutputFiles
-  ("-o", "--output",
+  ("-o,--output", "<strptime_path>[@<number>[units]]",
    "Specify a file pattern for output files using strptime() substitutions.\n"
    "The path can optionally be followed by a file length and units:\n"
    "hours (h), minutes (m), and seconds (s). The default is seconds.\n"
-   "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n",
-   "<strptime_path>[@<number>[units]]"),
+   "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n"),
   _appname(name),
   _processData(false),
   _xmlFileName(),
-  _idFormat(DECIMAL),
+  _idFormat_set(false),
+  _idFormat(AUTO_ID),
   _sampleMatcher(),
   _startTime(LONG_LONG_MIN),
   _endTime(LONG_LONG_MAX),
@@ -125,7 +372,10 @@ NidasApp(const std::string& name) :
   _outputFileName(),
   _outputFileLength(0),
   _help(false),
-  _deleteProject(false)
+  _deleteProject(false),
+  _app_arguments(),
+  _argv(),
+  _argi(0)
 {
   enableArguments(LogShow | LogFields);
 
@@ -190,6 +440,18 @@ getApplicationInstance()
 
 void
 NidasApp::
+enableArguments(const nidas_app_arglist_t& arglist)
+{
+  nidas_app_arglist_t::const_iterator it;
+  for (it = arglist.begin(); it != arglist.end(); ++it)
+  {
+    _app_arguments.insert(*it);
+  }
+}
+
+
+void
+NidasApp::
 parseLogConfig(const std::string& optarg) throw (NidasAppException)
 {
   // Create a LogConfig from this argument and add it to the current scheme.
@@ -203,17 +465,6 @@ parseLogConfig(const std::string& optarg) throw (NidasAppException)
   }
   scheme.addConfig(lc);
   logger->setScheme(scheme);
-}
-
-
-std::string
-xarg(std::vector<std::string>& args, int i)
-{
-  if (i < (int)args.size())
-  {
-    return args[i];
-  }
-  throw NidasAppException("expected argument for option " + args[i-1]);
 }
 
 
@@ -233,102 +484,155 @@ parseTime(const std::string& optarg)
 }
 
 
+ArgVector
+NidasApp::
+parseRemaining()
+{
+  return _argv;
+}
+
+
 void
 NidasApp::
-parseArguments(std::vector<std::string>& args) throw (NidasAppException)
+startParsing(ArgVector& args)
 {
-  int i = 0;
-  while (i < (int)args.size())
-  {
-    std::string arg = args[i];
-    int istart = i;
-    bool handled = true;
+  _argv = args;
+  _argi = 0;
+}
 
-    if (XmlHeaderFile.accept(arg))
+
+NidasAppArg*
+NidasApp::
+parseNext() throw (NidasAppException)
+{
+  NidasAppArg* arg = 0;
+  while (!arg && _argi < (int)_argv.size())
+  {
+    std::set<NidasAppArg*>::iterator it;
+    int i = _argi;
+    for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
     {
-      _xmlFileName = xarg(args, ++i);
-    }
-    else if (SampleRanges.accept(arg))
-    {
-      std::string optarg = xarg(args, ++i);
-      if (! _sampleMatcher.addCriteria(optarg))
+      if ((*it)->parse(_argv, &i))
       {
-	throw NidasAppException("sample criteria could not be parsed: " +
-				optarg);
+	arg = *it;
+	// Remove arguments [istart, i], and leave _argi pointing at the
+	// next argument which moves into that spot.
+	_argv.erase(_argv.begin() + _argi, _argv.begin() + i + 1);
+	break;
       }
-      if (optarg.find("0x", 0) != string::npos)
-      {
-	_idFormat = HEX_ID;
-      }
     }
-    else if (LogLevel.accept(arg))
+    if (!arg)
     {
-      parseLogConfig(xarg(args, ++i));
-    }
-    else if (LogConfig.accept(arg))
-    {
-      parseLogConfig(xarg(args, ++i));
-    }
-    else if (LogFields.accept(arg))
-    {
-      Logger* logger = Logger::getInstance();
-      LogScheme scheme = logger->getScheme(getName());
-      scheme.setShowFields(xarg(args, ++i));
-      logger->setScheme(scheme);
-    }
-    else if (LogParam.accept(arg))
-    {
-      Logger* logger = Logger::getInstance();
-      LogScheme scheme = logger->getScheme(getName());
-      scheme.parseParameter(xarg(args, ++i));
-      logger->setScheme(scheme);
-    }
-    else if (LogShow.accept(arg))
-    {
-      Logger* logger = Logger::getInstance();
-      LogScheme scheme = logger->getScheme(getName());
-      scheme.showLogPoints(true);
-      logger->setScheme(scheme);
-    }
-    else if (ProcessData.accept(arg))
-    {
-      _processData = true;
-    }
-    else if (EndTime.accept(arg))
-    {
-      _endTime = parseTime(xarg(args, ++i));
-      _sampleMatcher.setEndTime(_endTime);
-    }
-    else if (StartTime.accept(arg))
-    {
-      _startTime = parseTime(xarg(args, ++i));
-      _sampleMatcher.setStartTime(_startTime);
-    }
-    else if (OutputFiles.accept(arg))
-    {
-      parseOutput(xarg(args, ++i));
-    }
-    else if (Version.accept(arg))
-    {
-      std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
-      exit(0);
-    }
-    else if (Help.accept(arg))
-    {
-      _help = true;
-    }
-    else
-    {
-      handled = false;
-      ++i;
-    }
-    if (handled)
-    {
-      // Remove arguments [istart, i]
-      args.erase(args.begin() + istart, args.begin() + i + 1);
-      i = istart;
+      ++_argi;
     }
   }
+  if (arg == &XmlHeaderFile)
+  {
+    _xmlFileName = XmlHeaderFile.getValue();
+  }
+  else if (arg == &SampleRanges)
+  {
+    std::string optarg = SampleRanges.getValue();
+    if (! _sampleMatcher.addCriteria(optarg))
+    {
+      throw NidasAppException("sample criteria could not be parsed: " +
+			      optarg);
+    }
+    if (optarg.find("0x", 0) != string::npos && !_idFormat_set)
+    {
+      setIdFormat(HEX_ID);
+    }
+  }
+  else if (arg == &FormatHexId)
+  {
+    setIdFormat(HEX_ID);
+  }
+  else if (arg == &FormatSampleId)
+  {
+    std::string optarg = FormatSampleId.getValue();
+    if (optarg == "auto")
+      setIdFormat(AUTO_ID);
+    else if (optarg == "decimal")
+      setIdFormat(DECIMAL_ID);
+    else if (optarg == "hex")
+      setIdFormat(HEX_ID);
+    else if (optarg == "octal")
+      setIdFormat(OCTAL_ID);
+    else
+    {
+      std::ostringstream msg;
+      msg << "Wrong format '" << optarg << "'. "
+	  << "Sample ID format must be auto, decimal, hex, or octal.";
+      throw NidasAppException(msg.str());
+    }
+  }
+  else if (arg == &LogConfig)
+  {
+    parseLogConfig(LogConfig.getValue());
+  }
+  else if (arg == &LogFields)
+  {
+    Logger* logger = Logger::getInstance();
+    LogScheme scheme = logger->getScheme(getName());
+    scheme.setShowFields(LogFields.getValue());
+    logger->setScheme(scheme);
+  }
+  else if (arg == &LogParam)
+  {
+    Logger* logger = Logger::getInstance();
+    LogScheme scheme = logger->getScheme(getName());
+    scheme.parseParameter(LogParam.getValue());
+    logger->setScheme(scheme);
+  }
+  else if (arg == &LogShow)
+  {
+    Logger* logger = Logger::getInstance();
+    LogScheme scheme = logger->getScheme(getName());
+    scheme.showLogPoints(true);
+    logger->setScheme(scheme);
+  }
+  else if (arg == &ProcessData)
+  {
+    _processData = true;
+  }
+  else if (arg == &EndTime)
+  {
+    _endTime = parseTime(EndTime.getValue());
+    _sampleMatcher.setEndTime(_endTime);
+  }
+  else if (arg == &StartTime)
+  {
+    _startTime = parseTime(StartTime.getValue());
+    _sampleMatcher.setStartTime(_startTime);
+  }
+  else if (arg == &OutputFiles)
+  {
+    parseOutput(OutputFiles.getValue());
+  }
+  else if (arg == &Version)
+  {
+    std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
+    exit(0);
+  }
+  else if (arg == &Help)
+  {
+    _help = true;
+  }
+  return arg;
+}
+
+
+void
+NidasApp::
+parseArguments(ArgVector& args) throw (NidasAppException)
+{
+  startParsing(args);
+  NidasAppArg* arg = parseNext();
+  while (arg)
+  {
+    arg = parseNext();
+  }
+  args = parseRemaining();
 }
 
 
@@ -425,7 +729,7 @@ parseOutput(const std::string& optarg) throw (NidasAppException)
 
 namespace
 {
-  void (*app_interrupted_callback)() = 0;
+  void (*app_interrupted_callback)(int) = 0;
 
   bool app_interrupted = false;
 
@@ -437,16 +741,13 @@ namespace
       ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
       ", si_code=" << (siginfo ? siginfo->si_code : -1) << std::endl;
                                                                                 
-    switch(sig)
-    {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-      app_interrupted = true;
-      if (app_interrupted_callback)
-	(*app_interrupted_callback)();
-      break;
-    }
+    // There used to be a switch statement which selected on the signal
+    // number being one of the ones that were added to the handler, but
+    // that should not be necessary, since this handler will only be called
+    // if it's one of the signals it's supposed to handle.
+    app_interrupted = true;
+    if (app_interrupted_callback)
+      (*app_interrupted_callback)(sig);
   }
 }
 
@@ -462,24 +763,31 @@ interrupted()
 /* static */
 void
 NidasApp::
-setupSignals(void (*callback)())
+setupSignals(void (*callback)(int signum))
 {
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-    app_interrupted_callback = callback;
+  addSignal(SIGHUP, callback);
+  addSignal(SIGTERM, callback);
+  addSignal(SIGINT, callback);
+}
+
+
+/* static */
+void
+NidasApp::
+addSignal(int signum, void (*callback)(int signum))
+{
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset, signum);
+  sigprocmask(SIG_UNBLOCK, &sigset, (sigset_t*)0);
+
+  struct sigaction act;
+  sigemptyset(&sigset);
+  act.sa_mask = sigset;
+  act.sa_flags = SA_SIGINFO;
+  act.sa_sigaction = sigAction;
+  sigaction(signum, &act, (struct sigaction *)0);
+  app_interrupted_callback = callback;
 }
 
 
@@ -488,7 +796,7 @@ NidasApp::
 loggingArgs()
 {
   nidas_app_arglist_t args = 
-    LogShow | LogConfig | LogLevel | LogFields | LogParam;
+    LogShow | LogConfig | LogFields | LogParam;
   return args;
 }
 
@@ -506,45 +814,14 @@ std::string
 NidasApp::
 usage()
 {
+  // Iterate through the list this application's arguments, dumping usage
+  // info for each.
   std::ostringstream oss;
-
-  // Iterate through a list of all the known argument types, dumping 
-  // usage info only for those which are enabled.  The general format
-  // is this:
-  //
-  // [<shortflag>,]<longflag> [<spec>]
-  // Description
-
-  nidas_app_arglist_t args = 
-    XmlHeaderFile |
-    LogShow | LogConfig | LogLevel | LogFields | LogParam |
-    Help | ProcessData | StartTime | EndTime |
-    SampleRanges | Version | InputFiles | OutputFiles;
-
-  nidas_app_arglist_t::iterator it;
-  for (it = args.begin(); it != args.end(); ++it)
+  std::set<NidasAppArg*>::iterator it;
+  for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);
-    if (arg.enabled)
-    {
-      if (arg.enableShortFlag && arg.flag.size())
-      {
-	oss << arg.flag;
-	if (!arg.longFlag.empty())
-	  oss << ",";
-      }
-      if (!arg.longFlag.empty())
-	oss << arg.longFlag;
-      if (!arg.specifier.empty())
-	oss << " " << arg.specifier;
-      oss << "\n";
-      std::string text = arg.usage();
-      oss << arg.usage() << "\n";
-      if (text.length() && text[text.length()-1] != '\n')
-      {
-	oss << "\n";
-      }
-    }
+    oss << arg.usage();
   }
   return oss.str();
 }
@@ -586,6 +863,7 @@ void
 NidasApp::
 setIdFormat(id_format_t idt)
 {
+  _idFormat_set = true;
   _idFormat = idt;
 }
 
@@ -594,26 +872,37 @@ std::ostream&
 NidasApp::
 formatSampleId(std::ostream& leader, id_format_t idFormat, dsm_sample_id_t sampid)
 {
-  int dsmid = GET_DSM_ID(sampid);
+  // int dsmid = GET_DSM_ID(sampid);
   int spsid = GET_SHORT_ID(sampid);
 
-  leader << setw(2) << setfill(' ') << dsmid << ',';
+  if (idFormat == AUTO_ID && spsid >= 0x8000)
+    idFormat = HEX_ID;
+  else if (idFormat == AUTO_ID)
+    idFormat = DECIMAL_ID;
+
+  // leader << setw(2) << setfill(' ') << dsmid << ',';
   switch(idFormat) {
   case NidasApp::HEX_ID:
-    leader << "0x" << setw(4) << setfill('0') << hex << spsid << dec << ' ';
+    leader << "0x" << setw(4) << setfill('0') << hex << spsid
+	   << setfill(' ') << dec << ' ';
     break;
-#ifdef SUPPORT_OCTAL_IDS
-  case NidasApp::OCTAL:
-    leader << "0" << setw(6) << setfill('0') << oct << spsid << dec << ' ';
+  case NidasApp::OCTAL_ID:
+    leader << "0" << setw(6) << setfill('0') << oct << spsid
+	   << setfill(' ') << dec << ' ';
     break;
-#else
   default:
-#endif
-  case NidasApp::DECIMAL:
-    leader << setw(4) << spsid << ' ';
+    leader << setw(6) << spsid << ' ';
     break;
   }
   return leader;
+}
+
+
+std::ostream&
+NidasApp::
+formatSampleId(std::ostream& out, dsm_sample_id_t spsid)
+{
+  return NidasApp::formatSampleId(out, getIdFormat(), spsid);
 }
 
 

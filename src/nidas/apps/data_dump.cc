@@ -69,8 +69,7 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
                           FLOAT, IRIG, INT32, ASCII_7, NAKED } format_t;
 
-    DumpClient(const SampleMatcher&, format_t, ostream&,
-               NidasApp::id_format_t idfmt);
+    DumpClient(const SampleMatcher&, format_t, ostream&);
 
     virtual ~DumpClient() {}
 
@@ -98,8 +97,6 @@ private:
 
     const n_u::EndianConverter* fromLittle;
 
-    NidasApp::id_format_t _idFormat;
-
     float warntime;
 
     DumpClient(const DumpClient&);
@@ -109,12 +106,10 @@ private:
 
 DumpClient::DumpClient(const SampleMatcher& matcher,
                        format_t fmt,
-                       ostream &outstr,
-                       NidasApp::id_format_t idfmt):
+                       ostream &outstr):
     _samples(matcher),
     format(fmt), ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
-    _idFormat(idfmt),
     warntime(0.0)
 {
 }
@@ -185,10 +180,16 @@ bool DumpClient::receive(const Sample* samp) throw()
                  << tdiff << " seconds." << endl;
         }
     }
-    else leader << setw(7) << 0 << ' ';
+    else
+    {
+        leader << setw(7) << 0 << ' ';
+    }
 
-    if (!_samples.exclusiveMatch()) {
-        NidasApp::formatSampleId(leader, _idFormat, sampid);
+    if (!_samples.exclusiveMatch())
+    {
+        leader << setw(2) << setfill(' ') << GET_DSM_ID(sampid) << ',';
+        NidasApp* app = NidasApp::getApplicationInstance();
+        app->formatSampleId(leader, sampid);
     }
 
     leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
@@ -360,32 +361,30 @@ public:
 
     static int main(int argc, char** argv);
 
-    static void sigAction(int sig, siginfo_t* siginfo, void*);
-
-    static void setupSignals();
-
 private:
 
     static const int DEFAULT_PORT = 30000;
 
     string xmlFileName;
 
-    NidasApp::id_format_t idFormat;
-    
     DumpClient::format_t format;
 
     float warntime;
 
     NidasApp app;
+    NidasAppArg WarnTime;
 };
 
 
 DataDump::DataDump():
     xmlFileName(),
-    idFormat(NidasApp::DECIMAL),
     format(DumpClient::DEFAULT),
     warntime(0.0),
-    app("data_dump")
+    app("data_dump"),
+    WarnTime("-w,--warntime", "<seconds>",
+             "Warn when sample time succeeds the previous more than <seconds>.\n"
+             "If <seconds> is negative, then warn when the succeeding time skips\n"
+             "backwards.\n", "0")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -394,10 +393,11 @@ DataDump::DataDump():
 
 int DataDump::parseRunstring(int argc, char** argv)
 {
-    app.enableArguments(app.XmlHeaderFile | app.LogLevel |
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
+                        app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help);
+                        app.Help | WarnTime);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -409,11 +409,12 @@ int DataDump::parseRunstring(int argc, char** argv)
     {
         usage(argv[0]);
     }
+    warntime = WarnTime.asFloat();
 
     NidasAppArgv left(args);
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSUXw:")) != -1) {
+    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSU")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -442,12 +443,6 @@ int DataDump::parseRunstring(int argc, char** argv)
 	case 'U':
 	    format = DumpClient::UNSIGNED_SHORT;
 	    break;
-	case 'X':
-	    app.setIdFormat(NidasApp::HEX_ID);
-	    break;
-        case 'w':
-            warntime = atof(optarg);
-            break;
 	case '?':
 	    return usage(argv[0]);
 	}
@@ -466,7 +461,7 @@ int DataDump::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0
-         << " [std-options] [-A | -7 | -F | -H | -n | -I | -L | -S | -X] [-w seconds]"
+         << " [options] [-A | -7 | -F | -H | -n | -I | -L | -S]"
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
@@ -484,10 +479,6 @@ Standard options:\n"
         sync and esync (extended status sync) are probably always equal\n\
     -L: ASCII output of signed 32 bit integers\n\
     -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
-    -X: print sample ids in hex format\n\
-    -w: Warn when sample time succeeds the previous more than <seconds>.\n\
-        If <seconds> is negative, then warn when the succeeding time skips\n\
-        backwards.\n\
 \
     If a format is specified, that format is used for all the samples, except\n\
     that a floating point format is always used for floating point samples.\n\
@@ -575,8 +566,10 @@ int DataDump::run() throw()
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || app.processData()) {
-            n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || app.processData())
+        {
+            n_u::auto_ptr<xercesc::DOMDocument>
+                doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
@@ -608,7 +601,7 @@ int DataDump::run() throw()
 	    }
 	}
 
-        DumpClient dumper(app.sampleMatcher(), format, cout, app.getIdFormat());
+        DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
 
 	if (app.processData()) {

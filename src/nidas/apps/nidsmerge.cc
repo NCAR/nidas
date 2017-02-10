@@ -174,12 +174,14 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     // each input file set, and multiple files can be added to an input
     // file set by passing multiple filenames after each -i.
     NidasApp& app = _app;
-    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields | app.LogParam |
-                        app.StartTime | app.EndTime |
+    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
+                        app.LogParam | app.StartTime | app.EndTime |
                         app.Version | app.OutputFiles |
                         app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
+    // -l conflicts with output file length.
+    app.LogConfig.acceptShortFlag(false);
 
     vector<string> args(argv, argv+argc);
     app.parseArguments(args);
@@ -272,12 +274,15 @@ void NidsMerge::printHeader()
     whatever stream.receive(sample) returns if the sample's DSM is in the correct range, otherwise
     false, 
 */
-bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample) {
-    if (allowed_dsms.size() == 0) {
+bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample)
+{
+    if (allowed_dsms.size() == 0)
+    {
         return stream.receive(sample);
     }
     unsigned int want = sample->getDSMId();
-    for (list<unsigned int>::const_iterator i = allowed_dsms.begin(); i !=  allowed_dsms.end(); i++) {
+    for (list<unsigned int>::const_iterator i = allowed_dsms.begin(); i !=  allowed_dsms.end(); i++)
+    {
         if (*i == want) 
             return stream.receive(sample);
     }
@@ -286,31 +291,33 @@ bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sam
 
 int NidsMerge::run() throw()
 {
-
     try {
-    nidas::core::FileSet* outSet = 0;
+        nidas::core::FileSet* outSet = 0;
 #ifdef HAVE_BZLIB_H
         if (outputFileName.find(".bz2") != string::npos)
             outSet = new nidas::core::Bzip2FileSet();
         else
 #endif
+        {
             outSet = new nidas::core::FileSet();
-    outSet->setFileName(outputFileName);
-    outSet->setFileLengthSecs(outputFileLength);
+        }
+        outSet->setFileName(outputFileName);
+        outSet->setFileLengthSecs(outputFileLength);
 
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
 
-    vector<SampleInputStream*> inputs;
+        vector<SampleInputStream*> inputs;
 
-    for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
+        for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
 
-        const list<string>& inputFiles = inputFileNames[ii];
+            const list<string>& inputFiles = inputFileNames[ii];
 
-        nidas::core::FileSet* fset;
+            nidas::core::FileSet* fset;
 
-        list<string>::const_iterator fi = inputFiles.begin();
-            if (inputFiles.size() == 1 && fi->find('%') != string::npos) {
+            list<string>::const_iterator fi = inputFiles.begin();
+            if (inputFiles.size() == 1 && fi->find('%') != string::npos)
+            {
 #ifdef HAVE_BZLIB_H
                 if (fi->find(".bz2") != string::npos)
                     fset = new nidas::core::Bzip2FileSet();
@@ -321,17 +328,20 @@ int NidsMerge::run() throw()
                 fset->setStartTime(startTime);
                 fset->setEndTime(endTime);
             }
-            else fset = nidas::core::FileSet::getFileSet(inputFiles);
+            else
+            {
+                fset = nidas::core::FileSet::getFileSet(inputFiles);
+            }
 
 #ifdef DEBUG
-        cerr << "getName=" << fset->getName() << endl;
-        cerr << "start time=" << startTime.format(true,"%c") << endl;
-        cerr << "end time=" << endTime.format(true,"%c") << endl;
+            cerr << "getName=" << fset->getName() << endl;
+            cerr << "start time=" << startTime.format(true,"%c") << endl;
+            cerr << "end time=" << endTime.format(true,"%c") << endl;
 #endif
 
-        // SampleInputStream owns the iochan ptr.
-        SampleInputStream* input = new SampleInputStream(fset);
-        inputs.push_back(input);
+            // SampleInputStream owns the iochan ptr.
+            SampleInputStream* input = new SampleInputStream(fset);
+            inputs.push_back(input);
             input->setMaxSampleLength(32768);
 
             if (_filterTimes) {
@@ -341,25 +351,25 @@ int NidsMerge::run() throw()
                 input->setMaxSampleTime(filter2);
             }
 
-        lastTimes.push_back(LONG_LONG_MIN);
+            lastTimes.push_back(LONG_LONG_MIN);
 
-        // input->init();
+            // input->init();
 
-        try {
-        input->readInputHeader();
+            try {
+                input->readInputHeader();
                 // save header for later writing to output
-        header = input->getInputHeader();
+                header = input->getInputHeader();
+            }
+            catch (const n_u::EOFException& e) {
+                cerr << e.what() << endl;
+                lastTimes[ii] = LONG_LONG_MAX;
+            }
+            catch (const n_u::IOException& e) {
+                if (e.getErrno() != ENOENT) throw e;
+                cerr << e.what() << endl;
+                lastTimes[ii] = LONG_LONG_MAX;
+            }
         }
-        catch (const n_u::EOFException& e) {
-        cerr << e.what() << endl;
-        lastTimes[ii] = LONG_LONG_MAX;
-        }
-        catch (const n_u::IOException& e) {
-        if (e.getErrno() != ENOENT) throw e;
-        cerr << e.what() << endl;
-        lastTimes[ii] = LONG_LONG_MAX;
-        }
-    }
 
         /*
          * SortedSampleSet2 does a sort by the full sample header -
@@ -378,27 +388,27 @@ int NidsMerge::run() throw()
          * and allow the user to choose Set2 or Set3 with a command line option.
          */
         
-    SortedSampleSet3 sorter;
-    SampleT<char> dummy;
-    vector<size_t> samplesRead(inputs.size(),0);
-    vector<size_t> samplesUnique(inputs.size(),0);
+        SortedSampleSet3 sorter;
+        SampleT<char> dummy;
+        vector<size_t> samplesRead(inputs.size(),0);
+        vector<size_t> samplesUnique(inputs.size(),0);
 
-    cout << "     date(GMT)      ";
-    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-        cout << "  input" << ii;
-        cout << " unique" << ii;
+        cout << "     date(GMT)      ";
+        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+            cout << "  input" << ii;
+            cout << " unique" << ii;
         }
-    cout << "    before   after  output" << endl;
+        cout << "    before   after  output" << endl;
 
         unsigned int neof = 0;
 
-    dsm_time_t tcur;
-    for (tcur = startTime.toUsecs(); neof < inputs.size() && tcur < endTime.toUsecs();
-        tcur += readAheadUsecs) {
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-        SampleInputStream* input = inputs[ii];
-        size_t nread = 0;
-        size_t nunique = 0;
+        dsm_time_t tcur;
+        for (tcur = startTime.toUsecs(); neof < inputs.size() && tcur < endTime.toUsecs();
+             tcur += readAheadUsecs) {
+            for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+                SampleInputStream* input = inputs[ii];
+                size_t nread = 0;
+                size_t nunique = 0;
 
 #ifdef ADDITIONAL_TIME_FILTERS
                 /* this won't really work, since the next sample from input
@@ -411,106 +421,106 @@ int NidsMerge::run() throw()
                 input->setMaxSampleTime(filter2);
 #endif
 
-        try {
-            dsm_time_t lastTime = lastTimes[ii];
-            while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
-                Sample* samp = input->readSample();
-                lastTime = samp->getTimeTag();
-                // set startTime to the first time read if user
-                // did not specify it in the runstring.
-                if (startTime.toUsecs() == LONG_LONG_MIN) {
-                    startTime = lastTime;
-                    tcur = startTime.toUsecs();
+                try {
+                    dsm_time_t lastTime = lastTimes[ii];
+                    while (!_app.interrupted() && lastTime < tcur + readAheadUsecs) {
+                        Sample* samp = input->readSample();
+                        lastTime = samp->getTimeTag();
+                        // set startTime to the first time read if user
+                        // did not specify it in the runstring.
+                        if (startTime.toUsecs() == LONG_LONG_MIN) {
+                            startTime = lastTime;
+                            tcur = startTime.toUsecs();
+                        }
+                        if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
+                            samp->freeReference();
+                        else nunique++;
+                        nread++;
+                    }
+                    lastTimes[ii] = lastTime;
                 }
-                if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
-                    samp->freeReference();
-                else nunique++;
-                nread++;
+                catch (const n_u::EOFException& e) {
+                    cerr << e.what() << endl;
+                    lastTimes[ii] = LONG_LONG_MAX;
+                    neof++;
+                }
+                catch (const n_u::IOException& e) {
+                    if (e.getErrno() != ENOENT) throw e;
+                    cerr << e.what() << endl;
+                    lastTimes[ii] = LONG_LONG_MAX;
+                    neof++;
+                }
+                samplesRead[ii] = nread;
+                samplesUnique[ii] = nunique;
+                if (_app.interrupted()) break;
             }
-            lastTimes[ii] = lastTime;
-        }
-        catch (const n_u::EOFException& e) {
-            cerr << e.what() << endl;
-            lastTimes[ii] = LONG_LONG_MAX;
-            neof++;
-        }
-        catch (const n_u::IOException& e) {
-            if (e.getErrno() != ENOENT) throw e;
-            cerr << e.what() << endl;
-            lastTimes[ii] = LONG_LONG_MAX;
-            neof++;
-        }
-        samplesRead[ii] = nread;
-        samplesUnique[ii] = nunique;
-        if (_app.interrupted()) break;
-        }
-        if (_app.interrupted()) break;
+            if (_app.interrupted()) break;
 
-        SortedSampleSet3::const_iterator rsb = sorter.begin();
+            SortedSampleSet3::const_iterator rsb = sorter.begin();
 
-        // get iterator pointing at first sample equal to or greater
-        // than dummy sample
-        dummy.setTimeTag(tcur);
-        SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+            // get iterator pointing at first sample equal to or greater
+            // than dummy sample
+            dummy.setTimeTag(tcur);
+            SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
-        for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-        const Sample *s = *si;
-        if (s->getTimeTag() >= startTime.toUsecs())
-            receiveAllowedDsm(outStream, s);
-        s->freeReference();
-        }
-
-        // remove samples from sorted set
-        size_t before = sorter.size();
-        if (rsi != rsb) sorter.erase(rsb,rsi);
-        size_t after = sorter.size();
-
-        cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-            cout << ' ' << setw(7) << samplesRead[ii];
-            cout << ' ' << setw(7) << samplesUnique[ii];
+            for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+                const Sample *s = *si;
+                if (s->getTimeTag() >= startTime.toUsecs())
+                    receiveAllowedDsm(outStream, s);
+                s->freeReference();
             }
-        cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
-            setw(7) << before - after << endl;
-    }
+
+            // remove samples from sorted set
+            size_t before = sorter.size();
+            if (rsi != rsb) sorter.erase(rsb,rsi);
+            size_t after = sorter.size();
+
+            cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+            for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+                cout << ' ' << setw(7) << samplesRead[ii];
+                cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+            cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+                setw(7) << before - after << endl;
+        }
         if (!_app.interrupted()) {
-        SortedSampleSet3::const_iterator rsb = sorter.begin();
+            SortedSampleSet3::const_iterator rsb = sorter.begin();
 
-        // get iterator pointing at first sample equal to or greater
-        // than dummy sample
-        dummy.setTimeTag(tcur);
-        SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+            // get iterator pointing at first sample equal to or greater
+            // than dummy sample
+            dummy.setTimeTag(tcur);
+            SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
 
-        for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
-        const Sample *s = *si;
-        if (s->getTimeTag() >= startTime.toUsecs())
-            receiveAllowedDsm(outStream, s);
-        s->freeReference();
-        }
-
-        // remove samples from sorted set
-        size_t before = sorter.size();
-        if (rsi != rsb) sorter.erase(rsb,rsi);
-        size_t after = sorter.size();
-
-        cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
-        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-            cout << ' ' << setw(7) << samplesRead[ii];
-            cout << ' ' << setw(7) << samplesUnique[ii];
+            for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+                const Sample *s = *si;
+                if (s->getTimeTag() >= startTime.toUsecs())
+                    receiveAllowedDsm(outStream, s);
+                s->freeReference();
             }
-        cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
-            setw(7) << before - after << endl;
+
+            // remove samples from sorted set
+            size_t before = sorter.size();
+            if (rsi != rsb) sorter.erase(rsb,rsi);
+            size_t after = sorter.size();
+
+            cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+            for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+                cout << ' ' << setw(7) << samplesRead[ii];
+                cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+            cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+                setw(7) << before - after << endl;
         }
-    outStream.flush();
-    outStream.close();
-    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
-        SampleInputStream* input = inputs[ii];
-        delete input;
-    }
+        outStream.flush();
+        outStream.close();
+        for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+            SampleInputStream* input = inputs[ii];
+            delete input;
+        }
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;
-    return 1;
+        return 1;
     }
     return 0;
 }

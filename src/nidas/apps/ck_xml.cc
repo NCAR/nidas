@@ -88,45 +88,43 @@ private:
 
 int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
 {
-    app.enableArguments(app.LogConfig | app.LogLevel |
-                        app.LogShow | app.LogFields | app.LogParam |
-                        app.Version | app.Help);
-    app.requireLongFlag(app.LogLevel);
+    NidasAppArg ShowHosts("-d", "",
+                          "List the DSM names (host names)");
+    NidasAppArg ShowCalFiles
+        ("-c", "",
+         "Display a listing of all cal files referenced in the xml");
+    NidasAppArg ShowSensors
+        ("-s", "<sensorclassname>",
+         "Display dsm and sensor id for sensors of the given class");
+    
+    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
+                        app.LogParam | app.Version | app.Help |
+                        ShowHosts | ShowCalFiles | ShowSensors);
 
     vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested())
-    {
-        usage(argv[0]);
-        return 1;
+    app.startParsing(args);
+    NidasAppArg* arg = 0;
+    do {
+        arg = app.parseNext();
+        if (arg == &ShowSensors)
+        {
+	    _sensorClasses.push_back(ShowSensors.getValue());
+        }
+        else if (app.helpRequested())
+        {
+            usage(argv[0]);
+            return 1;
+        }
     }
-
-    NidasAppArgv left(args);
-    int opt_char;            /* option character */
-
-    while ((opt_char = getopt(left.argc, left.argv, "dcs:")) != -1)
+    while (arg);
+    _showCalFiles = ShowCalFiles.asBool();
+    _showHosts = ShowHosts.asBool();
+    args = app.parseRemaining();
+    if (args.size() == 2)
     {
-	switch (opt_char) {
-        case 'd':
-            _showHosts = true;
-            break;
-	case 'c':
-	    _showCalFiles = true;
-	    break;
-	case 's':
-	    _sensorClasses.push_back(optarg);
-	    break;
-	case '?':
-	    usage(argv[0]);
-	    return 1;
-	}
+        _xmlFile = args[1];
     }
-    if (optind == left.argc - 1)
-    {
-        _xmlFile = left.argv[optind++];
-    }
-
-    if (optind != left.argc || _xmlFile.length() == 0)
+    if (_xmlFile.empty())
     {
 	usage(argv[0]);
 	return 1;
@@ -134,18 +132,17 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
     return 0;
 }
 
-void PConfig::usage(const char* argv0) 
+
+void
+PConfig::
+usage(const char* argv0) 
 {
-    cerr <<
-        "Usage: " << argv0 << " [-s sensorClass [-s ...] ] xml_file\n"
-        "  -s sensorClass\n"
-        "  -c   display a listing of all cal files referenced in the xml\n"
-        "       display dsm and sensor id for sensors of the given class\n"
-        "  -d   list the DSM names (hostnames)\n" <<
-        "Standard options:\n" <<
-        NidasApp::getApplicationInstance()->usage() <<
-        "The default log level is warnings." <<
-        endl;
+    cerr << "Usage: "
+         << argv0 << " [options] [-s sensorClass [-s ...] ] xml_file\n"
+         << "Options:\n"
+         << NidasApp::getApplicationInstance()->usage()
+         << "The default log level is warnings."
+         << endl;
 }
 
 int PConfig::main()
