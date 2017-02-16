@@ -152,6 +152,7 @@ bool CharacterSensor::doesAsciiSscanfs()
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
+
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
@@ -349,6 +350,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     // with no samples, and hence no scanf strings.  For example,
     // a differential GPS, where nidas is supposed to take the
     // data for later use, but doesn't (currently) parse it.
+    cout << "test - CharacterSensor::process" << endl;
     if (_sscanfers.empty()) return false;
 
     assert(samp->getType() == CHAR_ST);

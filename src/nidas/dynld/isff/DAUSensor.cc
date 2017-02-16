@@ -56,6 +56,12 @@ throw(InvalidParameterException)
 
     size_t nvars = stag->getVariables().size();
 #endif
+    cout << "test - DAUSensor::addSampleTag" << endl;
+    //test log msg as well
+    static LogContext logInfo(LOG_INFO);
+    LogMessage testmsg;
+    testmsg << "DAUSensor addSampleTag log test";
+    logInfo.log(testmsg);
     DSMSerialSensor::addSampleTag(stag);
 }
 
@@ -65,6 +71,7 @@ DAUSensor::
 process(const Sample* samp, std::list<const Sample*>& results) throw()
 {
 #ifdef notdef
+    
     size_t inlen = samp->getDataByteLength();
     if (inlen < 6) return false;	// bogus amount of data
     const signed char* dinptr =
@@ -74,6 +81,13 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     unsigned short checksum = (ud[1] + ud[2] + ud[3] + ud[4]) % 256;
 
     static LogContext lc(LOG_DEBUG);
+    ///
+    static LogContext logInfo(LOG_INFO);
+    LogMessage testmsg;
+    testmsg << "DAUSensor process log test";
+    logInfo.log(testmsg);
+    cout << "test - DAUSensor::process "<< endl;
+    ///
     if (lc.active())
     {
         LogMessage msg;
@@ -107,9 +121,10 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     float* values = outsamp->getDataPtr();
     values[0] = pitch;
     values[1] = roll;
-    results.push_back(outsamp);
+    results.push_back(outsamp); 
 #endif
     return true;
+    
 }
 
 
