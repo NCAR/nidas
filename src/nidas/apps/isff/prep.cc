@@ -800,10 +800,9 @@ DataPrep::matchVariables(const Project& project,
             Variable* reqvar = *rvi;
             bool match = false;
 
-            // Check for match of variable against all dsms.
-            // The site may not be specified in the requested variable,
-            // and so a variable name like T.1m may match at more
-            // than one dsm.
+            // Check for match of variable against all dsms.  The site may
+            // not be specified in the requested variable, and so a
+            // variable name like T.1m may match more than one dsm.
             DSMConfigIterator di = project.getDSMConfigIterator();
             for ( ; di.hasNext(); ) {
                 const DSMConfig* dsm = di.next();
@@ -820,14 +819,18 @@ DataPrep::matchVariables(const Project& project,
                              ":" << var->getSite()->getName() <<
                              '(' << var->getStation() << "), " <<
                              ", reqvar=" << reqvar->getName() <<
-                             ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
+                             ":" << (reqvar->getSite() ?
+                                     reqvar->getSite()->getName(): "unk") <<
                              '(' << reqvar->getStation() << "), " <<
-                             ", match=" << ((*var == *reqvar)));
-                        if (*var == *reqvar) {
+                             ", match=" << ((*var == *reqvar)) <<
+                             ", closematch=" << var->closeMatch(*reqvar));
+                        if (*var == *reqvar || var->closeMatch(*reqvar))
+                        {
                             // Add variable once for a match
                             // A variable by a given name for a site
                             // may come from more than one sensor and sample.
-                            if (!match) variables[rate].push_back(var);
+                            if (!match)
+                                variables[rate].push_back(var);
                             activeSensors.insert(sensor);
                             activeDsms.insert(dsm);
                             match = true;
@@ -1065,6 +1068,8 @@ int DataPrep::run() throw()
                             if (site) {
                                 var->setName(vname.substr(0, dot));
                                 var->setSite(site);
+                                ILOG(("variable ") << var->getName()
+                                     << " setting implied site " << sitestr);
                             }
                         }
 
@@ -1088,26 +1093,26 @@ int DataPrep::run() throw()
         var_by_rate_t variablesByRate =
             matchVariables(project,activeDsms,activeSensors);
 
-    {
-        static n_u::LogContext lp(LOG_VERBOSE);
-        if (lp.active())
         {
-            n_u::LogMessage msg(&lp);
-            for (var_by_rate_t::iterator it = variablesByRate.begin();
-                 it != variablesByRate.end(); ++it)
+            static n_u::LogContext lp(LOG_VERBOSE);
+            if (lp.active())
             {
-                vector<const Variable*> &variables = it->second;
-                msg << "rate=" << it->first << ":";
-                for (vector<const Variable*>::iterator iv = variables.begin();
-                     iv != variables.end(); ++it)
+                n_u::LogMessage msg(&lp);
+                for (var_by_rate_t::iterator it = variablesByRate.begin();
+                     it != variablesByRate.end(); ++it)
                 {
-                    msg << " " << (*iv)->getName()
-                        << "(" << (*iv)->getStation() << ")";
+                    vector<const Variable*> &variables = it->second;
+                    msg << "rate=" << it->first << ":";
+                    for (vector<const Variable*>::iterator iv = variables.begin();
+                         iv != variables.end(); ++iv)
+                    {
+                        msg << " " << (*iv)->getName()
+                            << "(" << (*iv)->getStation() << ")";
+                    }
+                    msg << "; ";
                 }
-                msg << "; ";
             }
         }
-    }
 
 	set<DSMSensor*>::const_iterator si = activeSensors.begin();
 	for ( ; si != activeSensors.end(); ++si) {
