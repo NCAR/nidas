@@ -34,6 +34,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include "SppSerial.h"
 #include <nidas/dynld/UDPSocketSensor.h>
 #include <nidas/util/EndianConverter.h>
 
@@ -49,27 +50,13 @@ using namespace nidas::core;
 class Watlow : public CharacterSensor
 {
 public:
-    Watlow();
-    ~Watlow();
+    //Watlow();
+   // ~Watlow();
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
 private:
-
-int GPIT_TIF=0;
-int GPIT_TIA=0;
-int GPIT_TENV=0;
-int GPIT_TTC=0;
-int GPIT_TTF=0;
-int GPIT_TTA=0;
-int GPIT_TFLT=0;
-int GPIT_TSA=0;
-int GPIT_THSET=0;
-int GPIT_QFWD=0;
-int GPIT_QAFT=0;
-int GPIT_QENV=0;
-int GPIT_QTT=0;
 
 /*    static const int LAMS_SPECTRA_SIZE = 512;
 
@@ -83,15 +70,16 @@ int GPIT_QTT=0;
     size_t _beam;
 
     uint32_t _prevSeqNum[nBeams];
+*/
+    static const nidas::util::EndianConverter * _fromBig;
 
-    static const nidas::util::EndianConverter * _fromLittle;
-
+//    int numOutValues;
     /** No copying. */
-  //  Watlow(const Watlow&);
+   // Watlow(const Watlow&);
 
     /** No assignment. */
-   // Watlow& operator=(const Watlow&);
-*/ 
+//    Watlow& operator=(const Watlow&);
+ 
 };
 
 }}}

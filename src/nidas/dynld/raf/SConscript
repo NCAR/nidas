@@ -44,6 +44,7 @@ sources = Split("""
     UHSAS_Serial.cc
     VCSEL_Serial.cc
     VCSEL2_Serial.cc
+    WatlowCLS208.cc
 """)
 
 
@@ -88,6 +89,7 @@ headers = Split("""
     UDPSocketSensor.h
     VCSEL_Serial.h
     VCSEL2_Serial.h
+    WatlowCLS208.h
 """)
 
 if arch == 'arm':
