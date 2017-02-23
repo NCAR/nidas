@@ -31,6 +31,8 @@
 using namespace nidas::dynld::isff;
 using namespace std;
 
+namespace n_u = nidas::util;
+
 #include <nidas/util/Logger.h>
 
 using nidas::util::LogContext;
@@ -46,6 +48,12 @@ DAUSensor::~DAUSensor()
 {
 }
 
+void DAUSensor::init() throw(InvalidParameterException)
+{
+    DSMSerialSensor::init();
+    cvtr = n_u::EndianConverter::getConverter(
+        n_u::EndianConverter::EC_BIG_ENDIAN);
+}
 void DAUSensor::addSampleTag(SampleTag* stag)
 throw(InvalidParameterException)
 {
@@ -71,24 +79,29 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     size_t sampLength = samp->getDataByteLength();
     if (sampLength != 50) return false; //msg must be 50 bytes long. or...???
     unsigned short header = 0x8181;//get this from xml.
-    const unsigned short* dataPtr = 
-        (const unsigned short*) samp->getConstVoidDataPtr();
+    unsigned short* dataPtr = 
+        (unsigned short*) samp->getConstVoidDataPtr();
     if(*dataPtr == header){//message is aligned
-      
-        // could just send to CharacterSensor parser now?
-        //for now: print whole sample
+        //msg comes in as big-endian, read by machine as little-endian. so, flip it here.
+        for(int i = 0; i < 25; i++){
+            dataPtr[i] = cvtr->uint16Value(dataPtr[i]);
+        }
+        
         cout << "sample: ";
         for(int i=0; i < 25; i++){
             cout << hex << dataPtr[i] << " ";
         }
         cout << endl;
+
         //check checksum
         unsigned int checksum = 0;
         for(int i = 0; i < sampLength/2 - 1; i++){
             checksum += dataPtr[i];
         }
-        checksum = checksum % 65536;
-        cout << hex << "calculated checksum: " << checksum << " message checksum: " << dataPtr[24] << endl;
+        checksum = checksum % 0x10000;
+        if(checksum != dataPtr[24]) return false;//bad checksum
+        
+        
         return false;
 
     }else{//create new msg out of cached msg and current, call process again.

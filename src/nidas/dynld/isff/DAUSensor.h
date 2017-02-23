@@ -28,6 +28,7 @@
 #define NIDAS_DYNLD_ISFF_DAUSENSOR_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -45,6 +46,8 @@ public:
     DAUSensor();
 
     ~DAUSensor();
+    
+    void init() throw(InvalidParameterException);
 
     void
     addSampleTag(SampleTag* stag) throw(InvalidParameterException);
@@ -58,6 +61,7 @@ public:
 	throw(InvalidParameterException);
 
 protected:
+    const nidas::util::EndianConverter* cvtr;
 
 private:
     dsm_time_t prevTimeTag;
