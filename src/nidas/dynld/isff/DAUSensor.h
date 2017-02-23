@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_ISFF_TILTSENSOR_H
-#define NIDAS_DYNLD_ISFF_TILTSENSOR_H
+#ifndef NIDAS_DYNLD_ISFF_DAUSENSOR_H
+#define NIDAS_DYNLD_ISFF_DAUSENSOR_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
 
@@ -59,6 +59,15 @@ public:
 
 protected:
 
+private:
+    dsm_time_t prevTimeTag;
+    
+    dsm_sample_id_t prevId;
+    
+    //array of len 50 prev data
+    unsigned short prevData [25];
+    
+    int prevOffset;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
