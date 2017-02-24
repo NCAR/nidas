@@ -52,7 +52,8 @@ class Watlow : public CharacterSensor
 public:
     //Watlow();
    // ~Watlow();
-
+   // unsigned short crcCheck(const int16_t * pkt, int len);
+           
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
