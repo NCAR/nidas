@@ -361,12 +361,13 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	if (elname == "sensor" ||
 	    elname == "serialSensor" ||
             elname == "arincSensor" ||
-            elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
-            elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
-            elname == "socketSensor") {
+            elname == "irigSensor" ||   // obsolete, no longer in nidas schema
+            elname == "lamsSensor" ||   // obsolete, no longer in nidas schema
+            elname == "socketSensor") { // obsolete, no longer in nidas schema
 
             if (elname == "irigSensor") WLOG(("%s: <irigSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
             else if (elname == "lamsSensor") WLOG(("%s: <lamsSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
+            else if (elname == "socketSensor") WLOG(("%s: <socketSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
 
             /*
              * This may not return a new DSMSensor, if there is a DSMCatalog,
