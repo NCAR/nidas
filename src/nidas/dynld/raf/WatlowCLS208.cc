@@ -96,129 +96,32 @@ bool Watlow::crcCheck(int16_t dat[10], int messageNum) throw()
 
  }
 */
-/*
-uint16_t Watlow::crcCheck(unsigned char * input, int messageLength) throw()
+
+uint16_t Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw()
 {
     //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25    
     uint16_t checksum = 0xffff;
-    for ( int i=3; i<=messageLength+1; i+=2)
+    for ( int i=0; i<=messageLength; i++)
     { 
-      
-        uint16_t data_byte = 0;
-        if (i== (messageLength+1))
-        {
-             data_byte = 0x03;
-        }else if (i == (messageLength +2))
-        {
-            data_byte = 0x03;
-            cout << "Shouldn't get here, loopcount issue" <<endl;
-        }else 
-        {
-            data_byte =_fromBig->int16Value( input[i+1]);
-            cout<<"should get here"<<endl;
-        }
-
-         rchecksum = data_byte ^ (checksum | 0x00ff);
-         checksum = (checksum & 0xff00) + (rchecksum & 0x00ff);
- 
-        uint16_t savedchecksum = checksum;
-        uint16_t rchecksum =0;// checksum|0xFF00;//get the right eight bits of checksum (number & 0xFF00)
-        checksum = savedchecksum;
-        //cout << " right checksum before ^; " << rchecksum << "actual checksum, should be 0 first time here"<<checksum;
-        rchecksum = rchecksum ^ 0xFF00;//get the right eight bits of checksum (number & 0xFF00)
-        //cout << " right checksum; " << rchecksum <<endl;
-        rchecksum = data_byte ^ rchecksum;
-       // cout << " old r checksum" <<rchecksum<<endl;
-   
-    //put the rchecksum back into checksumi
-       // cout << "original checksum, 0 first time"<< checksum;
-        checksum = checksum | 0x00FF; //keep left bit, change right bit to 1's
-       // cout << "keep left bit, change right to 11s"<< checksum;
-        checksum = checksum ^ 0x00FF; //keep left bit, change right bit to 0's
-        //cout <<"keep left bit, change right to 0s" << checksum << "rchecksum, same?"<< rchecksum ;
-        checksum = checksum | rchecksum; //keep left bit, change right bit to rchecksum's right bit
-       // cout <<"keep left bit, change right bit to rchecksum's right" << checksum << " and r's " << rchecksum<< endl;
+        uint16_t data_byte =input[start+i];
+        checksum = checksum ^ data_byte;
         for (int j =0; j<8;j++)
         {
-            //cout<< "checksum "<< checksum<< " mod 2 "<< checksum%2 << " and checksum again "<<checksum<<endl ;
-            if (checksum %2 ==1)//bit shifted is one
+            if ((checksum %2) ==1)//bit to be shifted is one
             {
-        //cout << "odd  original checksum, 0 first time"<< checksum;
-                 checksum =checksum >>1;//shift bit right, add in 0 at left
-        //cout << " checksum after bit shifted "<< checksum;
-                 checksum = checksum ^ 0xA001;
-       // cout << " xored "<< checksum<<endl;
+                 checksum =0xa001^(checksum >>1);//shift bit right, add in 0 at left
                 //xor constant from http://docplayer.net/40721506-Cls200-mls300-and-cas200-communications-specification.html
-            } else{
-
-       // cout << " even   original checksum, 0 first time"<< checksum;
-                checksum = checksum >>1;//shift bit right, add in 0 at left
-
-       // cout << " after bitshifted  "<< checksum<<endl;
             }
-
-        }
-  //--------------------------      
-        data_byte = 0;
-        if (i== (messageLength+1))
-        {
-             data_byte = 0x03;
-        }else if (i == (messageLength +2))
-        {
-            data_byte = 0x03;
-        }else 
-        {
-            data_byte =_fromBig->int16Value( input[i]);
-
-        }
-
-         rchecksum = data_byte ^ (checksum | 0x00ff);
-         checksum = (checksum & 0xff00) + (rchecksum & 0x00ff);
- 
-         savedchecksum = checksum;
-        rchecksum =0;// checksum|0xFF00;//get the right eight bits of checksum (number & 0xFF00)
-        checksum = savedchecksum;
-        //cout << " right checksum before ^; " << rchecksum << "actual checksum, should be 0 first time here"<<checksum;
-        rchecksum = rchecksum ^ 0xFF00;//get the right eight bits of checksum (number & 0xFF00)
-        //cout << " right checksum; " << rchecksum <<endl;
-        rchecksum = data_byte ^ rchecksum;
-       // cout << " old r checksum" <<rchecksum<<endl;
-   
-    //put the rchecksum back into checksumi
-       // cout << "original checksum, 0 first time"<< checksum;
-        checksum = checksum | 0x00FF; //keep left bit, change right bit to 1's
-       // cout << "keep left bit, change right to 11s"<< checksum;
-        checksum = checksum ^ 0x00FF; //keep left bit, change right bit to 0's
-        //cout <<"keep left bit, change right to 0s" << checksum << "rchecksum, same?"<< rchecksum ;
-        checksum = checksum | rchecksum; //keep left bit, change right bit to rchecksum's right bit
-       // cout <<"keep left bit, change right bit to rchecksum's right" << checksum << " and r's " << rchecksum<< endl;
-        for (int j =0; j<8;j++)
-        {
-            //cout<< "checksum "<< checksum<< " mod 2 "<< checksum%2 << " and checksum again "<<checksum<<endl ;
-            if (checksum %2 ==1)//bit shifted is one
+            else
             {
-        //cout << "odd  original checksum, 0 first time"<< checksum;
-                 checksum =checksum >>1;//shift bit right, add in 0 at left
-        //cout << " checksum after bit shifted "<< checksum;
-                 checksum = checksum ^ 0xA001;
-       // cout << " xored "<< checksum<<endl;
-                //xor constant from http://docplayer.net/40721506-Cls200-mls300-and-cas200-communications-specification.html
-            } else{
-
-       // cout << " even   original checksum, 0 first time"<< checksum;
                 checksum = checksum >>1;//shift bit right, add in 0 at left
-
-       // cout << " after bitshifted  "<< checksum<<endl;
             }
-
         }
-        //checksum +=( ()^ input[i]);//xor = ^
     }
     return checksum;
-
  }
 
-*/
+
 
 bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
 {
@@ -234,10 +137,8 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
  
     //memcpy (cksm,&input[0],20);
     memcpy (data,&input[3],18);
- //   uint16_t checksum = crcCheck(input, 18);
-   // cout << "Calculated checksum:" << (checksum)<<"Given Checksum:"<<uint16_t(data[8])<< "Calculated Big checksum:" << _fromBig-> uint16Value(checksum)<<"Given Checksum:"<<_fromBig->uint16Value(data[8])  << endl;
-    //if(! (checksum==data[8])){ return false;}
-    //if (checksum != _fromBig->uint16Value(data[8])) return false; //bad checksum
+    uint16_t checksum = crcCheck(input,18,0);
+    if(! (checksum==uint16_t(data[8]))){ return false;}
     for (unsigned int i = 0; i < 8; i++){
         *douts1++ = (float)_fromBig->int16Value( (data[i])) / 10.0;
 
@@ -250,12 +151,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     outs2->setId(getId()+2);
  
     memcpy (data,&input[24],4);
-  //  if(! (crcCheck(data,1)==data[1])){ return false;}
+    checksum = crcCheck(input, 4, 21);
+    if (checksum != uint16_t(data[1])) return false; //bad checksum
     for (unsigned int i = 0; i < 1; i++){
         *douts2++ = (float)_fromBig->int16Value( data[i]) / 10.0;
-    //    checksum += _fromBig->int16Value(data[i]);
     }
-    //if (checksum != data[1]) return false; //bad checksum
     
     results.push_back(outs2);
  
@@ -265,16 +165,14 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     outs3->setId(getId()+3);
  
     memcpy (data,&input[31],10);
-   // if(! (crcCheck(data,4)==data[4])){ return false;}
+    checksum = crcCheck(input, 10, 28);
+    if (checksum != uint16_t(data[4])) return false; //bad checksum
+    //cout << "Calculated checksum:" << (checksum)<<"Given Checksum:"<<uint16_t(data[4])<< "Calculated Big checksum:" << _fromBig-> uint16Value(checksum)<<"Given Checksum:"<<_fromBig->uint16Value(data[4])  << endl;
     for (unsigned int i = 0; i < 4; i++){
         *douts3++ = (float)_fromBig->uint16Value( data[i]);
-      //  checksum += _fromBig->int16Value(data[i]);
     }
-  //  if (checksum != data[4]) return false; //bad checksum
     results.push_back(outs3);
 
-
     return true;
-  
 }
 
