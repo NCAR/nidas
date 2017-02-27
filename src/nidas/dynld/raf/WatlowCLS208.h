@@ -54,6 +54,8 @@ public:
    // ~Watlow();
    // unsigned short crcCheck(const int16_t * pkt, int len);
            
+    uint16_t crcCheck(unsigned char * input, int messageLength)
+         throw();
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
