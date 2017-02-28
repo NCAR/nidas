@@ -29,7 +29,6 @@
 
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/core/VariableConverter.h>
-#include <nidas/util/EndianConverter.h>
 
 //
 // Add a bogus zeroth bin to the data to match historical behavior.
