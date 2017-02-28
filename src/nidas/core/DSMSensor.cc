@@ -102,7 +102,6 @@ void DSMSensor::setDSMConfig(const DSMConfig* val)
 void DSMSensor::addSampleTag(SampleTag* val)
     throw(n_u::InvalidParameterException)
 {
-    cout << "test - DSMSensor::addSampleTag" << endl;
     if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end()) {
         _sampleTags.push_back(val);
         // Set the DSMSensor on the sample tag. This is done in fromDOMElement,

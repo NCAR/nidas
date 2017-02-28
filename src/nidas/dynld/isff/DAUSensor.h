@@ -61,17 +61,17 @@ public:
 	throw(InvalidParameterException);
 
 protected:
-    const nidas::util::EndianConverter* cvtr;
+    const nidas::util::EndianConverter* _cvtr;
 
 private:
-    dsm_time_t prevTimeTag;
+    dsm_time_t _prevTimeTag;
     
-    dsm_sample_id_t prevId;
+    dsm_sample_id_t _prevId;
     
     //array of len 50 prev data
-    unsigned short prevData [25];
+    unsigned char _prevData [50];
     
-    int prevOffset;
+    int _prevOffset;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

@@ -25,6 +25,7 @@
 */
 
 #include "DAUSensor.h"
+#include <nidas/core/Variable.h>
 
 #include <sstream>
 
@@ -40,7 +41,12 @@ using nidas::util::LogMessage;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,DAUSensor)
 
-DAUSensor::DAUSensor()
+DAUSensor::DAUSensor():
+    _cvtr(0),
+    _prevTimeTag(0),
+    _prevId(0),
+    _prevData(),
+    _prevOffset(0)
 {
 }
 
@@ -51,19 +57,12 @@ DAUSensor::~DAUSensor()
 void DAUSensor::init() throw(InvalidParameterException)
 {
     DSMSerialSensor::init();
-    cvtr = n_u::EndianConverter::getConverter(
+    _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_BIG_ENDIAN);
 }
 void DAUSensor::addSampleTag(SampleTag* stag)
 throw(InvalidParameterException)
 {
-    /*#ifdef notdef
-    if (getSampleTags().size() > 1)
-        throw InvalidParameterException(getName() +
-                " can only create one sample (for all analog channels)");
-
-    size_t nvars = stag->getVariables().size();
-    #endif*/
     DSMSerialSensor::addSampleTag(stag);
 }
 
@@ -72,131 +71,99 @@ bool
 DAUSensor::
 process(const Sample* samp, std::list<const Sample*>& results) throw()
 {
-    static LogContext logInfo(LOG_INFO);
-    /*LogMessage testmsg;
-    testmsg << "DAUSensor process log test";
-    logInfo.log(testmsg);*/
     size_t sampLength = samp->getDataByteLength();
-    if (sampLength != 50) return false; //msg must be 50 bytes long. or...???
-    unsigned short header = 0x8181;//get this from xml.
-    unsigned short* dataPtr = 
-        (unsigned short*) samp->getConstVoidDataPtr();
-    if(*dataPtr == header){//message is aligned
-        //msg comes in as big-endian, read by machine as little-endian. so, flip it here.
+    if (sampLength != 50){
+        PLOG(("Message length incorrect."));
+        return false; //msg must be 50 bytes long
+    }
+    unsigned short header = 0x8181;//get this from xml?
+    unsigned char* sampPtr = (unsigned char*) samp->getConstVoidDataPtr();
+
+    int offset = -1;
+    //combine 2 chars to get short--header may not be on even byte boundary
+    for(size_t i = 0; i < sampLength-1; i++){
+        unsigned short test = (sampPtr[i] << 8) | sampPtr[i+1];
+        if(test == header){
+            offset = i;
+            break;
+        }
+    }
+    if(offset == -1){
+        PLOG(("Message header not found."));
+        return false;
+    }else if(offset==0){//message is aligned
+        unsigned short* dataPtr = (unsigned short*) sampPtr;
+
+        //message is big-endian, convert to little-endian to match system.
         for(int i = 0; i < 25; i++){
-            dataPtr[i] = cvtr->uint16Value(dataPtr[i]);
+            dataPtr[i] = _cvtr->uint16Value(dataPtr[i]);
         }
-        
-        cout << "sample: ";
-        for(int i=0; i < 25; i++){
-            cout << hex << dataPtr[i] << " ";
-        }
-        cout << endl;
 
         //check checksum
         unsigned int checksum = 0;
-        for(int i = 0; i < sampLength/2 - 1; i++){
+        for(unsigned int i = 0; i < sampLength/2 - 1; i++){
             checksum += dataPtr[i];
         }
         checksum = checksum % 0x10000;
-        if(checksum != dataPtr[24]) return false;//bad checksum
-        
-        
-        return false;
-
-    }else{//create new msg out of cached msg and current, call process again.
-        int offset = 0;
-        while(dataPtr[offset] != header){
-            offset++;
-            if(offset >= sampLength/2){
-                cout << "no header found :(" << endl;
-                return false; //no header found. log msg for this?
-            }
-        }
-        //checks for time offset and data offset before creating new sample.
-        if((offset != prevOffset) || 
-           ((samp->getTimeTag() - prevTimeTag) > (1000000.0/30))){//30hz in microseconds
-            prevTimeTag = samp->getTimeTag();
-            prevId = samp->getId();
-            ::memcpy(prevData, dataPtr, 50);
-            prevOffset = offset;
-
+        if(checksum != dataPtr[24]){
+            PLOG(("Checksum failure."));
             return false;
         }
-        SampleT<char>* fullSample = getSample<char>(sampLength);
-        fullSample->setTimeTag(prevTimeTag);
-        fullSample->setId(prevId);
-        unsigned short* newPtr = (unsigned short*) fullSample->getConstVoidDataPtr();
-        ::memcpy(newPtr, &prevData[prevOffset], (25-prevOffset)*2);//length in bytes
-        ::memcpy(&newPtr[25-prevOffset], dataPtr, offset*2);//length in bytes
-        /*cout << "cached sample: ";
-        for(int i = 0; i < 25; i++){
-            cout << hex << prevData[i] << " ";
-        }
-        cout << endl;
-        cout << "current sample: ";
-        for(int i = 0; i < 25; i++){
-            cout << hex << dataPtr[i] << " ";
-        }
-        cout << endl;*/
-        bool res = DAUSensor::process(fullSample, results);
-        fullSample->freeReference();//is this right
+
+        list<SampleTag*>& tags= getSampleTags();
+        SampleTag* stag = tags.front();//assuming only one sampletag present.
+        const vector<Variable*>& vars = stag->getVariables();
+
+        //create processed sample
+        SampleT<float>* outsamp = getSample<float>(vars.size()); 
+        outsamp->setTimeTag(samp->getTimeTag());
+        outsamp->setId(stag->getId());
+        float * outPtr = (float*) outsamp->getDataPtr();
         
-        prevTimeTag = samp->getTimeTag();
-        prevId = samp->getId();
-        ::memcpy(prevData, dataPtr, 50);
-        prevOffset = offset;
+        //copy correct channels to sample, convert to float, and apply calfile.
+        for(size_t i = 0; i < vars.size(); i++){
+            int channel = vars[i]->getParameter("channel")->getNumericValue(0);
+            unsigned int temp = dataPtr[channel];//cast from short to int
+            ::memcpy(outPtr, &temp, sizeof(float));//read int as float
+            VariableConverter* conv = vars[i]->getConverter();
+            *outPtr = conv->convert(outsamp->getTimeTag(), *outPtr);
+            outPtr++;
+        }
+
+        results.push_back(outsamp);
+        return true;
+
+    }else{
+        //checks for bad time or data offset, saves current sample before exit
+        if((offset != _prevOffset) || 
+           ((samp->getTimeTag() - _prevTimeTag) > (1000000.0/30))){//30hz limit
+            _prevTimeTag = samp->getTimeTag();
+            _prevId = samp->getId();
+            ::memcpy(_prevData, sampPtr, 50);
+            _prevOffset = offset;
+            PLOG(("Message not continuous across adjacent samples."));
+            return false;
+        }
+
+        //create sample from current and cached samples
+        SampleT<char>* fullSample = getSample<char>(sampLength);
+        fullSample->setTimeTag(_prevTimeTag);
+        fullSample->setId(_prevId);
+        unsigned char* newPtr = 
+            (unsigned char*) fullSample->getConstVoidDataPtr();
+        ::memcpy(newPtr, &_prevData[offset], 50-offset);
+        ::memcpy(&newPtr[50-_prevOffset], sampPtr, offset);
+
+        bool res = DAUSensor::process(fullSample, results);
+        fullSample->freeReference();
+        
+        //cache current sample for future use
+        _prevTimeTag = samp->getTimeTag();
+        _prevId = samp->getId();
+        ::memcpy(_prevData, sampPtr, 50);
+        _prevOffset = offset;
         return res;
     }
-
-
-#ifdef notdef//UGH!!!   
-    size_t inlen = samp->getDataByteLength();
-    if (inlen < 6) return false;	// bogus amount of data
-    const signed char* dinptr =
-        (const signed char*) samp->getConstVoidDataPtr();
-
-    const unsigned char* ud = (const unsigned char*) dinptr;
-    unsigned short checksum = (ud[1] + ud[2] + ud[3] + ud[4]) % 256;
-
-    static LogContext lc(LOG_DEBUG);
-
-    if (lc.active())
-    {
-        LogMessage msg;
-        msg << "inlen=" << inlen << ' ' ;
-        msg.format ("%02x,%02x,%02x,%02x,%02x,%02x, csum=%02x",
-                ud[0], ud[1], ud[2], ud[3], ud[4], ud[5], checksum);
-        msg << "; pitch=" << pitch << ", roll=" << roll;
-        lc.log (msg);
-    }
-
-    // Check for the header byte.
-    if (ud[0] != 0xff) 
-    {
-        PLOG(("unexpected header byte, skipping bad sample"));
-        return false;
-    }
-
-    // Now verify the checksum.
-    if (checksum != ud[5])
-    {
-        {
-            PLOG(("Checksum failures: ") << checksumFailures);
-        }
-        return false;
-    }
-
-    SampleT<float>* outsamp = getSample<float>(2);
-    outsamp->setTimeTag(samp->getTimeTag());
-    outsamp->setId(sampleId);
-
-    float* values = outsamp->getDataPtr();
-    values[0] = pitch;
-    values[1] = roll;
-    results.push_back(outsamp); 
-#endif
-    return true;
     
 }
 
