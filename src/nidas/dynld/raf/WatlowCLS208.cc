@@ -78,7 +78,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     outs1->setId(getId()+1);
     memcpy (data,&input[3],18);
     uint16_t checksum = crcCheck(input,18,0);
-    if(! (checksum==uint16_t(data[8]))){ return false;}
+    if(! (checksum==uint16_t(data[8])))
+    {
+        WLOG(("WatlowCLS208 Bad Checksum: 1"));
+        return false;
+    }
     for (unsigned int i = 0; i < 8; i++){
         *douts1++ = (float)_fromBig->int16Value( (data[i])) / 10.0;
     }
@@ -90,7 +94,12 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     outs2->setId(getId()+2);
     memcpy (data,&input[24],4);
     checksum = crcCheck(input, 4, 21);
-    if (checksum != uint16_t(data[1])) return false;
+    if (checksum != uint16_t(data[1]))
+    {
+        WLOG(("WatlowCLS208 Bad Checksum: 2"));
+        return false;
+    }
+
     for (unsigned int i = 0; i < 1; i++){
         *douts2++ = (float)_fromBig->int16Value( data[i]) / 10.0;
     }
@@ -102,7 +111,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     outs3->setId(getId()+3);
     memcpy (data,&input[31],10);
     checksum = crcCheck(input, 10, 28);
-    if (checksum != uint16_t(data[4])) return false;
+    if (checksum != uint16_t(data[4]))
+    {
+        WLOG(("WatlowCLS208 Bad Checksum: 3"));
+        return false;
+    }
     //cout << "Calculated checksum:" << (checksum)<<"Given Checksum:"<<uint16_t(data[4])<< "Calculated Big checksum:" << _fromBig-> uint16Value(checksum)<<"Given Checksum:"<<_fromBig->uint16Value(data[4])  << endl;
     for (unsigned int i = 0; i < 4; i++){
         *douts3++ = (float)_fromBig->uint16Value( data[i]);
