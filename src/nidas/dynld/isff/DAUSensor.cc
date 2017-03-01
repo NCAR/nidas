@@ -123,8 +123,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
         //copy correct channels to sample, convert to float, and apply calfile.
         for(size_t i = 0; i < vars.size(); i++){
             int channel = vars[i]->getParameter("channel")->getNumericValue(0);
-            unsigned int temp = dataPtr[channel];//cast from short to int
-            ::memcpy(outPtr, &temp, sizeof(float));//read int as float
+            *outPtr = (float) dataPtr[channel];
             VariableConverter* conv = vars[i]->getConverter();
             *outPtr = conv->convert(outsamp->getTimeTag(), *outPtr);
             outPtr++;
