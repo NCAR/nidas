@@ -65,11 +65,9 @@ protected:
 
 private:
     dsm_time_t _prevTimeTag;
-    
-    dsm_sample_id_t _prevId;
-    
+        
     //array of len 50 prev data
-    unsigned char _prevData [50];
+    unsigned char _prevData[50];
     
     int _prevOffset;
 };

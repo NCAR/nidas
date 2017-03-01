@@ -44,7 +44,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,DAUSensor)
 DAUSensor::DAUSensor():
     _cvtr(0),
     _prevTimeTag(0),
-    _prevId(0),
     _prevData(),
     _prevOffset(0)
 {
@@ -91,78 +90,67 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     if(offset == -1){
         PLOG(("Message header not found."));
         return false;
-    }else if(offset==0){//message is aligned
-        unsigned short* dataPtr = (unsigned short*) sampPtr;
-
-        //message is big-endian, convert to little-endian to match system.
-        for(int i = 0; i < 25; i++){
-            dataPtr[i] = _cvtr->uint16Value(dataPtr[i]);
-        }
-
-        //check checksum
-        unsigned int checksum = 0;
-        for(unsigned int i = 0; i < sampLength/2 - 1; i++){
-            checksum += dataPtr[i];
-        }
-        checksum = checksum % 0x10000;
-        if(checksum != dataPtr[24]){
-            PLOG(("Checksum failure."));
-            return false;
-        }
-
-        list<SampleTag*>& tags= getSampleTags();
-        SampleTag* stag = tags.front();//assuming only one sampletag present.
-        const vector<Variable*>& vars = stag->getVariables();
-
-        //create processed sample
-        SampleT<float>* outsamp = getSample<float>(vars.size()); 
-        outsamp->setTimeTag(samp->getTimeTag());
-        outsamp->setId(stag->getId());
-        float * outPtr = (float*) outsamp->getDataPtr();
-        
-        //copy correct channels to sample, convert to float, and apply calfile.
-        for(size_t i = 0; i < vars.size(); i++){
-            int channel = vars[i]->getParameter("channel")->getNumericValue(0);
-            *outPtr = (float) dataPtr[channel];
-            VariableConverter* conv = vars[i]->getConverter();
-            *outPtr = conv->convert(outsamp->getTimeTag(), *outPtr);
-            outPtr++;
-        }
-
-        results.push_back(outsamp);
-        return true;
-
-    }else{
-        //checks for bad time or data offset, saves current sample before exit
+    }else if(offset != 0){//reconstruct message from prev and current samples
+         //checks for bad time or data offset, saves current sample before exit
         if((offset != _prevOffset) || 
-           ((samp->getTimeTag() - _prevTimeTag) > (1000000.0/30))){//30hz limit
+           ((samp->getTimeTag() - _prevTimeTag) > (1000000/30))){//30hz limit
             _prevTimeTag = samp->getTimeTag();
-            _prevId = samp->getId();
-            ::memcpy(_prevData, sampPtr, 50);
+            ::memcpy(&_prevData[0], &sampPtr[offset], sampLength-offset);
             _prevOffset = offset;
             PLOG(("Message not continuous across adjacent samples."));
             return false;
         }
+        //add rest of message to previously cached message start
+        ::memcpy(&_prevData[sampLength-offset], sampPtr, offset);
 
-        //create sample from current and cached samples
-        SampleT<char>* fullSample = getSample<char>(sampLength);
-        fullSample->setTimeTag(_prevTimeTag);
-        fullSample->setId(_prevId);
-        unsigned char* newPtr = 
-            (unsigned char*) fullSample->getConstVoidDataPtr();
-        ::memcpy(newPtr, &_prevData[offset], 50-offset);
-        ::memcpy(&newPtr[50-_prevOffset], sampPtr, offset);
-
-        bool res = DAUSensor::process(fullSample, results);
-        fullSample->freeReference();
-        
-        //cache current sample for future use
-        _prevTimeTag = samp->getTimeTag();
-        _prevId = samp->getId();
-        ::memcpy(_prevData, sampPtr, 50);
-        _prevOffset = offset;
-        return res;
+    }else{//msg is aligned.
+        ::memcpy(&_prevData[0], sampPtr, sampLength);//better way to do this?
+        //just add to ^ section and take mod of samplength-offset?
     }
+    unsigned short* dataPtr = (unsigned short*) &_prevData[0];
+    
+    //message is big-endian, convert to little-endian to match system.
+    for(int i = 0; i < 25; i++){
+        dataPtr[i] = _cvtr->uint16Value(dataPtr[i]);
+    }
+
+    //check checksum
+    unsigned int checksum = 0;
+    for(unsigned int i = 0; i < sampLength/2 - 1; i++){
+        checksum += dataPtr[i];
+    }
+    checksum = checksum & 0xffff;
+    if(checksum != dataPtr[24]){
+        PLOG(("Checksum failure."));
+        return false;
+    }
+
+    list<SampleTag*>& tags= getSampleTags();
+    SampleTag* stag = tags.front();//assuming only one sampletag present.
+    const vector<Variable*>& vars = stag->getVariables();
+
+    //create processed sample
+    SampleT<float>* outsamp = getSample<float>(vars.size()); 
+    outsamp->setTimeTag(samp->getTimeTag());
+    outsamp->setId(stag->getId());
+    float * outPtr = (float*) outsamp->getDataPtr();
+
+    //copy correct channels to sample, convert to float, and apply calfile.
+    for(size_t i = 0; i < vars.size(); i++){
+        int channel = vars[i]->getParameter("channel")->getNumericValue(0);
+        *outPtr = (float) dataPtr[channel];
+        VariableConverter* conv = vars[i]->getConverter();
+        *outPtr = conv->convert(outsamp->getTimeTag(), *outPtr);
+        outPtr++;
+    }
+
+    results.push_back(outsamp);
+    
+    //cache other half of current sample
+    _prevTimeTag = samp->getTimeTag();
+    ::memcpy(&_prevData[0], &sampPtr[offset], sampLength-offset);
+    _prevOffset = offset;
+    return true;
     
 }
 
