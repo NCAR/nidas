@@ -80,6 +80,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     uint16_t checksum = crcCheck(input,18,0);
     if(! (checksum==uint16_t(data[8])))
     {
+        outs1->freeReference();
         WLOG(("WatlowCLS208 Bad Checksum: 1"));
         return false;
     }
@@ -96,6 +97,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     checksum = crcCheck(input, 4, 21);
     if (checksum != uint16_t(data[1]))
     {
+        outs2->freeReference();
         WLOG(("WatlowCLS208 Bad Checksum: 2"));
         return false;
     }
@@ -113,6 +115,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     checksum = crcCheck(input, 10, 28);
     if (checksum != uint16_t(data[4]))
     {
+        outs3->freeReference();
         WLOG(("WatlowCLS208 Bad Checksum: 3"));
         return false;
     }

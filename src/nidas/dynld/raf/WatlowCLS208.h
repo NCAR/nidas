@@ -28,7 +28,7 @@
 #define NIDAS_DYNLD_RAF_WATLOAD_H
 
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/util/EndianConverter.h>
 
 #include <nidas/util/InvalidParameterException.h>
@@ -40,7 +40,7 @@ using namespace nidas::core;
 /**
  * Sensor class supporting the NCAR/ACOM Watlow CLS208 Intrument.
  */
-class Watlow : public DSMSerialSensor
+class Watlow : public SerialSensor
 {
 public:
 
