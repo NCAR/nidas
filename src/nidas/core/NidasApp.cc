@@ -760,6 +760,14 @@ interrupted()
 }
 
 
+void
+NidasApp::
+setInterrupted(bool interrupted)
+{
+  app_interrupted = interrupted;
+}
+
+
 /* static */
 void
 NidasApp::

@@ -734,6 +734,14 @@ public:
     interrupted();
 
     /**
+     * Set the global interrupted state for NidasApp.  The default signal
+     * handler sets this flag, but this method allows the flag to be set
+     * from custom signal handlers or from other parts of the application.
+     **/
+    static void
+    setInterrupted(bool interrupted);
+
+    /**
      * Return a pointer to the application-wide Project instance.  The lifetime
      * is tied to this NidasApp instance.
      **/
