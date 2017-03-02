@@ -1,0 +1,9 @@
+2017-03-02,15:55:23|INFO|opening: data/testdata_20161121_00.dat
+2017-03-02,15:55:23|NOTICE|parsing: config/calibrationtest.xml
+2017-03-02,15:55:23|INFO|SamplePipelineProcBuffer(id=140338611160832,Non-RT,prior=0,joinable,cancel=deferred) run...
+2017-03-02,15:55:23|INFO|SamplePipelineRawBuffer(id=140338619553536,Non-RT,prior=0,joinable,cancel=deferred) run...
+2017-03-02,15:55:23|ERROR|Message not continuous across adjacent samples.
+2017-03-02,15:55:23|ERROR|Message not continuous across adjacent samples.
+Exception: EOFException: data/testdata_20161121_00.dat: open: EOF
+2017-03-02,15:55:23|INFO|SamplePipelineRawBuffer(id=140338619553536,Non-RT,prior=0,joinable,cancel=deferred) run method finished
+2017-03-02,15:55:23|INFO|SamplePipelineProcBuffer(id=140338611160832,Non-RT,prior=0,joinable,cancel=deferred) run method finished

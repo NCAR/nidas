@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation=
+    "http://www.eol.ucar.edu/nidas /home/granger/opt/nidas/share/xml/nidas.xsd"
+    name="EOL Weather Stations"
+    system="EOL"
+    config="/home/granger/weather/nidas/eol-weather-stations.xml"
+    version="$LastChangedRevision: 3611 $">
+
+  <logger scheme='notice' />
+
+  <logscheme name='notice'>
+    <logconfig level='notice'/>
+  </logscheme>
+
+    <sensorcatalog>
+        <!-- M:x =    -5 y =    10 z =    -5 t =  2215  -->
+        <serialSensor ID="METEK" class="isff.SonicAnemometer"
+            baud="19200" parity="none" databits="8" stopbits="1">
+            <sample id="1" scanfFormat="M:x = %d y = %d z = %d t = %d">
+                <variable name="u" units="cm/s" longname="Wind U component, Metek" plotrange="$UV_RANGE">
+                     <linear slope="0.01" intercept="0.0" units="m/s"/>
+                </variable>
+                <variable name="v" units="cm/s" longname="Wind V component, Metek" plotrange="$UV_RANGE">
+                     <linear slope="0.01" intercept="0.0" units="m/s"/>
+                </variable>
+                <variable name="w" units="cm/s" longname="Wind W component, Metek" plotrange="$W_RANGE">
+                     <linear slope="0.01" intercept="0.0" units="m/s"/>
+                </variable>
+                <variable name="tc" units="10mdegC" longname="Virtual air temperature, Metek" plotrange="$T_RANGE">
+                     <linear slope="0.01" intercept="0.0" units="degC"/>
+                </variable>
+            </sample>
+	    <!-- messages are 43 bytes long, end with \r\n -->
+            <message separator="\n" position="end" length="43"/>
+        </serialSensor>
+
+	<serialSensor ID="DAU" class="isff.DAUSensor">
+	  <sample id="1" rate="35">
+	    <variable name="RH.60m" units="V" longname="HMP155A relative humidity">
+	      <parameter name="channel" type="int" value="1"/>
+	      <linear units="%" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="T.60m" units="V" longname="P2449A air temperature">
+	      <parameter name="channel" type="int" value="3"/>
+	      <linear slope="1.0" intercept="0.0" units="degC"/>
+	    </variable>
+	    <variable name="T.40m" units="V" longname="P2449A air temperature">
+	      <parameter name="channel" type="int" value="4"/>
+	      <linear units="degC" slope="1.0" intercept="0.0"/ 
+	    </variable>
+	    <variable name="T.20m" units="V" longname="P2449A air temperature">
+	      <parameter name="channel" type="int" value="5"/>
+	      <linear units="degC" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="RH.10m" units="V" longname="HMP155A relative humidity">	      
+	      <parameter name="channel" type="int" value="6"/>
+	      <linear units="%" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="T.10m" units="V" longname="P2449A air temperature">
+	      <parameter name="channel" type="int" value="8"/>
+	      <linear units="degC" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="P" units="V" longname="PTB110 pressure">
+	      <parameter name="channel" type="int" value="9"/>
+	      <linear units="mb" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="Rnet" units="V" longname="Kipp and Zonen net radiation">
+	      <parameter name="channel" type="int" value="10"/>
+	      <linear units="W/m^2" slope="1.0" intercept="0.0"/>
+	    </variable>
+	    <variable name="Rainr" units="counts" longname="F3452A precipitation rate">
+	      <parameter name="channel" type="int" value="17"/>
+	      <linear units="mm/hr" slope="1.0" intercept="0.0"/>
+	    </variable>
+	  </sample>
+	  <message separator="\x81\x81" position="beg" length="50"/>
+	</serialSensor>
+
+    <!-- Gill Windmaster Pro: total guess as to how this is configured and output over UDP -->
+    <!-- <STX>Q,-000.92,-000.24,+001.51,M,+344.39,+021.38,00,+2.4181,+2.4187,+2.4162,+2.4175,-50.00C,<ETX>47 -->
+
+    <!-- The Windmaster Pro UDP messages from DTU appear like so, without any
+	  trailing line separator or null byte:
+
+         Q,+000.04,-000.04,+000.06,M,+347.06,+025.88,00,28
+
+         I assume that's id,u,v,w,M,c,tc,diag,cksum.  Like for the ARL
+         Windmaster messages, we do not extract the speed of sound.
+    -->
+    <!-- SonicAnemometer class creates the ldiag, spd and dir variables -->
+    <serialSensor ID="Gill3D" class="isff.SonicAnemometer">
+        <sample id="1" scanfFormat="%*c,%f,%f,%f,M,%*f,%f,%d">
+            <variable name="u" units="m/s" longname="Wind U component, Gill" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component, Gill" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, Gill" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature, Gill" plotrange="$T_RANGE"/>
+            <variable name="diag" units="" longname="Sonic status, Gill" plotrange="$DIAG_RANGE"/>
+            <variable name="ldiag" units="" longname="Gill logical diagnostic, 0=OK, 1=(status!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="Horizontal wind speed, RMY81000" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="Wind direction, RMY81000" plotrange="0 360"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+
+    </sensorcatalog>
+
+  <site name="eol-rt-data" class="isff.GroundStation" suffix="">
+    <dsm id="1" location='eol-rt-data' name="eol-rt-data">
+
+      <!-- MOXA METEK -->
+      <serialSensor id="10" IDREF="METEK" devicename="usock::29300" suffix=".metek">
+
+      </serialSensor>
+
+
+      <!-- MOXA DAU -->
+      <serialSensor id="20" IDREF="DAU" class="isff.DAUSensor" devicename="usock::29301" suffix=".dau">
+
+	<!-- messages are 50 bytes long, start with 0x8181 -->
+	<message separator="\x81\x81" position="beg" length="50"/>
+      </serialSensor>
+
+      <!-- MOXA Gill Windmaster -->
+      <serialSensor id="30" IDREF="Gill3D" devicename="usock::29302" suffix=".gill">
+
+      </serialSensor>
+
+      <output class="RawSampleOutputStream">
+	<fileset dir="/home/granger/moxa/data"
+		 file="nidas_raw_%Y%m%d_%H%M%S.dat"
+		 length="7200"/>
+      </output>
+
+      <output class="RawSampleOutputStream">
+	<socket type="server" port="29399"/>
+      </output>
+
+    </dsm>
+  </site>
+
+</project>

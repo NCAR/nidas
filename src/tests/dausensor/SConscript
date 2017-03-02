@@ -1,0 +1,15 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone()
+env.Require('nidas')
+
+data_dump = env.NidasApp('data_dump')
+
+depends = ["run_test.sh", data_dump]
+runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+
+env.Precious(runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
+env.Alias('dausensortest', runtest)
