@@ -49,7 +49,7 @@ public:
 
 protected:
 
-    uint16_t crcCheck(unsigned char * input, int messageLength, int start)
+    bool crcCheck(unsigned char * input, int messageLength, int start)
          throw();
 
 private:
