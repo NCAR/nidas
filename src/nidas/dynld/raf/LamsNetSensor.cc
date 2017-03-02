@@ -103,7 +103,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
             _beam = 3;
         else
         {
-            WLOG(("LamsNetSensor: invalid beam identifier = %d.\n", ptr[0]));
+            WLOG(("%s: invalid beam identifier = %d.\n", getName().c_str(), ptr[0]));
             _beam = 0;
         }
 
@@ -111,7 +111,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
         {
             _saveSamps[_beam]->freeReference();
             if (!(_unmatchedSamples++ % 100))
-                WLOG(("LamsNetSensor: missing second half of record, #bad=%zd", _unmatchedSamples));
+                WLOG(("%s: missing second half of record, #bad=%zd", getName().c_str(), _unmatchedSamples));
         }
         _saveSamps[_beam] = samp;
         samp->holdReference();
@@ -122,7 +122,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     if ((saved = _saveSamps[_beam]) == 0)
     {
         if (!(_unmatchedSamples++ % 100))
-            WLOG(("LamsNetSensor: missing first half of record, #bad=%zd", _unmatchedSamples));
+            WLOG(("%s: missing first half of record, #bad=%zd", getName().c_str(), _unmatchedSamples));
         return false;
     }
 
@@ -148,7 +148,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     if (_prevSeqNum[_beam] + 1 != seqNum)
     {
-        WLOG(("LamsNetSensor: missing data, beam %d; prev seq=%d, this seq=%d", _beam, _prevSeqNum[_beam], seqNum));
+        WLOG(("%s: missing data, beam %d; prev seq=%d, this seq=%d", getName().c_str(), _beam, _prevSeqNum[_beam], seqNum));
         _outOfSequenceSamples++;
     }
     _prevSeqNum[_beam] = seqNum;

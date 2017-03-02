@@ -79,7 +79,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     unsigned char * input = (unsigned char*) samp->getConstVoidDataPtr();
     if (samp->getDataByteLength()<41)
     {
-        WLOG(("WatlowCLS208 Bad Length"));
+        WLOG(("%s: Bad Length", getName().c_str()));
         return false;
     }
 
@@ -97,7 +97,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if(!crcCheck(input,18,0))//uint16_t checksum
     {
         outs1->freeReference();
-        WLOG(("WatlowCLS208: Bad Checksum for sample 1"));
+        WLOG(("%s: Bad Checksum for sample 1", getName().c_str()));
     }else
     {
         for (unsigned int i = 3; i <=18; i+=2){
@@ -113,7 +113,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if(!crcCheck(input, 4, 21))
     {
         outs2->freeReference();
-        WLOG(("WatlowCLS208: Bad Checksum for sample 2"));
+        WLOG(("%s: Bad Checksum for sample 2", getName().c_str()));
     }else
     {
         for (unsigned int i = 0; i < 1; i++){
@@ -129,7 +129,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if (! crcCheck(input, 10, 28))
     {
         outs3->freeReference();
-        WLOG(("WatlowCLS208: Bad Checksum for sample 3"));
+        WLOG(("%s: Bad Checksum for sample 3", getName().c_str()));
     }else
     {
         for (unsigned int i = 31; i <=38; i+=2){
