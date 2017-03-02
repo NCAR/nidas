@@ -58,6 +58,91 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+class SampleCounter
+{
+public:
+    /**
+     * A default constructor is required to use objects as a map element.
+     **/
+    SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "") :
+        name(sname),
+        id(sid),
+        t1s(0),
+        t2s(0),
+        nsamps(0),
+        minlens(0),
+        maxlens(0),
+        minDeltaTs(0),
+        maxDeltaTs(0)
+    {
+    }
+
+    void
+    reset()
+    {
+        t1s = 0;
+        t2s = 0;
+        nsamps = 0;
+        minlens = 0;
+        maxlens = 0;
+        minDeltaTs = 0;
+        maxDeltaTs = 0;
+    }
+
+    bool
+    receive(const Sample* samp) throw();
+
+    string name;
+    dsm_sample_id_t id;
+
+    dsm_time_t t1s;
+    dsm_time_t t2s;
+    size_t nsamps;
+    size_t minlens;
+    size_t maxlens;
+    int minDeltaTs;
+    int maxDeltaTs;
+};
+
+
+bool
+SampleCounter::
+receive(const Sample* samp) throw()
+{
+    dsm_sample_id_t sampid = samp->getId();
+    DLOG(("counting sample %d for id ", nsamps)
+         << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+    dsm_time_t sampt = samp->getTimeTag();
+    if (nsamps == 0)
+    {
+        t1s = sampt;
+        minDeltaTs = INT_MAX;
+        maxDeltaTs = INT_MIN;
+    }
+    else
+    {
+        int deltaT = (sampt - t2s + USECS_PER_MSEC/2) / USECS_PER_MSEC;
+	minDeltaTs = std::min(minDeltaTs, deltaT);
+	maxDeltaTs = std::max(maxDeltaTs, deltaT);
+    }
+    t2s = sampt;
+
+    size_t slen = samp->getDataByteLength();
+    if (nsamps == 0)
+    {
+        minlens = slen;
+        maxlens = slen;
+    }
+    else
+    {
+        minlens = std::min(minlens, slen);
+        maxlens = std::max(maxlens, slen);
+    }
+    ++nsamps;
+    return true;
+}
+
+
 class CounterClient: public SampleClient 
 {
 public:
@@ -72,46 +157,58 @@ public:
 
     void printResults();
 
+    void resetResults();
 
 private:
-    map<dsm_sample_id_t,string> sensorNames;
 
-    set<dsm_sample_id_t> sampids;
+    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
 
-    map<dsm_sample_id_t,dsm_time_t> t1s;
-
-    map<dsm_sample_id_t,dsm_time_t> t2s;
-
-    map<dsm_sample_id_t,size_t> nsamps;
-
-    map<dsm_sample_id_t,size_t> minlens;
-
-    map<dsm_sample_id_t,size_t> maxlens;
-
-    map<dsm_sample_id_t,int> minDeltaTs;
-
-    map<dsm_sample_id_t,int> maxDeltaTs;
+    sample_map_t _samples;
 };
 
+void
+CounterClient::
+resetResults()
+{
+    sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        si->second.reset();
+    }
+}
+
+
+
 CounterClient::CounterClient(const list<DSMSensor*>& sensors):
-    sensorNames(),sampids(),t1s(),t2s(),nsamps(),minlens(),maxlens(),
-    minDeltaTs(),maxDeltaTs()
+    _samples()
 {
     list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
+    for (si = sensors.begin(); si != sensors.end(); ++si)
+    {
+        // For now, create SampleCounter for all possible samples, both raw
+        // and processed.  Raw samples are named by the sensor device,
+        // processed samples by the first variable in the first sample tag.
+       
         DSMSensor* sensor = *si;
-	sensorNames[sensor->getId()] =
-	    sensor->getDSMConfig()->getName() + ":" + sensor->getDeviceName();
+        string sname = sensor->getDSMConfig()->getName() + ":" +
+            sensor->getDeviceName();
+        SampleCounter stats(sensor->getId(), sname);
+        _samples[stats.id] = stats;
 
 	// for samples show the first variable name, followed by ",..."
 	// if more than one.
 	SampleTagIterator ti = sensor->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    if (stag->getVariables().size() > 0) {
+	    if (stag->getVariables().size() > 0)
+            {
 		string varname = stag->getVariables().front()->getName();
-		if (stag->getVariables().size() > 1) varname += ",...";
-		sensorNames[stag->getId()] = varname;
+		if (stag->getVariables().size() > 1)
+                {
+                    varname += ",...";
+                }
+                SampleCounter pstats(stag->getId(), varname);
+                _samples[pstats.id] = pstats;
 	    }
 	}
     }
@@ -119,41 +216,20 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors):
 
 bool CounterClient::receive(const Sample* samp) throw()
 {
-    dsm_time_t sampt = samp->getTimeTag();
-
     dsm_sample_id_t sampid = samp->getId();
-    sampids.insert(sampid);
 
-    map<dsm_sample_id_t,dsm_time_t>::iterator t1i =
-	t1s.find(sampid);
-    if (t1i == t1s.end()) {
-	t1s.insert(
-	    make_pair(sampid,sampt));
-	minDeltaTs[sampid] = INT_MAX;
+    sample_map_t::iterator it = _samples.find(sampid);
+    if (it == _samples.end())
+    {
+        // When there is no header from which to gather samples ahead of
+        // time, just add a SampleCounter instance for any new raw sample
+        // that arrives.
+        DLOG(("creating counter for sample id ")
+             << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+        SampleCounter ss(sampid);
+        _samples[sampid] = ss;
     }
-    else {
-        int deltaT = (sampt - t2s[sampid] + USECS_PER_MSEC/2) / USECS_PER_MSEC;
-	minDeltaTs[sampid] = std::min(minDeltaTs[sampid],deltaT);
-	maxDeltaTs[sampid] = std::max(maxDeltaTs[sampid],deltaT);
-    }
-    t2s[sampid] = sampt;
-    nsamps[sampid]++;
-
-    size_t slen = samp->getDataByteLength();
-    size_t mlen;
-
-    map<dsm_sample_id_t,size_t>::iterator li = minlens.find(sampid);
-    if (li == minlens.end()) minlens[sampid] = slen;
-    else {
-	mlen = li->second;
-	if (slen < mlen) minlens[sampid] = slen;
-    }
-
-    mlen = maxlens[sampid];
-    if (slen > mlen) maxlens[sampid] = slen;
-
-    // cerr << samp->getDSMId() << ',' << samp->getSpSId() <<  " " << samp->getTimeTag() << endl;
-    return true;
+    return _samples[sampid].receive(samp);
 }
 
 void CounterClient::printResults()
@@ -161,27 +237,33 @@ void CounterClient::printResults()
     size_t maxnamelen = 6;
     int lenpow[2] = {5,5};
     int dtlog10[2] = {7,7};
-    set<dsm_sample_id_t>::iterator si;
-    for (si = sampids.begin(); si != sampids.end(); ++si) {
-	dsm_sample_id_t id = *si;
-	const string& sname = sensorNames[id];
-	if (sname.length() > maxnamelen) maxnamelen = sname.length();
-	size_t m = minlens[id];
+
+    sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        SampleCounter &ss = si->second;
+        if (ss.nsamps == 0)
+            continue;
+
+	const string& sname = ss.name;
+	if (sname.length() > maxnamelen)
+            maxnamelen = sname.length();
+	size_t m = ss.minlens;
 	if (m > 0) {
 	    int p = (int)ceil(log10((double)m));
 	    lenpow[0] = std::max(lenpow[0],p+1);
 	}
-	m = maxlens[id];
+	m = ss.maxlens;
 	if (m > 0) {
 	    int p = (int)ceil(log10((double)m));
 	    lenpow[1] = std::max(lenpow[1],p+1);
 	}
-	int dt = abs(minDeltaTs[id]);
+	int dt = abs(ss.minDeltaTs);
 	if (dt > 0 && dt < INT_MAX) {
 	    int p = (int)ceil(log10((double)dt+1));
 	    dtlog10[0] = std::max(dtlog10[0],p + 2);
 	}
-	dt = maxDeltaTs[id];
+	dt = ss.maxDeltaTs;
 	if (dt > 0) {
 	    int p = (int)ceil(log10((double)dt+1));
 	    dtlog10[1] = std::max(dtlog10[1],p + 2);
@@ -196,38 +278,44 @@ void CounterClient::printResults()
 		setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)" <<
 		setw(lenpow[0] + lenpow[1]) << " minMaxLen" <<
 		endl;
-    for (si = sampids.begin(); si != sampids.end(); ++si) {
-	dsm_sample_id_t id = *si;
-	time_t ut = t1s[id] / USECS_PER_SEC;
+
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        SampleCounter& ss = si->second;
+        if (ss.nsamps == 0)
+            continue;
+
+	time_t ut = ss.t1s / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
-	int msec = (int)(t1s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	int msec = (int)(ss.t1s % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t1str(tstr);
-	ut = t2s[id] / USECS_PER_SEC;
+	ut = ss.t2s / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
-	msec = (int)(t2s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	msec = (int)(ss.t2s % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
 
-
-        cout << left << setw(maxnamelen) << sensorNames[id] << right << ' ' <<
-	    setw(4) << GET_DSM_ID(id) << ' ';
+        cout << left << setw(maxnamelen) << ss.name
+             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
 
         NidasApp* app = NidasApp::getApplicationInstance();
-        app->formatSampleId(cout, id);
+        app->formatSampleId(cout, ss.id);
 
-        cout << setw(9) << nsamps[id] << ' ' <<
-	    t1str << "  " << t2str << ' ' << 
-	    fixed << setw(7) << setprecision(2) <<
-	    double(nsamps[id]-1) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
-	    setw(dtlog10[0]) << setprecision(3) <<
-	    (minDeltaTs[id] < INT_MAX ? (float)minDeltaTs[id] / MSECS_PER_SEC : 0) <<
-	    setw(dtlog10[1]) << setprecision(3) <<
-	    (float)maxDeltaTs[id] / MSECS_PER_SEC <<
-	    setw(lenpow[0]) << minlens[id] << setw(lenpow[1]) << maxlens[id] <<
-	    endl;
+        cout << setw(9) << ss.nsamps << ' '
+             << t1str << "  " << t2str << ' '
+             << fixed << setw(7) << setprecision(2)
+             << double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC)
+             << setw(dtlog10[0]) << setprecision(3)
+             << (ss.minDeltaTs < INT_MAX ?
+                 (float)ss.minDeltaTs / MSECS_PER_SEC : 0)
+             << setw(dtlog10[1]) << setprecision(3)
+             << (float)ss.maxDeltaTs / MSECS_PER_SEC
+             << setw(lenpow[0]) << ss.minlens
+             << setw(lenpow[1]) << ss.maxlens
+             << endl;
     }
 }
 
@@ -246,9 +334,12 @@ public:
 
     int usage(const char* argv0);
 
+    static void handleSignal(int signum);
+
 private:
     static const int DEFAULT_PORT = 30000;
 
+    static bool _alarm;
     int _count;
     int _period;
 
@@ -258,14 +349,30 @@ private:
 };
 
 
+bool DataStats::_alarm(false);
+
+
+void
+DataStats::handleSignal(int signum)
+{
+    // The NidasApp handler sets interrupted before calling this handler,
+    // so clear that if this is just the interval alarm.
+    if (signum == SIGALRM)
+    {
+        NidasApp::setInterrupted(false);
+        _alarm = true;
+    }
+}
+
+
 DataStats::DataStats():
-    _count(0), _period(0),
+    _count(1), _period(0),
     app("data_stats"),
     Period("--period", "<seconds>",
            "Collect statistics for the given number of seconds and then "
            "print the report.", "0"),
     Count("-n,--count", "<count>",
-          "When --period specified, generate <count> reports.", "0")
+          "When --period specified, generate <count> reports.", "1")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -364,7 +471,7 @@ int DataStats::run() throw()
         // loop.
         if (_period > 0)
         {
-            app.addSignal(SIGALRM);
+            app.addSignal(SIGALRM, &DataStats::handleSignal);
             alarm(_period);
         }
 
@@ -424,37 +531,53 @@ int DataStats::run() throw()
         else sis.addSampleClient(&counter);
 
         try {
-            for (;;) {
-                sis.readSamples();
-                if (app.interrupted()) break;
+            int nreports = 0;
+            while (!app.interrupted() && ++nreports <= _count)
+            {
+                while (!_alarm && !app.interrupted())
+                {
+                    sis.readSamples();
+                }
+                counter.printResults();
+                counter.resetResults();
+                _alarm = false;
             }
         }
-        catch (n_u::EOFException& e) {
+        catch (n_u::EOFException& e)
+        {
             cerr << e.what() << endl;
+            counter.printResults();
         }
-        catch (n_u::IOException& e) {
-            if (app.processData()) {
+        catch (n_u::IOException& e)
+        {
+            if (app.processData())
+            {
                 pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
                 pipeline.disconnect(&sis);
                 pipeline.interrupt();
                 pipeline.join();
             }
-            else sis.removeSampleClient(&counter);
+            else
+            {
+                sis.removeSampleClient(&counter);
+            }
             sis.close();
             counter.printResults();
             throw(e);
         }
-	if (app.processData()) {
+	if (app.processData())
+        {
             pipeline.disconnect(&sis);
             pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
         }
-        else sis.removeSampleClient(&counter);
-
+        else
+        {
+            sis.removeSampleClient(&counter);
+        }
         sis.close();
         pipeline.interrupt();
         pipeline.join();
-        counter.printResults();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
