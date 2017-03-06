@@ -42,66 +42,39 @@
 	  <sample id="1" rate="35">
 	    <variable name="RH.60m" units="V" longname="HMP155A relative humidity">
 	      <parameter name="channel" type="int" value="1"/>
-	      <linear units="%">
-		<calfile file="RH.60m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="%" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="T.60m" units="V" longname="P2449A air temperature">
 	      <parameter name="channel" type="int" value="3"/>
-	      <linear units="degC">
-		<calfile file="T.60m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear slope="1.0" intercept="0.0" units="degC"/>
 	    </variable>
 	    <variable name="T.40m" units="V" longname="P2449A air temperature">
 	      <parameter name="channel" type="int" value="4"/>
-	      <linear units="degC">
-		<calfile file="T.40m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="degC" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="T.20m" units="V" longname="P2449A air temperature">
 	      <parameter name="channel" type="int" value="5"/>
-	      <linear units="degC">
-		<calfile file="T.20m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="degC" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="RH.10m" units="V" longname="HMP155A relative humidity">	      
 	      <parameter name="channel" type="int" value="6"/>
-	      <linear units="%">
-		<calfile file="RH.10m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="%" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="T.10m" units="V" longname="P2449A air temperature">
 	      <parameter name="channel" type="int" value="8"/>
-	      <linear units="degC">
-		<calfile file="T.10m.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="degC" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="P" units="V" longname="PTB110 pressure">
 	      <parameter name="channel" type="int" value="9"/>
-	      <linear units="mb">
-		<calfile file="P.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="mb" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="Rnet" units="V" longname="Kipp and Zonen net radiation">
 	      <parameter name="channel" type="int" value="10"/>
-	      <linear units="W/m^2">
-		<calfile file="Rnet.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="W/m^2" slope="1.0" intercept="0.0"/>
 	    </variable>
 	    <variable name="Rainr" units="counts" longname="F3452A precipitation rate">
 	      <parameter name="channel" type="int" value="17"/>
-	      <linear units="mm/hr">
-		<calfile file="Rainr.dat" 
-			 path="/h/eol/isabels/nidas_data/calfiles"/>
-	      </linear>
+	      <linear units="mm/hr" slope="1.0" intercept="0.0"/>
 	    </variable>
 	  </sample>
 	  <message separator="\x81\x81" position="beg" length="50"/>
