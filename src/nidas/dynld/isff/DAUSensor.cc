@@ -75,7 +75,11 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
         PLOG(("Message length incorrect."));
         return false; //msg must be 50 bytes long
     }
-    unsigned short header = 0x8181;//get this from xml?
+
+    //get message separator from xml and cast to short from string
+    string sep = getMessageSeparator();
+    unsigned short header = (((unsigned short) sep[0]) << 8) | 
+        (((unsigned short) sep[1]) & 0x00ff);
     unsigned char* sampPtr = (unsigned char*) samp->getConstVoidDataPtr();
 
     int offset = -1;
