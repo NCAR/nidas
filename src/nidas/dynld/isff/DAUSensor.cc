@@ -81,7 +81,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     unsigned short header = (((unsigned short) sep[0]) << 8) | 
         (((unsigned short) sep[1]) & 0x00ff);
     unsigned char* sampPtr = (unsigned char*) samp->getConstVoidDataPtr();
-
+    
     int offset = -1;
     //combine 2 chars to get short--header may not be on even byte boundary
     for(size_t i = 0; i < sampLength-1; i++){
@@ -99,18 +99,18 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
         if((offset != _prevOffset) || 
            ((samp->getTimeTag() - _prevTimeTag) > (1000000/30))){//30hz limit
             _prevTimeTag = samp->getTimeTag();
-            ::memcpy(&_prevData[0], &sampPtr[offset], sampLength-offset);
+            _prevData.assign(&sampPtr[offset], &sampPtr[sampLength]);
             _prevOffset = offset;
             PLOG(("Message not continuous across adjacent samples."));
             return false;
         }
         //add rest of message to previously cached message start
-        ::memcpy(&_prevData[sampLength-offset], sampPtr, offset);
+        _prevData.insert(_prevData.end(), &sampPtr[0], &sampPtr[offset]);
 
     }else{//msg is aligned.
-        ::memcpy(&_prevData[0], sampPtr, sampLength);//better way to do this?
-        //just add to ^ section and take mod of samplength-offset?
+        _prevData.assign(&sampPtr[0], &sampPtr[sampLength]);
     }
+
     unsigned short* dataPtr = (unsigned short*) &_prevData[0];
     
     //message is big-endian, convert to little-endian to match system.
@@ -150,10 +150,12 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
 
     results.push_back(outsamp);
     
-    //cache other half of current sample
-    _prevTimeTag = samp->getTimeTag();
-    ::memcpy(&_prevData[0], &sampPtr[offset], sampLength-offset);
-    _prevOffset = offset;
+    //cache part of current sample that has not yet been used.
+    if(offset != 0){
+        _prevTimeTag = samp->getTimeTag();
+        _prevOffset = offset;
+        _prevData.assign(&sampPtr[offset], &sampPtr[sampLength]);
+    }
     return true;
     
 }

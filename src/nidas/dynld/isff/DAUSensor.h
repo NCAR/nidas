@@ -66,8 +66,8 @@ protected:
 private:
     dsm_time_t _prevTimeTag;
         
-    //array of len 50 prev data
-    unsigned char _prevData[50];
+    //vector to hold prev. message
+    vector<unsigned char> _prevData;
     
     int _prevOffset;
 };
