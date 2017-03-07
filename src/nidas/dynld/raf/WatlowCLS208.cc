@@ -252,11 +252,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
         }
 
         // check if there is enough input data for len data bytes + CRC
-	if (inp + len + 2 > eod) {
+	if (inp + len + sizeof(int16_t) > eod) {
             if (!(_numWarnings++ % 1000))
                 WLOG(("%s: Watlow warning #%u, truncated sample %d is %d bytes, should be %u, len=%u",
                     getName().c_str(), _numWarnings, sampnum, (int)(eod-som),
-                    5 + len, len));
+                    3 + len + sizeof(int16_t), len));
             break;
         }
 
@@ -275,12 +275,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
             switch (sampnum) {
             case 1:
             case 2:
-                for (iv = 0; iv < std::min(len / 2, nvars); iv++) {
+                for (iv = 0; iv < std::min(len / (unsigned int)sizeof(int16_t), nvars); iv++) {
                     float val = (float)_fromBig->int16Value(inp) / 10.0;
                     Variable* var = vars[iv];
                     VariableConverter* conv = var->getConverter();
-                    if (conv)
-                    {
+                    if (conv) {
                         val = conv->convert(outs->getTimeTag(), val);
                     }
                     *dout++ = val;
@@ -289,12 +288,11 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
                 break;
             case 3:
             default:
-                for (iv = 0; iv < std::min(len / 2, nvars); iv++) {
+                for (iv = 0; iv < std::min(len / (unsigned int)sizeof(int16_t), nvars); iv++) {
                     float val = (float)_fromBig->uint16Value(inp);
                     Variable* var = vars[iv];
                     VariableConverter* conv = var->getConverter();
-                    if (conv)
-                    {
+                    if (conv) {
                         val = conv->convert(outs->getTimeTag(), val);
                     }
                     *dout++ = val;
