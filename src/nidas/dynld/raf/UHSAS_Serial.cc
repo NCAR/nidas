@@ -170,7 +170,7 @@ static const unsigned char setup_pkt[] =
 
 UHSAS_Serial::UHSAS_Serial():
     DSMSerialSensor(),_noutValues(0),_nValidChannels(0),_nHousekeep(0),
-    _hkScale(),_sampleRate(0.0),
+    _hkScale(),_binary(true),_sampleRate(0.0),
     _sendInitBlock(false),_nOutBins(100),_sumBins(false),
     _nDataErrors(0),_dtUsec(USECS_PER_SEC),
     _nstitch(0),_largeHistograms(0),_totalHistograms(0),
@@ -186,6 +186,7 @@ UHSAS_Serial::~UHSAS_Serial()
             ", #large=" << _largeHistograms << ", #stitch=" << _nstitch << ", #errors=" << _nDataErrors << endl;
 }
 
+
 void UHSAS_Serial::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
@@ -200,10 +201,22 @@ void UHSAS_Serial::open(int flags)
 
     SerialSensor::open(flags);
 }
+
+
 void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
 {
-
     CharacterSensor::init();
+
+    _nHousekeep = 9;	// 9 of the available 12 are used.
+    _nValidChannels = 99;	// 99 valid channels (100 total).
+
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    if (!sscanfers.empty()) {
+        _binary = false;
+        _nHousekeep = 13;	// 13 given by CU UHSAS.
+        return;
+    }
+
 
     const Parameter *p;
 
@@ -216,9 +229,6 @@ void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
               "HSKP_SCALE","not 12 long ");
     for (int i = 0; i < p->getLength(); ++i)
         _hkScale[i] = p->getNumericValue(i);
-
-    _nValidChannels = 99;	// 99 valid channels (100 total).
-    _nHousekeep = 9;	// 9 of the available 12 are used.
 
     // Determine number of floats we will recieve (_noutValues)
     list<SampleTag*>& stags = getSampleTags();
@@ -345,6 +355,38 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     const int LOG_MSG_DECIMATE = 10;
 
     list<Sample*> osamps;
+
+    if (!_binary) {
+        SerialSensor::process(samp, results);
+
+        if (results.empty()) return false;
+
+        const Sample* psamp = results.front();
+
+        // now figure out what elements of pdata contain the histogram
+        // don't go past nvals though...  You could hard-code things, or 
+        // In validate() method you could loop over the variables in the sample
+        // checking their names to figure out what might be the first and last bin.
+
+        const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+        double sum = 0.0;
+        int nvals = psamp->getDataLength();
+        for (int i = 0; i < _nValidChannels; i++) {
+            if (i + _nHousekeep < nvals) {
+                float val = pdata[i + _nHousekeep];
+                if (! isnan(val)) sum += val;
+            }
+        }
+         
+        SampleT<float> * outs = getSample<float>(1);
+        outs->setTimeTag(psamp->getTimeTag());
+        outs->setId(psamp->getId() + 1);
+        float* dout = outs->getDataPtr();
+        *dout  = sum;
+
+        results.push_back(outs);            // TCNT
+        return true;
+    }
 
     // If there is more than one sample, then the UHSAS wasn't sending out the
     // ffff00 beginning-of-message separator, and NIDAS has concat'd a bunch
