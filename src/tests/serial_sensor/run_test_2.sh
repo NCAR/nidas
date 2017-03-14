@@ -251,7 +251,7 @@ for fp in $HOSTNAME server; do
     for (( i = 0; i < $nsensors; i++)); do
         sname=test$i
         awk "
-            /^$HOSTNAME:\/tmp\/.*\/$sname/{
+            /^$HOSTNAME:\/.*\/$sname/{
                 nmatch++
             }
             END{
@@ -264,7 +264,7 @@ for fp in $HOSTNAME server; do
 
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-            /^$HOSTNAME:\/tmp\/.*\/$sname/{
+            /^$HOSTNAME:\/.*\/$sname/{
                 if (\$4 < nsamp) {
                     print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
                     exit(1)

@@ -227,7 +227,7 @@ for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
 
     awk "
-/^$HOSTNAME:\/tmp\/.*\/$sname/{
+/^$HOSTNAME:\/.*\/$sname/{
     nmatch++
 }
 END{
@@ -240,7 +240,7 @@ END{
 
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
-/^$HOSTNAME:\/tmp\/.*\/$sname/{
+/^$HOSTNAME:\/.*\/$sname/{
     nmatch++
     if (\$4 < nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
