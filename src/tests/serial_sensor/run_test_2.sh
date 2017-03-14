@@ -105,29 +105,40 @@ find_udp_port() {
 kill_dsm
 kill_dsm_server
 
-[ -d tmp ] && rm -rf tmp
-[ -d tmp ] || mkdir tmp
+export TEST=$(mktemp -d --tmpdir test_XXXXXX)
+echo "TEST=$TEST"
+
+trap "{ rm -rf $TEST; }" EXIT
+
+badexit() {
+    save=/tmp/test_save2
+    echo "Saving $TEST as $save"
+    [ -d $save ] && rm -rf $save
+    mv $TEST $save
+    exit 1
+}
+
 
 # Start sensor simulations on pseudo-terminals.
 # Once sensor_sim opens the pseudo-terminal it does a kill -STOP on itself.
 # After starting the sensor_sims, this script then starts the dsm process.
-# This script scans the dsm process output for an "opened tmp/testN" message
+# This script scans the dsm process output for an "opened $TEST/testN" message
 # indicating that the the dsm process has opened the device. At that point
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
 sspids=()
-sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
+sensor_sim -f data/test.dat -e "\n" -r 10 -t $TEST/test0 &
 sspids=(${sspids[*]} $!)
-sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
+sensor_sim -f data/test.dat -b $'\e' -r 10 -t $TEST/test1 &
 sspids=(${sspids[*]} $!)
 # simulate Campbell sonic
-sensor_sim -c -r 60 -n 256 tmp/test2 -t &
+sensor_sim -c -r 60 -n 256 $TEST/test2 -t &
 sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t tmp/test3 &
+sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t $TEST/test3 &
 sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -b xxy -r 1 -t tmp/test4 &
+sensor_sim -f data/repeated_sep.dat -b xxy -r 1 -t $TEST/test4 &
 sspids=(${sspids[*]} $!)
-sensor_sim -f data/repeated_sep.dat -p "hello\n" -e "\n" -t tmp/test5 &
+sensor_sim -f data/repeated_sep.dat -p "hello\n" -e "\n" -t $TEST/test5 &
 sspids=(${sspids[*]} $!)
 
 # number of simulated sensors
@@ -136,22 +147,22 @@ nsensors=${#sspids[*]}
 export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
-# ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
-# valgrind dsm_server -d -l 6 config/test.xml > tmp/dsm_server.log 2>&1 &
+# ( valgrind dsm_server -d config/test.xml 2>&1 | tee $TEST/dsm_server.log ) &
+# valgrind dsm_server -d -l 6 config/test.xml > $TEST/dsm_server.log 2>&1 &
 
 export NIDAS_CONFIGS=config/configs.xml
-# valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+# valgrind --tool=helgrind dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
 # --gen-suppressions=all
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
 
 sleep 10
 
 # start dsm data collection. Use udp port $NIDAS_SVC_PORT_UDP to contact dsm_server for XML
-# ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
+# ( valgrind dsm -d 2>&1 | tee $TEST/dsm.log ) &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > $TEST/dsm.log 2>&1 &
 dsmpid=$!
 
-while ! [ -f tmp/dsm.log ]; do
+while ! [ -f $TEST/dsm.log ]; do
     sleep 1
 done
 
@@ -162,9 +173,9 @@ sleepmax=40
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${sspids[$n]} -gt 0 ]; then
-            # if fgrep -q "opened: ${HOSTNAME}:tmp/test$n" tmp/dsm.log; then
-            if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
-                echo "sending CONT to ${sspids[$n]} for tmp/test$n"
+            # if fgrep -q "opened: ${HOSTNAME}:$TEST/test$n" $TEST/dsm.log; then
+            if fgrep -q "opening: $TEST/test$n" $TEST/dsm.log; then
+                echo "sending CONT to ${sspids[$n]} for $TEST/test$n"
                 kill -CONT ${sspids[$n]}
                 sspids[$n]=-1
                 ndone=$(($ndone + 1))
@@ -184,9 +195,9 @@ if [ $sleep -ge $sleepmax ]; then
     kill_sims
     kill_dsm
     kill_dsm_server
-    cat tmp/dsm.log
-    cat tmp/dsm_server.log
-    exit 1
+    cat $TEST/dsm.log
+    cat $TEST/dsm_server.log
+    badexit
 fi
 
 # When a sensor_sim finishes and closes its pseudo-terminal
@@ -198,7 +209,7 @@ fi
 while true; do
     ndone=0
     for (( n = 0; n < $nsensors; n++ )); do
-        if fgrep -q "closing: tmp/test$n" tmp/dsm.log; then
+        if fgrep -q "closing: $TEST/test$n" $TEST/dsm.log; then
             ndone=$(($ndone + 1))
         else
             sleep 3
@@ -214,23 +225,23 @@ kill_dsm_server
 for fp in $HOSTNAME server; do
 
     # check output data file for the expected number of samples
-    ofiles=(tmp/${fp}_*)
+    ofiles=($TEST/${fp}_*)
     if [ ${#ofiles[*]} -ne 1 ]; then
         echo "Expected one output file, got ${#ofiles[*]}"
-        exit 1
+        badexit
     fi
 
     # run data_stats on raw data file
-    statsf=tmp/data_stats_${fp}.out
+    statsf=$TEST/data_stats_${fp}.out
     data_stats $ofiles > $statsf
 
-    ns=`egrep "^$HOSTNAME:tmp/test" $statsf | wc | awk '{print $1}'`
+    ns=`egrep "^$HOSTNAME:$TEST/test" $statsf | wc | awk '{print $1}'`
     if [ $ns -ne $nsensors ]; then
         echo "Expected $nsensors sensors in $statsf, got $ns"
         if [ $ns -gt 0 ]; then
             echo "This can be due to a very busy system"
         fi
-        exit 1
+        badexit
     fi
 
     # should see these numbers of raw samples
@@ -240,12 +251,12 @@ for fp in $HOSTNAME server; do
     for (( i = 0; i < $nsensors; i++)); do
         sname=test$i
         awk "
-            /^$HOSTNAME:tmp\/$sname/{
+            /^$HOSTNAME:\/tmp\/.*\/$sname/{
                 nmatch++
             }
             END{
                 if (nmatch != 1) {
-                    print \"can't find sensor tmp/$sname in raw data_stats output\"
+                    print \"can't find sensor $TEST/$sname in raw data_stats output\"
                     exit(1)
                 }
             }
@@ -253,7 +264,7 @@ for fp in $HOSTNAME server; do
 
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-            /^$HOSTNAME:tmp\/$sname/{
+            /^$HOSTNAME:\/tmp\/.*\/$sname/{
                 if (\$4 < nsamp) {
                     print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
                     exit(1)
@@ -275,7 +286,7 @@ for fp in $HOSTNAME server; do
     ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
     if [ $ns -ne $nsensors ]; then
         echo "Expected $nsensors sensors in $statsf, got $ns"
-        exit 1
+        badexit
     fi
 
     # should see these numbers of processed samples
@@ -323,24 +334,24 @@ for fp in $HOSTNAME server; do
 done
 
 # check for valgrind errors in dsm process
-dsm_errs=`valgrind_errors tmp/dsm.log`
-echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
+dsm_errs=`valgrind_errors $TEST/dsm.log`
+echo "$dsm_errs errors reported by valgrind in $TEST/dsm.log"
 
 # check for valgrind errors in dsm_server
-svr_errs=`valgrind_errors tmp/dsm_server.log`
-echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
+svr_errs=`valgrind_errors $TEST/dsm_server.log`
+echo "$svr_errs errors reported by valgrind in $TEST/dsm_server.log"
 
-! $procok || ! $rawok && exit 1
+! $procok || ! $rawok && badexit
 
-! $procsampsok || ! $rawsampsok && exit 1
+! $procsampsok || ! $rawsampsok && badexit
 
 if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "${0##*/}: serial_sensor test OK"
     exit 0
 else
-    [ $dsm_errs -gt 0 ] || cat tmp/dsm.log
-    [ $svr_errs -gt 0 ] || cat tmp/dsm_server.log
+    [ $dsm_errs -gt 0 ] || cat $TEST/dsm.log
+    [ $svr_errs -gt 0 ] || cat $TEST/dsm_server.log
     echo "${0##*/}: serial_sensor test failed"
-    exit 1
+    badexit
 fi
 
