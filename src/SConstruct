@@ -380,7 +380,10 @@ dox = env.Command('#/../doc/doxygen',
               'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
 Alias('dox', dox)
 AlwaysBuild(dox)
-Alias('doxinstall', env.Install('$PREFIX','#/../doc/doxygen'))
+
+# Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
+# a target, and the other install targets this rule to create $PREFIX
+Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
 opts.Update(env)
 gopts.Update(env)

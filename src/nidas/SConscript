@@ -150,7 +150,7 @@ for dir in subdirs:
 Alias('lib', subdirs[0:3])
 Clean('lib', subdirs[0:3])
 
-env.Alias('install', [ '$PREFIX' ])
+env.Alias('install', ['$PREFIX/include', '$PREFIX/$ARCHLIBDIR'])
 
 # Don't want to do a Clean of $PREFIX here, in case there is
 # other stuff there from other packages: we won't own $PREFIX.

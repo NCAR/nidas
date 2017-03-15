@@ -92,10 +92,6 @@ EOD
     git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk --re-interval -f $awkcom | cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
-        cd src   # to src
-        scons BUILDS=host $args build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
-        cd -    # back to top
-
         # If $JLOCAL/include/raf or /opt/local/include/raf exists then
         # build configedit package
         $buildraf && [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
@@ -107,6 +103,10 @@ EOD
     else
         buildopt=-bb    # don't build source for nidas-doxygen
     fi
+
+    cd src   # to src
+    scons BUILDS=host $args build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
+    cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
             rpm pkg_files filters src/SConstruct src/nidas src/firmware src/nidas.pc.in src/build/include \

@@ -100,5 +100,5 @@ for mach in machs:
 
     first_mach = False
 
-# if arch != '':
-#     Alias(arch,vdirs)
+env.Alias('install', [ '$PREFIX/modules' ])
+
