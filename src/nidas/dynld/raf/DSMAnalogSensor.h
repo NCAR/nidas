@@ -95,8 +95,7 @@ public:
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Get the current temperature. Sends a ioctl to the driver module.
