@@ -61,8 +61,7 @@ public:
 
     ~Wind2D();
 
-    void addSampleTag(nidas::core::SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     void validateSscanfs() throw(nidas::util::InvalidParameterException);
 

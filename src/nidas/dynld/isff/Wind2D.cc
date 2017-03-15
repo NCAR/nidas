@@ -52,46 +52,52 @@ Wind2D::~Wind2D()
 {
 }
 
-void Wind2D::addSampleTag(SampleTag* stag)
-    throw(n_u::InvalidParameterException)
+void Wind2D::validate() throw(n_u::InvalidParameterException)
 {
-    if (getSampleTags().size() > 0)
+    SerialSensor::validate();
+
+    const std::list<SampleTag*>& tags = getSampleTags();
+    if (tags.size() > 1)
         throw n_u::InvalidParameterException(getName() +
 		" can only create one sample");
 
-    SerialSensor::addSampleTag(stag);
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
 
-    // check the variable names to determine which
-    // is wind speed, direction, u or v.
-    // Rather than impose a policy on variable names,
-    // then names can be specified by the user.
-    const vector<Variable*>& vars = stag->getVariables();
-    vector<Variable*>::const_iterator vi = vars.begin();
-    for (int i = 0; vi != vars.end(); i++,++vi) {
-	Variable* var = *vi;
-	const string& vname = var->getName();
-	if (vname.length() >= getUName().length() &&
-		vname.substr(0,getUName().length()) == getUName())
-	    _uIndex = i;
-	else if (vname.length() >= getVName().length() &&
-		vname.substr(0,getVName().length()) == getVName())
-	    _vIndex = i;
-	else if (vname.length() >= getSpeedName().length() &&
-		vname.substr(0,getSpeedName().length()) == getSpeedName()) {
-	    _speedIndex = i;
-            _speedConverter = var->getConverter();
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        // check the variable names to determine which
+        // is wind speed, direction, u or v.
+        // Rather than impose a policy on variable names,
+        // then names can be specified by the user.
+        const vector<Variable*>& vars = stag->getVariables();
+        vector<Variable*>::const_iterator vi = vars.begin();
+        for (int i = 0; vi != vars.end(); i++,++vi) {
+            Variable* var = *vi;
+            const string& vname = var->getName();
+            if (vname.length() >= getUName().length() &&
+                    vname.substr(0,getUName().length()) == getUName())
+                _uIndex = i;
+            else if (vname.length() >= getVName().length() &&
+                    vname.substr(0,getVName().length()) == getVName())
+                _vIndex = i;
+            else if (vname.length() >= getSpeedName().length() &&
+                    vname.substr(0,getSpeedName().length()) == getSpeedName()) {
+                _speedIndex = i;
+                _speedConverter = var->getConverter();
+            }
+            else if (vname.length() >= getDirName().length() &&
+                    vname.substr(0,getDirName().length()) == getDirName()) {
+                _dirIndex = i;
+                _dirConverter = var->getConverter();
+            }
         }
-	else if (vname.length() >= getDirName().length() &&
-		vname.substr(0,getDirName().length()) == getDirName()) {
-	    _dirIndex = i;
-            _dirConverter = var->getConverter();
-        }
+        if (_speedIndex < 0 || _dirIndex < 0)
+            throw n_u::InvalidParameterException(getName() +
+              " Wind2D cannot find speed or direction variables");
+
+        _outlen = stag->getVariables().size();
     }
-    if (_speedIndex < 0 || _dirIndex < 0)
-	throw n_u::InvalidParameterException(getName() +
-	  " Wind2D cannot find speed or direction variables");
-
-    _outlen = stag->getVariables().size();
 }
 
 void Wind2D::validateSscanfs() throw(n_u::InvalidParameterException)
