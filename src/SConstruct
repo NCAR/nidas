@@ -375,11 +375,12 @@ Alias('install',
       Alias('xml_install',
             env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
-dox = Command('#/../doc/doxygen/html/index.html',
+dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
-              'cd .. && doxygen $SOURCE')
+              'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
 Alias('dox', dox)
 AlwaysBuild(dox)
+Alias('doxinstall', env.Install('$PREFIX','#/../doc/doxygen'))
 
 opts.Update(env)
 gopts.Update(env)
@@ -387,8 +388,10 @@ Help(opts.GenerateHelpText(env) + gopts.GenerateHelpText(env) + """
 targets (use -c to clean targets)
 (none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
 host    build libraries, executable programs and modules for host system.
-arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
-armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
+arm    build libraries, executables and kernel modules for Eurotech Viper and Titan, running (obsolete) Arcom Embedded Linux
+armbe  build libraries, executables and kernel modules for Eurotech Vulcan, running Arcom Embedded Linux
+armel  build libraries, executables and kernel modules for Eurotech Viper and Titan, Debian 8
+armhf  build libraries, executables and kernel modules for ARMv6/7 systems, such as R Pi2, running Raspian
 install build and install all modules, libraries, headers and executables.
 -c install  clean targets from $PREFIX
 """)

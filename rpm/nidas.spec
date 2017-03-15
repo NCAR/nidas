@@ -170,6 +170,7 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
+
 %post min
 
 /sbin/ldconfig
