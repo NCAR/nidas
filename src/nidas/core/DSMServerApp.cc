@@ -292,11 +292,9 @@ int DSMServerApp::run() throw()
 	DSMServer* server = 0;
 
 	try {
-	    char hostname[MAXHOSTNAMELEN];
-	    gethostname(hostname,sizeof(hostname));
+            std::string hostname = _app.getHostName();
 
-	    list<DSMServer*> servers =
-	    	project.findServers(hostname);
+	    list<DSMServer*> servers = project.findServers(hostname);
 
 	    if (servers.empty())
 	    	throw n_u::InvalidParameterException("project","server",
