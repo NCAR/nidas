@@ -528,6 +528,25 @@ public:
 };
 
 
+BOOST_AUTO_TEST_CASE(test_nidas_app_argv)
+{
+  // Test usage with a standard argv list.
+  const char* argv[] = { "/bin/myapp", "--period", "25", "--repeat" };
+  int argc = 4;
+
+  MyApp app;
+  
+  // Just make sure no arguments means no settings change.
+  app.parseArguments(ArgVector(argv+1, argv+1));
+  BOOST_CHECK_EQUAL(app._repeat, false);
+  BOOST_CHECK_EQUAL(app._period, 0);
+
+  app.parseArguments(ArgVector(argv+1, argv+argc));
+  BOOST_CHECK_EQUAL(app._repeat, true);
+  BOOST_CHECK_EQUAL(app._period, 10);
+}
+
+
 BOOST_AUTO_TEST_CASE(test_nidas_app_custom_args)
 {
   MyApp app;
