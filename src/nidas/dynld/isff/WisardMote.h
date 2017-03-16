@@ -73,7 +73,8 @@
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
+#include <nidas/core/Sample.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -87,6 +88,8 @@
 #include <list>
 
 namespace nidas { namespace dynld { namespace isff {
+
+using namespace nidas::core;
 
 struct VarInfo
 {
@@ -119,7 +122,7 @@ struct SampInfo
     enum WISARD_SAMPLE_TYPE type;
 };
 
-class WisardMote:public DSMSerialSensor
+class WisardMote:public SerialSensor
 {
 public:
     WisardMote();
