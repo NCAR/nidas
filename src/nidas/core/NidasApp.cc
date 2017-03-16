@@ -4,11 +4,17 @@
 #include "Project.h"
 #include "Version.h"
 
+#include <nidas/util/Process.h>
+#include <nidas/util/FileSet.h>
+
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
+#include <pwd.h>
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
@@ -509,7 +515,7 @@ parseTime(const std::string& optarg)
 
 ArgVector
 NidasApp::
-parseRemaining()
+unparsedArgs()
 {
   return _argv;
 }
@@ -517,7 +523,7 @@ parseRemaining()
 
 void
 NidasApp::
-startParsing(const ArgVector& args)
+startArgs(const ArgVector& args)
 {
   _argv = args;
   _argi = 0;
@@ -653,17 +659,17 @@ parseNext() throw (NidasAppException)
 }
 
 
-void
+ArgVector
 NidasApp::
-parseArguments(const ArgVector& args) throw (NidasAppException)
+parseArgs(const ArgVector& args) throw (NidasAppException)
 {
-  startParsing(args);
+  startArgs(args);
   NidasAppArg* arg = parseNext();
   while (arg)
   {
     arg = parseNext();
   }
-  args = parseRemaining();
+  return unparsedArgs();
 }
 
 
@@ -976,19 +982,22 @@ setupDaemon()
 {
   nidas::util::Logger* logger = 0;
   n_u::LogConfig lc;
-  n_u::LogScheme logscheme("dsm");
-  lc.level = _logLevel;
-  if (_syslogit) {
-    // fork to background
-    if (daemon(0,0) < 0) {
-      n_u::IOException e("DSMEngine","daemon",errno);
+  n_u::LogScheme logscheme(getName());
+  if (! DebugDaemon.asBool())
+  {
+    lc.level = n_u::LOGGER_DEBUG;
+    // fork to background, chdir to /, send stdout/stderr to /dev/null
+    if (daemon(0,0) < 0)
+    {
+      n_u::IOException e(getProcessName(), "daemon", errno);
       cerr << "Warning: " << e.toString() << endl;
     }
-    logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
+    logger = n_u::Logger::createInstance(getName().c_str(), LOG_PID, LOG_LOCAL5);
     logscheme.setShowFields("level,message");
   }
   else
   {
+    lc.level = n_u::LOGGER_INFO;
     logger = n_u::Logger::createInstance(&std::cerr);
   }
   logscheme.addConfig(lc);
@@ -1046,15 +1055,17 @@ setupProcess()
 #endif
 
   gid_t gid = getGroupID();
-  if (gid != 0 && getegid() != gid) {
-    DLOG(("doing setgid(%d)",gid));
+  if (gid != 0 && getegid() != gid)
+  {
+    DLOG(("doing setgid(%d)", gid));
     if (setgid(gid) < 0)
       WLOG(("%s: cannot change group id to %d: %m", _argv0, gid));
   }
 
   uid_t uid = getUserID();
-  if (uid != 0 && geteuid() != uid) {
-    DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+  if (uid != 0 && geteuid() != uid)
+  {
+    DLOG(("doing setuid(%d=%s)", uid, getUserName().c_str()));
     if (setuid(uid) < 0)
       WLOG(("%s: cannot change userid to %d (%s): %m", _argv0,
 	    uid,getUserName().c_str()));
@@ -1070,21 +1081,25 @@ setupProcess()
 	 << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
 #endif
   }
-  catch (const n_u::Exception& e) {
+  catch (const n_u::Exception& e)
+  {
     WLOG(("%s: %s", _argv0, e.what()));
   }
+
   if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
+  {
     WLOG(("%s: CAP_SYS_NICE not in effect. "
 	  "Will not be able to use real-time priority", _argv0));
-
-  try {
+  }
+  try
+  {
     n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
   }
-  catch (const n_u::Exception& e) {
+  catch (const n_u::Exception& e)
+  {
     WLOG(("%s: %s", _argv0, e.what()));
   }
 #endif
-
 }
 
 
@@ -1144,18 +1159,19 @@ getConfigsXML()
     const char* ieo = getenv("ISFS");
 
     if (re && pe && ae)
-      _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+      _configsXMLName = n_u::Process::expandEnvVars(RAFXML);
     else if (ie && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+      _configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
     else if (ieo && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+      _configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
   }
 #ifdef notdef
   if (_configsXMLName.length() == 0)
   {
     cerr <<
-      "Environment variables not set correctly to find XML file of project configurations." << endl;
-    cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
+      "Environment variables not set correctly to find XML "
+      "file of project configurations." << endl;
+    cerr << "Cannot find " << RAFXML << endl << "or " << ISFSXML << endl;
     return usage(argv[0]);
   }
 #endif
@@ -1163,3 +1179,49 @@ getConfigsXML()
 }
 
 
+std::string
+NidasApp::
+getHostName()
+{
+  if (_hostname.empty())
+  {
+    char hostnamechr[256];
+    gethostname(hostnamechr, sizeof(hostnamechr));
+    _hostname = hostnamechr;
+  }
+  return _hostname;
+}
+
+
+int
+NidasApp::
+checkPidFile()
+{
+  // Open and check the pid file after the above setuid() and daemon() calls.
+  if (! DebugDaemon.asBool())
+  {
+    try
+    {
+      string pidname = "/tmp/run/nidas";
+      mode_t mask = ::umask(0);
+      n_u::FileSet::createDirectory(pidname, 01777);
+
+      pidname += "/";
+      pidname += getName() + ".pid";
+      pid_t pid = n_u::Process::checkPidFile(pidname);
+      ::umask(mask);
+
+      if (pid > 0)
+      {
+	PLOG(("%s: pid=%d is already running", getProcessName(), pid));
+	return 1;
+      }
+    }
+    catch(const n_u::IOException& e)
+    {
+      PLOG(("%s: %s", getProcessName(), e.what()));
+      return 1;
+    }
+  }
+  return 0;
+}

@@ -403,8 +403,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
+    ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
         usage(argv[0]);

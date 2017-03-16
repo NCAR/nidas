@@ -82,7 +82,7 @@ public:
     /**
      * Initialize various process parameters, uid, etc.
      */
-    int initProcess(const char* argv0);
+    int initProcess();
 
     /** main loop */
     int run() throw();

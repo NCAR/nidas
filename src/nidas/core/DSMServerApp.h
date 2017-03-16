@@ -59,7 +59,7 @@ public:
 
     void initLogger();
 
-    int initProcess(const char* argv0);
+    int initProcess();
 
     int run() throw();
 

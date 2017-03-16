@@ -400,8 +400,7 @@ int DataStats::parseRunstring(int argc, char** argv)
     logger->setScheme(logger->getScheme("default").addConfig(lc));
 
     try {
-        ArgVector args(argv+1, argv+argc);
-        app.parseArguments(args);
+        ArgVector args = app.parseArgs(argc, argv);
         if (app.helpRequested())
         {
             return usage(argv[0]);

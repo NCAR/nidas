@@ -43,7 +43,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>  // MAXHOSTNAMELEN
-#include <pwd.h>
 
 #include <nidas/Config.h>
 
@@ -72,8 +71,10 @@ DSMServerApp::DSMServerApp():
     _isfsXML("$ISFS/projects/$PROJECT/ISFS/config/configs.xml"),
     _runState(RUN),
     _xmlrpcThread(0),_statusThread(0),
-    _externalControl(false),_logLevel(defaultLogLevel),
-    _optionalProcessing(false),_signalMask(),_myThreadId(::pthread_self()),
+    _externalControl(false),
+    _optionalProcessing(false),
+    _signalMask(),
+    _myThreadId(::pthread_self()),
     _datasetName(),
     _app("dsm_server")
 {
@@ -107,7 +108,7 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                          ExternalControl |
                          OptionalProcessing |
                          DatasetName);
-    _app.parseArguments(ArgVector(argv+1, argv+argc));
+    _app.parseArgs(ArgVector(argv+1, argv+argc));
 
     _externalControl = ExternalControl.asBool();
     _optionalProcessing = OptionalProcessing.asBool();
@@ -192,7 +193,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     app.initLogger();
 
-    if ((res = app.initProcess(argv[0])) != 0) return res;
+    if ((res = app.initProcess()) != 0) return res;
 
     _instance = &app;
 
@@ -226,53 +227,14 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
 void DSMServerApp::initLogger()
 {
-    n_u::LogConfig lc;
-    n_u::LogScheme logscheme("dsm_server");
-    n_u::Logger* logger = 0;
-    lc.level = _logLevel;
-    if (_debug) logger = n_u::Logger::createInstance(&std::cerr);
-    else {
-	// fork to background, chdir to /,
-        // send stdout/stderr to /dev/null
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("DSMServer","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
-        logger = n_u::Logger::createInstance(
-                "dsm_server",LOG_PID,LOG_LOCAL5);
-        logscheme.setShowFields("level,message");
-    }
-    logscheme.addConfig(lc);
-    logger->setScheme(logscheme);
+    _app.setupDaemon();
 }
 
-int DSMServerApp::initProcess(const char* argv0)
+int DSMServerApp::initProcess()
 {
     _app.setupProcess();
 
-    // Open and check the pid file after the above setuid() and daemon() calls.
-    if (!_debug) {
-        try {
-            string pidname = "/tmp/run/nidas";
-            mode_t mask = ::umask(0);
-            n_u::FileSet::createDirectory(pidname,01777);
-
-            pidname += "/dsm_server.pid";
-            pid_t pid = n_u::Process::checkPidFile(pidname);
-            ::umask(mask);
-
-            if (pid > 0) {
-                PLOG(("%s: pid=%d is already running",argv0,pid));
-                return 1;
-            }
-        }
-        catch(const n_u::IOException& e) {
-            PLOG(("%s: %s",argv0,e.what()));
-            return 1;
-        }
-    }
-
-    return 0;
+    return _app.checkPidFile();
 }
 
 int DSMServerApp::run() throw()

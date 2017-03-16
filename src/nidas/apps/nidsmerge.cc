@@ -183,8 +183,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     // -l conflicts with output file length.
     app.LogConfig.acceptShortFlag(false);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
+    ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
         usage(argv[0]);

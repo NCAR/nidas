@@ -150,7 +150,7 @@ public:
 
     /**
      * Return true if this argument has been filled in from a command-line
-     * argument list, such as after a call to NidasApp::parseArguments().
+     * argument list, such as after a call to NidasApp::parseArgs().
      * If true, then this argument stores the flag that was recognized, and
      * also the value of any additional parameters to this argument.
      **/
@@ -623,7 +623,7 @@ public:
      *
      * @code
      * app.enableArguments(...);
-     * app.startParsing(ArgVector(argv+1, argv+argc));
+     * app.startArgs(ArgVector(argv+1, argv+argc));
      * NidasAppArg* arg;
      * while ((arg = app.parseNext())) {
      *    if (arg == &FixEverything)
@@ -634,11 +634,11 @@ public:
      * @endcode
      **/
     void
-    startParsing(const ArgVector& args);
+    startArgs(const ArgVector& args);
 
     /**
      * Parse the next recognized argument from the list set in
-     * startParsing().  If it is one of the standard arguments which are
+     * startArgs().  If it is one of the standard arguments which are
      * members of NidasApp, then handle the argument also.  Either way,
      * fill in the NidasAppArg with the flag and value (if any) extracted
      * from the command-line, and return the pointer to that NidasAppArg.
@@ -658,32 +658,43 @@ public:
     parseNext() throw (NidasAppException);
 
     ArgVector
-    parseRemaining();
+    unparsedArgs();
 
     /**
      * Parse all arguments accepted by this NidasApp in the command-line
      * argument list @p args, but only handle the standard arguments.  Any
      * application-specific arguments are only parsed and filled in.  This
-     * is equivalent to calling startParsing() and then looping over
+     * is equivalent to calling startArgs() and then looping over
      * parseNext(), except the caller can not handle individual arguments
      * when they are parsed.  For some arguments this works fine, since the
      * last occurrence of an argument on the command-line will be the final
-     * value returned by NidasAppArg::getValue().  parseRemaining() also
-     * still works to return the unparsed and positional arguments.  Upon
-     * returning, @p args contains exactly what would be returned by
-     * parseRemaining().
+     * value returned by NidasAppArg::getValue().  Returns the remaining
+     * unparsed arguments, same as would be returned by
+     * unparsedArgs().
      *
      * The argument vector should not contain the process name.  So this is
      * a convenient way to call it from main():
      *
      * @code
-     * app.parseArguments(ArgVector(argv+1, argv+argc));
+     * ArgVector args = app.parseArgs(ArgVector(argv+1, argv+argc));
      * @endcode
      *
      * @param args Just the arguments, without the process name.
+     * @returns Any remaining arguments not accepted by this NidasApp.
      **/
-    void
-    parseArguments(const ArgVector& args) throw (NidasAppException);
+    ArgVector
+    parseArgs(const ArgVector& args) throw (NidasAppException);
+
+    /**
+     * Convenience method to convert the (argv, argc) run string to a list
+     * of arguments to pass to parseArgs().
+     **/
+    inline ArgVector
+    parseArgs(int argc, char** argv) throw (NidasAppException)
+    {
+        return parseArgs(ArgVector(argv+1, argv+argc));
+    }
+    
 
     /**
      * Parse a LogConfig from the given argument using the LogConfig string
@@ -704,6 +715,9 @@ public:
 
     nidas::util::UTime
     parseTime(const std::string& optarg);
+
+    void
+    parseUsername(const std::string& username);
 
     /**
      * Parse one or more input URLs from a list of non-option command-line
@@ -777,6 +791,9 @@ public:
     {
         return _xmlFileName;
     }
+
+    std::string
+    getConfigsXML();
 
     nidas::util::UTime
     getStartTime()
@@ -925,29 +942,72 @@ public:
         return _sockAddr.get();
     }
 
+    /**
+     * Return the hostname passed to the Hostname argument, if any,
+     * otherwise return the current hostname as returned by gethostname().
+     **/
     std::string
-    getHostName()
-    {
-        return _hostname;
-    }
+    getHostName();
 
+    /**
+     * Return the username passed to the Username argument, if enabled,
+     * otherwise return an empty string.
+     **/
     std::string
     getUserName()
     { 
         return _username;
     }
 
+    /**
+     * Return the userid of the username passed to the Username argument,
+     * otherwise 0.
+     **/
     uid_t
     getUserID()
     {
         return _userid;
     }
 
+    /**
+     * Return the groupid of the username passed to the Username argument,
+     * otherwise 0.
+     **/
     uid_t
     getGroupID()
     {
         return _groupid;
     }
+
+    /**
+     * Setup a process with the user and group specified by the Username
+     * argument, and attempt to set related capabilities.
+     **/
+    void
+    setupProcess();
+    
+    /**
+     * Switch this process to daemon mode unless the DebugDaemon argument
+     * has been enabled.
+     **/
+    void
+    setupDaemon();
+
+    /**
+     * Attempt mlockall() for this process, first adding the CAP_IPC_LOCK
+     * capability if possible.
+     **/
+    void
+    lockMemory();
+
+    /**
+     * If DebugDaemon argument is true, then this method does nothing.
+     * Otherwise, create a pid file for this process and return 0.  If the
+     * pid file already exists, then return 1.  PID files are created in
+     * directory /tmp/run/nidas, which is itself created if necessary.
+     **/
+    int
+    checkPidFile();
 
 private:
 
@@ -1003,9 +1063,8 @@ private:
  *
  * @code
  * NidasApp app('data_dump');
- * vector<string> args(argv, argv+argc);
  * // Parse standard arguments and leave the rest.
- * app.parseArguments(args);
+ * ArgVector args = app.parseArgs(ArgVector(argv, argv+argc));
  * NidasAppArgv left(args);
  * int opt_char;
  * while ((opt_char = getopt(left.argc, left.argv, "...")) != -1) {

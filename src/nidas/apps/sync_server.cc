@@ -30,6 +30,7 @@
 #include <nidas/core/Project.h>
 
 using nidas::core::NidasApp;
+using nidas::core::ArgVector;
 using nidas::core::NidasAppException;
 
 #include <unistd.h>
@@ -67,7 +68,7 @@ int usage(const std::string& argv0)
 }
 
 
-int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
+int parseRunstring(SyncServer& sync, ArgVector& args)
 {
     NidasApp& app = *NidasApp::getApplicationInstance();
 
@@ -76,7 +77,7 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
     n_u::Logger* logger = n_u::Logger::getInstance();
     logger->setScheme(logger->getScheme().setShowFields("message"));
 
-    app.parseArguments(args);
+    args = app.parseArgs(args);
 
     std::list<std::string> dataFileNames;
 
@@ -169,7 +170,7 @@ int main(int argc, char** argv)
     SyncServer sync;
     setupSignals(sync);
 
-    std::vector<std::string> args(argv, argv+argc);
+    ArgVector args(argv, argv+argc);
 
     int res;
     try {

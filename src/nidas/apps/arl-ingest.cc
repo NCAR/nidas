@@ -162,9 +162,9 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested()) {
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
         usage(argv[0]);
     }
 

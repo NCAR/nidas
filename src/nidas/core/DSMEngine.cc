@@ -51,7 +51,6 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
-#include <pwd.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
 
@@ -137,7 +136,7 @@ int DSMEngine::main(int argc, char** argv) throw()
     // So, in general, don't start any threads before this.
     engine.initLogger();
 
-    if ((res = engine.initProcess(argv[0])) != 0) return res;
+    if ((res = engine.initProcess()) != 0) return res;
 
     long minflts,majflts,nswap;
     getPageFaults(minflts,majflts,nswap);
@@ -200,10 +199,10 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
                          _app.DebugDaemon |
                          ExternalControl);
 
-    ArgVector args = _app.parseArguments(ArgVector(argv+1, argv+argc));
+    ArgVector args = _app.parseArgs(argc, argv);
     _externalControl = ExternalControl.asBool();
     
-    if (args.length() == 1)
+    if (args.size() == 1)
     {
         string url = string(args[0]);
         string type = "file";
@@ -242,7 +241,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
             return 1;
         }
     }
-    else if (args.length() > 1)
+    else if (args.size() > 1)
     {
 	usage(argv[0]);
 	return 1;
@@ -271,53 +270,19 @@ The default config is \"sock:" <<
 
 void DSMEngine::initLogger()
 {
-    nidas::util::Logger* logger = 0;
-    n_u::LogConfig lc;
-    n_u::LogScheme logscheme("dsm");
-    lc.level = _logLevel;
-    if (_syslogit) {
-	// fork to background
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("DSMEngine","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
-	logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
-        logscheme.setShowFields("level,message");
-    }
-    else
-    {
-	logger = n_u::Logger::createInstance(&std::cerr);
-    }
-    logscheme.addConfig(lc);
-    logger->setScheme(logscheme);
+    _app.setupDaemon();
 }
 
-int DSMEngine::initProcess(const char* argv0)
+int DSMEngine::initProcess()
 {
-
     _app.setupProcess();
 
-    // Open and check the pid file after the above daemon() call.
-    try {
-        string pidname = "/tmp/run/nidas";
-        mode_t mask = ::umask(0);
-        n_u::FileSet::createDirectory(pidname,01777);
-
-        pidname += "/dsm.pid";
-        pid_t pid = n_u::Process::checkPidFile(pidname);
-        ::umask(mask);
-
-        if (pid > 0) {
-            PLOG(("%s: pid=%d is already running",argv0,pid));
-            return 1;
-        }
-    }
-    catch(const n_u::IOException& e) {
-        PLOG(("%s: %s",argv0,e.what()));
+    if (_app.checkPidFile() != 0)
+    {
         return 1;
     }
+    _app.lockMemory();
 
-    _app.lockMemory()
     return 0;
 }
 
@@ -686,16 +651,11 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     if (_configFile.length() > 0)
 	_project->setConfigName(_configFile);
 
-    if (_hostname.empty())
-    {
-        char hostnamechr[256];
-        gethostname(hostnamechr,sizeof(hostnamechr));
-        _hostname = hostnamechr;
-    }
+    std::string hostname = _app.getHostName();
 
     // location of first dot of hostname, or if not found 
     // the host string match will be done against entire hostname
-    string::size_type dot = _hostname.find('.');
+    string::size_type dot = hostname.find('.');
 
     _dsmConfig = 0;
     DSMConfig* dsm = 0;
@@ -711,12 +671,12 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
         for (di = dsms.begin(); !_dsmConfig && di != dsms.end(); ++di) {
             dsm = *di;
             ndsms++;
-            if (dsm->getName() == _hostname ||
-                dsm->getName() == _hostname.substr(0,dot)) {
+            if (dsm->getName() == hostname ||
+                dsm->getName() == hostname.substr(0,dot)) {
                 _dsmConfig = dsm;
                 n_u::Logger::getInstance()->log(LOG_INFO,
                     "DSMEngine: found <dsm> for %s",
-                    _hostname.c_str());
+                    hostname.c_str());
                 break;
             }
         }
@@ -724,8 +684,10 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     if (ndsms == 1) _dsmConfig = dsm;
 
     if (!_dsmConfig)
+    {
     	throw n_u::InvalidParameterException("dsm","no match for hostname",
-		_hostname);
+                                             hostname);
+    }
 }
 
 void DSMEngine::openSensors() throw(n_u::IOException)

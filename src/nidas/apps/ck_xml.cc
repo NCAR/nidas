@@ -101,8 +101,8 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
                         app.LogParam | app.Version | app.Help |
                         ShowHosts | ShowCalFiles | ShowSensors);
 
-    vector<string> args(argv, argv+argc);
-    app.startParsing(args);
+    ArgVector args(argv+1, argv+argc);
+    app.startArgs(args);
     NidasAppArg* arg = 0;
     do {
         arg = app.parseNext();
@@ -119,7 +119,7 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
     while (arg);
     _showCalFiles = ShowCalFiles.asBool();
     _showHosts = ShowHosts.asBool();
-    args = app.parseRemaining();
+    args = app.unparsedArgs();
     if (args.size() == 2)
     {
         _xmlFile = args[1];

@@ -141,7 +141,7 @@ private:
 };
 
 /* static */
-const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+const char* StatsProcess::_rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
 
 /* static */
 const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
@@ -151,7 +151,7 @@ const char* StatsProcess::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/config
 
 int main(int argc, char** argv)
 {
-    return StatsProcess::main(argc,argv);
+    return StatsProcess::main(argc, argv);
 }
 
 /* static */
@@ -284,8 +284,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
+    ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
         usage(argv[0]);
