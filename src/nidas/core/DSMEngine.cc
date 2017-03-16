@@ -80,8 +80,8 @@ DSMEngine::DSMEngine():
     _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _outputSet(),_outputMutex(),
-    _username(),_hostname(),_userid(0),_groupid(0),
-    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self())
+    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self()),
+    _app("dsm")
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -188,55 +188,24 @@ int DSMEngine::main(int argc, char** argv) throw()
 
 int DSMEngine::parseRunstring(int argc, char** argv) throw()
 {
-    int opt_char;            /* option character */
+    _app.setProcessName(argv[0]);
 
-    while ((opt_char = getopt(argc, argv, "dl:ru:h:v")) != -1) {
-	switch (opt_char) {
-	case 'd':
-	    _syslogit = false;
-            _logLevel = n_u::LOGGER_DEBUG;
-	    break;
-	case 'l':
-            _logLevel = atoi(optarg);
-	    break;
-	case 'r':
-	    _externalControl = true;
-	    break;
-	case 'u':
-            {
-                struct passwd pwdbuf;
-                struct passwd *result;
-                long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
-                if (nb < 0) nb = 4096;
-                vector<char> strbuf(nb);
-                int res;
-                if ((res = getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result)) != 0) {
-                    cerr << "getpwnam_r: " << n_u::Exception::errnoToString(res) << endl;
-                    return 1;
-                }
-                else if (result == 0) {
-                    cerr << "Unknown user: " << optarg << endl;
-                    return 1;
-                }
-                _username = optarg;
-                _userid = pwdbuf.pw_uid;
-                _groupid = pwdbuf.pw_gid;
-            }
-	    break;
-    case 'h':
-        _hostname = optarg;
-        break;
-	case 'v':
-	    cout << Version::getSoftwareVersion() << endl;
-	    return 1;
-	    break;
-	case '?':
-	    usage(argv[0]);
-	    return 1;
-	}
-    }
-    if (optind == argc - 1) {
-        string url = string(argv[optind++]);
+    NidasAppArg ExternalControl("-r,--remote", "",
+                                "Enable remote control.");
+
+    _app.enableArguments(_app.DebugDaemon | _app.loggingArgs() |
+                         _app.Version |
+                         _app.Username |
+                         _app.Hostname |
+                         _app.DebugDaemon |
+                         ExternalControl);
+
+    ArgVector args = _app.parseArguments(ArgVector(argv+1, argv+argc));
+    _externalControl = ExternalControl.asBool();
+    
+    if (args.length() == 1)
+    {
+        string url = string(args[0]);
         string type = "file";
         string::size_type ic = url.find(':');
         if (ic != string::npos) type = url.substr(0,ic);
@@ -273,8 +242,8 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
             return 1;
         }
     }
-
-    if (optind != argc) {
+    else if (args.length() > 1)
+    {
 	usage(argv[0]);
 	return 1;
     }
@@ -326,52 +295,7 @@ void DSMEngine::initLogger()
 int DSMEngine::initProcess(const char* argv0)
 {
 
-#ifdef HAVE_SYS_CAPABILITY_H 
-    /* man 7 capabilities:
-     * If a thread that has a 0 value for one or more of its user IDs wants to
-     * prevent its permitted capability set being cleared when it  resets  all
-     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
-     * PR_SET_KEEPCAPS operation.
-     *
-     * If we are started as uid=0 from sudo, and then setuid(x) below
-     * we want to keep our permitted capabilities.
-     */
-    try {
-	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
-	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
-    }
-#endif
-
-    gid_t gid = getGroupID();
-    if (gid != 0 && getegid() != gid) {
-        DLOG(("doing setgid(%d)",gid));
-        if (setgid(gid) < 0)
-            WLOG(("%s: cannot change group id to %d: %m",argv0,gid));
-    }
-
-    uid_t uid = getUserID();
-    if (uid != 0 && geteuid() != uid) {
-        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
-        if (setuid(uid) < 0)
-            WLOG(("%s: cannot change userid to %d (%s): %m", argv0,
-                uid,getUserName().c_str()));
-    }
-
-#ifdef CAP_SYS_NICE
-    try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
-    }
-#endif
+    _app.setupProcess();
 
     // Open and check the pid file after the above daemon() call.
     try {
@@ -393,19 +317,7 @@ int DSMEngine::initProcess(const char* argv0)
         return 1;
     }
 
-#ifdef DO_MLOCKALL
-    try {
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Cannot add CAP_IPC_LOCK capability, memory locking is not possible",argv0,e.what()));
-    }
-    ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
-    if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
-        n_u::IOException e(argv0,"mlockall",errno);
-        WLOG(("%s",e.what()));
-    }
-#endif
+    _app.lockMemory()
     return 0;
 }
 

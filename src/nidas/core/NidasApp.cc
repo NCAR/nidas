@@ -7,11 +7,17 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/resource.h>
+#include <sys/mman.h>
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
 
 #include <iomanip>
+
+#ifdef HAVE_SYS_CAPABILITY_H 
+#include <sys/prctl.h>
+#endif 
 
 using std::string;
 
@@ -359,7 +365,20 @@ NidasApp(const std::string& name) :
    "The path can optionally be followed by a file length and units:\n"
    "hours (h), minutes (m), and seconds (s). The default is seconds.\n"
    "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n"),
+  Username
+  ("-u,--user", "<username>",
+   "For daemon applications, switch to the named user setting capabilities."),
+  Hostname
+  ("-H,--host", "<hostname>",
+   "Run with the given hostname instead of using current system hostname."),
+  DebugDaemon
+  ("-d,--debug", "",
+   "Run in the foreground with debug logging enabled by default, instead of\n"
+   "switching to daemon mode and running in the background.  Log messages\n"
+   "are written to standard error instead of syslog.  Any logging\n"
+   "configuration on the command line will replace the default debug scheme."),
   _appname(name),
+  _argv0(name),
   _processData(false),
   _xmlFileName(),
   _idFormat_set(false),
@@ -372,6 +391,10 @@ NidasApp(const std::string& name) :
   _outputFileName(),
   _outputFileLength(0),
   _help(false),
+  _username(),
+  _hostname(),
+  _userid(0),
+  _groupid(0),
   _deleteProject(false),
   _app_arguments(),
   _argv(),
@@ -494,7 +517,7 @@ parseRemaining()
 
 void
 NidasApp::
-startParsing(ArgVector& args)
+startParsing(const ArgVector& args)
 {
   _argv = args;
   _argi = 0;
@@ -614,6 +637,14 @@ parseNext() throw (NidasAppException)
     std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
     exit(0);
   }
+  else if (arg == &Hostname)
+  {
+    _hostname = Hostname.getValue();
+  }
+  else if (arg == &Username)
+  {
+    parseUsername(Username.getValue());
+  }
   else if (arg == &Help)
   {
     _help = true;
@@ -624,7 +655,7 @@ parseNext() throw (NidasAppException)
 
 void
 NidasApp::
-parseArguments(ArgVector& args) throw (NidasAppException)
+parseArguments(const ArgVector& args) throw (NidasAppException)
 {
   startParsing(args);
   NidasAppArg* arg = parseNext();
@@ -937,3 +968,198 @@ resetLogging()
   Logger::getInstance()->updateScheme(LogScheme(getName()));
   Logger::getInstance()->setScheme(scheme);
 }
+
+
+void
+NidasApp::
+setupDaemon()
+{
+  nidas::util::Logger* logger = 0;
+  n_u::LogConfig lc;
+  n_u::LogScheme logscheme("dsm");
+  lc.level = _logLevel;
+  if (_syslogit) {
+    // fork to background
+    if (daemon(0,0) < 0) {
+      n_u::IOException e("DSMEngine","daemon",errno);
+      cerr << "Warning: " << e.toString() << endl;
+    }
+    logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
+    logscheme.setShowFields("level,message");
+  }
+  else
+  {
+    logger = n_u::Logger::createInstance(&std::cerr);
+  }
+  logscheme.addConfig(lc);
+  logger->setScheme(logscheme);
+}
+
+
+
+void
+NidasApp::
+lockMemory()
+{
+#ifdef DO_MLOCKALL
+  try {
+    n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+  }
+  catch (const n_u::Exception& e) {
+    WLOG(("%s: %s. Cannot add CAP_IPC_LOCK capability, "
+	  "memory locking is not possible", _argv0, e.what()));
+  }
+  ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
+  if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+    n_u::IOException e(_argv0, "mlockall", errno);
+    WLOG(("%s", e.what()));
+  }
+#else
+  DLOG(("Locking memory: not compiled."));
+#endif
+}
+
+
+
+void
+NidasApp::
+setupProcess()
+{
+#ifdef HAVE_SYS_CAPABILITY_H 
+  /* man 7 capabilities:
+   * If a thread that has a 0 value for one or more of its user IDs wants to
+   * prevent its permitted capability set being cleared when it  resets  all
+   * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+   * PR_SET_KEEPCAPS operation.
+   *
+   * If we are started as uid=0 from sudo, and then setuid(x) below
+   * we want to keep our permitted capabilities.
+   */
+  try {
+    if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+      throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
+  }
+  catch (const n_u::Exception& e) {
+    WLOG(("%s: %s. Will not be able to use real-time priority",
+	  _argv0, e.what()));
+  }
+#endif
+
+  gid_t gid = getGroupID();
+  if (gid != 0 && getegid() != gid) {
+    DLOG(("doing setgid(%d)",gid));
+    if (setgid(gid) < 0)
+      WLOG(("%s: cannot change group id to %d: %m", _argv0, gid));
+  }
+
+  uid_t uid = getUserID();
+  if (uid != 0 && geteuid() != uid) {
+    DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+    if (setuid(uid) < 0)
+      WLOG(("%s: cannot change userid to %d (%s): %m", _argv0,
+	    uid,getUserName().c_str()));
+  }
+
+#ifdef CAP_SYS_NICE
+  try {
+    n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+#ifdef DEBUG
+    DLOG(("CAP_SYS_NICE = ")
+	 << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+    DLOG(("PR_GET_SECUREBITS=")
+	 << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+  }
+  catch (const n_u::Exception& e) {
+    WLOG(("%s: %s", _argv0, e.what()));
+  }
+  if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
+    WLOG(("%s: CAP_SYS_NICE not in effect. "
+	  "Will not be able to use real-time priority", _argv0));
+
+  try {
+    n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
+  }
+  catch (const n_u::Exception& e) {
+    WLOG(("%s: %s", _argv0, e.what()));
+  }
+#endif
+
+}
+
+
+
+void
+NidasApp::
+parseUsername(const std::string& username)
+{
+  struct passwd pwdbuf;
+  struct passwd *result;
+  long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
+  if (nb < 0) nb = 4096;
+  vector<char> strbuf(nb);
+  int res;
+  if ((res = getpwnam_r(username.c_str(), &pwdbuf,
+			&strbuf.front(), nb, &result)) != 0)
+  {
+    ostringstream msg;
+    msg << "getpwnam_r: " << n_u::Exception::errnoToString(res);
+    throw NidasAppException(msg.str());
+  }
+  else if (result == 0)
+  {
+    ostringstream msg;
+    msg << "Unknown user: " << username;
+    throw NidasAppException(msg.str());
+  }
+  _username = username;
+  _userid = pwdbuf.pw_uid;
+  _groupid = pwdbuf.pw_gid;
+}
+
+
+namespace
+{
+  const char* RAFXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+  const char* ISFFXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+  const char* ISFSXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
+}
+
+std::string
+NidasApp::
+getConfigsXML()
+{
+  std::string _configsXMLName;
+  const char* cfg = getenv("NIDAS_CONFIGS");
+  if (cfg)
+  {
+    _configsXMLName = cfg;
+  }
+  else
+  {
+    const char* re = getenv("PROJ_DIR");
+    const char* pe = getenv("PROJECT");
+    const char* ae = getenv("AIRCRAFT");
+    const char* ie = getenv("ISFS");
+    const char* ieo = getenv("ISFS");
+
+    if (re && pe && ae)
+      _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+    else if (ie && pe)
+      _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
+    else if (ieo && pe)
+      _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+  }
+#ifdef notdef
+  if (_configsXMLName.length() == 0)
+  {
+    cerr <<
+      "Environment variables not set correctly to find XML file of project configurations." << endl;
+    cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
+    return usage(argv[0]);
+  }
+#endif
+  return _configsXMLName;
+}
+
+

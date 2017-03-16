@@ -29,6 +29,7 @@
 
 #include "ConnectionRequester.h"
 #include "XMLException.h"
+#include "NidasApp.h"
 #include <nidas/util/Inet4SocketAddress.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -121,21 +122,6 @@ public:
     const DSMConfig* getDSMConfig() const { return _dsmConfig; }
 
     const SensorHandler* getSensorHandler() const { return _selector; }
-
-    std::string getUserName()
-    { 
-        return _username;
-    }
-
-    uid_t getUserID()
-    {
-        return _userid;
-    }
-
-    uid_t getGroupID()
-    {
-        return _groupid;
-    }
 
     /**
      * Sensors register with the DSMEngineIntf XmlRpcThread if they have a
@@ -259,21 +245,15 @@ private:
      */
     std::set<SampleOutput*> _outputSet;
 
-    nidas::util::Mutex            _outputMutex;
-
-    std::string _username;
-
-    std::string _hostname;
-
-    uid_t _userid;
-
-    gid_t _groupid;
+    nidas::util::Mutex _outputMutex;
 
     int _logLevel;
 
     sigset_t _signalMask;
 
     pthread_t _myThreadId;
+
+    NidasApp _app;
 
     /** No copy */
     DSMEngine(const DSMEngine&);

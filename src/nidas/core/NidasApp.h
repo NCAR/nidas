@@ -366,9 +366,13 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 <tr>
 <td>-e endtime</td><td>Skip samples after <em>end</em></td><td></td>
 </tr>
+<tr>
+<td>-d</td><td>Run in debug mode instead of as a background daemon.</td><td></td>
+</tr>
 </table>
  *
- * Notes:
+ * Below are notes about the deprecated options and the standard options
+ * made available through NidasApp.
  *
  * ### -x exclude samples ###
  *
@@ -442,6 +446,21 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * completely internal to the sample filter: if app passes the sample
  * pointer to the filter, the filter can modify the sample id as specified
  * after checking that the sample is selected.
+ *
+ * ### -d,--debug debug mode ###
+ *
+ * The dsm and dsm_server applications both support a debug mode which runs
+ * in the foreground instead of as a daemon, by default sends all log
+ * messages to standard output.  The long form is --debug.
+ *
+ * ### -u,--user <username> ###
+ *
+ * For daemon applications, the user to switch to after setting capabilities.
+ *
+ * ### -H,--host <hostname> ###
+ *
+ * Run as if on the given host instead of using current system hostname.
+ *
  **/
 class NidasApp
 {
@@ -474,7 +493,18 @@ public:
     NidasAppArg Version;
     NidasAppInputFilesArg InputFiles;
     NidasAppArg OutputFiles;
+    NidasAppArg Username;
+    NidasAppArg Hostname;
+    NidasAppArg DebugDaemon;
 
+    /**
+     * This is a convenience method to return all of the logging-related
+     * options in a list, such that this list can be extended if new log
+     * options are enabled.  Only LogConfig has a short log option of -l,
+     * so if that option does not conflict, it should be safe to enable all
+     * of them.  The current list contains these options: LogShow,
+     * LogConfig, LogFields, LogParam.
+     **/
     nidas_app_arglist_t
     loggingArgs();
 
@@ -497,6 +527,26 @@ public:
     getName()
     {
         return _appname;
+    }
+
+    /**
+     * Set the name of this particular process, usually argv[0].  It
+     * defaults to the application name passed to the constructor and
+     * returned by getName().
+     **/
+    void
+    setProcessName(const std::string& argv0)
+    {
+        _argv0 = argv0;
+    }
+
+    /**
+     * Get the process name.  See setProcessName().
+     **/
+    std::string
+    getProcessName()
+    {
+        return _argv0;
     }
 
     /**
@@ -573,7 +623,7 @@ public:
      *
      * @code
      * app.enableArguments(...);
-     * app.startParsing(ArgVector(argv, argv+argc));
+     * app.startParsing(ArgVector(argv+1, argv+argc));
      * NidasAppArg* arg;
      * while ((arg = app.parseNext())) {
      *    if (arg == &FixEverything)
@@ -584,7 +634,7 @@ public:
      * @endcode
      **/
     void
-    startParsing(ArgVector& args);
+    startParsing(const ArgVector& args);
 
     /**
      * Parse the next recognized argument from the list set in
@@ -618,12 +668,22 @@ public:
      * parseNext(), except the caller can not handle individual arguments
      * when they are parsed.  For some arguments this works fine, since the
      * last occurrence of an argument on the command-line will be the final
-     * value returned by getValue().  parseRemaining() also still works to
-     * return the unparsed and positional arguments.  Upon returning, @p
-     * args contains exactly what would be returned by parseRemaining().
+     * value returned by NidasAppArg::getValue().  parseRemaining() also
+     * still works to return the unparsed and positional arguments.  Upon
+     * returning, @p args contains exactly what would be returned by
+     * parseRemaining().
+     *
+     * The argument vector should not contain the process name.  So this is
+     * a convenient way to call it from main():
+     *
+     * @code
+     * app.parseArguments(ArgVector(argv+1, argv+argc));
+     * @endcode
+     *
+     * @param args Just the arguments, without the process name.
      **/
     void
-    parseArguments(ArgVector& args) throw (NidasAppException);
+    parseArguments(const ArgVector& args) throw (NidasAppException);
 
     /**
      * Parse a LogConfig from the given argument using the LogConfig string
@@ -865,11 +925,37 @@ public:
         return _sockAddr.get();
     }
 
+    std::string
+    getHostName()
+    {
+        return _hostname;
+    }
+
+    std::string
+    getUserName()
+    { 
+        return _username;
+    }
+
+    uid_t
+    getUserID()
+    {
+        return _userid;
+    }
+
+    uid_t
+    getGroupID()
+    {
+        return _groupid;
+    }
+
 private:
 
     static NidasApp* application_instance;
 
     std::string _appname;
+
+    std::string _argv0;
 
     bool _processData;
 
@@ -892,6 +978,14 @@ private:
     int _outputFileLength;
 
     bool _help;
+
+    std::string _username;
+
+    std::string _hostname;
+
+    uid_t _userid;
+
+    gid_t _groupid;
 
     bool _deleteProject;
 
