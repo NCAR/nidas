@@ -147,7 +147,7 @@ class CounterClient: public SampleClient
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors);
+    CounterClient(const list<DSMSensor*>& sensors, bool processed=false);
 
     virtual ~CounterClient() {}
 
@@ -155,7 +155,7 @@ public:
 
     bool receive(const Sample* samp) throw();
 
-    void printResults();
+    void printResults(std::ostream& outs);
 
     void resetResults();
 
@@ -179,21 +179,25 @@ resetResults()
 
 
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors):
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
     _samples()
 {
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
     {
-        // For now, create SampleCounter for all possible samples, both raw
-        // and processed.  Raw samples are named by the sensor device,
-        // processed samples by the first variable in the first sample tag.
-       
+        // Create a SampleCounter for samples from the given sensors.  Raw
+        // samples are named by the sensor device, processed samples by the
+        // first variable in the first sample tag.
         DSMSensor* sensor = *si;
         string sname = sensor->getDSMConfig()->getName() + ":" +
             sensor->getDeviceName();
         SampleCounter stats(sensor->getId(), sname);
         _samples[stats.id] = stats;
+
+        if (! processed)
+        {
+            continue;
+        }
 
 	// for samples show the first variable name, followed by ",..."
 	// if more than one.
@@ -232,7 +236,7 @@ bool CounterClient::receive(const Sample* samp) throw()
     return _samples[sampid].receive(samp);
 }
 
-void CounterClient::printResults()
+void CounterClient::printResults(std::ostream& outs)
 {
     size_t maxnamelen = 6;
     int lenpow[2] = {5,5};
@@ -272,7 +276,7 @@ void CounterClient::printResults()
         
     struct tm tm;
     char tstr[64];
-    cout << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
+    outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
     	right <<
     	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" <<
 		setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)" <<
@@ -298,13 +302,13 @@ void CounterClient::printResults()
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
 
-        cout << left << setw(maxnamelen) << ss.name
+        outs << left << setw(maxnamelen) << ss.name
              << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
 
         NidasApp* app = NidasApp::getApplicationInstance();
-        app->formatSampleId(cout, ss.id);
+        app->formatSampleId(outs, ss.id);
 
-        cout << setw(9) << ss.nsamps << ' '
+        outs << setw(9) << ss.nsamps << ' '
              << t1str << "  " << t2str << ' '
              << fixed << setw(7) << setprecision(2)
              << double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC)
@@ -389,6 +393,12 @@ DataStats::DataStats():
 
 int DataStats::parseRunstring(int argc, char** argv)
 {
+    // Setup a default log scheme which will get replaced if any logging is
+    // configured on the command line.
+    n_u::Logger* logger = n_u::Logger::getInstance();
+    n_u::LogConfig lc("notice");
+    logger->setScheme(logger->getScheme("default").addConfig(lc));
+
     try {
         ArgVector args(argv+1, argv+argc);
         app.parseArguments(args);
@@ -468,7 +478,9 @@ int DataStats::run() throw()
         // Start an alarm here, since the header is not sent until there's
         // a sample to send, so if there are no samples we could block
         // right here reading the header and never get to the readSamples()
-        // loop.
+        // loop.  However, as soon as the header is read, reset the alarm
+        // so it can start again inside the loop which actually reads
+        // samples.
         if (_period > 0)
         {
             app.addSignal(SIGALRM, &DataStats::handleSignal);
@@ -479,7 +491,15 @@ int DataStats::run() throw()
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
-
+        alarm(0);
+        if (_alarm)
+        {
+            ostringstream outs;
+            outs << "Header not received within "
+                 << _period << " seconds.";
+            throw n_u::Exception(outs.str());
+        }
+        
 	const SampleInputHeader& header = sis.getInputHeader();
 
 	list<DSMSensor*> allsensors;
@@ -508,7 +528,7 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors);
+        CounterClient counter(allsensors, app.processData());
 
 	if (app.processData()) {
             pipeline.setRealTime(false);                              
@@ -534,11 +554,27 @@ int DataStats::run() throw()
             int nreports = 0;
             while (!app.interrupted() && ++nreports <= _count)
             {
+                if (_period > 0)
+                {
+                    cout << "....... Collecting samples for "
+                         << _period << " seconds "
+                         << "......." << endl;
+                    alarm(_period);
+                }
                 while (!_alarm && !app.interrupted())
                 {
-                    sis.readSamples();
+                    try {
+                        sis.readSamples();
+                    }
+                    catch (n_u::IOException& e)
+                    {
+                        cerr << e.what()
+                             << " (errno=" << e.getErrno() << ")" << endl;
+                        if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
+                            throw;
+                    }
                 }
-                counter.printResults();
+                counter.printResults(cout);
                 counter.resetResults();
                 _alarm = false;
             }
@@ -546,7 +582,7 @@ int DataStats::run() throw()
         catch (n_u::EOFException& e)
         {
             cerr << e.what() << endl;
-            counter.printResults();
+            counter.printResults(cout);
         }
         catch (n_u::IOException& e)
         {
@@ -562,7 +598,7 @@ int DataStats::run() throw()
                 sis.removeSampleClient(&counter);
             }
             sis.close();
-            counter.printResults();
+            counter.printResults(cout);
             throw(e);
         }
 	if (app.processData())
