@@ -39,6 +39,9 @@ namespace n_u = nidas::util;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 
+using nidas::util::IOException;
+using nidas::util::InvalidParameterException;
+
 NIDAS_CREATOR_FUNCTION_NS(isff,DAUSensor)
 
 DAUSensor::DAUSensor():
@@ -55,14 +58,14 @@ DAUSensor::~DAUSensor()
 
 void DAUSensor::init() throw(InvalidParameterException)
 {
-    DSMSerialSensor::init();
+    SerialSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_BIG_ENDIAN);
 }
 void DAUSensor::addSampleTag(SampleTag* stag)
 throw(InvalidParameterException)
 {
-    DSMSerialSensor::addSampleTag(stag);
+    SerialSensor::addSampleTag(stag);
 }
 
 
@@ -107,8 +110,11 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
         //add rest of message to previously cached message start
         _prevData.insert(_prevData.end(), &sampPtr[0], &sampPtr[offset]);
 
-    }else{//msg is aligned.
+    }else{
+        // msg is aligned, so use current sample with current sample time
+        // rather than previous time.
         _prevData.assign(&sampPtr[0], &sampPtr[sampLength]);
+        _prevTimeTag = samp->getTimeTag();
     }
 
     unsigned short* dataPtr = (unsigned short*) &_prevData[0];
@@ -135,7 +141,10 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
 
     //create processed sample
     SampleT<float>* outsamp = getSample<float>(vars.size()); 
-    outsamp->setTimeTag(samp->getTimeTag());
+    // when a message has been split, assign it the time from the first
+    // part of the message, assuming that's closer to when the sample was
+    // actually measured.
+    outsamp->setTimeTag(_prevTimeTag);
     outsamp->setId(stag->getId());
     float * outPtr = (float*) outsamp->getDataPtr();
 
@@ -166,5 +175,5 @@ DAUSensor::
 fromDOMElement(const xercesc::DOMElement* node)
 throw(InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    SerialSensor::fromDOMElement(node);
 }

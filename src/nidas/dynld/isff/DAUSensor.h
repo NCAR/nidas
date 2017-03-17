@@ -27,18 +27,14 @@
 #ifndef NIDAS_DYNLD_ISFF_DAUSENSOR_H
 #define NIDAS_DYNLD_ISFF_DAUSENSOR_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
 
-using nidas::dynld::DSMSerialSensor;
-using nidas::util::IOException;
-using nidas::util::InvalidParameterException;
-
-class DAUSensor: public DSMSerialSensor
+class DAUSensor: public nidas::core::SerialSensor
 {
 
 public:
@@ -47,10 +43,10 @@ public:
 
     ~DAUSensor();
     
-    void init() throw(InvalidParameterException);
+    void init() throw(nidas::util::InvalidParameterException);
 
     void
-    addSampleTag(SampleTag* stag) throw(InvalidParameterException);
+    addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException);
 
     bool
     process(const Sample* samp,std::list<const Sample*>& results)
@@ -58,7 +54,7 @@ public:
 
     void
     fromDOMElement(const xercesc::DOMElement* node)
-	throw(InvalidParameterException);
+	throw(nidas::util::InvalidParameterException);
 
 protected:
     const nidas::util::EndianConverter* _cvtr;
@@ -70,6 +66,10 @@ private:
     vector<unsigned char> _prevData;
     
     int _prevOffset;
+
+    DAUSensor(const DAUSensor&);
+    DAUSensor& operator=(const DAUSensor&);
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

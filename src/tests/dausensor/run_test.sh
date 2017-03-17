@@ -51,6 +51,7 @@ compare() #based on compare() in tests/data_dump/runtest.sh
 	cat "${outfile}.stderr"
 	exit 1
     fi
+    echo "Comparing $reffile to $outfile"
     diff --side-by-side --width=200 --suppress-common-lines "$reffile" "$outfile"
     if [ $? -ne 0 ]; then
 	echo "*** Output differs: $*"
