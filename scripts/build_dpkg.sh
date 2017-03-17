@@ -175,15 +175,15 @@ if [ -n "$repo" ]; then
     # a deleteunreferenced.
 
     # try to catch the reprepro error which happens when it tries to
-    # install a package version that is already in the repository. This
-    # repeated-build situation can happen in jenkins if a
-    # build is triggered by a pushed commit, but the pull "gits"
+    # install a package version that is already in the repository.
+    # This repeated-build situation can happen in jenkins if a
+    # build is triggered by a pushed commit, but git pull grabs
     # an even newer commit, and a build for the newer commit is then
     # triggered later.
 
-    # There are ways to ignore certain errors in reprepro
-    # but I don't see a way to ignore this error, so we'll use
-    # a fixed grep.
+    # reprepro has a --ignore option with many types of errors that
+    # can be ignored, but I don't see a way to ignore this error,
+    # so we'll use a fixed grep.
 
     tmplog=$(mktemp)
     trap "{ rm -f $tmplog; }" EXIT
@@ -201,7 +201,7 @@ if [ -n "$repo" ]; then
     if [ $status -ne 0 ]; then
         cat $tmplog
         if grep -F -q "can only be included again, if they are the same" $tmplog; then
-            echo "reprepro refuses to install the same package version again, continuing"
+            echo "One or more package versions are already present in the repository. Continuing"
         else
             exit $status
         fi
