@@ -202,7 +202,7 @@ if [ $1 -eq 1 ]; then
 Files installed in %{nidas_prefix} will then be owned by that user and group"
 fi
 
-%triggerin -n nidas-build -- nidas nidas-libs nidas-devel nidas-modules nidas-buildeol nidas-doxygen
+%triggerin -n nidas-build -- nidas nidas-libs nidas-devel nidas-modules nidas-buildeol nidas-doxygen nidas-configedit nidas-autocal
 
 [ -d %{nidas_prefix} ] || mkdir -p -m u=rwx,g=rwxs,o=rx %{nidas_prefix}
 
