@@ -23,7 +23,6 @@ License: GPL
 Group: Applications/Engineering
 Url: https://github.com/ncareol/nidas
 Vendor: UCAR
-# Source: %{name}-%{version}.tar.gz
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Requires: yum-utils nidas-min
@@ -38,7 +37,7 @@ NCAR In-Situ Data Acquistion Software programs
 %package min
 Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
-Obsoletes: nidas <= 1.0, nidas-run
+Obsoletes: nidas <= 1.0, nidas-run <= 1.0
 Requires: xerces-c xmlrpc++
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
@@ -152,7 +151,7 @@ sed -r -i "s,$RPM_BUILD_ROOT,," \
         $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 
 cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
-	$RPM_BUILD_ROOT%{_libdir}/pkgconfig
+        $RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
@@ -224,12 +223,15 @@ if [ -f $cf ]; then
 
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
-            if [ -f %{nidas_prefix}/bin/dsm_server ]; then
-                echo "nidas-build trigger: doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm,nidas_udp_relay}"
-                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
-                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
-                setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/nidas_udp_relay
-            fi
+            arg="cap_sys_nice,cap_net_admin+p" 
+            ckarg=$(echo $arg | cut -d, -f 1 | cut -d+ -f 1)
+
+            for prog in %{nidas_prefix}/bin/{dsm_server,dsm,nidas_udp_relay}; do
+                if [ -f $prog ] && ! getcap $prog | grep -F -q $ckarg; then
+                    echo "nidas-build trigger: setcap $arg $prog"
+                    setcap $arg $prog
+                fi
+            done
         fi
     fi
 fi
@@ -284,7 +286,6 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
-
 
 %{nidas_prefix}/systemd
 
