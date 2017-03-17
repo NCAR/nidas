@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
   std::vector<std::string> args = array_vector(argv);
 
   BOOST_CHECK_EQUAL(app.processData(), false);
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
   BOOST_CHECK_EQUAL(args.empty(), true);
@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
   std::vector<std::string> args(argv, argv+argc);
 
   app.enableArguments(app.XmlHeaderFile | app.LogConfig);
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   // Parse a simple command line.
   std::vector<std::string> args;
   args = make_vector<std::string>() << "-x" << "/tmp/header.xml";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 0);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
 
@@ -415,7 +415,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   args = make_vector<std::string>()
     << "-l" << "debug" << "-x" << "/tmp/header2.xml";
 
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(args[0], "-l");
   BOOST_CHECK_EQUAL(args[1], "debug");
@@ -436,13 +436,13 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
   // Short flags should not be allowed.
   std::vector<std::string> args = make_vector<std::string>()
     << "-x" << "/tmp/header.xml";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
   args = make_vector<std::string>()
     << "--xml" << "/tmp/header.xml" << "--process" << "--samples" << "1,1";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   std::copy(args.begin(), args.end(),
 	    std::ostream_iterator<std::string>(std::cerr, "\n"));
   BOOST_CHECK_EQUAL(args.size(), 0);
@@ -459,18 +459,37 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
   app.enableArguments(app.XmlHeaderFile);
   
   std::vector<std::string> args = make_vector<std::string>() << "--xml";
-  BOOST_CHECK_THROW(app.parseArguments(args), NidasAppException);
+  BOOST_CHECK_THROW(app.parseArgs(args), NidasAppException);
   BOOST_CHECK_EQUAL(args.size(), 1);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
   args = make_vector<std::string>() << "--unknown" << "first"
 				    << "--xml" << "xmlfile" << "last";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(args.size(), 3);
   BOOST_CHECK_EQUAL(args[0], "--unknown");
   BOOST_CHECK_EQUAL(args[1], "first");
   BOOST_CHECK_EQUAL(args[2], "last");
+}
+
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_argflags)
+{
+  NidasApp app("test");
+
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "-l,--logconfig,--loglevel");
+  app.LogConfig.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "--logconfig,--loglevel");
+
+  BOOST_CHECK_EQUAL(app.Help.getUsageFlags(), "-h,--help");
+  app.Help.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.Help.getUsageFlags(), "--help");
+
+  BOOST_CHECK_EQUAL(app.LogShow.getUsageFlags(), "--logshow");
+  app.LogShow.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.LogShow.getUsageFlags(), "--logshow");
 }
 
 
@@ -485,6 +504,25 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_instance)
   }
   BOOST_CHECK(! NidasApp::getApplicationInstance());
 }
+
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_process_name)
+{
+  const char* argv[] = { "/bin/test", "--period", "25", "--repeat" };
+  int argc = 4;
+
+  NidasApp app("test");
+  BOOST_CHECK_EQUAL(app.getName(), "test");
+  BOOST_CHECK_EQUAL(app.getProcessName(), "test");
+  ArgVector args = app.parseArgs(argc, argv);
+  BOOST_CHECK_EQUAL(app.getProcessName(), "/bin/test");
+  // no args should be consumed
+  BOOST_CHECK_EQUAL(args.size(), 3);
+  app.setProcessName("/usr/bin/test");
+  BOOST_CHECK_EQUAL(app.getProcessName(), "/usr/bin/test");
+}
+
 
 
 
@@ -507,11 +545,11 @@ public:
   NidasAppArg Period;
 
   void
-  parseArguments(std::vector<std::string>& args)
+  parseArguments(const ArgVector& args)
   {
     app.enableArguments(Repeat | Period | app.LogConfig | app.Help |
 			app.Version | app.XmlHeaderFile);
-    app.startParsing(args);
+    app.startArgs(args);
     NidasAppArg* arg;
     while ((arg = app.parseNext()))
     {
@@ -543,7 +581,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_argv)
 
   app.parseArguments(ArgVector(argv+1, argv+argc));
   BOOST_CHECK_EQUAL(app._repeat, true);
-  BOOST_CHECK_EQUAL(app._period, 10);
+  BOOST_CHECK_EQUAL(app._period, 25);
 }
 
 
