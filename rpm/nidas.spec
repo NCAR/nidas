@@ -216,10 +216,11 @@ if [ -f $cf ]; then
 
     if [ "$BUILD_USER" != root -o "$BUILD_GROUP" != root ]; then
 
-        n=`find %{nidas_prefix} \( \! -user $BUILD_USER -o \! -group $BUILD_GROUP \) -execdir chown $BUILD_USER:$BUILD_GROUP {} + -print | wc -l`
-        [ $n -gt 0 ] && echo "nidas-build trigger: ownership of files under %{nidas_prefix} set to $BUILD_USER.$BUILD_GROUP, with group write"
+        n=$(find %{nidas_prefix} \( \! -user $BUILD_USER -o \! -group $BUILD_GROUP \) -execdir chown -h $BUILD_USER:$BUILD_GROUP {} + -print | wc -l)
 
-        find %{nidas_prefix} \! -perm /g+w -execdir chmod g+w {} +
+        find %{nidas_prefix} \! -type l \! -perm /g+w -execdir chmod g+w {} +
+
+        [ $n -gt 0 ] && echo "nidas-build trigger: ownership of $n files under %{nidas_prefix} set to $BUILD_USER.$BUILD_GROUP, with group write"
 
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
