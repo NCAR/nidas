@@ -25,7 +25,9 @@
 */
 
 #include "DAUSensor.h"
+
 #include <nidas/core/Variable.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 
@@ -33,8 +35,6 @@ using namespace nidas::dynld::isff;
 using namespace std;
 
 namespace n_u = nidas::util;
-
-#include <nidas/util/Logger.h>
 
 using nidas::util::LogContext;
 using nidas::util::LogMessage;

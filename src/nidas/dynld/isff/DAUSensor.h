@@ -63,7 +63,7 @@ private:
     dsm_time_t _prevTimeTag;
         
     //vector to hold prev. message
-    vector<unsigned char> _prevData;
+    std::vector<unsigned char> _prevData;
     
     int _prevOffset;
 
