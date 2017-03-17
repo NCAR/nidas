@@ -154,7 +154,7 @@ protected:
      * along with a short descriptive name, so that addSampleTag() does
      * not throw an exception on an unrecognized id.
      */
-    map<int,std::string> _allowedSampleIds;
+    std::map<int,std::string> _allowedSampleIds;
 };
 
 }}	// namespace nidas namespace dynld

@@ -129,8 +129,8 @@ public:
 
     virtual ~ WisardMote();
 
-    bool process(const Sample * insamp,
-            list < const Sample * >&results) throw();
+    bool process(const Sample* insamp,
+                 std::list<const Sample*>& results) throw();
 
     void validate() throw (nidas::util::InvalidParameterException);
 
@@ -342,7 +342,7 @@ private:
     /**
      * Mapping between sensor type and function which parses the data.
      */
-    static std::map<int, pair<unpack_t,unsigned int> > _unpackMap;
+    static std::map<int, std::pair<unpack_t,unsigned int> > _unpackMap;
 
     static std::map<int, std::string> _typeNames;
 
