@@ -397,7 +397,7 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | WarnTime);
+                        app.Help | app.Version | WarnTime);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -406,7 +406,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
-        usage(argv[0]);
+        return usage(argv[0]);
     }
     warntime = WarnTime.asFloat();
 
