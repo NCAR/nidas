@@ -65,7 +65,7 @@ namespace
   }
 
   std::string
-  xarg(std::vector<std::string>& args, int i)
+  xarg(const ArgVector& args, int i)
   {
     if (i < (int)args.size())
     {
@@ -210,7 +210,7 @@ asFloat()
 
 bool
 NidasAppArg::
-parse(ArgVector& argv, int* argi)
+parse(const ArgVector& argv, int* argi)
 {
   bool result = false;
   int i = 0;
@@ -268,7 +268,7 @@ getUsageFlags()
     {
       if (flags.length())
 	flags += ",";
-      flags += _flags.substr(start, comma);
+      flags += _flags.substr(start, comma-start);
     }
     start = comma+1;
   }
@@ -278,10 +278,10 @@ getUsageFlags()
 
 std::string
 NidasAppArg::
-usage()
+usage(const std::string& indent)
 {
   std::ostringstream oss;
-  oss << getUsageFlags();
+  oss << indent << getUsageFlags();
   if (!_syntax.empty())
   {
     oss << " " << _syntax;
@@ -289,11 +289,14 @@ usage()
       oss << " [default: " << _default << "]";
   }
   oss << "\n";
-  oss << _usage << "\n";
-  if (_usage.length() && _usage[_usage.length()-1] != '\n')
+
+  std::istringstream iss(_usage);
+  std::string line;
+  while (getline(iss, line))
   {
-    oss << "\n";
+    oss << indent << indent << line << "\n";
   }
+  oss << "\n";
   return oss.str();
 }
 
@@ -321,7 +324,7 @@ NidasApp(const std::string& name) :
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
    "Set the log fields to be shown in log messages, as a comma-separated list\n"
-   "of log field names: thread, function, file, level, time, and message.\n"),
+   "of log field names: thread, function, file, level, time, and message."),
   LogParam
   ("--logparam", "<name>=<value>",
    "Set a log scheme parameter with syntax <name>=<value>."),
@@ -352,7 +355,7 @@ NidasApp(const std::string& name) :
    "Examples: \n"
    " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
    " -i '^5,*' --samples 1-10,1-2\n"
-   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n"),
+   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5."),
   FormatHexId("-X", "", "Format sensor-plus-sample IDs in hex"),
   FormatSampleId
   ("--id-format", "auto|decimal|hex|octal",
@@ -370,10 +373,10 @@ NidasApp(const std::string& name) :
    "Specify a file pattern for output files using strptime() substitutions.\n"
    "The path can optionally be followed by a file length and units:\n"
    "hours (h), minutes (m), and seconds (s). The default is seconds.\n"
-   "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n"),
+   "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes."),
   Username
   ("-u,--user", "<username>",
-   "For daemon applications, switch to the named user setting capabilities."),
+   "Switch to the given user after setting required capabilities."),
   Hostname
   ("-H,--host", "<hostname>",
    "Run with the given hostname instead of using current system hostname."),
@@ -384,7 +387,7 @@ NidasApp(const std::string& name) :
    "are written to standard error instead of syslog.  Any logging\n"
    "configuration on the command line will replace the default debug scheme."),
   _appname(name),
-  _argv0(name),
+  _argv0(),
   _processData(false),
   _xmlFileName(),
   _idFormat_set(false),
@@ -466,6 +469,34 @@ getApplicationInstance()
   return application_instance;
 }
 
+void
+NidasApp::
+setProcessName(const std::string& argv0)
+{
+  _argv0 = argv0;
+}
+
+std::string
+NidasApp::
+getProcessName()
+{
+  if (_argv0.empty())
+  {
+    return getName();
+  }
+  return _argv0;
+}
+
+ArgVector
+NidasApp::
+parseArgs(int argc, const char* const argv[]) throw (NidasAppException)
+{
+  if (_argv0.empty())
+  {
+    setProcessName(argv[0]);
+  }
+  return parseArgs(ArgVector(argv+1, argv+argc));
+}
 
 void
 NidasApp::
@@ -857,7 +888,7 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
 
 std::string
 NidasApp::
-usage()
+usage(const std::string& indent)
 {
   // Iterate through the list this application's arguments, dumping usage
   // info for each.
@@ -866,7 +897,7 @@ usage()
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);
-    oss << arg.usage();
+    oss << arg.usage(indent);
   }
   return oss.str();
 }

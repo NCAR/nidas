@@ -138,15 +138,17 @@ public:
     }
 
     /**
-     * Return the usage string for this particular argument, taking into
+     * Render the usage string for this particular argument, taking into
      * account which flags are enabled.  The returned string is formatted like
      * below, and always ends in a newline:
      *
-     * <flag>[,<flag>...] [<syntax>] [default: <default>]
-     * Description
+     * <indent><flag>[,<flag>...] [<syntax>] [default: <default>]
+     * <indent><indent>Description line one
+     * <indent><indent>Description line two
+     * ...
      **/
     std::string
-    usage();
+    usage(const std::string& indent = "  ");
 
     /**
      * Return true if this argument has been filled in from a command-line
@@ -205,7 +207,7 @@ public:
      * consumed by this argument.
      **/
     bool
-    parse(ArgVector& argv, int* argi = 0);
+    parse(const ArgVector& argv, int* argi = 0);
 
     /**
      * Return true if the given command-line @p flag matches one of this
@@ -455,7 +457,8 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  *
  * ### -u,--user <username> ###
  *
- * For daemon applications, the user to switch to after setting capabilities.
+ * For daemon applications, switch to the given user after setting required
+ * capabilities.
  *
  * ### -H,--host <hostname> ###
  *
@@ -535,19 +538,14 @@ public:
      * returned by getName().
      **/
     void
-    setProcessName(const std::string& argv0)
-    {
-        _argv0 = argv0;
-    }
+    setProcessName(const std::string& argv0);
 
     /**
-     * Get the process name.  See setProcessName().
+     * Get the process name, as set by setProcessName(), or else return the
+     * app name from getName().
      **/
     std::string
-    getProcessName()
-    {
-        return _argv0;
-    }
+    getProcessName();
 
     /**
      * An instance of NidasApp can be set as an application-wide instance,
@@ -687,14 +685,11 @@ public:
 
     /**
      * Convenience method to convert the (argv, argc) run string to a list
-     * of arguments to pass to parseArgs().
+     * of arguments to pass to parseArgs().  Also, if the process name has
+     * not been set with setProcessName(), then set it to argv[0].
      **/
-    inline ArgVector
-    parseArgs(int argc, char** argv) throw (NidasAppException)
-    {
-        return parseArgs(ArgVector(argv+1, argv+argc));
-    }
-    
+    ArgVector
+    parseArgs(int argc, const char* const argv[]) throw (NidasAppException);
 
     /**
      * Parse a LogConfig from the given argument using the LogConfig string
@@ -827,10 +822,11 @@ public:
 
     /**
      * Return a usage string describing the arguments accepted by this
-     * application.
+     * application, rendering each argument by calling NidasAppArg::usage()
+     * with the given indent string.
      **/
     std::string
-    usage();
+    usage(const std::string& indent = "  ");
 
     /**
      * Setup signal handling for HUP, INT, and TERM, equivalent to

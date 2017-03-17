@@ -56,10 +56,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-namespace {
-    int defaultLogLevel = n_u::LOGGER_INFO;
-};
-
 /* static */
 DSMServerApp* DSMServerApp::_instance = 0;
 
@@ -80,6 +76,7 @@ DSMServerApp::DSMServerApp():
 {
     setupSignals();
 }
+
 DSMServerApp::~DSMServerApp()
 {
     SampleOutputRequestThread::destroyInstance();
@@ -88,8 +85,6 @@ DSMServerApp::~DSMServerApp()
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
 {
-    _app.setProcessName(argv[0]);
-
     NidasAppArg ExternalControl("-r,--remote", "",
                                 "Enable XML-RPC server for remote control.");
     NidasAppArg OptionalProcessing("-o,--optional", ""
@@ -100,16 +95,15 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
          "as found in the xml file specifed by $NIDAS_DATASETS or \n"
          "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml");
 
-    _app.enableArguments(_app.DebugDaemon | _app.loggingArgs() |
-                         _app.Version |
-                         _app.Username |
-                         _app.Hostname |
-                         _app.DebugDaemon |
-                         ExternalControl |
-                         OptionalProcessing |
-                         DatasetName);
-    _app.parseArgs(ArgVector(argv+1, argv+argc));
-
+    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+                         _app.Username | _app.Hostname | _app.DebugDaemon |
+                         ExternalControl | OptionalProcessing | DatasetName);
+    ArgVector args = _app.parseArgs(argc, argv);
+    if (_app.helpRequested())
+    {
+        usage();
+        return 1;
+    }
     _externalControl = ExternalControl.asBool();
     _optionalProcessing = OptionalProcessing.asBool();
     _datasetName = DatasetName.getValue();
@@ -135,12 +129,12 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                     cerr <<
                         "Environment variables not set correctly to find XML file of project configurations." << endl;
                     cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
-                    return usage(argv[0]);
+                    return usage();
                 }
 	    }
 	    break;
         case '?':
-            return usage(argv[0]);
+            return usage();
         }
     }
     if (optind == argc - 1) _xmlFileName = string(argv[optind++]);
@@ -150,39 +144,39 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
 	    cerr <<
 		"Error: XML config file not found in runstring or $NIDAS_CONFIG" <<
 	    endl;
-            return usage(argv[0]);
+            return usage();
         }
     	_xmlFileName = cfg;
     }
     return 0;
 }
 
-int DSMServerApp::usage(const char* argv0)
+int DSMServerApp::usage()
 {
-    const char* cfg;
-    cerr << "\
-Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-S dataSet_name] [-u username] [-v] [config]\n\
-  -c: read configs XML file to find current project configuration, either\n\t" << 
-    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isfsXML << "\n\
-  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
-      Otherwise run in the background, cd to /, and log messages to syslog\n\
-      Specify a -l option after -d to change the log level from debug\n\
-  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-     The default level if no -d option is " << defaultLogLevel << "\n\
-  -o: run processors marked as optional in XML\n\
-  -r: rpc, start XML RPC thread to respond to external commands\n\
-  -S dataSet_name: set environment variables specifed for the dataset\n\
-     as found in the xml file specifed by $NIDAS_DATASETS or \n\
-     $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
-  -u username: after startup, switch userid to username\n\
-  -v: display software version number and exit\n\
-  config: (optional) name of DSM configuration file.\n\
-    This parameter is not used if you specify the -c option\n\
-    default: $NIDAS_CONFIG=\"" <<
-	  	((cfg = getenv("NIDAS_CONFIG")) ? cfg : "<not set>") << "\"\n\
-    Note: use an absolute path to this file if you run in the background without -d." << endl;
+    const char* cfg = getenv("NIDAS_CONFIG");
+    cerr <<
+        "Usage: " << _app.getProcessName() << " [options] [-c] [config]\n"
+        "  -c:\n"
+        "    read configs XML file to find current project configuration,\n"
+        "    either\n" << 
+        "      $NIDAS_CONFIGS\n"
+        "    or\n"
+        "      " << _rafXML << "\n"
+        "    or\n"
+        "      " << _isfsXML << "\n"
+        "\n"
+        "  config:\n"
+        "    (optional) name of DSM configuration file.\n"
+        "    This parameter is not used if you specify the -c option\n"
+        "    default: $NIDAS_CONFIG=\"" << (cfg ? cfg : "<not set>") << "\"\n"
+        "    Note: use an absolute path to this file if you run in the\n"
+        "    background without -d."
+        "\n" << endl;
+    cerr << "Options:\n";
+    cerr << _app.usage() << endl;
     return 1;
 }
+
 /* static */
 int DSMServerApp::main(int argc, char** argv) throw()
 {

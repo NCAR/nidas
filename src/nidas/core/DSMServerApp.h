@@ -68,7 +68,7 @@ public:
     /**
      * Send usage message to cerr.
      */
-    int usage(const char* argv0);
+    int usage();
 
     /**
      * Invoke a XMLCachingParser to parse the XML and initialize the Project.

@@ -99,7 +99,7 @@ public:
     /**
      * Print runstring usage to stderr.
      */
-    void usage(const char* argv0);
+    void usage();
 
     /** Starts the main loop (for the XMLRPC call). */
     void start();

@@ -187,19 +187,20 @@ int DSMEngine::main(int argc, char** argv) throw()
 
 int DSMEngine::parseRunstring(int argc, char** argv) throw()
 {
-    _app.setProcessName(argv[0]);
+    NidasAppArg ExternalControl
+        ("-r,--remote", "",
+         "Start XML RPC thread to enable to remote commands.");
 
-    NidasAppArg ExternalControl("-r,--remote", "",
-                                "Enable remote control.");
-
-    _app.enableArguments(_app.DebugDaemon | _app.loggingArgs() |
-                         _app.Version |
-                         _app.Username |
-                         _app.Hostname |
-                         _app.DebugDaemon |
-                         ExternalControl);
+    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+                         _app.Username | _app.Hostname |
+                         _app.DebugDaemon | ExternalControl);
 
     ArgVector args = _app.parseArgs(argc, argv);
+    if (_app.helpRequested())
+    {
+        usage();
+        return 1;
+    }
     _externalControl = ExternalControl.asBool();
     
     if (args.size() == 1)
@@ -219,7 +220,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 		ist >> port;
 		if (ist.fail()) {
 		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    usage(argv[0]);
+		    usage();
 		    return 1;
 		}
 	    }
@@ -230,42 +231,39 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
-		usage(argv[0]);
+		usage();
 		return 1;
 	    }	
 	}
         else if (type == "file") _configFile = url;
         else {
             cerr << "unknown url: " << url << endl;
-            usage(argv[0]);
+            usage();
             return 1;
         }
     }
     else if (args.size() > 1)
     {
-	usage(argv[0]);
+	usage();
 	return 1;
     }
     return 0;
 }
 
-void DSMEngine::usage(const char* argv0) 
+void DSMEngine::usage() 
 {
-    cerr << "\
-Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
-  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
-      Otherwise run in the background, cd to /, and log messages to syslog\n\
-      Specify a -l option after -d to change the log level from debug\n\
-  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-     The default level if no -d option is " << defaultLogLevel << "\n\
-  -r: rpc, start XML RPC thread to respond to external commands\n\
-  -u user: switch user id to given user after setting required capabilities\n\
-  -h host: Specify the hostname of the dsm config.\n\
-  -v: display software version number and exit\n\
-  config: either the name of a local DSM configuration XML file to be read,\n\
-      or a socket address in the form \"sock:addr:port\".\n\
-The default config is \"sock:" <<
-	NIDAS_MULTICAST_ADDR << ":" << NIDAS_SVC_REQUEST_PORT_UDP << "\"" << endl;
+    cerr <<
+        "Usage: " << _app.getName() << " [options] [config]\n"
+        "\n"
+        "config:\n"
+        "  The name of a local DSM configuration XML file\n"
+        "  to be read, or a socket address in the form \"sock:addr:port\".\n"
+        "  The default config is "
+        "\"sock:" <<
+        NIDAS_MULTICAST_ADDR << ":" <<
+        NIDAS_SVC_REQUEST_PORT_UDP << "\"" << endl;
+    cerr << "\nOptions:\n";
+    cerr << _app.usage();
 }
 
 void DSMEngine::initLogger()
