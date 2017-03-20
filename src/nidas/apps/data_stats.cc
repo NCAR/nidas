@@ -236,6 +236,54 @@ bool CounterClient::receive(const Sample* samp) throw()
     return _samples[sampid].receive(samp);
 }
 
+
+namespace
+{
+    /**
+     * Compute the number of digits of space required to display
+     * @p value in decimal.
+     **/
+    inline int
+    ndigits(double value)
+    {
+        return (int)ceil(log10(value));
+    }
+
+    struct check_valid
+    {
+        double _value;
+        bool _valid;
+
+        check_valid(double value, bool valid) :
+            _value(value),
+            _valid(valid)
+        {
+        }            
+
+        inline std::ostream&
+        to_stream(std::ostream& outs) const
+        {
+            if (_valid)
+            {
+                outs << _value;
+            }
+            else
+            {
+                outs << floatNAN;
+            }
+            return outs;
+        }
+    };
+
+    inline std::ostream&
+    operator<<(std::ostream& outs, const check_valid& cv)
+    {
+        return cv.to_stream(outs);
+    }
+}
+
+
+
 void CounterClient::printResults(std::ostream& outs)
 {
     size_t maxnamelen = 6;
@@ -252,26 +300,17 @@ void CounterClient::printResults(std::ostream& outs)
 	const string& sname = ss.name;
 	if (sname.length() > maxnamelen)
             maxnamelen = sname.length();
-	size_t m = ss.minlens;
-	if (m > 0) {
-	    int p = (int)ceil(log10((double)m));
-	    lenpow[0] = std::max(lenpow[0],p+1);
-	}
-	m = ss.maxlens;
-	if (m > 0) {
-	    int p = (int)ceil(log10((double)m));
-	    lenpow[1] = std::max(lenpow[1],p+1);
-	}
+
+        // Skip the min/max stats which will be printed as missing if there
+        // are not at least two samples.
+        if (ss.nsamps < 2)
+            continue;
+        lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
+        lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
 	int dt = abs(ss.minDeltaTs);
-	if (dt > 0 && dt < INT_MAX) {
-	    int p = (int)ceil(log10((double)dt+1));
-	    dtlog10[0] = std::max(dtlog10[0],p + 2);
-	}
+        dtlog10[0] = std::max(dtlog10[0], ndigits(dt+1)+2);
 	dt = ss.maxDeltaTs;
-	if (dt > 0) {
-	    int p = (int)ceil(log10((double)dt+1));
-	    dtlog10[1] = std::max(dtlog10[1],p + 2);
-	}
+        dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
     }
         
     struct tm tm;
@@ -308,17 +347,18 @@ void CounterClient::printResults(std::ostream& outs)
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
 
+        double rate = double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC);
         outs << setw(9) << ss.nsamps << ' '
              << t1str << "  " << t2str << ' '
              << fixed << setw(7) << setprecision(2)
-             << double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC)
+             << check_valid(rate, bool(ss.nsamps > 1))
              << setw(dtlog10[0]) << setprecision(3)
-             << (ss.minDeltaTs < INT_MAX ?
-                 (float)ss.minDeltaTs / MSECS_PER_SEC : 0)
+             << check_valid((double)ss.minDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
              << setw(dtlog10[1]) << setprecision(3)
-             << (float)ss.maxDeltaTs / MSECS_PER_SEC
-             << setw(lenpow[0]) << ss.minlens
-             << setw(lenpow[1]) << ss.maxlens
+             << check_valid((float)ss.maxDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
+             << setprecision(0)
+             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 1))
+             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 1))
              << endl;
     }
 }
