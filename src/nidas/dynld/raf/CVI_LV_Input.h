@@ -60,7 +60,8 @@ public:
      * processed data to match when the raw data was sampled, rather
      * than the time the sample was received from LabView.
      */
-    bool process(const Sample * samp,list < const Sample * >&results) throw();
+    bool process(const Sample *samp,
+                 std::list<const Sample*> &results) throw();
 
 private:
 

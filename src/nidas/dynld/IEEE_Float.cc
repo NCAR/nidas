@@ -40,7 +40,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(IEEE_Float)
 
-IEEE_Float::IEEE_Float(): DSMSerialSensor(),
+IEEE_Float::IEEE_Float(): SerialSensor(),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),_sampleTag(0),_nvars(0)
 {
@@ -54,7 +54,7 @@ void IEEE_Float::init() throw(n_u::InvalidParameterException)
 
 void IEEE_Float::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::validate();
+    SerialSensor::validate();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();

@@ -53,8 +53,8 @@ IODevice* CVI_LV_Input::buildIODevice() throw(n_u::IOException)
     return dev;
 }
 
-bool CVI_LV_Input::process(const Sample * samp,
-    list < const Sample * >&results) throw()
+bool CVI_LV_Input::process(const Sample *samp,
+                           std::list<const Sample*>&results) throw()
 {
 
     // invoke the standard scanf processing.

@@ -40,7 +40,7 @@ const n_u::EndianConverter* Watlow::_fromBig = n_u::EndianConverter::getConverte
 
 NIDAS_CREATOR_FUNCTION_NS(raf,Watlow)
 
-uint16_t Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw()
+bool Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw()
 {
     //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25    
     uint16_t checksum = 0xffff;
@@ -61,8 +61,15 @@ uint16_t Watlow::crcCheck(unsigned char * input, int messageLength, int start) t
             }
         }
     }
-    return checksum;
- }
+    
+    uint16_t calculatedChecksum = _fromBig->int16Value(checksum);
+    uint16_t  givenChecksum = _fromBig->int16Value( (&input[start+messageLength+1]));
+    if (calculatedChecksum ==givenChecksum){
+        return true;
+    }
+
+    return false;
+}
 
 
 
@@ -70,58 +77,71 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
 {
 
     unsigned char * input = (unsigned char*) samp->getConstVoidDataPtr();
-    int16_t data[10];
- 
+    if (samp->getDataByteLength()<41)
+    {
+        WLOG(("%s: Bad Length", getName().c_str()));
+        return false;
+    }
+
+
+    /* The Watlow is sampled with 3 prompts (or samples) as defined in the XML header.
+     * However the data arrives into nidas as one sample, with all three strung together.
+     * Decode and output all at once.  If the behavior of the instrument changes, this
+     * code will need to be refactored.
+     */
+
     SampleT<float> * outs1 = getSample<float>(8);
     float *douts1 = outs1->getDataPtr();
     outs1->setTimeTag( samp->getTimeTag());
     outs1->setId(getId()+1);
-    memcpy (data,&input[3],18);
-    uint16_t checksum = crcCheck(input,18,0);
-    if(! (checksum==uint16_t(data[8])))
+    if(!crcCheck(input,18,0))//uint16_t checksum
     {
-        WLOG(("WatlowCLS208 Bad Checksum: 1"));
-        return false;
+        outs1->freeReference();
+        WLOG(("%s: Bad Checksum for sample 1", getName().c_str()));
+    }else
+    {
+        for (unsigned int i = 3; i <=18; i+=2){
+            *douts1++ = (float)_fromBig->int16Value( (&input[i])) / 10.0;
+        }
+        results.push_back(outs1);
     }
-    for (unsigned int i = 0; i < 8; i++){
-        *douts1++ = (float)_fromBig->int16Value( (data[i])) / 10.0;
-    }
-    results.push_back(outs1);
- 
+
     SampleT<float> * outs2 = getSample<float>(1);
     float *douts2 = outs2->getDataPtr();
     outs2->setTimeTag( samp->getTimeTag());
     outs2->setId(getId()+2);
-    memcpy (data,&input[24],4);
-    checksum = crcCheck(input, 4, 21);
-    if (checksum != uint16_t(data[1]))
+    if(!crcCheck(input, 4, 21))
     {
-        WLOG(("WatlowCLS208 Bad Checksum: 2"));
-        return false;
-    }
+        outs2->freeReference();
+        WLOG(("%s: Bad Checksum for sample 2", getName().c_str()));
+    }else
+    {
+        for (unsigned int i = 0; i < 1; i++){
+            *douts2++ = (float)_fromBig->int16Value( &input[24]) / 10.0;
+        }
+        results.push_back(outs2);
+    } 
 
-    for (unsigned int i = 0; i < 1; i++){
-        *douts2++ = (float)_fromBig->int16Value( data[i]) / 10.0;
-    }
-    results.push_back(outs2);
- 
     SampleT<float> * outs3 = getSample<float>(4);
     float *douts3 = outs3->getDataPtr();
     outs3->setTimeTag( samp->getTimeTag());
     outs3->setId(getId()+3);
-    memcpy (data,&input[31],10);
-    checksum = crcCheck(input, 10, 28);
-    if (checksum != uint16_t(data[4]))
+    if (! crcCheck(input, 10, 28))
     {
-        WLOG(("WatlowCLS208 Bad Checksum: 3"));
-        return false;
+        outs3->freeReference();
+        WLOG(("%s: Bad Checksum for sample 3", getName().c_str()));
+    }else
+    {
+        for (unsigned int i = 31; i <=38; i+=2){
+            *douts3++ = (float)_fromBig->uint16Value( &input[i]);
+        }
+        results.push_back(outs3);
     }
-    //cout << "Calculated checksum:" << (checksum)<<"Given Checksum:"<<uint16_t(data[4])<< "Calculated Big checksum:" << _fromBig-> uint16Value(checksum)<<"Given Checksum:"<<_fromBig->uint16Value(data[4])  << endl;
-    for (unsigned int i = 0; i < 4; i++){
-        *douts3++ = (float)_fromBig->uint16Value( data[i]);
-    }
-    results.push_back(outs3);
 
-    return true;
+    if (results.size() !=0)
+    {
+        return true;
+    }
+    return false;
 }
 

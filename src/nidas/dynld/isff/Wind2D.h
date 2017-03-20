@@ -33,8 +33,6 @@ namespace nidas {
 
 namespace core {
     class VariableConverter;
-    class SampleTag;
-    class Sample;
 }
 
 /**
@@ -61,8 +59,7 @@ public:
 
     ~Wind2D();
 
-    void addSampleTag(nidas::core::SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     void validateSscanfs() throw(nidas::util::InvalidParameterException);
 
@@ -130,21 +127,20 @@ private:
      * North. If the direction is derived from U,V, then
      * U,V are re-computed from the speed and corrected direction.
      */
-    core::VariableConverter* _dirConverter;
+    nidas::core::VariableConverter* _dirConverter;
 
     /**
      * A correction can be applied to the wind speed.
      * If the speed is derived from U,V, then
      * U,V are re-computed from the direction and corrected speed.
      */
-    core::VariableConverter* _speedConverter;
+    nidas::core::VariableConverter* _speedConverter;
 
     // no copying
     Wind2D(const Wind2D& x);
 
     // no assignment
     Wind2D& operator=(const Wind2D& x);
-
 
 };
 

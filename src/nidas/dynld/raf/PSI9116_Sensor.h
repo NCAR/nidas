@@ -53,8 +53,7 @@ public:
     void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
-    void addSampleTag(SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();

@@ -160,41 +160,51 @@ if [ -n "$repo" ]; then
     cat $chngs
     echo ""
 
-    # pkgs=$(grep "^Binary:" $chngs | sed 's/Binary: //')
-    debs=$(awk '/Checksums-Sha1:/,/Checksums-Sha256:/{print $3}' $chngs)
-    archalls=
-    archdebs=
-    for d in $debs; do
-        if [[ $d =~ .*\.deb ]]; then
-            pkgarch=${d%.*}
-            pkgarch=${pkgarch##*_}
-            # echo "d=$d, pkgarch=$pkgarch"
-            if [ $pkgarch == all ]; then
-                archalls+=" ${d%%_*}"
-            else
-                archdebs+=" ${d}"
-            fi
-        fi
-    done
+    archdebs=nidas*$arch.deb
 
     # echo "pkgs=$pkgs"
     # echo "archalls=$archalls"
     # echo "chngs=$chngs"
 
-    # only install arch "all" packages and sources for armel.
+    # install all packages and sources for armel.
+    # for other architectures, just install the packages for that arch
 
     # Use --keepunreferencedfiles so that the previous version .deb files 
     # are not removed. Then user's who don't do an apt-get update will
     # get the old version without an error. Nightly, or once-a-week one could do
     # a deleteunreferenced.
+
+    # try to catch the reprepro error which happens when it tries to
+    # install a package version that is already in the repository.
+    # This repeated-build situation can happen in jenkins if a
+    # build is triggered by a pushed commit, but git pull grabs
+    # an even newer commit, and a build for the newer commit is then
+    # triggered later.
+
+    # reprepro has a --ignore option with many types of errors that
+    # can be ignored, but I don't see a way to ignore this error,
+    # so we'll use a fixed grep.
+
+    tmplog=$(mktemp)
+    trap "{ rm -f $tmplog; }" EXIT
+    status=0
+
     if [ $arch == armel ]; then
         flock $repo sh -c "
-            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs;
-            # reprepro -V -b $repo deleteunreferenced"
+            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs" 2> $tmplog || status=$?
     else
         echo "Installing $archdebs"
         flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs"
+            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs" 2> $tmplog || status=$?
+    fi
+
+    if [ $status -ne 0 ]; then
+        cat $tmplog
+        if grep -F -q "can only be included again, if they are the same" $tmplog; then
+            echo "One or more package versions are already present in the repository. Continuing"
+        else
+            exit $status
+        fi
     fi
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
