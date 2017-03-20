@@ -801,14 +801,20 @@ namespace
 
   bool app_interrupted = false;
 
+  sigset_t logmask;
+  bool logmask_cleared = false;
+
   void sigAction(int sig, siginfo_t* siginfo, void*)
   {
-    std::cerr <<
-      "received signal " << strsignal(sig) << '(' << sig << ')' <<
-      ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-      ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-      ", si_code=" << (siginfo ? siginfo->si_code : -1) << std::endl;
-                                                                                
+    if (!sigismember(&logmask, sig))
+    {
+      std::cerr <<
+	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+	", si_code=" << (siginfo ? siginfo->si_code : -1) << std::endl;
+    }
+
     // There used to be a switch statement which selected on the signal
     // number being one of the ones that were added to the handler, but
     // that should not be necessary, since this handler will only be called
@@ -817,6 +823,7 @@ namespace
     if (app_interrupted_callback)
       (*app_interrupted_callback)(sig);
   }
+
 }
 
 
@@ -850,8 +857,18 @@ setupSignals(void (*callback)(int signum))
 /* static */
 void
 NidasApp::
-addSignal(int signum, void (*callback)(int signum))
+addSignal(int signum, void (*callback)(int signum), bool nolog)
 {
+  if (!logmask_cleared)
+  {
+    sigemptyset(&logmask);
+    logmask_cleared = true;
+  }
+  if (nolog)
+  {
+    sigaddset(&logmask, signum);
+  }
+
   sigset_t sigset;
   sigemptyset(&sigset);
   sigaddset(&sigset, signum);

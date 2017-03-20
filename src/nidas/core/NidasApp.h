@@ -848,9 +848,12 @@ public:
      * is a symbol like SIGALRM, SIGHUP, SIGINT, and SIGTERM from signal.h.
      * @p signum can be zero, in which case only the callback function
      * changes.
+     *
+     * If @p nolog is true, then nothing will be logged to cerr by the
+     * default signal handler when that signal is received.
      **/
     static void
-    addSignal(int signum, void (*callback)(int signum) = 0);
+    addSignal(int signum, void (*callback)(int signum) = 0, bool nolog=false);
 
     /**
      * Return true when a help option was parsed, meaning the usage info

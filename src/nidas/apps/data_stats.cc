@@ -332,6 +332,10 @@ public:
 
     int run() throw();
 
+    void readHeader(SampleInputStream& sis);
+
+    void readSamples(SampleInputStream& sis);
+
     int parseRunstring(int argc, char** argv);
 
     static int main(int argc, char** argv);
@@ -346,6 +350,7 @@ private:
     static bool _alarm;
     int _count;
     int _period;
+    int _nreports;
 
     NidasApp app;
     NidasAppArg Period;
@@ -370,7 +375,7 @@ DataStats::handleSignal(int signum)
 
 
 DataStats::DataStats():
-    _count(1), _period(0),
+    _count(1), _period(0), _nreports(0),
     app("data_stats"),
     Period("--period", "<seconds>",
            "Collect statistics for the given number of seconds and then "
@@ -440,8 +445,6 @@ int DataStats::main(int argc, char** argv)
     {
         return result;
     }
-    NidasApp::setupSignals();
-
     return stats.run();
 }
 
@@ -452,9 +455,87 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
+
+void
+DataStats::
+readHeader(SampleInputStream& sis)
+{
+    // Loop over the header read until it is read or the periods expire.
+    // Since the header is not sent until there's a sample to send, if
+    // there are no samples we could block in readInputHeader() waiting for
+    // the header and never get to the readSamples() loop.
+    bool header_read = false;
+    _nreports = 0;
+    while (!header_read && !app.interrupted() && ++_nreports <= _count)
+    {
+        _alarm = false;
+        alarm(_period);
+        try {
+            sis.readInputHeader();
+            header_read = true;
+            // Reading the header does not count as a report cycle.
+            --_nreports;
+        }
+        catch (n_u::IOException& e)
+        {
+            DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
+            if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
+                throw;
+        }
+        alarm(0);
+        if (app.interrupted())
+        {
+            throw n_u::Exception("Interrupted while waiting for header.");
+        }
+        if (_alarm)
+        {
+            ostringstream outs;
+            outs << "Header not received after " << _nreports
+                 << " periods of " << _period << " seconds.";
+            // Throw an exception if nreports exhausted.
+            if (_nreports >= _count)
+            {
+                throw n_u::Exception(outs.str());
+            }
+            else
+            {
+                cerr << outs.str() << endl;
+            }
+        }
+    }
+}
+
+
+void
+DataStats::
+readSamples(SampleInputStream& sis)
+{
+    // Read samples until an alarm signals the end of a reporting period or
+    // an interruption occurs.
+    _alarm = false;
+    if (_period > 0)
+    {
+        cout << "....... Collecting samples for " << _period << " seconds "
+             << "......." << endl;
+        alarm(_period);
+    }
+    while (!_alarm && !app.interrupted())
+    {
+        try {
+            sis.readSamples();
+        }
+        catch (n_u::IOException& e)
+        {
+            DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
+            if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
+                throw;
+        }
+    }
+}
+
+
 int DataStats::run() throw()
 {
-
     int result = 0;
 
     try {
@@ -474,31 +555,15 @@ int DataStats::run() throw()
 	    iochan = new nidas::core::Socket(sock);
 	}
 
-        // Start an alarm here, since the header is not sent until there's
-        // a sample to send, so if there are no samples we could block
-        // right here reading the header and never get to the readSamples()
-        // loop.  However, as soon as the header is read, reset the alarm
-        // so it can start again inside the loop which actually reads
-        // samples.
-        if (_period > 0)
-        {
-            app.addSignal(SIGALRM, &DataStats::handleSignal);
-            alarm(_period);
-        }
-
 	SampleInputStream sis(iochan, app.processData());
         sis.setMaxSampleLength(32768);
 	// sis.init();
-	sis.readInputHeader();
-        alarm(0);
-        if (_alarm)
+
+        if (_period > 0)
         {
-            ostringstream outs;
-            outs << "Header not received within "
-                 << _period << " seconds.";
-            throw n_u::Exception(outs.str());
+            app.addSignal(SIGALRM, &DataStats::handleSignal, true);
         }
-        
+        readHeader(sis);
 	const SampleInputHeader& header = sis.getInputHeader();
 
 	list<DSMSensor*> allsensors;
@@ -550,32 +615,11 @@ int DataStats::run() throw()
         else sis.addSampleClient(&counter);
 
         try {
-            int nreports = 0;
-            while (!app.interrupted() && ++nreports <= _count)
+            while (!app.interrupted() && ++_nreports <= _count)
             {
-                if (_period > 0)
-                {
-                    cout << "....... Collecting samples for "
-                         << _period << " seconds "
-                         << "......." << endl;
-                    alarm(_period);
-                }
-                while (!_alarm && !app.interrupted())
-                {
-                    try {
-                        sis.readSamples();
-                    }
-                    catch (n_u::IOException& e)
-                    {
-                        cerr << e.what()
-                             << " (errno=" << e.getErrno() << ")" << endl;
-                        if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
-                            throw;
-                    }
-                }
+                readSamples(sis);
                 counter.printResults(cout);
                 counter.resetResults();
-                _alarm = false;
             }
         }
         catch (n_u::EOFException& e)
