@@ -97,15 +97,15 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
         ("-s", "<sensorclassname>",
          "Display dsm and sensor id for sensors of the given class");
     
-    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
-                        app.LogParam | app.Version | app.Help |
+    app.enableArguments(app.loggingArgs() |
+                        app.Version | app.Help |
                         ShowHosts | ShowCalFiles | ShowSensors);
 
     ArgVector args(argv+1, argv+argc);
     app.startArgs(args);
     NidasAppArg* arg = 0;
-    do {
-        arg = app.parseNext();
+    while ((arg = app.parseNext()))
+    {
         if (arg == &ShowSensors)
         {
 	    _sensorClasses.push_back(ShowSensors.getValue());
@@ -116,19 +116,15 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
             return 1;
         }
     }
-    while (arg);
     _showCalFiles = ShowCalFiles.asBool();
     _showHosts = ShowHosts.asBool();
     args = app.unparsedArgs();
-    if (args.size() == 2)
-    {
-        _xmlFile = args[1];
-    }
-    if (_xmlFile.empty())
+    if (args.size() != 1)
     {
 	usage(argv[0]);
 	return 1;
     }
+    _xmlFile = args[0];
     return 0;
 }
 
