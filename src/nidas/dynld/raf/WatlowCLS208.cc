@@ -69,7 +69,7 @@ bool Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw
     }
 
     return false;
- }
+}
 
 
 
@@ -77,10 +77,18 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
 {
 
     unsigned char * input = (unsigned char*) samp->getConstVoidDataPtr();
-    if (samp->getDataByteLength()<41){
-        WLOG(("WatlowCLS208 Bad Length"));
+    if (samp->getDataByteLength()<41)
+    {
+        WLOG(("%s: Bad Length", getName().c_str()));
         return false;
     }
+
+
+    /* The Watlow is sampled with 3 prompts (or samples) as defined in the XML header.
+     * However the data arrives into nidas as one sample, with all three strung together.
+     * Decode and output all at once.  If the behavior of the instrument changes, this
+     * code will need to be refactored.
+     */
 
     SampleT<float> * outs1 = getSample<float>(8);
     float *douts1 = outs1->getDataPtr();
@@ -89,7 +97,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if(!crcCheck(input,18,0))//uint16_t checksum
     {
         outs1->freeReference();
-        WLOG(("WatlowCLS208 Bad Checksum: 1"));
+        WLOG(("%s: Bad Checksum for sample 1", getName().c_str()));
     }else
     {
         for (unsigned int i = 3; i <=18; i+=2){
@@ -97,6 +105,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
         }
         results.push_back(outs1);
     }
+
     SampleT<float> * outs2 = getSample<float>(1);
     float *douts2 = outs2->getDataPtr();
     outs2->setTimeTag( samp->getTimeTag());
@@ -104,7 +113,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if(!crcCheck(input, 4, 21))
     {
         outs2->freeReference();
-        WLOG(("WatlowCLS208 Bad Checksum: 2"));
+        WLOG(("%s: Bad Checksum for sample 2", getName().c_str()));
     }else
     {
         for (unsigned int i = 0; i < 1; i++){
@@ -112,6 +121,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
         }
         results.push_back(outs2);
     } 
+
     SampleT<float> * outs3 = getSample<float>(4);
     float *douts3 = outs3->getDataPtr();
     outs3->setTimeTag( samp->getTimeTag());
@@ -119,7 +129,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
     if (! crcCheck(input, 10, 28))
     {
         outs3->freeReference();
-        WLOG(("WatlowCLS208 Bad Checksum: 3"));
+        WLOG(("%s: Bad Checksum for sample 3", getName().c_str()));
     }else
     {
         for (unsigned int i = 31; i <=38; i+=2){
@@ -127,7 +137,8 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
         }
         results.push_back(outs3);
     }
-    if(results.size() !=0)
+
+    if (results.size() !=0)
     {
         return true;
     }

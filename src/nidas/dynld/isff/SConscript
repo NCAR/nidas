@@ -19,6 +19,7 @@ sources = Split("""
     CSI_CRX_Binary.cc
     CSI_IRGA_Sonic.cc
     CU_Coldwire.cc
+    DAUSensor.cc
     GroundStation.cc
     Licor7500.cc
     MOSMote.cc
@@ -40,6 +41,7 @@ headers = Split("""
     CSI_CRX_Binary.h
     CSI_IRGA_Sonic.h
     CU_Coldwire.h
+    DAUSensor.h
     GroundStation.h
     Licor7500.h
     MOSMote.h

@@ -73,7 +73,8 @@
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
+#include <nidas/core/Sample.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -87,6 +88,8 @@
 #include <list>
 
 namespace nidas { namespace dynld { namespace isff {
+
+using namespace nidas::core;
 
 struct VarInfo
 {
@@ -119,15 +122,15 @@ struct SampInfo
     enum WISARD_SAMPLE_TYPE type;
 };
 
-class WisardMote:public DSMSerialSensor
+class WisardMote:public SerialSensor
 {
 public:
     WisardMote();
 
     virtual ~ WisardMote();
 
-    bool process(const Sample * insamp,
-            list < const Sample * >&results) throw();
+    bool process(const Sample* insamp,
+                 std::list<const Sample*>& results) throw();
 
     void validate() throw (nidas::util::InvalidParameterException);
 
@@ -339,7 +342,7 @@ private:
     /**
      * Mapping between sensor type and function which parses the data.
      */
-    static std::map<int, pair<unpack_t,unsigned int> > _unpackMap;
+    static std::map<int, std::pair<unpack_t,unsigned int> > _unpackMap;
 
     static std::map<int, std::string> _typeNames;
 

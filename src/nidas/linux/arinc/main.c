@@ -89,7 +89,7 @@
  * Otherwise kernel timers will be used, and an IRIG card and driver do not
  * need to be present.
  */
-#define USE_IRIG_CALLBACK
+//#define USE_IRIG_CALLBACK
 
 #ifdef USE_IRIG_CALLBACK
 #include <nidas/linux/irigclock.h>

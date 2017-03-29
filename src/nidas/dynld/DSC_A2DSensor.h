@@ -66,12 +66,6 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
-
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
-
     int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
 
     void setA2DParameters(int ichan,int gain,int bipolar)

@@ -29,6 +29,8 @@
 
 #include <nidas/core/Variable.h>
 
+using std::list;
+
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
 
@@ -54,7 +56,7 @@ void CU_Coldwire::validate()
     throw(n_u::InvalidParameterException)
 {
 
-    list<SampleTag*>& tags= getSampleTags();
+    std::list<SampleTag*>& tags = getSampleTags();
 
     if (tags.empty())
         throw n_u::InvalidParameterException(getName() +

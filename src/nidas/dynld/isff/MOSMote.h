@@ -27,19 +27,21 @@
 #ifndef NIDAS_DYNLD_ISFF_MOSMOTE_H
 #define NIDAS_DYNLD_ISFF_MOSMOTE_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/core/LooperClient.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
+    using namespace nidas::core;
+
 /**
- * A DSMSerialSensor for support of an early, buggy version of a Mantis OS
+ * A SerialSensor for support of an early, buggy version of a Mantis OS
  * Mote, which insert null @verbatim ('\x00') @endverbatim characters in
  * the middle of their output, after about every 64 characters.  The
  * MOSMote::process method simply creates another sample without the nulls
- * and passes it to the DSMSerialSensor process method.
+ * and passes it to the SerialSensor process method.
  */
-class MOSMote: public nidas::dynld::DSMSerialSensor
+class MOSMote: public SerialSensor
 {
 public:
 
@@ -58,7 +60,7 @@ private:
 
     unsigned int _ncallBack;
 
-    class MOS_TimeSyncer: public nidas::core::LooperClient
+    class MOS_TimeSyncer: public LooperClient
     {
     public:
         MOS_TimeSyncer(MOSMote* mote): _mote(mote) {}

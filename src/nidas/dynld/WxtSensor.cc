@@ -234,7 +234,7 @@ bool WxtSensor::process(const Sample* samp,
 {
 
     std::list<const Sample*> vane;
-    DSMSerialSensor::process(samp,results);
+    SerialSensor::process(samp,results);
 
     if (results.empty()) return false;
     if (_speedIndex < 0 || _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)

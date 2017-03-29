@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2007, Copyright University Corporation for Atmospheric Research
+ ** 2017, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -24,45 +24,54 @@
  ********************************************************************
 */
 
-#ifndef NIDIS_DYNLD_TSI_CPC3772_H
-#define NIDIS_DYNLD_TSI_CPC3772_H
+#ifndef NIDAS_DYNLD_ISFF_DAUSENSOR_H
+#define NIDAS_DYNLD_ISFF_DAUSENSOR_H
 
 #include <nidas/core/SerialSensor.h>
+#include <nidas/util/EndianConverter.h>
 
-namespace nidas { namespace dynld {
+namespace nidas { namespace dynld { namespace isff {
 
-    using namespace nidas::core;
+using namespace nidas::core;
 
-/**
- * Support for a TSI CPC3772 particle counter.
- */
-class TSI_CPC3772: public SerialSensor
+class DAUSensor: public nidas::core::SerialSensor
 {
+
 public:
 
-    TSI_CPC3772():
-        SerialSensor(),_deltaTusecs(USECS_PER_SEC/10),_rate(0)
-    {
-    }
+    DAUSensor();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    ~DAUSensor();
+    
+    void init() throw(nidas::util::InvalidParameterException);
 
-    /**
-     * The CPC3772 puts out a 1 Hz sample of 10 values, which
-     * are the individual 10Hz samples in a second. We override
-     * the process method in order to break the sample
-     * into 10 individual 10 Hz samples.
-     */
-    bool process(const Sample* samp,std::list<const Sample*>& results)
+    void
+    addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException);
+
+    bool
+    process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+    void
+    fromDOMElement(const xercesc::DOMElement* node)
+	throw(nidas::util::InvalidParameterException);
+
 protected:
+    const nidas::util::EndianConverter* _cvtr;
 
-    unsigned int _deltaTusecs;
+private:
+    dsm_time_t _prevTimeTag;
+        
+    //vector to hold prev. message
+    std::vector<unsigned char> _prevData;
+    
+    int _prevOffset;
 
-    int _rate;
+    DAUSensor(const DAUSensor&);
+    DAUSensor& operator=(const DAUSensor&);
+
 };
 
-}}	// namespace nidas namespace dynld
+}}}	// namespace nidas namespace dynld namespace isff
 
-#endif
+#endif // NIDAS_DYNLD_ISFF_TILTSENSOR_H

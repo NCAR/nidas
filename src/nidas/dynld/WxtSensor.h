@@ -27,13 +27,13 @@
 #ifndef NIDAS_DYNLD_WXTSENSOR_H
 #define NIDAS_DYNLD_WXTSENSOR_H
 
-#include "DSMSerialSensor.h"
+#include <nidas/core/SerialSensor.h>
 
 namespace nidas { namespace dynld {
 
 using namespace nidas::core;
 
-using nidas::dynld::DSMSerialSensor;
+using namespace nidas::core;
 using nidas::util::IOException;
 using nidas::util::InvalidParameterException;
 
@@ -79,7 +79,7 @@ using nidas::util::InvalidParameterException;
  * corrected by any optional linear or polynomical conversion with
  * a possible cal file.
  */
-class WxtSensor: public DSMSerialSensor
+class WxtSensor: public SerialSensor
 {
 
 public:
