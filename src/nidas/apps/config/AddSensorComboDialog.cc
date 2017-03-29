@@ -55,7 +55,8 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir,
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
 
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
-
+  
+  setupA2DSerNums(a2dCalDir+"/DMMAT/");
   setupA2DSerNums(a2dCalDir);
 
   setupPMSSerNums(pmsSpecsFile);
@@ -109,6 +110,12 @@ void AddSensorComboDialog::setupPMSSerNums(QString pmsSpecsFile)
   for (int i = 0; i<<num; i++) delete list[i];
 }
 
+/**
+ * Obtains cal files for both NCAR A2D Cards 
+ * Takes QString a2dCalDir
+ * Adds all a2dCalFiles to A2DSNBox 
+ * Returns nothing
+ * */
 void AddSensorComboDialog::setupA2DSerNums(QString a2dCalDir)
 {
 
@@ -151,13 +158,20 @@ void AddSensorComboDialog::setupA2DSerNums(QString a2dCalDir)
 
 void AddSensorComboDialog::dialogSetup(const QString & sensor)
 {
-  if (sensor == QString("Analog")) 
+  if (sensor == QString("ANALOG_NCAR")) 
   {
     A2DTempSuffixLabel->show();
     A2DTempSuffixText->show();
     A2DSNLabel->show();
     A2DSNBox->show();
-  } else {
+  }else if (sensor == QString("ANALOG_DMMAT")) 
+  {
+    A2DTempSuffixLabel->hide();
+    A2DTempSuffixText->hide();
+    A2DSNLabel->show();
+    A2DSNBox->show();
+  } else
+  {
     A2DTempSuffixLabel->hide();
     A2DTempSuffixText->hide();
     A2DSNLabel->hide();
@@ -182,7 +196,7 @@ void AddSensorComboDialog::dialogSetup(const QString & sensor)
 
 void AddSensorComboDialog::accept()
 {
-  if (SensorBox->currentText() == QString("Analog") &&
+  if (SensorBox->currentText() == QString("ANALOG_NCAR") &&
       A2DTempSuffixText->text().isEmpty())
   {
     _errorMessage->setText("A2D Temp Suffix must be set when Analog Sensor is selected - Please enter a suffix");
@@ -276,6 +290,10 @@ void AddSensorComboDialog::accept()
   }
 }
 
+/**
+ * Dialog for a new sensor
+ * Takes QString sensor
+ * */
 void AddSensorComboDialog::newSensor(QString sensor)
 {
    std::string stdSensor = sensor.toStdString();
@@ -327,7 +345,12 @@ void AddSensorComboDialog::newSensor(QString sensor)
 
    cerr << "end of newSensor()\n";
 }
-
+/**
+ * SetDevice
+ * Takes int channel
+ * calls setText on fullDecive
+ *
+ * */
 void AddSensorComboDialog::setDevice(int channel)
 {
    QString sensor = SensorBox->currentText();
@@ -376,7 +399,7 @@ cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "
   SuffixText->insert(QString::fromStdString(sensor->getSuffix()));
 
   // Set up A2D Temp Suffix box and serial number/cal file box
-  if (baseName == "Analog") {
+  if (baseName == "ANALOG_NCAR"||baseName == "ANALOG_DMMAT") {
     A2DSensorItem* a2dSensorItem = dynamic_cast<A2DSensorItem*>(sensorItem);
     A2DTempSuffixText->insert(a2dSensorItem->getA2DTempSuffix());
 

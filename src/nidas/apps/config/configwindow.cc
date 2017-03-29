@@ -46,7 +46,8 @@ ConfigWindow::ConfigWindow() :
    _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
    _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
    _a2dCalDir("/Configuration/raf/cal_files/A2D/"),
-   _engCalDirRoot("/Configuration/raf/cal_files/Engineering/"), 
+  // _a2dCalDirDmmat("/Configuration/raf/cal_files/A2D/DMMAT/"),
+    _engCalDirRoot("/Configuration/raf/cal_files/Engineering/"), 
    _pmsSpecsFile("/Configuration/raf/PMSspecs"), 
    _filename(""), _fileOpen(false)
 {
@@ -992,7 +993,8 @@ Project *project = Project::getInstance();
     cerr<<"Putting together sensor Catalog"<<endl;
 
     sensorComboDialog->SensorBox->clear();
-    sensorComboDialog->SensorBox->addItem("Analog");
+    sensorComboDialog->SensorBox->addItem("ANALOG_DMMAT");
+    sensorComboDialog->SensorBox->addItem("ANALOG_NCAR");
     sensorComboDialog->clearSfxMap();
     sensorComboDialog->clearDevMap();
 

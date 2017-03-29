@@ -1,6 +1,6 @@
 *************************************
 0.1 Bug!
-   - No Variable names (anything in psql) should be allowed to have a dash in them
+   - No Variable names (anything in psql) should be allowed to have a dash in them 
    - Nor should variables be allowed to start with a number (netCDF issue).
 
 0.2 Calibration files need to be handled better - Search known locations for matching names and if found
@@ -8,8 +8,7 @@
     NOTE: 0,1 is no longer the default - NaN is - so config edit needs to generate a 0,1 calfile or give the option
     of no cal file
 
-0.5: Support for Mesa card
-0.6: Support for Diamond A2D
+0.5 Make DMMAT and NCAR cal files show up only for respective cards, not both.  
 
 0.7 Add/remove columns to include variable long name.
 
@@ -26,6 +25,8 @@
   - when changing sample rate on a series of A2D variables, last switch failed (cjw) and the variable in question disappeared
   - I believe I'm using "generic" pmsSpecs file for all projects - need a setPMSSpecs method for AddSensorCombo dialog.
   - Adding a2d on same board number seems to be affecting existing a2d 
+	-Not just a2d', saw this happening with hgm232 and butanol_CN_counters where adding another would just overwrite the previous.
+	-Could not reproduce bug reliably, but now, after additions, can't reproduce at all. 
   - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
   - dsm id number cannot exceed 99 - need to have better algorithm for auto populating this
 
@@ -69,6 +70,9 @@ that given information from the GUI can do the work that Document class is curre
 * Serial Number
 * device template
 PMSSpecs
+
+14.0 MVC?
+Formally separating the view and controller (model is xml, so already separated) may help readability. May also make qt upgrades easier. 
 
 When adding an A2D variable, if it doesn't start with an X check to see if exists in the variable database and if not 
 warn that it doesn't and are they ok with it (might consider adding an X for experimental).
@@ -148,6 +152,8 @@ sample rate: drop down 10/100/500
 .1 Listing tree contents on the right (e.g. when DSM is selected then sensors are on the right) is better form.
 .2 Would be great to borrow configurations from previous projects - i.e. open up old project and copy/past a sensor from it to current project.
 .3 edit sensor catalog?  e.g. move variable from NOAA UCATS to NOAA PANTHER.
+
+
 
 99. notes
 
