@@ -103,7 +103,7 @@ static void read_counter(void *ptr)
                 read_address_offset = COUNT0_READ_OFFSET;
                 for (i = 0; i < brd->nCounters; i++) {
                         // read from the counter channel
-                        inw_16o(brd->addr + read_address_offset + ISA_16BIT_ADDR_OFFSET);
+                        inw_16o(brd->addr + read_address_offset);
                         read_address_offset = COUNT1_READ_OFFSET;
                 }
                 return;
