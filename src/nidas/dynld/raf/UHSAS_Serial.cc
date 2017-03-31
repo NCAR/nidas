@@ -380,7 +380,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
          
         SampleT<float> * outs = getSample<float>(1);
         outs->setTimeTag(psamp->getTimeTag());
-        outs->setId(psamp->getId() + 2);
+        outs->setId(psamp->getId() + 1);
         float* dout = outs->getDataPtr();
         *dout  = sum;
 
