@@ -383,7 +383,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setId(psamp->getId() + 1);
         float* dout = outs->getDataPtr();
         *dout  = sum;
-
+WLOG(("UHSAS: ") << getName() << ": " << sum);
         results.push_back(outs);            // TCNT
         return true;
     }
