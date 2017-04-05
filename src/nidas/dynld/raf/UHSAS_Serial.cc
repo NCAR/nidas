@@ -356,6 +356,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     list<Sample*> osamps;
 
+std::cerr << "UHSAS: in process()\n";
     if (!_binary) {
         SerialSensor::process(samp, results);
 
@@ -384,6 +385,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         float* dout = outs->getDataPtr();
         *dout  = sum;
 WLOG(("UHSAS: ") << getName() << ": " << sum);
+std::cerr << "UHSAS: sum : " << sum << std::endl;
         results.push_back(outs);            // TCNT
         return true;
     }
