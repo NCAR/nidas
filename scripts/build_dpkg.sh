@@ -200,7 +200,7 @@ if [ -n "$repo" ]; then
 
     if [ $status -ne 0 ]; then
         cat $tmplog
-        if grep -F -q "can only be included again, if they are the same" $tmplog; then
+        if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
             echo "One or more package versions are already present in the repository. Continuing"
         else
             exit $status
