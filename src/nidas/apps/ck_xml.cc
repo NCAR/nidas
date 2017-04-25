@@ -36,6 +36,7 @@
 #include <nidas/core/NidasApp.h>
 
 #include <iostream>
+#include <iomanip>
 #include <list>
 
 #include <unistd.h>
@@ -51,6 +52,8 @@ using nidas::util::LogScheme;
 using nidas::util::Logger;
 using nidas::util::LogConfig;
 
+typedef std::map<std::string, const Variable*> variable_map_t;
+
 class PConfig
 {
 public:
@@ -58,7 +61,9 @@ public:
         _xmlFile(),
         _sensorClasses(),
         _showCalFiles(false),
-        _showHosts(false)
+        _showHosts(false),
+        _showVariables(false),
+        _variables()
     {}
 
     int parseRunstring(NidasApp& app, int argc, char** argv);
@@ -74,6 +79,12 @@ public:
     showHostNames(const Project& project);
 
     void
+    showVariables();
+
+    void
+    loadVariables(const Project& project);
+
+    void
     getHostNames(const Project& project, std::vector<std::string>& dsmnames);
 
 private:
@@ -83,6 +94,9 @@ private:
 
     bool _showCalFiles;
     bool _showHosts;
+    bool _showVariables;
+
+    variable_map_t _variables;
 };
 
 
@@ -96,10 +110,14 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
     NidasAppArg ShowSensors
         ("-s", "<sensorclassname>",
          "Display dsm and sensor id for sensors of the given class");
+    NidasAppArg ShowVariables
+        ("--variables", "",
+         "List all variable names and their rates."); 
     
     app.enableArguments(app.loggingArgs() |
                         app.Version | app.Help |
-                        ShowHosts | ShowCalFiles | ShowSensors);
+                        ShowHosts | ShowCalFiles | ShowSensors |
+                        ShowVariables);
 
     ArgVector args(argv+1, argv+argc);
     app.startArgs(args);
@@ -118,6 +136,7 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
     }
     _showCalFiles = ShowCalFiles.asBool();
     _showHosts = ShowHosts.asBool();
+    _showVariables = ShowVariables.asBool();
     args = app.unparsedArgs();
     if (args.size() != 1)
     {
@@ -165,13 +184,26 @@ int PConfig::main()
         doc->release();
 
         if (!_sensorClasses.empty())
+        {
             showSensorClasses(project);
+        }
         else if (_showCalFiles)
+        {
             showCalFiles(project);
+        }
         else if (_showHosts)
+        {
             showHostNames(project);
+        }
+        else if (_showVariables)
+        {
+            loadVariables(project);
+            showVariables();
+        }
         else
+        {
             showAll(project);
+        }
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
@@ -188,6 +220,58 @@ int PConfig::main()
     XMLImplementation::terminate();
     return res;
 }
+
+
+void
+PConfig::
+loadVariables(const Project& project)
+{
+    DLOG(("loading variables..."));
+    for (SiteIterator si = project.getSiteIterator(); si.hasNext(); )
+    {
+        Site* site = si.next();
+        for (DSMConfigIterator di = site->getDSMConfigIterator();
+             di.hasNext(); )
+        {
+            const DSMConfig* dsm = di.next();
+            for (SensorIterator si2 = dsm->getSensorIterator();
+                 si2.hasNext(); )
+            {
+                DSMSensor* sensor = si2.next();
+                for (SampleTagIterator ti = sensor->getSampleTagIterator();
+                     ti.hasNext(); )
+                {
+                    const SampleTag* tag = ti.next();
+                    if (!tag->isProcessed()) continue;
+                    for (VariableIterator vi = tag->getVariableIterator();
+                         vi.hasNext(); )
+                    {
+                        const Variable* var = vi.next();
+                        DLOG(("  ") << var->getName());
+                        _variables[var->getName()] = var;
+                    }
+                }
+            }
+        }
+    }
+    DLOG(("Done."));
+}
+
+
+void
+PConfig::
+showVariables()
+{
+    variable_map_t::iterator it;
+    for (it = _variables.begin(); it != _variables.end(); ++it)
+    {
+        const Variable* var = it->second;
+        double rate = var->getSampleTag()->getRate();
+        cout << setw(20) << it->first << " " << setw(5) << rate << "\n";
+    }
+}
+
+
 
 void PConfig::showAll(const Project& project)
 {
@@ -216,8 +300,9 @@ void PConfig::showAll(const Project& project)
                     for (VariableIterator vi = tag->getVariableIterator();
                         vi.hasNext(); iv++) {
                         const Variable* var = vi.next();
-                        if (iv) cout << ',' << var->getName();
-                        else cout << var->getName();
+                        if (iv)
+                            cout << ',';
+                        cout << var->getName();
                     }
                     cout << endl;
                 }
