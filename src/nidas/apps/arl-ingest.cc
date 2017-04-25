@@ -171,23 +171,27 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     string dsmName, height;
     extern char *optarg; //set by getopt
     extern int   optind; //"
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char; /* option character */
     while ((opt_char = getopt(left.argc, left.argv, "d:e:")) != -1) {
         switch (opt_char) {
-        case 'd': dsmName = string(optarg); break;
-        case 'e': height = string(optarg); break;
+        case 'd':
+            dsmName = string(optarg);
+            break;
+        case 'e':
+            height = string(optarg);
+            break;
         case '?':
-        default:
+            usage(argv[0]);
             break;
         }
     }
-
-    if (optind < argc)
-        while (optind < argc)
-        	inputFileNames.push_back(argv[optind++]);
+    while (optind < argc)
+    {
+        inputFileNames.push_back(argv[optind++]);
+    }
 
     outputFileName = app.outputFileName();
     outputFileLength = app.outputFileLength();

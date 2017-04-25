@@ -390,8 +390,7 @@ NidasApp(const std::string& name) :
   _argv0(),
   _processData(false),
   _xmlFileName(),
-  _idFormat_set(false),
-  _idFormat(AUTO_ID),
+  _idFormat(),
   _sampleMatcher(),
   _startTime(LONG_LONG_MIN),
   _endTime(LONG_LONG_MAX),
@@ -598,7 +597,7 @@ parseNext() throw (NidasAppException)
       throw NidasAppException("sample criteria could not be parsed: " +
 			      optarg);
     }
-    if (optarg.find("0x", 0) != string::npos && !_idFormat_set)
+    if (optarg.find("0x", 0) != string::npos && _idFormat._idFormat == NOFORMAT_ID)
     {
       setIdFormat(HEX_ID);
     }
@@ -706,10 +705,11 @@ parseArgs(const ArgVector& args) throw (NidasAppException)
 
 void
 NidasApp::
-parseInputs(std::vector<std::string>& inputs,
+parseInputs(const std::vector<std::string>& inputs_,
 	    std::string default_input,
 	    int default_port) throw (NidasAppException)
 {
+  std::vector<std::string> inputs(inputs_);
   if (default_input.length() == 0)
   {
     default_input = InputFiles.default_input;
@@ -954,27 +954,28 @@ updateUsage()
 
 void
 NidasApp::
-setIdFormat(id_format_t idt)
+setIdFormat(IdFormat idt)
 {
-  _idFormat_set = true;
   _idFormat = idt;
 }
 
 
 std::ostream&
 NidasApp::
-formatSampleId(std::ostream& leader, id_format_t idFormat, dsm_sample_id_t sampid)
+formatSampleId(std::ostream& leader, IdFormat idFormat, dsm_sample_id_t sampid)
 {
   // int dsmid = GET_DSM_ID(sampid);
   int spsid = GET_SHORT_ID(sampid);
+  id_format_t spsfmt = idFormat.idFormat();
+  int width = idFormat.decimalWidth();
 
-  if (idFormat == AUTO_ID && spsid >= 0x8000)
-    idFormat = HEX_ID;
-  else if (idFormat == AUTO_ID)
-    idFormat = DECIMAL_ID;
+  if (spsfmt == AUTO_ID && spsid >= 0x8000)
+    spsfmt = HEX_ID;
+  else if (spsfmt == AUTO_ID)
+    spsfmt = DECIMAL_ID;
 
   // leader << setw(2) << setfill(' ') << dsmid << ',';
-  switch(idFormat) {
+  switch(spsfmt) {
   case NidasApp::HEX_ID:
     leader << "0x" << setw(4) << setfill('0') << hex << spsid
 	   << setfill(' ') << dec << ' ';
@@ -984,7 +985,7 @@ formatSampleId(std::ostream& leader, id_format_t idFormat, dsm_sample_id_t sampi
 	   << setfill(' ') << dec << ' ';
     break;
   default:
-    leader << setw(6) << spsid << ' ';
+    leader << setw(width) << spsid << ' ';
     break;
   }
   return leader;

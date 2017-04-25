@@ -472,6 +472,7 @@ public:
     /**
      * The four possible output formats for sensor-plus-sample IDs:
      *
+     * noformat - Use an existing setting or the default.
      * auto - Use decimal for samples less than 0x8000, and hex otherwise.
      * decimal - Use decimal for all samples.
      * hex - Use hex for all samples.
@@ -479,7 +480,67 @@ public:
      *
      * The default is auto.  Set it with --id-format {auto|decimal|hex}.
      **/
-    typedef enum idfmt { AUTO_ID, DECIMAL_ID, HEX_ID, OCTAL_ID } id_format_t;
+    typedef enum {
+        NOFORMAT_ID, AUTO_ID, DECIMAL_ID, HEX_ID, OCTAL_ID
+    } id_format_t;
+
+    /**
+     * An IdFormat specifies the format for the SPS ID plus other
+     * characteristics, like the width when using decimal format.  A width
+     * of zero means use an existing setting, if any, otherwise use the
+     * default.
+     **/
+    class IdFormat
+    {
+    public:
+        IdFormat(id_format_t idfmt=NOFORMAT_ID) :
+            _idFormat(idfmt),
+            _width(0)
+        {
+        }
+            
+        IdFormat&
+        setDecimalWidth(int width)
+        {
+            _width = width;
+            return *this;
+        }
+
+        IdFormat&
+        operator=(const IdFormat& right)
+        {
+            if (right._idFormat != NOFORMAT_ID)
+                _idFormat = right._idFormat;
+            if (right._width != 0)
+                _width = right._width;
+            return *this;
+        }
+
+        int
+        decimalWidth()
+        {
+            if (_width)
+                return _width;
+            return 6;
+        }
+
+        id_format_t
+        idFormat()
+        {
+            if (_idFormat != NOFORMAT_ID)
+                return _idFormat;
+            return AUTO_ID;
+        }
+
+        bool
+        unset()
+        {
+            return (_idFormat == NOFORMAT_ID && _width == 0);
+        }
+
+        id_format_t _idFormat;
+        int _width;
+    };
 
     NidasAppArg XmlHeaderFile;
     NidasAppArg LogShow;
@@ -684,7 +745,7 @@ public:
     parseArgs(const ArgVector& args) throw (NidasAppException);
 
     /**
-     * Convenience method to convert the (argv, argc) run string to a list
+     * Convenience method to convert the (argc, argv) run string to a list
      * of arguments to pass to parseArgs().  Also, if the process name has
      * not been set with setProcessName(), then set it to argv[0].
      **/
@@ -723,7 +784,7 @@ public:
      * An exception is not thrown just because no inputs were provided.
      **/
     void
-    parseInputs(std::vector<std::string>& inputs,
+    parseInputs(const std::vector<std::string>& inputs,
                 std::string default_input = "",
                 int default_port = 0) throw (NidasAppException);
 
@@ -866,13 +927,12 @@ public:
     }
 
     /**
-     * Store the format in which sample IDs should be shown, as listed in
-     * the id_format_t enum.
+     * Store the format in which sample IDs should be shown.
      **/
     void
-    setIdFormat(id_format_t idt);
+    setIdFormat(IdFormat idt);
 
-    id_format_t
+    IdFormat
     getIdFormat()
     {
         return _idFormat;
@@ -885,7 +945,7 @@ public:
      **/
     static
     std::ostream&
-    formatSampleId(std::ostream& out, id_format_t idfmt, dsm_sample_id_t sid);
+    formatSampleId(std::ostream& out, IdFormat idfmt, dsm_sample_id_t sid);
 
     /**
      * Write the sensor-plus-sample ID part of @p sid to @p out using the
@@ -1020,8 +1080,7 @@ private:
 
     std::string _xmlFileName;
 
-    bool _idFormat_set;
-    enum idfmt _idFormat;
+    IdFormat _idFormat;
 
     SampleMatcher _sampleMatcher;
 
@@ -1058,13 +1117,14 @@ private:
 /**
  * Convert vector<string> args to dynamically allocated (argc, argv) pair
  * which will be freed when the instance is destroyed.  This is useful for
- * passing leftover NidasApp command-line arguments to getopt() functions:
+ * passing leftover NidasApp command-line arguments to getopt() functions.
+ * The argv array includes the process name, as expected by getopt().
  *
  * @code
  * NidasApp app('data_dump');
  * // Parse standard arguments and leave the rest.
  * ArgVector args = app.parseArgs(ArgVector(argv, argv+argc));
- * NidasAppArgv left(args);
+ * NidasAppArgv left(argv[0], args);
  * int opt_char;
  * while ((opt_char = getopt(left.argc, left.argv, "...")) != -1) {
  *    ...
@@ -1073,16 +1133,28 @@ private:
  **/
 struct NidasAppArgv
 {
-    NidasAppArgv(const std::vector<std::string>& args) :
+    NidasAppArgv(const std::string& argv0,
+                 const std::vector<std::string>& args) :
         vargv(), argv(0), argc(0)
     {
-        argc = args.size();
-        for (int i = 0; i < argc; ++i)
+        vargv.push_back(strdup(argv0.c_str()));
+        for (unsigned int i = 0; i < args.size(); ++i)
         {
-            char* argstring = strdup(args[i].c_str());
-            vargv.push_back(argstring);
+            vargv.push_back(strdup(args[i].c_str()));
         }
         argv = &(vargv.front());
+        argc = (int)vargv.size();
+    }
+
+    /**
+     * Given the opt index after getopt() finishes, return a vector of any
+     * remaining arguments, suitable for passing to
+     * NidasApp::parseInputs().
+     **/
+    ArgVector
+    unparsedArgs(int optindex)
+    {
+        return std::vector<std::string>(vargv.begin()+optindex, vargv.end());
     }
 
     ~NidasAppArgv()
