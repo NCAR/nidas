@@ -172,7 +172,8 @@ QString SensorItem::getBaseName()
     return(QString::fromStdString(_sensor->getCatalogName()));
   else {
     QString className = QString::fromStdString(_sensor->getClassName());
-    if (className == "raf.DSMAnalogSensor") return (QString("Analog"));
+    if (className == "raf.DSMAnalogSensor") return (QString("ANALOG_NCAR"));
+    else if (className == "DSC_A2DSensor") return (QString("ANALOG_DMMAT"));
     return className;
   }
 }
@@ -183,7 +184,9 @@ QString SensorItem::viewName()
     return(QString::fromStdString(_sensor->getCatalogName()));
   else {
     if (_sensor->getClassName() == "raf.DSMAnalogSensor")
-      return QString("Analog");
+      return QString("ANALOG_NCAR");
+    if (_sensor->getClassName() == "DSC_A2DSensor")
+      return QString("ANALOG_DMMAT");
     if (_sensor->getClassName() == "raf.DSMMesaSensor")
       return QString("MESA");
     return(QString::fromStdString(_sensor->getClassName()));

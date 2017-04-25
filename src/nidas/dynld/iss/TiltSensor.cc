@@ -27,14 +27,15 @@
 #include "TiltSensor.h"
 
 #include <sstream>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::dynld::iss;
 using namespace std;
-
-#include <nidas/util/Logger.h>
+using namespace nidas::core;
 
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
+using nidas::util::InvalidParameterException;
 
 NIDAS_CREATOR_FUNCTION_NS(iss,TiltSensor)
 
@@ -67,7 +68,7 @@ throw(InvalidParameterException)
              " unsupported number of variables. Must be: pitch,roll");
     }
 
-    DSMSerialSensor::addSampleTag(stag);
+    SerialSensor::addSampleTag(stag);
 }
 
 
@@ -206,5 +207,5 @@ TiltSensor::
 fromDOMElement(const xercesc::DOMElement* node)
 throw(InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    SerialSensor::fromDOMElement(node);
 }

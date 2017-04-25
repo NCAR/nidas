@@ -105,6 +105,11 @@ private:
     float _hkScale[12];
 
     /**
+     * Some UHSAS insturments generate ASCII.
+     */
+    bool _binary;
+
+    /**
      * UHSAS sample-rate, currently used for scaling the sum of the bins.
      */
     float _sampleRate;

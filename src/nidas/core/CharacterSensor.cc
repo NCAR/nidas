@@ -152,6 +152,7 @@ bool CharacterSensor::doesAsciiSscanfs()
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
+
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 

@@ -327,6 +327,23 @@ void Wind3D::parseParameters()
                 _sx[2] = 1;
                 _unusualOrientation = true;
             }
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "lefthanded"){
+                /* If wind direction is measured counterclockwise, convert to 
+                 * clockwise (dir = 360 - dir). This is done by negating the v 
+                 * component.
+                 * new    raw sonic
+                 * u      u
+                 * v      -v
+                 * w      w
+                 */
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = -1; //v is -v
+                _sx[2] = 1;
+                _unusualOrientation = true;
+            }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
                 /* Sonic flipped over, a 180 deg rotation about sonic u axis.
                  * Change sign on v,w:
@@ -365,7 +382,7 @@ void Wind3D::parseParameters()
             else
                 throw n_u::InvalidParameterException(getName(),
                         "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\", \"flipped\" or \"horizontal\"");
+                        "must be one string: \"normal\" (default), \"down\", \"lefthanded\", \"flipped\" or \"horizontal\"");
 
         }
         else if (parameter->getName() == "shadowFactor") {

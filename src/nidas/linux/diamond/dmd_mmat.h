@@ -86,7 +86,6 @@ struct DMMAT_A2D_Status
  */
 #define DMM32DXAT_BOARD	3
 
-
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With

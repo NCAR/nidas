@@ -11,6 +11,7 @@ firmwares = Split("""
 """)
 
 inst = env.Install('$PREFIX/firmware', firmwares)
+env.Alias('install', ['$PREFIX/firmware'])
 
 env.Clean(inst, [
     '$PREFIX/firmware/' + l for l in firmwares

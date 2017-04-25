@@ -132,12 +132,6 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-void DSC_A2DSensor::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
-{
-    A2DSensor::addSampleTag(tag);
-}
-
 void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
             throw(n_u::InvalidParameterException)
 {
@@ -205,13 +199,3 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
     if (getBipolar(ichan)) intercept = 0.0;
     else intercept = 10.0 / getGain(ichan);
 }
-
-
-void DSC_A2DSensor::fromDOMElement(
-	const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
-{
-
-    A2DSensor::fromDOMElement(node);
-}
-

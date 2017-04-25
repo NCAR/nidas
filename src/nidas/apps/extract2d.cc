@@ -566,7 +566,7 @@ int Extract2D::run() throw()
                                     Tap2D *t2d = (Tap2D *)dp;
                                 // Note: TASToTap2D() has a PotFudgeFactor which multiplies by 1.01.
                                 //        Seems we should multiply by 0.99...
-                                    tas = 1.0e11 / (511 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
+                                    tas = 1.0e11 / (511.0 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
                                     if (t2d->div10 == 1)
                                         tas /= 10.0;
                                 }

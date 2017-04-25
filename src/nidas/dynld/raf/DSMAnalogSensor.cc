@@ -608,21 +608,27 @@ float DSMAnalogSensor::voltageActual(float voltageMeasured)
 }
 
 
-void DSMAnalogSensor::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
+void DSMAnalogSensor::validate() throw(n_u::InvalidParameterException)
 {
-    A2DSensor::addSampleTag(tag);
+    A2DSensor::validate();
 
-    const Parameter* tparm = tag->getParameter("temperature");
-    if (tparm && tparm->getLength() == 1) {
-        _temperatureTag = tag;
-        _temperatureRate = irigClockRateToEnum((int)tag->getRate());
-        if (_temperatureRate == IRIG_NUM_RATES) {
-            ostringstream ost;
-            ost << tag->getRate();
-            throw n_u::InvalidParameterException(getName(),"temperature sample rate",ost.str());
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* tag = *ti;
+
+        const Parameter* tparm = tag->getParameter("temperature");
+        if (tparm && tparm->getLength() == 1) {
+            _temperatureTag = tag;
+            _temperatureRate = irigClockRateToEnum((int)tag->getRate());
+            if (_temperatureRate == IRIG_NUM_RATES) {
+                ostringstream ost;
+                ost << tag->getRate();
+                throw n_u::InvalidParameterException(getName(),"temperature sample rate",ost.str());
+            }
+            return;
         }
-        return;
     }
     _deltatUsec = (int)rint(USECS_PER_SEC / getScanRate());
 }

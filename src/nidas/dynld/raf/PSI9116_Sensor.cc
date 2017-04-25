@@ -213,35 +213,41 @@ void PSI9116_Sensor::stopPurge() throw(n_u::IOException)
     startStreams();
 }
 
-void PSI9116_Sensor::addSampleTag(SampleTag* stag)
-	throw(n_u::InvalidParameterException)
+void PSI9116_Sensor::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSensor::addSampleTag(stag);
+    CharacterSensor::validate();
 
-    if (getSampleTags().size() > 1)
+    const std::list<SampleTag*>& tags = getSampleTags();
+    if (tags.size() > 1)
         throw n_u::InvalidParameterException(getName(),
 		"sample",
 		"current version does not support more than 1 sample");
 
-    
-    _sampleId = stag->getId();
-    const vector<Variable*>& vars = stag->getVariables();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
 
-    _nchannels = 0;
-    for (unsigned int i = 0; i < vars.size(); i++) {
-	const Variable* var = vars[i];
-	_nchannels += var->getLength();
-	
-	if (!var->getUnits().compare("mb") ||
-	    !var->getUnits().compare("mbar") ||
-	    !var->getUnits().compare("hPa"))
-		_psiConvert = 68.94757;
-	else throw n_u::InvalidParameterException(getName(),
-		    "units",
-		    string("unknown units: \"") + var->getUnits() + "\"");
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        
+        _sampleId = stag->getId();
+        const vector<Variable*>& vars = stag->getVariables();
+
+        _nchannels = 0;
+        for (unsigned int i = 0; i < vars.size(); i++) {
+            const Variable* var = vars[i];
+            _nchannels += var->getLength();
+            
+            if (!var->getUnits().compare("mb") ||
+                !var->getUnits().compare("mbar") ||
+                !var->getUnits().compare("hPa"))
+                    _psiConvert = 68.94757;
+            else throw n_u::InvalidParameterException(getName(),
+                        "units",
+                        string("unknown units: \"") + var->getUnits() + "\"");
+        }
+
+        _msecPeriod = (int) rint(MSECS_PER_SEC / stag->getRate());
     }
-
-    _msecPeriod = (int) rint(MSECS_PER_SEC / stag->getRate());
 }
 
 bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)

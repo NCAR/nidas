@@ -157,7 +157,7 @@ void WisardMote::validate()
     cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
     cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
 #endif
-    DSMSerialSensor::validate();
+    SerialSensor::validate();
 }
 
 void WisardMote::createSampleTags(const SampleTag* stag,const vector<int>& sensorMotes,list<SampleTag*>& newtags)

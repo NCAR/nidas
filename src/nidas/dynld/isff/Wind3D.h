@@ -35,11 +35,9 @@
 #include <gsl/gsl_linalg.h>
 #endif
 
-namespace nidas { namespace dynld { namespace isff {
+namespace nidas {
 
-namespace core {
-    class Sample;
-}
+namespace dynld { namespace isff {
 
 /**
  * Rotate a (U,V) 2D wind vector by an angle.

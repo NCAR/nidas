@@ -147,7 +147,7 @@ void parseAnalog(const DSMConfig * dsm)
     for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
         DSMSensor * sensor = si2.next();
 
-        if (sensor->getClassName().compare("raf.DSMAnalogSensor"))
+        if (sensor->getClassName().compare("raf.DSMAnalogSensor")||sensor->getClassName().compare("DSC_A2DSensor"))
            continue;
 
         sensorTitle(sensor);

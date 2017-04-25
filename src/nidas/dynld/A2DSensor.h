@@ -63,18 +63,13 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     void setScanRate(int val) { _scanRate = val; }
 
     int getScanRate() const { return _scanRate; }
 
     bool process(const Sample* insamp,std::list<const Sample*>& results) throw();
-
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
-
 
     /**
      * Return the maximum possible number of A2D channels

@@ -84,6 +84,9 @@ static int numirqs = 0;
 static int types[MAX_DMMAT_BOARDS] = { DMM32DXAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
 
+static const char* BOARD_TYPE_STRS[] = {
+        "DMM16AT", "DMM32AT", "DMM32XAT", "DMM32DXAT"};
+
 /*
  * How is the D2A jumpered? Bipolar, unipolar, 5 or 10 volts.
  */
@@ -4309,6 +4312,7 @@ static int __init dmd_mmat_init(void)
 {	
         int result = -EINVAL;
         int ib;
+        int numBoardTypes = sizeof(BOARD_TYPE_STRS) / sizeof(BOARD_TYPE_STRS[0]);
 
         board = 0;
 
@@ -4372,6 +4376,10 @@ static int __init dmd_mmat_init(void)
                 brd->addr = (unsigned long)brd->ioport + SYSTEM_ISA_IOPORT_BASE;
                 brd->addr16 = brd->addr + ISA_16BIT_ADDR_OFFSET;
 
+                if (types[ib] < 0 || types[ib] >= numBoardTypes) {
+                        KLOG_ERR("board type=%d is invalid\n", types[ib]);
+                        goto err;
+                }
                 brd->type = types[ib];
 
                 result = -EINVAL;
@@ -4400,7 +4408,7 @@ static int __init dmd_mmat_init(void)
                 outb(0x00,brd->addr + 8);	// set page 0
 
                 KLOG_INFO("board %d at address %#04x: FPGA revision: %d\n",
-                                ib,ioports[ib],(int)FPGArev);
+                        ib,ioports[ib],(int)FPGArev);
 
                 result = -EINVAL;
                 /* counter 1&2 */
@@ -4437,8 +4445,9 @@ static int __init dmd_mmat_init(void)
                 if (result) goto err;
                 brd->d2d->stop(brd->d2d);
 
-                KLOG_INFO("board %d, ioport=%#04x, irq=%d, type=%d\n",
-                                brd->num,ioports[ib],irqs[ib],brd->type);
+                KLOG_INFO("board %d, ioport=%#04x, irq=%d, type=%d (%s)\n",
+                        brd->num,ioports[ib],irqs[ib],brd->type,
+                        BOARD_TYPE_STRS[brd->type]);
         }
 
         KLOG_DEBUG("complete.\n");

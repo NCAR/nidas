@@ -27,22 +27,15 @@
 #ifndef NIDAS_DYNLD_ISS_TILTSENSOR_H
 #define NIDAS_DYNLD_ISS_TILTSENSOR_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 
 namespace nidas { namespace dynld { namespace iss {
-
-using namespace nidas::core;
-
-using nidas::dynld::DSMSerialSensor;
-using nidas::util::IOException;
-using nidas::util::InvalidParameterException;
 
 /**
  * CXTILT02 2-axis tilt sensor from Crossbow.
  */
-class TiltSensor: public DSMSerialSensor
+class TiltSensor: public nidas::core::SerialSensor
 {
-
 public:
 
     TiltSensor();
@@ -50,21 +43,22 @@ public:
     ~TiltSensor();
 
     void
-    addSampleTag(SampleTag* stag) throw(InvalidParameterException);
+    addSampleTag(nidas::core::SampleTag* stag)
+        throw(nidas::util::InvalidParameterException);
 
     bool
-    process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    process(const nidas::core::Sample* samp,
+            std::list<const nidas::core::Sample*>& results) throw();
 
     void
     fromDOMElement(const xercesc::DOMElement* node)
-	throw(InvalidParameterException);
+	throw(nidas::util::InvalidParameterException);
 
 protected:
 
     int checksumFailures;
 
-    dsm_sample_id_t sampleId;
+    nidas::core::dsm_sample_id_t sampleId;
 
 };
 
