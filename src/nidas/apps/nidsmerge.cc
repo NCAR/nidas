@@ -189,7 +189,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
         usage(argv[0]);
     }
 
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     int opt_char;     /* option character */
 
     while ((opt_char = getopt(left.argc, left.argv, "-c:x:fil:r:d:")) != -1) {

@@ -309,7 +309,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char;     /* option character */
@@ -361,9 +361,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    return usage(argv[0]);
 	}
     }
-
-    vector<string> inputs(args.begin()+optind, args.end());
-    app.parseInputs(inputs);
+    app.parseInputs(left.unparsedArgs(optind));
 
     if (!_doListOutputSamples)
     {

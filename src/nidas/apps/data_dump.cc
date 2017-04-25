@@ -402,6 +402,8 @@ int DataDump::parseRunstring(int argc, char** argv)
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
+    // Use width 4 for decimal sample id format.
+    app.setIdFormat(NidasApp::IdFormat().setDecimalWidth(4));
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -410,7 +412,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     }
     warntime = WarnTime.asFloat();
 
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     int opt_char;     /* option character */
 
     while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSU")) != -1) {
@@ -446,8 +448,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    return usage(argv[0]);
 	}
     }
-    vector<string> inputs(args.begin()+optind, args.end());
-    app.parseInputs(inputs);
+    app.parseInputs(left.unparsedArgs(optind));
 
     if (app.sampleMatcher().numRanges() == 0)
     {
