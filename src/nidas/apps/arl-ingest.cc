@@ -137,7 +137,7 @@ int ARLIngest::main(int argc, char** argv) throw() {
 /* static */
 int ARLIngest::usage(const char* argv0) {
     cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format" << endl << endl;
-    cerr << "Usage: " << argv0 << "-x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
+    cerr << "Usage: " << argv0 << " [options] -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
     cerr << endl;
     cerr << endl;
     cerr << "Standard nidas options:" << endl << _app.usage();
@@ -157,13 +157,14 @@ int ARLIngest::usage(const char* argv0) {
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     NidasApp& app = _app;
-    app.enableArguments(app.XmlHeaderFile | app.OutputFiles | app.Version | app.Help);
+    app.enableArguments(app.loggingArgs() | app.XmlHeaderFile |
+                        app.OutputFiles | app.Version | app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested()) {
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
         usage(argv[0]);
     }
 

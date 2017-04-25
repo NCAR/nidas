@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -37,6 +37,7 @@
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
@@ -57,11 +58,96 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+class SampleCounter
+{
+public:
+    /**
+     * A default constructor is required to use objects as a map element.
+     **/
+    SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "") :
+        name(sname),
+        id(sid),
+        t1s(0),
+        t2s(0),
+        nsamps(0),
+        minlens(0),
+        maxlens(0),
+        minDeltaTs(0),
+        maxDeltaTs(0)
+    {
+    }
+
+    void
+    reset()
+    {
+        t1s = 0;
+        t2s = 0;
+        nsamps = 0;
+        minlens = 0;
+        maxlens = 0;
+        minDeltaTs = 0;
+        maxDeltaTs = 0;
+    }
+
+    bool
+    receive(const Sample* samp) throw();
+
+    string name;
+    dsm_sample_id_t id;
+
+    dsm_time_t t1s;
+    dsm_time_t t2s;
+    size_t nsamps;
+    size_t minlens;
+    size_t maxlens;
+    int minDeltaTs;
+    int maxDeltaTs;
+};
+
+
+bool
+SampleCounter::
+receive(const Sample* samp) throw()
+{
+    dsm_sample_id_t sampid = samp->getId();
+    DLOG(("counting sample %d for id ", nsamps)
+         << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+    dsm_time_t sampt = samp->getTimeTag();
+    if (nsamps == 0)
+    {
+        t1s = sampt;
+        minDeltaTs = INT_MAX;
+        maxDeltaTs = INT_MIN;
+    }
+    else
+    {
+        int deltaT = (sampt - t2s + USECS_PER_MSEC/2) / USECS_PER_MSEC;
+	minDeltaTs = std::min(minDeltaTs, deltaT);
+	maxDeltaTs = std::max(maxDeltaTs, deltaT);
+    }
+    t2s = sampt;
+
+    size_t slen = samp->getDataByteLength();
+    if (nsamps == 0)
+    {
+        minlens = slen;
+        maxlens = slen;
+    }
+    else
+    {
+        minlens = std::min(minlens, slen);
+        maxlens = std::max(maxlens, slen);
+    }
+    ++nsamps;
+    return true;
+}
+
+
 class CounterClient: public SampleClient 
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors,bool hexIds);
+    CounterClient(const list<DSMSensor*>& sensors, bool processed=false);
 
     virtual ~CounterClient() {}
 
@@ -69,50 +155,64 @@ public:
 
     bool receive(const Sample* samp) throw();
 
-    void printResults();
+    void printResults(std::ostream& outs);
 
+    void resetResults();
 
 private:
-    map<dsm_sample_id_t,string> sensorNames;
 
-    set<dsm_sample_id_t> sampids;
+    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
 
-    map<dsm_sample_id_t,dsm_time_t> t1s;
-
-    map<dsm_sample_id_t,dsm_time_t> t2s;
-
-    map<dsm_sample_id_t,size_t> nsamps;
-
-    map<dsm_sample_id_t,size_t> minlens;
-
-    map<dsm_sample_id_t,size_t> maxlens;
-
-    map<dsm_sample_id_t,int> minDeltaTs;
-
-    map<dsm_sample_id_t,int> maxDeltaTs;
-
-    bool _hexIds;
+    sample_map_t _samples;
 };
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool hexIds):
-    sensorNames(),sampids(),t1s(),t2s(),nsamps(),minlens(),maxlens(),
-    minDeltaTs(),maxDeltaTs(), _hexIds(hexIds)
+void
+CounterClient::
+resetResults()
+{
+    sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        si->second.reset();
+    }
+}
+
+
+
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
+    _samples()
 {
     list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
+    for (si = sensors.begin(); si != sensors.end(); ++si)
+    {
+        // Create a SampleCounter for samples from the given sensors.  Raw
+        // samples are named by the sensor device, processed samples by the
+        // first variable in the first sample tag.
         DSMSensor* sensor = *si;
-	sensorNames[sensor->getId()] =
-	    sensor->getDSMConfig()->getName() + ":" + sensor->getDeviceName();
+        string sname = sensor->getDSMConfig()->getName() + ":" +
+            sensor->getDeviceName();
+        SampleCounter stats(sensor->getId(), sname);
+        _samples[stats.id] = stats;
+
+        if (! processed)
+        {
+            continue;
+        }
 
 	// for samples show the first variable name, followed by ",..."
 	// if more than one.
 	SampleTagIterator ti = sensor->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    if (stag->getVariables().size() > 0) {
+	    if (stag->getVariables().size() > 0)
+            {
 		string varname = stag->getVariables().front()->getName();
-		if (stag->getVariables().size() > 1) varname += ",...";
-		sensorNames[stag->getId()] = varname;
+		if (stag->getVariables().size() > 1)
+                {
+                    varname += ",...";
+                }
+                SampleCounter pstats(stag->getId(), varname);
+                _samples[pstats.id] = pstats;
 	    }
 	}
     }
@@ -120,116 +220,146 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool hexIds):
 
 bool CounterClient::receive(const Sample* samp) throw()
 {
-    dsm_time_t sampt = samp->getTimeTag();
-
     dsm_sample_id_t sampid = samp->getId();
-    sampids.insert(sampid);
 
-    map<dsm_sample_id_t,dsm_time_t>::iterator t1i =
-	t1s.find(sampid);
-    if (t1i == t1s.end()) {
-	t1s.insert(
-	    make_pair(sampid,sampt));
-	minDeltaTs[sampid] = INT_MAX;
+    sample_map_t::iterator it = _samples.find(sampid);
+    if (it == _samples.end())
+    {
+        // When there is no header from which to gather samples ahead of
+        // time, just add a SampleCounter instance for any new raw sample
+        // that arrives.
+        DLOG(("creating counter for sample id ")
+             << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+        SampleCounter ss(sampid);
+        _samples[sampid] = ss;
     }
-    else {
-        int deltaT = (sampt - t2s[sampid] + USECS_PER_MSEC/2) / USECS_PER_MSEC;
-	minDeltaTs[sampid] = std::min(minDeltaTs[sampid],deltaT);
-	maxDeltaTs[sampid] = std::max(maxDeltaTs[sampid],deltaT);
-    }
-    t2s[sampid] = sampt;
-    nsamps[sampid]++;
-
-    size_t slen = samp->getDataByteLength();
-    size_t mlen;
-
-    map<dsm_sample_id_t,size_t>::iterator li = minlens.find(sampid);
-    if (li == minlens.end()) minlens[sampid] = slen;
-    else {
-	mlen = li->second;
-	if (slen < mlen) minlens[sampid] = slen;
-    }
-
-    mlen = maxlens[sampid];
-    if (slen > mlen) maxlens[sampid] = slen;
-
-    // cerr << samp->getDSMId() << ',' << samp->getSpSId() <<  " " << samp->getTimeTag() << endl;
-    return true;
+    return _samples[sampid].receive(samp);
 }
 
-void CounterClient::printResults()
+
+namespace
+{
+    /**
+     * Compute the number of digits of space required to display
+     * @p value in decimal.
+     **/
+    inline int
+    ndigits(double value)
+    {
+        return (int)ceil(log10(value));
+    }
+
+    struct check_valid
+    {
+        double _value;
+        bool _valid;
+
+        check_valid(double value, bool valid) :
+            _value(value),
+            _valid(valid)
+        {
+        }            
+
+        inline std::ostream&
+        to_stream(std::ostream& outs) const
+        {
+            if (_valid)
+            {
+                outs << _value;
+            }
+            else
+            {
+                outs << floatNAN;
+            }
+            return outs;
+        }
+    };
+
+    inline std::ostream&
+    operator<<(std::ostream& outs, const check_valid& cv)
+    {
+        return cv.to_stream(outs);
+    }
+}
+
+
+
+void CounterClient::printResults(std::ostream& outs)
 {
     size_t maxnamelen = 6;
     int lenpow[2] = {5,5};
     int dtlog10[2] = {7,7};
-    set<dsm_sample_id_t>::iterator si;
-    for (si = sampids.begin(); si != sampids.end(); ++si) {
-	dsm_sample_id_t id = *si;
-	const string& sname = sensorNames[id];
-	if (sname.length() > maxnamelen) maxnamelen = sname.length();
-	size_t m = minlens[id];
-	if (m > 0) {
-	    int p = (int)ceil(log10((double)m));
-	    lenpow[0] = std::max(lenpow[0],p+1);
-	}
-	m = maxlens[id];
-	if (m > 0) {
-	    int p = (int)ceil(log10((double)m));
-	    lenpow[1] = std::max(lenpow[1],p+1);
-	}
-	int dt = abs(minDeltaTs[id]);
-	if (dt > 0 && dt < INT_MAX) {
-	    int p = (int)ceil(log10((double)dt+1));
-	    dtlog10[0] = std::max(dtlog10[0],p + 2);
-	}
-	dt = maxDeltaTs[id];
-	if (dt > 0) {
-	    int p = (int)ceil(log10((double)dt+1));
-	    dtlog10[1] = std::max(dtlog10[1],p + 2);
-	}
+
+    sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        SampleCounter &ss = si->second;
+        if (ss.nsamps == 0)
+            continue;
+
+	const string& sname = ss.name;
+	if (sname.length() > maxnamelen)
+            maxnamelen = sname.length();
+
+        // Skip the min/max stats which will be printed as missing if there
+        // are not at least two samples.
+        if (ss.nsamps < 2)
+            continue;
+        lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
+        lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
+	int dt = abs(ss.minDeltaTs);
+        dtlog10[0] = std::max(dtlog10[0], ndigits(dt+1)+2);
+	dt = ss.maxDeltaTs;
+        dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
     }
         
     struct tm tm;
     char tstr[64];
-    cout << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
+    outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
     	right <<
     	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" <<
 		setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)" <<
 		setw(lenpow[0] + lenpow[1]) << " minMaxLen" <<
 		endl;
-    for (si = sampids.begin(); si != sampids.end(); ++si) {
-	dsm_sample_id_t id = *si;
-	time_t ut = t1s[id] / USECS_PER_SEC;
+
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        SampleCounter& ss = si->second;
+        if (ss.nsamps == 0)
+            continue;
+
+	time_t ut = ss.t1s / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
-	int msec = (int)(t1s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	int msec = (int)(ss.t1s % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t1str(tstr);
-	ut = t2s[id] / USECS_PER_SEC;
+	ut = ss.t2s / USECS_PER_SEC;
 	gmtime_r(&ut,&tm);
 	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
-	msec = (int)(t2s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
+	msec = (int)(ss.t2s % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
 
+        outs << left << setw(maxnamelen) << ss.name
+             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
 
-        cout << left << setw(maxnamelen) << sensorNames[id] << right << ' ' <<
-	    setw(4) << GET_DSM_ID(id) << ' ';
+        NidasApp* app = NidasApp::getApplicationInstance();
+        app->formatSampleId(outs, ss.id);
 
-        if (_hexIds) cout << "0x" << setw(4) << setfill('0') << hex <<
-            GET_SPS_ID(id) << setfill(' ') << dec << ' ';
-        else cout << setw(6) << GET_SPS_ID(id) << ' ';
-
-        cout << setw(9) << nsamps[id] << ' ' <<
-	    t1str << "  " << t2str << ' ' << 
-	    fixed << setw(7) << setprecision(2) <<
-	    double(nsamps[id]-1) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
-	    setw(dtlog10[0]) << setprecision(3) <<
-	    (minDeltaTs[id] < INT_MAX ? (float)minDeltaTs[id] / MSECS_PER_SEC : 0) <<
-	    setw(dtlog10[1]) << setprecision(3) <<
-	    (float)maxDeltaTs[id] / MSECS_PER_SEC <<
-	    setw(lenpow[0]) << minlens[id] << setw(lenpow[1]) << maxlens[id] <<
-	    endl;
+        double rate = double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC);
+        outs << setw(9) << ss.nsamps << ' '
+             << t1str << "  " << t2str << ' '
+             << fixed << setw(7) << setprecision(2)
+             << check_valid(rate, bool(ss.nsamps > 1))
+             << setw(dtlog10[0]) << setprecision(3)
+             << check_valid((double)ss.minDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
+             << setw(dtlog10[1]) << setprecision(3)
+             << check_valid((float)ss.maxDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
+             << setprecision(0)
+             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 1))
+             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 1))
+             << endl;
     }
 }
 
@@ -242,185 +372,119 @@ public:
 
     int run() throw();
 
+    void readHeader(SampleInputStream& sis);
+
+    void readSamples(SampleInputStream& sis);
+
     int parseRunstring(int argc, char** argv);
 
     static int main(int argc, char** argv);
 
-    static int usage(const char* argv0);
+    int usage(const char* argv0);
 
-    static void sigAction(int sig, siginfo_t* siginfo, void*);
-
-    static void setupSignals();
-
-    int logLevel;
+    static void handleSignal(int signum);
 
 private:
-    static bool interrupted;
-
     static const int DEFAULT_PORT = 30000;
 
-    bool processData;
+    static bool _alarm;
+    int _count;
+    int _period;
+    int _nreports;
 
-    string xmlFileName;
-
-    list<string> dataFileNames;
-
-    n_u::auto_ptr<n_u::SocketAddress> sockAddr;
-
-    bool hexIds;
-
+    NidasApp app;
+    NidasAppArg Period;
+    NidasAppArg Count;
 };
 
-bool DataStats::interrupted = false;
 
-void DataStats::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            DataStats::interrupted = true;
-    break;
+bool DataStats::_alarm(false);
+
+
+void
+DataStats::handleSignal(int signum)
+{
+    // The NidasApp handler sets interrupted before calling this handler,
+    // so clear that if this is just the interval alarm.
+    if (signum == SIGALRM)
+    {
+        NidasApp::setInterrupted(false);
+        _alarm = true;
     }
 }
 
-void DataStats::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = DataStats::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
 
 DataStats::DataStats():
-    logLevel(n_u::LOGGER_NOTICE),
-    processData(false),xmlFileName(),dataFileNames(),
-    sockAddr(), hexIds(false)
+    _count(1), _period(0), _nreports(0),
+    app("data_stats"),
+    Period("--period", "<seconds>",
+           "Collect statistics for the given number of seconds and then "
+           "print the report.", "0"),
+    Count("-n,--count", "<count>",
+          "When --period specified, generate <count> reports.", "1")
 {
+    app.setApplicationInstance();
+    app.setupSignals();
+    app.enableArguments(app.XmlHeaderFile | app.LogConfig |
+                        app.SampleRanges | app.FormatHexId |
+                        app.FormatSampleId | app.ProcessData |
+                        app.Version | app.InputFiles |
+                        app.Help | Period | Count);
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = true;
+    app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 }
+
 
 int DataStats::parseRunstring(int argc, char** argv)
 {
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-										
-    while ((opt_char = getopt(argc, argv, "l:px:X")) != -1) {
-	switch (opt_char) {
-	case 'l':
-            logLevel = atoi(optarg);
-	    break;
-	case 'p':
-	    processData = true;
-	    break;
-	case 'x':
-	    xmlFileName = optarg;
-	    break;
-	case 'X':
-	    hexIds = true;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
-    }
-    for (; optind < argc; optind++) {
-	string url(argv[optind]);
-	if (url.length() > 5 && !url.compare(0,5,"sock:")) {
-	    url = url.substr(5);
-	    size_t ic = url.find(':');
-	    string hostName = url.substr(0,ic);
-            int port = DEFAULT_PORT;
-	    if (ic < string::npos) {
-		istringstream ist(url.substr(ic+1));
-		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    return usage(argv[0]);
-		}
-	    }
-            try {
-                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-            }
-            catch(const n_u::UnknownHostException& e) {
-                cerr << e.what() << endl;
-                return usage(argv[0]);
-            }
-	}
-	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
-	    url = url.substr(5);
-            sockAddr.reset(new n_u::UnixSocketAddress(url));
-	}
-	else dataFileNames.push_back(url);
-    }
-    if (dataFileNames.size() == 0 && !sockAddr.get()) {
-        try {
-	    string hostName("localhost");
-            int port = DEFAULT_PORT;
-            n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-            sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-        }
-        catch(const n_u::UnknownHostException& e) {
-            cerr << e.what() << endl;
+    // Setup a default log scheme which will get replaced if any logging is
+    // configured on the command line.
+    n_u::Logger* logger = n_u::Logger::getInstance();
+    n_u::LogConfig lc("notice");
+    logger->setScheme(logger->getScheme("default").addConfig(lc));
+
+    try {
+        ArgVector args = app.parseArgs(argc, argv);
+        if (app.helpRequested())
+        {
             return usage(argv[0]);
         }
-    }
+        _period = Period.asInt();
+        _count = Count.asInt();
 
+        app.parseInputs(args);
+    }
+    catch (NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
 
 int DataStats::usage(const char* argv0)
 {
-    cerr << "\
-Usage: " << argv0 << "[-l log_level] [-p] [-x xml_file] [inputURL] ...\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=5\n\
-    -p: process (optional). Pass samples to sensor process method\n\
-    -X: print sample ids in hex format\n\
-    -x xml_file (optional), default: \n\
-	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
-	 where <project>, <aircraft> and <flight> are read from the input data header\n\
-    inputURL: data input. One of the following:\n\
-        sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
-        unix:sockpath             unix socket name\n\
-        path                      one or more file names\n\
-        The default URL is sock:localhost\n\
-Examples:\n" <<
-    argv0 << " xxx.dat yyy.dat\n" <<
-    argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
-    argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
+    cerr <<
+        "Usage: " << argv0 << " [options] [inputURL] ...\n";
+    cerr <<
+        "Standard options:\n"
+         << app.usage() <<
+        "Examples:\n" <<
+        argv0 << " xxx.dat yyy.dat\n" <<
+        argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
+        argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
     return 1;
 }
 
 int DataStats::main(int argc, char** argv)
 {
-
     DataStats stats;
     int result;
-    if ((result = stats.parseRunstring(argc,argv))) return result;
-
-    n_u::LogConfig lc;
-    lc.level = stats.logLevel;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
-
-    setupSignals();
-
+    if ((result = stats.parseRunstring(argc, argv)))
+    {
+        return result;
+    }
     return stats.run();
 }
 
@@ -431,9 +495,87 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
+
+void
+DataStats::
+readHeader(SampleInputStream& sis)
+{
+    // Loop over the header read until it is read or the periods expire.
+    // Since the header is not sent until there's a sample to send, if
+    // there are no samples we could block in readInputHeader() waiting for
+    // the header and never get to the readSamples() loop.
+    bool header_read = false;
+    _nreports = 0;
+    while (!header_read && !app.interrupted() && ++_nreports <= _count)
+    {
+        _alarm = false;
+        alarm(_period);
+        try {
+            sis.readInputHeader();
+            header_read = true;
+            // Reading the header does not count as a report cycle.
+            --_nreports;
+        }
+        catch (n_u::IOException& e)
+        {
+            DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
+            if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
+                throw;
+        }
+        alarm(0);
+        if (app.interrupted())
+        {
+            throw n_u::Exception("Interrupted while waiting for header.");
+        }
+        if (_alarm)
+        {
+            ostringstream outs;
+            outs << "Header not received after " << _nreports
+                 << " periods of " << _period << " seconds.";
+            // Throw an exception if nreports exhausted.
+            if (_nreports >= _count)
+            {
+                throw n_u::Exception(outs.str());
+            }
+            else
+            {
+                cerr << outs.str() << endl;
+            }
+        }
+    }
+}
+
+
+void
+DataStats::
+readSamples(SampleInputStream& sis)
+{
+    // Read samples until an alarm signals the end of a reporting period or
+    // an interruption occurs.
+    _alarm = false;
+    if (_period > 0)
+    {
+        cout << "....... Collecting samples for " << _period << " seconds "
+             << "......." << endl;
+        alarm(_period);
+    }
+    while (!_alarm && !app.interrupted())
+    {
+        try {
+            sis.readSamples();
+        }
+        catch (n_u::IOException& e)
+        {
+            DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
+            if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
+                throw;
+        }
+    }
+}
+
+
 int DataStats::run() throw()
 {
-
     int result = 0;
 
     try {
@@ -441,38 +583,47 @@ int DataStats::run() throw()
 
 	IOChannel* iochan = 0;
 
-	if (dataFileNames.size() > 0) {
+	if (app.dataFileNames().size() > 0)
+        {
             nidas::core::FileSet* fset =
-                nidas::core::FileSet::getFileSet(dataFileNames);
+                nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
 	}
-	else {
-	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
+	else
+        {
+	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
 	    iochan = new nidas::core::Socket(sock);
 	}
 
-	SampleInputStream sis(iochan,processData);
+	SampleInputStream sis(iochan, app.processData());
         sis.setMaxSampleLength(32768);
 	// sis.init();
-	sis.readInputHeader();
 
+        if (_period > 0)
+        {
+            app.addSignal(SIGALRM, &DataStats::handleSignal, true);
+        }
+        readHeader(sis);
 	const SampleInputHeader& header = sis.getInputHeader();
 
 	list<DSMSensor*> allsensors;
 
+        string xmlFileName = app.xmlHeaderFile();
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
-
-            n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+	if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
+        {
+            n_u::auto_ptr<xercesc::DOMDocument>
+                doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	    for ( DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-	    	di.hasNext(); ) {
+            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+	    for ( ; di.hasNext(); )
+            {
 		const DSMConfig* dsm = di.next();
 		const list<DSMSensor*>& sensors = dsm->getSensors();
 		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
@@ -481,9 +632,9 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors,hexIds);
+        CounterClient counter(allsensors, app.processData());
 
-	if (processData) {
+	if (app.processData()) {
             pipeline.setRealTime(false);                              
             pipeline.setRawSorterLength(0);                           
             pipeline.setProcSorterLength(0);                          
@@ -504,37 +655,48 @@ int DataStats::run() throw()
         else sis.addSampleClient(&counter);
 
         try {
-            for (;;) {
-                sis.readSamples();
-                if (interrupted) break;
+            while (!app.interrupted() && ++_nreports <= _count)
+            {
+                readSamples(sis);
+                counter.printResults(cout);
+                counter.resetResults();
             }
         }
-        catch (n_u::EOFException& e) {
+        catch (n_u::EOFException& e)
+        {
             cerr << e.what() << endl;
+            counter.printResults(cout);
         }
-        catch (n_u::IOException& e) {
-            if (processData) {
+        catch (n_u::IOException& e)
+        {
+            if (app.processData())
+            {
                 pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
                 pipeline.disconnect(&sis);
                 pipeline.interrupt();
                 pipeline.join();
             }
-            else sis.removeSampleClient(&counter);
+            else
+            {
+                sis.removeSampleClient(&counter);
+            }
             sis.close();
-            counter.printResults();
+            counter.printResults(cout);
             throw(e);
         }
-	if (processData) {
+	if (app.processData())
+        {
             pipeline.disconnect(&sis);
             pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
         }
-        else sis.removeSampleClient(&counter);
-
+        else
+        {
+            sis.removeSampleClient(&counter);
+        }
         sis.close();
         pipeline.interrupt();
         pipeline.join();
-        counter.printResults();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
@@ -546,5 +708,5 @@ int DataStats::run() throw()
 
 int main(int argc, char** argv)
 {
-    return DataStats::main(argc,argv);
+    return DataStats::main(argc, argv);
 }
