@@ -956,7 +956,6 @@ void
 NidasApp::
 setIdFormat(IdFormat idt)
 {
-  _idFormat_set = true;
   _idFormat = idt;
 }
 
