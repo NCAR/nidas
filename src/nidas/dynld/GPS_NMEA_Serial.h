@@ -148,7 +148,8 @@ protected:
 #endif
 
     unsigned int _badChecksums;
-
+    unsigned int _badChecksumsCount;
+    
     /**
      * Derived classes should add their supported sample ids to the map,
      * along with a short descriptive name, so that addSampleTag() does

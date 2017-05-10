@@ -394,7 +394,7 @@ DataDump::DataDump():
 
 int DataDump::parseRunstring(int argc, char** argv)
 {
-    app.enableArguments(app.XmlHeaderFile | app.LogLevel |
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help);

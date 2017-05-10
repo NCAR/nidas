@@ -36,6 +36,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogScheme;
 
 #if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
@@ -56,11 +57,18 @@ NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 GPS_NMEA_Serial::GPS_NMEA_Serial():SerialSensor(),
     _ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),
     _hdtNvars(0),_hdtId(0),
-    _badChecksums(0),_allowedSampleIds()
+    _badChecksums(0),
+    _badChecksumsCount(100),
+    _allowedSampleIds()
 {
     _allowedSampleIds[GGA_SAMPLE_ID] = "GGA";
     _allowedSampleIds[RMC_SAMPLE_ID] = "RMC";
     _allowedSampleIds[HDT_SAMPLE_ID] = "HDT";
+
+    // Allow the bad checksum reporting interval to be overridden.
+    _badChecksumsCount =
+        LogScheme::current().getParameterT("gps_nmea_bad_checksums_count",
+                                           _badChecksumsCount);
 }
 
 void GPS_NMEA_Serial::validate()
@@ -549,12 +557,17 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
     if (slen < 7) return false;
 
-    if (!checksumOK(input,slen)) {
-        if (!(_badChecksums++ % 100) && _badChecksums > 1) WLOG(("%s: bad NMEA checksum at ",getName().c_str()) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << _badChecksums);
+    if (!checksumOK(input, slen))
+    {
+        if (!(_badChecksums++ % _badChecksumsCount))
+        {
+            WLOG(("")
+                 << getName() << ": bad NMEA checksum at "
+                 << n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f")
+                 << ", #bad=" << _badChecksums);
+        }
         return false;
     }
-
 
     // Ignore 'Talker IDs' (see http://gpsd.berlios.de/NMEA.txt for details)
     input += 3;
