@@ -29,7 +29,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/Version.h>
 #include <nidas/core/DSMConfig.h>
- #include <nidas/core/DSMSensor.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -157,7 +157,9 @@ int ARLIngest::usage(const char* argv0) {
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     NidasApp& app = _app;
-    app.enableArguments(app.XmlHeaderFile | app.OutputFiles | app.Version | app.Help);
+    app.enableArguments(app.XmlHeaderFile | app.OutputFiles |
+                        app.loggingArgs() |
+                        app.Version | app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
 
