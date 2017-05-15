@@ -121,6 +121,13 @@ private:
     unsigned int _outlen;
 
     /**
+     * Store the ID of the sample containing the wind variables.  By
+     * default this is the first sample tag in the sensor.  Only one sample
+     * can contain wind variables.
+     **/
+    nidas::core::dsm_sample_id_t _wind_sample_id;
+
+    /**
      * A correction can be applied to the wind direction,
      * which is the common situation when the aneometer
      * is not aligned to report direction with respect to 

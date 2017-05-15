@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -29,6 +29,7 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/AsciiSscanf.h>
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 
@@ -44,7 +45,8 @@ NIDAS_CREATOR_FUNCTION_NS(isff,Wind2D)
 Wind2D::Wind2D():
     _speedName("Spd"),_dirName("Dir"),_uName("U"),_vName("V"),
     _speedIndex(-1),_dirIndex(-1),_uIndex(-1),_vIndex(-1),
-    _outlen(0),_dirConverter(0),_speedConverter(0)
+    _outlen(0),_wind_sample_id(0),
+    _dirConverter(0),_speedConverter(0)
 {
 }
 
@@ -57,14 +59,24 @@ void Wind2D::validate() throw(n_u::InvalidParameterException)
     SerialSensor::validate();
 
     const std::list<SampleTag*>& tags = getSampleTags();
-    if (tags.size() > 1)
-        throw n_u::InvalidParameterException(getName() +
-		" can only create one sample");
 
+    if (tags.size() > 1)
+    {
+        DLOG(("")
+             << "Wind2D(" << getName() << "): "
+             << "only the first sample will be processed for wind variables.");
+    }
     std::list<SampleTag*>::const_iterator ti = tags.begin();
 
-    for ( ; ti != tags.end(); ++ti) {
+    for ( ; ti != tags.end() && !_wind_sample_id; ++ti) {
         SampleTag* stag = *ti;
+
+        // For now, assume that only the first sample has wind variables to
+        // be handled.
+        if (!_wind_sample_id)
+        {
+            _wind_sample_id = stag->getId();
+        }
 
         // check the variable names to determine which
         // is wind speed, direction, u or v.
@@ -109,6 +121,15 @@ void Wind2D::validateSscanfs() throw(n_u::InvalidParameterException)
         AsciiSscanf* sscanf = *si;
         const SampleTag* tag = sscanf->getSampleTag();
 
+        // If this is not the scanner for the wind sample, skip it.
+        if (tag->getId() != _wind_sample_id)
+        {
+            continue;
+        }
+        DLOG(("Wind2D(") << getName()
+             << "): validating sscanfs for wind sample "
+             << GET_DSM_ID(_wind_sample_id) << ','
+             << GET_SHORT_ID(_wind_sample_id));
         int nexpected = tag->getVariables().size();
         int nscanned = sscanf->getNumberOfFields();
 
@@ -134,12 +155,31 @@ bool Wind2D::process(const Sample* samp,
 
     if (results.empty()) return false;
 
-    if (results.size() != 1 || _speedIndex < 0 || _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
+    if (results.size() != 1 || _speedIndex < 0 ||
+        _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
+    {
     	return true;
+    }
 
     // result from base class parsing of ASCII, and correction of any cal file
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
+    bool iswindsample = (csamp->getId() == _wind_sample_id);
+
+    static n_u::LogContext lp(LOG_DEBUG);
+    if (lp.active())
+    {
+        lp.log()
+            << "Wind2d(" << getName() << "): "
+            << (iswindsample ? "" : "NOT ")
+            << "processing wind for sample id="
+            << GET_DSM_ID(csamp->getId()) << ','
+            << GET_SHORT_ID(csamp->getId());
+    }
+    if (!iswindsample)
+    {
+        return true;
+    }
 
     if (_speedIndex < _uIndex) {   
         // speed and dir parsed from sample, u and v derived
