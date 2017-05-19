@@ -48,11 +48,13 @@ NidasItem * A2DSensorItem::child(int i)
     // Because children are A2D variables, and adding of new variables
     // could be anywhere in the list of variables (and sample ids) , it is 
     // necessary to recreate the list for new child items.
+cerr<<"A2DSensorItem::Child  _sensor is:also not here" << "\n";
     while (!childItems.empty()) childItems.pop_front();
     int j;
     SampleTagIterator it;
     DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
     for (j=0, it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
+cerr<<"A2DSensorItem::Child  _sensor is:trying" <<_sensor<<" also j="<<j<< "\n";
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         for (VariableIterator vt = sample->getVariableIterator(); 
              vt.hasNext(); j++) {
@@ -63,6 +65,7 @@ NidasItem * A2DSensorItem::child(int i)
         }
     }
 
+cerr<<"A2DSensorItem::Child after loop  _sensor is:trying" <<_sensor<< "\n";
     // we tried to build children but still can't find requested row i
     // probably (always?) when i==0 and this item has no children
     if ((i<0) || (i>=childItems.size())) return 0;
@@ -76,7 +79,9 @@ void A2DSensorItem::refreshChildItems()
   while (!childItems.empty()) childItems.pop_front();
   int j;
   SampleTagIterator it;
+cerr<<"refreshChildItems _sensor is:" << _sensor << "\n";
   DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+cerr<<"refreshChildItems now _sensor is:" << _sensor << "\n";
   for (j=0, it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
     SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
     for (VariableIterator vt = sample->getVariableIterator();
@@ -91,7 +96,9 @@ void A2DSensorItem::refreshChildItems()
 
 QString A2DSensorItem::getA2DTempSuffix()
 {
+cerr<<"geta2dTempSuffix _sensor is:" << _sensor << "\n";
   DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+cerr<<"get a2dTempSuffix now _sensor is:" << _sensor << "\n";
   SampleTagIterator it;
   for (it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
     SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
@@ -111,7 +118,9 @@ QString A2DSensorItem::getA2DTempSuffix()
 
 void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
 {
+cerr<<"setNidasa2dTempSuffix _sensor is:" << _sensor << "\n";
   DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+cerr<<"setNidasa2dTempSuffix now _sensor is:" << _sensor << "\n";
   SampleTagIterator it;
   for (it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
     SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
@@ -128,7 +137,10 @@ void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
 
 std::string A2DSensorItem::getCalFileName() 
 {
+cerr<<"Before doing anything with _sensor" << "\n";
+//cerr<<"AddSensorItem a2dsensorItem:"  << a2dSensorItem<<"\n";
   const map<string,CalFile*>& cfs = _sensor->getCalFiles();
+cerr<<"senspr->getCalFiles works" << "\n";
 
   if (!cfs.empty()) return cfs.begin()->second->getFile();
 
@@ -137,7 +149,9 @@ std::string A2DSensorItem::getCalFileName()
 
 std::string A2DSensorItem::getSerialNumberString() 
 {
+cerr<<"Swerial Num String Before doing anything with _sensor" << _sensor<<"\n";
   const map<string,CalFile*>& cfs = _sensor->getCalFiles();
+cerr<<"Serial Num Strirng  _sensor" << _sensor<<"\n";
 
   if (!cfs.empty())  {
       string cfName = cfs.begin()->second->getFile();

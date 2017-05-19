@@ -8,8 +8,9 @@
     NOTE: 0,1 is no longer the default - NaN is - so config edit needs to generate a 0,1 calfile or give the option
     of no cal file
 
-0.5 Make DMMAT and NCAR cal files show up only for respective cards, not both.  
-
+0.5 Make DMMAT and NCAR cal files show up only for respective cards, not both: or prevent choosing wrong type.   
+	-S/N for DMMAT should actually show up in the gui, rather than just in the debug variables. 
+	-_sensor should be set for DMMAT, which would allow for calls to cal files. Where?
 0.7 Add/remove columns to include variable long name.
 
 1.0 Project setup
@@ -26,7 +27,7 @@
   - I believe I'm using "generic" pmsSpecs file for all projects - need a setPMSSpecs method for AddSensorCombo dialog.
   - Adding a2d on same board number seems to be affecting existing a2d 
 	-Not just a2d', saw this happening with hgm232 and butanol_CN_counters where adding another would just overwrite the previous.
-	-Could not reproduce bug reliably, but now, after additions, can't reproduce at all. 
+	-Could not reproduce bug reliably, but now, after additions, can't reproduce at all - fixed?
   - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
   - dsm id number cannot exceed 99 - need to have better algorithm for auto populating this
 
