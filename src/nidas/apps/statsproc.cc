@@ -277,6 +277,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
                         app.InputFiles | Period | SorterLength |
+                        NiceValue | DaemonMode |
                         app.LogParam | app.Version | app.Help);
     app.StartTime.setFlags("-B,--start");
     app.EndTime.setFlags("-E,--end");
