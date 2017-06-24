@@ -159,11 +159,19 @@ public:
 
     void resetResults();
 
+    void
+    reportAll(bool all)
+    {
+        _reportall = all;
+    }
+
 private:
 
     typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
 
     sample_map_t _samples;
+
+    bool _reportall;
 };
 
 void
@@ -180,7 +188,7 @@ resetResults()
 
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
-    _samples()
+    _samples(), _reportall(false)
 {
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
@@ -294,7 +302,7 @@ void CounterClient::printResults(std::ostream& outs)
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter &ss = si->second;
-        if (ss.nsamps == 0)
+        if (ss.nsamps == 0 && !_reportall)
             continue;
 
 	const string& sname = ss.name;
@@ -325,21 +333,31 @@ void CounterClient::printResults(std::ostream& outs)
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
-        if (ss.nsamps == 0)
+        if (ss.nsamps == 0 && !_reportall)
             continue;
 
-	time_t ut = ss.t1s / USECS_PER_SEC;
-	gmtime_r(&ut,&tm);
-	strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
-	int msec = (int)(ss.t1s % USECS_PER_SEC) / USECS_PER_MSEC;
-	sprintf(tstr + strlen(tstr),".%03d",msec);
-	string t1str(tstr);
-	ut = ss.t2s / USECS_PER_SEC;
-	gmtime_r(&ut,&tm);
-	strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
-	msec = (int)(ss.t2s % USECS_PER_SEC) / USECS_PER_MSEC;
-	sprintf(tstr + strlen(tstr),".%03d",msec);
-	string t2str(tstr);
+	string t1str;
+	string t2str;
+        if (ss.nsamps > 0)
+        {
+            time_t ut = ss.t1s / USECS_PER_SEC;
+            gmtime_r(&ut,&tm);
+            strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
+            int msec = (int)(ss.t1s % USECS_PER_SEC) / USECS_PER_MSEC;
+            sprintf(tstr + strlen(tstr),".%03d",msec);
+            t1str = tstr;
+            ut = ss.t2s / USECS_PER_SEC;
+            gmtime_r(&ut,&tm);
+            strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
+            msec = (int)(ss.t2s % USECS_PER_SEC) / USECS_PER_MSEC;
+            sprintf(tstr + strlen(tstr),".%03d",msec);
+            t2str = tstr;
+        }
+        else
+        {
+            t1str = string((size_t)23, '*');
+            t2str = string((size_t)18, '*');
+        }
 
         outs << left << setw(maxnamelen) << ss.name
              << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
@@ -388,6 +406,8 @@ private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
+    bool _realtime;
+    UTime _period_start;
     int _count;
     int _period;
     int _nreports;
@@ -395,6 +415,13 @@ private:
     NidasApp app;
     NidasAppArg Period;
     NidasAppArg Count;
+    // Type of report to generate:
+    //
+    // All - show all samples, received or not
+    // Missing - show only missing samples
+    // Compact - report only one line for a site with no samples for any sensors
+    // Received - show only received samples, the default
+    NidasAppArg AllSamples;
 };
 
 
@@ -415,13 +442,17 @@ DataStats::handleSignal(int signum)
 
 
 DataStats::DataStats():
+    _realtime(false), _period_start(0),
     _count(1), _period(0), _nreports(0),
     app("data_stats"),
     Period("--period", "<seconds>",
            "Collect statistics for the given number of seconds and then "
            "print the report.", "0"),
     Count("-n,--count", "<count>",
-          "When --period specified, generate <count> reports.", "1")
+          "When --period specified, generate <count> reports.", "1"),
+    AllSamples("-a,--all", "",
+        "Show statistics for all sample IDs, including those for which "
+        "no samples are received.")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -429,7 +460,7 @@ DataStats::DataStats():
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles |
-                        app.Help | Period | Count);
+                        app.Help | Period | Count | AllSamples);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -509,7 +540,8 @@ readHeader(SampleInputStream& sis)
     while (!header_read && !app.interrupted() && ++_nreports <= _count)
     {
         _alarm = false;
-        alarm(_period);
+        if (_realtime)
+            alarm(_period);
         try {
             sis.readInputHeader();
             header_read = true;
@@ -522,7 +554,8 @@ readHeader(SampleInputStream& sis)
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
         }
-        alarm(0);
+        if (_realtime)
+            alarm(0);
         if (app.interrupted())
         {
             throw n_u::Exception("Interrupted while waiting for header.");
@@ -553,7 +586,7 @@ readSamples(SampleInputStream& sis)
     // Read samples until an alarm signals the end of a reporting period or
     // an interruption occurs.
     _alarm = false;
-    if (_period > 0)
+    if (_period > 0 && _realtime)
     {
         cout << "....... Collecting samples for " << _period << " seconds "
              << "......." << endl;
@@ -580,7 +613,6 @@ int DataStats::run() throw()
 
     try {
         AutoProject aproject;
-
 	IOChannel* iochan = 0;
 
 	if (app.dataFileNames().size() > 0)
@@ -593,13 +625,14 @@ int DataStats::run() throw()
         {
 	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
 	    iochan = new nidas::core::Socket(sock);
+            _realtime = true;
 	}
 
 	SampleInputStream sis(iochan, app.processData());
         sis.setMaxSampleLength(32768);
 	// sis.init();
 
-        if (_period > 0)
+        if (_period > 0 && _realtime)
         {
             app.addSignal(SIGALRM, &DataStats::handleSignal, true);
         }
@@ -633,6 +666,7 @@ int DataStats::run() throw()
 
 	SamplePipeline pipeline;                                  
         CounterClient counter(allsensors, app.processData());
+        counter.reportAll(AllSamples.asBool());
 
 	if (app.processData()) {
             pipeline.setRealTime(false);                              
