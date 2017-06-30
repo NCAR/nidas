@@ -169,8 +169,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 
 # Check for supported -fstack-protector options in compiler
 def CheckStackProtectorOptions(env):
-    stack_opts = ['-fstack-protector-strong', '-fstack-protector']
-    for opt in stack_opts:
+    def add_stack_option(env, opt):
         test_env = env.Clone()
         test_env.AppendUnique(CCFLAGS = [opt])
         conf = Configure(test_env)
@@ -179,7 +178,11 @@ def CheckStackProtectorOptions(env):
         conf.Finish()
         if ok:
             env.AppendUnique(CCFLAGS = [opt])
+        return ok
+    for opt in ['-fstack-protector-strong', '-fstack-protector']:
+        if add_stack_option(env, opt):
             break
+    add_stack_option(env, '-fstack-check')
 
 ##
 ##  Create the env for building to the host processor...
