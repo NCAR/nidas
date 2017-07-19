@@ -407,7 +407,7 @@ private:
 
     static bool _alarm;
     bool _realtime;
-    UTime _period_start;
+    n_u::UTime _period_start;
     int _count;
     int _period;
     int _nreports;
@@ -442,7 +442,7 @@ DataStats::handleSignal(int signum)
 
 
 DataStats::DataStats():
-    _realtime(false), _period_start(0),
+    _realtime(false), _period_start(time_t(0)),
     _count(1), _period(0), _nreports(0),
     app("data_stats"),
     Period("--period", "<seconds>",
