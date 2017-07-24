@@ -247,8 +247,18 @@ loadVariables(const Project& project)
                          vi.hasNext(); )
                     {
                         const Variable* var = vi.next();
-                        DLOG(("  ") << var->getName());
-                        _variables[var->getName()] = var;
+                        std::string name = var->getName();
+                        // If this tag has a non-zero station, then append
+                        // the site name with the # notation.  I think it's
+                        // correct to append the site name rather than DSM
+                        // name, but I'm not certain...
+                        if (tag->getStation() > 0)
+                        {
+                            name += "#";
+                            name += site->getName();
+                        }
+                        DLOG(("  ") << name);
+                        _variables[name] = var;
                     }
                 }
             }
