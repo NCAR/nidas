@@ -527,7 +527,9 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                 spin_unlock_bh(&board.lock);
 
-                KLOG_DEBUG("recv: %04o  rate: %2d Hz\n", arcfg.label, roundUpRate(arcfg.rate));
+                KLOG_DEBUG("%s: recv: %04o  rate: %2d Hz\n",
+                        dev->deviceName, arcfg.label, roundUpRate(arcfg.rate));
+
                 break;
 
         case ARINC_OPEN:
@@ -584,7 +586,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         return -EINVAL;
                 }
                 if (dev->status.lps == 0) {
-                        KLOG_ERR("sequence out of order: use ARINC_SET first\n");
+                        KLOG_ERR("%s: sequence out of order: use ARINC_SET first\n",
+                                dev->deviceName);
                         spin_unlock_bh(&board.lock);
                         return -EINVAL;
                 }
@@ -619,12 +622,17 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                  dev->deviceName);
                         return err;
                 }
+                KLOG_INFO("%s: labels/sec: %d, polled via IRIG at rate: %d\n",
+                        dev->deviceName,dev->status.lps, pollRate);
 #else
                 dev->sweep_jiffies = HZ / pollRate;
                 dev->sweeper.function = arinc_sweep;
                 dev->sweeper.expires = jiffies + dev->sweep_jiffies;
                 dev->sweeper.data = chn + 1;
                 add_timer(&dev->sweeper);
+                KLOG_INFO("%s: labels/sec: %d, polled via kernel timer at rate %d Hz, jiffies=%d\n",
+                        dev->deviceName,dev->status.lps,
+                        pollRate, dev->sweep_jiffies);
 #endif
 
                 // launch the board 
@@ -639,7 +647,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case ARINC_BIT:
 
                 if (dev->status.lps) {
-                        KLOG_ERR("cannot run buit in test, already configured!\n");
+                        KLOG_ERR("%s: cannot run built in test, already configured!\n",
+                        dev->deviceName);
                         return -EALREADY;
                 }
                 // perform a series of Built In Tests on the card
@@ -665,8 +674,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 break;
 
         default:
-                KLOG_ERR("unrecognized ioctl %d (number %d, size %d)\n",
-                     cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
+                KLOG_ERR("%s: unrecognized ioctl %d (number %d, size %d)\n",
+                     dev->deviceName, cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
                 ret = -EINVAL;
                 break;
         }
