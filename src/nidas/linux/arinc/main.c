@@ -241,8 +241,8 @@ static void arinc_timesync(unsigned long junk)
 #ifndef USE_IRIG_CALLBACK
         /* schedule this function to run at the even second */
         msecs %= MSECS_PER_SEC; /* milliseconds after the second */
-        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        add_timer(&board.syncer);
+        mod_timer(&board.syncer,
+                jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC);
 #endif
 }
 /* -- IRIG CALLBACK ---------------------------------------------------
@@ -328,8 +328,7 @@ static void arinc_sweep(unsigned long arg)
 
 resched:
 #ifndef USE_IRIG_CALLBACK
-        dev->sweeper.expires += dev->sweep_jiffies;
-        add_timer(&dev->sweeper);
+        mod_timer(&dev->sweeper, dev->sweeper.expires + dev->sweep_jiffies);
 #endif
 }
 
@@ -603,6 +602,10 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 		}
 		if (i == nRates) pollRate = pollRates[i-1];
+
+                /* improve latency, want to report at least
+                 * every 0.25 sec. */
+                if (pollRate < 4) pollRate = 4;
 		
 		dev->status.pollRate = pollRate;
                 dev->pollDtMsec = MSECS_PER_SEC / pollRate;
@@ -1078,10 +1081,12 @@ static int __init arinc_init(void)
         board.syncer.function = arinc_timesync;
 
         /* schedule arinc_timesync to run at the even second */
-        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;   /* milliseconds after the second */
+        /* milliseconds after the second */
+        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;
 
         board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        board.syncer.data = 1;  /* set data to 1, just to indicate this timer is active */
+        /* set data to 1, just to indicate this timer is active */
+        board.syncer.data = 1;
         add_timer(&board.syncer);
 #endif
 

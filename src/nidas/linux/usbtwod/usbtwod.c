@@ -314,8 +314,9 @@ static void send_tas_timer_func(unsigned long arg)
         // Note that this runs in software interrupt context.
         struct usb_twod *dev = (struct usb_twod *) arg;
         write_tas(dev);
-        dev->sendTASTimer.expires += dev->sendTASJiffies;
-        add_timer(&dev->sendTASTimer);  // reschedule
+        // reschedule
+        mod_timer(&dev->sendTASTimer,
+                dev->sendTASTimer.expires + dev->sendTASJiffies);
 }
 
 static int twod_set_sor_rate(struct usb_twod *dev, int rate)
@@ -341,7 +342,7 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 add_timer(&dev->sendTASTimer);
         } else {
                 if (dev->sendTASJiffies > 0)
-                        del_timer(&dev->sendTASTimer);
+                        del_timer_sync(&dev->sendTASTimer);
                 dev->sendTASJiffies = 0;
         }
         return 0;
@@ -457,8 +458,8 @@ static void urb_throttle_func(unsigned long arg)
                         INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
         }
-        dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
-        add_timer(&dev->urbThrottle);   // reschedule myself
+        // reschedule myself
+        mod_timer(&dev->urbThrottle, jiffies + dev->throttleJiffies);
 }
 
 /* -------------------------------------------------------------------- */
