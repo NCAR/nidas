@@ -272,7 +272,7 @@ static void arinc_sweep(unsigned long arg)
                 dev->skippedSamples++;
                 KLOG_WARNING("%s: skippedSamples=%d\n",
                              dev->deviceName, dev->skippedSamples);
-                return;
+                goto resched;
         }               
 
         data = (tt_data_t*) sample->data;
@@ -303,12 +303,12 @@ static void arinc_sweep(unsigned long arg)
         // Can't sync to card.
         if (err == ARS_NOSYNC) {
                 dev->status.nosync++;
-                return;
+                goto resched;
         }
         // note possible buffer underflows 
         if (err == ARS_NODATA) {
                 dev->status.underflow++;
-		return;
+		goto resched;
         }
 
         // note the number of received labels per second 
@@ -326,6 +326,7 @@ static void arinc_sweep(unsigned long arg)
         INCREMENT_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 
+resched:
 #ifndef USE_IRIG_CALLBACK
         dev->sweeper.expires += dev->sweep_jiffies;
         add_timer(&dev->sweeper);
@@ -622,7 +623,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                  dev->deviceName);
                         return err;
                 }
-                KLOG_INFO("%s: labels/sec: %d, polled via IRIG at rate: %d\n",
+                KLOG_INFO("%s: %d labels/sec, polled via IRIG at rate: %d Hz\n",
                         dev->deviceName,dev->status.lps, pollRate);
 #else
                 dev->sweep_jiffies = HZ / pollRate;
@@ -630,7 +631,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 dev->sweeper.expires = jiffies + dev->sweep_jiffies;
                 dev->sweeper.data = chn + 1;
                 add_timer(&dev->sweeper);
-                KLOG_INFO("%s: labels/sec: %d, polled via kernel timer at rate %d Hz, jiffies=%d\n",
+                KLOG_INFO("%s: %d labels/sec, polled via kernel timer at rate %d Hz, jiffies=%d\n",
                         dev->deviceName,dev->status.lps,
                         pollRate, dev->sweep_jiffies);
 #endif
@@ -910,6 +911,7 @@ static int scan_ceiisa(void)
         unsigned int value;
         unsigned int indx;
 
+#ifdef DEBUG
         char *boardID[] = { "Standard CEI-220",
                 "Standard CEI-420",
                 "Custom CEI-220 6-Wire",
@@ -919,6 +921,8 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
+#endif
+
         value = ioread8(board.mapaddr + 0x808);
         value >>= 4;
         if (value != 0x0) {
