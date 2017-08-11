@@ -37,6 +37,8 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
   const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask)
  throw(n_u::Exception)
 {
+    DLOG(("entering requestXMLConfig(all=") << all
+         << ",mcastaddr=" << mcastAddr.toString() << ")");
     n_u::auto_ptr<n_c::XMLParser> parser(new n_c::XMLParser());
     // throws XMLException
 
@@ -51,6 +53,8 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
     parser->setXercesDoXInclude(true);
     parser->setDOMDatatypeNormalization(false);
 
+    // XMLConfigInput is a McSocket<nidas::util::Socket> whose default
+    // request type is XML_CONFIG.
     n_c::XMLConfigInput xmlRequestSocket;
     if (all) xmlRequestSocket.setRequestType(XML_ALL_CONFIG);
     xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
@@ -58,6 +62,7 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
     n_u::auto_ptr<n_u::Socket> configSock;
     n_u::Inet4PacketInfoX pktinfo;
 
+    DLOG(("calling connect() on XMLConfigInput..."));
     try {
         if ( signalMask != (sigset_t*)0 )
             pthread_sigmask(SIG_UNBLOCK,signalMask,0);
@@ -96,5 +101,6 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
         configSock->close();
         throw;
     }
+    DLOG(("successful return from requestXMLConfig()"));
     return doc;
 }
