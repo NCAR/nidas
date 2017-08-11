@@ -675,9 +675,7 @@ SocketT* McSocket<SocketT>::accept(Inet4PacketInfoX& pktinfo) throw(IOException)
     pktinfo = _newpktinfo;
     _newsocket = 0;
     _connectCond.unlock();
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"accept offerErrno=%d",_offerErrno);
-#endif
+    VLOG(("accept offerErrno=%d", _offerErrno));
     if (!socket) throw IOException("McSocket","accept",_offerErrno);
     return socket;
 }
@@ -687,7 +685,7 @@ void McSocket<SocketT>::request() throw(IOException)
 {
     if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
-		"request number has not been set");
+                          "request number has not been set");
     _newsocket = 0;
     _socketOffered = false;
     // if (!_mcastAddr.getInet4Address().isMultiCastAddress())
@@ -696,17 +694,16 @@ void McSocket<SocketT>::request() throw(IOException)
     _multicaster_mutex.lock();
     if (!_multicaster) {
         _multicaster = new McSocketMulticaster<SocketT>(this);
-	try {
-	    _multicaster->start();
-	}
-	catch(const Exception& e) {
-	    throw IOException("McSocket","request",e.what());
-	}
+        try {
+            _multicaster->start();
+        }
+        catch(const Exception& e) {
+            throw IOException("McSocket","request",e.what());
+        }
     }
     _multicaster_mutex.unlock();
 }
 
-// #define DEBUG
 /*
  * Does a request() and then waits for the connection.
  */
@@ -720,21 +717,14 @@ SocketT* McSocket<SocketT>::connect(Inet4PacketInfoX& pktinfo) throw(IOException
     pktinfo = _newpktinfo;
     _newsocket = 0;
     _connectCond.unlock();
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"connect offerErrno=%d",_offerErrno);
-#endif
+    VLOG(("connect offerErrno=%d",_offerErrno));
     if (!socket) throw IOException("McSocket","connect",_offerErrno);
     return socket;
 }
-#undef DEBUG
 
 template<class SocketT>
 void McSocket<SocketT>::joinMulticaster()
 {
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"McSocket::offer, err=%d",err);
-#endif
-
     // can't do a multicaster->join here, that would deadlock
     // because we'd be waiting for ourselves,
     // so we spawn a detached thread to join and delete it.
@@ -742,28 +732,20 @@ void McSocket<SocketT>::joinMulticaster()
     _multicaster_mutex.lock();
 
     if (_multicaster) {
-#ifdef DEBUG
-	Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer creating/starting joiner");
-#endif
-	ThreadJoiner* joiner = new ThreadJoiner(_multicaster);
+        VLOG(("Mcsocket::offer creating/starting joiner"));
+        ThreadJoiner* joiner = new ThreadJoiner(_multicaster);
         _multicaster = 0;
-	try {
-	    joiner->start();
-	}
-	// shouldn't happen
-	catch(const Exception& e) {
-	    Logger::getInstance()->log(LOG_ERR,"%s",e.what());
-	}
-#ifdef DEBUG
-	Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer joiner started");
-#endif
+        try {
+            joiner->start();
+        }
+        // shouldn't happen
+        catch(const Exception& e) {
+            Logger::getInstance()->log(LOG_ERR,"%s",e.what());
+        }
+        VLOG(("Mcsocket::offer joiner started"));
     }
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::offer doing connectCond.lock");
-#endif
-
+    VLOG(("Mcsocket::offer doing connectCond.lock"));
     _multicaster_mutex.unlock();
-
 }
 /*
  * Method that executes in the thread of the McSocketListener
@@ -810,10 +792,7 @@ void McSocket<SocketT>::offer(int err)
 template<class SocketT>
 void McSocket<SocketT>::close() throw(IOException)
 {
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::close");
-#endif
-
+    VLOG(("Mcsocket::close"));
     _multicaster_mutex.lock();
     if (_multicaster && _multicaster->isRunning()) _multicaster->interrupt();
     _multicaster_mutex.unlock();
@@ -821,19 +800,13 @@ void McSocket<SocketT>::close() throw(IOException)
     offer(EINTR);
 
     try {
-	McSocketListener::close(this);
+        McSocketListener::close(this);
     }
     catch (const Exception& e) {
-#ifdef DEBUG
-        Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::close exception: %s",
-    	    e.what());
-#endif
-	throw IOException(_mcastAddr.toString(),"close",e.what());
+        VLOG(("Mcsocket::close exception: %s", e.what()));
+        throw IOException(_mcastAddr.toString(), "close", e.what());
     }
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"Mcsocket::close done, this=0x%x",
-    	this);
-#endif
+    VLOG(("Mcsocket::close done, this=0x%x", this));
 }
 
 template<class SocketTT>
@@ -908,7 +881,6 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     FD_ZERO(&fdset);
 #endif
 
-       
     // wait for this amount of time after a datagram send to receive a
     // connection or receipt of UDP data
     struct timespec timeout;
@@ -928,7 +900,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     std::vector<Inet4NetworkInterface> ifaces;
 
     if (mcaddr.isMultiCastAddress()) {
-	_requestSocket = requestmsock = new MulticastSocket();
+        _requestSocket = requestmsock = new MulticastSocket();
         if (_mcsocket->getInterface().getAddress() == Inet4Address(INADDR_ANY)) {
             std::list<Inet4NetworkInterface> tmpifaces = requestmsock->getInterfaces();
             std::list<Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
@@ -941,7 +913,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
         }
     }
     else
-	_requestSocket = new DatagramSocket();
+        _requestSocket = new DatagramSocket();
 
     McSocketDatagram dgram;
     dgram.setMagic(dgram.magicVal);
@@ -961,19 +933,23 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
                 requestmsock->setInterface(mcaddr,iface);
                 _requestSocket->send(dgram);
             }
-            else _requestSocket->send(dgram);
-            if (!(numCasts % 10))
-                std::cerr << "sent " << numCasts << " dgrams" <<
-                    ", requestType=" << dgram.getRequestType() <<
-                    ", port=" << dgram.getRequesterListenPort() <<
-                    ", socketType=" << dgram.getSocketType() <<
-                    ", len=" << dgram.getLength() <<
-                    ", #mcifaces=" << ifaces.size() << std::endl;
+            else {
+                _requestSocket->send(dgram);
+            }
+            if (!(numCasts % 10)) {
+                WLOG(("") << "sent " << numCasts << " dgrams" <<
+                     ", requestType=" << dgram.getRequestType() <<
+                     ", port=" << dgram.getRequesterListenPort() <<
+                     ", socketType=" << dgram.getSocketType() <<
+                     ", len=" << dgram.getLength() <<
+                     ", #mcifaces=" << ifaces.size());
+            }
         }
         catch(const IOException& e) {
             // perhaps the interface has disappeared. Log the error.
-	    WLOG(("McSocketMulticaster: %s: %s",
-                    _requestSocket->getLocalSocketAddress().toString().c_str(),e.what()));
+            WLOG(("McSocketMulticaster: %s: %s",
+                  _requestSocket->getLocalSocketAddress().toString().c_str(),
+                  e.what()));
             sleep(10);
             if (requestmsock) {
                 _requestSocket->close();
@@ -994,7 +970,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             continue;
         }
 
-	int res;
+        int res;
 #ifdef HAVE_PPOLL
         res = ::ppoll(&fds,1,&timeout,&sigmask);
 
@@ -1022,19 +998,19 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 #else
         assert(sockfd >= 0 && sockfd < FD_SETSIZE);     // FD_SETSIZE=1024
         FD_SET(sockfd, &fdset);
-	res = ::pselect(sockfd+1,&fdset,0,0,&timeout,&sigmask);
+        res = ::pselect(sockfd+1,&fdset,0,0,&timeout,&sigmask);
 #endif
         if (res <= 0) {
             if (res == 0) continue;
-	    if (errno == EINTR) break;
+            if (errno == EINTR) break;
             _mcsocketMutex.lock();
-	    if (_mcsocket) _mcsocket->offer(errno);
+            if (_mcsocket) _mcsocket->offer(errno);
             _mcsocketMutex.unlock();
             if (_serverSocket) _serverSocket->close(); // OK to close twice
             if (_datagramSocket) _datagramSocket->close();
-	    _requestSocket->close();
-	    throw IOException("McSocket","poll/select",errno);
-	}
+            _requestSocket->close();
+            throw IOException("McSocket","poll/select",errno);
+        }
 
         if (_serverSocket) {
             Socket* socket = _serverSocket->accept();
@@ -1085,18 +1061,14 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
         return RUN_OK;
     }   // loop until receipt of connection or UDP packet
 
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster break");
-#endif
+    VLOG(("McSocketMulticaster break"));
     _mcsocketMutex.lock();
     if (_mcsocket) _mcsocket->offer(EINTR);
     _mcsocketMutex.unlock();
     if (_serverSocket) _serverSocket->close();
     if (_datagramSocket) _datagramSocket->close();
     _requestSocket->close();
-#ifdef DEBUG
-    Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster run method exiting");
-#endif
+    VLOG(("McSocketMulticaster run method exiting"));
     return RUN_OK;
 }
 
