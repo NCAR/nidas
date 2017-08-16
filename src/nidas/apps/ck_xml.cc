@@ -34,6 +34,11 @@
 #include <nidas/core/VariableConverter.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/Socket.h>
+#include <nidas/core/SocketAddrs.h>
+#include <nidas/core/XMLException.h>
+#include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/core/requestXMLConfig.h>
 
 #include <iostream>
 #include <list>
@@ -64,6 +69,16 @@ public:
     int parseRunstring(NidasApp& app, int argc, char** argv);
     void usage(const char* argv0);
 
+    bool
+    parseRemoteSpecifier(const std::string& xmlspec,
+                         std::string& host, int& port);
+
+    void
+    loadFile(const std::string& xmlfile, Project& project);
+
+    void
+    loadRemoteXML(const std::string& host, int port, Project& project);
+
     int main();
 
     void showAll(const Project& project);
@@ -86,7 +101,9 @@ private:
 };
 
 
-int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
+int
+PConfig::
+parseRunstring(NidasApp& app, int argc, char** argv)
 {
     app.enableArguments(app.LogConfig | app.LogLevel |
                         app.LogShow | app.LogFields | app.LogParam |
@@ -134,10 +151,13 @@ int PConfig::parseRunstring(NidasApp& app, int argc, char** argv)
     return 0;
 }
 
-void PConfig::usage(const char* argv0) 
+void
+PConfig::
+usage(const char* argv0) 
 {
     cerr <<
-        "Usage: " << argv0 << " [-s sensorClass [-s ...] ] xml_file\n"
+        "Usage: " << argv0 << " [-s sensorClass [-s ...] ] xml_specifier\n"
+        "  <xmlspecifier> can be a file name or host:port.\n"
         "  -s sensorClass\n"
         "  -c   display a listing of all cal files referenced in the xml\n"
         "       display dsm and sensor id for sensors of the given class\n"
@@ -148,28 +168,109 @@ void PConfig::usage(const char* argv0)
         endl;
 }
 
+
+
+void
+PConfig::
+loadFile(const std::string& xmlfile, Project& project)
+{
+    XMLParser parser;
+
+    // turn on validation
+    parser.setDOMValidation(true);
+    parser.setDOMValidateIfSchema(true);
+    parser.setDOMNamespaces(true);
+    parser.setXercesSchema(true);
+    parser.setXercesSchemaFullChecking(true);
+    parser.setXercesHandleMultipleImports(true);
+    parser.setXercesDoXInclude(true);
+    parser.setDOMDatatypeNormalization(false);
+
+    xercesc::DOMDocument* doc = parser.parse(xmlfile);
+    project.fromDOMElement(doc->getDocumentElement());
+    doc->release();
+}
+
+
+
+// If xmlspec contains a colon and looks like a remote specifier of the
+// form "host:port", then return true with host and port set accordingly.
+// Otherwise leave host and port unchanged and return false.
+bool
+PConfig::
+parseRemoteSpecifier(const std::string& xmlspec, std::string& host, int& port)
+{
+    bool parsed = false;
+    size_t colon = xmlspec.find_first_of(':');
+    if (colon != string::npos)
+    {
+        string xhost = xmlspec.substr(0, colon);
+        string xport = xmlspec.substr(colon+1);
+        try
+        {
+            int iport = std::stoi(xport);
+            if (xhost.length() && iport > 0)
+            {
+                host = xhost;
+                port = iport;
+                parsed = true;
+            }
+        }
+        catch (std::invalid_argument& ex)
+        {
+        }
+    }
+    return parsed;
+}
+
+
+void
+PConfig::
+loadRemoteXML(const std::string& host, int port, Project& project)
+{
+    ILOG(("requesting XML from ") << host << " on port " << port);
+
+    // Address to use when fishing for the XML configuration.
+    nidas::util::Inet4SocketAddress configSockAddr;
+    try {
+        configSockAddr = nidas::util::Inet4SocketAddress
+            (nidas::util::Inet4Address::getByName(host),
+             port); //NIDAS_SVC_REQUEST_PORT_UDP);
+    }
+    catch(const nidas::util::UnknownHostException& e)
+    {
+        // shouldn't happen
+        ELOG(("") << e.what());
+    }
+
+    // Pull in the XML configuration from the DSM server.
+    xercesc::DOMDocument* doc =
+        nidas::core::requestXMLConfig(/*all=*/true, configSockAddr);
+
+    project.fromDOMElement(doc->getDocumentElement());
+    doc->release();
+}
+
+
 int PConfig::main()
 {
     int res = 0;
     try {
 
         Project project;
+        string host;
+        int port;
 
-	XMLParser parser;
-
-	// turn on validation
-	parser.setDOMValidation(true);
-	parser.setDOMValidateIfSchema(true);
-	parser.setDOMNamespaces(true);
-	parser.setXercesSchema(true);
-	parser.setXercesSchemaFullChecking(true);
-        parser.setXercesHandleMultipleImports(true);
-	parser.setXercesDoXInclude(true);
-	parser.setDOMDatatypeNormalization(false);
-
-	xercesc::DOMDocument* doc = parser.parse(_xmlFile);
-	project.fromDOMElement(doc->getDocumentElement());
-        doc->release();
+        if (parseRemoteSpecifier(_xmlFile, host, port))
+        {
+            ILOG(("parsed remote xml specifier: host=") << host
+                 << ", port=" << port);
+            loadRemoteXML(host, port, project);
+        }
+        else
+        {
+            loadFile(_xmlFile, project);
+        }
 
         if (!_sensorClasses.empty())
             showSensorClasses(project);
