@@ -98,7 +98,7 @@ to run NIDAS real-time data acquisition processes.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
-Requires: nidas-libs
+Requires: nidas-libs libcap-devel
 Obsoletes: nidas-bin-devel <= 1.0
 Group: Applications/Engineering
 # Prefix: %{nidas_prefix}
