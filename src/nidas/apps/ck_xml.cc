@@ -45,6 +45,7 @@
 
 #include <unistd.h>
 #include <getopt.h>
+#include <stdlib.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -206,18 +207,12 @@ parseRemoteSpecifier(const std::string& xmlspec, std::string& host, int& port)
     {
         string xhost = xmlspec.substr(0, colon);
         string xport = xmlspec.substr(colon+1);
-        try
+        int iport = atoi(xport.c_str());
+        if (xhost.length() && iport > 0)
         {
-            int iport = std::stoi(xport);
-            if (xhost.length() && iport > 0)
-            {
-                host = xhost;
-                port = iport;
-                parsed = true;
-            }
-        }
-        catch (std::invalid_argument& ex)
-        {
+            host = xhost;
+            port = iport;
+            parsed = true;
         }
     }
     return parsed;
