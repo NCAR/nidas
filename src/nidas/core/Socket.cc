@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -508,7 +508,7 @@ IOChannel* Socket::createSocket(const xercesc::DOMElement* node)
 #endif
     else if (type == "calUDPData" || type == "dataUDP")
         // new name: calUDPData, perhaps a bit more descriptive
-        // all old one for now.
+        // allow old one for now.
     	channel = new MultipleUDPSockets();
     else if (type == "udp")
     	channel = new DatagramSocket();
@@ -518,7 +518,7 @@ IOChannel* Socket::createSocket(const xercesc::DOMElement* node)
 }
 
 void Socket::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     int port = 0;
     string unixPath;
@@ -526,7 +526,7 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -534,53 +534,54 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "address") remoteHost = aval;
+            if (aname == "address") remoteHost = aval;
             // Unix socket address
-	    else if (aname == "path") unixPath = n_u::Process::expandEnvVars(aval);
-	    else if (aname == "port") {
-		istringstream ist(n_u::Process::expandEnvVars(aval));
-		ist >> port;
-		if (ist.fail())
-			throw n_u::InvalidParameterException(
-			    "socket","invalid port number",aval);
-	    }
-	    else if (aname == "type") {
-		if (aval != "client")
-			throw n_u::InvalidParameterException(
-			    "socket","invalid socket type",aval);
-	    }
-	    else if (aname == "block") {
-		std::istringstream ist(aval);
-		ist >> boolalpha;
-		bool val;
-		ist >> val;
-		if (ist.fail())
-			throw n_u::InvalidParameterException(
-			    "socket","block",aval);
-		setNonBlocking(!val);
-	    }
-	    else if (aname == "maxIdle") {
-		istringstream ist(aval);
-		int secs;
-		ist >> secs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
-		try {
-		    setKeepAliveIdleSecs(secs);
-		}
-		catch (const n_u::IOException& e) {		// won't happen
-		}
-	    }
-	    else throw n_u::InvalidParameterException(
-	    	string("unrecognized socket attribute: ") + aname);
-	}
+            else if (aname == "path") unixPath = n_u::Process::expandEnvVars(aval);
+            else if (aname == "port") {
+                istringstream ist(n_u::Process::expandEnvVars(aval));
+                ist >> port;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        ("socket", "invalid port number", aval);
+            }
+            else if (aname == "type") {
+                if (aval != "client")
+                    throw n_u::InvalidParameterException
+                        ("socket", "invalid socket type", aval);
+            }
+            else if (aname == "block") {
+                std::istringstream ist(aval);
+                ist >> boolalpha;
+                bool val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException("socket", "block", aval);
+                setNonBlocking(!val);
+            }
+            else if (aname == "maxIdle") {
+                istringstream ist(aval);
+                int secs;
+                ist >> secs;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        (getName(), "maxIdle", aval);
+                try {
+                    setKeepAliveIdleSecs(secs);
+                }
+                catch (const n_u::IOException& e) {     // won't happen
+                }
+            }
+            else throw n_u::InvalidParameterException
+                     (string("unrecognized socket attribute: ") + aname);
+        }
     }
     if (remoteHost.length() > 0 && unixPath.length() > 0)
-        throw n_u::InvalidParameterException("socket","address",
-            "cannot specify both an IP socket address and a unix socket path");
+        throw n_u::InvalidParameterException
+            ("socket", "address",
+             "cannot specify both an IP socket address and a unix socket path");
     if (remoteHost.length() > 0 && port <= 0)
         throw n_u::InvalidParameterException("socket","port",
-            "unknown port number");
+                                             "unknown port number");
 
     if (unixPath.length() > 0) setRemoteUnixPath(unixPath);
     else {
@@ -597,14 +598,14 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     int port = -1;
     string path;
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -612,51 +613,53 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "port") {
-		istringstream ist(n_u::Process::expandEnvVars(aval));
-		ist >> port;
-		if (ist.fail())
-			throw n_u::InvalidParameterException(
-			    "socket","invalid port number",aval);
-	    }
+            if (aname == "port") {
+                istringstream ist(n_u::Process::expandEnvVars(aval));
+                ist >> port;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        ("socket", "invalid port number", aval);
+            }
             // Unix socket address
-	    else if (aname == "path") {
+            else if (aname == "path") {
                 path = n_u::Process::expandEnvVars(aval);
-	    }
-	    else if (aname == "type") {
-		if (aval != "server")
-			throw n_u::InvalidParameterException(
-			    "socket","invalid socket type",aval);
-	    }
-	    else if (aname == "block") {
-		std::istringstream ist(aval);
-		ist >> boolalpha;
-		bool val;
-		ist >> val;
-		if (ist.fail())
-			throw n_u::InvalidParameterException(
-			    "socket","block",aval);
-		setNonBlocking(!val);
-	    }
-	    else if (aname == "maxIdle") {
-		istringstream ist(aval);
-		int secs;
-		ist >> secs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
-		try {
-		    setKeepAliveIdleSecs(secs);
-		}
-		catch (const n_u::IOException& e) {		// won't happen
-		}
-	    }
-	    else throw n_u::InvalidParameterException(
-	    	string("unrecognized socket attribute: ") + aname);
-	}
+            }
+            else if (aname == "type") {
+                if (aval != "server")
+                    throw n_u::InvalidParameterException
+                        ("socket", "invalid socket type", aval);
+            }
+            else if (aname == "block") {
+                std::istringstream ist(aval);
+                ist >> boolalpha;
+                bool val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        ("socket", "block", aval);
+                setNonBlocking(!val);
+            }
+            else if (aname == "maxIdle") {
+                istringstream ist(aval);
+                int secs;
+                ist >> secs;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        (getName(), "maxIdle", aval);
+                try {
+                    setKeepAliveIdleSecs(secs);
+                }
+                catch (const n_u::IOException& e) {     // won't happen
+                }
+            }
+            else throw n_u::InvalidParameterException
+                     (string("unrecognized socket attribute: ") + aname);
+        }
     }
     if (port >= 0 && path.length() > 0)
-        throw n_u::InvalidParameterException("socket","address",
-            "cannot specify both an IP socket port and a unix socket path");
+        throw n_u::InvalidParameterException
+            ("socket", "address",
+             "cannot specify both an IP socket port and a unix socket path");
 
     if (path.length() > 0)
         _localSockAddr.reset(new n_u::UnixSocketAddress(path));
@@ -665,20 +668,21 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
     setName("ServerSocket " + _localSockAddr->toAddressString());
 }
 
-xercesc::DOMElement* ServerSocket::toDOMParent(
-    xercesc::DOMElement* parent)
-    throw(xercesc::DOMException)
+xercesc::DOMElement*
+ServerSocket::
+toDOMParent(xercesc::DOMElement* parent) throw(xercesc::DOMException)
 {
     xercesc::DOMElement* elem =
-        parent->getOwnerDocument()->createElementNS(
-                (const XMLCh*)XMLStringConverter("dsmconfig"),
-			DOMable::getNamespaceURI());
+        parent->getOwnerDocument()->createElementNS
+        ((const XMLCh*)XMLStringConverter("dsmconfig"),
+         DOMable::getNamespaceURI());
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
 
-xercesc::DOMElement* ServerSocket::toDOMElement(xercesc::DOMElement* node)
-    throw(xercesc::DOMException)
+xercesc::DOMElement*
+ServerSocket::
+toDOMElement(xercesc::DOMElement* node) throw(xercesc::DOMException)
 {
     return node;
 }
