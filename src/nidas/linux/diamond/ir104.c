@@ -37,7 +37,7 @@
 #include <linux/poll.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>        /* access_ok */
+#include <linux/uaccess.h>        /* access_ok */
 
 #include "ir104.h"
 #include <nidas/linux/Revision.h>    // REPO_REVISION

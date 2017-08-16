@@ -44,7 +44,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/io.h>
 
 #include <nidas/linux/Revision.h>    // REPO_REVISION

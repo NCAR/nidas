@@ -44,7 +44,7 @@
 #include <linux/fcntl.h>    /* O_ACCMODE */
 #include <linux/ioport.h>
 #include <asm/io.h>		/* outb, inb */
-#include <asm/uaccess.h>	/* access_ok */
+#include <linux/uaccess.h>	/* access_ok */
 
 #include <linux/version.h>
 #include <linux/utsname.h>

@@ -60,7 +60,7 @@
 #include <linux/ioport.h>
 #include <asm/atomic.h>
 #include <asm/io.h>             // ioread8
-#include <asm/uaccess.h>        // VERIFY_???
+#include <linux/uaccess.h>        // VERIFY_???
 
 // DSM includes... 
 #include "arinc.h"

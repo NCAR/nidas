@@ -37,7 +37,7 @@ Original author:	Gordon Maclean
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <asm/uaccess.h>        /* access_ok */
+#include <linux/uaccess.h>        /* access_ok */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
 #include <mach/hardware.h>

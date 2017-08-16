@@ -109,7 +109,7 @@
 #include <linux/ioport.h>
 #include <linux/sched.h>    /* schedule() */
 #include <linux/io.h>		/* outb, inb */
-#include <asm/uaccess.h>	/* access_ok */
+#include <linux/uaccess.h>	/* access_ok */
 
 /* for testing UART registers */
 #include <linux/serial_reg.h>
