@@ -860,6 +860,11 @@ void McSocketMulticaster<SocketT>::interrupt()
     }
 }
 
+
+void
+listMulticastInterfaces(MulticastSocket* requestmsock,
+                        std::vector<Inet4NetworkInterface>& ifaces);
+
 template<class SocketT>
 int McSocketMulticaster<SocketT>::run() throw(Exception)
 {
@@ -899,21 +904,21 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 
     std::vector<Inet4NetworkInterface> ifaces;
 
-    if (mcaddr.isMultiCastAddress()) {
+    if (mcaddr.isMultiCastAddress())
+    {
+        VLOG(("") << mcsockaddr.toString() << " is a multicast address.");
         _requestSocket = requestmsock = new MulticastSocket();
-        if (_mcsocket->getInterface().getAddress() == Inet4Address(INADDR_ANY)) {
-            std::list<Inet4NetworkInterface> tmpifaces = requestmsock->getInterfaces();
-            std::list<Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
-            for ( ; ifacei != tmpifaces.end(); ++ifacei) {
-                Inet4NetworkInterface iface = *ifacei;
-                int flags = iface.getFlags();
-                if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICAST | IFF_LOOPBACK))
-                    ifaces.push_back(iface);
-            }
+        if (_mcsocket->getInterface().getAddress() == Inet4Address(INADDR_ANY))
+        {
+            listMulticastInterfaces(requestmsock, ifaces);
         }
     }
     else
+    {
+        VLOG(("") << mcsockaddr.toString()
+             << " is not a multicast address, using a datagram request socket.");
         _requestSocket = new DatagramSocket();
+    }
 
     McSocketDatagram dgram;
     dgram.setMagic(dgram.magicVal);
@@ -945,27 +950,21 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
                      ", #mcifaces=" << ifaces.size());
             }
         }
-        catch(const IOException& e) {
+        catch(const IOException& e)
+        {
             // perhaps the interface has disappeared. Log the error.
-            WLOG(("McSocketMulticaster: %s: %s",
-                  _requestSocket->getLocalSocketAddress().toString().c_str(),
-                  e.what()));
+            WLOG(("McSocketMulticaster: ")
+                 << _requestSocket->getLocalSocketAddress().toString()
+                 << ": " << e.what());
             sleep(10);
-            if (requestmsock) {
+            if (requestmsock)
+            {
                 _requestSocket->close();
                 delete _requestSocket;
                 // close and re-create the socket
                 _requestSocket = requestmsock = new MulticastSocket();
                 // re-create the list of interfaces.
-                ifaces.clear();
-                std::list<Inet4NetworkInterface> tmpifaces = requestmsock->getInterfaces();
-                std::list<Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
-                for ( ; ifacei != tmpifaces.end(); ++ifacei) {
-                    Inet4NetworkInterface iface = *ifacei;
-                    int flags = iface.getFlags();
-                    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICAST | IFF_LOOPBACK))
-                        ifaces.push_back(iface);
-                }
+                listMulticastInterfaces(requestmsock, ifaces);
             }
             continue;
         }
