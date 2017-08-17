@@ -436,9 +436,9 @@ int WriterThread::run() throw(n_u::Exception)
         // set to non blocking since we hold a lock during the write
         _ncSock.setNonBlocking(true);
 
-        nidas::core::IOStream ios(_ncSock,_reader.getMaxPacketSize());
+        nidas::core::IOStream ios(_ncSock, _reader.getMaxPacketSize());
 
-        ios.write(_header.c_str(),_header.length(),false);
+        ios.write(_header.c_str(), _header.length(), true);
 
         _reader.dataReady().lock(); // lock before first wait()
 
@@ -446,15 +446,17 @@ int WriterThread::run() throw(n_u::Exception)
             _reader.dataReady().wait();
             if (_reader.getPackets().size() > 0) {
                 n_u::DatagramPacket* pkt = _reader.getPackets().back();
-                if (pkt->getLength() > 0) {
+                if (pkt->getLength() > 0)
+                {
                     if (!(n % _packetWriterInterval))
                     {
                         VLOG(("writing packet, length=") << pkt->getLength()
                              << " to "
                              << _ncSock.getRemoteSocketAddress().toString());
                     }
-                    // lock is held while writing... We'll try non-blocking writes
-                    ios.write(pkt->getData(),pkt->getLength(),false);
+                    // lock is held while writing, but flush every packet
+                    // anyway so we don't introduce arbitrary latency
+                    ios.write(pkt->getData(), pkt->getLength(), true);
                 }
             }
         }
@@ -534,7 +536,7 @@ int ServerThread::run() throw(n_u::Exception)
                     throw;
                 }
                 // Detached thread deletes itself.
-                WriterThread* writer = new WriterThread(sock,_reader);
+                WriterThread* writer = new WriterThread(sock, _reader);
                 writer->start();
             }
             // interrupted
