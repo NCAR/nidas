@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -220,50 +220,50 @@ write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
     // written to make room for the user buffers.
     for (int attempts = 0; attempts < 2; ++attempts)
     {
-	/* number of bytes in buffer waiting to be written */
-	size_t wlen = _head - _tail;
+        /* number of bytes in buffer waiting to be written */
+        size_t wlen = _head - _tail;
 
-	/* space available in buffer */
-	size_t space = _eob - _head;
+        /* space available in buffer */
+        size_t space = _eob - _head;
 
-	// If there's not space in the buffer, but we can make some, do it now.
-	if (tlen > space && wlen + tlen <= _buflen && _tail != _buffer) {
-	    // shift data down. memmove supports overlapping memory areas
-	    memmove(_buffer,_tail,wlen);
-	    _tail = _buffer;
-	    _head = _tail + wlen;
-	    space = _eob - _head;
-	}
+        // If there's not space in the buffer, but we can make some, do it now.
+        if (tlen > space && wlen + tlen <= _buflen && _tail != _buffer) {
+            // shift data down. memmove supports overlapping memory areas
+            memmove(_buffer,_tail,wlen);
+            _tail = _buffer;
+            _head = _tail + wlen;
+            space = _eob - _head;
+        }
 
-	// If there's space now for this write in the buffer, add it.
-	if (tlen <= space) {
-	    for (ibuf = 0; ibuf < nbufs; ibuf++) {
-		l = iov[ibuf].iov_len;
-		memcpy(_head,iov[ibuf].iov_base,l);
-		_head += l;
-	    }
-	    // Indicate the user buffers have been added.
-	    nbufs = 0;
-	    wlen = _head - _tail;
-	    space = _eob - _head;
-	}
+        // If there's space now for this write in the buffer, add it.
+        if (tlen <= space) {
+            for (ibuf = 0; ibuf < nbufs; ibuf++) {
+                l = iov[ibuf].iov_len;
+                memcpy(_head,iov[ibuf].iov_base,l);
+                _head += l;
+            }
+            // Indicate the user buffers have been added.
+            nbufs = 0;
+            wlen = _head - _tail;
+            space = _eob - _head;
+        }
 
-	// There is data in the buffer and the buffer is full enough, or
-	// maxUsecs has elapsed since the last write, or else we need to
-	// write to make room for the user buffers.
-	if (nbufs > 0 || wlen >= _halflen || flush) {
+        // There is data in the buffer and the buffer is full enough, or
+        // maxUsecs has elapsed since the last write, or else we need to
+        // write to make room for the user buffers.
+        if (nbufs > 0 || wlen >= _halflen || flush) {
 
-	    // if streaming small samples, don't write more than
-	    // _halflen number of bytes.  The idea is that <= _halflen
-	    // is a good size for the output device.
-	    // if (tlen < _halflen && wlen > _halflen) wlen = _halflen;
-	    try {
+            // if streaming small samples, don't write more than
+            // _halflen number of bytes.  The idea is that <= _halflen
+            // is a good size for the output device.
+            // if (tlen < _halflen && wlen > _halflen) wlen = _halflen;
+            try {
                 // cerr << "wlen=" << wlen << endl;
-		l = _iochannel.write(_tail,wlen);
+                l = _iochannel.write(_tail,wlen);
                 addNumOutputBytes(l);
-	    }
-	    catch (const n_u::IOException& ioe) {
-		if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) {
+            }
+            catch (const n_u::IOException& ioe) {
+                if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) {
                     l = 0;
 #define REPORT_EAGAINS
 #ifdef REPORT_EAGAINS
@@ -273,17 +273,17 @@ write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
                     }
 #endif
                 }
-		else throw ioe;
-	    }
-	    _tail += l;
-	    if (_tail == _head) {
-		_tail = _head = _buffer;	// empty buffer
-		space = _eob - _head;
-	    }
-	}
+                else throw ioe;
+            }
+            _tail += l;
+            if (_tail == _head) {
+                _tail = _head = _buffer;    // empty buffer
+                space = _eob - _head;
+            }
+        }
 
-	// We're done when the user buffers have been copied into this buffer.
-	if (nbufs == 0) break;
+        // We're done when the user buffers have been copied into this buffer.
+        if (nbufs == 0) break;
     }
 
     // Return zero when the user buffers could not be copied, which happens
@@ -299,17 +299,17 @@ void IOStream::flush() throw (n_u::IOException)
     size_t wlen = _head - _tail;
 
     for (int ntry = 0; wlen > 0 && ntry < 5; ntry++) {
-	try {
-	    l = _iochannel.write(_tail,wlen);
+        try {
+            l = _iochannel.write(_tail, wlen);
             addNumOutputBytes(l);
-	}
-	catch (const n_u::IOException& ioe) {
-	    if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) l = 0;
-	    else throw ioe;
-	}
-	_tail += l;
+        }
+        catch (const n_u::IOException& ioe) {
+            if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) l = 0;
+            else throw ioe;
+        }
+        _tail += l;
         wlen -= l;
-	if (_tail == _head) _tail = _head = _buffer;
+        if (_tail == _head) _tail = _head = _buffer;
     }
     _iochannel.flush();
 }
