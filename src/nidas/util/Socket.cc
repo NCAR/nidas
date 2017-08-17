@@ -819,7 +819,8 @@ void SocketImpl::send(const DatagramPacketBase& packet,int flags) throw(IOExcept
     int res;
 
     VLOG(("sending packet, length=") << packet.getLength()
-         << " slen=" << packet.getSockAddrLen());
+         << " slen=" << packet.getSockAddrLen()
+         << " to " << packet.getSocketAddress().toAddressString());
 
     res = ::sendto(_fd, packet.getConstDataVoidPtr(), packet.getLength(), flags,
                    packet.getConstSockAddrPtr(), packet.getSockAddrLen());

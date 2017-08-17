@@ -55,6 +55,7 @@
 #include <nidas/core/Socket.h>
 #include <nidas/core/IOStream.h>
 #include <nidas/core/Sample.h>
+#include <nidas/core/NidasApp.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -62,6 +63,11 @@
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::core::NidasApp;
+using nidas::core::NidasAppArgv;
+using nidas::util::LogScheme;
+using nidas::util::LogConfig;
+using nidas::util::Logger;
 
 static bool interrupted = false;
 
@@ -109,16 +115,25 @@ private:
     int _maxDsmId;
 
     unsigned int _maxSampleLength;
+    int _rejectPacketInterval;
+    int _packetReadInterval;
+
+    NidasApp _app;
 };
 
-PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),
+PacketReader::PacketReader():
+    _udpport(-1),_tcpport(-1),
     _packetsize(DEFAULT_PACKET_SIZE),_header(),
     _packets(),_dataReady(),_debug(false),
     _rejectedPackets(0),
     _minSampleTime(n_u::UTime().toUsecs() - USECS_PER_SEC * 3600LL),
     _maxSampleTime(_minSampleTime + USECS_PER_DAY * 365LL),
-    _maxDsmId(1000),_maxSampleLength(8192)
+    _maxDsmId(1000),_maxSampleLength(8192),
+    _rejectPacketInterval(100),
+    _packetReadInterval(100),
+    _app("nidas_udp_relay")
 {
+    _app.setApplicationInstance();
 }
 
 PacketReader::~PacketReader()
@@ -143,18 +158,56 @@ PacketReader::~PacketReader()
 
 int PacketReader::usage(const char* argv0)
 {
-    cerr << "\n\
-Usage: " << argv0 << "[-d] -h header_file [-p packetsize] -u port [-t port]\n\
-    -d: debug, don't run in background\n\
-    -h header_file: the name of a file containing a NIDAS header: \"NIDAS (ncar.ucar.edu)...\"\n\
-    -p packetsize: max size in byte of the expected packets. Default=" << DEFAULT_PACKET_SIZE << "\n\
-    -t port: TCP port to wait on for connections. Defaults to same as UDP port\n\
-    -u port: UDP port on local interfaces to read from" << endl;
+    cerr <<
+        "\n"
+        "Usage: " << argv0
+         << " [-d] -h header_file [-p packetsize] -u port [-t port]\n"
+        " -d   debug, don't run in background\n"
+        " -h header_file:\n"
+        "      the name of a file containing a NIDAS header:\n"
+        "      beginning with \"NIDAS (ncar.ucar.edu)...\"\n"
+        " -p packetsize:\n"
+        "      max size in byte of the expected packets. \n"
+        "      Default=" << DEFAULT_PACKET_SIZE << "\n"
+        " -t port:\n"
+        "      TCP port to wait on for connections.\n"
+        "      Defaults to same as UDP port\n"
+        " -u port:\n"
+        "      UDP port on local interfaces to read from\n"
+        "NIDAS options:\n"
+         << _app.usage();
     return 1;
 }
 
 int PacketReader::parseRunstring(int argc, char** argv)
 {
+    _app.enableArguments(_app.loggingArgs() |
+                         _app.Version | 
+                         _app.Help);
+    // conflicts with header file.
+    _app.Help.acceptShortFlag(false);
+    
+    // The default logging scheme logs to syslog.  Set it here so it can be
+    // overridden by command-line options.  Note things are a little broken
+    // here because the NidasApp logging options are applied first, even if
+    // they appear after the nidas_udp_relay -d option.  Not sure what can
+    // be done about that until the new API is merged which allows
+    // sequential option handling.
+    Logger* logger = Logger::createInstance("nidas_udp_relay",
+                                            LOG_PID, LOG_LOCAL5);
+    LogScheme logscheme("syslog");
+    logscheme.setShowFields("level,message");
+    logscheme.addConfig(LogConfig("level=info"));
+    logger->setScheme(logscheme);
+
+    vector<string> args(argv, argv+argc);
+    _app.parseArguments(args);
+    if (_app.helpRequested())
+    {
+        return usage(argv[0]);
+    }
+
+    NidasAppArgv left(args);
     extern char *optarg;       /* set by getopt() */
     // extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
@@ -162,10 +215,18 @@ int PacketReader::parseRunstring(int argc, char** argv)
     const char* headerFileName = 0;
     char* cp;
 
+    argc = left.argc;
+    argv = left.argv;
     while ((opt_char = getopt(argc, argv, "dh:p:t:u:")) != -1) {
         switch(opt_char) {
         case 'd':
             _debug = true;
+            logger = n_u::Logger::createInstance(&std::cerr);
+            {
+                LogScheme current = logger->getScheme();
+                current.addConfig(LogConfig("level=debug"));
+                logger->setScheme(current);
+            }
             break;
         case 'h':
             headerFileName = optarg;
@@ -207,6 +268,13 @@ int PacketReader::parseRunstring(int argc, char** argv)
         return usage(argv[0]);
     }
     fclose(fp);
+
+    _packetReadInterval = 
+        LogScheme::current().getParameterT("udp_relay_packet_interval",
+                                           _packetReadInterval);
+    _rejectPacketInterval = 
+        LogScheme::current().getParameterT("udp_relay_reject_interval",
+                                           _rejectPacketInterval);
     return 0;
 }
 
@@ -237,9 +305,11 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
     for (; dptr < eod;) {
 
         if (dptr + (signed) nidas::core::SampleHeader::getSizeOf() > eod) {
-            if (!(_rejectedPackets++ % 100)) {
+            if (!(_rejectedPackets++ % _rejectPacketInterval)) {
                 ostringstream ost;
-                ost << "short header starting at byte " << (size_t)(dptr - sod) << ", total packet length=" << pkt.getLength() << " bytes";
+                ost << "short header starting at byte "
+                    << (size_t)(dptr - sod)
+                    << ", total packet length=" << pkt.getLength() << " bytes";
                 logBadPacket(pkt,ost.str());
             }
             break;
@@ -256,7 +326,7 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
             header.getDataByteLength() == 0 ||
             header.getTimeTag() < _minSampleTime ||
             header.getTimeTag() > _maxSampleTime) {
-            if (!(_rejectedPackets++ % 100)) {
+            if (!(_rejectedPackets++ % _rejectPacketInterval)) {
                 ostringstream ost;
                 ost << "bad header: type=0x" << hex << (int)header.getType() << dec <<
                     ", id=" << GET_DSM_ID(header.getId()) << ',' << GET_SPS_ID(header.getId()) <<
@@ -273,7 +343,6 @@ void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
 
 void PacketReader::loop() throw()
 {
-
     for (int i = 0; i < 2; i++)
     {
         char* buf = new char[_packetsize];
@@ -283,44 +352,50 @@ void PacketReader::loop() throw()
 
     for (; !interrupted; ) {
 
-	try {
-	    n_u::DatagramSocket sock(_udpport);
+        try {
+            n_u::DatagramSocket sock(_udpport);
 
-	    try {
-		_dataReady.lock();
-		for (unsigned int n = 0; !interrupted; n++) {
-
-		    n_u::DatagramPacket* pkt = _packets.back();
+            try {
+                _dataReady.lock();
+                for (unsigned int n = 0; !interrupted; n++)
+                {
+                    n_u::DatagramPacket* pkt = _packets.back();
                     _packets.pop_back();
-		    _dataReady.unlock();
+                    _dataReady.unlock();
 
-		    sock.receive(*pkt);
+                    if (!(n % _packetReadInterval))
+                    {
+                        VLOG(("calling receive() with max packet size ")
+                             << pkt->getMaxLength());
+                    }
+                    sock.receive(*pkt);
 
-		    // screen for non NIDAS packets
-		    checkPacket(*pkt);
-#ifdef DEBUG
-		    if (!(n % 100))
-			cerr << "received packet, length=" << pkt->getLength() << " from " <<
-			    pkt->getSocketAddress().toString() << endl;
-#endif
-		    _dataReady.lock();
-		    _packets.push_front(pkt);
-		    _dataReady.broadcast();
-		}
-		_dataReady.unlock();
-	    }
-	    catch(const n_u::IOException& e) {
-		// _dataReady will be unlocked
-		PLOG(("%s",e.what()));
+                    // screen for non NIDAS packets
+                    checkPacket(*pkt);
+                    if (!(n % _packetReadInterval))
+                    {
+                        VLOG(("received packet, length=") << pkt->getLength()
+                             << " from "
+                             << pkt->getSocketAddress().toString());
+                    }
+                    _dataReady.lock();
+                    _packets.push_front(pkt);
+                    _dataReady.broadcast();
+                }
+                _dataReady.unlock();
+            }
+            catch(const n_u::IOException& e) {
+                // _dataReady will be unlocked
+                PLOG(("%s",e.what()));
                 sleep(5);
-	    }
-	    sock.close();
+            }
+            sock.close();
             // try to re-open, until interrupted
-	}
-	catch(const n_u::IOException& e) {
-	    PLOG(("%s",e.what()));
-	    sleep(5);
-	}
+        }
+        catch(const n_u::IOException& e) {
+            PLOG(("%s",e.what()));
+            sleep(5);
+        }
     }
 }
 
@@ -333,6 +408,8 @@ private:
     PacketReader& _reader;
     string _header;
     nidas::core::Socket _ncSock;
+    int _packetWriterInterval;
+
     /** No copying. */
     WriterThread(const WriterThread&);
     /** No assignment. */
@@ -340,9 +417,16 @@ private:
 };
 
 WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
-    n_u::DetachedThread("TCPWriter"),_reader(reader),
-    _header(reader.getHeader()),_ncSock(sock)
+    n_u::DetachedThread("TCPWriter"),
+    _reader(reader),
+    _header(reader.getHeader()),
+    _ncSock(sock),
+    _packetWriterInterval(100)
 {
+    _packetWriterInterval = 
+        LogScheme::current().getParameterT("udp_relay_write_interval",
+                                           _packetWriterInterval);
+
 }
 
 int WriterThread::run() throw(n_u::Exception)
@@ -352,9 +436,9 @@ int WriterThread::run() throw(n_u::Exception)
         // set to non blocking since we hold a lock during the write
         _ncSock.setNonBlocking(true);
 
-        nidas::core::IOStream ios(_ncSock,_reader.getMaxPacketSize());
+        nidas::core::IOStream ios(_ncSock, _reader.getMaxPacketSize());
 
-        ios.write(_header.c_str(),_header.length(),false);
+        ios.write(_header.c_str(), _header.length(), true);
 
         _reader.dataReady().lock(); // lock before first wait()
 
@@ -362,14 +446,17 @@ int WriterThread::run() throw(n_u::Exception)
             _reader.dataReady().wait();
             if (_reader.getPackets().size() > 0) {
                 n_u::DatagramPacket* pkt = _reader.getPackets().back();
-                if (pkt->getLength() > 0) {
-#ifdef DEBUG
-                    if (!(n % 100))
-                        cerr << "writing packet, length=" << pkt->getLength() << " to " <<
-                            _ncSock.getRemoteSocketAddress().toString() << endl;
-#endif
-                    // lock is held while writing... We'll try non-blocking writes
-                    ios.write(pkt->getData(),pkt->getLength(),false);
+                if (pkt->getLength() > 0)
+                {
+                    if (!(n % _packetWriterInterval))
+                    {
+                        VLOG(("writing packet, length=") << pkt->getLength()
+                             << " to "
+                             << _ncSock.getRemoteSocketAddress().toString());
+                    }
+                    // lock is held while writing, but flush every packet
+                    // anyway so we don't introduce arbitrary latency
+                    ios.write(pkt->getData(), pkt->getLength(), true);
                 }
             }
         }
@@ -449,7 +536,7 @@ int ServerThread::run() throw(n_u::Exception)
                     throw;
                 }
                 // Detached thread deletes itself.
-                WriterThread* writer = new WriterThread(sock,_reader);
+                WriterThread* writer = new WriterThread(sock, _reader);
                 writer->start();
             }
             // interrupted
@@ -467,32 +554,18 @@ int ServerThread::run() throw(n_u::Exception)
 
 int main(int argc, char** argv)
 {
-
     PacketReader reader;
     int res = reader.parseRunstring(argc,argv);
     if (res) return res;
 
-    n_u::Logger* logger;
-
-    n_u::LogConfig lc;
-    n_u::LogScheme logscheme("nidas_udp_relay");
-
-    if (reader.debug()) {
-        logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = 7;
-    }
-    else {
+    if (!reader.debug())
+    {
         // fork to background
         if (daemon(0,0) < 0) {
-            n_u::IOException e("nidas_udp_relay","daemon",errno);
+            n_u::IOException e("nidas_udp_relay", "daemon", errno);
             cerr << "Warning: " << e.toString() << endl;
         }
-        logger = n_u::Logger::createInstance("nidas_udp_relay",LOG_PID,LOG_LOCAL5);
-        logscheme.setShowFields("level,message");
-        lc.level = 6;
     }
-    logscheme.addConfig(lc);
-    logger->setScheme(logscheme);
     NLOG(("nidas_udp_relay starting"));
 
 #ifdef CAP_SYS_NICE
@@ -500,7 +573,8 @@ int main(int argc, char** argv)
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
     }
     catch (const n_u::Exception& e) {
-        NLOG(("%s: %s. Will not be able to change process priority",argv[0],e.what()));
+        NLOG(("%s: %s. Will not be able to change process priority",
+              argv[0], e.what()));
     }
 #endif
 

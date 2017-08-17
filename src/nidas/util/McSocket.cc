@@ -309,26 +309,30 @@ void McSocketListener::interrupt()
 
 int McSocketListener::run() throw(Exception)
 {
-    if (_mcastAddr.getInet4Address().isMultiCastAddress()) {
+    if (_mcastAddr.getInet4Address().isMultiCastAddress())
+    {
+        DLOG(("entering run(): ")
+             << "listening for McSocket requests on multicast address "
+             << _mcastAddr.toString());
         // can't bind to a specific address, must bind to INADDR_ANY.
         MulticastSocket* msock = new MulticastSocket(_mcastAddr.getPort());
         _readsock = msock;
-        list<Inet4NetworkInterface> interfaces = msock->getInterfaces();
-        list<Inet4NetworkInterface>::const_iterator ii = interfaces.begin();
-        for ( ; ii != interfaces.end(); ++ii) {
-            Inet4NetworkInterface iface = *ii;
-            int iflags = iface.getFlags();
-            // join interfaces that support MULTICAST or LOOPBACK
-            // ppp interfaces come up with MULTICAST set, but not BROADCAST
-            if (iflags & IFF_UP && iflags & IFF_BROADCAST && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
-                // cerr << "joining interface " << iface.getName() << endl;
-                msock->joinGroup(_mcastAddr.getInet4Address(),iface);
-            }
+        vector<Inet4NetworkInterface> interfaces;
+        listMulticastInterfaces(msock, interfaces);
+        vector<Inet4NetworkInterface>::const_iterator ifit;
+        for (ifit = interfaces.begin(); ifit != interfaces.end(); ++ifit)
+        {
+            VLOG(("joining interface ") << ifit->getName());
+            msock->joinGroup(_mcastAddr.getInet4Address(), *ifit);
         }
     }
     else
+    {
+        DLOG(("entering run(): ")
+             << "listening for McSocket requests on udp address "
+             << _mcastAddr.toString());
         _readsock = new DatagramSocket(_mcastAddr.getPort());
-
+    }
 
     McSocketDatagram dgram;
     Inet4PacketInfoX pktinfo;
@@ -477,4 +481,34 @@ int McSocketListener::run() throw(Exception)
     VLOG(("McSocketListener::run returning"));
     _readsock->close();
     return 0;
+}
+
+
+void
+nidas::util::
+listMulticastInterfaces(MulticastSocket* requestmsock,
+                        std::vector<Inet4NetworkInterface>& ifaces)
+{
+    ifaces.clear();
+    VLOG(("INADDR_ANY: looking for multicast interfaces..."));
+    std::list<Inet4NetworkInterface> tmpifaces =
+        requestmsock->getInterfaces();
+    std::list<Inet4NetworkInterface>::const_iterator ifacei =
+        tmpifaces.begin();
+    for ( ; ifacei != tmpifaces.end(); ++ifacei)
+    {
+        Inet4NetworkInterface iface = *ifacei;
+        int flags = iface.getFlags();
+        if ((flags & IFF_UP) &&
+            (flags & IFF_BROADCAST) &&
+            (flags & (IFF_MULTICAST | IFF_LOOPBACK)))
+        {
+            VLOG(("...found active multicast interface: ")
+                 << iface.getName()
+                 << "[" << iface.getIndex() << "]: "
+                 << iface.getAddress().getHostAddress());
+            ifaces.push_back(iface);
+        }
+    }
+    VLOG(("") << "found " << ifaces.size() << " interfaces.");
 }
