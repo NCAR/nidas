@@ -357,12 +357,17 @@ void PacketReader::loop() throw()
 
             try {
                 _dataReady.lock();
-                for (unsigned int n = 0; !interrupted; n++) {
-
+                for (unsigned int n = 0; !interrupted; n++)
+                {
                     n_u::DatagramPacket* pkt = _packets.back();
                     _packets.pop_back();
                     _dataReady.unlock();
 
+                    if (!(n % _packetReadInterval))
+                    {
+                        VLOG(("calling receive() with max packet size ")
+                             << pkt->getMaxLength());
+                    }
                     sock.receive(*pkt);
 
                     // screen for non NIDAS packets
