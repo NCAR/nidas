@@ -51,9 +51,7 @@ IOStream::~IOStream()
 
 void IOStream::reallocateBuffer(size_t len)
 {
-#ifdef DEBUG
-    cerr << "IOStream::reallocateBuffer, len=" << len << endl;
-#endif
+    VLOG(("IOStream::reallocateBuffer, len=") << len);
     if (_buffer) {
         char* newbuf = new char[len];
         // will silently lose data if len  is too small.
@@ -97,9 +95,7 @@ size_t IOStream::read() throw(n_u::IOException)
         _newInput = true;
         _nbytesIn = 0;
     }
-#ifdef DEBUG
-    DLOG(("IOStream, read =") << l << ", avail=" << available());
-#endif
+    VLOG(("IOStream, read =") << l << ", avail=" << available());
     return l;
 }
 
@@ -190,7 +186,9 @@ size_t IOStream::backup() throw()
     return backup(_tail - _buffer);
 }
 
-size_t IOStream::write(const void*buf,size_t len,bool flush) throw (n_u::IOException)
+size_t
+IOStream::
+write(const void*buf, size_t len, bool flush) throw (n_u::IOException)
 {
     struct iovec iov;
     iov.iov_base = const_cast<void*>(buf);
@@ -201,7 +199,9 @@ size_t IOStream::write(const void*buf,size_t len,bool flush) throw (n_u::IOExcep
 /*
  * Buffered atomic write - all data is written to buffer, or none.
  */
-size_t IOStream::write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
+size_t
+IOStream::
+write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
 {
     size_t l;
     int ibuf;
