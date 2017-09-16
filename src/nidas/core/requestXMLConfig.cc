@@ -71,12 +71,6 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
 
     xercesc::DOMDocument* doc = 0;
     try {
-        std::string sockName;
-        sockName = configSock->getRemoteSocketAddress().toAddressString();
-        DLOG(("requestXMLConfig: sockName: ") << sockName);
-
-        n_c::XMLFdInputSource sockSource(sockName,configSock->getFd());
-
         n_u::auto_ptr<n_c::XMLParser> parser(new n_c::XMLParser());
         // throws XMLException
 
@@ -90,6 +84,17 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
         parser->setXercesHandleMultipleImports(true);
         parser->setXercesDoXInclude(true);
         parser->setDOMDatatypeNormalization(false);
+
+        // It seems important to declare the XMLFdInputSource after the XMLParser,
+        // otherwise seg faults were happening in the destructor of XMLFdInputSource.
+        // This happend both on x86_64 and armbe with xercesc 3.1.
+        // Apparently the destructor for xercesc::InputSource should be invoked
+        // before the destructor of xercesc:: DOMBuilder.
+        std::string sockName;
+        sockName = configSock->getRemoteSocketAddress().toAddressString();
+        DLOG(("requestXMLConfig: sockName: ") << sockName);
+
+        n_c::XMLFdInputSource sockSource(sockName,configSock->getFd());
 
         doc = parser->parse(sockSource);
         configSock->close();
