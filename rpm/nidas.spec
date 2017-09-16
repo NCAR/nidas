@@ -295,8 +295,8 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_util.so.*
 %{nidas_prefix}/%{_lib}/libnidas.so.*
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so.*
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 
 %files modules
 %defattr(0775,root,root,2775)
