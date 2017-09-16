@@ -350,8 +350,8 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_util.a
 %{nidas_prefix}/%{_lib}/libnidas.so
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 
