@@ -84,7 +84,7 @@ lookup(const std::string& name) throw(n_u::Exception)
         if (errptr) errStr = errptr;
         else errStr = name + ": unknown error";
     	throw n_u::Exception(
-                std::string("DynamicLoader::lookup: ") + errptr);
+                std::string("DynamicLoader::lookup: ") + errStr);
     }
     return sym;
 }
