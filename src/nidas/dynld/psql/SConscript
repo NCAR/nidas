@@ -23,7 +23,7 @@ if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
     myenv = conf.Finish()
 
     if has_psql:
-        print "PSQL shared library enabled."
+        print("PSQL shared library enabled.")
         sources = Split("""PSQLChannel.cc PSQLSampleOutput.cc""")
         headers = Split("""PSQLChannel.h PSQLSampleOutput.h""")
         so = myenv.SharedLibrary("nidas_dynld_psql", sources)

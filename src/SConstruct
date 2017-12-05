@@ -4,7 +4,7 @@
 import os, re
 import eol_scons
 
-# eol_scons.SetDebug(True)
+# eol_scons.debug.SetDebug("true")
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
@@ -71,7 +71,7 @@ opts.Update(env)
 # Threads
 env.MergeFlags('-pthread')
 
-if env.has_key('PKG_CONFIG_PATH'):
+if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 BUILDS = Split(env['BUILDS'])
@@ -124,11 +124,11 @@ opts.Update(env)
 #   ride the value of $CXXFLAGS.
 #
 # Warning: CXXFLAGS is before CCFLAGS in the compiler arguments:
-# print 'CXXCOM=' + str(env['CXXCOM'])
+# print('CXXCOM=' + str(env['CXXCOM']))
 # CXXCOM=$CXX -o $TARGET -c $CXXFLAGS $CCFLAGS $_CCCOMCOM $SOURCES
 #
 # compiler string for building shareable code:
-# print 'SHCXXCOM=' + str(env['SHCXXCOM'])
+# print('SHCXXCOM=' + str(env['SHCXXCOM']))
 # SHCXXCOM=$SHCXX -o $TARGET -c $SHCXXFLAGS $SHCCFLAGS $_CCCOMCOM $SOURCES
 #
 # Because of the ordering, it isn't possible to add a CXX-only option
@@ -137,24 +137,24 @@ opts.Update(env)
 # CCFLAGS='-Wall',  CXXFLAGS='-Wno-uninitialized', will result in
 # -Wno-uninitialized -Wall, not the other way around.
 
-# print 'CFLAGS=' + str(env['CFLAGS'])
-# print 'CCFLAGS=' + str(env['CCFLAGS'])
-# print 'SHCCFLAGS=' + str(env['SHCCFLAGS'])
-# print 'CXXFLAGS=' + str(env['CXXFLAGS'])
-# print 'SHCXXFLAGS=' + str(env['SHCXXFLAGS'])
+# print('CFLAGS=' + str(env['CFLAGS']))
+# print('CCFLAGS=' + str(env['CCFLAGS']))
+# print('SHCCFLAGS=' + str(env['SHCCFLAGS']))
+# print('CXXFLAGS=' + str(env['CXXFLAGS']))
+# print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
 env['CFLAGS'] = [ '-Wall','-O2' ]
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
 env['CCFLAGS'] = [ ]
 
-if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
+if 'XMLDEBUG' in env and env['XMLDEBUG']:
     env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
 
-if env.has_key('DEBUG') and env['DEBUG']:
+if 'DEBUG' in env and env['DEBUG']:
     env.AppendUnique(CPPDEFINES = ['DEBUG'])
 
-if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
+if 'GDBDEBUG' in env and env['GDBDEBUG']:
     env.AppendUnique(CCFLAGS = ['-ggdb'])
 
 ##
@@ -188,7 +188,7 @@ def CheckStackProtectorOptions(env):
 ##  Create the env for building to the host processor...
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
-    print "Setting up for host builds..."
+    print("Setting up for host builds...")
     host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
         ARCH = '', MACHS=[''])
 
@@ -235,14 +235,14 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 ##  (little-endian) on the arcom Viper and Titan.
 ##
 if 'arm' in BUILDS:
-    print "Setting up for arm build ..."
+    print("Setting up for arm build ...")
 
     # supported machine types for arm
     amachs = { 'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']}
     # build list of machine types to build from MACHS="x y z" command line
     machs = []
     for m in MACHS:
-        if amachs.has_key(m):
+        if m in amachs:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
@@ -256,7 +256,7 @@ if 'arm' in BUILDS:
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
         arm_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if not arm_env.has_key('DEBUG') or not arm_env['DEBUG']:
+    if 'DEBUG' not in arm_env or not arm_env['DEBUG']:
         arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
 
@@ -271,14 +271,14 @@ if 'arm' in BUILDS:
 ##  (big-endian) on the arcom Vulcan.
 ##
 if 'armbe' in BUILDS:
-    print "Setting up for armbe build ..."
+    print("Setting up for armbe build ...")
 
     # supported machine types for armbe
     amachs = { 'all': ['vulcan'], 'vulcan':['vulcan']}
     # build list of machine types to build from MACHS="x y z" command line
     machs = []
     for m in MACHS:
-        if amachs.has_key(m):
+        if m in amachs:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
@@ -291,7 +291,7 @@ if 'armbe' in BUILDS:
 
     if re.search("^3",armbe_env['CXXVERSION']):
         armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if not armbe_env.has_key('DEBUG') or not armbe_env['DEBUG']:
+    if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     SConscript('nidas/SConscript',
@@ -301,21 +301,21 @@ if 'armbe' in BUILDS:
     Clean('build_armbe','build_armbe')
 
 if 'armel' in BUILDS:
-    print "Setting up for armel build ..."
+    print("Setting up for armel build ...")
 
     # supported machine types for armel.
     amachs = { 'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']}
     # build list of machine types to build from MACHS="x y z" command line
     machs = []
     for m in MACHS:
-        if amachs.has_key(m):
+        if m in amachs:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
     armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armel', MACHS=machs)
 
-    if not armel_env.has_key('ARCHLIBDIR'):
+    if 'ARCHLIBDIR' not in armel_env:
         armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
 
     CheckStackProtectorOptions(armel_env)
@@ -325,7 +325,7 @@ if 'armel' in BUILDS:
     armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
-    if not armel_env.has_key('DEBUG') or not armel_env['DEBUG']:
+    if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
@@ -337,21 +337,21 @@ if 'armel' in BUILDS:
     Clean('build_armel','build_armel')
 
 if 'armhf' in BUILDS:
-    print "Setting up for armhf build ..."
+    print("Setting up for armhf build ...")
 
     # supported machine types for armhf.
     amachs = { 'all': ['rpi2'], 'rpi2': ['rpi2'], }
     # build list of machine types to build from MACHS="x y z" command line
     machs = []
     for m in MACHS:
-        if amachs.has_key(m):
+        if m in amachs:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
     armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armhf', MACHS=machs)
 
-    if not armhf_env.has_key('ARCHLIBDIR'):
+    if 'ARCHLIBDIR' not in armhf_env:
         armhf_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
     CheckStackProtectorOptions(armhf_env)
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
@@ -360,7 +360,7 @@ if 'armhf' in BUILDS:
     armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
-    if not armhf_env.has_key('DEBUG') or not armhf_env['DEBUG']:
+    if 'DEBUG' not in armhf_env or not armhf_env['DEBUG']:
         armhf_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
 # armhf_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
