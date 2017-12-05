@@ -66,14 +66,14 @@ public:
      * initialization necessary before invoking this
      * CVIProcessor::connect().
      */
-    void connect(SampleSource*)
+    void connectSource(SampleSource*)
         throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     /**
      * Disconnect a SampleSource from this CVIProcessor.
      * Calls flush() on the averager and closes the digital and analog outputs.
      */
-    void disconnect(SampleSource*) throw();
+    void disconnectSource(SampleSource*) throw();
 
     /**
      * Do common operations necessary when a output has connected:

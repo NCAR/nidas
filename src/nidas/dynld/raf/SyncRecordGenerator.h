@@ -50,14 +50,14 @@ public:
     virtual ~SyncRecordGenerator();
 
     /**
-     * Implementation of SampleIOProcessor::connect(SampleSource*).
+     * Implementation of SampleIOProcessor::connectSource(SampleSource*).
      */
-    void connect(SampleSource* source) throw();
+    void connectSource(SampleSource* source) throw();
     
     /**
-     * Implementation of SampleIOProcessor::disconnect(SampleSource*).
+     * Implementation of SampleIOProcessor::disconnectSource(SampleSource*).
      */
-    void disconnect(SampleSource* source) throw();
+    void disconnectSource(SampleSource* source) throw();
 
     /**
      * Implementation of SampleConnectionRequester::connect(SampleOutput*).
