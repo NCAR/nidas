@@ -180,6 +180,13 @@ void Wind3D::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
         }
     }
 
+    if (_unusualOrientation) {
+        float dn[3];
+        for (int i = 0; i < 3; i++)
+            dn[i] = _sx[i] * uvwt[_tx[i]];
+        memcpy(uvwt, dn, sizeof(dn));
+    }
+
     // bias removal is part of the tilt correction.
     if (_tiltCorrection) {
         for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
@@ -192,13 +199,124 @@ void Wind3D::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
 
 void Wind3D::validate() throw(n_u::InvalidParameterException)
 {
-
     SerialSensor::validate();
 
     parseParameters();
 
     checkSampleTags();
 }
+
+void
+Wind3D::
+setOrientation(const std::string& orientation)
+{
+    /* _tx and _sx are used in the calculation of a transformed wind
+     * vector as follows:
+     *
+     * for i = 0,1,2
+     *     dout[i] = _sx[i] * wind_in[_tx[i]]
+     * where:
+     *  dout[0,1,2] are the new, transformed U,V,W
+     *  wind_in[0,1,2] are the original U,V,W in raw sonic coordinates
+     *
+     *  When the sonic is in the normal orientation, +w is upwards
+     *  approximately w.r.t gravity, and +u is wind into the sonic array.
+     */
+    if (orientation == "normal")
+    {
+        _tx[0] = 0;
+        _tx[1] = 1;
+        _tx[2] = 2;
+        _sx[0] = 1;
+        _sx[1] = 1;
+        _sx[2] = 1;
+        _unusualOrientation = false;
+    }
+    else if (orientation == "down")
+    {
+        /* For flow-distortion experiments, the sonic may be mounted 
+         * pointing down. This is a 90 degree "down" rotation about the
+         * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
+         * flipping the sign of v.  Transform the components so that the
+         * new +w is upwards wrt gravity.
+         * new    raw sonic
+         * u      w
+         * v      -v
+         * w      u
+         */
+        _tx[0] = 2;     // new u is raw sonic w
+        _tx[1] = 1;     // v is raw sonic -v
+        _tx[2] = 0;     // new w is raw sonic u
+        _sx[0] = 1;
+        _sx[1] = -1;    // v is -v
+        _sx[2] = 1;
+        _unusualOrientation = true;
+    }
+    else if (orientation == "lefthanded")
+    {
+        /* If wind direction is measured counterclockwise, convert to 
+         * clockwise (dir = 360 - dir). This is done by negating the v 
+         * component.
+         * new    raw sonic
+         * u      u
+         * v      -v
+         * w      w
+         */
+        _tx[0] = 0;
+        _tx[1] = 1;
+        _tx[2] = 2;
+        _sx[0] = 1;
+        _sx[1] = -1; //v is -v
+        _sx[2] = 1;
+        _unusualOrientation = true;
+    }
+    else if (orientation == "flipped")
+    {
+        /* Sonic flipped over, a 180 deg rotation about sonic u axis.
+         * Change sign on v,w:
+         * new    raw sonic
+         * u      u
+         * v      -v
+         * w      -w
+         */
+        _tx[0] = 0;
+        _tx[1] = 1;
+        _tx[2] = 2;
+        _sx[0] = 1;
+        _sx[1] = -1;
+        _sx[2] = -1;
+        _unusualOrientation = true;
+    }
+    else if (orientation == "horizontal")
+    {
+        /* Sonic flipped on its side. For CSAT3, the labelled face of  the
+         * "junction box" faces up.
+         * Looking "out" from the tower in the -u direction, this is a 90 deg CC
+         * rotation about the u axis, so no change to u,
+         * new w is sonic v (sonic v points up), new v is sonic -w.
+         * new    raw sonic
+         * u      u
+         * v      -w
+         * w      v
+         */
+        _tx[0] = 0;
+        _tx[1] = 2;
+        _tx[2] = 1;
+        _sx[0] = 1;
+        _sx[1] = -1;
+        _sx[2] = 1;
+        _unusualOrientation = true;
+    }
+    else
+    {
+        throw n_u::InvalidParameterException
+            (getName(), "orientation parameter",
+             "must be one string: 'normal' (default), 'down', 'lefthanded', "
+             "'flipped' or 'horizontal'");
+    }
+}
+
+
 
 void Wind3D::parseParameters()
     throw(n_u::InvalidParameterException)
@@ -286,104 +404,17 @@ void Wind3D::parseParameters()
             setDoTiltCorrection((bool)parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "orientation") {
-            /* _tx and _sx are used in the calculation of a transformed wind
-             * vector as follows:
-             *
-             * for i = 0,1,2
-             *     dout[i] = _sx[i] * wind_in[_tx[i]]
-             * where:
-             *  dout[0,1,2] are the new, transformed U,V,W
-             *  wind_in[0,1,2] are the original U,V,W in raw sonic coordinates
-             *
-             *  When the sonic is in the normal orientation, +w is upwards
-             *  approximately w.r.t gravity, and +u is wind into the sonic array.
-             */
-            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1;
-            if (pok && project->expandString(parameter->getStringValue(0)) == "normal") {
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = 1;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
-                /* For flow-distortion experiments, the sonic may be mounted 
-                 * pointing down. This is a 90 degree "down" rotation about the
-                 * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
-                 * flipping the sign of v.  Transform the components so that the
-                 * new +w is upwards wrt gravity.
-                 * new    raw sonic
-                 * u      w
-                 * v      -v
-                 * w      u
-                 */
-                _tx[0] = 2;     // new u is raw sonic w
-                _tx[1] = 1;     // v is raw sonic -v
-                _tx[2] = 0;     // new w is raw sonic u
-                _sx[0] = 1;
-                _sx[1] = -1;    // v is -v
-                _sx[2] = 1;
-                _unusualOrientation = true;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "lefthanded"){
-                /* If wind direction is measured counterclockwise, convert to 
-                 * clockwise (dir = 360 - dir). This is done by negating the v 
-                 * component.
-                 * new    raw sonic
-                 * u      u
-                 * v      -v
-                 * w      w
-                 */
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = -1; //v is -v
-                _sx[2] = 1;
-                _unusualOrientation = true;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
-                /* Sonic flipped over, a 180 deg rotation about sonic u axis.
-                 * Change sign on v,w:
-                 * new    raw sonic
-                 * u      u
-                 * v      -v
-                 * w      -w
-                 */
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = -1;
-                _unusualOrientation = true;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
-                /* Sonic flipped on its side. For CSAT3, the labelled face of  the
-                 * "junction box" faces up.
-                 * Looking "out" from the tower in the -u direction, this is a 90 deg CC
-                 * rotation about the u axis, so no change to u,
-                 * new w is sonic v (sonic v points up), new v is sonic -w.
-                 * new    raw sonic
-                 * u      u
-                 * v      -w
-                 * w      v
-                 */
-                _tx[0] = 0;
-                _tx[1] = 2;
-                _tx[2] = 1;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = 1;
-                _unusualOrientation = true;
+            if (parameter->getType() == Parameter::STRING_PARAM &&
+                parameter->getLength() == 1)
+            {
+                setOrientation(project->expandString(parameter->getStringValue(0)));
             }
             else
-                throw n_u::InvalidParameterException(getName(),
-                        "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\", \"lefthanded\", \"flipped\" or \"horizontal\"");
-
+            {
+                throw n_u::InvalidParameterException
+                    (getName(), parameter->getName(),
+                    "must be a string parameter of length 1");
+            }
         }
         else if (parameter->getName() == "shadowFactor") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
@@ -649,14 +680,7 @@ bool Wind3D::process(const Sample* samp,
     transducerShadowCorrection(samp->getTimeTag(),uvwtd);
 #endif
 
-    if (_unusualOrientation) {
-        float dn[3];
-        for (int i = 0; i < 3; i++)
-            dn[i] = _sx[i] * uvwtd[_tx[i]];
-        memcpy(uvwtd,dn,sizeof(dn));
-    }
-
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
+    offsetsTiltAndRotate(samp->getTimeTag(), uvwtd);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_noutVals);

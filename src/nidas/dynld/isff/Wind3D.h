@@ -367,6 +367,16 @@ public:
     void validateSscanfs() throw(nidas::util::InvalidParameterException);
 
     /**
+     * Parse the orientation parameter and set the vectors which translate
+     * the axes and signs of the wind sensor components.  The parameter
+     * must be one string: 'normal' (default), 'down', 'lefthanded',
+     * 'flipped' or 'horizontal'.  Throws InvalidParameterException if the
+     * string cannot be parsed.
+     **/
+    void
+    setOrientation(const std::string& orientation);
+
+    /**
      * Parse the list of nidas::core::Parameter that are associated with this sensor.
      * This also checks the parameters "wind3d_tilt_correction",
      * and "wind3d_horiz_rotation" that may have been set on the Project
