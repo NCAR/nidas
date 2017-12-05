@@ -126,6 +126,8 @@ typedef enum sampleType {
 	INT32_ST, UINT32_ST, FLOAT_ST, DOUBLE_ST,
 	INT64_ST, UNKNOWN_ST } sampleType;
 
+#include "sample_traits.h"
+
 /**
  * Overloaded function to return a enumerated value
  * corresponding to the type pointed to by the argument.
@@ -494,9 +496,14 @@ public:
     // templates, such as defined in sample_traits.h:
     //
     // Sample(sample_type_traits<DataT>::sample_type_enum)
+    //
+    // The original form using Sample(getSampleType(_data)) triggers
+    // warnings from clang about _data being used uninitialized.
 
     SampleT() : 
-        Sample(getSampleType(_data)), _data(0),_allocLen(0)
+        Sample(sample_type_traits<DataT>::sample_type_enum),
+        _data(0),
+        _allocLen(0)
     {}
 
     ~SampleT() { delete [] _data; }
