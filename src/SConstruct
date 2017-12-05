@@ -143,6 +143,7 @@ opts.Update(env)
 # print('CXXFLAGS=' + str(env['CXXFLAGS']))
 # print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
+env['CXX'] = 'clang'
 env['CFLAGS'] = [ '-Wall','-O2' ]
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
