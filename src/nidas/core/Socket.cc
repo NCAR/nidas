@@ -670,19 +670,21 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
 
 xercesc::DOMElement*
 ServerSocket::
-toDOMParent(xercesc::DOMElement* parent) throw(xercesc::DOMException)
+toDOMParent(xercesc::DOMElement* parent, bool complete) const
+    throw(xercesc::DOMException)
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS
         ((const XMLCh*)XMLStringConverter("dsmconfig"),
          DOMable::getNamespaceURI());
     parent->appendChild(elem);
-    return toDOMElement(elem);
+    return toDOMElement(elem, complete);
 }
 
 xercesc::DOMElement*
 ServerSocket::
-toDOMElement(xercesc::DOMElement* node) throw(xercesc::DOMException)
+toDOMElement(xercesc::DOMElement* node, bool) const
+    throw(xercesc::DOMException)
 {
     return node;
 }
