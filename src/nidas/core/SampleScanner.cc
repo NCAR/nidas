@@ -28,6 +28,7 @@
 #include "DSMSensor.h"
 #include "Project.h"
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
@@ -800,15 +801,22 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     size_t len = BUFSIZE;
 
     for (;;) {
+        size_t rlen;
 
         dsm_time_t tpacket = n_u::getSystemTime();
-        size_t rlen = sensor->read(_buffer+_bufhead,len);
-        if (rlen > 0) {
-            addNumBytesToStats(rlen);
-            _bufhead += rlen;
-            _packetLengths.push_back(rlen);
-            _packetTimes.push_back(tpacket);
+        try {
+            rlen = sensor->read(_buffer+_bufhead,len);
         }
+        catch (const n_u::EOFException& e) {
+            // nidas::util::Socket will return EOFException
+            // on a zero-length read. In this case it is
+            // likely just a zero-length packet.
+            rlen = 0;
+        }
+        addNumBytesToStats(rlen);
+        _bufhead += rlen;
+        _packetLengths.push_back(rlen);
+        _packetTimes.push_back(tpacket);
 
         len = sensor->getBytesAvailable();
 
