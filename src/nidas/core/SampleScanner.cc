@@ -797,9 +797,28 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     _packetLengths.clear();
     _packetTimes.clear();
 
+    size_t len = BUFSIZE;
+
     for (;;) {
-        size_t len = sensor->getBytesAvailable();
-        if (len == 0) break;    // exhausted = true, no data left
+
+        dsm_time_t tpacket = n_u::getSystemTime();
+        size_t rlen = sensor->read(_buffer+_bufhead,len);
+        if (rlen > 0) {
+            addNumBytesToStats(rlen);
+            _bufhead += rlen;
+            _packetLengths.push_back(rlen);
+            _packetTimes.push_back(tpacket);
+        }
+
+        len = sensor->getBytesAvailable();
+
+        // if len is 0, then either:
+        //  no datagrams remaining to be read,
+        //  or the next datagram has a length of 0.
+        //  If the latter, then the next call to readBuffer() will consume,
+        //  and discard the empty datagram
+ 
+        if (len == 0) break;
         if (len + _bufhead > BUFSIZE) {
             if (len > BUFSIZE) {
                 if (_bufhead > 0) break;    // read big fella next time
@@ -813,13 +832,6 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
                 break;
             }
         }
-
-        dsm_time_t tpacket = n_u::getSystemTime();
-        size_t rlen = sensor->read(_buffer+_bufhead,len);
-        addNumBytesToStats(rlen);
-        _bufhead += rlen;
-        _packetLengths.push_back(rlen);
-        _packetTimes.push_back(tpacket);
     }
     exhausted = exhstd;
     return _bufhead;
