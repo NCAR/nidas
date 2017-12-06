@@ -1061,11 +1061,41 @@ void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
 {
     list<Inet4NetworkInterface> ifcs = getInterfaces();
     // join on all interfaces
+    int njoined = 0;
     for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
-        ii != ifcs.end(); ++ii) {
+         ii != ifcs.end(); ++ii)
+    {
         Inet4NetworkInterface ifc = *ii;
-        if (ifc.getFlags() & IFF_BROADCAST && ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
-            joinGroup(groupAddr,ifc);
+        if (ifc.getFlags() & IFF_BROADCAST &&
+            ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
+        {
+            // On systems with multi-homed interfaces like ISS, the bind to
+            // the aliased address will fail with EADDRINUSE.  So report
+            // those errors but continue to join on the other interfaces.
+            try {
+                joinGroup(groupAddr, ifc);
+                ++njoined;
+            }
+            catch (const IOException& ioe)
+            {
+                if (ioe.getErrno() == EADDRINUSE)
+                {
+                    ELOG(("continuing past address in use error: ")
+                         << ioe.toString());
+                }
+                else
+                {
+                    throw ioe;
+                }
+            }
+        }
+    }
+    // If none of the interfaces succeeded, then that's really a problem.
+    if (ifcs.size() > 0 && njoined == 0)
+    {
+        throw IOException(groupAddr.getHostAddress(),
+                          "joinGroup()",
+                          "multicast join failed on all interfaces");
     }
 }
 #else
