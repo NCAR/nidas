@@ -106,14 +106,15 @@ test_csat3() {
     export WIND3D_TILT_CORRECTION=$3
     export WIND3D_HORIZ_ROTATION=$4
     local compare_to=$5
-    local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
+    local out=`basename "$compare_to" .gz`
+    local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4, output=$out"
     local data_file=data/centnet_20120601_000000.dat.bz2
     echo "Testing CSAT3: $msg"
-    data_dump -l 6 -i 6,11 -p -x config/test.xml \
-        $data_file 2> $tmperr > $tmpout || error_exit
+    data_dump -l 7 -i 6,11 -p -x config/test.xml \
+        $data_file 2> "${out}.log" > $out
     # cat $tmperr
-
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_warn "WARNING: differences in CSAT3 test of $msg, diff=" $tmperr $compare_to $tmpout
+    cp -fp "$out" "$tmpout"
+    gunzip -c $compare_to | diff -w - $out > $tmperr || diff_warn "WARNING: differences in CSAT3 test of $msg, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 

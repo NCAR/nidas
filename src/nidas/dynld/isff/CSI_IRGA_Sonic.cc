@@ -334,14 +334,9 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     transducerShadowCorrection(samp->getTimeTag(),uvwtd);
 #endif
 
-    if (_unusualOrientation) {
-        float dn[3];
-        for (int i = 0; i < 3; i++)
-            dn[i] = _sx[i] * uvwtd[_tx[i]];
-        memcpy(uvwtd,dn,sizeof(dn));
-    }
+    applyOrientation(samp->getTimeTag(), uvwtd);
 
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
+    offsetsTiltAndRotate(samp->getTimeTag(), uvwtd);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);

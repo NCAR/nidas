@@ -712,12 +712,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         transducerShadowCorrection(wsamp->getTimeTag(),dout);
 #endif
 
-        if (_unusualOrientation) {
-            float dn[3];
-            for (int i = 0; i < 3; i++)
-                dn[i] = _sx[i] * dout[_tx[i]];
-            memcpy(dout,dn,sizeof(dn));
-        }
+        applyOrientation(samp->getTimeTag(), dout);
 
         offsetsTiltAndRotate(wsamp->getTimeTag(), dout);
 

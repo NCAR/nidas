@@ -122,7 +122,8 @@ void Wind3D::despike(dsm_time_t tt,
     }
 }
 
-void Wind3D::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
+
+void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
@@ -179,13 +180,26 @@ void Wind3D::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
             }
         }
     }
+}
 
-    if (_unusualOrientation) {
+void Wind3D::applyOrientation(dsm_time_t tt, float* uvwt) throw()
+{
+    readOffsetsAnglesCalFile(tt);
+
+    if (_unusualOrientation)
+    {
         float dn[3];
         for (int i = 0; i < 3; i++)
+        {
             dn[i] = _sx[i] * uvwt[_tx[i]];
+        }
         memcpy(uvwt, dn, sizeof(dn));
     }
+}
+
+void Wind3D::offsetsTiltAndRotate(dsm_time_t tt, float* uvwt) throw()
+{
+    readOffsetsAnglesCalFile(tt);
 
     // bias removal is part of the tilt correction.
     if (_tiltCorrection) {
@@ -222,6 +236,7 @@ setOrientation(const std::string& orientation)
      *  When the sonic is in the normal orientation, +w is upwards
      *  approximately w.r.t gravity, and +u is wind into the sonic array.
      */
+    DLOG(("") << getName() << " setting orientation to " << orientation);
     if (orientation == "normal")
     {
         _tx[0] = 0;
@@ -314,6 +329,12 @@ setOrientation(const std::string& orientation)
              "must be one string: 'normal' (default), 'down', 'lefthanded', "
              "'flipped' or 'horizontal'");
     }
+    float before[3] = { 1.0, 2.0, 3.0 };
+    float after[3] = { 1.0, 2.0, 3.0 };
+    
+    applyOrientation(0, after);
+    DLOG(("sonic wind orientation will convert (%g,%g,%g) to (%g,%g,%g)",
+          before[0], before[1], before[2], after[0], after[1], after[2]));
 }
 
 
@@ -321,7 +342,6 @@ setOrientation(const std::string& orientation)
 void Wind3D::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-
     // Set default values of these parameters from the Project if they exist.
     // The value can be overridden with sensor parameters, below.
     const Project* project = Project::getInstance();
@@ -679,6 +699,8 @@ bool Wind3D::process(const Sample* samp,
     // apply shadow correction before correcting for unusual orientation
     transducerShadowCorrection(samp->getTimeTag(),uvwtd);
 #endif
+
+    applyOrientation(samp->getTimeTag(), uvwtd);
 
     offsetsTiltAndRotate(samp->getTimeTag(), uvwtd);
 
