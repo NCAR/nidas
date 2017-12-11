@@ -78,7 +78,7 @@ RemoteSerialListener::~RemoteSerialListener()
 void RemoteSerialListener::close() throw (n_u::IOException)
 {
     if (_socket.getFd() >= 0) {
-#if POLLING_METHOD == POLL_EPOLL_ET
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_socket.getFd(),NULL) < 0) {
             n_u::IOException e("RemoteSerialListener","EPOLL_CTL_DEL",errno);
             _socket.close();
