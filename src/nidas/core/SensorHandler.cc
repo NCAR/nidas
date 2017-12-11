@@ -49,7 +49,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     _epollfd(-1), _events(0), _nevents(0),
 #elif POLLING_METHOD == POLL_PSELECT
-    _rfdset(),_efdset,_nselect(0),_fds(0),
+    _rfdset(),_efdset(),_nselect(0),_fds(0),
     _polled(0), _nfds(0),_nAllocFds(0), _timeout(),
 #elif POLLING_METHOD == POLL_POLL
     _fds(0),
@@ -592,7 +592,9 @@ int SensorHandler::run() throw(n_u::Exception)
 
 #elif POLLING_METHOD == POLL_PSELECT
 
-        int nfd = ::pselect(_nselect,&_rfdset,NULL,&_efdset,
+        fd_set rfdset = _rfdset;
+        fd_set efdset = _efdset;
+        int nfd = ::pselect(_nselect,&rfdset,NULL,&efdset,
                 (_sensorCheckIntervalMsecs > 0 ? &_timeout : NULL),&sigmask);
 
         if (nfd <= 0) {      // select error, including receipt of signal, or timeout
@@ -602,46 +604,26 @@ int SensorHandler::run() throw(n_u::Exception)
                 PLOG(("%s",e.what()));
                 break;
             }
-            // poll timeout
-            rtime = n_u::getSystemTime();
-            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
-                checkTimeouts(rtime);
-            if (rtime > _sensorStatsTime) calcStatistics(rtime);
-            continue;
+            // poll timeout, nfd==0
         }
         rtime = n_u::getSystemTime();
 
         unsigned int ifd;
         for (ifd = 0; nfd > 0 && ifd < _nfds; ifd++) {
             int fd = _fds[ifd];
-            // It's not required, but we're calling handlePollEvents()
-            // just once for each active Polled object
-            if (FD_ISSET(fd,&_rfdset)) {
-                uint32_t events = N_POLLIN;
+            uint32_t events = 0;
+            if (FD_ISSET(fd,&rfdset)) {
+                events |= N_POLLIN;
                 nfd--;
-                if (FD_ISSET(fd,&_efdset)) {
-                    events |= N_POLLERR;
-                    nfd--;
-                }
-                else FD_SET(fd,&_efdset);
-
+            }
+            if (FD_ISSET(fd,&efdset)) {
+                events |= N_POLLERR;
+                nfd--;
+            }
+            if (events) {
                 Polled* pp = _polled[ifd];
                 pp->handlePollEvents(events);
             }
-            else {
-                FD_SET(fd,&_rfdset);
-                if (FD_ISSET(fd,&_efdset)) {
-                    Polled* pp = _polled[ifd];
-                    pp->handlePollEvents(N_POLLERR);
-                    nfd--;
-                }
-                else FD_SET(fd,&_efdset);
-            }
-        }
-        for ( ; ifd < _nfds; ifd++) {
-            int fd = _fds[ifd];
-            FD_SET(fd,&_rfdset);
-            FD_SET(fd,&_efdset);
         }
 #elif POLLING_METHOD == POLL_POLL
 
@@ -659,12 +641,7 @@ int SensorHandler::run() throw(n_u::Exception)
                 PLOG(("%s",e.what()));
                 break;
             }
-            // poll timeout
-            rtime = n_u::getSystemTime();
-            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
-                checkTimeouts(rtime);
-            if (rtime > _sensorStatsTime) calcStatistics(rtime);
-            continue;
+            // poll timeout, nfd==0
         }
 
         rtime = n_u::getSystemTime();

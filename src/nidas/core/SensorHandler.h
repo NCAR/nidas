@@ -69,6 +69,12 @@ namespace nidas { namespace core {
  * file descriptor.  The polling loop is implemented in
  * the Thread::run method of the SensorHandler.
  *
+ * This code has supported legacy systems which did not have the
+ * epoll() API, and used select/pselect or poll/ppoll instead.
+ * So, this code supports all the polling APIs, and one is
+ * selected using POLLING_METHOD. As of 2017 all known systems
+ * support epoll(), so the old select/poll code could be removed.
+ *
  * When an incoming socket connection is accepted on
  * RemoteSerialListener, a RemoteSerialConnection is
  * established, which first requests the name of a
@@ -179,7 +185,7 @@ public:
 
 
     /** 
-     * Tell the SensorHandler that one or more sensor timeouts  have changed.
+     * Tell the SensorHandler that one or more sensor timeouts have changed.
      */
     void updateTimeouts() 
     {
@@ -342,16 +348,15 @@ private:
     void scheduleReopen(PolledDSMSensor*) throw();
 
     /**
-     * Internal private method to create a PolledDSMSensor from
-     * a DSMSensor and add it to the list of currently active
-     * sensors.
+     * Internal private method to add a remote serial
+     * connection to a sensor.
      */
     void add(RemoteSerialConnection *) throw();
 
     void remove(RemoteSerialConnection *) throw();
 
     /**
-     * Schedule this PolledDSMSensor to be closed
+     * Schedule this remote serial connection to be closed
      * when convenient.
      */
     void scheduleAdd(RemoteSerialConnection*) throw();
