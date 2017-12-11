@@ -112,7 +112,6 @@ public:
 
     virtual int getFd() const = 0;
 
-#if POLLING_METHOD == POLL_EPOLL_ET
     /**
      * @return: true: read consumed all available data, false otherwise.
      * This return value is required for edge-triggered polling
@@ -120,9 +119,6 @@ public:
      * a file descriptor until all available data is read.
      */
     virtual bool handlePollEvents(uint32_t events) throw() = 0;
-#else
-    virtual void handlePollEvents(uint32_t events) throw() = 0;
-#endif
 };
 
 }}	// namespace nidas namespace core

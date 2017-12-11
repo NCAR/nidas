@@ -47,11 +47,7 @@ public:
 
     ~RemoteSerialListener();
 
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool handlePollEvents(uint32_t events) throw();
-#else
-    void handlePollEvents(uint32_t events) throw();
-#endif
 
     void close() throw(nidas::util::IOException);
 

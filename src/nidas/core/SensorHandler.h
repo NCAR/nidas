@@ -208,11 +208,7 @@ private:
         /**
          * @return: true: read consumed all available data.
          */
-#if POLLING_METHOD == POLL_EPOLL_ET
         bool handlePollEvents(uint32_t events) throw();
-#else
-        void handlePollEvents(uint32_t events) throw();
-#endif
 
         DSMSensor* getDSMSensor() { return _sensor; }
 
@@ -294,11 +290,8 @@ private:
 
         ~NotifyPipe();
 
-#if POLLING_METHOD == POLL_EPOLL_ET
         bool handlePollEvents(uint32_t events) throw();
-#else
-        void handlePollEvents(uint32_t events) throw();
-#endif
+
         void close() throw(nidas::util::IOException);
 
         /**

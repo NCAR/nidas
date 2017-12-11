@@ -356,8 +356,7 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
 
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
-    bool exhausted = false;
-    exhausted = readBuffer();
+    bool exhausted = readBuffer();
 
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {

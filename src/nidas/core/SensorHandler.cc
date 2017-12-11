@@ -223,25 +223,15 @@ void SensorHandler::incrementFullBufferReads(const DSMSensor* sensor)
                     _fullBufferReads[sensor]));
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool exhausted = false;
-#endif
     if (events & N_POLLIN) {
         try {
-#if POLLING_METHOD == POLL_EPOLL_ET
             exhausted = _sensor->readSamples();
             if (!exhausted)
                 _handler->incrementFullBufferReads(_sensor);
-#else
-            _sensor->readSamples();
-#endif
             _nTimeoutChecks = 0;
         }
         catch(n_u::IOException & ioe) {
@@ -254,11 +244,7 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
                 _handler->scheduleReopen(this);
             else
                 _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
             return true;
-#else
-            return;
-#endif
         }
     }
     if (events & (N_POLLERR | N_POLLRDHUP | N_POLLHUP))
@@ -273,13 +259,9 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             _handler->scheduleReopen(this); // Try to reopen
         else
             _handler->scheduleClose(this);    // report error but don't reopen
-#if POLLING_METHOD == POLL_EPOLL_ET
         exhausted = true;
-#endif
     }
-#if POLLING_METHOD == POLL_EPOLL_ET
     return exhausted;
-#endif
 }
 
 bool SensorHandler::PolledDSMSensor::checkTimeout()
@@ -395,16 +377,10 @@ void SensorHandler::NotifyPipe::close() throw(n_u::IOException)
     if (fd1 >= 0) ::close(fd1);
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool exhausted = false;
-#endif
     if (events & N_POLLIN) {
         char buf[4];
         ssize_t l = read(_fds[0], buf, sizeof(buf));
@@ -417,17 +393,13 @@ SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
                 PLOG(("%s",e.what()));
             }
         }
-#if POLLING_METHOD == POLL_EPOLL_ET
         exhausted = (size_t)l < sizeof(buf);
-#endif
     }
 
     if (events & (N_POLLERR | N_POLLHUP | N_POLLRDHUP))
         PLOG(("%s", "SensorHandler::NotifyPipe epoll exception"));
 
-#if POLLING_METHOD == POLL_EPOLL_ET
     return exhausted;
-#endif
 }
 
 void SensorHandler::NotifyPipe::notify() throw()
