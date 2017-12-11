@@ -67,7 +67,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 {
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
-    assert(EPOLLIN == N_POLLIN || EPOLLERR == N_POLLERR || EPOLLHUP == N_POLLHUP);
+    assert(EPOLLIN == N_POLLIN && EPOLLERR == N_POLLERR && EPOLLHUP == N_POLLHUP);
 
 #ifdef EPOLLRDHUP
     assert(EPOLLRDHUP == N_POLLRDHUP);
