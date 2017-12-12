@@ -52,7 +52,7 @@ VCSEL2_Serial::~VCSEL2_Serial()
 
 void VCSEL2_Serial::open(int flags) throw(n_u::IOException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
@@ -67,7 +67,7 @@ void VCSEL2_Serial::close() throw(n_u::IOException)
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
-    DSMSerialSensor::close();
+    SerialSensor::close();
 }
 
 
