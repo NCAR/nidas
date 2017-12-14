@@ -53,6 +53,8 @@ protected:
 
     float scanValue(const char *cp);
 
+    /// We want to output a rateper second, not the total
+    float _previousTotal;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

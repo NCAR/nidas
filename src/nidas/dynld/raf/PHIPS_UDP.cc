@@ -37,7 +37,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,PHIPS_UDP)
 
-PHIPS_UDP::PHIPS_UDP()
+PHIPS_UDP::PHIPS_UDP() : _previousTotal(0)
 {
 }
 
@@ -76,7 +76,9 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         cp = ::strchr(cp, sep);
         if (cp) cp++;
-        *dout++ = scanValue(cp);    // Total
+        float val = scanValue(cp);    // Total
+        *dout++ = val - _previousTotal;
+        _previousTotal = val;
 
         cp = ::strchr(cp, sep);
         if (cp) cp++;
