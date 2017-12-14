@@ -30,11 +30,6 @@
 #include <nidas/core/Resampler.h>
 #include <nidas/core/SampleTag.h>
 
-#include <vector>
-#include <list>
-#include <map>
-#include <string>
-
 #define SYNC_RECORD_ID 3
 #define SYNC_RECORD_HEADER_ID 2
 

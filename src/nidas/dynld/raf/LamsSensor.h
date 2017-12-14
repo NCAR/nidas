@@ -31,9 +31,6 @@
 #ifndef NIDAS_DYNLD_RAF_LAMSSENSOR_H
 #define NIDAS_DYNLD_RAF_LAMSSENSOR_H
 
-#include <iostream>
-#include <iomanip>
-
 #include <nidas/linux/lams/lamsx.h>
 
 #include <nidas/core/DSMSensor.h>

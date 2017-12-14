@@ -29,8 +29,6 @@
 
 #include <nidas/dynld/DSMSerialSensor.h>
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**

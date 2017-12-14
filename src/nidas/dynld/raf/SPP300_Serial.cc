@@ -28,9 +28,6 @@
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/IOTimeoutException.h>
-
-#include <sstream>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;

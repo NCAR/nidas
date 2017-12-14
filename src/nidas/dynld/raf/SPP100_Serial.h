@@ -29,8 +29,6 @@
 
 #include "SppSerial.h"
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**

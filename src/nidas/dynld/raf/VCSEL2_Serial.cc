@@ -25,14 +25,8 @@
 */
 
 #include "VCSEL2_Serial.h"
-#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
-
-#include <asm/ioctls.h>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;

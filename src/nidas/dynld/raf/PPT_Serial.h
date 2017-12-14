@@ -31,7 +31,7 @@
 #define PARITY_ERROR "#00CP!0.0000"
 #define BUFFER_ERROR "*9dP1!"
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 
 #include <nidas/util/InvalidParameterException.h>
 
@@ -47,7 +47,7 @@ using namespace nidas::core;
  * sscanf doesn't have a form for that, and that we'd like
  * to get temperature at 1 Hz and Pressure at 100 Hz.
  */
-class PPT_Serial : public DSMSerialSensor
+class PPT_Serial : public SerialSensor
 {
 
 public:

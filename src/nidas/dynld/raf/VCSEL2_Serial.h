@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef _nidas_dynld_raf_vcsel_serial_h_
-#define _nidas_dynld_raf_vcsel_serial_h_
+#ifndef _nidas_dynld_raf_vcsel2_serial_h_
+#define _nidas_dynld_raf_vcsel2_serial_h_
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/DerivedDataClient.h>

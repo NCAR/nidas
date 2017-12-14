@@ -29,16 +29,7 @@
  */
 
 #include "LamsNetSensor.h"
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/UnixIODevice.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>
-
-#include <iostream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;

@@ -30,8 +30,6 @@
 #include "SppSerial.h"
 #include <nidas/util/RunningAverage.h>
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**

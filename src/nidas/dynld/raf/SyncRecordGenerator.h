@@ -30,10 +30,6 @@
 #include <nidas/core/SampleIOProcessor.h>
 #include "SyncRecordSource.h"
 
-#include <vector>
-#include <map>
-#include <string>
-
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;

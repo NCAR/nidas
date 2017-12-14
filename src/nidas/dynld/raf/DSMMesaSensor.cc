@@ -34,8 +34,6 @@
 #include <nidas/util/Logger.h>
 
 #include <asm/ioctls.h>
-#include <iostream>
-#include <sstream>
 
 using namespace std;
 using namespace nidas::dynld::raf;
