@@ -53,8 +53,11 @@ protected:
 
     float scanValue(const char *cp);
 
-    /// We want to output a rateper second, not the total
-    float _previousTotal;
+    /// We want to output a rate per second, not the total
+    int _previousTotal;
+
+    /// We want to output a rate per second, not the total
+    int _previousCam[2];
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

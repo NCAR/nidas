@@ -25,7 +25,6 @@
 */
 
 #include "PHIPS_UDP.h"
-//#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -39,6 +38,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,PHIPS_UDP)
 
 PHIPS_UDP::PHIPS_UDP() : _previousTotal(0)
 {
+  _previousCam[0] = _previousCam[1] = 00;
 }
 
 PHIPS_UDP::~PHIPS_UDP()
@@ -76,7 +76,7 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         cp = ::strchr(cp, sep);
         if (cp) cp++;
-        float val = scanValue(cp);    // Total
+        int val = scanValue(cp);    // Total
         *dout++ = val - _previousTotal;
         _previousTotal = val;
 
@@ -123,19 +123,28 @@ bool PHIPS_UDP::process(const Sample * samp,
 
     if (!strncmp(input, "PHIPS-CAM,", 10))
     {
-        // 3 scalars and 20 bin histogram == 23.
-        SampleT<float> * outs = getSample<float>(2);
-        outs->setTimeTag(samp->getTimeTag());
-        outs->setId(getId() + 1);
-        float * dout = outs->getDataPtr();
+        // Two cameras.
+        int seq, camera;
 
         input += 10;
         const char *cp = ::strchr(input, sep); // skip date/time stamp.
         if (cp) cp++;
-        *dout++ = scanValue(cp);    // Sequence
+        // Camera file name format.  2 Cameras, so get camera number
+        //   (e.g. C1 below), and image number.
+        // PhipsData_20171101-2111_30887666167900_000001_C1.png
+        if (sscanf(input, "PhipsData_%*d-%*d_%*d_%d_C%d.png", &seq, &camera) == 2)
+        {
+            SampleT<float> * outs = getSample<float>(2);
+            outs->setTimeTag(samp->getTimeTag());
+            outs->setId(getId() + 2);
+            float * dout = outs->getDataPtr();
 
-        results.push_back(outs);
-        return true;
+            --camera;
+            dout[camera] = seq - _previousCam[camera];
+            _previousCam[camera] = seq;
+            results.push_back(outs);
+            return true;
+        }
     }
 
     return false;
