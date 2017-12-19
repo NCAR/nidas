@@ -144,7 +144,7 @@ opts.Update(env)
 # print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
 env['CFLAGS'] = [ '-Wall','-O2' ]
-env['CXXFLAGS'] = [ '-Wall','-O2' ]
+env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated' ]
 
 env['CCFLAGS'] = [ ]
 
