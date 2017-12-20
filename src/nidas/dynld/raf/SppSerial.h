@@ -149,8 +149,9 @@ protected:
      * good record are dropped, leaving the good record will be at the head of 
      * _waitingData.  If no good record is found, the function returns false,
      * and the last (packetLen()-1) bytes of _waitingData are retained.
+     * Is virtual so PIP can override.
      */
-    int appendDataAndFindGood(const Sample* sample);
+    virtual int appendDataAndFindGood(const Sample* sample);
 
     /**
      * Apply a VariableConversion to an output value.

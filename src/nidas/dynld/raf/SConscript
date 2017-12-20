@@ -11,6 +11,7 @@ sources = Split("""
     Arinc_IRS.cc
     BCPD_Serial.cc
     CDP_Serial.cc
+    CMIGITS3_Serial.cc
     CVI_LV_Input.cc
     CVIOutput.cc
     CVIProcessor.cc
@@ -26,6 +27,8 @@ sources = Split("""
     LSZ_HW_EB7032239.cc
     PHIPS_UDP.cc
     PPT_Serial.cc
+    PIP_Serial.cc
+    PIP_Image.cc
     PSI9116_Sensor.cc
     SidsNetSensor.cc
     SppSerial.cc
@@ -55,6 +58,7 @@ headers = Split("""
     Arinc_IRS.h
     BCPD_Serial.h
     CDP_Serial.h
+    CMIGITS3_Serial.h
     CVI_LV_Input.h
     CVIOutput.h
     CVIProcessor.h
@@ -70,6 +74,8 @@ headers = Split("""
     PHIPS_UDP.h
     LSZ_HW_EB7032239.h
     PPT_Serial.h
+    PIP_Serial.h
+    PIP_Image.h
     PSI9116_Sensor.h
     SidsNetSensor.h
     SppSerial.h
