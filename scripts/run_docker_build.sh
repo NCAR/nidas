@@ -30,6 +30,8 @@ cd $dir/..
 # If the image is not already loaded, docker run will pull the image
 # from the Docker Hub.
 
-docker run --rm --volume $PWD:/home/builder/nidas:rw,Z \
+docker run --rm \
+    --volume $PWD:/home/builder/nidas:rw,Z \
+    --volume /opt/nidas:/opt/nidas:rw,Z \
     -i -t $image /bin/bash
 
