@@ -11,7 +11,6 @@ sources = Split("""
     Arinc_IRS.cc
     BCPD_Serial.cc
     CDP_Serial.cc
-    CMIGITS3_Serial.cc
     CVI_LV_Input.cc
     CVIOutput.cc
     CVIProcessor.cc
@@ -58,7 +57,6 @@ headers = Split("""
     Arinc_IRS.h
     BCPD_Serial.h
     CDP_Serial.h
-    CMIGITS3_Serial.h
     CVI_LV_Input.h
     CVIOutput.h
     CVIProcessor.h
