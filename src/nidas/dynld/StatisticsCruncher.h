@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -54,7 +54,7 @@ public:
     typedef enum statsEnumType {
         STATS_UNKNOWN,STATS_MINIMUM,STATS_MAXIMUM,STATS_MEAN,STATS_VAR,
 	STATS_COV, STATS_FLUX, STATS_RFLUX,STATS_SFLUX,
-        STATS_TRIVAR,STATS_PRUNEDTRIVAR, STATS_WINDDIR
+        STATS_TRIVAR,STATS_PRUNEDTRIVAR, STATS_WINDDIR, STATS_SUM
     } statisticsType;
 
     /**
@@ -239,6 +239,10 @@ protected:
 
     void computeStats();
 
+    void
+    addVariable(const std::string& name,
+                const std::string& longname,
+                const std::string& units);
 private:
 
     /**
