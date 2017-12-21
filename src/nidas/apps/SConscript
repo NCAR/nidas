@@ -81,6 +81,12 @@ has_i2c = False
 if sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
         'i2c_smbus_read_byte_data(0,0);'):
     has_i2c = True
+    has_old_i2c = False
+# check if i2c API has 3(old) or 4(new) arguments in
+# i2c_smbus_read_i2c_block_data
+    if not sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
+            'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
+        env.Append(CPPDEFINES="OLD_I2C_API")
 
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')

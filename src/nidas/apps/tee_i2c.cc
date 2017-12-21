@@ -495,8 +495,12 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
         // if (l == 0) break;
 #else
         // address 0xff, data stream
+#ifdef OLD_I2C_API
+        int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff, i2cbuf);
+#else
         int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff,
                 sizeof(i2cbuf), i2cbuf);
+#endif
         if (l < 0)
             throw n_u::IOException(_i2cname,"read_block",errno);
         if (l == 0) break;
