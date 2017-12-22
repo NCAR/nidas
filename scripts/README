@@ -1,0 +1,58 @@
+
+Scripts for doing builds of NIDAS under Debian, supporting native
+amd64 builds and cross-builds for armel (namely Eurotech viper and titan),
+and armhf (RaspberryPi 2).
+
+The builds can be done from a full Debian system (which can of course be virtual)
+or from within a Docker container.
+
+Several scripts are used for building Debian packages.
+When building Debian packages, one should either use a chroot on a
+Debian system, or build from a Docker container.
+See https://wiki.debian.org/HowToPackageForDebian.
+
+sbuild is used to create the necessary chroots, one for
+each architecture, and schroot or sbuild-shell to execute commands
+in the chroots.
+
+The docker directory contains scripts and Dockerfiles for creating
+docker images for cross-building.
+
+Scripts:
+
+build_dpkg.sh [-c] [-i repo] arch
+    Build debian packages of NIDAS for the specified architecture
+    -c: build package under a chroot.  Recommended
+    -i repo: install debian packages to the given repository, using
+        the Debian reprepro command.
+    This script, without the -c or -i options can be run from a docker container.
+
+sbuild_setup.sh
+    Create chroots for amd64, armel and armhf architectures,
+    and add the necessary development packages for building NIDAS.
+    Requires sudo access.
+
+update_chroots.sh
+    Update development packages in the chroots. Requires sudo access.
+    Over time, the development packages on the chroots become out-of-date.
+    Use this script to update them.  If a package is undergoing
+    frequent updates, which are important for building NIDAS, then
+    then a manual update of the package using shell_chroot.sh
+    may be the easiest method.
+
+shell_chroot.sh
+    Run a shell in the chroot under sudo, using sbuild-shell.
+    Useful for trouble shooting, or manual package upgrades.
+
+start_chroot.sh
+    Run a shell in the chroot, using schroot. Similar to shell_chroot.sh,
+    but does not use sudo.
+
+build_nidas.sh arch
+    Do a basic scons build of NIDAS for the given architecture. This script
+    sets the PKG_CONFIG_PATH environment variable so that
+    pkgconfig files specific to the architecture are found.
+
+run_docker_build.sh arch
+    Download and run a docker image to do cross builds.
+
