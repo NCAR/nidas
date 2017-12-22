@@ -70,9 +70,8 @@ if $use_chroot; then
     fi
 fi
 
-sdir=$(dirname $0)
-dir=$sdir/..
-cd $dir
+sdir=$(realpath $(dirname $0))
+cd $sdir/..
 
 # This
 #       export CC=arm-linux-gnueabi-gcc
