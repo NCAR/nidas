@@ -949,10 +949,8 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
   void Apply3DCorrect(float uvwtd[5]) {
     metek::uvwt samp;
     samp.u = uvwtd[0]; samp.v = uvwtd[1]; samp.w = uvwtd[2]; samp.t = uvwtd[3];
-    std::cout << "\t\tIn" << samp.u << " " << samp.v << " " << samp.w << " " << samp.t << " ";
     Apply3DCorrect(samp);
-    std::cout << "Out" << samp.u << " " << samp.v << " " << samp.w << " " << samp.t << std::endl;
-    uvwtd[0] = samp.u; uvwtd[1] = samp.v; uvwtd[2] = samp.w; uvwtd[3] = samp.t;
+    vwtd[0] = samp.u; uvwtd[1] = samp.v; uvwtd[2] = samp.w; uvwtd[3] = samp.t;
   }
 /*CalcCorrection returns a correction value utilizing tables given in Risø-R-1659(EN).
   fourierCoeffs is a double[6] array which is composed of the following values:
