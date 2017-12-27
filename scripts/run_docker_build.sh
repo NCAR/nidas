@@ -27,10 +27,16 @@ esac
 dir=$(dirname $0)
 cd $dir/..
 
-# If the image is not already loaded, docker run will pull the image
-# from the Docker Hub.
+# If the image is not already loaded, docker run will pull the image from
+# the Docker Hub.
 
-docker run --rm \
+# Run the image as the current user and group, so the image will have
+# permission to write to the source tree and the files will have the right
+# owner.  It is safe to disregard the "Who am I?" messages in the container
+# caused by the user id not existing in the /etc/passwd file.
+
+set -x
+exec docker run --rm --user `id -u`:`id -g` \
     --volume $PWD:/home/builder/nidas:rw,Z \
     --volume /opt/nidas:/opt/nidas:rw,Z \
     -i -t $image /bin/bash
