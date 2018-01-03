@@ -66,8 +66,8 @@ PIP_Image::~PIP_Image()
 bool PIP_Image::process(const Sample* samp,list<const Sample*>& results)
         throw()
 {
-cerr<<"PIP_Image process\n";
+//cerr<<"PIP_Image process\n";
 
-return true;
+return false;
 }
 
