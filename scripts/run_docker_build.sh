@@ -35,8 +35,13 @@ cd $dir/..
 # owner.  It is safe to disregard the "Who am I?" messages in the container
 # caused by the user id not existing in the /etc/passwd file.
 
+# group=$(id -g)
+group=eol
+
+echo "Running container as group $group, which must have rwx permission on $PWD and /opt/nidas"
+
 set -x
-exec docker run --rm --user `id -u`:`id -g` \
+exec docker run --rm --user `id -u`:$group \
     --volume $PWD:/home/builder/nidas:rw,Z \
     --volume /opt/nidas:/opt/nidas:rw,Z \
     -i -t $image /bin/bash

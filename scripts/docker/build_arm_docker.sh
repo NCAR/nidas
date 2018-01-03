@@ -8,6 +8,10 @@ set -e
 
 # images will have a "builder" user, and a group eol:1342
 
+# You must do a "docker login $dockuser" before doing
+# the docker push
+dockuser=maclean
+
 group=eol
 gid=1342
 
@@ -17,8 +21,8 @@ docker build -t $image \
     --build-arg=group=$group --build-arg=gid=$gid \
     --build-arg=hostarch=$arch \
     -f Dockerfile.cross_arm .
-docker tag  $image maclean/$image
-docker push maclean/$image
+docker tag  $image $dockuser/$image
+docker push $dockuser/$image
 
 image=debian-armhf-cross:jessie 
 arch=armhf
@@ -26,5 +30,5 @@ docker build -t $image \
     --build-arg=group=$group --build-arg=gid=$gid \
     --build-arg=hostarch=$arch \
     -f Dockerfile.cross_arm .
-docker tag  $image maclean/$image
-docker push maclean/$image
+docker tag  $image $dockuser/$image
+docker push $dockuser/$image
