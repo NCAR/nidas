@@ -30,7 +30,7 @@ cd $dir/..
 # If the image is not already loaded, docker run will pull the image from
 # the Docker Hub.
 
-# Run the image as the current user and group, so the image will have
+# Run the image as the current user and group=eol, so the image will have
 # permission to write to the source tree and the files will have the right
 # owner.  It is safe to disregard the "Who am I?" messages in the container
 # caused by the user id not existing in the /etc/passwd file.
