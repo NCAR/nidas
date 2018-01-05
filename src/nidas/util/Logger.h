@@ -203,24 +203,6 @@ namespace nidas { namespace util {
 #define	LOG_VERBOSE LOG_CONTEXT(LOGGER_VERBOSE)
 
 /**
- * Provide Synchronized functionality without exposing the Logger mutex member.
- * Of course the mutex is still not completely private since anyone can use
- * the LogLock.
- *
- * This turned out to be not a good idea and is now obsolete.  It should
- * eventually be removed.  The global Logger lock should only be locked
- * where global Logger state needs to be protected.  If things like a
- * LogContext need to be guarded, they should be guarded with their own
- * lock instances, as described in the LOGGER_LOGPOINT() macro.
- **/
-class LogLock
-{
-public:
-    LogLock();
-    virtual ~LogLock();
-};
-
-/**
  * This macro creates a static LogContext instance that is not in
  * thread-local storage and therefore is not thread-safe.  The active flag
  * will be written from any thread which changes the log configuration, and
@@ -1181,7 +1163,6 @@ public:
         void
         msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
 
-        friend class nidas::util::LogLock;
         friend class nidas::util::LogContext;
         friend class nidas::util::LogScheme;
 
@@ -1206,18 +1187,6 @@ public:
     log() const
     {
         return LogMessage(this);
-    }
-
-    inline
-    LogLock::LogLock() 
-    {
-        nidas::util::Logger::mutex.lock();
-    }
-
-    inline
-    LogLock::~LogLock() 
-    {
-        nidas::util::Logger::mutex.unlock();
     }
 
     template <typename T>
