@@ -1128,12 +1128,17 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    //This is not very efficient, but as a hack, we need to check if TsoilUnsigned16 exists, and if it does, we want to treat it as an uint16
+    // This is not very efficient, but as a hack, we need to check if
+    // TsoilUnsigned16 exists, and if it does, we want to treat it as an
+    // uint16.
     bool tsoilIsUint16 = false;
-    const Parameter* uint16samps = stag->getParameter("TsoilUnsigned16");
-    if (uint16samps) {
-      if (uint16samps->getType() != Parameter::BOOL_PARAM) throw n_u::InvalidParameterException(getName(),"TsoilUnsigned16","should be boolean type");
-      tsoilIsUint16 = (bool) uint16samps->getNumericValue(0);
+    if (stag)
+    {
+        const Parameter* uint16samps = stag->getParameter("TsoilUnsigned16");
+        if (uint16samps) {
+            if (uint16samps->getType() != Parameter::BOOL_PARAM) throw n_u::InvalidParameterException(getName(),"TsoilUnsigned16","should be boolean type");
+            tsoilIsUint16 = (bool) uint16samps->getNumericValue(0);
+        }
     }
     cp = tsoilIsUint16 ? readUint16(cp,eos,NTSOILS,0.01,fp): readInt16(cp,eos,NTSOILS,0.01,fp);
 
