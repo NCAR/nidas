@@ -1067,13 +1067,16 @@ namespace nidas { namespace util {
 #endif
 
         /**
-         * Send a log message for the given LogContext @p lc.  No check is
-         * done for whether the context is active or not, the message is
-         * just immediately sent to the current log output, formatted
-         * according to the context.  For syslog output, the message and
-         * severity level are passed.  For all other output, the message
-         * includes the current time and the log context info, such as
-         * filename, line number, function name, and thread name.
+         * Send a log message for the given LogContext @p lc.  The Logger
+         * double-checks that the LogContext is active, to guard against
+         * (or allow) code which logs messages that are not guarded by a
+         * test of lc.active().  If active, the message is just immediately
+         * sent to the current log output, formatted according to the
+         * context.  For syslog output, the message and severity level are
+         * passed, but VERBOSE messages are never passed to syslog.  For
+         * all other output, the message includes the current time and the
+         * log context info, such as filename, line number, function name,
+         * and thread name.
          **/
         void
         msg(const LogContext& lc, const std::string& msg);
