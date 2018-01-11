@@ -33,6 +33,7 @@
 #include "Parameter.h"
 #include "SensorCatalog.h"
 #include "Looper.h"
+#include "Variable.h"
 
 #include "SamplePool.h"
 #include "CalFile.h"
@@ -389,6 +390,61 @@ bool DSMSensor::receive(const Sample *samp) throw()
     _source.distribute(results);	// distribute does the freeReference
     return true;
 }
+
+void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
+                                 bool limitcheck)
+{
+    if (!stag || !outs)
+        return;
+
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        for (unsigned int id = 0; id < var->getLength(); id++, fp++)
+        {
+            float val = *fp;
+            /* check for missing value before conversion. This
+             * is for sensors that put out something like -9999
+             * for a missing value, which should be checked before
+             * any conversion, and for which an exact equals check
+             * should work.  Doing a equals check on a numeric after a
+             * conversion is problematic.
+             */
+            if (val == var->getMissingValue())
+            {
+                val = floatNAN;
+            }
+            else if (getApplyVariableConversions())
+            {
+                VariableConverter* conv = var->getConverter();
+                if (conv)
+                {
+                    val = conv->convert(outs->getTimeTag(), val);
+                }
+                /* @TODO XXX Screen values outside of min,max.  The
+                   original code screened values whether conversion was
+                   applied or not, but to which 'space' does min/max apply,
+                   pre or post conversion?  It seems like min/max are
+                   expected to be in the converted space, so don't filter
+                   on min/max if conversions not applied.  It also makes
+                   sense to me that disabling conversions, presumably to
+                   see the more raw values, implies not filtering any
+                   values either.  In practice this change should have
+                   little effect, since the 'applyCals' site attribute is
+                   rarely enabled. */
+                if (limitcheck &&
+                    (val < var->getMinValue() || val > var->getMaxValue()))
+                {
+                    val = floatNAN;
+                }
+            }
+            *fp = val;
+        }
+    }
+}
+
 
 #ifdef IMPLEMENT_PROCESS
 /**

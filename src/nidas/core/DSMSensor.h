@@ -1007,6 +1007,30 @@ protected:
         _lag = (int) rint(val * USECS_PER_SEC);
     }
 
+    /**
+     * Perform variable conversions for the variables in @p stag whose
+     * values and sample time have been set in @p outs.  This method can be
+     * used by subclasses to apply any variable conversions associated with
+     * the variables in the given SampleTag, using a general algorithm
+     * which loops over each value in each variable.  The min/max value
+     * limits of a variable are applied also, so if a variable value is
+     * converted but lies outside the min/max range, the value is set to
+     * floatNAN.  Typically this can be the last step applied to the output
+     * sample of a sensor's process() method, and note that the sample time
+     * must already be set in the output sample @p outs, since that time
+     * will be used to look up conversions in calibration files.
+     *
+     * If @p limitcheck is false, then the min/max limit check is skipped,
+     * even if a conversion is applied.  This is used when the variable
+     * values may be scaled, but rather than replacing the value of an
+     * out-of-range threshold variable with a nan, that variable is not
+     * replaced but instead determines whether to filter other variables.
+     * An example is the Ifan variable in the TRH WisardMote.
+     **/
+    void
+    applyConversions(SampleTag* stag, SampleT<float>* outs,
+                     bool limitcheck=true);
+
 private:
 
     /**

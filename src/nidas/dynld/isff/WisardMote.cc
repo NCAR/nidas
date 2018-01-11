@@ -465,30 +465,10 @@ throw ()
     return true;
 }
 
-void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp,bool limitcheck)
+void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp,
+                         bool limitcheck)
 {
-    if (!stag || !osamp) return;
-
-    const vector<Variable*>& vars = stag->getVariables();
-    unsigned int slen = vars.size();
-    float *fp = osamp->getDataPtr();
-
-    unsigned int nv;
-    for (nv = 0; nv < slen; nv++,fp++) {
-        // DLOG(("f[%d]= %f", nv, *fp));
-        float val = *fp;
-        Variable* var = vars[nv];
-        if (val == var->getMissingValue()) val = floatNAN;
-        else {
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(osamp->getTimeTag(),val);
-            }
-            if (limitcheck && (val < var->getMinValue() || val > var->getMaxValue()))
-                val = floatNAN;
-        }
-        *fp = val;
-    }
+    applyConversions(stag, osamp, limitcheck);
 }
 
 /*
