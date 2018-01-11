@@ -764,12 +764,41 @@ namespace nidas { namespace util {
         setParameter(const std::string& name, const std::string& value);
 
         /**
-         * Return the value of the parameter.  If the parameter has not
-         * been set, then return the default.
+         * Return the string value of the parameter with name @p name.  If
+         * the parameter has not been set in this LogScheme, then return
+         * the default value @p dvalue.  See getParameterT() to retrieve
+         * the string value as a particular type.
          **/
         std::string
         getParameter(const std::string& name, const std::string& dvalue="");
 
+        /**
+         * Lookup a parameter with name @p name in a LogScheme and convert
+         * the value to the type of the @p dvalue parameter.  If the
+         * parameter has not been set in this LogScheme or cannot be
+         * converted, then return @p dvalue.
+         *
+         * Below is an example of using a log parameter to throttle the
+         * frequency of a log message.  The first section retrieves the value,
+         * the second logs the message.
+         *
+         * @code
+         * _discardWarningCount = 1000;
+         * _discardWarningCount =
+         * LogScheme::current().getParameterT("_discard_warning_count",
+         *                                    _discardWarningCount);
+         * @endcode
+         *
+         * Then use the parameter value like so:
+         *
+         * @code
+         * if (!(_discardedSamples++ % _discardWarningCount))
+         *     WLOG(("%d samples discarded... ", _discardedSamples));
+         * @endcode
+         *
+         * See the NidasApp class 'logparam' option to set a LogScheme
+         * parameter on the command-line.
+         **/
         template <typename T>
         T
         getParameterT(const std::string& name, const T& dvalue = T());
