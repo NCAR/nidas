@@ -152,11 +152,8 @@ void WisardMote::validate()
     if (_processorSensor == this) 
         checkLessUsedSensors();
 
-#ifdef DEBUG
-    cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
-    cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
-    cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
-#endif
+    VLOG(("final getSampleTags().size()=") << getSampleTags().size());
+    VLOG(("final _sampleTagsByIdTags.size()=") << _sampleTagsById.size());
     SerialSensor::validate();
 }
 
@@ -247,10 +244,9 @@ void WisardMote::createSampleTags(const SampleTag* stag,const vector<int>& senso
 
 void WisardMote::addMoteSampleTag(SampleTag* tag)
 {
-#ifdef DEBUG
-    cerr << "addSampleTag, id=" << tag->getDSMId() << ',' << hex << tag->getSpSId() << dec <<
-        ", ntags=" << getSampleTags().size() << endl;
-#endif
+    VLOG(("addSampleTag, id=") << tag->getDSMId() << ','
+         << hex << tag->getSpSId() << dec
+         << ", ntags=" << getSampleTags().size());
     
     if (_sampleTagsById[tag->getId()]) {
         WLOG(("%s: duplicate processed sample tag for id %d,%#x",
@@ -398,12 +394,10 @@ throw ()
         /* get Wisard sensor type */
         unsigned int sensorType = (unsigned char)*cp++;
 
-#ifdef DEBUG
-        DLOG(("%s: %s, moteId=%d, sensorid=%#x, sensorType=%#x",
-                getName().c_str(),
-                n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                header.moteId, getSensorId(),sensorType));
-#endif
+        VLOG(("%s: %s, moteId=%d, sensorid=%#x, sensorType=%#x",
+              getName().c_str(),
+              n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+              header.moteId, getSensorId(),sensorType));
 
         /* find the appropriate member function to unpack the data for this sensorType */
         const pair<unpack_t,int>& upair = _unpackMap[sensorType];
@@ -535,18 +529,14 @@ bool WisardMote::readHead(const char *&cp, const char *eos,
         if (cp == eos)
             return false;
         _sequenceNumbersByMoteId[hdr->moteId] = *cp++;
-#ifdef DEBUG
-        DLOG(("mote=%d, Ver=%d MsgType=%d seq=%d",
-                hdr->moteId, hdr->version, hdr->messageType,
-                _sequenceNumbersByMoteId[hdr->moteId]));
-#endif
+        VLOG(("mote=%d, Ver=%d MsgType=%d seq=%d",
+              hdr->moteId, hdr->version, hdr->messageType,
+              _sequenceNumbersByMoteId[hdr->moteId]));
         break;
     case 2:
-#ifdef DEBUG
-        DLOG(("mote=%d, Ver=%d MsgType=%d ErrMsg=\"",
-                hdr->moteId, hdr->version,
-                hdr->messageType) << string((const char *) cp, eos - cp) << "\"");
-#endif
+        VLOG(("mote=%d, Ver=%d MsgType=%d ErrMsg=\"",
+              hdr->moteId, hdr->version,
+              hdr->messageType) << string((const char *) cp, eos - cp) << "\"");
         break;
     default:
         WLOG(("%s: %s, unknown msgType, mote=%d, Ver=%d MsgType=%d, len=%d",
@@ -891,11 +881,11 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
             tm.tm_yday = -1;
             ut = n_u::UTime::fromTm(true,&tm);
 
-#ifdef DEBUG
-            cerr << "ttag=" << n_u::UTime(osamp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f") <<
-                ",ut=" << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << endl;
-            cerr << "ttag=" << osamp->getTimeTag() << ", ut=" << ut.toUsecs() << ", val=" << val << endl;
-#endif
+            VLOG(("") << "ttag="
+                 << n_u::UTime(osamp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f")
+                 << ",ut=" << ut.format(true,"%Y %m %d %H:%M:%S.%6f"));
+            VLOG(("") << "ttag=" << osamp->getTimeTag() << ", ut=" << ut.toUsecs()
+                 << ", val=" << val);
             // will have a rollover issue on Dec 31 23:59:59, but we'll ignore it
             long long diff = (osamp->getTimeTag() - (ut.toUsecs() + (long long)val * USECS_PER_SEC));
 
@@ -1125,7 +1115,10 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
     if (fp) {
 
-        for (unsigned int it = NTSOILS; it < osamp->getDataLength(); it++) fp[it] = floatNAN;
+        for (unsigned int it = NTSOILS; it < osamp->getDataLength(); it++)
+        {
+            fp[it] = floatNAN;
+        }
 
         if (stag) {
             const vector<Variable*>& vars = stag->getVariables();
@@ -1137,20 +1130,12 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
             unsigned int id = ntsoils;   // index of derivative
             for (unsigned int it = 0; it < ntsoils; it++,id++) {
                 // DLOG(("f[%d]= %f", it, *fp));
-                float f = fp[it];
                 if (it < slen) {
-                    Variable* var = vars[it];
-                    if (f == var->getMissingValue()) f = floatNAN;
-                    else if (f < var->getMinValue() || f > var->getMaxValue())
-                        f = floatNAN;
-                    else if (getApplyVariableConversions()) {
-                        VariableConverter* conv = var->getConverter();
-                        if (conv) f = conv->convert(osamp->getTimeTag(),f);
-                    }
+                    convertVariable(vars[it], osamp, &fp[it], true, 1);
                 }
-                fp[it] = f;
 
                 if (id < osamp->getDataLength()) {
+                    float f = fp[it];
                     // time derivative
                     float fd = floatNAN;
                     if (!::isnan(f)) {
@@ -1160,14 +1145,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
                         // pass time derivative through limit checks and converters
                         if (id < slen) {
-                            Variable* var = vars[id];
-                            if (fd == var->getMissingValue()) fd = floatNAN;
-                            else if (fd < var->getMinValue() || fd > var->getMaxValue())
-                                fd = floatNAN;
-                            else if (getApplyVariableConversions()) {
-                                VariableConverter* conv = var->getConverter();
-                                if (conv) fd = conv->convert(osamp->getTimeTag(),fd);
-                            }
+                            convertVariable(vars[id], osamp, &fd, true, 1);
                         }
                     }
                     fp[id] = fd;

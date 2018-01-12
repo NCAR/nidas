@@ -415,24 +415,12 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         return false;           // no sample
     }
 
-    // Make sure every variable value beyond the number parsed is set to a
-    // missing value, and sum up the count of values in this sample tag to
-    // set the size of the output sample.
-    float* fp = outs->getDataPtr();
-    const vector<Variable*>& vars = stag->getVariables();
-    int nd = 0;
-    for (unsigned int iv = 0; iv < vars.size(); iv++) {
-        Variable* var = vars[iv];
-        for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++)
-        {
-            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
-        }
-    }
     // correct for the sampling lag.
     outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
-    outs->setDataLength(nd);
 
-    // Finally apply any variable conversions.
+    // Fill and trim for unparsed values and apply any variable
+    // conversions.
+    trimUnparsed(stag, outs, nparsed);
     applyConversions(stag, outs);
 
     results.push_back(outs);

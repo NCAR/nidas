@@ -236,27 +236,20 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         Variable* var = vars[ivar];
         int ichan = sinfo.channels[ivar];
 
-        for (unsigned int ival = 0; sp < spend && ival < var->getLength(); ival++,fp++) {
+        for (unsigned int ival = 0; sp < spend && ival < var->getLength();
+             ival++, fp++)
+        {
             short sval = *sp++;
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
-
-            float val = _convIntercepts[ichan] +
-                _convSlopes[ichan] * sval;
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(osamp->getTimeTag(),val);
-            }
-            /* Screen values outside of min,max after the conversion */
-            if (val < var->getMinValue() || val > var->getMaxValue()) 
-                val = floatNAN;
-            *fp = val;
+            *fp = _convIntercepts[ichan] + _convSlopes[ichan] * sval;
         }
     }
 
     for ( ; fp < fpend; ) *fp++ = floatNAN;
+    applyConversions(stag, osamp);
     results.push_back(osamp);
 
     return true;

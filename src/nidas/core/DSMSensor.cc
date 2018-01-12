@@ -391,6 +391,80 @@ bool DSMSensor::receive(const Sample *samp) throw()
     return true;
 }
 
+
+void
+DSMSensor::
+trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed)
+{
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    int nd = 0;
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
+        {
+            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
+        }
+    }
+    // Trim the length of the sample to match the variables and lengths
+    // in the SampleTag.
+    outs->setDataLength(nd);
+}
+
+
+
+float*
+DSMSensor::
+convertVariable(Variable* var, SampleT<float>* outs,
+                float* fp, bool limitcheck, int nvalues)
+{
+    if (nvalues == 0)
+        nvalues = var->getLength();
+    for (int id = 0; id < nvalues; id++, fp++)
+    {
+        float val = *fp;
+        /* check for missing value before conversion. This
+         * is for sensors that put out something like -9999
+         * for a missing value, which should be checked before
+         * any conversion, and for which an exact equals check
+         * should work.  Doing a equals check on a numeric after a
+         * conversion is problematic.
+         */
+        if (val == var->getMissingValue())
+        {
+            val = floatNAN;
+        }
+        else if (getApplyVariableConversions())
+        {
+            VariableConverter* conv = var->getConverter();
+            if (conv)
+            {
+                val = conv->convert(outs->getTimeTag(), val);
+            }
+            /* @TODO XXX Screen values outside of min,max.  The
+               original code screened values whether conversion was
+               applied or not, but to which 'space' does min/max apply,
+               pre or post conversion?  It seems like min/max are
+               expected to be in the converted space, so don't filter
+               on min/max if conversions not applied.  It also makes
+               sense to me that disabling conversions, presumably to
+               see the more raw values, implies not filtering any
+               values either.  In practice this change should have
+               little effect, since the 'applyCals' site attribute is
+               rarely enabled. */
+            if (limitcheck &&
+                (val < var->getMinValue() || val > var->getMaxValue()))
+            {
+                val = floatNAN;
+            }
+        }
+        *fp = val;
+    }
+    return fp;
+}
+
+
 void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
                                  bool limitcheck)
 {
@@ -402,46 +476,7 @@ void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
     for (unsigned int iv = 0; iv < vars.size(); iv++)
     {
         Variable* var = vars[iv];
-        for (unsigned int id = 0; id < var->getLength(); id++, fp++)
-        {
-            float val = *fp;
-            /* check for missing value before conversion. This
-             * is for sensors that put out something like -9999
-             * for a missing value, which should be checked before
-             * any conversion, and for which an exact equals check
-             * should work.  Doing a equals check on a numeric after a
-             * conversion is problematic.
-             */
-            if (val == var->getMissingValue())
-            {
-                val = floatNAN;
-            }
-            else if (getApplyVariableConversions())
-            {
-                VariableConverter* conv = var->getConverter();
-                if (conv)
-                {
-                    val = conv->convert(outs->getTimeTag(), val);
-                }
-                /* @TODO XXX Screen values outside of min,max.  The
-                   original code screened values whether conversion was
-                   applied or not, but to which 'space' does min/max apply,
-                   pre or post conversion?  It seems like min/max are
-                   expected to be in the converted space, so don't filter
-                   on min/max if conversions not applied.  It also makes
-                   sense to me that disabling conversions, presumably to
-                   see the more raw values, implies not filtering any
-                   values either.  In practice this change should have
-                   little effect, since the 'applyCals' site attribute is
-                   rarely enabled. */
-                if (limitcheck &&
-                    (val < var->getMinValue() || val > var->getMaxValue()))
-                {
-                    val = floatNAN;
-                }
-            }
-            *fp = val;
-        }
+        fp = convertVariable(var, outs, fp, limitcheck);
     }
 }
 

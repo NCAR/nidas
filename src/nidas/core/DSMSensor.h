@@ -1031,6 +1031,32 @@ protected:
     applyConversions(SampleTag* stag, SampleT<float>* outs,
                      bool limitcheck=true);
 
+    /**
+     * Apply the conversions for a single Variable @p var, as described in
+     * applyConversions().  The values to be converted begin at @p fp.  If
+     * @p nvalues is 0, then multiple values will be converted up to the
+     * length of the Variable, otherwise only the number given in @p
+     * nvalues.  @p limitcheck has the same meaning as in
+     * applyConversions().
+     *
+     * Maybe this should be a method of Variable?  That method would need a
+     * pointer to DSMSensor to call getApplyVariableConversions().
+     **/
+    float*
+    convertVariable(Variable* var, SampleT<float>* outs,
+                    float* fp, bool limitcheck=true, int nvalues=0);
+    
+    /**
+     * Fill with floatNAN all the values past @p nparsed values in output
+     * sample @p outs, and trim the length of the sample to match the
+     * length of the variables in SampleTag @p stag.  process() methods
+     * which support partial scans of messages can use this to finalize an
+     * output sample according to the SampleTag that was matched with it
+     * and the number of values parsed.
+     **/
+    void
+    trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed);
+
 private:
 
     /**

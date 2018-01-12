@@ -513,8 +513,20 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
                 val = getIntercept(ichan) + getSlope(ichan) * sval;
             }
 
+            // XXX @todo XXX
+            //
+            // I think this code could be replaced with a call to
+            // applyConversions() right before osamp is pushed onto the
+            // results, but just in case timing is tight I'll leave it
+            // here.  The only extra overhead would be for the function
+            // call (unless it were inlined) and the check against
+            // var->getMissingValue().
+            //
+            // ...I already replaced similar code in A2DSensor, so maybe
+            // it's silly not to do it here too.
+            // 
             Variable* var = vars[ival];
-	    if (getApplyVariableConversions()) {
+            if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();
                 if (conv) val = conv->convert(osamp->getTimeTag(),val);
             }
