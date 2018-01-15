@@ -113,8 +113,7 @@ bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
     for ( ; iv < _nvars && dp + sizeof(float) <= deod; iv++) {
         Variable* var = vars[iv];
         float val = _converter->floatValue(dp);
-        convertVariable(var, outs, &val, true, 1);
-        *dout++ = val;
+        var->convert(outs->getTimeTag(), &val, 1, dout++);
         dp += sizeof(float);
     }
     for ( ; iv < _nvars; iv++) *dout++ = floatNAN;

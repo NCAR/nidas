@@ -1020,32 +1020,19 @@ protected:
      * must already be set in the output sample @p outs, since that time
      * will be used to look up conversions in calibration files.
      *
-     * If @p limitcheck is false, then the min/max limit check is skipped,
-     * even if a conversion is applied.  This is used when the variable
-     * values may be scaled, but rather than replacing the value of an
-     * out-of-range threshold variable with a nan, that variable is not
-     * replaced but instead determines whether to filter other variables.
-     * An example is the Ifan variable in the TRH WisardMote.
+     * If @p results is non-null, then the converted values are written
+     * into @p results instead of overwriting the values in @p outs.  This
+     * is used when one variable's results may be used to filter other
+     * variables without replacing the one variable's results.  An example
+     * is the Ifan variable in the TRH WisardMote. @p results must point to
+     * enough memory to hold all of the values in @p outs, including for
+     * any Variables with multiple values (getLength() > 1).
+     *
+     * See Variable::convert().
      **/
     void
-    applyConversions(SampleTag* stag, SampleT<float>* outs,
-                     bool limitcheck=true);
+    applyConversions(SampleTag* stag, SampleT<float>* outs, float* results=0);
 
-    /**
-     * Apply the conversions for a single Variable @p var, as described in
-     * applyConversions().  The values to be converted begin at @p fp.  If
-     * @p nvalues is 0, then multiple values will be converted up to the
-     * length of the Variable, otherwise only the number given in @p
-     * nvalues.  @p limitcheck has the same meaning as in
-     * applyConversions().
-     *
-     * Maybe this should be a method of Variable?  That method would need a
-     * pointer to DSMSensor to call getApplyVariableConversions().
-     **/
-    float*
-    convertVariable(Variable* var, SampleT<float>* outs,
-                    float* fp, bool limitcheck=true, int nvalues=0);
-    
     /**
      * Fill with floatNAN all the values past @p nparsed values in output
      * sample @p outs, and trim the length of the sample to match the

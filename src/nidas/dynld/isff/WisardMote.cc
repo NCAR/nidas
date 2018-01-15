@@ -459,10 +459,9 @@ throw ()
     return true;
 }
 
-void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp,
-                         bool limitcheck)
+void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp, float* results)
 {
-    applyConversions(stag, osamp, limitcheck);
+    applyConversions(stag, osamp, results);
 }
 
 /*
@@ -780,7 +779,7 @@ const char* WisardMote::unpackPicTime(const char *cp, const char *eos,
     cp =  readUint16(cp,eos,nfields,0.1,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -798,7 +797,7 @@ const char* WisardMote::unpackUint16(const char *cp, const char *eos,
     cp = readUint16(cp,eos,nfields,1.0,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -816,7 +815,7 @@ const char* WisardMote::unpackInt16(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,1.0,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -834,7 +833,7 @@ const char* WisardMote::unpackUint32(const char *cp, const char *eos,
 
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -852,7 +851,7 @@ const char* WisardMote::unpackInt32(const char *cp, const char *eos,
 
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -897,7 +896,7 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
     }
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -915,7 +914,7 @@ const char* WisardMote::unpack100thSec(const char *cp, const char *eos,
     cp = readUint32(cp,eos,nfields,0.01,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -982,7 +981,7 @@ const char* WisardMote::unpack10thSec(const char *cp, const char *eos,
         fp[1] = fval2;
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1043,7 +1042,7 @@ const char* WisardMote::unpackPicTimeFields(const char *cp, const char *eos,
             fp[3] = floatNAN;
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1064,23 +1063,23 @@ const char* WisardMote::unpackTRH(const char *cp, const char *eos,
 
     if (fp) {
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        {
             fp[n] = floatNAN;
+        }
         if (stag) {
-            convert(stag,osamp,false);  // Don't screen data values
-            for (unsigned int i = 0; i < nfields; i++) {
-                float val = fp[i];
-                const Variable& var = stag->getVariable(i);
-                if (i == 2) {
-                    if (val < var.getMinValue() || val > var.getMaxValue()) {
-                        fp[0] = floatNAN;
-                        fp[1] = floatNAN;
-                    }
-                }
-                else {
-                    if (val < var.getMinValue() || val > var.getMaxValue()) {
-                        fp[i] = floatNAN;
-                    }
-                }
+            float results[3];
+            convert(stag, osamp, results);
+            // If ifan is bad or got filtered, then don't overwrite it's
+            // value but filter T and RH.  Otherwise take all the results
+            // as converted.
+            if (::isnan(results[2]))
+            {
+                fp[0] = floatNAN;
+                fp[1] = floatNAN;
+            }
+            else
+            {
+                memcpy(fp, results, sizeof(results));
             }
         }
     }
@@ -1131,7 +1130,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
             for (unsigned int it = 0; it < ntsoils; it++,id++) {
                 // DLOG(("f[%d]= %f", it, *fp));
                 if (it < slen) {
-                    convertVariable(vars[it], osamp, &fp[it], true, 1);
+                    vars[it]->convert(osamp->getTimeTag(), &fp[it], 1);
                 }
 
                 if (id < osamp->getDataLength()) {
@@ -1145,7 +1144,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
                         // pass time derivative through limit checks and converters
                         if (id < slen) {
-                            convertVariable(vars[id], osamp, &fd, true, 1);
+                            vars[id]->convert(osamp->getTimeTag(), &fd, 1);
                         }
                     }
                     fp[id] = fd;
@@ -1170,7 +1169,7 @@ const char* WisardMote::unpackGsoil(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,0.1,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1187,7 +1186,7 @@ const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,0.01,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1222,9 +1221,10 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
 
         for (i = nfields ; i < osamp->getDataLength(); i++) fp[i] = floatNAN;
 
-        convert(stag,osamp);
+        convert(stag, osamp);
 
-        // set derived lambdasoil to NAN if any of Vheat, Vpile.on, Vpile.off are NAN
+        // set derived lambdasoil to NAN if any of Vheat, Vpile.on,
+        // Vpile.off are NAN
         for (i = 0; i < 3; i++) if (::isnan(fp[i])) fp[4] = floatNAN;
     }
 
@@ -1252,7 +1252,7 @@ const char* WisardMote::unpackStatus(const char *cp, const char *eos,
 
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1270,7 +1270,7 @@ const char* WisardMote::unpackXbee(const char *cp, const char *eos,
     cp = readUint16(cp,eos,nfields,1.0,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1304,7 +1304,7 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
 
     if (fp) {
         for (  ; n < osamp->getDataLength(); n++) fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1322,7 +1322,7 @@ const char* WisardMote::unpackRnet(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,0.1,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1339,7 +1339,7 @@ const char* WisardMote::unpackRsw(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,0.1,fp);  // multiplies by 0.1
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1362,7 +1362,7 @@ const char* WisardMote::unpackRlw(const char *cp, const char *eos,
         }
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1385,7 +1385,7 @@ const char* WisardMote::unpackRlwKZ(const char *cp, const char *eos,
 
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
@@ -1404,7 +1404,7 @@ const char* WisardMote::unpackCNR2(const char *cp, const char *eos,
 
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1422,7 +1422,7 @@ const char* WisardMote::unpackRsw2(const char *cp, const char *eos,
 
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
-    convert(stag,osamp);
+    convert(stag, osamp);
     return cp;
 }
 
@@ -1448,7 +1448,7 @@ const char* WisardMote::unpackNR01(const char *cp, const char *eos,
             fp[n] *= 0.01;                  // possible extra 2xTcase
         for ( ; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag, osamp);
     }
     return cp;
 }
