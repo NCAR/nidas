@@ -38,7 +38,6 @@ NIDAS_CREATOR_FUNCTION_NS(raf,PHIPS_UDP)
 
 PHIPS_UDP::PHIPS_UDP() : _previousTotal(0)
 {
-  _previousCam[0] = _previousCam[1] = 00;
 }
 
 PHIPS_UDP::~PHIPS_UDP()
@@ -139,8 +138,8 @@ bool PHIPS_UDP::process(const Sample * samp,
         if (sscanf(cp, "PhipsData_%*d-%*d_%*d_%d_C%d.png", &seq, &camera) == 2)
         {
             --camera;
-            dout[camera] = seq - _previousCam[camera];
-            _previousCam[camera] = seq;
+            if (camera == 0 || camera == 1)
+                dout[camera] = seq;
         }
 
         results.push_back(outs);
