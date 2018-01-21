@@ -27,7 +27,7 @@
 #ifndef _nidas_dynld_raf_phips_udp_h_
 #define _nidas_dynld_raf_phips_udp_h_
 
-#include <nidas/dynld/raf/UDPSocketSensor.h>
+#include <nidas/dynld/UDPSocketSensor.h>
 
 
 namespace nidas { namespace dynld { namespace raf {
