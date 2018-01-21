@@ -55,6 +55,10 @@ protected:
 
     /// We want to output a rate per second, not the total
     int _previousTotal;
+
+    // Save running values, so we have something to output when missing data.
+    int _saveCameraSequence[2];
+
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

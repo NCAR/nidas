@@ -131,15 +131,20 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         input += 10;
         const char *cp = ::strchr(input, sep); // skip date/time stamp.
-        if (cp) cp++;
-        // Camera file name format.  2 Cameras, so get camera number
-        //   (e.g. C1 below), and image number.
-        // PhipsData_20171101-2111_30887666167900_000001_C1.png
-        if (sscanf(cp, "PhipsData_%*d-%*d_%*d_%d_C%d.png", &seq, &camera) == 2)
+        if (cp)
         {
-            --camera;
-            if (camera == 0 || camera == 1)
-                dout[camera] = seq;
+            cp++;
+            // Camera file name format.  2 Cameras, so get camera number
+            //   (e.g. C1 below), and image number.
+            // PhipsData_20171101-2111_30887666167900_000001_C1.png
+            if (sscanf(cp, "PhipsData_%*d-%*d_%*d_%d_C%d.png", &seq, &camera) == 2)
+            {
+                --camera;
+                if (camera == 0 || camera == 1)
+                    _saveCameraSequence[camera] = seq;
+            }
+            dout[0] = _saveCameraSequence[0];
+            dout[1] = _saveCameraSequence[1];
         }
 
         results.push_back(outs);
