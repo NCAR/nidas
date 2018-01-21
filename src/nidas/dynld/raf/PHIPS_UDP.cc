@@ -73,13 +73,13 @@ bool PHIPS_UDP::process(const Sample * samp,
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Sequence
 
-        cp = ::strchr(cp, sep);
+        if (cp) cp = ::strchr(cp, sep);
         if (cp) cp++;
         int val = scanValue(cp);    // Total
         *dout++ = val - _previousTotal;
         _previousTotal = val;
 
-        cp = ::strchr(cp, sep);
+        if (cp) cp = ::strchr(cp, sep);
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Trigger
 
@@ -90,7 +90,7 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         for (int i = 0; i < 32; ++i)
         {
-            cp = ::strchr(cp, sep);
+            if (cp) cp = ::strchr(cp, sep);
             if (cp) cp++;
             channels[i] = (int)scanValue(cp);
         }
