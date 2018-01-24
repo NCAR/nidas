@@ -44,6 +44,14 @@ PHIPS_UDP::~PHIPS_UDP()
 {
 }
 
+SampleScanner* PHIPS_UDP::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
+{
+    DatagramSampleScanner* scanner = new DatagramSampleScanner();
+    scanner->setNullTerminate(true);
+    return scanner;
+}
+
 float PHIPS_UDP::scanValue(const char *input)
 {
     float f1;
@@ -69,17 +77,17 @@ bool PHIPS_UDP::process(const Sample * samp,
         float * dout = outs->getDataPtr();
 
         input += 10;
-        const char *cp = ::strchr(input, sep); // skip date/time stamp.
+        const char *cp = (const char *)::memchr(input, sep, 200); // skip date/time stamp.
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Sequence
 
-        if (cp) cp = ::strchr(cp, sep);
+        if (cp) cp = (const char *)::memchr(cp, sep, 200);
         if (cp) cp++;
         int val = scanValue(cp);    // Total
         *dout++ = val - _previousTotal;
         _previousTotal = val;
 
-        if (cp) cp = ::strchr(cp, sep);
+        if (cp) cp = (const char *)::memchr(cp, sep, 200);
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Trigger
 
@@ -90,7 +98,7 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         for (int i = 0; i < 32; ++i)
         {
-            if (cp) cp = ::strchr(cp, sep);
+            if (cp) cp = (const char *)::memchr(cp, sep, 200);
             if (cp) cp++;
             channels[i] = (int)scanValue(cp);
         }
@@ -130,7 +138,7 @@ bool PHIPS_UDP::process(const Sample * samp,
         int seq, camera;
 
         input += 10;
-        const char *cp = ::strchr(input, sep); // skip date/time stamp.
+        const char *cp = (const char *)::memchr(input, sep, 80); // skip date/time stamp.
         if (cp)
         {
             cp++;
