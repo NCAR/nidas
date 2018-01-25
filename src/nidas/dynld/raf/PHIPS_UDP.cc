@@ -66,6 +66,7 @@ bool PHIPS_UDP::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
     const char *input = (const char*) samp->getConstVoidDataPtr();
+    unsigned int slen = samp->getDataByteLength();
     char sep = ',';
 
     if (!strncmp(input, "PHIPS-SCT,", 10))
@@ -75,19 +76,20 @@ bool PHIPS_UDP::process(const Sample * samp,
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(getId() + 1);
         float * dout = outs->getDataPtr();
+        const char *eoi = input + slen;
 
         input += 10;
-        const char *cp = (const char *)::memchr(input, sep, 200); // skip date/time stamp.
+        const char *cp = (const char *)::memchr(input, sep, eoi-input); // skip date/time stamp.
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Sequence
 
-        if (cp) cp = (const char *)::memchr(cp, sep, 200);
+        if (cp) cp = (const char *)::memchr(cp, sep, eoi-cp);
         if (cp) cp++;
         int val = scanValue(cp);    // Total
         *dout++ = val - _previousTotal;
         _previousTotal = val;
 
-        if (cp) cp = (const char *)::memchr(cp, sep, 200);
+        if (cp) cp = (const char *)::memchr(cp, sep, eoi-cp);
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Trigger
 
@@ -98,7 +100,7 @@ bool PHIPS_UDP::process(const Sample * samp,
 
         for (int i = 0; i < 32; ++i)
         {
-            if (cp) cp = (const char *)::memchr(cp, sep, 200);
+            if (cp) cp = (const char *)::memchr(cp, sep, eoi-cp);
             if (cp) cp++;
             channels[i] = (int)scanValue(cp);
         }
@@ -138,7 +140,7 @@ bool PHIPS_UDP::process(const Sample * samp,
         int seq, camera;
 
         input += 10;
-        const char *cp = (const char *)::memchr(input, sep, 80); // skip date/time stamp.
+        const char *cp = (const char *)::memchr(input, sep, slen); // skip date/time stamp.
         if (cp)
         {
             cp++;
