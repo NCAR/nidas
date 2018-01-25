@@ -229,6 +229,13 @@ public:
     }
 
     /**
+     * Number of early samples, which may not be sorted.
+     */
+    size_t getNumEarlySamples() const
+    {
+        return _earlySamples;
+    }
+    /**
      * Is this sorter running in real-time?  If so then we can
      * screen for bad time-tags by checking against the
      * system clock, which is trusted.
@@ -331,9 +338,23 @@ private:
     unsigned int _realTimeFutureSamples;
 
     /**
+     * Samples which are earlier than the current latest sample
+     * in the sorter minus the sorter length. These samples
+     * have arrived too late to be necessarily sorted. They
+     * may or may not be sorted, depending on how often the
+     * sorting buffer is read.
+     */
+    unsigned int _earlySamples;
+
+    /**
      * How often to log warnings about discardedSamples.
      */
     int _discardWarningCount;
+
+    /**
+     * How often to log warnings about early samples.
+     */
+    int _earlyWarningCount;
 
     bool _doFlush;
 
