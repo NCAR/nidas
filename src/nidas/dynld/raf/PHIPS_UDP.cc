@@ -66,7 +66,7 @@ bool PHIPS_UDP::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
     const char *input = (const char*) samp->getConstVoidDataPtr();
-    unsigned int slen = samp->getDataByteLength();
+    const char *eoi = input + samp->getDataByteLength();
     char sep = ',';
 
     if (!strncmp(input, "PHIPS-SCT,", 10))
@@ -76,7 +76,6 @@ bool PHIPS_UDP::process(const Sample * samp,
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(getId() + 1);
         float * dout = outs->getDataPtr();
-        const char *eoi = input + slen;
 
         input += 10;
         const char *cp = (const char *)::memchr(input, sep, eoi-input); // skip date/time stamp.
