@@ -140,7 +140,7 @@ bool PHIPS_UDP::process(const Sample * samp,
         int seq, camera;
 
         input += 10;
-        const char *cp = (const char *)::memchr(input, sep, slen); // skip date/time stamp.
+        const char *cp = (const char *)::memchr(input, sep, eoi-input); // skip date/time stamp.
         if (cp)
         {
             cp++;
