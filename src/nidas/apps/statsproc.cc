@@ -347,12 +347,16 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                     if (ic == string::npos) break;
                     soptarg = soptarg.substr(ic+1);
                 }
-#ifdef DEBUG
-                cerr << "_selectedOutputSampleIds=";
-                for (unsigned int i = 0; i < _selectedOutputSampleIds.size(); i++)
-                    cerr << _selectedOutputSampleIds[i] << ' ';
-                cerr << endl;
-#endif
+
+                static n_u::LogContext lp(LOG_DEBUG);
+                if (lp.active())
+                {
+                    n_u::LogMessage msg(&lp);
+                    msg << "_selectedOutputSampleIds=";
+                    for (unsigned int i = 0;
+                         i < _selectedOutputSampleIds.size(); i++)
+                        msg << _selectedOutputSampleIds[i] << ' ';
+                }
             }
 	    break;
 	case 'S':
@@ -691,7 +695,8 @@ int StatsProcess::run() throw()
 
         sproc->setFillGaps(getFillGaps());
 
-        if (_selectedOutputSampleIds.size() > 0) sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
+        if (_selectedOutputSampleIds.size() > 0)
+            sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
 
 	try {
             if (_startTime.toUsecs() != LONG_LONG_MIN) {

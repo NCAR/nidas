@@ -113,18 +113,7 @@ bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
     for ( ; iv < _nvars && dp + sizeof(float) <= deod; iv++) {
         Variable* var = vars[iv];
         float val = _converter->floatValue(dp);
-        if (val == var->getMissingValue()) val = floatNAN;
-        else {
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(samp->getTimeTag(),val);
-            }
-
-            /* Screen values outside of min,max after the conversion */
-            if (val < var->getMinValue() || val > var->getMaxValue()) 
-                val = floatNAN;
-        }
-        *dout++ = val;
+        var->convert(outs->getTimeTag(), &val, 1, dout++);
         dp += sizeof(float);
     }
     for ( ; iv < _nvars; iv++) *dout++ = floatNAN;

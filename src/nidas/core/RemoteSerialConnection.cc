@@ -357,42 +357,26 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
     return output;
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 RemoteSerialConnection::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool exhausted = false;
-#endif
 
     if (events & N_POLLRDHUP) {
         PLOG(("%s: POLLRDHUP",getName().c_str()));
         _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
         return true;
-#else
-        return;
-#endif
     }
     if (events & (N_POLLERR | N_POLLHUP)) {
         PLOG(("%s: POLLERR or POLLHUP", getName().c_str()));
         _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
         return true;
-#else
-        return;
-#endif
     }
     if (events & N_POLLIN) {
         try {
             char buffer[512];
             size_t l = _socket->recv(buffer,sizeof(buffer));
-#if POLLING_METHOD == POLL_EPOLL_ET
             exhausted = l < sizeof(buffer);
-#endif
             // cerr << "RemoteSerialConnection read " << i << " bytes" << endl;
             // n_u::Logger::getInstance()->log(
                 //     LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
@@ -438,19 +422,13 @@ RemoteSerialConnection::handlePollEvents(uint32_t events) throw()
         catch(const n_u::EOFException & ioe) {
             ILOG(("%s: %s", getName().c_str(),ioe.what()));
             _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
             exhausted = true;
-#endif
         }
         catch(const n_u::IOException & ioe) {
             ILOG(("%s: %s", getName().c_str(),ioe.what()));
             _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
             exhausted = true;
-#endif
         }
     }
-#if POLLING_METHOD == POLL_EPOLL_ET
     return exhausted;
-#endif
 }

@@ -57,6 +57,7 @@ public:
 protected:
 
     int checksumFailures;
+    int checksumReportInterval;
 
     nidas::core::dsm_sample_id_t sampleId;
 

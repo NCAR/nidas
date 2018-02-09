@@ -30,8 +30,6 @@
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/util/EndianConverter.h>
 
-#include <iostream>
-
 namespace nidas { namespace core {
     class VariableConverter;
 }}

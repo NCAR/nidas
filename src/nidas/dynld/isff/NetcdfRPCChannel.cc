@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -44,6 +44,8 @@ using namespace nidas::dynld::isff;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 
 NetcdfRPCChannel::NetcdfRPCChannel():
     _name(),_server(),_fileNameFormat(),_directory(),_cdlFileName(),
@@ -181,11 +183,34 @@ IOChannel* NetcdfRPCChannel::connect()
         setCDLFileName(Project::getInstance()->expandString(getCDLFileName()));
     }
 
-    _clnt = clnt_create(getServer().c_str(),
-    	NETCDFSERVERPROG, NETCDFSERVERVERS,"tcp");
+    // If NC_SERVER_PORT is set in the environment, then that is the
+    // nc_server instance we're supposed to connect to.
+
+    const char* envport = getenv("NC_SERVER_PORT");
+    if (envport)
+    {
+        int sockp = RPC_ANYSOCK;
+        int nc_server_port = atoi(envport);
+        n_u::Inet4Address haddr = n_u::Inet4Address::getByName(getServer());
+        n_u::Inet4SocketAddress saddr(haddr, nc_server_port);
+
+        DLOG(("connecting directly to rpc server at ")
+             << saddr.toAddressString());
+        _clnt = clnttcp_create((struct sockaddr_in*)saddr.getSockAddrPtr(),
+                               NETCDFSERVERPROG, NETCDFSERVERVERS,
+                               &sockp, 0, 0);
+        DLOG(("clnttcp_create() returned."));
+    }
+    else
+    {
+        _clnt = clnt_create(getServer().c_str(),
+                            NETCDFSERVERPROG, NETCDFSERVERVERS, "tcp");
+    }
     if (_clnt == (CLIENT *) NULL)
+    {
         throw n_u::IOException(getName(),"clnt_create",
 	    clnt_spcreateerror(_server.c_str()));
+    }
 
     connection conn;
     conn.filenamefmt = (char *)getFileNameFormat().c_str();
@@ -198,15 +223,17 @@ IOChannel* NetcdfRPCChannel::connect()
     int result = 0;
     enum clnt_stat clnt_stat;
 
+    DLOG(("calling clnt_call(OPEN_CONNECTION)"));
     if ((clnt_stat = clnt_call(_clnt, OPEN_CONNECTION,
-	  (xdrproc_t) xdr_connection, (caddr_t) &conn,
-	  (xdrproc_t) xdr_int,  (caddr_t) &result,
-	  _rpcOtherTimeout)) != RPC_SUCCESS) {
-        n_u::IOException e(getName(),"open",
-	    clnt_sperror(_clnt,_server.c_str()));
-	clnt_destroy(_clnt);
-	_clnt = 0;
-	throw e;
+                               (xdrproc_t) xdr_connection, (caddr_t) &conn,
+                               (xdrproc_t) xdr_int,  (caddr_t) &result,
+                               _rpcOtherTimeout)) != RPC_SUCCESS)
+    {
+        n_u::IOException e(getName(), "open",
+                           clnt_sperror(_clnt,_server.c_str()));
+        clnt_destroy(_clnt);
+        _clnt = 0;
+        throw e;
     }
 
     _connectionId = result;
@@ -245,12 +272,11 @@ IOChannel* NetcdfRPCChannel::connect()
 		vi.hasNext(); ) {
 	    const Variable* var = vi.next();
 
-// #define DEBUG
-#ifdef DEBUG
-	    cerr << "NetcdfRPCChannel::connect(), stag=" << stag->getDSMId() << ',' << stag->getSpSId() << ", var=" << var->getName() <<
-	    	" varstation=" << var->getStation() << 
-		" tagstation=" << tagStation << endl;
-#endif
+            VLOG(("NetcdfRPCChannel::connect(), stag=")
+                 << stag->getDSMId() << ',' << stag->getSpSId()
+                 << ", var=" << var->getName()
+                 << " varstation=" << var->getStation()
+                 << " tagstation=" << tagStation);
 	    int vstn = var->getStation();
 
 	    if (vstn < 0) n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -259,9 +285,11 @@ IOChannel* NetcdfRPCChannel::connect()
 
             if (tagStation < 0) tagStation = vstn;
 	    if (vstn > 0) stns.insert(vstn);
-	    if (tagStation >= 0 && vstn != tagStation) n_u::Logger::getInstance()->log(LOG_WARNING,
-		"var %s is from station %d, others in this sample are from %d",
-		var->getName().c_str(),vstn,tagStation);
+	    if (tagStation >= 0 && vstn != tagStation)
+            {
+                WLOG(("var %s is from station %d, others in this sample "
+                      "are from %d", var->getName().c_str(), vstn, tagStation));
+            }
 	}
 	_stationIndexById[stag->getId()] = tagStation - 1;
     }
@@ -295,10 +323,9 @@ IOChannel* NetcdfRPCChannel::connect()
 	    grp->connect(this,_fillValue);
 	    _groups.push_back(grp);
 	}
-#ifdef DEBUG
-	cerr << "adding to groupById, tag=" << stag->getDSMId() << ',' << stag->getSpSId() << ", dims.size()=" << dims.size() << endl;
-#endif
-// #undef DEBUG
+        VLOG(("adding to groupById, tag=")
+             << stag->getDSMId() << ',' << stag->getSpSId()
+             << ", dims.size()=" << dims.size());
 	_groupById[stag->getId()] = grp;
     }
 
@@ -424,24 +451,18 @@ void NetcdfRPCChannel::write(const Sample* samp)
     map<dsm_sample_id_t,NcVarGroupFloat*>::const_iterator gi =
     	_groupById.find(sampid);
 
-#ifdef DEBUG
-    cerr << "NetcdfRPCChannel::write: " <<
-    	n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ' ' <<
-    	GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid) << 
-        " group.size=" << _groupById.size() << 
-    	" found group=" << (gi != _groupById.end()) << endl;
-#endif
+    VLOG(("NetcdfRPCChannel::write: ")
+         << n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f")
+         << ' ' << GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid)
+         << " group.size=" << _groupById.size()
+         << " found group=" << (gi != _groupById.end()));
     if (gi == _groupById.end()) return;
 
     NcVarGroupFloat* g = gi->second;
 
     int stationIndex = _stationIndexById[samp->getId()];
 
-#ifdef DEBUG
-    cerr << "NetcdfRPCChannel::write, stationIndex=" << stationIndex <<
-    	endl;
-#endif
-
+    VLOG(("NetcdfRPCChannel::write, stationIndex=") << stationIndex);
     g->write(this,samp,stationIndex);
 }
 
@@ -459,12 +480,9 @@ void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
     /*
      * For RPC batch mode, the timeout is set to 0.
      */
-#ifdef DEBUG
-    cerr << "NetcdfRPRChannel::write " <<
-	n_u::UTime(rec->time).format(true,"%Y %m %d %H:%M:%S.%3f ") <<
-	" id=" << rec->datarecId <<
-	" v[0]=" << rec->data.data_val[0] << endl;
-#endif
+    VLOG(("NetcdfRPRChannel::write ")
+         << n_u::UTime(rec->time).format(true,"%Y %m %d %H:%M:%S.%3f ")
+         << " id=" << rec->datarecId << " v[0]=" << rec->data.data_val[0]);
     enum clnt_stat clnt_stat;
     clnt_stat = clnt_call(_clnt, WRITE_DATAREC_BATCH_FLOAT,
 	(xdrproc_t) xdr_datarec_float, (caddr_t) rec,
@@ -608,10 +626,8 @@ void NetcdfRPCChannel::writeGlobalAttr(const string& name, int value)
 void NetcdfRPCChannel::checkError() throw(n_u::IOException)
 {
 
-#ifdef DEBUG
-    cerr << "NetcdfRPRChannel::checkError " <<
-	n_u::UTime().format(true,"%Y %m %d %H:%M:%S.%3f ") << endl;
-#endif
+    VLOG(("NetcdfRPRChannel::checkError ")
+         << n_u::UTime().format(true,"%Y %m %d %H:%M:%S.%3f "));
 
     char* errormsg = 0;
     enum clnt_stat clnt_stat = clnt_call(_clnt, CHECK_ERROR,
@@ -928,16 +944,18 @@ void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
 
     /* time in seconds since 1970 Jan 1 00:00 GMT */
     _rec.time = (double)fsamp->getTimeTag() / USECS_PER_SEC;
-
-// #define DEBUG
-#ifdef DEBUG
-    n_u::UTime ut(fsamp->getTimeTag());
-    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f ") <<
-    	stationIndex << ' ';
-    for (unsigned int i = 0; i < fsamp->getDataLength(); i++)
-	cerr << fsamp->getConstDataPtr()[i] << ' ';
-    cerr << endl;
-#endif
+    {
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active())
+        {
+            LogMessage lmsg(&lp);
+            n_u::UTime ut(fsamp->getTimeTag());
+            lmsg << ut.format(true,"%Y %m %d %H:%M:%S.%6f ")
+                 << stationIndex << ' ';
+            for (unsigned int i = 0; i < fsamp->getDataLength(); i++)
+                lmsg << fsamp->getConstDataPtr()[i] << ' ';
+        }
+    }
 
     if (stationIndex >= 0) {
 	_rec.start.start_val[0] = stationIndex;

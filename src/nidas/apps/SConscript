@@ -1,16 +1,38 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+# This SConscript can be run two ways.  Normally it is part of a full build
+# of the NIDAS source tree, using variant dirs to build into different
+# paths for each machine architecture, and inheriting configuration
+# settings and paths from the top-level SConstruct.  The other way builds
+# the applications against an existing installation of NIDAS, by specifying
+# the installation path in the NIDAS_PATH variable on the scons
+# command-line and by running scons with this SConscript as the SConstruct
+# file.  So the standalone build command looks like this:
+#
+#   scons -f SConscript NIDAS_PATH=/opt/nidas
+#
+# The top few lines of this file setup the Environment accordingly, while
+# the rest of the file does not need to change.
+
+import eol_scons
 import eol_scons.parseconfig as pc
 
-##
-##  Import the build environment.
-##
-Import('env')
-
-env = env.Clone(tools = ['nidas'])
-arch = env['ARCH']  # empty string for native builds
-machs = env['MACHS']
+if not ARGUMENTS.get('NIDAS_PATH'):
+    ##
+    ##  Import the build environment.
+    ##
+    Import('env')
+    env = env.Clone(tools = ['nidas'])
+    arch = env['ARCH']  # empty string for native builds
+    machs = env['MACHS']
+else:
+    env = Environment(tools=['default', 'nidas'])
+    # We do this here because we don't get the setting from the top-level
+    # SConstruct.
+    pc.PassPkgConfigPath(env)
+    arch = ''
+    machs = []
 
 programs = Split("""
 arl-ingest
@@ -67,6 +89,12 @@ has_i2c = False
 if sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
         'i2c_smbus_read_byte_data(0,0);'):
     has_i2c = True
+    has_old_i2c = False
+# check if i2c API has 3(old) or 4(new) arguments in
+# i2c_smbus_read_i2c_block_data
+    if not sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
+            'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
+        env.Append(CPPDEFINES="OLD_I2C_API")
 
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')

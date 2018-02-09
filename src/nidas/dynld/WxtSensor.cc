@@ -94,7 +94,8 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
 
         // check the initial characters in the variable names to determine
         // which is wind u and v.  Rather than impose a policy on those
-        // variable names, the names can be specified by the user as parameters, above.
+        // variable names, the names can be specified by the user as
+        // parameters, above.
         VariableIterator vi = stag->getVariableIterator();
         for (int i = 0; vi.hasNext(); i++) {
             const Variable* var = vi.next();
@@ -157,68 +158,115 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
             }
         }
         if (nfield != sscanf->getNumberOfFields())
-            throw nidas::util::InvalidParameterException(getName(),
-                "scanfFormat", "only %f conversions are supported for WxtSensor, and only 1 per comma separated field. Use %*f to skip a field");
-
+        {
+            throw nidas::util::InvalidParameterException
+                (getName(), "scanfFormat",
+                 "only %f conversions are supported for WxtSensor, "
+                 "and only 1 per comma separated field. Use %*f to skip a field");
+        }
     }
     if (_uvId != 0 && (_dirIndex < 0 || _speedIndex < 0)) {
-        // WLOG(("%s: Sm and/or Dm fields are not found in scanfFormat. Cannot derive wind U and V from speed and direction",getName().c_str()));
-        throw InvalidParameterException(getName(),"scanfFormat","Sm and/or Dm fields are not found in scanfFormat. Cannot derive wind U and V from speed and direction");
+        throw InvalidParameterException
+            (getName(), "scanfFormat",
+             "Sm and/or Dm fields are not found in scanfFormat. "
+             "Cannot derive wind U and V from speed and direction");
     }
-
 }
+
 
 int WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr, float* dataptr)
 {
-    dsm_sample_id_t sid = sscanf->getSampleTag()->getId();
-
+    const SampleTag* stag = sscanf->getSampleTag();
+    dsm_sample_id_t sid = stag->getId();
+    const std::vector<const Variable*>& variables = stag->getVariables();
     vector<string>& field_formats = _field_formats[sid];
 
     int nparsed = 0;
     vector<string> sample_fields;
     string_token(sample_fields, inputstr);
 
+    // Loop through the field formats in the scan string and their
+    // corresponding variables, filling in variables as they match up with
+    // a field in the sample.  If a variable does not match up, then assume
+    // the WXT is not reporting that field and assign it a missing value.
     vector<string>::iterator fi = field_formats.begin();
     vector<string>::iterator si = sample_fields.begin();
-    for ( ; fi != field_formats.end() && si != sample_fields.end() ; 
-	  ++fi, ++si )
+    std::vector<const Variable*>::const_iterator vi = variables.begin();
+
+    while (fi != field_formats.end() && vi != variables.end())
     {
-	// Exact match, so no specifiers, just keep going
+        const Variable* var = *vi;
+        // If we're out of sample fields, then the remaining variables get
+        // missing values.
+        if (si == sample_fields.end())
+        {
+            VLOG(("out of sample fields, filling variable with nan: ")
+                 << var->getName());
+	    *(dataptr++) = floatNAN;
+            ++fi;
+            ++vi;
+        }
+
+	// Exact match, so no specifiers, just keep looking for the next
+	// variable field.
 	if (*fi == *si)
 	{
-	    DLOG(("format match: ") << *fi << " == " << *si);
+	    VLOG(("format match: ") << *fi << " == " << *si);
+            ++fi;
+            ++si;
 	    continue;
 	}
 
-	// There must be exactly one specifier in this field
-	if (fi->find("%f") != string::npos &&
-	    fi->rfind("%f") == fi->find("%f"))
-	{
-	    float value;
+        // If it's the header, accept 1R0, 1r0, 0R0, and 0r0.
+        const std::string& sf = *si;
+        if (fi == field_formats.begin() &&
+            fi->length() == si->length() &&
+            fi->length() == 3 &&
+            (sf[0] == '0' || sf[0] == '1') &&
+            (std::toupper(sf[1]) == std::toupper((*fi)[1])) &&
+            (sf[2] == (*fi)[2]))
+        {
+            VLOG(("loose match on WXT sample message header: ")
+                 << sf << " =~ " << (*fi));
+            ++fi;
+            ++si;
+	    continue;
+        }
+        else if (fi == field_formats.begin())
+        {
+            WLOG(("WXT sample message header did not match format: ")
+                 << sf << " != " << (*fi));
+            break;
+        }
+
+        // Make sure the sample field and the format field match up in the
+        // first two characters, to make sure the fields are lined up.  If
+        // not, this is the wrong sample field for this variable, so fill
+        // it with nan and move on.
+        float value = floatNAN;
+        if (fi->substr(0, 2) == si->substr(0, 2))
+        {
 	    string full = (*fi) + "%n";
 	    int n = 0;
-	    if (std::sscanf(si->c_str(), full.c_str(), &value, &n) < 1 ||
-		(unsigned)n != si->length())
-	    {
-		value = floatNAN;
-	    }
-	    else
+	    if (std::sscanf(si->c_str(), full.c_str(), &value, &n) >= 1 &&
+		(unsigned)n == si->length())
 	    {
 		++nparsed;
 	    }
-	    *(dataptr++) = value;
-	    DLOG(("field scanned (") << *fi << "): " << *si << " = " << value);
+	    VLOG(("field scanned (") << *fi << "): " << *si << " = " << value);
+            ++si;
 	}
 	else
 	{
-	    // The only other possibility is a broken format or a mismatch
-	    // in some expected verbatim match, in which case we fail.  We
-	    // don't try to continue, because we can get out of sync with
-	    // which variables this format was supposed to match.
-	    WLOG(("%s: invalid format or field mismatch: ",getName().c_str()) 
-		 << *si << " does not scan with " << *fi);
-	    break;
+	    DLOG(("") << getName()
+                 << ": format field "
+                 << *fi << " does not match next sample field "
+		 << *si
+                 << ", setting variable " << var->getName() << " to nan");
 	}
+        *(dataptr++) = value;
+        ++fi;
+        ++vi;
     }
     // We need to return all or nothing, even if we only got something.
     // Even if not all the fields parsed and scanned correctly, the

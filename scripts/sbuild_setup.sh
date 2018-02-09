@@ -32,7 +32,7 @@ dist=jessie
 buildarch=amd64
 [ $(arch) != x86_64 ] && buildarch=unknown
 
-for hostarch in armel armhf; do
+for hostarch in armel armhf amd64; do
 
     if [ $hostarch == $buildarch ]; then
         chr_suffix=-sbuild
@@ -61,7 +61,7 @@ for hostarch in armel armhf; do
         sudo mv $cf ${cf%-*}
     done
 
-    # add jenkins to the sbuild group
+    # add user to the sbuild group
     grep -F sbuild /etc/group | grep -Fq $user || sudo sbuild-adduser $user
     # sudo usermod -G sbuild $user
 

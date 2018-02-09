@@ -30,10 +30,6 @@
 #include <nidas/linux/ncar_a2d.h>
 #include <nidas/linux/irigclock.h>
 
-#include <vector>
-#include <map>
-#include <set>
-
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;

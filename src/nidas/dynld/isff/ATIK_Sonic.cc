@@ -51,13 +51,6 @@ ATIK_Sonic::ATIK_Sonic():
     _diagThreshold(0.1),
     _maxShadowAngle(70.0 * M_PI / 180.0)
 {
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
-    }
 }
 
 ATIK_Sonic::~ATIK_Sonic()

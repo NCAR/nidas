@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -293,9 +293,9 @@ int TeeI2C::parseRunstring(int argc, char** argv)
     int iarg = 1;
 
     for ( ; iarg < argc; iarg++) {
-	string arg = argv[iarg];
-	if (arg == "-f") asDaemon = false;	// don't put in background
-	else if (arg == "-p") {
+        string arg = argv[iarg];
+        if (arg == "-f") asDaemon = false;  // don't put in background
+        else if (arg == "-p") {
             if (++iarg == argc) return usage(argv[0]);
             {
                 istringstream ist(argv[iarg]);
@@ -303,12 +303,16 @@ int TeeI2C::parseRunstring(int argc, char** argv)
                 if (ist.fail()) return usage(argv[0]);
             }
         }
-	else if (arg[0] == '-') return usage(argv[0]);
-	else {
-	    if (_i2cname.length() == 0) _i2cname = argv[iarg];
-	    else if (_i2caddr == 0) _i2caddr = strtol(argv[iarg], NULL, 0);
-	    else _ptynames.push_back(argv[iarg]);	// user will only read from this pty
-	}
+        else if (arg[0] == '-') return usage(argv[0]);
+        else {
+            if (_i2cname.length() == 0)
+                _i2cname = argv[iarg];
+            else if (_i2caddr == 0)
+                _i2caddr = strtol(argv[iarg], NULL, 0);
+            else
+                // user will only read from this pty
+                _ptynames.push_back(argv[iarg]);
+        }
     }
 
     if (_i2cname.length() == 0) return usage(argv[0]);
@@ -338,7 +342,6 @@ Usage: " << argv0 << "[-f] i2cdev i2caddr ptyname ... \n\
 
 void TeeI2C::setFIFOPriority(int val)
 {
-
     struct sched_param sched;
     int pmin, pmax;
 
@@ -354,40 +357,42 @@ void TeeI2C::setFIFOPriority(int val)
 
 int TeeI2C::run() throw()
 {
-
     int result = 0;
 
     try {
         nidas::util::Logger* logger = 0;
-	n_u::LogConfig lc;
-	n_u::LogScheme logscheme("tee_i2c");
-	lc.level = 6;
+        n_u::LogConfig lc;
+        n_u::LogScheme logscheme("tee_i2c");
+        lc.level = 6;
 
-	if (asDaemon) {
-            if (daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
-            logger = n_u::Logger::createInstance(progname.c_str(),LOG_CONS,LOG_LOCAL5);
+        if (asDaemon) {
+            if (daemon(0,0) < 0)
+                throw n_u::IOException(progname, "daemon", errno);
+            logger = n_u::Logger::createInstance(progname.c_str(),
+                                                 LOG_CONS, LOG_LOCAL5);
         }
-        else logger = n_u::Logger::createInstance(&std::cerr);
+        else
+            logger = n_u::Logger::createInstance(&std::cerr);
 
         logscheme.addConfig(lc);
         logger->setScheme(logscheme);
 
         if (priority >= 0) setFIFOPriority(priority);
 
-	FD_ZERO(&_writefdset);
+        FD_ZERO(&_writefdset);
 
-	// user will only read from these ptys, so we only write to them.
-	vector<string>::const_iterator li = _ptynames.begin();
-	_maxwfd = 0;
-	for ( ; li != _ptynames.end(); ++li) {
-	    const string& name = *li;
-	    int fd = n_u::SerialPort::createPtyLink(name);
+        // user will only read from these ptys, so we only write to them.
+        vector<string>::const_iterator li = _ptynames.begin();
+        _maxwfd = 0;
+        for ( ; li != _ptynames.end(); ++li) {
+            const string& name = *li;
+            int fd = n_u::SerialPort::createPtyLink(name);
 
             // set perms on slave device
             char slavename[PATH_MAX];
             if (ptsname_r(fd,slavename, sizeof(slavename)) < 0 ||
-                    chmod(slavename, 0444) < 0) {
-	    	n_u::IOException e(name,"chmod",errno);
+                chmod(slavename, 0444) < 0) {
+                n_u::IOException e(name,"chmod",errno);
                 WLOG(("")  << e.what());
             }
 
@@ -395,11 +400,11 @@ int TeeI2C::run() throw()
             pterm.setRaw(true);
             pterm.apply(fd,name);
 
-	    FD_SET(fd,&_writefdset);
-	    _maxwfd = std::max(_maxwfd,fd + 1);
+            FD_SET(fd,&_writefdset);
+            _maxwfd = std::max(_maxwfd,fd + 1);
 
-	    _ptyfds.push_back(fd);
-	}
+            _ptyfds.push_back(fd);
+        }
 
         _i2cfd = open(_i2cname.c_str(), O_RDWR);
         if (_i2cfd < 0)
@@ -419,14 +424,14 @@ int TeeI2C::run() throw()
 
         // ubx_config(_i2cfd, _i2cname);
 
-	for (interrupted = false; !interrupted; ) {
+        for (interrupted = false; !interrupted; ) {
 
             /* Sleep a bit before next read
              * This seems to be important. Without it
              * reads eventually continually fail with timeout errors,
              * after several minutes; no data until a power cycle.
              * Posts on the net talk about ublox GPSs
-             * "appling arbitrary clock stretches"
+             * "applying arbitrary clock stretches"
              * whatever that means.  Some folks have resorted to
              * doing direct bit-banging. 
              *
@@ -440,7 +445,7 @@ int TeeI2C::run() throw()
         }
     }
     catch(n_u::IOException& ioe) {
-	PLOG(("%s",ioe.what()));
+        PLOG(("%s",ioe.what()));
         result = 1;
     }
     return result;
@@ -490,8 +495,12 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
         // if (l == 0) break;
 #else
         // address 0xff, data stream
+#ifdef OLD_I2C_API
+        int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff, i2cbuf);
+#else
         int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff,
                 sizeof(i2cbuf), i2cbuf);
+#endif
         if (l < 0)
             throw n_u::IOException(_i2cname,"read_block",errno);
         if (l == 0) break;

@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#ifndef _nidas_dynld_raf_vcsel_serial_h_
-#define _nidas_dynld_raf_vcsel_serial_h_
+#ifndef _nidas_dynld_raf_vcsel2_serial_h_
+#define _nidas_dynld_raf_vcsel2_serial_h_
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/core/DerivedDataClient.h>
 
 #include <nidas/util/InvalidParameterException.h>
@@ -39,7 +39,7 @@ using namespace nidas::core;
 /**
  * VCSEL2 Serial Sensor.  A one off test used for the IDEAS-4-GV test project.
  */
-class VCSEL2_Serial : public DSMSerialSensor, public DerivedDataClient
+class VCSEL2_Serial : public SerialSensor, public DerivedDataClient
 {
 
 public:

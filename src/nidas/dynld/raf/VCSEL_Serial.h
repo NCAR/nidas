@@ -27,7 +27,7 @@
 #ifndef _nidas_dynld_raf_vcsel_serial_h_
 #define _nidas_dynld_raf_vcsel_serial_h_
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/core/DerivedDataClient.h>
 
 #include <nidas/util/InvalidParameterException.h>
@@ -40,7 +40,7 @@ using namespace nidas::core;
  * VCSEL Serial Sensor.  This would be able to use the generic SerialSensor class
  * except for the need to send Ambient Temperature up to the instrument.
  */
-class VCSEL_Serial : public DSMSerialSensor, public DerivedDataClient
+class VCSEL_Serial : public SerialSensor, public DerivedDataClient
 {
 
 public:

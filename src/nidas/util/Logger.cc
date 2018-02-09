@@ -250,7 +250,17 @@ Logger::
 msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
 {
   static const char* fixedsep = "|";
-  const char* sep = "";
+
+  // Double-check that the context is enabled.  It's a simple check, and it
+  // guards against code accidentally logging a message to a context
+  // without using a macro that checks automatically.
+  //
+  // Probably it is a bad idea to send VERBOSE messages to syslog(), so
+  // trap that here too.
+  if (!lc.active() || (syslogit && lc.level() == LOGGER_VERBOSE))
+  {
+    return;
+  }
 
   if (loggerTZ) {
     putenv(loggerTZ);
@@ -258,6 +268,7 @@ msg_locked(const nidas::util::LogContext& lc, const std::string& msg)
   }
   ostringstream oss;
 
+  const char* sep = "";
   for (unsigned int i = 0; i < current_scheme.log_fields.size(); ++i)
   {
     LogScheme::LogField show = current_scheme.log_fields[i];

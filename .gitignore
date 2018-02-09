@@ -1,3 +1,4 @@
 /nidas.tag
-
-doxygen.log`
+/install
+/rpm_build
+doxygen.log

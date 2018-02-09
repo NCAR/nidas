@@ -27,10 +27,6 @@
 #ifndef NIDAS_DYNLD_RAF_SYNCSERVER_H
 #define NIDAS_DYNLD_RAF_SYNCSERVER_H
 
-#include <list>
-#include <string>
-#include <memory>
-
 #include <nidas/core/Socket.h>
 #include "SyncRecordGenerator.h"
 #include <nidas/core/SamplePipeline.h>

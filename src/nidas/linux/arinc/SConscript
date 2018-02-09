@@ -8,6 +8,7 @@ Import(['env','first_mach'])
 mach = env['MACH']
 
 import re
+import os
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -46,16 +47,27 @@ headers = Split("""
 if first_mach:
     env.Install('$PREFIX/include/nidas/linux/arinc',headers)
 
+modules = ['arinc.ko']
+condor = next(x for x in arinc_files if re.match('Condor',x))
+csrc = env.Dir("#/nidas/linux/arinc").File(condor)
+
+# It seems reasonable to me (gjg) to shortcut all the targets by checking
+# for the Condor source directly rather than accounting for the variant dir
+# complications, but maybe there are other issues.  Someday it might be
+# worth revisting this, using __file__ to find the Condor source dir, or
+# maybe there's a way to get it from scons that's been missed.
+if False and not csrc.exists():
+    print("Condor file %s not found, %s will not be built " %
+          (csrc, str(modules)))
 
 # Proceed with building the module only if we have the needed settings
 # and files.
-if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
+elif env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
     utilsyms = Dir('./../util_' + mach).File('Module.symvers')
     irigsyms = Dir('./../irig_' + mach).File('Module.symvers')
 
-    modules = ['arinc.ko']
     arincmod = env.Kmake(modules,[arinc_files, revinfo, utilsyms, irigsyms])
 
     # The Condor code is in a separate, private git submodule since
@@ -72,8 +84,6 @@ if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
     # Otherwise I haven't found a simple way to know the path to the
     # source of the variant dir without hardcoding it as
     # '#/nidas/linux/arinc', which is to be avoided.
-#
-    condor = next(x for x in arinc_files if re.match('Condor',x))
 
     # FindFile is supposed to return None if the file is not found.
     # However sometimes a file-not-found OSError is raised
@@ -87,14 +97,29 @@ if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
         found = None
 
     if not found:
-        print "Condor file %s not found, %s will not be built " % (condor, str(modules))
+        print("Condor file %s not found, %s will not be built " %
+              (condor, str(modules)))
         env.Ignore('.', arincmod)
     else:
-        print "Condor code found, %s will be built " % (str(modules))
-        env.Install('$LINUX_MODULES_INST_PATH',modules)
+        print("Condor code found, %s will be built " % (str(modules)))
+        env.Install('$LINUX_MODULES_INST_PATH', modules)
 
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
+    # It might be nice to create a clean target to remove the arinc.ko
+    # module if it had been installed, even if arinc.ko cannot be built
+    # here because the source is missing.  However, creating a SCons
+    # Node under the nidas modules install path, either to clean it or
+    # even to check if it exists, causes SCons to report an error about
+    # a missing 'implicit dependency' for the install target.  So the
+    # check has to happen with os.path and without the help of scons,
+    # and only if a file exists is it added to the clean target.  Really,
+    # though, this could be skipped entirely in favor of a more global
+    # clean target which cleans the entire nidas/modules install directory,
+    # eg, env.Clean('install', '$LINUX_MODULES_INST_PATH'), but maybe
+    # that was deemed too drastic.
+
+    installed = [env.subst('$LINUX_MODULES_INST_PATH/' + l) for l in modules]
+    installed = [i for i in installed if os.path.exists(i)]
+    if installed:
+        env.Clean('install', installed)
 
 

@@ -24,6 +24,8 @@
  ********************************************************************
 */
 
+#include <nidas/Config.h>
+
 #include "DSMEngine.h"
 #include "Project.h"
 #include "Site.h"
@@ -57,6 +59,7 @@
 #include <unistd.h>  // for getopt(), optind, optarg
 
 #ifdef HAVE_SYS_CAPABILITY_H 
+#include <sys/capability.h>
 #include <sys/prctl.h>
 #endif 
 

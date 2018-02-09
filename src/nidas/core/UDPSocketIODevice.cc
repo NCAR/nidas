@@ -58,10 +58,26 @@ void UDPSocketIODevice::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SocketIODevice::open(flags);
-    if (!_socket) _socket = new n_u::DatagramSocket();
-    _socket->setBroadcastEnable(true);
+
+    bool multicast = false;
+    const n_u::Inet4SocketAddress *i4saddr = 0;
+
+    if (_sockAddr->getFamily() == AF_INET) {
+        i4saddr = dynamic_cast<const n_u::Inet4SocketAddress*>(_sockAddr.get());
+        assert(i4saddr);
+        multicast = i4saddr->getInet4Address().isMultiCastAddress();
+    }
+    
+    n_u::MulticastSocket* msock = 0;
+    if (!_socket) {
+        if (multicast) _socket = msock = new n_u::MulticastSocket();
+        else _socket = new n_u::DatagramSocket();
+    }
     // cerr << "binding to address: " << _sockAddr.get()->toString() << endl;
-    _socket->bind(*_sockAddr.get());
+    _socket->setBroadcastEnable(true);
+    _socket->bind(*_sockAddr);
+
+    if (msock) msock->joinGroup(i4saddr->getInet4Address());
 }
 
 size_t UDPSocketIODevice::read(void *buf, size_t len, int msecTimeout)

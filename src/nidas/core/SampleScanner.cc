@@ -28,6 +28,7 @@
 #include "DSMSensor.h"
 #include "Project.h"
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
@@ -797,29 +798,47 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     _packetLengths.clear();
     _packetTimes.clear();
 
+    size_t len = sensor->getBytesAvailable();
+    if (len > BUFSIZE) {
+        exhstd = false;
+        n_u::Logger* logger = n_u::Logger::getInstance();
+        logger->log(LOG_WARNING,"%s: huge packet received, %d bytes, will be truncated to %d",
+            sensor->getName().c_str(),len,BUFSIZE);
+    }
+
     for (;;) {
-        size_t len = sensor->getBytesAvailable();
-        if (len == 0) break;    // exhausted = true, no data left
-        if (len + _bufhead > BUFSIZE) {
-            if (len > BUFSIZE) {
-                if (_bufhead > 0) break;    // read big fella next time
-                n_u::Logger* logger = n_u::Logger::getInstance();
-                logger->log(LOG_WARNING,"%s: huge packet received, %d bytes, will be truncated to %d",
-                    sensor->getName().c_str(),len,BUFSIZE);
-                len = BUFSIZE;
-            }
-            else {
-                exhstd = false;
-                break;
-            }
-        }
 
         dsm_time_t tpacket = n_u::getSystemTime();
-        size_t rlen = sensor->read(_buffer+_bufhead,len);
+
+        size_t rlen;
+        try {
+            rlen = sensor->read(_buffer+_bufhead, BUFSIZE - _bufhead);
+        }
+        catch (const n_u::EOFException& e) {
+            // nidas::util::Socket will return EOFException
+            // on a zero-length read. In this case it is
+            // likely just a zero-length packet.
+            rlen = 0;
+        }
         addNumBytesToStats(rlen);
         _bufhead += rlen;
         _packetLengths.push_back(rlen);
         _packetTimes.push_back(tpacket);
+
+        // size of next packet
+        len = sensor->getBytesAvailable();
+
+        // if len is 0, then either:
+        //  no datagrams remaining to be read,
+        //  or the next datagram has a length of 0.
+        // If the latter, then the next read will consume it.
+        if (len == 0) break;
+
+        // no room in buffer for next packet, read next time
+        if (len + _bufhead > BUFSIZE) {
+            exhstd = false;
+            break;
+        }
     }
     exhausted = exhstd;
     return _bufhead;

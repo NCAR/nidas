@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_RAF_WATLOAD_H
-#define NIDAS_DYNLD_RAF_WATLOAD_H
+#ifndef NIDAS_DYNLD_RAF_WATLOW_H
+#define NIDAS_DYNLD_RAF_WATLOW_H
 
 
 #include <nidas/core/SerialSensor.h>

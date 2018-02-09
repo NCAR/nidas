@@ -60,7 +60,7 @@
 #include <linux/ioport.h>
 #include <asm/atomic.h>
 #include <asm/io.h>             // ioread8
-#include <asm/uaccess.h>        // VERIFY_???
+#include <linux/uaccess.h>        // VERIFY_???
 
 // DSM includes... 
 #include "arinc.h"
@@ -241,8 +241,8 @@ static void arinc_timesync(unsigned long junk)
 #ifndef USE_IRIG_CALLBACK
         /* schedule this function to run at the even second */
         msecs %= MSECS_PER_SEC; /* milliseconds after the second */
-        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        add_timer(&board.syncer);
+        mod_timer(&board.syncer,
+                jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC);
 #endif
 }
 /* -- IRIG CALLBACK ---------------------------------------------------
@@ -272,7 +272,7 @@ static void arinc_sweep(unsigned long arg)
                 dev->skippedSamples++;
                 KLOG_WARNING("%s: skippedSamples=%d\n",
                              dev->deviceName, dev->skippedSamples);
-                return;
+                goto resched;
         }               
 
         data = (tt_data_t*) sample->data;
@@ -303,12 +303,12 @@ static void arinc_sweep(unsigned long arg)
         // Can't sync to card.
         if (err == ARS_NOSYNC) {
                 dev->status.nosync++;
-                return;
+                goto resched;
         }
         // note possible buffer underflows 
         if (err == ARS_NODATA) {
                 dev->status.underflow++;
-		return;
+		goto resched;
         }
 
         // note the number of received labels per second 
@@ -326,9 +326,9 @@ static void arinc_sweep(unsigned long arg)
         INCREMENT_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 
+resched:
 #ifndef USE_IRIG_CALLBACK
-        dev->sweeper.expires += dev->sweep_jiffies;
-        add_timer(&dev->sweeper);
+        mod_timer(&dev->sweeper, dev->sweeper.expires + dev->sweep_jiffies);
 #endif
 }
 
@@ -527,7 +527,9 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                 spin_unlock_bh(&board.lock);
 
-                KLOG_DEBUG("recv: %04o  rate: %2d Hz\n", arcfg.label, roundUpRate(arcfg.rate));
+                KLOG_DEBUG("%s: recv: %04o  rate: %2d Hz\n",
+                        dev->deviceName, arcfg.label, roundUpRate(arcfg.rate));
+
                 break;
 
         case ARINC_OPEN:
@@ -584,7 +586,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         return -EINVAL;
                 }
                 if (dev->status.lps == 0) {
-                        KLOG_ERR("sequence out of order: use ARINC_SET first\n");
+                        KLOG_ERR("%s: sequence out of order: use ARINC_SET first\n",
+                                dev->deviceName);
                         spin_unlock_bh(&board.lock);
                         return -EINVAL;
                 }
@@ -599,6 +602,10 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 		}
 		if (i == nRates) pollRate = pollRates[i-1];
+
+                /* improve latency, want to report at least
+                 * every 0.25 sec. */
+                if (pollRate < 4) pollRate = 4;
 		
 		dev->status.pollRate = pollRate;
                 dev->pollDtMsec = MSECS_PER_SEC / pollRate;
@@ -619,12 +626,17 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                  dev->deviceName);
                         return err;
                 }
+                KLOG_INFO("%s: %d labels/sec, polled via IRIG at rate: %d Hz\n",
+                        dev->deviceName,dev->status.lps, pollRate);
 #else
                 dev->sweep_jiffies = HZ / pollRate;
                 dev->sweeper.function = arinc_sweep;
                 dev->sweeper.expires = jiffies + dev->sweep_jiffies;
                 dev->sweeper.data = chn + 1;
                 add_timer(&dev->sweeper);
+                KLOG_INFO("%s: %d labels/sec, polled via kernel timer at rate %d Hz, jiffies=%d\n",
+                        dev->deviceName,dev->status.lps,
+                        pollRate, dev->sweep_jiffies);
 #endif
 
                 // launch the board 
@@ -639,7 +651,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case ARINC_BIT:
 
                 if (dev->status.lps) {
-                        KLOG_ERR("cannot run buit in test, already configured!\n");
+                        KLOG_ERR("%s: cannot run built in test, already configured!\n",
+                        dev->deviceName);
                         return -EALREADY;
                 }
                 // perform a series of Built In Tests on the card
@@ -665,8 +678,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 break;
 
         default:
-                KLOG_ERR("unrecognized ioctl %d (number %d, size %d)\n",
-                     cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
+                KLOG_ERR("%s: unrecognized ioctl %d (number %d, size %d)\n",
+                     dev->deviceName, cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
                 ret = -EINVAL;
                 break;
         }
@@ -901,6 +914,7 @@ static int scan_ceiisa(void)
         unsigned int value;
         unsigned int indx;
 
+#ifdef DEBUG
         char *boardID[] = { "Standard CEI-220",
                 "Standard CEI-420",
                 "Custom CEI-220 6-Wire",
@@ -910,6 +924,8 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
+#endif
+
         value = ioread8(board.mapaddr + 0x808);
         value >>= 4;
         if (value != 0x0) {
@@ -1065,10 +1081,12 @@ static int __init arinc_init(void)
         board.syncer.function = arinc_timesync;
 
         /* schedule arinc_timesync to run at the even second */
-        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;   /* milliseconds after the second */
+        /* milliseconds after the second */
+        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;
 
         board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        board.syncer.data = 1;  /* set data to 1, just to indicate this timer is active */
+        /* set data to 1, just to indicate this timer is active */
+        board.syncer.data = 1;
         add_timer(&board.syncer);
 #endif
 

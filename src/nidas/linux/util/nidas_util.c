@@ -41,7 +41,7 @@ Original author:	Gordon Maclean
 
 #include <linux/sched.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #ifndef REPO_REVISION
 #define REPO_REVISION "unknown"

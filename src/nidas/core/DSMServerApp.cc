@@ -24,6 +24,8 @@
  ********************************************************************
 */
 
+#include <nidas/Config.h>
+
 #include "DSMServerApp.h"
 #include "DSMServer.h"
 #include "DSMServerIntf.h"
@@ -43,8 +45,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>  // MAXHOSTNAMELEN
-
-#include <nidas/Config.h>
 
 #ifdef HAVE_SYS_CAPABILITY_H 
 #include <sys/capability.h>

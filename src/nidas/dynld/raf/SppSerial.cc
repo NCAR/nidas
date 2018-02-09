@@ -90,32 +90,35 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 {
     // _sampleRate = (int)rint(getPromptRate());
 
-    const Parameter *p;
+    if (_probeName.compare("PIP"))  // If not the PIP probe.
+    {
+        const Parameter *p;
 
-    /* Parameters common to CDP_Serial, SPP*00_Serial */
-    p = getParameter("NCHANNELS");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        /* Parameters common to CDP_Serial, SPP*00_Serial */
+        p = getParameter("NCHANNELS");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "NCHANNELS", "not found");
-    _nChannels = (int)p->getNumericValue(0);
+        _nChannels = (int)p->getNumericValue(0);
 
-    p = getParameter("RANGE");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        p = getParameter("RANGE");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "RANGE", "not found");
-    _range = (unsigned short)p->getNumericValue(0);
+        _range = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        p = getParameter("THRESHOLD");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
+        _triggerThreshold = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("CHAN_THRESH");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
-    if (p->getLength() != _nChannels)
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
-                "not NCHANNELS long ");
-    for (int i = 0; i < p->getLength(); ++i)
-        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
+        p = getParameter("CHAN_THRESH");
+        if (!p) 
+            throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
+        if (p->getLength() != _nChannels)
+            throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
+                    "not NCHANNELS long ");
+        for (int i = 0; i < p->getLength(); ++i)
+            _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
+    }
 
     /* Check requested variables */
     list<SampleTag*>& tags = getSampleTags();

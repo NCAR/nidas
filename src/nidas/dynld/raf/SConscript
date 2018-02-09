@@ -24,7 +24,10 @@ sources = Split("""
     IRS_HW_HG2001GD.cc
     IRS_HW_YG1854.cc
     LSZ_HW_EB7032239.cc
+    PHIPS_UDP.cc
     PPT_Serial.cc
+    PIP_Image.cc
+    PIP_Serial.cc
     PSI9116_Sensor.cc
     SidsNetSensor.cc
     SppSerial.cc
@@ -66,8 +69,11 @@ headers = Split("""
     IRIGSensor.h
     IRS_HW_HG2001GD.h
     IRS_HW_YG1854.h
+    PHIPS_UDP.h
     LSZ_HW_EB7032239.h
     PPT_Serial.h
+    PIP_Image.h
+    PIP_Serial.h
     PSI9116_Sensor.h
     SidsNetSensor.h
     SppSerial.h

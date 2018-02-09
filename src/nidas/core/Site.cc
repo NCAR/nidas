@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -156,46 +156,46 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
     XDOMElement xnode(node);
     if (xnode.getNodeName() != "site" &&
     	xnode.getNodeName() != "aircraft")
-	    throw n_u::InvalidParameterException(
-		    "Site::fromDOMElement","xml node name",
-		    	xnode.getNodeName());
+	    throw n_u::InvalidParameterException("Site::fromDOMElement",
+                                             "xml node name",
+                                             xnode.getNodeName());
 		    
     if(node->hasAttributes()) {
-	// get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    string aname = attr.getName();
-	    string aval = expandString(attr.getValue());
-	    if (aname == "name") setName(aval);
-	    else if (aname == "suffix") setSuffix(aval);
-	    else if (aname == "number") {
-	        istringstream ist(aval);
-		int num;
-		ist >> num;
-		if (ist.fail()) 
-		    throw n_u::InvalidParameterException(
-		    	((getName().length() == 0) ? "site" : getName()),
-				aname,aval);
-		setNumber(num);
-	    }
-	    else if (aname == "applyCals") {
-	        istringstream ist(aval);
-		bool val;
-		ist >> boolalpha >> val;
-		if (ist.fail()) {
-		    ist.clear();
-		    ist >> noboolalpha >> val;
-		    if (ist.fail())
-                        throw n_u::InvalidParameterException(
-                            ((getName().length() == 0) ? "site" : getName()),
-                                    aname,aval);
-		}
+        // get all the attributes of the node
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            string aname = attr.getName();
+            string aval = expandString(attr.getValue());
+            if (aname == "name") setName(aval);
+            else if (aname == "suffix") setSuffix(aval);
+            else if (aname == "number") {
+                istringstream ist(aval);
+                int num;
+                ist >> num;
+                if (ist.fail()) 
+                    throw n_u::InvalidParameterException
+                        (((getName().length() == 0) ? "site" : getName()),
+                         aname, aval);
+                setNumber(num);
+            }
+            else if (aname == "applyCals") {
+                istringstream ist(aval);
+                bool val;
+                ist >> boolalpha >> val;
+                if (ist.fail()) {
+                    ist.clear();
+                    ist >> noboolalpha >> val;
+                    if (ist.fail())
+                        throw n_u::InvalidParameterException
+                            (((getName().length() == 0) ? "site" : getName()),
+                             aname, aval);
+                }
                 _applyCals = val;
             }
             else if (aname == "xml:base" || aname == "xmlns") {}
-	}
+        }
     }
 
     // keep a set of DSM ids to make sure they are unique
@@ -205,56 +205,57 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
-	    child=child->getNextSibling())
+         child=child->getNextSibling())
     {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
-	const string& elname = xchild.getNodeName();
-	// cerr << "element name=" << elname << endl;
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
+        // cerr << "element name=" << elname << endl;
 
-	if (elname == "dsm") {
-	    DSMConfig* dsm = new DSMConfig();
-	    dsm->setSite(this);
-	    try {
-		dsm->fromDOMElement((xercesc::DOMElement*)child);
-	    }
-	    catch(const n_u::InvalidParameterException& e) {
-	        delete dsm;
-		throw;
-	    }
-	    if (!dsm_ids.insert(dsm->getId()).second) {
-		ostringstream ost;
-		ost << dsm->getId();
-		delete dsm;
-		throw n_u::InvalidParameterException("dsm id",
-			ost.str(),"is not unique");
-	    }
-	    if (!dsm_names.insert(dsm->getName()).second) {
-		const string& dsmname = dsm->getName();
-		delete dsm;
-		throw n_u::InvalidParameterException("dsm name",
-			dsmname,"is not unique");
-	    }
-	    addDSMConfig(dsm);
-	}
-	else if (elname == "server") {
-	    DSMServer* server = new DSMServer();
-	    server->setProject(const_cast<Project*>(getProject()));
-	    server->setSite(this);
-	    try {
-		server->fromDOMElement((xercesc::DOMElement*)child);
-	    }
-	    catch(const n_u::InvalidParameterException& e) {
-	        delete server;
-		throw;
-	    }
-	    addServer(server);
-	}
-	else if (elname == "parameter")  {
-	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
-	    addParameter(parameter);
-	}
+        if (elname == "dsm") {
+            DSMConfig* dsm = new DSMConfig();
+            dsm->setSite(this);
+            try {
+                dsm->fromDOMElement((xercesc::DOMElement*)child);
+            }
+            catch(const n_u::InvalidParameterException& e) {
+                delete dsm;
+                throw;
+            }
+            if (!dsm_ids.insert(dsm->getId()).second) {
+                ostringstream ost;
+                ost << dsm->getId();
+                delete dsm;
+                throw n_u::InvalidParameterException("dsm id",
+                                                     ost.str(),"is not unique");
+            }
+            if (!dsm_names.insert(dsm->getName()).second) {
+                const string& dsmname = dsm->getName();
+                delete dsm;
+                throw n_u::InvalidParameterException("dsm name",
+                                                     dsmname,"is not unique");
+            }
+            addDSMConfig(dsm);
+        }
+        else if (elname == "server") {
+            DSMServer* server = new DSMServer();
+            server->setProject(const_cast<Project*>(getProject()));
+            server->setSite(this);
+            try {
+                server->fromDOMElement((xercesc::DOMElement*)child);
+            }
+            catch(const n_u::InvalidParameterException& e) {
+                delete server;
+                throw;
+            }
+            addServer(server);
+        }
+        else if (elname == "parameter")  {
+            Parameter* parameter =
+                Parameter::createParameter((xercesc::DOMElement*)child,
+                                           &_dictionary);
+            addParameter(parameter);
+        }
     }
 }
 
@@ -333,7 +334,9 @@ void Site::validate()
     }
 }
 
-xercesc::DOMElement* Site::toDOMParent(xercesc::DOMElement* parent,bool complete) const
+xercesc::DOMElement*
+Site::
+toDOMParent(xercesc::DOMElement* parent, bool complete) const
     throw(xercesc::DOMException)
 {
     xercesc::DOMElement* elem =
@@ -401,20 +404,19 @@ DSMServer* Site::findServer(const string& hostname) const
 const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
 {
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
-	di != _dsms.end(); ++di) {
-	const DSMConfig* dsm = *di;
-#ifdef DEBUG
-	cerr << "Checking dsm " << dsm->getName() << endl;
-#endif
+         di != _dsms.end(); ++di)
+    {
+        const DSMConfig* dsm = *di;
+        VLOG(("Checking dsm ") << dsm->getName());
         try {
-	    list<n_u::Inet4Address> addrs =
-		n_u::Inet4Address::getAllByName(dsm->getName());
-	    for (list<n_u::Inet4Address>::const_iterator ai=addrs.begin();
-		ai != addrs.end(); ++ai) {
-		if (*ai == addr) return dsm;
-	    }
+            list<n_u::Inet4Address> addrs =
+                n_u::Inet4Address::getAllByName(dsm->getName());
+            for (list<n_u::Inet4Address>::const_iterator ai=addrs.begin();
+                 ai != addrs.end(); ++ai) {
+                if (*ai == addr) return dsm;
+            }
         }
-	catch(n_u::UnknownHostException &e) {}
+        catch(n_u::UnknownHostException &e) {}
     }
     return 0;
 }
@@ -424,9 +426,7 @@ const DSMConfig* Site::findDSM(unsigned int id) const
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
 	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
-#ifdef DEBUG
-	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
-#endif
+    VLOG(("Checking dsm ") << dsm->getName() << " for id=" << id);
 	if (dsm->getId() == id) return dsm;
     }
     return 0;
@@ -437,10 +437,7 @@ const DSMConfig* Site::findDSM(const std::string& name) const
     for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
 	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
-#ifdef DEBUG
-	cerr << "Checking dsm " << dsm->getName()
-	     << " for name=" << name << endl;
-#endif
+    VLOG(("Checking dsm ") << dsm->getName() << " for name=" << name);
 	if (dsm->getName() == name) return dsm;
     }
     return 0;
@@ -452,12 +449,9 @@ DSMSensor* Site::findSensor(unsigned int id) const
     for ( ; si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
 
-#ifdef DEBUG
-	cerr << "Site::findSensor, " << getName() << ", getId=" <<
-	    sensor->getDSMId() << ',' << sensor->getSensorId() <<
-	    " against id=" <<
-	    GET_DSM_ID(id) << ',' << GET_SPS_ID(id) << endl;
-#endif
+    VLOG(("Site::findSensor, ") << getName() << ", getId="
+         << sensor->getDSMId() << ',' << sensor->getSensorId()
+         << " against id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id));
 	if (sensor->getId() == id) return sensor;
         SampleTagIterator sti = sensor->getSampleTagIterator();
         for ( ; sti.hasNext(); ) {

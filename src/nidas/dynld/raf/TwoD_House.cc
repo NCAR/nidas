@@ -27,8 +27,6 @@
 #include "TwoD_House.h"
 #include <nidas/util/Logger.h>
 
-#include <sstream>
-
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
 using namespace std;

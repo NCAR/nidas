@@ -10,7 +10,7 @@ buildarch=amd64
 jobfile=$(mktemp)
 trap "{ rm -f $jobfile; }" EXIT
 
-for hostarch in armel armhf; do
+for hostarch in armel armhf amd64; do
 
     if [ $hostarch == $buildarch ]; then
         chr_suffix=-sbuild

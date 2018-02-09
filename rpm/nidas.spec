@@ -98,7 +98,7 @@ to run NIDAS real-time data acquisition processes.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
-Requires: nidas-libs
+Requires: nidas-libs libcap-devel
 Obsoletes: nidas-bin-devel <= 1.0
 Group: Applications/Engineering
 # Prefix: %{nidas_prefix}
@@ -110,7 +110,7 @@ Summary: Package for building NIDAS by hand
 # remove %{dist} from %{release} on noarch RPM
 Release: %{releasenum}
 Group: Applications/Engineering
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
 Obsoletes: nidas-builduser <= 1.2-189
 BuildArch: noarch
 %description build
@@ -295,8 +295,8 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_util.so.*
 %{nidas_prefix}/%{_lib}/libnidas.so.*
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so.*
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 
 %files modules
 %defattr(0775,root,root,2775)
@@ -350,8 +350,8 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_util.a
 %{nidas_prefix}/%{_lib}/libnidas.so
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
-%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
+# %{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 

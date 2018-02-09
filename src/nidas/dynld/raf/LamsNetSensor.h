@@ -31,9 +31,6 @@
 #ifndef NIDAS_DYNLD_RAF_LAMSNETSENSOR_H
 #define NIDAS_DYNLD_RAF_LAMSNETSENSOR_H
 
-#include <iostream>
-#include <iomanip>
-
 #include <nidas/dynld/UDPSocketSensor.h>
 #include <nidas/util/EndianConverter.h>
 

@@ -215,7 +215,7 @@ sources = Split("""
 # tool explicitly and print a more useful error message.
 if 'lex' not in env['TOOLS']:
     import SCons.Errors
-    raise SCons.Errors.StopError, "Flex (or some lex tool) must be installed."
+    raise SCons.Errors.StopError("Flex (or some lex tool) must be installed.")
 
 # Create AsciiSscanf.cc from the .ll lex source.
 env.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
