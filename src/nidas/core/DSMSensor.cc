@@ -33,6 +33,7 @@
 #include "Parameter.h"
 #include "SensorCatalog.h"
 #include "Looper.h"
+#include "Variable.h"
 
 #include "SamplePool.h"
 #include "CalFile.h"
@@ -389,6 +390,49 @@ bool DSMSensor::receive(const Sample *samp) throw()
     _source.distribute(results);	// distribute does the freeReference
     return true;
 }
+
+
+void
+DSMSensor::
+trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed)
+{
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    int nd = 0;
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
+        {
+            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
+        }
+    }
+    // Trim the length of the sample to match the variables and lengths
+    // in the SampleTag.
+    outs->setDataLength(nd);
+}
+
+
+void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
+                                 float* results)
+{
+    if (!stag || !outs)
+        return;
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        float* start = fp;
+        fp = var->convert(outs->getTimeTag(), start, 0, results);
+        // Advance the results pointer as much as the values pointer.
+        if (results)
+        {
+            results += (fp - start);
+        }
+    }
+}
+
 
 #ifdef IMPLEMENT_PROCESS
 /**

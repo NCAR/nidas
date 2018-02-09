@@ -378,76 +378,51 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
     list<AsciiSscanf*>::const_iterator checkdone = _nextSscanfer;
-    for ( ; ; ntry++) {
-	sscanf = *_nextSscanfer;
-	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
-	if (++_nextSscanfer == _sscanfers.end()) 
-	    _nextSscanfer = _sscanfers.begin();
-	if (nparsed > 0) {
-	    stag = sscanf->getSampleTag();
-	    outs->setId(stag->getId());
-	    if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
-	    break;
-	}
+    for ( ; ; ntry++)
+    {
+        sscanf = *_nextSscanfer;
+        nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
+        if (++_nextSscanfer == _sscanfers.end()) 
+            _nextSscanfer = _sscanfers.begin();
+        if (nparsed > 0) {
+            stag = sscanf->getSampleTag();
+            outs->setId(stag->getId());
+            if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
+            break;
+        }
         if (_nextSscanfer == checkdone) break;
     }
     static n_u::LogContext lp(LOG_DEBUG);
 
     if (lp.active() && nparsed != sscanf->getNumberOfFields())
     {
-	n_u::LogMessage msg;
-	msg << (nparsed > 0 ? "partial" : "failed")
-	    << " scanf; tried " << (ntry+(nparsed>0))
-	    << "/" << _sscanfers.size() << " formats.\n";
-	msg << "input:'" << inputstr << "'\n"
-	    << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
-	    << "\n";
-	msg << "; nparsed=" << nparsed
-	    << "; scanfFailures=" << _scanfFailures
-	    << "; scanfPartials=" << _scanfPartials;
-	lp.log(msg);
-    }	
+        n_u::LogMessage msg;
+        msg << (nparsed > 0 ? "partial" : "failed")
+            << " scanf; tried " << (ntry+(nparsed>0))
+            << "/" << _sscanfers.size() << " formats.\n";
+        msg << "input:'" << inputstr << "'\n"
+            << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
+            << "\n";
+        msg << "; nparsed=" << nparsed
+            << "; scanfFailures=" << _scanfFailures
+            << "; scanfPartials=" << _scanfPartials;
+        lp.log(msg);
+    }   
 
     if (!nparsed) {
-	_scanfFailures++;
-	outs->freeReference();	// remember!
-	return false;		// no sample
+        _scanfFailures++;
+        outs->freeReference();  // remember!
+        return false;           // no sample
     }
 
-    float* fp = outs->getDataPtr();
-    const vector<Variable*>& vars = stag->getVariables();
-    int nd = 0;
-    for (unsigned int iv = 0; iv < vars.size(); iv++) {
-        Variable* var = vars[iv];
-        for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++) {
-            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
-            else {
-                float val = *fp;
-                /* check for missing value before conversion. This
-                 * is for sensors that put out something like -9999
-                 * for a missing value, which should be checked before
-                 * any conversion, and for which an exact equals check
-                 * should work.  Doing a equals check on a numeric after a
-                 * conversion is problematic.
-                 */
-                if (val == var->getMissingValue()) val = floatNAN;
-                else {
-                    if (getApplyVariableConversions()) {
-                        VariableConverter* conv = var->getConverter();
-                        if (conv) val = conv->convert(samp->getTimeTag(),val);
-                    }
-
-                    /* Screen values outside of min,max after the conversion */
-                    if (val < var->getMinValue() || val > var->getMaxValue()) 
-                        val = floatNAN;
-                }
-                *fp = val;
-            }
-        }
-    }
     // correct for the sampling lag.
     outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
-    outs->setDataLength(nd);
+
+    // Fill and trim for unparsed values and apply any variable
+    // conversions.
+    trimUnparsed(stag, outs, nparsed);
+    applyConversions(stag, outs);
+
     results.push_back(outs);
     return true;
 }
