@@ -957,6 +957,14 @@ public:
     formatSampleId(std::ostream& out, dsm_sample_id_t sid);
 
     /**
+     * A more convenient form of formatSampleId() which just returns a
+     * string, and also includes the DSM id in the familiar format
+     * "<dsmid>,<sid>".
+     **/
+    std::string
+    formatId(dsm_sample_id_t sid);
+
+    /**
      * Use this method to access the SampleMatcher instance for this
      * NidasApp.  After the SampleMatcher is configured by parsing
      * command-line options, it can be used to select sample IDs like so:

@@ -1000,6 +1000,17 @@ formatSampleId(std::ostream& out, dsm_sample_id_t spsid)
 }
 
 
+std::string
+NidasApp::
+formatId(dsm_sample_id_t sid)
+{
+  std::ostringstream out;
+  out << GET_DSM_ID(sid) << ",";
+  formatSampleId(out, sid);
+  return out.str();
+}
+
+
 int
 NidasApp::
 logLevel()
