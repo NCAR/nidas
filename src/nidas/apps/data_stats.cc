@@ -110,8 +110,16 @@ SampleCounter::
 receive(const Sample* samp) throw()
 {
     dsm_sample_id_t sampid = samp->getId();
-    DLOG(("counting sample %d for id ", nsamps)
-         << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+    VLOG(("counting sample ") << nsamps << " for id "
+         << NidasApp::getApplicationInstance()->formatId(sampid));
+    if (sampid != id)
+    {
+        ILOG(("assigning received sample ID ")
+             << NidasApp::getApplicationInstance()->formatId(sampid)
+             << " in place of "
+             << NidasApp::getApplicationInstance()->formatId(id));
+        id = sampid;
+    }
     dsm_time_t sampt = samp->getTimeTag();
     if (nsamps == 0)
     {
@@ -147,7 +155,7 @@ class CounterClient: public SampleClient
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors, bool processed=false);
+    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app);
 
     virtual ~CounterClient() {}
 
@@ -169,9 +177,39 @@ private:
 
     typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
 
+    /**
+     * Find the SampleCounter for the given sample ID.  Wisard samples get
+     * mapped to one sensor type, so we look for all of them.
+     **/
+    sample_map_t::iterator
+    findStats(dsm_sample_id_t sampid)
+    {
+        dsm_sample_id_t sid = sampid;
+        sample_map_t::iterator it = _samples.end();
+        if (sid & 0x8000)
+        {
+            sid = sid ^ (sid & 3);
+            dsm_sample_id_t endid = sid + 4;
+            VLOG(("searching from ")
+                 << _app.formatId(sid) << " to " << _app.formatId(endid)
+                 << " to match " << _app.formatId(sampid));
+            while (sid < endid && it == _samples.end())
+            {
+                it = _samples.find(sid++);
+            }
+        }
+        else
+        {
+            it = _samples.find(sid);
+        }
+        return it;
+    }
+
     sample_map_t _samples;
 
     bool _reportall;
+
+    NidasApp& _app;
 };
 
 void
@@ -187,9 +225,11 @@ resetResults()
 
 
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
-    _samples(), _reportall(false)
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
+    _samples(), _reportall(false), _app(app)
 {
+    bool processed = app.processData();
+    SampleMatcher& matcher = _app.sampleMatcher();
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
     {
@@ -199,11 +239,17 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
         DSMSensor* sensor = *si;
         string sname = sensor->getDSMConfig()->getName() + ":" +
             sensor->getDeviceName();
-        SampleCounter stats(sensor->getId(), sname);
-        _samples[stats.id] = stats;
 
+        // Stop with raw samples if processed not requested.
         if (! processed)
         {
+            if (matcher.match(sensor->getId()))
+            {
+                dsm_sample_id_t sid = sensor->getId();
+                DLOG(("adding raw sample: ") << _app.formatId(sid));
+                SampleCounter stats(sid, sname);
+                _samples[stats.id] = stats;
+            }
             continue;
         }
 
@@ -219,8 +265,35 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
                 {
                     varname += ",...";
                 }
-                SampleCounter pstats(stag->getId(), varname);
-                _samples[pstats.id] = pstats;
+                // As a special case for wisard sensors, mask the last two
+                // bits of the IDs so all "sensor types" aka I2C addresses
+                // are treated like the same kind of sample.  We use the
+                // first such ID and then map any others to that one, since
+                // in most cases only one such ID will ever appear for all
+                // four possible "sensor types".  However, there is some
+                // risk this could hide multiple sensor types appearing in
+                // the stream.  We can warn for that later if it happens.
+                // Since the wisard ID mapping is taken care of in
+                // findStats(), here we just add the sensor if the ID does
+                // not already have a stats entry.
+                //
+                // Note this just adds the first of possibly multiple
+                // "sensor types" assigned to a sample.  The actual sample
+                // IDs are not known until samples are received.  So that's
+                // the point at which we can correct the ID so it is
+                // accurate in the reports.
+                dsm_sample_id_t sid = stag->getId();
+                if (! matcher.match(sid))
+                {
+                    continue;
+                }
+                sample_map_t::iterator it = findStats(sid);
+                if (it == _samples.end())
+                {
+                    DLOG(("adding processed sample: ") << _app.formatId(sid));
+                    SampleCounter pstats(sid, varname);
+                    _samples[pstats.id] = pstats;
+                }
 	    }
 	}
     }
@@ -229,19 +302,23 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool processed):
 bool CounterClient::receive(const Sample* samp) throw()
 {
     dsm_sample_id_t sampid = samp->getId();
-
-    sample_map_t::iterator it = _samples.find(sampid);
+    if (! _app.sampleMatcher().match(sampid))
+    {
+        return false;
+    }
+    VLOG(("received and accepted sample ") << _app.formatId(sampid));
+    sample_map_t::iterator it = findStats(sampid);
     if (it == _samples.end())
     {
         // When there is no header from which to gather samples ahead of
         // time, just add a SampleCounter instance for any new raw sample
         // that arrives.
-        DLOG(("creating counter for sample id ")
-             << GET_DSM_ID(sampid) << "," << GET_SPS_ID(sampid));
+        DLOG(("creating counter for sample id ") << _app.formatId(sampid));
         SampleCounter ss(sampid);
         _samples[sampid] = ss;
+        it = findStats(sampid);
     }
-    return _samples[sampid].receive(samp);
+    return it->second.receive(samp);
 }
 
 
@@ -665,7 +742,7 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors, app.processData());
+        CounterClient counter(allsensors, app);
         counter.reportAll(AllSamples.asBool());
 
 	if (app.processData()) {
