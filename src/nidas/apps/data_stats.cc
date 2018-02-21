@@ -382,20 +382,21 @@ void CounterClient::printResults(std::ostream& outs)
         if (ss.nsamps == 0 && !_reportall)
             continue;
 
-	const string& sname = ss.name;
-	if (sname.length() > maxnamelen)
-            maxnamelen = sname.length();
-
-        // Skip the min/max stats which will be printed as missing if there
-        // are not at least two samples.
-        if (ss.nsamps < 2)
-            continue;
-        lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
-        lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
-	int dt = abs(ss.minDeltaTs);
-        dtlog10[0] = std::max(dtlog10[0], ndigits(dt+1)+2);
-	dt = ss.maxDeltaTs;
-        dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
+        maxnamelen = std::max(maxnamelen, ss.name.length());
+        if (ss.nsamps >= 1)
+        {
+            lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
+            lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
+        }
+        // Skip min/max stats which will be printed as missing if there are
+        // not at least two samples.
+        if (ss.nsamps >= 2)
+        {
+            int dt = abs(ss.minDeltaTs);
+            dtlog10[0] = std::max(dtlog10[0], ndigits(dt+1)+2);
+            dt = ss.maxDeltaTs;
+            dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
+        }
     }
         
     struct tm tm;
@@ -452,8 +453,8 @@ void CounterClient::printResults(std::ostream& outs)
              << setw(dtlog10[1]) << setprecision(3)
              << check_valid((float)ss.maxDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
              << setprecision(0)
-             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 1))
-             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 1))
+             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 0))
+             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
              << endl;
     }
 }
