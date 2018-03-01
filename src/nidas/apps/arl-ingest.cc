@@ -137,7 +137,7 @@ int ARLIngest::main(int argc, char** argv) throw() {
 /* static */
 int ARLIngest::usage(const char* argv0) {
     cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format" << endl << endl;
-    cerr << "Usage: " << argv0 << "-x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
+    cerr << "Usage: " << argv0 << " [options] -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
     cerr << endl;
     cerr << endl;
     cerr << "Standard nidas options:" << endl << _app.usage();
@@ -163,32 +163,36 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested()) {
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
         usage(argv[0]);
     }
 
     string dsmName, height;
     extern char *optarg; //set by getopt
     extern int   optind; //"
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char; /* option character */
     while ((opt_char = getopt(left.argc, left.argv, "d:e:")) != -1) {
         switch (opt_char) {
-        case 'd': dsmName = string(optarg); break;
-        case 'e': height = string(optarg); break;
+        case 'd':
+            dsmName = string(optarg);
+            break;
+        case 'e':
+            height = string(optarg);
+            break;
         case '?':
-        default:
+            usage(argv[0]);
             break;
         }
     }
-
-    if (optind < argc)
-        while (optind < argc)
-        	inputFileNames.push_back(argv[optind++]);
+    while (optind < argc)
+    {
+        inputFileNames.push_back(argv[optind++]);
+    }
 
     outputFileName = app.outputFileName();
     outputFileLength = app.outputFileLength();

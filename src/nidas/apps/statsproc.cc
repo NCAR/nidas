@@ -134,10 +134,14 @@ private:
     string _datasetName;
 
     NidasApp _app;
+    NidasAppArg NiceValue;
+    NidasAppArg SorterLength;
+    NidasAppArg Period;
+    NidasAppArg DaemonMode;
 };
 
 /* static */
-const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+const char* StatsProcess::_rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
 
 /* static */
 const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
@@ -147,7 +151,7 @@ const char* StatsProcess::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/config
 
 int main(int argc, char** argv)
 {
-    return StatsProcess::main(argc,argv);
+    return StatsProcess::main(argc, argv);
 }
 
 /* static */
@@ -178,14 +182,22 @@ int StatsProcess::main(int argc, char** argv) throw()
 
     int res;
     
-    // We want default log files of "level,message", so use modify the
-    // default scheme before parsing any log configs which might override
-    // it.
+    // We want default log files of "level,message", so modify the default
+    // scheme before parsing any log configs which might override it.
     n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
     ls.setShowFields("level,message");
     n_u::Logger::getInstance()->setScheme(ls);
 
-    if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
+    try {
+        res = stats.parseRunstring(argc,argv);
+    }
+    catch (NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        res = 1;
+    }
+    if (res)
+        return res;
 
     if (stats._daemonMode) {
 	// fork to background, send stdout/stderr to /dev/null
@@ -212,7 +224,18 @@ StatsProcess::StatsProcess():
     _logLevel(n_u::LOGGER_INFO),
     _fillGaps(false),_doListOutputSamples(false),
     _selectedOutputSampleIds(),_datasetName(),
-    _app("statsproc")
+    _app("statsproc"),
+    NiceValue("-n,--nice", "<nice>",
+              "Run at a lower priority (nice > 0)", "0"),
+    SorterLength("-s,--sorterlength", "<seconds>",
+                 "Input data sorter length in fractional seconds.", "5.0"),
+    Period("-p,--period", "<seconds>",
+           "Statistics period in seconds. If -S is used to specify a dataset,\n"
+           "then the period is read from \n"
+           "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml.\n"
+           "Otherwise it defaults to 300 seconds.", "300"),
+    DaemonMode("-z,--daemon", "",
+               "Run in daemon mode (in the background, log messages to syslog)")
 {
 }
 
@@ -251,63 +274,59 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     // For now we just want to add extended logging, consolidate the other
     // options later.
-    app.enableArguments(app.LogConfig | app.LogLevel | app.LogShow | app.LogFields | app.LogParam |
-                        app.Version | app.Help);
+    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
+                        app.StartTime | app.EndTime | app.XmlHeaderFile |
+                        app.InputFiles | Period | SorterLength |
+                        NiceValue | DaemonMode |
+                        app.LogParam | app.Version | app.Help);
+    app.StartTime.setFlags("-B,--start");
+    app.EndTime.setFlags("-E,--end");
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = true;
+    app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
+    ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
         usage(argv[0]);
     }
+    _period = Period.asInt();
+    _sorterLength = SorterLength.asFloat();
+    _niceValue = NiceValue.asInt();
+    _daemonMode = DaemonMode.asBool();
+    _startTime = app.getStartTime();
+    _endTime = app.getEndTime();
+    _xmlFileName = app.xmlHeaderFile();
+    
+    if (_sorterLength < 0.0 || _sorterLength > 1800.0)
+    {
+        throw NidasAppException("Invalid sorter length: " +
+                                SorterLength.getValue());
+    }
+    if (_period < 0.0)
+    {
+        throw NidasAppException("Invalid period: " + Period.getValue());
+    }
 
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char;     /* option character */
 
     _argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:fn:o:Op:s:S:x:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "c:d:fo:OS:z")) != -1) {
 	switch (opt_char) {
-	case 'B':
-	    try {
-		_startTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
 	case 'c':
 	    _configName = optarg;
 	    break;
 	case 'd':
 	    _dsmName = optarg;
 	    break;
-	case 'E':
-	    try {
-		_endTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
 	case 'f':
 	    _fillGaps = true;
-	    break;
-	case 'n':
-	    {
-	        istringstream ist(optarg);
-		ist >> _niceValue;
-		if (ist.fail()) {
-                    cerr << "Invalid nice value: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
 	    break;
 	case 'O':
 	    _doListOutputSamples = true;
@@ -340,84 +359,33 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                 }
             }
 	    break;
-	case 'p':
-	    {
-	        istringstream ist(optarg);
-		ist >> _period;
-		if (ist.fail() || _period < 0) {
-                    cerr << "Invalid period: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-	    break;
-	case 's':
-	    {
-	        istringstream ist(optarg);
-		ist >> _sorterLength;
-		if (ist.fail() || _sorterLength < 0.0 || _sorterLength > 1800.0) {
-                    cerr << "Invalid sorter length: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-	    break;
 	case 'S':
 	    _datasetName = optarg;
-	    break;
-	case 'x':
-	    _xmlFileName = optarg;
-	    break;
-	case 'z':
-	    _daemonMode = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    for ( ; optind < argc; optind++) {
-        string url(argv[optind]);
-        if (url.length() > 5 && !url.compare(0,5,"sock:")) {
-            url = url.substr(5);
-	    string hostName = "127.0.0.1";
-            int port = DEFAULT_PORT;
-	    if (url.length() > 0) {
-		size_t ic = url.find(':');
-		hostName = url.substr(0,ic);
-		if (ic < string::npos) {
-		    istringstream ist(url.substr(ic+1));
-		    ist >> port;
-		    if (ist.fail()) {
-			cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-			return usage(argv[0]);
-		    }
-		}
-	    }
-            try {
-                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                _sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-            }
-            catch(const n_u::UnknownHostException& e) {
-                cerr << e.what() << endl;
-                return usage(argv[0]);
-            }
-        }
-	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
-	    url = url.substr(5);
-            _sockAddr.reset(new n_u::UnixSocketAddress(url));
-	}
-        else _dataFileNames.push_back(url);
-    }
-    if (!_doListOutputSamples) {
+    app.parseInputs(left.unparsedArgs(optind));
+
+    if (!_doListOutputSamples)
+    {
         // must specify either:
         //  1. some data files to read, and optional begin and end times,
         //  2. a socket to connect to
         //  3. a time period and a $PROJECT environment variable
         //  3b a configuration name and a $PROJECT environment variable
-        if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
+        if (app.dataFileNames().size() == 0 && !app.socketAddress() &&
             _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
-                return usage(argv[0]);
+        {
+            return usage(argv[0]);
+        }
 
-        if (_startTime.toUsecs() != LONG_LONG_MIN && _endTime.toUsecs() == LONG_LONG_MAX)
-                 _endTime = _startTime + 7 * USECS_PER_DAY;
+        if (_startTime.toUsecs() != LONG_LONG_MIN &&
+            _endTime.toUsecs() == LONG_LONG_MAX)
+        {
+            _endTime = _startTime + 7 * USECS_PER_DAY;
+        }
     }
     return 0;
 }
@@ -426,10 +394,8 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n nice]\n\
-    [-p period] [-s sorterLength] [-S dataSet_name] [-x xml_file] [-z] [input ...]\n\
-    -B \"yyyy mm dd HH:MM:SS\": begin time\n\
-    -E \"yyyy mm dd HH:MM:SS\": end time\n\
+Usage: " << argv0 << " [options] [-c configName] [-d dsmname] [-f]\n\
+    [-S dataSet_name] [input ...]\n\
     -c configName: (optional) name of configuration period to process, from configs.xml\n\
     -d dsmname: look for a <fileset> belonging to the given dsm to determine input file names\n\
     -f: Fill in time gaps with missing data. When reprocessing data you probably want to \n\
@@ -438,24 +404,13 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n
         to output missing data values to the netcdf files for the skipped time periods,\n\
         and so then should omit -f.  If the netcdf files are being created in this run,\n\
         then -f is unnecessary.\n\
-    -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
     -O: list sample ids of StatisticsProcessor output samples\n\
     -o [i] | [i-j] [,...]: select ids of output samples of StatisticsProcessor for processing\n\
-    -p period: statistics period in seconds. If -S is used to specify a dataset, then the period\n\
-       is read from $ISFS/projects/$PROJECT/ISFS/config/datasets.xml.\n\
-       Otherwise it defaults to " << DEFAULT_PERIOD << "\n\
-    -n nice: run at a lower priority (nice > 0)\n\
     -S dataSet_name: set environment variables specifed for the dataset,\n\
        as found in the xml file specifed by $NIDAS_DATASETS or \n\
        $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
-    -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n\
-    -z: run in daemon mode (in the background, log messages to syslog)\n\
-    input: data input (optional). One of the following:\n\
-        sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
-        unix:sockpath             unix socket name\n\
-        file[ file ...]           one or more archive file names separated by spaces\n\
 \n\
 If no inputs are specified, then the -B time option must be given, and\n" <<
 argv0 << " will read $ISFS/projects/$PROJECT/ISFS/config/configs.xml, to\n\
@@ -469,7 +424,7 @@ in order to determine what statistics to generate.\n\
          << "Standard nidas options:\n"
          << _app.usage() << "\n"
 "Examples:\n" <<
-	argv0 << " -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
+	argv0 << " --start \"2006 jun 10 00:00\" --end \"2006 jul 3 00:00\"\n" <<
 	argv0 << " sock:dsmhost\n" <<
 	argv0 << " unix:/tmp/data_socket\n" <<
         endl;

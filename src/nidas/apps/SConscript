@@ -34,29 +34,37 @@ else:
     arch = ''
     machs = []
 
-env.NidasProgram('arl-ingest.cc')
-env.NidasProgram('arinc_out.cc')
-env.NidasProgram('ck_aout.cc')
-env.NidasProgram('ck_calfile.cc')
-env.NidasProgram('ck_xml.cc')
-env.NidasProgram('data_dump.cc')
-env.NidasProgram('data_stats.cc')
-env.NidasProgram('dmd_mmat_test.cc')
-env.NidasProgram('dsm_server.cc')
-env.NidasProgram('dsm.cc')
-env.NidasProgram('extract2d.cc')
-env.NidasProgram('ir104.cc')
-env.NidasProgram('lidar_vel.cc')
-env.NidasProgram('merge_verify.cc')
-env.NidasProgram('nidas_udp_relay.cc')
-env.NidasProgram('nidsmerge.cc')
-env.NidasProgram('n_hdr_util.cc')
-env.NidasProgram('proj_configs.cc')
-env.NidasProgram('rserial.cc')
-env.NidasProgram('sensor_extract.cc')
-env.NidasProgram('sensor_sim.cc')
-env.NidasProgram('statsproc.cc')
-env.NidasProgram('status_listener.cc')
+programs = Split("""
+arl-ingest
+arinc_out
+ck_aout
+ck_calfile
+ck_xml
+data_dump
+data_stats
+dmd_mmat_test
+dsm_server
+dsm
+extract2d
+ir104
+lidar_vel
+merge_verify
+nidas_udp_relay
+nidsmerge
+n_hdr_util
+proj_configs
+rserial
+sensor_extract
+sensor_sim
+statsproc
+status_listener
+sync_server
+xml_dump
+isff/datasets
+""")
+
+for prog in programs:
+    env.Alias(prog, env.NidasProgram(prog+'.cc'))
 
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
@@ -90,11 +98,7 @@ if sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
 
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')
-sdenv.NidasProgram(SDSRCS)
-
-env.NidasProgram('sync_server.cc')
-env.NidasProgram('xml_dump.cc')
-env.NidasProgram('isff/datasets.cc')
+env.Alias('sync_dump', sdenv.NidasProgram(SDSRCS))
 
 ncenv = env.Clone()
 try:

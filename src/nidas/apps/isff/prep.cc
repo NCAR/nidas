@@ -1063,6 +1063,9 @@ int DataPrep::run() throw()
                     if (dot != string::npos) {
                         const string sitestr = vname.substr(dot+1);
                         if (!sitestr.empty()) {
+                            VLOG(("looking up suffix ") << sitestr
+                                 << " of variable "
+                                 << vname << " as a site...");
                             Site* site;
                             site = Project::getInstance()->findSite(sitestr);
                             if (site) {
@@ -1070,6 +1073,10 @@ int DataPrep::run() throw()
                                 var->setSite(site);
                                 ILOG(("variable ") << var->getName()
                                      << " setting implied site " << sitestr);
+                            }
+                            else
+                            {
+                                VLOG(("no site found."));
                             }
                         }
 

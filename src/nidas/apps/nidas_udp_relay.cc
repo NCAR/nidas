@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -25,20 +25,23 @@
 */
 /*
 
- Program for relaying NIDAS data samples received on a UDP port to TCP clients.
- This can help solve two problems in data distribution from a remote station:
+ Program for relaying NIDAS data samples received on a UDP port to TCP
+ clients.  This can help solve two problems in data distribution from a
+ remote station:
 
- 1. The network to the station may be variable, for example a cellular modem
-    connection where maintaining a TCP connection can be difficult.  Instead of TCP,
-    stations send UDP data packets to a known data gateway running this relay.
-    All stations can send to the same port on the same host.
- 2. Systems with a good network connection to the gateway can then establish a TCP
-    connection to the gateway running this relay. Stateful firewalls may need
-    to be setup to allow the TCP connection.
+ 1. The network to the station may be variable, for example a cellular
+    modem connection where maintaining a TCP connection can be difficult.
+    Instead of TCP, stations send UDP data packets to a known data gateway
+    running this relay.  All stations can send to the same port on the same
+    host.
+
+ 2. Systems with a good network connection to the gateway can then
+    establish a TCP connection to the gateway running this relay. Stateful
+    firewalls may need to be setup to allow the TCP connection.
  
- Because it uses UDP, there is no guarantee of 100% data recovery, and the data packets
- may arrive out of order.  This is intended to be used for real-time, QC/quicklook
- purposes, and not for the data system archive.
+ Because it uses UDP, there is no guarantee of 100% data recovery, and the
+ data packets may arrive out of order.  This is intended to be used for
+ real-time, QC/quicklook purposes, and not for the data system archive.
 
  This program basically does no buffering of packets.  A read packet is
  placed in a deque and a Cond::broadcast is done to notify
@@ -65,6 +68,7 @@ using namespace std;
 namespace n_u = nidas::util;
 using nidas::core::NidasApp;
 using nidas::core::NidasAppArgv;
+using nidas::core::ArgVector;
 using nidas::util::LogScheme;
 using nidas::util::LogConfig;
 using nidas::util::Logger;
@@ -200,14 +204,13 @@ int PacketReader::parseRunstring(int argc, char** argv)
     logscheme.addConfig(LogConfig("level=info"));
     logger->setScheme(logscheme);
 
-    vector<string> args(argv, argv+argc);
-    _app.parseArguments(args);
+    ArgVector args = _app.parseArgs(ArgVector(argv+1, argv+argc));
     if (_app.helpRequested())
     {
         return usage(argv[0]);
     }
 
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     extern char *optarg;       /* set by getopt() */
     // extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
