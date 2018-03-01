@@ -1109,8 +1109,8 @@ setupProcess()
       throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
   }
   catch (const n_u::Exception& e) {
-    WLOG(("%s: %s. Will not be able to use real-time priority",
-	  _argv0, e.what()));
+    WLOG(("") << _argv0 << ": "
+	 << e.what() << ". Will not be able to use real-time priority");
   }
 #endif
 
@@ -1119,7 +1119,10 @@ setupProcess()
   {
     DLOG(("doing setgid(%d)", gid));
     if (setgid(gid) < 0)
-      WLOG(("%s: cannot change group id to %d: %m", _argv0, gid));
+    {
+      WLOG(("") << _argv0 << ": cannot change group id to " << gid
+	   << ": " << strerror(errno));
+    }
   }
 
   uid_t uid = getUserID();
@@ -1127,8 +1130,8 @@ setupProcess()
   {
     DLOG(("doing setuid(%d=%s)", uid, getUserName().c_str()));
     if (setuid(uid) < 0)
-      WLOG(("%s: cannot change userid to %d (%s): %m", _argv0,
-	    uid,getUserName().c_str()));
+      WLOG(("") << _argv0 << ": cannot change userid to " << uid
+	   << " (" << getUserName() << "): " << strerror(errno));
   }
 
 #ifdef CAP_SYS_NICE
@@ -1143,13 +1146,13 @@ setupProcess()
   }
   catch (const n_u::Exception& e)
   {
-    WLOG(("%s: %s", _argv0, e.what()));
+    WLOG(("") << _argv0 << ": " << e.what());
   }
 
   if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
   {
-    WLOG(("%s: CAP_SYS_NICE not in effect. "
-	  "Will not be able to use real-time priority", _argv0));
+    WLOG(("") << _argv0 << ": CAP_SYS_NICE not in effect. "
+	 "Will not be able to use real-time priority");
   }
   try
   {
@@ -1157,7 +1160,7 @@ setupProcess()
   }
   catch (const n_u::Exception& e)
   {
-    WLOG(("%s: %s", _argv0, e.what()));
+    WLOG(("") << _argv0 << ": " << e.what());
   }
 #endif
 }
@@ -1273,13 +1276,14 @@ checkPidFile()
 
       if (pid > 0)
       {
-	PLOG(("%s: pid=%d is already running", getProcessName(), pid));
+	PLOG(("") << getProcessName() << ": pid=" << pid
+	     << " is already running");
 	return 1;
       }
     }
     catch(const n_u::IOException& e)
     {
-      PLOG(("%s: %s", getProcessName(), e.what()));
+      PLOG(("") << getProcessName() << ": " << e.what());
       return 1;
     }
   }
