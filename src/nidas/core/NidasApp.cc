@@ -306,8 +306,7 @@ NidasApp::
 NidasApp(const std::string& name) :
   XmlHeaderFile
   ("-x,--xml", "<xmlfile>",
-   "Path to the NIDAS XML header file.  The default path is\n"
-   "taken from the header and expanded with the current environment."),
+   "Specify the path to the NIDAS XML header file.\n"),
   LogShow
   ("--logshow", "",
    "As log points are created, show information for each one that can\n"
@@ -1219,7 +1218,7 @@ getConfigsXML()
     const char* pe = getenv("PROJECT");
     const char* ae = getenv("AIRCRAFT");
     const char* ie = getenv("ISFS");
-    const char* ieo = getenv("ISFS");
+    const char* ieo = getenv("ISFF");
 
     if (re && pe && ae)
       _configsXMLName = n_u::Process::expandEnvVars(RAFXML);
