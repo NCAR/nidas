@@ -1,4 +1,4 @@
-// -*- mode: C++; c-basic-offset: 2; -*-
+// -*- mode: C++; c-basic-offset: 2; indent-tabs-mode: nil; -*-
 
 #include "NidasApp.h"
 #include "Project.h"
@@ -1248,7 +1248,20 @@ getHostName()
   if (_hostname.empty())
   {
     char hostnamechr[256];
-    gethostname(hostnamechr, sizeof(hostnamechr));
+    size_t hlen = sizeof(hostnamechr);
+    if (::gethostname(hostnamechr, hlen) < 0)
+    {
+      if (errno == ENAMETOOLONG)
+      {
+        hostnamechr[hlen-1] = 0;
+      }
+      else
+      {
+        string estring(strerror(errno));
+        ELOG(("gethostname: ") << estring);
+        hostnamechr[0] = 0;
+      }
+    }
     _hostname = hostnamechr;
   }
   return _hostname;
