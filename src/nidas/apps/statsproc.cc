@@ -240,11 +240,11 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     // For now we just want to add extended logging, consolidate the other
     // options later.
-    app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
+    app.enableArguments(app.loggingArgs() | app.Hostname |
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
                         app.InputFiles | Period | SorterLength |
                         NiceValue | DaemonMode |
-                        app.LogParam | app.Version | app.Help);
+                        app.Version | app.Help);
     app.StartTime.setFlags("-B,--start");
     app.EndTime.setFlags("-E,--end");
     app.InputFiles.allowFiles = true;
