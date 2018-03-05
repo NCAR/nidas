@@ -240,10 +240,17 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     // For now we just want to add extended logging, consolidate the other
     // options later.
+    NidasAppArg SetDSM("--DSM", "",
+                       "Set the DSM environment variable to the host name,\n"
+                       "as if the StatisticsProcessor were running in the\n"
+                       "context of a single DSM.");
+    NidasAppArg DSMName("-d,--dsmname", "<dsmname>",
+                        "Look for a <fileset> belonging to the given dsm to "
+                        "determine input file names.");
     app.enableArguments(app.loggingArgs() | app.Hostname |
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
                         app.InputFiles | Period | SorterLength |
-                        NiceValue | DaemonMode |
+                        NiceValue | DaemonMode | SetDSM | DSMName |
                         app.Version | app.Help);
     app.StartTime.setFlags("-B,--start");
     app.EndTime.setFlags("-E,--end");
@@ -263,6 +270,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     _startTime = app.getStartTime();
     _endTime = app.getEndTime();
     _xmlFileName = app.xmlHeaderFile();
+    _dsmName = DSMName.getValue();
     
     if (_sorterLength < 0.0 || _sorterLength > 1800.0)
     {
@@ -281,13 +289,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     argv = left.argv;
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "c:d:fo:OS:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "c:fo:OS:z")) != -1) {
 	switch (opt_char) {
 	case 'c':
 	    _configName = optarg;
-	    break;
-	case 'd':
-	    _dsmName = optarg;
 	    break;
 	case 'f':
 	    _fillGaps = true;
@@ -352,6 +357,27 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
             _endTime = _startTime + 7 * USECS_PER_DAY;
         }
     }
+
+    // This is a kludge to help situations where we want to run statsproc
+    // on an individual DSM and generate output filenames or directories
+    // using the DSM variable.  As a SampleIOProcessor, a
+    // StatisticsProcessor can have a DSMConfig associated with it, in
+    // which case strings are expanded in that context.  However, I think
+    // think all the processors and output strings have been realized by
+    // the time the project config has been parsed, so it is too late then
+    // to set a DSMConfig.  We might be able to add a StatisticsProcessor
+    // inside every <dsm> element, and then even take advantage of the -d
+    // option to run that specific DSM's stats processor, but that means
+    // generating a stats xml file for every DSM, and each with a unique
+    // starting sample ID.
+    if (SetDSM.asBool())
+    {
+        std::string sdsm("DSM=");
+        sdsm += _app.getShortHostName();
+        char* dsm = new char[sdsm.length()+1];
+        strcpy(dsm, sdsm.c_str());
+        putenv(dsm);
+    }
     return 0;
 }
 
@@ -363,9 +389,6 @@ int StatsProcess::usage(const char* argv0)
         "    [-S dataSet_name] [input ...]\n"
         "    -c configName: (optional) \n"
         "         name of configuration period to process, from configs.xml\n"
-        "    -d dsmname:\n"
-        "         look for a <fileset> belonging to the given dsm to determine\n"
-        "         input file names\n"
         "    -f: Fill in time gaps with missing data. When reprocessing data\n"
         "        you probably want to set this option.  If for some reason \n"
         "        you were reprocessing separate time periods in one run, \n"
@@ -386,9 +409,11 @@ int StatsProcess::usage(const char* argv0)
         "If no inputs are specified, then the -B time option must be given,\n" <<
         "and " << argv0 << " will read \n"
         "$ISFS/projects/$PROJECT/ISFS/config/configs.xml, to find an xml\n"
-        "configuration for the begin time, read it to find a <fileset> archive\n"
-        "for the dsm, and then open data files matching the <fileset> path\n"
-        "descriptor and time period.\n"
+        "configuration for the begin time, read it to find a <fileset> archive,\n"
+        "and then open data files matching the <fileset> path\n"
+        "descriptor and time period.  Use the -d <dsmname> option to specify\n"
+        "a DSM in which to look for the <output>, otherwise a server entry is\n"
+        "searched for the fileset.\n" 
         "\n"
         "The default XML file name is determined by either reading the data\n"
         "file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n"
@@ -732,6 +757,8 @@ getStatisticsProcessor(Project& project, const DSMConfig* & matchedDSM,
     StatisticsProcessor* sproc = 0;
 
     const DSMConfig* dsm = 0;
+    // If dsmName is set, then look in that specific DSM first for a
+    // matching StatisticsProcessor instance.
     if (_dsmName.length() > 0) {
         dsm = project.findDSM(_dsmName);
         if (dsm) {
@@ -753,7 +780,8 @@ getStatisticsProcessor(Project& project, const DSMConfig* & matchedDSM,
             }
         }
     }
-    if (!sproc) {
+    if (!sproc)
+    {
         // Find a server with a StatisticsProcessor
         // If no match is found, the name up to the first
         // dot is tried. If still no match, returns
