@@ -1268,6 +1268,15 @@ getHostName()
 }
 
 
+std::string
+NidasApp::
+getShortHostName()
+{
+  string hostname = getHostName();
+  return hostname.substr(0, hostname.find('.'));
+}
+
+
 int
 NidasApp::
 checkPidFile()

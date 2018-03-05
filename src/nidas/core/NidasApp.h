@@ -1017,6 +1017,13 @@ public:
     getHostName();
 
     /**
+     * Like getHostName(), but any '.' qualifiers are removed and only the
+     * unqualified name is returned.
+     **/
+    std::string
+    getShortHostName();
+
+    /**
      * Return the username passed to the Username argument, if enabled,
      * otherwise return an empty string.
      **/
