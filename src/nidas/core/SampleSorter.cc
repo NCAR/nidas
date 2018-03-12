@@ -89,7 +89,8 @@ SampleSorter::SampleSorter(const std::string& name,bool raw) :
     _heapMax(50 * 1000 * 1000),
 #endif
     _heapSize(0),_heapBlock(false),_heapCond(),_heapExceeded(false),
-    _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
+    _discardedSamples(0),_realTimeFutureSamples(0),_earlySamples(0),
+    _discardWarningCount(1000), _earlyWarningCount(_discardWarningCount),
     _doFlush(false),_flushed(true),_dummy(),
     _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
@@ -97,6 +98,9 @@ SampleSorter::SampleSorter(const std::string& name,bool raw) :
     _discardWarningCount =
         LogScheme::current().getParameterT("sample_sorter_discard_warning_count",
                                            _discardWarningCount);
+    _earlyWarningCount =
+        LogScheme::current().getParameterT("sample_sorter_early_warning_count",
+                                           _earlyWarningCount);
 }
 
 SampleSorter::~SampleSorter()
@@ -545,30 +549,28 @@ bool SampleSorter::receive(const Sample *s) throw()
     _heapCond.unlock();
 
     _sampleSetCond.lock();
-    // We only ever allow samples into the sorter which are within the
-    // sorter length window, meaning the sample time is within sorter
-    // length seconds of the most recent sample.  Otherwise lots of extra
-    // samples could be inserted into the set before the consumer thread
-    // gets around to aging some off, so that the samples which get through
-    // the sorter in order depends on how often the consumer thread runs.
+
+    // If a sample arrives that is prior to the current sorter time window
+    // then it may not be sorted, depending on whether the consumer thread
+    // has caught up to this producer thread. We warn about this condition
+    // but do not discard samples.
+
     SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
     if (latest != _samples.rend() &&
         s->getTimeTag() < (*latest)->getTimeTag() - _sorterLengthUsec)
     {
-        if (!(_discardedSamples++ % _discardWarningCount))
+        if (!(_earlySamples++ % _earlyWarningCount))
         {
             dsm_time_t wend = (*latest)->getTimeTag();
             dsm_time_t wbegin = wend - _sorterLengthUsec;
-            WLOG(("Discarding sample (%d,%d) @ ", 
+            WLOG(("Early sample (%d,%d) @ ", 
                   s->getDSMId(), s->getSpSId())
                  << SampleTracer::format_time(s->getTimeTag())
-                 << " (" << _discardedSamples << " total)"
-                 << ": sorter window ["
+                 << " (" << _earlySamples << " total)"
+                 << ": prior to sorter window ["
                  << SampleTracer::format_time(wbegin) << ", "
                  << SampleTracer::format_time(wend) << "]");
         }
-        _sampleSetCond.unlock();
-        return false;
     }
 
     // If the sorter has been interrupted or is not otherwise running, then

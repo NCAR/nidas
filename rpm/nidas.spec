@@ -110,7 +110,7 @@ Summary: Package for building NIDAS by hand
 # remove %{dist} from %{release} on noarch RPM
 Release: %{releasenum}
 Group: Applications/Engineering
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
 Obsoletes: nidas-builduser <= 1.2-189
 BuildArch: noarch
 %description build

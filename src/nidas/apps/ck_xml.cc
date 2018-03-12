@@ -41,6 +41,7 @@
 #include <nidas/core/requestXMLConfig.h>
 
 #include <iostream>
+#include <iomanip>
 #include <list>
 
 #include <unistd.h>
@@ -57,6 +58,8 @@ using nidas::util::LogScheme;
 using nidas::util::Logger;
 using nidas::util::LogConfig;
 
+typedef std::map<std::string, const Variable*> variable_map_t;
+
 class PConfig
 {
 public:
@@ -64,7 +67,9 @@ public:
         _xmlFile(),
         _sensorClasses(),
         _showCalFiles(false),
-        _showHosts(false)
+        _showHosts(false),
+        _showVariables(false),
+        _variables()
     {}
 
     int parseRunstring(NidasApp& app, int argc, char** argv);
@@ -90,6 +95,12 @@ public:
     showHostNames(const Project& project);
 
     void
+    showVariables();
+
+    void
+    loadVariables(const Project& project);
+
+    void
     getHostNames(const Project& project, std::vector<std::string>& dsmnames);
 
 private:
@@ -99,6 +110,9 @@ private:
 
     bool _showCalFiles;
     bool _showHosts;
+    bool _showVariables;
+
+    variable_map_t _variables;
 };
 
 
@@ -106,49 +120,48 @@ int
 PConfig::
 parseRunstring(NidasApp& app, int argc, char** argv)
 {
-    app.enableArguments(app.LogConfig | app.LogLevel |
-                        app.LogShow | app.LogFields | app.LogParam |
-                        app.Version | app.Help);
-    app.requireLongFlag(app.LogLevel);
+    NidasAppArg ShowHosts("-d", "",
+                          "List the DSM names (host names)");
+    NidasAppArg ShowCalFiles
+        ("-c", "",
+         "Display a listing of all cal files referenced in the xml");
+    NidasAppArg ShowSensors
+        ("-s", "<sensorclassname>",
+         "Display dsm and sensor id for sensors of the given class");
+    NidasAppArg ShowVariables
+        ("--variables", "",
+         "List all variable names and their rates."); 
+    
+    app.enableArguments(app.loggingArgs() |
+                        app.Version | app.Help |
+                        ShowHosts | ShowCalFiles | ShowSensors |
+                        ShowVariables);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested())
+    ArgVector args(argv+1, argv+argc);
+    app.startArgs(args);
+    NidasAppArg* arg = 0;
+    while ((arg = app.parseNext()))
     {
-        usage(argv[0]);
-        return 1;
+        if (arg == &ShowSensors)
+        {
+	    _sensorClasses.push_back(ShowSensors.getValue());
+        }
+        else if (app.helpRequested())
+        {
+            usage(argv[0]);
+            return 1;
+        }
     }
-
-    NidasAppArgv left(args);
-    int opt_char;            /* option character */
-
-    while ((opt_char = getopt(left.argc, left.argv, "dcs:")) != -1)
-    {
-	switch (opt_char) {
-        case 'd':
-            _showHosts = true;
-            break;
-	case 'c':
-	    _showCalFiles = true;
-	    break;
-	case 's':
-	    _sensorClasses.push_back(optarg);
-	    break;
-	case '?':
-	    usage(argv[0]);
-	    return 1;
-	}
-    }
-    if (optind == left.argc - 1)
-    {
-        _xmlFile = left.argv[optind++];
-    }
-
-    if (optind != left.argc || _xmlFile.length() == 0)
+    _showCalFiles = ShowCalFiles.asBool();
+    _showHosts = ShowHosts.asBool();
+    _showVariables = ShowVariables.asBool();
+    args = app.unparsedArgs();
+    if (args.size() != 1)
     {
 	usage(argv[0]);
 	return 1;
     }
+    _xmlFile = args[0];
     return 0;
 }
 
@@ -156,17 +169,13 @@ void
 PConfig::
 usage(const char* argv0) 
 {
-    cerr <<
-        "Usage: " << argv0 << " [-s sensorClass [-s ...] ] xml_specifier\n"
-        "  <xmlspecifier> can be a file name or host:port.\n"
-        "  -s sensorClass\n"
-        "  -c   display a listing of all cal files referenced in the xml\n"
-        "       display dsm and sensor id for sensors of the given class\n"
-        "  -d   list the DSM names (hostnames)\n" <<
-        "Standard options:\n" <<
-        NidasApp::getApplicationInstance()->usage() <<
-        "The default log level is warnings." <<
-        endl;
+    cerr << "Usage: "
+         << argv0 << " [options] [-s sensorClass [-s ...] ] xml_specifier\n"
+         << "  <xmlspecifier> can be a file name or host:port.\n"
+         << "Options:\n"
+         << NidasApp::getApplicationInstance()->usage()
+         << "The default log level is warnings."
+         << endl;
 }
 
 
@@ -268,13 +277,26 @@ int PConfig::main()
         }
 
         if (!_sensorClasses.empty())
+        {
             showSensorClasses(project);
+        }
         else if (_showCalFiles)
+        {
             showCalFiles(project);
+        }
         else if (_showHosts)
+        {
             showHostNames(project);
+        }
+        else if (_showVariables)
+        {
+            loadVariables(project);
+            showVariables();
+        }
         else
+        {
             showAll(project);
+        }
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
@@ -291,6 +313,68 @@ int PConfig::main()
     XMLImplementation::terminate();
     return res;
 }
+
+
+void
+PConfig::
+loadVariables(const Project& project)
+{
+    DLOG(("loading variables..."));
+    for (SiteIterator si = project.getSiteIterator(); si.hasNext(); )
+    {
+        Site* site = si.next();
+        for (DSMConfigIterator di = site->getDSMConfigIterator();
+             di.hasNext(); )
+        {
+            const DSMConfig* dsm = di.next();
+            for (SensorIterator si2 = dsm->getSensorIterator();
+                 si2.hasNext(); )
+            {
+                DSMSensor* sensor = si2.next();
+                for (SampleTagIterator ti = sensor->getSampleTagIterator();
+                     ti.hasNext(); )
+                {
+                    const SampleTag* tag = ti.next();
+                    if (!tag->isProcessed()) continue;
+                    for (VariableIterator vi = tag->getVariableIterator();
+                         vi.hasNext(); )
+                    {
+                        const Variable* var = vi.next();
+                        std::string name = var->getName();
+                        // If this tag has a non-zero station, then append
+                        // the site name with the # notation.  I think it's
+                        // correct to append the site name rather than DSM
+                        // name, but I'm not certain...
+                        if (tag->getStation() > 0)
+                        {
+                            name += "#";
+                            name += site->getName();
+                        }
+                        DLOG(("  ") << name);
+                        _variables[name] = var;
+                    }
+                }
+            }
+        }
+    }
+    DLOG(("Done."));
+}
+
+
+void
+PConfig::
+showVariables()
+{
+    variable_map_t::iterator it;
+    for (it = _variables.begin(); it != _variables.end(); ++it)
+    {
+        const Variable* var = it->second;
+        double rate = var->getSampleTag()->getRate();
+        cout << setw(20) << it->first << " " << setw(5) << rate << "\n";
+    }
+}
+
+
 
 void PConfig::showAll(const Project& project)
 {
@@ -319,8 +403,9 @@ void PConfig::showAll(const Project& project)
                     for (VariableIterator vi = tag->getVariableIterator();
                         vi.hasNext(); iv++) {
                         const Variable* var = vi.next();
-                        if (iv) cout << ',' << var->getName();
-                        else cout << var->getName();
+                        if (iv)
+                            cout << ',';
+                        cout << var->getName();
                     }
                     cout << endl;
                 }

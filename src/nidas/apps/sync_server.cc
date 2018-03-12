@@ -30,6 +30,7 @@
 #include <nidas/core/Project.h>
 
 using nidas::core::NidasApp;
+using nidas::core::ArgVector;
 using nidas::core::NidasAppException;
 
 #include <unistd.h>
@@ -67,7 +68,7 @@ int usage(const std::string& argv0)
 }
 
 
-int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
+int parseRunstring(SyncServer& sync, ArgVector& args)
 {
     NidasApp& app = *NidasApp::getApplicationInstance();
 
@@ -76,7 +77,7 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
     n_u::Logger* logger = n_u::Logger::getInstance();
     logger->setScheme(logger->getScheme().setShowFields("message"));
 
-    app.parseArguments(args);
+    args = app.parseArgs(args);
 
     std::list<std::string> dataFileNames;
 
@@ -142,7 +143,7 @@ int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
 SyncServer* signal_target = 0;
 
 void
-interrupt_sync_server()
+interrupt_sync_server(int)
 {
     if (signal_target)
     {
@@ -161,17 +162,15 @@ void setupSignals(SyncServer& sync)
 int main(int argc, char** argv)
 {
     NidasApp app("sync_server");
-    app.enableArguments(app.LogLevel | app.XmlHeaderFile |
-                        app.loggingArgs() | app.Help);
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Help);
     // Because -l is overloaded for sorter seconds.
-    app.requireLongFlag(app.LogLevel);
     app.requireLongFlag(app.LogConfig);
     app.setApplicationInstance();
 
     SyncServer sync;
     setupSignals(sync);
 
-    std::vector<std::string> args(argv, argv+argc);
+    ArgVector args(argv, argv+argc);
 
     int res;
     try {

@@ -442,3 +442,45 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
     xelem.setAttributeValue("plotrange",ost.str());
     return elem;
 }
+
+
+
+float*
+Variable::
+convert(dsm_time_t ttag, float* values, int nvalues, float* results)
+{
+    if (nvalues == 0)
+        nvalues = getLength();
+    if (!results)
+        results = values;
+    for (int id = 0; id < nvalues; id++, values++, results++)
+    {
+        float val = *values;
+        /* check for missing value before conversion. This
+         * is for sensors that put out something like -9999
+         * for a missing value, which should be checked before
+         * any conversion, and for which an exact equals check
+         * should work.  Doing a equals check on a numeric after a
+         * conversion is problematic.
+         */
+        if (val == getMissingValue())
+        {
+            val = floatNAN;
+        }
+        else if (!_site || _site->getApplyVariableConversions())
+        {
+            VariableConverter* conv = getConverter();
+            if (conv)
+            {
+                val = conv->convert(ttag, val);
+            }
+            if (val < getMinValue() || val > getMaxValue())
+            {
+                val = floatNAN;
+            }
+        }
+        *results = val;
+    }
+    return values;
+}
+
