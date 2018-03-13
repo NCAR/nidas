@@ -523,9 +523,10 @@ DataStats::DataStats():
     _realtime(false), _period_start(time_t(0)),
     _count(1), _period(0), _nreports(0),
     app("data_stats"),
-    Period("--period", "<seconds>",
+    Period("-P,--period", "<seconds>",
            "Collect statistics for the given number of seconds and then "
-           "print the report.", "0"),
+           "print the report.\n"
+           "If 0, wait until interrupted with Ctl-C.", "0"),
     Count("-n,--count", "<count>",
           "When --period specified, generate <count> reports.", "1"),
     AllSamples("-a,--all", "",
