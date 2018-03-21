@@ -50,8 +50,7 @@ public:
      * @endverbatim
      * The leading '^' will exclude any sample IDs in the given range
      * instead of including them.  The '*' matches any ID.  The older
-     * convention where -1 matches all IDs is deprecated but still
-     * supported.
+     * convention where -1 matches all IDs is still supported.
      * 
      * An empty criteria string is allowed and valid but changes nothing.
      **/
