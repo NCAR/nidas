@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -71,10 +71,10 @@ Wind3D::Wind3D():
     _shadowFactor(0.0)
 {
     for (int i = 0; i < 3; i++) {
-	_bias[i] = 0.0;
+        _bias[i] = 0.0;
     }
     for (int i = 0; i < 4; i++) {
-	_ttlast[i] = 0;
+        _ttlast[i] = 0;
     }
 
     /* index and sign transform for usual sonic orientation.
@@ -124,6 +124,18 @@ void Wind3D::despike(dsm_time_t tt,
 }
 
 
+void Wind3D::setBias(int b, double val)
+{
+    int nnan = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        if (b == i) _bias[i] = val;
+        if (isnan(_bias[i])) nnan++;
+    }
+    _allBiasesNaN = (nnan == 3);
+}
+
+
 void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
     // Read CalFile of bias, rotation angles, and orientation.
@@ -136,10 +148,8 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                 std::vector<std::string> cfields;
                 int nd = sizeof d/sizeof(d[0]);
                 int n = _oaCalFile->readCF(calTime, d, nd, &cfields);
-                for (int i = 0; i < 3 && i < n; i++) setBias(i, d[i]);
-                int nnan = 0;
-                for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
-                _allBiasesNaN = (nnan == 3);
+                for (int i = 0; i < 3 && i < n; i++)
+                    setBias(i, d[i]);
 
                 if (n > 3) setLeanDegrees(d[3]);
                 if (n > 4) setLeanAzimuthDegrees(d[4]);
@@ -171,7 +181,8 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
+                for (int i = 0; i < 3; i++)
+                    setBias(i, floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
@@ -182,7 +193,8 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
+                for (int i = 0; i < 3; i++)
+                    setBias(i, floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
@@ -385,18 +397,15 @@ void Wind3D::parseParameters()
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 
-    _allBiasesNaN = false;
-
     for ( ; pi != params.end(); ++pi) {
         parameter = *pi;
 
-        if (parameter->getName() == "biases") {
-            int nnan = 0;
-            for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
-                setBias(i,parameter->getNumericValue(i));
-                if (isnan(getBias(i))) nnan++;
+        if (parameter->getName() == "biases")
+        {
+            for (int i = 0; i < 3 && i < parameter->getLength(); i++)
+            {
+                setBias(i, parameter->getNumericValue(i));
             }
-            if (nnan == 3) _allBiasesNaN = true;
         }
         else if (parameter->getName() == "Vazimuth") {
             setVazimuth(parameter->getNumericValue(0));

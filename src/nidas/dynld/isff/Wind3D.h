@@ -219,10 +219,7 @@ public:
     bool process(const nidas::core::Sample* samp, 
         std::list<const nidas::core::Sample*>& results) throw();
 
-    void setBias(int i,double val)
-    {
-        if (i >= 0 && i < 3) _bias[i] = val;
-    }
+    void setBias(int i, double val);
 
     double getBias(int i) const
     {
