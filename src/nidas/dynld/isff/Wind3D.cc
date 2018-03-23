@@ -126,15 +126,17 @@ void Wind3D::despike(dsm_time_t tt,
 
 void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
-    // Read CalFile of bias and rotation angles.
-    // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
+    // Read CalFile of bias, rotation angles, and orientation.
+    // u.off   v.off   w.off    theta  phi    Vazimuth  t.off  t.slope  orientation
     if (_oaCalFile) {
         while(tt >= _oaCalFile->nextTime().toUsecs()) {
             float d[8];
             try {
                 n_u::UTime calTime;
-                int n = _oaCalFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
-                for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
+                std::vector<std::string> cfields;
+                int nd = sizeof d/sizeof(d[0]);
+                int n = _oaCalFile->readCF(calTime, d, nd, &cfields);
+                for (int i = 0; i < 3 && i < n; i++) setBias(i, d[i]);
                 int nnan = 0;
                 for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
                 _allBiasesNaN = (nnan == 3);
@@ -152,6 +154,14 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                 if (n > 7) {
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
+                }
+                /*
+                 * Allow the orientation parameter to be specified as a
+                 * string in the 9th column.
+                 */
+                if (cfields.size() > 8)
+                {
+                    setOrientation(cfields[8]);
                 }
             }
             catch(const n_u::EOFException& e)
