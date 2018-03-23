@@ -309,8 +309,31 @@ public:
      * However two threads reading the same CalFile will "steal"
      * each other's data, meaning each thread won't read a full
      * copy of the CalFile.
+     *
+     * If @p fields is not null, then it points to a string vector to which
+     * all the fields in the calfile record will be assigned.  So all the
+     * numeric fields parsed and stored in @p data will also be included in
+     * @p fields, followed by any fields past the last parsed numeric
+     * field.
+     *
+     * For example, given this calfile line:
+     *
+     * @code
+     * 2016 may 1 00:00:00 0.00 0.00 0.00 0.00 0 16.70 0.0 1.0 flipped
+     * @endcode
+     *
+     * Then 9 strings will be added to @p fields: "0.00", ..., "1.0",
+     * "flipped", but the returned value will still be 8, same as if fields
+     * had been null.  If a caller only wants string fields, then it can
+     * retrieve them like so:
+     *
+     * @code
+     * std::vector<std::string> fields;
+     * readCF(time, 0, 0, &fields);
+     * @endcode
      */
-    int readCF(nidas::util::UTime& time, float* data, int ndata)
+    int readCF(nidas::util::UTime& time, float* data, int ndata,
+               std::vector<std::string>* fields=0)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /*
@@ -356,7 +379,8 @@ private:
     nidas::util::UTime readTime()
         throw(nidas::util::IOException,nidas::util::ParseException);
 
-    int readCFNoLock(nidas::util::UTime& time, float* data, int ndata)
+    int readCFNoLock(nidas::util::UTime& time, float* data, int ndata,
+                     std::vector<std::string>* fields)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     std::string _name;

@@ -1,0 +1,8 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "Europe/Lisbon"
+#
+# DateTime     		u.off   v.off   w.off    lean	leanaz Vazimuth	t.off	t.gain  orientation
+2016 may  1 00:00:00 	 0.00	 0.00	0.00	 0.00	0	16.70	0.0	1.0	flipped
+2017 apr 27 12:25:00 	 0.00	 0.00	0.00	 0.00	0	16.70	0.0	1.0	normal

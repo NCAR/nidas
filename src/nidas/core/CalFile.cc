@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -391,35 +391,43 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
  * Lock a mutex, then read numeric data from a CalFile into
  * a float [].
  */
-int CalFile::readCF(n_u::UTime& time, float* data, int ndata)
+int CalFile::readCF(n_u::UTime& time, float* data, int ndata,
+                    std::vector<std::string>* fields)
     throw(n_u::IOException,n_u::ParseException)
 {
     n_u::Autolock autolock(_mutex);
-    return readCFNoLock(time,data,ndata);
+    return readCFNoLock(time, data, ndata, fields);
 }
 
 /*
  * Private version of readCF which does not hold a mutex.
  */
-int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
+int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
+                          std::vector<std::string>* fields_out)
     throw(n_u::IOException,n_u::ParseException)
 {
+    std::vector<std::string> fields;
     if (_include) {
 
         n_u::UTime intime = _include->nextTime();
 
-#ifdef DEBUG
-        if (intime.toUsecs() == LONG_LONG_MAX)
-            cerr << "include->nextTime" << "MAX" <<
-                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
-        else
-            cerr << "include->nextTime" << intime.format(true,"%F %T") <<
-                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
-#endif
+        static n_u::LogContext inclog(LOG_VERBOSE);
+        if (inclog.active())
+        {
+            if (intime.toUsecs() == LONG_LONG_MAX)
+                inclog.log() << "include->nextTime" << "MAX"
+                             << ", timeAfterInclude="
+                             << _timeAfterInclude.format(true,"%F %T");
+            else
+                inclog.log() << "include->nextTime"
+                             << intime.format(true,"%F %T")
+                             << ", timeAfterInclude="
+                             << _timeAfterInclude.format(true,"%F %T");
+        }
 
         if (intime < _timeAfterInclude) {
             // after the read, time should be the same as intime.
-            int n = _include->readCF(time, data, ndata);
+            int n = _include->readCF(time, data, ndata, fields_out);
 
             // cerr << "include->read, time=" << time.format(true,"%F %T") <<
             //     ", includeTime=" << _includeTime.format(true,"%F %T") << endl;
@@ -458,11 +466,20 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
     /* read the data fields, checking for an "include" */
 
     istringstream sin(_curline + _curpos);
+    istringstream fin(_curline + _curpos);
 
     int id;
-    for (id = 0; !sin.eof() && id < ndata; id++) {
+    std::string field;
+    for (id = 0; !sin.eof() && id < ndata; id++)
+    {
         sin >> data[id];
-        if (sin.fail()) {
+        if (! sin.fail())
+        {
+            fin >> field;
+            fields.push_back(field);
+        }
+        else
+        {
             if (sin.eof()) break;
             // conversion failure
             if (id == 0) {
@@ -489,7 +506,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
                 /* found an "include" record */
                 if (regstatus == 0) {
                     openInclude(includeName);
-                    return readCFNoLock(time,data,ndata);
+                    return readCFNoLock(time, data, ndata, fields_out);
                 }
             }
             // at this point the read failed and it isn't an "include" line.
@@ -504,6 +521,8 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
                 if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
                     ::toupper(possibleNaN[1]) == 'A') {
                         data[id] = floatNAN;
+                        fin >> setw(4) >> possibleNaN;
+                        fields.push_back(string(possibleNaN));
                         continue;
                 }
                 else if (possibleNaN[0] == '#')
@@ -516,8 +535,22 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
         }
         if (::fabs(data[id]) > 1.e36) data[id] = floatNAN;
     }
-    for (int i = id; i < ndata; i++) data[i] = floatNAN;
-
+    // If we've read the whole line and more data values were expected,
+    // fill them with NaN, but if we read all the numbers, then keep
+    // extracting fields until the whole line is read.
+    if (id < ndata)
+    {
+        for (int i = id; i < ndata; i++) data[i] = floatNAN;
+    }
+    else
+    {
+        while (fin >> field && field[0] != '#')
+        {
+            fields.push_back(field);
+        }
+    }
+    if (fields_out)
+        *fields_out = fields;
     readTime();
 
     return id;
@@ -640,13 +673,14 @@ void CalFile::openInclude(const string& name)
     _timeFromInclude = _include->search(_includeTime);
 
 }
+
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     // const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
-	// get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -654,12 +688,13 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "path") setPath(aval);
-	    else if (aname == "file") setFile(aval);
+            if (aname == "path") setPath(aval);
+            else if (aname == "file") setFile(aval);
             else if (aname == "name") setName(aval);
-	    else throw n_u::InvalidParameterException(xnode.getNodeName(),
-			"unrecognized attribute", aname);
-	}
+            else throw n_u::InvalidParameterException(xnode.getNodeName(),
+                                                      "unrecognized attribute",
+                                                      aname);
+        }
     }
 }
 
