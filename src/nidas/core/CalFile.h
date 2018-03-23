@@ -311,7 +311,7 @@ public:
      * copy of the CalFile.
      *
      * If @p fields is not null, then it points to a string vector to which
-     * all the fields in the calfile record will be appended.  So all the
+     * all the fields in the calfile record will be assigned.  So all the
      * numeric fields parsed and stored in @p data will also be included in
      * @p fields, followed by any fields past the last parsed numeric
      * field.
@@ -324,7 +324,13 @@ public:
      *
      * Then 9 strings will be added to @p fields: "0.00", ..., "1.0",
      * "flipped", but the returned value will still be 8, same as if fields
-     * had been null.
+     * had been null.  If a caller only wants string fields, then it can
+     * retrieve them like so:
+     *
+     * @code
+     * std::vector<std::string> fields;
+     * readCF(time, 0, 0, &fields);
+     * @endcode
      */
     int readCF(nidas::util::UTime& time, float* data, int ndata,
                std::vector<std::string>* fields=0)

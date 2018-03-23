@@ -427,7 +427,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
 
         if (intime < _timeAfterInclude) {
             // after the read, time should be the same as intime.
-            int n = _include->readCF(time, data, ndata, &fields);
+            int n = _include->readCF(time, data, ndata, fields_out);
 
             // cerr << "include->read, time=" << time.format(true,"%F %T") <<
             //     ", includeTime=" << _includeTime.format(true,"%F %T") << endl;
@@ -506,7 +506,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
                 /* found an "include" record */
                 if (regstatus == 0) {
                     openInclude(includeName);
-                    return readCFNoLock(time, data, ndata, &fields);
+                    return readCFNoLock(time, data, ndata, fields_out);
                 }
             }
             // at this point the read failed and it isn't an "include" line.
@@ -550,7 +550,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
         }
     }
     if (fields_out)
-        std::copy(fields.begin(), fields.end(), std::back_inserter(*fields_out));
+        *fields_out = fields;
     readTime();
 
     return id;

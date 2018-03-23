@@ -53,7 +53,6 @@ BOOST_AUTO_TEST_CASE(test_calfile_read_strings)
   BOOST_CHECK_EQUAL(fields[8], "flipped");
 
   when = cfile.nextTime();
-  fields.clear();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 8);
   BOOST_CHECK_EQUAL(data[7], 1.0);
@@ -79,7 +78,6 @@ BOOST_AUTO_TEST_CASE(test_calfile_na)
   BOOST_CHECK_EQUAL(n, 2);
   // Now read the next line with only one number
   when = cfile.nextTime();
-  fields.clear();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 1);
   BOOST_CHECK_EQUAL(data[0], 100.0);
@@ -90,7 +88,6 @@ BOOST_AUTO_TEST_CASE(test_calfile_na)
 
   // A line with only a time.
   when = cfile.nextTime();
-  fields.clear();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 0);
   BOOST_CHECK(isnan(data[0]));
@@ -99,7 +96,6 @@ BOOST_AUTO_TEST_CASE(test_calfile_na)
 
   // A line with explicit nans.
   when = cfile.nextTime();
-  fields.clear();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 2);
   BOOST_CHECK(isnan(data[0]));
