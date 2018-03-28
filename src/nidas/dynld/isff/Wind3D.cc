@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -71,10 +71,10 @@ Wind3D::Wind3D():
     _shadowFactor(0.0)
 {
     for (int i = 0; i < 3; i++) {
-        _bias[i] = 0.0;
+	_bias[i] = 0.0;
     }
     for (int i = 0; i < 4; i++) {
-        _ttlast[i] = 0;
+	_ttlast[i] = 0;
     }
 
     /* index and sign transform for usual sonic orientation.
@@ -124,32 +124,20 @@ void Wind3D::despike(dsm_time_t tt,
 }
 
 
-void Wind3D::setBias(int b, double val)
-{
-    int nnan = 0;
-    for (int i = 0; i < 3; i++)
-    {
-        if (b == i) _bias[i] = val;
-        if (isnan(_bias[i])) nnan++;
-    }
-    _allBiasesNaN = (nnan == 3);
-}
-
-
 void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 {
-    // Read CalFile of bias, rotation angles, and orientation.
-    // u.off   v.off   w.off    theta  phi    Vazimuth  t.off  t.slope  orientation
+    // Read CalFile of bias and rotation angles.
+    // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     if (_oaCalFile) {
         while(tt >= _oaCalFile->nextTime().toUsecs()) {
             float d[8];
             try {
                 n_u::UTime calTime;
-                std::vector<std::string> cfields;
-                int nd = sizeof d/sizeof(d[0]);
-                int n = _oaCalFile->readCF(calTime, d, nd, &cfields);
-                for (int i = 0; i < 3 && i < n; i++)
-                    setBias(i, d[i]);
+                int n = _oaCalFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
+                for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
+                int nnan = 0;
+                for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
+                _allBiasesNaN = (nnan == 3);
 
                 if (n > 3) setLeanDegrees(d[3]);
                 if (n > 4) setLeanAzimuthDegrees(d[4]);
@@ -165,14 +153,6 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
                 }
-                /*
-                 * Allow the orientation parameter to be specified as a
-                 * string in the 9th column.
-                 */
-                if (cfields.size() > 8)
-                {
-                    setOrientation(cfields[8]);
-                }
             }
             catch(const n_u::EOFException& e)
             {
@@ -181,8 +161,7 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
+                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
@@ -193,8 +172,7 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _oaCalFile->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++)
-                    setBias(i, floatNAN);
+                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
@@ -272,7 +250,7 @@ setOrientation(const std::string& orientation)
     }
     else if (orientation == "down")
     {
-        /* For flow-distortion experiments, the sonic may be mounted 
+        /* For flow-distortion experiments, the sonic may be mounted
          * pointing down. This is a 90 degree "down" rotation about the
          * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
          * flipping the sign of v.  Transform the components so that the
@@ -292,8 +270,8 @@ setOrientation(const std::string& orientation)
     }
     else if (orientation == "lefthanded")
     {
-        /* If wind direction is measured counterclockwise, convert to 
-         * clockwise (dir = 360 - dir). This is done by negating the v 
+        /* If wind direction is measured counterclockwise, convert to
+         * clockwise (dir = 360 - dir). This is done by negating the v
          * component.
          * new    raw sonic
          * u      u
@@ -354,7 +332,7 @@ setOrientation(const std::string& orientation)
     }
     float before[3] = { 1.0, 2.0, 3.0 };
     float after[3] = { 1.0, 2.0, 3.0 };
-    
+
     applyOrientation(0, after);
     DLOG(("sonic wind orientation will convert (%g,%g,%g) to (%g,%g,%g)",
           before[0], before[1], before[2], after[0], after[1], after[2]));
@@ -397,15 +375,18 @@ void Wind3D::parseParameters()
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 
+    _allBiasesNaN = false;
+
     for ( ; pi != params.end(); ++pi) {
         parameter = *pi;
 
-        if (parameter->getName() == "biases")
-        {
-            for (int i = 0; i < 3 && i < parameter->getLength(); i++)
-            {
-                setBias(i, parameter->getNumericValue(i));
+        if (parameter->getName() == "biases") {
+            int nnan = 0;
+            for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
+                setBias(i,parameter->getNumericValue(i));
+                if (isnan(getBias(i))) nnan++;
             }
+            if (nnan == 3) _allBiasesNaN = true;
         }
         else if (parameter->getName() == "Vazimuth") {
             setVazimuth(parameter->getNumericValue(0));
@@ -475,7 +456,7 @@ void Wind3D::parseParameters()
                 parameter->getType() != Parameter::FLOAT_PARAM) ||
                 parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),parameter->getName(), "'metek' should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setMetek(parameter->getNumericValue(0)); 
+            setMetek(parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "oversample");
         else if (parameter->getName() == "soniclog");
@@ -708,7 +689,7 @@ bool Wind3D::process(const Sample* samp,
         if (pdata < pend) uvwtd[i] = *pdata++;
         else uvwtd[i] = floatNAN;
     }
-    
+
     //metek has a correction before we start applying other corrections
     if (_metek) {
         nidas::dynld::isff::metek::Apply3DCorrect(uvwtd);
@@ -800,7 +781,7 @@ bool Wind3D::process(const Sample* samp,
     return true;
 }
 
-WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
+WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0)
 {
 }
 
@@ -962,14 +943,23 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
     x.u = -speed_0 * std::cos(alpha_0) * std::cos(phi_0); //Eqn 14
     x.v = -speed_0 * std::sin(alpha_0) * std::cos(phi_0); //Eqn 15
     x.w = -speed_0 * std::sin(phi_0); //Eqn 16
+
+    //If u, v, or w are NAN, go ahead and NAN out all the parameters
+    // including temperature which does depending quite heavily on u, v, & w
+    if (isnan(x.u) || isnan(x.v) || isnan(x.w)) {
+      x.u = NAN;
+      x.v = NAN;
+      x.w = NAN;
+      x.t = NAN;
+    }
   }
-  
+
   /*Apply3DCorrect applies Metek corrections to a single sample.  It corrects teh values in place*/
   void Apply3DCorrect(float uvwtd[5]) {
     metek::uvwt samp;
     samp.u = uvwtd[0]; samp.v = uvwtd[1]; samp.w = uvwtd[2]; samp.t = uvwtd[3];
     Apply3DCorrect(samp);
-    uvwtd[0] = samp.u; uvwtd[1] = samp.v; uvwtd[2] = samp.w; uvwtd[3] = samp.t;
+    vwtd[0] = samp.u; uvwtd[1] = samp.v; uvwtd[2] = samp.w; uvwtd[3] = samp.t;
   }
 /*CalcCorrection returns a correction value utilizing tables given in Risø-R-1659(EN).
   fourierCoeffs is a double[6] array which is composed of the following values:
@@ -1014,4 +1004,3 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
           fourierCoeffs[5] * ( (1 - partial) * lut[index][6] + partial * lut[index+1][6]);
   }
 }}}}; //namespace nidas; dynld; isff; metek;
-
