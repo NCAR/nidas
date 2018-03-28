@@ -962,6 +962,15 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
     x.u = -speed_0 * std::cos(alpha_0) * std::cos(phi_0); //Eqn 14
     x.v = -speed_0 * std::sin(alpha_0) * std::cos(phi_0); //Eqn 15
     x.w = -speed_0 * std::sin(phi_0); //Eqn 16
+
+    //If u, v, or w are NAN, go ahead and NAN out all the parameters
+    // including temperature which does depending quite heavily on u, v, & w
+    if (isnan(x.u) || isnan(x.v) || isnan(x.w)) {
+        x.u = NAN;
+        x.v = NAN;
+        x.w = NAN;
+        x.t = NAN;
+    }
   }
   
   /*Apply3DCorrect applies Metek corrections to a single sample.  It corrects teh values in place*/
