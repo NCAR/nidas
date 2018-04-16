@@ -8,9 +8,10 @@ import eol_scons
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default','gitinfo'])
+env = Environment(tools=['default', 'gitinfo'], GLOBAL_TOOLS=['scanbuild'])
 
-# Create the eol_scons global variables and the NIDAS variables from the same config file.
+# Create the eol_scons global variables and the NIDAS variables from the
+# same config file.
 gopts = eol_scons.GlobalVariables('nidas.conf')
 opts = Variables('nidas.conf')
 opts.AddVariables(('PREFIX',
