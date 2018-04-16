@@ -309,10 +309,17 @@ static int write_tas(struct usb_twod *dev)
         return retval;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void send_tas_timer_func(unsigned long arg)
 {
+        struct timer_list* tlist = (struct timer_list*)arg;
+#else
+static void send_tas_timer_func(struct timer_list* tlist)
+{
+#endif
         // Note that this runs in software interrupt context.
-        struct usb_twod *dev = (struct usb_twod *) arg;
+        struct usb_twod *dev = container_of(tlist, struct usb_twod, sendTASTimer);
+
         write_tas(dev);
         // reschedule
         mod_timer(&dev->sendTASTimer,
@@ -331,14 +338,12 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 if (dev->sendTASJiffies <= 0)
                         dev->sendTASJiffies = 1;
 		KLOG_INFO("%s: SOR rate=%d,jiffies=%d\n",dev->dev_name,rate,dev->sendTASJiffies);
-                dev->sendTASTimer.function = send_tas_timer_func;
                 /*
                  * The calls to send_tas_timer_func will be on
                  * an integral sendTASJiffies interval.
                  */
                 dev->sendTASTimer.expires = jiffies + 2 * dev->sendTASJiffies -
                         (jif % dev->sendTASJiffies);
-                dev->sendTASTimer.data = (unsigned long) dev;
                 add_timer(&dev->sendTASTimer);
         } else {
                 if (dev->sendTASJiffies > 0)
@@ -417,9 +422,15 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 
 
 /* -------------------------------------------------------------------- */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void urb_throttle_func(unsigned long arg)
 {
-        struct usb_twod *dev = (struct usb_twod *) arg;
+        struct timer_list *tlist = (struct timer_list*)arg;
+#else
+static void urb_throttle_func(struct timer_list* tlist)
+{
+#endif
+        struct usb_twod *dev = container_of(tlist, struct usb_twod, urbThrottle);
         int retval,i;
         struct urb *urb;
 // #define DEBUG
@@ -976,7 +987,13 @@ static int twod_open(struct inode *inode, struct file *file)
 
 
         if (throttleRate > 0) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->urbThrottle);
+                dev->urbThrottle.function = urb_throttle_func;
+                dev->urbThrottle.data = (unsigned long)&dev->urbThrottle;
+#else
+                timer_setup(&dev->urbThrottle, urb_throttle_func, 0);
+#endif
 
                 /*
                  * to reduce the overhead of throttling, schedule the
@@ -1000,9 +1017,7 @@ static int twod_open(struct inode *inode, struct file *file)
                         dev->throttleJiffies = dev->nurbPerTimer * HZ / throttleRate;
                 }
 
-                dev->urbThrottle.function = urb_throttle_func;
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
-                dev->urbThrottle.data = (unsigned long) dev;
                 add_timer(&dev->urbThrottle);
         }
 
@@ -1031,8 +1046,13 @@ static int twod_open(struct inode *inode, struct file *file)
         for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
                 INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
         init_timer(&dev->sendTASTimer);
-
+        dev->sendTASTimer.function = send_tas_timer_func;
+        dev->sendTASTimer.data = (unsigned long)&dev->sendTASTimer;
+#else
+        timer_setup(&dev->sendTASTimer, send_tas_timer_func, 0);
+#endif
         /* save our object in the file's private structure */
         file->private_data = dev;
 

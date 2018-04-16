@@ -3925,9 +3925,16 @@ static void cleanup_a2d(struct DMMAT* brd)
  * the read queue.  This timer function is called at the
  * rate requested by the user.
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void cntr_timer_fn(unsigned long arg)
 {
-        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) arg;
+        struct timer_list* tlist = (struct timer_list*)arg;
+#else
+static void cntr_timer_fn(struct timer_list* tlist)
+{
+#endif
+        struct DMMAT_CNTR* cntr =
+                container_of(tlist, struct DMMAT_CNTR, timer);
         struct DMMAT* brd = cntr->brd;
 
         unsigned long flags;
@@ -4040,9 +4047,18 @@ static int __init init_cntr(struct DMMAT* brd)
 
         init_waitqueue_head(&cntr->read_queue);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
         init_timer(&cntr->timer);
         cntr->timer.function = cntr_timer_fn;
-        cntr->timer.data = (unsigned long)cntr;
+        cntr->timer.data = (unsigned long)&cntr->timer;
+#else
+        /*
+         * More recent timer API always passes a pointer to the timer_list
+         * structure to the callback, instead of an unsigned long data
+         * member.
+         */
+        timer_setup(&cntr->timer, cntr_timer_fn, 0);
+#endif
 
         /* After calling cdev_add the device is "live"
          * and ready for user operation.
