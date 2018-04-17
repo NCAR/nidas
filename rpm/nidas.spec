@@ -1,15 +1,22 @@
 %define nidas_prefix /opt/nidas
 
-# Command line switches:  --with configedit --with autocal
+# Command line switches:  --with configedit --with autocal --with arinc
 # If not specified, configedit or autocal package will not be built
 %bcond_with configedit
 %bcond_with autocal
 %bcond_with raf
+%bcond_with arinc
 
 %if %{with raf}
 %define buildraf BUILD_RAF=yes
 %else
 %define buildraf BUILD_RAF=no
+%endif
+
+%if %{with arinc}
+%define buildarinc BUILD_ARINC=yes
+%else
+%define buildarinc BUILD_ARINC=no
 %endif
 
 %define has_systemd 0
@@ -133,13 +140,13 @@ Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be
 
 %build
 cd src
-scons -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} PREFIX=%{nidas_prefix}
+scons -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
  
 %install
 rm -rf $RPM_BUILD_ROOT
 
 cd src
-scons -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} REPO_TAG=v%{version} install
+scons -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
@@ -300,7 +307,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files modules
 %defattr(0775,root,root,2775)
+%if %{with arinc}
 %{nidas_prefix}/modules/arinc.ko
+%endif
 %{nidas_prefix}/modules/dmd_mmat.ko
 %{nidas_prefix}/modules/emerald.ko
 %{nidas_prefix}/modules/gpio_mm.ko

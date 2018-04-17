@@ -5,11 +5,15 @@ dir=`dirname $0`
 
 dopkg=nidas
 buildraf=true
+buildarinc=true
 
 while [ $# -gt 0 ]; do
     case $1 in
         -nr)
             buildraf=false
+            ;;
+        -noarinc)
+            buildarinc=false
             ;;
         *)
             dopkg=$1
@@ -48,6 +52,14 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     else
         withraf=
         args='BUILD_RAF=no'
+    fi
+
+    if $buildarinc; then
+	args="$args BUILD_ARINC=yes"
+	witharinc="--with arinc"
+    else
+	args="$args BUILD_ARINC=no"
+	witharinc=
     fi
 
     # In the RPM changelog, copy most recent commit subject lines
@@ -99,9 +111,12 @@ EOD
         # If moc-qt4 is in PATH, build autocal
         $buildraf && type -p moc-qt4 > /dev/null && withac="--with autocal"
 
-        buildopt=-ba
+	# Don't build nidas source package.  We cannot release the source
+	# if it contains the Condor code, and no one uses it anyway.
+        buildopt=-bb
     else
-        buildopt=-bb    # don't build source for nidas-doxygen
+	# Don't build source for nidas-doxygen.
+        buildopt=-bb
     fi
 
     cd src   # to src
@@ -132,7 +147,7 @@ EOD
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild $buildopt $withraf $withce $withac \
+    rpmbuild $buildopt $witharinc $withraf $withce $withac \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
