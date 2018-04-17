@@ -9,6 +9,23 @@ mach = env['MACH']
 
 import re
 import os
+import SCons
+
+variables = env.GlobalVariables()
+bahelp="""Control building of the arinc Linux kernel driver.  If 'yes', then the
+build fails if the arinc driver cannot be built because the Condor source
+is not present.  If 'auto', the default, then the arinc driver is built if
+the Condor source is present, but the build does not fail if not.  Set it
+to 'no' to disable building the arinc driver even if the Condor source is
+present."""
+variables.Add(EnumVariable('BUILD_ARINC', bahelp, 'auto',
+                           allowed_values=('yes', 'auto', 'no')))
+variables.Update(env)
+
+buildarinc = env['BUILD_ARINC']
+if buildarinc == 'no':
+    print("arinc build disabled.")
+    Return()
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -96,7 +113,10 @@ elif env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
         # print exc
         found = None
 
-    if not found:
+    if not found and buildarinc == 'yes':
+        raise SCons.Errors.StopError("Condor source not found, "
+                                     "but BUILD_ARINC is set to 'yes'.")
+    elif not found:
         print("Condor file %s not found, %s will not be built " %
               (condor, str(modules)))
         env.Ignore('.', arincmod)
