@@ -204,8 +204,17 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                 if (this->count == 1) this->tsave = tt;
                 if (this->count == this->npts) {
                         short* op = out->data;
-                        out->timetag = this->tsave +
-                            (tt - this->tsave) / 2;     // middle time
+                        int tdiff = (tt - this->tsave);
+                        // midnight rollover
+                        if (tdiff < 0) {
+                                if (tdiff < -TMSECS_PER_SEC / 2)
+                                        tdiff += TMSECS_PER_SEC;
+                                else if (tdiff < -MSECS_PER_SEC / 2)
+                                        tdiff += MSECS_PER_SEC;
+                        }
+
+                        // middle time
+                        out->timetag = this->tsave + tdiff / 2;
                         out->id = this->id;
                         for (i = 0; i < this->nvars; i++) {
                             *op++ = this->sums[i] / this->npts;
