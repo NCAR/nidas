@@ -638,6 +638,8 @@ struct DMMAT_A2D
          */
         unsigned long lastWakeup;
 
+        struct screen_timetag_data ttdata;
+
 };
 
 /**

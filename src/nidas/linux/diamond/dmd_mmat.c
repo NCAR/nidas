@@ -1274,6 +1274,11 @@ static void startA2D_MM16AT(struct DMMAT_A2D* a2d)
         struct DMMAT* brd = a2d->brd;
         unsigned char regval;
 
+        int fifoDeltaT_usecs =
+                a2d->scanDeltaT * USECS_PER_TMSEC *
+                a2d->fifoThreshold / a2d->nchanScanned;
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs, 1000);
+
         if (a2d->mode != A2D_NORMAL) return;
 
         // reset fifo
@@ -1331,6 +1336,12 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
 #ifdef OUTPUT_CLOCK12_DOUT2
         unsigned char regval;
 #endif
+
+        int fifoDeltaT_usecs =
+                a2d->scanDeltaT * USECS_PER_TMSEC *
+                a2d->fifoThreshold / a2d->nchanScanned;
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs, 1000);
+
         if (brd->type != DMM32AT_BOARD) {
                 outb(0x04,brd->addr + 8);	// set page 4
                 outb(0x02,brd->addr + 14);	// abort any currently running autocal
@@ -1905,7 +1916,8 @@ static void dmmat_a2d_bottom_half(void* work)
                 // the last channels of the previous scan
 
                 // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
+                tt0 = insamp->timetag - dt;
+                tt0 = screen_timetag(&a2d->ttdata, tt0);
 
                 for (; dp < ep; ) {
                     int n = (ep - dp);
@@ -1966,7 +1978,10 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                 BUG_ON((nval % a2d->nchanScanned) != 0);
 
                 // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
+                // subtract scanning time from interrupt time
+                tt0 = insamp->timetag - dt;
+
+                tt0 = screen_timetag(&a2d->ttdata, tt0);
 
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
