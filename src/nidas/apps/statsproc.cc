@@ -167,11 +167,11 @@ int StatsProcess::main(int argc, char** argv) throw()
         return res;
 
     if (stats._daemonMode) {
-	// fork to background, send stdout/stderr to /dev/null
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("statsproc","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
+        // fork to background, send stdout/stderr to /dev/null
+        if (daemon(0,0) < 0) {
+            n_u::IOException e("statsproc","daemon",errno);
+            cerr << "Warning: " << e.toString() << endl;
+        }
         n_u::Logger::createInstance("statsproc",LOG_PID,LOG_LOCAL5);
     }
     else n_u::Logger::createInstance(&cerr);
@@ -289,17 +289,17 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     int opt_char;     /* option character */
 
     while ((opt_char = getopt(argc, argv, "c:fo:OS:z")) != -1) {
-	switch (opt_char) {
-	case 'c':
-	    _configName = optarg;
-	    break;
-	case 'f':
-	    _fillGaps = true;
-	    break;
-	case 'O':
-	    _doListOutputSamples = true;
-	    break;
-	case 'o':
+        switch (opt_char) {
+        case 'c':
+            _configName = optarg;
+            break;
+        case 'f':
+            _fillGaps = true;
+            break;
+        case 'O':
+            _doListOutputSamples = true;
+            break;
+        case 'o':
            {
                 string soptarg(optarg);
                 // parse integers or integer ranges separated by a commas
@@ -327,13 +327,13 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                         msg << _selectedOutputSampleIds[i] << ' ';
                 }
             }
-	    break;
-	case 'S':
-	    _datasetName = optarg;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
+            break;
+        case 'S':
+            _datasetName = optarg;
+            break;
+        case '?':
+            return usage(argv[0]);
+        }
     }
     app.parseInputs(left.unparsedArgs(optind));
 
@@ -422,9 +422,9 @@ int StatsProcess::usage(const char* argv0)
         "\n"
         "Standard nidas options:\n" << _app.usage() << "\n"
         "Examples:\n" <<
-	argv0 << " --start \"2006 jun 10 00:00\" --end \"2006 jul 3 00:00\"\n" <<
-	argv0 << " sock:dsmhost\n" <<
-	argv0 << " unix:/tmp/data_socket\n" <<
+        argv0 << " --start \"2006 jun 10 00:00\" --end \"2006 jul 3 00:00\"\n" <<
+        argv0 << " sock:dsmhost\n" <<
+        argv0 << " unix:/tmp/data_socket\n" <<
         endl;
     return 1;
 }
@@ -469,7 +469,7 @@ int StatsProcess::run() throw()
 {
     if (_niceValue > 0 && nice(_niceValue) < 0)
     {
-    	WLOG(("") << _app.getProcessName()
+        WLOG(("") << _app.getProcessName()
              << ": nice(" << _niceValue << "): "
              << strerror(errno));
         return 1;
@@ -491,27 +491,27 @@ int StatsProcess::run() throw()
         }
         XMLImplementation::terminate();
 
-	if (_app.socketAddress())
+        if (_app.socketAddress())
         {
             if (_xmlFileName.length() == 0)
             {
                 requireConfigsXML();
 
-		ProjectConfigs configs;
-		configs.parseXML(_configsXMLName);
-		ILOG(("parsed:") <<  _configsXMLName);
-		// throws InvalidParameterException if no config for time
-		const ProjectConfig* cfg;
+                ProjectConfigs configs;
+                configs.parseXML(_configsXMLName);
+                ILOG(("parsed:") <<  _configsXMLName);
+                // throws InvalidParameterException if no config for time
+                const ProjectConfig* cfg;
                 if (_configName.length() > 0)
                     cfg = configs.getConfig(_configName);
                 else
                     cfg = configs.getConfig(n_u::UTime());
-		cfg->initProject(project);
-		// cerr << "cfg=" <<  cfg->getName() << endl;
+                cfg->initProject(project);
+                // cerr << "cfg=" <<  cfg->getName() << endl;
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
-	    n_u::Socket* sock = 0;
-	    for (int i = 0; !sock && !_app.interrupted(); i++) {
+            n_u::Socket* sock = 0;
+            for (int i = 0; !sock && !_app.interrupted(); i++) {
                 try {
                     sock = new n_u::Socket(*_app.socketAddress());
                 }
@@ -520,7 +520,7 @@ int StatsProcess::run() throw()
                     WLOG(("") << e.what() << ": retrying in 10 seconds");
                     sleep(10);
                 }
-	    }
+            }
             if (_app.interrupted())
             {
                 return 1;
@@ -529,11 +529,11 @@ int StatsProcess::run() throw()
             iochan = new nidas::core::Socket(sock);
             ILOG(("connected: ") <<  sock->getRemoteSocketAddress().toString());
         }
-	else {
+        else {
             nidas::core::FileSet* fset;
 
             // no file names listed in runstring
-	    if (_app.dataFileNames().size() == 0)
+            if (_app.dataFileNames().size() == 0)
             {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
@@ -600,31 +600,31 @@ int StatsProcess::run() throw()
                     fset->setStartTime(_startTime);
                 if (_endTime.toUsecs() != LONG_LONG_MAX)
                     fset->setEndTime(_endTime);
-	    }
-	    else
+            }
+            else
             {
                 fset = nidas::core::FileSet::getFileSet(_app.dataFileNames());
             }
-	    iochan = fset;
-	}
+            iochan = fset;
+        }
 
         RawSampleInputStream sis(iochan);
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
-	pipeline.setRawSorterLength(1.0);
-	pipeline.setProcSorterLength(_sorterLength);
+        pipeline.setRawSorterLength(1.0);
+        pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(1 * 1000 * 1000);
         pipeline.setProcHeapMax(1 * 1000 * 1000);
 
         if (_xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
-	    DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
-		    "software=" << header.getSoftwareVersion() << '\n' <<
-		    "project=" << header.getProjectName() << '\n' <<
-		    "system=" << header.getSystemName() << '\n' <<
-		    "config=" << header.getConfigName() << '\n' <<
-		    "configversion=" << header.getConfigVersion());
+            DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
+                    "software=" << header.getSoftwareVersion() << '\n' <<
+                    "project=" << header.getProjectName() << '\n' <<
+                    "system=" << header.getSystemName() << '\n' <<
+                    "config=" << header.getConfigName() << '\n' <<
+                    "configversion=" << header.getConfigVersion());
 
             // parse the config file.
             _xmlFileName = header.getConfigName();
@@ -640,10 +640,10 @@ int StatsProcess::run() throw()
         DSMServer* server = 0;
 
         sproc = getStatisticsProcessor(project, dsm, server);
-	if (!sproc)
+        if (!sproc)
         {
-	    return 1;
-	}
+            return 1;
+        }
         if (dsm) {
             SensorIterator si = dsm->getSensorIterator();
             for (; si.hasNext(); ) {
@@ -681,7 +681,7 @@ int StatsProcess::run() throw()
         if (_selectedOutputSampleIds.size() > 0)
             sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
 
-	try {
+        try {
             if (_startTime.toUsecs() != LONG_LONG_MIN) {
                 ILOG(("Searching for time ") <<
                     _startTime.format(true,"%Y %m %d %H:%M:%S"));
@@ -711,22 +711,22 @@ int StatsProcess::run() throw()
                 }
             }
 
-	    for (;;) {
-		if (_app.interrupted()) break;
-		sis.readSamples();
-	    }
-	}
-	catch (n_u::EOFException& e) {
-	    ILOG(("EOF received"));
-	}
-	catch (n_u::IOException& e) {
+            for (;;) {
+                if (_app.interrupted()) break;
+                sis.readSamples();
+            }
+        }
+        catch (n_u::EOFException& e) {
+            ILOG(("EOF received"));
+        }
+        catch (n_u::IOException& e) {
             pipeline.disconnect(&sis);
-	    sis.close();
+            sis.close();
             pipeline.flush();
             pipeline.join();
-	    sproc->disconnect(&pipeline);
-	    throw e;
-	}
+            sproc->disconnect(&pipeline);
+            throw e;
+        }
         pipeline.disconnect(&sis);
         sis.close();
         pipeline.flush();
@@ -742,7 +742,7 @@ int StatsProcess::run() throw()
         PLOG(("%s",e.what()));
         SampleOutputRequestThread::destroyInstance();
         XMLImplementation::terminate();
-	return 1;
+        return 1;
     }
     SampleOutputRequestThread::destroyInstance();
     return 0;
@@ -864,10 +864,10 @@ int StatsProcess::listOutputSamples()
         DSMServer* server = 0;
 
         sproc = getStatisticsProcessor(project, dsm, server);
-	if (!sproc)
+        if (!sproc)
         {
-	    return 1;
-	}
+            return 1;
+        }
 
         std::list<const SampleTag*> tags =  sproc->getRequestedSampleTags();
         std::list<const SampleTag*>::const_iterator ti = tags.begin();
@@ -891,7 +891,7 @@ int StatsProcess::listOutputSamples()
         // looking for a matching argument. Use PLOG(("%s",e.what())) instead.
         PLOG(("%s",e.what()));
         XMLImplementation::terminate();
-	return 1;
+        return 1;
     }
     return 0;
 }
