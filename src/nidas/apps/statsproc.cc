@@ -256,7 +256,6 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     app.EndTime.setFlags("-E,--end");
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
-    app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
