@@ -283,6 +283,66 @@ extern ssize_t
 nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
                 struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
-#endif
+/**
+ * Info needed to screen bad time tags in a time series which
+ * should have a fixed delta-T.
+ */
+struct screen_timetag_data
+{
+
+        /**
+         * Defined deltat-T, in units of 1/10 msec, passed to init function.
+         */
+        unsigned int dtTmsec;
+
+        /**
+         * In case delta-T is is not a integral number of  1/10 msec,
+         * the fractional part, in micro-seconds..
+         */
+        unsigned int dtUsec;
+
+        /**
+         * Number of points in a running average of the apparent
+         * time tag errors.
+         */
+        unsigned int nptsSmooth;
+
+        /**
+         * Result time tags will have a integral number of deltat-Ts
+         * from this base time. This base time is slowly adjusted
+         * by averaging the differences between the result time tags
+         * and the input time tags.
+         */
+        dsm_sample_time_t tt0;
+
+        /**
+         * Current number of delta-Ts from tt0.
+         */
+        unsigned int nDt;
+
+        /**
+         * Running averge N.
+         */
+        int nSum;
+
+        /**
+         * Running average of time tag error, in usecs.
+         */
+        int errAvg;
+
+        /**
+         * Once nDt exceeds this value, roll back, to avoid overflow.
+         */
+        unsigned int samplesPerDay;
+
+};
+
+extern void screen_timetag_init(struct screen_timetag_data* td,
+        int deltaT_Usec, int nptsSmooth);
+
+extern dsm_sample_time_t screen_timetag(struct screen_timetag_data* td,
+        dsm_sample_time_t tt);
+
+#endif  /* KERNEL */
 
 #endif
