@@ -284,12 +284,11 @@ nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
                 struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
 /**
- * Info needed to screen bad time tags in a time series which
+ * Info needed to adjust time tags in a time series which
  * should have a fixed delta-T.
  */
 struct screen_timetag_data
 {
-
         /**
          * Defined deltat-T, in units of 1/10 msec, passed to init function.
          */
@@ -302,38 +301,59 @@ struct screen_timetag_data
         unsigned int dtUsec;
 
         /**
-         * Number of points in a running average of the apparent
-         * time tag errors.
+         * Number of points to compute the running average, or the
+         * minimum of the difference between the actual and expected
+         * time tags.
          */
         unsigned int nptsSmooth;
 
         /**
          * Result time tags will have a integral number of deltat-Ts
          * from this base time. This base time is slowly adjusted
-         * by averaging the differences between the result time tags
-         * and the input time tags.
+         * by averaging or computing the minimum difference between
+         * the result time tags and the input time tags.
          */
         dsm_sample_time_t tt0;
 
         /**
          * Current number of delta-Ts from tt0.
          */
-        unsigned int nDt;
+        int nDt;
 
+        /**
+         * Once nDt exceeds this value, roll back, to avoid overflow.
+         */
+        unsigned int samplesPerDay;
+
+#ifdef DO_TIMETAG_ERROR_AVERAGE
         /**
          * Running averge N.
          */
         int nSum;
 
         /**
-         * Running average of time tag error, in usecs.
+         * Running average of time tag differences, in usecs.
          */
         int errAvg;
+#else
 
         /**
-         * Once nDt exceeds this value, roll back, to avoid overflow.
+         * Number of points of current minimum time difference.
          */
-        unsigned int samplesPerDay;
+        int nmin;
+
+        /**
+         * How many points to compute minimum time difference.
+         */
+        int nptsMin;
+
+        /**
+         * Minimum diffence between actual time tags and expected.
+         */
+        int tdiffmin;
+
+#endif
+
 
 };
 
