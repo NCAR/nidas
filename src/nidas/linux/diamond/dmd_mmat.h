@@ -640,6 +640,11 @@ struct DMMAT_A2D
 
         struct screen_timetag_data ttdata;
 
+        /**
+         * How many messages about large time adjustments have been logged.
+         */
+        unsigned int nLargeTimeAdj;
+
 };
 
 /**

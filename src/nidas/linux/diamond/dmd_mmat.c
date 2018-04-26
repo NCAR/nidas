@@ -1881,7 +1881,7 @@ static void dmmat_a2d_bottom_half(void* work)
 
         struct a2d_bh_data* tld = &a2d->bh_data;
 
-        dsm_sample_time_t tt0;
+        dsm_sample_time_t tt0orig, tt0;
 
         int saveChan = tld->saveSample.length / sizeof(short);
 
@@ -1916,8 +1916,17 @@ static void dmmat_a2d_bottom_half(void* work)
                 // the last channels of the previous scan
 
                 // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;
-                tt0 = screen_timetag(&a2d->ttdata, tt0);
+                tt0orig = insamp->timetag - dt;
+                tt0 = screen_timetag(&a2d->ttdata, tt0orig);
+                if (abs(tt0 - tt0orig) > TMSECS_PER_SEC / 4) {
+                        if (!(a2d->nLargeTimeAdj++ % 100)) {
+                                int tdiff = tt0 - tt0orig;
+                                KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
+                                        getA2DDeviceName(a2d),
+                                        tdiff / TMSECS_PER_SEC,
+                                        abs(tdiff) % TMSECS_PER_SEC);
+                        }
+                }
 
                 for (; dp < ep; ) {
                     int n = (ep - dp);
@@ -1960,7 +1969,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
         struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
         struct dsm_sample* insamp;
 
-        dsm_sample_time_t tt0;
+        dsm_sample_time_t tt0orig, tt0;
 
         KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
             getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
@@ -1979,9 +1988,18 @@ static void dmmat_a2d_bottom_half_fast(void* work)
 
                 // tt0 is conversion time of first compete scan in fifo
                 // subtract scanning time from interrupt time
-                tt0 = insamp->timetag - dt;
+                tt0orig = insamp->timetag - dt;
 
-                tt0 = screen_timetag(&a2d->ttdata, tt0);
+                tt0 = screen_timetag(&a2d->ttdata, tt0orig);
+                if (abs(tt0 - tt0orig) > TMSECS_PER_SEC / 4) {
+                        if (!(a2d->nLargeTimeAdj++ % 100)) {
+                                int tdiff = tt0 - tt0orig;
+                                KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
+                                        getA2DDeviceName(a2d),
+                                        tdiff / TMSECS_PER_SEC,
+                                        abs(tdiff) % TMSECS_PER_SEC);
+                        }
+                }
 
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
