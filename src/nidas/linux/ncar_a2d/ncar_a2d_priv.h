@@ -222,7 +222,7 @@ struct A2DBoard
 	int havePPS;
 
         int nfilters;           // how many different output filters
-        struct a2d_filter_info *filters;
+        struct short_filter_info *filters;
 
         struct irig_callback* a2dCallback;
 

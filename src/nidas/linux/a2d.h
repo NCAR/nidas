@@ -98,25 +98,4 @@ struct nidas_a2d_sample_config
 #define NIDAS_A2D_CONFIG_SAMPLE \
     _IOW(NIDAS_A2D_IOC_MAGIC,2,struct nidas_a2d_sample_config)
 
-#ifdef __KERNEL__
-
-/**
- * Structure describing a filter and which channels it is
- * to be used for.
- */
-struct a2d_filter_info {
-        int nchans;
-        int* channels;
-        int decimate;
-        enum nidas_short_filter filterType;
-        shortfilt_init_method finit;        // filter methods
-        shortfilt_config_method fconfig;
-        shortfilt_filter_method filter;
-        shortfilt_cleanup_method fcleanup;
-        void* filterObj;       // pointer to filter's private data
-        short index;           // sample index to put as first 16 bit word of data
-};
-
-#endif
-
 #endif

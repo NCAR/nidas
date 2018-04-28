@@ -603,7 +603,7 @@ struct DMMAT_A2D
         /**
          * the filters the user has requested.
          */
-        struct a2d_filter_info* filters;
+        struct short_filter_info* filters;
 
         /**
          * input channels requested in waveform mode

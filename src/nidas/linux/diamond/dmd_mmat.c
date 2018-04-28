@@ -700,13 +700,13 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
 {
         int i;
         for (i = 0; i < a2d->nfilters; i++) {
-            struct a2d_filter_info* finfo = a2d->filters + i;
+            struct short_filter_info* finfo = a2d->filters + i;
             /* cleanup filter */
-            if (finfo->filterObj && finfo->fcleanup)
-                finfo->fcleanup(finfo->filterObj);
-            finfo->filterObj = 0;
+            if (finfo->data.filterObj && finfo->fcleanup)
+                finfo->fcleanup(finfo->data.filterObj);
+            finfo->data.filterObj = 0;
             finfo->fcleanup = 0;
-            kfree(finfo->channels);
+            kfree(finfo->data.channels);
         }
         kfree(a2d->filters);
         a2d->filters = 0;
@@ -769,9 +769,10 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
         int result = 0;
         int i;
         int nfilters;
-        struct a2d_filter_info* filters = 0;
-        struct a2d_filter_info* finfo = 0;
+        struct short_filter_info* filters = 0;
+        struct short_filter_info* finfo = 0;
         struct short_filter_methods methods;
+        struct short_filter_data *fdata = 0;
 
         if(atomic_read(&a2d->running)) {
                 KLOG_ERR("A2D's running. Can't configure\n");
@@ -781,26 +782,28 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
         if (a2d->mode == A2D_NORMAL) {
                 // grow filter info array by one
                 nfilters = a2d->nfilters + 1;
-                filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+                filters = kmalloc(nfilters * sizeof (struct short_filter_info),
                                        GFP_KERNEL);
                 if (!filters) return -ENOMEM;
                 // copy previous filter infos, and free the space
                 memcpy(filters,a2d->filters,
-                    a2d->nfilters * sizeof(struct a2d_filter_info));
+                    a2d->nfilters * sizeof(struct short_filter_info));
                 kfree(a2d->filters);
 
                 finfo = filters + a2d->nfilters;
                 a2d->filters = filters;
                 a2d->nfilters = nfilters;
 
-                memset(finfo, 0, sizeof(struct a2d_filter_info));
+                memset(finfo, 0, sizeof(struct short_filter_info));
+                fdata = &finfo->data;
+                fdata->deviceName = getA2DDeviceName(a2d);
 
-                if (!(finfo->channels =
+                if (!(fdata->channels =
                         kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
                         return -ENOMEM;
 
-                memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
-                finfo->nchans = cfg->nvars;
+                memcpy(fdata->channels,cfg->channels,cfg->nvars * sizeof(int));
+                fdata->nchans = cfg->nvars;
 
                 KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
                            getA2DDeviceName(a2d), cfg->sindex, a2d->nfilters);
@@ -819,13 +822,13 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                         return -EINVAL;
                 }
 
-                finfo->decimate = a2d->scanRate / cfg->rate;
-                finfo->filterType = cfg->filterType;
-                finfo->index = cfg->sindex;
+                fdata->inputRate = a2d->scanRate;
+                fdata->outputRate = cfg->rate;
+                fdata->index = cfg->sindex;
 
-                KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-                           getA2DDeviceName(a2d), finfo->decimate, finfo->filterType,
-                           finfo->index);
+                KLOG_DEBUG("%s: filterType=%d,  outputRate=%d, index=%d\n",
+                       fdata->deviceName, cfg->filterType, fdata->outputRate,
+                       fdata->index);
 
                 methods = get_short_filter_methods(cfg->filterType);
                 if (!methods.init) {
@@ -839,8 +842,8 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 finfo->fcleanup = methods.cleanup;
 
                 /* Create the filter object */
-                finfo->filterObj = finfo->finit();
-                if (!finfo->filterObj)
+                fdata->filterObj = finfo->finit();
+                if (!fdata->filterObj)
                         return -ENOMEM;
         }
 
@@ -884,14 +887,10 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 // subtract low channel from the filter channel numbers
                 // since we don't scan the channels below lowChan
                 for (i = 0; i < cfg->nvars; i++)
-                        finfo->channels[i] -= a2d->lowChan;
+                        fdata->channels[i] -= a2d->lowChan;
 
-                result = finfo->fconfig(finfo->filterObj, finfo->index,
-                                       finfo->nchans,
-                                       finfo->channels,
-                                       finfo->decimate,
-                                       cfg->filterData,
-                                       cfg->nFilterData);
+                result = finfo->fconfig(fdata,
+                        cfg->filterData, cfg->nFilterData);
                 if (result) KLOG_ERR("%s: error in filter config\n",getA2DDeviceName(a2d));
         }
         return result;
@@ -1845,11 +1844,11 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                             KLOG_WARNING("%s: missedSamples=%d\n",
                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
                         a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,
+                            a2d->filters[i].data.filterObj,tt,dp,1,
                             (short_sample_t*)&toss);
                 }
                 else if (a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,osamp)) {
+                            a2d->filters[i].data.filterObj,tt,dp,1,osamp)) {
 #ifdef __BIG_ENDIAN
                         // convert to little endian
                         int j;
@@ -3918,12 +3917,30 @@ static int init_a2d(struct DMMAT* brd)
         return result;
 }
 
+static void freeFilters(struct DMMAT_A2D* a2d) 
+{
+        int i;
+        for (i = 0; i < a2d->nfilters; i++) {
+                struct short_filter_info* finfo = a2d->filters + i;
+                /* cleanup filter */
+                if (finfo->data.filterObj && finfo->fcleanup)
+                    finfo->fcleanup(finfo->data.filterObj);
+                finfo->data.filterObj = 0;
+                finfo->fcleanup = 0;
+                if (finfo->data.channels)
+                        kfree(finfo->data.channels);
+                finfo->data.channels = 0;
+        }
+        kfree(a2d->filters);
+        a2d->filters = 0;
+        a2d->nfilters = 0;
+}
+
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
 static void cleanup_a2d(struct DMMAT* brd)
 {
         struct DMMAT_A2D* a2d = brd->a2d;
-        int i;
 
         if (!a2d) return;
 
@@ -3937,15 +3954,7 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         free_dsm_circ_buf(&a2d->fifo_samples);
 
-        if (a2d->filters) {
-                for (i = 0; i < a2d->nfilters; i++) {
-                        if (a2d->filters[i].channels)
-                                kfree(a2d->filters[i].channels);
-                        a2d->filters[i].channels = 0;
-                }
-                kfree(a2d->filters);
-                a2d->filters = 0;
-        }
+        if (a2d->filters) freeFilters(a2d);
 
         kfree(a2d);
         brd->a2d = 0;

@@ -356,6 +356,7 @@ void A2DSensor::validate()
         int rate = (int)frate;
         if (getScanRate() < rate) setScanRate(rate);
         int boxcarNpts = 1;
+        int timeavgRate = 0;
         bool temperature = false;
 
         enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
@@ -372,6 +373,7 @@ void A2DSensor::validate()
                     string fname = param->getStringValue(0);
                     if (fname == "boxcar") filterType = NIDAS_FILTER_BOXCAR;
                     else if (fname == "pickoff") filterType = NIDAS_FILTER_PICKOFF;
+                    else if (fname == "timeavg") filterType = NIDAS_FILTER_TIMEAVG;
                     else throw n_u::InvalidParameterException(getName(),"sample",
                             fname + " filter is not supported");
             }
@@ -380,6 +382,12 @@ void A2DSensor::validate()
                         throw n_u::InvalidParameterException(getName(),"sample",
                             "bad numpoints parameter");
                     boxcarNpts = (int)param->getNumericValue(0);
+            }
+            else if (pname == "rate") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "bad rate parameter");
+                    timeavgRate = (int)param->getNumericValue(0);
             }
             else if (pname == "temperature") {
                     if (param->getLength() != 1)
@@ -394,6 +402,10 @@ void A2DSensor::validate()
             throw n_u::InvalidParameterException(getName(),"numpoints",
                 "numpoints parameter must be > 0 with boxcar filter");
 
+        if (filterType == NIDAS_FILTER_TIMEAVG && timeavgRate <= 0)
+            throw n_u::InvalidParameterException(getName(),"rate",
+                "rate parameter must be > 0 with timeavg filter");
+
         int sindex = _sampleInfos.size();       // sample index, 0,1,...
 
         const vector<Variable*>& vars = tag->getVariables();
@@ -405,6 +417,9 @@ void A2DSensor::validate()
         A2DSampleConfig* scfg;
 
         switch (filterType) {
+        case NIDAS_FILTER_TIMEAVG:
+            scfg = new A2DTimeAvgConfig(timeavgRate);
+            break;
         case NIDAS_FILTER_BOXCAR:
             scfg = new A2DBoxcarConfig(boxcarNpts);
             break;

@@ -25,7 +25,7 @@
 */
 /*
 									      
-  Filters for use in digital sampling.
+  Simple filters for use in 16 bit digital sampling.
 
 */
 
@@ -38,9 +38,10 @@
  * Enumeration of supported filter types.
  */
 enum nidas_short_filter {
-    NIDAS_FILTER_UNKNOWN,
-    NIDAS_FILTER_PICKOFF,
-    NIDAS_FILTER_BOXCAR,
+        NIDAS_FILTER_UNKNOWN,
+        NIDAS_FILTER_PICKOFF,
+        NIDAS_FILTER_BOXCAR,
+        NIDAS_FILTER_TIMEAVG,
 };
 
 #ifdef __KERNEL__
@@ -49,21 +50,66 @@ enum nidas_short_filter {
  */
 typedef struct short_sample
 {
-    /**
-     * timetag of sample. Signed tenths of milliseconds since 00:00 UTC.
-     */
-    dsm_sample_time_t timetag;
+        /**
+         * timetag of sample. Signed tenths of milliseconds since 00:00 UTC.
+         */
+        dsm_sample_time_t timetag;
 
-    /**
-     * length of sample, in bytes.
-     */
-    dsm_sample_length_t length;
+        /**
+         * length of sample, in bytes.
+         */
+        dsm_sample_length_t length;
 
-    short id;
+        /**
+         * Sample identifier.
+         */
+        short id;
 
-    short data[0];
+        short data[0];
+
 } short_sample_t;
 
+/**
+ * Structure describing a filter and which channels it is
+ * to be used for.
+ */
+struct short_filter_data {
+        /**
+         * Device name that data is being filtered for. Used in
+         * log messages.
+         */
+        const char* deviceName;
+
+        /**
+         * Number of channels, aka variables, in each sample to be filtered.
+         */
+        int nchans;
+
+        /**
+         * The index of each channel in the input array.
+         */
+        int* channels;
+
+        /**
+         * Rate of the input samples to the filter.
+         */
+        int inputRate;
+
+        /**
+         * Requested output rate of the filter.
+         */
+        int outputRate;
+
+        /**
+         * pointer to filter's private data
+         */
+        void* filterObj;
+
+        /**
+         * sample index to put as first 16 bit word of data
+         */
+        short index;
+};
 
 /**
  * init method, kmallocs and returns a pointer to the filter object,
@@ -73,23 +119,20 @@ typedef void* (*shortfilt_init_method)(void);
 
 /**
  * config method.
- * @param id  Numberic id which is written to first word of output
- *      samples - so that downstream code can differentiate between
- *      samples from different filters.
- * @param obj Filter object which was kmalloc'd in init method.
+ * @param fdata Pointer to short_filter_data structure of filter configuration.
  * @param cfg Pointer to a configuration structure for the filter.
- * @param decimate The decimation factor.
- * @param nvars Number of variables in each sample to be filtered.
- * @param vindices Integer indices of variables in sample to be filtered.
- * @cfg Pointer to configuration struct for the given filter.
+ * @param nbcfg Number of bytes in cfg structure.
+ * @return Pointer to structure which is passed to filter method.
  */
-typedef int (*shortfilt_config_method)(void* obj, short id, int nvars,
-    const int* vindices, int decimate,const void* cfg,int nbcfg);
+typedef int (*shortfilt_config_method)(struct short_filter_data* fdata,
+    const void* cfg,int nbcfg);
 
 /**
  * Actual filter method.
  * @param obj Filter object which was kmalloc'd in init method.
- * @param in Input sample.
+ * @param tt Time tag of input data
+ * @param in Input data
+ * @param skip_factor Sometimes data is interspersed with things like a status word, in which case skip_factor would be 2 to skip the status.
  * @param out Output sample.
  * @return 1: Output sample is valid. 0: no output.
  */
@@ -100,13 +143,6 @@ typedef int (*shortfilt_filter_method)(void* obj,
  * Destructor. kfree's the passed pointer to the filter object.
  */
 typedef void (*shortfilt_cleanup_method)(void* obj);
-
-struct short_filter_methods {
-        shortfilt_init_method init;
-        shortfilt_config_method config;
-        shortfilt_filter_method filter;
-        shortfilt_cleanup_method cleanup;
-};
 
 /**
  * Exposed module function which returns a structure of filter methods
@@ -119,10 +155,40 @@ extern struct short_filter_methods get_short_filter_methods(enum nidas_short_fil
  */
 struct boxcar_filter_config
 {
-      int npts;       // number of points to average.
+        /**
+         * Number of points to average.
+         */
+        int npts;
 };
 
-#endif
+/**
+ * Configuration data needed for a time average filter. Not much.
+ */
+struct timeavg_filter_config
+{
+        /**
+         * Desired output rate.
+         */
+        int rate;
+};
+
+struct short_filter_methods {
+        shortfilt_init_method init;
+        shortfilt_config_method config;
+        shortfilt_filter_method filter;
+        shortfilt_cleanup_method cleanup;
+};
+
+
+struct short_filter_info {
+        shortfilt_init_method finit;
+        shortfilt_config_method fconfig;
+        shortfilt_filter_method filter;
+        shortfilt_cleanup_method fcleanup;
+        struct short_filter_data data;
+};
+
+#endif  /* __KERNEL__ */
 
 #endif
     
