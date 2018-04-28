@@ -50,7 +50,7 @@ MODULE_VERSION(REPO_REVISION);
 #define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
 
 /**
- * Data object for the implementation of a pickoff filter.
+ * Private data used by a pickoff filter.
  */
 struct pickoff_filter
 {
@@ -59,13 +59,6 @@ struct pickoff_filter
         int* vindices;
         int count;
         short index;
-};
-
-/** 
- * Configuration data needed for pickoff filter. Not much.
- */
-struct pickoff_filter_config
-{
 };
 
 /**
@@ -81,7 +74,7 @@ static void* pickoff_init(void)
 }
 
 /**
- * Configure a pickoff filter. Pointer to config structure is not used.
+ * Configure a pickoff filter.
  */
 static int pickoff_config(struct short_filter_data* fdata,
         const void* cfg, int nbcfg)
@@ -135,7 +128,7 @@ static void pickoff_cleanup(void* obj)
 }
 
 /**
- * Data object for the implementation of a boxcar filter.
+ * Private data used by a boxcar filter.
  */
 struct boxcar_filter
 {
@@ -190,8 +183,8 @@ static int boxcar_config(struct short_filter_data* fdata, const void* cfg, int n
         this->sums = (int32_t*) F_MALLOC(this->nvars * sizeof(int32_t));
         if (!this->sums) return -ENOMEM;
         memset(this->sums,0, this->nvars*sizeof(int32_t));
-        KLOG_INFO("boxcar filter, id=%d, decimate=%d, npts=%d\n",
-            this->index,this->decimate,this->npts);
+        KLOG_INFO("%s: boxcar filter, id=%d, decimate=%d, npts=%d\n",
+            fdata->deviceName, this->index,this->decimate,this->npts);
         return 0;
 }
 
@@ -264,7 +257,7 @@ static void boxcar_cleanup(void* obj)
 }
 
 /**
- * Data object for the implementation of a time average filter.
+ * Private data used by a timeavg filter.
  */
 struct timeavg_filter
 {
@@ -337,7 +330,7 @@ static int timeavg_config(struct short_filter_data* fdata,
  * Example:
  *  input scan rate 1000/s.
  *  time average rate 100/s
- *  Requested output rate 20/s
+ *  output rate 20/s
  *  Time averager will average data over 0.01 seconds intervals
  *  but then only 1 out of 5 of those averages will be output.
  */

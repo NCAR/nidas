@@ -114,6 +114,7 @@ struct short_filter_data {
 /**
  * init method, kmallocs and returns a pointer to the filter object,
  * or 0 if ENOMEM.
+ * @return Pointer to the filter's private data.
  */
 typedef void* (*shortfilt_init_method)(void);
 
@@ -122,7 +123,7 @@ typedef void* (*shortfilt_init_method)(void);
  * @param fdata Pointer to short_filter_data structure of filter configuration.
  * @param cfg Pointer to a configuration structure for the filter.
  * @param nbcfg Number of bytes in cfg structure.
- * @return Pointer to structure which is passed to filter method.
+ * @return 0: OK, or negative error value.
  */
 typedef int (*shortfilt_config_method)(struct short_filter_data* fdata,
     const void* cfg,int nbcfg);
@@ -149,6 +150,13 @@ typedef void (*shortfilt_cleanup_method)(void* obj);
  * for a supported type.
  */
 extern struct short_filter_methods get_short_filter_methods(enum nidas_short_filter type);
+
+/** 
+ * Configuration data needed for pickoff filter. Not much.
+ */
+struct pickoff_filter_config
+{
+};
 
 /**
  * Configuration data needed for boxcar filter. Not much.
