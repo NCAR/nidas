@@ -1277,7 +1277,8 @@ static void startA2D_MM16AT(struct DMMAT_A2D* a2d)
         int fifoDeltaT_usecs =
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
-        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs, 1000);
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
+                60 * USECS_PER_SEC);
 
         if (a2d->mode != A2D_NORMAL) return;
 
@@ -1340,7 +1341,8 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
         int fifoDeltaT_usecs =
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
-        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs, 1000);
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
+                60 * USECS_PER_SEC);
 
         if (brd->type != DMM32AT_BOARD) {
                 outb(0x04,brd->addr + 8);	// set page 4

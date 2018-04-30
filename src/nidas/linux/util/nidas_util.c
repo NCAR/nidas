@@ -219,9 +219,10 @@ static int __init nidas_util_init(void)
 }
 
 void screen_timetag_init(struct screen_timetag_data* td,
-        int deltaT_Usec, int npts)
+        int deltaT_Usec, int adjustUsec)
 {
-        td->nptsSmooth = npts;
+        // How often to make an adjustment to the time tags
+        td->nptsCalc = adjustUsec / deltaT_Usec;
 
         td->dtTmsec = deltaT_Usec / USECS_PER_TMSEC;
         td->dtUsec = (deltaT_Usec % USECS_PER_TMSEC) * USECS_PER_TMSEC;
@@ -307,7 +308,7 @@ dsm_sample_time_t screen_timetag(struct screen_timetag_data* td, dsm_sample_time
         tterr *= USECS_PER_TMSEC;
 
         /* running average of differences */
-        if (td->nSum < td->nptsSmooth) td->nSum++;
+        if (td->nSum < td->nptsCalc) td->nSum++;
         sum = (td->nSum - 1) * td->errAvg + tterr;
         if (sum < 0) sum -= td->nSum / 2;   // round
         else sum += td->nSum / 2;
@@ -329,7 +330,7 @@ dsm_sample_time_t screen_timetag(struct screen_timetag_data* td, dsm_sample_time
                 td->tt0 += td->tdiffmin;
                 td->nmin = 0;
                 td->tdiffmin = TMSECS_PER_SEC;
-                td->nptsMin = td->nptsSmooth;
+                td->nptsMin = td->nptsCalc;
         }
 
 #endif

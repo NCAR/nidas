@@ -303,9 +303,10 @@ struct screen_timetag_data
         /**
          * Number of points to compute the running average, or the
          * minimum of the difference between the actual and expected
-         * time tags.
+         * time tags. The time tags in the result time series will
+         * be adjusted every nptsCalc number of input times.
          */
-        unsigned int nptsSmooth;
+        unsigned int nptsCalc;
 
         /**
          * Result time tags will have a integral number of deltat-Ts
@@ -358,7 +359,7 @@ struct screen_timetag_data
 };
 
 extern void screen_timetag_init(struct screen_timetag_data* td,
-        int deltaT_Usec, int nptsSmooth);
+        int deltaT_Usec, int adjustUsec);
 
 extern dsm_sample_time_t screen_timetag(struct screen_timetag_data* td,
         dsm_sample_time_t tt);
