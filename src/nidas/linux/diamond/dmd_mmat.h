@@ -23,7 +23,7 @@
  **
  ********************************************************************
 */
-/* a2d_driver.h
+/*
 
    Driver for Diamond Systems Corp MM AT series of Analog IO boards
 
@@ -34,7 +34,6 @@
 #ifndef NIDAS_DIAMOND_DMD_MMAT_H
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
-// #include <nidas/linux/filters/short_filters.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/a2d.h>
 

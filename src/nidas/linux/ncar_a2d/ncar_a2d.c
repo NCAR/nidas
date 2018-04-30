@@ -1328,7 +1328,7 @@ static int addSampleConfig(struct A2DBoard *brd,
 
         fdata->inputRate = brd->scanRate;
         fdata->outputRate = cfg->rate;
-        fdata->index = cfg->sindex;
+        fdata->sampleIndex = cfg->sindex;
 
         KLOG_DEBUG("%s: filterType=%d, outputRate=%d, index=%d\n",
                    brd->deviceName, cfg->filterType, fdata->outputRate,

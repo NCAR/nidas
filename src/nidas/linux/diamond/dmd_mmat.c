@@ -51,6 +51,7 @@
 #include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/filters/short_filters_kernel.h>
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED
@@ -824,11 +825,11 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
 
                 fdata->inputRate = a2d->scanRate;
                 fdata->outputRate = cfg->rate;
-                fdata->index = cfg->sindex;
+                fdata->sampleIndex = cfg->sindex;
 
-                KLOG_DEBUG("%s: filterType=%d,  outputRate=%d, index=%d\n",
+                KLOG_DEBUG("%s: filterType=%d,  outputRate=%d, sample index=%d\n",
                        fdata->deviceName, cfg->filterType, fdata->outputRate,
-                       fdata->index);
+                       fdata->sampleIndex);
 
                 methods = get_short_filter_methods(cfg->filterType);
                 if (!methods.init) {

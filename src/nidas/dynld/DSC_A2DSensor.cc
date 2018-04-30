@@ -63,6 +63,20 @@ SampleScanner* DSC_A2DSensor::buildSampleScanner()
     return new DriverSampleScanner();
 }
 
+void DSC_A2DSensor::validate()
+        throw(n_u::InvalidParameterException)
+{
+    A2DSensor::validate();
+    // clock on Diamond cards is 10 MHz. It is divided
+    // down to the scan rate.
+    if (fmod(10000000.0, getScanRate()) != 0.0) {
+        ostringstream ost;
+        ost << getScanRate() << "Hz cannot be generated from a 10 MHz clock";
+        throw n_u::InvalidParameterException(getName(), "rate",
+            ost.str());
+    }
+}
+
 void DSC_A2DSensor::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {

@@ -31,10 +31,10 @@
 
 */
 
-#ifndef NIDAS_LINUX_A2D_FILTERS_H
-#define NIDAS_LINUX_A2D_FILTERS_H
+#ifndef NIDAS_LINUX_A2D_H
+#define NIDAS_LINUX_A2D_H
 
-#include <nidas/linux/filters/short_filters.h>
+#include "short_filters.h"
 
 #ifndef __KERNEL__
 /* User programs need this for the _IO macros, but kernel

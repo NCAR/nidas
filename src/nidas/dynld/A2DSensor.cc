@@ -356,8 +356,14 @@ void A2DSensor::validate()
         int rate = (int)frate;
         if (getScanRate() < rate) setScanRate(rate);
         int boxcarNpts = 1;
-        int timeavgRate = 0;
         bool temperature = false;
+
+        // Default time average rate is the sample rate.
+        // User can choose a time average rate that is a multiple
+        // of the sample rate, in which case the results of the 
+        // time averaging are subsampled by a pickoff of 1 out of
+        // every N time averages, where N = timeavgRate / sample rate.
+        int timeavgRate = tag->getRate();
 
         enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
         const std::list<const Parameter*>& params = tag->getParameters();
@@ -398,13 +404,26 @@ void A2DSensor::validate()
         }
         if (temperature) continue;
 
-        if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0)
+        if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0) {
             throw n_u::InvalidParameterException(getName(),"numpoints",
                 "numpoints parameter must be > 0 with boxcar filter");
 
-        if (filterType == NIDAS_FILTER_TIMEAVG && timeavgRate <= 0)
-            throw n_u::InvalidParameterException(getName(),"rate",
-                "rate parameter must be > 0 with timeavg filter");
+        }
+        if (filterType == NIDAS_FILTER_TIMEAVG) {
+            ostringstream ost;
+            if (timeavgRate <= 0) {
+                ost << timeavgRate << " Hz must be > 0";
+                throw n_u::InvalidParameterException(getName(), 
+                    "timeavg rate", ost.str());
+            }
+            if (fmod((double) timeavgRate, tag->getRate()) != 0.0) {
+                ost << timeavgRate <<
+                    " Hz must be a multiple of the sample rate=" <<
+                    tag->getRate() << " Hz";
+                throw n_u::InvalidParameterException(getName(),
+                    "timeavg rate", ost.str());
+            }
+        }
 
         int sindex = _sampleInfos.size();       // sample index, 0,1,...
 

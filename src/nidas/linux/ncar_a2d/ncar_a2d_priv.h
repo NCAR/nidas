@@ -34,6 +34,7 @@ NCAR A/D driver private header
 #define NCAR_A2D_PRIV_H
 
 #include <nidas/linux/ncar_a2d.h>       // shared stuff
+#include <nidas/linux/filters/short_filters_kernel.h>
 
 #include <linux/wait.h>
 #include <linux/device.h>

@@ -53,6 +53,8 @@ public:
     SampleScanner* buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
+    void validate() throw(nidas::util::InvalidParameterException);
+
     /**
      * Open the device connected to the sensor.
      */

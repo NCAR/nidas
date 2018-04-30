@@ -29,20 +29,12 @@
 
 */
 
-#ifndef NIDAS_SHORT_FILTERS_H
-#define NIDAS_SHORT_FILTERS_H
+#ifndef NIDAS_SHORT_FILTERS_KERNEL_H
+#define NIDAS_SHORT_FILTERS_KERNEL_H
+
+#include <nidas/linux/short_filters.h>
 
 #include <nidas/linux/types.h>
-
-/**
- * Enumeration of supported filter types.
- */
-enum nidas_short_filter {
-        NIDAS_FILTER_UNKNOWN,
-        NIDAS_FILTER_PICKOFF,
-        NIDAS_FILTER_BOXCAR,
-        NIDAS_FILTER_TIMEAVG,
-};
 
 #ifdef __KERNEL__
 /**
@@ -108,7 +100,7 @@ struct short_filter_data {
         /**
          * sample index to put as first 16 bit word of data
          */
-        short index;
+        short sampleIndex;
 };
 
 /**

@@ -29,7 +29,6 @@
 #include <nidas/core/DSMSensor.h>
 
 #include <nidas/linux/a2d.h>
-// #include <nidas/linux/filters/short_filters.h>
 
 #include <vector>
 #include <map>
