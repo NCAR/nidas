@@ -353,11 +353,14 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
         KLOG_DEBUG("clock c1=%ld,outputRate=%d\n",c1,outputRate);
         c2 = 1;
 
-        // The minimum workable counter value for a 82C54 clock chip
-        // on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
-        // 0 is actually equivalent to 2^16
+        /*
+         * The minimum workable counter value for a 82C54 clock chip
+         * on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
+         * 0 is actually equivalent to 2^16
+         */
         while (c1 > 65535 || c2 == 1) {
             int i;
+            /* find a prime factor */
             for (i = 0; i < nprime; i++) {
                 if (!(c1 % primes[i])) break;
             }
@@ -365,7 +368,8 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
                     c2 *= primes[i];
                     c1 /= primes[i];
             }
-            else if (c1 * c2 <= inputRate) c1++; // fudge it
+            /* no prime factor, fudge it by one */
+            else if (c1 * c2 <= inputRate) c1++;
             else c1--;
         }
 
@@ -1278,7 +1282,7 @@ static void startA2D_MM16AT(struct DMMAT_A2D* a2d)
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
         screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
-                60 * USECS_PER_SEC);
+                10 * USECS_PER_SEC);
 
         if (a2d->mode != A2D_NORMAL) return;
 
@@ -1342,7 +1346,7 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
                 a2d->scanDeltaT * USECS_PER_TMSEC *
                 a2d->fifoThreshold / a2d->nchanScanned;
         screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
-                60 * USECS_PER_SEC);
+                10 * USECS_PER_SEC);
 
         if (brd->type != DMM32AT_BOARD) {
                 outb(0x04,brd->addr + 8);	// set page 4
