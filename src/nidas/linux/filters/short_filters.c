@@ -227,8 +227,15 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                         out->timetag = this->tsave + tdiff / 2;
                         out->id = this->sampleIndex;
                         for (i = 0; i < this->nvars; i++) {
-                            *op++ = this->sums[i] / this->npts;
-                            this->sums[i] = 0;
+#ifdef DIV_ROUND_CLOSEST
+                                *op++ = DIV_ROUND_CLOSEST(this->sums[i], this->npts);
+#else
+                                if (this->sums[i] > 0)
+                                        *op++ = (this->sums[i] + this->npts / 2)/ this->npts;
+                                else
+                                        *op++ = (this->sums[i] - this->npts / 2)/ this->npts;
+#endif
+                                this->sums[i] = 0;
                         }
                         out->length = (op - &out->id) * sizeof(short);
                         if (this->count == this->decimate) this->count = 0;
@@ -355,7 +362,15 @@ static int timeavg_filter(void* obj, dsm_sample_time_t tt,
                         out->timetag = tout;
                         out->id = this->sampleIndex;
                         for (i = 0; i < this->nvars; i++) {
-                            *op++ = this->sums[i] / this->nsum;
+                                /* DIV_ROUND_CLOSEST is not defined 2.6 */
+#ifdef DIV_ROUND_CLOSEST
+                                *op++ = DIV_ROUND_CLOSEST(this->sums[i], this->nsum);
+#else
+                                if (this->sums[i] > 0)
+                                        *op++ = (this->sums[i] + this->nsum / 2)/ this->nsum;
+                                else
+                                        *op++ = (this->sums[i] - this->nsum / 2)/ this->nsum;
+#endif
                         }
                         out->length = (op - &out->id) * sizeof(short);
                         KLOG_DEBUG("timeavg filter return sample, count=%d, nsum=%d,decimate=%d\n",
