@@ -351,6 +351,15 @@
 		    	file="stats_%Y%m%d_%H%M%S.dat" length="3600"/>
                 </output>
 		-->
+		<!-- The NetcdfRPCOutput is not needed, and it prevents the
+		     tests from running with a nidas which did not build it.
+		     However, nidas errors out if no output exists, so the
+		     dgrequest output is just a dummy output.
+		-->
+		<output class="RawSampleOutputStream">
+		    <socket type="dgrequest" address="192.168.12.1"/>
+		</output>
+		<!--
                 <output class="isff.NetcdfRPCOutput">
 		    <ncserver
 			server="linooski"
@@ -361,6 +370,7 @@
 			timeout="300"
 			batchPeriod="300"/>
                 </output>
+		-->
 	    </processor>
         </service>
     </server>
