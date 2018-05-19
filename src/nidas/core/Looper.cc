@@ -133,7 +133,7 @@ void Looper::setupClientMaps()
 
         // add client to list so that fastest clients are called
         // first, in the order that they registered.
-        list<LooperClient*>::const_iterator cli = _clients.begin();
+        list<LooperClient*>::iterator cli = _clients.begin();
         for ( ; cli != _clients.end(); ++cli) {
             if (_clientPeriods[*cli] > per) break;
         }
