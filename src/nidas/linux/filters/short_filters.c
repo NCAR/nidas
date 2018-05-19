@@ -362,7 +362,7 @@ static int timeavg_filter(void* obj, dsm_sample_time_t tt,
                         out->timetag = tout;
                         out->id = this->sampleIndex;
                         for (i = 0; i < this->nvars; i++) {
-                                /* DIV_ROUND_CLOSEST is not defined 2.6 */
+                                /* DIV_ROUND_CLOSEST is not defined in kernel 2.6 */
 #ifdef DIV_ROUND_CLOSEST
                                 *op++ = DIV_ROUND_CLOSEST(this->sums[i], this->nsum);
 #else
