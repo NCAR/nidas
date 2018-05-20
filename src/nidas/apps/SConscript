@@ -46,6 +46,7 @@ dmd_mmat_test
 dsm_server
 dsm
 extract2d
+extractDMT
 ir104
 lidar_vel
 merge_verify
