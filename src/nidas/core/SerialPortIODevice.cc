@@ -45,6 +45,7 @@ namespace n_u = nidas::util;
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 {
     UnixIODevice::open(flags);
+    applyPortType();
     applyTermios();
 
     // If the remote device is 485, clear RTS, which on many serial interfaces
@@ -83,6 +84,18 @@ int SerialPortIODevice::getUsecsPerByte() const
         usecs = (bits * USECS_PER_SEC + _termios.getBaudRate() / 2) / _termios.getBaudRate();
     }
     return usecs;
+}
+
+void SerialPortIODevice::applyPortType() throw(nidas::util::IOException)
+{
+    if (_portType == RS232 || _portType == RS422 || _portType == RS485) {
+        /**
+         * TODO - is this an IOCTL operation?
+         */
+    }
+    else {
+        throw nidas::util::IOException(getName(),"_portType illegal value",_portType);
+    }
 }
 
 void SerialPortIODevice::setRTS485(int val) throw(nidas::util::IOException)

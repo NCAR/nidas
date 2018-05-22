@@ -256,6 +256,14 @@ void SerialSensor::fromDOMElement(
 	    else if (aname == "class");
 	    else if (aname == "devicename");
 	    else if (aname == "id");
+        else if (aname == "portType") {
+            if (aval == "RS232") _serialDevice->setPortType(RS232);
+            else if (aval == "RS422") _serialDevice->setPortType(RS422);
+            else if (aval == "RS485") _serialDevice->setPortType(RS485);
+            else throw n_u::InvalidParameterException(
+                        string("SerialSensor:") + getName(),
+                        aname,aval);
+        }
 	    else if (aname == "baud") {
 		istringstream ist(aval);
 		int val;

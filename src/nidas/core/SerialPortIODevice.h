@@ -42,6 +42,11 @@
 namespace nidas { namespace core {
 
 /**
+ * types of serial ports
+ */
+typedef enum {RS232=232, RS422=422, RS485=485} PORT_TYPES;
+
+/**
  * A serial port.
  */
 class SerialPortIODevice : public UnixIODevice {
@@ -52,7 +57,7 @@ public:
      * Constructor. Does not open any actual device.
      */
     SerialPortIODevice():
-        UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0)
+        UnixIODevice(),_termios(),_rts485(0),_portType(RS232),_usecsperbyte(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -63,8 +68,8 @@ public:
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    SerialPortIODevice(const std::string& name):
-        UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0)
+    SerialPortIODevice(const std::string& name, const PORT_TYPES thePortType = RS232):
+        UnixIODevice(name),_termios(),_rts485(0),_portType(thePortType),_usecsperbyte(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -90,6 +95,18 @@ public:
     }
 
     nidas::util::Termios& termios() { return _termios; }
+
+    /**
+     *  Set and retrieve the _portType member attribute 
+     */
+    void setPortType( const PORT_TYPES thePortType) {_portType = thePortType;}
+    PORT_TYPES getPortType() {return _portType;}
+
+    /**
+     *  Commands the serial board to set the serial port switches to configure for 
+     *  the port type specified in the _portType member attribute.
+     */
+    void applyPortType() throw(nidas::util::IOException);
 
    /**
      * Calculate the transmission time of each byte from this
@@ -174,6 +191,8 @@ protected:
     nidas::util::Termios _termios;
 
     int _rts485;
+
+    PORT_TYPES _portType;
 
     unsigned int _usecsperbyte;
 
