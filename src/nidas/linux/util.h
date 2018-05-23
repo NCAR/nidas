@@ -290,7 +290,7 @@ nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
 struct screen_timetag_data
 {
         /**
-         * Defined deltat-T, in units of 1/10 msec, passed to init function.
+         * Defined delta-T, in units of 1/10 msec, passed to init function.
          */
         unsigned int dtTmsec;
 
@@ -309,7 +309,7 @@ struct screen_timetag_data
         unsigned int nptsCalc;
 
         /**
-         * Result time tags will have a integral number of deltat-Ts
+         * Result time tags will have a integral number of delta-Ts
          * from this base time. This base time is slowly adjusted
          * by averaging or computing the minimum difference between
          * the result time tags and the input time tags.

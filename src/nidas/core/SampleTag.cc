@@ -49,7 +49,8 @@ SampleTag::SampleTag():
     _processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
-    _parameters(), _constParameters(),_enabled(true)
+    _parameters(), _constParameters(),_enabled(true),
+    _ttAdjustPeriod(0)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
@@ -59,7 +60,8 @@ SampleTag::SampleTag(const DSMSensor* sensor):
     _dsm(sensor->getDSMConfig()),_sensor(sensor),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
-    _parameters(), _constParameters(),_enabled(true)
+    _parameters(), _constParameters(),_enabled(true),
+    _ttAdjustPeriod(0)
 {
     setSensorId(_sensor->getId());
     setDSMId(_dsm->getId());
@@ -363,6 +365,17 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 if (aname == "enable") setEnabled(val);
                 else setEnabled(!val);
             }
+	    else if (aname == "ttadjust") {
+                std::istringstream ist(sval);
+		float period;
+		ist >> period;
+		if (ist.fail()) {
+                    ostringstream ost;
+                    ost << "sample id=" << getDSMId() << ',' << getSpSId();
+                    throw n_u::InvalidParameterException(ost.str(),aname,sval);
+                }
+                setTimetagAdjustPeriod(period);
+	    }
             else {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
