@@ -218,6 +218,7 @@
     <xsd:attribute name="station" type="xsd:nonNegativeInteger"/>
     <xsd:attribute name="enable" type="xsd:token"/>
     <xsd:attribute name="disable" type="xsd:token"/>
+    <xsd:attribute name="ttadjust" type="xsd:nonNegativeInteger"/>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">
