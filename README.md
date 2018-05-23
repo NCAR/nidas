@@ -1,10 +1,10 @@
 # NCAR Insitu Data Acqusition Software (NIDAS)
 
-# WIKI
-https://github.com/ncareol/nidas/wiki
+# Building
+The [NIDAS Wiki](https://github.com/ncareol/nidas/wiki) contains information on the NIDAS API and installing and building on various Linux systems.
+
+Also see [BUILDING.md](BUILDING.md) for other notes on building NIDAS.
 
 # API Documentation
-The ```doxygen``` created outputs are located [here](http://ncareol.github.io/nidas/index.html) and are created via ```scripts/create-doxygen-ghpages.sh```
+```doxygen``` created outputs are located [here](https://www.eol.ucar.edu/software/nidas/doxygen/html).
 
-# Building
-See [BUILDING.md](BUILDING.md) for common building instructions (WIP)
