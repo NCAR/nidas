@@ -45,11 +45,7 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
 {
 }
 
-TimetagAdjuster::~TimetagAdjuster()
-{
-}
-
-dsm_time_t TimetagAdjuster::screen(dsm_time_t tt)
+dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 {
     /*
      * Reset on a data gap, or backwards, screwy time.

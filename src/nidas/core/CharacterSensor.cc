@@ -430,7 +430,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     // and correct for the sampling lag.
     TimetagAdjuster* ttadj = _ttadjusters[stag];
     if (ttadj) {
-        outs->setTimeTag(ttadj->screen(samp->getTimeTag()) - getLagUsecs());
+        outs->setTimeTag(ttadj->adjust(samp->getTimeTag()) - getLagUsecs());
     }
     else
         outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
