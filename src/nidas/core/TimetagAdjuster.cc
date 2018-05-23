@@ -35,7 +35,7 @@ namespace n_u = nidas::util;
 
 TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
-    _dtUsec((unsigned int) std::round(USECS_PER_SEC / rate)),
+    _dtUsec((unsigned int) ::round(USECS_PER_SEC / rate)),
     _nptsCalc((unsigned int)(adjustSecs * USECS_PER_SEC) / _dtUsec),
     _nDt(0),
     _nmin(0),
