@@ -36,6 +36,7 @@ using namespace std;
 TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
     _dtUsec((unsigned int) ::rint(USECS_PER_SEC / rate)),
+    _dtUsecActual((unsigned int) ::rint(USECS_PER_SEC / rate)),
     _nptsCalc((unsigned int)(adjustSecs * USECS_PER_SEC) / _dtUsec),
     _nDt(0),
     _nmin(0),
@@ -60,6 +61,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _tdiffminUsec = INT_MAX;
         _nmin = 0;
         _nptsMin = 10;  /* 10 points initially */
+        _dtUsecActual = _dtUsec;
         return tt;
     }
 
@@ -67,7 +69,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
      * max value in toff (32 bit int) is 4.2*10^9 usecs, or
      * 4200 seconds, which is over an hour. So 32 bit int
      * should be large enough */
-    unsigned int toff = _nDt * _dtUsec;
+    unsigned int toff = _nDt * _dtUsecActual;
 
     /* Expected time */
     dsm_time_t tt_est = _tt0 + toff;
@@ -83,6 +85,8 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     if (_nmin == _nptsMin) {
 	/* Adjust tt0 */
 	_tt0 = tt_est + _tdiffminUsec;
+        /* tweak the sampling delta-T from the observed times */
+        _dtUsecActual += _tdiffminUsec / _nDt;
         _nDt = 0;
         toff = 0;
 	_nmin = 0;

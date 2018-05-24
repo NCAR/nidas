@@ -127,6 +127,11 @@ private:
     unsigned int _dtUsec;
 
     /**
+     * Actual delta-T in microseconds.
+     */
+    unsigned int _dtUsecActual;
+
+    /**
      * Number of points to compute the minimum of the difference
      * between the actual and expected time tags. The time tags
      * in the result time series will be adjusted every nptsCalc
