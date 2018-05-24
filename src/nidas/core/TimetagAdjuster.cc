@@ -27,6 +27,8 @@
 #include "TimetagAdjuster.h"
 
 #include <cmath>
+#include <iostream>
+#include <iomanip>
 
 using namespace nidas::core;
 using namespace std;
@@ -38,7 +40,7 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
     _nDt(0),
     _nmin(0),
     _nptsMin(0),
-    _tdiffminUsec(_dtUsec),
+    _tdiffminUsec(INT_MAX),
     _dtGapUsec(19 * _dtUsec / 10)
 {
 }
@@ -55,7 +57,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     if (tdiff < 0 || tdiff > _dtGapUsec) {
         _tt0 = tt;
         _nDt = 1;
-        _tdiffminUsec = _dtUsec;
+        _tdiffminUsec = INT_MAX;
         _nmin = 0;
         _nptsMin = 10;  /* 10 points initially */
         return tt;
@@ -84,11 +86,21 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _nDt = 0;
         toff = 0;
 	_nmin = 0;
-	_tdiffminUsec = _dtUsec;
+	_tdiffminUsec = INT_MAX;
 	_nptsMin = _nptsCalc;
     }
-
     _nDt++;
+
+#ifdef DEBUG
+    cerr << std::fixed << std::setprecision(4) <<
+        "tt=" << (tt % USECS_PER_DAY) * 1.e-6 <<
+        ", tt_est=" << (tt_est % USECS_PER_DAY) * 1.e-6 <<
+        ", tdiff=" << tdiff * 1.e-6 << 
+        ", _tt0=" << (_tt0 % USECS_PER_DAY) * 1.e-6 <<
+        ", toff=" << toff * 1.e-6 <<
+        ", _nDt=" << _nDt << 
+        ", _tdiffmin=" << _tdiffminUsec * 1.e-6 << endl;
+#endif
 
     return _tt0 + toff;
 }
