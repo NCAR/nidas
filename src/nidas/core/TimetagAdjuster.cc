@@ -37,38 +37,38 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
     _dtUsec((unsigned int) ::rint(USECS_PER_SEC / rate)),
     _dtUsecActual((unsigned int) ::rint(USECS_PER_SEC / rate)),
-    _nptsCalc((unsigned int)(adjustSecs * USECS_PER_SEC) / _dtUsec),
+    _adjustUsec((unsigned int) adjustSecs * USECS_PER_SEC),
     _nDt(0),
-    _nmin(0),
-    _nptsMin(0),
+    _npts(_adjustUsec / _dtUsec),
     _tdiffminUsec(INT_MAX),
-    _dtGapUsec(19 * _dtUsec / 10)
+    _dtGapUsec(_dtUsec)
 {
 }
 
 dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 {
-    /*
-     * Reset on a data gap, or backwards, screwy time.
-     * A gap is defined as a difference of 1.9 * dt between
-     * raw samples.
-     */
+
     int tdiff = tt - _tlast;
     _tlast = tt;
-    if (tdiff < 0 || tdiff > _dtGapUsec) {
+    if (tdiff < 0 || tdiff > 4 * _dtGapUsec) {
         _tt0 = tt;
-        _nDt = 1;
+        _nDt = 0;
         _tdiffminUsec = INT_MAX;
-        _nmin = 0;
-        _nptsMin = 10;  /* 10 points initially */
+        /* 10 points initially */
+        _npts = std::min(10U, _adjustUsec / _dtUsec);
         _dtUsecActual = _dtUsec;
         return tt;
     }
 
+    _nDt++;
+
     /* Expected time from _tt0, assuming a fixed delta-T.
      * max value in toff (32 bit int) is 4.2*10^9 usecs, or
      * 4200 seconds, which is over an hour. So 32 bit int
-     * should be large enough */
+     * should be large enough.
+     * Could override user's value for adjustSecs in the constructor
+     * (or throw exception) if it's over an hour.
+     */
     unsigned int toff = _nDt * _dtUsecActual;
 
     /* Expected time */
@@ -77,23 +77,25 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     /* time tag difference between actual and expected */
     tdiff = tt - tt_est;
 
-    _nmin++;
-
     /* minimum difference in this adjustment period. */
     _tdiffminUsec = std::min(tdiff, _tdiffminUsec);
 
-    if (_nmin == _nptsMin) {
+    if (_nDt == _npts) {
 	/* Adjust tt0 */
 	_tt0 = tt_est + _tdiffminUsec;
-        /* tweak the sampling delta-T from the observed times */
-        _dtUsecActual += _tdiffminUsec / _nDt;
+        tt_est = _tt0;
+
+        /* Tweak the sampling delta-T from the observed times. */
+        /* TODO: would be good to issue a warning if the adjusted
+         * delta-T is significantly different from the stated delta-T.
+         * Also would want to have the sample ID in the warning message.
+         */
+
+        _dtUsecActual += (int) ::rint(_tdiffminUsec / _nDt);
+        _npts = (unsigned int) ::rint(_adjustUsec / _dtUsecActual);
         _nDt = 0;
-        toff = 0;
-	_nmin = 0;
 	_tdiffminUsec = INT_MAX;
-	_nptsMin = _nptsCalc;
     }
-    _nDt++;
 
 #ifdef DEBUG
     cerr << std::fixed << std::setprecision(4) <<
@@ -106,5 +108,5 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         ", _tdiffmin=" << _tdiffminUsec * 1.e-6 << endl;
 #endif
 
-    return _tt0 + toff;
+    return tt_est;
 }

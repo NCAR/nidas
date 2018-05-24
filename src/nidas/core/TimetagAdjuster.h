@@ -95,7 +95,7 @@ namespace nidas { namespace core {
  * something like 10 seconds.
  *
  * The adjustment is reset as described above on a backwards time in
- * the original time series or on a gap exceeding 1.9 times the dt.
+ * the original time series or on a data gap.
  *
  */
 
@@ -132,12 +132,10 @@ private:
     unsigned int _dtUsecActual;
 
     /**
-     * Number of points to compute the minimum of the difference
-     * between the actual and expected time tags. The time tags
-     * in the result time series will be adjusted every nptsCalc
-     * number of input times.
+     * Adjustment period, how long to calculate the minimum
+     * latency jitter before applying the correction.
      */
-    unsigned int _nptsCalc;
+    unsigned int _adjustUsec;
 
     /**
      * Current number of delta-Ts from tt0.
@@ -145,14 +143,9 @@ private:
     int _nDt;
 
     /**
-     * Number of points of current minimum time difference.
-     */
-    int _nmin;
-
-    /**
      * How many points to compute minimum time difference.
      */
-    int _nptsMin;
+    int _npts;
 
     /**
      * Minimum diffence between actual time tags and expected.
