@@ -426,12 +426,11 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         return false;           // no sample
     }
 
-    // Adjust time tag for sampling latency if requested,
-    // and correct for the sampling lag.
+    // If requested, reduce latency jitter in the time tags.
+    // Then correct for a known sampling or sensor response lag.
     TimetagAdjuster* ttadj = _ttadjusters[stag];
-    if (ttadj) {
+    if (ttadj)
         outs->setTimeTag(ttadj->adjust(samp->getTimeTag()) - getLagUsecs());
-    }
     else
         outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
 

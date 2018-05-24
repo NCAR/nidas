@@ -616,15 +616,15 @@ bool CSAT3_Sonic::process(const Sample* samp,
     const short* win = (const short*) dinptr;
 #endif
 
+    dsm_time_t timetag = samp->getTimeTag();
+
+    // Reduce latency jitter in time tags
+    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag);
+
     /*
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
-
-    dsm_time_t timetag = samp->getTimeTag();
-
-    // Adjust for minimum observed latency
-    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag);
 
     /* restart sample time shifting on a data gap */
     if (_gapDtUsecs > 0 && (timetag - _ttlast) > _gapDtUsecs) _nttsave = -2;
