@@ -45,6 +45,7 @@ data_stats
 dmd_mmat_test
 dsm_server
 dsm
+dsm_port_config
 extract2d
 ir104
 lidar_vel
@@ -128,6 +129,7 @@ if arch != '':
     env.NidasPlainProgram('set_pcmcom8.c')
     env.NidasPlainProgram('isff/set_emerald.c')
     env.NidasPlainProgram('isff/emerald_dio.cc')
+    env.NidasPlainProgram('dsm_port_config.cc')
 
     # nidas_util
     env.NidasUtilProgram('gps_nmea_sysclock.cc')
