@@ -45,7 +45,6 @@ data_stats
 dmd_mmat_test
 dsm_server
 dsm
-dsm_port_config
 extract2d
 ir104
 lidar_vel
@@ -119,6 +118,11 @@ if has_i2c:
 
 env.NidasUtilProgram('utime.cc')
 
+dpc = env.Program('dsm_port_config.cc', LIBS=['ftdi1'])
+env.Install('$PREFIX/bin', dpc)
+env.Alias('dsm_port_config', dpc)
+
+
 if 'viper' in machs:
     # controls DIO pins on a Viper
     env.NidasProgram('viper_dio.cc')
@@ -129,7 +133,6 @@ if arch != '':
     env.NidasPlainProgram('set_pcmcom8.c')
     env.NidasPlainProgram('isff/set_emerald.c')
     env.NidasPlainProgram('isff/emerald_dio.cc')
-    env.NidasPlainProgram('dsm_port_config.cc')
 
     # nidas_util
     env.NidasUtilProgram('gps_nmea_sysclock.cc')
