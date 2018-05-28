@@ -29,11 +29,14 @@
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/Sample.h>
+#include <nidas/core/TimetagAdjuster.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
 using nidas::core::Sample;
 using nidas::core::dsm_sample_id_t;
+
+class TimetagAdjuster;
 
 /**
  * A class for parsing the binary output of Campbell Scientific CR10X and CR23X
@@ -77,6 +80,15 @@ private:
      * Counter of the number of records with incorrect CRC signatures.
      */
     unsigned int _badCRCs;
+
+    nidas::core::TimetagAdjuster* _ttadjust;
+
+    /// No copying
+    CSI_CRX_Binary(const CSI_CRX_Binary &);
+
+    /// No assignment.
+    CSI_CRX_Binary& operator = (const CSI_CRX_Binary &);
+
 
 };
 
