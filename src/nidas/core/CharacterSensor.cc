@@ -188,7 +188,8 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 
         if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0) {
             _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
-                    tag->getTimetagAdjustPeriod());
+                tag->getTimetagAdjustPeriod(),
+                tag->getTimetagAdjustSampleGap());
         }
     }
 	

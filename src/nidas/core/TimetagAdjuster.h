@@ -102,9 +102,22 @@ namespace nidas { namespace core {
 class TimetagAdjuster {
 public:
 
-    TimetagAdjuster(double rate, float adjustSecs);
+    /**
+     * Constructor
+     * @param rate Sample rate in Hz, sec^-1.
+     * @param adjustSecs Number of seconds to compute minimum
+     *      latency jitter.
+     * @param sampleGap Fractional number of sample time deltas
+     *      to consider a gap, and a reset of the adjustment.
+     */
+    TimetagAdjuster(double rate, float adjustSecs, float sampleGap);
 
-    dsm_time_t adjust(dsm_time_t);
+    /**
+     * Adjust a time tag.
+     * @param tt NIDAS time tag to be adjusted.
+     * @return Adjusted time tag.
+     */
+    dsm_time_t adjust(dsm_time_t tt);
 
 private:
    

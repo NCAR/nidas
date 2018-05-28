@@ -33,7 +33,8 @@
 using namespace nidas::core;
 using namespace std;
 
-TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
+TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
+    float sampleGap):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
     _dtUsec((unsigned int) ::rint(USECS_PER_SEC / rate)),
     _dtUsecActual((unsigned int) ::rint(USECS_PER_SEC / rate)),
@@ -41,7 +42,7 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs):
     _nDt(0),
     _npts(_adjustUsec / _dtUsec),
     _tdiffminUsec(INT_MAX),
-    _dtGapUsec(_dtUsec)
+    _dtGapUsec(::rint(_dtUsec * sampleGap))
 {
 }
 
@@ -55,7 +56,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _nDt = 0;
         _tdiffminUsec = INT_MAX;
         /* 10 points initially */
-        _npts = std::min(10U, _adjustUsec / _dtUsec);
+        _npts = std::max(10U, std::min(10U, _adjustUsec / _dtUsec));
         _dtUsecActual = _dtUsec;
         return tt;
     }
@@ -92,7 +93,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
          */
 
         _dtUsecActual += (int) ::rint(_tdiffminUsec / _nDt);
-        _npts = (unsigned int) ::rint(_adjustUsec / _dtUsecActual);
+        _npts = std::max(10U, (unsigned int)::rint(_adjustUsec / _dtUsecActual));
         _nDt = 0;
 	_tdiffminUsec = INT_MAX;
     }

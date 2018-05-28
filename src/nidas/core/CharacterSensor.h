@@ -284,7 +284,6 @@ protected:
 
     std::map<const SampleTag*, TimetagAdjuster*> _ttadjusters;
 
-
 private:
 
     std::string _messageSeparator;
