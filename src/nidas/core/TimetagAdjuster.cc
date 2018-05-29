@@ -51,7 +51,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 
     int tdiff = tt - _tlast;
     _tlast = tt;
-    if (tdiff < 0 || tdiff > 4 * _dtGapUsec) {
+    if (tdiff < 0 || tdiff > _dtGapUsec) {
         _tt0 = tt;
         _nDt = 0;
         _tdiffminUsec = INT_MAX;
