@@ -41,6 +41,7 @@ ck_aout
 ck_calfile
 ck_xml
 data_dump
+data_parse_values
 data_stats
 dmd_mmat_test
 dsm_server
