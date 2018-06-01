@@ -56,12 +56,19 @@
 
 */
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <vector>
-#include "libftdi1/ftdi.h"
-#include "../util/optionparser-1.7/src/optionparser.h"
+#include "ftdi.hpp"
+#include "../util/optionparser.h"
+
+static const char* ARG_LOOPBACK = "LOOPBACK";
+static const char* ARG_RS232 = "RS232";
+static const char* ARG_RS422 = "RS422";
+static const char* ARG_RS485_HALF = "RS485_HALF";
+static const char* ARG_RS485_FULL = "RS485_FULL";
 
 struct Arg: public option::Arg
 {
@@ -93,7 +100,6 @@ struct Arg: public option::Arg
     }
     static option::ArgStatus Numeric(const option::Option& option, bool msg)
     {
-        char* endptr = 0;
         if (option.arg != 0)
         {
             try {
@@ -107,6 +113,8 @@ struct Arg: public option::Arg
                 return option::ARG_ILLEGAL;
             }
         }
+
+        return option::ARG_ILLEGAL;
     }
     static option::ArgStatus PortNum(const option::Option& option, bool msg)
     {
@@ -133,11 +141,12 @@ struct Arg: public option::Arg
             if (argStatus == option::ARG_OK)
             {
                 std::string argStr(option.arg);
-                if ( argStr == "LOOPBACK"
-                    || argStr == "RS232" 
-                    || argStr == "RS485_HALF" 
-                    || argStr == "RS485_FULL" 
-                    || argStr == "RS422" )
+                std::transform(argStr.begin(), argStr.end(), argStr.begin(), ::toupper);
+                if ( argStr == ARG_LOOPBACK
+                    || argStr == ARG_RS232 
+                    || argStr == ARG_RS485_HALF 
+                    || argStr == ARG_RS485_FULL 
+                    || argStr == ARG_RS422 )
                 {
                     return option::ARG_OK;
                 }
@@ -184,14 +193,7 @@ typedef enum {LOOP_BACK, RS232, RS485_HALF, RS485_RS422_FULL} PORT_TYPE;
 typedef enum {PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7} PORT_DEFS;
 typedef enum {TERM_96k_OHM, TERM_100_OHM} TERM;
 
-typedef enum {ASYNC, SYNC} BIT_BANG_MODE;
-
-unsigned char ftdi0_portTypeDefs = 0;
-unsigned char ftdi1_portTypeDefs = 0;
-
-void setFtdiBitBangMode(const BIT_BANG_MODE mode = ASYNC) {
-    // Call libFtdi API here
-}
+unsigned char portTypeDefs = 0;
 
 // shift the port type into the correct location for insertion
 unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) {
@@ -202,14 +204,59 @@ unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits )
 //
 
 void setPortType(const PORT_DEFS port, const PORT_TYPE portType) {
-    // get the correct state variable to act upon...
-    unsigned char& portTypeDefs = port < PORT4 ? ftdi0_portTypeDefs : ftdi1_portTypeDefs;
-
     // first zero out the two bits in the correct port type slot...
     unsigned char zeroBits = ~adjustBitPosition(port, 0x03);
     portTypeDefs &= adjustBitPosition(port, zeroBits);
     // insert the new port type in the correct slot.
     portTypeDefs |= adjustBitPosition(port, static_cast<unsigned char>(portType));
+}
+
+const std::string& portTypeToStr( unsigned char portDefs) {
+    static std::string portDefStr;
+    portDefStr = "";
+    switch ( static_cast<PORT_DEFS>(portDefs) ) {
+        case LOOP_BACK:
+            portDefStr.append(ARG_LOOPBACK);
+            break;
+        case RS232:
+            portDefStr.append(ARG_RS232);
+            break;
+        case RS485_HALF:
+            portDefStr.append(ARG_RS485_HALF);
+            break;
+        case RS485_RS422_FULL:
+            portDefStr.append(ARG_RS422);
+            portDefStr.append("/");
+            portDefStr.append(ARG_RS485_FULL);
+            break;
+        default:
+            break;
+    }
+
+    return portDefStr;
+}
+
+void printPortDefs(unsigned int mode) {
+    unsigned int port = 1;
+    unsigned char tmpTypeDefs = portTypeDefs;
+    switch( mode ) {
+        case INTERFACE_A:
+            port = 0;
+            break;
+        case INTERFACE_B:
+            port = 4;
+            break;
+        default: 
+            break;
+    }
+
+    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
+    port++; tmpTypeDefs >>= 2;
+    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
+    port++; tmpTypeDefs >>= 2;
+    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
+    port++; tmpTypeDefs >>= 2;
+    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -286,12 +333,12 @@ int main(int argc, char* argv[]) {
     if (options[TYPE]) 
     {
         std::string portStr(options[TYPE].arg);
-
-        if (portStr == "LOOPBACK") portType = LOOP_BACK;
-        else if (portStr == "RS232") portType = RS232;
-        else if (portStr == "RS422") portType = RS485_RS422_FULL;
-        else if (portStr == "RS485_HALF") portType = RS485_HALF;
-        else if (portStr == "RS485_FULL") portType = RS485_RS422_FULL;
+        std::transform(portStr.begin(), portStr.end(), portStr.begin(), ::toupper);
+        if (portStr == ARG_LOOPBACK) portType = LOOP_BACK;
+        else if (portStr == ARG_RS232) portType = RS232;
+        else if (portStr == ARG_RS422) portType = RS485_RS422_FULL;
+        else if (portStr == ARG_RS485_HALF) portType = RS485_HALF;
+        else if (portStr == ARG_RS485_FULL) portType = RS485_RS422_FULL;
         else
         {
             std::cerr << "Unknown/Illegal/Missing port type argumeent.\n" << std::endl;
@@ -307,91 +354,92 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Initialize the FT4243H
-    struct ftdi_context *ftdi;
+    // Find all available FT4243H devices
+    int vid = 0x0403, pid = 0x6011;
 
-    if ((ftdi = ftdi_new()) == 0)
+    Ftdi::Context context;
+    Ftdi::List* list = Ftdi::List::find_all(context, vid, pid);
+    if (!list->empty())
     {
-        std::cerr << "ftdi_new failed" << std::endl;
-        return 2;
+        std::cout << std::endl << "Found the following FTDI devices" << std::endl << "================================" << std::endl;
+        for (Ftdi::List::iterator it = list->begin(); it != list->end(); it++)
+        {
+            std::cout << "FTDI (" << &*it << "): "
+            << it->vendor() << ", "
+            << it->description() << ", "
+            << it->serial();
+
+            // Open test
+            if(it->open() == 0)
+            std::cout << " (Open OK)";
+            else
+            std::cout << " (Open FAILED)";
+
+            it->close();
+
+            std::cout << std::endl;
+        }
+
+        Ftdi::List::iterator end = list->end();
+        end--;
+        std::cout << std::endl << "Choosing last FTDI device discoverd on USB Bus:\n\t " 
+            << end->vendor() << ", "
+            << end->description() << ", "
+            << end->serial() << std::endl; 
+
+        // Now initialize the chosen device for bit-bang mode, all outputs
+
+        // need to select the interface based on the specified port 
+        enum ftdi_interface iface = INTERFACE_ANY;
+        switch ( port ) {
+            case PORT0:
+            case PORT1:
+            case PORT2:
+            case PORT3:
+                iface = INTERFACE_A;
+                break;
+
+            case PORT4:
+            case PORT5:
+            case PORT6:
+            case PORT7:
+                iface = INTERFACE_B;
+                break;
+
+            default:  
+                break;
+        }
+
+        end->set_interface(iface);
+        end->set_bitmode( 0xFF, BITMODE_BITBANG);
+        end->open();
+
+        // get the current port definitions
+        end->read_pins(&portTypeDefs);
+        std::cout << std::endl << "Initial Port Definitions" << std::endl << "========================" << std::endl;
+        printPortDefs(iface);
+
+        // Set the port type for the desired port 
+        setPortType(port, portType);
+
+        // Call FTDI API to set the desired port types
+        end->write(&portTypeDefs, 1);
+
+        // print out the new port configurations
+        std::cout << std::endl << "New Port Definitions" << std::endl << "====================" << std::endl;
+        printPortDefs(iface);
+
+        end->close();
+
+        delete list;
     }
 
-    int f = ftdi_usb_open(ftdi, 0x0403, 0x6011);
-
-    if (f < 0 && f != -5)
+    else
     {
-        std::cerr << "unable to open ftdi device: " << f << ", " << ftdi_get_error_string(ftdi) << std::endl;
-        return 3;
+        std::cout << "No FTDI devices found!!" << std::endl;
+        return -3;
     }
 
-    std::cout << "ftdi open succeeded: " << f << std::endl;
-
-    // Put the control FT4232 into bit bang mode
-    // setFtdiBitBangMode();
-    // Set the port type for the desired port 
-    // Maybe the user can set multiple ports at once?
-    // setPortType(port, portType);
-
-    // Call FTDI API to set the desired port types
-
-    // print out the new port configurations
-
+    // all good, return -1
     return -1;
 }
-
-
-    
-
-//     printf("enabling bitbang mode\n");
-//     ftdi_set_bitmode(ftdi, 0xFF, BITMODE_BITBANG);
-
-//     sleep(3);
-
-//     buf[0] = 0x0;
-//     printf("turning everything on\n");
-//     f = ftdi_write_data(ftdi, buf, 1);
-//     if (f < 0)
-//     {
-//         fprintf(stderr,"write failed for 0x%x, error %d (%s)\n",buf[0],f, ftdi_get_error_string(ftdi));
-//     }
-
-//     sleep(3);
-
-//     buf[0] = 0xFF;
-//     printf("turning everything off\n");
-//     f = ftdi_write_data(ftdi, buf, 1);
-//     if (f < 0)
-//     {
-//         fprintf(stderr,"write failed for 0x%x, error %d (%s)\n",buf[0],f, ftdi_get_error_string(ftdi));
-//     }
-
-//     sleep(3);
-
-//     for (i = 0; i < 32; i++)
-//     {
-//         buf[0] =  0 | (0xFF ^ 1 << (i % 8));
-//         if ( i > 0 && (i % 8) == 0)
-//         {
-//             printf("\n");
-//         }
-//         printf("%02hhx ",buf[0]);
-//         fflush(stdout);
-//         f = ftdi_write_data(ftdi, buf, 1);
-//         if (f < 0)
-//         {
-//             fprintf(stderr,"write failed for 0x%x, error %d (%s)\n",buf[0],f, ftdi_get_error_string(ftdi));
-//         }
-//         sleep(1);
-//     }
-
-//     printf("\n");
-
-//     printf("disabling bitbang mode\n");
-//     ftdi_disable_bitbang(ftdi);
-
-//     ftdi_usb_close(ftdi);
-// done:
-//     ftdi_free(ftdi);
-
-//     return retval;
-// }

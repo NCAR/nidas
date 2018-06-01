@@ -118,7 +118,7 @@ if has_i2c:
 
 env.NidasUtilProgram('utime.cc')
 
-dpc = env.Program('dsm_port_config.cc', LIBS=['ftdi1'])
+dpc = env.Program('dsm_port_config.cc', LIBS=['ftdipp1'])
 env.Install('$PREFIX/bin', dpc)
 env.Alias('dsm_port_config', dpc)
 
