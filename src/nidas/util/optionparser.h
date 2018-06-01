@@ -785,10 +785,8 @@ public:
    * @ref desc, @ref name, @ref arg and @ref namelen.
    */
   Option() :
-      desc(0), name(0), arg(0), namelen(0)
+      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)), next_(tag(this))
   {
-    prev_ = tag(this);
-    next_ = tag(this);
   }
 
   /**
@@ -799,7 +797,8 @@ public:
    * short option and @ref namelen will be set to 1. Otherwise the length will extend to
    * the first '=' character or the string's 0-terminator.
    */
-  Option(const Descriptor* desc_, const char* name_, const char* arg_)
+  Option(const Descriptor* desc_, const char* name_, const char* arg_) :
+      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)),  next_(tag(this))  
   {
     init(desc_, name_, arg_);
   }
@@ -809,9 +808,11 @@ public:
    *
    * After this operation @c *this will be a one-element linked list.
    */
-  void operator=(const Option& orig)
+  Option& operator=(const Option& orig)
   {
     init(orig.desc, orig.name, orig.arg);
+
+    return *this;
   }
 
   /**
@@ -819,7 +820,8 @@ public:
    *
    * After this operation @c *this will be a one-element linked list.
    */
-  Option(const Option& orig)
+  Option(const Option& orig) :
+      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)),  next_(tag(this))  
   {
     init(orig.desc, orig.name, orig.arg);
   }
@@ -1392,6 +1394,8 @@ private:
  */
 struct Parser::Action
 {
+  virtual ~Action() {}
+
   /**
    * @brief Called by Parser::workhorse() for each Option that has been successfully
    * parsed (including unknown
@@ -1439,6 +1443,8 @@ public:
   {
   }
 
+  ~CountOptionsAction() {}
+
   bool perform(Option&)
   {
     if (*buffer_max == 0x7fffffff)
@@ -1478,6 +1484,8 @@ public:
     // set parser's optionCount
     parser.op_count = bufidx;
   }
+
+  virtual ~StoreOptionAction() {}
 
   bool perform(Option& option)
   {
@@ -1735,6 +1743,8 @@ struct PrintUsageImplementation
     virtual void operator()(const char*, int)
     {
     }
+
+    virtual ~IStringWriter() {}
   };
 
   /**
@@ -1756,6 +1766,8 @@ struct PrintUsageImplementation
         write(w)
     {
     }
+
+    virtual ~FunctionWriter() {}
   };
 
   /**
@@ -1993,7 +2005,7 @@ struct PrintUsageImplementation
   public:
     //! @brief Creates an iterator for @c usage.
     LinePartIterator(const Descriptor usage[]) :
-        tablestart(usage), rowdesc(0), rowstart(0), ptr(0), col(-1), len(0), max_line_in_block(0), line_in_block(0),
+        tablestart(usage), rowdesc(0), rowstart(0), ptr(0), col(-1), len(0), screenlen(0), max_line_in_block(0), line_in_block(0),
         target_line_in_block(0), hit_target_line(true)
     {
     }
@@ -2432,7 +2444,7 @@ struct PrintUsageImplementation
      * @c x1 gives the indentation LineWrapper uses if it needs to indent.
      */
     LineWrapper(int x1, int x2) :
-        x(x1), width(x2 - x1), head(0), tail(bufmask)
+        x(x1), width(x2 - x1), head(0), tail(bufmask), wrote_something(false)
     {
       if (width < 2) // because of wide characters we need at least width 2 or the code breaks
         width = 2;
