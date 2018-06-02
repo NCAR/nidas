@@ -61,6 +61,8 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <unistd.h>
+#include "libusb.h"
 #include "ftdi.hpp"
 #include "../util/optionparser.h"
 
@@ -196,22 +198,25 @@ typedef enum {TERM_96k_OHM, TERM_100_OHM} TERM;
 unsigned char portTypeDefs = 0;
 
 // shift the port type into the correct location for insertion
-unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) {
-    return bits << (port * 2);
+unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) 
+{
+    // adjust port to always be 0-3, assuming 2 bits per port type.
+    PORT_DEFS adjPort = static_cast<PORT_DEFS>(port % PORT4);
+    return bits << (adjPort * 2);
 }
 
 // Sets the port type for a particular DSM port.
-//
-
-void setPortType(const PORT_DEFS port, const PORT_TYPE portType) {
+// Currently assumes 2 bits per port def.
+void setPortType(const PORT_DEFS port, const PORT_TYPE portType) 
+{
     // first zero out the two bits in the correct port type slot...
-    unsigned char zeroBits = ~adjustBitPosition(port, 0x03);
-    portTypeDefs &= adjustBitPosition(port, zeroBits);
+    portTypeDefs &= ~adjustBitPosition(port, 0x03);
     // insert the new port type in the correct slot.
     portTypeDefs |= adjustBitPosition(port, static_cast<unsigned char>(portType));
 }
 
-const std::string& portTypeToStr( unsigned char portDefs) {
+const std::string& portTypeToStr( unsigned char portDefs) 
+{
     static std::string portDefStr;
     portDefStr = "";
     switch ( static_cast<PORT_DEFS>(portDefs) ) {
@@ -236,10 +241,11 @@ const std::string& portTypeToStr( unsigned char portDefs) {
     return portDefStr;
 }
 
-void printPortDefs(unsigned int mode) {
+void printPortDefs(const enum ftdi_interface iface) 
+{
     unsigned int port = 1;
     unsigned char tmpTypeDefs = portTypeDefs;
-    switch( mode ) {
+    switch( iface ) {
         case INTERFACE_A:
             port = 0;
             break;
@@ -250,6 +256,7 @@ void printPortDefs(unsigned int mode) {
             break;
     }
 
+
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
     port++; tmpTypeDefs >>= 2;
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
@@ -257,6 +264,34 @@ void printPortDefs(unsigned int mode) {
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
     port++; tmpTypeDefs >>= 2;
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
+}
+
+// need to select the interface based on the specified port 
+// at present, assume 2 bits per port definition
+enum ftdi_interface port2iface(const unsigned int port)
+{
+    enum ftdi_interface iface = INTERFACE_ANY;
+    switch ( port ) 
+    {
+        case PORT0:
+        case PORT1:
+        case PORT2:
+        case PORT3:
+            iface = INTERFACE_A;
+            break;
+
+        case PORT4:
+        case PORT5:
+        case PORT6:
+        case PORT7:
+            iface = INTERFACE_B;
+            break;
+
+        default:  
+            break;
+    }
+
+    return iface;
 }
 
 int main(int argc, char* argv[]) {
@@ -354,68 +389,37 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Find all available FT4243H devices
-    int vid = 0x0403, pid = 0x6011;
+    // vid and pid of FT4243H devices
+    // NOT USED int vid = 0x0403, pid = 0x6011, 
+    int bus = 1, device = 6;
 
-    Ftdi::Context context;
-    Ftdi::List* list = Ftdi::List::find_all(context, vid, pid);
-    if (!list->empty())
+    ftdi_context* c_context = ftdi_new();
+
+    enum ftdi_interface iface = port2iface(port);
+
+    if (ftdi_set_interface(c_context, iface)) {
+        std::cerr << c_context->error_str << std::endl;
+        return 2;
+    }
+
+    std::cout << std::endl << "Opening device on USB bus: " << bus << " device id: " << device;
+    if (!ftdi_usb_open_bus_addr(c_context, bus, device))
     {
-        std::cout << std::endl << "Found the following FTDI devices" << std::endl << "================================" << std::endl;
-        for (Ftdi::List::iterator it = list->begin(); it != list->end(); it++)
-        {
-            std::cout << "FTDI (" << &*it << "): "
-            << it->vendor() << ", "
-            << it->description() << ", "
-            << it->serial();
+        char manuf[80];
+        char descript[80];
+        char serialNo[80];
+        ftdi_usb_get_strings2(c_context, libusb_get_device(c_context->usb_dev), manuf, 80, descript, 80, serialNo, 80);
+        std::cout << ", " << manuf << ", "
+            << descript << ", "
+            << serialNo << std::endl; 
 
-            // Open test
-            if(it->open() == 0)
-            std::cout << " (Open OK)";
-            else
-            std::cout << " (Open FAILED)";
-
-            it->close();
-
-            std::cout << std::endl;
-        }
-
-        Ftdi::List::iterator end = list->end();
-        end--;
-        std::cout << std::endl << "Choosing last FTDI device discoverd on USB Bus:\n\t " 
-            << end->vendor() << ", "
-            << end->description() << ", "
-            << end->serial() << std::endl; 
-
+        // set the baud clock to push the data out
+        //ftdi_set_baudrate(c_context, 9600);
         // Now initialize the chosen device for bit-bang mode, all outputs
-
-        // need to select the interface based on the specified port 
-        enum ftdi_interface iface = INTERFACE_ANY;
-        switch ( port ) {
-            case PORT0:
-            case PORT1:
-            case PORT2:
-            case PORT3:
-                iface = INTERFACE_A;
-                break;
-
-            case PORT4:
-            case PORT5:
-            case PORT6:
-            case PORT7:
-                iface = INTERFACE_B;
-                break;
-
-            default:  
-                break;
-        }
-
-        end->set_interface(iface);
-        end->set_bitmode( 0xFF, BITMODE_BITBANG);
-        end->open();
+        ftdi_set_bitmode(c_context, 0xFF, BITMODE_BITBANG);
 
         // get the current port definitions
-        end->read_pins(&portTypeDefs);
+        ftdi_read_pins(c_context, &portTypeDefs);
         std::cout << std::endl << "Initial Port Definitions" << std::endl << "========================" << std::endl;
         printPortDefs(iface);
 
@@ -423,23 +427,22 @@ int main(int argc, char* argv[]) {
         setPortType(port, portType);
 
         // Call FTDI API to set the desired port types
-        end->write(&portTypeDefs, 1);
+        ftdi_write_data(c_context, &portTypeDefs, 1);
 
         // print out the new port configurations
         std::cout << std::endl << "New Port Definitions" << std::endl << "====================" << std::endl;
         printPortDefs(iface);
 
-        end->close();
-
-        delete list;
+        ftdi_usb_close(c_context);
+        ftdi_free(c_context);
     }
 
     else
     {
-        std::cout << "No FTDI devices found!!" << std::endl;
-        return -3;
+        std::cout << std::endl << "Failed to open FTDI device at bus: " << bus << " device: " << device<< std::endl;
+        return 3;
     }
 
-    // all good, return -1
-    return -1;
+    // all good, return 0
+    return 0;
 }
