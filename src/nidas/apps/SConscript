@@ -41,7 +41,6 @@ ck_aout
 ck_calfile
 ck_xml
 data_dump
-data_parse_values
 data_stats
 dmd_mmat_test
 dsm_server
@@ -67,6 +66,12 @@ isff/datasets
 
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc'))
+
+dpvenv = env.Clone()
+dpvenv.AppendUnique(CXXFLAGS='-std=c++11')
+dpvenv.AppendUnique(LIBS='curl')
+dpv = dpvenv.NidasProgram('data_parse_values.cc')
+dpvenv.Alias('data_parse_values', dpv)
 
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']

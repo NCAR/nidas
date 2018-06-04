@@ -24,6 +24,21 @@
  ********************************************************************
 */
 
+/*
+TO DO: --BARNITZ--
+*set the private variable to process data //currently set with command line arguements (CLA)
+*ensure the .xml file is used when processing the data //currently given in CLA
+*have the app run as own process in the background //currently invoking each instant with CLA and a specified period
+
+*implement adding data to influxdb based on the attribute (ie temp, wind_dir, rain_accum) //currently it is added as site specific with all attributes for given timestamp
+*consider batching/async adding of data to influx db (hand in hand with above to do item) //currently call influxdb for each timestamp of data for every site
+
+*determine application name //currently set to data_parse_values (not very meaningful)
+*update headers and object/method names //currently heavily relied on what was referenced with data_stats
+*remove code and functions/methods that serve no purpose for this application
+
+*begin working on derivations of data in the influx db //see /net/weather/weather/src/ccwd and apply every five min to data in influx db
+*/
 
 // #define _XOPEN_SOURCE	/* glibc2 needs this */
 
@@ -54,7 +69,12 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include <fstream> //maybe?
+#include <fstream> //for writing processed data to a .txt file
+#include <string> //for converting data to_string
+
+#include <stdio.h> // for making an api request to insert data into influxdb
+#include <curl/curl.h>
+#include <curl/easy.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -91,6 +111,12 @@ public:
             {
                 varnames.push_back(variables[i]->getName());
             }
+//TO DO: add suffix variable to the constructor stripping the _ from the suffixto use as the MEASUREMENT name in the influx database
+            //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
+        
+            //siteName = stag->getSuffix()
+            //siteName.erase(siteName[0]);
+            cout << "********** stag->getSuffix: " << stag->getSuffix() << "\n"; 
         }
     }
 
@@ -138,6 +164,10 @@ public:
     // Stash the variable names from the sample tag to identify the
     // variables in the accumulated data.
     vector<string> varnames;
+
+    // // Stash the site names from the sample tag to identify the
+    // // site in the accumulated data.
+    // vector<string> siteName;
 };
 
 
@@ -147,8 +177,7 @@ receive(const Sample* samp) throw()
 {
     //cout << "... SampleCounter::receive\n";
     dsm_sample_id_t sampid = samp->getId();
-    //cout << "...samp: " << samp << " sampid: " << sampid << "\n";
-    //cout << "... counting sample " << nsamps << " for id " << NidasApp::getApplicationInstance()->formatId(sampid) << "\n";
+
     VLOG(("counting sample ") << nsamps << " for id "
          << NidasApp::getApplicationInstance()->formatId(sampid));
     if (sampid != id)
@@ -160,7 +189,6 @@ receive(const Sample* samp) throw()
         id = sampid;
     }
     dsm_time_t sampt = samp->getTimeTag();
-    //cout << "...the time is: " << sampt << "\n";
     if (nsamps == 0)
     {
         t1s = sampt;
@@ -192,16 +220,103 @@ receive(const Sample* samp) throw()
     return true;
 }
 
-//for creating sync api request to db 
-// void insert(line const & line){
-//     pimpl->db.insert(lines.get())
+/*
+This is invoked from main() at the initialization of the data to be transferred to the influx database. This function creates an influx database at 
+the specfied url, which can be either "http://localhost:8086/query" if the influx database is on the same server, or the full url can be provided 
+if it is located on different servers (ensuring correct firewall permissions are set). createInfluxDB() uses the curl library for assigning the url 
+and the consequent fields to post during the HTTP POST operation. Additionally, the string variable DBname can be assigned with the DSMConfig 
+information such as location or project name as this is only created once //for now it is hard coded as "test"
+*/
+void createInfluxDB(){
+//TO DO: make database name variable assigned depending on location/project 
+    //string DBname = "test";
+    CURL *curl;
+    CURLcode res;
+
+    const char* url = "http://snoopy.eol.ucar.edu:8086/query";
+    const char* createDB = "q=CREATE+DATABASE+test1";
+    
+    curl = curl_easy_init();
+
+    if (curl){
+
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, createDB);
+
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK)
+            cout << "failed\n";
+
+        curl_easy_cleanup(curl);
+    }
+    cout << "end of create influx db\n";
+}
+
+/*
+dataToInfluxDB() inserts the processed data into the influxdb with the curl library for the given timestamp, specifying a precision of microseconds in the url 
+(the default of influxDB is nanoseconds). The HTTP POST necessitates that the data string is given as a char*  
+*/
+void dataToInfluxDB(string data){
+    CURL *curl;
+    CURLcode res;
+
+    const char *url = "http://snoopy.eol.ucar.edu:8086/write?db=test1&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
+    curl = curl_easy_init();
+
+    if (curl){
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK)
+            cout << "failed\n";
+
+        curl_easy_cleanup(curl);
+    }
+    cout << "end of add data synchronously to influx db\n";
+}
+
+/*
+this version of dataToInfluxDB() adds the data line by line from a file that is written to in SampleCounter::accumulate
+//intention of removing this code completely, but first want to determine the best options for adding batched data to influxdb  
+*/
+// void dataToInfluxDB(){
+//     CURL *curl;
+//     CURLcode res;
+
+//     const char *url = "http://snoopy.eol.ucar.edu:8086/write?db=test1&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
+//     //write to db with entire parsing of a file
+//     ifstream dataFile;
+//     string line;
+//     dataFile.open("/h/eol/jbarnitz/barnitzSUPER/test.txt");
+
+//     while (getline(dataFile, line)){
+//         //cout << line << "\n";
+//         curl = curl_easy_init();
+
+//         if (curl){
+//             curl_easy_setopt(curl, CURLOPT_URL, url);
+//             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, line.c_str());
+
+//             res = curl_easy_perform(curl);
+
+//             if(res != CURLE_OK)
+//                 cout << "failed\n";
+
+//             curl_easy_cleanup(curl);
+//         }
+//     }
+//     dataFile.close();
+//     cout << "end of add data from a file to influx db\n";
 // }
 
 void
 SampleCounter::
 accumulate(const Sample* samp)
 {
-    //is this needed for adding to the influxdb? //perhaps better understand the catalyst of changing from a sample of type char to type float 
+//TO DO: is this needed for adding to the influxdb? //perhaps better understand the catalyst of changing from a sample of type char to type float 
     //cout << "... SampleCounter::accumulate\n";
     if (samp->getType() == CHAR_ST)
     {
@@ -225,11 +340,12 @@ accumulate(const Sample* samp)
         sums.resize(nvalues);
         nnans.resize(nvalues);
     }
-    cout << "\n";
+
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
-        if (isnan(value))
+//TO DO: determine whether to create own bool isnan function or if using std:: is okay as there are portability issues with c++11 and prior versions
+        if (std::isnan(value))
         {
             nnans[i] += 1;
         }
@@ -237,19 +353,66 @@ accumulate(const Sample* samp)
         {
             sums[i] += value;
         }
-        cout << "...at index i: " << i << ", varname is: " << varnames[i] << " with value of: " << value << "\n";
+        // cout << "...at index i: " << i << ", varname is: " << varnames[i] << " with value of: " << value << "\n";
     }
-    //open file to write to
-    ofstream testWritingData;
-    testWritingData.open("/h/eol/jbarnitz/barnitzSUPER/test.txt", ios::out | ios::app);
-    //sort of the function to write the data values to the influxDB
-    float dsmId = samp->getDSMId(); //ensuring they could be assigned to float values //necessary? for adding to the influxDB
-    float spSid = samp->getSpSId();
-    //typedef long long dsm_time_t timeStamp = samp->getTimeTag();
+
+//TO DO: remove the writing to file once async/batching of writing data to influxdb has been determined
+//     ofstream testWritingData;
+//     testWritingData.open("/h/eol/jbarnitz/barnitzSUPER/test.txt", ios::out | ios::app);
+//     int dsmId = samp->getDSMId();
+//     int spSid = samp->getSpSId();
+// //TO DO: access the suffix appropriately need a const sampleTag* stag and then stag->getSuffix() which yields _fl, _ml, _raf ect handle in constructor 
+//     string location;
+
+//     if (spSid==11)
+//         location = "fl";
+//     else if (spSid==21)
+//         location = "ml";
+//     else if (spSid==31)
+//         location = "nsf";
+//     else if (spSid==41)
+//         location = "nwsc";
+//     else if (spSid==51)
+//         location = "raf";
+//     else if (spSid==61)
+//         location = "fireside";
+//     else
+//         location = "mlw";
+
+//     if (testWritingData.is_open()){
+//         testWritingData << location << ",location=" << location << ",dsm_id=" << dsmId << ",sensor_id=" << spSid << " ";            
+//     }
+
+//     for (unsigned int i = 0; i < nvalues; ++i)
+//     {
+//         double value = samp->getDataValue(i);
+//         if (std::isnan(value))
+//         {
+// //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+//             // cout << varnames[i] << " is " << value << "\n";
+//             continue;
+//         }
+//         else
+//         {
+//             if (testWritingData.is_open()){
+//                 if (i < nvalues-1){
+//                     testWritingData << varnames[i] << "=" << value << ",";
+//                 }
+//                 else{
+//                     testWritingData << varnames[i] << "=" << value << " " << samp->getTimeTag() << "\n";
+//                 }
+//             }
+//             //write to influx db with location, dsmID, sensorID, variable name, value, ....
+//             //cout << varnames[i] << " with value " << value << " **** TO BE WRITTEN TO INFLUXDB ****\n";
+//         }
+//     }
+//     testWritingData.close();
+
+    //try synchronous insert into influxdb
+    int dsmId = samp->getDSMId(); 
+    int spSid = samp->getSpSId();
+// //TO DO: access the suffix appropriately need a const sampleTag* stag and then stag->getSuffix() which yields _fl, _ml, _raf ect handle in constructor 
     string location;
-    cout << "DSMid from samp->getDSMId(): " << dsmId << " and sensorId from samp->getSpSId() : " << spSid << "\n";
-    cout << "other attributes available: samp->getId(): " << samp->getId() << ", samp->getRawId(): " << samp->getRawId() << ", samp->getTimeTag(): " << samp->getTimeTag() << "\n"; 
-    //access the suffix appropriately need a const sampleTag* stag and then stag->getSuffix() which yields fl, ml, raf ect 
     if (spSid==11)
         location = "fl";
     else if (spSid==21)
@@ -264,55 +427,36 @@ accumulate(const Sample* samp)
         location = "fireside";
     else
         location = "mlw";
+    //for adding a single line to influx db directly
+    string data;
 
-    if (testWritingData.is_open()){
-        testWritingData << "weather_sensor,location=" << location << ",dsm_id=" << dsmId << ",sensor_id=" << spSid << " ";            
-    }
+    //measurement name followed by the key name and key value in the influx db
+    data = location + ",location=" + location + ",dsm_id=" + to_string(dsmId) + ",sensor_id=" + to_string(spSid) + " ";   
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
-        if (isnan(value))
+        if (std::isnan(value))
         {
-            //write to db? or just continue?
-            cout << varnames[i] << " is " << value << "\n";
+//TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+            // cout << varnames[i] << " is " << value << "\n";
+            continue;
         }
         else
         {
-            if (testWritingData.is_open()){
-                if (i < nvalues-1)
-                    testWritingData << varnames[i] << "=" << value << ",";
-                else
-                    testWritingData << varnames[i] << "=" << value << " " << samp->getTimeTag() << "\n";
+            //field name and field value in the influxdb
+            if (i < nvalues-1){
+                data += varnames[i] + "=" + to_string(value) + ",";
             }
-            //write to influx db with location, dsmID, sensorID, variable name, value, ....
-            cout << varnames[i] << " with value " << value << " **** TO BE WRITTEN TO INFLUXDB ****\n";
+            else{
+                data += varnames[i] + "=" + to_string(value) + " " + to_string(samp->getTimeTag()) + "\n";
+            }
         }
     }
-    testWritingData.close();
-    cout << "\n";
-    // //try synchronous insert into influxdb
+    // cout << data << " TO BE WRITTEN TO INFLUXDB\n";
+
+    //try synchronous insert into influxdb
     // cout << "...attempting to write to db with synchronous request\n";
-    // for (unsigned int i = 0; i < nvalues; ++i)
-    // {
-    //     double value = samp->getDataValue(i);
-    //     if (isnan(value))
-    //     {
-    //         //write to db? or just continue? //db does not let you add NaN, could create a boolean field and set to true in this case
-    //         //cout << varnames[i] << " is " << value << "\n";
-    //         continue;
-    //     }
-    //     else
-    //     {
-    //         //change database name after testing is complete
-    //         influxdb::api::simple_db simpledb("http://localhost:8086", "test")
-    //         db.insert(
-    //             line()
-    //         )
-    //         testWritingData << varnames[i] << "=" << value << " " << samp->getTimeTag() << "\n";
-    //         //write to influx db with location, dsmID, sensorID, variable name, value, ....
-    //         //cout << varnames[i] << " with value " << value << " **** TO BE WRITTEN TO INFLUXDB ****\n";
-    //     }
-    // }
+    dataToInfluxDB(data);
     // cout << "...attempt to write to db with synchronous request complete\n";
 }
 
@@ -424,7 +568,6 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
             sensor->getDeviceName();
 
         // Stop with raw samples if processed not requested.
-        //cout << "... TEST TEST\n";
         if (! processed)
         {
             if (matcher.match(sensor->getId()))
@@ -1005,7 +1148,7 @@ int DataStats::run() throw()
             app.addSignal(SIGALRM, &DataStats::handleSignal, true);
         }
         readHeader(sis);
-        //from if on line 911 to here not in data_dump
+
 	const SampleInputHeader& header = sis.getInputHeader();
 
 	list<DSMSensor*> allsensors;
@@ -1018,6 +1161,7 @@ int DataStats::run() throw()
         cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
     }
     xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+//TO DO: change this hard coding of file name //used because of trying to bypass giving CLA for processing data
     xmlFileName = "/h/eol/jbarnitz/barnitzSUPER/eol-weather-stations-TEMP2.xml"; //...change this
     //cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
     //cout << "... app.processData(): " << app.processData() << "\n";
@@ -1131,5 +1275,7 @@ int DataStats::run() throw()
 
 int main(int argc, char** argv)
 {
+//TO DO: is this the best place for invoking the creation of a new database? potential for using CLA for assigning the DB a name, or obtaining that info from the sensor?
+    createInfluxDB();
     return DataStats::main(argc, argv);
 }
