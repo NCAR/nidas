@@ -27,11 +27,11 @@
 /*
 TO DO: --BARNITZ--
 *set the private variable to process data //currently set with command line arguements (CLA)
-*ensure the .xml file is used when processing the data //currently given in CLA
-*have the app run as own process in the background //currently invoking each instant with CLA and a specified period
+*ensure the .xml file is used when processing the data //currently given in CLA->necessary for weather_stations, conventional projects it is not 
+*have the app run as own process in the background //currently invoking each instant with CLA
 
 *implement adding data to influxdb based on the attribute (ie temp, wind_dir, rain_accum) //currently it is added as site specific with all attributes for given timestamp
-*consider batching/async adding of data to influx db (hand in hand with above to do item) //currently call influxdb for each timestamp of data for every site
+*consider batching data to influx db (hand in hand with above to do item) //currently call influxdb for each timestamp of data for every site
 
 *determine application name //currently set to data_parse_values (not very meaningful)
 *update headers and object/method names //currently heavily relied on what was referenced with data_stats
@@ -70,7 +70,8 @@ TO DO: --BARNITZ--
 #include <getopt.h>
 
 #include <fstream> //for writing processed data to a .txt file
-#include <string> //for converting data to_string
+#include <string>  //for converting data to_string
+#include <sstream>
 
 #include <stdio.h> // for making an api request to insert data into influxdb
 #include <curl/curl.h>
@@ -82,140 +83,106 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class SampleCounter
+//these globals will be omitted (for testing purposes)
+int COUNT = 0;
+vector<string> batchData;
+
+class SampleToDatabase
 {
-public:
+  public:
     /**
      * A default constructor is required to use objects as a map element.
      **/
-    SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "",
-                  const SampleTag* stag = 0) :
-        name(sname),
-        id(sid),
-        t1s(0),
-        t2s(0),
-        nsamps(0),
-        minlens(0),
-        maxlens(0),
-        minDeltaTs(0),
-        maxDeltaTs(0),
-        sums(),
-        nnans(),
-        rawmsg(),
-        varnames()
+    SampleToDatabase(dsm_sample_id_t sid = 0, const std::string &sname = "",
+                     const SampleTag *stag = 0) : name(sname),
+                                                  id(sid),
+                                                  sitename(),
+                                                  DBname("grainexPort2"),
+                                                  measurementName(),
+                                                  spsid(),
+                                                  dsmid(),
+                                                  varnames()
     {
         if (stag)
         {
-            const std::vector<const Variable*>& variables = stag->getVariables();
+            const std::vector<const Variable *> &variables = stag->getVariables();
             for (unsigned int i = 0; i < variables.size(); ++i)
             {
                 varnames.push_back(variables[i]->getName());
             }
-//TO DO: add suffix variable to the constructor stripping the _ from the suffixto use as the MEASUREMENT name in the influx database
+            //TO DO: determine & implement how best to incorporate this change necessary for the different sites: given as command line arguements
+            //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
+            //necessary for the weather stations
+            //EOL-WEATHER-STATIONS
+            //sitename = stag->getSuffix();
+            //sitename.erase(0,1);
+
             //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
-        
-            //siteName = stag->getSuffix()
-            //siteName.erase(siteName[0]);
-            cout << "********** stag->getSuffix: " << stag->getSuffix() << "\n"; 
+            //necessary for grainex/conventional projects
+            //CONVENTIONAL PROJECTS
+            sitename = stag->getSite()->getName();
+            dsmid = to_string(stag->getDSMId());
+            int tempSpSid = stag->getSpSId();
+            if (tempSpSid >= 0x8000)
+            {
+                stringstream intToHex;
+                intToHex << "0x" << hex << tempSpSid;
+                spsid = intToHex.str();
+            }
+            else
+                spsid = to_string(tempSpSid);
+            //this measurement name is not used currently for weather_stations, weather_stations use the sitename
+            measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
         }
     }
 
-    void
-    reset()
-    {
-        t1s = 0;
-        t2s = 0;
-        nsamps = 0;
-        minlens = 0;
-        maxlens = 0;
-        minDeltaTs = 0;
-        maxDeltaTs = 0;
-        sums.clear();
-        nnans.clear();
-        rawmsg.erase();
-    }
-
     bool
-    receive(const Sample* samp) throw();
+    receive(const Sample *samp) throw();
 
     void
-    accumulate(const Sample* samp);
+    createInfluxDB();
+
+    void
+    dataToInfluxDB(string data);
+
+    void
+    accumulate(const Sample *samp);
 
     string name;
     dsm_sample_id_t id;
 
-    dsm_time_t t1s;
-    dsm_time_t t2s;
-    size_t nsamps;
-    size_t minlens;
-    size_t maxlens;
-    int minDeltaTs;
-    int maxDeltaTs;
+    // // Accumulate sums of each variable in the sample and counts of the
+    // // number of nans seen in each variable.
+    // vector<float> sums;
+    // vector<int> nnans;
 
-    // Accumulate sums of each variable in the sample and counts of the
-    // number of nans seen in each variable.
-    vector<float> sums;
-    vector<int> nnans;
+    // // For raw samples, just keep the last message seen.  Someday this
+    // // could be a buffer of the last N messages.
+    // std::string rawmsg;
 
-    // For raw samples, just keep the last message seen.  Someday this
-    // could be a buffer of the last N messages.
-    std::string rawmsg;
+    // Stash the site name from the sample tag to identify the
+    // site in the accumulated data.
+    string sitename;
+
+    // Database name for the influxdb specific to the project
+    string DBname;
+
+    // To store the measurement name comprised of dsm id and sensor id concatenated
+    // so that it is unique for each variable
+    string measurementName;
+
+    //gathering dsmid and spsid necessary to create measurement name
+    string spsid;
+    string dsmid;
 
     // Stash the variable names from the sample tag to identify the
     // variables in the accumulated data.
     vector<string> varnames;
-
-    // // Stash the site names from the sample tag to identify the
-    // // site in the accumulated data.
-    // vector<string> siteName;
 };
 
-
-bool
-SampleCounter::
-receive(const Sample* samp) throw()
+bool SampleToDatabase::
+    receive(const Sample *samp) throw()
 {
-    //cout << "... SampleCounter::receive\n";
-    dsm_sample_id_t sampid = samp->getId();
-
-    VLOG(("counting sample ") << nsamps << " for id "
-         << NidasApp::getApplicationInstance()->formatId(sampid));
-    if (sampid != id)
-    {
-        ILOG(("assigning received sample ID ")
-             << NidasApp::getApplicationInstance()->formatId(sampid)
-             << " in place of "
-             << NidasApp::getApplicationInstance()->formatId(id));
-        id = sampid;
-    }
-    dsm_time_t sampt = samp->getTimeTag();
-    if (nsamps == 0)
-    {
-        t1s = sampt;
-        minDeltaTs = INT_MAX;
-        maxDeltaTs = INT_MIN;
-    }
-    else
-    {
-        int deltaT = (sampt - t2s + USECS_PER_MSEC/2) / USECS_PER_MSEC;
-	minDeltaTs = std::min(minDeltaTs, deltaT);
-	maxDeltaTs = std::max(maxDeltaTs, deltaT);
-    }
-    t2s = sampt;
-
-    size_t slen = samp->getDataByteLength();
-    if (nsamps == 0)
-    {
-        minlens = slen;
-        maxlens = slen;
-    }
-    else
-    {
-        minlens = std::min(minlens, slen);
-        maxlens = std::max(maxlens, slen);
-    }
-    ++nsamps;
-
     accumulate(samp);
     return true;
 }
@@ -225,61 +192,68 @@ This is invoked from main() at the initialization of the data to be transferred 
 the specfied url, which can be either "http://localhost:8086/query" if the influx database is on the same server, or the full url can be provided 
 if it is located on different servers (ensuring correct firewall permissions are set). createInfluxDB() uses the curl library for assigning the url 
 and the consequent fields to post during the HTTP POST operation. Additionally, the string variable DBname can be assigned with the DSMConfig 
-information such as location or project name as this is only created once //for now it is hard coded as "test"
+information such as location or project name as this is only created once //for now it is passed as a parameter from main
 */
-void createInfluxDB(){
-//TO DO: make database name variable assigned depending on location/project 
-    //string DBname = "test";
+void SampleToDatabase::
+    createInfluxDB()
+{
+    //TO DO: make database name variable assigned depending on location/project? should it be given as command line arguement? currently set in the constructor.
+    //cout << "in create influxdb the db name is: " << DBname << "\n";
     CURL *curl;
     CURLcode res;
 
-    const char* url = "http://snoopy.eol.ucar.edu:8086/query";
-    const char* createDB = "q=CREATE+DATABASE+test1";
-    
+    const char *url = "http://snoopy.eol.ucar.edu:8086/query";
+    string createDB = "q=CREATE+DATABASE+" + DBname;
+
     curl = curl_easy_init();
 
-    if (curl){
+    if (curl)
+    {
 
         curl_easy_setopt(curl, CURLOPT_URL, url);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, createDB);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, createDB.c_str());
 
         res = curl_easy_perform(curl);
 
-        if(res != CURLE_OK)
+        if (res != CURLE_OK)
             cout << "failed\n";
 
         curl_easy_cleanup(curl);
     }
-    cout << "end of create influx db\n";
+    // cout << "end of create influx db\n";
 }
 
 /*
 dataToInfluxDB() inserts the processed data into the influxdb with the curl library for the given timestamp, specifying a precision of microseconds in the url 
 (the default of influxDB is nanoseconds). The HTTP POST necessitates that the data string is given as a char*  
 */
-void dataToInfluxDB(string data){
+void SampleToDatabase::
+    dataToInfluxDB(string data)
+{
+    // cout << "in add data to influxdb the db name is: *" << DBname << "*\n";
     CURL *curl;
     CURLcode res;
 
-    const char *url = "http://snoopy.eol.ucar.edu:8086/write?db=test1&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
+    string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
     curl = curl_easy_init();
 
-    if (curl){
-        curl_easy_setopt(curl, CURLOPT_URL, url);
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
 
         res = curl_easy_perform(curl);
 
-        if(res != CURLE_OK)
+        if (res != CURLE_OK)
             cout << "failed\n";
 
         curl_easy_cleanup(curl);
     }
-    cout << "end of add data synchronously to influx db\n";
+    // cout << "end of add data synchronously to influx db\n";
 }
 
 /*
-this version of dataToInfluxDB() adds the data line by line from a file that is written to in SampleCounter::accumulate
+this version of dataToInfluxDB() adds the data line by line from a file that is written to in SampleToDatabase::accumulate
 //intention of removing this code completely, but first want to determine the best options for adding batched data to influxdb  
 */
 // void dataToInfluxDB(){
@@ -312,173 +286,176 @@ this version of dataToInfluxDB() adds the data line by line from a file that is 
 //     cout << "end of add data from a file to influx db\n";
 // }
 
-void
-SampleCounter::
-accumulate(const Sample* samp)
+string maybe = "";
+//string maybe2 = "";
+
+void SampleToDatabase::
+accumulate(const Sample *samp)
 {
-//TO DO: is this needed for adding to the influxdb? //perhaps better understand the catalyst of changing from a sample of type char to type float 
-    //cout << "... SampleCounter::accumulate\n";
-    if (samp->getType() == CHAR_ST)
-    {
-        const char* cp = (const char*)samp->getConstVoidDataPtr();
-        size_t l = samp->getDataByteLength();
-        if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-        rawmsg = n_u::addBackslashSequences(string(cp,l));
-        //getting each read in piece of raw data from here
-        //cout << "...rawmsg line 203: " << rawmsg << "\n";
-        return;
-    }
     if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
     {
         return;
     }
-    unsigned int nvalues = samp->getDataLength();
-    //at this point we should add the values to the influxDB
-    //cout << "... SampleCounter::accumulate samp->getType() is of type FLOAT or DOUBLE\n";
-    if (nvalues > sums.size())
-    {
-        sums.resize(nvalues);
-        nnans.resize(nvalues);
-    }
+    //For Grainex SpSid 0x8149 and 0x814c has additional values that are gathered after Vmote and Wetness respecitvely, however there are no assigned variable names
+    //consequently they are not added to the database so we iterate through the number of variable names as opposed to the number of data points (as done in data_dump)
+    //unsigned int nvalues = samp->getDataLength();
+    // double datalength = samp->getDataLength();
+    // double numvariables = varnames.size();
+    // unsigned int nvalues = min(numvariables, datalength);
 
-    for (unsigned int i = 0; i < nvalues; ++i)
-    {
-        double value = samp->getDataValue(i);
-//TO DO: determine whether to create own bool isnan function or if using std:: is okay as there are portability issues with c++11 and prior versions
-        if (std::isnan(value))
-        {
-            nnans[i] += 1;
-        }
-        else
-        {
-            sums[i] += value;
-        }
-        // cout << "...at index i: " << i << ", varname is: " << varnames[i] << " with value of: " << value << "\n";
-    }
+    unsigned int nvalues = varnames.size();
 
-//TO DO: remove the writing to file once async/batching of writing data to influxdb has been determined
-//     ofstream testWritingData;
-//     testWritingData.open("/h/eol/jbarnitz/barnitzSUPER/test.txt", ios::out | ios::app);
-//     int dsmId = samp->getDSMId();
-//     int spSid = samp->getSpSId();
-// //TO DO: access the suffix appropriately need a const sampleTag* stag and then stag->getSuffix() which yields _fl, _ml, _raf ect handle in constructor 
-//     string location;
-
-//     if (spSid==11)
-//         location = "fl";
-//     else if (spSid==21)
-//         location = "ml";
-//     else if (spSid==31)
-//         location = "nsf";
-//     else if (spSid==41)
-//         location = "nwsc";
-//     else if (spSid==51)
-//         location = "raf";
-//     else if (spSid==61)
-//         location = "fireside";
-//     else
-//         location = "mlw";
-
-//     if (testWritingData.is_open()){
-//         testWritingData << location << ",location=" << location << ",dsm_id=" << dsmId << ",sensor_id=" << spSid << " ";            
-//     }
-
-//     for (unsigned int i = 0; i < nvalues; ++i)
-//     {
-//         double value = samp->getDataValue(i);
-//         if (std::isnan(value))
-//         {
-// //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
-//             // cout << varnames[i] << " is " << value << "\n";
-//             continue;
-//         }
-//         else
-//         {
-//             if (testWritingData.is_open()){
-//                 if (i < nvalues-1){
-//                     testWritingData << varnames[i] << "=" << value << ",";
-//                 }
-//                 else{
-//                     testWritingData << varnames[i] << "=" << value << " " << samp->getTimeTag() << "\n";
-//                 }
-//             }
-//             //write to influx db with location, dsmID, sensorID, variable name, value, ....
-//             //cout << varnames[i] << " with value " << value << " **** TO BE WRITTEN TO INFLUXDB ****\n";
-//         }
-//     }
-//     testWritingData.close();
-
-    //try synchronous insert into influxdb
-    int dsmId = samp->getDSMId(); 
-    int spSid = samp->getSpSId();
-// //TO DO: access the suffix appropriately need a const sampleTag* stag and then stag->getSuffix() which yields _fl, _ml, _raf ect handle in constructor 
-    string location;
-    if (spSid==11)
-        location = "fl";
-    else if (spSid==21)
-        location = "ml";
-    else if (spSid==31)
-        location = "nsf";
-    else if (spSid==41)
-        location = "nwsc";
-    else if (spSid==51)
-        location = "raf";
-    else if (spSid==61)
-        location = "fireside";
-    else
-        location = "mlw";
-    //for adding a single line to influx db directly
+    //TO DO: remove the writing to file once async/batching of writing data to influxdb has been determined
     string data;
-
-    //measurement name followed by the key name and key value in the influx db
-    data = location + ",location=" + location + ",dsm_id=" + to_string(dsmId) + ",sensor_id=" + to_string(spSid) + " ";   
-    for (unsigned int i = 0; i < nvalues; ++i)
+    //using a global variable to batch data into collections of 1000
+    if (COUNT < 5000)
     {
-        double value = samp->getDataValue(i);
-        if (std::isnan(value))
+        data = measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " ";
+        for (unsigned int i = 0; i < nvalues; i++)
         {
-//TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
-            // cout << varnames[i] << " is " << value << "\n";
-            continue;
-        }
-        else
-        {
-            //field name and field value in the influxdb
-            if (i < nvalues-1){
+            double value = samp->getDataValue(i);
+            if (std::isnan(value))
+            {
+                //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+                continue;
+            }
+            else
+            {
                 data += varnames[i] + "=" + to_string(value) + ",";
             }
-            else{
-                data += varnames[i] + "=" + to_string(value) + " " + to_string(samp->getTimeTag()) + "\n";
-            }
         }
+        //weird behavior with tsoil concatenating with qsoil data
+        char lastChar = data.back();
+        if (lastChar == ',')
+        {
+            data.pop_back();
+        }
+        data += " " + to_string(samp->getTimeTag()) + "\n";
+        //batchData.push_back(data);
+        maybe += data;
+        COUNT++;
     }
-    // cout << data << " TO BE WRITTEN TO INFLUXDB\n";
 
-    //try synchronous insert into influxdb
-    // cout << "...attempting to write to db with synchronous request\n";
-    dataToInfluxDB(data);
-    // cout << "...attempt to write to db with synchronous request complete\n";
+//we have batched 1000 lines of data, write to file
+    // else
+    // {
+    //     //cout << "WRITING FIRST BATCH\n";
+    //     ofstream testWriteData;
+    //     testWriteData.open("/h/eol/jbarnitz/barnitzSUPER/test2.txt", ios::out | ios::app);
+    //     //writing as binary?
+    //     //testWriteData.open("/h/eol/jbarnitz/barnitzSUPER/test1.txt", ofstream::binary | ios::app);
+    //     if (testWriteData.is_open())
+    //     {
+    //         for (const auto &line : batchData)
+    //             testWriteData << line;
+    //     }
+    //     testWriteData.close();
+    //     //reset vector to collect the next batch of data
+    //     batchData.clear();
+    //     COUNT = 0;
+    // }
+
+//we have batched 1000 lines of data, send to influxdb
+    else{
+        CURL *curl;
+        CURLcode res;
+
+        string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
+        curl = curl_easy_init();
+        // cout << "++++++++\n" << maybe << "\n+++++++++";
+        if (curl){
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, maybe.c_str());
+
+            res = curl_easy_perform(curl);
+
+            if(res != CURLE_OK)
+                cout << "failed\n";
+
+            curl_easy_cleanup(curl);
+        }
+        //for (const auto &line : batchData) testWriteData << line;
+        //reset vector to collect the next batch of data
+        //batchData.clear();
+        maybe = "";
+        COUNT = 0;
+    }
+//trying with ostringstream again 
+    // USING A STRING STREAM TO WRITE 500 lines before writing to text file
+    // ostringstream data;
+    // //using a global variable to batch data into collections of 1000
+    // //cout << "COUNT IS: " << COUNT << "\n";
+    // if (COUNT < 1000){
+    //     data = measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " ";
+    //     for (unsigned int i = 0; i < nvalues; i++)
+    //     {
+    //         double value = samp->getDataValue(i);
+    //         if (std::isnan(value))
+    //         {
+    // //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+    //             continue;
+    //         }
+    //         // else
+    //         // {
+    //         //     if (i < nvalues-1){
+    //         //         data += varnames[i] + "=" + to_string(value) + ",";
+    //         //     }
+    //         //     else{
+    //         //         data += varnames[i] + "=" + to_string(value) + " " + to_string(samp->getTimeTag()) + "\n";
+    //         //     }
+    //         // }
+    //         else
+    //         {
+    //             data += varnames[i] + "=" + to_string(value) + ",";
+    //         }
+    //     }
+    //     //weird behavior with tsoil concatenating with qsoil data
+    //     char lastChar = data.back();
+    //     if (lastChar == ','){
+    //         data.pop_back();
+    //     }
+    //     data += " " + to_string(samp->getTimeTag()) + "\n";
+    //     //batchData.push_back(data);
+    //     maybe += data;
+    //     COUNT++;
+    // }
+//trying with multi handle
+    // else{
+    //     CURLM *curlm;
+    //     CURLMcode res;
+
+    //     string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
+    //     curlm = curl_multi_init();
+    //     // cout << "++++++++\n" << maybe << "\n+++++++++";
+    //     if (curlm){
+    //         curl_easy_setopt(curlm, CURLOPT_URL, url.c_str());
+    //         curl_easy_setopt(curlm, CURLOPT_POSTFIELDS, maybe.c_str());
+
+    //         res = curl_multi_perform(curlm);
+
+    //         if(res != CURLEM_OK)
+    //             cout << "failed\n";
+
+    //         curl_multi_cleanup(curlm);
+    //     }
+    //     //for (const auto &line : batchData) testWriteData << line;
+    //     //reset vector to collect the next batch of data
+    //     //batchData.clear();
+    //     maybe = "";
+    //     COUNT = 0;
+    // }
 }
 
-
-class CounterClient: public SampleClient 
+class CounterClient : public SampleClient
 {
-public:
-
-    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app);
+  public:
+    CounterClient(const list<DSMSensor *> &sensors, NidasApp &app);
 
     virtual ~CounterClient() {}
 
     void flush() throw() {}
 
-    bool receive(const Sample* samp) throw();
-
-    void printResults(std::ostream& outs);
-
-    void
-    printData(std::ostream& outs, SampleCounter& ss);
-
-    void resetResults();
+    bool receive(const Sample *samp) throw();
 
     void
     reportAll(bool all)
@@ -492,12 +469,11 @@ public:
         _reportdata = data;
     }
 
-private:
-
-    typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
+  private:
+    typedef map<dsm_sample_id_t, SampleToDatabase> sample_map_t;
 
     /**
-     * Find the SampleCounter for the given sample ID.  Wisard samples get
+     * Find the SampleToDatabase for the given sample ID.  Wisard samples get
      * mapped to one sensor type, so we look for all of them.
      **/
     sample_map_t::iterator
@@ -530,67 +506,66 @@ private:
 
     bool _reportdata;
 
-    NidasApp& _app;
+    NidasApp &_app;
 };
 
-void
-CounterClient::
-resetResults()
+// void
+// CounterClient::
+// resetResults()
+// {
+//     cout << "... CounterClient::resetResults\n";
+//     cout << "...do i need this? 5\n";
+//     sample_map_t::iterator si;
+//     for (si = _samples.begin(); si != _samples.end(); ++si)
+//     {
+//         si->second.reset();
+//     }
+// }
+
+CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) : _samples(),
+                                                                                _reportall(false),
+                                                                                _reportdata(false),
+                                                                                _app(app)
 {
-    //cout << "... CounterClient::resetResults\n";
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
-    {
-        si->second.reset();
-    }
-}
-
-
-
-CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
-    _samples(),
-    _reportall(false),
-    _reportdata(false),
-    _app(app)
-{
-    //cout << "... CounterClient::CounterClient\n";
+    cout << "... CounterClient::CounterClient\n";
     bool processed = app.processData();
     //cout << "... process data? " << processed << "\n";
-    SampleMatcher& matcher = _app.sampleMatcher();
-    list<DSMSensor*>::const_iterator si;
+    SampleMatcher &matcher = _app.sampleMatcher();
+    list<DSMSensor *>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
     {
-        // Create a SampleCounter for samples from the given sensors.  Raw
+        // Create a SampleToDatabase for samples from the given sensors.  Raw
         // samples are named by the sensor device, processed samples by the
         // first variable in the first sample tag.
-        DSMSensor* sensor = *si;
+        DSMSensor *sensor = *si;
         string sname = sensor->getDSMConfig()->getName() + ":" +
-            sensor->getDeviceName();
+                       sensor->getDeviceName();
 
         // Stop with raw samples if processed not requested.
-        if (! processed)
+        if (!processed)
         {
             if (matcher.match(sensor->getId()))
             {
                 dsm_sample_id_t sid = sensor->getId();
                 cout << "... DLOG:adding raw sample with sid: " << sid << " with sname:" << sname << "\n";
                 DLOG(("adding raw sample: ") << _app.formatId(sid));
-                SampleCounter stats(sid, sname);
+                SampleToDatabase stats(sid, sname);
                 _samples[stats.id] = stats;
             }
             continue;
         }
 
-	// for samples show the first variable name, followed by ",..."
-	// if more than one.
-	SampleTagIterator ti = sensor->getSampleTagIterator();
-	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
-        cout << "************************** " << stag->getSuffix() << " ***********\n";
-	    if (stag->getVariables().size() > 0)
+        // for samples show the first variable name, followed by ",..."
+        // if more than one.
+        SampleTagIterator ti = sensor->getSampleTagIterator();
+        for (; ti.hasNext();)
+        {
+            const SampleTag *stag = ti.next();
+
+            if (stag->getVariables().size() > 0)
             {
-		string varname = stag->getVariables().front()->getName();
-		if (stag->getVariables().size() > 1)
+                string varname = stag->getVariables().front()->getName();
+                if (stag->getVariables().size() > 1)
                 {
                     varname += ",...****BARNITZ****";
                 }
@@ -612,28 +587,29 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
                 // the point at which we can correct the ID so it is
                 // accurate in the reports.
                 dsm_sample_id_t sid = stag->getId();
-                if (! matcher.match(sid))
+                if (!matcher.match(sid))
                 {
                     continue;
                 }
                 sample_map_t::iterator it = findStats(sid);
                 if (it == _samples.end())
                 {
-                    cout << "... DLOG((adding processed sample: ) with _app.formatId(sid)): " << _app.formatId(sid) << "\n";
+                    //cout << "... DLOG((adding processed sample: ) with _app.formatId(sid)): " << _app.formatId(sid) << "\n";
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    SampleCounter pstats(sid, varname, stag);
+                    SampleToDatabase pstats(sid, varname, stag);
                     _samples[pstats.id] = pstats;
                 }
-	    }
-	}
+            }
+        }
     }
 }
 
-bool CounterClient::receive(const Sample* samp) throw()
+bool CounterClient::receive(const Sample *samp) throw()
 {
     //cout << "... CounterClient::receive\n";
+    //cout << "...do i need this? 4\n";
     dsm_sample_id_t sampid = samp->getId();
-    if (! _app.sampleMatcher().match(sampid))
+    if (!_app.sampleMatcher().match(sampid))
     {
         return false;
     }
@@ -643,10 +619,10 @@ bool CounterClient::receive(const Sample* samp) throw()
     if (it == _samples.end())
     {
         // When there is no header from which to gather samples ahead of
-        // time, just add a SampleCounter instance for any new raw sample
+        // time, just add a SampleToDatabase instance for any new raw sample
         // that arrives.
         DLOG(("creating counter for sample id ") << _app.formatId(sampid));
-        SampleCounter ss(sampid);
+        SampleToDatabase ss(sampid);
         _samples[sampid] = ss;
         it = findStats(sampid);
     }
@@ -654,234 +630,71 @@ bool CounterClient::receive(const Sample* samp) throw()
     return it->second.receive(samp);
 }
 
-
 namespace
 {
-    /**
+/**
      * Compute the number of digits of space required to display
      * @p value in decimal.
      **/
-    inline int
-    ndigits(double value)
-    {
-        return (int)ceil(log10(value));
-    }
-
-    struct check_valid
-    {
-        double _value;
-        bool _valid;
-
-        check_valid(double value, bool valid) :
-            _value(value),
-            _valid(valid)
-        {
-        }            
-
-        inline std::ostream&
-        to_stream(std::ostream& outs) const
-        {
-            if (_valid)
-            {
-                outs << _value;
-            }
-            else
-            {
-                outs << floatNAN;
-            }
-            return outs;
-        }
-    };
-
-    inline std::ostream&
-    operator<<(std::ostream& outs, const check_valid& cv)
-    {
-        return cv.to_stream(outs);
-    }
+inline int
+ndigits(double value)
+{
+    return (int)ceil(log10(value));
 }
 
-
-
-void CounterClient::printResults(std::ostream& outs)
+struct check_valid
 {
-    //cout << "... CounterClient::printResults\n";
-    size_t maxnamelen = 6;
-    int lenpow[2] = {5,5};
-    int dtlog10[2] = {7,7};
+    double _value;
+    bool _valid;
 
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    check_valid(double value, bool valid) : _value(value),
+                                            _valid(valid)
     {
-        SampleCounter &ss = si->second;
-        if (ss.nsamps == 0 && !_reportall)
-            continue;
-
-        maxnamelen = std::max(maxnamelen, ss.name.length());
-        if (ss.nsamps >= 1)
-        {
-            lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
-            lenpow[1] = std::max(lenpow[1], ndigits(ss.maxlens)+1);
-        }
-        // Skip min/max stats which will be printed as missing if there are
-        // not at least two samples.
-        if (ss.nsamps >= 2)
-        {
-            int dt = abs(ss.minDeltaTs);
-            dtlog10[0] = std::max(dtlog10[0], ndigits(dt+1)+2);
-            dt = ss.maxDeltaTs;
-            dtlog10[1] = std::max(dtlog10[1], ndigits(dt+1)+2);
-        }
     }
-        
-    struct tm tm;
-    char tstr[64];
-    cout << "\n**************************************************\n";
-    cout << "************** TEST intern BARNITZ ***************\n";
-    cout << "**************************************************\n";
-    outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "")
-         << right
-         << "  dsm sampid    nsamps |------- start -------|  |------ end -----|"
-         << "    rate"
-         << setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)"
-         << setw(lenpow[0] + lenpow[1]) << " minMaxLen"
-         << endl;
 
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    inline std::ostream &
+    to_stream(std::ostream &outs) const
     {
-        cout << "&&&&&&&&&&&&&\n";
-        SampleCounter& ss = si->second;
-        if (ss.nsamps == 0 && !_reportall)
-            continue;
-
-	string t1str;
-	string t2str;
-        if (ss.nsamps > 0)
+        if (_valid)
         {
-            time_t ut = ss.t1s / USECS_PER_SEC;
-            gmtime_r(&ut,&tm);
-            strftime(tstr,sizeof(tstr),"%Y %m %d %H:%M:%S",&tm);
-            int msec = (int)(ss.t1s % USECS_PER_SEC) / USECS_PER_MSEC;
-            sprintf(tstr + strlen(tstr),".%03d",msec);
-            t1str = tstr;
-            ut = ss.t2s / USECS_PER_SEC;
-            gmtime_r(&ut,&tm);
-            strftime(tstr,sizeof(tstr),"%m %d %H:%M:%S",&tm);
-            msec = (int)(ss.t2s % USECS_PER_SEC) / USECS_PER_MSEC;
-            sprintf(tstr + strlen(tstr),".%03d",msec);
-            t2str = tstr;
+            outs << _value;
         }
         else
         {
-            t1str = string((size_t)23, '*');
-            t2str = string((size_t)18, '*');
+            outs << floatNAN;
         }
-
-        outs << left << setw(maxnamelen) << ss.name
-             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
-
-        NidasApp* app = NidasApp::getApplicationInstance();
-        app->formatSampleId(outs, ss.id);
-
-        double rate = double(ss.nsamps-1) /
-            (double(ss.t2s - ss.t1s) / USECS_PER_SEC);
-        outs << setw(9) << ss.nsamps << ' '
-             << t1str << "  " << t2str << ' '
-             << fixed << setw(7) << setprecision(2)
-             << check_valid(rate, bool(ss.nsamps > 1))
-             << setw(dtlog10[0]) << setprecision(3)
-             << check_valid((double)ss.minDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
-             << setw(dtlog10[1]) << setprecision(3)
-             << check_valid((float)ss.maxDeltaTs / MSECS_PER_SEC, (ss.nsamps > 1))
-             << setprecision(0)
-             << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 0))
-             << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
-             << endl;
-
-        if (_reportdata)
-            printData(outs, ss);
+        return outs;
     }
-}
+};
 
-
-void
-CounterClient::
-printData(std::ostream& outs, SampleCounter& ss)
+inline std::ostream &
+operator<<(std::ostream &outs, const check_valid &cv)
 {
-    cout << "... CounterClient::printData\n";
-    if (ss.rawmsg.length())
-    {
-        outs << " raw msg " << ss.rawmsg << endl;
-    }
-    if (ss.sums.size() == 0)
-    {
-        return;
-    }
-    size_t nwidth = 8;
-    outs.unsetf(std::ios::fixed);
-    outs << setprecision(3) << fixed;
-
-    size_t maxname = 0;
-    for (unsigned int i = 0; i < ss.varnames.size(); ++i)
-    {
-        maxname = std::max(maxname, ss.varnames[i].length());
-    }
-    int nfields = std::max((size_t)2, 80 / (maxname+2+nwidth));
-
-    for (unsigned int i = 0; i < ss.sums.size(); ++i)
-    {
-        if (i > 0 && i % nfields == 0)
-        {
-            outs << endl;
-        }
-        string varname;
-        if (i < ss.varnames.size())
-        {
-            //cout << "\n i: " << i << "\n";
-            varname = ss.varnames[i];
-        }
-        outs << " **" << setw(maxname) << right << varname << "=" << left;
-        outs << setw(nwidth);
-        int nvalues = ss.nsamps - ss.nnans[i];
-        // cout << "\nnvalues: " << nvalues << ", ss.nsamps: " << ss.nsamps << " ss.nnans[i]: " << ss.nnans[i] << "\n";
-        if (nvalues == 0)
-        {
-            outs << string(nwidth, '*');
-        }
-        else
-        {
-            outs << ss.sums[i]/nvalues;
-        }
-        if (nvalues && ss.nnans[i] > 0)
-        {
-            outs << "(*" << ss.nnans[i] << " NaN*)";
-        }
-    }
-    outs << endl;
+    return cv.to_stream(outs);
 }
+} // namespace
 
-
-
-class DataStats
+class DatabaseData
 {
-public:
-    DataStats();
+  public:
+    DatabaseData();
 
-    ~DataStats() {}
+    ~DatabaseData() {}
 
     int run() throw();
 
-    void readHeader(SampleInputStream& sis);
+    void readHeader(SampleInputStream &sis);
 
-    void readSamples(SampleInputStream& sis);
+    void readSamples(SampleInputStream &sis);
 
-    int parseRunstring(int argc, char** argv);
+    int parseRunstring(int argc, char **argv);
 
-    static int main(int argc, char** argv);
+    static int main(int argc, char **argv);
 
-    int usage(const char* argv0);
+    int usage(const char *argv0);
 
     bool
-    reportsExhausted(int nreports=-1)
+    reportsExhausted(int nreports = -1)
     {
         // Just to avoid the unused warning, while allowing _nreports to be
         // incremented with a prefix increment operator in the call to this
@@ -893,7 +706,7 @@ public:
 
     static void handleSignal(int signum);
 
-private:
+  private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
@@ -918,12 +731,9 @@ private:
     NidasAppArg ShowData;
 };
 
+bool DatabaseData::_alarm(false);
 
-bool DataStats::_alarm(false);
-
-
-void
-DataStats::handleSignal(int signum)
+void DatabaseData::handleSignal(int signum)
 {
     // The NidasApp handler sets interrupted before calling this handler,
     // so clear that if this is just the interval alarm.
@@ -933,28 +743,28 @@ DataStats::handleSignal(int signum)
         _alarm = true;
     }
 }
-
-
-DataStats::DataStats():
-    _realtime(false), _period_start(time_t(0)),
-    _count(1), _period(0), _nreports(0),
-    app("data_stats"),
-    Period("-P,--period", "<seconds>",
-           "Collect statistics for the given number of seconds and then "
-           "print the report.\n"
-           "If 0, wait until interrupted with Ctl-C.", "0"),
-    Count("-n,--count", "<count>",
-          "When --period specified, generate <count> reports.\n"
-          "Use a count of zero to continue reports until interrupted.", "1"),
-    AllSamples("-a,--all", "",
-               "Show statistics for all sample IDs, including those for which "
-               "no samples are received."),
-    ShowData("-D,--data", "",
-             "Print data for each sensor, either the last received message\n"
-             "for raw samples, or data values averaged over the recording\n"
-             "period for processed samples.")
+//TO DO: modify to be accurate of what DatabaseData can do
+DatabaseData::DatabaseData() : _realtime(false), _period_start(time_t(0)),
+                         _count(1), _period(0), _nreports(0),
+                         app("data_stats"),
+                         Period("-P,--period", "<seconds>",
+                                "Collect statistics for the given number of seconds and then "
+                                "print the report.\n"
+                                "If 0, wait until interrupted with Ctl-C.",
+                                "0"),
+                         Count("-n,--count", "<count>",
+                               "When --period specified, generate <count> reports.\n"
+                               "Use a count of zero to continue reports until interrupted.",
+                               "1"),
+                         AllSamples("-a,--all", "",
+                                    "Show statistics for all sample IDs, including those for which "
+                                    "no samples are received."),
+                         ShowData("-D,--data", "",
+                                  "Print data for each sensor, either the last received message\n"
+                                  "for raw samples, or data values averaged over the recording\n"
+                                  "period for processed samples.")
 {
-    //cout << "... DataStats::DataStats\n";
+    //cout << "... DatabaseData::DatabaseData\n";
     app.setApplicationInstance();
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.LogConfig |
@@ -967,19 +777,19 @@ DataStats::DataStats():
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 }
 
-
-int DataStats::parseRunstring(int argc, char** argv)
+int DatabaseData::parseRunstring(int argc, char **argv)
 {
-    //cout << "... DataStats::parseRunString\n";
+    //cout << "... DatabaseData::parseRunString\n";
     // Setup a default log scheme which will get replaced if any logging is
     // configured on the command line.
-    n_u::Logger* logger = n_u::Logger::getInstance();
+    n_u::Logger *logger = n_u::Logger::getInstance();
     n_u::LogConfig lc("notice");
     logger->setScheme(logger->getScheme("default").addConfig(lc));
 
-    try {
+    try
+    {
         ArgVector args = app.parseArgs(argc, argv);
-        cout << "...try of DataStats:: parseRunString\n";
+        cout << "...try of DatabaseData:: parseRunString\n";
         if (app.helpRequested())
         {
             return usage(argv[0]);
@@ -988,10 +798,10 @@ int DataStats::parseRunstring(int argc, char** argv)
         _count = Count.asInt();
 
         app.parseInputs(args);
-        //set process data to true? update the default to true for this appilcation
+        //set process data to true? update the default to true for this application
         //app._processData = true;
     }
-    catch (NidasAppException& ex)
+    catch (NidasAppException &ex)
     {
         std::cerr << ex.what() << std::endl;
         return 1;
@@ -999,24 +809,22 @@ int DataStats::parseRunstring(int argc, char** argv)
     return 0;
 }
 
-int DataStats::usage(const char* argv0)
+int DatabaseData::usage(const char *argv0)
 {
-    cout << "... DataStats::usage\n";
-    cerr <<
-        "Usage: " << argv0 << " [options] [inputURL] ...\n";
-    cerr <<
-        "Standard options:\n"
-         << app.usage() <<
-        "Examples:\n" <<
-        argv0 << " xxx.dat yyy.dat\n" <<
-        argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n" <<
-        argv0 << " -p -x ads3.xml sock:hyper:30000\n" << endl;
+    cout << "... DatabaseData::usage\n";
+    cerr << "Usage: " << argv0 << " [options] [inputURL] ...\n";
+    cerr << "Standard options:\n"
+         << app.usage() << "Examples:\n"
+         << argv0 << " xxx.dat yyy.dat\n"
+         << argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n"
+         << argv0 << " -p -x ads3.xml sock:hyper:30000\n"
+         << endl;
     return 1;
 }
 
-int DataStats::main(int argc, char** argv)
+int DatabaseData::main(int argc, char **argv)
 {
-    DataStats stats;
+    DatabaseData stats;
     int result;
     if ((result = stats.parseRunstring(argc, argv)))
     {
@@ -1024,20 +832,26 @@ int DataStats::main(int argc, char** argv)
         return result;
     }
     cout << "main not if statement\n";
+    //SampleToDatabase sc;
+    //TO DO: is this the best place for invoking the creation of a new database? potential for using CLA for assigning the DB a name, or obtaining that info from the sensor?
+    //string DBname initialized in the constructor, and the first instantiation should be used continously thereafter
+    // string DBNameAssigned = "";
+    // cout << "Please enter a database name: ";
+    // getline(cin, DBNameAssigned);
+    // sc.DBname = DBNameAssigned;
+    //sc.createInfluxDB();
     return stats.run();
 }
 
 class AutoProject
 {
-public:
+  public:
     AutoProject() { Project::getInstance(); }
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-
-void
-DataStats::
-readHeader(SampleInputStream& sis)
+void DatabaseData::
+    readHeader(SampleInputStream &sis)
 {
     // Loop over the header read until it is read or the periods expire.
     // Since the header is not sent until there's a sample to send, if
@@ -1051,13 +865,14 @@ readHeader(SampleInputStream& sis)
         _alarm = false;
         if (_realtime)
             alarm(_period);
-        try {
+        try
+        {
             sis.readInputHeader();
             header_read = true;
             // Reading the header does not count as a report cycle.
             --_nreports;
         }
-        catch (n_u::IOException& e)
+        catch (n_u::IOException &e)
         {
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
@@ -1087,12 +902,10 @@ readHeader(SampleInputStream& sis)
     }
 }
 
-
-void
-DataStats::
-readSamples(SampleInputStream& sis)
+void DatabaseData::
+    readSamples(SampleInputStream &sis)
 {
-    cout << "...DataStats::readSamples\n";
+    cout << "...DatabaseData::readSamples\n";
     // Read samples until an alarm signals the end of a reporting period or
     // an interruption occurs.
     _alarm = false;
@@ -1100,13 +913,18 @@ readSamples(SampleInputStream& sis)
     {
         alarm(_period);
     }
+    cout << "...after if in readSamples\n";
     while (!_alarm && !app.interrupted())
     {
-        try {
+        //cout << "...in while of readSamples\n";
+        try
+        {
+            //cout << "...in try of readSamples\n";
             sis.readSamples();
         }
-        catch (n_u::IOException& e)
+        catch (n_u::IOException &e)
         {
+            cout << "...in catch of readSamples\n";
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
@@ -1114,96 +932,100 @@ readSamples(SampleInputStream& sis)
     }
 }
 
-//both dataStats and dataDump use similar run() 
-int DataStats::run() throw()
+//both DatabaseData and dataDump use similar run()
+int DatabaseData::run() throw()
 {
     int result = 0;
-    //cout << "...DataStats::run\n";
-    try {
-        //cout << "...try\n";
+    cout << "...DatabaseData::run\n";
+    try
+    {
+        cout << "...try\n";
         AutoProject aproject;
-	IOChannel* iochan = 0;
+        IOChannel *iochan = 0;
 
-	if (app.dataFileNames().size() > 0)
+        if (app.dataFileNames().size() > 0)
         {
-            //cout << "... if there is a dataFileName\n";
-            nidas::core::FileSet* fset =
+            cout << "... if there is a dataFileName\n";
+            nidas::core::FileSet *fset =
                 nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
-	}
-	else
+        }
+        else
         {
-	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
-	    iochan = new nidas::core::Socket(sock);
+            n_u::Socket *sock = new n_u::Socket(*app.socketAddress());
+            iochan = new nidas::core::Socket(sock);
             _realtime = true; //in data stats not in data dump //necessary?
-	}
+        }
 
-	SampleInputStream sis(iochan, app.processData());
+        SampleInputStream sis(iochan, app.processData());
         sis.setMaxSampleLength(32768);
-	// sis.init();
+        // sis.init();
 
         if (_period > 0 && _realtime)
         {
-            //cout << "... if _period >0 && _realtime\n";
-            app.addSignal(SIGALRM, &DataStats::handleSignal, true);
+            cout << "... if _period >0 && _realtime\n";
+            app.addSignal(SIGALRM, &DatabaseData::handleSignal, true);
         }
         readHeader(sis);
 
-	const SampleInputHeader& header = sis.getInputHeader();
+        const SampleInputHeader &header = sis.getInputHeader();
 
-	list<DSMSensor*> allsensors;
+        list<DSMSensor *> allsensors;
 
         string xmlFileName = app.xmlHeaderFile();
         //cout << "... xmlFileName: *" << xmlFileName << "*\n";
-    //if the file name is not given it will automatically be assigned to ****/weather-eol-stations.xml
-	if (xmlFileName.length() == 0){
-	    xmlFileName = header.getConfigName();
-        cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
-    }
-    xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
-//TO DO: change this hard coding of file name //used because of trying to bypass giving CLA for processing data
-    xmlFileName = "/h/eol/jbarnitz/barnitzSUPER/eol-weather-stations-TEMP2.xml"; //...change this
-    //cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
-    //cout << "... app.processData(): " << app.processData() << "\n";
-	struct stat statbuf;
-    //we should want to process all data that comes in to store in the DB as "raw" but processed data s.t. it is no longer ascii
-	//thus use the .xml file for this 
-    if (1 || ::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
+        //if the file name is not given it will automatically be assigned to ****/weather-eol-stations.xml
+        if (xmlFileName.length() == 0)
+        {
+            xmlFileName = header.getConfigName();
+            cout << "xmlFileName.length == 0, fileName: " << xmlFileName << "\n";
+        }
+        xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+        //TO DO: change this hard coding of file name //used because of trying to bypass giving CLA for processing data
+        //xmlFileName = "/h/eol/jbarnitz/barnitzSUPER/eol-weather-stations-TEMP2.xml"; //...change this
+        //cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
+        //cout << "... app.processData(): " << app.processData() << "\n";
+        struct stat statbuf;
+        //we should want to process all data that comes in to store in the DB as "raw" but processed data s.t. it is no longer ascii
+        //thus use the .xml file for this
+        if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
         {
             //cout << "... if near 911\n";
             n_u::auto_ptr<xercesc::DOMDocument>
                 doc(parseXMLConfigFile(xmlFileName));
 
-	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
             DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-	    for ( ; di.hasNext(); )
+            for (; di.hasNext();)
             {
-		const DSMConfig* dsm = di.next();
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-	    }
-	}
+                const DSMConfig *dsm = di.next();
+                const list<DSMSensor *> &sensors = dsm->getSensors();
+                allsensors.insert(allsensors.end(), sensors.begin(), sensors.end());
+            }
+        }
         XMLImplementation::terminate();
 
-	SamplePipeline pipeline;                                  
+        SamplePipeline pipeline;
         CounterClient counter(allsensors, app); //not in data_dump
         counter.reportAll(AllSamples.asBool());
         counter.reportData(ShowData.asBool());
 
-	if (1 || app.processData()) {
-        //cout << "... app.processData() is true\n";
-            pipeline.setRealTime(false);                              
-            pipeline.setRawSorterLength(0);                           
-            pipeline.setProcSorterLength(0);                          
+        if (app.processData())
+        {
+            cout << "... app.processData() is true\n";
+            pipeline.setRealTime(false);
+            pipeline.setRawSorterLength(0);
+            pipeline.setProcSorterLength(0);
 
-	    list<DSMSensor*>::const_iterator si;
-	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		sensor->init();
+            list<DSMSensor *>::const_iterator si;
+            for (si = allsensors.begin(); si != allsensors.end(); ++si)
+            {
+                DSMSensor *sensor = *si;
+                sensor->init();
                 //  1. inform the SampleInputStream of what SampleTags to expect
                 sis.addSampleTag(sensor->getRawSampleTag());
-	    }
+            }
             // 2. connect the pipeline to the SampleInputStream.
             pipeline.connect(&sis);
 
@@ -1211,9 +1033,11 @@ int DataStats::run() throw()
             pipeline.getProcessedSampleSource()->addSampleClient(&counter);
             pipeline.getRawSampleSource()->addSampleClient(&counter); //maybe??
         }
-        else sis.addSampleClient(&counter);
+        else
+            sis.addSampleClient(&counter);
 
-        try {
+        try
+        {
             if (_period > 0 && _realtime)
             {
                 cout << "....... Collecting samples for " << _period << " seconds "
@@ -1222,18 +1046,18 @@ int DataStats::run() throw()
             while (!app.interrupted() && !reportsExhausted(++_nreports))
             {
                 readSamples(sis);
-                counter.printResults(cout);
-                counter.resetResults();
+                //counter.printResults(cout);
+                //counter.resetResults();
             }
         }
-        catch (n_u::EOFException& e)
+        catch (n_u::EOFException &e)
         {
             cerr << e.what() << endl;
-            counter.printResults(cout);
+            //counter.printResults(cout);
         }
-        catch (n_u::IOException& e)
+        catch (n_u::IOException &e)
         {
-            if (1 || app.processData())
+            if (app.processData())
             {
                 pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
                 pipeline.disconnect(&sis);
@@ -1246,15 +1070,15 @@ int DataStats::run() throw()
                 //sis.removeSampleClient(&counter);
             }
             sis.close();
-            counter.printResults(cout);
+            //counter.printResults(cout);
             throw(e);
         }
-	if (1 || app.processData())
+        if (app.processData())
         {
             pipeline.disconnect(&sis);
             pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
-            pipeline.getRawSampleSource()->removeSampleClient(&counter);//maybe???
+            pipeline.getRawSampleSource()->removeSampleClient(&counter); //maybe???
         }
         else
         {
@@ -1264,18 +1088,17 @@ int DataStats::run() throw()
         pipeline.interrupt();
         pipeline.join();
     }
-    catch (n_u::Exception& e) {
+    catch (n_u::Exception &e)
+    {
         cout << "exception\n";
         cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
-	result = 1;
+        result = 1;
     }
     return result;
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-//TO DO: is this the best place for invoking the creation of a new database? potential for using CLA for assigning the DB a name, or obtaining that info from the sensor?
-    createInfluxDB();
-    return DataStats::main(argc, argv);
+    return DatabaseData::main(argc, argv);
 }
