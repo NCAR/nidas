@@ -63,7 +63,7 @@
 #include <vector>
 #include <unistd.h>
 #include "libusb.h"
-#include "ftdi.hpp"
+#include "ftdi.h"
 #include "../util/optionparser.h"
 
 static const char* ARG_LOOPBACK = "LOOPBACK";
