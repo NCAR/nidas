@@ -154,6 +154,7 @@ const option::Descriptor usage[] =
     {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
     {DESCR, 0, "d", "description", Arg::Description, "  --description, -d  \tSpecify description string." },
     {INDEX, 0, "i", "index", Arg::Index, "  --index, -i  \tUnique identifier: 0, 1, 2, etc." },
+    {RESET, 0, "r", "reset", option::Arg::None, "  --reset, -i  \tReset the device product string" },
     {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
                                 "  eio -dPortConfig -i0\n"
                                 "  eio --description GPIO --index 1\n" },
@@ -223,7 +224,7 @@ int main(int argc, char* argv[])
 
             // get the eeprom size and create a buffer for it.
             // TODO: at this point, we know that the mini module has a 256 byte eeprom
-            // change this if the production device is different
+            // change this if the production eeprom is different
             const int ebuf_size = 256; 
             unsigned char ebuf[ebuf_size];
             ftdi_set_eeprom_buf(c_context, ebuf, ebuf_size);
@@ -231,40 +232,43 @@ int main(int argc, char* argv[])
             // attempt to read the existing eeprom
             if (!ftdi_read_eeprom(c_context))
             {
-                if (ftdi_eeprom_decode(c_context, true))
+                if (!ftdi_eeprom_decode(c_context, true))
                 {
                     int chipSize = 0;
                     ftdi_get_eeprom_value(c_context, CHIP_SIZE, &chipSize);
-                    if (chipSize != ebuf_size)
+                    if (chipSize == -1)
                     {
-                        // start from scratch
+                        // eeprom is blank, so start from scratch
                         // initialize the defaults with the data read from the device and the new string to be appended
                         ftdi_eeprom_initdefaults(c_context, manuf, const_cast<char*>(descriptStr.c_str()), 
                                                 serialNo);
-                        // initialize chip size and type. 
-                        // no other items need be initialized because we're using this for GPIO.
-                        ftdi_set_eeprom_value(c_context, CHIP_SIZE, ebuf_size);
-                        ftdi_set_eeprom_value(c_context, CHIP_TYPE, 0x56);
                     }
 
                     else
                     {
                         // just update the description string
+                        ftdi_eeprom_set_strings(c_context, 0, const_cast<char*>(descriptStr.c_str()), 0);
                     }
                 }
             }
 
-
-            // build the binary for burning to the 93c56 eeprom
-            if (ftdi_eeprom_build(c_context))
+            // erase the device in order to get the chip type
+            if (!ftdi_erase_eeprom(c_context))
             {
-                if (ftdi_write_eeprom(c_context))
+                // build the binary for burning to the 93c56 eeprom
+                if (ftdi_eeprom_build(c_context))
                 {
-                    // check the results
-                    ftdi_eeprom_decode(c_context, true);
+                    if (!ftdi_write_eeprom(c_context))
+                    {
+                        // read it back
+                        if (!ftdi_read_eeprom(c_context))
+                        {
+                            // check the results
+                            ftdi_eeprom_decode(c_context, true);
+                        }
+                    }
                 }
             }
-
             ftdi_usb_close(c_context);
         }
 
