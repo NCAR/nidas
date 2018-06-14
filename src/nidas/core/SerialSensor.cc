@@ -45,7 +45,7 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
-    _termios(),_serialDevice(0),_prompters(),_prompting(false),
+    _termios(),_serialDevice(0),_portType(RS232), _term(TERM_IGNORE), _prompters(),_prompting(false),
     _rts485(0)
 {
     setDefaultMode(O_RDWR);
@@ -82,7 +82,7 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         return new BluetoothRFCommSocketIODevice();
 #endif
     else {
-        _serialDevice = new SerialPortIODevice();
+        _serialDevice = new SerialPortIODevice(getDeviceName(), _portType, _term);
         _serialDevice->termios() = _termios;
         _serialDevice->setRTS485(_rts485);
         return _serialDevice;
@@ -256,10 +256,18 @@ void SerialSensor::fromDOMElement(
 	    else if (aname == "class");
 	    else if (aname == "devicename");
 	    else if (aname == "id");
-        else if (aname == "portType") {
-            if (aval == "RS232") _serialDevice->setPortType(RS232);
-            else if (aval == "RS422") _serialDevice->setPortType(RS422);
-            else if (aval == "RS485") _serialDevice->setPortType(RS485);
+        else if (aname == "porttype") {
+            if (aval == "RS232") _portType = RS232;
+            else if (aval == "RS422") _portType = RS422;
+            else if (aval == "RS485_HALF") _portType = RS485_HALF;
+            else if (aval == "RS485_FULL") _portType = RS485_FULL;
+            else throw n_u::InvalidParameterException(
+                        string("SerialSensor:") + getName(),
+                        aname,aval);
+        }
+        else if (aname == "termination") {
+            if (aval == "TERM_100_OHM") _term = TERM_100_OHM;
+            else if (aval == "TERM_96K_OHM") _term = TERM_96k_OHM;
             else throw n_u::InvalidParameterException(
                         string("SerialSensor:") + getName(),
                         aname,aval);

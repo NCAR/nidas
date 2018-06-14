@@ -188,6 +188,16 @@ private:
      */
     SerialPortIODevice* _serialDevice;
 
+    /**
+     * Remember the port type as discovered in XML parsing.
+     */
+    PORT_TYPES _portType;
+
+    /**
+     * Line termination setting if _serialDevice is non-null
+     */
+    TERM _term;
+
     class Prompter: public nidas::core::LooperClient
     {
     public:

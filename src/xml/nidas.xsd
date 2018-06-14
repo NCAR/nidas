@@ -23,11 +23,19 @@
 </xsd:element>
 </xsd:documentation></xsd:annotation>
 
-<xsd:simpleType> name="serialPortType">
+<xsd:simpleType> name="serialporttype">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="RS232"/>
         <xsd:enumeration value="RS422"/>
-        <xsd:enumeration value="RS485"/>
+        <xsd:enumeration value="RS485_FULL"/>
+        <xsd:enumeration value="RS485_HALF"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType> name="terminationtype">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="TERM_96K_OHM"/>
+        <xsd:enumeration value="TERM_100_OHM"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -298,7 +306,8 @@
 	    <!-- Currently can't provide defaults here, because the defaults
                  then over-ride the values that were specified for a sensor in
                  the catalog.  Need to fix this. -->
-    <xsd:attribute name="portType" type="serialPortType"/>
+    <xsd:attribute name="porttype" type="serialporttype"/>
+    <xsd:attribute name="termination" type="terminationtype"/>
     <xsd:attribute name="baud" type="baudtype"/>
     <xsd:attribute name="parity" type="paritytype"/>
     <xsd:attribute name="databits" type="databitstype"/>

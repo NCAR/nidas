@@ -35,19 +35,26 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#include "SerialPortPhysicalControl.h"
+
 #ifdef DEBUG
 #include <iostream>
 #endif
 
 namespace nidas { namespace core {
 
-/**
- * types of serial ports
- */
-typedef enum {RS232=232, RS422=422, RS485=485} PORT_TYPES;
+class SerialPortPhysicalControl;
 
 /**
- * A serial port.
+ *  A serial port and all associated configurations. Typically these are enumerated by the 
+ *  ftdi_sio kernel module at boot as /dev/ttyUSB[0...]. Standard unix termios operations 
+ *  and sometimes IOCTL are used to set up various UART parameters like baud, num/start/stop 
+ *  bits and so forth. 
+ *  
+ *  In the past, the EXAR SP339 serial drivers were configured for the port type prior to 
+ *  deployment via manually installed jumpers. Now there is GPIO to manage this task, and so 
+ *  serial ports need to configure the EXAR SP339 drivers to support the desired serial 
+ *  port type, termination and power status. 
  */
 class SerialPortIODevice : public UnixIODevice {
 
@@ -57,7 +64,8 @@ public:
      * Constructor. Does not open any actual device.
      */
     SerialPortIODevice():
-        UnixIODevice(),_termios(),_rts485(0),_portType(RS232),_usecsperbyte(0)
+        UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0),
+        _portType(RS232),_term(TERM_IGNORE),_pSerialControl(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -68,13 +76,7 @@ public:
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    SerialPortIODevice(const std::string& name, const PORT_TYPES thePortType = RS232):
-        UnixIODevice(name),_termios(),_rts485(0),_portType(thePortType),_usecsperbyte(0)
-    {
-        _termios.setRaw(true);
-        _termios.setRawLength(1);
-        _termios.setRawTimeout(0);
-    }
+    SerialPortIODevice(const std::string& name, const PORT_TYPES portType = RS232, const TERM term=TERM_IGNORE);
 
     /**
      * Destructor. Does not close the device.
@@ -192,10 +194,17 @@ protected:
 
     int _rts485;
 
-    PORT_TYPES _portType;
-
     unsigned int _usecsperbyte;
 
+    PORT_TYPES _portType;
+
+    TERM _term;
+
+    SerialPortPhysicalControl* _pSerialControl;
+
+    // do not copy
+    SerialPortIODevice(const SerialPortIODevice&);
+    const SerialPortIODevice& operator=(const SerialPortIODevice&);
 };
 
 }}	// namespace nidas namespace core

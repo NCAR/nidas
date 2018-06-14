@@ -30,8 +30,12 @@
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>
+#include <nidas/util/Exception.h>
+#include "SerialPortPhysicalControl.h"
 
 #include <cmath>
+#include <cstdint>
+#include <cinttypes>
 
 #include <iostream>
 #include <sstream>
@@ -41,6 +45,35 @@ using namespace std;
 using namespace nidas::core;
 
 namespace n_u = nidas::util;
+
+SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES portType, 
+                                       const TERM term):
+    UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0),
+    _portType(portType),_term(term),_pSerialControl(0)
+{
+    _termios.setRaw(true);
+    _termios.setRawLength(1);
+    _termios.setRawTimeout(0);
+
+    // Derive the canonical port ID from the device name, which is usually like /dev/ttyUSB[0-7]
+    char portChar = name.back();
+    uintmax_t portID = strtoumax(&portChar, 0, 10);
+    if (portID == UINT64_MAX && errno > 0) {
+        throw n_u::Exception("SerialPortIODevice: device name arg "
+                             "cannot be parsed for canonical port ID");
+    }
+
+    else 
+    {
+        _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
+                                                        _portType, _term);
+        if (_pSerialControl == 0)
+        {
+            throw n_u::Exception("SerialPortIODevice: Cannot construct "
+                                 "SerialPortPhysicalControl object");
+        }
+    }
+}
 
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 {
@@ -88,7 +121,7 @@ int SerialPortIODevice::getUsecsPerByte() const
 
 void SerialPortIODevice::applyPortType() throw(nidas::util::IOException)
 {
-    if (_portType == RS232 || _portType == RS422 || _portType == RS485) {
+    if (_portType == RS232 || _portType == RS422 || _portType == RS485_FULL || _portType == RS485_HALF) {
         /**
          * TODO - is this an IOCTL operation?
          */
