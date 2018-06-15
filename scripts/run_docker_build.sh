@@ -44,5 +44,6 @@ set -x
 exec docker run --rm --user `id -u`:$group \
     --volume $PWD:/home/builder/nidas:rw,Z \
     --volume /opt/nidas:/opt/nidas:rw,Z \
+    --network=host \
     -i -t $image /bin/bash
 
