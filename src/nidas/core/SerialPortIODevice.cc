@@ -27,15 +27,13 @@
 #include "SerialPortIODevice.h"
 #include "Looper.h"
 #include "Prompt.h"
+#include "SerialPortPhysicalControl.h"
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Exception.h>
-#include "SerialPortPhysicalControl.h"
 
 #include <cmath>
-#include <cstdint>
-#include <cinttypes>
 
 #include <iostream>
 #include <sstream>
@@ -56,22 +54,26 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES
     _termios.setRawTimeout(0);
 
     // Derive the canonical port ID from the device name, which is usually like /dev/ttyUSB[0-7]
-    char portChar = name.back();
-    uintmax_t portID = strtoumax(&portChar, 0, 10);
-    if (portID == UINT64_MAX && errno > 0) {
+    const char* nameStr = name.c_str();
+    const char* portChar = &nameStr[strlen(nameStr)-1];
+    unsigned int portID = UINT32_MAX;
+    istringstream portStream(portChar);
+    //portStream << portChar;
+
+    try {
+        portStream >> portID;
+    }
+    catch (exception e) {
         throw n_u::Exception("SerialPortIODevice: device name arg "
                              "cannot be parsed for canonical port ID");
     }
 
-    else 
+    _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
+                                                    _portType, _term);
+    if (_pSerialControl == 0)
     {
-        _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
-                                                        _portType, _term);
-        if (_pSerialControl == 0)
-        {
-            throw n_u::Exception("SerialPortIODevice: Cannot construct "
-                                 "SerialPortPhysicalControl object");
-        }
+        throw n_u::Exception("SerialPortIODevice: Cannot construct "
+                                "SerialPortPhysicalControl object");
     }
 }
 
