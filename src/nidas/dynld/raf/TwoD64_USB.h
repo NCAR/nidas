@@ -100,7 +100,7 @@ private:
     bool _blankLine;
 
     // Save previous time word with ability to save across records.
-    long long prevTimeWord;
+    long long _prevTimeWord;
 };
 
 }}}       // namespace nidas namespace dynld namespace raf

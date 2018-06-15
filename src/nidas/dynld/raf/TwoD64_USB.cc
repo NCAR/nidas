@@ -56,7 +56,7 @@ const unsigned char TwoD64_USB::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB(): _blankLine(false), prevTimeWord(0)
+TwoD64_USB::TwoD64_USB(): _blankLine(false), _prevTimeWord(0)
 {
 }
 
@@ -272,7 +272,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     WLOG(("Fast2D") << getSuffix() << " overload at : "
                          << PTime(samp->getTimeTag())
                          << ", duration "
-                         << (thisTimeWord - prevTimeWord) / 1000);
+                         << (thisTimeWord - _prevTimeWord) / 1000);
 
 #ifdef SLICE_DEBUG
                     if (sdlog.active())
@@ -306,7 +306,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
                     long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
                     long usec = thisParticleTime % USECS_PER_SEC;
-                    long dt = (thisTimeWord - prevTimeWord);	// actual overload/dead time.
+                    long dt = (thisTimeWord - _prevTimeWord);	// actual overload/dead time.
 
                     /* dt can go negative if the probe has been reset and
                      * the internal clock starts at zero again.  Ignore if
@@ -327,7 +327,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                              */
                             _dead_time += usec;
                     }
-                    prevTimeWord = thisTimeWord;
+                    _prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\x55') {
                     // 0x5555 but not complete overload string
@@ -443,7 +443,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
-                    prevTimeWord = thisTimeWord;
+                    _prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\xaa') {
                     // 0xaaaa but not complete syncword
