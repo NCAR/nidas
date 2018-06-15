@@ -82,6 +82,8 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         return new BluetoothRFCommSocketIODevice();
 #endif
     else {
+        NLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
+             << "; Port Type: " << _portType);
         _serialDevice = new SerialPortIODevice(getDeviceName(), _portType, _term);
         _serialDevice->termios() = _termios;
         _serialDevice->setRTS485(_rts485);

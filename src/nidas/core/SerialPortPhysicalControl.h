@@ -34,7 +34,7 @@ namespace nidas { namespace core {
 /**
  * types of serial ports
  */
-typedef enum {RS232=232, RS422=422, RS485_FULL=485, RS485_HALF=484} PORT_TYPES;
+typedef enum {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=485, RS485_HALF=484} PORT_TYPES;
 
 /*
  * This enum specifies the ports in the DSM.
@@ -104,6 +104,8 @@ protected:
     // need to select the interface based on the specified port 
     // at present, assume 4 bits per port definition
     enum ftdi_interface port2iface(const unsigned int port);
+    // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
+    unsigned char portType2Bits(PORT_TYPES portType);
 
 private:
     // At present there are only 7 available ports on a DSM

@@ -24,6 +24,7 @@
  ********************************************************************
 */
 #include <nidas/util/Exception.h>
+#include <nidas/util/Logger.h>
 
 #include "SerialPortPhysicalControl.h"
 
@@ -43,32 +44,37 @@ SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId,
             ftdi_set_interface(_pContext, iface);
 
             // set bit bang mode if not already in that mode
-            if (_pContext->bitbang_mode != BITMODE_BITBANG) {
-                if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr))
-                {
+            if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr))
+            {
+                const char* ifaceIdx = (iface==1 ? "A" : iface==2 ? "B" : iface==3 ? "C" : iface==4 ? "D" : "?!?");
+                NLOG(("SerialPortPhysicalControl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+                if (!_pContext->bitbang_enabled) {
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
-                        
-                        // And while we're at it, set the port type and termination.
-                        // Don't need to open the device this time.
-                        applyPortConfig(false);
-
-                        // All done, close'er up.
-                        ftdi_usb_close(_pContext);
+                        NLOG(("SerialPortPhysicalControl: Successfully set GPIO on INTERFACE_") 
+                              << ifaceIdx << "to bitbang mode");
                     }
-
                     else
                     {
                         throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't set bitbang mode: ") 
                                                     + ftdi_get_error_string(_pContext));
                     }
                 }
-
-                else
-                {
-                    throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't open device")
-                                                     + ftdi_get_error_string(_pContext));
+                else {
+                    NLOG(("SerialPortPhysicalControl: Already in bitbang mode; proceed to set port config."));    
                 }
+                // And while we're at it, set the port type and termination.
+                // Don't need to open the device this time.
+                applyPortConfig(false);
+
+                // All done, close'er up.
+                ftdi_usb_close(_pContext);
+            }
+
+            else
+            {
+                throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't open device")
+                                                    + ftdi_get_error_string(_pContext));
             }
         }
 
@@ -109,13 +115,20 @@ void SerialPortPhysicalControl::applyPortConfig(const bool openDevice)
 
     unsigned char portConfig;
     // get the current port definitions
-    ftdi_read_pins(_pContext, &portConfig);
+    if (ftdi_read_pins(_pContext, &portConfig)) {
+        throw n_u::Exception("SerialPortPhysicalControl: cannot read the GPIO pins "
+                             "on previously opened USB device");
+
+    }
 
     portConfig &= ~adjustBitPosition(_portID, 0xF);
     portConfig |= adjustBitPosition(_portID, assembleBits(_portType, _term , _powerstate));
 
     // Call FTDI API to set the desired port types
-    ftdi_write_data(_pContext, &portConfig, 1);
+    if (!ftdi_write_data(_pContext, &portConfig, 1)) {
+        throw n_u::Exception("SerialPortPhysicalControl: cannot write the GPIO pins "
+                             "on previously opened USB device");        
+    }
 
     if (openDevice) {
         if (ftdi_usb_close(_pContext)) {
@@ -135,13 +148,39 @@ unsigned char SerialPortPhysicalControl::assembleBits(const PORT_TYPES portType,
                                                       const TERM term, 
                                                       const SENSOR_POWER_STATE powerState)
 {
-    unsigned char bits = portType << 2;
+    unsigned char bits = portType2Bits(portType);
     if (term == TERM_96k_OHM) {
-        bits |= 1 << 1;
+        bits |= 1 << 2;
     }
 
     if (powerState) {
-        bits |= 1;
+        bits |= 1 << 3;
+    }
+
+    return bits;
+}
+
+unsigned char SerialPortPhysicalControl::portType2Bits(PORT_TYPES portType) 
+{
+    unsigned char bits = 0x00;
+    switch (portType) {
+        case RS232:
+            bits = 0x01;
+            break;
+
+        case RS422:
+        case RS485_FULL:
+            bits = 0x10;
+            break;
+
+        case RS485_HALF:
+            bits = 0x11;
+            break;
+        
+        LOOPBACK:
+        default:
+            bits = 0x00;
+            break;
     }
 
     return bits;

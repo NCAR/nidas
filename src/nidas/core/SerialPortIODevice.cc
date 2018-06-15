@@ -53,27 +53,34 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES
     _termios.setRawLength(1);
     _termios.setRawTimeout(0);
 
-    // Derive the canonical port ID from the device name, which is usually like /dev/ttyUSB[0-7]
-    const char* nameStr = name.c_str();
-    const char* portChar = &nameStr[strlen(nameStr)-1];
-    unsigned int portID = UINT32_MAX;
-    istringstream portStream(portChar);
-    //portStream << portChar;
+    // Determine if this needs SP339 port type control
+    std::string ttyBase = "/dev/ttyUSB";
+    std::size_t foundAt = name.find(ttyBase);
+    if (foundAt != std::string::npos) {
+        NLOG(("SerialPortIODevice: Device needs SerialPortPhysicalControl object: ") << name);
+        const char* nameStr = name.c_str();
+        const char* portChar = &nameStr[ttyBase.length()];
+        unsigned int portID = UINT32_MAX;
+        istringstream portStream(portChar);
+        //portStream << portChar;
 
-    try {
-        portStream >> portID;
-    }
-    catch (exception e) {
-        throw n_u::Exception("SerialPortIODevice: device name arg "
-                             "cannot be parsed for canonical port ID");
-    }
+        try {
+            portStream >> portID;
+        }
+        catch (exception e) {
+            throw n_u::Exception("SerialPortIODevice: device name arg "
+                                "cannot be parsed for canonical port ID");
+        }
 
-    _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
-                                                    _portType, _term);
-    if (_pSerialControl == 0)
-    {
-        throw n_u::Exception("SerialPortIODevice: Cannot construct "
-                                "SerialPortPhysicalControl object");
+        NLOG(("SerialPortIODevice: Instantiating SerialPortPhysicalControl object on PORT") << portID 
+            << "; Port type: " << _portType);
+        _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
+                                                        _portType, _term);
+        if (_pSerialControl == 0)
+        {
+            throw n_u::Exception("SerialPortIODevice: Cannot construct "
+                                    "SerialPortPhysicalControl object");
+        }
     }
 }
 
