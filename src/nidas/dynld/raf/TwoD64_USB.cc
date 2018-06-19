@@ -56,7 +56,10 @@ const unsigned char TwoD64_USB::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB(): _blankLine(false), _prevTimeWord(0)
+TwoD64_USB::TwoD64_USB(): _blankLine(false),
+     _prevTimeWord(0),                          
+     _probeClockRate(12),                        //Default for v2 is 12 MHZ
+     _timeWordMask(0x000000ffffffffffLL)         //Default for v2 is 40 bits
 {
 }
 
@@ -264,7 +267,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
-                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+                        (bigEndian->int64Value(cp) & _timeWordMask ) / _probeClockRate;
 
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
@@ -387,7 +390,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 #endif
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
-                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
 
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
