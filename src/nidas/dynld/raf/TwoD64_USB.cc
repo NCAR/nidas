@@ -56,10 +56,11 @@ const unsigned char TwoD64_USB::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB(): _blankLine(false),
-     _prevTimeWord(0),                          
-     _probeClockRate(12),                        //Default for v2 is 12 MHZ
-     _timeWordMask(0x000000ffffffffffLL)         //Default for v2 is 40 bits
+TwoD64_USB::TwoD64_USB():
+     _probeClockRate(12),                   //Default for v2 is 12 MHZ
+     _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
+     _blankLine(false),
+     _prevTimeWord(0)                          
 {
 }
 
