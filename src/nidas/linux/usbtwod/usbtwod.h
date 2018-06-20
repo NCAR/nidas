@@ -92,6 +92,17 @@ typedef struct _Tap2D_v2
         unsigned char cntr;
 } Tap2D;
 
+/*
+ * Believe this struct is unnecessary
+ */
+typedef struct _Tap2D_v3
+{
+        /** sending tas*10, ntap calculation happens on probe*/
+        unsigned short tas;
+        /** which probe resolution*/
+        unsigned short probeResolution;
+} Tap2D_v3;
+
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With
@@ -111,8 +122,10 @@ typedef struct _Tap2D_v2
  * figure out which is which.
  */
 #define TWOD_IMG_TYPE	0
-#define TWOD_SOR_TYPE	1
+#define TWOD_SOR_TYPE   1
+#define TWOD_SORv3_TYPE 0x534f522c /* SOR, */
 #define TWOD_IMGv2_TYPE	2
+#define TWOD_IMGv3_TYPE	3
 
 #ifdef __KERNEL__
 #include <linux/module.h>
@@ -134,11 +147,12 @@ typedef struct _Tap2D_v2
  * name member of the struct usb_class_driver, which
  * is passed to usb_register_dev() in the probe method.
  */
+#define USB_TWOD_64_V3_MINOR_BASE     192
 #define USB_TWOD_64_MINOR_BASE     192
 #define USB_TWOD_32_MINOR_BASE     196
 
 #define TWOD_IMG_BUFF_SIZE	4096
-#define TWOD_SOR_BUFF_SIZE	4
+#define TWOD_SOR_BUFF_SIZE      128 /*PRS doc hs 70 as max possible size of housekeeping*/
 #define TWOD_TAS_BUFF_SIZE	4
 
 /* SAMPLE_QUEUE_SIZE must be a power of 2 (required by circ_buf).
@@ -190,6 +204,17 @@ struct twod_urb_sample
         int pre_urb_len;  	/* size of sample without urb contents */
         struct urb *urb;
 };
+struct twod_house_urb_sample
+{
+        int serialNum;
+        dsm_sample_time_t timetag;
+        unsigned int stype; //sor
+        unsigned int data; //dof or
+        int temperature;
+        double levelD1;
+        double levelD32;
+        double levelD64;
+};
 
 struct sample_circ_buf
 {
@@ -214,7 +239,7 @@ struct read_state
         struct twod_urb_sample *pendingSample;  /* sample partly copied to user space */
 };
 
-enum twod_probe_type { TWOD_64, TWOD_32 };
+enum twod_probe_type { TWOD_64_V3, TWOD_64, TWOD_32 };
 
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
@@ -228,7 +253,7 @@ struct usb_twod
 
         __u8 img_in_endpointAddr;       /* the address of the image in endpoint */
         __u8 tas_out_endpointAddr;      /* the address of the tas out endpoint */
-        __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */
+        __u8 sor_in_endpointAddr;       /* value is "SOR," the address of the shadow word in endpoint - for v3 sor (rather housekeeping packet) is now binary, this value is used in xml to sort */
         int is_open;                   /* don't allow multiple opens. */
 
 	enum twod_probe_type ptype;
