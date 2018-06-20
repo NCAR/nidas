@@ -53,13 +53,13 @@ public:
   
 protected:
 
-    void init_parameters()
+    virtual void init_parameters()
         throw(nidas::util::InvalidParameterException);
 
     /**
      * Process the Shadow-OR sample from the probe.
      */
-    bool processSOR(const Sample * samp, std::list < const Sample * >&results)
+    virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
     void scanForMissalignedSyncWords(const Sample * samp, const unsigned char * sp) const;
