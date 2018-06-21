@@ -60,8 +60,8 @@ static const int FILE_VERSION = 1;
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
 // Sync and overload words for Fast2D.
-static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
-static const unsigned char FastOverloadSync[] = { 0x55, 0x55, 0xAA };
+static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA };
+static const unsigned char FastOverloadSync[] = { 0x55, 0x55 };
 
 // Old 32bit 2D overload word, MikeS puts the overload in the first slice.
 static const unsigned char overLoadSync[] = { 0x55, 0xAA };
@@ -232,12 +232,12 @@ int ExtractFast2D::run() throw()
                     parm = p->sensor->getParameter("SerialNumber");
                     p->serialNumber = parm->getStringValue(0);
 
-                    if ((*dsm_it)->getCatalogName().compare("Fast2DP") == 0)
+                    if ((*dsm_it)->getCatalogName().compare(0, 7, "Fast2DP") == 0)
                     {
                         p->id = htons(0x5034);	// P4, Fast 200um 64 diode probe.
                     }
                     else
-                    if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
+                    if ((*dsm_it)->getCatalogName().compare(0, 7, "Fast2DC") == 0)
                     {
                         if (p->resolution == 10)	// 10um.
                             p->id = htons(0x4336);	// C6, Fast 10um 64 diode probe.
@@ -292,7 +292,7 @@ int ExtractFast2D::run() throw()
                             const int * dp = (const int *) samp->getConstVoidDataPtr();
                             int stype = bigEndian->int32Value(*dp++);
 
-                            if (stype != TWOD_SOR_TYPE) {  
+                            if (stype != TWOD_SOR_TYPE && stype != TWOD_SORv3_TYPE) {
                                 P2d_rec record;
                                 Probe *probe = probeList[id];
                                 record.id = probe->id;
@@ -311,6 +311,10 @@ int ExtractFast2D::run() throw()
                                     tas = 1.0e11 / (511.0 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
                                     if (t2d->div10 == 1)
                                         tas /= 10.0;
+                                }
+                                if (stype == TWOD_IMGv3_TYPE) {
+                                    unsigned short *sp = (unsigned short *)dp;
+                                    tas = (float)*sp / 10.0;
                                 }
 
                                 // Encode true airspeed to the ADS1 / ADS2 format for
@@ -370,7 +374,7 @@ int ExtractFast2D::run() throw()
                  << " particles per record." << endl;
             }
 
-            if (probe->sensor->getCatalogName().compare("Fast2DC")) {
+            if (probe->sensor->getCatalogName().compare(0, 7, "Fast2DC")) {
                 cout.width(10);
                 cout << probe->hasOverloadCount
                  << " records had an overload word @ spot zero, or "
