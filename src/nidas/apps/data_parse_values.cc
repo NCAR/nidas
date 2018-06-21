@@ -26,18 +26,15 @@
 
 /*
 TO DO: --BARNITZ--
-*set the private variable to process data //currently set with command line arguements (CLA)
-*ensure the .xml file is used when processing the data //currently given in CLA->necessary for weather_stations, conventional projects it is not 
-*have the app run as own process in the background //currently invoking each instant with CLA
+*obtain the variable units for each if necessary for visualization,
 
-*implement adding data to influxdb based on the attribute (ie temp, wind_dir, rain_accum) //currently it is added as site specific with all attributes for given timestamp
-*consider batching data to influx db (hand in hand with above to do item) //currently call influxdb for each timestamp of data for every site
+*set command line arguments
+*set the private variable to process data //currently set with command line arguements (CLA)
+*have the app run as own process in the background //currently invoking each instant with CLA
 
 *determine application name //currently set to data_parse_values (not very meaningful)
 *update headers and object/method names //currently heavily relied on what was referenced with data_stats
 *remove code and functions/methods that serve no purpose for this application
-
-*begin working on derivations of data in the influx db //see /net/weather/weather/src/ccwd and apply every five min to data in influx db
 */
 
 // #define _XOPEN_SOURCE	/* glibc2 needs this */
@@ -76,6 +73,9 @@ TO DO: --BARNITZ--
 #include <stdio.h> // for making an api request to insert data into influxdb
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include <future> //async function calls
+#include <mutex> //locking the string of data to reset to empty, may not be useful?
+
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -85,10 +85,17 @@ namespace n_u = nidas::util;
 
 //these globals will be omitted (for testing purposes)
 int COUNT = 0;
-vector<string> batchData;
+string multipleData;
+
+string data;
+time_t start_time = time(&start_time);
 
 class SampleToDatabase
 {
+//   private: 
+//     class dbSenderThread //inherit from boost lib
+//         static threadPool;  //thread pool buffer
+  
   public:
     /**
      * A default constructor is required to use objects as a map element.
@@ -97,10 +104,14 @@ class SampleToDatabase
                      const SampleTag *stag = 0) : name(sname),
                                                   id(sid),
                                                   sitename(),
-                                                  DBname("grainexPort2"),
+                                                //   DBname("grainex3"),
+                                                  DBname("weather_stations"),
                                                   measurementName(),
                                                   spsid(),
                                                   dsmid(),
+                                                  info(),
+                                                  url("http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"),
+                                                //   collectionOfData(""),
                                                   varnames()
     {
         if (stag)
@@ -114,8 +125,8 @@ class SampleToDatabase
             //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
             //necessary for the weather stations
             //EOL-WEATHER-STATIONS
-            //sitename = stag->getSuffix();
-            //sitename.erase(0,1);
+            sitename = stag->getSuffix();
+            measurementName = sitename.erase(0,1);
 
             //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
             //necessary for grainex/conventional projects
@@ -131,11 +142,11 @@ class SampleToDatabase
             }
             else
                 spsid = to_string(tempSpSid);
-            //this measurement name is not used currently for weather_stations, weather_stations use the sitename
-            measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
+            // //this measurement name is not used currently for weather_stations, weather_stations use the sitename
+            // measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
+            info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
         }
     }
-
     bool
     receive(const Sample *samp) throw();
 
@@ -151,15 +162,6 @@ class SampleToDatabase
     string name;
     dsm_sample_id_t id;
 
-    // // Accumulate sums of each variable in the sample and counts of the
-    // // number of nans seen in each variable.
-    // vector<float> sums;
-    // vector<int> nnans;
-
-    // // For raw samples, just keep the last message seen.  Someday this
-    // // could be a buffer of the last N messages.
-    // std::string rawmsg;
-
     // Stash the site name from the sample tag to identify the
     // site in the accumulated data.
     string sitename;
@@ -174,26 +176,53 @@ class SampleToDatabase
     //gathering dsmid and spsid necessary to create measurement name
     string spsid;
     string dsmid;
+    string info;
+    string url;
 
     // Stash the variable names from the sample tag to identify the
     // variables in the accumulated data.
     vector<string> varnames;
 };
 
+std::future<void> beforeResettingString;
+std::mutex mtx;
+
 bool SampleToDatabase::
     receive(const Sample *samp) throw()
 {
+    if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
+    {
+        return true;
+    }
+    //spawn a new thread for each sample
+    //consumes more resources then necessary without gain in computation time
+    // std::async(std::launch::async, &SampleToDatabase::accumulate, this, samp);   
     accumulate(samp);
+    // if ((difftime(time(NULL), start_time) > 2) && COUNT > 5000)
+    if (COUNT > 5000)
+    {
+        // std::launch::async forces it to launch in parallel (as opposed to the default of sequentially)
+        // std::future<void> call = std::async(std::launch::async, &SampleToDatabase::dataToInfluxDB, this, multipleData);
+        // wait for async processing of each line of data to finish before clearing the multipleData string
+        // mtx.lock();
+        // string dbdata = multipleData;
+        // multipleData = "";
+        // mtx.unlock();
+        // cout << multipleData.size() << "\n";
+        std::async(std::launch::async, &SampleToDatabase::dataToInfluxDB, this, multipleData);
+        multipleData = "";
+        COUNT = 0;
+    }
     return true;
 }
 
 /*
-This is invoked from main() at the initialization of the data to be transferred to the influx database. This function creates an influx database at 
-the specfied url, which can be either "http://localhost:8086/query" if the influx database is on the same server, or the full url can be provided 
-if it is located on different servers (ensuring correct firewall permissions are set). createInfluxDB() uses the curl library for assigning the url 
-and the consequent fields to post during the HTTP POST operation. Additionally, the string variable DBname can be assigned with the DSMConfig 
-information such as location or project name as this is only created once //for now it is passed as a parameter from main
-*/
+ * This is invoked from main() at the initialization of the data to be transferred to the influx database. This function creates an influx database at 
+ * the specfied url, which can be either "http://localhost:8086/query" if the influx database is on the same server, or the full url can be provided 
+ * if it is located on different servers (ensuring correct firewall permissions are set). createInfluxDB() uses the curl library for assigning the url 
+ * and the consequent fields to post during the HTTP POST operation. Additionally, the string variable DBname can be assigned with the DSMConfig 
+ * information such as location or project name as this is only created once //for now it is passed as a parameter from main
+ */
 void SampleToDatabase::
     createInfluxDB()
 {
@@ -209,7 +238,6 @@ void SampleToDatabase::
 
     if (curl)
     {
-
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, createDB.c_str());
 
@@ -220,74 +248,31 @@ void SampleToDatabase::
 
         curl_easy_cleanup(curl);
     }
-    // cout << "end of create influx db\n";
 }
 
-/*
-dataToInfluxDB() inserts the processed data into the influxdb with the curl library for the given timestamp, specifying a precision of microseconds in the url 
-(the default of influxDB is nanoseconds). The HTTP POST necessitates that the data string is given as a char*  
-*/
 void SampleToDatabase::
-    dataToInfluxDB(string data)
+dataToInfluxDB(string dbdata)
 {
-    // cout << "in add data to influxdb the db name is: *" << DBname << "*\n";
+    // string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u";//.c_str();
+    // const char* dbdata = data.c_str();
+    // std::async(std::launch::async,[=](){
     CURL *curl;
     CURLcode res;
-
-    string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
     curl = curl_easy_init();
-
-    if (curl)
-    {
+    
+    if (curl){
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
-
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, dbdata.c_str());
         res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK)
-            cout << "failed\n";
-
+        if (res != CURLE_OK){
+            cout << "failed\n" << "because: " << res << "\n";
+            //should attempt to write data/ best use of error handling?
+        }
         curl_easy_cleanup(curl);
     }
-    // cout << "end of add data synchronously to influx db\n";
+    // });
 }
 
-/*
-this version of dataToInfluxDB() adds the data line by line from a file that is written to in SampleToDatabase::accumulate
-//intention of removing this code completely, but first want to determine the best options for adding batched data to influxdb  
-*/
-// void dataToInfluxDB(){
-//     CURL *curl;
-//     CURLcode res;
-
-//     const char *url = "http://snoopy.eol.ucar.edu:8086/write?db=test1&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
-//     //write to db with entire parsing of a file
-//     ifstream dataFile;
-//     string line;
-//     dataFile.open("/h/eol/jbarnitz/barnitzSUPER/test.txt");
-
-//     while (getline(dataFile, line)){
-//         //cout << line << "\n";
-//         curl = curl_easy_init();
-
-//         if (curl){
-//             curl_easy_setopt(curl, CURLOPT_URL, url);
-//             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, line.c_str());
-
-//             res = curl_easy_perform(curl);
-
-//             if(res != CURLE_OK)
-//                 cout << "failed\n";
-
-//             curl_easy_cleanup(curl);
-//         }
-//     }
-//     dataFile.close();
-//     cout << "end of add data from a file to influx db\n";
-// }
-
-string maybe = "";
-//string maybe2 = "";
 
 void SampleToDatabase::
 accumulate(const Sample *samp)
@@ -296,155 +281,40 @@ accumulate(const Sample *samp)
     {
         return;
     }
-    //For Grainex SpSid 0x8149 and 0x814c has additional values that are gathered after Vmote and Wetness respecitvely, however there are no assigned variable names
-    //consequently they are not added to the database so we iterate through the number of variable names as opposed to the number of data points (as done in data_dump)
-    //unsigned int nvalues = samp->getDataLength();
-    // double datalength = samp->getDataLength();
-    // double numvariables = varnames.size();
-    // unsigned int nvalues = min(numvariables, datalength);
 
     unsigned int nvalues = varnames.size();
 
-    //TO DO: remove the writing to file once async/batching of writing data to influxdb has been determined
-    string data;
-    //using a global variable to batch data into collections of 1000
-    if (COUNT < 5000)
+    // where info =  measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " "
+    //created in the constructor
+    data = info;
+    for (unsigned int i = 0; i < nvalues; ++i)
     {
-        data = measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " ";
-        for (unsigned int i = 0; i < nvalues; i++)
+        double value = samp->getDataValue(i);
+        if (std::isnan(value))
         {
-            double value = samp->getDataValue(i);
-            if (std::isnan(value))
-            {
-                //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
-                continue;
-            }
-            else
-            {
-                data += varnames[i] + "=" + to_string(value) + ",";
-            }
+            //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+            continue;
         }
-        //weird behavior with tsoil concatenating with qsoil data
-        char lastChar = data.back();
-        if (lastChar == ',')
+        else
         {
-            data.pop_back();
+            data += varnames[i];
+            data += "=";
+            data += to_string(value);
+            data += ",";
         }
-        data += " " + to_string(samp->getTimeTag()) + "\n";
-        //batchData.push_back(data);
-        maybe += data;
-        COUNT++;
     }
-
-//we have batched 1000 lines of data, write to file
-    // else
-    // {
-    //     //cout << "WRITING FIRST BATCH\n";
-    //     ofstream testWriteData;
-    //     testWriteData.open("/h/eol/jbarnitz/barnitzSUPER/test2.txt", ios::out | ios::app);
-    //     //writing as binary?
-    //     //testWriteData.open("/h/eol/jbarnitz/barnitzSUPER/test1.txt", ofstream::binary | ios::app);
-    //     if (testWriteData.is_open())
-    //     {
-    //         for (const auto &line : batchData)
-    //             testWriteData << line;
-    //     }
-    //     testWriteData.close();
-    //     //reset vector to collect the next batch of data
-    //     batchData.clear();
-    //     COUNT = 0;
-    // }
-
-//we have batched 1000 lines of data, send to influxdb
-    else{
-        CURL *curl;
-        CURLcode res;
-
-        string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
-        curl = curl_easy_init();
-        // cout << "++++++++\n" << maybe << "\n+++++++++";
-        if (curl){
-            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, maybe.c_str());
-
-            res = curl_easy_perform(curl);
-
-            if(res != CURLE_OK)
-                cout << "failed\n";
-
-            curl_easy_cleanup(curl);
-        }
-        //for (const auto &line : batchData) testWriteData << line;
-        //reset vector to collect the next batch of data
-        //batchData.clear();
-        maybe = "";
-        COUNT = 0;
+    char lastChar = data.back();
+    if (lastChar == ',')
+    {
+        data.pop_back();
     }
-//trying with ostringstream again 
-    // USING A STRING STREAM TO WRITE 500 lines before writing to text file
-    // ostringstream data;
-    // //using a global variable to batch data into collections of 1000
-    // //cout << "COUNT IS: " << COUNT << "\n";
-    // if (COUNT < 1000){
-    //     data = measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " ";
-    //     for (unsigned int i = 0; i < nvalues; i++)
-    //     {
-    //         double value = samp->getDataValue(i);
-    //         if (std::isnan(value))
-    //         {
-    // //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
-    //             continue;
-    //         }
-    //         // else
-    //         // {
-    //         //     if (i < nvalues-1){
-    //         //         data += varnames[i] + "=" + to_string(value) + ",";
-    //         //     }
-    //         //     else{
-    //         //         data += varnames[i] + "=" + to_string(value) + " " + to_string(samp->getTimeTag()) + "\n";
-    //         //     }
-    //         // }
-    //         else
-    //         {
-    //             data += varnames[i] + "=" + to_string(value) + ",";
-    //         }
-    //     }
-    //     //weird behavior with tsoil concatenating with qsoil data
-    //     char lastChar = data.back();
-    //     if (lastChar == ','){
-    //         data.pop_back();
-    //     }
-    //     data += " " + to_string(samp->getTimeTag()) + "\n";
-    //     //batchData.push_back(data);
-    //     maybe += data;
-    //     COUNT++;
-    // }
-//trying with multi handle
-    // else{
-    //     CURLM *curlm;
-    //     CURLMcode res;
-
-    //     string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"; // precision=u for microsecond precision as opposed to default nanaosecond
-    //     curlm = curl_multi_init();
-    //     // cout << "++++++++\n" << maybe << "\n+++++++++";
-    //     if (curlm){
-    //         curl_easy_setopt(curlm, CURLOPT_URL, url.c_str());
-    //         curl_easy_setopt(curlm, CURLOPT_POSTFIELDS, maybe.c_str());
-
-    //         res = curl_multi_perform(curlm);
-
-    //         if(res != CURLEM_OK)
-    //             cout << "failed\n";
-
-    //         curl_multi_cleanup(curlm);
-    //     }
-    //     //for (const auto &line : batchData) testWriteData << line;
-    //     //reset vector to collect the next batch of data
-    //     //batchData.clear();
-    //     maybe = "";
-    //     COUNT = 0;
-    // }
+    data += " ";
+    data += to_string(samp->getTimeTag());
+    data += "\n";
+    multipleData += data;
+    ++COUNT;
 }
+
 
 class CounterClient : public SampleClient
 {
@@ -808,7 +678,7 @@ int DatabaseData::parseRunstring(int argc, char **argv)
     }
     return 0;
 }
-
+// TO DO: Change usage information
 int DatabaseData::usage(const char *argv0)
 {
     cout << "... DatabaseData::usage\n";
@@ -825,6 +695,8 @@ int DatabaseData::usage(const char *argv0)
 int DatabaseData::main(int argc, char **argv)
 {
     DatabaseData stats;
+    multipleData.reserve(1500000);
+    multipleData = "";
     int result;
     if ((result = stats.parseRunstring(argc, argv)))
     {
@@ -925,12 +797,16 @@ void DatabaseData::
         catch (n_u::IOException &e)
         {
             cout << "...in catch of readSamples\n";
+            //reached the end of file, ensure last remaining points are written to the db
+            SampleToDatabase sd;
+            sd.dataToInfluxDB(multipleData);
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
         }
     }
 }
+
 
 //both DatabaseData and dataDump use similar run()
 int DatabaseData::run() throw()
@@ -990,7 +866,6 @@ int DatabaseData::run() throw()
         //thus use the .xml file for this
         if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
         {
-            //cout << "... if near 911\n";
             n_u::auto_ptr<xercesc::DOMDocument>
                 doc(parseXMLConfigFile(xmlFileName));
 
@@ -1046,14 +921,11 @@ int DatabaseData::run() throw()
             while (!app.interrupted() && !reportsExhausted(++_nreports))
             {
                 readSamples(sis);
-                //counter.printResults(cout);
-                //counter.resetResults();
             }
         }
         catch (n_u::EOFException &e)
         {
             cerr << e.what() << endl;
-            //counter.printResults(cout);
         }
         catch (n_u::IOException &e)
         {
@@ -1070,7 +942,6 @@ int DatabaseData::run() throw()
                 //sis.removeSampleClient(&counter);
             }
             sis.close();
-            //counter.printResults(cout);
             throw(e);
         }
         if (app.processData())
@@ -1090,7 +961,6 @@ int DatabaseData::run() throw()
     }
     catch (n_u::Exception &e)
     {
-        cout << "exception\n";
         cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
         result = 1;
