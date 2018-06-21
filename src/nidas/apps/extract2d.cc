@@ -66,8 +66,6 @@ static const unsigned char FastOverloadSync[] = { 0x55, 0x55 };
 // Old 32bit 2D overload word, MikeS puts the overload in the first slice.
 static const unsigned char overLoadSync[] = { 0x55, 0xAA };
 
-static const size_t DefaultMinimumNumberParticlesRequired = 5;
-
 
 using namespace nidas::core;
 using namespace nidas::dynld;
