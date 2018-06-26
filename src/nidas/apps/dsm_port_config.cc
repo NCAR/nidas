@@ -200,9 +200,9 @@ unsigned char portTypeDefs = 0;
 // shift the port type into the correct location for insertion
 unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) 
 {
-    // adjust port to always be 0-3, assuming 2 bits per port type.
-    PORT_DEFS adjPort = static_cast<PORT_DEFS>(port % PORT4);
-    return bits << (adjPort * 2);
+    // adjust port to always be 0-3, assuming 4 bits per port type.
+    PORT_DEFS adjPort = static_cast<PORT_DEFS>(port % PORT2);
+    return bits << (adjPort * 4);
 }
 
 // Sets the port type for a particular DSM port.
@@ -210,7 +210,7 @@ unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits )
 void setPortType(const PORT_DEFS port, const PORT_TYPE portType) 
 {
     // first zero out the two bits in the correct port type slot...
-    portTypeDefs &= ~adjustBitPosition(port, 0x03);
+    portTypeDefs &= ~adjustBitPosition(port, 0x0F);
     // insert the new port type in the correct slot.
     portTypeDefs |= adjustBitPosition(port, static_cast<unsigned char>(portType));
 }
@@ -250,7 +250,13 @@ void printPortDefs(const enum ftdi_interface iface)
             port = 0;
             break;
         case INTERFACE_B:
+            port = 2;
+            break;
+        case INTERFACE_C:
             port = 4;
+            break;
+        case INTERFACE_D:
+            port = 6;
             break;
         default: 
             break;
@@ -258,11 +264,7 @@ void printPortDefs(const enum ftdi_interface iface)
 
 
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
-    port++; tmpTypeDefs >>= 2;
-    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
-    port++; tmpTypeDefs >>= 2;
-    std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
-    port++; tmpTypeDefs >>= 2;
+    port++; tmpTypeDefs >>= 4;
     std::cout << "Port" << port << ": " << portTypeToStr(tmpTypeDefs & 0x03) << std::endl;
 }
 
@@ -275,16 +277,20 @@ enum ftdi_interface port2iface(const unsigned int port)
     {
         case PORT0:
         case PORT1:
+            iface = INTERFACE_A;
+            break;
         case PORT2:
         case PORT3:
-            iface = INTERFACE_A;
+            iface = INTERFACE_B;
             break;
 
         case PORT4:
         case PORT5:
+            iface = INTERFACE_C;
+            break;
         case PORT6:
         case PORT7:
-            iface = INTERFACE_B;
+            iface = INTERFACE_D;
             break;
 
         default:  
