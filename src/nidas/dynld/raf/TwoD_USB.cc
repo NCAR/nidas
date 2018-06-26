@@ -212,7 +212,7 @@ void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw
 /*---------------------------------------------------------------------------*/
 int TwoD_USB::TASToTap2D(void * tap2d, float tas)
 {
-   Tap2D t2d = (Tap2D*)tap2d;
+   Tap2D * t2d = (Tap2D*)tap2d;
     /* Default tas to spinning disk speed if we are not moving.  This
      * will probably bite us some day when they try to use a 2D probe on
      * ISF or ISFF....
