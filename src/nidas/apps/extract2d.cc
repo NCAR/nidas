@@ -60,8 +60,8 @@ static const int FILE_VERSION = 1;
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
 // Sync and overload words for Fast2D.
-static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA };
-static const unsigned char FastOverloadSync[] = { 0x55, 0x55 };
+static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
+static const unsigned char FastOverloadSync[] = { 0x55, 0x55, 0x55 };
 
 // Old 32bit 2D overload word, MikeS puts the overload in the first slice.
 static const unsigned char overLoadSync[] = { 0x55, 0xAA };
@@ -290,55 +290,53 @@ int ExtractFast2D::run() throw()
                             const int * dp = (const int *) samp->getConstVoidDataPtr();
                             int stype = bigEndian->int32Value(*dp++);
 
-                            if (stype != TWOD_SOR_TYPE && stype != TWOD_SORv3_TYPE) {
-                                P2d_rec record;
-                                Probe *probe = probeList[id];
-                                record.id = probe->id;
-                                setTimeStamp(record, samp);
+                            P2d_rec record;
+                            Probe *probe = probeList[id];
+                            record.id = probe->id;
+                            setTimeStamp(record, samp);
 
-                                // Decode true airpseed.
-                                float tas = 0.0;
-                                if (stype == TWOD_IMG_TYPE) {
-                                    unsigned char *cp = (unsigned char *)dp;
-                                    tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->resolutionM;
-                                }
-                                if (stype == TWOD_IMGv2_TYPE) {
-                                    Tap2D *t2d = (Tap2D *)dp;
-                                // Note: TASToTap2D() has a PotFudgeFactor which multiplies by 1.01.
-                                //        Seems we should multiply by 0.99...
-                                    tas = 1.0e11 / (511.0 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
-                                    if (t2d->div10 == 1)
-                                        tas /= 10.0;
-                                }
-                                if (stype == TWOD_IMGv3_TYPE) {
-                                    unsigned short *sp = (unsigned short *)dp;
-                                    tas = (float)*sp / 10.0;
-                                }
-
-                                // Encode true airspeed to the ADS1 / ADS2 format for
-                                // backwards compatability.
-                                record.tas = htons((short)tas);
-
-                                record.overld = htons(0);
-                                dp++;      // skip over tas field
-                                ::memcpy(record.data, dp, P2D_DATA);
-
-                                // For old 2D probes, not Fast 2DC.
-                                if (::memcmp(record.data, overLoadSync, 2) == 0)
-                                {
-                                    unsigned long * lp = (unsigned long *)record.data;
-                                    record.overld = htons((ntohl(*lp) & 0x0000ffff) / 2000);
-                                    probe->hasOverloadCount++;
-                                }
-
-                                ++probe->recordCount;
-				if (copyAllRecords ||
-                                   (countParticles(probe, (const unsigned char *)&record) >= minNumberParticlesRequired &&
-                                    computeDiodeCount(probe, record.data) != 1))
-                                    outFile.write((char *)&record, sizeof(record));
-                                else
-                                    ++probe->rejectRecordCount;
+                            // Decode true airpseed.
+                            float tas = 0.0;
+                            if (stype == TWOD_IMG_TYPE) {
+                                unsigned char *cp = (unsigned char *)dp;
+                                tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->resolutionM;
                             }
+                            if (stype == TWOD_IMGv2_TYPE) {
+                                Tap2D *t2d = (Tap2D *)dp;
+                            // Note: TASToTap2D() has a PotFudgeFactor which multiplies by 1.01.
+                            //        Seems we should multiply by 0.99...
+                                tas = 1.0e11 / (511.0 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
+                                if (t2d->div10 == 1)
+                                    tas /= 10.0;
+                            }
+                            if (stype == TWOD_IMGv3_TYPE) {
+                                unsigned short *sp = (unsigned short *)dp;
+                                tas = (float)*sp / 10.0;
+                            }
+
+                            // Encode true airspeed to the ADS1 / ADS2 format for
+                            // backwards compatability.
+                            record.tas = htons((short)tas);
+
+                            record.overld = htons(0);
+                            dp++;      // skip over tas field
+                            ::memcpy(record.data, dp, P2D_DATA);
+
+                            // For old 2D probes, not Fast 2DC.
+                            if (::memcmp(record.data, overLoadSync, 2) == 0)
+                            {
+                                unsigned long * lp = (unsigned long *)record.data;
+                                record.overld = htons((ntohl(*lp) & 0x0000ffff) / 2000);
+                                probe->hasOverloadCount++;
+                            }
+
+                            ++probe->recordCount;
+                            if (copyAllRecords ||
+                               (countParticles(probe, (const unsigned char *)&record) >= minNumberParticlesRequired &&
+                                computeDiodeCount(probe, record.data) != 1))
+                                outFile.write((char *)&record, sizeof(record));
+                            else
+                                ++probe->rejectRecordCount;
                         }
 		    }
 		}
