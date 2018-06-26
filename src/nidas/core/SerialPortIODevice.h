@@ -105,7 +105,7 @@ public:
     PORT_TYPES getPortType() {return _portType;}
 
     /**
-     *  Commands the serial board to set the serial port switches to configure for 
+     *  Commands the serial board to set the GPIO switches to configure for 
      *  the port type specified in the _portType member attribute.
      */
     void applyPortType() throw(nidas::util::IOException);
