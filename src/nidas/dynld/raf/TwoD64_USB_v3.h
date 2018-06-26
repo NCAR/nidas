@@ -46,7 +46,7 @@ public:
     TwoD64_USB_v3();
     ~TwoD64_USB_v3();
 
-    virtual int TASToTap2D(Tap2D * t2d, float tas);
+    virtual int TASToTap2D(void * t2d, float tas);
 
     virtual float Tap2DToTAS(const Tap2D * t2d) const;
 

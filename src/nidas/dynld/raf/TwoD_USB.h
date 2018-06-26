@@ -108,7 +108,8 @@ public:
      * @param t2d the Tap2D to be filled
      * @param tas the true airspeed in m/s
      */
-    virtual int TASToTap2D(Tap2D * t2d, float tas);
+   // virtual int TASToTap2D(Tap2D * t2d, float tas);
+    virtual int TASToTap2D(void * t2d, float tas);
 
     /**
      * Reverse the true airspeed encoding.  Used to extract TAS from

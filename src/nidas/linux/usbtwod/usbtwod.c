@@ -1436,7 +1436,7 @@ static int twod_probe(struct usb_interface *interface,
                          * packet in v3. psize may have to be greater than the lesser of the two 
                          * buffer sizes. Given that the houskeeping packet is of a variable size
                          * and TWOD_SOR_BUFF_SIZE is the max, min should be 4.               
-                        /* we found a small bulk in endpoint, use it for the SOR */
+                        * we found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
                 } else if (!dev->tas_out_endpointAddr &&

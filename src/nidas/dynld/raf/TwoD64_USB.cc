@@ -59,6 +59,7 @@ const unsigned char TwoD64_USB::_blankString[] =
 TwoD64_USB::TwoD64_USB():
      _probeClockRate(12),                   //Default for v2 is 12 MHZ
      _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
+     _dofMask(0x01),
      _blankLine(false),
      _prevTimeWord(0)                          
 {
@@ -172,12 +173,13 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     //scanForMissalignedSyncWords(samp, (unsigned char *)dp);
 
     float tas = 0.0;
-    if (stype == TWOD_IMGv2_TYPE) {
+    if (stype == TWOD_IMGv2_TYPE||stype == TWOD_IMGv3_TYPE){ //IMG v2 and v3 type
         Tap2D tap;
         memcpy(&tap,cp,sizeof(tap));
         cp += sizeof(Tap2D);
         tap.ntap = littleEndian->uint16Value(tap.ntap);
         tas = Tap2DToTAS(&tap);
+    //    WLOG(("%s: V2 or V3 IMG type", getName().c_str()));
     }
     else
     if (stype == TWOD_IMG_TYPE) {
@@ -263,7 +265,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
+		if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
 
                     // time words are from a 12MHz clock
@@ -361,7 +363,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (::memcmp(cp+1,_syncString+1,sizeof(_syncString)-1) == 0) {
+		if (cp[1] == _syncString[1] && (cp[2] & _dofMask)==0 ) {
                     // syncword
                     _totalParticles++;
 #ifdef SLICE_DEBUG

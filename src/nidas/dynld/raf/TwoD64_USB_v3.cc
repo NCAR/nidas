@@ -55,7 +55,7 @@ TwoD64_USB_v3::TwoD64_USB_v3()
 {
      _probeClockRate=33;                    //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits
-cerr<<"ctr_v3"<<endl;
+     _dofMask=0x10;
 }
 
 TwoD64_USB_v3::~TwoD64_USB_v3()
@@ -66,7 +66,6 @@ void TwoD64_USB_v3::init_parameters()
     throw(n_u::InvalidParameterException)
 {
     TwoD_USB::init_parameters();
-cerr<<"initpv3"<<endl;
     /* Look for a sample tag with id=2. This is assumed to be
      * the shadowOR sample.  Check its rate.
      */
@@ -84,16 +83,14 @@ cerr<<"initpv3"<<endl;
     }
     if (sorRate <= 0.0) throw n_u::InvalidParameterException(getName(),
         "sample","shadow OR sample rate not found");
-cerr<<"initpv3-2"<<endl;
 }
 
-int TwoD64_USB_v3::TASToTap2D(Tap2D * t2d, float tas)
+int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 {
+    t2d = (Tap2D_v3 * )t2d;
     unsigned short * p = (unsigned short * )t2d;
     p[0]=(unsigned int)(tas*10.0);
     p[1]=(unsigned int)getResolutionMicron();
-    cerr<<"v3 tas:"<<tas<<endl;
-    cerr<<"v3 tas:"<<p[0] <<", "<<p[1]<<endl;
     return 0;
 }
 float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
@@ -104,23 +101,8 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 bool TwoD64_USB_v3::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    if (samp->getDataByteLength() < 2 * sizeof (int32_t))
         return false;
-
-    const int32_t *lptr =
-        (const int32_t *) samp->getConstVoidDataPtr();
-
-    /*int stype =*/ bigEndian->int32Value(*lptr++);
-    int sor = bigEndian->int32Value(*lptr++);
-
-    size_t nvalues = 1;
-    SampleT < float >*outs = getSample < float >(nvalues);
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(_sorID);
-    float *dout = outs->getDataPtr();
-    *dout = sor;
-
-    results.push_back(outs);
+	//Until we decide how to code this
     return true;
 }
 

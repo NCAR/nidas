@@ -88,6 +88,8 @@ protected:
  
     unsigned long long _timeWordMask;
 
+    unsigned char _dofMask;
+
 //@{
     /**
      * Sync and overload words/masks.
