@@ -61,7 +61,7 @@ TwoD64_USB::TwoD64_USB():
      _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
      _dofMask(0x01),
      _blankLine(false),
-     _prevTimeWord(0)                          
+     _prevTimeWord(0)
 {
 }
 
@@ -265,7 +265,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-		if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
+                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
 
                     // time words are from a 12MHz clock
@@ -363,7 +363,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-		if (cp[1] == _syncString[1] && (cp[2] & _dofMask)==0 ) {
+                if (cp[1] == _syncString[1] && (cp[2] & _dofMask)==0 ) {
                     // syncword
                     _totalParticles++;
 #ifdef SLICE_DEBUG

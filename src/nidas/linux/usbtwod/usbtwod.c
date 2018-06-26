@@ -625,12 +625,12 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 } else if (dev->ptype == TWOD_64){
                         osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
                 }
-                
+
                 /*
                  * stuff the current TAS value in the data.
                  * It is little-endian, since it was converted
                  * before being sent to the probe. For 64_v3
-                 * tas will be tas*10. Currently all three tas 
+                 * tas will be tas*10. Currently all three tas
                  * varients are the same size.
                  */
                 spin_lock(&dev->taslock);
@@ -873,7 +873,7 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
 
         urb->transfer_flags = 0;
         KLOG_INFO("%s: transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
-                dev->dev_name, urb->transfer_buffer_length, 
+                dev->dev_name, urb->transfer_buffer_length,
                 urb->number_of_packets, urb->actual_length);
 
         usb_fill_bulk_urb(urb, dev->udev,
@@ -1297,13 +1297,13 @@ static long twod_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 break;
         case USB2D_SET_SOR_RATE:
                 {
-                        int sor_rate;
-                        if (copy_from_user
-                            ((char *) &sor_rate, (const void __user *) arg,
-                             sizeof (int)) != 0) retval = -EFAULT;
-                        else retval = twod_set_sor_rate(dev, sor_rate);
+                int sor_rate;
+                if (copy_from_user
+                   ((char *) &sor_rate, (const void __user *) arg,
+                        sizeof (int)) != 0) retval = -EFAULT;
+                else retval = twod_set_sor_rate(dev, sor_rate);
 //changed from debug to info
-			KLOG_INFO("%s: SET_SOR_RATE, rate=%d\n",dev->dev_name, sor_rate);
+                KLOG_INFO("%s: SET_SOR_RATE, rate=%d\n",dev->dev_name, sor_rate);
                 }
                 break;
        case USB2D_GET_STATUS:      /* user get of status struct */
@@ -1388,17 +1388,17 @@ static int twod_probe(struct usb_interface *interface,
         /* use the second img_in endpoint */
         iface_desc = interface->cur_altsetting;
         dev->ptype = TWOD_64; 
-        
+
         if (id->idProduct ==USB2D_64_V3_PRODUCT_ID)
         {
                 dev->ptype = TWOD_64_V3;
         }
-        
+
         /*
          * The 32 bit 2DP not longer exists. It was converted to 64 bit.
          * So support for TWOD_32 could be removed from this driver
          */
-        if(iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
+        if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
         	dev->ptype = TWOD_32;
         }
       
@@ -1433,10 +1433,10 @@ static int twod_probe(struct usb_interface *interface,
 			type == USB_ENDPOINT_XFER_BULK &&
 			psize < 512 && psize >= 4) {
                         /*TWOD_SOR_BUFF_SIZE changed from 4 to 128 to accomidate houskeeping
-                         * packet in v3. psize may have to be greater than the lesser of the two 
+                         * packet in v3. psize may have to be greater than the lesser of the two
                          * buffer sizes. Given that the houskeeping packet is of a variable size
-                         * and TWOD_SOR_BUFF_SIZE is the max, min should be 4.               
-                        * we found a small bulk in endpoint, use it for the SOR */
+                         * and TWOD_SOR_BUFF_SIZE is the max, min should be 4.
+                         * We found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
                 } else if (!dev->tas_out_endpointAddr &&
@@ -1469,11 +1469,11 @@ static int twod_probe(struct usb_interface *interface,
          */
         switch(dev->ptype) {
                 case TWOD_64_V3:
-            		/*retval = usb_register_dev(interface, &usbtwod_64_v3);
+                        /*retval = usb_register_dev(interface, &usbtwod_64_v3);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_v3_%d (%x/%x)",
                                 interface->minor - USB_TWOD_64_V3_MINOR_BASE,
                                 id->idVendor, id->idProduct);
- 	    		break;*/
+                        break;*/
        	  	case TWOD_64:
             		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
@@ -1572,7 +1572,7 @@ static int __init usb_twod_init(void)
                 return -EINVAL;
         }
         if (SAMPLE_QUEUE_SIZE < IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1) {
-                  KLOG_ERR("SAMPLE_QUEUE_SIZE=%d should be greater than IMG_URBS_IN_FLIGHT(%d) + SOR_URBS_IN_FLIGHT(%d)\n",
+                KLOG_ERR("SAMPLE_QUEUE_SIZE=%d should be greater than IMG_URBS_IN_FLIGHT(%d) + SOR_URBS_IN_FLIGHT(%d)\n",
                              SAMPLE_QUEUE_SIZE,IMG_URBS_IN_FLIGHT,SOR_URBS_IN_FLIGHT);
                 return -EINVAL;
         }
@@ -1581,7 +1581,7 @@ static int __init usb_twod_init(void)
         result = usb_register(&twod_driver);
         if (result)
                 KLOG_ERR("usbtwod_register failed. Error number %d\n", result);
-//added info
+
         KLOG_INFO("usbtwod_register sucess");
 
         return result;

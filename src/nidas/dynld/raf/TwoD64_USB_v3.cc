@@ -51,7 +51,7 @@ using nidas::util::endlog;
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
 
 
-TwoD64_USB_v3::TwoD64_USB_v3() 
+TwoD64_USB_v3::TwoD64_USB_v3()
 {
      _probeClockRate=33;                    //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits

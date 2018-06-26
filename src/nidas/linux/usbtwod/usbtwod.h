@@ -147,7 +147,7 @@ typedef struct _Tap2D_v3
  * name member of the struct usb_class_driver, which
  * is passed to usb_register_dev() in the probe method.
  */
-#define USB_TWOD_64_V3_MINOR_BASE     192
+#define USB_TWOD_64_V3_MINOR_BASE  192
 #define USB_TWOD_64_MINOR_BASE     192
 #define USB_TWOD_32_MINOR_BASE     196
 
