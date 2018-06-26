@@ -1,5 +1,5 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
-// vim: set shiftwidth=4 softtabstop=4 expandtab:
+// vim: set shiftwidth=4 softtabstop=4 expandtab: 
 /*
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
@@ -80,36 +80,56 @@ public:
     // Bus address is the means by which the USB device is opened.
     // So default them to the values known today, but may be 
     // overridden later.
-    SerialPortPhysicalControl(PORT_DEFS portId, PORT_TYPES portType=RS232, TERM termination=TERM_IGNORE);
+    SerialPortPhysicalControl(const PORT_DEFS portId);
+    SerialPortPhysicalControl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination);
     // Destructor
     ~SerialPortPhysicalControl();
 
     // This sets the class state to be used by applyPortConfig();
-    void setPortConfig(PORT_TYPES portType, TERM term, SENSOR_POWER_STATE powerState);
+    void setPortConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
     // This is the primary client API that does all the heavy lifting  
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
-    void applyPortConfig(bool openDevice=true);
+    void applyPortConfig(const bool openDevice=true);
     // Returns the current state of the port mode, including sensor power
     unsigned char getPortConfig();
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
-    void setBusAddress(int busId=1, int deviceId=6);
+    void setBusAddress(const int busId=1, const int deviceId=6);
+    // This utility converts a binary PORT_TYPE to a string
+    const std::string portTypeToStr(const PORT_TYPES portType);
+    // This utility prints the port types for a particular port.
+    void printPortType(const PORT_DEFS port, const bool readFirst=true);
+    // This is a utility to convert an integer to a PORT_DEFS port ID
+    // Currently assumes that the portNum is in the range of PORT_DEFS
+    static PORT_DEFS int2PortDef(const unsigned portNum) 
+    {
+        return static_cast<PORT_DEFS>(portNum);
+    }
 
 protected:
     // shift the port type into the correct location in the GPIO for insertion
     unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits );
     // assembles the port config bits into a low nibble, ready for shifting.
-    unsigned char assembleBits(PORT_TYPES portType, TERM term, SENSOR_POWER_STATE powerState);
+    unsigned char assembleBits(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
     // deduces the FT4232H GPIO port form the port passed in.
     // need to select the interface based on the specified port 
     // at present, assume 4 bits per port definition
     enum ftdi_interface port2iface(const unsigned int port);
     // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
-    unsigned char portType2Bits(PORT_TYPES portType);
+    unsigned char portType2Bits(const PORT_TYPES portType);
+    // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
+    PORT_TYPES bits2PortType(const unsigned char bits);
 
 private:
     // At present there are only 7 available ports on a DSM
     static const PORT_DEFS MAX_PORT = PORT7;
+    // String-ize port types
+    static const char* STR_LOOPBACK;
+    static const char* STR_RS232;
+    static const char* STR_RS422;
+    static const char* STR_RS485_HALF;
+    static const char* STR_RS485_FULL;
+
     // The port this instance is tasked with managing (0-7)
     PORT_DEFS _portID;
     // This is the port type

@@ -25,11 +25,78 @@
 */
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
+#include <sstream>
 
 #include "SerialPortPhysicalControl.h"
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
+
+const char* SerialPortPhysicalControl::STR_LOOPBACK = "LOOPBACK";
+const char* SerialPortPhysicalControl::STR_RS232 = "RS232";
+const char* SerialPortPhysicalControl::STR_RS422 = "RS422";
+const char* SerialPortPhysicalControl::STR_RS485_HALF = "RS485_HALF";
+const char* SerialPortPhysicalControl::STR_RS485_FULL = "RS485_FULL";
+
+
+
+SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId)
+: _portID(portId), _portType(LOOPBACK), _term(TERM_IGNORE), _powerstate(SENSOR_POWER_ON), 
+  _portConfig(0), _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
+{
+    if (_pContext)
+    {
+        enum ftdi_interface iface = port2iface(portId);
+        if (iface != INTERFACE_ANY) {
+            ftdi_set_interface(_pContext, iface);
+
+            // set bit bang mode if not already in that mode
+            if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr))
+            {
+                const char* ifaceIdx = (iface==1 ? "A" : iface==2 ? "B" : iface==3 ? "C" : iface==4 ? "D" : "?!?");
+                NLOG(("SerialPortPhysicalControl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+                if (!_pContext->bitbang_enabled) {
+                    // Now initialize the chosen device for bit-bang mode, all outputs
+                    if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
+                        NLOG(("SerialPortPhysicalControl: Successfully set GPIO on INTERFACE_") 
+                              << ifaceIdx << "to bitbang mode");
+
+                        if (ftdi_usb_close(_pContext)) {
+                            throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't close USB device: ") 
+                                                        + ftdi_get_error_string(_pContext));
+                        }
+                    }
+                    else
+                    {
+                        throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't set bitbang mode: ") 
+                                                    + ftdi_get_error_string(_pContext));
+                    }
+                }
+                else {
+                    NLOG(("SerialPortPhysicalControl: Already in bitbang mode; proceed to set port config."));    
+                }
+            }
+
+            else
+            {
+                throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't open device")
+                                                    + ftdi_get_error_string(_pContext));
+            }
+        }
+
+        else
+        {
+            std::ostringstream errString("SerialPortPhysicalControl: Failed to get a valid interface ID: ctor portId arg is not valid: ");
+            errString << portId;
+            throw n_u::Exception(errString.str());
+        }
+    }
+
+    else 
+    {
+        throw n_u::Exception("SerialPortPhysicalControl: ctor failed to allocate ftdi_struct");
+    }
+}
 
 SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId, 
                                                      const PORT_TYPES portType, 
@@ -113,21 +180,35 @@ void SerialPortPhysicalControl::applyPortConfig(const bool openDevice)
         }
     }
 
-    unsigned char portConfig;
+    unsigned char _portConfig;
     // get the current port definitions
-    if (ftdi_read_pins(_pContext, &portConfig)) {
+    if (ftdi_read_pins(_pContext, &_portConfig)) {
         throw n_u::Exception("SerialPortPhysicalControl: cannot read the GPIO pins "
                              "on previously opened USB device");
 
     }
 
-    portConfig &= ~adjustBitPosition(_portID, 0xF);
-    portConfig |= adjustBitPosition(_portID, assembleBits(_portType, _term , _powerstate));
+    NLOG(("Applying port type: ") << portTypeToStr(_portType));
+
+    _portConfig &= ~adjustBitPosition(_portID, 0xF);
+    _portConfig |= adjustBitPosition(_portID, assembleBits(_portType, _term , _powerstate));
 
     // Call FTDI API to set the desired port types
-    if (!ftdi_write_data(_pContext, &portConfig, 1)) {
+    if (!ftdi_write_data(_pContext, &_portConfig, 1)) {
         throw n_u::Exception("SerialPortPhysicalControl: cannot write the GPIO pins "
                              "on previously opened USB device");        
+    }
+
+    unsigned char checkConfig = 0;
+
+    if (ftdi_read_pins(_pContext, &checkConfig)) {
+        throw n_u::Exception("SerialPortPhysicalControl: cannot read the GPIO pins "
+                             "after writing the GPIO");        
+    }
+
+    if (checkConfig != _portConfig) {
+        throw n_u::Exception("SerialPortPhysicalControl: the pins written to the GPIO "
+                             "do not match the pins read from the GPIO");        
     }
 
     if (openDevice) {
@@ -160,30 +241,55 @@ unsigned char SerialPortPhysicalControl::assembleBits(const PORT_TYPES portType,
     return bits;
 }
 
-unsigned char SerialPortPhysicalControl::portType2Bits(PORT_TYPES portType) 
+unsigned char SerialPortPhysicalControl::portType2Bits(const PORT_TYPES portType) 
 {
-    unsigned char bits = 0x00;
+    unsigned char bits = 0b11111111;
     switch (portType) {
-        case RS232:
-            bits = 0x01;
-            break;
-
         case RS422:
         case RS485_FULL:
-            bits = 0x10;
+            bits = 0b00000011;
             break;
 
         case RS485_HALF:
-            bits = 0x11;
+            bits = 0b00000010;
             break;
         
-        LOOPBACK:
+        case RS232:
+            bits = 0b00000001;
+            break;
+
+        case LOOPBACK:
         default:
-            bits = 0x00;
+            bits = 0b00000000;
             break;
     }
 
     return bits;
+}
+
+PORT_TYPES SerialPortPhysicalControl::bits2PortType(const unsigned char bits) 
+{
+    PORT_TYPES portType = static_cast<PORT_TYPES>(-1);
+    switch (bits & 0b00000011) {
+        case 0b00000011:
+            portType = RS422;
+            break;
+
+        case 0b00000010:
+            portType = RS485_HALF;
+            break;
+        
+        case 0b00000001:
+            portType = RS232;
+            break;
+
+        case 0b00000000:
+        default:
+            portType = LOOPBACK;
+            break;
+    }
+
+    return portType;
 }
 
 unsigned char SerialPortPhysicalControl::adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) 
@@ -222,6 +328,82 @@ enum ftdi_interface SerialPortPhysicalControl::port2iface(const unsigned int por
 
     return iface;
 }
+
+const std::string SerialPortPhysicalControl::portTypeToStr(const PORT_TYPES portType) 
+{
+    std::string portTypeStr("");
+    switch (portType) {
+        case LOOPBACK:
+            portTypeStr.append(STR_LOOPBACK);
+            break;
+        case RS232:
+            portTypeStr.append(STR_RS232);
+            break;
+        case RS485_HALF:
+            portTypeStr.append(STR_RS485_HALF);
+            break;
+        case RS422:
+        case RS485_FULL:
+            portTypeStr.append(STR_RS422);
+            portTypeStr.append("/");
+            portTypeStr.append(STR_RS485_FULL);
+            break;
+        default:
+            break;
+    }
+
+    return portTypeStr;
+}
+
+
+void SerialPortPhysicalControl::printPortType(const PORT_DEFS port, const bool readFirst)
+{
+    if (readFirst) {
+        NLOG(("SerialPortPhysicalControl: Reading GPIO pin state before reporting them."));
+        if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr)) {
+            enum ftdi_interface iface = port2iface(port);
+            const char* ifaceIdx = (iface==INTERFACE_A ? "A" : iface==INTERFACE_B ? "B" 
+                                    : iface==INTERFACE_C ? "C" : iface==INTERFACE_D ? "D" : "?!?");
+            NLOG(("SerialPortPhysicalControl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+            if (!_pContext->bitbang_enabled) {
+                // Now initialize the chosen device for bit-bang mode, all outputs
+                if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
+                    NLOG(("SerialPortPhysicalControl: Successfully set GPIO on INTERFACE_") 
+                            << ifaceIdx << " to bitbang mode");
+                }
+                else {
+                    throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't set bitbang mode: ") 
+                                                + ftdi_get_error_string(_pContext));
+                }
+            }
+            else {
+                NLOG(("SerialPortPhysicalControl: Already in bitbang mode; proceed to read current GPIO state."));    
+            }
+
+            if (ftdi_read_pins(_pContext, &_portConfig)) {
+                throw n_u::Exception("SerialPortPhysicalControl: cannot read the GPIO pins "
+                                    "on previously opened USB device");
+
+            }
+        }
+        else {
+            throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't open device")
+                                                + ftdi_get_error_string(_pContext));
+        }
+    }
+
+    unsigned char tmpPortConfig = _portConfig;
+    if (port % 2) tmpPortConfig >>= 4;
+    std::cout << "Port" << port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & 0x03)) << std::endl;
+
+    if (readFirst) {
+        if (ftdi_usb_close(_pContext)) {
+            throw n_u::Exception(std::string("SerialPortPhysicalControl: ctor error: Couldn't close USB device: ") 
+                                        + ftdi_get_error_string(_pContext));
+        }
+    }
+}
+
 
 
 
