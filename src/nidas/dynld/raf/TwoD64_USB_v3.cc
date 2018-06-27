@@ -87,7 +87,7 @@ void TwoD64_USB_v3::init_parameters()
 
 int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 {
-   if (tas < DefaultTrueAirspeed)
+    if (tas < DefaultTrueAirspeed)
         tas = DefaultTrueAirspeed;
 
     t2d = (Tap2D_v3 * )t2d;
@@ -96,16 +96,29 @@ int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
     p[1]=(unsigned int)getResolutionMicron();
     return 0;
 }
+
 float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 {
     unsigned short * p = (unsigned short * )t2d;
     return (float)p[0]/10.0;
 }
+
 bool TwoD64_USB_v3::processSOR(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-        return false;
-	//Until we decide how to code this
+    const unsigned char * cp = (const unsigned char*) samp->getConstVoidDataPtr();
+    unsigned int slen = samp->getDataByteLength();
+
+    char buff[256];
+    memcpy(buff, cp, slen);
+    buff[slen] = 0;
+
+cout << "V3::processSOR [" << buff << "]\n";
+    //Until we decide how to code this
+    return false;
+
+
+
     return true;
 }
 
