@@ -109,6 +109,9 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     const unsigned char * cp = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
 
+    if (memcmp(cp, "SOR,", 4))
+        return false;
+
     char buff[256];
     memcpy(buff, cp, slen);
     buff[slen] = 0;
