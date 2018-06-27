@@ -87,6 +87,9 @@ void TwoD64_USB_v3::init_parameters()
 
 int TwoD64_USB_v3::TASToTap2D(void * t2d, float tas)
 {
+   if (tas < DefaultTrueAirspeed)
+        tas = DefaultTrueAirspeed;
+
     t2d = (Tap2D_v3 * )t2d;
     unsigned short * p = (unsigned short * )t2d;
     p[0]=(unsigned int)(tas*10.0);
