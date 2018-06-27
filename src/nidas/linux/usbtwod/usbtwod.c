@@ -270,7 +270,7 @@ static int write_tas(struct usb_twod *dev)
         if ((urb = GET_TAIL(dev->tas_urb_q,TAS_URB_QUEUE_SIZE))) {
                 spin_lock(&dev->taslock);
                 memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
-                if (dev->ptype == TWOD_SOR_TYPE) {
+                if (dev->ptype != TWOD_64_V3) {
                         dev->tasValue.cntr++;
                         dev->tasValue.cntr %= 10;
                 }
@@ -1279,17 +1279,17 @@ static long twod_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 else {
                     retval = 0;
                     spin_lock_bh(&dev->taslock);
-                    if (dev->ptype == TWOD_SOR_TYPE) {
-                        dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
-                        dev->tasValue.div10 = tasValue.div10;
-                        dev->tasValue.cntr = 0;
-                    }
-                    else
-                    {
+                    if (dev->ptype == TWOD_64_V3) {
                         unsigned short *dp = (unsigned short *)&dev->tasValue;
                         unsigned short *sp = (unsigned short *)&tasValue;
                         dp[0] = cpu_to_le16(sp[0]);
                         dp[1] = cpu_to_le16(sp[1]);
+                    }
+                    else
+                    {
+                        dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
+                        dev->tasValue.div10 = tasValue.div10;
+                        dev->tasValue.cntr = 0;
                     }
                     spin_unlock_bh(&dev->taslock);
                   }
@@ -1469,11 +1469,6 @@ static int twod_probe(struct usb_interface *interface,
          */
         switch(dev->ptype) {
                 case TWOD_64_V3:
-                        /*retval = usb_register_dev(interface, &usbtwod_64_v3);
-                        sprintf(dev->dev_name, "/dev/usbtwod_64_v3_%d (%x/%x)",
-                                interface->minor - USB_TWOD_64_V3_MINOR_BASE,
-                                id->idVendor, id->idProduct);
-                        break;*/
        	  	case TWOD_64:
             		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
@@ -1515,8 +1510,6 @@ static void twod_disconnect(struct usb_interface *interface)
         /* give back our minor */
 	switch(dev->ptype) {
 	case TWOD_64_V3:
-	/*	usb_deregister_dev(interface, &usbtwod_64_v3);
-		break;*/
 	case TWOD_64:
 		usb_deregister_dev(interface, &usbtwod_64);
 		break;
