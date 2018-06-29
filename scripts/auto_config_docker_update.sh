@@ -1,10 +1,10 @@
-#!/usr/bin/bash
+#!/bin/bash
 # 
 # This script is used to update the docker container on the fly so that auto-config builds in Nidas.
 #
 
 # install libusb-1.0
-apt-get -y install libusb-1.0am:armhf
+apt-get -y install libusb-1.0:armhf
 
 # install ftdi
 # get build essentials
