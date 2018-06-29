@@ -37,11 +37,14 @@ const char* SerialPortPhysicalControl::STR_RS232 = "RS232";
 const char* SerialPortPhysicalControl::STR_RS422 = "RS422";
 const char* SerialPortPhysicalControl::STR_RS485_HALF = "RS485_HALF";
 const char* SerialPortPhysicalControl::STR_RS485_FULL = "RS485_FULL";
-
+const char* SerialPortPhysicalControl::STR_NO_TERM = "NO_TERM";
+const char* SerialPortPhysicalControl::STR_TERM_120_OHM = "TERM_120_OHM";
+const char* SerialPortPhysicalControl::STR_POWER_ON = "POWER_ON";
+const char* SerialPortPhysicalControl::STR_POWER_OFF = "POWER_OFF";
 
 
 SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId)
-: _portID(portId), _portType(LOOPBACK), _term(TERM_IGNORE), _powerstate(SENSOR_POWER_ON), 
+: _portID(portId), _portType(LOOPBACK), _term(NO_TERM), _powerstate(SENSOR_POWER_ON), 
   _portConfig(0), _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
 {
     if (_pContext)
@@ -230,12 +233,15 @@ unsigned char SerialPortPhysicalControl::assembleBits(const PORT_TYPES portType,
                                                       const SENSOR_POWER_STATE powerState)
 {
     unsigned char bits = portType2Bits(portType);
-    if (term == TERM_96k_OHM) {
-        bits |= 1 << 2;
+
+    if (portType == RS422 || portType == RS485_HALF || portType == RS485_FULL) {
+        if (term == TERM_120_OHM) {
+            bits |= TERM_120_OHM_BIT;
+        }
     }
 
-    if (powerState) {
-        bits |= 1 << 3;
+    if (powerState == SENSOR_POWER_ON) {
+        bits |= SENSOR_POWER_ON_BIT;
     }
 
     return bits;
@@ -247,20 +253,20 @@ unsigned char SerialPortPhysicalControl::portType2Bits(const PORT_TYPES portType
     switch (portType) {
         case RS422:
         case RS485_FULL:
-            bits = 0b00000011;
+            bits = RS422_RS485_BITS;
             break;
 
         case RS485_HALF:
-            bits = 0b00000010;
+            bits = RS485_HALF_BITS;
             break;
         
         case RS232:
-            bits = 0b00000001;
+            bits = RS232_BITS;
             break;
 
         case LOOPBACK:
         default:
-            bits = 0b00000000;
+            bits = LOOPBACK_BITS;
             break;
     }
 
@@ -271,19 +277,19 @@ PORT_TYPES SerialPortPhysicalControl::bits2PortType(const unsigned char bits)
 {
     PORT_TYPES portType = static_cast<PORT_TYPES>(-1);
     switch (bits & 0b00000011) {
-        case 0b00000011:
+        case RS422_RS485_BITS:
             portType = RS422;
             break;
 
-        case 0b00000010:
+        case RS485_HALF_BITS:
             portType = RS485_HALF;
             break;
         
-        case 0b00000001:
+        case RS232_BITS:
             portType = RS232;
             break;
 
-        case 0b00000000:
+        case LOOPBACK_BITS:
         default:
             portType = LOOPBACK;
             break;
@@ -355,8 +361,39 @@ const std::string SerialPortPhysicalControl::portTypeToStr(const PORT_TYPES port
     return portTypeStr;
 }
 
+const std::string SerialPortPhysicalControl::termToStr(unsigned char termCfg) 
+{
+    std::string termStr("");
+    switch (termCfg) {
+        case TERM_120_OHM_BIT:
+            termStr.append(STR_TERM_120_OHM);
+            break;
+        case NO_TERM:
+        default:
+            termStr.append(STR_NO_TERM);
+            break;
+    }
 
-void SerialPortPhysicalControl::printPortType(const PORT_DEFS port, const bool readFirst)
+    return termStr;
+}
+
+const std::string SerialPortPhysicalControl::powerToStr(unsigned char powerCfg) 
+{
+    std::string powerStr("");
+    switch (powerCfg) {
+        case SENSOR_POWER_ON_BIT:
+            powerStr.append(STR_POWER_ON);
+            break;
+        case SENSOR_POWER_OFF:
+        default:
+            powerStr.append(STR_POWER_OFF);
+            break;
+    }
+
+    return powerStr;
+}
+
+void SerialPortPhysicalControl::printPortConfig(const PORT_DEFS port, const bool addNewline, const bool readFirst)
 {
     if (readFirst) {
         NLOG(("SerialPortPhysicalControl: Reading GPIO pin state before reporting them."));
@@ -394,7 +431,12 @@ void SerialPortPhysicalControl::printPortType(const PORT_DEFS port, const bool r
 
     unsigned char tmpPortConfig = _portConfig;
     if (port % 2) tmpPortConfig >>= 4;
-    std::cout << "Port" << port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & 0x03)) << std::endl;
+    std::cout << "Port" << port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
+                                << " | " << termToStr(tmpPortConfig & TERM_120_OHM_BIT)
+                                << " | " << powerToStr(tmpPortConfig & SENSOR_POWER_ON_BIT);
+    if (addNewline) {
+        std::cout << std::endl;
+    }
 
     if (readFirst) {
         if (ftdi_usb_close(_pContext)) {

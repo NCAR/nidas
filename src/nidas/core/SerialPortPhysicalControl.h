@@ -43,7 +43,7 @@ typedef enum {PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7} PORT_DEF
 /*
  * Serial termination settings for RS422/RS485
  */
-typedef enum {TERM_IGNORE,TERM_96k_OHM, TERM_100_OHM} TERM;
+typedef enum {NO_TERM=0, TERM_120_OHM} TERM;
 
 /*
  * Sensor power setting
@@ -97,8 +97,12 @@ public:
     void setBusAddress(const int busId=1, const int deviceId=6);
     // This utility converts a binary PORT_TYPE to a string
     const std::string portTypeToStr(const PORT_TYPES portType);
+    // This utility converts a binary term configuration to a string
+    const std::string termToStr(unsigned char termCfg); 
+    // This utility converts a binary power configuration to a string
+    const std::string powerToStr(unsigned char powerCfg); 
     // This utility prints the port types for a particular port.
-    void printPortType(const PORT_DEFS port, const bool readFirst=true);
+    void printPortConfig(const PORT_DEFS port, const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of PORT_DEFS
     static PORT_DEFS int2PortDef(const unsigned portNum) 
@@ -123,12 +127,24 @@ protected:
 private:
     // At present there are only 7 available ports on a DSM
     static const PORT_DEFS MAX_PORT = PORT7;
-    // String-ize port types
+    // String-ize config values
     static const char* STR_LOOPBACK;
     static const char* STR_RS232;
     static const char* STR_RS422;
     static const char* STR_RS485_HALF;
     static const char* STR_RS485_FULL;
+    static const char* STR_NO_TERM;
+    static const char* STR_TERM_120_OHM;
+    static const char* STR_POWER_OFF;
+    static const char* STR_POWER_ON;
+
+    static const unsigned char LOOPBACK_BITS = 0b00000000;
+    static const unsigned char RS232_BITS = 0b00000001;
+    static const unsigned char RS485_HALF_BITS = 0b00000010;
+    static const unsigned char RS422_RS485_BITS = 0b00000011;
+    static const unsigned char TERM_120_OHM_BIT = 0b00000100;
+    static const unsigned char SENSOR_POWER_ON_BIT = 0b00001000;
+    
 
     // The port this instance is tasked with managing (0-7)
     PORT_DEFS _portID;

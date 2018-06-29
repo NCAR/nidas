@@ -56,6 +56,8 @@ proj_configs
 rserial
 sensor_extract
 sensor_sim
+serstress
+sing
 statsproc
 status_listener
 sync_server
@@ -110,7 +112,7 @@ except OSerror:
 ncenv.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
-env.NidasUtilProgram('sing.cc')
+#env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
     env.NidasUtilProgram('tee_i2c.cc')

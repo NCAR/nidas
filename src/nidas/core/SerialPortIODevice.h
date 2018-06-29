@@ -65,7 +65,7 @@ public:
      */
     SerialPortIODevice():
         UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0),
-        _portType(RS232),_term(TERM_IGNORE),_pSerialControl(0)
+        _portType(RS232),_term(NO_TERM),_pSerialControl(0)
     {
         _termios.setRaw(true);
         _termios.setRawLength(1);
@@ -76,7 +76,7 @@ public:
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    SerialPortIODevice(const std::string& name, const PORT_TYPES portType = RS232, const TERM term=TERM_IGNORE);
+    SerialPortIODevice(const std::string& name, const PORT_TYPES portType = RS232, const TERM term=NO_TERM);
 
     /**
      * Destructor. Does not close the device.

@@ -45,7 +45,7 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
-    _termios(),_serialDevice(0),_portType(RS232), _term(TERM_IGNORE), _prompters(),_prompting(false),
+    _termios(),_serialDevice(0),_portType(RS232), _term(NO_TERM), _prompters(),_prompting(false),
     _rts485(0)
 {
     setDefaultMode(O_RDWR);
@@ -268,8 +268,8 @@ void SerialSensor::fromDOMElement(
                         aname,aval);
         }
         else if (aname == "termination") {
-            if (aval == "TERM_100_OHM") _term = TERM_100_OHM;
-            else if (aval == "TERM_96K_OHM") _term = TERM_96k_OHM;
+            if (aval == "NO_TERM") _term = NO_TERM;
+            else if (aval == "TERM_120_OHM") _term = TERM_120_OHM;
             else throw n_u::InvalidParameterException(
                         string("SerialSensor:") + getName(),
                         aname,aval);

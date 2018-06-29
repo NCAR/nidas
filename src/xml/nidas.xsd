@@ -34,8 +34,8 @@
 
 <xsd:simpleType> name="terminationtype">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="TERM_96K_OHM"/>
-        <xsd:enumeration value="TERM_100_OHM"/>
+        <xsd:enumeration value="NO_TERM"/>
+        <xsd:enumeration value="TERM_120_OHM"/>
     </xsd:restriction>
 </xsd:simpleType>
 
