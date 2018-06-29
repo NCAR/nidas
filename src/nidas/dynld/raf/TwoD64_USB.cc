@@ -363,7 +363,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (cp[1] == _syncString[1] && (cp[2] & _dofMask)==0 ) {
+                if (cp[1] == _syncString[1] && (cp[2] & _dofMask) == 0) {
                     // syncword
                     _totalParticles++;
 #ifdef SLICE_DEBUG
@@ -515,9 +515,11 @@ bool TwoD64_USB::process(const Sample * samp,
         case TWOD_IMG_TYPE:
         case TWOD_IMGv2_TYPE:
             result = processImageRecord(samp, results, stype);
+            break;
         case TWOD_SOR_TYPE:	// Shadow-or counter.
         case TWOD_SORv3_TYPE:	// Housekeeping 
             result = processSOR(samp, results);
+            break;
     }
 
     static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
