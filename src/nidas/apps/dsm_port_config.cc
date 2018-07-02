@@ -167,12 +167,13 @@ struct Arg: public option::Arg
     }
 };
 
-enum  optionIndex { UNKNOWN, HELP, PORT, TYPE };
+enum  optionIndex { UNKNOWN, HELP, DISPLAY, PORT, TYPE };
 const option::Descriptor usage[] =
 {
     {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: dsm_port_config [options]\n\n"
                                             "Options:" },
     {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
+    {DISPLAY, 0, "d", "display", Arg::None, "  --display, -d  \tRead and display only" },
     {PORT, 0, "p", "port", Arg::PortNum, "  --port, -p  \tSpecify port index 0-7." },
     {TYPE, 0, "t", "type", Arg::PortType,   "  --type, -t  \tSpecify port type:\n"
                                             "    LOOPBACK\n"
@@ -323,6 +324,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if(options[DISPLAY]) {
+
+    }
+
     int portOpt;
 
     PORT_DEFS port = (PORT_DEFS)-1;
@@ -371,6 +376,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    if(options[DISPLAY]) {
+        
+    }
+
     if (options[TYPE]) 
     {
         std::string portStr(options[TYPE].arg);
@@ -382,17 +391,19 @@ int main(int argc, char* argv[]) {
         else if (portStr == ARG_RS485_FULL) portType = RS485_RS422_FULL;
         else
         {
-            std::cerr << "Unknown/Illegal/Missing port type argumeent.\n" << std::endl;
-            option::printUsage(std::cout, usage);
-            return 1;
+                std::cerr << "Unknown/Illegal/Missing port type argumeent.\n" << std::endl;
+                option::printUsage(std::cout, usage);
+                return 1;
         }
     }
 
     else
     {
-        std::cerr << "Must supply a port type option on the command line.\n" << std::endl;
-        option::printUsage(std::cout, usage);
-        return 1;
+        if (!options[DISPLAY]) {
+            std::cerr << "Must supply a port type option on the command line.\n" << std::endl;
+            option::printUsage(std::cout, usage);
+            return 1;
+        }
     }
 
     // vid and pid of FT4243H devices
@@ -408,8 +419,8 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 
-    std::cout << std::endl << "Opening device on USB bus: " << bus << " device id: " << device;
-    if (!ftdi_usb_open_bus_addr(c_context, bus, device))
+    std::cout << std::endl << "Opening FT4232H device with description: FT4232H NCAR. Found device: ";
+    if (!ftdi_usb_open_desc(c_context, 0x0403, 0x6011, "FT4232H NCAR", 0))
     {
         char manuf[80];
         char descript[80];
@@ -428,6 +439,11 @@ int main(int argc, char* argv[]) {
         ftdi_read_pins(c_context, &portTypeDefs);
         std::cout << std::endl << "Initial Port Definitions" << std::endl << "========================" << std::endl;
         printPortDefs(iface);
+
+        if(options[DISPLAY]) {
+            // don't do anything else
+            return 0;
+        }
 
         // Set the port type for the desired port 
         setPortType(port, portType);
