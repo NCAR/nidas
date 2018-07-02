@@ -66,6 +66,9 @@ using nidas::util::LogConfig;
 static const bool SENDING = true;
 static const bool ECHOING = false;
 
+static int baudStartIdx = 0;
+static int baudTableSize = 1;
+
 static float rate = -2.0;
 static unsigned int debug = 0;
 static bool ascii = false;
@@ -758,8 +761,29 @@ int parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "d:hn:o:pr:s:t:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:d:hn:o:pr:s:t:v")) != -1) {
         switch (opt_char) {
+        case 'b':
+        {
+            int startBaud = atoi(optarg);
+            // cout << "startBaud:" << startBaud << " baudTableSize:" << baudTableSize;
+            for (int i=1; i<baudTableSize; ++i) {
+                if (n_u::Termios::bauds[i].rate == startBaud) {
+                    // cout << "Found starting baud rate!" << endl;
+                    baudStartIdx = i;
+                    break;
+                }
+            }
+
+            cout << " baudStartIdx:" << baudStartIdx << endl;
+            if (!baudStartIdx) {
+                cout << "Unknown starting baud rate!!" << endl;
+                usage(argv[0]);
+                exit(2);
+            }
+            break;
+        }
+
         case 'd':
             debug = atoi(optarg);
             break;
@@ -873,7 +897,7 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
         // timeout is based on how long it takes an entire packet to get to the receiver
         // so it indicates a sender stall or other comm error.
         // double it and then some to handle the roundtrip case for the sender receiver.
-        rcvrTimeout = rint(2.5*bytesPerPacket/bytesPerSec); 
+        rcvrTimeout = max( 1, static_cast<int>(rint(2.5*bytesPerPacket/bytesPerSec)));
     }
 
     // only want to report this once
@@ -957,6 +981,9 @@ int main(int argc, char**argv)
     int senderPortNum = -1;
     int echoPortNum = -1;
 
+    // Need to know number of entries in the baudrate table.
+    for (int k=1; n_u::Termios::bauds[k].rate > 0; ++k, ++baudTableSize);
+
     if (parseRunstring(argc,argv)) return 1;
 
     Logger* logger = 0;
@@ -977,9 +1004,6 @@ int main(int argc, char**argv)
     setupSignals();
 
     // determine size of baud table since it's static in class Terimios, and only the declaration is available
-    int baudTableSize = 1;
-    for (; n_u::Termios::bauds[baudTableSize].rate > 0; ++baudTableSize);
-
     if (device.substr(0,11) == "/dev/ttyUSB"){
 
         istringstream(device.substr(11)) >> senderPortNum;
@@ -1001,10 +1025,20 @@ int main(int argc, char**argv)
     cout << "Echo: ";
     echoPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
 
+    // save a virgin copy
+    string tempTermiosOpts = termioOpts;
+
     for (int i=0; i<3; ++i) {
         portType = portTypeList[i];
 
-        for (int j=1; j < baudTableSize; ++j) { // skip 0 baud!!
+        for (int j=baudStartIdx; j < baudTableSize; ++j) { // skip 0 baud!!
+
+            // convert rate integer to string
+            ostringstream baudStr;
+            baudStr << n_u::Termios::bauds[j].rate;
+            termioOpts = baudStr.str();
+            termioOpts.append(tempTermiosOpts);
+
             cout << endl << "Requested port type: " << senderPortModeControl.portTypeToStr(portType) << endl;
             senderPortModeControl.setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
             senderPortModeControl.applyPortConfig();
