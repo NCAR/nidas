@@ -49,9 +49,7 @@ namespace n_u = nidas::util;
 using nidas::util::endlog;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
-
-
-TwoD64_USB_v3::TwoD64_USB_v3()
+TwoD64_USB_v3::TwoD64_USB_v3():_nvars(0)
 {
      _probeClockRate=33;                    //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits
@@ -66,19 +64,16 @@ void TwoD64_USB_v3::init_parameters()
     throw(n_u::InvalidParameterException)
 {
     TwoD_USB::init_parameters();
-    /* Look for a sample tag with id=2. This is assumed to be
-     * the shadowOR sample.  Check its rate.
-     */
     float sorRate = 0.0;
     list<SampleTag *>& tags = getSampleTags();
     list<SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;
         Variable & var = ((SampleTag *)tag)->getVariable(2);
-
         if (var.getName().compare(0, 5, "SHDOR") == 0) {
             sorRate = tag->getRate();
             _sorID = tag->getId();
+            break;
         }
     }
     if (sorRate <= 0.0) throw n_u::InvalidParameterException(getName(),
@@ -103,25 +98,56 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
     return (float)p[0]/10.0;
 }
 
-bool TwoD64_USB_v3::processSOR(const Sample * samp,
-                           list < const Sample * >&results) throw()
+void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 {
-    const unsigned char * cp = (const unsigned char*) samp->getConstVoidDataPtr();
+    TwoD64_USB::validate();
+ 
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+        if(stag->getSampleId()==1) {
+            _nvars = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
+            if (_nvars != 10) {
+                throw n_u::InvalidParameterException(getName(),
+                "unexpected number of variables", " in processSOR sample"); 
+            }
+        }
+    }
+}
+
+bool TwoD64_USB_v3::processSOR(const Sample * samp,
+                           list < const Sample * >& results) throw()
+{
+    const char * input = (const char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
 
-    if (memcmp(cp, "SOR,", 4))
+    if (slen < 4 || memcmp(input, "SOR,", 4)){
+        cout<<"Twod64v3 processSOR returning false. slen = "<<slen<<endl;
         return false;
+    }
+    char sep = ',';
+    SampleT<float>* outs = getSample<float>(_nvars);
+    float * dout = outs->getDataPtr();
+    float data=floatNAN;
+    int iout = 0;
+ 
+    outs->setTimeTag(samp->getTimeTag());
+    outs->setId(_sorID);
+    for (size_t ifield = 0; ifield < _nvars; ifield++){
+        if (input == NULL)break;
+	const char * cp = ::strchr(input,sep);  
+        cp++; 
+        //First input will be the second char to skip "SOR,"
+        if(ifield != 0 &&  sscanf(input, "%f", &data) == 1)
+        { 
+            dout[iout++] = double(data);
+        }
+         input=cp;
+    }
 
-    char buff[256];
-    memcpy(buff, cp, slen);
-    buff[slen] = 0;
-
-cout << "V3::processSOR [" << buff << "]\n";
-    //Until we decide how to code this
-    return false;
-
-
-
+    results.push_back(outs);
     return true;
 }
 

@@ -49,6 +49,12 @@ public:
     virtual int TASToTap2D(void * t2d, float tas);
 
     virtual float Tap2DToTAS(const Tap2D * t2d) const;
+    
+    void validate() throw(nidas::util::InvalidParameterException);
+
+private:
+    
+    size_t _nvars;
 
 protected:
     virtual void init_parameters()
