@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2011, Copyright University Corporation for Atmospheric Research
+ ** 2006, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -23,19 +23,25 @@
  **
  ********************************************************************
 */
+
 #ifndef NIDAS_CORE_SERIALPORTIODEVICE_H
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include "UnixIODevice.h"
+#include "SerialPortPhysicalControl.h"
 #include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/Termios.h>
+#include <nidas/util/IOException.h>
 
+
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string>
+#include <iostream>
 #include <sys/ioctl.h>
-
-#include "SerialPortPhysicalControl.h"
 
 #ifdef DEBUG
 #include <iostream>
@@ -43,34 +49,25 @@
 
 namespace nidas { namespace core {
 
-class SerialPortPhysicalControl;
-
 /**
  *  A serial port and all associated configurations. Typically these are enumerated by the 
  *  ftdi_sio kernel module at boot as /dev/ttyUSB[0...]. Standard unix termios operations 
  *  and sometimes IOCTL are used to set up various UART parameters like baud, num/start/stop 
  *  bits and so forth. 
  *  
- *  In the past, the EXAR SP339 serial drivers were configured for the port type prior to 
+ *  In the past, the serial drivers line were configured for the port type prior to 
  *  deployment via manually installed jumpers. Now there is GPIO to manage this task, and so 
- *  serial ports need to configure the EXAR SP339 drivers to support the desired serial 
+ *  serial ports need to configure the serial line drivers to support the desired serial 
  *  port type, termination and power status. 
- */
-class SerialPortIODevice : public UnixIODevice {
+ */class SerialPortIODevice : public UnixIODevice
+{
 
 public:
 
     /**
      * Constructor. Does not open any actual device.
      */
-    SerialPortIODevice():
-        UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0),
-        _portType(RS232),_term(NO_TERM),_pSerialControl(0)
-    {
-        _termios.setRaw(true);
-        _termios.setRawLength(1);
-        _termios.setRawTimeout(0);
-    }
+    SerialPortIODevice();
 
     /**
      * Constructor, passing the name of the device. Does not open
@@ -79,24 +76,80 @@ public:
     SerialPortIODevice(const std::string& name, const PORT_TYPES portType = RS232, const TERM term=NO_TERM);
 
     /**
-     * Destructor. Does not close the device.
+     * Copy constructor.  The attributes of the port are copied,
+     * but if the original is opened, the copy will not be
+     * opened.
      */
-    ~SerialPortIODevice() {}
+    SerialPortIODevice(const SerialPortIODevice&);
 
     /**
-     * open the device.
+     * Constructor, given a device name. The device is *NOT* opened, mainly
+     * just to avoid throwing an exception in the constructor. Perhaps
+     * that should be changed.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    SerialPortIODevice(const std::string& name);
 
     /**
-     * Apply the current Termios to an opened port.
+     * For serial port that is already open (stdin for example).
+     * */
+    SerialPortIODevice(const std::string& name, int fd);
+
+    /**
+     * Does not close the file descriptor if is is open.
      */
-    void applyTermios() throw(nidas::util::IOException)
+    virtual ~SerialPortIODevice();
+
+    /* Some constructors don't set the name right away. So set it
+     * and then check whether or not it needs a port control object.
+     */
+    virtual void setName(const std::string& name)
+    {
+        UnixIODevice::setName(name);
+        checkPortControlRequired(name);
+    }
+
+    /**
+     * Writable reference to the SerialPortIODevice's Termios.
+     * If the SerialPortIODevice is open, the user should call
+     * applyTermios() for any modifications to take effect.
+     */
+    nidas::util::Termios& termios() { return _termios; }
+    
+    /**
+     * Readonly reference to Termios.
+     */
+    const nidas::util::Termios& getTermios() const { return _termios; }
+
+    /**
+     * Apply the Termios settings to an opened serial port.
+     */
+    void applyTermios()
     {
         _termios.apply(_fd,getName());
     }
 
-    nidas::util::Termios& termios() { return _termios; }
+    /**
+     * open the serial port. The current Termios settings
+     * are also applied to the port.
+     */
+    void open(int flags = O_RDONLY) throw(nidas::util::IOException);
+
+    /**
+     * close the file descriptor.
+     */
+    void close() throw(nidas::util::IOException);
+
+    int getFd() const { return _fd; }
+
+    /* 
+     * Check whether this serial port is using a device which needs port control
+     */
+    void checkPortControlRequired(const std::string& name);
+
+    /**
+     *  Get the SerialPortPhysicalControl object for direct updating
+     */
+    SerialPortPhysicalControl* getPortControl() {return _pSerialControl;}
 
     /**
      *  Set and retrieve the _portType member attribute 
@@ -108,7 +161,7 @@ public:
      *  Commands the serial board to set the GPIO switches to configure for 
      *  the port type specified in the _portType member attribute.
      */
-    void applyPortType() throw(nidas::util::IOException);
+    void applyPortType();
 
    /**
      * Calculate the transmission time of each byte from this
@@ -181,12 +234,109 @@ public:
      * Use 232 or 422 if you need read/write.
      *
      */
-    void setRTS485(int val) throw(nidas::util::IOException);
+    void setRTS485(int val);
 
     /**
-     * Write to the device.
+     * Get the current state of the modem bits.
+     * Do "man tty_ioctl" from Linux for more information.
+     * These macros are useful for checking/setting the value of
+     * of individual bits:
+     * @code
+     TIOCM_LE        DSR (data set ready/line enable)
+     TIOCM_DTR       DTR (data terminal ready)
+     TIOCM_RTS       RTS (request to send)
+     TIOCM_ST        Secondary TXD (transmit)
+     TIOCM_SR        Secondary RXD (receive)
+     TIOCM_CTS       CTS (clear to send)
+     TIOCM_CAR       DCD (data carrier detect)
+     TIOCM_CD         see TIOCM_CAR
+     TIOCM_RNG       RNG (ring)
+     TIOCM_RI         see TIOCM_RNG
+     TIOCM_DSR       DSR (data set ready)
+     * @endcode
      */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException);
+    int getModemStatus();
+
+    /**
+     * Set the current state of the modem bits.
+     */
+    void setModemStatus(int val);
+
+    /**
+     * Clear the indicated modem bits.
+     */
+    void clearModemBits(int val);
+
+    /**
+     * Set the indicated modem bits.
+     */
+    void setModemBits(int val);
+
+    bool getCarrierDetect();
+
+    static std::string modemFlagsToString(int modem);
+
+    void setBlocking(bool val);
+    bool getBlocking();
+
+    /**
+     * Do a tcdrain() system call on the device. According to the tcdrain man page, it
+     * "waits until all output written to the object referred to by fd has been transmitted".
+     */
+    void drain();
+
+    /**
+     * Do a tcflush() system call on the device. According to the tcflush man page, it
+     * "discards data received but not read".
+     */
+    void flushInput();
+
+    /**
+     * Do a tcflush() system call on the device. According to the tcflush man page, it
+     * "discards data written to the object referred to by fd but not transmitted".
+     */
+    void flushOutput();
+
+    void flushBoth();
+
+    int timeoutOrEOF() const { return _state == TIMEOUT_OR_EOF; }
+
+    /**
+     * Read bytes until either the term character is read, or len-1 number
+     * of characters have been read. buf will be null terminated.
+     *
+     */
+    virtual int readUntil(char *buf,int len,char term);
+
+    /**
+     * Do a readUntil with a newline terminator.
+     */
+    virtual int readLine(char *buf,int len);
+
+    virtual int read(char *buf,int len) throw(nidas::util::IOException);
+
+    virtual char readchar();
+
+    virtual int write(const void *buf,int len) throw(nidas::util::IOException);
+
+    /**
+     * Static utility that creates a pseudo-terminal, returning the
+     * file descriptor of the master side and creating a symbolic
+     * link with the given name to the slave side.
+     * @param linkname: Name of symbolic link to be created that links to the
+     *	slave side of the pseudo-terminal. If a symbolic link already exists
+     *	with that name it will be removed and re-created. If linkname already
+     *	exists and it isn't a symbolic link, an error will be returned.
+     * @return The file descriptor of the master side of the pseudo-terminal.
+     *
+     * Note: the symbolic link should be deleted when the file descriptor to
+     * the master pseudo-terminal is closed. Otherwise, because of the way
+     * the system recycles pseudo-terminal devices, the link may at some
+     * time point to a different pseudo-terminal, probably created by a
+     * different process, like sshd. Opening and reading/writing to the symbolic
+     * link would then effect the other process, if the open was permitted.
+     */
+    static int createPtyLink(const std::string& linkname);
 
 protected:
 
@@ -202,9 +352,22 @@ protected:
 
     SerialPortPhysicalControl* _pSerialControl;
 
-    // do not copy
-    SerialPortIODevice(const SerialPortIODevice&);
-    const SerialPortIODevice& operator=(const SerialPortIODevice&);
+    /**
+     * No assignment.
+     */
+    SerialPortIODevice& operator=(const SerialPortIODevice&);
+
+    enum state { OK, TIMEOUT_OR_EOF} _state;
+
+    char *_savep;
+
+    char *_savebuf;
+
+    int _savelen;
+
+    int _savealloc;
+
+    bool _blocking;
 };
 
 }}	// namespace nidas namespace core

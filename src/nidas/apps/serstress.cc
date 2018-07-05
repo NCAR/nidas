@@ -35,7 +35,7 @@
 #include <nidas/util/BasicRunningStats.h>
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/SerialPort.h>
+#include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
@@ -84,9 +84,9 @@ static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
 static n_c::PORT_TYPES portType;
-static n_u::SerialPort port;
+static n_c::SerialPortIODevice port;
 static string shortName;
-static n_u::SerialPort echoPort;
+static n_c::SerialPortIODevice echoPort;
 static string echoShortName;
 
 /**
@@ -486,7 +486,8 @@ void Receiver::reallocateBuffer(int len)
 
 int Receiver::run() throw(n_u::IOException)
 {
-    n_u::SerialPort& myPort = _sender ? port : echoPort;
+    // Am I the Sender Receiver or the Echo Receiver?
+    n_c::SerialPortIODevice& myPort = _sender ? port : echoPort;
     string& myDevice = _sender ? device : echoDevice;
 
     fd_set readfds;
@@ -497,7 +498,7 @@ int Receiver::run() throw(n_u::IOException)
     n_u::Termios tio = myPort.getTermios();
 
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
-    ILOG(("Current modem status: ") << port.modemFlagsToString(port.getModemStatus()));
+    ILOG(("Current modem status: ") << myPort.modemFlagsToString(myPort.getModemStatus()));
 
     for ( ; isInterrupted() || !interrupted; ) {
         timeout.tv_sec = _timeoutSecs;
@@ -533,7 +534,7 @@ int Receiver::run() throw(n_u::IOException)
  */
 int Receiver::scanBuffer()
 {
-    n_u::SerialPort& myPort = _sender ? port : echoPort;
+    n_c::SerialPortIODevice& myPort = _sender ? port : echoPort;
     struct timeval tnow;
 
     int plen;
@@ -644,7 +645,6 @@ int Receiver::scanBuffer()
     return 0;
 }
 
-// just a "things are happenin' indicator"
 void Receiver::miniReport()
 {
     if (_sender) {
@@ -656,6 +656,7 @@ void Receiver::miniReport()
     }
 }
 
+// just a "things are happenin' indicator"
 void Receiver::activityIndicator()
 {
     static int charIdx = 0;
@@ -819,7 +820,7 @@ int parseRunstring(int argc, char** argv)
     if (optind == argc - 2) {
         device = string(argv[optind++]);
         echoDevice = string(argv[optind++]);
-        if (device.length() == 0 || echoDevice.length() == 0) {
+        if (device == echoDevice || device.length() == 0 || echoDevice.length() == 0) {
             return usage(argv[0]);
         }
     }
@@ -830,11 +831,11 @@ int parseRunstring(int argc, char** argv)
 
 void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException, n_u::ParseException)
 {
-    n_u::SerialPort& myPort = isSender ? port : echoPort;
+    n_c::SerialPortIODevice& myPort = isSender ? port : echoPort;
     string& myShortName = isSender ? shortName : echoShortName;
     string& myDevice = isSender ? device : echoDevice;
 
-    myPort.setName(myDevice);
+    // myPort.setName(myDevice);
 
     // remove common "/dev/tty" prefix from device name to shorten output
     myShortName = myDevice;
@@ -879,18 +880,8 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
         }
     }
 
-    // Going slower than the fastest possible fullPcktRate? Calculate a delay to wait 
-    // until it's time to send out the next packet.
-    // NOTE: This doesn't account for any Linux or device buffering which can be significant!
-    if (calcRate < fullPcktRate) {
-            periodMsec = static_cast<int>(rint((1/calcRate) - (1/fullPcktRate)));
-    }
-
-    else
-    {
-        periodMsec = 0;
-    }
-
+    // Always assume we can write to the buffer far faster than the serial port can send it...
+    periodMsec = static_cast<int>(rint(1000/calcRate));
     // timeoutSecs value >= 0 comes from the command line, use it.
     // else calculate it.
     if (timeoutSecs < 0) {
@@ -927,7 +918,7 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
 
 void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
 {
-    n_u::SerialPort& myPort = isSender ? port : echoPort;
+    n_c::SerialPortIODevice& myPort = isSender ? port : echoPort;
     myPort.flushBoth();
     myPort.close();
 }
@@ -981,7 +972,7 @@ int main(int argc, char**argv)
     int senderPortNum = -1;
     int echoPortNum = -1;
 
-    // Need to know number of entries in the baudrate table.
+    // determine size of baud table since it's static in class Terimios, and only the declaration is available
     for (int k=1; n_u::Termios::bauds[k].rate > 0; ++k, ++baudTableSize);
 
     if (parseRunstring(argc,argv)) return 1;
@@ -1003,27 +994,37 @@ int main(int argc, char**argv)
     cout << endl << "Serial Option String: " << termioOpts << endl;
     setupSignals();
 
-    // determine size of baud table since it's static in class Terimios, and only the declaration is available
     if (device.substr(0,11) == "/dev/ttyUSB"){
 
         istringstream(device.substr(11)) >> senderPortNum;
+        port.setName(device);
     }
 
     if (echoDevice.substr(0,11) == "/dev/ttyUSB"){
         istringstream(echoDevice.substr(11)) >> echoPortNum;
+        echoPort.setName(echoDevice);
     }
 
     ILOG(("Setting up port type for Sender port: ") << senderPortNum);
     ILOG(("Setting up port type for Echo port: ") << echoPortNum);
-    
-    n_c::SerialPortPhysicalControl senderPortModeControl(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
-    n_c::SerialPortPhysicalControl echoPortModeControl(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
 
+    n_c::SerialPortPhysicalControl* pSenderControl = port.getPortControl();
+    if (!pSenderControl) {
+        ELOG(("No Sender port control object!!"));
+        return(3);
+    }
+    
+    n_c::SerialPortPhysicalControl* pEchoControl = echoPort.getPortControl();
+    if (!pEchoControl) {
+        ELOG(("No Echo port control object!!"));
+        return(3);
+    }
+    
     cout << "Initial Port Configuration" << endl << "======================" << endl;
     cout << "Sender: ";
-    senderPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+    pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
     cout << "Echo: ";
-    echoPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+    pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
 
     // save a virgin copy
     string tempTermiosOpts = termioOpts;
@@ -1039,17 +1040,17 @@ int main(int argc, char**argv)
             termioOpts = baudStr.str();
             termioOpts.append(tempTermiosOpts);
 
-            cout << endl << "Requested port type: " << senderPortModeControl.portTypeToStr(portType) << endl;
-            senderPortModeControl.setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
-            senderPortModeControl.applyPortConfig();
-            echoPortModeControl.setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
-            echoPortModeControl.applyPortConfig();
+            cout << endl << "Requested port type: " << pSenderControl->portTypeToStr(portType) << endl;
+            pSenderControl->setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
+            pSenderControl->applyPortConfig();
+            pEchoControl->setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
+            pEchoControl->applyPortConfig();
 
             cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
             cout << "Sender: ";
-            senderPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+            pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
             cout << "Echo: ";
-            echoPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+            pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
             cout << "Baud Rate: " << n_u::Termios::bauds[j].rate << endl;
             cout << endl;
 
@@ -1150,11 +1151,11 @@ int main(int argc, char**argv)
 
             cout << endl << "Finished test run for:" << endl;
             cout << "Sender: ";
-            senderPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum), false);
+            pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum), false);
             cout << " baud:" << port.getTermios().getBaudRate() << " data bits:" << port.getTermios().getDataBits() 
                  << " parity:" << port.getTermios().getParityString() << " stop bits:" << port.getTermios().getStopBits() << endl;
             cout << "Echo: ";
-            echoPortModeControl.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum), false);
+            pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum), false);
             cout << " baud:" << echoPort.getTermios().getBaudRate() << " data bits:" << echoPort.getTermios().getDataBits() 
                  << " parity:" << echoPort.getTermios().getParityString() << " stop bits:" << echoPort.getTermios().getStopBits() << endl;
             cout << endl;
