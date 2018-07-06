@@ -404,5 +404,5 @@ Main Targets (use -c to clean targets):
 Some targets will not exist if the corresponding architecture has not been
 specified in the BUILDS variable.
 """
-HelpFunction(nidas_help, append=True)
+env.AddHelp(nidas_help)
 
