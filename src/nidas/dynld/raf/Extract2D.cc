@@ -37,26 +37,6 @@
 #include <unistd.h>
 #include <getopt.h>
 
-/**
- * Version of the output OAP/PMS2D file.  Increment this when changes occur.
- * Change log:
- * 03/25/2011 - version 1:
- *	tas should be tas as int, drop the '* 255 / 125' encoding.
- *	add nDiodes attribute to probe element.
- *	Change PMS2D in XML to OAP.
- *	add version.  :)
- */
-static const int FILE_VERSION = 1;
-
-static const int P2D_DATA = 4096;	// TwoD image buffer size.
-
-// Sync and overload words for Fast2D.
-static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
-static const unsigned char FastOverloadSync[] = { 0x55, 0x55, 0xAA };
-
-// Old 32bit 2D overload word, MikeS puts the overload in the first slice.
-static const unsigned char overLoadSync[] = { 0x55, 0xAA };
-
 static const size_t DefaultMinimumNumberParticlesRequired = 5;
 
 
