@@ -42,6 +42,7 @@
 #include <nidas/util/util.h>
 #include <nidas/util/auto_ptr.h>
 #include <nidas/core/SerialPortPhysicalControl.h>
+
 #include <vector>
 #include <cstring>
 #include <ctime>
@@ -54,6 +55,7 @@
 #include <sys/stat.h>
 #include <cstdlib>
 #include <math.h>
+#include <fenv.h>
 
 using namespace std;
 namespace n_u = nidas::util;
@@ -83,7 +85,7 @@ static int timeoutSecs = -1;
 static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
-static n_c::PORT_TYPES portType;
+static n_c::PORT_TYPES portType = n_c::LOOPBACK;
 static n_c::SerialPortIODevice port;
 static string shortName;
 static n_c::SerialPortIODevice echoPort;
@@ -135,6 +137,9 @@ public:
         return _totalDiscarded;
     }
 
+    bool getRS485HalfSend() const {return _rs485HalfSend;} 
+    void setRS485HalfSend(bool send=true) {_rs485HalfSend = send;} 
+
 private:
     bool _ascii;
     int _dsize;
@@ -158,6 +163,7 @@ private:
 
     unsigned int _discarded;
     unsigned int _totalDiscarded;
+    bool _rs485HalfSend;
 
     Sender(const Sender&);
     Sender& operator=(const Sender&);
@@ -166,7 +172,7 @@ private:
 class Receiver: public n_u::Thread
 {
 public:
-    Receiver(int timeoutSecs, const Sender*);
+    Receiver(int timeoutSecs, Sender*);
 
     int run() throw(n_u::IOException);
     void miniReport();
@@ -214,7 +220,7 @@ private:
     int _roundTripMsecs;
     int _timeoutSecs;
 
-    const Sender* _sender;
+    Sender* _sender;
 
     unsigned int _totalBad;
     n_u::BasicRunningStats _kbpsInStats;
@@ -329,7 +335,8 @@ cksum (const unsigned char *input,size_t len)
 Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
     _dbuf(0),_buf(0),_eob(0),_hptr(0),_tptr(0),_nout(0),
     _sec0(0),_msec0(0),_packetLength(0), _last100(),_msec100(),
-    _msec100ago(0),_byteSum(0),_deltaT(0),_discarded(0), _totalDiscarded(0)
+    _msec100ago(0),_byteSum(0),_deltaT(0),_discarded(0), _totalDiscarded(0),
+    _rs485HalfSend(true)
 {
     _last100.resize(100);
     _msec100.resize(100);
@@ -377,12 +384,30 @@ Sender::~Sender()
 int Sender::run() throw(n_u::Exception)
 {
     ILOG(("Starting Sender on port: ") << device);
-    ILOG(("Current modem status: ") << port.modemFlagsToString(port.getModemStatus()));
+    ILOG(("Current Sender modem status: ") << port.modemFlagsToString(port.getModemStatus()));
+
     for (;_nout < nPacketsOut;) { 
         if (isInterrupted() || interrupted) break;
+
+        // Check to see if we need RS485 1/2 duplex signaling
+        if (port.getPortType() == n_c::RS485_HALF) {
+            int timeout = 10;
+            while (!getRS485HalfSend() && timeout > 0) {
+                n_u::sleepUntil(periodMsec);
+                --timeout;
+            }
+            if (!timeout) {
+                ELOG(("serstress::Sender.run(): Failed to hear back from Sender Receiver in RS485 Half Duplex..."));
+                return RUN_EXCEPTION;
+            }
+            setRS485HalfSend(false);
+        }
+    
         send();
         if (periodMsec > 0) n_u::sleepUntil(periodMsec);
     }
+
+    // write out last packet
     _nout = EOF_NPACK;
     send();
     flush();
@@ -443,11 +468,13 @@ void Sender::send() throw(n_u::IOException)
     _last100[iout] = _packetLength;
 
     _hptr += _packetLength;
+
+    // write out buffer...
     if (_hptr + 1 == _eob) flush();
     _nout++;
 }
 
-Receiver::Receiver(int timeoutSecs, const Sender* s): Thread((s ? "SenderReceiver" : "EchoReceiver")),
+Receiver::Receiver(int timeoutSecs, Sender* s): Thread((s ? "SenderReceiver" : "EchoReceiver")),
     RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
     _last10(), _last100(), _msec100(),
     _msec100ago(0),_ngood10(0),_ngood100(0),
@@ -498,13 +525,14 @@ int Receiver::run() throw(n_u::IOException)
     n_u::Termios tio = myPort.getTermios();
 
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
-    ILOG(("Current modem status: ") << myPort.modemFlagsToString(myPort.getModemStatus()));
+    ILOG(("Current ") << (_sender ? "Sender" : "Echo") << "modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
 
     for ( ; isInterrupted() || !interrupted; ) {
         timeout.tv_sec = _timeoutSecs;
         timeout.tv_usec = 0;
         fd_set fds = readfds;
 
+        // wait for data
         int nfd = select(nfds,&fds,0,0,(_timeoutSecs > 0 ? &timeout : 0));
 
         if (nfd < 0) {
@@ -627,6 +655,11 @@ int Receiver::scanBuffer()
             accumulateBulkStats();
         }
 
+        // If RS485_HALF port mode, then let the Sender thread send the next packet.
+        if (_sender && (myPort.getPortType() == n_c::RS485_HALF)) {
+            _sender->setRS485HalfSend();
+        }
+
         if (_Npack == EOF_NPACK) return 1;
     }
     unsigned int l = _wptr - _rptr;  // unscanned characters in buffer
@@ -720,9 +753,10 @@ int usage(const char* argv0)
     with a null modem cable. It cycles through the known supported serial port types (RS232, RS422:full/half,\n\
     RS485:full/half) and sweeps the available baud rates to see where communication breaks down. It reports \n\
     bulk transmission statistics at the end of each test.\n\n\
-Usage: " << argv0 << " [-d [d|dd]] [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
+Usage: " << argv0 << " [-d [1-3]] [-e] [-h] [-m [mode]] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
     -d: output debug information.\n\
     -h: display this help\n\
+    -m: select a single port mode to use, RS232, RS422 (same as RS485_FULL), RS485_HALF\n\
     -n N: send N number of packets. Default of 0 means send until killed\n\
     -o ttyopts: SerialOptions string, see below. Default: " << defaultTermioOpts << "\n\
         Note that the port is always opened in raw mode, overriding whatever\n\
@@ -741,16 +775,15 @@ Usage: " << argv0 << " [-d [d|dd]] [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] 
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
     Note that the port is always opened in raw mode, overriding what\n\
     the user specifies in ttyopts\n\n\
-    NOTE: you must provide a baud rate, but it is thrown away, as serStress sweeps the baud rates!!\n\n\
 Example of testing a serial link at 115200 baud with modem control\n\
     lines (carrier detect) and hardware flow control. The transmitted\n\
     packets will be 2012+36=2048 bytes in length and will be\n\
     sent as fast as possible. The send side is connected to the echo side\n\
     with a null-modem cable:\n\n\
-    " << argv0 << " -o 115200n81mhr -s 2012 /dev/ttyS5 /dev/ttyS6\n\n\
+    " << argv0 << " -o n81mhr -s 2012 /dev/ttyUSB1 /dev/ttyUSB0\n\n\
 Example of testing a serial link at 9600 baud without modem control\n\
     or hardware flow control. 36 byte packets be sent 10 times per second:\n\
-    " << argv0 << " -o 9600n81lnr -r 10 /dev/ttyS5 /dev/ttyS6\n" 
+    " << argv0 << " -o n81lnr -r 10 /dev/ttyUSB0 /dev/ttyUSB1\n" 
 << endl;
 
     return 1;
@@ -762,7 +795,7 @@ int parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "b:d:hn:o:pr:s:t:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:d:hm:n:o:pr:s:t:v")) != -1) {
         switch (opt_char) {
         case 'b':
         {
@@ -784,12 +817,15 @@ int parseRunstring(int argc, char** argv)
             }
             break;
         }
-
         case 'd':
             debug = atoi(optarg);
             break;
         case 'h':
             return usage(argv[0]);
+            break;
+        case 'm': 
+            portType = n_c::SerialPortPhysicalControl::strToPortType(optarg);
+            cout << "serstress: cmd line parsing: \'m\': " << n_c::SerialPortPhysicalControl::portTypeToStr(portType) << endl;
             break;
         case 'n':
             nPacketsOut = atoi(optarg);
@@ -881,14 +917,19 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
     }
 
     // Always assume we can write to the buffer far faster than the serial port can send it...
-    periodMsec = static_cast<int>(rint(1000/calcRate));
+    fesetround(FE_TONEAREST);
+    periodMsec = static_cast<int>(rint(1000.0/calcRate));
     // timeoutSecs value >= 0 comes from the command line, use it.
     // else calculate it.
     if (timeoutSecs < 0) {
         // timeout is based on how long it takes an entire packet to get to the receiver
         // so it indicates a sender stall or other comm error.
         // double it and then some to handle the roundtrip case for the sender receiver.
-        rcvrTimeout = max( 1, static_cast<int>(rint(2.5*bytesPerPacket/bytesPerSec)));
+        rcvrTimeout = max( 1, static_cast<int>(3*bytesPerPacket/bytesPerSec)+1);
+    }
+
+    else {
+        rcvrTimeout = timeoutSecs;
     }
 
     // only want to report this once
@@ -910,8 +951,25 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
         cout << "Receiver timeout (sec): " << rcvrTimeout << endl << endl;
     }
 
+    if (myPort.getPortType() == n_c::RS485_HALF) {
+        ILOG(("Port is set to RS485_HALF"));
+        // Need to set RTS low so that no xmission occurs until needed. This allows 
+        // the sensor to send data until the DSM has something to say to it.
+        // NOTE: Have to set RTS flag high to get it set low on output.
+        //       For some reason, the API logic sets it high, when the arguement is -1.
+        if (isSender) {
+            myPort.setRTS485(-1);
+            ILOG(("Setting Sender Port to RTS485 mode: ") << myPort.getRTS485());
+        }
+
+        else {
+            myPort.setRTS485(-1);
+            ILOG(("Setting Echo Port to RTS485 mode: ") << myPort.getRTS485() );
+        }
+    }
+
     int modembits = myPort.getModemStatus();
-    cout << (isSender ? "Sender " : "Echo ") << "Modem flags: " << myPort.modemFlagsToString(modembits) << endl;
+    cout << "On Open " << (isSender ? "Sender " : "Echo ") << "Modem flags: " << myPort.modemFlagsToString(modembits) << endl;
 
     myPort.flushBoth();
 }
@@ -973,6 +1031,7 @@ int main(int argc, char**argv)
     int echoPortNum = -1;
 
     // determine size of baud table since it's static in class Terimios, and only the declaration is available
+    // !!!needed *before* parsing cmd line opts!!!
     for (int k=1; n_u::Termios::bauds[k].rate > 0; ++k, ++baudTableSize);
 
     if (parseRunstring(argc,argv)) return 1;
@@ -989,6 +1048,12 @@ int main(int argc, char**argv)
         if (debug >= 1) scheme.addConfig(LogConfig("level=notice"));
         if (debug >= 2) scheme.addConfig(LogConfig("level=debug"));
         logger->setScheme(scheme);
+    }
+
+    // If it's still 0, then baud wasn't set on the command line.
+    // We need to start at idx == 1, because the first baud is 0.
+    if (baudStartIdx == 0) {
+        ++baudStartIdx;
     }
 
     cout << endl << "Serial Option String: " << termioOpts << endl;
@@ -1008,29 +1073,25 @@ int main(int argc, char**argv)
     ILOG(("Setting up port type for Sender port: ") << senderPortNum);
     ILOG(("Setting up port type for Echo port: ") << echoPortNum);
 
-    n_c::SerialPortPhysicalControl* pSenderControl = port.getPortControl();
-    if (!pSenderControl) {
-        ELOG(("No Sender port control object!!"));
-        return(3);
-    }
-    
-    n_c::SerialPortPhysicalControl* pEchoControl = echoPort.getPortControl();
-    if (!pEchoControl) {
-        ELOG(("No Echo port control object!!"));
-        return(3);
-    }
-    
     cout << "Initial Port Configuration" << endl << "======================" << endl;
     cout << "Sender: ";
-    pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+    port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
     cout << "Echo: ";
-    pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+    echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
 
-    // save a virgin copy
+    // save a virgin copy and prepend the baud rate later.
     string tempTermiosOpts = termioOpts;
 
-    for (int i=0; i<3; ++i) {
-        portType = portTypeList[i];
+    // if portType != LOOPBACK, then user supplied a portType, so use it and loop forever-ish...
+    // otherwise just loop through the port types list
+    int looptest = 3;
+    if (portType != n_c::LOOPBACK) {
+        looptest = INT_MAX;
+    }
+
+    for (int i=0; i<looptest; ++i) {
+        // change port type only if it wasn't specified on the command line
+        n_c::PORT_TYPES thisPortType = (portType != n_c::LOOPBACK ? portType : portTypeList[i]);
 
         for (int j=baudStartIdx; j < baudTableSize; ++j) { // skip 0 baud!!
 
@@ -1040,19 +1101,22 @@ int main(int argc, char**argv)
             termioOpts = baudStr.str();
             termioOpts.append(tempTermiosOpts);
 
-            cout << endl << "Requested port type: " << pSenderControl->portTypeToStr(portType) << endl;
-            pSenderControl->setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
-            pSenderControl->applyPortConfig();
-            pEchoControl->setPortConfig(portType, n_c::TERM_120_OHM, n_c::SENSOR_POWER_OFF);
-            pEchoControl->applyPortConfig();
+            port.setPortType(thisPortType);
+            port.applyPortConfig();
+            echoPort.setPortType(thisPortType);
+            echoPort.applyPortConfig();
 
             cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
             cout << "Sender: ";
-            pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+            port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
             cout << "Echo: ";
-            pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+            echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
             cout << "Baud Rate: " << n_u::Termios::bauds[j].rate << endl;
             cout << endl;
+
+            /*************************************************************************
+            ** TODO: RS485 half duplex? Set the GPIO to short Bulgin pins 3&4, and 5&6
+            *************************************************************************/
 
             try {
                 openPort(SENDING, n_u::Termios::bauds[j].rate, calcRecvrTimeout);
@@ -1067,8 +1131,16 @@ int main(int argc, char**argv)
                 return 1;
             }
 
-            n_u::auto_ptr<Sender> sender;
-            sender.reset(new Sender(ascii,dataSize));
+            Receiver echoRcvr(calcRecvrTimeout, 0);
+            try {
+                echoRcvr.start();
+            }
+            catch(const n_u::IOException &e) {
+                cout << "Error: " << e.what() << endl;
+                status = 1;
+            }
+
+            n_u::auto_ptr<Sender> sender(new Sender(ascii,dataSize));
             sender->start();
 
             Receiver sendRcvr(calcRecvrTimeout, sender.get());
@@ -1080,19 +1152,11 @@ int main(int argc, char**argv)
                 status = 1;
             }
 
-            Receiver echoRcvr(calcRecvrTimeout, 0);
-            try {
-                echoRcvr.start();
-            }
-            catch(const n_u::IOException &e) {
-                cout << "Error: " << e.what() << endl;
-                status = 1;
-            }
-
             while (sender->isRunning())
                 sleep(1);
 
-            ILOG(("Cleaning up threads..."));
+            // ILOG(("Cleaning up threads..."));
+            cout << "Cleaning up threads..." << endl;
 
             if (sender.get()) {
                 sender->interrupt();
@@ -1151,11 +1215,11 @@ int main(int argc, char**argv)
 
             cout << endl << "Finished test run for:" << endl;
             cout << "Sender: ";
-            pSenderControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum), false);
+            port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum), false);
             cout << " baud:" << port.getTermios().getBaudRate() << " data bits:" << port.getTermios().getDataBits() 
                  << " parity:" << port.getTermios().getParityString() << " stop bits:" << port.getTermios().getStopBits() << endl;
             cout << "Echo: ";
-            pEchoControl->printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum), false);
+            echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum), false);
             cout << " baud:" << echoPort.getTermios().getBaudRate() << " data bits:" << echoPort.getTermios().getDataBits() 
                  << " parity:" << echoPort.getTermios().getParityString() << " stop bits:" << echoPort.getTermios().getStopBits() << endl;
             cout << endl;
