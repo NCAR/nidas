@@ -73,7 +73,8 @@ public:
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    SerialPortIODevice(const std::string& name, const PORT_TYPES portType = RS232, const TERM term=NO_TERM);
+    SerialPortIODevice(const std::string& name, const PORT_TYPES portType=RS232, const TERM term=NO_TERM, 
+                       SENSOR_POWER_STATE sensorPower=SENSOR_POWER_ON);
 
     /**
      * Copy constructor.  The attributes of the port are copied,
@@ -155,13 +156,59 @@ public:
      *  Set and retrieve the _portType member attribute 
      */
     void setPortType( const PORT_TYPES thePortType) {_portType = thePortType;}
-    PORT_TYPES getPortType() {return _portType;}
+    PORT_TYPES getPortType() const {return _portType;}
+
+    /**
+     *  Set and retrieve the _term member attribute 
+     */
+    void setTermination( const TERM theTermState) {_term = theTermState;}
+    TERM getTermination() const {return _term;}
+
+    /**
+     *  Set and retrieve the _power member attribute 
+     */
+    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_power = thePowerState;}
+    SENSOR_POWER_STATE getPowerState() const {return _power;}
 
     /**
      *  Commands the serial board to set the GPIO switches to configure for 
-     *  the port type specified in the _portType member attribute.
+     *  the port type, termination, and power according to the member attributes.
      */
-    void applyPortType();
+    void applyPortConfig()
+    {
+        if (_pSerialControl) {
+            _pSerialControl->setPortConfig(_portType, _term, _power);
+            _pSerialControl->applyPortConfig();
+        }
+
+        else {
+            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to set the physcial port config"
+                                 "for a non-existen SerialPortPhhysicalControl Object.");
+        }
+    }
+
+    void printPortConfig(PORT_DEFS port, bool readFirst=true) {
+        if (_pSerialControl) {
+            _pSerialControl->printPortConfig(port, readFirst);
+        }
+
+        else {
+            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to print the physcial port config"
+                                 "for a non-existen SerialPortPhhysicalControl Object.");
+        }
+    }
+
+    std::string portTypeToStr(PORT_TYPES portType) {
+        std::string portStr("");
+        if (_pSerialControl) {
+            portStr.append(_pSerialControl->portTypeToStr(portType));
+        }
+
+        else {
+            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to print the physcial port config"
+                                 "for a non-existen SerialPortPhhysicalControl Object.");
+        }
+    }
 
    /**
      * Calculate the transmission time of each byte from this
@@ -232,9 +279,20 @@ public:
      * back too quickly after a write to the device. Since this software
      * control is not great, 485  is best used for read-only devices.
      * Use 232 or 422 if you need read/write.
-     *
+     * 
+     * NOTE: val arg typically takes values -1, 0, 1, which have the following
+     *       meaning:
+     *       -1 - set the RTS flag immediately and before every write, clearing it after the write.
+     *        0 - do nothing
+     *       +1 - clear the RTS immediately and before every write, setting it after the write.
+     * 
+     *       In order to emulate the capability of the FTDI chip to automatically manage the DIR 
+     *       input on the SP339, even when in full duplex, which must have the DIR pin set at all 
+     *       times (and hence, the RTS flag), the class will need to set the RTS flag prior to sending 
+     *       data, such as in the open() method.
      */
     void setRTS485(int val);
+    int getRTS485() const {return _rts485;}
 
     /**
      * Get the current state of the modem bits.
@@ -313,11 +371,11 @@ public:
      */
     virtual int readLine(char *buf,int len);
 
-    virtual int read(char *buf,int len) throw(nidas::util::IOException);
+    virtual int read(char *buf,int len, int timeout=0) throw(nidas::util::IOException);
 
     virtual char readchar();
 
-    virtual int write(const void *buf,int len) throw(nidas::util::IOException);
+    virtual size_t write(const void *buf,size_t len) throw(nidas::util::IOException);
 
     /**
      * Static utility that creates a pseudo-terminal, returning the
@@ -349,6 +407,8 @@ protected:
     PORT_TYPES _portType;
 
     TERM _term;
+
+    SENSOR_POWER_STATE _power;
 
     SerialPortPhysicalControl* _pSerialControl;
 

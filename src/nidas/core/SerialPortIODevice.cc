@@ -73,9 +73,9 @@ SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
 
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES portType, 
-                                       const TERM term):
+                                       const TERM term, const SENSOR_POWER_STATE powerState):
     UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0),
-    _portType(portType),_term(term),_pSerialControl(0),_state(OK),
+    _portType(portType),_term(term),_power(SENSOR_POWER_ON),_pSerialControl(0),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     _termios.setRaw(true);
@@ -137,27 +137,20 @@ void SerialPortIODevice::checkPortControlRequired(const std::string& name)
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 {
     UnixIODevice::open(flags);
-    applyPortType();
+    applyPortConfig();
     applyTermios();
     setBlocking(_blocking);
 
-    // If the remote device is 485, clear RTS, which on many serial interfaces
-    // shuts down the transmitter. This is usually necessary to be able to read
-    // data from the remote device.  See the discussion about setRTS485() in the
-    // header.
-    if (_rts485) {
-        int bits = TIOCM_RTS;
-        if (_rts485 > 0) {
-            // clear RTS
-            if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
-                throw n_u::IOException(getName(),"ioctl TIOCMBIC",errno);
+    // set RTS according to how it's been set by the client
+    // or not at all if the port mode is not RS422/RS485 half duplex
+    if (_portType == RS422) {
+        setRTS485(-1);
+    } 
+    
+    else {
+        if (_portType == RS485_HALF) {
+            setRTS485(_rts485);
         }
-        else {
-            // set RTS
-            if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
-                throw n_u::IOException(getName(),"ioctl TIOCMBIS",errno);
-        }
-        _usecsperbyte = getUsecsPerByte();
     }
 }
 
@@ -179,18 +172,6 @@ int SerialPortIODevice::getUsecsPerByte() const
     return usecs;
 }
 
-void SerialPortIODevice::applyPortType()
-{
-    if (_portType == RS232 || _portType == RS422 || _portType == RS485_FULL || _portType == RS485_HALF) {
-        /**
-         * TODO - is this an IOCTL operation?
-         */
-    }
-    else {
-        throw nidas::util::IOException(getName(),"_portType illegal value",_portType);
-    }
-}
-
 void SerialPortIODevice::close() throw(n_u::IOException)
 {
     if (_fd >= 0) {
@@ -202,18 +183,21 @@ void SerialPortIODevice::close() throw(n_u::IOException)
 
 void SerialPortIODevice::setRTS485(int val)
 {
+    // If the remote device is 485, clear RTS, which on many serial interfaces
+    // shuts down the transmitter. This is usually necessary to be able to read
+    // data from the remote device.  See the discussion about setRTS485() in the
+    // header. 
+    //
+    //Ignore this if the current port is RS232 or LOOPBACK.
     _rts485 = val;
-    if (_rts485 && _fd >= 0) {
-        int bits = TIOCM_RTS;
+    if (((_portType == RS422) || (getPortType() == RS485_HALF)) && (_fd >= 0)) {
         if (_rts485 > 0) {
             // clear RTS
-            if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
-                throw nidas::util::IOException(getName(),"ioctl TIOCMBIC",errno);
+            clearModemBits(TIOCM_RTS);
         }
         else {
             // set RTS
-            if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
-                throw nidas::util::IOException(getName(),"ioctl TIOCMBIS",errno);
+            setModemBits(TIOCM_RTS);
         }
         _usecsperbyte = getUsecsPerByte();
     }
@@ -404,18 +388,59 @@ int SerialPortIODevice::readLine(char *buf, int len)
     return readUntil(buf,len,'\n');
 }
 
-int SerialPortIODevice::write(const void *buf, int len) throw(nidas::util::IOException)
+/**
+ * Write to the device.
+ */
+size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util::IOException)
 {
-    if ((len = ::write(_fd,buf,len)) < 0) {
-        if (!_blocking && errno == EAGAIN) return 0;
-        throw IOException(getName(),"write",errno);
+    ssize_t result;
+
+    ILOG(("Pre SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+
+    if (getPortType() == RS485_HALF) {
+        // see the above discussion about RTS and 485. Here we
+        // try an in-exact set/clear of RTS on either side of a write.
+        if (_rts485 > 0) {
+            // set RTS before write
+            setModemBits(TIOCM_RTS);
+        }
+        else {
+            // clear RTS before write
+            clearModemBits(TIOCM_RTS);
+        }
+
+        ILOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
     }
-    return len;
+
+    if ((result = ::write(_fd,buf,len)) < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) result = 0;
+        else throw nidas::util::IOException(getName(),"write",errno);
+    }
+
+    if (getPortType() == RS485_HALF) {
+        // Sleep until we think the last bit has been transmitted.
+        // Add a fudge-factor of one quarter of a character.
+        ::usleep(len * _usecsperbyte + _usecsperbyte/4);
+        if (_rts485 > 0) {
+            // then clear RTS
+            clearModemBits(TIOCM_RTS);
+        }
+        else {
+            // then set RTS
+            setModemBits(TIOCM_RTS);
+        }
+
+        ILOG(("Post RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    }
+    
+    ILOG(("Post SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+
+   return result;
 }
 
-int SerialPortIODevice::read(char *buf, int len) throw(nidas::util::IOException)
+int SerialPortIODevice::read(char *buf, int len, int timeout) throw(nidas::util::IOException)
 {
-    if ((len = ::read(_fd,buf,len)) < 0)
+    if ((len = UnixIODevice::read(buf,len,timeout)) < 0)
         throw IOException(getName(),"read",errno);
     // set the state for buffered read methods
     _state = (len == 0) ? TIMEOUT_OR_EOF : OK;

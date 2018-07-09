@@ -25,9 +25,10 @@
 */
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
-#include <sstream>
-
 #include "SerialPortPhysicalControl.h"
+
+#include <algorithm>
+#include <sstream>
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
@@ -103,8 +104,9 @@ SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId)
 
 SerialPortPhysicalControl::SerialPortPhysicalControl(const PORT_DEFS portId, 
                                                      const PORT_TYPES portType, 
-                                                     const TERM termination)
-: _portID(portId), _portType(portType), _term(termination), _powerstate(SENSOR_POWER_ON), 
+                                                     const TERM termination,
+                                                     const SENSOR_POWER_STATE pwrState)
+: _portID(portId), _portType(portType), _term(termination), _powerstate(pwrState), 
   _portConfig(0), _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
 {
     if (_pContext)
@@ -335,7 +337,7 @@ enum ftdi_interface SerialPortPhysicalControl::port2iface(const unsigned int por
     return iface;
 }
 
-const std::string SerialPortPhysicalControl::portTypeToStr(const PORT_TYPES portType) 
+const std::string SerialPortPhysicalControl::portTypeToStr(const PORT_TYPES portType)
 {
     std::string portTypeStr("");
     switch (portType) {
@@ -361,7 +363,25 @@ const std::string SerialPortPhysicalControl::portTypeToStr(const PORT_TYPES port
     return portTypeStr;
 }
 
-const std::string SerialPortPhysicalControl::termToStr(unsigned char termCfg) 
+PORT_TYPES SerialPortPhysicalControl::strToPortType(const char* portStr) {
+    PORT_TYPES retval = LOOPBACK;
+    std::string portString(portStr);
+    std::transform(portString.begin(), portString.end(), portString.begin(), ::toupper);
+
+    std::cout << "SerialPortPhysicalControl::strToPortType: portStr arg: " << portStr << std::endl;
+
+    if (portString == std::string(STR_RS232)) {
+        retval = RS232;
+    } else if (portString == std::string(STR_RS422) || portString == std::string(STR_RS485_FULL)) {
+        retval = RS422;
+    } else if (portString == std::string(STR_RS485_HALF)) {
+        retval = RS485_HALF;
+    }
+
+    return retval;
+}
+
+const std::string SerialPortPhysicalControl::termToStr(unsigned char termCfg) const
 {
     std::string termStr("");
     switch (termCfg) {
@@ -377,7 +397,7 @@ const std::string SerialPortPhysicalControl::termToStr(unsigned char termCfg)
     return termStr;
 }
 
-const std::string SerialPortPhysicalControl::powerToStr(unsigned char powerCfg) 
+const std::string SerialPortPhysicalControl::powerToStr(unsigned char powerCfg) const 
 {
     std::string powerStr("");
     switch (powerCfg) {

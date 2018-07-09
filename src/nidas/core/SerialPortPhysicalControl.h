@@ -81,7 +81,8 @@ public:
     // So default them to the values known today, but may be 
     // overridden later.
     SerialPortPhysicalControl(const PORT_DEFS portId);
-    SerialPortPhysicalControl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination);
+    SerialPortPhysicalControl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
+                              const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
     // Destructor
     ~SerialPortPhysicalControl();
 
@@ -95,17 +96,19 @@ public:
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
     void setBusAddress(const int busId=1, const int deviceId=6);
-    // This utility converts a binary PORT_TYPE to a string
-    const std::string portTypeToStr(const PORT_TYPES portType);
+    // This utility converts a PORT_TYPE to a string
+    static const std::string portTypeToStr(const PORT_TYPES portType);
+    // This utility converts a string to a PORT_TYPE
+    static PORT_TYPES strToPortType(const char* portStr);
     // This utility converts a binary term configuration to a string
-    const std::string termToStr(unsigned char termCfg); 
+    const std::string termToStr(unsigned char termCfg) const; 
     // This utility converts a binary power configuration to a string
-    const std::string powerToStr(unsigned char powerCfg); 
+    const std::string powerToStr(unsigned char powerCfg) const; 
     // This utility prints the port types for a particular port.
     void printPortConfig(const PORT_DEFS port, const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of PORT_DEFS
-    static PORT_DEFS int2PortDef(const unsigned portNum) 
+    static PORT_DEFS int2PortDef(const unsigned portNum)
     {
         return static_cast<PORT_DEFS>(portNum);
     }
