@@ -290,6 +290,12 @@ public:
      *       input on the SP339, even when in full duplex, which must have the DIR pin set at all 
      *       times (and hence, the RTS flag), the class will need to set the RTS flag prior to sending 
      *       data, such as in the open() method.
+     * 
+     * NOTE: TODO - We need a way to ignore this on the auto-config hardware, which will automagically 
+     *              do all this for us in hardware. Specifically, the FT4232H can be configured to set 
+     *              an output pin called TX_EN high whenever it is sending data on the TX line. This 
+     *              signal is connected to the SP339 line driver device's DIR input. When DIR is high, 
+     *              the RS485 transmitter is enabled, and disabled when it is low.
      */
     void setRTS485(int val);
     int getRTS485() const {return _rts485;}

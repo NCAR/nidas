@@ -183,8 +183,8 @@ void SerialPortIODevice::close() throw(n_u::IOException)
 
 void SerialPortIODevice::setRTS485(int val)
 {
-    // If the remote device is 485, clear RTS, which on many serial interfaces
-    // shuts down the transmitter. This is usually necessary to be able to read
+    // If the remote device is RS485, and is set for half duplex, set RTS, which on many serial interfaces
+    // results in a low output and shuts down the transmitter. This is usually necessary to be able to read
     // data from the remote device.  See the discussion about setRTS485() in the
     // header. 
     //
