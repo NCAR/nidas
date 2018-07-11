@@ -38,6 +38,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <locale>
 
 using namespace std;
 using namespace nidas::core;
@@ -71,23 +72,23 @@ SampleScanner* SerialSensor::buildSampleScanner()
 
 IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (getDeviceName().find("inet:") == 0)
-        return new TCPSocketIODevice();
-    else if (getDeviceName().find("sock:") == 0)
-        return new TCPSocketIODevice();
-    else if (getDeviceName().find("usock:") == 0)
-        return new UDPSocketIODevice();
-#ifdef HAVE_BLUETOOTH_RFCOMM_H
-    else if (getDeviceName().find("btspp:") == 0)
-        return new BluetoothRFCommSocketIODevice();
-#endif
-    else {
-        NLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
-             << "; Port Type: " << _portType);
-        _serialDevice = new SerialPortIODevice(getDeviceName(), _portType, _term);
-        _serialDevice->termios() = _termios;
-        _serialDevice->setRTS485(_rts485);
-        return _serialDevice;
+    IODevice* device = CharacterSensor::buildIODevice();
+
+    // Did we get the default from Character Sensor?
+    if (reinterpret_cast<UnixIODevice*>(device)) {
+        // yes, meaning it didn't look for, nor find a DSM serial port.
+        // so we have to check the device name for /dev/ttyUSB??
+        if (getDeviceName().find("/dev/ttyUSB") == 0)
+        {
+            delete device;
+            device = 0;
+            ILOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
+                << "; Port Type: " << _portType);
+            SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _portType, _term);
+            spDevice->termios() = _termios;
+            spDevice->setRTS485(_rts485);
+            return spDevice;
+        }
     }
 }
 
@@ -259,10 +260,12 @@ void SerialSensor::fromDOMElement(
 	    else if (aname == "devicename");
 	    else if (aname == "id");
         else if (aname == "porttype") {
-            if (aval == "RS232") _portType = RS232;
-            else if (aval == "RS422") _portType = RS422;
-            else if (aval == "RS485_HALF") _portType = RS485_HALF;
-            else if (aval == "RS485_FULL") _portType = RS485_FULL;
+            string upperAval;
+            std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);;
+            if (upperAval == "RS232") _portType = RS232;
+            else if (upperAval == "RS422") _portType = RS422;
+            else if (upperAval == "RS485_HALF") _portType = RS485_HALF;
+            else if (upperAval == "RS485_FULL") _portType = RS485_FULL;
             else throw n_u::InvalidParameterException(
                         string("SerialSensor:") + getName(),
                         aname,aval);
