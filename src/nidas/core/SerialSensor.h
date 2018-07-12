@@ -94,13 +94,16 @@ public:
         throw(nidas::util::InvalidParameterException);
 
     /**
-     * Creates an IODevice depending on the device name prefix:
+     * Calls CharacterSensor::buildIODevice() to creates an IODevice depending 
+     * on the device name prefix:
      * name prefix      type of IODevice
      * inet:            TCPSocketIODevice
      * sock:            TCPSocketIODevice
      * usock:           UDPSocketIODevice
      * btspp:           BluetoothRFCommSocketIODevice
-     * all others       SerialPortIODevice
+     * 
+     * If UnixIODevice type is returned, then check 
+     * /dev/ttyUSB:     SerialPortIODevice
      *
      * If a SerialPortIODevice is created, the Termios of this SerialSensor is
      * copied to the device, which will then be applied when the device is opened.
@@ -149,6 +152,7 @@ public:
 
     void stopPrompting() throw(nidas::util::IOException);
 
+    // get auto config parameters, after calling base class implementation
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(nidas::util::InvalidParameterException);
 
