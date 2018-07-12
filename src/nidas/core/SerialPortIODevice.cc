@@ -46,7 +46,7 @@ using namespace nidas::core;
 
 SerialPortIODevice::SerialPortIODevice():
     UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_pSerialControl(0),_state(OK),
+    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(0),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     _termios.setRaw(true);
@@ -56,33 +56,33 @@ SerialPortIODevice::SerialPortIODevice():
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
     UnixIODevice(name),_termios(fd,name),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_pSerialControl(0),_state(OK),
+    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(0),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     getBlocking();
-    checkPortControlRequired(getName());
+    checkXcvrCtrlRequired(getName());
 }
 
 SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
     UnixIODevice(x.getName()),_termios(x._termios),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_pSerialControl(const_cast<SerialPortIODevice&>(x).getPortControl()),_state(OK),
+    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(const_cast<SerialPortIODevice&>(x).getXcvrControl()),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
-    checkPortControlRequired(getName());
+    checkXcvrCtrlRequired(getName());
 }
 
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES portType, 
                                        const TERM term, const SENSOR_POWER_STATE powerState):
     UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0),
-    _portType(portType),_term(term),_power(SENSOR_POWER_ON),_pSerialControl(0),_state(OK),
+    _portType(portType),_term(term),_power(powerState),_pXcvrCtrl(0),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     _termios.setRaw(true);
     _termios.setRawLength(1);
     _termios.setRawTimeout(0);
 
-    checkPortControlRequired(name);
+    checkXcvrCtrlRequired(name);
 }
 
 SerialPortIODevice::~SerialPortIODevice()
@@ -91,24 +91,24 @@ SerialPortIODevice::~SerialPortIODevice()
     delete [] _savebuf;
 }
 
-void SerialPortIODevice::checkPortControlRequired(const std::string& name)
+void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 {
     // if a port control object already exists, delete it first
-    if (getPortControl()) {
-        NLOG(("SerialPortIODevice::checkPortControlRequired(): _pSerialControl is not NULL..."));
+    if (getXcvrControl()) {
+        NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
 
         if (getName() != name) {
-            NLOG(("SerialPortIODevice::checkPortControlRequired(): device names are different..."));
-            delete _pSerialControl;
+            NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
+            delete _pXcvrCtrl;
         }
     }
 
-    NLOG(("SerialPortIODevice::checkPortControlRequired(): check if device is a DSM serial port device"));
+    NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): check if device is a DSM serial port device"));
     // Determine if this needs SP339 port type control
     std::string ttyBase = "/dev/ttyUSB";
     std::size_t foundAt = name.find(ttyBase);
     if (foundAt != std::string::npos) {
-        NLOG(("SerialPortIODevice: Device needs SerialPortPhysicalControl object: ") << name);
+        NLOG(("SerialPortIODevice: Device needs SerialXcvrCtrl object: ") << name);
         const char* nameStr = name.c_str();
         const char* portChar = &nameStr[ttyBase.length()];
         unsigned int portID = UINT32_MAX;
@@ -122,14 +122,14 @@ void SerialPortIODevice::checkPortControlRequired(const std::string& name)
                                 "cannot be parsed for canonical port ID");
         }
 
-        NLOG(("SerialPortIODevice: Instantiating SerialPortPhysicalControl object on PORT") << portID 
+        NLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _portType);
-        _pSerialControl = new SerialPortPhysicalControl(static_cast<PORT_DEFS>(portID), 
+        _pXcvrCtrl = new SerialXcvrCtrl(static_cast<PORT_DEFS>(portID), 
                                                         _portType, _term);
-        if (_pSerialControl == 0)
+        if (_pXcvrCtrl == 0)
         {
             throw n_u::Exception("SerialPortIODevice: Cannot construct "
-                                    "SerialPortPhysicalControl object");
+                                    "SerialXcvrCtrl object");
         }
     }
 }

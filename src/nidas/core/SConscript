@@ -91,7 +91,7 @@ headers = Split("""
     SensorHandler.h
     SensorOpener.h
     SerialPortIODevice.h
-    SerialPortPhysicalControl.h
+    SerialXcvrCtrl.h
     SerialSensor.h
     ServiceCatalog.h
     Site.h
@@ -186,7 +186,7 @@ sources = Split("""
     SensorHandler.cc
     SensorOpener.cc
     SerialPortIODevice.cc
-    SerialPortPhysicalControl.cc
+    SerialXcvrCtrl.cc
     SerialSensor.cc
     ServiceCatalog.cc
     Site.cc

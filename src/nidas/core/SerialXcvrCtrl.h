@@ -23,10 +23,11 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_CORE_SERIALPORTCONTROL_H
-#define NIDAS_CORE_SERIALPORTCONTROL_H
+#ifndef NIDAS_CORE_SERIALXCVRCONTROL_H
+#define NIDAS_CORE_SERIALXCVRCONTROL_H
 
-#include "ftdi.h"
+#include <ftdi.h>
+#include <string>
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
@@ -52,7 +53,7 @@ typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
 
 /*
  ********************************************************************
- ** SerialPortPhysicalControl is a class which controls the Exar SP339 serial 
+ ** SerialXcvrCtrl is a class which controls the Exar SP339 serial 
  ** driver chip to configure it for a particular mode of serial I/O
  ** operation. It is primarily used by SerialPortIODevice, but also 
  ** may be used by various utilities.
@@ -72,7 +73,7 @@ typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
  ** in the DSM XML config.
  ********************************************************************
 */
-class SerialPortPhysicalControl {
+class SerialXcvrCtrl {
 public:
     // Constructor needs to know what port is being controlled
     // Constructor uses portID to decide which FTDI interface to 
@@ -80,11 +81,11 @@ public:
     // Bus address is the means by which the USB device is opened.
     // So default them to the values known today, but may be 
     // overridden later.
-    SerialPortPhysicalControl(const PORT_DEFS portId);
-    SerialPortPhysicalControl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
+    SerialXcvrCtrl(const PORT_DEFS portId);
+    SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
                               const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
     // Destructor
-    ~SerialPortPhysicalControl();
+    ~SerialXcvrCtrl();
 
     // This sets the class state to be used by applyPortConfig();
     void setPortConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
@@ -147,7 +148,6 @@ private:
     static const unsigned char RS422_RS485_BITS = 0b00000011;
     static const unsigned char TERM_120_OHM_BIT = 0b00000100;
     static const unsigned char SENSOR_POWER_ON_BIT = 0b00001000;
-    
 
     // The port this instance is tasked with managing (0-7)
     PORT_DEFS _portID;
@@ -168,13 +168,13 @@ private:
     struct ftdi_context* _pContext;
 
     // never use default constructor, copy constructors, operator=
-    SerialPortPhysicalControl();
-    SerialPortPhysicalControl(const SerialPortPhysicalControl& rRight);
-    SerialPortPhysicalControl(SerialPortPhysicalControl& rRight);
-    const SerialPortPhysicalControl& operator=(const SerialPortPhysicalControl& rRight);
-    SerialPortPhysicalControl& operator=(SerialPortPhysicalControl& rRight);
+    SerialXcvrCtrl();
+    SerialXcvrCtrl(const SerialXcvrCtrl& rRight);
+    SerialXcvrCtrl(SerialXcvrCtrl& rRight);
+    const SerialXcvrCtrl& operator=(const SerialXcvrCtrl& rRight);
+    SerialXcvrCtrl& operator=(SerialXcvrCtrl& rRight);
 };
 
 }} // namespace { nidas namespace core {
 
-#endif //NIDAS_CORE_SERIALPORTCONTROL_H
+#endif //NIDAS_CORE_SERIALXCVRCONTROL_H

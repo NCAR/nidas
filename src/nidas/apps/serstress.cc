@@ -41,7 +41,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 #include <nidas/util/auto_ptr.h>
-#include <nidas/core/SerialPortPhysicalControl.h>
+#include <nidas/core/SerialXcvrCtrl.h>
 
 #include <vector>
 #include <cstring>
@@ -824,8 +824,8 @@ int parseRunstring(int argc, char** argv)
             return usage(argv[0]);
             break;
         case 'm': 
-            portType = n_c::SerialPortPhysicalControl::strToPortType(optarg);
-            cout << "serstress: cmd line parsing: \'m\': " << n_c::SerialPortPhysicalControl::portTypeToStr(portType) << endl;
+            portType = n_c::SerialXcvrCtrl::strToPortType(optarg);
+            cout << "serstress: cmd line parsing: \'m\': " << n_c::SerialXcvrCtrl::portTypeToStr(portType) << endl;
             break;
         case 'n':
             nPacketsOut = atoi(optarg);
@@ -1041,7 +1041,7 @@ int main(int argc, char**argv)
 
     if (debug) {
         cout << "Debug selected; setting up Logger" << endl;
-        // Set a default for SerialPortPhysicalControl notifications only.
+        // Set a default for SerialXcvrCtrl notifications only.
         logger = Logger::getInstance();
         scheme = logger->getScheme("sing_default");
         scheme.addConfig(LogConfig("level=info"));
@@ -1075,9 +1075,9 @@ int main(int argc, char**argv)
 
     cout << "Initial Port Configuration" << endl << "======================" << endl;
     cout << "Sender: ";
-    port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+    port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum));
     cout << "Echo: ";
-    echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+    echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum));
 
     // save a virgin copy and prepend the baud rate later.
     string tempTermiosOpts = termioOpts;
@@ -1108,9 +1108,9 @@ int main(int argc, char**argv)
 
             cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
             cout << "Sender: ";
-            port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum));
+            port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum));
             cout << "Echo: ";
-            echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum));
+            echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum));
             cout << "Baud Rate: " << n_u::Termios::bauds[j].rate << endl;
             cout << endl;
 
@@ -1215,11 +1215,11 @@ int main(int argc, char**argv)
 
             cout << endl << "Finished test run for:" << endl;
             cout << "Sender: ";
-            port.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(senderPortNum), false);
+            port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum), false);
             cout << " baud:" << port.getTermios().getBaudRate() << " data bits:" << port.getTermios().getDataBits() 
                  << " parity:" << port.getTermios().getParityString() << " stop bits:" << port.getTermios().getStopBits() << endl;
             cout << "Echo: ";
-            echoPort.printPortConfig(n_c::SerialPortPhysicalControl::int2PortDef(echoPortNum), false);
+            echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum), false);
             cout << " baud:" << echoPort.getTermios().getBaudRate() << " data bits:" << echoPort.getTermios().getDataBits() 
                  << " parity:" << echoPort.getTermios().getParityString() << " stop bits:" << echoPort.getTermios().getStopBits() << endl;
             cout << endl;

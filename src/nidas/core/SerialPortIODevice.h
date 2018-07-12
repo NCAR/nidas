@@ -28,7 +28,7 @@
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include "UnixIODevice.h"
-#include "SerialPortPhysicalControl.h"
+#include "SerialXcvrCtrl.h"
 #include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Termios.h>
@@ -106,7 +106,7 @@ public:
     virtual void setName(const std::string& name)
     {
         UnixIODevice::setName(name);
-        checkPortControlRequired(name);
+        checkXcvrCtrlRequired(name);
     }
 
     /**
@@ -126,7 +126,7 @@ public:
      */
     void applyTermios()
     {
-        _termios.apply(_fd,getName());
+        _termios.apply(_fd, getName());
     }
 
     /**
@@ -145,12 +145,12 @@ public:
     /* 
      * Check whether this serial port is using a device which needs port control
      */
-    void checkPortControlRequired(const std::string& name);
+    void checkXcvrCtrlRequired(const std::string& name);
 
     /**
-     *  Get the SerialPortPhysicalControl object for direct updating
+     *  Get the SerialXcvrCtrl object for direct updating
      */
-    SerialPortPhysicalControl* getPortControl() {return _pSerialControl;}
+    SerialXcvrCtrl* getXcvrControl() {return _pXcvrCtrl;}
 
     /**
      *  Set and retrieve the _portType member attribute 
@@ -176,9 +176,9 @@ public:
      */
     void applyPortConfig()
     {
-        if (_pSerialControl) {
-            _pSerialControl->setPortConfig(_portType, _term, _power);
-            _pSerialControl->applyPortConfig();
+        if (_pXcvrCtrl) {
+            _pXcvrCtrl->setPortConfig(_portType, _term, _power);
+            _pXcvrCtrl->applyPortConfig();
         }
 
         else {
@@ -188,8 +188,8 @@ public:
     }
 
     void printPortConfig(PORT_DEFS port, bool readFirst=true) {
-        if (_pSerialControl) {
-            _pSerialControl->printPortConfig(port, readFirst);
+        if (_pXcvrCtrl) {
+            _pXcvrCtrl->printPortConfig(port, readFirst);
         }
 
         else {
@@ -200,8 +200,8 @@ public:
 
     std::string portTypeToStr(PORT_TYPES portType) {
         std::string portStr("");
-        if (_pSerialControl) {
-            portStr.append(_pSerialControl->portTypeToStr(portType));
+        if (_pXcvrCtrl) {
+            portStr.append(_pXcvrCtrl->portTypeToStr(portType));
         }
 
         else {
@@ -416,7 +416,7 @@ protected:
 
     SENSOR_POWER_STATE _power;
 
-    SerialPortPhysicalControl* _pSerialControl;
+    SerialXcvrCtrl* _pXcvrCtrl;
 
     /**
      * No assignment.
