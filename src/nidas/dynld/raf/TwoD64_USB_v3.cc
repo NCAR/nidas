@@ -140,11 +140,14 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 	const char * cp = ::strchr(input,sep);  
         cp++; 
         //First input will be the second char to skip "SOR,"
-        if(ifield != 0 &&  sscanf(input, "%f", &data) == 1)
+        if(ifield != 0)
         { 
-            dout[iout++] = double(data);
+            if (sscanf(input, "%f", &data) == 1){
+                dout[iout++] = double(data);
+            }else
+            dout[iout++] = double(NAN);
         }
-         input=cp;
+        input=cp;
     }
 
     results.push_back(outs);
