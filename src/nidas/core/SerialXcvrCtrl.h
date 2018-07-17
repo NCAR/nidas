@@ -35,21 +35,28 @@ namespace nidas { namespace core {
 /**
  * types of serial ports
  */
-typedef enum {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=485, RS485_HALF=484} PORT_TYPES;
+enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=485, RS485_HALF=484};
 
 /*
  * This enum specifies the ports in the DSM.
  */
-typedef enum {PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7} PORT_DEFS;
+enum PORT_DEFS {PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
 /*
  * Serial termination settings for RS422/RS485
  */
-typedef enum {NO_TERM=0, TERM_120_OHM} TERM;
+enum TERM {NO_TERM=0, TERM_120_OHM};
 
 /*
  * Sensor power setting
  */
 typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
+
+struct XcvrConfig {
+    XcvrConfig() : portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
+    PORT_TYPES portType;
+    TERM termination;
+    SENSOR_POWER_STATE sensorPower;
+};
 
 /*
  ********************************************************************
@@ -84,16 +91,23 @@ public:
     SerialXcvrCtrl(const PORT_DEFS portId);
     SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
                               const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
+    SerialXcvrCtrl(const PORT_DEFS portId, const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
 
-    // This sets the class state to be used by applyPortConfig();
-    void setPortConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
+    // This sets the class state to be used by applyXcvrConfig();
+    void setXcvrConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
+    void setXcvrConfig(const XcvrConfig& newXcvrConfig) {_xcvrConfig = newXcvrConfig;}
     // This is the primary client API that does all the heavy lifting  
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
-    void applyPortConfig(const bool openDevice=true);
-    // Returns the current state of the port mode, including sensor power
-    unsigned char getPortConfig();
+    void applyXcvrConfig(const bool readDevice=true);
+    // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
+    // the port mode, including termination and sensor power
+    unsigned char getRawXcvrConfig() {return _rawXcvrConfig;};
+    // Returns the raw bits indicating current state of the port mode, including sensor power
+    XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
+    // Reads the xcvr config from the FTDI chip and put it in _rawXcvrConfig
+    void readXcvrConfig(PORT_DEFS port, bool closeDevice = true);
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
     void setBusAddress(const int busId=1, const int deviceId=6);
@@ -151,14 +165,10 @@ private:
 
     // The port this instance is tasked with managing (0-7)
     PORT_DEFS _portID;
-    // This is the port type
-    PORT_TYPES _portType;
-    // This is the termination
-    TERM _term;
-    // This is the state of the sensor power - ON/OFF
-    SENSOR_POWER_STATE _powerstate;
+    // Aggregation of xcvr port knobs to twiddle
+    XcvrConfig _xcvrConfig;
     // This is the current port configuration contained in the lowest nibble always
-    unsigned char _portConfig;
+    unsigned char _rawXcvrConfig;
     // at present we're relying on bus address to locate the 
     // desired device.
     int _busAddr;

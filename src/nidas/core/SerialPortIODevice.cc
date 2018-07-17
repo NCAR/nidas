@@ -45,42 +45,38 @@ using namespace nidas::util;
 using namespace nidas::core;
 
 SerialPortIODevice::SerialPortIODevice():
-    UnixIODevice(),_termios(),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(0),_state(OK),
-    _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _usecsperbyte(0),  
+    _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(true)
 {
-    _termios.setRaw(true);
-    _termios.setRawLength(1);
-    _termios.setRawTimeout(0);
+    _workingPortConfig.termios.setRaw(true);
+    _workingPortConfig.termios.setRawLength(1);
+    _workingPortConfig.termios.setRawTimeout(0);
 }
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
-    UnixIODevice(name),_termios(fd,name),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(0),_state(OK),
-    _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _usecsperbyte(0),
+    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     getBlocking();
     checkXcvrCtrlRequired(getName());
 }
 
 SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
-    UnixIODevice(x.getName()),_termios(x._termios),_rts485(0),_usecsperbyte(0),
-    _portType(RS232),_term(NO_TERM),_power(SENSOR_POWER_ON),_pXcvrCtrl(const_cast<SerialPortIODevice&>(x).getXcvrControl()),_state(OK),
-    _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
+    UnixIODevice(x.getName()), _workingPortConfig(x._workingPortConfig), 
+    _pXcvrCtrl((const_cast<SerialPortIODevice&>(x).getXcvrCtrl())), _usecsperbyte(0),
+    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
     checkXcvrCtrlRequired(getName());
 }
 
 
-SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES portType, 
-                                       const TERM term, const SENSOR_POWER_STATE powerState):
-    UnixIODevice(name),_termios(),_rts485(0),_usecsperbyte(0),
-    _portType(portType),_term(term),_power(powerState),_pXcvrCtrl(0),_state(OK),
-    _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
+    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _usecsperbyte(0),
+    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
-    _termios.setRaw(true);
-    _termios.setRawLength(1);
-    _termios.setRawTimeout(0);
+    _workingPortConfig.termios.setRaw(true);
+    _workingPortConfig.termios.setRawLength(1);
+    _workingPortConfig.termios.setRawTimeout(0);
 
     checkXcvrCtrlRequired(name);
 }
@@ -94,11 +90,11 @@ SerialPortIODevice::~SerialPortIODevice()
 void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 {
     // if a port control object already exists, delete it first
-    if (getXcvrControl()) {
-        NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
+    if (getXcvrCtrl()) {
+        ILOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
 
         if (getName() != name) {
-            NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
+            ILOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
             delete _pXcvrCtrl;
         }
     }
@@ -122,44 +118,78 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
                                 "cannot be parsed for canonical port ID");
         }
 
-        NLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
-            << "; Port type: " << _portType);
+        ILOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
+            << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
         _pXcvrCtrl = new SerialXcvrCtrl(static_cast<PORT_DEFS>(portID), 
-                                                        _portType, _term);
+                                        _workingPortConfig.xcvrConfig.portType, 
+                                        _workingPortConfig.xcvrConfig.termination);
         if (_pXcvrCtrl == 0)
         {
-            throw n_u::Exception("SerialPortIODevice: Cannot construct "
-                                    "SerialXcvrCtrl object");
+            throw n_u::Exception("SerialPortIODevice: Cannot construct SerialXcvrCtrl object");
         }
     }
 }
 
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 {
+    ILOG(("SerialPortIODevice::open : entry"));
+
     UnixIODevice::open(flags);
     applyPortConfig();
-    applyTermios();
     setBlocking(_blocking);
 
     // set RTS according to how it's been set by the client
     // or not at all if the port mode is not RS422/RS485 half duplex
-    if (_portType == RS422) {
+    if (  getPortType() == RS422) {
         setRTS485(-1);
     } 
     
     else {
-        if (_portType == RS485_HALF) {
-            setRTS485(_rts485);
+        if (getPortType() == RS485_HALF) {
+            setRTS485(getRTS485());
         }
     }
+    ILOG(("SerialPortIODevice::open : exit"));
+}
+
+void SerialPortIODevice::printPortConfig(PORT_DEFS port, bool readFirst) 
+{
+    cout << "Device: " << getName() << endl;
+    cout << "Termios: baud: " << getTermios().getBaudRate() 
+                              << " word: " << getTermios().getDataBits() << getTermios().getParity() << getTermios().getStopBits() << endl;
+    // cout << "Modem status: " << modemFlagsToString(getModemStatus()) << " : " ;
+
+    // ignore for those sensors who do not use HW xcvr auto-config
+    if (getXcvrCtrl()) {
+        getXcvrCtrl()->printPortConfig(port, readFirst);
+    }
+}
+
+void SerialPortIODevice::applyPortConfig()
+{
+    ILOG(("SerialPortIODevice::applyPortConfig : entry"));
+
+    termios().apply(_fd, getName());
+
+    // ignore if not controlled by FT4232H GPIO
+    if (getXcvrCtrl()) {
+        getXcvrCtrl()->setXcvrConfig(_workingPortConfig.xcvrConfig);
+        getXcvrCtrl()->applyXcvrConfig();
+    }
+
+    else {
+        ILOG(("SerialPortIODevice::applyPortConfig(): FT4232H GPIO control of serial line drive not provided."));
+    }
+
+    ILOG(("SerialPortIODevice::applyPortConfig : exit"));
 }
 
 int SerialPortIODevice::getUsecsPerByte() const
 {
     int usecs = 0;
     if (::isatty(_fd)) {
-        int bits = _termios.getDataBits() + _termios.getStopBits() + 1;
-        switch(_termios.getParity()) {
+        int bits = _workingPortConfig.termios.getDataBits() + _workingPortConfig.termios.getStopBits() + 1;
+        switch(_workingPortConfig.termios.getParity()) {
         case n_u::Termios::ODD:
         case n_u::Termios::EVEN:
             bits++;
@@ -167,7 +197,7 @@ int SerialPortIODevice::getUsecsPerByte() const
         case n_u::Termios::NONE:
             break;
         }
-        usecs = (bits * USECS_PER_SEC + _termios.getBaudRate() / 2) / _termios.getBaudRate();
+        usecs = (bits * USECS_PER_SEC + _workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
     }
     return usecs;
 }
@@ -189,16 +219,20 @@ void SerialPortIODevice::setRTS485(int val)
     // header. 
     //
     //Ignore this if the current port is RS232 or LOOPBACK.
-    _rts485 = val;
-    if (((_portType == RS422) || (getPortType() == RS485_HALF)) && (_fd >= 0)) {
-        if (_rts485 > 0) {
+
+    // NOTE: if the value is 0, don't do anything. This is the default. This allows HW to do the heavy lifting 
+    //       w/o getting the software involved.
+    _workingPortConfig.rts485 = val;
+    if (((getPortType() == RS422) || (getPortType() == RS485_HALF)) && (_fd >= 0)) {
+        if (getRTS485() > 0) {
             // clear RTS
             clearModemBits(TIOCM_RTS);
         }
-        else {
+        else if (getRTS485() < 0) {
             // set RTS
             setModemBits(TIOCM_RTS);
-        }
+        } // else ignore
+
         _usecsperbyte = getUsecsPerByte();
     }
 }
@@ -395,42 +429,43 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
 {
     ssize_t result;
 
-    ILOG(("Pre SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
-
     if (getPortType() == RS485_HALF) {
         // see the above discussion about RTS and 485. Here we
         // try an in-exact set/clear of RTS on either side of a write.
-        if (_rts485 > 0) {
+        if (getRTS485() > 0) {
             // set RTS before write
             setModemBits(TIOCM_RTS);
         }
-        else {
+        else if (getRTS485() < 0) {
             // clear RTS before write
             clearModemBits(TIOCM_RTS);
         }
-
-        ILOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
     }
 
+    ILOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+
     if ((result = ::write(_fd,buf,len)) < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) result = 0;
-        else throw nidas::util::IOException(getName(),"write",errno);
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            // let caller know that nothing was received and carry on...
+            result = 0;
+        }
+        else {
+            throw nidas::util::IOException(getName(),"write",errno);
+        }
     }
 
     if (getPortType() == RS485_HALF) {
         // Sleep until we think the last bit has been transmitted.
         // Add a fudge-factor of one quarter of a character.
         ::usleep(len * _usecsperbyte + _usecsperbyte/4);
-        if (_rts485 > 0) {
+        if (getRTS485() > 0) {
             // then clear RTS
             clearModemBits(TIOCM_RTS);
         }
-        else {
+        else if (getRTS485() < 0) {
             // then set RTS
             setModemBits(TIOCM_RTS);
         }
-
-        ILOG(("Post RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
     }
     
     ILOG(("Post SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));

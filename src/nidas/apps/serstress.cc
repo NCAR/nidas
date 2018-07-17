@@ -1102,9 +1102,9 @@ int main(int argc, char**argv)
             termioOpts.append(tempTermiosOpts);
 
             port.setPortType(thisPortType);
-            port.applyPortConfig();
+            // port.applyPortConfig();
             echoPort.setPortType(thisPortType);
-            echoPort.applyPortConfig();
+            //echoPort.applyPortConfig();
 
             cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
             cout << "Sender: ";

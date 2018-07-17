@@ -30,9 +30,9 @@
 #include "LooperClient.h"
 #include "SerialPortIODevice.h"
 
-namespace nidas { namespace core {
+using namespace nidas::util; 
 
-using namespace nidas::core;
+namespace nidas { namespace core {
 
 /**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
@@ -78,12 +78,12 @@ public:
      * Expose the Termios. One must call applyTermios() to
      * apply any changes to the serial port.
      */
-    nidas::util::Termios& termios() { return _termios; }
+    nidas::util::Termios& termios() { return _workingPortConfig.termios; }
 
     /**
      * Get a read-only copy of the Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _termios; }
+    const nidas::util::Termios& getTermios() const { return _workingPortConfig.termios; }
 
     /**
      * Calls CharacterSensor::buildSampleScanner(), and then sets the 
@@ -164,6 +164,14 @@ public:
      */
     int getUsecsPerByte() const;
 
+    /**
+     * Get/set the working PortConfig
+     */
+    PortConfig getPortConfig() {return _workingPortConfig;}
+    void setPortConfig(const PortConfig newPortConfig){_workingPortConfig = newPortConfig;}
+
+    void applyPortConfig();
+
 protected:
 
     /**
@@ -182,25 +190,15 @@ protected:
 
 private:
 
-    /**
-     * Serial I/O parameters.
-     */
-    nidas::util::Termios _termios;
+    /*******************************************************
+     * Aggregate serial port configuration
+     *******************************************************/
+    PortConfig _workingPortConfig;
 
     /**
      * Non-null if the underlying IODevice is a SerialPortIODevice.
      */
     SerialPortIODevice* _serialDevice;
-
-    /**
-     * Remember the port type as discovered in XML parsing.
-     */
-    PORT_TYPES _portType;
-
-    /**
-     * Line termination setting if _serialDevice is non-null
-     */
-    TERM _term;
 
     class Prompter: public nidas::core::LooperClient
     {
@@ -241,12 +239,6 @@ private:
     std::list<Prompter*> _prompters;
 
     bool _prompting;
-
-    /**
-     * Should the RTS line on this port be controled for half-duplex 485?
-     * See SerialPortIODevice.h.
-     */
-    int _rts485;
 
     /** No copying. */
     SerialSensor(const SerialSensor&);

@@ -42,12 +42,23 @@
 #include <string>
 #include <iostream>
 #include <sys/ioctl.h>
+#include <nidas/util/Termios.h>
 
 #ifdef DEBUG
 #include <iostream>
 #endif
 
+using namespace nidas::util;
+
 namespace nidas { namespace core {
+
+struct PortConfig {
+    PortConfig() : termios(), xcvrConfig(), rts485(0) {}
+    PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0) {}
+    Termios termios;
+    XcvrConfig xcvrConfig;
+    int rts485;
+};
 
 /**
  *  A serial port and all associated configurations. Typically these are enumerated by the 
@@ -73,8 +84,7 @@ public:
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    SerialPortIODevice(const std::string& name, const PORT_TYPES portType=RS232, const TERM term=NO_TERM, 
-                       SENSOR_POWER_STATE sensorPower=SENSOR_POWER_ON);
+    SerialPortIODevice(const std::string& name, PortConfig initPortConfig);
 
     /**
      * Copy constructor.  The attributes of the port are copied,
@@ -114,19 +124,19 @@ public:
      * If the SerialPortIODevice is open, the user should call
      * applyTermios() for any modifications to take effect.
      */
-    nidas::util::Termios& termios() { return _termios; }
+    nidas::util::Termios& termios() { return _workingPortConfig.termios; }
     
     /**
      * Readonly reference to Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _termios; }
+    const nidas::util::Termios& getTermios() const { return _workingPortConfig.termios; }
 
     /**
      * Apply the Termios settings to an opened serial port.
      */
     void applyTermios()
     {
-        _termios.apply(_fd, getName());
+        _workingPortConfig.termios.apply(_fd, getName());
     }
 
     /**
@@ -150,53 +160,34 @@ public:
     /**
      *  Get the SerialXcvrCtrl object for direct updating
      */
-    SerialXcvrCtrl* getXcvrControl() {return _pXcvrCtrl;}
+    SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
 
     /**
      *  Set and retrieve the _portType member attribute 
      */
-    void setPortType( const PORT_TYPES thePortType) {_portType = thePortType;}
-    PORT_TYPES getPortType() const {return _portType;}
+    void setPortType( const PORT_TYPES thePortType) {_workingPortConfig.xcvrConfig.portType = thePortType;}
+    PORT_TYPES getPortType() const {return _workingPortConfig.xcvrConfig.portType;}
 
     /**
      *  Set and retrieve the _term member attribute 
      */
-    void setTermination( const TERM theTermState) {_term = theTermState;}
-    TERM getTermination() const {return _term;}
+    void setTermination( const TERM theTermState) {_workingPortConfig.xcvrConfig.termination = theTermState;}
+    TERM getTermination() const {return _workingPortConfig.xcvrConfig.termination;}
 
     /**
      *  Set and retrieve the _power member attribute 
      */
-    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_power = thePowerState;}
-    SENSOR_POWER_STATE getPowerState() const {return _power;}
+    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_workingPortConfig.xcvrConfig.sensorPower = thePowerState;}
+    SENSOR_POWER_STATE getPowerState() const {return _workingPortConfig.xcvrConfig.sensorPower;}
 
     /**
      *  Commands the serial board to set the GPIO switches to configure for 
      *  the port type, termination, and power according to the member attributes.
      */
-    void applyPortConfig()
-    {
-        if (_pXcvrCtrl) {
-            _pXcvrCtrl->setPortConfig(_portType, _term, _power);
-            _pXcvrCtrl->applyPortConfig();
-        }
+    void setPortConfig(const PortConfig newPortConfig) {_workingPortConfig = newPortConfig;}
+    void applyPortConfig();
 
-        else {
-            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to set the physcial port config"
-                                 "for a non-existen SerialPortPhhysicalControl Object.");
-        }
-    }
-
-    void printPortConfig(PORT_DEFS port, bool readFirst=true) {
-        if (_pXcvrCtrl) {
-            _pXcvrCtrl->printPortConfig(port, readFirst);
-        }
-
-        else {
-            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to print the physcial port config"
-                                 "for a non-existen SerialPortPhhysicalControl Object.");
-        }
-    }
+    void printPortConfig(PORT_DEFS port, bool readFirst=true);
 
     std::string portTypeToStr(PORT_TYPES portType) {
         std::string portStr("");
@@ -205,8 +196,8 @@ public:
         }
 
         else {
-            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to print the physcial port config"
-                                 "for a non-existen SerialPortPhhysicalControl Object.");
+            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to render the physcial port ID"
+                                 "for a non-existen SerialXcvrCtrl Object.");
         }
     }
 
@@ -291,14 +282,22 @@ public:
      *       times (and hence, the RTS flag), the class will need to set the RTS flag prior to sending 
      *       data, such as in the open() method.
      * 
-     * NOTE: TODO - We need a way to ignore this on the auto-config hardware, which will automagically 
-     *              do all this for us in hardware. Specifically, the FT4232H can be configured to set 
-     *              an output pin called TX_EN high whenever it is sending data on the TX line. This 
-     *              signal is connected to the SP339 line driver device's DIR input. When DIR is high, 
-     *              the RS485 transmitter is enabled, and disabled when it is low.
+     * NOTE: If the RTS line is used for DIR control on the SP339, or other line driver/xcvr, it 
+     *       appears to be inverted - at least for the FT4232H USB-UART bridge RTS output. So in 
+     *       this case, you need to set RTS low to force DIR high and allow the xcvr to send 
+     *       data.
+     * 
+     * NOTE: We need a way to ignore this on the auto-config hardware, which will automagically 
+     *       do all this for us in hardware. Specifically, the FT4232H can be configured to set 
+     *       an output pin called TX_EN high whenever it is sending data on the TX line. This 
+     *       signal is connected to the SP339 line driver device's DIR input. When DIR is high, 
+     *       the RS485 transmitter is enabled, and disabled when it is low.
+     *       
+     *       The mechanism for this will be to use a value of 0 to indicate that the SW need not 
+     *       inject the RTS line control in the write command.
      */
     void setRTS485(int val);
-    int getRTS485() const {return _rts485;}
+    int getRTS485() const {return _workingPortConfig.rts485;}
 
     /**
      * Get the current state of the modem bits.
@@ -404,19 +403,11 @@ public:
 
 protected:
 
-    nidas::util::Termios _termios;
-
-    int _rts485;
-
-    unsigned int _usecsperbyte;
-
-    PORT_TYPES _portType;
-
-    TERM _term;
-
-    SENSOR_POWER_STATE _power;
+    PortConfig _workingPortConfig;
 
     SerialXcvrCtrl* _pXcvrCtrl;
+
+    unsigned int _usecsperbyte;
 
     /**
      * No assignment.

@@ -46,13 +46,12 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
-    _termios(),_serialDevice(0),_portType(RS232), _term(NO_TERM), _prompters(),_prompting(false),
-    _rts485(0)
+    _workingPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
-    _termios.setRaw(true);
-    _termios.setRawLength(1);
-    _termios.setRawTimeout(0);
+    _workingPortConfig.termios.setRaw(true);
+    _workingPortConfig.termios.setRawLength(1);
+    _workingPortConfig.termios.setRawTimeout(0);
 }
 
 SerialSensor::~SerialSensor()
@@ -76,20 +75,17 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
 
     // Did we get the default from Character Sensor?
     if (reinterpret_cast<UnixIODevice*>(device)) {
-        // yes, meaning it didn't look for, nor find a DSM serial port.
-        // so we have to check the device name for /dev/ttyUSB??
-        if (getDeviceName().find("/dev/ttyUSB") == 0)
-        {
-            delete device;
-            device = 0;
-            ILOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
-                << "; Port Type: " << _portType);
-            SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _portType, _term);
-            spDevice->termios() = _termios;
-            spDevice->setRTS485(_rts485);
-            return spDevice;
-        }
+        // yes, meaning it didn't look for, nor find a serial port.
+        delete device;
+        device = 0;
+        ILOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
+            << "; Port Type: " << _workingPortConfig.xcvrConfig.portType);
+        SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _workingPortConfig);
+        _serialDevice = spDevice;
+        return spDevice;
     }
+
+    return device;
 }
 
 int SerialSensor::getUsecsPerByte() const
@@ -146,10 +142,24 @@ void SerialSensor::close() throw(n_u::IOException)
 
 void SerialSensor::applyTermios() throw(nidas::util::IOException)
 {
+    ILOG(("SerialSensor::applyTermios(): entry"));
     if (_serialDevice) {
-        _serialDevice->termios() = _termios;
+        _serialDevice->termios() = _workingPortConfig.termios;
         _serialDevice->applyTermios();
     }
+    ILOG(("SerialSensor::applyTermios(): exit"));
+}
+
+void SerialSensor::applyPortConfig() 
+{
+    ILOG(("SerialSensor::applyPortConfig(): entry"));
+    applyTermios();
+    
+    if (_serialDevice && _serialDevice->getXcvrCtrl()) {
+        _serialDevice->setPortConfig(_workingPortConfig);
+        _serialDevice->applyPortConfig();
+    }
+    ILOG(("SerialSensor::applyPortConfig(): exit"));
 }
 
 void SerialSensor::initPrompting() throw(n_u::IOException)
@@ -213,9 +223,9 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
     DSMSensor::printStatus(ostr);
 
     try {
-	ostr << "<td align=left>" << _termios.getBaudRate() <<
-		_termios.getParityString().substr(0,1) <<
-		_termios.getDataBits() << _termios.getStopBits();
+	ostr << "<td align=left>" << _workingPortConfig.termios.getBaudRate() <<
+		_workingPortConfig.termios.getParityString().substr(0,1) <<
+		_workingPortConfig.termios.getDataBits() << _workingPortConfig.termios.getStopBits();
 	if (getReadFd() < 0) {
 	    ostr << ",<font color=red><b>not active</b></font>";
 	    if (getTimeoutMsecs() > 0)
@@ -262,67 +272,66 @@ void SerialSensor::fromDOMElement(
         else if (aname == "porttype") {
             string upperAval;
             std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);;
-            if (upperAval == "RS232") _portType = RS232;
-            else if (upperAval == "RS422") _portType = RS422;
-            else if (upperAval == "RS485_HALF") _portType = RS485_HALF;
-            else if (upperAval == "RS485_FULL") _portType = RS485_FULL;
+            if (upperAval == "RS232") _workingPortConfig.xcvrConfig.portType = RS232;
+            else if (upperAval == "RS422") _workingPortConfig.xcvrConfig.portType = RS422;
+            else if (upperAval == "RS485_HALF") _workingPortConfig.xcvrConfig.portType = RS485_HALF;
+            else if (upperAval == "RS485_FULL") _workingPortConfig.xcvrConfig.portType = RS485_FULL;
             else throw n_u::InvalidParameterException(
                         string("SerialSensor:") + getName(),
                         aname,aval);
         }
         else if (aname == "termination") {
-            if (aval == "NO_TERM") _term = NO_TERM;
-            else if (aval == "TERM_120_OHM") _term = TERM_120_OHM;
+            if (aval == "NO_TERM") _workingPortConfig.xcvrConfig.termination = NO_TERM;
+            else if (aval == "TERM_120_OHM") _workingPortConfig.xcvrConfig.termination = TERM_120_OHM;
             else throw n_u::InvalidParameterException(
                         string("SerialSensor:") + getName(),
                         aname,aval);
         }
 	    else if (aname == "baud") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail() || !_termios.setBaudRate(val))
-		    throw n_u::InvalidParameterException(
-		    	string("SerialSensor:") + getName(),
-			aname,aval);
+            istringstream ist(aval);
+            int val;
+            ist >> val;
+            if (ist.fail() || !_workingPortConfig.termios.setBaudRate(val))
+                throw n_u::InvalidParameterException(
+                    string("SerialSensor:") + getName(), aname,aval);
 	    }
 	    else if (aname == "parity") {
-		if (aval == "odd") _termios.setParity(n_u::Termios::ODD);
-		else if (aval == "even") _termios.setParity(n_u::Termios::EVEN);
-		else if (aval == "none") _termios.setParity(n_u::Termios::NONE);
+		if (aval == "odd") _workingPortConfig.termios.setParity(n_u::Termios::ODD);
+		else if (aval == "even") _workingPortConfig.termios.setParity(n_u::Termios::EVEN);
+		else if (aval == "none") _workingPortConfig.termios.setParity(n_u::Termios::NONE);
 		else throw n_u::InvalidParameterException(
 		    string("SerialSensor:") + getName(),
 		    aname,aval);
 	    }
 	    else if (aname == "databits") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-			string("SerialSensor:") + getName(),
-		    	aname, aval);
-		_termios.setDataBits(val);
+            istringstream ist(aval);
+            int val;
+            ist >> val;
+            if (ist.fail())
+                throw n_u::InvalidParameterException(
+                string("SerialSensor:") + getName(),
+                    aname, aval);
+            _workingPortConfig.termios.setDataBits(val);
 	    }
 	    else if (aname == "stopbits") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-			string("SerialSensor:") + getName(),
-		    	aname, aval);
-		_termios.setStopBits(val);
+            istringstream ist(aval);
+            int val;
+            ist >> val;
+            if (ist.fail())
+                throw n_u::InvalidParameterException(
+                string("SerialSensor:") + getName(),
+                    aname, aval);
+            _workingPortConfig.termios.setStopBits(val);
 	    }
 	    else if (aname == "rts485") {
             if (aval == "true" || aval == "1") {
-                _rts485 = 1;
+                _workingPortConfig.rts485 = 1;
             }
             else if (aval == "false" || aval == "0") {
-                _rts485 = 0;
+                _workingPortConfig.rts485 = 0;
             }
             else if (aval == "-1") {
-                _rts485 = -1;
+                _workingPortConfig.rts485 = -1;
             }
             else {
                 throw n_u::InvalidParameterException(
