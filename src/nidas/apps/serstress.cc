@@ -1075,9 +1075,9 @@ int main(int argc, char**argv)
 
     cout << "Initial Port Configuration" << endl << "======================" << endl;
     cout << "Sender: ";
-    port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum));
+    port.printPortConfig();
     cout << "Echo: ";
-    echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum));
+    echoPort.printPortConfig();
 
     // save a virgin copy and prepend the baud rate later.
     string tempTermiosOpts = termioOpts;
@@ -1102,15 +1102,13 @@ int main(int argc, char**argv)
             termioOpts.append(tempTermiosOpts);
 
             port.setPortType(thisPortType);
-            // port.applyPortConfig();
             echoPort.setPortType(thisPortType);
-            //echoPort.applyPortConfig();
 
             cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
             cout << "Sender: ";
-            port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum));
+            port.printPortConfig();
             cout << "Echo: ";
-            echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum));
+            echoPort.printPortConfig();
             cout << "Baud Rate: " << n_u::Termios::bauds[j].rate << endl;
             cout << endl;
 
@@ -1215,11 +1213,11 @@ int main(int argc, char**argv)
 
             cout << endl << "Finished test run for:" << endl;
             cout << "Sender: ";
-            port.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(senderPortNum), false);
+            port.printPortConfig(false);
             cout << " baud:" << port.getTermios().getBaudRate() << " data bits:" << port.getTermios().getDataBits() 
                  << " parity:" << port.getTermios().getParityString() << " stop bits:" << port.getTermios().getStopBits() << endl;
             cout << "Echo: ";
-            echoPort.printPortConfig(n_c::SerialXcvrCtrl::int2PortDef(echoPortNum), false);
+            echoPort.printPortConfig(false);
             cout << " baud:" << echoPort.getTermios().getBaudRate() << " data bits:" << echoPort.getTermios().getDataBits() 
                  << " parity:" << echoPort.getTermios().getParityString() << " stop bits:" << echoPort.getTermios().getStopBits() << endl;
             cout << endl;

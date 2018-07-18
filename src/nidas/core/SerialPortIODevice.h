@@ -187,7 +187,7 @@ public:
     void setPortConfig(const PortConfig newPortConfig) {_workingPortConfig = newPortConfig;}
     void applyPortConfig();
 
-    void printPortConfig(PORT_DEFS port, bool readFirst=true);
+    void printPortConfig(bool readFirst=true);
 
     std::string portTypeToStr(PORT_TYPES portType) {
         std::string portStr("");

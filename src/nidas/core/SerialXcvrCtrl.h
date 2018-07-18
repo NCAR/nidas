@@ -52,7 +52,10 @@ enum TERM {NO_TERM=0, TERM_120_OHM};
 typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
 
 struct XcvrConfig {
-    XcvrConfig() : portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
+    XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
+    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm) 
+        : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(SENSOR_POWER_ON) {}
+    PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
     SENSOR_POWER_STATE sensorPower;
@@ -91,7 +94,7 @@ public:
     SerialXcvrCtrl(const PORT_DEFS portId);
     SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
                               const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
-    SerialXcvrCtrl(const PORT_DEFS portId, const XcvrConfig initXcvrConfig);
+    SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
 
@@ -107,7 +110,7 @@ public:
     // Returns the raw bits indicating current state of the port mode, including sensor power
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // Reads the xcvr config from the FTDI chip and put it in _rawXcvrConfig
-    void readXcvrConfig(PORT_DEFS port, bool closeDevice = true);
+    void readXcvrConfig(bool closeDevice = true);
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
     void setBusAddress(const int busId=1, const int deviceId=6);
@@ -119,8 +122,8 @@ public:
     const std::string termToStr(unsigned char termCfg) const; 
     // This utility converts a binary power configuration to a string
     const std::string powerToStr(unsigned char powerCfg) const; 
-    // This utility prints the port types for a particular port.
-    void printPortConfig(const PORT_DEFS port, const bool addNewline=true, const bool readFirst=true);
+    // This utility prints the port types for the assigned port.
+    void printPortConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of PORT_DEFS
     static PORT_DEFS int2PortDef(const unsigned portNum)
@@ -130,13 +133,13 @@ public:
 
 protected:
     // shift the port type into the correct location in the GPIO for insertion
-    unsigned char adjustBitPosition(const PORT_DEFS port, const unsigned char bits );
+    unsigned char adjustBitPosition(const unsigned char bits );
     // assembles the port config bits into a low nibble, ready for shifting.
     unsigned char assembleBits(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
-    // deduces the FT4232H GPIO port form the port passed in.
+    // deduces the FT4232H GPIO interface form the port in _xcvrConfig.
     // need to select the interface based on the specified port 
     // at present, assume 4 bits per port definition
-    enum ftdi_interface port2iface(const unsigned int port);
+    enum ftdi_interface port2iface();
     // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
     unsigned char portType2Bits(const PORT_TYPES portType);
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
@@ -163,8 +166,6 @@ private:
     static const unsigned char TERM_120_OHM_BIT = 0b00000100;
     static const unsigned char SENSOR_POWER_ON_BIT = 0b00001000;
 
-    // The port this instance is tasked with managing (0-7)
-    PORT_DEFS _portID;
     // Aggregation of xcvr port knobs to twiddle
     XcvrConfig _xcvrConfig;
     // This is the current port configuration contained in the lowest nibble always

@@ -45,12 +45,12 @@ const char* SerialXcvrCtrl::STR_POWER_OFF = "POWER_OFF";
 
 
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
-: _portID(portId), _xcvrConfig(), _rawXcvrConfig(0),
+: _xcvrConfig(portId, RS232, NO_TERM), _rawXcvrConfig(0),
   _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
 {
     if (_pContext)
     {
-        enum ftdi_interface iface = port2iface(portId);
+        enum ftdi_interface iface = port2iface();
         if (iface != INTERFACE_ANY) {
             ftdi_set_interface(_pContext, iface);
 
@@ -106,12 +106,12 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
                                const PORT_TYPES portType, 
                                const TERM termination,
                                const SENSOR_POWER_STATE pwrState)
-: _portID(portId), _xcvrConfig(), _rawXcvrConfig(0), 
+: _xcvrConfig(portId, portType, termination), _rawXcvrConfig(0), 
   _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
 {
     if (_pContext)
     {
-        enum ftdi_interface iface = port2iface(portId);
+        enum ftdi_interface iface = port2iface();
         if (iface != INTERFACE_ANY) {
             ftdi_set_interface(_pContext, iface);
 
@@ -163,13 +163,13 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
     }
 }
 
-SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId, const XcvrConfig initXcvrConfig)
-: _portID(portId), _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), 
+SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
+: _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), 
   _busAddr(1), _deviceAddr(6), _pContext(ftdi_new())
 {
     if (_pContext)
     {
-        enum ftdi_interface iface = port2iface(portId);
+        enum ftdi_interface iface = port2iface();
         if (iface != INTERFACE_ANY) {
             ftdi_set_interface(_pContext, iface);
 
@@ -238,15 +238,15 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
 {
     if (readDevice) {
         ILOG(("SerialXcvrCtrl: Reading GPIO pin state before adjusting them."));
-        readXcvrConfig(_portID, false);
+        readXcvrConfig(false);
     }
 
     ILOG(("Applying port type: ") << portTypeToStr(_xcvrConfig.portType));
     ILOG(("Applying termination: ") << termToStr(_xcvrConfig.termination));
     ILOG(("Applying power: ") << powerToStr(_xcvrConfig.sensorPower));
 
-    _rawXcvrConfig &= ~adjustBitPosition(_portID, 0xF);
-    _rawXcvrConfig |= adjustBitPosition(_portID, assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
+    _rawXcvrConfig &= ~adjustBitPosition(0xF);
+    _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
 
     // Call FTDI API to set the desired port types
     if (!ftdi_write_data(_pContext, &_rawXcvrConfig, 1)) {
@@ -281,8 +281,8 @@ void SerialXcvrCtrl::setBusAddress(const int busId, const int deviceId)
 }
 
 unsigned char SerialXcvrCtrl::assembleBits(const PORT_TYPES portType, 
-                                                      const TERM term, 
-                                                      const SENSOR_POWER_STATE powerState)
+                                           const TERM term, 
+                                           const SENSOR_POWER_STATE powerState)
 {
     unsigned char bits = portType2Bits(portType);
 
@@ -350,17 +350,17 @@ PORT_TYPES SerialXcvrCtrl::bits2PortType(const unsigned char bits)
     return portType;
 }
 
-unsigned char SerialXcvrCtrl::adjustBitPosition(const PORT_DEFS port, const unsigned char bits ) 
+unsigned char SerialXcvrCtrl::adjustBitPosition(const unsigned char bits ) 
 {
     // adjust port shift to always be 0 or 4, assuming 4 bits per port configuration.
-    unsigned char portShift = (port % PORT2)*4;
+    unsigned char portShift = (_xcvrConfig.port % PORT2)*4;
     return bits << portShift;
 }
 
-enum ftdi_interface SerialXcvrCtrl::port2iface(const unsigned int port)
+enum ftdi_interface SerialXcvrCtrl::port2iface()
 {
     enum ftdi_interface iface = INTERFACE_ANY;
-    switch ( port ) 
+    switch ( _xcvrConfig.port ) 
     {
         case PORT0:
         case PORT1:
@@ -463,10 +463,10 @@ const std::string SerialXcvrCtrl::powerToStr(unsigned char powerCfg) const
     return powerStr;
 }
 
-void SerialXcvrCtrl::readXcvrConfig(PORT_DEFS port, bool closeDevice) 
+void SerialXcvrCtrl::readXcvrConfig(bool closeDevice) 
 {
     if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr)) {
-        enum ftdi_interface iface = port2iface(port);
+        enum ftdi_interface iface = port2iface();
         const char* ifaceIdx = (iface==INTERFACE_A ? "A" : iface==INTERFACE_B ? "B" 
                                 : iface==INTERFACE_C ? "C" : iface==INTERFACE_D ? "D" : "?!?");
         ILOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
@@ -504,16 +504,16 @@ void SerialXcvrCtrl::readXcvrConfig(PORT_DEFS port, bool closeDevice)
     }
 }
 
-void SerialXcvrCtrl::printPortConfig(const PORT_DEFS port, const bool addNewline, const bool readFirst)
+void SerialXcvrCtrl::printPortConfig(const bool addNewline, const bool readFirst)
 {
     if (readFirst) {
         ILOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
-        readXcvrConfig(port);
+        readXcvrConfig();
     }
 
     unsigned char tmpPortConfig = _rawXcvrConfig;
-    if (port % 2) tmpPortConfig >>= 4;
-    std::cout << "Port" << port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
+    if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
+    std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
                                 << " | " << termToStr(tmpPortConfig & TERM_120_OHM_BIT)
                                 << " | " << powerToStr(tmpPortConfig & SENSOR_POWER_ON_BIT);
     if (addNewline) {

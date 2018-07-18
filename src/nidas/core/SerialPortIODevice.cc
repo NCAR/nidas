@@ -120,7 +120,8 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 
         ILOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
-        _pXcvrCtrl = new SerialXcvrCtrl(static_cast<PORT_DEFS>(portID), 
+        _workingPortConfig.xcvrConfig.port = static_cast<PORT_DEFS>(portID);
+        _pXcvrCtrl = new SerialXcvrCtrl(_workingPortConfig.xcvrConfig.port, 
                                         _workingPortConfig.xcvrConfig.portType, 
                                         _workingPortConfig.xcvrConfig.termination);
         if (_pXcvrCtrl == 0)
@@ -152,7 +153,7 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     ILOG(("SerialPortIODevice::open : exit"));
 }
 
-void SerialPortIODevice::printPortConfig(PORT_DEFS port, bool readFirst) 
+void SerialPortIODevice::printPortConfig(bool readFirst) 
 {
     cout << "Device: " << getName() << endl;
     cout << "Termios: baud: " << getTermios().getBaudRate() 
@@ -161,7 +162,7 @@ void SerialPortIODevice::printPortConfig(PORT_DEFS port, bool readFirst)
 
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
-        getXcvrCtrl()->printPortConfig(port, readFirst);
+        getXcvrCtrl()->printPortConfig(readFirst);
     }
 }
 
