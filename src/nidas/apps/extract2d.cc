@@ -479,14 +479,18 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
             }
         }
 
-    if (probe->nDiodes == 64)
+    if (probe->nDiodes == 64) {
+        unsigned char dof_flag_mask = 0x01;
+        if (probe->sensor->getCatalogName().find("_v2"))
+            dof_flag_mask = 0x10;
+
         for (size_t i = 0; i < 4093; ++i) {
             /* We only compare 2 bytes and not 3 since in PREDICT the probe started
              * having a stuck bit in the third byte of the sync word.
              */
             if (::memcmp(&p[i], Fast2DsyncStr, 2) == 0) {
                 ++totalCnt;
-                if (::memcmp(&p[i], Fast2DsyncStr, 3) == 0)
+                if ((p[i+2] & dof_flag_mask) == 0)
                     ++dofCnt;
                 if ((i % 8) != 0)
                     ++missCnt;
@@ -497,6 +501,7 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
                 i += 7;	// Skip rest of particle.
             }
         }
+    }
 
     ++probe->particleCount[totalCnt];
     probe->totalParticles += totalCnt;
