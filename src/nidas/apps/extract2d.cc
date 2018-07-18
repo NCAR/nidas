@@ -370,6 +370,14 @@ int ExtractFast2D::run() throw()
                  << " particles per record." << endl;
             }
 
+            if (!copyAllRecords) {
+                cout.width(10);
+                cout << probe->inDOF << " / " << probe->totalParticles
+                 << " total particles, " << fixed << setw(4) << setprecision(1)
+                 << (float)probe->inDOF / probe->totalParticles * 100.0
+                 << "\% in DOF.\n";
+            }
+
             if (probe->sensor->getCatalogName().compare(0, 7, "Fast2DC")) {
                 cout.width(10);
                 cout << probe->hasOverloadCount
@@ -458,7 +466,7 @@ size_t ExtractFast2D::computeDiodeCount(Probe * probe, const unsigned char * rec
 
 size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record)
 {
-    size_t totalCnt = 0, missCnt = 0;
+    size_t totalCnt = 0, dofCnt = 0, missCnt = 0;
     const P2d_rec *rec = (const P2d_rec *)record;
     const unsigned char *p = rec->data;
 
@@ -478,6 +486,8 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
              */
             if (::memcmp(&p[i], Fast2DsyncStr, 2) == 0) {
                 ++totalCnt;
+                if (::memcmp(&p[i], Fast2DsyncStr, 3) == 0)
+                    ++dofCnt;
                 if ((i % 8) != 0)
                     ++missCnt;
                 i += 7;	// Skip rest of particle.
@@ -489,6 +499,8 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
         }
 
     ++probe->particleCount[totalCnt];
+    probe->totalParticles += totalCnt;
+    probe->inDOF += dofCnt;
 
     if (missCnt > 1)
     {

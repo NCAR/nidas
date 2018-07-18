@@ -67,7 +67,8 @@ public:
       sensor(0), resolution(0), resolutionM(0.0), id(0),
       serialNumber(), hasOverloadCount(0), nDiodes(64),
       recordCount(0), rejectRecordCount(0),
-      diodeCount(), particleCount()
+      diodeCount(), particleCount(), totalParticles(0),
+      inDOF(0)
     {
     }
 
@@ -101,6 +102,9 @@ public:
    * This diagnostic output helps find which diode is bad when the probe runs away.
    */
   size_t particleCount[512];    // 512 is max possible slices/record.
+
+  size_t totalParticles;
+  size_t inDOF;
 
 private:
     Probe(const Probe&);
