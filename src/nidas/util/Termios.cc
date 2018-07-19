@@ -361,11 +361,11 @@ Termios::getRawTimeout() const
     return _tio.c_cc[VTIME];
 }
 
-std::string Termios::getParityString() const {
+std::string Termios::getParityString(bool retChar) const {
     switch(getParity()) {
-    case NONE: return "none";
-    case ODD: return "odd";
-    case EVEN: return "even";
+    case NONE: return (retChar ? "N" : "none");
+    case ODD: return (retChar ? "O" : "odd");
+    case EVEN: return (retChar ? "E" : "even");
     }
     return "unknown";
 }

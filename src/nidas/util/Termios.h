@@ -90,7 +90,7 @@ public:
 
     void setParity(enum parity val);
     parity getParity() const;
-    std::string getParityString() const;
+    std::string getParityString(bool retChar=false) const;
 
     /**
      * Set number of data bits to 5,6,7 or 8.
