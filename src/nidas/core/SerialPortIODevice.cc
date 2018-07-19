@@ -91,20 +91,26 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 {
     // if a port control object already exists, delete it first
     if (getXcvrCtrl()) {
-        ILOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
+        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
 
         if (getName() != name) {
-            ILOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
+            DLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
             delete _pXcvrCtrl;
+        }
+
+        else {
+            // names are the same, so don't do it again...
+            DLOG(("Seems like the names are the same, so don't instantiate it again..."));
+            return;
         }
     }
 
-    NLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): check if device is a DSM serial port device"));
+    DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device is a DSM serial port device"));
     // Determine if this needs SP339 port type control
     std::string ttyBase = "/dev/ttyUSB";
     std::size_t foundAt = name.find(ttyBase);
     if (foundAt != std::string::npos) {
-        NLOG(("SerialPortIODevice: Device needs SerialXcvrCtrl object: ") << name);
+        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired()/ : Device needs SerialXcvrCtrl object: ") << name);
         const char* nameStr = name.c_str();
         const char* portChar = &nameStr[ttyBase.length()];
         unsigned int portID = UINT32_MAX;
@@ -118,7 +124,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
                                 "cannot be parsed for canonical port ID");
         }
 
-        ILOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
+        DLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
         _workingPortConfig.xcvrConfig.port = static_cast<PORT_DEFS>(portID);
         _pXcvrCtrl = new SerialXcvrCtrl(_workingPortConfig.xcvrConfig.port, 
@@ -133,7 +139,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 {
-    ILOG(("SerialPortIODevice::open : entry"));
+    DLOG(("SerialPortIODevice::open : entry"));
 
     UnixIODevice::open(flags);
     applyPortConfig();
@@ -150,25 +156,28 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
             setRTS485(getRTS485());
         }
     }
-    ILOG(("SerialPortIODevice::open : exit"));
+    DLOG(("SerialPortIODevice::open : exit"));
 }
 
 void SerialPortIODevice::printPortConfig(bool readFirst) 
 {
     cout << "Device: " << getName() << endl;
     cout << "Termios: baud: " << getTermios().getBaudRate() 
-                              << " word: " << getTermios().getDataBits() << getTermios().getParity() << getTermios().getStopBits() << endl;
-    // cout << "Modem status: " << modemFlagsToString(getModemStatus()) << " : " ;
+                              << " word: " << getTermios().getDataBits() << getTermios().getParityString(true) 
+                              << getTermios().getStopBits() << endl;
+    cout << "RTS485: " << getRTS485() << endl;
 
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
         getXcvrCtrl()->printPortConfig(readFirst);
     }
+
+    cout << flush;
 }
 
 void SerialPortIODevice::applyPortConfig()
 {
-    ILOG(("SerialPortIODevice::applyPortConfig : entry"));
+    DLOG(("SerialPortIODevice::applyPortConfig : entry"));
 
     termios().apply(_fd, getName());
 
@@ -179,10 +188,10 @@ void SerialPortIODevice::applyPortConfig()
     }
 
     else {
-        ILOG(("SerialPortIODevice::applyPortConfig(): FT4232H GPIO control of serial line drive not provided."));
+        DLOG(("SerialPortIODevice::applyPortConfig(): FT4232H GPIO control of serial line drive not provided."));
     }
 
-    ILOG(("SerialPortIODevice::applyPortConfig : exit"));
+    DLOG(("SerialPortIODevice::applyPortConfig : exit"));
 }
 
 int SerialPortIODevice::getUsecsPerByte() const
@@ -443,7 +452,7 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
         }
     }
 
-    ILOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    DLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
 
     if ((result = ::write(_fd,buf,len)) < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -469,7 +478,7 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
         }
     }
     
-    ILOG(("Post SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    DLOG(("Post SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
 
    return result;
 }
