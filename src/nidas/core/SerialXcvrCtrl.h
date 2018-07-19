@@ -53,8 +53,8 @@ typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
 
 struct XcvrConfig {
     XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
-    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm) 
-        : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(SENSOR_POWER_ON) {}
+    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM, SENSOR_POWER_STATE initPower=SENSOR_POWER_ON) 
+        : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(initPower) {}
     PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
@@ -110,7 +110,7 @@ public:
     // Returns the raw bits indicating current state of the port mode, including sensor power
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // Reads the xcvr config from the FTDI chip and put it in _rawXcvrConfig
-    void readXcvrConfig(bool closeDevice = true);
+    void readXcvrConfig();
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
     void setBusAddress(const int busId=1, const int deviceId=6);
@@ -144,7 +144,13 @@ protected:
     unsigned char portType2Bits(const PORT_TYPES portType);
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
     PORT_TYPES bits2PortType(const unsigned char bits);
-
+    // safe FT4232H open - must be bracket all gpio operations!!!
+    // returns true if already open or successfully open, false if attempted open fails.
+    bool gpioOpen();
+    // safe FT4232H close - must bracket all gpio operations!!!
+    // returns true if already closed or successfully closed, false if attempted close fails.
+    bool gpioClose(bool weOpenedIt);
+    bool gpioIsOpen() {return _gpioOpen;}
 private:
     // At present there are only 7 available ports on a DSM
     static const PORT_DEFS MAX_PORT = PORT7;
@@ -177,6 +183,8 @@ private:
     // This is the libftdi1 context of the USB device we're interested in using
     // to control the port types via GPIO.
     struct ftdi_context* _pContext;
+    // keeps track of whether the FT4232H GPIO is open
+    bool _gpioOpen;
 
     // never use default constructor, copy constructors, operator=
     SerialXcvrCtrl();
