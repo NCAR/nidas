@@ -78,7 +78,7 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // yes, meaning it didn't look for, nor find a serial port.
         delete device;
         device = 0;
-        ILOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
+        DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
             << "; Port Type: " << _workingPortConfig.xcvrConfig.portType);
         SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _workingPortConfig);
         _serialDevice = spDevice;
@@ -121,18 +121,18 @@ void SerialSensor::open(int flags)
     initPrompting();
 }
 
-void SerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
-    throw(n_u::InvalidParameterException, n_u::IOException)
-{
-    CharacterSensor::setMessageParameters(len,sep,eom);
+// void SerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
+//     throw(n_u::InvalidParameterException, n_u::IOException)
+// {
+//     CharacterSensor::setMessageParameters(len,sep,eom);
 
-    // Note we don't change _termios here.
-    // Termios is set to to raw mode, len=1, in the constructor.
-    // Very old NIDAS code did a _termio.setRawLength() to the
-    // message length, but not any more. I don't think it made
-    // things any more efficient, and may have reduced the accuracy of
-    // time-tagging.
-}
+//     // Note we don't change _termios here.
+//     // Termios is set to to raw mode, len=1, in the constructor.
+//     // Very old NIDAS code did a _termio.setRawLength() to the
+//     // message length, but not any more. I don't think it made
+//     // things any more efficient, and may have reduced the accuracy of
+//     // time-tagging.
+// }
 
 void SerialSensor::close() throw(n_u::IOException)
 {
@@ -142,24 +142,24 @@ void SerialSensor::close() throw(n_u::IOException)
 
 void SerialSensor::applyTermios() throw(nidas::util::IOException)
 {
-    ILOG(("SerialSensor::applyTermios(): entry"));
+    DLOG(("SerialSensor::applyTermios(): entry"));
     if (_serialDevice) {
         _serialDevice->termios() = _workingPortConfig.termios;
         _serialDevice->applyTermios();
     }
-    ILOG(("SerialSensor::applyTermios(): exit"));
+    DLOG(("SerialSensor::applyTermios(): exit"));
 }
 
 void SerialSensor::applyPortConfig() 
 {
-    ILOG(("SerialSensor::applyPortConfig(): entry"));
+    DLOG(("SerialSensor::applyPortConfig(): entry"));
     applyTermios();
     
     if (_serialDevice && _serialDevice->getXcvrCtrl()) {
         _serialDevice->setPortConfig(_workingPortConfig);
         _serialDevice->applyPortConfig();
     }
-    ILOG(("SerialSensor::applyPortConfig(): exit"));
+    DLOG(("SerialSensor::applyPortConfig(): exit"));
 }
 
 void SerialSensor::initPrompting() throw(n_u::IOException)

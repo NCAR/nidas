@@ -133,8 +133,8 @@ public:
      * Set message separator and message length parameters, which are used to
      * parse and time-tag samples from the IODevice.
      */
-    void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
-        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
+    // void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
+    //     throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
 
