@@ -902,6 +902,8 @@ public:
         return _sampleTags;
     }
 
+    IODevice* getIODevice() const { return _iodev; }
+
 protected:
 
     /**
@@ -933,8 +935,6 @@ protected:
         _scanner->clearBuffer();
     }
 
-
-    IODevice* getIODevice() const { return _iodev; }
 
     SampleScanner* getSampleScanner() const { return _scanner; }
 
