@@ -155,7 +155,7 @@ void SerialSensor::applyPortConfig()
     DLOG(("SerialSensor::applyPortConfig(): entry"));
     applyTermios();
     
-    if (_serialDevice && _serialDevice->getXcvrCtrl()) {
+    if (_serialDevice) {
         _serialDevice->setPortConfig(_workingPortConfig);
         _serialDevice->applyPortConfig();
     }
