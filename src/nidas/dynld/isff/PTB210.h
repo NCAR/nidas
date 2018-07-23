@@ -91,7 +91,6 @@ public:
     void open(int flags) throw (n_u::IOException, n_u::InvalidParameterException);
 
 protected:
-    void setDefaultPortConfig();
     bool isDefaultConfig(const n_c::PortConfig& target);
     bool findWorkingSerialPortConfig(int flags);
     bool checkResponse();
@@ -114,6 +113,7 @@ private:
     static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS232;
     static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
     static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+    static const bool DEFAULT_CONFIG_APPLIED = false;
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
@@ -155,7 +155,8 @@ private:
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
 
-    n_c::PortConfig workingPortConfig;
+    static const n_c::PortConfig DEFAULT_PORT_CONFIG;
+
     n_c::PortConfig testPortConfig;
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
