@@ -35,7 +35,7 @@ namespace nidas { namespace core {
 /**
  * types of serial ports
  */
-enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=485, RS485_HALF=484};
+enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=422, RS485_HALF=484};
 
 /*
  * This enum specifies the ports in the DSM.
@@ -51,10 +51,19 @@ enum TERM {NO_TERM=0, TERM_120_OHM};
  */
 typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
 
+/*  
+ *  struct XcvrConfig is used to house and contain all the parameters which are used to 
+ *  set up the EXAR SP339 serial line driver/transceiver chip. It is intended to be used extensively by 
+ *  the auto-config base classes as an easy means to change the transceiver mode of operation.
+ */
 struct XcvrConfig {
     XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
     XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM, SENSOR_POWER_STATE initPower=SENSOR_POWER_ON) 
         : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(initPower) {}
+    bool operator!=(const XcvrConfig& rRight) {return !operator==(rRight);} 
+    bool operator==(const XcvrConfig& rRight) 
+        {return (port == rRight.port && portType == rRight.portType 
+                 && termination == rRight.termination && sensorPower == rRight.sensorPower);}
     PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;

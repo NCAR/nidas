@@ -322,7 +322,7 @@ unsigned char SerialXcvrCtrl::portType2Bits(const PORT_TYPES portType)
     unsigned char bits = 0b11111111;
     switch (portType) {
         case RS422:
-        case RS485_FULL:
+        //case RS485_FULL:
             bits = RS422_RS485_BITS;
             break;
 
@@ -419,7 +419,7 @@ const std::string SerialXcvrCtrl::portTypeToStr(const PORT_TYPES portType)
             portTypeStr.append(STR_RS485_HALF);
             break;
         case RS422:
-        case RS485_FULL:
+        //case RS485_FULL:
             portTypeStr.append(STR_RS422);
             portTypeStr.append("/");
             portTypeStr.append(STR_RS485_FULL);
