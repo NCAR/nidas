@@ -67,6 +67,16 @@ public:
 
     virtual ~Termios() {}
 
+    bool operator!=(const Termios& rRight) {return !operator==(rRight);}
+    bool operator==(const Termios& rRight) 
+        {return (this == &rRight || 
+                (getBaudRate() == rRight.getBaudRate() && getParity() == rRight.getParity()
+                && getDataBits() == rRight.getDataBits() && getStopBits() == rRight.getStopBits()
+                && getLocal() == rRight.getLocal() && getFlowControl() == rRight.getFlowControl()
+                && getRaw() == rRight.getRaw() && getRawLength() == rRight.getRawLength()
+                && getRawTimeout() == rRight.getRawTimeout() && getIflag() == rRight.getIflag()
+                && getOflag() == rRight.getOflag()));}
+
     /**
      * Set the termios options on a serial port.
      */
