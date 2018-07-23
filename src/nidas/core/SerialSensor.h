@@ -165,9 +165,9 @@ public:
     int getUsecsPerByte() const;
 
     /**
-     * Get/set the working PortConfig
+     * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
      */
-    PortConfig getPortConfig() {return _workingPortConfig;}
+    PortConfig getPortConfig() {return (_serialDevice ? _serialDevice->getPortConfig() : _workingPortConfig);}
     void setPortConfig(const PortConfig newPortConfig){_workingPortConfig = newPortConfig;}
 
     void applyPortConfig();
