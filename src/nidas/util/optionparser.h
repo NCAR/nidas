@@ -441,8 +441,8 @@ struct Descriptor
  */
 class Option
 {
-  Option* next_;
   Option* prev_;
+  Option* next_;
 public:
   /**
    * @brief Pointer to this Option's Descriptor.
@@ -785,7 +785,7 @@ public:
    * @ref desc, @ref name, @ref arg and @ref namelen.
    */
   Option() :
-      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)), next_(tag(this))
+      prev_(tag(this)), next_(tag(this)), desc(0), name(0), arg(0), namelen(0)
   {
   }
 
@@ -798,9 +798,20 @@ public:
    * the first '=' character or the string's 0-terminator.
    */
   Option(const Descriptor* desc_, const char* name_, const char* arg_) :
-      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)),  next_(tag(this))  
+      prev_(tag(this)),  next_(tag(this)), desc(0), name(0), arg(0), namelen(0)  
   {
     init(desc_, name_, arg_);
+  }
+
+  /**
+   * @brief Makes @c *this a copy of @c orig except for the linked list pointers.
+   *
+   * After this operation @c *this will be a one-element linked list.
+   */
+  Option(const Option& orig) :
+      prev_(tag(this)),  next_(tag(this)), desc(0), name(0), arg(0), namelen(0)  
+  {
+    init(orig.desc, orig.name, orig.arg);
   }
 
   /**
@@ -813,17 +824,6 @@ public:
     init(orig.desc, orig.name, orig.arg);
 
     return *this;
-  }
-
-  /**
-   * @brief Makes @c *this a copy of @c orig except for the linked list pointers.
-   *
-   * After this operation @c *this will be a one-element linked list.
-   */
-  Option(const Option& orig) :
-      desc(0), name(0), arg(0), namelen(0), prev_(tag(this)),  next_(tag(this))  
-  {
-    init(orig.desc, orig.name, orig.arg);
   }
 
 private:
