@@ -93,25 +93,32 @@ public:
 protected:
     void setDefaultPortConfig();
     bool isDefaultConfig(const n_c::PortConfig& target);
-    void findWorkingSerialPortConfig(int flags);
+    bool findWorkingSerialPortConfig(int flags);
     bool checkResponse();
     void sendSensorCmd(PTB_COMMANDS cmd, int arg=0, bool resetNow=false);
     bool testDefaultPortConfig();
-    void sweepParameters(bool defaultTested=false);
+    bool sweepParameters(bool defaultTested=false);
     void setPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, int rts485,
                                            n_c::PORT_TYPES portType, n_c::TERM termination, n_c::SENSOR_POWER_STATE power);
+    bool installDesiredSensorConfig();
+    void configureScienceParameters();
+    size_t readResponse(void *buf, size_t len, int msecTimeout);
 
 private:
-
-    // default parameters for the PB210
+    // default serial parameters for the PB210
     static const int DEFAULT_BAUD_RATE = 9600;
     static const Termios::parity DEFAULT_PARITY = Termios::ODD;
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 7;
-    static const int DEFAULT_RTS485 = 1;
-    static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS485_HALF;
+    static const int DEFAULT_RTS485 = 0;
+    static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS232;
     static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
     static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+
+    // default message parameters for the PB210
+    static const int DEFAULT_MESSAGE_LENGTH = 0;
+    static const bool DEFAULT_SEP_EOM = true;
+    static const char* DEFAULT_SEP_CHARS;
 
     // PB210 pre-packaged commands
     static const char* DEFAULT_SENSOR_INIT_CMD_STR;

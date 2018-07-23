@@ -54,7 +54,9 @@ static const WordSpec wordSpec[NUM_WORDSPEC] = {
     {8,Termios::EVEN,1}
 };
 static const int NUM_PORT_TYPES = 3;
-static const n_c::PORT_TYPES portTypes[NUM_PORT_TYPES] = {n_c::RS485_HALF, n_c::RS422, n_c::RS232};
+static const n_c::PORT_TYPES portTypes[NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
+
+const char* PTB210::DEFAULT_SEP_CHARS = "\n";
 
 // 9600 baud, even parity, 7 data bits, one stop bit, rate 1/sec, no averaging, 
 // units: millibars, no units reported, multipoint cal on, term off
@@ -118,8 +120,8 @@ const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
 const int PTB210::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
 
 PTB210::PTB210()
-    : SerialSensor(), workingPortConfig(), testPortConfig(), 
-      desiredPortConfig(), defaultMessageConfig(0, "\n", true)
+    : SerialSensor(), workingPortConfig(), testPortConfig(), desiredPortConfig(), 
+      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_SEP_CHARS, DEFAULT_SEP_EOM)
 {
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
@@ -134,17 +136,26 @@ PTB210::~PTB210()
 void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
 {
     ILOG(("first figure out whether we're talking to the sensor"));
-    findWorkingSerialPortConfig(flags);
+    if (findWorkingSerialPortConfig(flags)) {
+        if (installDesiredSensorConfig()) {
+            configureScienceParameters();
+        }
+    }
 
-    ILOG(("Must've found something that works, so invoking SerialSensor::open(flags)"));
-    // complete the rest of the open process...
-    SerialSensor::open(flags);
+    else
+    {
+        NLOG(("Couldn't find a serial port configuration that worked with this PTB210 sensor. "
+              "May need to troubleshoot the sensor or cable. "
+              "!!!NOTE: Sensor is not open for data collection!!!"));
+    }
 }
 
-void PTB210::findWorkingSerialPortConfig(int flags)
+bool PTB210::findWorkingSerialPortConfig(int flags)
 {
+    bool foundIt = false;
+
     // Save off desiredConfig - base class should have modified it by now.
-    desiredPortConfig = workingPortConfig;
+    desiredPortConfig = getPortConfig();
 
     // first see if the current configuration is working. If so, all done!
     // So open the device at a the base class so we don't recurse ourselves to death...
@@ -152,8 +163,11 @@ void PTB210::findWorkingSerialPortConfig(int flags)
     DSMSensor::open(flags); // this could result in an infinite loop, if polymorphism holds????
     n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
     applyPortConfig();
+    pSIODevice->getBlocking();
 
-    // sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
+    std::cout << "Testing initial config which may be custom " << std::endl;
+    pSIODevice->printPortConfig();
+
     if (!checkResponse()) {
         // initial config didn't work, so sweep through all parameters starting w/the default
         if (!isDefaultConfig(workingPortConfig)) {
@@ -164,17 +178,18 @@ void PTB210::findWorkingSerialPortConfig(int flags)
                 pSIODevice->printPortConfig();
 
                 std::cout << "Default PortConfig failed. Now testing all the other serial parameter configurations..." << std::endl;
-                sweepParameters(true);
+                foundIt = sweepParameters(true);
             }
             else {
                 // found it!! Tell someone!!
+                foundIt = true;
                 cout << "Default PortConfig was successfull!!!" << std::endl;
                 pSIODevice->printPortConfig();
             }
         }
         else {
             std::cout << "Default PortConfig was not changed and failed. Now testing all the other serial parameter configurations..." << std::endl;
-            sweepParameters(true);
+            foundIt = sweepParameters(true);
         }
     }
     else {
@@ -185,8 +200,70 @@ void PTB210::findWorkingSerialPortConfig(int flags)
         else {
             std::cout << "SerialSensor did not customimize the PortConfig (default config) and it succeeded!!" << std::endl;
         }
+
+        foundIt = true;
         pSIODevice->printPortConfig();
     }
+
+    return foundIt;
+}
+
+bool PTB210::installDesiredSensorConfig()
+{
+    bool installed = false;
+
+    // at this point we need to determine whether or not the current working config 
+    // is the desired config, and adjust as necessary
+    if (desiredPortConfig != workingPortConfig) {
+        // Gotta modify the PTB210 parameters first, and the modify our parameters to match and hope for the best.
+        // We only do this for the serial and science parameters, as the sensor is physically configured to use  
+        // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
+        // physically reconfigure the sensor and re-start the auto-config process.
+
+        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, desiredPortConfig.termios.getBaudRate());
+        
+        // PTB210 only supports three combinations of word format - all based on parity
+        // So just force it based on parity. Go ahead and reset now, so we can see if we're
+        // still talking to each other...
+        switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
+            case 'O':
+                sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, 0, true);
+                break;
+
+            case 'E':
+                sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, 0, true);
+                break;
+
+            case 'N':
+                sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, 0, true);
+                break;
+
+            default:
+                break;
+        }
+
+        workingPortConfig.termios = desiredPortConfig.termios;
+        applyPortConfig();
+        // wait for the sensor to reset - ~1 second
+        usleep(USECS_PER_SEC*1.5);
+        if (!checkResponse()) {
+            // complain
+        }
+        else {
+            installed = true;
+        }
+    }
+
+    else {
+        installed = true;
+    }
+
+    return installed;
+}
+
+void PTB210::configureScienceParameters() 
+{
+
 }
 
 bool PTB210::testDefaultPortConfig()
@@ -196,8 +273,10 @@ bool PTB210::testDefaultPortConfig()
     return checkResponse();
 }
 
-void PTB210::sweepParameters(bool defaultTested)
+bool PTB210::sweepParameters(bool defaultTested)
 {
+    bool foundIt = false;
+
     SerialPortIODevice* pSIODevice = dynamic_cast<SerialPortIODevice*>(getIODevice());
 
     // no point if sensor is turned off...
@@ -206,7 +285,7 @@ void PTB210::sweepParameters(bool defaultTested)
     for (int i=0; i<NUM_PORT_TYPES; ++i) {
         int rts485 = 0;
         if (portTypes[i] == n_c::RS485_HALF)
-            rts485 = 1; // start low. Let write manage setting high
+            rts485 = -1; // start low. Let write manage setting high
         else if (portTypes[i] == n_c::RS422)
             rts485 = -1; // always high, since there are two drivers going both ways
 
@@ -230,6 +309,7 @@ void PTB210::sweepParameters(bool defaultTested)
                 pSIODevice->printPortConfig();
                 // sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
                 if (checkResponse()) {
+                    foundIt = true;
                     // working with test
                     workingPortConfig = testPortConfig;
                     // tell everyone
@@ -247,6 +327,7 @@ void PTB210::sweepParameters(bool defaultTested)
                     pSIODevice->printPortConfig();
                     // sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
                     if (checkResponse()) {
+                        foundIt = true;
                         // copy test to working
                         workingPortConfig = testPortConfig;
                         // tell everyone
@@ -254,9 +335,20 @@ void PTB210::sweepParameters(bool defaultTested)
                         break;
                     }
                 }
+
+                if (testPortConfig.termios.getBaudRate() == 9600
+                    && testPortConfig.termios.getDataBits() == 7
+                    && testPortConfig.termios.getParityString(true).c_str()[0] == 'E'
+                    && testPortConfig.termios.getStopBits() == 1
+                    && testPortConfig.xcvrConfig.portType == n_c::RS232) {
+                        std::cout << "Let's snooze on what should be the winning candidate for a second." << std:: endl;
+                        usleep(USECS_PER_SEC*10);
+                    }
             }
         }
     }
+
+    return foundIt;
 }
 
 void PTB210::setDefaultPortConfig()
@@ -309,48 +401,25 @@ bool PTB210::checkResponse()
     static const char* PTB210_CURR_MODE_STR =     "CURRENT MODE";
     static const char* PTB210_RS485_RES_STR =     "RS485 RESISTOR";
 
-    // wait for data...
-    SerialPortIODevice* pSIODevice = dynamic_cast<SerialPortIODevice*>(getIODevice());
-    int fd = pSIODevice->getFd();
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(fd,&readfds);
-    int nfds = fd + 1;
-    struct timespec timeout;
-    timeout.tv_sec = 1;
-    timeout.tv_nsec = 0;
-    fd_set fds = readfds;
-
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    int nfd = pselect(nfds,&fds,0,0,&timeout, 0);
-
-    if (nfd < 0) {
-        if (errno == EINTR) 
-            return false;
-        cout << "Select on device: " << getDeviceName() << ": general error: " << errno << std::endl;
-        throw n_u::IOException(getDeviceName(),"select",errno);
-    }
-    if (nfd == 0) {
-        cout << "Select on device: " << getDeviceName() << ": timed out: " << timeout.tv_sec <<
-            " seconds" << endl << endl;
-        return false;
-    }
-
-    cout << "Found something! Let's go read it!" << endl;
-    
     char respBuf[256];
     // need to test numCharsRead?
-    int numCharsRead = ::read(pSIODevice->getFd(), &respBuf, 256);
-    std::string respStr(respBuf);
+    size_t numCharsRead = readResponse(&respBuf, 256, 2000);
+    if (numCharsRead > 0) {
+        std::string respStr(respBuf);
 
-    cout << "Response: " << respStr << endl;
+        cout << "Response: " << respStr << endl;
 
-    return (respStr.find(PTB210_VER_STR) && respStr.find(PTB210_CAL_DATE_STR) && 
-            respStr.find(PTB210_SERIAL_NUMBER_STR) && respStr.find(PTB210_MULTI_PT_CORR_STR) && 
-            respStr.find(PTB210_MEAS_PER_MIN_STR) && respStr.find(PTB210_NUM_SMPLS_AVG_STR) && 
-            respStr.find(PTB210_PRESS_UNIT_STR) && respStr.find(PTB210_PRESS_MINMAX_STR) && 
-            respStr.find(PTB210_CURR_MODE_STR) && respStr.find(PTB210_RS485_RES_STR));
+        return (respStr.find(PTB210_VER_STR) && respStr.find(PTB210_CAL_DATE_STR) && 
+                respStr.find(PTB210_SERIAL_NUMBER_STR) && respStr.find(PTB210_MULTI_PT_CORR_STR) && 
+                respStr.find(PTB210_MEAS_PER_MIN_STR) && respStr.find(PTB210_NUM_SMPLS_AVG_STR) && 
+                respStr.find(PTB210_PRESS_UNIT_STR) && respStr.find(PTB210_PRESS_MINMAX_STR) && 
+                respStr.find(PTB210_CURR_MODE_STR) && respStr.find(PTB210_RS485_RES_STR));
+    }
+
+    else
+        return false;
 }
 
 
@@ -435,5 +504,30 @@ void PTB210::sendSensorCmd(PTB_COMMANDS cmd, int arg, bool resetNow)
             break;
     }
 }
+
+size_t PTB210::readResponse(void *buf, size_t len, int msecTimeout)
+{
+    fd_set fdset;
+    FD_ZERO(&fdset);
+    FD_SET(getReadFd(), &fdset);
+
+    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
+        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
+
+    int res;
+
+    if ((res = ::select(getReadFd()+1,&fdset,0,0,&tmpto)) < 0) {
+        std::cout << "General select error on: " << getDeviceName() << ": error: " << errno << std::endl;
+        return -1;
+    }
+
+    if (res == 0) {
+        std::cout << "Select timeout on: " << getDeviceName() << ": " << msecTimeout << " msec" << std::endl;
+        return 0;
+    }
+
+    return read(buf,len);
+}
+
 
 }}} //namespace nidas { namespace dynld { namespace isff {
