@@ -54,6 +54,11 @@ SerialSensor::SerialSensor():
     _workingPortConfig.termios.setRawTimeout(0);
 }
 
+SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
+    _workingPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
+{
+}
+
 SerialSensor::~SerialSensor()
 {
     list<Prompter*>::const_iterator pi = _prompters.begin();
@@ -78,9 +83,12 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // yes, meaning it didn't look for, nor find a serial port.
         delete device;
         device = 0;
-        DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName() 
-            << "; Port Type: " << _workingPortConfig.xcvrConfig.portType);
+        DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName());
+        // auto-config may have passed down a default port config. No harm if a non-auto-config sensor
+        // does not pass down the port config, as later it will be filled in by the XML.
         SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _workingPortConfig);
+        // !!!TODO check for spDevice != null!!!
+        
         _serialDevice = spDevice;
         return spDevice;
     }
@@ -100,15 +108,7 @@ void SerialSensor::open(int flags)
     flags |= O_NOCTTY;
     CharacterSensor::open(flags);
 
-    // Flush the serial port
-    if (::isatty(getReadFd())) {
-        int accmode = flags & O_ACCMODE;
-        int fres;
-        if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
-        else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
-        else fres = ::tcflush(getReadFd(),TCIOFLUSH);
-        if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
-    }
+    serPortFlush();
 
     sendInitString();
 
@@ -119,6 +119,28 @@ void SerialSensor::open(int flags)
             throw n_u::InvalidParameterException(getName(),"message","must specify a message separator or a non-zero message length");
 
     initPrompting();
+}
+
+void SerialSensor::serPortFlush(const int flags) 
+{
+    // used to hold the port access flags, whether passed in or read from the device.
+    // if reading from the device, the device must be open
+    int attrFlags = 0;
+
+    if (_serialDevice && getReadFd() && ::isatty(getReadFd())) {
+        if (!flags) {
+            attrFlags = fcntl(getReadFd(), F_GETFL, 0);
+            // TODO: handle error attrFlags < 0
+        }
+        else {
+            attrFlags = flags;
+        }
+
+        int accmode = attrFlags & O_ACCMODE;
+        if (accmode == O_RDONLY) _serialDevice->flushInput();
+        else if (accmode == O_WRONLY) _serialDevice->flushOutput();
+        else _serialDevice->flushBoth();
+    }
 }
 
 // void SerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
@@ -140,26 +162,74 @@ void SerialSensor::close() throw(n_u::IOException)
     DSMSensor::close();
 }
 
+void SerialSensor::setPortConfig(const PortConfig newPortConfig)
+{
+    if (_serialDevice) {
+        _serialDevice->setPortConfig(newPortConfig);
+    }
+
+    else {
+        NLOG(("SerialSensor::setPortConfig(): device, ") << getName() 
+             << (", is trying to set a PortConfig too early, "
+                 "or is a newer type serial device such as USB or socket-oriented, "
+                 " which has no need of a PortConfig."));
+    }
+}
+
+
+PortConfig SerialSensor::getPortConfig() 
+{
+    static PortConfig dummy;
+
+    if (_serialDevice) {
+        return _serialDevice->getPortConfig();
+    }
+    else {
+        NLOG(("SerialSensor::getPortConfig(): device, ") << getName() 
+             << (", is trying to obtain a PortConfig too early, "
+                 "or is newer type serial device such as USB or socket-oriented, "
+                 " which has no need of a PortConfig."));
+        return dummy;
+    }
+}
+
 void SerialSensor::applyTermios() throw(nidas::util::IOException)
 {
-    DLOG(("SerialSensor::applyTermios(): entry"));
     if (_serialDevice) {
-        _serialDevice->termios() = _workingPortConfig.termios;
         _serialDevice->applyTermios();
     }
-    DLOG(("SerialSensor::applyTermios(): exit"));
+    else {
+        NLOG(("SerialSensor::applyTermios(): device, ") << getName() 
+             << (", is trying to apply termios too early, "
+                 "or is newer type serial device such as USB or socket-oriented, "
+                 " which has no need of a PortConfig."));
+    }
 }
 
 void SerialSensor::applyPortConfig() 
 {
-    DLOG(("SerialSensor::applyPortConfig(): entry"));
-    applyTermios();
-    
     if (_serialDevice) {
-        _serialDevice->setPortConfig(_workingPortConfig);
         _serialDevice->applyPortConfig();
     }
-    DLOG(("SerialSensor::applyPortConfig(): exit"));
+    else {
+        NLOG(("SerialSensor::applyPortConfig(): device, ") << getName() 
+             << (", is trying to apply PortConfig too early, "
+                 "or is newer type serial device such as USB or socket-oriented, "
+                 " which has no need of a PortConfig."));
+    }
+}
+
+void SerialSensor::printPortConfig() 
+{
+    if (_serialDevice) {
+        _serialDevice->printPortConfig();
+    }
+    else {
+        NLOG(("SerialSensor::printPortConfig(): device, ") << getName() 
+             << (", is trying to print a PortConfig too early, "
+                 "or is newer type serial device such as USB or socket-oriented, "
+                 " which has no need of a PortConfig."));
+    }
 }
 
 void SerialSensor::initPrompting() throw(n_u::IOException)
@@ -222,26 +292,29 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
 
-    try {
-	ostr << "<td align=left>" << _workingPortConfig.termios.getBaudRate() <<
-		_workingPortConfig.termios.getParityString().substr(0,1) <<
-		_workingPortConfig.termios.getDataBits() << _workingPortConfig.termios.getStopBits();
-	if (getReadFd() < 0) {
-	    ostr << ",<font color=red><b>not active</b></font>";
-	    if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	    ostr << "</td>" << endl;
-	    return;
-	}
-	if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	ostr << "</td>" << endl;
-    }
-    catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: printStatus: %s",getName().c_str(),
-	    ioe.what());
+    if (_serialDevice) {
+
+        try {
+        ostr << "<td align=left>" << getPortConfig().termios.getBaudRate() <<
+            getPortConfig().termios.getParityString().substr(0,1) <<
+            getPortConfig().termios.getDataBits() << getPortConfig().termios.getStopBits();
+        if (getReadFd() < 0) {
+            ostr << ",<font color=red><b>not active</b></font>";
+            if (getTimeoutMsecs() > 0)
+                ostr << ",timeouts=" << getTimeoutCount();
+            ostr << "</td>" << endl;
+            return;
+        }
+        if (getTimeoutMsecs() > 0)
+                ostr << ",timeouts=" << getTimeoutCount();
+        ostr << "</td>" << endl;
+        }
+        catch(const n_u::IOException& ioe) {
+            ostr << "<td>" << ioe.what() << "</td>" << endl;
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "%s: printStatus: %s",getName().c_str(),
+            ioe.what());
+        }
     }
 }
 

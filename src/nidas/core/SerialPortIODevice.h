@@ -52,15 +52,36 @@ using namespace nidas::util;
 
 namespace nidas { namespace core {
 
+
+
 struct PortConfig {
-    PortConfig() : termios(), xcvrConfig(), rts485(0) {}
-    PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0) {}
+    PortConfig(const int baudRate, const int dataBits, const n_u::Termios::parity parity, const int stopBits, 
+               const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE sensorPower,
+               const int initRts485, const bool initApplied) 
+        : termios(), xcvrConfig(), rts485(initRts485), applied(initApplied)
+    {
+        termios.setBaudRate(baudRate);
+        termios.setParity(parity);
+        termios.setDataBits(dataBits);
+        termios.setStopBits(stopBits);
+        xcvrConfig.portType = portType;
+        xcvrConfig.termination = term;
+        xcvrConfig.sensorPower = sensorPower;
+    }
+
+    PortConfig(const PortConfig& rInitPortConfig)
+        : termios(rInitPortConfig.termios), xcvrConfig(rInitPortConfig.xcvrConfig), 
+          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied) {}
+
+    PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) {}
+    PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) {}
     bool operator!=(const PortConfig& rRight) {return !operator==(rRight);}
     bool operator==(const PortConfig& rRight)
         {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
     Termios termios;
     XcvrConfig xcvrConfig;
     int rts485;
+    bool applied;
 };
 
 /**
@@ -155,6 +176,8 @@ public:
 
     int getFd() const { return _fd; }
 
+    void flush();
+
     /* 
      * Check whether this serial port is using a device which needs port control
      */
@@ -187,7 +210,12 @@ public:
      *  Commands the serial board to set the GPIO switches to configure for 
      *  the port type, termination, and power according to the member attributes.
      */
-    void setPortConfig(const PortConfig newPortConfig) {_workingPortConfig = newPortConfig;}
+    void setPortConfig(const PortConfig newPortConfig) 
+    {
+        _workingPortConfig = newPortConfig;
+        _workingPortConfig.applied = false;
+    }
+    
     PortConfig getPortConfig() 
     {
         PortConfig retVal = _workingPortConfig;

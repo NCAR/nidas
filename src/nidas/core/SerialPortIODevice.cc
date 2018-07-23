@@ -145,14 +145,19 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     applyPortConfig();
     setBlocking(_blocking);
 
-    // set RTS according to how it's been set by the client
-    // or not at all if the port mode is not RS422/RS485 half duplex
-    if (  getPortType() == RS422) {
+    // Set rts485 flag RS422/RS485 half duplex
+    if ( getPortType() == RS422) {
+        std::cout << "RS422/485_FULL: forcing rts485 to -1, should get a high level on the line." << std::endl;
         setRTS485(-1);
     } 
     
     else {
+        // set RTS according to how it's been set by the client
         if (getPortType() == RS485_HALF) {
+            std::cout << "RS485_HALF: setting rts485 to as specified by client: " << getRTS485() 
+                      << ((getRTS485() < 0) ? ": should get a high level on the line." :
+                          (getRTS485() > 0  ? ": should get a high level on the line." : 
+                          "RTS is \"do not care\"")) << std::endl;
             setRTS485(getRTS485());
         }
     }
@@ -165,33 +170,28 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
     cout << "Termios: baud: " << getTermios().getBaudRate() 
                               << " word: " << getTermios().getDataBits() << getTermios().getParityString(true) 
                               << getTermios().getStopBits() << endl;
-    cout << "RTS485: " << getRTS485() << endl;
+    cout << "RTS485: " << _workingPortConfig.rts485 << endl;
 
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
         getXcvrCtrl()->printPortConfig(readFirst);
     }
 
-    cout << flush;
+    cout << "PortConfig " << (_workingPortConfig.applied ? "IS " : "IS NOT ") << "applied" << endl;
+
+    cout << std::flush;
 }
 
 void SerialPortIODevice::applyPortConfig()
 {
-    DLOG(("SerialPortIODevice::applyPortConfig : entry"));
-
-    termios().apply(_fd, getName());
+    _workingPortConfig.termios.apply(_fd, getName());
 
     // ignore if not controlled by FT4232H GPIO
     if (getXcvrCtrl()) {
-        getXcvrCtrl()->setXcvrConfig(_workingPortConfig.xcvrConfig);
         getXcvrCtrl()->applyXcvrConfig();
     }
 
-    else {
-        DLOG(("SerialPortIODevice::applyPortConfig(): FT4232H GPIO control of serial line drive not provided."));
-    }
-
-    DLOG(("SerialPortIODevice::applyPortConfig : exit"));
+    _workingPortConfig.applied = true;
 }
 
 int SerialPortIODevice::getUsecsPerByte() const
@@ -439,6 +439,8 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
 {
     ssize_t result;
 
+    // remember that setting the FT4232H register has the opposite effect on 
+    // the RTS line signal which it outputs. Other UARTS may behave differently. YMMV.
     if (getPortType() == RS485_HALF) {
         // see the above discussion about RTS and 485. Here we
         // try an in-exact set/clear of RTS on either side of a write.
@@ -450,13 +452,15 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
             // clear RTS before write
             clearModemBits(TIOCM_RTS);
         }
+
+        // else rts485 == 0, so do nothing
     }
 
     DLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ") << modemFlagsToString(getModemStatus() & TIOCM_RTS));
 
     if ((result = ::write(_fd,buf,len)) < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // let caller know that nothing was received and carry on...
+            // let caller know that nothing was written and carry on...
             result = 0;
         }
         else {

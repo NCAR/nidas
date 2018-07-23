@@ -71,6 +71,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
+    SerialSensor(const PortConfig& rInitPortConfig);
 
     ~SerialSensor();
 
@@ -123,6 +124,11 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
+    /* 
+     * Flush the serial port, if this is a serial device
+     */
+    void serPortFlush(const int flags=0);
+
     /**
      * If the underlying IODevice is a SerialPortIODevice, update
      * the current Termios to the device.
@@ -166,11 +172,17 @@ public:
 
     /**
      * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
+     * 
+     * Assumption: If SerialSensor is a traditional, RS232/422/485, device, then the associated PortConfig in 
+     *             SerialPortIODevice is all that matters. This should cover "non-sensor" devices such as GPS, cell 
+     *             modems, etc, since they may be traditional serial devices, but not have a SerialXcvrCtrl object 
+     *             associated with them. 
      */
-    PortConfig getPortConfig() {return (_serialDevice ? _serialDevice->getPortConfig() : _workingPortConfig);}
-    void setPortConfig(const PortConfig newPortConfig){_workingPortConfig = newPortConfig;}
+    PortConfig getPortConfig();
+    void setPortConfig(const PortConfig newPortConfig);
 
     void applyPortConfig();
+    void printPortConfig();
 
 protected:
 
@@ -192,6 +204,14 @@ private:
 
     /*******************************************************
      * Aggregate serial port configuration
+     * 
+     * Only holds a default port config passed by an auto-config
+     * subclass, which may be updated by fromDOMElement(). If 
+     * all this is true, then it is passed to a SerialPortIODevice 
+     * object.
+     * 
+     * No other operations, such as setPortConfig or applyPortConfig,
+     * act upon this object.
      *******************************************************/
     PortConfig _workingPortConfig;
 
