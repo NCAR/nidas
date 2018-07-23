@@ -55,6 +55,9 @@ namespace nidas { namespace core {
 struct PortConfig {
     PortConfig() : termios(), xcvrConfig(), rts485(0) {}
     PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0) {}
+    bool operator!=(const PortConfig& rRight) {return !operator==(rRight);}
+    bool operator==(const PortConfig& rRight)
+        {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
     Termios termios;
     XcvrConfig xcvrConfig;
     int rts485;
@@ -185,6 +188,15 @@ public:
      *  the port type, termination, and power according to the member attributes.
      */
     void setPortConfig(const PortConfig newPortConfig) {_workingPortConfig = newPortConfig;}
+    PortConfig getPortConfig() 
+    {
+        PortConfig retVal = _workingPortConfig;
+        if (_pXcvrCtrl) {
+            retVal.xcvrConfig = _pXcvrCtrl->getXcvrConfig();
+        }
+        return retVal;
+    }
+
     void applyPortConfig();
 
     void printPortConfig(bool readFirst=true);
@@ -271,21 +283,23 @@ public:
      * control is not great, 485  is best used for read-only devices.
      * Use 232 or 422 if you need read/write.
      * 
+     * NOTE: If the RTS line is used for DIR control on the SP339, or other line driver/xcvr, it 
+     *       appears to be inverted at output - at least for the FT4232H USB-UART bridge. So in 
+     *       this case, you need to set RTS register flag low to force RTS output, and therefore DIR,
+     *       high and allow the xcvr to send data.
+     * 
      * NOTE: val arg typically takes values -1, 0, 1, which have the following
      *       meaning:
-     *       -1 - set the RTS flag immediately and before every write, clearing it after the write.
+     *       -1 - set the RTS flag high, outputting a low RTS value, immediately and before every write, 
+     *            setting the RTS flag low it after the write.
      *        0 - do nothing
-     *       +1 - clear the RTS immediately and before every write, setting it after the write.
+     *       +1 - set the RTS flag low, outputting a high RTS value, immediately and before every write, 
+     *            setting the RTS flag high after the write.
      * 
      *       In order to emulate the capability of the FTDI chip to automatically manage the DIR 
-     *       input on the SP339, even when in full duplex, which must have the DIR pin set at all 
-     *       times (and hence, the RTS flag), the class will need to set the RTS flag prior to sending 
+     *       input on the SP339, even when in full duplex, which must have the DIR pin set high at all 
+     *       times (and hence, the RTS flag set low), the class will need to set the RTS flag prior to sending 
      *       data, such as in the open() method.
-     * 
-     * NOTE: If the RTS line is used for DIR control on the SP339, or other line driver/xcvr, it 
-     *       appears to be inverted - at least for the FT4232H USB-UART bridge RTS output. So in 
-     *       this case, you need to set RTS low to force DIR high and allow the xcvr to send 
-     *       data.
      * 
      * NOTE: We need a way to ignore this on the auto-config hardware, which will automagically 
      *       do all this for us in hardware. Specifically, the FT4232H can be configured to set 
