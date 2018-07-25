@@ -174,7 +174,7 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
 
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
-        getXcvrCtrl()->printPortConfig(readFirst);
+        getXcvrCtrl()->printXcvrConfig(readFirst);
     }
 
     cout << "PortConfig " << (_workingPortConfig.applied ? "IS " : "IS NOT ") << "applied" << endl;

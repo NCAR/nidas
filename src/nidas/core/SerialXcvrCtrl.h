@@ -132,7 +132,7 @@ public:
     // This utility converts a binary power configuration to a string
     const std::string powerToStr(unsigned char powerCfg) const; 
     // This utility prints the port types for the assigned port.
-    void printPortConfig(const bool addNewline=true, const bool readFirst=true);
+    void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of PORT_DEFS
     static PORT_DEFS int2PortDef(const unsigned portNum)

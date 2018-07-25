@@ -579,7 +579,7 @@ void SerialXcvrCtrl::readXcvrConfig()
     }
 }
 
-void SerialXcvrCtrl::printPortConfig(const bool addNewline, const bool readFirst)
+void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst)
 {
     if (readFirst) {
         DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
