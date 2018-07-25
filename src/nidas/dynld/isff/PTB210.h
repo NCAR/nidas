@@ -34,6 +34,15 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
+struct WordSpec
+{
+    int dataBits;
+    Termios::parity parity;
+    int stopBits;
+};
+
+
+
 // create table indices
 enum PTB_COMMANDS
 {   DEFAULT_SENSOR_INIT_CMD,
@@ -97,11 +106,19 @@ protected:
     void sendSensorCmd(PTB_COMMANDS cmd, int arg=0, bool resetNow=false);
     bool testDefaultPortConfig();
     bool sweepParameters(bool defaultTested=false);
-    void setPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, int rts485,
-                                           n_c::PORT_TYPES portType, n_c::TERM termination, n_c::SENSOR_POWER_STATE power);
+    void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
+                                                      int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
+                                                      n_c::SENSOR_POWER_STATE power);
     bool installDesiredSensorConfig();
     void configureScienceParameters();
     size_t readResponse(void *buf, size_t len, int msecTimeout);
+    void printTargetConfig(n_c::PortConfig target)
+    {
+        target.print();
+        target.xcvrConfig.print();
+        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
+        std::cout << std::endl;
+    }
 
 private:
     // default serial parameters for the PB210
@@ -117,8 +134,8 @@ private:
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
-    static const bool DEFAULT_SEP_EOM = true;
-    static const char* DEFAULT_SEP_CHARS;
+    static const bool DEFAULT_MSG_SEP_EOM = true;
+    static const char* DEFAULT_MSG_SEP_CHARS;
 
     // PB210 pre-packaged commands
     static const char* DEFAULT_SENSOR_INIT_CMD_STR;
@@ -154,6 +171,10 @@ private:
     //       ones are the most likely
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
+    static const int NUM_SENSOR_WORD_SPECS = 3;
+    static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
+    static const int NUM_PORT_TYPES = 3;
+    static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 
