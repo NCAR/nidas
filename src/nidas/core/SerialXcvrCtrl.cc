@@ -47,7 +47,8 @@ void XcvrConfig::print()
 {
     std::cout << "Port" << port << ": " << SerialXcvrCtrl::portTypeToStr(portType) 
                                 << " | " << SerialXcvrCtrl::termToStr(termination)
-                                << " | " << SerialXcvrCtrl::powerStateToStr(sensorPower);
+                                << " | " << SerialXcvrCtrl::powerStateToStr(sensorPower)
+              << std::endl;
 }
 
 
