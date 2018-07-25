@@ -213,6 +213,9 @@ public:
     void setPortConfig(const PortConfig newPortConfig) 
     {
         _workingPortConfig = newPortConfig;
+        if (getXcvrCtrl()) {
+            getXcvrCtrl()->setXcvrConfig(_workingPortConfig.xcvrConfig);
+        }
         _workingPortConfig.applied = false;
     }
     
