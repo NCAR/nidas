@@ -149,7 +149,8 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
         }
         input=cp;
     }
-
+    list<SampleTag*> tags = getSampleTags();
+    applyConversions(tags.front() ,outs);
     results.push_back(outs);
     return true;
 }
