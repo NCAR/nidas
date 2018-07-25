@@ -27,7 +27,7 @@
 #define NIDAS_CORE_SERIALXCVRCONTROL_H
 
 #include <ftdi.h>
-#include <string>
+#include <sstream>
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
@@ -64,6 +64,8 @@ struct XcvrConfig {
     bool operator==(const XcvrConfig& rRight) 
         {return (port == rRight.port && portType == rRight.portType 
                  && termination == rRight.termination && sensorPower == rRight.sensorPower);}
+    void print();
+    
     PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
@@ -128,9 +130,41 @@ public:
     // This utility converts a string to a PORT_TYPE
     static PORT_TYPES strToPortType(const char* portStr);
     // This utility converts a binary term configuration to a string
-    const std::string termToStr(unsigned char termCfg) const; 
+    static const std::string termToStr(TERM term)
+    {
+        switch (term) {
+            case NO_TERM:
+                return std::string(STR_NO_TERM);
+            case TERM_120_OHM:
+                return std::string(STR_TERM_120_OHM);
+            default:
+                std::stringstream sstrm("Unknown termination state: ");
+                sstrm << term;
+                return sstrm.str();
+                break;
+        }
+    } 
     // This utility converts a binary power configuration to a string
-    const std::string powerToStr(unsigned char powerCfg) const; 
+    static const std::string powerStateToStr(SENSOR_POWER_STATE sensorState)
+    {
+        switch (sensorState) {
+            case SENSOR_POWER_OFF: 
+                return std::string(STR_POWER_OFF);
+                break;
+            case SENSOR_POWER_ON: 
+                return std::string(STR_POWER_ON);
+                break;
+            default: 
+                std::stringstream sstrm("Unknown sensor power state: ");
+                sstrm << sensorState;
+                return sstrm.str();
+                break;
+        }
+    } 
+    // This utility converts a binary term configuration to a string
+    static const std::string rawTermToStr(unsigned char termCfg); 
+    // This utility converts a binary power configuration to a string
+    static const std::string rawPowerToStr(unsigned char powerCfg); 
     // This utility prints the port types for the assigned port.
     void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID

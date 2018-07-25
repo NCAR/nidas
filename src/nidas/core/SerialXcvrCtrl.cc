@@ -43,6 +43,14 @@ const char* SerialXcvrCtrl::STR_TERM_120_OHM = "TERM_120_OHM";
 const char* SerialXcvrCtrl::STR_POWER_ON = "POWER_ON";
 const char* SerialXcvrCtrl::STR_POWER_OFF = "POWER_OFF";
 
+void XcvrConfig::print()
+{
+    std::cout << "Port" << port << ": " << SerialXcvrCtrl::portTypeToStr(portType) 
+                                << " | " << SerialXcvrCtrl::termToStr(termination)
+                                << " | " << SerialXcvrCtrl::powerStateToStr(sensorPower);
+}
+
+
 
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 : _xcvrConfig(portId, RS232, NO_TERM), _rawXcvrConfig(0),
@@ -252,7 +260,7 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
     DLOG(("Working on PORT") << (int)(_xcvrConfig.port));
     DLOG(("Applying port type: ") << portTypeToStr(_xcvrConfig.portType));
     DLOG(("Applying termination: ") << termToStr(_xcvrConfig.termination));
-    DLOG(("Applying power: ") << powerToStr(_xcvrConfig.sensorPower));
+    DLOG(("Applying power: ") << powerStateToStr(_xcvrConfig.sensorPower));
 
     _rawXcvrConfig &= ~adjustBitPosition(0xF);
     _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
@@ -449,7 +457,7 @@ PORT_TYPES SerialXcvrCtrl::strToPortType(const char* portStr) {
     return retval;
 }
 
-const std::string SerialXcvrCtrl::termToStr(unsigned char termCfg) const
+const std::string SerialXcvrCtrl::rawTermToStr(unsigned char termCfg)
 {
     std::string termStr("");
     switch (termCfg) {
@@ -465,7 +473,7 @@ const std::string SerialXcvrCtrl::termToStr(unsigned char termCfg) const
     return termStr;
 }
 
-const std::string SerialXcvrCtrl::powerToStr(unsigned char powerCfg) const 
+const std::string SerialXcvrCtrl::rawPowerToStr(unsigned char powerCfg)
 {
     std::string powerStr("");
     switch (powerCfg) {
@@ -584,13 +592,17 @@ void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst
     if (readFirst) {
         DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
         readXcvrConfig();
-    }
 
     unsigned char tmpPortConfig = _rawXcvrConfig;
     if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
     std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
-                                << " | " << termToStr(tmpPortConfig & TERM_120_OHM_BIT)
-                                << " | " << powerToStr(tmpPortConfig & SENSOR_POWER_ON_BIT);
+                                << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT)
+                                << " | " << rawPowerToStr(tmpPortConfig & SENSOR_POWER_ON_BIT);
+    }
+    else {
+        _xcvrConfig.print();
+    }
+
     if (addNewline) {
         std::cout << std::endl;
     }
