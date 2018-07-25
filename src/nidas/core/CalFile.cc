@@ -636,12 +636,12 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
                 pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
                 setTimeZone(string(_curline + _curpos+pmatch[1].rm_so,
                     pmatch[1].rm_eo - pmatch[1].rm_so));
+                continue;
             }
             else if (regstatus != REG_NOMATCH) {
                 char regerrbuf[64];
                 ::regerror(regstatus,&_timeZonePreg,regerrbuf,sizeof regerrbuf);
                 throw n_u::ParseException("regexec TimeZone RE",string(regerrbuf));
-                continue;
             }
         }
         // cerr << "timezone regstatus=" << regstatus << endl;
