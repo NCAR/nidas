@@ -167,11 +167,8 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
 void SerialPortIODevice::printPortConfig(bool readFirst) 
 {
     cout << "Device: " << getName() << endl;
-    cout << "Termios: baud: " << getTermios().getBaudRate() 
-                              << " word: " << getTermios().getDataBits() << getTermios().getParityString(true) 
-                              << getTermios().getStopBits() << endl;
-    cout << "RTS485: " << _workingPortConfig.rts485 << endl;
-
+    _workingPortConfig.print();
+    
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
         getXcvrCtrl()->printXcvrConfig(readFirst);

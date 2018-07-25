@@ -78,6 +78,18 @@ struct PortConfig {
     bool operator!=(const PortConfig& rRight) {return !operator==(rRight);}
     bool operator==(const PortConfig& rRight)
         {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
+    void print(bool printApplied=false)
+    {
+        std::cout << "Termios: baud: " << termios.getBaudRate() 
+             << " word: " << termios.getDataBits() 
+                          << termios.getParityString(true) 
+                          << termios.getStopBits() << std::endl;
+        std::cout << "RTS485: " << rts485 << std::endl;
+        if (printApplied) {
+            std::cout << "PortConfig " << (applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
+        }
+    }
+
     Termios termios;
     XcvrConfig xcvrConfig;
     int rts485;
