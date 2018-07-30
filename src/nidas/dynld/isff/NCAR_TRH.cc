@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -43,7 +43,9 @@ NIDAS_CREATOR_FUNCTION_NS(isff,NCAR_TRH)
 NCAR_TRH::NCAR_TRH():
     _ifanIndex(99),
     _minIfan(-numeric_limits<float>::max()),
-    _maxIfan(numeric_limits<float>::max())
+    _maxIfan(numeric_limits<float>::max()),
+    _Ta(3),
+    _Ha(5)
 {
 }
 
@@ -73,6 +75,37 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
         }
     }
 }
+
+
+
+/**
+ * Here are the lines from the SHT PIC code.  As you would expect, the
+ * coefficients would come from the files in the order Ta0, Ta1, Ta2, and Ha0,
+ * Ha1, Ha2, Ha3, Ha4.
+ *
+ * temp_cal = Ta0 + Ta1*t + Ta2*t*t;
+ *
+ * humi_cal = Ha0 + Ha1*rh + Ha2*rh*rh + (Ha3 + Ha4*rh) * temp_cal;
+ **/
+double
+NCAR_TRH::
+tempFromRaw(double traw)
+{
+    double temp_cal = _Ta[0] + _Ta[1] * traw + _Ta[2] * traw * traw;
+    return temp_cal;
+}
+    
+
+double
+NCAR_TRH::
+rhFromRaw(double rhraw, double temp_cal)
+{
+    double humi_cal = _Ha[0] + _Ha[1]*rhraw + _Ha[2]*rhraw*rhraw +
+        (_Ha[3] + _Ha[4]*rhraw) * temp_cal;
+    return humi_cal;
+}
+
+
 
 bool NCAR_TRH::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
