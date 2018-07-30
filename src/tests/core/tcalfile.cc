@@ -29,6 +29,48 @@ BOOST_AUTO_TEST_CASE(test_calfile_normal_read)
   BOOST_CHECK_EQUAL(data[1], 1.0);
 }
 
+BOOST_AUTO_TEST_CASE(test_trh_raw_calfile)
+{
+  CalFile cfile;
+
+  cfile.setPath(".");
+  cfile.setFile("RH_2m.dat");
+
+  UTime when(LONG_LONG_MIN);
+  int n;
+  float data[6];
+  std::vector<std::string> fields;
+
+  // 2016 05 01 00:00:00 raw -7.618304 0.6463614 -0.000658841 -0.2686265 0.003530568
+  when = cfile.nextTime();
+  n = cfile.readCF(when, 0, 0, &fields);
+  BOOST_REQUIRE_EQUAL(fields.size(), 6);
+
+  // Make sure no numbers parsed, since none were requested.
+  BOOST_REQUIRE_EQUAL(n, 0);
+
+  BOOST_CHECK_EQUAL(fields[0], "raw");
+  n = cfile.getFields(fields, 1, 6, data);
+  BOOST_CHECK_EQUAL(n, 5);
+  BOOST_CHECK_CLOSE(data[2], -0.000658841, 0.0001);
+
+  // 2017 04 01 03:55:00 na 	nan
+  when = cfile.nextTime();
+  n = cfile.readCF(when, 0, 0, &fields);
+  BOOST_REQUIRE_EQUAL(fields.size(), 2);
+
+  // Make sure no numbers parsed, since none were requested.
+  BOOST_REQUIRE_EQUAL(n, 0);
+
+  BOOST_CHECK_EQUAL(fields[0], "na");
+  BOOST_CHECK_EQUAL(fields[1], "nan");
+  n = cfile.getFields(fields, 0, 2, data);
+  BOOST_CHECK_EQUAL(n, 2);
+  BOOST_CHECK(isnan(data[0]));
+  BOOST_CHECK(isnan(data[1]));
+}
+
+
 BOOST_AUTO_TEST_CASE(test_calfile_read_strings)
 {
   CalFile cfile;
