@@ -86,11 +86,9 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName());
         // auto-config may have passed down a default port config. No harm if a non-auto-config sensor
         // does not pass down the port config, as later it will be filled in by the XML.
-        SerialPortIODevice* spDevice = new SerialPortIODevice(getDeviceName(), _workingPortConfig);
-        // !!!TODO check for spDevice != null!!!
-        
-        _serialDevice = spDevice;
-        return spDevice;
+        _serialDevice = new SerialPortIODevice(getDeviceName(), _workingPortConfig);
+        device = _serialDevice;
+        // !!!TODO check for _serialDevice != null!!!
     }
 
     return device;
@@ -137,9 +135,18 @@ void SerialSensor::serPortFlush(const int flags)
         }
 
         int accmode = attrFlags & O_ACCMODE;
-        if (accmode == O_RDONLY) _serialDevice->flushInput();
-        else if (accmode == O_WRONLY) _serialDevice->flushOutput();
-        else _serialDevice->flushBoth();
+        if (accmode == O_RDONLY) {
+             _serialDevice->flushInput();
+             ILOG(("Flushed serial port input on device: ") << getName());
+        }
+        else if (accmode == O_WRONLY) {
+            _serialDevice->flushOutput();
+             ILOG(("Flushed serial port output on device: ") << getName());
+        }
+        else {
+            _serialDevice->flushBoth();
+             ILOG(("Flushed serial port input and output on device: ") << getName());
+        }
     }
 }
 

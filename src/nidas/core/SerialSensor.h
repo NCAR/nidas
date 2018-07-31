@@ -205,13 +205,14 @@ private:
     /*******************************************************
      * Aggregate serial port configuration
      * 
-     * Only holds a default port config passed by an auto-config
-     * subclass, which may be updated by fromDOMElement(). If 
-     * all this is true, then it is passed to a SerialPortIODevice 
-     * object.
+     * Holds a default port config (both Termios config and XcvrConfig) 
+     * which may be passed down by an auto-config subclass, 
+     * which may be further updated by fromDOMElement().
      * 
-     * No other operations, such as setPortConfig or applyPortConfig,
-     * act upon this object.
+     * No other operations occur on this attribute, since if 
+     * this SerialSensor truly is a traditional serial port, then 
+     * all the necessary operations such as set/get/applyPortConfig
+     * occur in SerialPortIODevice. 
      *******************************************************/
     PortConfig _workingPortConfig;
 
