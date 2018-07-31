@@ -74,7 +74,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
                         DLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
-                              << ifaceIdx << "to bitbang mode");
+                              << ifaceIdx << " to bitbang mode");
                     }
                     else
                     {
@@ -137,8 +137,8 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
                 if (!_pContext->bitbang_enabled) {
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
-                        NLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
-                              << ifaceIdx << "to bitbang mode");
+                        DLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
+                              << ifaceIdx << " to bitbang mode");
                     }
                     else
                     {
