@@ -68,11 +68,13 @@ struct Arg: public option::Arg
         std::cerr << optName;
         std::cerr << msg2;
     }
+
     static option::ArgStatus Unknown(const option::Option& option, bool msg)
     {
         if (msg) printError("Unknown option '", option, "'\n");
         return option::ARG_ILLEGAL;
     }
+
     static option::ArgStatus Required(const option::Option& option, bool msg)
     {
         if (option.arg != 0)
@@ -80,6 +82,7 @@ struct Arg: public option::Arg
         if (msg) printError("Option '", option, "' requires an argument\n");
         return option::ARG_ILLEGAL;
     }
+
     static option::ArgStatus NonEmpty(const option::Option& option, bool msg)
     {
         if (option.arg != 0 && option.arg[0] != 0)
@@ -87,13 +90,15 @@ struct Arg: public option::Arg
         if (msg) printError("Option '", option, "' requires a non-empty argument\n");
         return option::ARG_ILLEGAL;
     }
+
     static option::ArgStatus Numeric(const option::Option& option, bool msg)
     {
         if (option.arg != 0)
         {
             try {
                 int arg = -1;
-                std::istringstream(option.arg) >> arg;
+                std::istringstream("abcd") >> arg;
+                std::cout << "Numeric arg test gave: " << arg << std::endl;
                 return option::ARG_OK;
             }
             catch (std::exception e)
@@ -105,6 +110,7 @@ struct Arg: public option::Arg
 
         return option::ARG_ILLEGAL;
     }
+
     static option::ArgStatus Xml(const option::Option& option, bool msg)
     {
         option::ArgStatus argStatus = NonEmpty( option, msg);
@@ -140,9 +146,10 @@ struct Arg: public option::Arg
 
         return argStatus;
     }
+
     static option::ArgStatus Device(const option::Option& option, bool msg)
     {
-        option::ArgStatus argStatus = Required( option, msg);
+        option::ArgStatus argStatus = Required(option, msg);
         if ( argStatus == option::ARG_OK ) 
         {
             argStatus = NonEmpty(option, msg);
@@ -159,6 +166,36 @@ struct Arg: public option::Arg
 
         return argStatus;
     }
+
+    static option::ArgStatus LogLevel(const option::Option& option, bool msg)
+    {
+        option::ArgStatus argStatus = Optional(option, msg);
+
+        if (argStatus == option::ARG_OK) {
+            argStatus = Numeric(option, msg);
+            if ( argStatus == option::ARG_OK ) {
+                try {
+                    // this shouldn't fail since Numeric() succeeded...
+                    int arg = -1;
+                    std::istringstream(option.arg) >> arg;
+                    if (1 <= arg && arg <=4) {
+                        return option::ARG_OK;
+                    }
+                    else {
+                        if (msg) printError("Option '", option, "' must be in the range of 1..4\n");
+                        return option::ARG_ILLEGAL;
+                    }
+                }
+                catch (std::exception e)
+                {
+                    if (msg) printError("Option '", option, "' requires a pure numeric argument, if one is supplied\n");
+                    return option::ARG_ILLEGAL;
+                }
+            }
+        }
+
+        return argStatus;
+    }
 };
 
 enum  optionIndex { UNKNOWN, HELP, LOG, XML, SENSOR, DEVICE };
@@ -167,15 +204,15 @@ const option::Descriptor usage[] =
     {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: dsm_auto_config [options]\n\n"
                                             "Options:" },
     {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
-    {LOG, 0, "l", "log", Arg::None, "  --log, -l  \tSet the log level to debug" },
+    {LOG, 0, "l", "log", Arg::LogLevel, "  --log, -l[1..4]  \tSet the log level to debug. If there is an argument, it must be attached: -l2." },
     {XML, 0, "x", "xml", Arg::Xml, "  --xml, -x  \tSpecify the xml file containing the sensor settings." },
     {SENSOR, 0, "s", "sensor", Arg::Sensor,   "  --sensor, -s  \tSpecify the sensor to be configured:\n" },
     {DEVICE, 0, "d", "dev", Arg::Device,   "  --device, -d  \tSpecify the device on which to perform auto" 
                                            " config activities. Must be the device to which the sensor is attached.\n" },
     {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
-                                "  dsm_auto_config -p0 -tRS232\n"
-                                "  dsm_auto_config -p3 -tRS422\n"
-                                "  dsm_auto_config -p6 -tRS485_HALF\n"},
+                                "  dsm_auto_config -d /dev/ttyUSB0\n"
+                                "  dsm_auto_config -l -d /dev/ttyUSB0\n"
+                                "  dsm_auto_config -l2 -d /dev/ttyUSB0\n" },
     {0,0,0,0,0,0}
 };
 
@@ -206,25 +243,60 @@ int main(int argc, char* argv[]) {
     n_u::Logger* logger = 0;
     n_u::LogScheme scheme;
 
-    // Set a default for notifications and up.
+    std::string levelStr("level=");
+
+    if (options[LOG]) {
+        int arg = -1;
+
+        try {
+            std::istringstream(options[LOG].arg) >> arg;
+        }
+        catch (std::exception e) {}
+
+        switch (arg) {
+            case 1: 
+                levelStr.append("notice");
+                break;
+
+            case 2: 
+                levelStr.append("info");
+                break;
+
+            case 3: 
+                levelStr.append("debug");
+                break;
+
+            case 4: 
+                levelStr.append("verbose");
+                break;
+
+            default:
+                levelStr.append("warning");
+                break;
+        }
+
+        std::cout << "Log level string: " << levelStr << std::endl;
+    }
+
     logger = Logger::getInstance();
-    scheme = logger->getScheme("sing_default");
-    scheme.addConfig(LogConfig("level=info"));
+    scheme = logger->getScheme("autoconfig_default");
+    scheme.addConfig(LogConfig(levelStr.c_str()));
     logger->setScheme(scheme);
+
 
     // There's only PTB210 for now, so let's just instantiate it, and see how it goes.
     n_d_s::PTB210 ptb210;
 
     if (options[DEVICE]) {
         std::string deviceStr(options[DEVICE].arg);
-        std::cout << "Device: " << deviceStr << std::endl;
+        NLOG(("Performing Auto Config on Device: ") << deviceStr);
         ptb210.setDeviceName(deviceStr);
-        std::cout << "Set device name: " << ptb210.getDeviceName() << std::endl;
+        ILOG(("Set device name: ") << ptb210.getDeviceName());
     }
 
     if (ptb210.getName().empty())
     {
-        std::cout << "No device name specified. Cannot continue!!" << std::endl;
+        std::cerr << "No device name specified. Cannot continue!!" << std::endl;
         exit(100);
     }
 
