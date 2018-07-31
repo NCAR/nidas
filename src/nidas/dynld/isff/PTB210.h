@@ -110,7 +110,7 @@ protected:
                                                       int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
                                                       n_c::SENSOR_POWER_STATE power);
     bool installDesiredSensorConfig();
-    void configureScienceParameters();
+    bool configureScienceParameters();
     size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
@@ -167,7 +167,7 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    // NOTE: list sensor bauds from highest to lowest as the higher 
+    // NOTE: list sensor bauds from highest to lowest as the higher  
     //       ones are the most likely
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
@@ -177,6 +177,8 @@ private:
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
+
+    static const int DEFAULT_RESET_WAIT_TIME = 3 * USECS_PER_SEC;
 
     n_c::PortConfig testPortConfig;
     n_c::PortConfig desiredPortConfig;
