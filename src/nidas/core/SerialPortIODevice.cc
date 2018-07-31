@@ -57,6 +57,9 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
     UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _usecsperbyte(0),
     _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
+    _workingPortConfig.termios.setRaw(true);
+    _workingPortConfig.termios.setRawLength(1);
+    _workingPortConfig.termios.setRawTimeout(0);
     getBlocking();
     checkXcvrCtrlRequired(getName());
 }
@@ -168,7 +171,7 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
 {
     cout << "Device: " << getName() << endl;
     _workingPortConfig.print();
-    
+
     // ignore for those sensors who do not use HW xcvr auto-config
     if (getXcvrCtrl()) {
         getXcvrCtrl()->printXcvrConfig(readFirst);
