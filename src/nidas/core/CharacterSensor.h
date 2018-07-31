@@ -282,6 +282,12 @@ protected:
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
 			   float* data_ptr);
 
+    SampleT<float>*
+    searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw();
+
+    void
+    adjustTimeTag(SampleTag* stag, SampleT<float>* outs);
+
     std::map<const SampleTag*, TimetagAdjuster*> _ttadjusters;
 
 private:

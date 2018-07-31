@@ -355,22 +355,27 @@ scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data_ptr)
 }
 
 
-bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
-	throw()
+
+SampleT<float>*
+CharacterSensor::
+searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
 {
     // Note: sscanfers can be empty here, if a CharacterSensor was configured
     // with no samples, and hence no scanf strings.  For example,
     // a differential GPS, where nidas is supposed to take the
     // data for later use, but doesn't (currently) parse it.
-    if (_sscanfers.empty()) return false;
-
+    if (_sscanfers.empty())
+    {
+        return 0;
+    }
     assert(samp->getType() == CHAR_ST);
 
     const char* inputstr = (const char*)samp->getConstVoidDataPtr();
     int slen = samp->getDataByteLength();
 
     // if sample is not null terminated, create a new null-terminated sample
-    if (inputstr[slen-1] != '\0') {
+    if (inputstr[slen-1] != '\0')
+    {
         SampleT<char>* newsamp = getSample<char>(slen+1);
         newsamp->setTimeTag(samp->getTimeTag());
         newsamp->setId(samp->getId());
@@ -378,13 +383,15 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         ::memcpy(newstr,inputstr,slen);
         newstr[slen] = '\0';
 
-        bool res =  CharacterSensor::process(newsamp,results);
+        SampleT<float>* res = searchSampleScanners(newsamp, stag_out);
         newsamp->freeReference();
         return res;
     }
 
     SampleT<float>* outs = getSample<float>(_maxScanfFields);
-
+    // Output sample always defaults to time of raw sample.
+    outs->setTimeTag(samp->getTimeTag());
+                 
     SampleTag* stag = 0;
     int nparsed = 0;
     unsigned int ntry = 0;
@@ -421,26 +428,57 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         lp.log(msg);
     }   
 
-    if (!nparsed) {
+    if (!nparsed)
+    {
         _scanfFailures++;
         outs->freeReference();  // remember!
-        return false;           // no sample
+        return 0;               // no sample
     }
 
-    // If requested, reduce latency jitter in the time tags.
-    // Then correct for a known sampling or sensor response lag.
-    TimetagAdjuster* ttadj = _ttadjusters[stag];
-    if (ttadj)
-        outs->setTimeTag(ttadj->adjust(samp->getTimeTag()) - getLagUsecs());
-    else
-        outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
-
-    // Fill and trim for unparsed values and apply any variable
-    // conversions.
+    // Fill and trim for unparsed values.
     trimUnparsed(stag, outs, nparsed);
+    *stag_out = stag;
+    return outs;
+}
+
+
+bool
+CharacterSensor::
+process(const Sample* samp, list<const Sample*>& results) throw()
+{
+    // Try to scan the variables of a sample tag from the raw sensor
+    // message.
+    SampleTag* stag = 0;
+    SampleT<float>* outs = searchSampleScanners(samp, &stag);
+    if (!outs)
+    {
+        return false;
+    }
+
+    // Apply any time tag adjustments.
+    adjustTimeTag(stag, outs);
+
+    // Apply any variable conversions.  Note this has to happen after the
+    // time is adjusted, since the calibrations are keyed by time.
     applyConversions(stag, outs);
 
     results.push_back(outs);
     return true;
+}
+
+
+
+void
+CharacterSensor::
+adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
+{                                 
+    // If requested, reduce latency jitter in the time tags.
+    // Then correct for a known sampling or sensor response lag.
+    outs->setTimeTag(outs->getTimeTag() - getLagUsecs());
+    TimetagAdjuster* ttadj = _ttadjusters[stag];
+    if (ttadj)
+    {
+        outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
+    }
 }
 
