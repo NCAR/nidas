@@ -836,6 +836,18 @@ public:
     void
     resetLogging();
 
+    /**
+     * Set the process-data setting in this NidasApp.
+     **/
+    void
+    setProcessData(bool process)
+    {
+        _processData = process;
+    }
+
+    /**
+     * Return the current process-data setting for this NidasApp.
+     **/
     bool
     processData()
     {
