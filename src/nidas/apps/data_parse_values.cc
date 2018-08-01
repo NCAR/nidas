@@ -24,19 +24,6 @@
  ********************************************************************
 */
 
-/*
-TO DO: --BARNITZ--
-*obtain the variable units for each if necessary for visualization,
-
-*set command line arguments
-*set the private variable to process data //currently set with command line arguements (CLA)
-*have the app run as own process in the background //currently invoking each instant with CLA
-
-*determine application name //currently set to data_parse_values (not very meaningful)
-*update headers and object/method names //currently heavily relied on what was referenced with data_stats
-*remove code and functions/methods that serve no purpose for this application
-*/
-
 // #define _XOPEN_SOURCE	/* glibc2 needs this */
 
 #include <ctime>
@@ -104,14 +91,13 @@ class SampleToDatabase
                      const SampleTag *stag = 0) : name(sname),
                                                   id(sid),
                                                   sitename(),
-                                                //   DBname("grainex3"),
                                                   DBname("weather_stations"),
                                                   measurementName(),
                                                   spsid(),
                                                   dsmid(),
                                                   info(),
-                                                  url("http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"),
-                                                //   collectionOfData(""),
+                                                  url("http://weather-dev.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"),
+                                                  varunits(),
                                                   varnames()
     {
         if (stag)
@@ -120,6 +106,7 @@ class SampleToDatabase
             for (unsigned int i = 0; i < variables.size(); ++i)
             {
                 varnames.push_back(variables[i]->getName());
+                varunits.push_back(variables[i]->getUnits());
             }
             //TO DO: determine & implement how best to incorporate this change necessary for the different sites: given as command line arguements
             //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
@@ -131,7 +118,7 @@ class SampleToDatabase
             //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
             //necessary for grainex/conventional projects
             //CONVENTIONAL PROJECTS
-            sitename = stag->getSite()->getName();
+            // sitename = stag->getSite()->getName();
             dsmid = to_string(stag->getDSMId());
             int tempSpSid = stag->getSpSId();
             if (tempSpSid >= 0x8000)
@@ -144,7 +131,9 @@ class SampleToDatabase
                 spsid = to_string(tempSpSid);
             // //this measurement name is not used currently for weather_stations, weather_stations use the sitename
             // measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
-            info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
+            // info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
+            // info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + ",units=metric ";
+            info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + ",units=";
         }
     }
     bool
@@ -180,12 +169,13 @@ class SampleToDatabase
     string url;
 
     // Stash the variable names from the sample tag to identify the
-    // variables in the accumulated data.
+    // variables and units in the accumulated data.
+    vector<string> varunits;
     vector<string> varnames;
 };
 
-std::future<void> beforeResettingString;
-std::mutex mtx;
+// std::future<void> beforeResettingString;
+// std::mutex mtx;
 
 bool SampleToDatabase::
     receive(const Sample *samp) throw()
@@ -199,7 +189,8 @@ bool SampleToDatabase::
     // std::async(std::launch::async, &SampleToDatabase::accumulate, this, samp);   
     accumulate(samp);
     // if ((difftime(time(NULL), start_time) > 2) && COUNT > 5000)
-    if (COUNT > 5000)
+    // if (COUNT > 5000)
+    if (COUNT > 50)
     {
         // std::launch::async forces it to launch in parallel (as opposed to the default of sequentially)
         // std::future<void> call = std::async(std::launch::async, &SampleToDatabase::dataToInfluxDB, this, multipleData);
@@ -231,7 +222,8 @@ void SampleToDatabase::
     CURL *curl;
     CURLcode res;
 
-    const char *url = "http://snoopy.eol.ucar.edu:8086/query";
+    // const char *url = "http://snoopy.eol.ucar.edu:8086/query";
+    const char *url = "http://weather-dev.eol.ucar.edu:8086/query";
     string createDB = "q=CREATE+DATABASE+" + DBname;
 
     curl = curl_easy_init();
@@ -285,34 +277,65 @@ accumulate(const Sample *samp)
     unsigned int nvalues = varnames.size();
 
     // where info =  measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " "
-    //created in the constructor
-    data = info;
-    for (unsigned int i = 0; i < nvalues; ++i)
-    {
-        double value = samp->getDataValue(i);
-        if (std::isnan(value))
+    // if(DBname == "weather_stations")
+    // {
+    //     //created in the constructor
+    //     data = info;
+    //     for (unsigned int i = 0; i < nvalues; ++i)
+    //     {
+    //         double value = samp->getDataValue(i);
+    //         if (std::isnan(value))
+    //         {
+    //             //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+    //             continue;
+    //         }
+    //         else
+    //         {
+    //             data += varnames[i];
+    //             data += "=";
+    //             data += to_string(value);
+    //             data += ",";
+    //         }
+    //     }
+    //     char lastChar = data.back();
+    //     if (lastChar == ',')
+    //     {
+    //         data.pop_back();
+    //     }
+    //     data += " ";
+    //     data += to_string(samp->getTimeTag());
+    //     data += "\n";
+    //     multipleData += data;
+    //     ++COUNT;
+    // }
+
+    // else if (DBname == "weather_stations_units"){
+            //created in the constructor
+        string timeStamp = to_string(samp->getTimeTag());
+        for (unsigned int i = 0; i < nvalues; ++i)
         {
-            //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
-            continue;
+            double value = samp->getDataValue(i);
+            if (std::isnan(value))
+            {
+                //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+                continue;
+            }
+            else
+            {
+                data = info;
+                data += varunits[i];
+                data += " ";
+                data += varnames[i];
+                data += "=";
+                data += to_string(value);
+                data += " ";
+                data += timeStamp;
+                data += "\n";
+                multipleData += data;
+            }
         }
-        else
-        {
-            data += varnames[i];
-            data += "=";
-            data += to_string(value);
-            data += ",";
-        }
-    }
-    char lastChar = data.back();
-    if (lastChar == ',')
-    {
-        data.pop_back();
-    }
-    data += " ";
-    data += to_string(samp->getTimeTag());
-    data += "\n";
-    multipleData += data;
-    ++COUNT;
+        ++COUNT;
+    // }
 }
 
 
@@ -437,7 +460,7 @@ CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) : 
                 string varname = stag->getVariables().front()->getName();
                 if (stag->getVariables().size() > 1)
                 {
-                    varname += ",...****BARNITZ****";
+                    varname += ",...";
                 }
                 // As a special case for wisard sensors, mask the last two
                 // bits of the IDs so all "sensor types" aka I2C addresses
