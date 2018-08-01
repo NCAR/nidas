@@ -327,18 +327,6 @@ class CounterClient : public SampleClient
 
     bool receive(const Sample *samp) throw();
 
-    void
-    reportAll(bool all)
-    {
-        _reportall = all;
-    }
-
-    void
-    reportData(bool data)
-    {
-        _reportdata = data;
-    }
-
   private:
     typedef map<dsm_sample_id_t, SampleToDatabase> sample_map_t;
 
@@ -372,10 +360,6 @@ class CounterClient : public SampleClient
 
     sample_map_t _samples;
 
-    bool _reportall;
-
-    bool _reportdata;
-
     NidasApp &_app;
 };
 
@@ -392,14 +376,11 @@ class CounterClient : public SampleClient
 //     }
 // }
 
-CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) : _samples(),
-                                                                                _reportall(false),
-                                                                                _reportdata(false),
-                                                                                _app(app)
+CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) :
+    _samples(),
+    _app(app)
 {
     cout << "... CounterClient::CounterClient\n";
-    bool processed = app.processData();
-    //cout << "... process data? " << processed << "\n";
     SampleMatcher &matcher = _app.sampleMatcher();
     list<DSMSensor *>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
@@ -410,20 +391,6 @@ CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) : 
         DSMSensor *sensor = *si;
         string sname = sensor->getDSMConfig()->getName() + ":" +
                        sensor->getDeviceName();
-
-        // Stop with raw samples if processed not requested.
-        if (!processed)
-        {
-            if (matcher.match(sensor->getId()))
-            {
-                dsm_sample_id_t sid = sensor->getId();
-                cout << "... DLOG:adding raw sample with sid: " << sid << " with sname:" << sname << "\n";
-                DLOG(("adding raw sample: ") << _app.formatId(sid));
-                SampleToDatabase stats(sid, sname);
-                _samples[stats.id] = stats;
-            }
-            continue;
-        }
 
         // for samples show the first variable name, followed by ",..."
         // if more than one.
@@ -521,86 +488,32 @@ class DatabaseData
 
     int usage(const char *argv0);
 
-    bool
-    reportsExhausted(int nreports = -1)
-    {
-        // Just to avoid the unused warning, while allowing _nreports to be
-        // incremented with a prefix increment operator in the call to this
-        // method.
-        if (nreports > -1)
-            _nreports = nreports;
-        return (_count > 0 && _nreports > _count);
-    }
-
-    static void handleSignal(int signum);
-
   private:
     static const int DEFAULT_PORT = 30000;
 
-    static bool _alarm;
-    bool _realtime;
-    n_u::UTime _period_start;
     int _count;
-    int _period;
-    int _nreports;
 
     NidasApp app;
-    NidasAppArg Period;
     NidasAppArg Count;
-    // Type of report to generate:
-    //
-    // All - show all samples, received or not
-    // Missing - show only missing samples
-    // Compact - report only one line for a site with no samples for any sensors
-    // Received - show only received samples, the default
-    NidasAppArg AllSamples;
-
-    // Show averaged data or raw messages for each report.
-    NidasAppArg ShowData;
 };
 
-bool DatabaseData::_alarm(false);
-
-void DatabaseData::handleSignal(int signum)
-{
-    // The NidasApp handler sets interrupted before calling this handler,
-    // so clear that if this is just the interval alarm.
-    if (signum == SIGALRM)
-    {
-        NidasApp::setInterrupted(false);
-        _alarm = true;
-    }
-}
 
 //TO DO: modify to be accurate of what DatabaseData can do
-DatabaseData::DatabaseData() : _realtime(false), _period_start(time_t(0)),
-                         _count(1), _period(0), _nreports(0),
-                         app("data_stats"),
-                         Period("-P,--period", "<seconds>",
-                                "Collect statistics for the given number of seconds and then "
-                                "print the report.\n"
-                                "If 0, wait until interrupted with Ctl-C.",
-                                "0"),
-                         Count("-n,--count", "<count>",
-                               "When --period specified, generate <count> reports.\n"
-                               "Use a count of zero to continue reports until interrupted.",
-                               "1"),
-                         AllSamples("-a,--all", "",
-                                    "Show statistics for all sample IDs, including those for which "
-                                    "no samples are received."),
-                         ShowData("-D,--data", "",
-                                  "Print data for each sensor, either the last received message\n"
-                                  "for raw samples, or data values averaged over the recording\n"
-                                  "period for processed samples.")
+DatabaseData::DatabaseData() :
+    _count(5000),
+    app("data_stats"),
+    Count("-n,--count", "<count>",
+          "Accumulate <count> measurement lines before posting to the "
+          "database.  Set to 1 to send each line immediately, the max is 5000.",
+          "5000")
 {
-    //cout << "... DatabaseData::DatabaseData\n";
     app.setApplicationInstance();
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.LogConfig |
                         app.SampleRanges | app.FormatHexId |
-                        app.FormatSampleId | app.ProcessData |
+                        app.FormatSampleId | 
                         app.Version | app.InputFiles |
-                        app.Help | Period | Count | AllSamples | ShowData);
+                        app.Help | Count);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -623,12 +536,13 @@ int DatabaseData::parseRunstring(int argc, char **argv)
         {
             return usage(argv[0]);
         }
-        _period = Period.asInt();
         _count = Count.asInt();
+        if (_count < 1 || _count > 5000)
+        {
+            throw NidasAppException("--count must be 1-5000");
+        }
 
         app.parseInputs(args);
-        //set process data to true? update the default to true for this application
-        //app._processData = true;
     }
     catch (NidasAppException &ex)
     {
@@ -689,19 +603,12 @@ void DatabaseData::
     // there are no samples we could block in readInputHeader() waiting for
     // the header and never get to the readSamples() loop.
     bool header_read = false;
-    _nreports = 0;
-    while (!header_read && !app.interrupted() &&
-           !reportsExhausted(++_nreports))
+    while (!header_read && !app.interrupted())
     {
-        _alarm = false;
-        if (_realtime)
-            alarm(_period);
         try
         {
             sis.readInputHeader();
             header_read = true;
-            // Reading the header does not count as a report cycle.
-            --_nreports;
         }
         catch (n_u::IOException &e)
         {
@@ -709,26 +616,9 @@ void DatabaseData::
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
         }
-        if (_realtime)
-            alarm(0);
         if (app.interrupted())
         {
             throw n_u::Exception("Interrupted while waiting for header.");
-        }
-        if (_alarm)
-        {
-            ostringstream outs;
-            outs << "Header not received after " << _nreports
-                 << " periods of " << _period << " seconds.";
-            // Throw an exception if nreports exhausted.
-            if (reportsExhausted())
-            {
-                throw n_u::Exception(outs.str());
-            }
-            else
-            {
-                cerr << outs.str() << endl;
-            }
         }
     }
 }
@@ -736,27 +626,17 @@ void DatabaseData::
 void DatabaseData::
     readSamples(SampleInputStream &sis)
 {
-    cout << "...DatabaseData::readSamples\n";
-    // Read samples until an alarm signals the end of a reporting period or
-    // an interruption occurs.
-    _alarm = false;
-    if (_period > 0 && _realtime)
+    while (!app.interrupted())
     {
-        alarm(_period);
-    }
-    cout << "...after if in readSamples\n";
-    while (!_alarm && !app.interrupted())
-    {
-        //cout << "...in while of readSamples\n";
         try
         {
-            //cout << "...in try of readSamples\n";
             sis.readSamples();
         }
         catch (n_u::IOException &e)
         {
             cout << "...in catch of readSamples\n";
-            //reached the end of file, ensure last remaining points are written to the db
+            // reached the end of file, ensure last remaining points are
+            // written to the db
             SampleToDatabase sd;
             sd.dataToInfluxDB(multipleData);
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
@@ -789,18 +669,12 @@ int DatabaseData::run() throw()
         {
             n_u::Socket *sock = new n_u::Socket(*app.socketAddress());
             iochan = new nidas::core::Socket(sock);
-            _realtime = true; //in data stats not in data dump //necessary?
         }
 
-        SampleInputStream sis(iochan, app.processData());
+        SampleInputStream sis(iochan, /*processed*/true);
         sis.setMaxSampleLength(32768);
         // sis.init();
 
-        if (_period > 0 && _realtime)
-        {
-            cout << "... if _period >0 && _realtime\n";
-            app.addSignal(SIGALRM, &DatabaseData::handleSignal, true);
-        }
         readHeader(sis);
 
         const SampleInputHeader &header = sis.getInputHeader();
@@ -808,76 +682,59 @@ int DatabaseData::run() throw()
         list<DSMSensor *> allsensors;
 
         string xmlFileName = app.xmlHeaderFile();
-        //cout << "... xmlFileName: *" << xmlFileName << "*\n";
-        //if the file name is not given it will automatically be assigned to ****/weather-eol-stations.xml
         if (xmlFileName.length() == 0)
         {
             xmlFileName = header.getConfigName();
             cout << "xmlFileName.length == 0, fileName: " << xmlFileName << "\n";
         }
         xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
-        //TO DO: change this hard coding of file name //used because of trying to bypass giving CLA for processing data
-        //xmlFileName = "/h/eol/jbarnitz/barnitzSUPER/eol-weather-stations-TEMP2.xml"; //...change this
-        //cout << "xmlFileName.length == 0, fileName: " << xmlFileName <<"\n";
-        //cout << "... app.processData(): " << app.processData() << "\n";
+
         struct stat statbuf;
-        //we should want to process all data that comes in to store in the DB as "raw" but processed data s.t. it is no longer ascii
-        //thus use the .xml file for this
-        if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
+        if (xmlFileName.length() == 0 ||
+            ::stat(xmlFileName.c_str(), &statbuf) != 0)
         {
-            n_u::auto_ptr<xercesc::DOMDocument>
-                doc(parseXMLConfigFile(xmlFileName));
+            throw NidasAppException("xml not specified or cannot be found: " +
+                                    xmlFileName);
+        }
 
-            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+        n_u::auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
-            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-            for (; di.hasNext();)
-            {
-                const DSMConfig *dsm = di.next();
-                const list<DSMSensor *> &sensors = dsm->getSensors();
-                allsensors.insert(allsensors.end(), sensors.begin(), sensors.end());
-            }
+        Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+
+        DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+        for (; di.hasNext();)
+        {
+            const DSMConfig *dsm = di.next();
+            const list<DSMSensor *> &sensors = dsm->getSensors();
+            allsensors.insert(allsensors.end(), sensors.begin(), sensors.end());
         }
         XMLImplementation::terminate();
 
         SamplePipeline pipeline;
-        CounterClient counter(allsensors, app); //not in data_dump
-        counter.reportAll(AllSamples.asBool());
-        counter.reportData(ShowData.asBool());
+        CounterClient counter(allsensors, app);
 
-        if (app.processData())
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(0);
+        pipeline.setProcSorterLength(0);
+
+        list<DSMSensor *>::const_iterator si;
+        for (si = allsensors.begin(); si != allsensors.end(); ++si)
         {
-            cout << "... app.processData() is true\n";
-            pipeline.setRealTime(false);
-            pipeline.setRawSorterLength(0);
-            pipeline.setProcSorterLength(0);
-
-            list<DSMSensor *>::const_iterator si;
-            for (si = allsensors.begin(); si != allsensors.end(); ++si)
-            {
-                DSMSensor *sensor = *si;
-                sensor->init();
-                //  1. inform the SampleInputStream of what SampleTags to expect
-                sis.addSampleTag(sensor->getRawSampleTag());
-            }
-            // 2. connect the pipeline to the SampleInputStream.
-            pipeline.connect(&sis);
-
-            // 3. connect the client to the pipeline
-            pipeline.getProcessedSampleSource()->addSampleClient(&counter);
-            pipeline.getRawSampleSource()->addSampleClient(&counter); //maybe??
+            DSMSensor *sensor = *si;
+            sensor->init();
+            //  1. inform the SampleInputStream of what SampleTags to expect
+            sis.addSampleTag(sensor->getRawSampleTag());
         }
-        else
-            sis.addSampleClient(&counter);
+        // 2. connect the pipeline to the SampleInputStream.
+        pipeline.connect(&sis);
+
+        // 3. connect the client to the pipeline
+        pipeline.getProcessedSampleSource()->addSampleClient(&counter);
+        pipeline.getRawSampleSource()->addSampleClient(&counter); //maybe??
 
         try
         {
-            if (_period > 0 && _realtime)
-            {
-                cout << "....... Collecting samples for " << _period << " seconds "
-                     << "......." << endl;
-            }
-            while (!app.interrupted() && !reportsExhausted(++_nreports))
+            while (!app.interrupted())
             {
                 readSamples(sis);
             }
@@ -888,32 +745,17 @@ int DatabaseData::run() throw()
         }
         catch (n_u::IOException &e)
         {
-            if (app.processData())
-            {
-                pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
-                pipeline.disconnect(&sis);
-                pipeline.interrupt();
-                pipeline.join();
-            }
-            else
-            {
-                pipeline.getRawSampleSource()->removeSampleClient(&counter); //maybe??
-                //sis.removeSampleClient(&counter);
-            }
+            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+            pipeline.disconnect(&sis);
+            pipeline.interrupt();
+            pipeline.join();
             sis.close();
             throw(e);
         }
-        if (app.processData())
-        {
-            pipeline.disconnect(&sis);
-            pipeline.flush();
-            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
-            pipeline.getRawSampleSource()->removeSampleClient(&counter); //maybe???
-        }
-        else
-        {
-            sis.removeSampleClient(&counter);
-        }
+        pipeline.disconnect(&sis);
+        pipeline.flush();
+        pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+        pipeline.getRawSampleSource()->removeSampleClient(&counter); //maybe???
         sis.close();
         pipeline.interrupt();
         pipeline.join();
