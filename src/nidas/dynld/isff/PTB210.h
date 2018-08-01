@@ -42,10 +42,9 @@ struct WordSpec
 };
 
 
-
 // create table indices
 enum PTB_COMMANDS
-{   DEFAULT_SENSOR_INIT_CMD,
+{   NULL_COMMAND = -1, // don't put in table, only used for null return value
     SENSOR_RESET_CMD,
 	SENSOR_SERIAL_BAUD_CMD,
 	SENSOR_SERIAL_EVEN_WORD_CMD,
@@ -73,6 +72,32 @@ enum PTB_COMMANDS
     NUM_SENSOR_CMDS
 };
 
+// PTB pressure unit enum
+enum PTB_PRESSURE_UNITS {
+    hPa,
+    mbar,
+    inHg,
+    psia,
+    torr,
+    mmHg,
+    kPa,
+    Pa,
+    mmH2O,
+    inH2O,
+    bar
+};
+
+// Valid PTB210 Command argument ranges
+struct PTB210_ARG_RANGE {
+    int min;
+    int max;
+};
+
+struct PTB_CMD_ARG {
+    PTB_COMMANDS cmd;
+    int arg;
+};
+
 /**
  * Sensor class for the PTB210 barometer, built by Vaisala.
  * 
@@ -86,6 +111,20 @@ enum PTB_COMMANDS
  * 
  * This class also provides features to send to the sensor, configuration settings, including 
  * both serial port and science/measurement settings. 
+ * 
+ * NOTE: The default settings are taken from the entry in sensor_catalog.xml:
+ *  <serialSensor ID="PTB210" class="DSMSerialSensor" init_string="\r\n.BP\r\n"
+ *		  baud="9600" parity="even" databits="7" stopbits="1">
+ *      <!-- 838.26\r\n -->
+ *    <sample id="1" scanfFormat="%f" rate="1">
+ *	    <variable name="P" units="mb"
+ *		    longname="Barometric Pressure, Vaisala PTB 210"
+ *		    plotrange="$P_RANGE"/>
+ *    </sample>
+ *    <message separator="\n" position="end" length="0"/>
+ *  </serialSensor>
+ * 
+ * 
  */
 class PTB210: public nidas::core::SerialSensor
 {
@@ -95,9 +134,56 @@ public:
 
     ~PTB210();
 
-    // override open to provide the default settings to the DSM port, and search for the correct 
+    // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
+    void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+
+    // override open() to provide the default settings to the DSM port, and search for the correct 
     // settings, should the default settings not result in successful communication.
     void open(int flags) throw (n_u::IOException, n_u::InvalidParameterException);
+
+    // utility to turn a pressure unit string designation into a PRESS_UNIT enum
+    static PTB_PRESSURE_UNITS pressUnitStr2PressUnit(const char* unitStr) {
+        std::string units(unitStr);
+
+        if (units == "hPa") {
+            return hPa;
+        }
+        else if (units == "mBar") {
+            return mbar;
+        }
+        else if (units == "inHg") {
+            return inHg;
+        }
+        else if (units == "psia") {
+            return psia;
+        }
+        else if (units == "torr") {
+            return torr;
+        }
+        else if (units == "mmHg") {
+            return mmHg;
+        }
+        else if (units == "kPa") {
+            return kPa;
+        }
+        else if (units == "Pa") {
+            return Pa;
+        }
+        else if (units == "mmH2O") {
+            return mmH2O;
+        }
+        else if (units == "inH2O") {
+            return inH2O;
+        }
+        else if (units == "Bar") {
+            return bar;
+        }
+        else {
+            std::stringstream errMsg;
+            errMsg << "Requested units not found: " << units;
+            throw n_u::InvalidParameterException("AutoConfig", "PTB210::pressUnitStr2PressUnit() ", (errMsg.str()));
+        }
+    }
 
 protected:
     bool isDefaultConfig(const n_c::PortConfig& target);
@@ -111,6 +197,9 @@ protected:
                                                       n_c::SENSOR_POWER_STATE power);
     bool installDesiredSensorConfig();
     bool configureScienceParameters();
+    void sendScienceParameters();
+    bool checkScienceParameters();
+    bool compareScienceParameter(PTB_COMMANDS cmd, const char* match);
     size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
@@ -119,6 +208,8 @@ protected:
         std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         std::cout << std::endl;
     }
+    void updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg=0);
+    PTB_CMD_ARG getDesiredCmd(PTB_COMMANDS cmd);
 
 private:
     // default serial parameters for the PB210
@@ -137,8 +228,27 @@ private:
     static const bool DEFAULT_MSG_SEP_EOM = true;
     static const char* DEFAULT_MSG_SEP_CHARS;
 
+    // default science parameters for the PB210
+    static const PTB_COMMANDS DEFAULT_PRESSURE_UNITS_CMD = SENSOR_SAMP_UNIT_CMD;
+    static const PTB_PRESSURE_UNITS DEFAULT_PRESSURE_UNITS = mbar;
+
+    static const PTB_COMMANDS DEFAULT_OUTPUT_UNITS_CMD = SENSOR_EXC_UNIT_CMD;
+
+    static const PTB_COMMANDS DEFAULT_SAMPLE_RATE_CMD = SENSOR_MEAS_RATE_CMD;
+    static const int DEFAULT_SAMPLE_RATE = 60; // measurements per minute = 1/sec
+    static const int SENSOR_MEAS_RATE_MIN = 6;
+    static const int SENSOR_MEAS_RATE_MAX = 4200;
+
+    static const PTB_COMMANDS DEFAULT_SAMPLE_AVERAGING_CMD = SENSOR_NUM_SAMP_AVG_CMD;
+    static const int DEFAULT_NUM_SAMPLES_AVERAGED = 0; // no averaging performed
+    static const int SENSOR_SAMPLE_AVG_MIN = 0;
+    static const int SENSOR_SAMPLE_AVG_MAX = 255;
+
+    static const PTB_COMMANDS DEFAULT_USE_CORRECTION_CMD = SENSOR_CORRECTION_ON_CMD;
+    static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
+    static const PTB_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+
     // PB210 pre-packaged commands
-    static const char* DEFAULT_SENSOR_INIT_CMD_STR;
     static const char* SENSOR_RESET_CMD_STR;
     static const char* SENSOR_SERIAL_BAUD_CMD_STR;
     static const char* SENSOR_SERIAL_EVENP_WORD_CMD_STR;
@@ -178,11 +288,16 @@ private:
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 
-    static const int DEFAULT_RESET_WAIT_TIME = 3 * USECS_PER_SEC;
+    static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 3;
+    // static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 100; // 100mSec
+    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
+
+    PTB_CMD_ARG desiredScienceParameters[];
+
 
     // no copying
     PTB210(const PTB210& x);
