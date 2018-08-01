@@ -23,22 +23,19 @@
  **
  ********************************************************************
 */
-/*
-
-    Extract samples from a list of sensors from an archive.
-
-*/
 
 /*
  * Modified version of Gordon's sensor_extract program.  Purpose of this
- * program is to extract OAP/PMS2D data, repackage it into ADS2 format and write
- * it to a new file with an XML header.
+ * program is to extract DMT CIP/PIP data, repackage it into the PADS format
+ * and write it to a new file.  PADS format is similar to RAF format, with no
+ * file header.  Each record has a buffer header added with date and time
+ * information, which is slightly different than the RAF format.  Endianness
+ * will remain as the probe output, generally little endian.  RAF format is
+ * big endian.
  */
 
 #include <nidas/dynld/raf/Extract2D.h>
-
-#include <nidas/dynld/raf/TwoD64_USB.h>
-#include <nidas/dynld/raf/TwoD32_USB.h>
+#include <nidas/dynld/raf/PIP_Image.h>
 
 #include <fstream>
 #include <sys/stat.h>
@@ -47,24 +44,23 @@
 #include <getopt.h>
 
 /**
- * Version of the output OAP/PMS2D file.  Increment this when changes occur.
+ * Version of the output OAP/PIP file.  Increment this when changes occur.
  * Change log:
  * 03/25/2011 - version 1:
  *	tas should be tas as int, drop the '* 255 / 125' encoding.
  *	add nDiodes attribute to probe element.
- *	Change PMS2D in XML to OAP.
+ *	Change PIP in XML to OAP.
  *	add version.  :)
  */
 static const int FILE_VERSION = 1;
 
-static const int P2D_DATA = 4096;	// TwoD image buffer size.
+static const int P2D_DATA = TWOD_BUFFER_SIZE;	// TwoD image buffer size.
 
 // Sync and overload words for Fast2D.
-static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
-static const unsigned char FastOverloadSync[] = { 0x55, 0x55, 0xAA };
+static const unsigned char syncStr[] = { 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA };
+static const unsigned char overloadSync[] = { 0x55, 0x55, 0xAA };
 
-// Old 32bit 2D overload word, MikeS puts the overload in the first slice.
-static const unsigned char overLoadSync[] = { 0x55, 0xAA };
+static const size_t DefaultMinimumNumberParticlesRequired = 5;
 
 
 using namespace nidas::core;
@@ -77,18 +73,20 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-const n_u::EndianConverter * bigEndian = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_BIG_ENDIAN);
 
-
-class ExtractFast2D : public Extract2D
+class ExtractDMT : public Extract2D
 {
 public:
 
-    ExtractFast2D() { };
+    ExtractDMT();
 
-    int run() throw();
+    virtual int parseRunstring(int argc, char** argv) throw();
+
+    virtual int usage(const char* argv0);
 
     static int main(int argc, char** argv) throw();
+
+    int run() throw();
 
 private:
 
@@ -109,16 +107,37 @@ private:
 
 int main(int argc, char** argv)
 {
-    return ExtractFast2D::main(argc,argv);
+    return ExtractDMT::main(argc,argv);
 }
 
 
 /* static */
-int ExtractFast2D::main(int argc, char** argv) throw()
+int ExtractDMT::usage(const char* argv0)
+{
+/* maybe some day we want this option.
+    -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
+            more than one -x option can be specified\n\
+	    either -s or -x options can be specified, but not both\n\
+*/
+    cerr << "\
+Usage: " << argv0 << " [-x dsmid,sensorid] [-a] [-s] [-c] [-n #] output input ... \n\n\
+    -a: copy all records, ignore all thresholds.\n\
+    -s: generate diode count histogram along flight path.\n\
+    -c: generate particle count histogram.\n\
+    -n #: Minimum number of time slices required per record to\n\
+            transfer to output file.\n\
+    output: output file name or file name format\n\
+    input ...: one or more input file name or file name formats\n\
+" << endl;
+    return 1;
+}
+
+/* static */
+int ExtractDMT::main(int argc, char** argv) throw()
 {
     setupSignals();
 
-    ExtractFast2D extract;
+    ExtractDMT extract;
 
     int res;
     
@@ -129,6 +148,60 @@ int ExtractFast2D::main(int argc, char** argv) throw()
 }
 
 
+ExtractDMT::ExtractDMT()
+{
+  outputHeader = false;
+}
+
+int ExtractDMT::parseRunstring(int argc, char** argv) throw()
+{
+    extern int optind;      /* "  "     "     */
+    extern char *optarg;    /* set by getopt() */
+    int opt_char;           /* option character */
+
+    while ((opt_char = getopt(argc, argv, "acsn:")) != -1) {
+	switch (opt_char) {
+	case 'a':
+	    copyAllRecords = true;
+            break;
+	case 'c':
+	    outputParticleCount = true;
+            break;
+	case 'n':
+	    minNumberParticlesRequired = atoi(optarg);
+            break;
+	case 's':
+	    outputDiodeCount = true;
+            break;
+/*
+        case 'x':
+            {
+                unsigned long dsmid;
+                unsigned long sensorid;
+                int i;
+                i = sscanf(optarg,"%ld,%ld",&dsmid,&sensorid);
+                if (i < 2) return usage(argv[0]);
+                dsm_sample_id_t id = 0;
+                id = SET_DSM_ID(id,dsmid);
+                id = SET_SHORT_ID(id,sensorid);
+                excludeIds.insert(id);
+            }
+            break;
+*/
+	case '?':
+	    return usage(argv[0]);
+	}
+    }
+
+    if (optind < argc) outputFileName = argv[optind++];
+    for ( ;optind < argc; )
+        inputFileNames.push_back(argv[optind++]);
+    if (inputFileNames.size() == 0) return usage(argv[0]);
+
+    return 0;
+}
+
+
 class AutoProject
 {
 public:
@@ -136,13 +209,16 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-int ExtractFast2D::run() throw()
+int ExtractDMT::run() throw()
 {
+#ifdef OUTPUT_RAW
+  ofstream outFilePIP("pip.dat", ofstream::binary | ofstream::trunc);
+#endif
     try
     {
         ofstream outFile(outputFileName.c_str(), ofstream::binary | ofstream::trunc);
         if (!outFile.is_open()) {
-            throw n_u::IOException("extract2d","can't open output file ",errno);
+            throw n_u::IOException("extractPIP","can't open output file ",errno);
         }
         nidas::core::FileSet* fset =
             nidas::core::FileSet::getFileSet(inputFileNames);
@@ -203,16 +279,16 @@ int ExtractFast2D::run() throw()
                 list<DSMSensor *>::const_iterator dsm_it;
                 for (dsm_it = sensors.begin(); dsm_it != sensors.end(); ++dsm_it)
                 {
-                    if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
+                    if ( ! dynamic_cast<raf::PIP_Image *>((*dsm_it)) )
                         continue;
 
-                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName()
+                    cout << "Found DMT PIP sensor = " << (*dsm_it)->getCatalogName()
                          << (*dsm_it)->getSuffix() << endl;
 
                     if ((*dsm_it)->getCatalogName().size() == 0)
                     {
                         cout << " Sensor " << (*dsm_it)->getName() << 
-                           " is not in catalog, unable to recognize 2DC vs. 2DP, ignoring.\n" <<
+                           " is not in catalog, unable to recognize CIP vs. PIP, ignoring.\n" <<
                            " Fix by moving this entry from the DSM area up to the sensor catalog.\n";
                         continue;
                     }
@@ -230,30 +306,17 @@ int ExtractFast2D::run() throw()
                     parm = p->sensor->getParameter("SerialNumber");
                     p->serialNumber = parm->getStringValue(0);
 
-                    if ((*dsm_it)->getCatalogName().compare(0, 7, "Fast2DP") == 0)
+                    if ((*dsm_it)->getCatalogName().compare("PIP_IMAGE") == 0)
                     {
-                        p->id = htons(0x5034);	// P4, Fast 200um 64 diode probe.
+                        p->id = htons(0x5038);	// P8, PIP 100um 64 diode probe.
                     }
                     else
-                    if ((*dsm_it)->getCatalogName().compare(0, 7, "Fast2DC") == 0)
+                    if ((*dsm_it)->getCatalogName().compare("CIP_IMAGE") == 0)
                     {
-                        if (p->resolution == 10)	// 10um.
-                            p->id = htons(0x4336);	// C6, Fast 10um 64 diode probe.
-                        else
-                            p->id = htons(0x4334 + Ccnt++);	// C4, Fast 25um 64 diode probe.
+                        p->id = htons(0x4338);	// C8, CIP 64 diode probe.
                     }
                     else
-                        p->nDiodes = 32;	// Old probe, should only be 2DP on ADS3.
-
-                    if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
-                        p->id = htons(0x4331 + Ccnt++);
-
-                    if ((*dsm_it)->getCatalogName().compare("TwoDP") == 0)
-                    {
-                        p->id = htons(0x5031 + Pcnt++);
-                        // Undo hard fixed divide by 10 in USB white box for 2DP only
-                        p->resolutionM /= 10;
-                    }
+                        p->id = 0;
 
                     if (outputHeader)
                     {
@@ -273,7 +336,7 @@ int ExtractFast2D::run() throw()
 
         if (includeIds.size() == 0)
         {
-            std::cerr << "extract2d, no OAP probes found in the header.\n";
+            std::cerr << "extractPIP, no OAP probes found in the header.\n";
             return 0;
         }
 
@@ -286,68 +349,31 @@ int ExtractFast2D::run() throw()
 
 		if (includeIds.size() > 0) {
 		    if (includeIds.find(id) != includeIds.end()) {
-                        if (samp->getDataByteLength() == 4104) {
+                        if (samp->getDataByteLength() == 4096) {
                             const int * dp = (const int *) samp->getConstVoidDataPtr();
-                            int stype = bigEndian->int32Value(*dp++);
 
-                            P2d_rec record;
+                            PADS_rec record;
                             Probe *probe = probeList[id];
-                            record.id = probe->id;
+//                            record.id = probe->id;
                             setTimeStamp(record, samp);
 
                             // Decode true airpseed.
-                            float tas = 0.0;
-                            if (stype == TWOD_IMG_TYPE) {
-                                unsigned char *cp = (unsigned char *)dp;
-                                tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->resolutionM;
-                            }
-                            if (stype == TWOD_IMGv2_TYPE) {
-                                Tap2D *t2d = (Tap2D *)dp;
-                            // Note: TASToTap2D() has a PotFudgeFactor which multiplies by 1.01.
-                            //        Seems we should multiply by 0.99...
-                                tas = 1.0e11 / (511.0 - (float)t2d->ntap) * 511.0 / 25000.0 / 2.0 * probe->resolutionM;
-                                if (t2d->div10 == 1)
-                                    tas /= 10.0;
-                            }
-                            if (stype == TWOD_IMGv3_TYPE) {
-                                unsigned short *sp = (unsigned short *)dp;
-                                tas = (float)*sp / 10.0;
-                            }
+//                            float tas = 0.0;
+//                            record.tas = htons((short)tas);
 
-                            // Encode true airspeed to the ADS1 / ADS2 format for
-                            // backwards compatability.
-                            record.tas = htons((short)tas);
-
-                            record.overld = htons(0);
-                            dp++;      // skip over tas field
+//                            record.overld = htons(0);
                             ::memcpy(record.data, dp, P2D_DATA);
 
-                            // For old 2D probes, not Fast 2DC.
-                            if (::memcmp(record.data, overLoadSync, 2) == 0)
-                            {
-                                unsigned long * lp = (unsigned long *)record.data;
-                                record.overld = htons((ntohl(*lp) & 0x0000ffff) / 2000);
-                                probe->hasOverloadCount++;
-                            }
-
+#ifdef OUTPUT_RAW
+  outFilePIP.write((char *)dp, 4096);
+#endif
                             ++probe->recordCount;
-                            size_t partCnt = countParticles(probe, (const unsigned char *)&record);
-                            size_t diodeCnt = computeDiodeCount(probe, record.data);
-                            if (partCnt < minNumberParticlesRequired)
-                                ++probe->rejectTooFewParticleCount;
-                            if (diodeCnt < probe->nDiodes / 2)
-                                ++probe->rejectTooFewDiodesCount;
-
-                            /* Output record if:
-                             *   1) copying all records (-a).
-                             *   2) we meet minimum number particles in the record (default 5)
-                             *   3) at least 50% of the diodes had a count in them
-                             */
                             if (copyAllRecords ||
-                               (partCnt >= minNumberParticlesRequired && diodeCnt >= probe->nDiodes / 2))
-                                outFile.write((char *)&record, sizeof(record));
+                                   (countParticles(probe, record.data) >= minNumberParticlesRequired &&
+                                    computeDiodeCount(probe, record.data) != 1))
+                                    outFile.write((char *)&record, sizeof(record));
                             else
-                                ++probe->rejectRecordCount;
+                                    ++probe->rejectRecordCount;
                         }
 		    }
 		}
@@ -357,8 +383,9 @@ int ExtractFast2D::run() throw()
         catch (n_u::EOFException& ioe) {
 ; //            cerr << ioe.what() << endl;
         }
-
-        outFile.close();
+#ifdef OUTPUT_RAW
+  outFilePIP.close();
+#endif
 
         // Output some statistics.
         map<dsm_sample_id_t, Probe *>::iterator mit;
@@ -375,69 +402,32 @@ int ExtractFast2D::run() throw()
 
             if (probe->rejectRecordCount > 0) {
                 cout.width(10);
-                cout << probe->rejectRecordCount
-                 << " records were rejected." << endl;
-
-                cout.width(10);
-                cout << probe->rejectTooFewParticleCount
-                 << " were rejected due to fewer than "
+                cout << probe->rejectRecordCount << " "
+                 << " records were rejected due to fewer than "
                  << minNumberParticlesRequired
                  << " particles per record." << endl;
-
-                cout.width(10);
-                cout << probe->rejectTooFewDiodesCount
-                 << " were rejected due to fewer than "
-                 << "50%"
-                 << " diodes being triggered per record." << endl;
             }
-
-            if (!copyAllRecords) {
-                cout.width(10);
-                cout << probe->inDOF << " / " << probe->totalParticles
-                 << " total particles, " << fixed << setw(4) << setprecision(1)
-                 << (float)probe->inDOF / probe->totalParticles * 100.0
-                 << "\% in DOF.\n";
-            }
-
-            if (probe->sensor->getCatalogName().compare(0, 7, "Fast2DC")) {
-                cout.width(10);
-                cout << probe->hasOverloadCount
-                 << " records had an overload word @ spot zero, or "
-                 << probe->hasOverloadCount * 100 / probe->recordCount
-                 << "%." << endl;
-            }
-
-            cout << endl;
 
             if (outputDiodeCount) {
-                unsigned long sum = 0;
                 for (size_t i = 0; i < probe->nDiodes; ++i) {
-                    sum += probe->diodeCount[i];
-                    cout << "    Diode ";
+                    cout << "    Bin ";
                     cout.width(2);
                     cout << i << " count = ";
                     cout.width(10);
                     cout << probe->diodeCount[i] << endl;
                 }
-                cout << "           Average = "; cout.width(10);
-                cout << sum / probe->nDiodes << endl << endl;
             }
 
             if (outputParticleCount) {
-                unsigned long sum = 0;
-                unsigned long sumP = 0;
-                for (size_t i = 0; i < 512; ++i) {
-                    if (probe->particleCount[i] > 0) {
-                        sum += probe->particleCount[i];
-                        sumP += (probe->particleCount[i] * i);
-                        cout.width(10);
-                        cout << probe->particleCount[i];
-                        cout << " records have " << i;
-                        cout << " particles." << endl;
-                    }
+                for (size_t i = 0; i < 1024; ++i) {
+                  if (probe->particleCount[i] > 0) {
+                    cout.width(10);
+                    cout << probe->particleCount[i];
+                    cout << i << " records have ";
+                    cout << "    nParticles = ";
+                    cout.width(4);
                 }
-                cout << "Average particles per record = ";
-                cout << sumP / sum << endl << endl;
+              }
             }
 
             delete probe;
@@ -451,7 +441,7 @@ int ExtractFast2D::run() throw()
     return 0;
 }
 
-size_t ExtractFast2D::computeDiodeCount(Probe * probe, const unsigned char * record)
+size_t ExtractDMT::computeDiodeCount(Probe * probe, const unsigned char * record)
 {
     size_t nSlices = P2D_DATA / (probe->nDiodes / 8);
     size_t nBytes = P2D_DATA / nSlices;
@@ -469,8 +459,7 @@ size_t ExtractFast2D::computeDiodeCount(Probe * probe, const unsigned char * rec
       /* Do not count timing or overload words.  We only compare 2 bytes and not 3
        * since in PREDICT the probe started having a stuck bit in the sync word.
        */
-      if (memcmp(slice, Fast2DsyncStr, 2) == 0 ||
-          memcmp(slice, FastOverloadSync, 2) == 0 || (probe->nDiodes == 32 && slice[0] == 0x55))
+      if (memcmp(slice, syncStr, 8) == 0)
         continue;
 
       for (size_t i = 0; i < nBytes; ++i)
@@ -496,58 +485,18 @@ size_t ExtractFast2D::computeDiodeCount(Probe * probe, const unsigned char * rec
 }
 
 
-size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record)
+size_t ExtractDMT::countParticles(Probe * probe, const unsigned char * record)
 {
-    size_t totalCnt = 0, dofCnt = 0, missCnt = 0;
-    const P2d_rec *rec = (const P2d_rec *)record;
-    const unsigned char *p = rec->data;
+    size_t totalCnt = 0;
+    const unsigned char *p = record;
 
-    if (probe->nDiodes == 32)
-        for (size_t i = 0; i < 4095; ++i, ++p) {
-            if (*p == 0x55) {
-                ++totalCnt;
-                if ((i % 4) != 0)
-                    ++missCnt;
-            }
-        }
-
-    if (probe->nDiodes == 64) {
-        unsigned char dof_flag_mask = 0x01;
-        if (probe->sensor->getCatalogName().find("_v2"))
-            dof_flag_mask = 0x10;
-
-        for (size_t i = 0; i < 4093; ++i) {
-            /* We only compare 2 bytes and not 3 since in PREDICT the probe started
-             * having a stuck bit in the third byte of the sync word.
-             */
-            if (::memcmp(&p[i], Fast2DsyncStr, 2) == 0) {
-                ++totalCnt;
-                if ((p[i+2] & dof_flag_mask) == 0)
-                    ++dofCnt;
-                if ((i % 8) != 0)
-                    ++missCnt;
-                i += 7;	// Skip rest of particle.
-            }
-            else
-            if (::memcmp(&p[i], FastOverloadSync, 2) == 0) {
-                i += 7;	// Skip rest of particle.
-            }
+    for (size_t i = 0; i < 4088; ++i) {
+        if (::memcmp(&p[i], syncStr, 8) == 0) {
+            ++totalCnt;
         }
     }
 
     ++probe->particleCount[totalCnt];
-    probe->totalParticles += totalCnt;
-    probe->inDOF += dofCnt;
-
-    if (missCnt > 1)
-    {
-        char msg[200];
-        sprintf(msg,
-		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%zd, missAligned count=%zd",
-		ntohs(rec->hour), ntohs(rec->minute), ntohs(rec->second),
-		ntohs(rec->msec), probe->recordCount, totalCnt, missCnt);
-        cout << probe->sensor->getCatalogName() << probe->sensor->getSuffix() << msg << endl;
-    }
 
     return totalCnt;
 }

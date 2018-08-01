@@ -1,11 +1,12 @@
-#NIDAS
+# Building NIDAS
 
+# Wiki Information
+The NIDAS Wiki at GitHub (https://github.com/ncareol/nidas/wiki) contains information on building NIDAS, including how to install developer packages of necessary external software from the Debian and NCAR/EOL repositories.
 
+# Other Notes on Building
 
-#Building
+These notes cover much of the same as the Wiki, but include some information people have found useful.
 
-
-#General
 You will need the eol_scons addon in order to manually build.  You can add it via the following (brute force, assumes no other scons addons):
 
 ```sh
@@ -15,10 +16,10 @@ You will need the eol_scons addon in order to manually build.  You can add it vi
     popd
 ```
 
-# Documentation
+## Documentation
 There are 2 scripts that can build the documentation.  One is a bit older and still uses svn (```scripts/make_doxy.sh```)  to create and rsync the data to an internal server, where as ```scripts/create-doxygen-ghpages.sh```  builds the doxygen API doc off HEAD and pushes them to github.io via the gh-pages branch. If you dont care to push data just running ```doxygen doc/doxygen_conf/nidas.doxy``` from the git checkout root should suffice.
 
-# Getting Nida on Debian (For the truly impatient)
+## Getting Nidas on Debian (For the truly impatient)
 
 Simply connect to EOL's build server to fetch the build products:
 
@@ -29,7 +30,6 @@ Simply connect to EOL's build server to fetch the build products:
     sudo apt install nidas
 ```
 
-
 You will need the eol_scons addon in order to build properly.  You can add it via the following (brute force, assumes no other scons addons):
 
 ```sh
@@ -39,7 +39,7 @@ You will need the eol_scons addon in order to build properly.  You can add it vi
     popd
 ```
 
-# Building Nidas (Manually) on Debian
+## Building Nidas (Manually) on Debian
 Standard building preqs are required:
 ```sh
     sudo apt get install build-essentials scons libxerces-c-dev devscripts debhelper flex subversion git

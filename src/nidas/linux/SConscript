@@ -16,6 +16,7 @@ headers = Split("""
     klog.h
     mesa.h
     ncar_a2d.h
+    short_filters.h
     types.h
     util.h
 """)

@@ -283,6 +283,87 @@ extern ssize_t
 nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
                 struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
+/**
+ * Info needed to adjust time tags in a time series which
+ * should have a fixed delta-T.
+ */
+struct screen_timetag_data
+{
+        /**
+         * Defined delta-T, in units of 1/10 msec, passed to init function.
+         */
+        unsigned int dtTmsec;
+
+        /**
+         * In case delta-T is is not a integral number of  1/10 msec,
+         * the fractional part, in micro-seconds..
+         */
+        unsigned int dtUsec;
+
+        /**
+         * Number of points to compute the running average, or the
+         * minimum of the difference between the actual and expected
+         * time tags. The time tags in the result time series will
+         * be adjusted every nptsCalc number of input times.
+         */
+        unsigned int nptsCalc;
+
+        /**
+         * Result time tags will have a integral number of delta-Ts
+         * from this base time. This base time is slowly adjusted
+         * by averaging or computing the minimum difference between
+         * the result time tags and the input time tags.
+         */
+        dsm_sample_time_t tt0;
+
+        /**
+         * Current number of delta-Ts from tt0.
+         */
+        int nDt;
+
+        /**
+         * Once nDt exceeds this value, roll back, to avoid overflow.
+         */
+        unsigned int samplesPerDay;
+
+#ifdef DO_TIMETAG_ERROR_AVERAGE
+        /**
+         * Running averge N.
+         */
+        int nSum;
+
+        /**
+         * Running average of time tag differences, in usecs.
+         */
+        int errAvg;
+#else
+
+        /**
+         * Number of points of current minimum time difference.
+         */
+        int nmin;
+
+        /**
+         * How many points to compute minimum time difference.
+         */
+        int nptsMin;
+
+        /**
+         * Minimum diffence between actual time tags and expected.
+         */
+        int tdiffmin;
+
 #endif
+
+
+};
+
+extern void screen_timetag_init(struct screen_timetag_data* td,
+        int deltaT_Usec, int adjustUsec);
+
+extern dsm_sample_time_t screen_timetag(struct screen_timetag_data* td,
+        dsm_sample_time_t tt);
+
+#endif  /* KERNEL */
 
 #endif

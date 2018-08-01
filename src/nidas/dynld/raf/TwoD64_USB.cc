@@ -56,7 +56,12 @@ const unsigned char TwoD64_USB::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB(): _blankLine(false), prevTimeWord(0)
+TwoD64_USB::TwoD64_USB():
+     _probeClockRate(12),                   //Default for v2 is 12 MHZ
+     _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
+     _dofMask(0x01),
+     _blankLine(false),
+     _prevTimeWord(0)
 {
 }
 
@@ -168,12 +173,13 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     //scanForMissalignedSyncWords(samp, (unsigned char *)dp);
 
     float tas = 0.0;
-    if (stype == TWOD_IMGv2_TYPE) {
+    if (stype == TWOD_IMGv2_TYPE||stype == TWOD_IMGv3_TYPE){ //IMG v2 and v3 type
         Tap2D tap;
         memcpy(&tap,cp,sizeof(tap));
         cp += sizeof(Tap2D);
         tap.ntap = littleEndian->uint16Value(tap.ntap);
         tas = Tap2DToTAS(&tap);
+    //    WLOG(("%s: V2 or V3 IMG type", getName().c_str()));
     }
     else
     if (stype == TWOD_IMG_TYPE) {
@@ -264,7 +270,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
-                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+                        (bigEndian->int64Value(cp) & _timeWordMask ) / _probeClockRate;
 
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
@@ -272,7 +278,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     WLOG(("Fast2D") << getSuffix() << " overload at : "
                          << PTime(samp->getTimeTag())
                          << ", duration "
-                         << (thisTimeWord - prevTimeWord) / 1000);
+                         << (thisTimeWord - _prevTimeWord) / 1000);
 
 #ifdef SLICE_DEBUG
                     if (sdlog.active())
@@ -306,7 +312,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
                     long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
                     long usec = thisParticleTime % USECS_PER_SEC;
-                    long dt = (thisTimeWord - prevTimeWord);	// actual overload/dead time.
+                    long dt = (thisTimeWord - _prevTimeWord);	// actual overload/dead time.
 
                     /* dt can go negative if the probe has been reset and
                      * the internal clock starts at zero again.  Ignore if
@@ -327,7 +333,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                              */
                             _dead_time += usec;
                     }
-                    prevTimeWord = thisTimeWord;
+                    _prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\x55') {
                     // 0x5555 but not complete overload string
@@ -357,7 +363,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (::memcmp(cp+1,_syncString+1,sizeof(_syncString)-1) == 0) {
+                if (cp[1] == _syncString[1] && (cp[2] & _dofMask) == 0) {
                     // syncword
                     _totalParticles++;
 #ifdef SLICE_DEBUG
@@ -387,7 +393,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 #endif
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
-                        (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
+                        (bigEndian->int64Value(cp) & _timeWordMask) /_probeClockRate;
 
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
@@ -443,7 +449,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
-                    prevTimeWord = thisTimeWord;
+                    _prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\xaa') {
                     // 0xaaaa but not complete syncword
@@ -509,8 +515,11 @@ bool TwoD64_USB::process(const Sample * samp,
         case TWOD_IMG_TYPE:
         case TWOD_IMGv2_TYPE:
             result = processImageRecord(samp, results, stype);
+            break;
         case TWOD_SOR_TYPE:	// Shadow-or counter.
+        case TWOD_SORv3_TYPE:	// Housekeeping 
             result = processSOR(samp, results);
+            break;
     }
 
     static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");

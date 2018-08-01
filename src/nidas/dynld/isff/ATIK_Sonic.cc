@@ -29,6 +29,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/TimetagAdjuster.h>
 
 #include <byteswap.h>
 
@@ -49,12 +50,14 @@ ATIK_Sonic::ATIK_Sonic():
     _cntsIndex(-1),
     _expectedCounts(0),
     _diagThreshold(0.1),
-    _maxShadowAngle(70.0 * M_PI / 180.0)
+    _maxShadowAngle(70.0 * M_PI / 180.0),
+    _ttadjust(0)
 {
 }
 
 ATIK_Sonic::~ATIK_Sonic()
 {
+    delete _ttadjust;
 }
 
 void ATIK_Sonic::parseParameters()
@@ -113,6 +116,11 @@ void ATIK_Sonic::checkSampleTags()
 
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
+
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
+                stag->getTimetagAdjustPeriod(),
+                stag->getTimetagAdjustSampleGap());
     /*
      * nvars
      * 7	u,v,w,tc,diag,spd,dir
@@ -190,6 +198,8 @@ bool ATIK_Sonic::process(const Sample* samp,
     float counts[3] = {0.0,0.0,0.0};
     float diag = 0.0;
 
+    dsm_time_t timetag;
+
     if (getScanfers().size() > 0) {
         std::list<const Sample*> parseResults;
         SerialSensor::process(samp,parseResults);
@@ -197,6 +207,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         // result from base class parsing of ASCII
         const Sample* psamp = parseResults.front();
+        timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
         const float* pdata = (const float*) psamp->getConstVoidDataPtr();
@@ -245,6 +256,10 @@ bool ATIK_Sonic::process(const Sample* samp,
         unsigned int nvals = samp->getDataLength() / sizeof(short);
         const short* pdata = (const short*) samp->getConstVoidDataPtr();
 
+        timetag = samp->getTimeTag();
+        if (_ttadjust)
+            timetag = _ttadjust->adjust(timetag);
+
         int i;
         for (i = 0; i < 3; i++) {
             int ix = _tx[i];
@@ -280,7 +295,7 @@ bool ATIK_Sonic::process(const Sample* samp,
     double c2 = GAMMA_R * (uvwt[3] + KELVIN_AT_0C);
     c2 -= uv2;
 
-    removeShadowCorrection(samp->getTimeTag(), uvwt);
+    removeShadowCorrection(timetag, uvwt);
 
     /*
      * Three situations:
@@ -297,10 +312,10 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     bool spikes[4] = {false,false,false,false};
     if (getDespike() || _spikeIndex >= 0) {
-        despike(samp->getTimeTag(),uvwt,4,spikes);
+        despike(timetag,uvwt,4,spikes);
     }
 
-    transducerShadowCorrection(samp->getTimeTag(), uvwt);
+    transducerShadowCorrection(timetag, uvwt);
 
     /*
      * Recompute Tc with speed of sound corrected
@@ -311,11 +326,11 @@ bool ATIK_Sonic::process(const Sample* samp,
     c2 += uv2;
     uvwt[3] = c2 / GAMMA_R - KELVIN_AT_0C;
 
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwt);
+    offsetsTiltAndRotate(timetag,uvwt);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
-    wsamp->setTimeTag(samp->getTimeTag());
+    wsamp->setTimeTag(timetag);
     wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();

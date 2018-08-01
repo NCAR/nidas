@@ -997,13 +997,19 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
   caller must correct the values in the table directly (eg table values must be in degrees where
   corrections applied must be in radians, etc).
 
-  It returns a NAN if the incoming phi is greater than 45 degrees or less than -50 degrees
+  This used to returns a NAN if the incoming phi is greater than 45 degrees or less than 
+  -50 degrees.  As part of the PERDIGAO data processing, there are large periods where phi
+  is much higher or lower than -45  and 50.  In those case, this nails the correction to the
+  upper or lower limit.
   */
   double CalcCorrection(double fourierCoeffs[6], double phi, const double lut[20][7]) {
     const double maxTiltAngle = 45 * Degrees2Rad; // 45 Degrees
     const double minTiltAngle = -50 * Degrees2Rad; // -50 Degrees
     const double radsPerStep = 5 * Degrees2Rad; //5 degrees per step
-    if (phi > maxTiltAngle || phi < minTiltAngle) return NAN;
+    //if (phi > maxTiltAngle || phi < minTiltAngle) return NAN; //old behaviour
+    if (phi > maxTiltAngle) phi = maxTiltAngle; //!! 'horrizontal' Wind doing up!
+    if (phi < minTiltAngle) phi = minTiltAngle; //!! ' likewise, down!
+    
     /*
     index:   N                        N+1
              |<------radsPerStep------>|

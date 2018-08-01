@@ -358,6 +358,13 @@ void A2DSensor::validate()
         int boxcarNpts = 1;
         bool temperature = false;
 
+        // Default time average rate is the sample rate.
+        // User can choose a time average rate that is a multiple
+        // of the sample rate, in which case the results of the 
+        // time averaging are subsampled by a pickoff of 1 out of
+        // every N time averages, where N = timeavgRate / sample rate.
+        int timeavgRate = tag->getRate();
+
         enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
         const std::list<const Parameter*>& params = tag->getParameters();
         list<const Parameter*>::const_iterator pi;
@@ -372,6 +379,7 @@ void A2DSensor::validate()
                     string fname = param->getStringValue(0);
                     if (fname == "boxcar") filterType = NIDAS_FILTER_BOXCAR;
                     else if (fname == "pickoff") filterType = NIDAS_FILTER_PICKOFF;
+                    else if (fname == "timeavg") filterType = NIDAS_FILTER_TIMEAVG;
                     else throw n_u::InvalidParameterException(getName(),"sample",
                             fname + " filter is not supported");
             }
@@ -380,6 +388,12 @@ void A2DSensor::validate()
                         throw n_u::InvalidParameterException(getName(),"sample",
                             "bad numpoints parameter");
                     boxcarNpts = (int)param->getNumericValue(0);
+            }
+            else if (pname == "rate") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "bad rate parameter");
+                    timeavgRate = (int)param->getNumericValue(0);
             }
             else if (pname == "temperature") {
                     if (param->getLength() != 1)
@@ -390,9 +404,26 @@ void A2DSensor::validate()
         }
         if (temperature) continue;
 
-        if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0)
+        if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0) {
             throw n_u::InvalidParameterException(getName(),"numpoints",
                 "numpoints parameter must be > 0 with boxcar filter");
+
+        }
+        if (filterType == NIDAS_FILTER_TIMEAVG) {
+            ostringstream ost;
+            if (timeavgRate <= 0) {
+                ost << timeavgRate << " Hz must be > 0";
+                throw n_u::InvalidParameterException(getName(), 
+                    "timeavg rate", ost.str());
+            }
+            if (fmod((double) timeavgRate, tag->getRate()) != 0.0) {
+                ost << timeavgRate <<
+                    " Hz must be a multiple of the sample rate=" <<
+                    tag->getRate() << " Hz";
+                throw n_u::InvalidParameterException(getName(),
+                    "timeavg rate", ost.str());
+            }
+        }
 
         int sindex = _sampleInfos.size();       // sample index, 0,1,...
 
@@ -405,6 +436,9 @@ void A2DSensor::validate()
         A2DSampleConfig* scfg;
 
         switch (filterType) {
+        case NIDAS_FILTER_TIMEAVG:
+            scfg = new A2DTimeAvgConfig(timeavgRate);
+            break;
         case NIDAS_FILTER_BOXCAR:
             scfg = new A2DBoxcarConfig(boxcarNpts);
             break;

@@ -29,7 +29,6 @@
 #include <nidas/core/DSMSensor.h>
 
 #include <nidas/linux/a2d.h>
-// #include <nidas/linux/filters/short_filters.h>
 
 #include <vector>
 #include <map>
@@ -188,6 +187,28 @@ protected:
         // No copying or assignment
         A2DBoxcarConfig(const A2DBoxcarConfig& x);
         A2DBoxcarConfig& operator=(const A2DBoxcarConfig& rhs);
+    };
+
+    /**
+     * A2D configuration for time-based averaging of A2D samples.
+     * filterData[] contains the desired output rate.
+     */
+    class A2DTimeAvgConfig: public A2DSampleConfig
+    {
+    public:
+        A2DTimeAvgConfig(int n): A2DSampleConfig(),rate(n)
+        {
+            // make sure there is no padding or extra bytes
+            // between the end of nidas_a2d_sample_config and npts.
+            // The driver C code will interpret npts as filterData[].
+            assert((void*)&(cfg().filterData[0]) == (void*)&rate);
+            cfg().nFilterData = sizeof(int);
+        }
+        int rate;
+    private:
+        // No copying or assignment
+        A2DTimeAvgConfig(const A2DTimeAvgConfig& x);
+        A2DTimeAvgConfig& operator=(const A2DTimeAvgConfig& rhs);
     };
 
     std::vector<A2DSampleConfig*> _sampleCfgs;

@@ -32,6 +32,8 @@
 #include <nidas/Config.h>
 #include <nidas/util/EndianConverter.h>
 
+class TimetagAdjuster;
+
 namespace nidas { namespace dynld { namespace isff {
 
 /**
@@ -111,6 +113,8 @@ private:
      * Converter for binary values.
      */
     const nidas::util::EndianConverter* _converter;
+
+    nidas::core::TimetagAdjuster* _ttadjust;
 
     /// No copying
     CSI_IRGA_Sonic(const CSI_IRGA_Sonic &);

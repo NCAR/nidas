@@ -49,7 +49,8 @@ SampleTag::SampleTag():
     _processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
-    _parameters(), _constParameters(),_enabled(true)
+    _parameters(), _constParameters(),_enabled(true),
+    _ttAdjustPeriod(0), _ttAdjustSampleGap(1.9)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
@@ -59,7 +60,8 @@ SampleTag::SampleTag(const DSMSensor* sensor):
     _dsm(sensor->getDSMConfig()),_sensor(sensor),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
-    _parameters(), _constParameters(),_enabled(true)
+    _parameters(), _constParameters(),_enabled(true),
+    _ttAdjustPeriod(0), _ttAdjustSampleGap(1.9)
 {
     setSensorId(_sensor->getId());
     setDSMId(_dsm->getId());
@@ -78,7 +80,9 @@ SampleTag::SampleTag(const SampleTag& x):
     _scanfFormat(x._scanfFormat),
     _promptString(x._promptString),
     _promptOffset(x._promptOffset),
-    _parameters(), _constParameters(),_enabled(x._enabled)
+    _parameters(), _constParameters(),_enabled(x._enabled),
+    _ttAdjustPeriod(x._ttAdjustPeriod),
+    _ttAdjustSampleGap(x._ttAdjustSampleGap)
 {
     const vector<const Variable*>& vars = x.getVariables();
     vector<const Variable*>::const_iterator vi;
@@ -363,6 +367,27 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 if (aname == "enable") setEnabled(val);
                 else setEnabled(!val);
             }
+	    else if (aname == "ttadjust") {
+                std::istringstream ist(sval);
+		float val;
+		ist >> val;
+		if (ist.fail()) {
+                    ostringstream ost;
+                    ost << "sample id=" << getDSMId() << ',' << getSpSId();
+                    throw n_u::InvalidParameterException(ost.str(),aname,sval);
+                }
+                setTimetagAdjustPeriod(val);
+
+		ist >> val;
+                if (ist.fail()) {
+                    if (!ist.eof()) {
+                        ostringstream ost;
+                        ost << "sample id=" << getDSMId() << ',' << getSpSId();
+                        throw n_u::InvalidParameterException(ost.str(),aname,sval);
+                    }
+                }
+                else setTimetagAdjustSampleGap(val);
+	    }
             else {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();

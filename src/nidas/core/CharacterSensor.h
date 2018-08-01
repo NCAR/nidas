@@ -35,6 +35,7 @@ namespace nidas { namespace core {
 
 class AsciiSscanf;
 class Sample;
+class TimetagAdjuster;
 
 /**
  * Implementation of support for a sensor which generates 
@@ -280,6 +281,8 @@ protected:
 
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
 			   float* data_ptr);
+
+    std::map<const SampleTag*, TimetagAdjuster*> _ttadjusters;
 
 private:
 

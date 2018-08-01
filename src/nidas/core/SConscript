@@ -104,6 +104,7 @@ headers = Split("""
     StatusHandler.h
     StatusListener.h
     StatusThread.h
+    TimetagAdjuster.h
     UnixIOChannel.h
     UnixIODevice.h
     Variable.h
@@ -196,6 +197,7 @@ sources = Split("""
     StatusHandler.cc
     StatusListener.cc
     StatusThread.cc
+    TimetagAdjuster.cc
     UnixIOChannel.cc
     UnixIODevice.cc
     Variable.cc

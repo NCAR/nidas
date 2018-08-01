@@ -1271,8 +1271,9 @@ static int addSampleConfig(struct A2DBoard *brd,
     struct nidas_a2d_sample_config* cfg)
 {
         int ret = 0;
-        struct a2d_filter_info* filters;
-        struct a2d_filter_info* finfo;
+        struct short_filter_info* filters;
+        struct short_filter_info* finfo;
+        struct short_filter_data* fdata;
         int nfilters;
         struct short_filter_methods methods;
         int i;
@@ -1284,27 +1285,29 @@ static int addSampleConfig(struct A2DBoard *brd,
 
         // grow the filter info array with one more element
         nfilters = brd->nfilters + 1;
-        filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+        filters = kmalloc(nfilters * sizeof (struct short_filter_info),
                                GFP_KERNEL);
         if (!filters) return -ENOMEM;
 
         // copy previous filter infos, and free the old space
         memcpy(filters,brd->filters,
-            brd->nfilters * sizeof(struct a2d_filter_info));
+            brd->nfilters * sizeof(struct short_filter_info));
         kfree(brd->filters);
 
         finfo = filters + brd->nfilters;
         brd->filters = filters;
         brd->nfilters = nfilters;
 
-        memset(finfo, 0, sizeof(struct a2d_filter_info));
+        memset(finfo, 0, sizeof(struct short_filter_info));
+        fdata = &finfo->data;
+        fdata->deviceName = brd->deviceName;
 
-        if (!(finfo->channels =
+        if (!(fdata->channels =
                 kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
                 return -ENOMEM;
 
-        memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
-        finfo->nchans = cfg->nvars;
+        memcpy(fdata->channels,cfg->channels,cfg->nvars * sizeof(int));
+        fdata->nchans = cfg->nvars;
 
         KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
                    brd->deviceName, cfg->sindex, brd->nfilters);
@@ -1323,13 +1326,13 @@ static int addSampleConfig(struct A2DBoard *brd,
                 return -EINVAL;
         }
 
-        finfo->decimate = brd->scanRate / cfg->rate;
-        finfo->filterType = cfg->filterType;
-        finfo->index = cfg->sindex;
+        fdata->inputRate = brd->scanRate;
+        fdata->outputRate = cfg->rate;
+        fdata->sampleIndex = cfg->sindex;
 
-        KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-                   brd->deviceName, finfo->decimate, finfo->filterType,
-                   finfo->index);
+        KLOG_DEBUG("%s: filterType=%d, outputRate=%d, index=%d\n",
+                   brd->deviceName, cfg->filterType, fdata->outputRate,
+                   fdata->index);
 
         methods = get_short_filter_methods(cfg->filterType);
         if (!methods.init) {
@@ -1343,17 +1346,12 @@ static int addSampleConfig(struct A2DBoard *brd,
         finfo->fcleanup = methods.cleanup;
 
         /* Create the filter object */
-        finfo->filterObj = finfo->finit();
-        if (!finfo->filterObj)
+        fdata->filterObj = finfo->finit();
+        if (!fdata->filterObj)
                 return -ENOMEM;
 
         /* Configure the filter */
-        ret = finfo->fconfig(finfo->filterObj, finfo->index,
-                               finfo->nchans,
-                               finfo->channels,
-                               finfo->decimate,
-                               cfg->filterData,
-                               cfg->nFilterData);
+        ret = finfo->fconfig(fdata, cfg->filterData, cfg->nFilterData);
 
         /* keep track of the total number of output samples/sec */
         brd->totalOutputRate += cfg->rate;
@@ -1378,13 +1376,15 @@ static void freeFilters(struct A2DBoard *brd)
 {
         int i;
         for (i = 0; i < brd->nfilters; i++) {
-            struct a2d_filter_info* finfo = brd->filters + i;
-            /* cleanup filter */
-            if (finfo->filterObj && finfo->fcleanup)
-                finfo->fcleanup(finfo->filterObj);
-            finfo->filterObj = 0;
-            finfo->fcleanup = 0;
-            kfree(finfo->channels);
+                struct short_filter_info* finfo = brd->filters + i;
+                /* cleanup filter */
+                if (finfo->data.filterObj && finfo->fcleanup)
+                    finfo->fcleanup(finfo->data.filterObj);
+                finfo->data.filterObj = 0;
+                finfo->fcleanup = 0;
+                if (finfo->data.channels)
+                        kfree(finfo->data.channels);
+                finfo->data.channels = 0;
         }
         kfree(brd->filters);
         brd->filters = 0;
@@ -1494,11 +1494,11 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
                                 KLOG_WARNING("%s: skippedSamples=%d\n",
                                              brd->deviceName,
                                              brd->skippedSamples);
-                        brd->filters[i].filter(brd->filters[i].filterObj,
+                        brd->filters[i].filter(brd->filters[i].data.filterObj,
                                                tt, dp, 1,
                                                (short_sample_t *) & toss);
                 } else if (brd->filters[i].
-                           filter(brd->filters[i].filterObj, tt, dp,
+                           filter(brd->filters[i].data.filterObj, tt, dp,
                                   1, osamp)) {
 
 #ifdef __BIG_ENDIAN
@@ -1838,7 +1838,7 @@ static int stopBoard(struct A2DBoard *brd)
         // must flush the workqueue before freeing the filters
         flush_workqueue(work_queue);
 
-        freeFilters(brd);
+        if (brd->filters) freeFilters(brd);
         free_dsm_circ_buf(&brd->fifo_samples);
         free_dsm_circ_buf(&brd->a2d_samples);
 
@@ -2540,7 +2540,6 @@ static int test_ISA_Writes(struct A2DBoard *brd,int ioport)
 static void ncar_a2d_cleanup(void)
 {
         int ib;
-        int i;
 
         if (BoardInfo) {
                 if (MAJOR(ncar_a2d_device)) {
@@ -2578,16 +2577,7 @@ static void ncar_a2d_cleanup(void)
 
                         free_dsm_circ_buf(&brd->a2d_samples);
                         free_dsm_circ_buf(&brd->fifo_samples);
-                        if (brd->filters) {
-                                for (i = 0; i < brd->nfilters; i++) {
-                                        if (brd->filters[i].channels)
-                                                kfree(brd->filters[i].
-                                                      channels);
-                                        brd->filters[i].channels = 0;
-                                }
-                                kfree(brd->filters);
-                                brd->filters = 0;
-                        }
+                        if (brd->filters) freeFilters(brd);
 
                         if (brd->ioport)
                                 release_region(brd->ioport, A2DIOWIDTH);

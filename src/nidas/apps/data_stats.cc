@@ -42,6 +42,7 @@
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/util/util.h>
 
 #include <set>
 #include <map>
@@ -64,7 +65,8 @@ public:
     /**
      * A default constructor is required to use objects as a map element.
      **/
-    SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "") :
+    SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "",
+                  const SampleTag* stag = 0) :
         name(sname),
         id(sid),
         t1s(0),
@@ -73,8 +75,20 @@ public:
         minlens(0),
         maxlens(0),
         minDeltaTs(0),
-        maxDeltaTs(0)
+        maxDeltaTs(0),
+        sums(),
+        nnans(),
+        rawmsg(),
+        varnames()
     {
+        if (stag)
+        {
+            const std::vector<const Variable*>& variables = stag->getVariables();
+            for (unsigned int i = 0; i < variables.size(); ++i)
+            {
+                varnames.push_back(variables[i]->getName());
+            }
+        }
     }
 
     void
@@ -87,10 +101,16 @@ public:
         maxlens = 0;
         minDeltaTs = 0;
         maxDeltaTs = 0;
+        sums.clear();
+        nnans.clear();
+        rawmsg.erase();
     }
 
     bool
     receive(const Sample* samp) throw();
+
+    void
+    accumulate(const Sample* samp);
 
     string name;
     dsm_sample_id_t id;
@@ -102,6 +122,19 @@ public:
     size_t maxlens;
     int minDeltaTs;
     int maxDeltaTs;
+
+    // Accumulate sums of each variable in the sample and counts of the
+    // number of nans seen in each variable.
+    vector<float> sums;
+    vector<int> nnans;
+
+    // For raw samples, just keep the last message seen.  Someday this
+    // could be a buffer of the last N messages.
+    std::string rawmsg;
+
+    // Stash the variable names from the sample tag to identify the
+    // variables in the accumulated data.
+    vector<string> varnames;
 };
 
 
@@ -147,7 +180,46 @@ receive(const Sample* samp) throw()
         maxlens = std::max(maxlens, slen);
     }
     ++nsamps;
+
+    accumulate(samp);
     return true;
+}
+
+
+void
+SampleCounter::
+accumulate(const Sample* samp)
+{
+    if (samp->getType() == CHAR_ST)
+    {
+        const char* cp = (const char*)samp->getConstVoidDataPtr();
+        size_t l = samp->getDataByteLength();
+        if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
+        rawmsg = n_u::addBackslashSequences(string(cp,l));
+        return;
+    }
+    if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
+    {
+        return;
+    }
+    unsigned int nvalues = samp->getDataLength();
+    if (nvalues > sums.size())
+    {
+        sums.resize(nvalues);
+        nnans.resize(nvalues);
+    }
+    for (unsigned int i = 0; i < nvalues; ++i)
+    {
+        double value = samp->getDataValue(i);
+        if (isnan(value))
+        {
+            nnans[i] += 1;
+        }
+        else
+        {
+            sums[i] += value;
+        }
+    }
 }
 
 
@@ -165,12 +237,21 @@ public:
 
     void printResults(std::ostream& outs);
 
+    void
+    printData(std::ostream& outs, SampleCounter& ss);
+
     void resetResults();
 
     void
     reportAll(bool all)
     {
         _reportall = all;
+    }
+
+    void
+    reportData(bool data)
+    {
+        _reportdata = data;
     }
 
 private:
@@ -209,6 +290,8 @@ private:
 
     bool _reportall;
 
+    bool _reportdata;
+
     NidasApp& _app;
 };
 
@@ -226,7 +309,10 @@ resetResults()
 
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
-    _samples(), _reportall(false), _app(app)
+    _samples(),
+    _reportall(false),
+    _reportdata(false),
+    _app(app)
 {
     bool processed = app.processData();
     SampleMatcher& matcher = _app.sampleMatcher();
@@ -291,7 +377,7 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
                 if (it == _samples.end())
                 {
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    SampleCounter pstats(sid, varname);
+                    SampleCounter pstats(sid, varname, stag);
                     _samples[pstats.id] = pstats;
                 }
 	    }
@@ -401,12 +487,13 @@ void CounterClient::printResults(std::ostream& outs)
         
     struct tm tm;
     char tstr[64];
-    outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "") <<
-    	right <<
-    	"  dsm sampid    nsamps |------- start -------|  |------ end -----|    rate" <<
-		setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)" <<
-		setw(lenpow[0] + lenpow[1]) << " minMaxLen" <<
-		endl;
+    outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "")
+         << right
+         << "  dsm sampid    nsamps |------- start -------|  |------ end -----|"
+         << "    rate"
+         << setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)"
+         << setw(lenpow[0] + lenpow[1]) << " minMaxLen"
+         << endl;
 
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
@@ -443,7 +530,8 @@ void CounterClient::printResults(std::ostream& outs)
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
 
-        double rate = double(ss.nsamps-1) / (double(ss.t2s - ss.t1s) / USECS_PER_SEC);
+        double rate = double(ss.nsamps-1) /
+            (double(ss.t2s - ss.t1s) / USECS_PER_SEC);
         outs << setw(9) << ss.nsamps << ' '
              << t1str << "  " << t2str << ' '
              << fixed << setw(7) << setprecision(2)
@@ -456,8 +544,67 @@ void CounterClient::printResults(std::ostream& outs)
              << setw(lenpow[0]) << check_valid(ss.minlens, (ss.nsamps > 0))
              << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
              << endl;
+
+        if (_reportdata)
+            printData(outs, ss);
     }
 }
+
+
+void
+CounterClient::
+printData(std::ostream& outs, SampleCounter& ss)
+{
+    if (ss.rawmsg.length())
+    {
+        outs << " " << ss.rawmsg << endl;
+    }
+    if (ss.sums.size() == 0)
+    {
+        return;
+    }
+    size_t nwidth = 8;
+    outs.unsetf(std::ios::fixed);
+    outs << setprecision(3) << fixed;
+
+    size_t maxname = 0;
+    for (unsigned int i = 0; i < ss.varnames.size(); ++i)
+    {
+        maxname = std::max(maxname, ss.varnames[i].length());
+    }
+    int nfields = std::max((size_t)2, 80 / (maxname+2+nwidth));
+
+    for (unsigned int i = 0; i < ss.sums.size(); ++i)
+    {
+        if (i > 0 && i % nfields == 0)
+        {
+            outs << endl;
+        }
+        string varname;
+        if (i < ss.varnames.size())
+        {
+            varname = ss.varnames[i];
+        }
+        outs << " " << setw(maxname) << right << varname << "=" << left;
+        outs << setw(nwidth);
+        int nvalues = ss.nsamps - ss.nnans[i];
+        if (nvalues == 0)
+        {
+            outs << string(nwidth, '*');
+        }
+        else
+        {
+            outs << ss.sums[i]/nvalues;
+        }
+        if (nvalues && ss.nnans[i] > 0)
+        {
+            outs << "(*" << ss.nnans[i] << " NaN*)";
+        }
+    }
+    outs << endl;
+}
+
+
 
 class DataStats
 {
@@ -477,6 +624,17 @@ public:
     static int main(int argc, char** argv);
 
     int usage(const char* argv0);
+
+    bool
+    reportsExhausted(int nreports=-1)
+    {
+        // Just to avoid the unused warning, while allowing _nreports to be
+        // incremented with a prefix increment operator in the call to this
+        // method.
+        if (nreports > -1)
+            _nreports = nreports;
+        return (_count > 0 && _nreports > _count);
+    }
 
     static void handleSignal(int signum);
 
@@ -500,6 +658,9 @@ private:
     // Compact - report only one line for a site with no samples for any sensors
     // Received - show only received samples, the default
     NidasAppArg AllSamples;
+
+    // Show averaged data or raw messages for each report.
+    NidasAppArg ShowData;
 };
 
 
@@ -528,10 +689,15 @@ DataStats::DataStats():
            "print the report.\n"
            "If 0, wait until interrupted with Ctl-C.", "0"),
     Count("-n,--count", "<count>",
-          "When --period specified, generate <count> reports.", "1"),
+          "When --period specified, generate <count> reports.\n"
+          "Use a count of zero to continue reports until interrupted.", "1"),
     AllSamples("-a,--all", "",
-        "Show statistics for all sample IDs, including those for which "
-        "no samples are received.")
+               "Show statistics for all sample IDs, including those for which "
+               "no samples are received."),
+    ShowData("-D,--data", "",
+             "Print data for each sensor, either the last received message\n"
+             "for raw samples, or data values averaged over the recording\n"
+             "period for processed samples.")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -539,7 +705,7 @@ DataStats::DataStats():
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles |
-                        app.Help | Period | Count | AllSamples);
+                        app.Help | Period | Count | AllSamples | ShowData);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -616,7 +782,8 @@ readHeader(SampleInputStream& sis)
     // the header and never get to the readSamples() loop.
     bool header_read = false;
     _nreports = 0;
-    while (!header_read && !app.interrupted() && ++_nreports <= _count)
+    while (!header_read && !app.interrupted() &&
+           !reportsExhausted(++_nreports))
     {
         _alarm = false;
         if (_realtime)
@@ -645,7 +812,7 @@ readHeader(SampleInputStream& sis)
             outs << "Header not received after " << _nreports
                  << " periods of " << _period << " seconds.";
             // Throw an exception if nreports exhausted.
-            if (_nreports >= _count)
+            if (reportsExhausted())
             {
                 throw n_u::Exception(outs.str());
             }
@@ -667,8 +834,6 @@ readSamples(SampleInputStream& sis)
     _alarm = false;
     if (_period > 0 && _realtime)
     {
-        cout << "....... Collecting samples for " << _period << " seconds "
-             << "......." << endl;
         alarm(_period);
     }
     while (!_alarm && !app.interrupted())
@@ -746,6 +911,7 @@ int DataStats::run() throw()
 	SamplePipeline pipeline;                                  
         CounterClient counter(allsensors, app);
         counter.reportAll(AllSamples.asBool());
+        counter.reportData(ShowData.asBool());
 
 	if (app.processData()) {
             pipeline.setRealTime(false);                              
@@ -768,7 +934,12 @@ int DataStats::run() throw()
         else sis.addSampleClient(&counter);
 
         try {
-            while (!app.interrupted() && ++_nreports <= _count)
+            if (_period > 0 && _realtime)
+            {
+                cout << "....... Collecting samples for " << _period << " seconds "
+                     << "......." << endl;
+            }
+            while (!app.interrupted() && !reportsExhausted(++_nreports))
             {
                 readSamples(sis);
                 counter.printResults(cout);
