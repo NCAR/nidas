@@ -437,7 +437,8 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
 
     // Fill and trim for unparsed values.
     trimUnparsed(stag, outs, nparsed);
-    *stag_out = stag;
+    if (stag_out)
+        *stag_out = stag;
     return outs;
 }
 
