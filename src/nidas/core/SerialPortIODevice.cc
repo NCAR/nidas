@@ -216,7 +216,7 @@ void SerialPortIODevice::close() throw(n_u::IOException)
 {
     if (_fd >= 0) {
         ::close(_fd);
-        ILOG(("closing: ") << getName());
+        ILOG(("SerialPortIODevice::close(): ") << getName());
     }
     _fd = -1;
 }
