@@ -70,8 +70,8 @@ for prog in programs:
 dpvenv = env.Clone()
 dpvenv.AppendUnique(CXXFLAGS='-std=c++11')
 dpvenv.AppendUnique(LIBS='curl')
-dpv = dpvenv.NidasProgram('data_parse_values.cc')
-dpvenv.Alias('data_parse_values', dpv)
+dpv = dpvenv.NidasProgram('data_influxdb.cc')
+dpvenv.Alias('data_influxdb', dpv)
 
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
