@@ -316,6 +316,12 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
 {
     bool processed = app.processData();
     SampleMatcher& matcher = _app.sampleMatcher();
+}
+
+
+CounterClient::
+setupSensors(const list<DSMSensor*>& sensors, bool processed)
+{
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
     {
@@ -617,6 +623,12 @@ public:
 
     void readHeader(SampleInputStream& sis);
 
+    /**
+     * Once the header has been read from the SampleInputStream, parse it
+     * for sensors.
+     **/
+    void handleHeader();
+
     void readSamples(SampleInputStream& sis);
 
     int parseRunstring(int argc, char** argv);
@@ -642,6 +654,7 @@ private:
     static const int DEFAULT_PORT = 30000;
 
     static bool _alarm;
+
     bool _realtime;
     n_u::UTime _period_start;
     int _count;
@@ -661,6 +674,8 @@ private:
 
     // Show averaged data or raw messages for each report.
     NidasAppArg ShowData;
+    SamplePipeline pipeline;
+    CounterClient counter;
 };
 
 
@@ -851,7 +866,112 @@ readSamples(SampleInputStream& sis)
 }
 
 
-int DataStats::run() throw()
+class DataStatsHandler : public NidasReactorHandler
+{
+public:
+    DataStatsHandler(NidasReactor* reactor, DataStats* datastats,
+                     SampleInputStream* sis):
+        NidasReactorHandler(reactor),
+        _datastats(datastats),
+        _stream(sis),
+        _header_received(false)
+    {}
+
+    virtual int getHandle()
+    {
+        return _stream->getFd();
+    }
+
+    /**
+     * Before handling samples, 
+     **/
+    virtual int handleInput()
+    {
+    }
+
+    virtual int handleTimeout();
+
+
+private:
+
+    DataStats* _datastats;
+    SampleInputStream* _stream;
+    bool _header_received;
+}
+
+
+void
+DataStats::
+handleHeader()
+{
+    const SampleInputHeader& header = sis.getInputHeader();
+
+    list<DSMSensor*> allsensors;
+
+    string xmlFileName = app.xmlHeaderFile();
+    if (xmlFileName.length() == 0)
+        xmlFileName = header.getConfigName();
+    xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+
+    struct stat statbuf;
+    if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
+    {
+        n_u::auto_ptr<xercesc::DOMDocument>
+            doc(parseXMLConfigFile(xmlFileName));
+
+        Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+
+        DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+        for ( ; di.hasNext(); )
+        {
+            const DSMConfig* dsm = di.next();
+            const list<DSMSensor*>& sensors = dsm->getSensors();
+            allsensors.insert(allsensors.end(), sensors.begin(), sensors.end());
+        }
+    }
+    XMLImplementation::terminate();
+
+    setupPipeline(allsensors);
+}
+
+
+void
+setupPipeline(list<DSMSensor*>& allsensors)
+{
+    counter.setupSensors(allsensors, app.processData());
+    counter.reportAll(AllSamples.asBool());
+    counter.reportData(ShowData.asBool());
+
+    if (app.processData())
+    {
+        pipeline.setRealTime(false);
+        pipeline.setRawSorterLength(0);
+        pipeline.setProcSorterLength(0);
+
+        list<DSMSensor*>::const_iterator si;
+        for (si = allsensors.begin(); si != allsensors.end(); ++si) {
+            DSMSensor* sensor = *si;
+            sensor->init();
+            //  1. inform the SampleInputStream of what SampleTags to expect
+            sis.addSampleTag(sensor->getRawSampleTag());
+        }
+        // 2. connect the pipeline to the SampleInputStream.
+        pipeline.connect(&sis);
+
+        // 3. connect the client to the pipeline
+        pipeline.getProcessedSampleSource()->addSampleClient(&counter);
+    }
+    else
+    {
+        sis.addSampleClient(&counter);
+    }
+}
+
+
+
+int
+DataStats::
+run() throw()
 {
     int result = 0;
 
@@ -874,64 +994,35 @@ int DataStats::run() throw()
 
 	SampleInputStream sis(iochan, app.processData());
         sis.setMaxSampleLength(32768);
-	// sis.init();
+
+        // Create a reactor to dispatch IO and allow timed events.
+        NidasReactor reactor;
+
+        // Register the sample input stream with this object as the
+        // handler.
+        reactor.addHandler(iochan, NidasReactor::INPUT_EVENT, this);
+
+        // If time-limited, add the timer to the reactor also.
+        if (_period > 0)
+        {
+            reactor.scheduleTimer(this, _period, _period);
+        }
 
         if (_period > 0 && _realtime)
         {
             app.addSignal(SIGALRM, &DataStats::handleSignal, true);
         }
+
         readHeader(sis);
-	const SampleInputHeader& header = sis.getInputHeader();
 
-	list<DSMSensor*> allsensors;
 
-        string xmlFileName = app.xmlHeaderFile();
-	if (xmlFileName.length() == 0)
-	    xmlFileName = header.getConfigName();
-	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+        // handleheader happened here.
 
-	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
-        {
-            n_u::auto_ptr<xercesc::DOMDocument>
-                doc(parseXMLConfigFile(xmlFileName));
+        // Run the reactor until interrupted or the number of reports is
+        // reached.
 
-	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
-
-            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-	    for ( ; di.hasNext(); )
-            {
-		const DSMConfig* dsm = di.next();
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-	    }
-	}
-        XMLImplementation::terminate();
-
-	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors, app);
-        counter.reportAll(AllSamples.asBool());
-        counter.reportData(ShowData.asBool());
-
-	if (app.processData()) {
-            pipeline.setRealTime(false);                              
-            pipeline.setRawSorterLength(0);                           
-            pipeline.setProcSorterLength(0);                          
-
-	    list<DSMSensor*>::const_iterator si;
-	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		sensor->init();
-                //  1. inform the SampleInputStream of what SampleTags to expect
-                sis.addSampleTag(sensor->getRawSampleTag());
-	    }
-            // 2. connect the pipeline to the SampleInputStream.
-            pipeline.connect(&sis);
-
-            // 3. connect the client to the pipeline
-            pipeline.getProcessedSampleSource()->addSampleClient(&counter);
-        }
-        else sis.addSampleClient(&counter);
+        try {
+            reactor.run();
 
         try {
             if (_period > 0 && _realtime)
