@@ -301,6 +301,7 @@ int main(int argc, char* argv[]) {
     }
 
     ptb210.open(O_RDWR);
+    ptb210.close();
 
     // all good, return 0
     return 0;
