@@ -348,8 +348,7 @@ void DSMSensor::open(int flags)
 
 void DSMSensor::close() throw(n_u::IOException) 
 {
-    NLOG(("closing: %s, #timeouts=%d",
-        getDeviceName().c_str(),getTimeoutCount()));
+    NLOG(("closing: %s, #timeouts=%d", getDeviceName().c_str(), getTimeoutCount()));
     if (_iodev) _iodev->close();
 }
 
