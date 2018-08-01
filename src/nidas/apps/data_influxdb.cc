@@ -500,49 +500,7 @@ bool CounterClient::receive(const Sample *samp) throw()
     return it->second.receive(samp);
 }
 
-namespace
-{
-/**
-     * Compute the number of digits of space required to display
-     * @p value in decimal.
-     **/
-inline int
-ndigits(double value)
-{
-    return (int)ceil(log10(value));
-}
 
-struct check_valid
-{
-    double _value;
-    bool _valid;
-
-    check_valid(double value, bool valid) : _value(value),
-                                            _valid(valid)
-    {
-    }
-
-    inline std::ostream &
-    to_stream(std::ostream &outs) const
-    {
-        if (_valid)
-        {
-            outs << _value;
-        }
-        else
-        {
-            outs << floatNAN;
-        }
-        return outs;
-    }
-};
-
-inline std::ostream &
-operator<<(std::ostream &outs, const check_valid &cv)
-{
-    return cv.to_stream(outs);
-}
-} // namespace
 
 class DatabaseData
 {
@@ -613,6 +571,7 @@ void DatabaseData::handleSignal(int signum)
         _alarm = true;
     }
 }
+
 //TO DO: modify to be accurate of what DatabaseData can do
 DatabaseData::DatabaseData() : _realtime(false), _period_start(time_t(0)),
                          _count(1), _period(0), _nreports(0),
