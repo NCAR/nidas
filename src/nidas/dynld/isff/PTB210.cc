@@ -537,7 +537,7 @@ bool PTB210::findWorkingSerialPortConfig(int flags)
     desiredPortConfig = getPortConfig();
 
     // check the raw mode parameters
-    ILOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
+    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
 
     if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
         NLOG(("Testing initial config which may be custom "));
@@ -598,7 +598,7 @@ bool PTB210::installDesiredSensorConfig()
         // We only do this for the serial and science parameters, as the sensor is physically configured to use  
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
         // physically reconfigure the sensor and re-start the auto-config process.
-        ILOG(("Attempting to set the serial configuration to the desired configuration."));
+        DLOG(("Attempting to set the serial configuration to the desired configuration."));
 
         serPortFlush(O_RDWR);
 
@@ -630,8 +630,8 @@ bool PTB210::installDesiredSensorConfig()
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
             if (!checkResponse()) {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                    ILOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                    NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
                             "after setting desired serial port parameters. This is the current PortConfig"));
                     printPortConfig();
                 }
@@ -639,35 +639,35 @@ bool PTB210::installDesiredSensorConfig()
                 setPortConfig(sensorPortConfig);
                 applyPortConfig();
 
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                    ILOG(("Setting the port config back to something that works for a retry"));
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                    DLOG(("Setting the port config back to something that works for a retry"));
                     printPortConfig();
                 }
                 
                 if (!checkResponse()) {
-                    ILOG(("The sensor port config which originally worked before attempting "
+                    DLOG(("The sensor port config which originally worked before attempting "
                           "to set the desired config no longer works. Really messed up now!"));
                 }
 
-                else if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                    ILOG(("PTB210 reset to original!!!"));
+                else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                    DLOG(("PTB210 reset to original!!!"));
                     printPortConfig();
                 }
             }
             else {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                    ILOG(("Success!! PTB210 set to desired configuration!!!"));
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                    NLOG(("Success!! PTB210 set to desired configuration!!!"));
                     printPortConfig();
                 }
                 installed = true;
             }
         }
 
-        else if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-            ILOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            ILOG(("Desired PortConfig: "));
+        else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+            DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
+            DLOG(("Desired PortConfig: "));
             printTargetConfig(desiredPortConfig);
-            ILOG(("Actual set PortConfig: "));
+            DLOG(("Actual set PortConfig: "));
             printPortConfig();
         }
     }
@@ -680,17 +680,23 @@ bool PTB210::installDesiredSensorConfig()
         installed = true;
     }
 
-    NLOG(("Returning installed status: ") << (installed ? "SUCCESS!!" : "failed..."));
+    DLOG(("Returning installed status: ") << (installed ? "SUCCESS!!" : "failed..."));
     return installed;
 }
 
 bool PTB210::configureScienceParameters()
 {
+    DLOG(("Sending sensor science parameters."));
     sendScienceParameters();
+    DLOG(("First check of desired science parameters"));
     bool success = checkScienceParameters();
     if (!success) {
+        DLOG(("First attempt to send science parameters failed - resending"));
         sendScienceParameters();
         success = checkScienceParameters();
+        if (!success) {
+            DLOG(("Second attempt to send science parameters failed. Giving up."));
+        }
     }
 
     return success;
@@ -699,6 +705,7 @@ bool PTB210::configureScienceParameters()
 void PTB210::sendScienceParameters() {
     bool desiredIsDefault = true;
 
+    DLOG(("Check for whether the desired science parameters are the same as the default"));
     for (int i=0; i< NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if ((desiredScienceParameters[i].cmd != DEFAULT_SCIENCE_PARAMETERS[i].cmd)
             || (desiredScienceParameters[i].arg != DEFAULT_SCIENCE_PARAMETERS[i].arg)) {
@@ -710,6 +717,7 @@ void PTB210::sendScienceParameters() {
     if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB210"));
     else NLOG(("Base class modified the default science parameters for this PB210"));
 
+    DLOG(("Sending science parameters"));
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
@@ -719,6 +727,7 @@ void PTB210::sendScienceParameters() {
 
 bool PTB210::checkScienceParameters() {
 
+    VLOG(("PTB210::checkScienceParameters() - Flush port and send query command"));
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
@@ -729,20 +738,21 @@ bool PTB210::checkScienceParameters() {
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
+    VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
     int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
+    if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
         if (numCharsRead > 0) {
-            ILOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
+            VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
             for (int i=0; i<5; ++i) {
                 char hexBuf[60];
                 memset(hexBuf, 0, 60);
                 for (int j=0; j<10; ++j) {
                     snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
                 }
-                ILOG((&(hexBuf[0])));
+                VLOG((&(hexBuf[0])));
             }
         }
     }
@@ -752,22 +762,23 @@ bool PTB210::checkScienceParameters() {
         totalCharsRead += numCharsRead;
         bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
             if (numCharsRead == 0) {
-                ILOG(("Took ") << i+1 << " reads to get entire response");
+                VLOG(("Took ") << i+1 << " reads to get entire response");
             }
         }
     }
 
-    if (totalCharsRead) {
+    if (totalCharsRead && LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
         std::string respStr;
         respStr.append(&respBuf[0], totalCharsRead);
 
-        ILOG(("Response: "));
-        ILOG((respStr.c_str()));
+        VLOG(("Response: "));
+        VLOG((respStr.c_str()));
 
     }
 
+    VLOG(("PTB210::checkScienceParameters() - Check the individual parameters available to us"));
     bool scienceParametersOK = false;
     int regexStatus = -1;
     regmatch_t matches[4];
@@ -776,7 +787,7 @@ bool PTB210::checkScienceParameters() {
     // check for sample averaging
     if ((regexStatus = regexec(&averageSamp, &(respBuf[0]), nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
         string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-        DLOG(("Checking sample averaging with argument: ") << argStr);
+        VLOG(("Checking sample averaging with argument: ") << argStr);
         scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, argStr.c_str());
     }
     else {
@@ -789,7 +800,7 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            DLOG(("Checking measurement rate with argument: ") << argStr);
+            VLOG(("Checking measurement rate with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
         }
         else {
@@ -803,7 +814,7 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         if ((regexStatus = regexec(&pressUnit, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            DLOG(("Checking pressure units with argument: ") << argStr);
+            VLOG(("Checking pressure units with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, argStr.c_str());
         }
         else {
@@ -817,7 +828,7 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         if ((regexStatus = regexec(&multiCorr, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            DLOG(("Checking multi-point correction with argument: ") << argStr);
+            VLOG(("Checking multi-point correction with argument: ") << argStr);
             scienceParametersOK = (argStr == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, argStr.c_str())
                                                   : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, argStr.c_str()));
         }
@@ -847,8 +858,8 @@ bool PTB210::checkScienceParameters() {
 bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
 {
     PTB_CMD_ARG desiredCmd = getDesiredCmd(cmd);
-    DLOG(("Desired command: ") << desiredCmd.cmd);
-    DLOG(("Searched command: ") << cmd);
+    VLOG(("Desired command: ") << desiredCmd.cmd);
+    VLOG(("Searched command: ") << cmd);
 
     // Does the command take a parameter? If not, just search for the command
     switch (cmd) {
@@ -869,13 +880,13 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
         case SENSOR_TERM_ON_CMD:
         case SENSOR_TERM_OFF_CMD:
         case SENSOR_CONFIG_QRY_CMD:
-            DLOG(("Returned arg matches command sent: ") << (desiredCmd.cmd == cmd ? "TRUE" : "FALSE"));
+            VLOG(("Returned arg matches command sent: ") << (desiredCmd.cmd == cmd ? "TRUE" : "FALSE"));
             return (desiredCmd.cmd == cmd);
             break;
 
         // Need to match the command argument, which are all ints
         case SENSOR_SAMP_UNIT_CMD:
-            DLOG(("Arguments match: ") << (desiredCmd.arg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
+            VLOG(("Arguments match: ") << (desiredCmd.arg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
             return (desiredCmd.arg == pressUnitStr2PressUnit(match));
             break;
 
@@ -890,7 +901,7 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
                 std::stringstream argStrm(match);
                 argStrm >> arg;
 
-                DLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
+                VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
                 return (desiredCmd.arg == arg);
             }
             break;
@@ -901,15 +912,15 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
 }
 
 PTB_CMD_ARG PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
-    DLOG(("Looking in desiredScienceParameters[] for ") << cmd);
+    VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
-            DLOG(("Found command: ") << cmd);
+            VLOG(("Found command: ") << cmd);
             return desiredScienceParameters[i];
         }
     }
 
-    DLOG(("Requested cmd not found: ") << cmd);
+    VLOG(("Requested cmd not found: ") << cmd);
 
     PTB_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
     return(nullRetVal);
@@ -963,8 +974,8 @@ bool PTB210::sweepParameters(bool defaultTested)
                                                     wordSpec.stopBits, rts485, portType, NO_TERM, 
                                                     DEFAULT_SENSOR_POWER);
 
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                    ILOG(("Asking for PortConfig:"));
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                    DLOG(("Asking for PortConfig:"));
                     printTargetConfig(testPortConfig);
                 }
 
@@ -986,11 +997,11 @@ bool PTB210::sweepParameters(bool defaultTested)
                     printPortConfig();
                 }
 
-                NLOG(("Checking response once..."));
+                DLOG(("Checking response once..."));
                 if (checkResponse()) {
-                    if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
                         // tell everyone
-                        NLOG(("Found working port config: "));
+                        DLOG(("Found working port config: "));
                         printPortConfig();
                     }
 
@@ -998,12 +1009,12 @@ bool PTB210::sweepParameters(bool defaultTested)
                     return foundIt;
                 } 
                 else {
-                    NLOG(("Checking response twice..."));
+                    DLOG(("Checking response twice..."));
                     if (checkResponse()) {
                         // tell everyone
-                        NLOG(("Response checks out on second try..."));
-                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                            ILOG(("Found working port config: "));
+                        DLOG(("Response checks out on second try..."));
+                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                            DLOG(("Found working port config: "));
                             printPortConfig();
                         }
 
@@ -1011,14 +1022,14 @@ bool PTB210::sweepParameters(bool defaultTested)
                         return foundIt;
                     }
                     else {
-                        NLOG(("Checked response twice, and failed twice."));
+                        DLOG(("Checked response twice, and failed twice."));
                         if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
-                            // test the connection w/termination turned on.
+                            DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
                             setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
                                                                 wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
                                                                 DEFAULT_SENSOR_POWER);
-                            if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
-                                ILOG(("Asking for PortConfig:"));
+                            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                                DLOG(("Asking for PortConfig:"));
                                 printTargetConfig(testPortConfig);
                             }
 
@@ -1032,8 +1043,8 @@ bool PTB210::sweepParameters(bool defaultTested)
 
                             if (checkResponse()) {
                                 // tell everyone
-                                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                                    NLOG(("Found working port config: "));
+                                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                                    DLOG(("Found working port config: "));
                                     printPortConfig();
                                 }
                                 
@@ -1106,16 +1117,16 @@ bool PTB210::checkResponse()
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
+    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
         if (numCharsRead > 0) {
-            ILOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
+            DLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
             for (int i=0; i<5; ++i) {
                 char hexBuf[60];
                 memset(hexBuf, 0, 60);
                 for (int j=0; j<10; ++j) {
                     snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
                 }
-                ILOG((&(hexBuf[0])));
+                DLOG((&(hexBuf[0])));
             }
         }
     }
@@ -1125,9 +1136,9 @@ bool PTB210::checkResponse()
         totalCharsRead += numCharsRead;
         bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_INFO)) {
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
             if (numCharsRead == 0) {
-                ILOG(("Took ") << i+1 << " reads to get entire response");
+                DLOG(("Took ") << i+1 << " reads to get entire response");
             }
         }
     }
@@ -1136,8 +1147,8 @@ bool PTB210::checkResponse()
         std::string respStr;
         respStr.append(&respBuf[0], totalCharsRead);
 
-        ILOG(("Response: "));
-        ILOG((respStr.c_str()));
+        DLOG(("Response: "));
+        DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
         int foundPos = 0;
@@ -1163,43 +1174,43 @@ bool PTB210::checkResponse()
                                             if (retVal) {
                                                 retVal = (foundPos = respStr.find(PTB210_RS485_RES_STR, foundPos+strlen(PTB210_CURR_MODE_STR)) != string::npos);
                                                 if (!retVal)
-                                                    ILOG(("Coundn't find ") << "\"" << PTB210_RS485_RES_STR << "\"");
+                                                    DLOG(("Coundn't find ") << "\"" << PTB210_RS485_RES_STR << "\"");
                                             }
                                             else
-                                                ILOG(("Coundn't find ") << "\"" << PTB210_CURR_MODE_STR << "\"");
+                                                DLOG(("Coundn't find ") << "\"" << PTB210_CURR_MODE_STR << "\"");
                                         }
                                         else
-                                            ILOG(("Coundn't find ") << "\"" << PTB210_PRESS_MINMAX_STR << "\"");
+                                            DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_MINMAX_STR << "\"");
                                     }
                                     else
-                                        ILOG(("Coundn't find ") << "\"" << PTB210_PRESS_UNIT_STR << "\"");
+                                        DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_UNIT_STR << "\"");
                                 }
                                 else
-                                    ILOG(("Coundn't find ") << "\"" << PTB210_NUM_SMPLS_AVG_STR << "\"");
+                                    DLOG(("Coundn't find ") << "\"" << PTB210_NUM_SMPLS_AVG_STR << "\"");
                             }
                             else
-                                ILOG(("Coundn't find ") << "\"" << PTB210_MEAS_PER_MIN_STR << "\"");
+                                DLOG(("Coundn't find ") << "\"" << PTB210_MEAS_PER_MIN_STR << "\"");
                         }
                         else
-                            ILOG(("Coundn't find ") << "\"" << PTB210_MULTI_PT_CORR_STR << "\"");
+                            DLOG(("Coundn't find ") << "\"" << PTB210_MULTI_PT_CORR_STR << "\"");
                     }
                     else
-                        ILOG(("Coundn't find ") << "\"" << PTB210_SERIAL_NUMBER_STR << "\"");
+                        DLOG(("Coundn't find ") << "\"" << PTB210_SERIAL_NUMBER_STR << "\"");
                 }
                 else
-                    ILOG(("Coundn't find ") << "\"" << PTB210_ID_CODE_STR << "\"");
+                    DLOG(("Coundn't find ") << "\"" << PTB210_ID_CODE_STR << "\"");
             }
             else
-                ILOG(("Coundn't find ") << "\"" << PTB210_CAL_DATE_STR << "\"");
+                DLOG(("Coundn't find ") << "\"" << PTB210_CAL_DATE_STR << "\"");
         }
         else
-            ILOG(("Coundn't find ") << "\"" << PTB210_VER_STR << "\"");
+            DLOG(("Coundn't find ") << "\"" << PTB210_VER_STR << "\"");
 
         return retVal;
     }
 
     else {
-        NLOG(("Didn't get any chars from serial port"));
+        DLOG(("Didn't get any chars from serial port"));
         return false;
     }
 }
@@ -1248,13 +1259,13 @@ void PTB210::sendSensorCmd(PTB_COMMANDS cmd, int arg, bool resetNow)
     // Write the command - assume the port is already open
     // The PTB210 seems to not be able to keep up with a burst of data, so 
     // give it some time between chars - i.e. ~80 words/min rate
-    ILOG(("Sending command: "));
-    ILOG((snsrCmd.c_str()));
+    DLOG(("Sending command: "));
+    DLOG((snsrCmd.c_str()));
     for (unsigned int i=0; i<snsrCmd.length(); ++i) {
         write(&(snsrCmd.c_str()[i]), 1);
         usleep(CHAR_WRITE_DELAY);
     }
-    ILOG(("write() sent ") << snsrCmd.length());;
+    DLOG(("write() sent ") << snsrCmd.length());;
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
@@ -1304,12 +1315,12 @@ size_t PTB210::readResponse(void *buf, size_t len, int msecTimeout)
     int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
 
     if (res < 0) {
-        NLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
+        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
         return -1;
     }
 
     if (res == 0) {
-        ILOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
+        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
         return 0;
     }
 
