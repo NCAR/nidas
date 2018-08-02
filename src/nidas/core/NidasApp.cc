@@ -242,7 +242,7 @@ accept(const std::string& flag)
     size_t comma = _flags.find(',', start);
     if (comma == std::string::npos)
       comma = _flags.length();
-    if (_flags.substr(start, comma) == flag &&
+    if (_flags.substr(start, comma-start) == flag &&
 	(flag.length() > 2 || _enableShortFlag))
     {
       return true;
