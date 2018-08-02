@@ -138,6 +138,22 @@ private:
     // Use a vector to manage memory for a char buffer.
     vector<char> _buffer;
     unsigned int _buflen;
+
+    CharBuffer(const CharBuffer& rhs) :
+        _buffer(rhs._buffer),
+        _buflen(rhs._buflen)
+    {
+        VLOG(("CharBuffer copy constructed..."));
+    }
+
+    CharBuffer& operator=(const CharBuffer& rhs)
+    {
+        _buffer = rhs._buffer;
+        _buflen = rhs._buflen;
+        VLOG(("CharBuffer copy assignment..."));
+        return *this;
+    }
+
 };
 
 
@@ -226,6 +242,7 @@ public:
     addMeasurement(const std::string& data)
     {
         char* buf = _data.getSpace(data.length());
+        VLOG(("adding data to buffer..."));
         strcat(buf, data.c_str());
         ++_nmeasurements;
         if (_nmeasurements >= _count)
@@ -262,7 +279,15 @@ public:
             // multipleData = "";
             // mtx.unlock();
             // cout << multipleData.size() << "\n";
-            std::async(std::launch::async, &InfluxDB::dataToInfluxDB, this);
+
+            if (1)
+            {
+                std::async(std::launch::async, &InfluxDB::dataToInfluxDB, this);
+            }
+            else
+            {
+                dataToInfluxDB();
+            }
         }
         _nmeasurements = 0;
     }
@@ -288,6 +313,32 @@ private:
     
     CURL *_curl;
 };
+
+
+/**
+ * Escape comma, space, and equal characters in the given string with
+ * backslash, to conform to influxdb line protocol for tag values.
+ **/
+void
+backslash(std::string& tagvalue)
+{
+    char targets[] = { ' ', '=', ',' };
+    int ntargets = sizeof(targets)/sizeof(targets[0]);
+    for (char* tc=targets; tc < targets+ntargets; ++tc)
+    {
+        size_t pos = 0;
+        while (pos != string::npos && pos < tagvalue.length())
+        {
+            pos = tagvalue.find(*tc, pos);
+            if (pos != string::npos)
+            {
+                tagvalue.insert(pos, 1, '\\');
+                pos += 2;
+            }
+        }
+    }
+}
+
 
 
 class SampleToDatabase
@@ -335,6 +386,7 @@ class SampleToDatabase
             {
                 units = vc->getUnits();
             }
+            backslash(units);
             varunits.push_back(units);
         }
         setSiteAndMeasurement(stag);
@@ -510,18 +562,19 @@ void
 InfluxDB::
 dataToInfluxDB()
 {
-    CURLcode res;
-    
     string url = getWriteURL();
+    DLOG(("posting ") << _nmeasurements << " measurements to database: " << url);
+    
     curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, _data.get());
-    DLOG(("posting ") << _nmeasurements << " measurements to database: " << url);
-    res = curl_easy_perform(_curl);
+    CURLcode res = curl_easy_perform(_curl);
     _data.clear();
+    // sleep(5);
     if (res != CURLE_OK)
     {
-        ELOG(("database write failed with code: ") << res);
+        ELOG(("database write failed: ") << res);
     }
+    DLOG(("posting done."));
 }
 
 
@@ -748,8 +801,8 @@ DataInfluxdb::DataInfluxdb() :
         "The URL to the influx database.",
         "http://localhost:8086"),
     Database("--db", "<database>",
-             "The name of the database.",
-             "weather_stations_units"),
+             "The name of the database.  For EOL weather stations, use "
+             "weather_stations."),
     Echo("--echo", "",
          "Echo post data to stdout instead of writing to the database.",
          "false"),
@@ -790,6 +843,11 @@ int DataInfluxdb::parseRunstring(int argc, char **argv)
         }
 
         _db.setURL(URL.getValue());
+        if (Database.getValue().length() == 0)
+        {
+            throw NidasAppException("Database name must be "
+                                    "specified with --db.");
+        }
         _db.setDatabase(Database.getValue());
         _db.setCount(_count);
         _db.setEcho(Echo.asBool());
