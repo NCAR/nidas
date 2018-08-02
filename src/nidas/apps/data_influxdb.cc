@@ -85,11 +85,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-//these globals will be omitted (for testing purposes)
-int COUNT = 0;
-
-time_t start_time = time(&start_time);
-
 /**
  * Simple char buffer class to provide memory into which C strings can be
  * written.  Memory grows as necessary and is not reclaimed, and the length
