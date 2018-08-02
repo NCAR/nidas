@@ -66,6 +66,8 @@ TO DO: --BARNITZ--
 #include <unistd.h>
 #include <getopt.h>
 
+#include <stdexcept>
+
 #include <fstream> //for writing processed data to a .txt file
 #include <string>  //for converting data to_string
 #include <sstream>
@@ -85,10 +87,226 @@ namespace n_u = nidas::util;
 
 //these globals will be omitted (for testing purposes)
 int COUNT = 0;
-string multipleData;
 
-string data;
 time_t start_time = time(&start_time);
+
+/**
+ * Simple char buffer class to provide memory into which C strings can be
+ * written.  Memory grows as necessary and is not reclaimed, and the length
+ * of the buffer is tracked so strings can be written right at the end
+ * instead of appended to a long string.
+ **/
+class CharBuffer
+{
+public:
+    CharBuffer() :
+        _buffer(1),
+        _buflen(0)
+    {
+        // The buffer always has at least one null byte in it, so it
+        // looks like an empty null-terminated string.
+        clear();
+    }
+
+    void
+    clear()
+    {
+        _buffer[0] = '\0';
+        _buflen = 0;
+    }
+
+    /**
+     * Return a pointer to the beginning of the buffer.
+     **/
+    char*
+    get()
+    {
+        return &(_buffer[0]);
+    }
+
+    /**
+     * Get a pointer to the end of the buffer with room for at least @p
+     * length more bytes, but do not change the length of space used in the
+     * buffer yet.  The returned pointer can be used to print into the
+     * buffer, then the buffer length can be extended with advanceBuffer().
+     **/
+    char*
+    getSpace(unsigned int length = 0)
+    {
+        // Make sure _buflen is updated to include any strings written
+        // since last called.
+        _buflen += strlen(get() + _buflen);
+        // Need room for the null byte too, since that is presumed not to
+        // be included in length, but don't extend unless some space was
+        // actually requested.
+        if (length > 0)
+            _buffer.resize(_buflen + length + 1);
+        return &(_buffer[_buflen]);
+    }
+
+    bool
+    empty()
+    {
+        // Empty if the end of the buffer is at the beginning.  Use
+        // getSpace() to find the end by updating buflen.
+        return getSpace() == get();
+    }
+
+private:
+    // Use a vector to manage memory for a char buffer.
+    vector<char> _buffer;
+    unsigned int _buflen;
+};
+
+
+
+// std::mutex mtx;
+
+
+
+/**
+ * Methods and memory for creating an Influx database, accumulating
+ * measurements, and posting them to the database.
+ *
+ * The host URL is something like "http://snoopy.eol.ucar.edu:8086"
+ *
+ * The database URL is formed like "<url>/write?db=<dbname>&precision=u"
+ **/
+class InfluxDB
+{
+public:
+    InfluxDB(const std::string& url = "",
+             const std::string& dbname = "") :
+        _url(url),
+        _dbname(dbname),
+        _data(),
+        _nmeasurements(0),
+        _count(1),
+        _echo(false),
+        _curl(0)
+    {
+        _curl = curl_easy_init();
+        if (! _curl)
+        {
+            throw std::runtime_error("curl_easy_init failed.");
+        }
+    }
+
+    void
+    setURL(const std::string& url)
+    {
+        _url = url;
+    }
+        
+    void
+    setDatabase(const std::string& dbname)
+    {
+        _dbname = dbname;
+    }
+
+    void
+    setCount(unsigned int count)
+    {
+        _count = count;
+    }
+
+    /**
+     * If @p echo is true, the data posted to the database is printed on
+     * stdout instead of being written to the database.
+     **/
+    void
+    setEcho(bool echo)
+    {
+        _echo = echo;
+    }
+
+    ~InfluxDB()
+    {
+        curl_easy_cleanup(_curl);
+        _curl = 0;
+    }
+
+    std::string
+    getHostURL()
+    {
+        return _url;
+    }
+
+    std::string
+    getWriteURL()
+    {
+        ostringstream out;
+        out << getHostURL() << "/write?db=" << _dbname << "&precision=u" ;
+        return out.str();
+    }
+
+    void
+    addMeasurement(const std::string& data)
+    {
+        char* buf = _data.getSpace(data.length());
+        strcat(buf, data.c_str());
+        ++_nmeasurements;
+        if (_nmeasurements >= _count)
+        {
+            sendData();
+        }            
+    }
+
+    void
+    sendData()
+    {
+        if (_data.empty())
+        {
+            return;
+        }
+        DLOG(("sendData()..."));
+        if (_echo)
+        {
+            std::cout << _data.get();
+        }
+        else
+        {
+            // std::launch::async forces it to launch in parallel (as
+            // opposed to the default of sequentially)
+
+            // std::future<void> call = std::async(std::launch::async,
+            //     &SampleToDatabase::dataToInfluxDB, this, multipleData);
+
+            // wait for async processing of each line of data to finish
+            // before clearing the multipleData string
+
+            // mtx.lock();
+            // string dbdata = multipleData;
+            // multipleData = "";
+            // mtx.unlock();
+            // cout << multipleData.size() << "\n";
+            std::async(std::launch::async, &InfluxDB::dataToInfluxDB, this);
+        }
+        _nmeasurements = 0;
+    }
+
+    void
+    createInfluxDB();
+
+    void
+    dataToInfluxDB();
+
+private:
+
+    InfluxDB(const InfluxDB&);
+    InfluxDB& operator=(const InfluxDB&);
+
+    string _url;
+    string _dbname;
+
+    CharBuffer _data;
+    unsigned int _nmeasurements;
+    unsigned int _count;
+    bool _echo;
+    
+    CURL *_curl;
+};
+
 
 class SampleToDatabase
 {
@@ -100,64 +318,61 @@ class SampleToDatabase
     /**
      * A default constructor is required to use objects as a map element.
      **/
-    SampleToDatabase(dsm_sample_id_t sid = 0, const std::string &sname = "",
-                     const SampleTag *stag = 0) : name(sname),
-                                                  id(sid),
-                                                  sitename(),
-                                                //   DBname("grainex3"),
-                                                  DBname("weather_stations"),
-                                                  measurementName(),
-                                                  spsid(),
-                                                  dsmid(),
-                                                  info(),
-                                                  url("http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u"),
-                                                //   collectionOfData(""),
-                                                  varnames()
+    SampleToDatabase(InfluxDB* db = 0,
+                     dsm_sample_id_t sid = 0, const std::string &sname = "",
+                     const SampleTag *stag = 0) :
+        _db(db),
+        name(sname),
+        id(sid),
+        sitename(),
+        measurementName(),
+        spsid(),
+        dsmid(),
+        info(),
+        varnames()
     {
-        if (stag)
+        if (!stag)
         {
-            const std::vector<const Variable *> &variables = stag->getVariables();
-            for (unsigned int i = 0; i < variables.size(); ++i)
-            {
-                varnames.push_back(variables[i]->getName());
-            }
-            //TO DO: determine & implement how best to incorporate this change necessary for the different sites: given as command line arguements
-            //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
-            //necessary for the weather stations
-            //EOL-WEATHER-STATIONS
-            sitename = stag->getSuffix();
-            measurementName = sitename.erase(0,1);
-
-            //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
-            //necessary for grainex/conventional projects
-            //CONVENTIONAL PROJECTS
-            sitename = stag->getSite()->getName();
-            dsmid = to_string(stag->getDSMId());
-            int tempSpSid = stag->getSpSId();
-            if (tempSpSid >= 0x8000)
-            {
-                stringstream intToHex;
-                intToHex << "0x" << hex << tempSpSid;
-                spsid = intToHex.str();
-            }
-            else
-                spsid = to_string(tempSpSid);
-            // //this measurement name is not used currently for weather_stations, weather_stations use the sitename
-            // measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
-            info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
+            return;
         }
+        const std::vector<const Variable *> &variables = stag->getVariables();
+        for (unsigned int i = 0; i < variables.size(); ++i)
+        {
+            varnames.push_back(variables[i]->getName());
+        }
+        //TO DO: determine & implement how best to incorporate this change necessary for the different sites: given as command line arguements
+        //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
+        //necessary for the weather stations
+        //EOL-WEATHER-STATIONS
+        sitename = stag->getSuffix();
+        measurementName = sitename.erase(0,1);
+
+        //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
+        //necessary for grainex/conventional projects
+        //CONVENTIONAL PROJECTS
+        sitename = stag->getSite()->getName();
+        dsmid = to_string(stag->getDSMId());
+        int tempSpSid = stag->getSpSId();
+        if (tempSpSid >= 0x8000)
+        {
+            stringstream intToHex;
+            intToHex << "0x" << hex << tempSpSid;
+            spsid = intToHex.str();
+        }
+        else
+            spsid = to_string(tempSpSid);
+        // //this measurement name is not used currently for weather_stations, weather_stations use the sitename
+        // measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
+        info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
     }
+
     bool
     receive(const Sample *samp) throw();
 
     void
-    createInfluxDB();
-
-    void
-    dataToInfluxDB(string data);
-
-    void
     accumulate(const Sample *samp);
+
+    InfluxDB* _db;
 
     string name;
     dsm_sample_id_t id;
@@ -165,9 +380,6 @@ class SampleToDatabase
     // Stash the site name from the sample tag to identify the
     // site in the accumulated data.
     string sitename;
-
-    // Database name for the influxdb specific to the project
-    string DBname;
 
     // To store the measurement name comprised of dsm id and sensor id concatenated
     // so that it is unique for each variable
@@ -177,15 +389,44 @@ class SampleToDatabase
     string spsid;
     string dsmid;
     string info;
-    string url;
 
     // Stash the variable names from the sample tag to identify the
     // variables in the accumulated data.
     vector<string> varnames;
+
+public:
+    SampleToDatabase& operator=(const SampleToDatabase& rhs)
+    {
+        if (this != &rhs)
+        {
+            _db = rhs._db;
+            name = rhs.name;
+            id = rhs.id;
+            sitename = rhs.sitename;
+            measurementName = rhs.measurementName;
+            spsid = rhs.spsid;
+            dsmid = rhs.dsmid;
+            info = rhs.info;
+            varnames = rhs.varnames;
+        }
+        return *this;
+    }
+
+    SampleToDatabase(const SampleToDatabase& rhs) :
+        _db(),
+        name(),
+        id(),
+        sitename(),
+        measurementName(),
+        spsid(),
+        dsmid(),
+        info(),
+        varnames()
+    {
+        *this = rhs;
+    }
 };
 
-std::future<void> beforeResettingString;
-std::mutex mtx;
 
 bool SampleToDatabase::
     receive(const Sample *samp) throw()
@@ -194,83 +435,71 @@ bool SampleToDatabase::
     {
         return true;
     }
-    //spawn a new thread for each sample
-    //consumes more resources then necessary without gain in computation time
-    // std::async(std::launch::async, &SampleToDatabase::accumulate, this, samp);   
-    accumulate(samp);
-    // if ((difftime(time(NULL), start_time) > 2) && COUNT > 5000)
-    if (COUNT > 5000)
+    if (! _db)
     {
-        // std::launch::async forces it to launch in parallel (as opposed to the default of sequentially)
-        // std::future<void> call = std::async(std::launch::async, &SampleToDatabase::dataToInfluxDB, this, multipleData);
-        // wait for async processing of each line of data to finish before clearing the multipleData string
-        // mtx.lock();
-        // string dbdata = multipleData;
-        // multipleData = "";
-        // mtx.unlock();
-        // cout << multipleData.size() << "\n";
-        std::async(std::launch::async, &SampleToDatabase::dataToInfluxDB, this, multipleData);
-        multipleData = "";
-        COUNT = 0;
+        // There was no SampleTag for this sample, so we cannot send it to
+        // the database.
+        return true;
     }
+
+    accumulate(samp);
     return true;
 }
 
+
 /*
- * This is invoked from main() at the initialization of the data to be transferred to the influx database. This function creates an influx database at 
- * the specfied url, which can be either "http://localhost:8086/query" if the influx database is on the same server, or the full url can be provided 
- * if it is located on different servers (ensuring correct firewall permissions are set). createInfluxDB() uses the curl library for assigning the url 
- * and the consequent fields to post during the HTTP POST operation. Additionally, the string variable DBname can be assigned with the DSMConfig 
- * information such as location or project name as this is only created once //for now it is passed as a parameter from main
+ * This is invoked from main() at the initialization of the data to be
+ * transferred to the influx database. This function creates an influx
+ * database at the specfied url. createInfluxDB() uses the curl library for
+ * assigning the url and the consequent fields to post during the HTTP POST
+ * operation. Additionally, the string variable DBname can be assigned with
+ * the DSMConfig information such as location or project name as this is
+ * only created once.
  */
-void SampleToDatabase::
-    createInfluxDB()
+void
+InfluxDB::
+createInfluxDB()
 {
-    //TO DO: make database name variable assigned depending on location/project? should it be given as command line arguement? currently set in the constructor.
-    //cout << "in create influxdb the db name is: " << DBname << "\n";
-    CURL *curl;
     CURLcode res;
 
-    const char *url = "http://snoopy.eol.ucar.edu:8086/query";
-    string createDB = "q=CREATE+DATABASE+" + DBname;
+    string url = getHostURL() + "/query";
+    string createDB = "q=CREATE+DATABASE+" + _dbname;
+    string full = url + "&" + createDB;
 
-    curl = curl_easy_init();
+    ILOG(("creating database: ") << full);
 
-    if (curl)
+    curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, createDB.c_str());
+    res = curl_easy_perform(_curl);
+
+    if (res != CURLE_OK)
     {
-        curl_easy_setopt(curl, CURLOPT_URL, url);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, createDB.c_str());
-
-        res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK)
-            cout << "failed\n";
-
-        curl_easy_cleanup(curl);
+        string err("createInfluxDB() failed: ");
+        err += full;
+        throw std::runtime_error(err);
     }
 }
 
-void SampleToDatabase::
-dataToInfluxDB(string dbdata)
+
+/**
+ * Post the current data buffer to the database, then clear it.
+ **/
+void
+InfluxDB::
+dataToInfluxDB()
 {
-    // string url = "http://snoopy.eol.ucar.edu:8086/write?db=" + DBname + "&precision=u";//.c_str();
-    // const char* dbdata = data.c_str();
-    // std::async(std::launch::async,[=](){
-    CURL *curl;
     CURLcode res;
-    curl = curl_easy_init();
     
-    if (curl){
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, dbdata.c_str());
-        res = curl_easy_perform(curl);
-        if (res != CURLE_OK){
-            cout << "failed\n" << "because: " << res << "\n";
-            //should attempt to write data/ best use of error handling?
-        }
-        curl_easy_cleanup(curl);
+    string url = getWriteURL();
+    curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, _data.get());
+    DLOG(("posting ") << _nmeasurements << " measurements to database: " << url);
+    res = curl_easy_perform(_curl);
+    _data.clear();
+    if (res != CURLE_OK)
+    {
+        ELOG(("database write failed with code: ") << res);
     }
-    // });
 }
 
 
@@ -286,7 +515,7 @@ accumulate(const Sample *samp)
 
     // where info =  measurementName + ",location=" + sitename + ",dsm_id=" + dsmid + ",sps_id=" + spsid + " "
     //created in the constructor
-    data = info;
+    string data(info);
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
@@ -297,29 +526,25 @@ accumulate(const Sample *samp)
         }
         else
         {
+            if (i > 0)
+                data += ",";
             data += varnames[i];
             data += "=";
             data += to_string(value);
-            data += ",";
         }
-    }
-    char lastChar = data.back();
-    if (lastChar == ',')
-    {
-        data.pop_back();
     }
     data += " ";
     data += to_string(samp->getTimeTag());
     data += "\n";
-    multipleData += data;
-    ++COUNT;
+    _db->addMeasurement(data);
 }
 
 
 class CounterClient : public SampleClient
 {
-  public:
-    CounterClient(const list<DSMSensor *> &sensors, NidasApp &app);
+public:
+    CounterClient(InfluxDB* db,
+                  const list<DSMSensor *> &sensors, NidasApp &app);
 
     virtual ~CounterClient() {}
 
@@ -327,7 +552,7 @@ class CounterClient : public SampleClient
 
     bool receive(const Sample *samp) throw();
 
-  private:
+private:
     typedef map<dsm_sample_id_t, SampleToDatabase> sample_map_t;
 
     /**
@@ -376,11 +601,13 @@ class CounterClient : public SampleClient
 //     }
 // }
 
-CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) :
+CounterClient::CounterClient(InfluxDB* db,
+                             const list<DSMSensor *> &sensors,
+                             NidasApp &app) :
     _samples(),
     _app(app)
 {
-    cout << "... CounterClient::CounterClient\n";
+    DLOG(("CounterClient::CounterClient()..."));
     SampleMatcher &matcher = _app.sampleMatcher();
     list<DSMSensor *>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
@@ -431,9 +658,8 @@ CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) :
                 sample_map_t::iterator it = findStats(sid);
                 if (it == _samples.end())
                 {
-                    //cout << "... DLOG((adding processed sample: ) with _app.formatId(sid)): " << _app.formatId(sid) << "\n";
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    SampleToDatabase pstats(sid, varname, stag);
+                    SampleToDatabase pstats(db, sid, varname, stag);
                     _samples[pstats.id] = pstats;
                 }
             }
@@ -443,38 +669,36 @@ CounterClient::CounterClient(const list<DSMSensor *> &sensors, NidasApp &app) :
 
 bool CounterClient::receive(const Sample *samp) throw()
 {
-    //cout << "... CounterClient::receive\n";
-    //cout << "...do i need this? 4\n";
     dsm_sample_id_t sampid = samp->getId();
     if (!_app.sampleMatcher().match(sampid))
     {
         return false;
     }
-    //cout << "... VLOG: received and accepted sample\n";
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
     sample_map_t::iterator it = findStats(sampid);
     if (it == _samples.end())
     {
+        ELOG(("received sample which is not in the config: ")
+              << _app.formatId(sampid));
         // When there is no header from which to gather samples ahead of
         // time, just add a SampleToDatabase instance for any new raw sample
         // that arrives.
         DLOG(("creating counter for sample id ") << _app.formatId(sampid));
-        SampleToDatabase ss(sampid);
+        SampleToDatabase ss(0, sampid);
         _samples[sampid] = ss;
         it = findStats(sampid);
     }
-    //cout << "...fin\n";
     return it->second.receive(samp);
 }
 
 
 
-class DatabaseData
+class DataInfluxdb
 {
   public:
-    DatabaseData();
+    DataInfluxdb();
 
-    ~DatabaseData() {}
+    ~DataInfluxdb() {}
 
     int run() throw();
 
@@ -495,33 +719,49 @@ class DatabaseData
 
     NidasApp app;
     NidasAppArg Count;
+    NidasAppArg URL;
+    NidasAppArg Database;
+    NidasAppArg Echo;
+    NidasAppArg Create;
+
+    InfluxDB _db;
 };
 
 
-//TO DO: modify to be accurate of what DatabaseData can do
-DatabaseData::DatabaseData() :
+//TO DO: modify to be accurate of what DataInfluxdb can do
+DataInfluxdb::DataInfluxdb() :
     _count(5000),
-    app("data_stats"),
-    Count("-n,--count", "<count>",
+    app("data_influxdb"),
+    Count("--count", "<count>",
           "Accumulate <count> measurement lines before posting to the "
           "database.  Set to 1 to send each line immediately, the max is 5000.",
-          "5000")
+          "5000"),
+    URL("--url", "<url>",
+        "The URL to the influx database.",
+        "http://localhost:8086"),
+    Database("--db", "<database>",
+             "The name of the database.",
+             "weather_stations_units"),
+    Echo("--echo", "",
+         "Echo post data to stdout instead of writing to the database.",
+         "false"),
+    Create("--create", "",
+           "Create the given database before posting data to it."),
+    _db()
 {
     app.setApplicationInstance();
     app.setupSignals();
-    app.enableArguments(app.XmlHeaderFile | app.LogConfig |
-                        app.SampleRanges | app.FormatHexId |
-                        app.FormatSampleId | 
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
+                        app.SampleRanges | 
                         app.Version | app.InputFiles |
-                        app.Help | Count);
+                        app.Help | Count | URL | Database | Echo | Create);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 }
 
-int DatabaseData::parseRunstring(int argc, char **argv)
+int DataInfluxdb::parseRunstring(int argc, char **argv)
 {
-    //cout << "... DatabaseData::parseRunString\n";
     // Setup a default log scheme which will get replaced if any logging is
     // configured on the command line.
     n_u::Logger *logger = n_u::Logger::getInstance();
@@ -531,7 +771,6 @@ int DatabaseData::parseRunstring(int argc, char **argv)
     try
     {
         ArgVector args = app.parseArgs(argc, argv);
-        cout << "...try of DatabaseData:: parseRunString\n";
         if (app.helpRequested())
         {
             return usage(argv[0]);
@@ -542,6 +781,10 @@ int DatabaseData::parseRunstring(int argc, char **argv)
             throw NidasAppException("--count must be 1-5000");
         }
 
+        _db.setURL(URL.getValue());
+        _db.setDatabase(Database.getValue());
+        _db.setCount(_count);
+        _db.setEcho(Echo.asBool());
         app.parseInputs(args);
     }
     catch (NidasAppException &ex)
@@ -552,40 +795,25 @@ int DatabaseData::parseRunstring(int argc, char **argv)
     return 0;
 }
 // TO DO: Change usage information
-int DatabaseData::usage(const char *argv0)
+int DataInfluxdb::usage(const char *argv0)
 {
-    cout << "... DatabaseData::usage\n";
     cerr << "Usage: " << argv0 << " [options] [inputURL] ...\n";
     cerr << "Standard options:\n"
          << app.usage() << "Examples:\n"
          << argv0 << " xxx.dat yyy.dat\n"
-         << argv0 << " file:/tmp/xxx.dat file:/tmp/yyy.dat\n"
-         << argv0 << " -p -x ads3.xml sock:hyper:30000\n"
          << endl;
     return 1;
 }
 
-int DatabaseData::main(int argc, char **argv)
+int DataInfluxdb::main(int argc, char **argv)
 {
-    DatabaseData stats;
-    multipleData.reserve(1500000);
-    multipleData = "";
+    DataInfluxdb didb;
     int result;
-    if ((result = stats.parseRunstring(argc, argv)))
+    if ((result = didb.parseRunstring(argc, argv)))
     {
-        cout << "main if statement\n";
         return result;
     }
-    cout << "main not if statement\n";
-    //SampleToDatabase sc;
-    //TO DO: is this the best place for invoking the creation of a new database? potential for using CLA for assigning the DB a name, or obtaining that info from the sensor?
-    //string DBname initialized in the constructor, and the first instantiation should be used continously thereafter
-    // string DBNameAssigned = "";
-    // cout << "Please enter a database name: ";
-    // getline(cin, DBNameAssigned);
-    // sc.DBname = DBNameAssigned;
-    //sc.createInfluxDB();
-    return stats.run();
+    return didb.run();
 }
 
 class AutoProject
@@ -595,7 +823,7 @@ class AutoProject
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-void DatabaseData::
+void DataInfluxdb::
     readHeader(SampleInputStream &sis)
 {
     // Loop over the header read until it is read or the periods expire.
@@ -623,7 +851,7 @@ void DatabaseData::
     }
 }
 
-void DatabaseData::
+void DataInfluxdb::
     readSamples(SampleInputStream &sis)
 {
     while (!app.interrupted())
@@ -634,11 +862,9 @@ void DatabaseData::
         }
         catch (n_u::IOException &e)
         {
-            cout << "...in catch of readSamples\n";
             // reached the end of file, ensure last remaining points are
             // written to the db
-            SampleToDatabase sd;
-            sd.dataToInfluxDB(multipleData);
+            _db.sendData();
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
@@ -647,20 +873,22 @@ void DatabaseData::
 }
 
 
-//both DatabaseData and dataDump use similar run()
-int DatabaseData::run() throw()
+//both DataInfluxdb and dataDump use similar run()
+int DataInfluxdb::run() throw()
 {
     int result = 0;
-    cout << "...DatabaseData::run\n";
     try
     {
-        cout << "...try\n";
+        if (Create.asBool())
+        {
+            _db.createInfluxDB();
+        }
+
         AutoProject aproject;
         IOChannel *iochan = 0;
 
         if (app.dataFileNames().size() > 0)
         {
-            cout << "... if there is a dataFileName\n";
             nidas::core::FileSet *fset =
                 nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
@@ -673,13 +901,9 @@ int DatabaseData::run() throw()
 
         SampleInputStream sis(iochan, /*processed*/true);
         sis.setMaxSampleLength(32768);
-        // sis.init();
-
         readHeader(sis);
 
         const SampleInputHeader &header = sis.getInputHeader();
-
-        list<DSMSensor *> allsensors;
 
         string xmlFileName = app.xmlHeaderFile();
         if (xmlFileName.length() == 0)
@@ -701,6 +925,7 @@ int DatabaseData::run() throw()
 
         Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
+        list<DSMSensor *> allsensors;
         DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
         for (; di.hasNext();)
         {
@@ -708,10 +933,9 @@ int DatabaseData::run() throw()
             const list<DSMSensor *> &sensors = dsm->getSensors();
             allsensors.insert(allsensors.end(), sensors.begin(), sensors.end());
         }
-        XMLImplementation::terminate();
 
         SamplePipeline pipeline;
-        CounterClient counter(allsensors, app);
+        CounterClient counter(&_db, allsensors, app);
 
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(0);
@@ -750,6 +974,7 @@ int DatabaseData::run() throw()
             pipeline.interrupt();
             pipeline.join();
             sis.close();
+            XMLImplementation::terminate();
             throw(e);
         }
         pipeline.disconnect(&sis);
@@ -763,13 +988,15 @@ int DatabaseData::run() throw()
     catch (n_u::Exception &e)
     {
         cerr << e.what() << endl;
-        XMLImplementation::terminate(); // ok to terminate() twice
+        XMLImplementation::terminate(); 
         result = 1;
     }
+    // ok to terminate() twice
+    XMLImplementation::terminate();
     return result;
 }
 
 int main(int argc, char **argv)
 {
-    return DatabaseData::main(argc, argv);
+    return DataInfluxdb::main(argc, argv);
 }
