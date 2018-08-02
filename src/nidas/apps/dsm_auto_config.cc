@@ -275,12 +275,17 @@ int main(int argc, char* argv[]) {
                 break;
         }
 
-        std::cout << "Log level string: " << levelStr << std::endl;
     }
+
+    if (levelStr == "level=") {
+        levelStr.append("warning");
+    }
+    std::cout << "Log level string: " << levelStr << std::endl;
 
     logger = Logger::getInstance();
     scheme = logger->getScheme("autoconfig_default");
-    scheme.addConfig(LogConfig(levelStr.c_str()));
+    LogConfig lc(levelStr.c_str());
+    scheme.addConfig(lc);
     logger->setScheme(scheme);
 
 
@@ -302,6 +307,18 @@ int main(int argc, char* argv[]) {
 
     ptb210.open(O_RDWR);
     ptb210.close();
+
+    ptb210.~PTB210();
+    std::cout << "~PTB210(): I'm still alive!!!" << std::endl;
+
+    delete logger;
+    std::cout << "~Logger(): I'm still alive!!!" << std::endl;
+
+    scheme.~LogScheme();
+    std::cout << "~LogScheme(): I'm still alive!!!" << std::endl;
+
+    scheme.clearConfigs();
+    std::cout << "scheme.clearConfigs(): I'm still alive!!!" << std::endl;
 
     // all good, return 0
     return 0;
