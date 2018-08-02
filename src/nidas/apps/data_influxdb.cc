@@ -318,23 +318,27 @@ class SampleToDatabase
         {
             return;
         }
+        if (!stag->getSite())
+        {
+            NidasApp* app = NidasApp::getApplicationInstance();
+            WLOG(("sample tag has no site, cannot import: ")
+                 << app->formatId(sid));
+            return;
+        }
         const std::vector<const Variable *> &variables = stag->getVariables();
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
             varnames.push_back(variables[i]->getName());
-            varunits.push_back(variables[i]->getUnits());
+            string units = variables[i]->getUnits();
+            const VariableConverter* vc = variables[i]->getConverter();
+            if (vc)
+            {
+                units = vc->getUnits();
+            }
+            varunits.push_back(units);
         }
-        //TO DO: determine & implement how best to incorporate this change necessary for the different sites: given as command line arguements
-        //sitename added to constructor, stripped the _ from the suffix to use as the MEASUREMENT name in the influx database
-        //necessary for the weather stations
-        //EOL-WEATHER-STATIONS
-        sitename = stag->getSuffix();
-        measurementName = sitename.erase(0,1);
+        setSiteAndMeasurement(stag);
 
-        //for conventional nidas configurations the site name should come from DSMSensor::getSite()->getName()
-        //necessary for grainex/conventional projects
-        //CONVENTIONAL PROJECTS
-        //sitename = stag->getSite()->getName();
         dsmid = to_string(stag->getDSMId());
         int tempSpSid = stag->getSpSId();
         if (tempSpSid >= 0x8000)
@@ -344,12 +348,41 @@ class SampleToDatabase
             spsid = intToHex.str();
         }
         else
+        {
             spsid = to_string(tempSpSid);
-        // //this measurement name is not used currently for weather_stations, weather_stations use the sitename
-        // measurementName = "dsmid:" + dsmid + ".spsid:" + spsid;
-        // info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + " ";
-        // info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + ",units=metric ";
-        info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename + ",sps_id=" + spsid + ",units=";
+        }
+
+        info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename;
+        const DSMSensor* dsm = stag->getDSMSensor();
+        if (dsm)
+        {
+            string height = dsm->getHeightString();
+            if (height.length() > 0)
+            {
+                info += ",height=" + height;
+            }
+        }
+        info += ",sps_id=" + spsid;
+    }
+
+    void
+    setSiteAndMeasurement(const SampleTag* stag)
+    {
+        const Site* site = stag->getSite();
+
+        // We have to distinguish between the EOL weather stations and all
+        // other ISFS projects, since for the weather stations the site
+        // names must come from the sensor suffix.  So use the fact that
+        // only the weather stations will use a site name of eol-rt-data.
+        sitename = site->getName();
+
+        // EOL-WEATHER-STATIONS
+        if (sitename == "eol-rt-data")
+        {
+            sitename = stag->getSuffix();
+            sitename.erase(0,1);
+        }
+        measurementName = sitename;
     }
 
     bool
@@ -515,7 +548,10 @@ accumulate(const Sample *samp)
         else
         {
             data = info;
-            data += varunits[i];
+            if (varunits[i].length() > 0)
+            {
+                data += ",units=" + varunits[i];
+            }
             data += " ";
             data += varnames[i];
             data += "=";
@@ -529,13 +565,13 @@ accumulate(const Sample *samp)
 }
 
 
-class CounterClient : public SampleClient
+class SampleDispatcher : public SampleClient
 {
 public:
-    CounterClient(InfluxDB* db,
-                  const list<DSMSensor *> &sensors, NidasApp &app);
+    SampleDispatcher(InfluxDB* db,
+                     const list<DSMSensor *> &sensors, NidasApp &app);
 
-    virtual ~CounterClient() {}
+    virtual ~SampleDispatcher() {}
 
     void flush() throw() {}
 
@@ -577,39 +613,22 @@ private:
     NidasApp &_app;
 };
 
-// void
-// CounterClient::
-// resetResults()
-// {
-//     cout << "... CounterClient::resetResults\n";
-//     cout << "...do i need this? 5\n";
-//     sample_map_t::iterator si;
-//     for (si = _samples.begin(); si != _samples.end(); ++si)
-//     {
-//         si->second.reset();
-//     }
-// }
 
-CounterClient::CounterClient(InfluxDB* db,
-                             const list<DSMSensor *> &sensors,
-                             NidasApp &app) :
+
+SampleDispatcher::SampleDispatcher(InfluxDB* db,
+                                   const list<DSMSensor *> &sensors,
+                                   NidasApp &app) :
     _samples(),
     _app(app)
 {
-    DLOG(("CounterClient::CounterClient()..."));
+    DLOG(("SampleDispatcher::SampleDispatcher()..."));
     SampleMatcher &matcher = _app.sampleMatcher();
     list<DSMSensor *>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si)
     {
-        // Create a SampleToDatabase for samples from the given sensors.  Raw
-        // samples are named by the sensor device, processed samples by the
-        // first variable in the first sample tag.
+        // Create a SampleToDatabase for processed samples from the given
+        // sensors.
         DSMSensor *sensor = *si;
-        string sname = sensor->getDSMConfig()->getName() + ":" +
-                       sensor->getDeviceName();
-
-        // for samples show the first variable name, followed by ",..."
-        // if more than one.
         SampleTagIterator ti = sensor->getSampleTagIterator();
         for (; ti.hasNext();)
         {
@@ -656,7 +675,7 @@ CounterClient::CounterClient(InfluxDB* db,
     }
 }
 
-bool CounterClient::receive(const Sample *samp) throw()
+bool SampleDispatcher::receive(const Sample *samp) throw()
 {
     dsm_sample_id_t sampid = samp->getId();
     if (!_app.sampleMatcher().match(sampid))
@@ -667,7 +686,7 @@ bool CounterClient::receive(const Sample *samp) throw()
     sample_map_t::iterator it = findStats(sampid);
     if (it == _samples.end())
     {
-        ELOG(("received sample which is not in the config: ")
+        WLOG(("received sample which is not in the config: ")
               << _app.formatId(sampid));
         // When there is no header from which to gather samples ahead of
         // time, just add a SampleToDatabase instance for any new raw sample
@@ -924,7 +943,7 @@ int DataInfluxdb::run() throw()
         }
 
         SamplePipeline pipeline;
-        CounterClient counter(&_db, allsensors, app);
+        SampleDispatcher dispatcher(&_db, allsensors, app);
 
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(0);
@@ -942,8 +961,7 @@ int DataInfluxdb::run() throw()
         pipeline.connect(&sis);
 
         // 3. connect the client to the pipeline
-        pipeline.getProcessedSampleSource()->addSampleClient(&counter);
-        pipeline.getRawSampleSource()->addSampleClient(&counter); //maybe??
+        pipeline.getProcessedSampleSource()->addSampleClient(&dispatcher);
 
         try
         {
@@ -958,7 +976,7 @@ int DataInfluxdb::run() throw()
         }
         catch (n_u::IOException &e)
         {
-            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+            pipeline.getProcessedSampleSource()->removeSampleClient(&dispatcher);
             pipeline.disconnect(&sis);
             pipeline.interrupt();
             pipeline.join();
@@ -968,8 +986,7 @@ int DataInfluxdb::run() throw()
         }
         pipeline.disconnect(&sis);
         pipeline.flush();
-        pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
-        pipeline.getRawSampleSource()->removeSampleClient(&counter); //maybe???
+        pipeline.getProcessedSampleSource()->removeSampleClient(&dispatcher);
         sis.close();
         pipeline.interrupt();
         pipeline.join();
