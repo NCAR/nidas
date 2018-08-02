@@ -67,11 +67,11 @@ isff/datasets
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc'))
 
-dpvenv = env.Clone()
-dpvenv.AppendUnique(CXXFLAGS='-std=c++11')
-dpvenv.AppendUnique(LIBS='curl')
-dpv = dpvenv.NidasProgram('data_influxdb.cc')
-dpvenv.Alias('data_influxdb', dpv)
+didbenv = env.Clone()
+didbenv.AppendUnique(CXXFLAGS='-std=c++11')
+didbenv.AppendUnique(LIBS='curl')
+didb = didbenv.NidasProgram('data_influxdb.cc')
+didbenv.Alias('data_influxdb', didb)
 
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
