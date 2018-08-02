@@ -64,11 +64,13 @@ class Probe
 {
 public:
   Probe() :
-      sensor(0), resolution(0), resolutionM(0.0), id(0),
-      serialNumber(), hasOverloadCount(0), nDiodes(64),
-      recordCount(0), rejectRecordCount(0),
-      diodeCount(), particleCount()
+      sensor(0), resolution(0), resolutionM(0.0), id(0), serialNumber(),
+      hasOverloadCount(0), nDiodes(64), recordCount(0), rejectRecordCount(0),
+      rejectTooFewParticleCount(0), rejectTooFewDiodesCount(0),
+      diodeCount(), particleCount(), totalParticles(0), inDOF(0)
     {
+    memset(diodeCount, 0, sizeof(diodeCount));
+    memset(particleCount, 0, sizeof(particleCount));
     }
 
   // Input info.
@@ -89,8 +91,10 @@ public:
   // Total number of records found in file.
   size_t recordCount;
 
-  // Total number of records rejected due to too few sync words.
+  // Total number of records rejected.
   size_t rejectRecordCount;
+  size_t rejectTooFewParticleCount;
+  size_t rejectTooFewDiodesCount;
 
   /* Count of each diode value of 1 for the entire flight, sync words excluded.
    * This diagnostic output helps find which diode is bad when the probe runs away.
@@ -101,6 +105,9 @@ public:
    * This diagnostic output helps find which diode is bad when the probe runs away.
    */
   size_t particleCount[512];    // 512 is max possible slices/record.
+
+  size_t totalParticles;
+  size_t inDOF;
 
 private:
     Probe(const Probe&);

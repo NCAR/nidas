@@ -12,8 +12,7 @@ env = Environment(tools=['default', 'gitinfo'])
 
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
-gopts = eol_scons.GlobalVariables('nidas.conf')
-opts = Variables('nidas.conf')
+opts = eol_scons.GlobalVariables('nidas.conf')
 opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
@@ -21,8 +20,6 @@ opts.AddVariables(('PREFIX',
 opts.AddVariables(('OTHER_PREFIX',
                    'Optional prefix for other dependencies.',
                    None, None, eol_scons.PathToAbsolute))
-
-# opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
 # May want to change this so that only single vales in BUILDS are allowed.
 # Specifiying multiple BUILDS becomes problematic with the
@@ -33,12 +30,15 @@ opts.AddVariables(('OTHER_PREFIX',
 # related to the MakeSymLink method in SharedLibrary3Install,
 # even when just doing a clean.  Not sure how to fix it...
 # So if you get that error, resort to single BUILDS.
-opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install: host, arm, armbe, armel or armhf.',
+opts.Add('BUILDS', '\n'
+         '  Space-separated list of architectures to build and install:\n'
+         '  host, arm, armbe, armel or armhf.',
          'host')
 
-opts.Add('MACHS',
-         'Space-separated list of machine names for the architecture (viper, vulcan, titan, rpi2 or all), for building and installing machine-specific code, such as kernel modules.',
+opts.Add('MACHS', '\n'
+         '  Space-separated list of machine names for the architecture\n'
+         '  (viper, vulcan, titan, rpi2 or all), for building and installing\n'
+         '  machine-specific code, such as kernel modules.',
          'all')
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
@@ -52,18 +52,19 @@ opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.',
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
                       'Build linux modules when possible.', 'on'))
-opts.Add('REPO_TAG', 
-         'git tag of the source, in the form "vX.Y", when building outside of a git repository')
-opts.Add('PKG_CONFIG_PATH', 
-         'Path to pkg-config files, if you need other than the system default')
+opts.Add('REPO_TAG', '\n'
+         '  git tag of the source, in the form "vX.Y", when building\n'
+         '  outside of a git repository')
+opts.Add('PKG_CONFIG_PATH', '\n'
+         '  Path to pkg-config files, if you need other than the system default')
 
 # Generally can let this default to the values set below.
 # For x86_64 builds it defaults to 'lib64'. When building
 # a Debian package for x86_64 (amd64), the Makefile that calls
 # scons pre-sets it to lib/x86_64-linux-gnu to be similar with
 # the arm libs and be more Debian-multiarch-like.
-opts.Add('ARCHLIBDIR',
-         'Where to install NIDAS libraries relative to $PREFIX')
+opts.Add('ARCHLIBDIR', '\n'
+         '  Where to install NIDAS libraries relative to $PREFIX')
 
 opts.Add(BoolVariable('BUILD_RAF', 
                       'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
@@ -79,7 +80,9 @@ BUILDS = Split(env['BUILDS'])
 MACHS = Split(env['MACHS'])
 
 if 'host' in BUILDS or 'x86' in BUILDS:
-    opts.Add('KERNELDIR', 'path to linux kernel source for build host, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
+    opts.Add('KERNELDIR', '\n'
+             '  path to linux kernel source for build host,\n'
+             '  (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:', '*')
 
 if 'arm' in BUILDS:
     opts.Add('KERNELDIR_viper_arm', 'path to linux kernel source for Viper:',
@@ -377,17 +380,29 @@ AlwaysBuild(dox)
 # a target, and the other install targets this rule to create $PREFIX
 Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
-opts.Update(env)
-gopts.Update(env)
-Help(opts.GenerateHelpText(env) + gopts.GenerateHelpText(env) + """
-targets (use -c to clean targets)
-(none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
-host    build libraries, executable programs and modules for host system.
-arm    build libraries, executables and kernel modules for Eurotech Viper and Titan, running (obsolete) Arcom Embedded Linux
-armbe  build libraries, executables and kernel modules for Eurotech Vulcan, running Arcom Embedded Linux
-armel  build libraries, executables and kernel modules for Eurotech Viper and Titan, Debian 8
-armhf  build libraries, executables and kernel modules for ARMv6/7 systems, such as R Pi2, running Raspian
-install build and install all modules, libraries, headers and executables.
--c install  clean targets from $PREFIX
-""")
+# Use the eol_scons SetHelp() method to generate all the help text,
+# including the directory of aliases, but then append a custom summary of
+# nidas targets.
+env.SetHelp()
+nidas_help = """
+Main Targets (use -c to clean targets):
+
+ (none)     -- build libraries, executables and kernel modules for ARM, ARMBE, 
+               and native systems.
+ host       -- build libraries, executable programs and modules for host system.
+ arm        -- build libraries, executables and kernel modules for Eurotech Viper 
+               and Titan, running (obsolete) Arcom Embedded Linux
+ armbe      -- build libraries, executables and kernel modules for Eurotech Vulcan, 
+               running Arcom Embedded Linux
+ armel      -- build libraries, executables and kernel modules for Eurotech Viper 
+               and Titan, Debian 8
+ armhf      -- build libraries, executables and kernel modules for ARMv6/7 systems, 
+               such as R Pi2, running Raspian
+ install    -- build and install all modules, libraries, headers and executables.
+ -c install -- clean targets from $PREFIX
+
+Some targets will not exist if the corresponding architecture has not been
+specified in the BUILDS variable.
+"""
+env.AddHelp(nidas_help)
 

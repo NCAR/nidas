@@ -53,13 +53,13 @@ public:
   
 protected:
 
-    void init_parameters()
+    virtual void init_parameters()
         throw(nidas::util::InvalidParameterException);
 
     /**
      * Process the Shadow-OR sample from the probe.
      */
-    bool processSOR(const Sample * samp, std::list < const Sample * >&results)
+    virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results)
         throw();
 
     void scanForMissalignedSyncWords(const Sample * samp, const unsigned char * sp) const;
@@ -81,6 +81,15 @@ protected:
     bool processImageRecord(const Sample * samp,
 	std::list < const Sample * >&results, int stype) throw();
 
+    /* probe clock rate 12 MHz for v2
+     * v3 is 33 MHz
+     */
+    unsigned int _probeClockRate;
+ 
+    unsigned long long _timeWordMask;
+
+    unsigned char _dofMask;
+
 //@{
     /**
      * Sync and overload words/masks.
@@ -100,7 +109,7 @@ private:
     bool _blankLine;
 
     // Save previous time word with ability to save across records.
-    long long prevTimeWord;
+    long long _prevTimeWord;
 };
 
 }}}       // namespace nidas namespace dynld namespace raf

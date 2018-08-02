@@ -300,6 +300,33 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
   BOOST_CHECK_EQUAL(app.processData(), true);
 }
 
+// Make sure long log args are accepted.
+BOOST_AUTO_TEST_CASE(test_nidas_app_long_args)
+{
+  std::vector<std::string> args;
+  {
+    NidasApp app("test");
+    app.enableArguments(app.LogConfig);
+    const char* argv[] = { "--logconfig", "debug" };
+    args = array_vector(argv);
+    app.resetLogging();
+    args = app.parseArgs(args);
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+    BOOST_CHECK_EQUAL(args.empty(), true);
+  }
+  {
+    NidasApp app("test");
+    app.enableArguments(app.LogConfig);
+    const char* argv[] = { "--loglevel", "debug" };
+    args = array_vector(argv);
+    app.resetLogging();
+    args = app.parseArgs(args);
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+    BOOST_CHECK_EQUAL(args.empty(), true);
+  }
+}
+
+
 template <typename T, typename C = std::vector<T> >
 class make_vector {
 public:
