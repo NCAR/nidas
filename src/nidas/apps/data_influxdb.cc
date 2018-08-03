@@ -161,6 +161,9 @@ private:
 // std::mutex mtx;
 
 
+void
+dataToInfluxDB(CURL* curl, const std::string& url,
+               CharBuffer* data, unsigned int nmeasurements);
 
 /**
  * Methods and memory for creating an Influx database, accumulating
@@ -177,17 +180,22 @@ public:
              const std::string& dbname = "") :
         _url(url),
         _dbname(dbname),
-        _data(),
+        _data(0),
+        _data1(),
+        _data2(),
         _nmeasurements(0),
         _count(1),
         _echo(false),
-        _curl(0)
+        _async(true),
+        _curl(0),
+        _post()
     {
         _curl = curl_easy_init();
         if (! _curl)
         {
             throw std::runtime_error("curl_easy_init failed.");
         }
+        _data = &_data1;
     }
 
     void
@@ -218,6 +226,16 @@ public:
         _echo = echo;
     }
 
+    /**
+     * If @p enable is true, data will be posted to the database
+     * asynchronously.
+     **/
+    void
+    setAsync(bool enable)
+    {
+        _async = enable;
+    }
+
     ~InfluxDB()
     {
         curl_easy_cleanup(_curl);
@@ -241,7 +259,7 @@ public:
     void
     addMeasurement(const std::string& data)
     {
-        char* buf = _data.getSpace(data.length());
+        char* buf = _data->getSpace(data.length());
         VLOG(("adding data to buffer..."));
         strcat(buf, data.c_str());
         ++_nmeasurements;
@@ -254,49 +272,57 @@ public:
     void
     sendData()
     {
-        if (_data.empty())
+        if (_data->empty())
         {
             return;
         }
-        DLOG(("sendData()..."));
+        DLOG(("sendData()...") << "async:" << _async);
+
+        // Do one of three things with the current data: echo, send it
+        // asynchronously, or send it synchronously.
         if (_echo)
         {
-            std::cout << _data.get();
+            std::cout << _data->get();
+            _data->clear();
+        }
+        else if (_async)
+        {
+            // Make sure any current _post future is finished before
+            // launching another one on the next buffer.
+            if (_post.valid())
+                _post.wait();
+            _post = std::async(std::launch::async, &dataToInfluxDB,
+                               _curl, getWriteURL(), _data, _nmeasurements);
         }
         else
         {
-            // std::launch::async forces it to launch in parallel (as
-            // opposed to the default of sequentially)
-
-            // std::future<void> call = std::async(std::launch::async,
-            //     &SampleToDatabase::dataToInfluxDB, this, multipleData);
-
-            // wait for async processing of each line of data to finish
-            // before clearing the multipleData string
-
-            // mtx.lock();
-            // string dbdata = multipleData;
-            // multipleData = "";
-            // mtx.unlock();
-            // cout << multipleData.size() << "\n";
-
-            if (1)
-            {
-                std::async(std::launch::async, &InfluxDB::dataToInfluxDB, this);
-            }
-            else
-            {
-                dataToInfluxDB();
-            }
+            dataToInfluxDB(_curl, getWriteURL(), _data, _nmeasurements);
         }
+        // Now swap the _data pointer to stop writing into the buffer which
+        // has just been passed to the async call.
+        if (_data == &_data1)
+            _data = &_data2;
+        else
+            _data = &_data1;
         _nmeasurements = 0;
+    }
+
+    /**
+     * Send whatever is left in the current buffer and wait for it to
+     * finish.
+     **/
+    void
+    flush()
+    {
+        ILOG(("flushing database writes..."));
+        sendData();
+        // Wait until any current async call is finished.
+        if (_post.valid())
+            _post.wait();
     }
 
     void
     createInfluxDB();
-
-    void
-    dataToInfluxDB();
 
 private:
 
@@ -306,12 +332,29 @@ private:
     string _url;
     string _dbname;
 
-    CharBuffer _data;
+    // _data points to the current data buffer to which data will be added.
+    // This is a double-buffering scheme to allow one buffer to be written
+    // while the other posts to influxdb.
+    CharBuffer* _data;
+    CharBuffer _data1;
+    CharBuffer _data2;
+
+    // This is always the number of measurements currently stored in the
+    // active data buffer.
     unsigned int _nmeasurements;
+
+    // The maximum number of measurements to store in the buffer before
+    // sending it to the database.
     unsigned int _count;
+
     bool _echo;
+
+    // Use asynchronous calls to post data buffer to the database.
+    bool _async;
     
     CURL *_curl;
+
+    std::future<void> _post;
 };
 
 
@@ -556,20 +599,23 @@ createInfluxDB()
 
 
 /**
- * Post the current data buffer to the database, then clear it.
+ * Post the given data buffer to the database, then clear it.  This is a
+ * function and not a method of InfluxDB, so that it only uses the
+ * variables passed into it and no locking is needed to ensure exclusive
+ * access to the object.  The CURL pointer is only ever used here, so as
+ * long as only double-buffering is used, only one thread should ever call
+ * into the curl library at a time.
  **/
 void
-InfluxDB::
-dataToInfluxDB()
+dataToInfluxDB(CURL* curl, const std::string& url,
+               CharBuffer* data, unsigned int nmeasurements)
 {
-    string url = getWriteURL();
-    DLOG(("posting ") << _nmeasurements << " measurements to database: " << url);
+    DLOG(("posting ") << nmeasurements << " measurements: " << url);
     
-    curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, _data.get());
-    CURLcode res = curl_easy_perform(_curl);
-    _data.clear();
-    // sleep(5);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data->get());
+    CURLcode res = curl_easy_perform(curl);
+    data->clear();
     if (res != CURLE_OK)
     {
         ELOG(("database write failed: ") << res);
@@ -783,6 +829,7 @@ class DataInfluxdb
     NidasAppArg URL;
     NidasAppArg Database;
     NidasAppArg Echo;
+    NidasAppArg Async;
     NidasAppArg Create;
 
     InfluxDB _db;
@@ -795,7 +842,7 @@ DataInfluxdb::DataInfluxdb() :
     app("data_influxdb"),
     Count("--count", "<count>",
           "Accumulate <count> measurement lines before posting to the "
-          "database.  Set to 1 to send each line immediately, the max is 5000.",
+          "database.  Set to 1 to send each line immediately, the max is 10000.",
           "5000"),
     URL("--url", "<url>",
         "The URL to the influx database.",
@@ -806,16 +853,18 @@ DataInfluxdb::DataInfluxdb() :
     Echo("--echo", "",
          "Echo post data to stdout instead of writing to the database.",
          "false"),
+    Async("--async", "{yes|no}",
+          "Specify yes to post data to the database asynchronously.",
+          "yes"),
     Create("--create", "",
            "Create the given database before posting data to it."),
     _db()
 {
     app.setApplicationInstance();
     app.setupSignals();
-    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
-                        app.SampleRanges | 
-                        app.Version | app.InputFiles |
-                        app.Help | Count | URL | Database | Echo | Create);
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Help |
+                        app.SampleRanges | app.Version | app.InputFiles |
+                        Count | URL | Database | Echo | Create | Async);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -837,9 +886,9 @@ int DataInfluxdb::parseRunstring(int argc, char **argv)
             return usage(argv[0]);
         }
         _count = Count.asInt();
-        if (_count < 1 || _count > 5000)
+        if (_count < 1 || _count > 10000)
         {
-            throw NidasAppException("--count must be 1-5000");
+            throw NidasAppException("--count must be 1-10000");
         }
 
         _db.setURL(URL.getValue());
@@ -851,6 +900,9 @@ int DataInfluxdb::parseRunstring(int argc, char **argv)
         _db.setDatabase(Database.getValue());
         _db.setCount(_count);
         _db.setEcho(Echo.asBool());
+        if (Async.getValue() != "yes" && Async.getValue() != "no")
+            throw NidasAppException("--async must be 'yes' or 'no'.");
+        _db.setAsync(Async.getValue() == "yes");
         app.parseInputs(args);
     }
     catch (NidasAppException &ex)
@@ -930,7 +982,7 @@ void DataInfluxdb::
         {
             // reached the end of file, ensure last remaining points are
             // written to the db
-            _db.sendData();
+            _db.flush();
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
