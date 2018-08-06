@@ -296,7 +296,7 @@ private:
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
 
-    PTB_CMD_ARG desiredScienceParameters[];
+    PTB_CMD_ARG* desiredScienceParameters;
 
 
     // no copying

@@ -279,6 +279,7 @@ PTB210::PTB210()
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
+    desiredScienceParameters = new PTB_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
@@ -289,6 +290,7 @@ PTB210::PTB210()
 PTB210::~PTB210()
 {
     freeRegex();
+    delete [] desiredScienceParameters;
 }
 
 void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
