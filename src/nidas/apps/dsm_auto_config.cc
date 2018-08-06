@@ -51,13 +51,30 @@
 #include <vector>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <list>
 
+
+#include <nidas/util/auto_ptr.h>
 #include <nidas/util/Logger.h>
 #include <nidas/dynld/isff/PTB210.h>
 #include <nidas/util/optionparser.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/DSMConfig.h>
 
-namespace n_d_s = nidas::dynld::isff;
-namespace n_u = nidas::util;
+using namespace nidas::core;
+using namespace nidas::dynld::isff;
+using namespace nidas::util;
+
+class AutoProject
+{
+public:
+    AutoProject() { n_c::Project::getInstance(); }
+    ~AutoProject() { n_c::Project::destroyInstance(); }
+    n_c::Project& operator()() {return *n_c::Project::getInstance();}
+};
+
+
 
 struct Arg: public option::Arg
 {
@@ -132,16 +149,6 @@ struct Arg: public option::Arg
         if ( argStatus == option::ARG_OK ) 
         {
             argStatus = NonEmpty( option, msg);
-            if ( argStatus == option::ARG_OK ) 
-            {
-                std::string sensorStr(option.arg);
-                std::transform(sensorStr.begin(), sensorStr.end(), sensorStr.begin(), ::toupper);
-                if (sensorStr != "PTB210") 
-                {
-                    argStatus = option::ARG_ILLEGAL;
-                    if (msg) printError("Option '", option, "' Device not supported.\n");
-                }
-            }
         }
 
         return argStatus;
@@ -288,37 +295,93 @@ int main(int argc, char* argv[]) {
     scheme.addConfig(lc);
     logger->setScheme(scheme);
 
+    // // xml config file use case
+    // if (options[XML]) {
+    //     typedef std::list<SerialSensor*> SerialSensorList;
 
-    // There's only PTB210 for now, so let's just instantiate it, and see how it goes.
-    n_d_s::PTB210 ptb210;
+    //     AutoProject ap;
+    // 	struct stat statbuf;
+    //     std::string xmlFileName = options[XML].arg;
+    //     SerialSensorList allSensors;
 
-    if (options[DEVICE]) {
-        std::string deviceStr(options[DEVICE].arg);
-        NLOG(("Performing Auto Config on Device: ") << deviceStr);
-        ptb210.setDeviceName(deviceStr);
-        ILOG(("Set device name: ") << ptb210.getDeviceName());
-    }
+    //     if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
+    //         auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
-    if (ptb210.getName().empty())
-    {
-        std::cerr << "No device name specified. Cannot continue!!" << std::endl;
-        exit(100);
-    }
+    //         ap().fromDOMElement(doc->getDocumentElement());
 
-    ptb210.open(O_RDWR);
-    ptb210.close();
+    //         DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 
-    ptb210.~PTB210();
-    std::cout << "~PTB210(): I'm still alive!!!" << std::endl;
+    //         for ( ; di.hasNext(); ) {
+    //             const DSMConfig* dsm = di.next();
+    //             const SerialSensorList& sensors = reinterpret_cast<const SerialSensorList&>((dsm->getSensors()));
+    //             allSensors.insert(allSensors.end(),sensors.begin(), sensors.end());
+    //         }
+    //     }
 
-    delete logger;
-    std::cout << "~Logger(): I'm still alive!!!" << std::endl;
+    //     XMLImplementation::terminate();
+    // }
 
-    scheme.~LogScheme();
-    std::cout << "~LogScheme(): I'm still alive!!!" << std::endl;
+    // else {
+    //     if (options[SENSOR]) {
+    //         std::string deviceStr;
+            
+    //         if (options[DEVICE]) {
+    //             std::string deviceStr = options[DEVICE].arg;
+    //             NLOG(("Performing Auto Config on Device: ") << deviceStr);
+    //         }
+    //         else
+    //         {
+    //             std::cerr << "No device name specified. Cannot continue!!" << std::endl;
+    //             return 100;
+    //         }
 
-    scheme.clearConfigs();
-    std::cout << "scheme.clearConfigs(): I'm still alive!!!" << std::endl;
+    //         DOMObjectFactory sensorFactory;
+    //         std::string sensorClass = options[SENSOR].arg;
+    //         NLOG(("Using Sensor: ") << sensorClass);
+
+    //         DOMable* domSensor = sensorFactory.createObject(sensorClass);
+    //         if (!domSensor) {
+    //             std::cerr << "Sensor creator object not found: " << sensorClass << std::endl;
+    //             return 200;
+    //         }
+
+    //         SerialSensor*  pSerialSensor = dynamic_cast<SerialSensor*>(domSensor);
+    //         if (!pSerialSensor) {
+    //             std::cerr << "This utility only works with serial sensors, "
+    //                          "particularly those which have an autoconfig capability" << std::endl;
+    //             return 300;
+    //         }
+
+    //         pSerialSensor->setDeviceName(deviceStr);
+    //         NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
+
+    //         NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
+    //         pSerialSensor->open(O_RDWR);
+
+    //         NLOG(("All the fun there was to be had, has been had"));
+    //         NLOG(("Close the device"));
+    //         pSerialSensor->close();
+
+    //         delete pSerialSensor;
+    //     }
+
+
+        // There's only PTB210 for now, so let's just instantiate it, and see how it goes.
+        PTB210 ptb210;
+        ptb210.open(O_RDWR);
+        ptb210.close();
+
+        ptb210.~PTB210();
+        std::cout << "~PTB210(): I'm still alive!!!" << std::endl;
+
+    // delete logger;
+    // std::cout << "~Logger(): I'm still alive!!!" << std::endl;
+
+    // scheme.~LogScheme();
+    // std::cout << "~LogScheme(): I'm still alive!!!" << std::endl;
+
+    // scheme.clearConfigs();
+    // std::cout << "scheme.clearConfigs(): I'm still alive!!!" << std::endl;
 
     // all good, return 0
     return 0;
