@@ -1452,6 +1452,10 @@ public:
     ++*buffer_max;
     return true;
   }
+
+private:
+  CountOptionsAction(const CountOptionsAction& rRight);
+  CountOptionsAction& operator=(const CountOptionsAction& rRight);
 };
 
 /**
@@ -1518,6 +1522,10 @@ public:
 
     return true;
   }
+
+private:
+  StoreOptionAction(const StoreOptionAction& rRight);
+  StoreOptionAction& operator=(const StoreOptionAction& rRight);
 };
 
 inline void Parser::parse(bool gnu, const Descriptor usage[], int argc, const char** argv, Option options[],
