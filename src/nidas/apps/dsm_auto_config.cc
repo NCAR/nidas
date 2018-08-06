@@ -295,93 +295,84 @@ int main(int argc, char* argv[]) {
     scheme.addConfig(lc);
     logger->setScheme(scheme);
 
-    // // xml config file use case
-    // if (options[XML]) {
-    //     typedef std::list<SerialSensor*> SerialSensorList;
+    // xml config file use case
+    if (options[XML]) {
+        typedef std::list<SerialSensor*> SerialSensorList;
 
-    //     AutoProject ap;
-    // 	struct stat statbuf;
-    //     std::string xmlFileName = options[XML].arg;
-    //     SerialSensorList allSensors;
+        AutoProject ap;
+    	struct stat statbuf;
+        std::string xmlFileName = options[XML].arg;
+        SerialSensorList allSensors;
 
-    //     if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
-    //         auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+        if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
+            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
-    //         ap().fromDOMElement(doc->getDocumentElement());
+            ap().fromDOMElement(doc->getDocumentElement());
 
-    //         DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 
-    //         for ( ; di.hasNext(); ) {
-    //             const DSMConfig* dsm = di.next();
-    //             const SerialSensorList& sensors = reinterpret_cast<const SerialSensorList&>((dsm->getSensors()));
-    //             allSensors.insert(allSensors.end(),sensors.begin(), sensors.end());
-    //         }
-    //     }
+            for ( ; di.hasNext(); ) {
+                const DSMConfig* dsm = di.next();
+                const SerialSensorList& sensors = reinterpret_cast<const SerialSensorList&>((dsm->getSensors()));
+                allSensors.insert(allSensors.end(),sensors.begin(), sensors.end());
+            }
+        }
 
-    //     XMLImplementation::terminate();
-    // }
+        XMLImplementation::terminate();
+    }
 
-    // else {
-    //     if (options[SENSOR]) {
-    //         std::string deviceStr;
+    else {
+        if (options[SENSOR]) {
+            std::string deviceStr;
             
-    //         if (options[DEVICE]) {
-    //             std::string deviceStr = options[DEVICE].arg;
-    //             NLOG(("Performing Auto Config on Device: ") << deviceStr);
-    //         }
-    //         else
-    //         {
-    //             std::cerr << "No device name specified. Cannot continue!!" << std::endl;
-    //             return 100;
-    //         }
+            if (options[DEVICE]) {
+                deviceStr = options[DEVICE].arg;
+                NLOG(("Performing Auto Config on Device: ") << deviceStr);
+            }
+            else
+            {
+                std::cerr << "No device name specified. Cannot continue!!" << std::endl;
+                return 100;
+            }
 
-    //         DOMObjectFactory sensorFactory;
-    //         std::string sensorClass = options[SENSOR].arg;
-    //         NLOG(("Using Sensor: ") << sensorClass);
+            DOMObjectFactory sensorFactory;
+            std::string sensorClass = options[SENSOR].arg;
+            NLOG(("Using Sensor: ") << sensorClass);
 
-    //         DOMable* domSensor = sensorFactory.createObject(sensorClass);
-    //         if (!domSensor) {
-    //             std::cerr << "Sensor creator object not found: " << sensorClass << std::endl;
-    //             return 200;
-    //         }
+            DOMable* domSensor = sensorFactory.createObject(sensorClass);
+            if (!domSensor) {
+                std::cerr << "Sensor creator object not found: " << sensorClass << std::endl;
+                return 200;
+            }
 
-    //         SerialSensor*  pSerialSensor = dynamic_cast<SerialSensor*>(domSensor);
-    //         if (!pSerialSensor) {
-    //             std::cerr << "This utility only works with serial sensors, "
-    //                          "particularly those which have an autoconfig capability" << std::endl;
-    //             return 300;
-    //         }
+            SerialSensor*  pSerialSensor = dynamic_cast<SerialSensor*>(domSensor);
+            if (!pSerialSensor) {
+                std::cerr << "This utility only works with serial sensors, "
+                             "particularly those which have an autoconfig capability" << std::endl;
+                return 300;
+            }
 
-    //         pSerialSensor->setDeviceName(deviceStr);
-    //         NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
+            NLOG(("Setting Device Name: ") << deviceStr);
+            pSerialSensor->setDeviceName(deviceStr);
+            NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
 
-    //         NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
-    //         pSerialSensor->open(O_RDWR);
+            NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
+            pSerialSensor->open(O_RDWR);
 
-    //         NLOG(("All the fun there was to be had, has been had"));
-    //         NLOG(("Close the device"));
-    //         pSerialSensor->close();
+            NLOG(("All the fun there was to be had, has been had"));
+            NLOG(("Close the device"));
+            pSerialSensor->close();
 
-    //         delete pSerialSensor;
-    //     }
+            delete pSerialSensor;
+        }
+    }
 
 
         // There's only PTB210 for now, so let's just instantiate it, and see how it goes.
-        PTB210 ptb210;
-        ptb210.open(O_RDWR);
-        ptb210.close();
-
-        ptb210.~PTB210();
-        std::cout << "~PTB210(): I'm still alive!!!" << std::endl;
-
-    // delete logger;
-    // std::cout << "~Logger(): I'm still alive!!!" << std::endl;
-
-    // scheme.~LogScheme();
-    // std::cout << "~LogScheme(): I'm still alive!!!" << std::endl;
-
-    // scheme.clearConfigs();
-    // std::cout << "scheme.clearConfigs(): I'm still alive!!!" << std::endl;
+        // PTB210 ptb210;
+        // ptb210.setDeviceName("/dev/ttyUSB0");
+        // ptb210.open(O_RDWR);
+        // ptb210.close();
 
     // all good, return 0
     return 0;
