@@ -61,6 +61,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/DSMConfig.h>
+#include <nidas/core/XMLParser.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -73,8 +74,6 @@ public:
     ~AutoProject() { n_c::Project::destroyInstance(); }
     n_c::Project& operator()() {return *n_c::Project::getInstance();}
 };
-
-
 
 struct Arg: public option::Arg
 {
@@ -305,20 +304,23 @@ int main(int argc, char* argv[]) {
         SerialSensorList allSensors;
 
         if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
-            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+            NLOG(("Found XML file: ") << xmlFileName);
 
-            ap().fromDOMElement(doc->getDocumentElement());
+            // auto_ptr<xercesc::DOMDocument> doc(ap().parseXMLConfigFile(xmlFileName));
+            ap().parseXMLConfigFile(xmlFileName);
 
-            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-
-            for ( ; di.hasNext(); ) {
-                const DSMConfig* dsm = di.next();
-                const SerialSensorList& sensors = reinterpret_cast<const SerialSensorList&>((dsm->getSensors()));
-                allSensors.insert(allSensors.end(),sensors.begin(), sensors.end());
+            NLOG(("Iterating through all the sensors specified in the XML file"));
+            SensorIterator sensit = ap().getSensorIterator();
+            while (sensit.hasNext() ) {
+                SerialSensor* pSerialSensor = dynamic_cast<SerialSensor*>(sensit.next());
+                if (!pSerialSensor) {
+                    NLOG(("Can't auto config a non-serial sensor. Skipping..."));
+                    continue;
+                }
+                pSerialSensor->open(O_RDWR);
+                pSerialSensor->close();
             }
         }
-
-        XMLImplementation::terminate();
     }
 
     else {
