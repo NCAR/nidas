@@ -335,124 +335,124 @@ void SerialSensor::fromDOMElement(
     XDOMElement xnode(node);
 
     if(node->hasAttributes()) {
-    // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    // get attribute name
-	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
+        // get all the attributes of the node
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            const std::string& aval = attr.getValue();
 
-	    if (aname == "ID");
-	    else if (aname == "IDREF");
-	    else if (aname == "class");
-	    else if (aname == "devicename");
-	    else if (aname == "id");
-        else if (aname == "porttype") {
-            string upperAval;
-            std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);;
-            if (upperAval == "RS232") _workingPortConfig.xcvrConfig.portType = RS232;
-            else if (upperAval == "RS422") _workingPortConfig.xcvrConfig.portType = RS422;
-            else if (upperAval == "RS485_HALF") _workingPortConfig.xcvrConfig.portType = RS485_HALF;
-            else if (upperAval == "RS485_FULL") _workingPortConfig.xcvrConfig.portType = RS485_FULL;
+            if (aname == "ID");
+            else if (aname == "IDREF");
+            else if (aname == "class");
+            else if (aname == "devicename");
+            else if (aname == "id");
+            else if (aname == "porttype") {
+                string upperAval;
+                std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);;
+                if (upperAval == "RS232") _workingPortConfig.xcvrConfig.portType = RS232;
+                else if (upperAval == "RS422") _workingPortConfig.xcvrConfig.portType = RS422;
+                else if (upperAval == "RS485_HALF") _workingPortConfig.xcvrConfig.portType = RS485_HALF;
+                else if (upperAval == "RS485_FULL") _workingPortConfig.xcvrConfig.portType = RS485_FULL;
+                else throw n_u::InvalidParameterException(
+                            string("SerialSensor:") + getName(),
+                            aname,aval);
+            }
+            else if (aname == "termination") {
+                if (aval == "NO_TERM") _workingPortConfig.xcvrConfig.termination = NO_TERM;
+                else if (aval == "TERM_120_OHM") _workingPortConfig.xcvrConfig.termination = TERM_120_OHM;
+                else throw n_u::InvalidParameterException(
+                            string("SerialSensor:") + getName(),
+                            aname,aval);
+            }
+            else if (aname == "baud") {
+                istringstream ist(aval);
+                int val;
+                ist >> val;
+                if (ist.fail() || !_workingPortConfig.termios.setBaudRate(val))
+                    throw n_u::InvalidParameterException(
+                        string("SerialSensor:") + getName(), aname,aval);
+            }
+            else if (aname == "parity") {
+            if (aval == "odd") _workingPortConfig.termios.setParity(n_u::Termios::ODD);
+            else if (aval == "even") _workingPortConfig.termios.setParity(n_u::Termios::EVEN);
+            else if (aval == "none") _workingPortConfig.termios.setParity(n_u::Termios::NONE);
             else throw n_u::InvalidParameterException(
-                        string("SerialSensor:") + getName(),
-                        aname,aval);
-        }
-        else if (aname == "termination") {
-            if (aval == "NO_TERM") _workingPortConfig.xcvrConfig.termination = NO_TERM;
-            else if (aval == "TERM_120_OHM") _workingPortConfig.xcvrConfig.termination = TERM_120_OHM;
+                string("SerialSensor:") + getName(),
+                aname,aval);
+            }
+            else if (aname == "databits") {
+                istringstream ist(aval);
+                int val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException(
+                    string("SerialSensor:") + getName(),
+                        aname, aval);
+                _workingPortConfig.termios.setDataBits(val);
+            }
+            else if (aname == "stopbits") {
+                istringstream ist(aval);
+                int val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException(
+                    string("SerialSensor:") + getName(),
+                        aname, aval);
+                _workingPortConfig.termios.setStopBits(val);
+            }
+            else if (aname == "rts485") {
+                if (aval == "true" || aval == "1") {
+                    _workingPortConfig.rts485 = 1;
+                }
+                else if (aval == "false" || aval == "0") {
+                    _workingPortConfig.rts485 = 0;
+                }
+                else if (aval == "-1") {
+                    _workingPortConfig.rts485 = -1;
+                }
+                else {
+                    throw n_u::InvalidParameterException(
+                    string("SerialSensor:") + getName(),
+                        aname, aval);
+                }
+            }
+            else if (aname == "nullterm");
+            else if (aname == "init_string");
+            else if (aname == "suffix");
+            else if (aname == "height");
+            else if (aname == "depth");
+            else if (aname == "duplicateIdOK");
+            else if (aname == "timeout");
+            else if (aname == "readonly");
+            else if (aname == "station");
+            else if (aname == "autoconfig");
+                else if (aname == "xml:base" || aname == "xmlns") {}
             else throw n_u::InvalidParameterException(
-                        string("SerialSensor:") + getName(),
-                        aname,aval);
-        }
-	    else if (aname == "baud") {
-            istringstream ist(aval);
-            int val;
-            ist >> val;
-            if (ist.fail() || !_workingPortConfig.termios.setBaudRate(val))
-                throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(), aname,aval);
-	    }
-	    else if (aname == "parity") {
-		if (aval == "odd") _workingPortConfig.termios.setParity(n_u::Termios::ODD);
-		else if (aval == "even") _workingPortConfig.termios.setParity(n_u::Termios::EVEN);
-		else if (aval == "none") _workingPortConfig.termios.setParity(n_u::Termios::NONE);
-		else throw n_u::InvalidParameterException(
-		    string("SerialSensor:") + getName(),
-		    aname,aval);
-	    }
-	    else if (aname == "databits") {
-            istringstream ist(aval);
-            int val;
-            ist >> val;
-            if (ist.fail())
-                throw n_u::InvalidParameterException(
-                string("SerialSensor:") + getName(),
-                    aname, aval);
-            _workingPortConfig.termios.setDataBits(val);
-	    }
-	    else if (aname == "stopbits") {
-            istringstream ist(aval);
-            int val;
-            ist >> val;
-            if (ist.fail())
-                throw n_u::InvalidParameterException(
-                string("SerialSensor:") + getName(),
-                    aname, aval);
-            _workingPortConfig.termios.setStopBits(val);
-	    }
-	    else if (aname == "rts485") {
-            if (aval == "true" || aval == "1") {
-                _workingPortConfig.rts485 = 1;
-            }
-            else if (aval == "false" || aval == "0") {
-                _workingPortConfig.rts485 = 0;
-            }
-            else if (aval == "-1") {
-                _workingPortConfig.rts485 = -1;
-            }
-            else {
-                throw n_u::InvalidParameterException(
-                string("SerialSensor:") + getName(),
-                    aname, aval);
-            }
-        }
-	    else if (aname == "nullterm");
-	    else if (aname == "init_string");
-	    else if (aname == "suffix");
-	    else if (aname == "height");
-	    else if (aname == "depth");
-	    else if (aname == "duplicateIdOK");
-	    else if (aname == "timeout");
-	    else if (aname == "readonly");
-	    else if (aname == "station");
-            else if (aname == "xml:base" || aname == "xmlns") {}
-	    else throw n_u::InvalidParameterException(
-		string("SerialSensor:") + getName(),
-		"unknown attribute",aname);
+            string("SerialSensor:") + getName(),
+            "unknown attribute",aname);
 
-	}
+        }
     }
 
     xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-	    child=child->getNextSibling())
-    {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
-	const string& elname = xchild.getNodeName();
+    for (child = node->getFirstChild(); child != 0; child=child->getNextSibling()) {
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
 
-	if (elname == "message");
-	else if (elname == "prompt");
-	else if (elname == "sample");
-	else if (elname == "parameter");
-	else if (elname == "calfile");
-	else if (elname == "autoconfig");
-	else throw n_u::InvalidParameterException(
-	    string("SerialSensor:") + getName(),
-	    "unknown element",elname);
+        if (elname == "message");
+        else if (elname == "prompt");
+        else if (elname == "sample");
+        else if (elname == "parameter");
+        else if (elname == "calfile");
+        else if (elname == "autoconfig");
+        else throw n_u::InvalidParameterException(
+            string("SerialSensor:") + getName(),
+            "unknown element",elname);
     }
 }
 
