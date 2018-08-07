@@ -59,9 +59,6 @@
 #include <nidas/dynld/isff/PTB210.h>
 #include <nidas/util/optionparser.h>
 #include <nidas/core/Project.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/XMLParser.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -296,12 +293,9 @@ int main(int argc, char* argv[]) {
 
     // xml config file use case
     if (options[XML]) {
-        typedef std::list<SerialSensor*> SerialSensorList;
-
         AutoProject ap;
     	struct stat statbuf;
         std::string xmlFileName = options[XML].arg;
-        SerialSensorList allSensors;
 
         if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
             NLOG(("Found XML file: ") << xmlFileName);
