@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+<sensorcatalog>
+    <!-- Legacy DSMSerialSensor Dynld implementation -->
+    <serialSensor 
+        ID="PTB210" 
+        class="DSMSerialSensor"
+		init_string="\r\n.BP\r\n" 
+        timeout="10"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE" />
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" length="0" />
+    </serialSensor>
+    <!-- PTB210 autoconfig Dynld implementation -->
+    <serialSensor 
+        ID="PTB210_AUTO_0" 
+        class="isff.PTB210"
+		init_string="\r\n.BP\r\n" 
+        timeout="10"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <autoconfig />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE" />
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" length="0" />
+    </serialSensor>
+</sensorcatalog>

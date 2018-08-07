@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+    <!-- name="AutoConfig"
+    system="ISFS"
+    version="$Revision: 1 $"> -->
+    <!--
+        xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    -->
+    <!-- parameter name="wind3d_horiz_coordinates" type="string" value="$WIND3D_HORIZ_COORDINATES" />
+    <parameter name="wind3d_horiz_rotation" type="bool" value="$WIND3D_HORIZ_ROTATION" />
+    <parameter name="wind3d_tilt_correction" type="bool" value="$WIND3D_TILT_CORRECTION" / -->
+
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+
+    <xi:include href="sensor_catalog.xml" parse="xml" />
+
+    <dsmcatalog>
+        <!-- Pi DSM with a mote for Vbatt and soils -->
+        <dsm ID="BASEPI" rserialPort="30002">
+            <!-- GPS input is tee'd to this pseudo-terminal 
+            <serialSensor IDREF="Garmin_GPS_LITE" devicename="/dev/gps_pty0" id="2">
+            </serialSensor>
+
+            <serialSensor IDREF="CHRONY_TRACKING_LOG" id="6">
+            </serialSensor>
+
+            <output class="RawSampleOutputStream">
+                <socket type="server" port="30000" maxIdle="60" block="false"/>
+            </output>
+
+            <output class="RawSampleOutputStream">
+                <socket type="dgrequest" maxIdle="60" block="false"
+                    address="flux"/>
+            </output>
+
+            <output class="RawSampleOutputStream">
+                <fileset dir="/media/usbdisk/projects/AutoConfig/raw_data"
+                    file="AUTOCONFIG_%Y%m%d_%H%M%S.dat"
+                    length="28800">
+                    <mount dir="/media/usbdisk"/>
+                </fileset>
+            </output> -->
+        </dsm>
+    </dsmcatalog>
+
+    <site 
+        name="nanolab01" 
+        class="isff.GroundStation" 
+        suffix=".NNOLB">
+        <dsm 
+            IDREF="BASEPI" 
+            name="nanolab-dsm" 
+            id="1">
+            <serialSensor 
+                IDREF="PTB210_AUTO_0" 
+                devicename="/dev/ttyUSB0" 
+                height="2m" 
+                id="24" />
+        </dsm>
+    </site>
+
+</project>
