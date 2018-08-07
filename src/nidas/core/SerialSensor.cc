@@ -350,7 +350,7 @@ void SerialSensor::fromDOMElement(
             else if (aname == "devicename");
             else if (aname == "id");
             else if (aname == "porttype") {
-                string upperAval;
+                string upperAval(aval);
                 std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);;
                 if (upperAval == "RS232") _workingPortConfig.xcvrConfig.portType = RS232;
                 else if (upperAval == "RS422") _workingPortConfig.xcvrConfig.portType = RS422;

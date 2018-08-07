@@ -322,8 +322,9 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 const std::string& aval = attr.getValue();
 
                 // xform everything to uppercase - this shouldn't affect numbers
-                string upperAval;
-                std::transform(aval.begin(), aval.end(), upperAval.begin(), ::toupper);
+                string upperAval = aval;
+                std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
+                // DLOG(("PTB210:fromDOMElement(): aname: ") << aname << " upperAval: " << upperAval);
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
@@ -546,7 +547,7 @@ bool PTB210::findWorkingSerialPortConfig(int flags)
         printPortConfig();
     }
 
-    if (!checkResponse()) {
+    if (!doubleCheckResponse()) {
         // initial config didn't work, so sweep through all parameters starting w/the default
         if (!isDefaultConfig(getPortConfig())) {
             // it's a custom config, so test default first
@@ -631,7 +632,7 @@ bool PTB210::installDesiredSensorConfig()
         if (getPortConfig() == desiredPortConfig) {
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
-            if (!checkResponse()) {
+            if (!doubleCheckResponse()) {
                 if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
                     NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
                             "after setting desired serial port parameters. This is the current PortConfig"));
@@ -646,7 +647,7 @@ bool PTB210::installDesiredSensorConfig()
                     printPortConfig();
                 }
                 
-                if (!checkResponse()) {
+                if (!doubleCheckResponse()) {
                     DLOG(("The sensor port config which originally worked before attempting "
                           "to set the desired config no longer works. Really messed up now!"));
                 }
@@ -945,7 +946,7 @@ bool PTB210::testDefaultPortConfig()
     applyPortConfig();
 
     // test it
-    return checkResponse();
+    return doubleCheckResponse();
 }
 
 bool PTB210::sweepParameters(bool defaultTested)
@@ -1000,59 +1001,32 @@ bool PTB210::sweepParameters(bool defaultTested)
                 }
 
                 DLOG(("Checking response once..."));
-                if (checkResponse()) {
-                    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                        // tell everyone
-                        DLOG(("Found working port config: "));
-                        printPortConfig();
-                    }
-
+                if (doubleCheckResponse()) {
                     foundIt = true;
                     return foundIt;
                 } 
                 else {
-                    DLOG(("Checking response twice..."));
-                    if (checkResponse()) {
-                        // tell everyone
-                        DLOG(("Response checks out on second try..."));
+                    if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
+                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
+                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
+                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
+                                                            DEFAULT_SENSOR_POWER);
                         if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                            DLOG(("Found working port config: "));
+                            DLOG(("Asking for PortConfig:"));
+                            printTargetConfig(testPortConfig);
+                        }
+
+                        setPortConfig(testPortConfig);
+                        applyPortConfig();
+
+                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                            NLOG(("Testing PortConfig on RS422/RS485 with termination: "));
                             printPortConfig();
                         }
 
-                        foundIt = true;
-                        return foundIt;
-                    }
-                    else {
-                        DLOG(("Checked response twice, and failed twice."));
-                        if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
-                            DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                            setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                                wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
-                                                                DEFAULT_SENSOR_POWER);
-                            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                                DLOG(("Asking for PortConfig:"));
-                                printTargetConfig(testPortConfig);
-                            }
-
-                            setPortConfig(testPortConfig);
-                            applyPortConfig();
-
-                            if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                                NLOG(("Testing PortConfig on RS422/RS485 with termination: "));
-                                printPortConfig();
-                            }
-
-                            if (checkResponse()) {
-                                // tell everyone
-                                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                                    DLOG(("Found working port config: "));
-                                    printPortConfig();
-                                }
-                                
-                                foundIt = true;
-                                return foundIt;
-                            }
+                        if (doubleCheckResponse()) {
+                            foundIt = true;
+                            return foundIt;
                         }
                     }
                 }
@@ -1089,6 +1063,40 @@ bool PTB210::isDefaultConfig(const n_c::PortConfig& target)
             && (target.xcvrConfig.portType == DEFAULT_PORT_TYPE)
             && (target.xcvrConfig.termination == DEFAULT_SENSOR_TERMINATION)
             && (target.xcvrConfig.sensorPower == DEFAULT_SENSOR_POWER));
+}
+
+bool PTB210::doubleCheckResponse()
+{
+    bool foundIt = false;
+
+    DLOG(("Checking response once..."));
+    if (checkResponse()) {
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+            // tell everyone
+            DLOG(("Found working port config: "));
+            printPortConfig();
+        }
+
+        foundIt = true;
+    } 
+    else {
+        DLOG(("Checking response twice..."));
+        if (checkResponse()) {
+            // tell everyone
+            DLOG(("Response checks out on second try..."));
+            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                DLOG(("Found working port config: "));
+                printPortConfig();
+            }
+
+            foundIt = true;
+        }
+        else {
+            DLOG(("Checked response twice, and failed twice."));
+        }
+    }
+
+    return foundIt;
 }
 
 bool PTB210::checkResponse()
