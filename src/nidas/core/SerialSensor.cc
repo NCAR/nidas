@@ -27,7 +27,11 @@
 #include "SerialSensor.h"
 #include "TCPSocketIODevice.h"
 #include "UDPSocketIODevice.h"
+
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
 #include "BluetoothRFCommSocketIODevice.h"
+#endif
+
 #include "Looper.h"
 #include "Prompt.h"
 
@@ -78,9 +82,14 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
 {
     IODevice* device = CharacterSensor::buildIODevice();
 
-    // Did we get the default from Character Sensor?
-    if (reinterpret_cast<UnixIODevice*>(device)) {
-        // yes, meaning it didn't look for, nor find a serial port.
+    // Did we get the default UnixIODevice from Character Sensor?
+    if (!dynamic_cast<TCPSocketIODevice*>(device)
+        && !dynamic_cast<UDPSocketIODevice*>(device)
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
+        && !dynamic_cast<BluetoothRFCommSocketIODevice*>(device)
+#endif
+       ) {
+        // yes, meaning it didn't find a non-serial port device.
         delete device;
         device = 0;
         DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName());
