@@ -531,7 +531,7 @@ bool PTB210::findWorkingSerialPortConfig(int flags)
     bool foundIt = false;
 
     // first see if the current configuration is working. If so, all done!
-    // So open the device at a the base class so we don't recurse ourselves to death...
+    // So open the device at the base class which builds the SerialPortIODevice object
     DSMSensor::open(flags);
     n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
     applyPortConfig();
