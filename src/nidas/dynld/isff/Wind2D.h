@@ -57,6 +57,8 @@ public:
 
     Wind2D();
 
+    Wind2D(const nidas::core::PortConfig& rInitPortConfig);
+
     ~Wind2D();
 
     void validate() throw(nidas::util::InvalidParameterException);
