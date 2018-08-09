@@ -506,6 +506,8 @@ void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcep
             NLOG(("Attempting to install the desired sensor science configuration"));
             if (configureScienceParameters()) {
                 NLOG(("Desired sensor science configuration successfully installed"));
+                NLOG(("Opening the NIDAS Way..."));
+                SerialSensor::open(flags);
             }
             else {
                 NLOG(("Failed to install sensor science configuration"));
