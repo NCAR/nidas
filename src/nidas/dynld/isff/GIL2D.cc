@@ -31,6 +31,8 @@
 #include <sstream>
 #include <limits>
 #include <regex.h>
+#include <time.h>
+#include <sys/select.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -39,7 +41,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,GIL2D)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const char GIL2D::DEFAULT_MSG_SEP_CHAR = '\n';
+const char* GIL2D::DEFAULT_MSG_SEP_CHAR = "\n";
 
 const char* GIL2D::SENSOR_CONFIG_MODE_CMD_STR = "*\r";
 const char* GIL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?\r";
@@ -65,59 +67,59 @@ const char* GIL2D::SENSOR_ALIGNMENT_CMD_STR = "X\r";
 
 const char* GIL2D::cmdTable[NUM_SENSOR_CMDS] =
 {
-    SENSOR_RESET_CMD_STR,
-    SENSOR_SERIAL_BAUD_CMD_STR,
-    SENSOR_SERIAL_EVENP_WORD_CMD_STR,
-    SENSOR_SERIAL_ODDP_WORD_CMD_STR,
-    SENSOR_SERIAL_NOP_WORD_CMD_STR,
-    SENSOR_MEAS_RATE_CMD_STR,
-    SENSOR_NUM_SAMP_AVG_CMD_STR,
-    SENSOR_PRESS_MIN_CMD_STR,
-    SENSOR_PRESS_MAX_CMD_STR,
-    SENSOR_SINGLE_SAMP_CMD_STR,
-    SENSOR_START_CONT_SAMP_CMD_STR,
-    SENSOR_STOP_CONT_SAMP_CMD_STR,
-    SENSOR_POWER_DOWN_CMD_STR,
-    SENSOR_POWER_UP_CMD_STR,
-    SENSOR_SAMP_UNIT_CMD_STR,
-    SENSOR_INC_UNIT_CMD_STR,
-    SENSOR_EXC_UNIT_CMD_STR,
-    SENSOR_CORRECTION_ON_CMD_STR,
-    SENSOR_CORRECTION_OFF_CMD_STR,
-    // No way to set the calibration points, so no need to set the Cal date.
-    // SENSOR_SET_CAL_DATE_CMD_STR,
-    SENSOR_TERM_ON_CMD_STR,
-    SENSOR_TERM_OFF_CMD_STR,
-    SENSOR_CONFIG_QRY_CMD_STR
+	SENSOR_CONFIG_MODE_CMD_STR,
+	SENSOR_ENABLE_POLLED_MODE_CMD_STR,
+	SENSOR_POLL_MEAS_CMD_STR,
+	SENSOR_QRY_ID_CMD_STR,
+	SENSOR_DISABLE_POLLED_MODE_CMD_STR,
+	SENSOR_SERIAL_BAUD_CMD_STR,
+	SENSOR_DIAG_QRY_CMD_STR,
+	SENSOR_DUPLEX_COMM_CMD_STR,
+	SENSOR_SERIAL_DATA_WORD_CMD_STR,
+	SENSOR_AVG_PERIOD_CMD_STR,
+	SENSOR_HEATING_CMD_STR,
+	SENSOR_NMEA_ID_STR_CMD_STR,
+	SENSOR_MSG_TERM_CMD_STR,
+	SENSOR_MSG_STREAM_CMD_STR,
+	SENSOR_NODE_ADDR_CMD_STR,
+	SENSOR_OUTPUT_FIELD_FMT_CMD_STR,
+	SENSOR_OUTPUT_RATE_CMD_STR,
+	SENSOR_START_MEAS_CMD_STR,
+	SENSOR_MEAS_UNITS_CMD_STR,
+	SENSOR_VERT_MEAS_PADDING_CMD_STR,
+	SENSOR_ALIGNMENT_CMD_STR,
 };
 
 // NOTE: list sensor bauds from highest to lowest as the higher 
 //       ones are the most likely
-const int GIL2D::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
-const WordSpec GIL2D::SENSOR_WORD_SPECS[GIL2D::NUM_SENSOR_WORD_SPECS] = {
-    {7,Termios::EVEN,1}, 
-    {7,Termios::ODD,1}, 
-    {8,Termios::NONE,1}
-};
-const n_c::PORT_TYPES GIL2D::SENSOR_PORT_TYPES[GIL2D::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
+const int GIL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
+const GIL2D_DATA_WORD_ARGS GIL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] = { N81, E81, O81};
+
+// GIL instruments do not use RS232
+const n_c::PORT_TYPES GIL2D::SENSOR_PORT_TYPES[GIL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
 
 
 // static default configuration to send to base class...
 const PortConfig GIL2D::DEFAULT_PORT_CONFIG(GIL2D::DEFAULT_BAUD_RATE, GIL2D::DEFAULT_DATA_BITS,
                                              GIL2D::DEFAULT_PARITY, GIL2D::DEFAULT_STOP_BITS,
                                              GIL2D::DEFAULT_PORT_TYPE, GIL2D::DEFAULT_SENSOR_TERMINATION, 
-                                             GIL2D::DEFAULT_SENSOR_POWER, GIL2D::DEFAULT_RTS485, 
-                                             GIL2D::DEFAULT_CONFIG_APPLIED);
+											 GIL2D::DEFAULT_SENSOR_POWER, GIL2D::DEFAULT_RTS485, GIL2D::DEFAULT_CONFIG_APPLIED);
 
-const PTB_CMD_ARG GIL2D::DEFAULT_SCIENCE_PARAMETERS[] = {
-    {DEFAULT_PRESSURE_UNITS_CMD, DEFAULT_PRESSURE_UNITS},
-    {DEFAULT_SAMPLE_RATE_CMD, DEFAULT_SAMPLE_RATE},
-    {DEFAULT_SAMPLE_AVERAGING_CMD, DEFAULT_NUM_SAMPLES_AVERAGED},
-    {DEFAULT_OUTPUT_UNITS_CMD, 0},
-    {DEFAULT_USE_CORRECTION_CMD, 0}
+const GIL2D_CMD_ARG GIL2D::DEFAULT_SCIENCE_PARAMETERS[] =
+{
+    {SENSOR_AVG_PERIOD_CMD, 0},
+    {SENSOR_HEATING_CMD, DISABLED},
+    {SENSOR_NMEA_ID_STR_CMD, IIMWV},
+    {SENSOR_MSG_TERM_CMD, CRLF},
+    {SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT},
+	{SENSOR_OUTPUT_FIELD_FMT_CMD, CSV},
+	{SENSOR_OUTPUT_RATE_CMD, ONE_PER_SEC},
+	{SENSOR_MEAS_UNITS_CMD, MPS},
+	{SENSOR_VERT_MEAS_PADDING_CMD, DISABLE_VERT_PAD},
+	{SENSOR_ALIGNMENT_CMD, U_EQ_NS}
 };
 
-const int GIL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(PTB_CMD_ARG);
+const int GIL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(GIL2D_CMD_ARG);
 
 /* Typical GIL2D D3 query response. L1 means all line endings are \r\n
  * 
@@ -132,17 +134,34 @@ const int GIL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMET
 
 
 // regular expression strings, contexts, compilation
-// NOTE: the regular expressions need to search a buffer w/multiple lines separated by \r\n
-static const char* GIL2D_RESPONSE_REGEX_STR =           "";
+static const char* GIL2D_RESPONSE_REGEX_STR = "(A[[:digit:]]){0,1} B[[:digit:]] (C[[:digit:]]){0,1} E[[:digit:]] F[[:digit:]] "
+		                                         "G[[:digit:]]{4} H[[:digit:]] (J[[:digit:]]){0,1} K[[:digit:]] L[[:digit:]] "
+		                                         "M[[:digit:]] N[[:digit:]] O[[:digit:]] P[[:digit:]] (T[[:digit:]]){0,1} "
+		                                         "U[[:digit:]] V[[:digit:]] X[[:digit:]] (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}";
+static const char* GIL2D_COMPARE_REGEX_STR =  "(A[[:digit:]]){0,1} B([[:digit:]]) (C[[:digit:]]){0,1} E([[:digit:]]) F([[:digit:]]) "
+		                                         "G([[:digit:]]{4}) H([[:digit:]]) (J[[:digit:]]){0,1} K([[:digit:]]) L([[:digit:]]) "
+		                                         "M([[:digit:]]) N([[:digit:]]) O([[:digit:]]) P([[:digit:]]) (T[[:digit:]]){0,1} "
+		                                         "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}";
 
 static regex_t response;
+static regex_t compareResponse;
 
-static bool compileRegex() {
+static bool compileRegex()
+{
     static bool regexCompiled = false;
     int regStatus = 0;
 
     if (!regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&response, GIL2D_RESPONSE_REGEX_STR, REG_EXTENDED)) != 0;
+        regexCompiled = (regStatus = ::regcomp(&response, GIL2D_RESPONSE_REGEX_STR, REG_NOSUB|REG_EXTENDED)) != 0;
+        if (regexCompiled) {
+            char regerrbuf[64];
+            regerror(regStatus, &response, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("GIL2D version regular expression", string(regerrbuf));
+        }
+    }
+
+    if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&compareResponse, GIL2D_COMPARE_REGEX_STR, REG_EXTENDED)) != 0;
         if (regexCompiled) {
             char regerrbuf[64];
             regerror(regStatus, &response, regerrbuf, sizeof regerrbuf);
@@ -158,7 +177,9 @@ static void freeRegex() {
 }
 
 GIL2D::GIL2D()
-    : Wind2D(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(), 
+    : Wind2D(DEFAULT_PORT_CONFIG),
+	  testPortConfig(),
+	  desiredPortConfig(),
       defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
@@ -216,7 +237,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
                 if (aname == "units") {
-                    GIL2D_UNITS_ARGS units = DEFAULT_WINDSPD_UNITS;
+                    GIL2D_UNITS_ARGS units = MPS;
                     if (upperAval == "MPS") {
                         units = MPS;
                     }
@@ -238,28 +259,117 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
 
                     updateDesiredScienceParameter(SENSOR_MEAS_UNITS_CMD, units);
                 }
-                else if (aname == "samplesaveraged") {
+                else if (aname == "averagetime") {
                     istringstream ist(aval);
                     int val;
                     ist >> val;
-                    if (ist.fail() || val < SENSOR_SAMPLE_AVG_MIN || val > SENSOR_SAMPLE_AVG_MAX)
+                    if (ist.fail() || val < MIN_AVERAGING_TIME || val > MAX_AVERAGING_TIME)
                         throw n_u::InvalidParameterException(
                             string("GIL2D:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, val);
+                    updateDesiredScienceParameter(SENSOR_AVG_PERIOD_CMD, val);
                 }
-                else if (aname == "samplerate") {
+                else if (aname == "heating") {
+                    if (upperAval == "TRUE" || upperAval == "YES" || upperAval == "ENABLE" || aval == "1") {
+                    	updateDesiredScienceParameter(SENSOR_HEATING_CMD, ACTIVE_H3);
+                    }
+                    else if (upperAval == "FALSE" || upperAval == "NO" || upperAval == "NONE"
+                    		 || upperAval == "NA" || upperAval == "DISABLE" || aval == "0") {
+                    	updateDesiredScienceParameter(SENSOR_HEATING_CMD, DISABLED);
+                    }
+                    else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "nmeastring") {
+                    if (upperAval.find("IIMWV")) {
+                    	updateDesiredScienceParameter(SENSOR_NMEA_ID_STR_CMD, IIMWV);
+                    }
+                    else if (upperAval.find("WIMWV")) {
+                    	updateDesiredScienceParameter(SENSOR_NMEA_ID_STR_CMD, WIMWV);
+                    }
+                    else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "msgterm") {
+                	if (upperAval.find("CR") || upperAval.find("CRLF") || upperAval.find("CR LF")) {
+						updateDesiredScienceParameter(SENSOR_MSG_TERM_CMD, CRLF);
+                	}
+                	else if (!upperAval.find("CR") && upperAval.find("LF")) {
+                		updateDesiredScienceParameter(SENSOR_MSG_TERM_CMD, LF);
+                	}
+                	else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "stream") {
+                	if (upperAval.find("ASC")) {
+                		if (upperAval.find("UV")) {
+                			if (upperAval.find("CONT")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_UV_CONT);
+                			}
+                			else if (upperAval.find("POLL")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT);
+                			}
+                			else
+                                throw n_u::InvalidParameterException(
+                                    string("GIL2D:") + getName(), aname, aval);
+                		}
+                		if (upperAval.find("POLAR") || upperAval.find("PLR")) {
+                			if (upperAval.find("CONT")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_UV_CONT);
+                			}
+                			else if (upperAval.find("POLL")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT);
+                			}
+                			else
+                                throw n_u::InvalidParameterException(
+                                    string("GIL2D:") + getName(), aname, aval);
+                		}
+                	}
+                	else if (upperAval.find("NMEA")) {
+                		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, NMEA_CONT);
+                	}
+                	else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "outputformat") {
+                	if (upperAval == "CSV") {
+                		updateDesiredScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, CSV);
+                	}
+                	else if (upperAval == "FIX" || upperAval == "FIXED") {
+                		updateDesiredScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, FIXED_FIELD);
+                	}
+                	else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "outputrate") {
                     istringstream ist(aval);
                     int val;
                     ist >> val;
-                    if (ist.fail() || val < SENSOR_MEAS_RATE_MIN || val > SENSOR_MEAS_RATE_MAX)
+                    if (ist.fail() || val < ONE_PER_SEC || val > FOUR_PER_SEC)
                         throw n_u::InvalidParameterException(
                             string("GIL2D:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_MEAS_RATE_CMD, val);
+                    updateDesiredScienceParameter(SENSOR_OUTPUT_RATE_CMD, val);
+                }
+                else if (aname == "vertpad") {
+                    if (upperAval == "TRUE" || upperAval == "YES" || aval == "1") {
+                    	updateDesiredScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, ENABLE_VERT_PAD);
+                    }
+                    else if (upperAval == "FALSE" || upperAval == "NO" || upperAval == "NONE"
+                    		 || upperAval == "NA" || aval == "0") {
+                    	updateDesiredScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, DISABLE_VERT_PAD);
+                    }
+                    else
+                        throw n_u::InvalidParameterException(
+                            string("GIL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "porttype") {
-                    else if (upperAval == "RS422") 
+                    if (upperAval == "RS422")
                         desiredPortConfig.xcvrConfig.portType = RS422;
                     else if (upperAval == "RS485_HALF") 
                         desiredPortConfig.xcvrConfig.portType = RS485_HALF;
@@ -435,15 +545,15 @@ bool GIL2D::installDesiredSensorConfig()
         // still talking to each other...
         switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
             case 'O':
-                sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, O81);
                 break;
 
             case 'E':
-                sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, E81);
                 break;
 
             case 'N':
-                sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, N81);
                 break;
 
             default:
@@ -453,8 +563,6 @@ bool GIL2D::installDesiredSensorConfig()
         setPortConfig(desiredPortConfig);
         applyPortConfig();
         if (getPortConfig() == desiredPortConfig) {
-            // wait for the sensor to reset - ~1 second
-            usleep(SENSOR_RESET_WAIT_TIME);
             if (!doubleCheckResponse()) {
                 if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
                     NLOG(("GIL2D::installDesiredSensorConfig() failed to achieve sensor communication "
@@ -547,8 +655,6 @@ void GIL2D::sendScienceParameters() {
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
-    sendSensorCmd(SENSOR_RESET_CMD);
-    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool GIL2D::checkScienceParameters() {
@@ -557,7 +663,7 @@ bool GIL2D::checkScienceParameters() {
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
-    sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
+    sendSensorCmd(SENSOR_DIAG_QRY_CMD, OPER_CONFIG);
 
     static const int BUF_SIZE = 512;
     int bufRemaining = BUF_SIZE;
@@ -607,137 +713,101 @@ bool GIL2D::checkScienceParameters() {
     VLOG(("GIL2D::checkScienceParameters() - Check the individual parameters available to us"));
     bool scienceParametersOK = false;
     int regexStatus = -1;
-    regmatch_t matches[4];
+    regmatch_t matches[20];
     int nmatch = sizeof(matches) / sizeof(regmatch_t);
     
     // check for sample averaging
-    if ((regexStatus = regexec(&averageSamp, &(respBuf[0]), nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-        string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-        VLOG(("Checking sample averaging with argument: ") << argStr);
-        scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, argStr.c_str());
+    if ((regexStatus = regexec(&compareResponse, &(respBuf[0]), nmatch, matches, 0)) == 0) {
+    	if (matches[6].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[6].rm_so]), (matches[6].rm_eo - matches[6].rm_so));
+			VLOG(("Checking sample averaging time(G) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[7].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[7].rm_so]), (matches[7].rm_eo - matches[7].rm_so));
+			VLOG(("Checking heater status(H) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[9].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[9].rm_so]), (matches[9].rm_eo - matches[9].rm_so));
+			VLOG(("Checking NMEA string(K) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[10].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[10].rm_so]), (matches[10].rm_eo - matches[10].rm_so));
+			VLOG(("Checking message termination(L) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[11].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[11].rm_so]), (matches[11].rm_eo - matches[11].rm_so));
+			VLOG(("Checking message stream format(M) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[12].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[12].rm_so]), (matches[12].rm_eo - matches[12].rm_so));
+			VLOG(("Checking node address(N) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[13].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[13].rm_so]), (matches[13].rm_eo - matches[13].rm_so));
+			VLOG(("Checking output field format(O) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[14].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[14].rm_so]), (matches[14].rm_eo - matches[14].rm_so));
+			VLOG(("Checking output rate(P) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[16].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[16].rm_so]), (matches[16].rm_eo - matches[16].rm_so));
+			VLOG(("Checking wind speed units(U) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[17].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[17].rm_so]), (matches[17].rm_eo - matches[17].rm_so));
+			VLOG(("Checking vertical output pad(V) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
+    	}
+
+    	if (scienceParametersOK && matches[18].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[18].rm_so]), (matches[18].rm_eo - matches[18].rm_so));
+			VLOG(("Checking sensor alignment(X) with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, argStr.c_str());
+    	}
     }
     else {
         char regerrbuf[64];
-        ::regerror(regexStatus, &averageSamp, regerrbuf, sizeof regerrbuf);
+        ::regerror(regexStatus, &compareResponse, regerrbuf, sizeof regerrbuf);
         throw n_u::ParseException("regexec average samples RE", string(regerrbuf)); 
     }    
-
-    // check for measurement rate
-    if (scienceParametersOK) {
-        if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking measurement rate with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
-        }
-        else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &measRate, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec measurement rate RE", string(regerrbuf));
-        }    
-    }
-
-    // check for pressure units
-    if (scienceParametersOK) {
-        if ((regexStatus = regexec(&pressUnit, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking pressure units with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, argStr.c_str());
-        }
-        else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &pressUnit, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec pressure unit RE", string(regerrbuf));
-        }    
-    }
-
-    // check for multi-point correction
-    if (scienceParametersOK) {
-        if ((regexStatus = regexec(&multiCorr, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking multi-point correction with argument: ") << argStr);
-            scienceParametersOK = (argStr == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, argStr.c_str())
-                                                  : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, argStr.c_str()));
-        }
-        else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &multiCorr, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec multi-point correction RE", string(regerrbuf));
-        }    
-    }
-
-    // // check for termination???
-    // if (scienceParametersOK) {
-    //     if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-    //         string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-    //         scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
-    //     }
-    //     else {
-    //         char regerrbuf[64];
-    //         ::regerror(regexStatus, &measRate, regerrbuf, sizeof regerrbuf);
-    //         throw n_u::ParseException("regexec measurement rate RE", string(regerrbuf));
-    //     }    
-    // }
 
     return scienceParametersOK;
 }
 
-bool GIL2D::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
+bool GIL2D::compareScienceParameter(GIL2D_COMMANDS cmd, const char* match)
 {
-    PTB_CMD_ARG desiredCmd = getDesiredCmd(cmd);
+    GIL2D_CMD_ARG desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
     VLOG(("Searched command: ") << cmd);
 
-    // Does the command take a parameter? If not, just search for the command
-    switch (cmd) {
-        // These commands do not take a parameter. 
-        // If we found one of these just return true.
-        case SENSOR_RESET_CMD:
-        case SENSOR_SERIAL_EVEN_WORD_CMD:
-        case SENSOR_SERIAL_ODD_WORD_CMD:
-        case SENSOR_SERIAL_NO_WORD_CMD:
-        case SENSOR_SINGLE_SAMP_CMD:
-        case SENSOR_START_CONT_SAMP_CMD:
-        case SENSOR_STOP_CONT_SAMP_CMD:
-        case SENSOR_POWER_DOWN_CMD:
-        case SENSOR_POWER_UP_CMD:
-        case SENSOR_INC_UNIT_CMD:
-        case SENSOR_CORRECTION_ON_CMD:
-        case SENSOR_CORRECTION_OFF_CMD:
-        case SENSOR_TERM_ON_CMD:
-        case SENSOR_TERM_OFF_CMD:
-        case SENSOR_CONFIG_QRY_CMD:
-            VLOG(("Returned arg matches command sent: ") << (desiredCmd.cmd == cmd ? "TRUE" : "FALSE"));
-            return (desiredCmd.cmd == cmd);
-            break;
+	int arg;
+	std::stringstream argStrm(match);
+	argStrm >> arg;
 
-        // Need to match the command argument, which are all ints
-        case SENSOR_SAMP_UNIT_CMD:
-            VLOG(("Arguments match: ") << (desiredCmd.arg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
-            return (desiredCmd.arg == pressUnitStr2PressUnit(match));
-            break;
-
-        case SENSOR_SERIAL_BAUD_CMD:
-        case SENSOR_MEAS_RATE_CMD:
-        case SENSOR_NUM_SAMP_AVG_CMD:
-        case SENSOR_PRESS_MIN_CMD:
-        case SENSOR_PRESS_MAX_CMD:
-        default:
-            {
-                int arg;
-                std::stringstream argStrm(match);
-                argStrm >> arg;
-
-                VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
-                return (desiredCmd.arg == arg);
-            }
-            break;
-    }
-
-    // gotta shut the compiler up...
-    return false;
+	VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
+	return (desiredCmd.arg == arg);
 }
 
-PTB_CMD_ARG GIL2D::getDesiredCmd(PTB_COMMANDS cmd) {
+GIL2D_CMD_ARG GIL2D::getDesiredCmd(GIL2D_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -748,7 +818,7 @@ PTB_CMD_ARG GIL2D::getDesiredCmd(PTB_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    PTB_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
+    GIL2D_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
     return(nullRetVal);
 }
 
@@ -785,19 +855,19 @@ bool GIL2D::sweepParameters(bool defaultTested)
         else if (portType == n_c::RS422)
             rts485 = -1; // always high, since there are two drivers going both ways
 
-        for (int j=0; j<NUM_SENSOR_BAUDS; ++j) {
+        for (int j=0; j<NUM_BAUD_ARGS; ++j) {
             int baud = SENSOR_BAUDS[j];
 
-            for (int k=0; k<NUM_SENSOR_WORD_SPECS; ++k) {
-                WordSpec wordSpec = SENSOR_WORD_SPECS[k];
+            for (int k=0; k<NUM_DATA_WORD_ARGS; ++k) {
+                Termios::parity parity = (SENSOR_WORD_SPECS[k] == N81) ? Termios::NONE : (SENSOR_WORD_SPECS[k] == E81) ? Termios::EVEN : Termios::ODD;
 
                 // get the existing port config to preserve the port
                 // which only gets set on construction
                 testPortConfig = getPortConfig();
 
                 // now set it to the new parameters
-                setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                    wordSpec.stopBits, rts485, portType, NO_TERM, 
+                setTargetPortConfig(testPortConfig, baud, 8, parity, 1,
+                                                    rts485, portType, NO_TERM,
                                                     DEFAULT_SENSOR_POWER);
 
                 if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
@@ -831,8 +901,8 @@ bool GIL2D::sweepParameters(bool defaultTested)
                 else {
                     if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
                         DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
+                        setTargetPortConfig(testPortConfig, baud, 8, parity, 1,
+															rts485, portType, TERM_120_OHM,
                                                             DEFAULT_SENSOR_POWER);
                         if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
                             DLOG(("Asking for PortConfig:"));
@@ -924,10 +994,12 @@ bool GIL2D::doubleCheckResponse()
 
 bool GIL2D::checkResponse()
 {
+	bool retVal = false;
+
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
-    sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
+    sendSensorCmd(SENSOR_DIAG_QRY_CMD, OPER_CONFIG);
 
     static const int BUF_SIZE = 512;
     int bufRemaining = BUF_SIZE;
@@ -972,117 +1044,48 @@ bool GIL2D::checkResponse()
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        int foundPos = 0;
-        bool retVal = (foundPos = respStr.find(GIL2D_RESPONSER_REGEX_STR, foundPos) != string::npos);
         VLOG(("GIL2D::checkResponse() - Check the general format of the query response"));
         int regexStatus = -1;
-        regmatch_t matches[1];
-        int nmatch = sizeof(matches) / sizeof(regmatch_t);
         
         // check for sample averaging
-        retVal = ((regexec(&response, &(respBuf[0]), 1, matches, 0) == 0) && matches[0].rm_so >= 0);
+        retVal = ((regexStatus = regexec(&response, &(respBuf[0]), 0, 0, 0)) == 0);
 
-        if (!retVal) {
+        if (regexStatus > 0) {
             char regerrbuf[64];
             ::regerror(regexStatus, &response, regerrbuf, sizeof regerrbuf);
             DLOG(("GIL2d::checkResponse() regex failed: ") << std::string(regerrbuf));
         }
-
-        return retVal;
     }
 
     else {
         DLOG(("Didn't get any chars from serial port"));
-        return false;
     }
+
+    return retVal;
 }
 
 
-void GIL2D::sendSensorCmd(PTB_COMMANDS cmd, int arg)
+void GIL2D::sendSensorCmd(GIL2D_COMMANDS cmd, int arg)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
 
-    switch (cmd) {
-        // these commands all take an argument...
-        case SENSOR_SERIAL_BAUD_CMD:
-        case SENSOR_MEAS_RATE_CMD:
-        case SENSOR_NUM_SAMP_AVG_CMD:
-        case SENSOR_PRESS_MIN_CMD:
-        case SENSOR_PRESS_MAX_CMD:
-        case SENSOR_SAMP_UNIT_CMD:
-            {
-                int insertIdx = snsrCmd.find_last_of('.');
-                std::ostringstream argStr; 
-                argStr << arg;
-                snsrCmd.insert(insertIdx+1, argStr.str());
-            }
-            break;
-
-        case SENSOR_RESET_CMD:
-        case SENSOR_SERIAL_EVEN_WORD_CMD:
-        case SENSOR_SERIAL_ODD_WORD_CMD:
-        case SENSOR_SERIAL_NO_WORD_CMD:
-        case SENSOR_SINGLE_SAMP_CMD:
-        case SENSOR_START_CONT_SAMP_CMD:
-        case SENSOR_STOP_CONT_SAMP_CMD:
-        case SENSOR_POWER_DOWN_CMD:
-        case SENSOR_POWER_UP_CMD:
-        case SENSOR_INC_UNIT_CMD:
-        case SENSOR_CORRECTION_ON_CMD:
-        case SENSOR_CORRECTION_OFF_CMD:
-        case SENSOR_TERM_ON_CMD:
-        case SENSOR_TERM_OFF_CMD:
-        case SENSOR_CONFIG_QRY_CMD:
-        default:
-            break;
-    }
+	int insertIdx = snsrCmd.find_last_of('\r');
+	std::ostringstream argStr;
+	argStr << arg;
+	snsrCmd.insert(insertIdx+1, argStr.str());
 
     // Write the command - assume the port is already open
-    // The PTB210 seems to not be able to keep up with a burst of data, so 
+    // The  seems to not be able to keep up with a burst of data, so
     // give it some time between chars - i.e. ~80 words/min rate
     DLOG(("Sending command: "));
     DLOG((snsrCmd.c_str()));
+    struct timespec writeWait = {0, CHAR_WRITE_DELAY};
     for (unsigned int i=0; i<snsrCmd.length(); ++i) {
         write(&(snsrCmd.c_str()[i]), 1);
-        usleep(CHAR_WRITE_DELAY);
+        nanosleep(&writeWait, 0);
     }
     DLOG(("write() sent ") << snsrCmd.length());;
-
-    // Check whether the client wants to send a reset command for those that require it to take effect
-    switch (cmd) {
-        case SENSOR_SERIAL_BAUD_CMD:
-        case SENSOR_SERIAL_EVEN_WORD_CMD:
-        case SENSOR_SERIAL_ODD_WORD_CMD:
-        case SENSOR_SERIAL_NO_WORD_CMD:
-        case SENSOR_PRESS_MIN_CMD:
-        case SENSOR_PRESS_MAX_CMD:
-        case SENSOR_MEAS_RATE_CMD:
-        case SENSOR_NUM_SAMP_AVG_CMD:
-        case SENSOR_SAMP_UNIT_CMD:
-        case SENSOR_EXC_UNIT_CMD:
-        case SENSOR_INC_UNIT_CMD:
-        case SENSOR_CORRECTION_ON_CMD:
-        case SENSOR_CORRECTION_OFF_CMD:
-            if (resetNow)
-            {
-                // only two level deep recursion is OK
-                sendSensorCmd(SENSOR_RESET_CMD);
-            }
-            break;
-
-        case SENSOR_RESET_CMD:
-        case SENSOR_SINGLE_SAMP_CMD:
-        case SENSOR_START_CONT_SAMP_CMD:
-        case SENSOR_STOP_CONT_SAMP_CMD:
-        case SENSOR_POWER_DOWN_CMD:
-        case SENSOR_POWER_UP_CMD:
-        case SENSOR_TERM_ON_CMD:
-        case SENSOR_TERM_OFF_CMD:
-        case SENSOR_CONFIG_QRY_CMD:
-        default:
-            break;
-    }
 }
 
 size_t GIL2D::readResponse(void *buf, size_t len, int msecTimeout)
@@ -1110,30 +1113,9 @@ size_t GIL2D::readResponse(void *buf, size_t len, int msecTimeout)
     return read(buf,len);
 }
 
-void GIL2D::updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg) {
-    PTB_COMMANDS srchCmd = cmd;
-
-    // some commands are paired, so look for cmd's opposite pair instead;
-    switch (cmd) {
-        case SENSOR_EXC_UNIT_CMD:
-            srchCmd = SENSOR_INC_UNIT_CMD;
-            break;
-        case SENSOR_INC_UNIT_CMD:
-            srchCmd = SENSOR_EXC_UNIT_CMD;
-            break;
-        case SENSOR_CORRECTION_OFF_CMD:
-            srchCmd = SENSOR_CORRECTION_ON_CMD;
-            break;
-        case SENSOR_CORRECTION_ON_CMD:
-            srchCmd = SENSOR_CORRECTION_OFF_CMD;
-            break;
-        default:
-            break;
-    }
-
+void GIL2D::updateDesiredScienceParameter(GIL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if (srchCmd == desiredScienceParameters[i].cmd) {
-            desiredScienceParameters[i].cmd = cmd;  // always replace w/cmd, as srchCmd by be different
+        if (cmd == desiredScienceParameters[i].cmd) {
             desiredScienceParameters[i].arg = arg;
             break;
         }

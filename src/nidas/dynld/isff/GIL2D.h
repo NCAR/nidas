@@ -119,7 +119,7 @@ enum GIL2D_NMEA_STR_ARGS
 {
     IIMWV = 1,
     WIMWV,
-    NUM_NMEA_STR_ARGS = WIMV 
+    NUM_NMEA_STR_ARGS = WIMWV
 };
 
 enum GIL2D_MSG_TERM_ARGS
@@ -279,35 +279,22 @@ private:
     static const Termios::parity DEFAULT_PARITY = Termios::NONE;
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 8;
-    static const int DEFAULT_RTS485 = 0;
+    static const int DEFAULT_RTS485 = -1;
     static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS422;
+    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
     static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
     static const bool DEFAULT_CONFIG_APPLIED = false;
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
     static const bool DEFAULT_MSG_SEP_EOM = true;
-    static const char DEFAULT_MSG_SEP_CHAR = '\n';
+    static const char* DEFAULT_MSG_SEP_CHAR;
 
-    // default science parameters for the PB210
-    static const GIL2D_COMMANDS DEFAULT_WINDSPD_UNITS_CMD = SENSOR_MEAS_UNITS_CMD;
-    static const GIL2D_UNITS_ARGS DEFAULT_WINDSPD_UNITS = MPS;
+    static const int MIN_AVERAGING_TIME = 0;
+    static const int MAX_AVERAGING_TIME = 3600;
 
-    static const GIL2D_COMMANDS DEFAULT_OUTPUT_UNITS_CMD = SENSOR_EXC_UNIT_CMD;
-
-    static const GIL2D_COMMANDS DEFAULT_SAMPLE_RATE_CMD = SENSOR_MEAS_RATE_CMD;
-    static const int DEFAULT_SAMPLE_RATE = 60; // measurements per minute = 1/sec
-    static const int SENSOR_MEAS_RATE_MIN = 6;
-    static const int SENSOR_MEAS_RATE_MAX = 4200;
-
-    static const GIL2D_COMMANDS DEFAULT_SAMPLE_AVERAGING_CMD = SENSOR_NUM_SAMP_AVG_CMD;
-    static const int DEFAULT_NUM_SAMPLES_AVERAGED = 0; // no averaging performed
-    static const int SENSOR_SAMPLE_AVG_MIN = 0;
-    static const int SENSOR_SAMPLE_AVG_MAX = 255;
-
-    static const GIL2D_COMMANDS DEFAULT_USE_CORRECTION_CMD = SENSOR_CORRECTION_ON_CMD;
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const PTB_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+    static const GIL2D_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
 
     // GIL2D pre-packaged commands
     static const char* SENSOR_CONFIG_MODE_CMD_STR;
@@ -337,14 +324,14 @@ private:
 
     // NOTE: list sensor bauds from highest to lowest as the higher  
     //       ones are the most likely
-    static const int NUM_SENSOR_BAUDS = 5;
-    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_PORT_TYPES = 3;
+    static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
+    static const GIL2D_DATA_WORD_ARGS SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
+    static const int NUM_PORT_TYPES = 2;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 
-    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
+    static const int CHAR_WRITE_DELAY = NSECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
     n_c::PortConfig desiredPortConfig;
