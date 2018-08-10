@@ -53,7 +53,7 @@ public:
     void validate() throw(nidas::util::InvalidParameterException);
 
 private:
-    
+    /// Number of houeskeeping variables in sample 1.
     size_t _nvars;
 
 protected:
