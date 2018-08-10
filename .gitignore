@@ -3,3 +3,13 @@
 /rpm_build
 doxygen.log
 *~
+c_cpp_properties.json
+nidas.code-workspace
+.gitignore
+src/nidas/core/SerialPortIODevice.old.h
+GPATH
+GRTAGS
+GTAGS
+.vscode/settings.json
+/.cproject
+/.project
