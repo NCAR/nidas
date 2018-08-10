@@ -168,84 +168,84 @@ static bool compileRegex() {
     int regStatus = 0;
 
     if (!regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&version, PTB210_VER_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&version, PTB210_VER_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &version, regerrbuf, sizeof regerrbuf);
             throw n_u::ParseException("PTB210 version regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&calDate, PTB210_CAL_DATE_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&calDate, PTB210_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &calDate, regerrbuf, sizeof regerrbuf);
             throw n_u::ParseException("PTB210 cal date regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&idCode, PTB210_ID_CODE_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&idCode, PTB210_ID_CODE_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&idCode,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 id code regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&serNum, PTB210_SERIAL_NUMBER_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&serNum, PTB210_SERIAL_NUMBER_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &serNum, regerrbuf, sizeof regerrbuf);
             throw n_u::ParseException("PTB210 serial number regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&multiCorr, PTB210_MULTI_PT_CORR_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&multiCorr, PTB210_MULTI_PT_CORR_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&multiCorr,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 multipoint correction regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&measRate, PTB210_MEAS_PER_MIN_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&measRate, PTB210_MEAS_PER_MIN_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&measRate,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 measurement rate regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&averageSamp, PTB210_NUM_SMPLS_AVG_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&averageSamp, PTB210_NUM_SMPLS_AVG_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&averageSamp,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 samples averaged regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&pressUnit, PTB210_PRESS_UNIT_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&pressUnit, PTB210_PRESS_UNIT_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&pressUnit,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 pressure unit regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&pressMinMax, PTB210_PRESS_MINMAX_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&pressMinMax, PTB210_PRESS_MINMAX_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&pressMinMax,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 min/max pressure range regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&currentMode, PTB210_CURR_MODE_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&currentMode, PTB210_CURR_MODE_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&currentMode,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 current mode regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&termination, PTB210_RS485_RES_REGEX_STR, REG_EXTENDED)) != 0;
-        if (regexCompiled) {
+        regexCompiled = (regStatus = ::regcomp(&termination, PTB210_RS485_RES_REGEX_STR, REG_EXTENDED)) == 0;
+        if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&termination,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB210 termination resistor regular expression",
