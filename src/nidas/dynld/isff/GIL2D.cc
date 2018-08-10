@@ -919,8 +919,7 @@ bool GIL2D::sweepParameters(bool defaultTested)
                     printPortConfig();
                 }
 
-                DLOG(("Checking response once..."));
-                if (doubleCheckResponse()) {
+                if (enterConfigMode() == ENTERED_RESP_CHECKED || (enterConfigMode() == ENTERED && doubleCheckResponse())) {
                     foundIt = true;
                     return foundIt;
                 } 
@@ -943,7 +942,7 @@ bool GIL2D::sweepParameters(bool defaultTested)
                             printPortConfig();
                         }
 
-                        if (doubleCheckResponse()) {
+                        if (enterConfigMode() == ENTERED_RESP_CHECKED || (enterConfigMode() == ENTERED && doubleCheckResponse())) {
                             foundIt = true;
                             return foundIt;
                         }
@@ -1135,10 +1134,21 @@ void GIL2D::sendSensorCmd(GIL2D_COMMANDS cmd, int arg)
     }
     DLOG(("write() sent ") << snsrCmd.length());;
 
-    char cmdRespBuf[7];
-    int numCharsRead = readResponse(cmdRespBuf, 7, 2000);
-    if (numCharsRead >= 4) {
-    	DLOG(("Sent: ") << snsrCmd << "Received: " << std::string(cmdRespBuf, numCharsRead));
+    if (isConfigCmd(cmd) || cmd == SENSOR_QRY_ID_CMD) {
+		char cmdRespBuf[7];
+		int numCharsRead = readResponse(cmdRespBuf, 7, 2000);
+		if (numCharsRead >= 4) {
+			std::string respStr(cmdRespBuf, numCharsRead);
+			DLOG(("Sent: ") << snsrCmd << "Received: " << respStr);
+			if (cmd == SENSOR_QRY_ID_CMD) {
+				unsigned stxPos = respStr.find_first_of('\x02');
+				unsigned etxPos = respStr.find_first_of('\x03', stxPos);
+				if (etxPos != string::npos && (etxPos - stxPos) == 2) {
+					// we can probably believe that we have captured the unit address response
+					unitId = respStr[stxPos+1];
+				}
+			}
+		}
     }
 }
 
@@ -1197,17 +1207,14 @@ bool GIL2D::checkConfigMode(bool continuous)
     	if (!unitId) {
     		DLOG(("Attempting to get unit ID"));
     		sendSensorCmd(SENSOR_QRY_ID_CMD, -1);
-    		numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
-    		if (numCharsRead > 3) {
-    			// check for <stx>...<etx> chars
-    			if (respBuf[0] == '\x02' && respBuf[2] == '\x03' && isalpha(respBuf[1])) {
-    				unitId = respBuf[1];
-    			}
-    		}
     	}
 
-    	DLOG(("Sending polled mode command to enter config mode"));
-    	sendSensorCmd(SENSOR_CONFIG_MODE_CMD, unitId);
+    	if (unitId) {
+			DLOG(("Sending polled mode command to enter config mode"));
+			sendSensorCmd(SENSOR_CONFIG_MODE_CMD, unitId);
+    	}
+    	else
+    		DLOG(("Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));
     }
 
     bufRemaining = BUF_SIZE;
