@@ -34,13 +34,17 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
-struct WordSpec
-{
-    int dataBits;
-    Termios::parity parity;
-    int stopBits;
+enum GIL2D_CFG_MODE_STATUS {
+	NOT_ENTERED,
+	ENTERED_RESP_CHECKED,
+	ENTERED
 };
 
+enum GIL2D_OUTPUT_MODE
+{
+	CONTINUOUS = true,
+	POLLED = false
+};
 
 // create table indices
 enum GIL2D_COMMANDS
@@ -272,10 +276,12 @@ protected:
     }
     void updateDesiredScienceParameter(GIL2D_COMMANDS cmd, int arg=0);
     GIL2D_CMD_ARG getDesiredCmd(GIL2D_COMMANDS cmd);
+    bool checkConfigMode(bool continuous = CONTINUOUS);
+    GIL2D_CFG_MODE_STATUS enterConfigMode();
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
-    static const int DEFAULT_BAUD_RATE = G9600;
+    static const int DEFAULT_BAUD_RATE = 9600;
     static const Termios::parity DEFAULT_PARITY = Termios::NONE;
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 8;
@@ -338,6 +344,9 @@ private:
     n_c::MessageConfig defaultMessageConfig;
 
     GIL2D_CMD_ARG* desiredScienceParameters;
+
+    char unitId;
+    bool polling;
 
 
     // no copying
