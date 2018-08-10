@@ -278,6 +278,12 @@ protected:
     GIL2D_CMD_ARG getDesiredCmd(GIL2D_COMMANDS cmd);
     bool checkConfigMode(bool continuous = CONTINUOUS);
     GIL2D_CFG_MODE_STATUS enterConfigMode();
+    bool isConfigCmd(GIL2D_COMMANDS cmd)
+    {
+    	return (cmd != SENSOR_QRY_ID_CMD && cmd != SENSOR_CONFIG_MODE_CMD
+    			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD && cmd != SENSOR_POLL_MEAS_CMD
+				&& cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
+    }
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
