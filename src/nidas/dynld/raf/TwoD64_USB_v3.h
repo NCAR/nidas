@@ -54,7 +54,7 @@ public:
 
 private:
     /// Number of houeskeeping variables in sample 1.
-    size_t _nvars;
+    size_t _nHskp;
 
 protected:
     virtual void init_parameters()
