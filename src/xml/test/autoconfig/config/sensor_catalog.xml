@@ -105,4 +105,83 @@
             position="end" 
             length="0"/>
     </serialSensor>
+    <!-- Gill Wind Observer, RS422! Legacy Dynld implmentation -->
+    <serialSensor class="isff.PropVane" ID="GILL_WO"
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Gill Wind Observer, RS422! AutoConfig w/defaults Dynld implmentation -->
+    <serialSensor class="isff.GIL2D" ID="GIL2D_AUTO_0">
+    	<autoconfig />
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Gill Wind Observer, RS422! AutoConfig w/custom Dynld implmentation -->
+    <serialSensor class="isff.GIL2D" ID="GIL2D_AUTO_1">
+    	<autoconfig 
+	        baud="9600" 
+	        parity="none" 
+	        databits="8" 
+	        stopbits="1" />
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
 </sensorcatalog>

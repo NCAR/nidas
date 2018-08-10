@@ -9,7 +9,7 @@
     system="ISFS"
     version="$Revision: 4555 $">
 
-    <xi:include href="file:///home/daq/isfs/projects/AutoConfig/ISFS/config/sensor_catalog.xml" parse="xml">
+    <xi:include href="sensor_catalog.xml" parse="xml">
         <xi:fallback>
             <!-- When your sensor_catalog.xml fails with little to no indication from xerces, 
                  copy and paste it here to debug it -->
@@ -35,10 +35,20 @@
             name="nanolab-01" 
             id="1">
             <serialSensor 
-                IDREF="PTB210_AUTO_0" 
+                IDREF="PTB210_AUTO_1" 
                 devicename="/dev/ttyUSB0" 
                 height="2m" 
-                id="1" />
+                id="20" />
+            <serialSensor 
+                IDREF="PTB210_AUTO_2" 
+                devicename="/dev/ttyUSB1" 
+                height="100m" 
+                id="100" />
+            <serialSensor 
+                IDREF="GIL2D_AUTO_0" 
+                devicename="/dev/ttyUSB5" 
+                height="50m" 
+                id="500" />
         </dsm>
     </site>
 </project>
