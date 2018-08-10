@@ -182,7 +182,7 @@ public:
     void setPortConfig(const PortConfig newPortConfig);
 
     void applyPortConfig();
-    void printPortConfig();
+    void printPortConfig(bool flush=true);
 
 protected:
 

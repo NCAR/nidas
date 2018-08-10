@@ -235,10 +235,13 @@ void SerialSensor::applyPortConfig()
     }
 }
 
-void SerialSensor::printPortConfig() 
+void SerialSensor::printPortConfig(bool flush)
 {
     if (_serialDevice) {
         _serialDevice->printPortConfig();
+        if (flush) {
+        	std::cerr << std::cout << std::flush;
+        }
     }
     else {
         NLOG(("SerialSensor::printPortConfig(): device, ") << getName() 
