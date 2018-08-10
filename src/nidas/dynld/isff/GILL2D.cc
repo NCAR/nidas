@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include "GIL2D.h"
+#include "GILL2D.h"
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/ParseException.h>
 
@@ -37,35 +37,35 @@
 using namespace nidas::core;
 using namespace std;
 
-NIDAS_CREATOR_FUNCTION_NS(isff,GIL2D)
+NIDAS_CREATOR_FUNCTION_NS(isff,GILL2D)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const char* GIL2D::DEFAULT_MSG_SEP_CHAR = "\n";
+const char* GILL2D::DEFAULT_MSG_SEP_CHAR = "\n";
 
-const char* GIL2D::SENSOR_CONFIG_MODE_CMD_STR = "*\r\n";
-const char* GIL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?\r\n";
-const char* GIL2D::SENSOR_POLL_MEAS_CMD_STR = "?\r\n";
-const char* GIL2D::SENSOR_QRY_ID_CMD_STR = "&\r\n";
-const char* GIL2D::SENSOR_DISABLE_POLLED_MODE_CMD_STR = "!\r\n";
-const char* GIL2D::SENSOR_SERIAL_BAUD_CMD_STR = "B\r\n";
-const char* GIL2D::SENSOR_DIAG_QRY_CMD_STR = "D\r\n";
-const char* GIL2D::SENSOR_DUPLEX_COMM_CMD_STR = "E\r\n";
-const char* GIL2D::SENSOR_SERIAL_DATA_WORD_CMD_STR = "F\r\n";
-const char* GIL2D::SENSOR_AVG_PERIOD_CMD_STR = "G\r\n";
-const char* GIL2D::SENSOR_HEATING_CMD_STR = "H\r\n";
-const char* GIL2D::SENSOR_NMEA_ID_STR_CMD_STR = "K\r\n";
-const char* GIL2D::SENSOR_MSG_TERM_CMD_STR = "L\r\n";
-const char* GIL2D::SENSOR_MSG_STREAM_CMD_STR = "M\r\n";
-const char* GIL2D::SENSOR_NODE_ADDR_CMD_STR = "N\r\n";
-const char* GIL2D::SENSOR_OUTPUT_FIELD_FMT_CMD_STR = "O\r\n";
-const char* GIL2D::SENSOR_OUTPUT_RATE_CMD_STR = "P\r\n";
-const char* GIL2D::SENSOR_START_MEAS_CMD_STR = "Q\r\n";
-const char* GIL2D::SENSOR_MEAS_UNITS_CMD_STR = "U\r\n";
-const char* GIL2D::SENSOR_VERT_MEAS_PADDING_CMD_STR = "V\r\n";
-const char* GIL2D::SENSOR_ALIGNMENT_CMD_STR = "X\r\n";
+const char* GILL2D::SENSOR_CONFIG_MODE_CMD_STR = "*\r\n";
+const char* GILL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?\r\n";
+const char* GILL2D::SENSOR_POLL_MEAS_CMD_STR = "?\r\n";
+const char* GILL2D::SENSOR_QRY_ID_CMD_STR = "&\r\n";
+const char* GILL2D::SENSOR_DISABLE_POLLED_MODE_CMD_STR = "!\r\n";
+const char* GILL2D::SENSOR_SERIAL_BAUD_CMD_STR = "B\r\n";
+const char* GILL2D::SENSOR_DIAG_QRY_CMD_STR = "D\r\n";
+const char* GILL2D::SENSOR_DUPLEX_COMM_CMD_STR = "E\r\n";
+const char* GILL2D::SENSOR_SERIAL_DATA_WORD_CMD_STR = "F\r\n";
+const char* GILL2D::SENSOR_AVG_PERIOD_CMD_STR = "G\r\n";
+const char* GILL2D::SENSOR_HEATING_CMD_STR = "H\r\n";
+const char* GILL2D::SENSOR_NMEA_ID_STR_CMD_STR = "K\r\n";
+const char* GILL2D::SENSOR_MSG_TERM_CMD_STR = "L\r\n";
+const char* GILL2D::SENSOR_MSG_STREAM_CMD_STR = "M\r\n";
+const char* GILL2D::SENSOR_NODE_ADDR_CMD_STR = "N\r\n";
+const char* GILL2D::SENSOR_OUTPUT_FIELD_FMT_CMD_STR = "O\r\n";
+const char* GILL2D::SENSOR_OUTPUT_RATE_CMD_STR = "P\r\n";
+const char* GILL2D::SENSOR_START_MEAS_CMD_STR = "Q\r\n";
+const char* GILL2D::SENSOR_MEAS_UNITS_CMD_STR = "U\r\n";
+const char* GILL2D::SENSOR_VERT_MEAS_PADDING_CMD_STR = "V\r\n";
+const char* GILL2D::SENSOR_ALIGNMENT_CMD_STR = "X\r\n";
 
-const char* GIL2D::cmdTable[NUM_SENSOR_CMDS] =
+const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
 {
 	SENSOR_CONFIG_MODE_CMD_STR,
 	SENSOR_ENABLE_POLLED_MODE_CMD_STR,
@@ -92,20 +92,20 @@ const char* GIL2D::cmdTable[NUM_SENSOR_CMDS] =
 
 // NOTE: list sensor bauds from highest to lowest as the higher 
 //       ones are the most likely
-const int GIL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
-const GIL2D_DATA_WORD_ARGS GIL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] = { N81, E81, O81};
+const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
+const GILL2D_DATA_WORD_ARGS GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] = { N81, E81, O81};
 
 // GIL instruments do not use RS232
-const n_c::PORT_TYPES GIL2D::SENSOR_PORT_TYPES[GIL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
+const n_c::PORT_TYPES GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
 
 
 // static default configuration to send to base class...
-const PortConfig GIL2D::DEFAULT_PORT_CONFIG(GIL2D::DEFAULT_BAUD_RATE, GIL2D::DEFAULT_DATA_BITS,
-                                             GIL2D::DEFAULT_PARITY, GIL2D::DEFAULT_STOP_BITS,
-                                             GIL2D::DEFAULT_PORT_TYPE, GIL2D::DEFAULT_SENSOR_TERMINATION, 
-											 GIL2D::DEFAULT_SENSOR_POWER, GIL2D::DEFAULT_RTS485, GIL2D::DEFAULT_CONFIG_APPLIED);
+const PortConfig GILL2D::DEFAULT_PORT_CONFIG(GILL2D::DEFAULT_BAUD_RATE, GILL2D::DEFAULT_DATA_BITS,
+                                             GILL2D::DEFAULT_PARITY, GILL2D::DEFAULT_STOP_BITS,
+                                             GILL2D::DEFAULT_PORT_TYPE, GILL2D::DEFAULT_SENSOR_TERMINATION, 
+											 GILL2D::DEFAULT_SENSOR_POWER, GILL2D::DEFAULT_RTS485, GILL2D::DEFAULT_CONFIG_APPLIED);
 
-const GIL2D_CMD_ARG GIL2D::DEFAULT_SCIENCE_PARAMETERS[] =
+const GILL2D_CMD_ARG GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {
     {SENSOR_AVG_PERIOD_CMD, 0},
     {SENSOR_HEATING_CMD, DISABLED},
@@ -119,9 +119,9 @@ const GIL2D_CMD_ARG GIL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 	{SENSOR_ALIGNMENT_CMD, U_EQ_NS}
 };
 
-const int GIL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(GIL2D_CMD_ARG);
+const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(GILL2D_CMD_ARG);
 
-/* Typical GIL2D D3 query response. L1 means all line endings are \r\n
+/* Typical GILL2D D3 query response. L1 means all line endings are \r\n
  * 
  * This is actually the factory default settings. For most WindObserver models, 
  * wihch this class implements, A, C, T, Y and Z are not settable.
@@ -134,17 +134,17 @@ const int GIL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMET
 
 
 // regular expression strings, contexts, compilation
-static const char* GIL2D_RESPONSE_REGEX_STR =   "(.*[[:space:]]+)+"
+static const char* GILL2D_RESPONSE_REGEX_STR =   "(.*[[:space:]]+)+"
 												"(A[[:digit:]]){0,1} B[[:digit:]] (C[[:digit:]]){0,1} E[[:digit:]] F[[:digit:]] "
 		                                         "G[[:digit:]]{4} H[[:digit:]] (J[[:digit:]]){0,1} K[[:digit:]] L[[:digit:]] "
 		                                         "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] (T[[:digit:]]){0,1} "
 		                                         "U[[:digit:]] V[[:digit:]] X[[:digit:]] (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}";
-static const char* GIL2D_COMPARE_REGEX_STR =    "(.*[[:space:]]+)+"
+static const char* GILL2D_COMPARE_REGEX_STR =    "(.*[[:space:]]+)+"
 												"(A[[:digit:]]){0,1} B([[:digit:]]) (C[[:digit:]]){0,1} E([[:digit:]]) F([[:digit:]]) "
 		                                         "G([[:digit:]]{4}) H([[:digit:]]) (J[[:digit:]]){0,1} K([[:digit:]]) L([[:digit:]]) "
 		                                         "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) (T[[:digit:]]){0,1} "
 		                                         "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}";
-static const char* GIL2D_CONFIG_MODE_REGEX_STR = "(.*[[:space:]]+)+CONFIGURATION MODE";
+static const char* GILL2D_CONFIG_MODE_REGEX_STR = "(.*[[:space:]]+)+CONFIGURATION MODE";
 
 static regex_t sensorCfgResponse;
 static regex_t compareScienceResponse;
@@ -156,29 +156,29 @@ static bool compileRegex()
     int regStatus = 0;
 
     if (!regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&sensorCfgResponse, GIL2D_RESPONSE_REGEX_STR, REG_NOSUB|REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&sensorCfgResponse, GILL2D_RESPONSE_REGEX_STR, REG_NOSUB|REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &sensorCfgResponse, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("GIL2D current config regular expression", string(regerrbuf));
+            throw n_u::ParseException("GILL2D current config regular expression", string(regerrbuf));
         }
     }
 
     if (regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&compareScienceResponse, GIL2D_COMPARE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&compareScienceResponse, GILL2D_COMPARE_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &compareScienceResponse, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("GIL2D science params compare regular expression", string(regerrbuf));
+            throw n_u::ParseException("GILL2D science params compare regular expression", string(regerrbuf));
         }
     }
 
     if (regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&configModeResponse, GIL2D_CONFIG_MODE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&configModeResponse, GILL2D_CONFIG_MODE_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &configModeResponse, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("GIL2D config mode regular expression", string(regerrbuf));
+            throw n_u::ParseException("GILL2D config mode regular expression", string(regerrbuf));
         }
     }
 
@@ -192,7 +192,7 @@ static void freeRegex() {
 
 }
 
-GIL2D::GIL2D()
+GILL2D::GILL2D()
     : Wind2D(DEFAULT_PORT_CONFIG),
 	  testPortConfig(),
 	  desiredPortConfig(),
@@ -203,7 +203,7 @@ GIL2D::GIL2D()
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
-    desiredScienceParameters = new GIL2D_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
+    desiredScienceParameters = new GILL2D_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
@@ -211,13 +211,13 @@ GIL2D::GIL2D()
     compileRegex();
 }
 
-GIL2D::~GIL2D()
+GILL2D::~GILL2D()
 {
     freeRegex();
     delete [] desiredScienceParameters;
 }
 
-void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
+void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
     // let the base classes have first shot at it, since we only care about an autoconfig child element
     // however, any duplicate items in autoconfig will override any items in the base classes
@@ -248,12 +248,12 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 // xform everything to uppercase - this shouldn't affect numbers
                 string upperAval = aval;
                 std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
-                // DLOG(("GIL2D:fromDOMElement(): aname: ") << aname << " upperAval: " << upperAval);
+                // DLOG(("GILL2D:fromDOMElement(): aname: ") << aname << " upperAval: " << upperAval);
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
                 if (aname == "units") {
-                    GIL2D_UNITS_ARGS units = MPS;
+                    GILL2D_UNITS_ARGS units = MPS;
                     if (upperAval == "MPS") {
                         units = MPS;
                     }
@@ -271,7 +271,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_MEAS_UNITS_CMD, units);
                 }
@@ -281,7 +281,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     ist >> val;
                     if (ist.fail() || val < MIN_AVERAGING_TIME || val > MAX_AVERAGING_TIME)
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_AVG_PERIOD_CMD, val);
                 }
@@ -295,7 +295,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "nmeastring") {
                     if (upperAval.find("IIMWV")) {
@@ -306,7 +306,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "msgterm") {
                 	if (upperAval.find("CR") || upperAval.find("CRLF") || upperAval.find("CR LF")) {
@@ -317,7 +317,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 	}
                 	else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "stream") {
                 	if (upperAval.find("ASC")) {
@@ -330,7 +330,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 			}
                 			else
                                 throw n_u::InvalidParameterException(
-                                    string("GIL2D:") + getName(), aname, aval);
+                                    string("GILL2D:") + getName(), aname, aval);
                 		}
                 		if (upperAval.find("POLAR") || upperAval.find("PLR")) {
                 			if (upperAval.find("CONT")) {
@@ -341,7 +341,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 			}
                 			else
                                 throw n_u::InvalidParameterException(
-                                    string("GIL2D:") + getName(), aname, aval);
+                                    string("GILL2D:") + getName(), aname, aval);
                 		}
                 	}
                 	else if (upperAval.find("NMEA")) {
@@ -349,7 +349,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 	}
                 	else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "outputformat") {
                 	if (upperAval == "CSV") {
@@ -360,7 +360,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                 	}
                 	else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "outputrate") {
                     istringstream ist(aval);
@@ -368,7 +368,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     ist >> val;
                     if (ist.fail() || val < ONE_PER_SEC || val > FOUR_PER_SEC)
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_OUTPUT_RATE_CMD, val);
                 }
@@ -382,7 +382,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "porttype") {
                     if (upperAval == "RS422")
@@ -393,7 +393,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                         desiredPortConfig.xcvrConfig.portType = RS485_FULL;
                     else
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname, aval);
+                            string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "baud") {
                     istringstream ist(aval);
@@ -401,7 +401,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     ist >> val;
                     if (ist.fail() || !desiredPortConfig.termios.setBaudRate(val))
                         throw n_u::InvalidParameterException(
-                            string("GIL2D:") + getName(), aname,aval);
+                            string("GILL2D:") + getName(), aname,aval);
                 }
                 else if (aname == "parity") {
                     if (upperAval == "ODD") 
@@ -411,7 +411,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     else if (upperAval == "NONE") 
                         desiredPortConfig.termios.setParity(n_u::Termios::NONE);
                     else throw n_u::InvalidParameterException(
-                        string("GIL2D:") + getName(),
+                        string("GILL2D:") + getName(),
                         aname,aval);
 
                     // These are the only legal values for databits and stopbits,  
@@ -433,7 +433,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
                     }
                     else {
                         throw n_u::InvalidParameterException(
-                        string("GIL2D:") + getName(),
+                        string("GILL2D:") + getName(),
                             aname, aval);
                     }
                 }
@@ -442,7 +442,7 @@ void GIL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidPa
     }
 }
 
-void GIL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
+void GILL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
 {
     NLOG(("First figure out whether we're talking to the sensor"));
     if (findWorkingSerialPortConfig(flags)) {
@@ -467,13 +467,13 @@ void GIL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcept
     }
     else
     {
-        NLOG(("Couldn't find a serial port configuration that worked with this GIL2D sensor. "
+        NLOG(("Couldn't find a serial port configuration that worked with this GILL2D sensor. "
               "May need to troubleshoot the sensor or cable. "
               "!!!NOTE: Sensor is not open for data collection!!!"));
     }
 }
 
-bool GIL2D::findWorkingSerialPortConfig(int flags)
+bool GILL2D::findWorkingSerialPortConfig(int flags)
 {
     bool foundIt = false;
 
@@ -542,7 +542,7 @@ bool GIL2D::findWorkingSerialPortConfig(int flags)
     return foundIt;
 }
 
-bool GIL2D::installDesiredSensorConfig()
+bool GILL2D::installDesiredSensorConfig()
 {
     bool installed = false;
     PortConfig sensorPortConfig = getPortConfig();
@@ -550,7 +550,7 @@ bool GIL2D::installDesiredSensorConfig()
     // at this point we need to determine whether or not the current working config 
     // is the desired config, and adjust as necessary
     if (desiredPortConfig != sensorPortConfig) {
-        // Gotta modify the GIL2D parameters first, and the modify our parameters to match and hope for the best.
+        // Gotta modify the GILL2D parameters first, and the modify our parameters to match and hope for the best.
         // We only do this for the serial and science parameters, as the sensor is physically configured to use  
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
         // physically reconfigure the sensor and re-start the auto-config process.
@@ -560,7 +560,7 @@ bool GIL2D::installDesiredSensorConfig()
 
         sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, desiredPortConfig.termios.getBaudRate());
         
-        // GIL2D only supports three combinations of word format - all based on parity
+        // GILL2D only supports three combinations of word format - all based on parity
         // So just force it based on parity. Go ahead and reset now, so we can see if we're
         // still talking to each other...
         switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
@@ -585,7 +585,7 @@ bool GIL2D::installDesiredSensorConfig()
         if (getPortConfig() == desiredPortConfig) {
             if (!doubleCheckResponse()) {
                 if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("GIL2D::installDesiredSensorConfig() failed to achieve sensor communication "
+                    NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
                             "after setting desired serial port parameters. This is the current PortConfig"));
                     printPortConfig();
                 }
@@ -604,13 +604,13 @@ bool GIL2D::installDesiredSensorConfig()
                 }
 
                 else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("GIL2D reset to original!!!"));
+                    DLOG(("GILL2D reset to original!!!"));
                     printPortConfig();
                 }
             }
             else {
                 if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("Success!! GIL2D set to desired configuration!!!"));
+                    NLOG(("Success!! GILL2D set to desired configuration!!!"));
                     printPortConfig();
                 }
                 installed = true;
@@ -638,7 +638,7 @@ bool GIL2D::installDesiredSensorConfig()
     return installed;
 }
 
-bool GIL2D::configureScienceParameters()
+bool GILL2D::configureScienceParameters()
 {
     DLOG(("Sending sensor science parameters."));
     sendScienceParameters();
@@ -656,7 +656,7 @@ bool GIL2D::configureScienceParameters()
     return success;
 }
 
-void GIL2D::sendScienceParameters() {
+void GILL2D::sendScienceParameters() {
     bool desiredIsDefault = true;
 
     DLOG(("Check for whether the desired science parameters are the same as the default"));
@@ -677,11 +677,11 @@ void GIL2D::sendScienceParameters() {
     }
 }
 
-bool GIL2D::checkScienceParameters()
+bool GILL2D::checkScienceParameters()
 {
 	bool scienceParametersOK = false;
 
-    VLOG(("GIL2D::checkScienceParameters() - Flush port and send query command"));
+    VLOG(("GILL2D::checkScienceParameters() - Flush port and send query command"));
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
@@ -692,7 +692,7 @@ bool GIL2D::checkScienceParameters()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    VLOG(("GIL2D::checkScienceParameters() - Read the entire response"));
+    VLOG(("GILL2D::checkScienceParameters() - Read the entire response"));
     int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
@@ -732,7 +732,7 @@ bool GIL2D::checkScienceParameters()
 			VLOG((respStr.c_str()));
     	}
 
-		VLOG(("GIL2D::checkScienceParameters() - Check the individual parameters available to us"));
+		VLOG(("GILL2D::checkScienceParameters() - Check the individual parameters available to us"));
 		int regexStatus = -1;
 		int nmatch = compareScienceResponse.re_nsub+1;
 		regmatch_t matches[nmatch];
@@ -819,9 +819,9 @@ bool GIL2D::checkScienceParameters()
     return scienceParametersOK;
 }
 
-bool GIL2D::compareScienceParameter(GIL2D_COMMANDS cmd, const char* match)
+bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const char* match)
 {
-    GIL2D_CMD_ARG desiredCmd = getDesiredCmd(cmd);
+    GILL2D_CMD_ARG desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
     VLOG(("Searched command: ") << cmd);
 
@@ -833,7 +833,7 @@ bool GIL2D::compareScienceParameter(GIL2D_COMMANDS cmd, const char* match)
 	return (desiredCmd.arg == arg);
 }
 
-GIL2D_CMD_ARG GIL2D::getDesiredCmd(GIL2D_COMMANDS cmd) {
+GILL2D_CMD_ARG GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -844,12 +844,12 @@ GIL2D_CMD_ARG GIL2D::getDesiredCmd(GIL2D_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    GIL2D_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
+    GILL2D_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
     return(nullRetVal);
 }
 
 
-bool GIL2D::testDefaultPortConfig()
+bool GILL2D::testDefaultPortConfig()
 {
     // get the existing PortConfig to preserve the port
     testPortConfig = getPortConfig();
@@ -868,7 +868,7 @@ bool GIL2D::testDefaultPortConfig()
     return doubleCheckResponse();
 }
 
-bool GIL2D::sweepParameters(bool defaultTested)
+bool GILL2D::sweepParameters(bool defaultTested)
 {
     bool foundIt = false;
 
@@ -955,7 +955,7 @@ bool GIL2D::sweepParameters(bool defaultTested)
     return foundIt;
 }
 
-void GIL2D::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
+void GILL2D::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
                                                      int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
                                                      n_c::SENSOR_POWER_STATE power)
 {
@@ -971,7 +971,7 @@ void GIL2D::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Term
     target.applied =false;
 }
 
-bool GIL2D::isDefaultConfig(const n_c::PortConfig& target)
+bool GILL2D::isDefaultConfig(const n_c::PortConfig& target)
 {
     return ((target.termios.getBaudRate() == DEFAULT_BAUD_RATE)
             && (target.termios.getParity() == DEFAULT_PARITY)
@@ -983,7 +983,7 @@ bool GIL2D::isDefaultConfig(const n_c::PortConfig& target)
             && (target.xcvrConfig.sensorPower == DEFAULT_SENSOR_POWER));
 }
 
-bool GIL2D::doubleCheckResponse()
+bool GILL2D::doubleCheckResponse()
 {
     bool foundIt = false;
 
@@ -1017,7 +1017,7 @@ bool GIL2D::doubleCheckResponse()
     return foundIt;
 }
 
-bool GIL2D::checkResponse()
+bool GILL2D::checkResponse()
 {
 	bool retVal = false;
 
@@ -1071,7 +1071,7 @@ bool GIL2D::checkResponse()
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        VLOG(("GIL2D::checkResponse() - Check the general format of the config mode response"));
+        VLOG(("GILL2D::checkResponse() - Check the general format of the config mode response"));
         int regexStatus = -1;
         
         // check for sample averaging
@@ -1080,7 +1080,7 @@ bool GIL2D::checkResponse()
         if (regexStatus > 0) {
             char regerrbuf[64];
             ::regerror(regexStatus, &sensorCfgResponse, regerrbuf, sizeof regerrbuf);
-            DLOG(("GIL2d::checkResponse() regex failed: ") << std::string(regerrbuf));
+            DLOG(("GILL2D::checkResponse() regex failed: ") << std::string(regerrbuf));
         }
     }
 
@@ -1092,7 +1092,7 @@ bool GIL2D::checkResponse()
 }
 
 
-void GIL2D::sendSensorCmd(GIL2D_COMMANDS cmd, int arg)
+void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
@@ -1152,7 +1152,7 @@ void GIL2D::sendSensorCmd(GIL2D_COMMANDS cmd, int arg)
     }
 }
 
-size_t GIL2D::readResponse(void *buf, size_t len, int msecTimeout)
+size_t GILL2D::readResponse(void *buf, size_t len, int msecTimeout)
 {
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -1177,7 +1177,7 @@ size_t GIL2D::readResponse(void *buf, size_t len, int msecTimeout)
     return read(buf,len);
 }
 
-void GIL2D::updateDesiredScienceParameter(GIL2D_COMMANDS cmd, int arg) {
+void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {
             desiredScienceParameters[i].arg = arg;
@@ -1186,7 +1186,7 @@ void GIL2D::updateDesiredScienceParameter(GIL2D_COMMANDS cmd, int arg) {
     }
 }
 
-bool GIL2D::checkConfigMode(bool continuous)
+bool GILL2D::checkConfigMode(bool continuous)
 {
 	bool retVal = false;
     static const int BUF_SIZE = 512;
@@ -1258,7 +1258,7 @@ bool GIL2D::checkConfigMode(bool continuous)
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        VLOG(("GIL2D::checkResponse() - Check the general format of the config mode response"));
+        VLOG(("GILL2D::checkResponse() - Check the general format of the config mode response"));
         int regexStatus = -1;
 
         // check for sample averaging
@@ -1267,7 +1267,7 @@ bool GIL2D::checkConfigMode(bool continuous)
         if (regexStatus > 0) {
             char regerrbuf[64];
             ::regerror(regexStatus, &configModeResponse, regerrbuf, sizeof regerrbuf);
-            DLOG(("GIL2d::checkResponse() regex failed: ") << std::string(regerrbuf));
+            DLOG(("GILL2D::checkResponse() regex failed: ") << std::string(regerrbuf));
         }
     }
 
@@ -1278,9 +1278,9 @@ bool GIL2D::checkConfigMode(bool continuous)
     return retVal;
 }
 
-GIL2D_CFG_MODE_STATUS GIL2D::enterConfigMode()
+GILL2D_CFG_MODE_STATUS GILL2D::enterConfigMode()
 {
-	GIL2D_CFG_MODE_STATUS retVal = NOT_ENTERED;
+	GILL2D_CFG_MODE_STATUS retVal = NOT_ENTERED;
 
 	DLOG(("Trying to get into Configuration Mode"));
 	DLOG(("First check to see if sensor is already in Configuration Mode"));

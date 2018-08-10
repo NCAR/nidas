@@ -131,7 +131,7 @@
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
     <!-- Gill Wind Observer, RS422! AutoConfig w/defaults Dynld implmentation -->
-    <serialSensor class="isff.GIL2D" ID="GIL2D_AUTO_0">
+    <serialSensor class="isff.GILL2D" ID="GILL2D_AUTO_0">
     	<autoconfig />
         <!-- enabled Tc output, turned off heater:
              *  (enter config mode)
@@ -156,7 +156,7 @@
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
     <!-- Gill Wind Observer, RS422! AutoConfig w/custom Dynld implmentation -->
-    <serialSensor class="isff.GIL2D" ID="GIL2D_AUTO_1">
+    <serialSensor class="isff.GILL2D" ID="GILL2D_AUTO_1">
     	<autoconfig 
 	        baud="9600" 
 	        parity="none" 

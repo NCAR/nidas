@@ -45,7 +45,7 @@
                 height="100m" 
                 id="100" />
             <serialSensor 
-                IDREF="GIL2D_AUTO_0" 
+                IDREF="GILL2D_AUTO_0" 
                 devicename="/dev/ttyUSB5" 
                 height="50m" 
                 id="500" />

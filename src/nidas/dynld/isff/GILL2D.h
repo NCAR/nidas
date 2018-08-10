@@ -24,8 +24,8 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_ISFF_GIL2D_H
-#define NIDAS_DYNLD_ISFF_GIL2D_H
+#ifndef NIDAS_DYNLD_ISFF_GILL2D_H
+#define NIDAS_DYNLD_ISFF_GILL2D_H
 
 #include <nidas/dynld/isff/Wind2D.h>
 
@@ -34,20 +34,20 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
-enum GIL2D_CFG_MODE_STATUS {
+enum GILL2D_CFG_MODE_STATUS {
 	NOT_ENTERED,
 	ENTERED_RESP_CHECKED,
 	ENTERED
 };
 
-enum GIL2D_OUTPUT_MODE
+enum GILL2D_OUTPUT_MODE
 {
 	CONTINUOUS = true,
 	POLLED = false
 };
 
 // create table indices
-enum GIL2D_COMMANDS
+enum GILL2D_COMMANDS
 {   NULL_COMMAND = -1, // don't put in table, only used for null return value
     SENSOR_CONFIG_MODE_CMD,
     SENSOR_ENABLE_POLLED_MODE_CMD,
@@ -73,7 +73,7 @@ enum GIL2D_COMMANDS
     NUM_SENSOR_CMDS
 };
 
-enum GIL2D_BAUD_ARGS 
+enum GILL2D_BAUD_ARGS 
 {
     G2400 = 1,
     G4800,
@@ -85,7 +85,7 @@ enum GIL2D_BAUD_ARGS
     NUM_BAUD_ARGS = G300
 };
 
-enum GIL2D_DIAG_ARGS
+enum GILL2D_DIAG_ARGS
 {
     TYPE_SER_NO = 1,
     SW_VER,
@@ -96,14 +96,14 @@ enum GIL2D_DIAG_ARGS
     NUM_DIAG_ARGS = SELF_TEST
 };
 
-enum GIL2D_DUPLEX_ARGS
+enum GILL2D_DUPLEX_ARGS
 {
     FULL = 1,
     HALF,
     NUM_DUPLEX_ARGS = HALF
 };
 
-enum GIL2D_DATA_WORD_ARGS
+enum GILL2D_DATA_WORD_ARGS
 {
     N81 = 1,
     E81,
@@ -119,21 +119,21 @@ enum GILD2D_HEATING_ARGS
     NUM_HEATING_ARGS = ACTIVE_H3
 };
 
-enum GIL2D_NMEA_STR_ARGS
+enum GILL2D_NMEA_STR_ARGS
 {
     IIMWV = 1,
     WIMWV,
     NUM_NMEA_STR_ARGS = WIMWV
 };
 
-enum GIL2D_MSG_TERM_ARGS
+enum GILL2D_MSG_TERM_ARGS
 {
     CRLF = 1,
     LF,
     NUM_MSG_TERM_ARGS = LF
 };
 
-enum GIL2D_MSG_STREAM_ARGS
+enum GILL2D_MSG_STREAM_ARGS
 {
     ASC_UV_CONT = 1,
     ASC_PLR_CONT,
@@ -143,14 +143,14 @@ enum GIL2D_MSG_STREAM_ARGS
     NUM_MSG_STREAM_ARGS = NMEA_CONT
 };
 
-enum GIL2D_OUTPUT_FMT_ARGS
+enum GILL2D_OUTPUT_FMT_ARGS
 {
     CSV = 1,
     FIXED_FIELD,
     NUM_OUTPUT_FMT_ARGS = FIXED_FIELD
 };
 
-enum GIL2D_OUTPUT_RATE_ARGS
+enum GILL2D_OUTPUT_RATE_ARGS
 {
     ONE_PER_SEC = 1,
     TWO_PER_SEC,
@@ -158,7 +158,7 @@ enum GIL2D_OUTPUT_RATE_ARGS
     NUM_OUTPUT_RATE_ARGS = FOUR_PER_SEC
 };
 
-enum GIL2D_UNITS_ARGS
+enum GILL2D_UNITS_ARGS
 {
     MPS = 1,
     KNOTS,
@@ -168,14 +168,14 @@ enum GIL2D_UNITS_ARGS
     NUM_UNITS_ARGS = FPM
 };
 
-enum GIL2D_VERT_OUTPUT_PAD_ARGS
+enum GILL2D_VERT_OUTPUT_PAD_ARGS
 {
     DISABLE_VERT_PAD = 1,
     ENABLE_VERT_PAD,
     NUM_VERT_OUTPUT_PAD_ARGS = ENABLE_VERT_PAD
 };
 
-enum GIL2D_ALIGNMENT_ARGS
+enum GILL2D_ALIGNMENT_ARGS
 {
     U_EQ_NS = 1,
     U_PLUS_45,
@@ -184,14 +184,14 @@ enum GIL2D_ALIGNMENT_ARGS
     NUM_ALIGNMENT_ARGS = UPSIDE_DOWN_PLUS_45
 };
 
-// Valid GIL2D Command argument ranges
-struct GIL2D_ARG_RANGE {
+// Valid GILL2D Command argument ranges
+struct GILL2D_ARG_RANGE {
     int min;
     int max;
 };
 
-struct GIL2D_CMD_ARG {
-    GIL2D_COMMANDS cmd;
+struct GILL2D_CMD_ARG {
+    GILL2D_COMMANDS cmd;
     int arg;
 };
 
@@ -237,11 +237,11 @@ struct GIL2D_CMD_ARG {
 
 
  */
-class GIL2D: public Wind2D
+class GILL2D: public Wind2D
 {
 public:
-    GIL2D();
-    ~GIL2D();
+    GILL2D();
+    ~GILL2D();
 
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
@@ -255,7 +255,7 @@ protected:
     bool findWorkingSerialPortConfig(int flags);
     bool doubleCheckResponse();
     bool checkResponse();
-    void sendSensorCmd(GIL2D_COMMANDS cmd, int arg=0);
+    void sendSensorCmd(GILL2D_COMMANDS cmd, int arg=0);
     bool testDefaultPortConfig();
     bool sweepParameters(bool defaultTested=false);
     void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
@@ -265,7 +265,7 @@ protected:
     bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
-    bool compareScienceParameter(GIL2D_COMMANDS cmd, const char* match);
+    bool compareScienceParameter(GILL2D_COMMANDS cmd, const char* match);
     size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
@@ -274,11 +274,11 @@ protected:
         std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         std::cout << std::endl;
     }
-    void updateDesiredScienceParameter(GIL2D_COMMANDS cmd, int arg=0);
-    GIL2D_CMD_ARG getDesiredCmd(GIL2D_COMMANDS cmd);
+    void updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg=0);
+    GILL2D_CMD_ARG getDesiredCmd(GILL2D_COMMANDS cmd);
     bool checkConfigMode(bool continuous = CONTINUOUS);
-    GIL2D_CFG_MODE_STATUS enterConfigMode();
-    bool isConfigCmd(GIL2D_COMMANDS cmd)
+    GILL2D_CFG_MODE_STATUS enterConfigMode();
+    bool isConfigCmd(GILL2D_COMMANDS cmd)
     {
     	return (cmd != SENSOR_QRY_ID_CMD && cmd != SENSOR_CONFIG_MODE_CMD
     			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD && cmd != SENSOR_POLL_MEAS_CMD
@@ -306,9 +306,9 @@ private:
     static const int MAX_AVERAGING_TIME = 3600;
 
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const GIL2D_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+    static const GILL2D_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
 
-    // GIL2D pre-packaged commands
+    // GILL2D pre-packaged commands
     static const char* SENSOR_CONFIG_MODE_CMD_STR;
     static const char* SENSOR_ENABLE_POLLED_MODE_CMD_STR;
     static const char* SENSOR_POLL_MEAS_CMD_STR;
@@ -337,7 +337,7 @@ private:
     // NOTE: list sensor bauds from highest to lowest as the higher  
     //       ones are the most likely
     static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
-    static const GIL2D_DATA_WORD_ARGS SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
+    static const GILL2D_DATA_WORD_ARGS SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
     static const int NUM_PORT_TYPES = 2;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
@@ -349,17 +349,17 @@ private:
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
 
-    GIL2D_CMD_ARG* desiredScienceParameters;
+    GILL2D_CMD_ARG* desiredScienceParameters;
 
     char unitId;
     bool polling;
 
 
     // no copying
-    GIL2D(const GIL2D&);
+    GILL2D(const GILL2D&);
 
     // no assignment
-    GIL2D& operator=(const GIL2D&);
+    GILL2D& operator=(const GILL2D&);
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
