@@ -135,17 +135,17 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
  
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-    for (size_t ifield = 0; ifield < _nvars; ifield++){
+    for (size_t ifield = 0; ifield < _nvars; ifield++) {
         if (input == NULL)break;
 	const char * cp = ::strchr(input,sep);  
         cp++; 
         //First input will be the second char to skip "SOR,"
-        if(ifield != 0)
+        if (ifield != 0)
         { 
-            if (sscanf(input, "%f", &data) == 1){
+            if (sscanf(input, "%f", &data) == 1) {
                 dout[iout++] = double(data);
             }else
-            dout[iout++] = double(NAN);
+                dout[iout++] = double(NAN);
         }
         input=cp;
     }
