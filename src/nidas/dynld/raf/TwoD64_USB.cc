@@ -514,6 +514,7 @@ bool TwoD64_USB::process(const Sample * samp,
     switch (stype) {
         case TWOD_IMG_TYPE:
         case TWOD_IMGv2_TYPE:
+        case TWOD_IMGv3_TYPE:
             result = processImageRecord(samp, results, stype);
             break;
         case TWOD_SOR_TYPE:	// Shadow-or counter.
