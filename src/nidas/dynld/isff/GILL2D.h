@@ -266,6 +266,7 @@ protected:
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(GILL2D_COMMANDS cmd, const char* match);
+    size_t readEntireResponse(void *buf, size_t len, int msecTimeout);
     size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
@@ -284,6 +285,7 @@ protected:
     			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD && cmd != SENSOR_POLL_MEAS_CMD
 				&& cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
     }
+    bool confirmGillSerialPortChange(GILL2D_COMMANDS cmd, int arg);
 
 private:
     // default serial parameters for the GIL 2D Wind Observer

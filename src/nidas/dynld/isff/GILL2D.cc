@@ -27,8 +27,10 @@
 #include "GILL2D.h"
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/ParseException.h>
+#include <nidas/util/IosFlagSaver.h>
 
 #include <sstream>
+#include <iomanip>
 #include <limits>
 #include <regex.h>
 #include <time.h>
@@ -43,27 +45,27 @@ namespace nidas { namespace dynld { namespace isff {
 
 const char* GILL2D::DEFAULT_MSG_SEP_CHAR = "\n";
 
-const char* GILL2D::SENSOR_CONFIG_MODE_CMD_STR = "*\r\n";
-const char* GILL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?\r\n";
-const char* GILL2D::SENSOR_POLL_MEAS_CMD_STR = "?\r\n";
-const char* GILL2D::SENSOR_QRY_ID_CMD_STR = "&\r\n";
-const char* GILL2D::SENSOR_DISABLE_POLLED_MODE_CMD_STR = "!\r\n";
-const char* GILL2D::SENSOR_SERIAL_BAUD_CMD_STR = "B\r\n";
-const char* GILL2D::SENSOR_DIAG_QRY_CMD_STR = "D\r\n";
-const char* GILL2D::SENSOR_DUPLEX_COMM_CMD_STR = "E\r\n";
-const char* GILL2D::SENSOR_SERIAL_DATA_WORD_CMD_STR = "F\r\n";
-const char* GILL2D::SENSOR_AVG_PERIOD_CMD_STR = "G\r\n";
-const char* GILL2D::SENSOR_HEATING_CMD_STR = "H\r\n";
-const char* GILL2D::SENSOR_NMEA_ID_STR_CMD_STR = "K\r\n";
-const char* GILL2D::SENSOR_MSG_TERM_CMD_STR = "L\r\n";
-const char* GILL2D::SENSOR_MSG_STREAM_CMD_STR = "M\r\n";
-const char* GILL2D::SENSOR_NODE_ADDR_CMD_STR = "N\r\n";
-const char* GILL2D::SENSOR_OUTPUT_FIELD_FMT_CMD_STR = "O\r\n";
-const char* GILL2D::SENSOR_OUTPUT_RATE_CMD_STR = "P\r\n";
-const char* GILL2D::SENSOR_START_MEAS_CMD_STR = "Q\r\n";
-const char* GILL2D::SENSOR_MEAS_UNITS_CMD_STR = "U\r\n";
-const char* GILL2D::SENSOR_VERT_MEAS_PADDING_CMD_STR = "V\r\n";
-const char* GILL2D::SENSOR_ALIGNMENT_CMD_STR = "X\r\n";
+const char* GILL2D::SENSOR_CONFIG_MODE_CMD_STR = "*";
+const char* GILL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?";
+const char* GILL2D::SENSOR_POLL_MEAS_CMD_STR = "?";
+const char* GILL2D::SENSOR_QRY_ID_CMD_STR = "&";
+const char* GILL2D::SENSOR_DISABLE_POLLED_MODE_CMD_STR = "!\r";
+const char* GILL2D::SENSOR_SERIAL_BAUD_CMD_STR = "B\r";
+const char* GILL2D::SENSOR_DIAG_QRY_CMD_STR = "D\r";
+const char* GILL2D::SENSOR_DUPLEX_COMM_CMD_STR = "E\r";
+const char* GILL2D::SENSOR_SERIAL_DATA_WORD_CMD_STR = "F\r";
+const char* GILL2D::SENSOR_AVG_PERIOD_CMD_STR = "G\r";
+const char* GILL2D::SENSOR_HEATING_CMD_STR = "H\r";
+const char* GILL2D::SENSOR_NMEA_ID_STR_CMD_STR = "K\r";
+const char* GILL2D::SENSOR_MSG_TERM_CMD_STR = "L\r";
+const char* GILL2D::SENSOR_MSG_STREAM_CMD_STR = "M\r";
+const char* GILL2D::SENSOR_NODE_ADDR_CMD_STR = "N\r";
+const char* GILL2D::SENSOR_OUTPUT_FIELD_FMT_CMD_STR = "O\r";
+const char* GILL2D::SENSOR_OUTPUT_RATE_CMD_STR = "P\r";
+const char* GILL2D::SENSOR_START_MEAS_CMD_STR = "Q\r";
+const char* GILL2D::SENSOR_MEAS_UNITS_CMD_STR = "U\r";
+const char* GILL2D::SENSOR_VERT_MEAS_PADDING_CMD_STR = "V\r";
+const char* GILL2D::SENSOR_ALIGNMENT_CMD_STR = "X\r";
 
 const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
 {
@@ -496,7 +498,8 @@ bool GILL2D::findWorkingSerialPortConfig(int flags)
         printPortConfig();
     }
 
-    if (enterConfigMode() == NOT_ENTERED || (enterConfigMode() == ENTERED && !doubleCheckResponse())) {
+    GILL2D_CFG_MODE_STATUS cfgModeStatus = enterConfigMode();
+    if (cfgModeStatus == NOT_ENTERED || (cfgModeStatus == ENTERED && !doubleCheckResponse())) {
         // initial config didn't work, so sweep through all parameters starting w/the default
         if (!isDefaultConfig(getPortConfig())) {
             // it's a custom config, so test default first
@@ -558,26 +561,55 @@ bool GILL2D::installDesiredSensorConfig()
 
         serPortFlush(O_RDWR);
 
-        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, desiredPortConfig.termios.getBaudRate());
-        
-        // GILL2D only supports three combinations of word format - all based on parity
-        // So just force it based on parity. Go ahead and reset now, so we can see if we're
-        // still talking to each other...
-        switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
-            case 'O':
-                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, O81);
-                break;
+        if (desiredPortConfig.termios.getBaudRate() != sensorPortConfig.termios.getBaudRate()) {
+        	DLOG(("Changing baud rate to: ") << desiredPortConfig.termios.getBaudRate());
+        	GILL2D_BAUD_ARGS newBaudArg = G38400;
+        	switch (desiredPortConfig.termios.getBaudRate()) {
+				case 38400:
+					break;
+				case 19200:
+					newBaudArg = G19200;
+					break;
+				case 9600:
+					newBaudArg = G9600;
+					break;
+				case 4800:
+					newBaudArg = G4800;
+					break;
+				case 2400:
+					newBaudArg = G2400;
+					break;
+				case 1200:
+					newBaudArg = G1200;
+					break;
+				case 300:
+					newBaudArg = G300;
+					break;
+        	}
 
-            case 'E':
-                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, E81);
-                break;
+        	sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, newBaudArg);
+        }
 
-            case 'N':
-                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, N81);
-                break;
+        if (desiredPortConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
+        	DLOG(("Changing parity to: ") << desiredPortConfig.termios.getParityString());
+			// GILL2D only supports three combinations of word format - all based on parity
+			// So just force it based on parity.
+			switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
+				case 'O':
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, O81);
+					break;
 
-            default:
-                break;
+				case 'E':
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, E81);
+					break;
+
+				case 'N':
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, N81);
+					break;
+
+				default:
+					break;
+			}
         }
 
         setPortConfig(desiredPortConfig);
@@ -693,40 +725,13 @@ bool GILL2D::checkScienceParameters()
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("GILL2D::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
+    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-        if (numCharsRead > 0) {
-            VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (int i=0; i<5; ++i) {
-                char hexBuf[60];
-                memset(hexBuf, 0, 60);
-                for (int j=0; j<10; ++j) {
-                    snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
-                }
-                VLOG((&(hexBuf[0])));
-            }
-        }
-    }
-    
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-            if (numCharsRead == 0) {
-                VLOG(("Took ") << i+1 << " reads to get entire response");
-            }
-        }
-    }
-
-    if (totalCharsRead ) {
+    if (numCharsRead ) {
     	if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
 			std::string respStr;
-			respStr.append(&respBuf[0], totalCharsRead);
+			respStr.append(&respBuf[0], numCharsRead);
 
 			VLOG(("Response: "));
 			VLOG((respStr.c_str()));
@@ -919,7 +924,8 @@ bool GILL2D::sweepParameters(bool defaultTested)
                     printPortConfig();
                 }
 
-                if (enterConfigMode() == ENTERED_RESP_CHECKED || (enterConfigMode() == ENTERED && doubleCheckResponse())) {
+                GILL2D_CFG_MODE_STATUS cfgModeStatus = enterConfigMode();
+                if (cfgModeStatus == ENTERED_RESP_CHECKED || (cfgModeStatus == ENTERED && doubleCheckResponse())) {
                     foundIt = true;
                     return foundIt;
                 } 
@@ -942,7 +948,7 @@ bool GILL2D::sweepParameters(bool defaultTested)
                             printPortConfig();
                         }
 
-                        if (enterConfigMode() == ENTERED_RESP_CHECKED || (enterConfigMode() == ENTERED && doubleCheckResponse())) {
+                        if (cfgModeStatus == ENTERED_RESP_CHECKED || (cfgModeStatus == ENTERED && doubleCheckResponse())) {
                             foundIt = true;
                             return foundIt;
                         }
@@ -1019,53 +1025,24 @@ bool GILL2D::doubleCheckResponse()
 
 bool GILL2D::checkResponse()
 {
+	DLOG(("GILL2D::checkResponse(): enter..."));
 	bool retVal = false;
 
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
     // Just getting into config mode elicits a usable response...
-    NLOG(("Sending GIL command to get current config..."));
+    NLOG(("Sending GILL command to get current config..."));
     sendSensorCmd(SENSOR_DIAG_QRY_CMD, OPER_CONFIG);
 
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-        if (numCharsRead > 0) {
-            DLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (int i=0; i<5; ++i) {
-                char hexBuf[60];
-                memset(hexBuf, 0, 60);
-                for (int j=0; j<10; ++j) {
-                    snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
-                }
-                DLOG((&(hexBuf[0])));
-            }
-        }
-    }
-    
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            if (numCharsRead == 0) {
-                DLOG(("Took ") << i+1 << " reads to get entire response");
-            }
-        }
-    }
-
-    if (totalCharsRead) {
-        std::string respStr;
-        respStr.append(&respBuf[0], totalCharsRead);
+    if (numCharsRead) {
+        std::string respStr(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
@@ -1088,6 +1065,7 @@ bool GILL2D::checkResponse()
         DLOG(("Didn't get any chars from serial port"));
     }
 
+	DLOG(("GILL2D::checkResponse(): exit..."));
     return retVal;
 }
 
@@ -1120,6 +1098,10 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
     	int insertIdx = snsrCmd.find_last_of('\r');
     	DLOG(("Found \\r at position: ") << insertIdx);
     	snsrCmd.insert(insertIdx, argStr.str());
+    	// add the \r at the beginning to help some GILL states get unstuck...
+    	// For instance, when changing serial port settings while in configuration mode,
+    	// a carriage return is necessary before it will respond to commands.
+    	snsrCmd.insert(0, "\r");
     }
 
     // Write the command - assume the port is already open
@@ -1135,21 +1117,127 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
     DLOG(("write() sent ") << snsrCmd.length());;
 
     if (isConfigCmd(cmd) || cmd == SENSOR_QRY_ID_CMD) {
-		char cmdRespBuf[7];
-		int numCharsRead = readResponse(cmdRespBuf, 7, 2000);
-		if (numCharsRead >= 4) {
-			std::string respStr(cmdRespBuf, numCharsRead);
-			DLOG(("Sent: ") << snsrCmd << "Received: " << respStr);
-			if (cmd == SENSOR_QRY_ID_CMD) {
-				unsigned stxPos = respStr.find_first_of('\x02');
-				unsigned etxPos = respStr.find_first_of('\x03', stxPos);
-				if (etxPos != string::npos && (etxPos - stxPos) == 2) {
-					// we can probably believe that we have captured the unit address response
-					unitId = respStr[stxPos+1];
+    	const int CMD_RESP_BUF_SIZE = 20;
+		char cmdRespBuf[CMD_RESP_BUF_SIZE];
+		memset(cmdRespBuf, 0, CMD_RESP_BUF_SIZE);
+		int numCharsRead = readEntireResponse(cmdRespBuf, CMD_RESP_BUF_SIZE, 2000);
+		std::string respStr(cmdRespBuf, numCharsRead);
+		std::ostringstream oss;
+		oss << "Sent: " << snsrCmd << std::endl << " Received: " << std::hex << respStr;
+		DLOG((oss.str().c_str()));
+		if (cmd == SENSOR_QRY_ID_CMD) {
+			unsigned stxPos = respStr.find_first_of('\x02');
+			unsigned etxPos = respStr.find_first_of('\x03', stxPos);
+			if (etxPos != string::npos && (etxPos - stxPos) == 2) {
+				// we can probably believe that we have captured the unit address response
+				unitId = respStr[stxPos+1];
+			}
+		}
+		else if (cmd == SENSOR_SERIAL_BAUD_CMD || cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
+			DLOG(("Serial port setting change... Looking for confirm request response..."));
+			if (respStr.find("confirm") != std::string::npos) {
+				DLOG(("Serial port setting change... Found confirm request response, changing termios to new parameters and sending confirmation..."));
+				if (confirmGillSerialPortChange(cmd, arg)) {
+					DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
 				}
+				else
+					DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
+			}
+			else {
+				DLOG(("Serial port setting change... Didn't find confirm request response - retrying read..."));
+				memset(cmdRespBuf, 0, CMD_RESP_BUF_SIZE);
+				numCharsRead = readEntireResponse(cmdRespBuf, CMD_RESP_BUF_SIZE, 2000);
+				if (numCharsRead) {
+					if (respStr.find("confirm") != std::string::npos) {
+						DLOG(("Serial port setting change... Found confirm request response, changing termios to new parameters and sending confirmation..."));
+						if (confirmGillSerialPortChange(cmd, arg)) {
+							DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
+						}
+						else
+							DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
+					}
+					else
+						DLOG(("Serial port setting change... Didn't find confirm request response - failed twice"));
+				}
+				else
+					DLOG(("Serial port setting change... Didn't find confirm request response - failed twice"));
 			}
 		}
     }
+}
+
+bool GILL2D::confirmGillSerialPortChange(GILL2D_COMMANDS cmd, int arg)
+{
+	DLOG(("confirmGillSerialPortChange(): enter"));
+	ostringstream entireCmd(cmdTable[cmd]);
+	entireCmd << arg;
+
+	std::string confirmCmd(cmdTable[cmd]);
+	confirmCmd.append("\r");
+	confirmCmd.insert(0, "\r");
+	DLOG(("Serial port confirmation command: ") << confirmCmd);
+
+	DLOG(("Getting the existing PortConfig and adjusting Termios..."));
+	PortConfig currentPortConfig = getPortConfig();
+
+	// Adjust PortConfig/Termios and apply
+	if (cmd == SENSOR_SERIAL_BAUD_CMD) {
+		DLOG(("Setting the new serial baud rate command..."));
+		switch (static_cast<GILL2D_BAUD_ARGS>(arg)) {
+			case G300:
+				currentPortConfig.termios.setBaudRate(300);
+				break;
+			case G1200:
+				currentPortConfig.termios.setBaudRate(1200);
+				break;
+			case G2400:
+				currentPortConfig.termios.setBaudRate(2400);
+				break;
+			case G4800:
+				currentPortConfig.termios.setBaudRate(4800);
+				break;
+			case G9600:
+				currentPortConfig.termios.setBaudRate(9600);
+				break;
+			case G19200:
+				currentPortConfig.termios.setBaudRate(19200);
+				break;
+			case G38400:
+				currentPortConfig.termios.setBaudRate(38400);
+				break;
+		}
+	}
+	else if(cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
+		DLOG(("Setting the new serial word command..."));
+		switch (static_cast<GILL2D_DATA_WORD_ARGS>(arg)) {
+			case N81:
+				currentPortConfig.termios.setParity(Termios::NONE);
+				break;
+			case E81:
+				currentPortConfig.termios.setParity(Termios::EVEN);
+				break;
+			case O81:
+				currentPortConfig.termios.setParity(Termios::ODD);
+				break;
+		}
+	}
+
+	DLOG(("Applying the new PortConfig settings..."));
+	setPortConfig(currentPortConfig);
+	applyPortConfig();
+
+	DLOG(("Writing the confirmation command..."));
+	write(confirmCmd.c_str(), 3);
+
+	DLOG(("Reading the confirmation response..."));
+	char confirmRespBuf[10];
+	memset(confirmRespBuf, 0, 10);
+	size_t numRespChars = readEntireResponse(confirmRespBuf, 10, 2000);
+	std::string respStr(confirmRespBuf, numRespChars);
+	DLOG(("Confirmation Response: ") << respStr);
+	DLOG(("confirmGillSerialPortChange(): exit"));
+
+	return 	(respStr.find(entireCmd.str()) != std::string::npos);
 }
 
 size_t GILL2D::readResponse(void *buf, size_t len, int msecTimeout)
@@ -1177,6 +1265,45 @@ size_t GILL2D::readResponse(void *buf, size_t len, int msecTimeout)
     return read(buf,len);
 }
 
+size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
+{
+	char* cbuf = (char*)buf;
+	int bufRemaining = len;
+    int numCharsRead = readResponse(cbuf, len, msecTimeout);
+    int totalCharsRead = numCharsRead;
+    bufRemaining -= numCharsRead;
+
+    if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
+        if (numCharsRead > 0) {
+        	IosFlagSaver iosFlagRestorer(std::cout);
+            VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
+            for (size_t i=0; i<5; ++i) {
+                for (int j=0; j<10; ++j) {
+                	if ((i*10 + j) > len)
+						break;
+                    std::cout << std::setw(5) << std::hex << (unsigned char)cbuf[(i*10)+j];
+                }
+                std::cout << endl << std::flush;
+//                VLOG((&hexBuf[0]));
+            }
+        }
+    }
+
+    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
+        numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout);
+        totalCharsRead += numCharsRead;
+        bufRemaining -= numCharsRead;
+
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
+            if (numCharsRead == 0) {
+                VLOG(("Took ") << i+1 << " reads to get entire response");
+            }
+        }
+    }
+
+    return totalCharsRead;
+}
+
 void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {
@@ -1189,7 +1316,7 @@ void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
 bool GILL2D::checkConfigMode(bool continuous)
 {
 	bool retVal = false;
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 75;
     int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
@@ -1200,7 +1327,7 @@ bool GILL2D::checkConfigMode(bool continuous)
 
     // Just getting into config mode elicits a usable response...
     if (continuous) {
-		DLOG(("Sending GIL command to enter configuration mode in continuous operation..."));
+		DLOG(("Sending GILL command to enter configuration mode in continuous operation..."));
 		sendSensorCmd(SENSOR_CONFIG_MODE_CMD, -1);
     }
     else {
@@ -1220,45 +1347,17 @@ bool GILL2D::checkConfigMode(bool continuous)
     bufRemaining = BUF_SIZE;
     memset(respBuf, 0, BUF_SIZE);
 
-    numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
+    numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-        if (numCharsRead > 0) {
-            DLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (int i=0; i<5; ++i) {
-                char hexBuf[60];
-                memset(hexBuf, 0, 60);
-                for (int j=0; j<10; ++j) {
-                    snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
-                }
-                DLOG((&(hexBuf[0])));
-            }
-        }
-    }
-
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            if (numCharsRead == 0) {
-                DLOG(("Took ") << i+1 << " reads to get entire response");
-            }
-        }
-    }
-
-    if (totalCharsRead) {
+    if (numCharsRead) {
         std::string respStr;
-        respStr.append(&respBuf[0], totalCharsRead);
+        respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        VLOG(("GILL2D::checkResponse() - Check the general format of the config mode response"));
+        VLOG(("GILL2D::checkConfigMode() - Check the general format of the config mode response"));
         int regexStatus = -1;
 
         // check for sample averaging
@@ -1267,7 +1366,7 @@ bool GILL2D::checkConfigMode(bool continuous)
         if (regexStatus > 0) {
             char regerrbuf[64];
             ::regerror(regexStatus, &configModeResponse, regerrbuf, sizeof regerrbuf);
-            DLOG(("GILL2D::checkResponse() regex failed: ") << std::string(regerrbuf));
+            DLOG(("GILL2D::checkConfigMode() regex failed: ") << std::string(regerrbuf));
         }
     }
 
@@ -1280,30 +1379,33 @@ bool GILL2D::checkConfigMode(bool continuous)
 
 GILL2D_CFG_MODE_STATUS GILL2D::enterConfigMode()
 {
+	DLOG(("GILL2D::enterConfigMode(): enter..."));
 	GILL2D_CFG_MODE_STATUS retVal = NOT_ENTERED;
 
 	DLOG(("Trying to get into Configuration Mode"));
-	DLOG(("First check to see if sensor is already in Configuration Mode"));
-	if (!checkResponse()) {
-		DLOG(("Must not be in config mode, or serial port not set up right"));
-		if (!checkConfigMode()) {
-			DLOG(("Must not be in continuous mode config, or serial port not set up right"));
-			if (checkConfigMode(POLLED)) {
-				DLOG(("Entered config mode while in polled mode; diag response not checked."));
-				retVal = ENTERED;
+	DLOG(("First check to see if sensor is in continous output..."));
+	if (!checkConfigMode()) {
+		DLOG(("Must not be in continuous mode, or serial port not set up right"));
+		if (!checkConfigMode(POLLED)) {
+			DLOG(("Must not be in polled mode, or serial port not set up right"));
+			if (checkResponse()) {
+				retVal = ENTERED_RESP_CHECKED;
+				DLOG(("Sensor is already in config mode, response has been checked and succeeded"));
 			}
-			DLOG(("Must not be in polled mode config, or serial port not set up right"));
+			else
+				DLOG(("Must not be in config mode, or serial port not set up right"));
 		}
 		else {
-			DLOG(("Entered config mode while in continous mode; diag response not checked."));
+			DLOG(("Entered config mode while in polled mode; diag response not checked."));
 			retVal = ENTERED;
 		}
 	}
 	else {
-		retVal = ENTERED_RESP_CHECKED;
-		DLOG(("Sensor is already in config mode, response has been checked and succeeded"));
+		DLOG(("Entered config mode while in continous mode; diag response not checked."));
+		retVal = ENTERED;
 	}
 
+	DLOG(("GILL2D::enterConfigMode(): exit..."));
 	return retVal;
 }
 
