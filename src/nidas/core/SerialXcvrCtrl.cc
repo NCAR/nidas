@@ -69,11 +69,11 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
             if (gpioIsOpen())
             {
                 const char* ifaceIdx = (iface==1 ? "A" : iface==2 ? "B" : iface==3 ? "C" : iface==4 ? "D" : "?!?");
-                DLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+                VLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
                 if (!_pContext->bitbang_enabled) {
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
-                        DLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
+                        VLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_")
                               << ifaceIdx << " to bitbang mode");
                     }
                     else
@@ -84,7 +84,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
                     }
                 }
                 else {
-                    DLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));    
+                    VLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));
                 }
 
                 // while we're at it, set the GPIO during initialization
@@ -133,11 +133,11 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
             if (gpioIsOpen())
             {
                 const char* ifaceIdx = (iface==1 ? "A" : iface==2 ? "B" : iface==3 ? "C" : iface==4 ? "D" : "?!?");
-                DLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+                VLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
                 if (!_pContext->bitbang_enabled) {
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
-                        DLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
+                        VLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_")
                               << ifaceIdx << " to bitbang mode");
                     }
                     else
@@ -148,7 +148,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
                     }
                 }
                 else {
-                    DLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));    
+                    VLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));
                 }
 
                 // while we're at it, set the GPIO during initialization
@@ -192,7 +192,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
             if (gpioIsOpen())
             {
                 const char* ifaceIdx = (iface==1 ? "A" : iface==2 ? "B" : iface==3 ? "C" : iface==4 ? "D" : "?!?");
-                DLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+                VLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
                 if (!_pContext->bitbang_enabled) {
                     // Now initialize the chosen device for bit-bang mode, all outputs
                     if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
@@ -207,7 +207,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
                     }
                 }
                 else {
-                    DLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));    
+                    VLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to set port config."));
                 }
                 // And while we're at it, set the port type and termination.
                 // Don't need to open the device this time.
@@ -254,7 +254,7 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
     bool ifWeOpenedIt = gpioOpen();
 ;
     if (readDevice) {
-        DLOG(("SerialXcvrCtrl: Reading GPIO pin state before adjusting them."));
+        VLOG(("SerialXcvrCtrl: Reading GPIO pin state before adjusting them."));
         readXcvrConfig();
     }
 
@@ -493,17 +493,17 @@ const std::string SerialXcvrCtrl::rawPowerToStr(unsigned char powerCfg)
 bool SerialXcvrCtrl::gpioOpen()
 {
     if (!gpioIsOpen()) {
-        DLOG(("Attempting to open FT4232H GPIO device..."));
+        VLOG(("Attempting to open FT4232H GPIO device..."));
         if (!ftdi_usb_open_bus_addr(_pContext, _busAddr, _deviceAddr)) {
 
-            DLOG(("Successfully opened FT4232H GPIO device..."));
+            VLOG(("Successfully opened FT4232H GPIO device..."));
             // we opened, so we should close it
             _gpioOpen = true;
             return true;
         }
         else {
             // we opened it unsuccessfully
-            DLOG(("Failed to open FT4232H GPIO device..."));
+            VLOG(("Failed to open FT4232H GPIO device..."));
             return false;
         }
     }
@@ -516,28 +516,28 @@ bool SerialXcvrCtrl::gpioClose(bool ifWeOpenedIt)
 {
     if (gpioIsOpen()) {
         if (ifWeOpenedIt) {
-            DLOG(("Attempting to close FT4232H GPIO device..."));
+            VLOG(("Attempting to close FT4232H GPIO device..."));
             if (!ftdi_usb_close(_pContext)) {
                 _gpioOpen = false;
                 // we successfully closed it when we should have.
-                DLOG(("Successfully closed FT4232H GPIO device..."));
+                VLOG(("Successfully closed FT4232H GPIO device..."));
                 return true;
             }
             else {
                 // we unsuccessfully closed it
-                DLOG(("Failed to close FT4232H GPIO device..."));
+                VLOG(("Failed to close FT4232H GPIO device..."));
                 return false;
             }
         }
         else {
             // we successfully didn't close it when we shouldn't have
-            DLOG(("Successfully did not close FT4232H GPIO device because we didn't open it..."));
+            VLOG(("Successfully did not close FT4232H GPIO device because we didn't open it..."));
             return true;
         }
     }
     else {
         // we successfully didn't close it because it was already closed
-        DLOG(("Did not close FT4232H GPIO device because it was already..."));
+        VLOG(("Did not close FT4232H GPIO device because it was already..."));
         return true;
     }
 }
@@ -552,11 +552,11 @@ void SerialXcvrCtrl::readXcvrConfig()
         enum ftdi_interface iface = port2iface();
         const char* ifaceIdx = (iface==INTERFACE_A ? "A" : iface==INTERFACE_B ? "B" 
                                 : iface==INTERFACE_C ? "C" : iface==INTERFACE_D ? "D" : "?!?");
-        DLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
+        VLOG(("SerialXcvrCtrl: Successfully opened GPIO on INTERFACE_") << ifaceIdx);
         if (!_pContext->bitbang_enabled) {
             // Now initialize the chosen device for bit-bang mode, all outputs
             if (!ftdi_set_bitmode(_pContext, 0xFF, BITMODE_BITBANG)) {
-                DLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_") 
+                VLOG(("SerialXcvrCtrl: Successfully set GPIO on INTERFACE_")
                         << ifaceIdx << " to bitbang mode");
             }
             else {
@@ -565,16 +565,16 @@ void SerialXcvrCtrl::readXcvrConfig()
             }
         }
         else {
-            DLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to read current GPIO state."));    
+            VLOG(("SerialXcvrCtrl: Already in bitbang mode; proceed to read current GPIO state."));
         }
 
-        DLOG(("Attemping to read the current FT4232H GPIO pin settings"));
+        VLOG(("Attemping to read the current FT4232H GPIO pin settings"));
         if (ftdi_read_pins(_pContext, &_rawXcvrConfig)) {
             throw n_u::Exception("SerialXcvrCtrl: cannot read the GPIO pins "
                                 "on previously opened USB device");
         }
 
-        DLOG(("Successfully read FT4232H GPIO pin settings. Now closing device."));
+        VLOG(("Successfully read FT4232H GPIO pin settings. Now closing device."));
         if (!gpioClose(ifWeOpenedIt)) {
             throw n_u::Exception(std::string("SerialXcvrCtrl: ctor error: Couldn't close USB device: ") 
                                         + ftdi_get_error_string(_pContext));
@@ -591,7 +591,7 @@ void SerialXcvrCtrl::readXcvrConfig()
 void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst)
 {
     if (readFirst) {
-        DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
+        VLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
         readXcvrConfig();
 
     unsigned char tmpPortConfig = _rawXcvrConfig;
