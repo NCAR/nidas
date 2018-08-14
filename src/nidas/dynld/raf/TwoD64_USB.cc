@@ -363,9 +363,12 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (cp[1] == _syncString[1] && (cp[2] & _dofMask) == 0) {
-                    // syncword
+                if (cp[1] == _syncString[1]) {  // is a syncWord
                     _totalParticles++;
+
+                    if ((cp[2] & _dofMask) == 0)
+                        _particle.dofReject = true;
+
 #ifdef SLICE_DEBUG
                     if (sdlog.active())
                     {
