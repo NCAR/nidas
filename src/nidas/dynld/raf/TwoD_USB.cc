@@ -457,6 +457,9 @@ void TwoD_USB::processParticleSlice(Particle& p, const unsigned char * data)
 /*---------------------------------------------------------------------------*/
 bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 {
+    if (p.dofReject)
+        return false;
+
     if (p.edgeTouch || p.height == 0 ||
         (p.height == 1 && p.width > 3)) // Stuck bit.
         return false;
@@ -469,6 +472,9 @@ bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 
 bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
 {
+    if (p.dofReject)
+        return false;
+
     if (p.height == 1 && p.width > 3) // Stuck bit.
         return false;
 
