@@ -366,7 +366,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (cp[1] == _syncString[1]) {  // is a syncWord
                     _totalParticles++;
 
-                    if ((cp[2] & _dofMask) == 0)
+                    if ((cp[2] & _dofMask))
                         _particle.dofReject = true;
 
 #ifdef SLICE_DEBUG
@@ -453,21 +453,6 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     cp += wordSize;
                     sos = 0;    // not a particle slice
                     _prevTimeWord = thisTimeWord;
-                }
-                else if (*(cp+1) == (unsigned char)'\xaa') {
-                    // 0xaaaa but not complete syncword
-#ifdef SLICE_DEBUG
-                    if (sdlog.active())
-                    {
-                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        {
-                            sdmsg << setw(2) << (int)*xp << ' ';
-                        }
-                        sdmsg << dec << " aaaa word" << endlog;
-                    }
-#endif
-                    cp += wordSize;
-                    sos = 0;    // not a particle slice
                 }
                 else {
                     // 0xaa is not an expected particle shadow.
