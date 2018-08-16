@@ -271,7 +271,7 @@ static void freeRegex() {
 }
 
 PTB210::PTB210()
-    : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(), 
+    : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(DEFAULT_PORT_CONFIG),
       defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
@@ -324,7 +324,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 // xform everything to uppercase - this shouldn't affect numbers
                 string upperAval = aval;
                 std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
-                // DLOG(("PTB210:fromDOMElement(): aname: ") << aname << " upperAval: " << upperAval);
+                DLOG(("PTB210:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
@@ -495,6 +495,30 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
 void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
 {
+    // So open the device at the base class so we don't invoke any of the sampling functionality...
+	// But we do want to invoke the creation of SerialPortIODevice and fromDOMElement()
+    DSMSensor::open(flags);
+
+    // Merge the current working with the desired config. We do this because
+    // some things may change in the base class fromDOMElement(), affecting the
+    // working port config, and some may change in this subclass's fromDOMElement() override,
+    // affecting the desired port config.
+    if (desiredPortConfig != DEFAULT_PORT_CONFIG) {
+    	mergeDesiredWithWorkingConfig(desiredPortConfig, getPortConfig());
+    	setPortConfig(desiredPortConfig);
+    	applyPortConfig();
+    }
+
+    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
+    // Make sure blocking is set properly
+    pSIODevice->getBlocking();
+    // Save off desiredConfig - base class should have modified it by now.
+    // Do this after applying, as getPortConfig() only gets the items in the SerialPortIODevice object.
+    desiredPortConfig = getPortConfig();
+
+    // check the raw mode parameters
+    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
+
     NLOG(("First figure out whether we're talking to the sensor"));
     if (findWorkingSerialPortConfig(flags)) {
         NLOG(("Found working sensor serial port configuration"));
@@ -531,19 +555,6 @@ bool PTB210::findWorkingSerialPortConfig(int flags)
     bool foundIt = false;
 
     // first see if the current configuration is working. If so, all done!
-    // So open the device at the base class which builds the SerialPortIODevice object
-    DSMSensor::open(flags);
-    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
-    applyPortConfig();
-    // Make sure blocking is set properly
-    pSIODevice->getBlocking();
-    // Save off desiredConfig - base class should have modified it by now.
-    // Do this after applying, as getPortConfig() only gets the items in the SerialPortIODevice object.
-    desiredPortConfig = getPortConfig();
-
-    // check the raw mode parameters
-    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
-
     if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
         NLOG(("Testing initial config which may be custom "));
         printPortConfig();
@@ -589,6 +600,50 @@ bool PTB210::findWorkingSerialPortConfig(int flags)
     }
 
     return foundIt;
+}
+
+void PTB210::mergeDesiredWithWorkingConfig(PortConfig& rDesired, const PortConfig& rWorking)
+{
+	// Always want the desired port config to take precedence,
+	// if it's been changed by the derived class via the autoconfig tag
+	// Desired port config is initialized to the default port config. So if it
+	// hasn't changed, but is not equal to the working port config, then assign the
+	// working port config value to the desired port config
+	if (rDesired.termios == DEFAULT_PORT_CONFIG.termios && rDesired.termios != rWorking.termios) {
+		if (rDesired.termios.getBaudRate() != rWorking.termios.getBaudRate()) {
+			rDesired.termios.setBaudRate(rWorking.termios.getBaudRate());
+		}
+		if (rDesired.termios.getParity() != rWorking.termios.getParity()) {
+			rDesired.termios.setParity(rWorking.termios.getParity());
+		}
+		if (rDesired.termios.getDataBits() != rWorking.termios.getDataBits()) {
+			rDesired.termios.setDataBits(rWorking.termios.getDataBits());
+		}
+		if (rDesired.termios.getStopBits() != rWorking.termios.getStopBits()) {
+			rDesired.termios.setStopBits(rWorking.termios.getStopBits());
+		}
+	}
+
+	if (rDesired.rts485 == DEFAULT_PORT_CONFIG.rts485 && rDesired.rts485 != rWorking.rts485) {
+		rDesired.rts485 = rWorking.rts485;
+	}
+
+	if (rDesired.xcvrConfig == DEFAULT_PORT_CONFIG.xcvrConfig && rDesired.xcvrConfig != rWorking.xcvrConfig) {
+		if (rDesired.xcvrConfig.port == DEFAULT_PORT_CONFIG.xcvrConfig.port && rDesired.xcvrConfig.port != rWorking.xcvrConfig.port) {
+			rDesired.xcvrConfig.port = rWorking.xcvrConfig.port;
+		}
+		if (rDesired.xcvrConfig.portType == DEFAULT_PORT_CONFIG.xcvrConfig.portType && rDesired.xcvrConfig.portType != rWorking.xcvrConfig.portType) {
+			rDesired.xcvrConfig.portType = rWorking.xcvrConfig.portType;
+		}
+		if (rDesired.xcvrConfig.sensorPower == DEFAULT_PORT_CONFIG.xcvrConfig.sensorPower && rDesired.xcvrConfig.sensorPower != rWorking.xcvrConfig.sensorPower) {
+			rDesired.xcvrConfig.sensorPower = rWorking.xcvrConfig.sensorPower;
+		}
+		if (rDesired.xcvrConfig.termination == DEFAULT_PORT_CONFIG.xcvrConfig.termination && rDesired.xcvrConfig.termination != rWorking.xcvrConfig.termination) {
+			rDesired.xcvrConfig.termination = rWorking.xcvrConfig.termination;
+		}
+
+		rDesired.applied = false;
+	}
 }
 
 bool PTB210::installDesiredSensorConfig()

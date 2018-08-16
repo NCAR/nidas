@@ -196,6 +196,7 @@ protected:
     void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
                                                       int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
                                                       n_c::SENSOR_POWER_STATE power);
+    void mergeDesiredWithWorkingConfig(n_c::PortConfig& rDesired, const n_c::PortConfig& rWorking);
     bool installDesiredSensorConfig();
     bool configureScienceParameters();
     void sendScienceParameters();

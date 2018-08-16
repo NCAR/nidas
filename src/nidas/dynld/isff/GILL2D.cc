@@ -197,7 +197,7 @@ static void freeRegex() {
 GILL2D::GILL2D()
     : Wind2D(DEFAULT_PORT_CONFIG),
 	  testPortConfig(),
-	  desiredPortConfig(),
+	  desiredPortConfig(DEFAULT_PORT_CONFIG),
       defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters(), unitId('\0'), polling(false)
 {
@@ -221,9 +221,11 @@ GILL2D::~GILL2D()
 
 void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
+	NLOG(("GILL2D - checking for sensor customizations in the DSM/Sensor Catalog XML..."));
+	DLOG(("GILL2D::fromDOMElement() - entry"));
     // let the base classes have first shot at it, since we only care about an autoconfig child element
     // however, any duplicate items in autoconfig will override any items in the base classes
-    SerialSensor::fromDOMElement(node);
+    Wind2D::fromDOMElement(node);
 
     XDOMElement xnode(node);
 
@@ -237,6 +239,7 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
         const string& elname = xchild.getNodeName();
 
         if (elname == "autoconfig") {
+        	DLOG(("Found the <autoconfig /> tag..."));
             // get all the attributes of the node
             xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
             int nSize = pAttributes->getLength();
@@ -250,7 +253,7 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 // xform everything to uppercase - this shouldn't affect numbers
                 string upperAval = aval;
                 std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
-                // DLOG(("GILL2D:fromDOMElement(): aname: ") << aname << " upperAval: " << upperAval);
+                 DLOG(("GILL2D:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
@@ -442,12 +445,36 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
             }
         }
     }
+
+	DLOG(("GILL2D::fromDOMElement() - exit"));
 }
 
 void GILL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
 {
+    // So open the device at the base class so we don't invoke any of the sampling functionality...
+	// But we do want to invoke the creation of SerialPortIODevice and fromDOMElement()
+    DSMSensor::open(flags);
+
+    // Merge the current working with the desired config. We do this because
+    // some things may change in the base class fromDOMElement(), affecting the
+    // working port config, and some may change in this subclass's fromDOMElement() override,
+    // affecting the desired port config.
+    if (desiredPortConfig != DEFAULT_PORT_CONFIG) {
+    	mergeDesiredWithWorkingConfig(desiredPortConfig, getPortConfig());
+    	setPortConfig(desiredPortConfig);
+    	applyPortConfig();
+    }
+
+    // Make sure blocking is set properly
+    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
+    pSIODevice->getBlocking();
+
+    // check the raw mode parameters
+    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
+
+
     NLOG(("First figure out whether we're talking to the sensor"));
-    if (findWorkingSerialPortConfig(flags)) {
+    if (findWorkingSerialPortConfig()) {
         NLOG(("Found working sensor serial port configuration"));
         NLOG((""));
         NLOG(("Attempting to install the desired sensor serial parameter configuration"));
@@ -457,6 +484,8 @@ void GILL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcep
             NLOG(("Attempting to install the desired sensor science configuration"));
             if (configureScienceParameters()) {
                 NLOG(("Desired sensor science configuration successfully installed"));
+
+                SerialSensor::open(flags);
             }
             else {
                 NLOG(("Failed to install sensor science configuration"));
@@ -475,24 +504,11 @@ void GILL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcep
     }
 }
 
-bool GILL2D::findWorkingSerialPortConfig(int flags)
+bool GILL2D::findWorkingSerialPortConfig()
 {
     bool foundIt = false;
 
     // first see if the current configuration is working. If so, all done!
-    // So open the device at a the base class so we don't recurse ourselves to death...
-    DSMSensor::open(flags);
-    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
-    applyPortConfig();
-    // Make sure blocking is set properly
-    pSIODevice->getBlocking();
-    // Save off desiredConfig - base class should have modified it by now.
-    // Do this after applying, as getPortConfig() only gets the items in the SerialPortIODevice object.
-    desiredPortConfig = getPortConfig();
-
-    // check the raw mode parameters
-    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
-
     if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
         NLOG(("Testing initial config which may be custom "));
         printPortConfig();
@@ -543,6 +559,50 @@ bool GILL2D::findWorkingSerialPortConfig(int flags)
     }
 
     return foundIt;
+}
+
+void GILL2D::mergeDesiredWithWorkingConfig(PortConfig& rDesired, const PortConfig& rWorking)
+{
+	// Always want the desired port config to take precedence,
+	// if it's been changed by the derived class via the autoconfig tag
+	// Desired port config is initialized to the default port config. So if it
+	// hasn't changed, but is not equal to the working port config, then assign the
+	// working port config to the desired port config
+	if (rDesired.termios == DEFAULT_PORT_CONFIG.termios && rDesired.termios != rWorking.termios) {
+		if (rDesired.termios.getBaudRate() != rWorking.termios.getBaudRate()) {
+			rDesired.termios.setBaudRate(rWorking.termios.getBaudRate());
+		}
+		if (rDesired.termios.getParity() != rWorking.termios.getParity()) {
+			rDesired.termios.setParity(rWorking.termios.getParity());
+		}
+		if (rDesired.termios.getDataBits() != rWorking.termios.getDataBits()) {
+			rDesired.termios.setDataBits(rWorking.termios.getDataBits());
+		}
+		if (rDesired.termios.getStopBits() != rWorking.termios.getStopBits()) {
+			rDesired.termios.setStopBits(rWorking.termios.getStopBits());
+		}
+	}
+
+	if (rDesired.rts485 == DEFAULT_PORT_CONFIG.rts485 && rDesired.rts485 != rWorking.rts485) {
+		rDesired.rts485 = rWorking.rts485;
+	}
+
+	if (rDesired.xcvrConfig == DEFAULT_PORT_CONFIG.xcvrConfig && rDesired.xcvrConfig != rWorking.xcvrConfig) {
+		if (rDesired.xcvrConfig.port == DEFAULT_PORT_CONFIG.xcvrConfig.port && rDesired.xcvrConfig.port != rWorking.xcvrConfig.port) {
+			rDesired.xcvrConfig.port = rWorking.xcvrConfig.port;
+		}
+		if (rDesired.xcvrConfig.portType == DEFAULT_PORT_CONFIG.xcvrConfig.portType && rDesired.xcvrConfig.portType != rWorking.xcvrConfig.portType) {
+			rDesired.xcvrConfig.portType = rWorking.xcvrConfig.portType;
+		}
+		if (rDesired.xcvrConfig.sensorPower == DEFAULT_PORT_CONFIG.xcvrConfig.sensorPower && rDesired.xcvrConfig.sensorPower != rWorking.xcvrConfig.sensorPower) {
+			rDesired.xcvrConfig.sensorPower = rWorking.xcvrConfig.sensorPower;
+		}
+		if (rDesired.xcvrConfig.termination == DEFAULT_PORT_CONFIG.xcvrConfig.termination && rDesired.xcvrConfig.termination != rWorking.xcvrConfig.termination) {
+			rDesired.xcvrConfig.termination = rWorking.xcvrConfig.termination;
+		}
+
+		rDesired.applied = false;
+	}
 }
 
 bool GILL2D::installDesiredSensorConfig()
@@ -870,7 +930,7 @@ bool GILL2D::testDefaultPortConfig()
     applyPortConfig();
 
     // test it
-    return doubleCheckResponse();
+    return enterConfigMode();
 }
 
 bool GILL2D::sweepParameters(bool defaultTested)
@@ -1101,7 +1161,7 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
     	// add the \r at the beginning to help some GILL states get unstuck...
     	// For instance, when changing serial port settings while in configuration mode,
     	// a carriage return is necessary before it will respond to commands.
-    	snsrCmd.insert(0, "\r");
+    	snsrCmd.insert(0, "\r\n");
     }
 
     // Write the command - assume the port is already open
@@ -1134,34 +1194,15 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
 			}
 		}
 		else if (cmd == SENSOR_SERIAL_BAUD_CMD || cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
-			DLOG(("Serial port setting change... Looking for confirm request response..."));
-			if (respStr.find("confirm") != std::string::npos) {
-				DLOG(("Serial port setting change... Found confirm request response, changing termios to new parameters and sending confirmation..."));
-				if (confirmGillSerialPortChange(cmd, arg)) {
-					DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
-				}
-				else
-					DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
+			// used to look for the "confirm >" response here, but it doesn't always come back in programmatic use cases
+			// like it does in minicom. So the strategy is to just assume that it's there and send the confirmation.
+			// Seems to be working.
+			DLOG(("Serial port setting change... changing termios to new parameters and sending confirmation..."));
+			if (confirmGillSerialPortChange(cmd, arg)) {
+				DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
 			}
-			else {
-				DLOG(("Serial port setting change... Didn't find confirm request response - retrying read..."));
-				memset(cmdRespBuf, 0, CMD_RESP_BUF_SIZE);
-				numCharsRead = readEntireResponse(cmdRespBuf, CMD_RESP_BUF_SIZE, 2000);
-				if (numCharsRead) {
-					if (respStr.find("confirm") != std::string::npos) {
-						DLOG(("Serial port setting change... Found confirm request response, changing termios to new parameters and sending confirmation..."));
-						if (confirmGillSerialPortChange(cmd, arg)) {
-							DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
-						}
-						else
-							DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
-					}
-					else
-						DLOG(("Serial port setting change... Didn't find confirm request response - failed twice"));
-				}
-				else
-					DLOG(("Serial port setting change... Didn't find confirm request response - failed twice"));
-			}
+			else
+				DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
 		}
     }
 }

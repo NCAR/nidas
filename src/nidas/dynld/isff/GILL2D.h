@@ -252,7 +252,7 @@ public:
 
 protected:
     bool isDefaultConfig(const n_c::PortConfig& target);
-    bool findWorkingSerialPortConfig(int flags);
+    bool findWorkingSerialPortConfig();
     bool doubleCheckResponse();
     bool checkResponse();
     void sendSensorCmd(GILL2D_COMMANDS cmd, int arg=0);
@@ -262,6 +262,7 @@ protected:
                                                       int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
                                                       n_c::SENSOR_POWER_STATE power);
     bool installDesiredSensorConfig();
+	void mergeDesiredWithWorkingConfig(n_c::PortConfig& rDesired, const n_c::PortConfig& rWorking);
     bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
