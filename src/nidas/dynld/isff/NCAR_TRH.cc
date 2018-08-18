@@ -107,18 +107,48 @@ rhFromRaw(double rhraw, double temp_cal)
 
 
 
-bool NCAR_TRH::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+bool
+NCAR_TRH::
+process(const Sample* samp, std::list<const Sample*>& results) throw()
 {
+    // Try to scan the variables of a sample tag from the raw sensor
+    // message.
+    SampleTag* stag = 0;
+    SampleT<float>* outs = searchSampleScanners(samp, &stag);
+    if (!outs)
+    {
+        return false;
+    }
 
-    nidas::core::SerialSensor::process(samp,results);
+    // Apply any time tag adjustments.
+    adjustTimeTag(stag, outs);
 
-    if (results.empty()) return false;
+    results.push_back(outs);
 
+    // Apply any variable conversions.  This replaces the call to
+    // applyConversions() in the base class process() method, because we
+    // need to detect and handle raw conversions.
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        fp = var->convert(outs->getTimeTag(), fp);
+    }
+
+    ifanFilter(results);
+    return true;
+}
+
+void
+NCAR_TRH::
+ifanFilter(std::list<const Sample*>& results)
+{
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
 
-    if (slen > _ifanIndex) {
+    if (slen > _ifanIndex)
+    {
         float ifan = csamp->getDataValue(_ifanIndex);
 
         // flag T,RH if Ifan is less than _minIfan
@@ -142,6 +172,5 @@ bool NCAR_TRH::process(const Sample* samp,
             results.front() = news;
         }
     }
-    return true;
 }
 

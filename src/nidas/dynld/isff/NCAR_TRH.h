@@ -57,6 +57,9 @@ public:
     bool process(const nidas::core::Sample* samp,
                  std::list<const nidas::core::Sample*>& results) throw();
 
+    void
+    ifanFilter(std::list<const nidas::core::Sample*>& results);
+
     double
     tempFromRaw(double traw);
 
