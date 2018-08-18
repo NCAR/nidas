@@ -61,12 +61,6 @@ public:
 
     virtual VariableConverter* clone() const = 0;
 
-    virtual void setCalFile(CalFile*) = 0;
-
-    virtual CalFile* getCalFile() = 0;
-
-    virtual const CalFile* getCalFile() const = 0;
-
     virtual void readCalFile(dsm_time_t) throw() {}
 
     virtual double convert(dsm_time_t,double v) = 0;
@@ -126,6 +120,18 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    void setCalFile(CalFile*);
+
+    CalFile* getCalFile()
+    {
+        return _calFile;
+    }
+
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
+
 private:
 
     std::string _units;
@@ -143,6 +149,9 @@ private:
 
     const Variable* _variable;
 
+protected:
+    
+    CalFile* _calFile;
 };
 
 class Linear: public VariableConverter
@@ -151,25 +160,7 @@ public:
 
     Linear();
 
-    Linear(const Linear& x);
-
-    Linear& operator=(const Linear& x);
-
     Linear* clone() const;
-
-    ~Linear();
-
-    void setCalFile(CalFile*);
-
-    CalFile* getCalFile()
-    {
-        return _calFile;
-    }
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     void setSlope(float val) { _slope = val; }
 
@@ -199,8 +190,6 @@ private:
 
     float _intercept;
 
-    CalFile* _calFile;
-
 };
 
 class Polynomial: public VariableConverter
@@ -209,28 +198,7 @@ public:
 
     Polynomial();
 
-    /**
-     * Copy constructor.
-     */
-    Polynomial(const Polynomial&);
-
-    Polynomial& operator=(const Polynomial&);
-
-    ~Polynomial();
-
     Polynomial* clone() const;
-
-    void setCalFile(CalFile*);
-
-    CalFile* getCalFile()
-    {
-        return _calFile;
-    }
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     void setCoefficients(const std::vector<float>& vals);
 
@@ -263,8 +231,6 @@ private:
     dsm_time_t _calTime;
 
     std::vector<float> _coefs;
-
-    CalFile* _calFile;
 
     /**
      *  Maximum number of coefficients that can be read

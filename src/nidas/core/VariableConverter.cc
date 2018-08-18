@@ -42,14 +42,19 @@ namespace n_u = nidas::util;
 #include <iostream>
 
 VariableConverter::VariableConverter():
-    _units(),_parameters(),_constParameters(), _variable(0)
+    _units(),
+    _parameters(),
+    _constParameters(),
+    _variable(0),
+    _calFile(0)
 {}
 
 VariableConverter::VariableConverter(const VariableConverter& x):
     DOMable(),
     _units(x._units),
     _parameters(),_constParameters(),
-    _variable(x._variable)
+    _variable(x._variable),
+    _calFile(0)
 {
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -58,6 +63,7 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	Parameter* newp = parm->clone();
 	addParameter(newp);
     }
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
 }
 
 
@@ -69,6 +75,7 @@ VariableConverter::
     {
         delete *pi;
     }
+    delete _calFile;
 }
 
 
@@ -86,6 +93,7 @@ VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
             addParameter(newp);
         }
     }
+    if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
     return *this;
 }
 
@@ -233,43 +241,23 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 		"unknown child element",elname);
     }
 }
+
+void VariableConverter::setCalFile(CalFile* val)
+{
+    _calFile = val;
+}
+
+
+
+
 Linear::Linear():
-    _calTime(LONG_LONG_MIN),_slope(1.0),_intercept(0.0),_calFile(0)
+    _calTime(LONG_LONG_MIN),_slope(1.0),_intercept(0.0)
 {
-}
-
-Linear::Linear(const Linear& x):
-    VariableConverter(x),
-    _calTime(x._calTime),_slope(x._slope),_intercept(x._intercept),_calFile(0)
-{
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
-}
-
-Linear& Linear::operator=(const Linear& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*)this = rhs;
-        _calTime = rhs._calTime;
-        _slope = rhs._slope;
-        _intercept = rhs._intercept;
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
 }
 
 Linear* Linear::clone() const
 {
     return new Linear(*this);
-}
-
-Linear::~Linear()
-{
-    delete _calFile;
-}
-
-void Linear::setCalFile(CalFile* val)
-{
-    _calFile = val;
 }
 
 void Linear::readCalFile(dsm_time_t t) throw()
@@ -400,42 +388,15 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 Polynomial::Polynomial() :
-    _calTime(LONG_LONG_MIN),_coefs(),_calFile(0)
+    _calTime(LONG_LONG_MIN),_coefs()
 {
     float tmpcoefs[] = { 0.0, 1.0 };
     setCoefficients(vector<float>(tmpcoefs,tmpcoefs+2));
 }
 
-/*
- * Copy constructor.
- */
-Polynomial::Polynomial(const Polynomial& x):
-	VariableConverter(x),
-	_calTime(x._calTime),_coefs(),_calFile(0)
-{
-    setCoefficients(x.getCoefficients());
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
-}
-
-Polynomial& Polynomial::operator=(const Polynomial& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*) this = rhs;
-        _calTime = rhs._calTime;
-        setCoefficients(rhs.getCoefficients());
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
-}
-
 Polynomial* Polynomial::clone() const
 {
     return new Polynomial(*this);
-}
-
-Polynomial::~Polynomial()
-{
-    delete _calFile;
 }
 
 void Polynomial::setCoefficients(const std::vector<float>& vals) 
@@ -448,11 +409,6 @@ void Polynomial::setCoefficients(const float* fp, unsigned int n)
     if (_coefs.size() != n) _coefs.resize(n);
 
     for (unsigned int i = 0; i < n; i++) _coefs[i] = fp[i];
-}
-
-void Polynomial::setCalFile(CalFile* val)
-{
-    _calFile = val;
 }
 
 void Polynomial::readCalFile(dsm_time_t t) throw()

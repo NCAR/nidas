@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -38,54 +38,14 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 
 CS_Krypton::CS_Krypton():
     _Kw(-0.150),_V0(5000.0),_logV0(::log(_V0)),
-    _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw),
-    _calFile(0)
+    _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw)
 {
     setUnits("g/m^3");
-}
-
-CS_Krypton::CS_Krypton(const CS_Krypton& x):
-    VariableConverter(x),
-    _Kw(x._Kw),_V0(x._V0),_logV0(::log(_V0)),
-    _pathLength(x._pathLength), _bias(x._bias),
-    _pathLengthKw(_pathLength * _Kw),
-    _calFile(0)
-{
-    setUnits(x.getUnits());
-}
-
-CS_Krypton& CS_Krypton::operator=(const CS_Krypton& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*)this = rhs;
-        setKw(rhs.getKw());
-        setV0(rhs.getV0());
-        setPathLength(rhs.getPathLength());
-        setBias(rhs.getBias());
-
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
 }
 
 CS_Krypton* CS_Krypton::clone() const
 {
     return new CS_Krypton(*this);
-}
-
-CS_Krypton::~CS_Krypton()
-{
-    delete _calFile;
-}
-
-void CS_Krypton::setCalFile(CalFile* val)
-{
-    _calFile = val;
-}
-
-CalFile* CS_Krypton::getCalFile()
-{
-    return _calFile;
 }
 
 std::string CS_Krypton::toString() const

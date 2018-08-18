@@ -45,22 +45,7 @@ public:
 
     CS_Krypton();
 
-    CS_Krypton(const CS_Krypton&);
-
-    CS_Krypton& operator=(const CS_Krypton&);
-
-    ~CS_Krypton();
-
     CS_Krypton* clone() const;
-
-    void setCalFile(CalFile* val);
-
-    CalFile* getCalFile();
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     /**
      * @param val Kw parameter from sensor calibration.
@@ -145,8 +130,6 @@ private:
     float _bias;
 
     float _pathLengthKw;
-
-    CalFile* _calFile;
 
 };
 
