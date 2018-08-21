@@ -513,7 +513,7 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
 
     if (probe->nDiodes == 64) {
         unsigned char dof_flag_mask = 0x01;
-        if (probe->sensor->getCatalogName().find("_v2"))
+        if (probe->sensor->getCatalogName().find("_v2") != std::string::npos)
             dof_flag_mask = 0x10;
 
         for (size_t i = 0; i < 4093; ++i) {
