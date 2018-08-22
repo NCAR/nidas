@@ -1,0 +1,44 @@
+# Repository default
+* text=auto
+
+# Text files which should always be normalized and converted to native line
+# endings on checkout.
+
+*.c text
+*.cc text
+*.cpp text
+*.h text
+*.hh text
+*.hpp text
+*.html text
+*.xhtml text
+*.xml text
+*.xsd text
+*.txt text
+*.proto
+*.spec
+*.sh
+*.doxy
+*.ui
+SConscript
+SConstruct
+nidas.conf
+
+# Files that will always have CRLF line endings on checkout.
+
+*.sln text eol=crlf
+*.vcproj text eol=crlf
+
+# Binary files that should not be modified.
+
+*.png binary
+*.jpg binary
+*.dat binary
+*.vhd binary
+*.sxd binary
+*.sxw binary
+*.symvers binary
+*.gz binary
+*.rtf binary
+*.bz2 binary
+messages.010410.txt binary
