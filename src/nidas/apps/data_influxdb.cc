@@ -65,6 +65,8 @@
 #include <future> //async function calls
 #include <mutex> //locking the string of data to reset to empty, may not be useful?
 
+#include <json/json.h>
+
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -109,8 +111,11 @@ public:
     /**
      * Get a pointer to the end of the buffer with room for at least @p
      * length more bytes, but do not change the length of space used in the
-     * buffer yet.  The returned pointer can be used to print into the
-     * buffer, then the buffer length can be extended with advanceBuffer().
+     * buffer yet.  The returned pointer can be used to print or copy up to
+     * @p length bytes into the buffer, beginning at the pointer returned
+     * by getSpace().  A null terminator is automatically added at the new
+     * length, so the caller does not need to add a null terminator if it
+     * writes exactly @p length bytes into the buffer.
      **/
     char*
     getSpace(unsigned int length = 0)
@@ -122,7 +127,10 @@ public:
         // be included in length, but don't extend unless some space was
         // actually requested.
         if (length > 0)
+        {
             _buffer.resize(_buflen + length + 1);
+            _buffer[_buflen + length] = '\0';
+        }
         return &(_buffer[_buflen]);
     }
 
@@ -158,12 +166,12 @@ private:
 
 
 
-// std::mutex mtx;
-
-
-void
+CURLcode
 dataToInfluxDB(CURL* curl, const std::string& url,
                CharBuffer* data, unsigned int nmeasurements);
+
+size_t
+writeInfluxResult(void *buffer, size_t size, size_t nmemb, void *userp);
 
 /**
  * Methods and memory for creating an Influx database, accumulating
@@ -183,7 +191,10 @@ public:
         _data(0),
         _data1(),
         _data2(),
+        _result(),
+        _errs(),
         _nmeasurements(0),
+        _total_measurements(0),
         _count(1),
         _echo(false),
         _async(true),
@@ -195,6 +206,10 @@ public:
         {
             throw std::runtime_error("curl_easy_init failed.");
         }
+        // Tell libcurl to pass all data to the writeInfluxResult
+        curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, writeInfluxResult);
+        curl_easy_setopt(_curl, CURLOPT_WRITEDATA, &_result);
+        curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_errors);
         _data = &_data1;
     }
 
@@ -256,30 +271,55 @@ public:
         return out.str();
     }
 
-    void
+    std::string
+    getErrors()
+    {
+        return _errs;
+    }
+
+    /**
+     * Return false if there is an error adding this measurement.  If
+     * enough measurements have accumulated, then this will post the
+     * current buffer to the database. If there is an error, the
+     * description will be in getError().
+     **/
+    bool
     addMeasurement(const std::string& data)
     {
         char* buf = _data->getSpace(data.length());
         VLOG(("adding data to buffer..."));
-        strcat(buf, data.c_str());
+        strcpy(buf, data.c_str());
         ++_nmeasurements;
         if (_nmeasurements >= _count)
         {
-            sendData();
-        }            
+            return sendData();
+        }
+        return true;
     }
 
-    void
+    bool
     sendData()
     {
-        if (_data->empty())
+        if (!_errs.empty())
         {
-            return;
+            // We're in an error state, meaning some previous attempt to
+            // write data has failed, and no further attempts will be made,
+            // so just clear the data.
+            _data->clear();
+            return false;
         }
+
+        // If any error messages are accumulated in this stream, they are
+        // set to the error string member.  We don't throw exceptions in
+        // this method because it is likely called from a receive() method
+        // which is not running in the main thread.
+        std::ostringstream errs;
+        
         DLOG(("sendData()...") << "async:" << _async);
 
         // Do one of three things with the current data: echo, send it
         // asynchronously, or send it synchronously.
+        CURLcode res = CURLE_OK;
         if (_echo)
         {
             std::cout << _data->get();
@@ -290,21 +330,79 @@ public:
             // Make sure any current _post future is finished before
             // launching another one on the next buffer.
             if (_post.valid())
-                _post.wait();
+            {
+                res = _post.get();
+            }
+        }
+        else if (!_data->empty())
+        {
+            res = dataToInfluxDB(_curl, getWriteURL(), _data, _nmeasurements);
+        }
+        // First see if the curl call itself failed.
+        if (res != CURLE_OK)
+        {
+            errs << "http post failed: " << _curl_errors;
+        }
+        // Then see if the json result indicates an error.
+        if (!_result.empty())
+        {
+            std::istringstream js(_result.get());
+            Json::Value root;
+            js >> root;
+            Json::Value error = root["error"];
+            string dnf = "database not found";
+            if (!error.isNull() &&
+                error.asString().substr(0, dnf.size()) == dnf)
+            {
+                errs << error.asString()
+                     << "; maybe use --create to create it first?";
+            }
+            else if (!error.isNull())
+            {
+                errs << error.asString();
+            }
+            else
+            {
+                // Any result at all is probably an error.
+                errs << _result.get();
+            }
+        }
+
+        // Done with the result, prepare it for another posting.
+        _result.clear();
+        _errs = errs.str();
+
+        if (_async && _errs.empty() && !_data->empty())
+        {
             _post = std::async(std::launch::async, &dataToInfluxDB,
                                _curl, getWriteURL(), _data, _nmeasurements);
+            // Now swap the _data pointer to stop writing into the buffer
+            // which has just been passed to the async call.  This only has
+            // to happen if async enabled, since otherwise we can just keep
+            // rewriting the same buffer.
+            if (_data == &_data1)
+                _data = &_data2;
+            else
+                _data = &_data1;
         }
-        else
+
+        if (_errs.empty())
         {
-            dataToInfluxDB(_curl, getWriteURL(), _data, _nmeasurements);
+            _total_measurements += _nmeasurements;
+            _nmeasurements = 0;
         }
-        // Now swap the _data pointer to stop writing into the buffer which
-        // has just been passed to the async call.
-        if (_data == &_data1)
-            _data = &_data2;
-        else
-            _data = &_data1;
-        _nmeasurements = 0;
+        return _errs.empty();
+    }
+
+    /**
+     * Return the total number of measurements written to the database so
+     * far.  This does not include the measurements currently in the buffer
+     * and not yet written.
+     **/
+    unsigned int
+    totalMeasurements()
+    {
+        return _total_measurements;
     }
 
     /**
@@ -316,9 +414,12 @@ public:
     {
         ILOG(("flushing database writes..."));
         sendData();
-        // Wait until any current async call is finished.
-        if (_post.valid())
-            _post.wait();
+        // In case the first sendData() call started an async posting,
+        // call it again to make sure it finishes.
+        if (!sendData())
+        {
+            throw n_u::Exception(getErrors());
+        }
     }
 
     void
@@ -338,10 +439,18 @@ private:
     CharBuffer* _data;
     CharBuffer _data1;
     CharBuffer _data2;
+    CharBuffer _result;
+
+    // If an error is encountered, preserve the information here and then
+    // skip any further writes to the database.
+    string _errs;
 
     // This is always the number of measurements currently stored in the
     // active data buffer.
     unsigned int _nmeasurements;
+
+    // The total number of measurements written to the database.
+    unsigned int _total_measurements;
 
     // The maximum number of measurements to store in the buffer before
     // sending it to the database.
@@ -353,8 +462,9 @@ private:
     bool _async;
     
     CURL *_curl;
+    char _curl_errors[CURL_ERROR_SIZE];
 
-    std::future<void> _post;
+    std::future<CURLcode> _post;
 };
 
 
@@ -545,8 +655,9 @@ public:
 };
 
 
-bool SampleToDatabase::
-    receive(const Sample *samp) throw()
+bool
+SampleToDatabase::
+receive(const Sample *samp) throw()
 {
     if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
     {
@@ -598,6 +709,17 @@ createInfluxDB()
 }
 
 
+
+size_t
+writeInfluxResult(void *buffer, size_t size, size_t nmemb, void *userp)
+{
+    size_t length = size*nmemb;
+    CharBuffer* result = static_cast<CharBuffer*>(userp);
+    memcpy(result->getSpace(length), buffer, length);
+    return length;
+}
+
+
 /**
  * Post the given data buffer to the database, then clear it.  This is a
  * function and not a method of InfluxDB, so that it only uses the
@@ -606,7 +728,7 @@ createInfluxDB()
  * long as only double-buffering is used, only one thread should ever call
  * into the curl library at a time.
  **/
-void
+CURLcode
 dataToInfluxDB(CURL* curl, const std::string& url,
                CharBuffer* data, unsigned int nmeasurements)
 {
@@ -621,6 +743,7 @@ dataToInfluxDB(CURL* curl, const std::string& url,
         ELOG(("database write failed: ") << res);
     }
     DLOG(("posting done."));
+    return res;
 }
 
 
@@ -641,7 +764,8 @@ accumulate(const Sample *samp)
         double value = samp->getDataValue(i);
         if (std::isnan(value))
         {
-            //TO DO: should we have a boolean field set to true is the value is an NaN? write to db? or just continue?
+            // TO DO: should we have a boolean field set to true is the
+            // value is an NaN? write to db? or just continue?
             continue;
         }
         else
@@ -658,7 +782,16 @@ accumulate(const Sample *samp)
             data += " ";
             data += timeStamp;
             data += "\n";
-            _db->addMeasurement(data);
+            if (!_db->addMeasurement(data))
+            {
+                // An error occurred, so set an app exception to interrupt
+                // the main loop.
+                NidasApp* app = NidasApp::getApplicationInstance();
+                if (app)
+                {
+                    app->setException(n_u::Exception(_db->getErrors()));
+                }
+            }
         }
     }
 }
@@ -836,7 +969,6 @@ class DataInfluxdb
 };
 
 
-//TO DO: modify to be accurate of what DataInfluxdb can do
 DataInfluxdb::DataInfluxdb() :
     _count(5000),
     app("data_influxdb"),
@@ -870,7 +1002,9 @@ DataInfluxdb::DataInfluxdb() :
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
 }
 
-int DataInfluxdb::parseRunstring(int argc, char **argv)
+int
+DataInfluxdb::
+parseRunstring(int argc, char **argv)
 {
     // Setup a default log scheme which will get replaced if any logging is
     // configured on the command line.
@@ -912,8 +1046,11 @@ int DataInfluxdb::parseRunstring(int argc, char **argv)
     }
     return 0;
 }
+
 // TO DO: Change usage information
-int DataInfluxdb::usage(const char *argv0)
+int
+DataInfluxdb::
+usage(const char *argv0)
 {
     cerr << "Usage: " << argv0 << " [options] [inputURL] ...\n";
     cerr << "Standard options:\n"
@@ -923,7 +1060,9 @@ int DataInfluxdb::usage(const char *argv0)
     return 1;
 }
 
-int DataInfluxdb::main(int argc, char **argv)
+int
+DataInfluxdb::
+main(int argc, char **argv)
 {
     DataInfluxdb didb;
     int result;
@@ -941,8 +1080,9 @@ class AutoProject
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-void DataInfluxdb::
-    readHeader(SampleInputStream &sis)
+void
+DataInfluxdb::
+readHeader(SampleInputStream &sis)
 {
     // Loop over the header read until it is read or the periods expire.
     // Since the header is not sent until there's a sample to send, if
@@ -969,8 +1109,9 @@ void DataInfluxdb::
     }
 }
 
-void DataInfluxdb::
-    readSamples(SampleInputStream &sis)
+void
+DataInfluxdb::
+readSamples(SampleInputStream &sis)
 {
     while (!app.interrupted())
     {
@@ -984,6 +1125,8 @@ void DataInfluxdb::
             // written to the db
             _db.flush();
             DLOG(("") << e.what() << " (errno=" << e.getErrno() << ")");
+            ILOG(("") << _db.totalMeasurements()
+                 << " measurements written to " << _db.getWriteURL());
             if (e.getErrno() != ERESTART && e.getErrno() != EINTR)
                 throw;
         }
@@ -1084,14 +1227,13 @@ int DataInfluxdb::run() throw()
         {
             cerr << e.what() << endl;
         }
-        catch (n_u::IOException &e)
+        catch (n_u::Exception &e)
         {
             pipeline.getProcessedSampleSource()->removeSampleClient(&dispatcher);
             pipeline.disconnect(&sis);
             pipeline.interrupt();
             pipeline.join();
             sis.close();
-            XMLImplementation::terminate();
             throw(e);
         }
         pipeline.disconnect(&sis);
