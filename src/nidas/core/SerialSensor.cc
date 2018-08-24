@@ -356,7 +356,7 @@ void SerialSensor::fromDOMElement(
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 
-            if (aname == "ID");
+            if (aname == "ID")/*ignore*/;
             else if (aname == "IDREF");
             else if (aname == "class");
             else if (aname == "devicename");
