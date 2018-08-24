@@ -29,6 +29,7 @@ sources = Split("""
     NetcdfRPCOutput.cc
     PropVane.cc
     PTB210.cc
+    PTB220.cc
     RebsLinear.cc
     SonicAnemometer.cc
     Wind2D.cc
@@ -53,6 +54,7 @@ headers = Split("""
     NetcdfRPCOutput.h
     PropVane.h
     PTB210.h
+    PTB220.h
     RebsLinear.h
     SonicAnemometer.h
     Wind2D.h
