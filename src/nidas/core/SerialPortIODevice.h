@@ -254,6 +254,7 @@ public:
             throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to render the physcial port ID"
                                  "for a non-existen SerialXcvrCtrl Object.");
         }
+        return portStr;
     }
 
    /**
