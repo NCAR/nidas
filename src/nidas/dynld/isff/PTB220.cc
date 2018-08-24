@@ -229,11 +229,11 @@ static const char* PTB220_SENDING_MODE_REGEX_STR =  "(.*[[:space:]]+)+Sending mo
 static const char* PTB220_PULSE_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Pulse mode[[:blank:]]+(OFF){1}.*[[:space:]]+";
 static const char* PTB220_MEAS_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Measurement mode[[:blank:]]+(NORMAL|FAST){1}[[:space:]]+";
 static const char* PTB220_ADDRESS_REGEX_STR =       "(.*[[:space:]]+)+Address[[:blank:]]+([[:digit:]]{1,3})[[:space:]]+";
-static const char* PTB220_OUTPUT_RATE_REGEX_STR =   "(.*[[:space:]]+)+Output interval[[:blank:]]+([[:digit:]]{1,3}) (s|min|hr){1}[[:space:]]+";
-static const char* PTB220_OUTPUT_RATE_XML_REGEX_STR = "(.*([[:digit:]]{1,3}) (s|min|hr){1}";
-static const char* PTB220_OUTPUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Output format[[:blank:]]+([[:alnum]\"#.])+[[:space:]]+";
-static const char* PTB220_ERR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Error output format[[:blank:]]+([[:alnum]\"#.])*[[:space:]]+";
-static const char* PTB220_USR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+SCOM format[[:blank:]]+([[:alnum]\"#.])*[[:space:]]+";
+static const char* PTB220_OUTPUT_RATE_REGEX_STR =   "(.*[[:space:]]+)+Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})[[:space:]]+";
+static const char* PTB220_OUTPUT_RATE_XML_REGEX_STR = "(.*)([[:digit:]]{1,3}) ((s|min|hr){1})";
+static const char* PTB220_OUTPUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Output format[[:blank:]]+([[:alnum:]\"#.])+[[:space:]]+";
+static const char* PTB220_ERR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Error output format[[:blank:]]+([[:alnum:]\"#.])*[[:space:]]+";
+static const char* PTB220_USR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+SCOM format[[:blank:]]+([[:alnum:]\"#.])*[[:space:]]+";
 static const char* PTB220_PRESS_UNIT_REGEX_STR =    "(.*[[:space:]]+)+Pressure unit[[:blank:]]+([[:alnum:]]{2,5})[[:space:]]+";
 static const char* PTB220_TEMP_UNIT_REGEX_STR =		"(.*[[:space:]]+)+Temperature unit[[:blank:]]+\'(C|F){1}[[:space:]]+";
 static const char* PTB220_AVG_TIME_REGEX_STR =		"(.*[[:space:]]+)+Averaging time[[:blank:]]+([[:digit:]]{1,3}).0 s[[:space:]]+";
@@ -364,7 +364,7 @@ static bool compileRegex() {
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&xmlOutRate,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 output rate regular expression",
+            throw n_u::ParseException("PTB220 output rate XML regular expression",
                 string(regerrbuf));
         }
 
