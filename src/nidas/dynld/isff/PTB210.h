@@ -187,7 +187,7 @@ public:
 
 protected:
     bool isDefaultConfig(const n_c::PortConfig& target);
-    bool findWorkingSerialPortConfig(int flags);
+    bool findWorkingSerialPortConfig();
     bool doubleCheckResponse();
     bool checkResponse();
     void sendSensorCmd(PTB_COMMANDS cmd, int arg=0, bool resetNow=false);

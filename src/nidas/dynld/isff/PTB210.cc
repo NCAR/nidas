@@ -520,7 +520,7 @@ void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcep
     VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
 
     NLOG(("First figure out whether we're talking to the sensor"));
-    if (findWorkingSerialPortConfig(flags)) {
+    if (findWorkingSerialPortConfig()) {
         NLOG(("Found working sensor serial port configuration"));
         NLOG((""));
         NLOG(("Attempting to install the desired sensor serial parameter configuration"));
@@ -550,7 +550,7 @@ void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterExcep
     }
 }
 
-bool PTB210::findWorkingSerialPortConfig(int flags)
+bool PTB210::findWorkingSerialPortConfig()
 {
     bool foundIt = false;
 
