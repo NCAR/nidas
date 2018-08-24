@@ -109,7 +109,7 @@ struct Arg: public option::Arg
                 std::istringstream(option.arg) >> arg;
                 return option::ARG_OK;
             }
-            catch (std::exception e)
+            catch (std::exception& e)
             {
                 if (msg) printError("Option '", option, "' requires a numeric argument\n");
                 return option::ARG_ILLEGAL;
