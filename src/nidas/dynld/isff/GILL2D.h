@@ -54,6 +54,7 @@ enum GILL2D_COMMANDS
     SENSOR_POLL_MEAS_CMD,
     SENSOR_QRY_ID_CMD,
     SENSOR_DISABLE_POLLED_MODE_CMD,
+	//TODO - Add A, C, T, etc commands so that this becomes more generic.
 	SENSOR_SERIAL_BAUD_CMD,
     SENSOR_DIAG_QRY_CMD,
     SENSOR_DUPLEX_COMM_CMD,
