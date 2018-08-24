@@ -158,8 +158,8 @@
     <!-- Gill Wind Observer, RS422! AutoConfig w/custom Dynld implmentation -->
     <serialSensor class="isff.GILL2D" ID="GILL2D_AUTO_1">
     	<autoconfig 
-	        baud="9600" 
-	        parity="none" 
+	        baud="19200" 
+	        parity="even" 
 	        databits="8" 
 	        stopbits="1" />
         <!-- enabled Tc output, turned off heater:
