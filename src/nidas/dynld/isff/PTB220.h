@@ -66,7 +66,8 @@ enum PTB220_COMMANDS
 	SENSOR_OUTPUT_INTERVAL_VAL_CMD,
 	SENSOR_OUTPUT_INTERVAL_UNIT_CMD,
 	SENSOR_ADDR_CMD,
-	SENSOR_USR_DEFINED_SEND_CMD,
+	// Not handling this use case
+	//SENSOR_USR_DEFINED_SEND_CMD,
 	SENSOR_PRESS_STABILITY_CMD,
 	SENSOR_PRESS_LIMIT_ALARMS_CMD,
 	// units only have one xducer
@@ -304,9 +305,9 @@ struct PTB_ARG
 	int intArg;
 	bool argIsString;
 
-	PTB_ARG(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
-	PTB_ARG(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
-	PTB_ARG(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
+	explicit PTB_ARG(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
+	explicit PTB_ARG(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
+	explicit PTB_ARG(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
 	bool operator==(const PTB_ARG& rRight)
 	{
 		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
@@ -368,7 +369,7 @@ protected:
     bool findWorkingSerialPortConfig();
     bool doubleCheckResponse();
     bool checkResponse();
-    void sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg=0, bool resetNow=false);
+    void sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg=PTB_ARG(0), bool resetNow=false);
     bool testDefaultPortConfig();
     bool sweepParameters(bool defaultTested=false);
     void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
@@ -388,7 +389,7 @@ protected:
         std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         std::cout << std::endl;
     }
-    void updateDesiredScienceParameter(PTB220_COMMANDS cmd, PTB_ARG arg=0);
+    void updateDesiredScienceParameter(PTB220_COMMANDS cmd, PTB_ARG arg=PTB_ARG(0));
     PTB_CMD_ARG getDesiredCmd(PTB220_COMMANDS cmd);
 
 private:
@@ -409,6 +410,9 @@ private:
     static const char* DEFAULT_MSG_SEP_CHARS;
 
     // default science parameters for the PB210
+    static const PTB220_COMMANDS DEFAULT_SENSOR_SEND_MODE_CMD = SENSOR_SEND_MODE_CMD;
+    static const char* DEFAULT_SENSOR_SEND_MODE;
+
     static const PTB220_COMMANDS DEFAULT_PRESS_UNITS_CMD = SENSOR_PRESS_UNIT_CMD;
     static const PTB220_PRESS_TEMP_UNITS DEFAULT_PRESS_UNITS = mbar;
 
@@ -519,6 +523,9 @@ private:
     n_c::MessageConfig defaultMessageConfig;
 
     PTB_CMD_ARG* desiredScienceParameters;
+
+    std::string sensorSWVersion;
+    std::string sensorSerialNumber;
 
     // no copying
     PTB220(const PTB220& x);

@@ -33,6 +33,7 @@
 #include <regex.h>
 
 using namespace nidas::core;
+using namespace nidas::util;
 using namespace std;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
@@ -177,15 +178,21 @@ const PortConfig PTB220::DEFAULT_PORT_CONFIG(PTB220::DEFAULT_BAUD_RATE, PTB220::
                                              PTB220::DEFAULT_CONFIG_APPLIED);
 
 const PTB_CMD_ARG PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
-	PTB_CMD_ARG(DEFAULT_PRESS_UNITS_CMD, PTB_ARG(DEFAULT_PRESS_UNITS)),
-	PTB_CMD_ARG(DEFAULT_TEMP_UNITS_CMD, PTB_ARG(DEFAULT_TEMP_UNITS)),
+	PTB_CMD_ARG(DEFAULT_PRESS_UNITS_CMD, PTB_ARG(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),
+	PTB_CMD_ARG(DEFAULT_TEMP_UNITS_CMD, PTB_ARG(pressTempUnitsArgsToStr(DEFAULT_TEMP_UNITS))),
 	PTB_CMD_ARG(DEFAULT_OUTPUT_RATE_CMD, PTB_ARG(DEFAULT_OUTPUT_RATE)),
-	PTB_CMD_ARG(DEFAULT_SAMPLE_AVERAGING_CMD, PTB_ARG(DEFAULT_AVG_TIME))
+	PTB_CMD_ARG(DEFAULT_OUTPUT_RATE_UNITS_CMD, PTB_ARG(DEFAULT_OUTPUT_RATE_UNIT)),
+	PTB_CMD_ARG(DEFAULT_SAMPLE_AVERAGING_CMD, PTB_ARG(DEFAULT_AVG_TIME)),
+	PTB_CMD_ARG(DEFAULT_OUTPUT_FORMAT_CMD, PTB_ARG(DEFAULT_SENSOR_OUTPUT_FORMAT)),
+	PTB_CMD_ARG(DEFAULT_SENSOR_SEND_MODE_CMD, PTB_ARG(DEFAULT_SENSOR_SEND_MODE))
 };
 
 const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(PTB_CMD_ARG);
 
-const char* PTB220::DEFAULT_SENSOR_OUTPUT_FORMAT = "\"B \" 4.3 P1 3.1 T1 #r #n";
+const char* PTB220::DEFAULT_SENSOR_OUTPUT_FORMAT = "\"B\" ADDR " " 4.3 P1 3.1 T1 #r #n";
+const char* PTB220::DEFAULT_SENSOR_SEND_MODE = "RUN";
+const char* PTB220::DEFAULT_OUTPUT_RATE_UNIT = "s";
+
 
 /* Typical PTB220 ? query response. All line endings are \r\n
  * 
@@ -220,7 +227,7 @@ static const char* PTB220_SERIAL_NUMBER_REGEX_STR = "(.*[[:space:]]+)+Serial num
 static const char* PTB220_CONFIG_REGEX_STR =        "(.*[[:space:]]+)+Configuration[[:blank:]]+([[:digit:]])[[:space:]]+";
 static const char* PTB220_LINEAR_CORR_REGEX_STR =   "(.*[[:space:]]+)+Linear adjustments[[:blank:]]+(ON|OFF){1}[[:space:]]+";
 static const char* PTB220_MULTI_PT_CORR_REGEX_STR = "(.*[[:space:]]+)+Multipoint adjustments[[:blank:]]+(ON|OFF)[[:space:]]+";
-static const char* PTB220_CAL_DATE_REGEX_STR =      "(.*[[:space:]]+)+Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2}))[[:space:]]+";
+//static const char* PTB220_CAL_DATE_REGEX_STR =      "(.*[[:space:]]+)+Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})[[:space:]]+";
 static const char* PTB220_SERIAL_CFG_REGEX_STR =    "(.*[[:space:]]+)+Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
 														"(N|E|O){1}[[:blank:]]+(7|8){1}[[:blank:]]+(1|2){1}[[:blank:]]+"
 														"([[:upper:]])[[:space:]]+";
@@ -229,7 +236,7 @@ static const char* PTB220_SENDING_MODE_REGEX_STR =  "(.*[[:space:]]+)+Sending mo
 static const char* PTB220_PULSE_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Pulse mode[[:blank:]]+(OFF){1}.*[[:space:]]+";
 static const char* PTB220_MEAS_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Measurement mode[[:blank:]]+(NORMAL|FAST){1}[[:space:]]+";
 static const char* PTB220_ADDRESS_REGEX_STR =       "(.*[[:space:]]+)+Address[[:blank:]]+([[:digit:]]{1,3})[[:space:]]+";
-static const char* PTB220_OUTPUT_RATE_REGEX_STR =   "(.*[[:space:]]+)+Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})[[:space:]]+";
+static const char* PTB220_OUTPUT_INTERVAL_REGEX_STR =   "(.*[[:space:]]+)+Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})[[:space:]]+";
 static const char* PTB220_OUTPUT_RATE_XML_REGEX_STR = "(.*)([[:digit:]]{1,3}) ((s|min|hr){1})";
 static const char* PTB220_OUTPUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Output format[[:blank:]]+([[:alnum:]\"#.])+[[:space:]]+";
 static const char* PTB220_ERR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Error output format[[:blank:]]+([[:alnum:]\"#.])*[[:space:]]+";
@@ -243,14 +250,14 @@ static regex_t serNum;
 static regex_t baroCfg;
 static regex_t linearCorr;
 static regex_t multiCorr;
-static regex_t calDate;
+//static regex_t calDate;
 static regex_t serialCfg;
 static regex_t echo;
 static regex_t sendMode;
 static regex_t pulseMode;
 static regex_t measMode;
 static regex_t addr;
-static regex_t outRate;
+static regex_t outInterval;
 static regex_t xmlOutRate;
 static regex_t outFormat;
 static regex_t errOutFormat;
@@ -299,12 +306,12 @@ static bool compileRegex() {
             throw n_u::ParseException("PTB220 linear correction regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&calDate, PTB220_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &calDate, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 cal date regular expression", string(regerrbuf));
-        }
+//        regexCompiled = (regStatus = ::regcomp(&calDate, PTB220_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
+//        if (regStatus) {
+//            char regerrbuf[64];
+//            regerror(regStatus, &calDate, regerrbuf, sizeof regerrbuf);
+//            throw n_u::ParseException("PTB220 cal date regular expression", string(regerrbuf));
+//        }
 
         regexCompiled = (regStatus = ::regcomp(&serialCfg, PTB220_SERIAL_CFG_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
@@ -352,10 +359,10 @@ static bool compileRegex() {
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&outRate, PTB220_OUTPUT_RATE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&outInterval, PTB220_OUTPUT_INTERVAL_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
-            regerror(regStatus,&outRate,regerrbuf,sizeof regerrbuf);
+            regerror(regStatus,&outInterval,regerrbuf,sizeof regerrbuf);
             throw n_u::ParseException("PTB220 output rate regular expression",
                 string(regerrbuf));
         }
@@ -427,14 +434,14 @@ static void freeRegex() {
     regfree(&baroCfg);
     regfree(&linearCorr);
     regfree(&multiCorr);
-    regfree(&calDate);
+//    regfree(&calDate);
     regfree(&serialCfg);
     regfree(&echo);
     regfree(&sendMode);
     regfree(&pulseMode);
     regfree(&measMode);
     regfree(&addr);
-    regfree(&outRate);
+    regfree(&outInterval);
     regfree(&outFormat);
     regfree(&errOutFormat);
     regfree(&usrOutFormat);
@@ -446,7 +453,7 @@ static void freeRegex() {
 PTB220::PTB220()
     : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(DEFAULT_PORT_CONFIG),
       defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
-      desiredScienceParameters()
+      desiredScienceParameters(), sensorSWVersion(""), sensorSerialNumber("")
 {
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
@@ -521,7 +528,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
                     updateDesiredScienceParameter(SENSOR_AVG_TIME_CMD, PTB_ARG(val));
                 }
-                else if (aname == "outputrate") {
+                else if (aname == "outputintvl") {
                     istringstream ist(aval);
                     int val;
                     ist >> val;
@@ -531,7 +538,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
                     updateDesiredScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, PTB_ARG(val));
                 }
-                else if (aname == "outputunit") {
+                else if (aname == "outputintvlunit") {
                 	std::string arg(upperAval);
                     if ( arg != "S" && arg != "MIN" && arg != "H")
                         throw n_u::InvalidParameterException(
@@ -803,7 +810,7 @@ bool PTB220::installDesiredSensorConfig()
         sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, PTB_ARG(desiredPortConfig.termios.getBaudRate()));
         sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, PTB_ARG(desiredPortConfig.termios.getParityString(true)));
         sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, PTB_ARG(desiredPortConfig.termios.getDataBits()));
-        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, desiredPortConfig.termios.getStopBits(), true); // send RESET w/this one...
+        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, PTB_ARG(desiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
 
         setPortConfig(desiredPortConfig);
         applyPortConfig();
@@ -914,7 +921,7 @@ bool PTB220::checkScienceParameters() {
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 2048;
     int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
@@ -951,8 +958,8 @@ bool PTB220::checkScienceParameters() {
     }
 
     if (totalCharsRead) {
-        VLOG(("Response: "));
-        VLOG((std::string(&respBuf[0], totalCharsRead).c_str()));
+        DLOG(("Response: "));
+        DLOG((std::string(&respBuf[0], totalCharsRead).c_str()));
     }
 
     VLOG(("PTB220::checkScienceParameters() - Check the individual parameters available to us"));
@@ -961,30 +968,16 @@ bool PTB220::checkScienceParameters() {
     regmatch_t matches[4];
     int nmatch = sizeof(matches) / sizeof(regmatch_t);
     
-//    version;
-//    serNum;
-//    baroCfg;
-//    linearCorr;
-//    multiCorr;
-//    calDate;
-//    serialCfg;
-//    echo;
-//    sendMode;
-//    pulseMode;
-//    measMode;
-//    addr;
-//    xmlOutRate;
-//    outFormat;
-//    errOutFormat
-//    usrOutFormat
-//    pressUnit;
-//    tempUnit;
-
     // check for sample averaging
-    if ((regexStatus = regexec(&avgTime, &(respBuf[0]), nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-        string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-        VLOG(("Checking sample averaging with argument: ") << argStr);
-        scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
+    if ((regexStatus = regexec(&avgTime, &(respBuf[0]), nmatch, matches, 0)) == 0) {
+    	if (matches[2].rm_so >= 0) {
+			string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+			VLOG(("Checking sample averaging with argument: ") << argStr);
+			scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
+			if (!scienceParametersOK) {
+				DLOG(("PTB220::checkScienceParameters(): Failed to find averaging time: ") << argStr );
+			}
+    	}
     }
     else {
         char regerrbuf[64];
@@ -994,14 +987,27 @@ bool PTB220::checkScienceParameters() {
 
     // check for output interval
     if (scienceParametersOK) {
-        if ((regexStatus = regexec(&outRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking measurement rate with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
+        if ((regexStatus = regexec(&outInterval, respBuf, nmatch, matches, 0)) == 0) {
+        	if (matches[2].rm_so >= 0) {
+                string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+                DLOG(("Checking output interval with argument: ") << argStr);
+                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
+    			if (!scienceParametersOK) {
+    				DLOG(("PTB220::checkScienceParameters(): Failed to find output interval: ") << argStr );
+    			}
+    			else if (matches[3].rm_so >= 0) {
+                    string argStr = std::string(&(respBuf[matches[3].rm_so]), (matches[3].rm_eo - matches[3].rm_so));
+                    DLOG(("Checking output interval units with argument: ") << argStr);
+                    scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, argStr.c_str());
+        			if (!scienceParametersOK) {
+        				DLOG(("PTB220::checkScienceParameters(): Failed to find output interval units: ") << argStr );
+        			}
+    			}
+        	}
         }
         else {
             char regerrbuf[64];
-            ::regerror(regexStatus, &outRate, regerrbuf, sizeof regerrbuf);
+            ::regerror(regexStatus, &outInterval, regerrbuf, sizeof regerrbuf);
             throw n_u::ParseException("regexec output interval RE", string(regerrbuf));
         }    
     }
@@ -1012,6 +1018,9 @@ bool PTB220::checkScienceParameters() {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
             VLOG(("Checking pressure units with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_PRESS_UNIT_CMD, argStr.c_str());
+			if (!scienceParametersOK) {
+				DLOG(("PTB220::checkScienceParameters(): Failed to find pressure units: ") << argStr );
+			}
         }
         else {
             char regerrbuf[64];
@@ -1020,12 +1029,15 @@ bool PTB220::checkScienceParameters() {
         }
     }
 
-    // check for pressure units
+    // check for temperature units
     if (scienceParametersOK) {
         if ((regexStatus = regexec(&tempUnit, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
             VLOG(("Checking temperature units with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_TEMP_UNIT_CMD, argStr.c_str());
+			if (!scienceParametersOK) {
+				DLOG(("PTB220::checkScienceParameters(): Failed to find temperature units: ") << argStr );
+			}
         }
         else {
             char regerrbuf[64];
@@ -1040,6 +1052,9 @@ bool PTB220::checkScienceParameters() {
             string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
             VLOG(("Checking multi-point correction with argument: ") << argStr);
             scienceParametersOK = (argStr == "ON");
+			if (!scienceParametersOK) {
+				DLOG(("PTB220::checkScienceParameters(): Failed to determine multipoint correction status ON: ") << argStr );
+			}
         }
         else {
             char regerrbuf[64];
@@ -1048,23 +1063,23 @@ bool PTB220::checkScienceParameters() {
         }    
     }
 
-    // check for calibration date correction
-    if (scienceParametersOK) {
-        if ((regexStatus = regexec(&calDate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking cal date with argument: ") << argStr);
-            scienceParametersOK = true; // TODO: for now. My unit has this set to ????
-            if (argStr == "\?\?\?\?-\?\?-\?\?") {
-            	WLOG(("PTB220::checkScienceParameters() - Cal Date is invalid!!!"));
-            }
-        }
-        else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &calDate, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec calDate RE", string(regerrbuf));
-        }
-    }
-
+//    // check for calibration date correction
+//    if (scienceParametersOK) {
+//        if ((regexStatus = regexec(&calDate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
+//            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+//            VLOG(("Checking cal date with argument: ") << argStr);
+//            scienceParametersOK = true; // TODO: for now. My unit has this set to ????
+//            if (argStr != "\?\?\?\?-\?\?-\?\?") {
+//            	WLOG(("PTB220::checkScienceParameters() - Cal Date is invalid: ") << argStr);
+//            }
+//        }
+//        else {
+//            char regerrbuf[64];
+//            ::regerror(regexStatus, &calDate, regerrbuf, sizeof regerrbuf);
+//            throw n_u::ParseException("regexec calDate RE", string(regerrbuf));
+//        }
+//    }
+//
     return scienceParametersOK;
 }
 
@@ -1074,49 +1089,37 @@ bool PTB220::compareScienceParameter(PTB220_COMMANDS cmd, const char* match)
     VLOG(("Looking for command: ") << cmd);
     VLOG(("Found command: ") << desiredCmd.cmd);
 
-    // Does the command take a parameter? If not, just search for the command
-//    switch (cmd) {
-//        // These commands do not take a parameter.
-//        // If we found one of these just return true.
-//        case SENSOR_RESET_CMD:
-//        case SENSOR_SERIAL_EVEN_WORD_CMD:
-//        case SENSOR_SERIAL_ODD_WORD_CMD:
-//        case SENSOR_SERIAL_NO_WORD_CMD:
-//        case SENSOR_SINGLE_SAMP_CMD:
-//        case SENSOR_START_CONT_SAMP_CMD:
-//        case SENSOR_STOP_CONT_SAMP_CMD:
-//        case SENSOR_POWER_DOWN_CMD:
-//        case SENSOR_POWER_UP_CMD:
-//        case SENSOR_INC_UNIT_CMD:
-//        case SENSOR_CORRECTION_ON_CMD:
-//        case SENSOR_CORRECTION_OFF_CMD:
-//        case SENSOR_CONFIG_QRY_CMD:
-//            VLOG(("Returned arg matches command sent: ") << (desiredCmd.cmd == cmd ? "TRUE" : "FALSE"));
-//            return (desiredCmd.cmd == cmd);
-//            break;
-//
-//        // Need to match the command argument, which are all ints
-//        case SENSOR_SAMP_UNIT_CMD:
-//            VLOG(("Arguments match: ") << (desiredCmd.arg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
-//            return (desiredCmd.arg == pressUnitStr2PressUnit(match));
-//            break;
-//
-//        case SENSOR_SERIAL_BAUD_CMD:
-//        case SENSOR_MEAS_RATE_CMD:
-//        case SENSOR_NUM_SAMP_AVG_CMD:
-//        case SENSOR_PRESS_MIN_CMD:
-//        case SENSOR_PRESS_MAX_CMD:
-//        default:
-//            {
-//                int arg;
-//                std::stringstream argStrm(match);
-//                argStrm >> arg;
-//
-//                VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
-//                return (desiredCmd.arg == arg);
-//            }
-//            break;
-//    }
+    switch (cmd) {
+        // These need to match warp str to int first
+		case SENSOR_TEMP_UNIT_CMD:
+		case SENSOR_PRESS_UNIT_CMD:
+            VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
+            return (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match));
+            break;
+
+        // These need to match ints
+		case SENSOR_AVG_TIME_CMD:
+		case SENSOR_OUTPUT_INTERVAL_VAL_CMD:
+		case SENSOR_SEND_MODE_CMD:
+            {
+                int arg;
+                std::stringstream argStrm(match);
+                argStrm >> arg;
+
+                VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == arg ? "TRUE" : "FALSE"));
+                return (desiredCmd.arg.intArg == arg);
+            }
+            break;
+
+        // These need to match strings
+		case SENSOR_OUTPUT_INTERVAL_UNIT_CMD:
+		case SENSOR_DATA_OUTPUT_FORMAT_CMD:
+		default:
+            VLOG(("Arguments match: ") << (desiredCmd.arg.strArg == std::string(match) ? "TRUE" : "FALSE"));
+			return desiredCmd.arg.strArg.find(match) != std::string::npos;
+			break;
+
+    }
 
     // gotta shut the compiler up...
     return false;
@@ -1133,7 +1136,7 @@ PTB_CMD_ARG PTB220::getDesiredCmd(PTB220_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    PTB_CMD_ARG nullRetVal(NULL_COMMAND, 0);
+    PTB_CMD_ARG nullRetVal(NULL_COMMAND, PTB_ARG(0));
     return(nullRetVal);
 }
 
@@ -1334,7 +1337,7 @@ bool PTB220::checkResponse()
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 2048;
     int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
@@ -1382,10 +1385,23 @@ bool PTB220::checkResponse()
 			DLOG(("Coundn't find ") << "\"" << PTB220_VER_STR << "\"");
 			return false;
         }
+        else {
+        	// scoop up the software version
+        	size_t versIdx = respStr.find_first_of("/", foundPos) + 2;
+        	size_t crIdx = respStr.find_first_of("\r", versIdx);
+        	sensorSWVersion.append(respStr.substr(versIdx, crIdx-versIdx));
+        	DLOG(("Found sensor SW version: ") << sensorSWVersion);
+        }
 
         if ((foundPos = respStr.find(PTB220_SERIAL_NUMBER_STR, foundPos+strlen(PTB220_VER_STR))) == string::npos) {
 			DLOG(("Coundn't find ") << "\"" << PTB220_SERIAL_NUMBER_STR << "\"");
 			return false;
+        }
+        else {
+        	size_t sernumIdx = respStr.find_first_of("0,1,2,3,4,5,6,7,8,9", foundPos)-1;
+        	size_t crIdx = respStr.find_first_of("\r", sernumIdx);
+        	sensorSerialNumber.append(respStr.substr(sernumIdx, crIdx-sernumIdx));
+        	DLOG(("Found sensor serial number: ") << sensorSerialNumber);
         }
 
 		if ((foundPos = respStr.find(PTB220_XDUCER_CFG_STR, foundPos+strlen(PTB220_SERIAL_NUMBER_STR))) == string::npos) {
@@ -1512,6 +1528,7 @@ void PTB220::sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg, bool resetNow)
 	// case	SENSOR_PRESS_DIFF_LIMIT_CMD,
 
     int insertIdx = snsrCmd.find_first_of('\r');
+    DLOG(("PTB220::sendSensorCmd(): insert idx: ") << insertIdx);
     std::ostringstream argStr;
 
     switch (cmd) {
@@ -1564,8 +1581,10 @@ void PTB220::sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg, bool resetNow)
             break;
     }
 
+    DLOG(("PTB220::sendSensorCmd(): argStr: ") << argStr.str());
     // Fill in the blank w/argStr, which may be blank....
-    snsrCmd.insert(insertIdx+1, argStr.str());
+    snsrCmd.insert(insertIdx, argStr.str());
+    DLOG(("PTB220::sendSensorCmd(): snsrCmd: ") << snsrCmd);
 
     // Write the command - assume the port is already open
     // The PTB220 seems to not be able to keep up with a burst of data, so
