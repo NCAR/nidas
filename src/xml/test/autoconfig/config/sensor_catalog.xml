@@ -184,4 +184,62 @@
         </sample>
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
+    <!-- Legacy PTB220 XML config -->
+    <serialSensor 
+    	ID="PTB220" 
+    	class="DSMSerialSensor"
+        baud="9600" 
+        parity="none" 
+        databits="8" 
+        stopbits="1">
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig default PTB220 XML config -->
+    <serialSensor 
+    	ID="PTB220_AUTO_0" 
+    	class="isff.PTB220">
+    	<autoconfig/>
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig PTB220 XML config w/changes to serial port -->
+    <serialSensor 
+    	ID="PTB220_AUTO_1" 
+    	class="isff.PTB220">
+    	<autoconfig
+    		baud = "19200"
+    		databits = "7"
+    		parity = "odd" />
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig PTB220 XML config w/changes to serial port and science -->
+    <serialSensor 
+    	ID="PTB220_AUTO_2" 
+    	class="isff.PTB220">
+    	<autoconfig
+    		baud = "19200"
+    		databits = "7"
+    		parity = "odd"
+    		outputfmt = '"B5 " 4.3 P1 " " 3.1 T1 #r #n' />
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
 </sensorcatalog>
