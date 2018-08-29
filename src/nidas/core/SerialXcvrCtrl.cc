@@ -31,6 +31,8 @@
 #include <sstream>
 
 namespace n_u = nidas::util;
+using namespace nidas::util;
+
 namespace nidas { namespace core {
 
 const char* SerialXcvrCtrl::STR_LOOPBACK = "LOOPBACK";
@@ -265,7 +267,11 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
 
     _rawXcvrConfig &= ~adjustBitPosition(0xF);
     _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
-    DLOG(("Raw xcvr config: ") << std::hex << _rawXcvrConfig);
+    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+    	char buf[6];
+    	snprintf(buf, 5, "0X%2X", _rawXcvrConfig);
+        DLOG(("Raw xcvr config: ") << std::string(buf));
+    }
 
     if (gpioIsOpen()) {
         DLOG(("Writing xcvr config to FT4232H"));
