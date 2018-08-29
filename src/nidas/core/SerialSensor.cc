@@ -240,7 +240,8 @@ void SerialSensor::printPortConfig(bool flush)
     if (_serialDevice) {
         _serialDevice->printPortConfig();
         if (flush) {
-        	std::cerr << std::cout << std::flush;
+        	std::cerr << std::flush;
+        	std::cout << std::flush;
         }
     }
     else {
