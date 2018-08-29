@@ -30,7 +30,38 @@
 #include "Wind3D.h"
 #include "CS_Krypton.h"
 
+using namespace nidas::core;
+
 namespace nidas { namespace dynld { namespace isff {
+
+/**
+ * AutoConig stuff....
+ */
+enum CSAT_COMMANDS {
+	TERMINAL_MODE_CMD,
+	DATA_MODE_CMD,
+	SYSCFG_QRY_CMD,
+	BAUD_RATE_CMD,
+	NUM_SENSOR_CMDS
+};
+
+// Simple structure for handling integer and string arguments to sensor commands
+struct SENSOR_ARG
+{
+	std::string strArg;
+	int intArg;
+	bool argIsString;
+
+	explicit SENSOR_ARG(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
+	explicit SENSOR_ARG(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
+	explicit SENSOR_ARG(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
+	bool operator==(const SENSOR_ARG& rRight)
+	{
+		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
+	}
+	bool operator!=(const SENSOR_ARG& rRight) {return !(*this == rRight);}
+};
+
 
 /**
  * A class for making sense of data from a Campbell Scientific Inc
@@ -229,6 +260,29 @@ private:
      *  if the counter is other than the last counter + 1, mod 64.
      */
     bool _checkCounter;
+
+    /**
+     * Serial port autoconfig items
+     */
+    static const PortConfig DEFAULT_PORT_CONFIG;
+    static const PORT_TYPES DEFAULT_PORT_TYPE = RS232;
+    static const int DEFAULT_BAUD_RATE = 9600;
+    static const int DEFAULT_DATA_BITS = 8;
+    static const Termios::parity DEFAULT_PARITY = Termios::NONE;
+    static const int DEFAULT_STOP_BITS = 1;
+    static const TERM DEFAULT_LINE_TERMINATION = NO_TERM;
+    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
+    static const int DEFAULT_RTS485 = 0; // Don't mess w/this when writing to the port
+    static const bool DEFAULT_CONFIG_APPLIED = false;
+
+    PortConfig desiredPortConfig;
+
+    MessageConfig defaultMessageConfig;
+    // default message parameters for the PB210
+    static const int DEFAULT_MESSAGE_LENGTH = 10;
+    static const bool DEFAULT_MSG_SEP_EOM = true;
+    static const char* DEFAULT_MSG_SEP_CHARS;
+
 
     /**
      * No copying.

@@ -46,10 +46,20 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
+/**
+ * AUTOCONFIG Stuff
+ */
+
+const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
+												  DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
+												  DEFAULT_SENSOR_POWER, DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+
+const char* CSAT3_Sonic::DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
+
 const float CSAT3_Sonic::GAMMA_R = 402.684;
 
 CSAT3_Sonic::CSAT3_Sonic():
-    Wind3D(),
+    Wind3D(DEFAULT_PORT_CONFIG),
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),
@@ -69,8 +79,11 @@ CSAT3_Sonic::CSAT3_Sonic():
     _nanIfDiag(true),
     _consecutiveOpenFailures(0),
     _checkConfiguration(true),
-    _checkCounter(true)
+    _checkCounter(true),
+	desiredPortConfig(DEFAULT_PORT_CONFIG),
+	defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM)
 {
+	setMessageParameters(defaultMessageConfig);
 }
 
 bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
@@ -351,45 +364,9 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 void CSAT3_Sonic::open(int flags)
 throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    SerialSensor::open(flags);
-
-    if (!_checkConfiguration) return;
-
-    const int NOPEN_TRY = 5;
-
-    const char* rateCmd = 0;
-    DLOG(("%s: _rate=%d",getName().c_str(),_rate));
-    if (_rate > 0) {
-        rateCmd = getRateCommand(_rate,_oversample);
-        if (!rateCmd) {
-            ostringstream ost;
-            ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
-            throw n_u::InvalidParameterException(getName(),
-                    "sample rate",ost.str());
-        }
-    }
-
-    /*
-     * Typical session when a sonic port is opened. If the sonic rate is determined
-     * to be correct after the first query, then the "change rate" and "second query"
-     * steps are not done.
-     * --------------------------------------------------
-     * action         user         sonic response
-     * --------------------------------------------------
-     * initial                     spewing binary data
-     * terminal mode  "T"          ">"
-     * query          "??\r"       status message "ET=...." followed by ">"
-     * change rate    "Ah"         "Acq sigs 60->20 Type x to abort......< ...>"
-     * second query   "??\r"       status message "ET=...." followed by ">"
-     * data mode      "D"
-     *
-     * If Campbell changes the format of the status message, or any of the other
-     * responses, then this code may have to be modified.
-     */
-
-    int ml = getMessageLength();
-    string sep = getMessageSeparator();
-    bool eom = getMessageSeparatorAtEOM();
+	// Start with autoconfig for the serial port parameters. No point in opening the port if you can't talk to it.
+	// Don't want to get too carried away with sampling until we can actually talk to the CSAT3
+    DSMSensor::open(flags);
 
     // switch sonic to terminal mode
     terminalMode();
@@ -399,130 +376,204 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     char osc = ' ';
     string revision;
     int rtsIndep, recSep;
+    bool commEstablished = false;
 
-    string query = querySonic(acqrate, osc, serialNumber, revision,
-            rtsIndep, recSep);
+    string query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep);
     DLOG(("%s: AQ=%d,os=%c,serial number=\"",getName().c_str(),acqrate,osc) << serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
             ", recSep(RS)=" << recSep);
 
-    // set RI=1, always power RS232, independent of RTS
-    if (rtsIndep != 1) {
-        write("ri 1\r",5);
-        usleep(100 * USECS_PER_MSEC);
-    }
-    // set RS=1, send 0x55AA record separator
-    if (recSep != 1) {
-        write("rs 1\r",5);
-        usleep(100 * USECS_PER_MSEC);
-    }
+    commEstablished = query.length() != 0;
+    if (!commEstablished) {
+    	// Can't talk, so switch to the other baud rate and retry...
+    	desiredPortConfig = getPortConfig();
+    	if (desiredPortConfig.termios.getBaudRate() == 9600) {
+    		desiredPortConfig.termios.setBaudRate(19200);
+    	}
+    	else {
+    		desiredPortConfig.termios.setBaudRate(9600);
+    	}
 
-    if (!serialNumber.empty()) {
-        // Is current sonic rate OK?  If requested rate is 0, don't change.
-        bool rateOK = _rate == 0;
-        if (!_oversample && acqrate == _rate) {
-            // osc blank or 0 means no oversampling
-            if (osc == ' ' || osc == '0') rateOK = true;
-        }
-        if (_oversample && acqrate == 60) {
-            if (_rate == 10 && osc == 'g') rateOK = true;
-            if (_rate == 20 && osc == 'h') rateOK = true;
-        }
-
-        string rateResult;
-        // set rate if it is different from what is desired, or sonic doesn't respond to first query.
-        if (!rateOK) {
-            assert(rateCmd != 0);
-            rateResult = sendRateCommand(rateCmd);
-            sleep(3);
-            query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
-            DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
-        }
-
-        // On rate or serial number change, log to file.
-        if (!serialNumber.empty() && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
-            n_u::UTime now;
-            string fname = getDSMConfig()->expandString(_sonicLogFile);
-            ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
-            fst << "csat3: " << getName() <<
-                ", id=" << getDSMId() << ',' << getSensorId() <<
-                ", " << serialNumber << ", " << revision << endl;
-            fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
-            n_u::trimString(rateResult);
-            if (rateResult.length() > 0) fst << rateResult << endl;
-            n_u::trimString(query);
-            fst << query << endl;
-            fst << "##################" << endl;
-            if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
-            fst.close();
-        }
-        _serialNumber = serialNumber;
-    }
-
-    try {
-        setMessageParameters(ml,sep,eom);
-    }
-    catch(const n_u::InvalidParameterException& e) {
-        throw n_u::IOException(getName(),"open",e.what());
-    }
-
-    // returns true if some recognizeable samples are received.
-    bool dataok = dataMode();
-
-    /*
-     * An IOTimeoutException is thrown, which will cause another open attempt to
-     * be scheduled, in the following circumstances:
-     *   1. If a serial number is not successfully queried, and no data is arriving.
-     *      We don't add any extra log messages in this case to avoid filling up the
-     *      logs when a sonic simply isn't connected. We don't want to give up in
-     *      this case, and return without an exception, because then a sonic might
-     *      later be connected and the data read without knowing the serial number,
-     *      which is only determined in this open method. The serial number is often
-     *      important to know for later analysis and QC purposes.
-     *   2. If no serial number, but some data is received and less than NOPEN_TRY
-     *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
-     *      consecutive failures, just return from this open method without an
-     *      exception, which will pass this DSMSensor to the select loop for reading,
-     *      i.e. give up on getting the serial number - the data is more important.
-     *   3. If a serial number, but no data is received, and less than NOPEN_TRY
-     *      attempts have been tried, throw a timeout exception. This should be a
-     *      rare situation because if the sonic responds to serial number queries, it
-     *      generally should spout data.  After NOPEN_TRY consecutive failures,
-     *      just return from this open method, and this DSMSensor will be passed to
-     *      the select loop for reading. If a timeout value is defined for this DSMSensor,
-     *      and data doesn't start arriving in that amount of time, then this
-     *      DSMSensor will be scheduled for another open.
-     */
-    if (serialNumber.empty()) {
-        // can't query sonic
-        _consecutiveOpenFailures++;
-        if (dataok) {
-            if (_consecutiveOpenFailures >= NOPEN_TRY) {
-                WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
-                            getName().c_str(),_consecutiveOpenFailures));
-                return; // return from open, proceed to read data.
-            }
-            WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures.",
-                        getName().c_str(),_consecutiveOpenFailures));
-        }
-        throw n_u::IOTimeoutException(getName(),"open");
+    	setPortConfig(desiredPortConfig);
+    	query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep);
+		DLOG(("%s: AQ=%d,os=%c,serial number=\"",getName().c_str(),acqrate,osc) << serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
+				", recSep(RS)=" << recSep);
+		commEstablished = query.length() != 0;
+		if (!commEstablished) {
+			WLOG(("Cannot read from CSAT3_Sonic device when configured for any of its known baud rates: ") << getName());
+		}
+		else {
+			NLOG(("Successfully communicating with CSAT3_Sonic on: ") << getName());
+		}
     }
     else {
-        // serial number query success, but no data - should be a rare occurence.
-        if (!dataok) {
-            _consecutiveOpenFailures++;
-            if (_consecutiveOpenFailures >= NOPEN_TRY) {
-                WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
-                            getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-                return; // return from open, proceed to read data.
-            }
-            WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
-                        getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-            throw n_u::IOTimeoutException(getName(),"open");
-        }
-        else
-            DLOG(("%s: successful open of CSAT3: serial number=\"",
-                            getName().c_str()) << serialNumber << "\"");
-        _consecutiveOpenFailures = 0;   // what-a-ya-know, success!
+    	DLOG(("Successfully communicating with CSAT3_Sonic on: ") << getName());
+    }
+
+    // TODO: May not be communicating on the desired baud rate, so need to modify that here...
+
+    // regardless, close the DSMSensor
+    DSMSensor::close();
+
+    if (commEstablished) {
+    	SerialSensor::open(flags);
+
+		if (!_checkConfiguration) return;
+
+		const int NOPEN_TRY = 5;
+
+		const char* rateCmd = 0;
+		DLOG(("%s: _rate=%d",getName().c_str(),_rate));
+		if (_rate > 0) {
+			rateCmd = getRateCommand(_rate,_oversample);
+			if (!rateCmd) {
+				ostringstream ost;
+				ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
+				throw n_u::InvalidParameterException(getName(),
+						"sample rate",ost.str());
+			}
+		}
+
+		/*
+		 * Typical session when a sonic port is opened. If the sonic rate is determined
+		 * to be correct after the first query, then the "change rate" and "second query"
+		 * steps are not done.
+		 * --------------------------------------------------
+		 * action         user         sonic response
+		 * --------------------------------------------------
+		 * initial                     spewing binary data
+		 * terminal mode  "T"          ">"
+		 * query          "??\r"       status message "ET=...." followed by ">"
+		 * change rate    "Ah"         "Acq sigs 60->20 Type x to abort......< ...>"
+		 * second query   "??\r"       status message "ET=...." followed by ">"
+		 * data mode      "D"
+		 *
+		 * If Campbell changes the format of the status message, or any of the other
+		 * responses, then this code may have to be modified.
+		 */
+
+		int ml = getMessageLength();
+		string sep = getMessageSeparator();
+		bool eom = getMessageSeparatorAtEOM();
+
+		// set RI=1, always power RS232, independent of RTS
+		if (rtsIndep != 1) {
+			write("ri 1\r",5);
+			usleep(100 * USECS_PER_MSEC);
+		}
+		// set RS=1, send 0x55AA record separator
+		if (recSep != 1) {
+			write("rs 1\r",5);
+			usleep(100 * USECS_PER_MSEC);
+		}
+
+		if (!serialNumber.empty()) {
+			// Is current sonic rate OK?  If requested rate is 0, don't change.
+			bool rateOK = _rate == 0;
+			if (!_oversample && acqrate == _rate) {
+				// osc blank or 0 means no oversampling
+				if (osc == ' ' || osc == '0') rateOK = true;
+			}
+			if (_oversample && acqrate == 60) {
+				if (_rate == 10 && osc == 'g') rateOK = true;
+				if (_rate == 20 && osc == 'h') rateOK = true;
+			}
+
+			string rateResult;
+			// set rate if it is different from what is desired, or sonic doesn't respond to first query.
+			if (!rateOK) {
+				assert(rateCmd != 0);
+				rateResult = sendRateCommand(rateCmd);
+				sleep(3);
+				query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep);
+				DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
+			}
+
+			// On rate or serial number change, log to file.
+			if (!serialNumber.empty() && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+				n_u::UTime now;
+				string fname = getDSMConfig()->expandString(_sonicLogFile);
+				ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
+				fst << "csat3: " << getName() <<
+					", id=" << getDSMId() << ',' << getSensorId() <<
+					", " << serialNumber << ", " << revision << endl;
+				fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
+				n_u::trimString(rateResult);
+				if (rateResult.length() > 0) fst << rateResult << endl;
+				n_u::trimString(query);
+				fst << query << endl;
+				fst << "##################" << endl;
+				if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
+				fst.close();
+			}
+			_serialNumber = serialNumber;
+		}
+
+		try {
+			setMessageParameters(ml,sep,eom);
+		}
+		catch(const n_u::InvalidParameterException& e) {
+			throw n_u::IOException(getName(),"open",e.what());
+		}
+
+		// returns true if some recognizeable samples are received.
+		bool dataok = dataMode();
+
+		/*
+		 * An IOTimeoutException is thrown, which will cause another open attempt to
+		 * be scheduled, in the following circumstances:
+		 *   1. If a serial number is not successfully queried, and no data is arriving.
+		 *      We don't add any extra log messages in this case to avoid filling up the
+		 *      logs when a sonic simply isn't connected. We don't want to give up in
+		 *      this case, and return without an exception, because then a sonic might
+		 *      later be connected and the data read without knowing the serial number,
+		 *      which is only determined in this open method. The serial number is often
+		 *      important to know for later analysis and QC purposes.
+		 *   2. If no serial number, but some data is received and less than NOPEN_TRY
+		 *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
+		 *      consecutive failures, just return from this open method without an
+		 *      exception, which will pass this DSMSensor to the select loop for reading,
+		 *      i.e. give up on getting the serial number - the data is more important.
+		 *   3. If a serial number, but no data is received, and less than NOPEN_TRY
+		 *      attempts have been tried, throw a timeout exception. This should be a
+		 *      rare situation because if the sonic responds to serial number queries, it
+		 *      generally should spout data.  After NOPEN_TRY consecutive failures,
+		 *      just return from this open method, and this DSMSensor will be passed to
+		 *      the select loop for reading. If a timeout value is defined for this DSMSensor,
+		 *      and data doesn't start arriving in that amount of time, then this
+		 *      DSMSensor will be scheduled for another open.
+		 */
+		if (serialNumber.empty()) {
+			// can't query sonic
+			_consecutiveOpenFailures++;
+			if (dataok) {
+				if (_consecutiveOpenFailures >= NOPEN_TRY) {
+					WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
+								getName().c_str(),_consecutiveOpenFailures));
+					return; // return from open, proceed to read data.
+				}
+				WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures.",
+							getName().c_str(),_consecutiveOpenFailures));
+			}
+			throw n_u::IOTimeoutException(getName(),"open");
+		}
+		else {
+			// serial number query success, but no data - should be a rare occurence.
+			if (!dataok) {
+				_consecutiveOpenFailures++;
+				if (_consecutiveOpenFailures >= NOPEN_TRY) {
+					WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
+								getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
+					return; // return from open, proceed to read data.
+				}
+				WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
+							getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
+				throw n_u::IOTimeoutException(getName(),"open");
+			}
+			else
+				DLOG(("%s: successful open of CSAT3: serial number=\"",
+								getName().c_str()) << serialNumber << "\"");
+			_consecutiveOpenFailures = 0;   // what-a-ya-know, success!
+		}
     }
 }
 
