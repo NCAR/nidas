@@ -111,7 +111,10 @@ CalFile::CalFile():
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),
+    _currentTime(LONG_LONG_MIN),
+    _currentFields(),
+    _includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),_sensor(0),_mutex()
 {
@@ -128,7 +131,10 @@ CalFile::CalFile(const CalFile& x): DOMable(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),
+    _currentTime(LONG_LONG_MIN),
+    _currentFields(),
+    _includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),
     _sensor(x._sensor),_mutex()
@@ -300,7 +306,27 @@ void CalFile::close() throw()
     }
     if (_fin.is_open()) _fin.close();
     _nline = 0;
+    // We specifically do not reset these here because the file might be
+    // closed after a call to readCF(), even though readCF() just read a
+    // valid record that has become the current record.
+    //    _currentTime = LONG_LONG_MIN;
+    //    _currentFields.clear();
 }
+
+
+const std::vector<std::string>&
+CalFile::
+getCurrentFields(nidas::util::UTime* time)
+{
+    if (_include)
+    {
+        return _include->getCurrentFields(time);
+    }
+    if (time)
+        *time = _currentTime;
+    return _currentFields;
+}
+
 
 /*
  * Search forward so that the next record to be read is the last one
@@ -509,6 +535,11 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
                           std::vector<std::string>* fields_out)
     throw(n_u::IOException,n_u::ParseException)
 {
+    // Make sure the "current record" looks invalid in case this throws an
+    // exception.
+    _currentFields.clear();
+    _currentTime = LONG_LONG_MIN;
+
     if (_include)
     {
         int n = readCFInclude(time, data, ndata, fields_out);
@@ -557,11 +588,13 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
     {
         fields.push_back(ifield);
     }
+    _currentFields = fields;
+    _currentTime = _nextTime;
 
     if (fields_out)
         *fields_out = fields;
 
-    int id = getFields(fields, 0, ndata, data);
+    int id = getFields(0, ndata, data);
     readTime();
 
     return id;
@@ -570,15 +603,20 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
 
 int
 CalFile::
-getFields(std::vector<std::string>& fields, int begin, int end, float* data)
+getFields(int begin, int end, float* data,
+          const std::vector<std::string>* fields_in)
 {
+    if (!fields_in)
+        fields_in = &_currentFields;
+    const std::vector<std::string>& fields = *fields_in;
+    
     // For as many data elements as need to be filled, try to parse a
     // number out of the field.
     int id = 0;
     int ndata = end - begin;
     for (int fi = begin; fi < end && fi < (int)fields.size(); ++fi, ++id)
     {
-        string& field = fields[fi];
+        const string& field = fields[fi];
 
         // The field must either parse as a number or be equal to 'NA' or
         // 'NAN' when converted to upper case.
@@ -624,10 +662,10 @@ getFields(std::vector<std::string>& fields, int begin, int end, float* data)
 
 float
 CalFile::
-getField(std::vector<std::string>& fields, int column)
+getFloatField(int column, const std::vector<std::string>* fields)
 {
     float data;
-    getFields(fields, column, column+1, &data);
+    getFields(column, column+1, &data, fields);
     return data;
 }
 

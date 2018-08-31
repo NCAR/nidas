@@ -337,33 +337,62 @@ public:
      * columns, in which case all the columns can be read into the @p
      * fields vector, and then individual fields can be converted to
      * numbers using getField() and getFields().
+     *
+     * After successfully reading a record with readCF(), the fields of the
+     * current record are also stashed in this CalFile and can be retrieved
+     * with getCurrentFields().  The fields are not valid except after
+     * calling readCF().
      */
     int readCF(nidas::util::UTime& time, float* data, int ndata,
                std::vector<std::string>* fields=0)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /**
+     * Return the time and fields of the current record, the one last read
+     * with readCF().  If there is no current record, then the return
+     * vector will be empty and the time will be LONG_LONG_MIN.  If an
+     * include file is being read, then this returns the current fields of
+     * the included file.
+     **/
+    const std::vector<std::string>&
+    getCurrentFields(nidas::util::UTime* time = 0);
+
+    nidas::util::UTime
+    getCurrentTime()
+    {
+        return _currentTime;
+    }
+
+    /**
      * Convert the field at index @p column in the fields vector to a
      * number, and return the number.  Throws nidas::util::ParseException
      * if the field cannot be converted to a number, and the message
-     * indicates which column caused the error.
+     * indicates which column caused the error.  Column is a 0-based index
+     * into fields.  If @p fields is null, then use the same fields as
+     * getCurrentFields() would return.
      **/
     float
-    getField(std::vector<std::string>& fields, int column);
+    getFloatField(int column, const std::vector<std::string>* fields = 0);
 
     /**
      * Parse a range of columns from the fields vector as numbers and store
      * them in the array @p data.  @p begin is the index of the first field
      * to parse, and @p end is one greater than the index of the last field
-     * to parse.  If there are fewer fields than numbers, the remaining
-     * numbers are filled with nan.  So the data array must point to memory
-     * for at least (end - begin) numbers.  The return value is the number
-     * of fields that were parsed, so it may be less than the number of
-     * data values filled in.
+     * to parse.  The first field is index 0.  If there are fewer fields
+     * than numbers, the remaining numbers are filled with nan.  So the
+     * data array must point to memory for at least (end - begin) numbers.
+     * The return value is the number of fields that were parsed, so it may
+     * be less than the number of data values filled in.
+     *
+     * Like getField(), throws nidas::util::ParseException if a field
+     * cannot be converted to a number.
+     *
+     * If @p fields is null, then use the same fields as
+     * getCurrentFields() would return.
      **/
     int
-    getFields(std::vector<std::string>& fields, int begin, int end,
-              float* data);
+    getFields(int begin, int end, float* data,
+              const std::vector<std::string>* fields = 0);
 
     /*
      * Return the value of the next time in the file.
@@ -481,6 +510,9 @@ private:
     int _nline;
 
     nidas::util::UTime _nextTime;
+
+    nidas::util::UTime _currentTime;
+    std::vector<std::string> _currentFields;
 
     /**
      * Time stamp of include "file" record.
