@@ -60,49 +60,30 @@ void CS_Krypton::fromString(const std::string&)
     	"CS_Krypton::fromString() not supported yet");
 }
 
-void CS_Krypton::readCalFile(dsm_time_t t) throw()
+
+void
+CS_Krypton::
+parseFields(CalFile* cf)
 {
-    if (_calFile) {
-        while(t >= _calFile->nextTime().toUsecs()) {
-            float d[5];
-            try {
-                n_u::UTime calTime;
-                int n = _calFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
-                if (n > 0) setKw(d[0]);
-                if (n > 1) setV0(d[1]);
-                if (n > 2) setPathLength(d[2]);
-                if (n > 3) setBias(d[3]);
-            }
-            catch(const n_u::EOFException& e)
-            {
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setKw(floatNAN);
-                setV0(floatNAN);
-                setPathLength(floatNAN);
-                setBias(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setKw(floatNAN);
-                setV0(floatNAN);
-                setBias(floatNAN);
-                setPathLength(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-        }
-    }
+    float d[5];
+    int n = cf->getFields(0, sizeof d/sizeof(d[0]), d);
+    if (n > 0) setKw(d[0]);
+    if (n > 1) setV0(d[1]);
+    if (n > 2) setPathLength(d[2]);
+    if (n > 3) setBias(d[3]);
 }
+
+
+void
+CS_Krypton::
+reset()
+{
+    setKw(floatNAN);
+    setV0(floatNAN);
+    setPathLength(floatNAN);
+    setBias(floatNAN);
+}
+
 
 double CS_Krypton::convert(dsm_time_t t,double volts)
 {

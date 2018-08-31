@@ -61,7 +61,7 @@ public:
 
     virtual VariableConverter* clone() const = 0;
 
-    virtual void readCalFile(dsm_time_t) throw() {}
+    virtual void readCalFile(dsm_time_t) throw();
 
     virtual double convert(dsm_time_t,double v) = 0;
 
@@ -72,6 +72,12 @@ public:
     void setVariable(const Variable* val) { _variable = val; }
 
     const Variable* getVariable() const { return _variable; }
+
+    /**
+     * Reset the converter to invalid or default settings, such as after an
+     * error occurs parsing a CalFile.
+     **/
+    virtual void reset() = 0;
 
     const DSMSensor* getDSMSensor() const;
 
@@ -151,9 +157,20 @@ private:
 
 protected:
     
+    /**
+     * Parse the fields in the current CalFile record for the particular
+     * settings and coefficients needed by this converter.
+     **/
+    virtual void parseFields(CalFile* cf) = 0;
+
+    void abortCalFile(const std::string& what);
+
     CalFile* _calFile;
 };
 
+/**
+ * Why isn't this a sublcass of Polynomial which sets MAX_NUM_COEFFS to 2?
+ **/
 class Linear: public VariableConverter
 {
 public:
@@ -170,9 +187,11 @@ public:
 
     float getIntercept() const { return _intercept; }
 
-    void readCalFile(dsm_time_t t) throw();
+    double convert(dsm_time_t t, double val);
 
-    double convert(dsm_time_t t,double val);
+    void reset();
+
+    void parseFields(CalFile* cf);
 
     std::string toString() const;
 
@@ -183,8 +202,6 @@ public:
     	throw(nidas::util::InvalidParameterException);
 
 private:
-
-    dsm_time_t _calTime;
 
     float _slope;
 
@@ -212,9 +229,11 @@ public:
         return &_coefs[0];
     }
 
-    void readCalFile(dsm_time_t t) throw();
-
     double convert(dsm_time_t t,double val);
+
+    void reset();
+
+    void parseFields(CalFile* cf);
 
     std::string toString() const;
 
@@ -224,11 +243,14 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * This is static and defined inline below so the implementation can be
+     * shared with at least the one class in dynld which uses it:
+     * ParoSci_202BG_Calibration.
+     **/
     static double eval(double x,float *p, unsigned int np);
 
 private:
-
-    dsm_time_t _calTime;
 
     std::vector<float> _coefs;
 

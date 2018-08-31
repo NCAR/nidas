@@ -102,7 +102,7 @@ public:
         return _bias;
     }
 
-    void readCalFile(dsm_time_t t) throw();
+    void reset();
 
     /**
      * Convert a voltage to water vapor density in g/m^3.
@@ -116,6 +116,10 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
+
+protected:
+
+    void parseFields(CalFile* cf);
 
 private:
 
