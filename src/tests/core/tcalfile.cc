@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(test_trh_raw_calfile)
   BOOST_REQUIRE_EQUAL(n, 0);
 
   BOOST_CHECK_EQUAL(fields[0], "raw");
-  n = cfile.getFields(fields, 1, 6, data);
+  n = cfile.getFields(1, 6, data);
   BOOST_CHECK_EQUAL(n, 5);
   BOOST_CHECK_CLOSE(data[2], -0.000658841, 0.0001);
 
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(test_trh_raw_calfile)
 
   BOOST_CHECK_EQUAL(fields[0], "na");
   BOOST_CHECK_EQUAL(fields[1], "nan");
-  n = cfile.getFields(fields, 0, 2, data);
+  n = cfile.getFields(0, 2, data, &fields);
   BOOST_CHECK_EQUAL(n, 2);
   BOOST_CHECK(isnan(data[0]));
   BOOST_CHECK(isnan(data[1]));
@@ -100,6 +100,7 @@ BOOST_AUTO_TEST_CASE(test_calfile_read_strings)
   BOOST_CHECK_EQUAL(data[7], 1.0);
   BOOST_REQUIRE_EQUAL(fields.size(), 9);
   BOOST_CHECK_EQUAL(fields[5], "16.70");
+  BOOST_CHECK_CLOSE(cfile.getFloatField(5), 16.70, 0.0001);
   BOOST_CHECK_EQUAL(fields[8], "normal");
 }
 
