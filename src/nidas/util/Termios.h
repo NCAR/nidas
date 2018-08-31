@@ -67,14 +67,19 @@ public:
 
     virtual ~Termios() {}
 
-    bool operator!=(const Termios& rRight) {return !operator==(rRight);}
-    bool operator==(const Termios& rRight) 
+    bool operator!=(const Termios& rRight) const {return !((*this) == rRight);}
+    bool operator==(const Termios& rRight) const
         {return (this == &rRight || 
-                (getBaudRate() == rRight.getBaudRate() && getParity() == rRight.getParity()
-                && getDataBits() == rRight.getDataBits() && getStopBits() == rRight.getStopBits()
-                && getLocal() == rRight.getLocal() && getFlowControl() == rRight.getFlowControl()
-                && getRaw() == rRight.getRaw() && getRawLength() == rRight.getRawLength()
-                && getRawTimeout() == rRight.getRawTimeout() && getIflag() == rRight.getIflag()
+                (getBaudRate() == rRight.getBaudRate()
+                && getParity() == rRight.getParity()
+                && getDataBits() == rRight.getDataBits()
+				&& getStopBits() == rRight.getStopBits()
+                && getLocal() == rRight.getLocal()
+				&& getFlowControl() == rRight.getFlowControl()
+                && getRaw() == rRight.getRaw()
+				&& getRawLength() == rRight.getRawLength()
+                && getRawTimeout() == rRight.getRawTimeout()
+				&& getIflag() == rRight.getIflag()
                 && getOflag() == rRight.getOflag()));}
 
     /**
@@ -101,6 +106,7 @@ public:
     void setParity(enum parity val);
     parity getParity() const;
     std::string getParityString(bool retChar=false) const;
+    static std::string parityToString(parity par, bool retChar=false);
 
     /**
      * Set number of data bits to 5,6,7 or 8.

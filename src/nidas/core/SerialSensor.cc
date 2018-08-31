@@ -50,7 +50,8 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
-    _workingPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
+    _workingPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
+	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _workingPortConfig.termios.setRaw(true);
@@ -59,7 +60,8 @@ SerialSensor::SerialSensor():
 }
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
-    _workingPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
+		_workingPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
+		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
 }
 
@@ -116,6 +118,8 @@ void SerialSensor::open(int flags)
     CharacterSensor::open(flags);
 
     serPortFlush();
+
+    doAutoConfig();
 
     sendInitString();
 
@@ -331,9 +335,9 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
         }
         catch(const n_u::IOException& ioe) {
             ostr << "<td>" << ioe.what() << "</td>" << endl;
-        n_u::Logger::getInstance()->log(LOG_ERR,
-            "%s: printStatus: %s",getName().c_str(),
-            ioe.what());
+            n_u::Logger::getInstance()->log(
+            	LOG_ERR, "%s: printStatus: %s",
+				getName().c_str(), ioe.what());
         }
     }
 }
@@ -467,6 +471,299 @@ void SerialSensor::fromDOMElement(
             string("SerialSensor:") + getName(),
             "unknown element",elname);
     }
+}
+
+/**
+ *  Autoconfig functions
+ */
+
+void SerialSensor::doAutoConfig()
+{
+	// find out if we're a legacy subclass or a new autoconfig subclass
+	if (supportsAutoConfig()) {
+		// Must be a new autoconfig subclass...
+		if (findWorkingSerialPortConfig()) {
+			NLOG(("Found working sensor serial port configuration"));
+			NLOG((""));
+			NLOG(("Attempting to install the desired sensor serial parameter configuration"));
+			if (installDesiredSensorConfig(_workingPortConfig)) {
+				NLOG(("Desired sensor serial port configuration successfully installed"));
+				NLOG((""));
+				NLOG(("Attempting to install the desired sensor science configuration"));
+				if (configureScienceParameters()) {
+					NLOG(("Desired sensor science configuration successfully installed"));
+				}
+				else {
+					NLOG(("Failed to install sensor science configuration"));
+				}
+			}
+			else {
+				NLOG(("Failed to install desired config. Reverted back to what works. "
+						"Science configuration is not installed."));
+			}
+		}
+		else
+		{
+			NLOG(("Couldn't find a serial port configuration that worked with this PTB210 sensor. "
+				  "May need to troubleshoot the sensor or cable. "
+				  "!!!NOTE: Sensor is not open for data collection!!!"));
+		}
+	}
+}
+
+bool SerialSensor::findWorkingSerialPortConfig()
+{
+    bool foundIt = false;
+
+    // first see if the current configuration is working. If so, all done!
+    if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+        NLOG(("Testing initial config which may be custom "));
+        printPortConfig();
+    }
+
+    if (!doubleCheckResponse()) {
+        // initial config didn't work, so sweep through all parameters starting w/the default
+        if (!isDefaultConfig(getPortConfig())) {
+            // it's a custom config, so test default first
+            NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
+            if (!testDefaultPortConfig()) {
+                NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
+                foundIt = sweepCommParameters();
+            }
+            else {
+                // found it!! Tell someone!!
+                foundIt = true;
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                    NLOG(("Default PortConfig was successfull!!!"));
+                    printPortConfig();
+                }
+            }
+        }
+        else {
+            NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
+                  "parameter configurations..."));
+            foundIt = sweepCommParameters();
+        }
+    }
+    else {
+        // Found it! Tell someone!
+        if (!isDefaultConfig(getPortConfig())) {
+            NLOG(("SerialSensor customimized the default PortConfig and it succeeded!!"));
+        }
+        else {
+            NLOG(("SerialSensor did not customimize the default PortConfig and it succeeded!!"));
+        }
+
+        foundIt = true;
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+            printPortConfig();
+        }
+    }
+
+    return foundIt;
+}
+
+bool SerialSensor::sweepCommParameters()
+{
+    bool foundIt = false;
+
+    for (PortTypeList::iterator portTypeIter = _portTypeList.begin();
+    	 portTypeIter != _portTypeList.end() && !foundIt;
+    	 ++portTypeIter) {
+        int rts485 = 0;
+        PORT_TYPES portType = *portTypeIter;
+        DLOG(("Checking port type: ") << SerialPortIODevice::portTypeToStr(portType));
+
+        if (portType == RS485_HALF)
+            rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
+        else if (portType == RS422)
+            rts485 = -1; // always high, since there are two drivers going both ways
+
+        for (BaudRateList::iterator baudRateIter = _baudRateList.begin();
+        	 baudRateIter != _baudRateList.end() && !foundIt;
+        	 ++baudRateIter) {
+            int baud = *baudRateIter;
+            DLOG(("Checking baud rate: ") << baud);
+
+            for (WordSpecList::iterator wordSpecIter = _serialWordSpecList.begin();
+            	 wordSpecIter != _serialWordSpecList.end() && !foundIt;
+            	 ++wordSpecIter) {
+                WordSpec wordSpec = *wordSpecIter;
+                DLOG(("Checking serial word spec: ") << (*wordSpecIter).dataBits
+                									 << Termios::parityToString((*wordSpecIter).parity, true)
+                									 << (*wordSpecIter).stopBits);
+
+                // get the existing port config to preserve the port
+                // which only gets set on construction
+                PortConfig testPortConfig = getPortConfig();
+
+                // now set it to the new parameters
+                setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
+                                                    wordSpec.stopBits, rts485, portType, NO_TERM,
+                                                    _defaultPortConfig.xcvrConfig.sensorPower);
+
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                    DLOG(("Asking for PortConfig:"));
+                    printTargetConfig(testPortConfig);
+                }
+
+                // don't test the default as it's already tested.
+                if (isDefaultConfig(testPortConfig))
+                {
+                    // skip
+                    NLOG((""));
+                    NLOG(("Skipping default configuration since it's already tested..."));
+                    continue;
+                }
+
+                setPortConfig(testPortConfig);
+                applyPortConfig();
+
+                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                    NLOG((""));
+                    NLOG(("Testing PortConfig: "));
+                    printPortConfig();
+                }
+
+                if (doubleCheckResponse()) {
+                    foundIt = true;
+                    break;
+                }
+                else {
+                    if (portType == RS485_HALF || portType == RS422) {
+                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
+                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
+                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM,
+                                                            _defaultPortConfig.xcvrConfig.sensorPower);
+                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                            DLOG(("Asking for PortConfig:"));
+                            printTargetConfig(testPortConfig);
+                        }
+
+                        setPortConfig(testPortConfig);
+                        applyPortConfig();
+
+                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
+                            NLOG(("Testing PortConfig on RS422/RS485 with termination: "));
+                            printPortConfig();
+                        }
+
+                        if (doubleCheckResponse()) {
+                            foundIt = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return foundIt;
+}
+
+void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
+														   int rts485, PORT_TYPES portType, TERM termination,
+														   SENSOR_POWER_STATE power)
+{
+    target.termios.setBaudRate(baud);
+    target.termios.setDataBits(dataBits);
+    target.termios.setParity(parity);
+    target.termios.setStopBits(stopBits);
+    target.rts485 = (rts485);
+    target.xcvrConfig.portType = portType;
+    target.xcvrConfig.termination = termination;
+    target.xcvrConfig.sensorPower = power;
+
+    target.applied =false;
+}
+
+bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
+{
+    return ((rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate())
+            && (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity())
+            && (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits())
+            && (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits())
+            && (rTestConfig.rts485 == _defaultPortConfig.rts485)
+            && (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType)
+            && (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination)
+            && (rTestConfig.xcvrConfig.sensorPower == _defaultPortConfig.xcvrConfig.sensorPower));
+}
+
+bool SerialSensor::testDefaultPortConfig()
+{
+	// get the existing PortConfig to preserve the serial device
+    PortConfig testPortConfig = getPortConfig();
+
+    // copy in the defaults
+    setTargetPortConfig(testPortConfig,
+						_defaultPortConfig.termios.getBaudRate(),
+						_defaultPortConfig.termios.getDataBits(),
+						_defaultPortConfig.termios.getParity(),
+						_defaultPortConfig.termios.getStopBits(),
+						_defaultPortConfig.rts485,
+						_defaultPortConfig.xcvrConfig.portType,
+						_defaultPortConfig.xcvrConfig.termination,
+						_defaultPortConfig.xcvrConfig.sensorPower);
+
+    // send it back up the hierarchy
+    setPortConfig(testPortConfig);
+
+    // apply it to the hardware
+    applyPortConfig();
+
+    // test it
+    return doubleCheckResponse();
+}
+
+bool SerialSensor::doubleCheckResponse()
+{
+    bool foundIt = false;
+
+    DLOG(("Checking response once..."));
+    if (checkResponse()) {
+        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+            // tell everyone
+            DLOG(("Found working port config: "));
+            printPortConfig();
+        }
+
+        foundIt = true;
+    }
+    else {
+        DLOG(("Checking response twice..."));
+        if (checkResponse()) {
+            // tell everyone
+            DLOG(("Response checks out on second try..."));
+            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+                DLOG(("Found working port config: "));
+                printPortConfig();
+            }
+
+            foundIt = true;
+        }
+        else {
+            DLOG(("Checked response twice, and failed twice."));
+        }
+    }
+
+    return foundIt;
+}
+
+bool SerialSensor::configureScienceParameters()
+{
+    DLOG(("Sending sensor science parameters."));
+    sendScienceParameters();
+    DLOG(("First check of desired science parameters"));
+    bool success = checkScienceParameters();
+    if (!success) {
+        DLOG(("First attempt to send science parameters failed - resending"));
+        sendScienceParameters();
+        success = checkScienceParameters();
+        if (!success) {
+            DLOG(("Second attempt to send science parameters failed. Giving up."));
+        }
+    }
+
+    return success;
 }
 
 SerialSensor::Prompter::~Prompter()

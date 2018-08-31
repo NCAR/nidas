@@ -34,14 +34,6 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
-struct WordSpec
-{
-    int dataBits;
-    Termios::parity parity;
-    int stopBits;
-};
-
-
 // create table indices
 enum PTB_COMMANDS
 {   NULL_COMMAND = -1, // don't put in table, only used for null return value
@@ -93,10 +85,6 @@ struct PTB210_ARG_RANGE {
     int max;
 };
 
-struct PTB_CMD_ARG {
-    PTB_COMMANDS cmd;
-    int arg;
-};
 
 /**
  * Sensor class for the PTB210 barometer, built by Vaisala.
@@ -136,10 +124,6 @@ public:
 
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
-
-    // override open() to provide the default settings to the DSM port, and search for the correct 
-    // settings, should the default settings not result in successful communication.
-    void open(int flags) throw (n_u::IOException, n_u::InvalidParameterException);
 
     // utility to turn a pressure unit string designation into a PRESS_UNIT enum
     static PTB_PRESSURE_UNITS pressUnitStr2PressUnit(const char* unitStr) {
@@ -186,32 +170,17 @@ public:
     }
 
 protected:
-    bool isDefaultConfig(const n_c::PortConfig& target);
-    bool findWorkingSerialPortConfig();
-    bool doubleCheckResponse();
-    bool checkResponse();
-    void sendSensorCmd(PTB_COMMANDS cmd, int arg=0, bool resetNow=false);
-    bool testDefaultPortConfig();
-    bool sweepParameters(bool defaultTested=false);
-    void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
-                                                      int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
-                                                      n_c::SENSOR_POWER_STATE power);
-    void mergeDesiredWithWorkingConfig(n_c::PortConfig& rDesired, const n_c::PortConfig& rWorking);
-    bool installDesiredSensorConfig();
+    virtual bool supportsAutoConfig() { return true; }
+    virtual bool checkResponse();
+    virtual void sendSensorCmd(int cmd, n_c::SensorCmdArg arg = n_c::SensorCmdArg(0), bool resetNow=false);
+    virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
     bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(PTB_COMMANDS cmd, const char* match);
     size_t readResponse(void *buf, size_t len, int msecTimeout);
-    void printTargetConfig(n_c::PortConfig target)
-    {
-        target.print();
-        target.xcvrConfig.print();
-        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        std::cout << std::endl;
-    }
     void updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg=0);
-    PTB_CMD_ARG getDesiredCmd(PTB_COMMANDS cmd);
+    n_c::SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
 
 private:
     // default serial parameters for the PB210
@@ -248,7 +217,7 @@ private:
 
     static const PTB_COMMANDS DEFAULT_USE_CORRECTION_CMD = SENSOR_CORRECTION_ON_CMD;
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const PTB_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+    static const n_c::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
 
     // PB210 pre-packaged commands
     static const char* SENSOR_RESET_CMD_STR;
@@ -284,7 +253,7 @@ private:
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
     static const int NUM_SENSOR_WORD_SPECS = 3;
-    static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
+    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
@@ -295,10 +264,8 @@ private:
     static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
-    n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
-
-    PTB_CMD_ARG* desiredScienceParameters;
+    n_c::SensorCmdData* desiredScienceParameters;
 
 
     // no copying

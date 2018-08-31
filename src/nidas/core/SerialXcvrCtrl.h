@@ -60,10 +60,12 @@ struct XcvrConfig {
     XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
     XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM, SENSOR_POWER_STATE initPower=SENSOR_POWER_ON) 
         : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(initPower) {}
-    bool operator!=(const XcvrConfig& rRight) {return !operator==(rRight);} 
-    bool operator==(const XcvrConfig& rRight) 
-        {return (port == rRight.port && portType == rRight.portType 
-                 && termination == rRight.termination && sensorPower == rRight.sensorPower);}
+    bool operator!=(const XcvrConfig& rRight) const {return !((*this) == rRight);}
+    bool operator==(const XcvrConfig& rRight) const
+        {return (this == &rRight) || (port == rRight.port
+        		                      && portType == rRight.portType
+									  && termination == rRight.termination
+									  && sensorPower == rRight.sensorPower);}
     void print();
     
     PORT_DEFS port;

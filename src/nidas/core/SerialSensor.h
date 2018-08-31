@@ -35,6 +35,63 @@ using namespace nidas::util;
 namespace nidas { namespace core {
 
 /**
+ *  Autoconfig helpers
+ */
+struct WordSpec
+{
+    int dataBits;
+    Termios::parity parity;
+    int stopBits;
+};
+
+struct SensorCmdArg
+{
+	std::string strArg;
+	int intArg;
+	bool argIsString;
+
+	explicit SensorCmdArg(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
+	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
+	explicit SensorCmdArg(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
+	bool operator==(const SensorCmdArg& rRight)
+	{
+		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
+	}
+	bool operator!=(const SensorCmdArg& rRight) {return !(*this == rRight);}
+};
+
+const int NULL_COMMAND = -1;
+
+struct SensorCmdData {
+	SensorCmdData() : cmd(NULL_COMMAND), arg(0) {}
+	SensorCmdData(int initCmd, SensorCmdArg initArg) : cmd(initCmd), arg(initArg) {}
+    int cmd;
+    SensorCmdArg arg;
+};
+
+enum AUTOCONFIG_STATE {
+	AUTOCONFIG_UNSUPPORTED,
+	WAITING_IDLE,
+	AUTOCONFIG_STARTED,
+	CONFIGURING_COMM_PARAMETERS,
+	SEARCHING_FOR_DEVICE,
+	FOUND_DEVICE,
+	SETTING_DESIRED_DEVICE_COMMS,
+	CHECKING_NEW_COMM_SETTINGS,
+	NEW_COMM_SETTINGS_VERIFIED,
+	NEW_COMM_SETTINGS_UNSUCCESSFUL,
+	CONFIGURING_SCIENCE_PARAMETERS,
+	SETTING_DESIRED_SCIENCE_PARAMS,
+	CHECKING_SCIENCE_PARAM_SETTINGS,
+	SCIENCE_SETTINGS_VERIFIED,
+	SCIENCE_SETTINGS_UNSUCCESSFUL,
+	DEVICE_READY,
+	AUTOCONFIG_SUCCESSFUL,
+	AUTOCONFIG_UNSUCCESSFUL
+};
+
+
+/**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
  * Bluetooth RF Comm socket, or a good old RS232/422/485 serial port.
  * A SerialSensor builds the appropriate IODevice depending on the prefix
@@ -197,10 +254,40 @@ protected:
      */
     void shutdownPrompting() throw(nidas::util::IOException);
 
-    void unixDevInit(int flags)
-    	throw(nidas::util::IOException);
+    void unixDevInit(int flags) throw(nidas::util::IOException);
 
-private:
+    /**
+     * autoconfig specific methods
+     */
+    void doAutoConfig();
+    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
+												 int rts485, PORT_TYPES portType, TERM termination,
+												 SENSOR_POWER_STATE power);
+    bool isDefaultConfig(const PortConfig& rTestConfig) const;
+    bool findWorkingSerialPortConfig();
+    bool testDefaultPortConfig();
+    bool sweepCommParameters();
+    bool doubleCheckResponse();
+    bool configureScienceParameters();
+    void printTargetConfig(PortConfig target)
+    {
+        target.print();
+        target.xcvrConfig.print();
+        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
+        std::cout << std::endl;
+    }
+
+    /**
+     * These autoconfig methods do nothing, unless overridden in a subclass
+     * Keep in mind that most subclasses will override all of these methods.
+     * In particular, supportsAutoConfig() must be overridden to return true,
+     * otherwise, the other virtual methods will not get called at all.
+     */
+    virtual bool supportsAutoConfig() { return false; }
+    virtual bool checkResponse() { return true; }
+    virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
+    virtual void sendScienceParameters() {}
+    virtual bool checkScienceParameters() { return true; }
 
     /*******************************************************
      * Aggregate serial port configuration
@@ -215,6 +302,28 @@ private:
      * occur in SerialPortIODevice. 
      *******************************************************/
     PortConfig _workingPortConfig;
+
+    /*
+     * Containers for holding the possible serial port parameters which may be used by a sensor
+     */
+    typedef std::list<PORT_TYPES> PortTypeList;
+    typedef std::list<int> BaudRateList;
+    typedef std::list<WordSpec> WordSpecList;
+
+	PortTypeList _portTypeList;			// list of PortTypes this sensor may make use of
+    BaudRateList _baudRateList;			// list of baud rates this sensor may make use of
+    WordSpecList _serialWordSpecList;	// list of serial word specifications (databits, parity, stopbits) this sensor may make use of
+
+    AUTOCONFIG_STATE autoConfigState;
+    AUTOCONFIG_STATE serialState;
+    AUTOCONFIG_STATE scienceState;
+    AUTOCONFIG_STATE deviceState;
+
+private:
+    /*
+     * The initial PortConfig sent by the subclass when constructing SerialSensor
+     */
+    const PortConfig _defaultPortConfig;
 
     /**
      * Non-null if the underlying IODevice is a SerialPortIODevice.
@@ -246,7 +355,7 @@ private:
     private:
         SerialSensor* _sensor;
         char* _prompt;
-	int _promptLen;
+        int _promptLen;
         int _promptPeriodMsec;
         int _promptOffsetMsec;
 

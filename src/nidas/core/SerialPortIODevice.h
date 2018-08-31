@@ -75,8 +75,8 @@ struct PortConfig {
 
     PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) {}
     PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) {}
-    bool operator!=(const PortConfig& rRight) {return !operator==(rRight);}
-    bool operator==(const PortConfig& rRight)
+    bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
+    bool operator==(const PortConfig& rRight) const
         {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
     void print(bool printApplied=false)
     {
@@ -244,17 +244,9 @@ public:
 
     void printPortConfig(bool readFirst=true);
 
-    std::string portTypeToStr(PORT_TYPES portType) {
-        std::string portStr("");
-        if (_pXcvrCtrl) {
-            portStr.append(_pXcvrCtrl->portTypeToStr(portType));
-        }
-
-        else {
-            throw n_u::Exception("SerialPortIODevice::applyPortConfig(): Attempt to render the physcial port ID"
-                                 "for a non-existen SerialXcvrCtrl Object.");
-        }
-        return portStr;
+    static std::string portTypeToStr(PORT_TYPES portType)
+    {
+        return SerialXcvrCtrl::portTypeToStr(portType);
     }
 
    /**

@@ -110,15 +110,15 @@ const PortConfig PTB210::DEFAULT_PORT_CONFIG(PTB210::DEFAULT_BAUD_RATE, PTB210::
                                              PTB210::DEFAULT_SENSOR_POWER, PTB210::DEFAULT_RTS485, 
                                              PTB210::DEFAULT_CONFIG_APPLIED);
 
-const PTB_CMD_ARG PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
-    {DEFAULT_PRESSURE_UNITS_CMD, DEFAULT_PRESSURE_UNITS},
-    {DEFAULT_SAMPLE_RATE_CMD, DEFAULT_SAMPLE_RATE},
-    {DEFAULT_SAMPLE_AVERAGING_CMD, DEFAULT_NUM_SAMPLES_AVERAGED},
-    {DEFAULT_OUTPUT_UNITS_CMD, 0},
-    {DEFAULT_USE_CORRECTION_CMD, 0}
+const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
+    n_c::SensorCmdData(DEFAULT_PRESSURE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_PRESSURE_UNITS)),
+	n_c::SensorCmdData(DEFAULT_SAMPLE_RATE_CMD, n_c::SensorCmdArg(DEFAULT_SAMPLE_RATE)),
+	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_NUM_SAMPLES_AVERAGED)),
+	n_c::SensorCmdData(DEFAULT_OUTPUT_UNITS_CMD, n_c::SensorCmdArg(0)),
+	n_c::SensorCmdData(DEFAULT_USE_CORRECTION_CMD, n_c::SensorCmdArg(0))
 };
 
-const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(PTB_CMD_ARG);
+const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
 
 /* Typical PTB210 .? query response. All line endings are \r\n
  * 
@@ -271,15 +271,27 @@ static void freeRegex() {
 }
 
 PTB210::PTB210()
-    : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(DEFAULT_PORT_CONFIG),
-      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
-    desiredScienceParameters = new PTB_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
+    // Let the base class know about PTB210 RS232 limitations
+    for (int i=0; i<NUM_PORT_TYPES; ++i) {
+    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
+    	_baudRateList.push_back(SENSOR_BAUDS[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
+    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
+    }
+
+    desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
@@ -413,22 +425,22 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 }
                 else if (aname == "porttype") {
                     if (upperAval == "RS232") 
-                        desiredPortConfig.xcvrConfig.portType = RS232;
+                        _workingPortConfig.xcvrConfig.portType = RS232;
                     else if (upperAval == "RS422") 
-                        desiredPortConfig.xcvrConfig.portType = RS422;
+                        _workingPortConfig.xcvrConfig.portType = RS422;
                     else if (upperAval == "RS485_HALF") 
-                        desiredPortConfig.xcvrConfig.portType = RS485_HALF;
+                        _workingPortConfig.xcvrConfig.portType = RS485_HALF;
                     else if (upperAval == "RS485_FULL") 
-                        desiredPortConfig.xcvrConfig.portType = RS485_FULL;
+                        _workingPortConfig.xcvrConfig.portType = RS485_FULL;
                     else
                         throw n_u::InvalidParameterException(
                             string("PTB210:") + getName(), aname, aval);
                 }
                 else if (aname == "termination") {
                     if (upperAval == "NO_TERM" || upperAval == "NO" || upperAval == "FALSE") 
-                        desiredPortConfig.xcvrConfig.termination = NO_TERM;
+                        _workingPortConfig.xcvrConfig.termination = NO_TERM;
                     else if (upperAval == "TERM_120_OHM" || upperAval == "YES" || upperAval == "TRUE") 
-                        desiredPortConfig.xcvrConfig.termination = TERM_120_OHM;
+                        _workingPortConfig.xcvrConfig.termination = TERM_120_OHM;
                     else
                         throw n_u::InvalidParameterException(
                             string("PTB210:") + getName(), aname, aval);
@@ -437,17 +449,17 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     istringstream ist(aval);
                     int val;
                     ist >> val;
-                    if (ist.fail() || !desiredPortConfig.termios.setBaudRate(val))
+                    if (ist.fail() || !_workingPortConfig.termios.setBaudRate(val))
                         throw n_u::InvalidParameterException(
                             string("PTB210:") + getName(), aname,aval);
                 }
                 else if (aname == "parity") {
                     if (upperAval == "ODD") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::ODD);
+                        _workingPortConfig.termios.setParity(n_u::Termios::ODD);
                     else if (upperAval == "EVEN") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::EVEN);
+                        _workingPortConfig.termios.setParity(n_u::Termios::EVEN);
                     else if (upperAval == "NONE") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::NONE);
+                        _workingPortConfig.termios.setParity(n_u::Termios::NONE);
                     else throw n_u::InvalidParameterException(
                         string("PTB210:") + getName(),
                         aname,aval);
@@ -460,7 +472,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                         string("PTB210:") + getName(),
                             aname, aval);
-                    desiredPortConfig.termios.setDataBits(val);
+                    _workingPortConfig.termios.setDataBits(val);
                 }
                 else if (aname == "stopbits") {
                     istringstream ist(aval);
@@ -470,17 +482,17 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                         string("PTB210:") + getName(),
                             aname, aval);
-                    desiredPortConfig.termios.setStopBits(val);
+                    _workingPortConfig.termios.setStopBits(val);
                 }
                 else if (aname == "rts485") {
                     if (upperAval == "TRUE" || aval == "1") {
-                        desiredPortConfig.rts485 = 1;
+                        _workingPortConfig.rts485 = 1;
                     }
                     else if (upperAval == "TRUE" || aval == "0") {
-                        desiredPortConfig.rts485 = 0;
+                        _workingPortConfig.rts485 = 0;
                     }
                     else if (aval == "-1") {
-                        desiredPortConfig.rts485 = -1;
+                        _workingPortConfig.rts485 = -1;
                     }
                     else {
                         throw n_u::InvalidParameterException(
@@ -493,200 +505,47 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
     }
 }
 
-void PTB210::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
-{
-    // So open the device at the base class so we don't invoke any of the sampling functionality...
-	// But we do want to invoke the creation of SerialPortIODevice and fromDOMElement()
-    DSMSensor::open(flags);
-
-    // Merge the current working with the desired config. We do this because
-    // some things may change in the base class fromDOMElement(), affecting the
-    // working port config, and some may change in this subclass's fromDOMElement() override,
-    // affecting the desired port config.
-    if (desiredPortConfig != DEFAULT_PORT_CONFIG) {
-    	mergeDesiredWithWorkingConfig(desiredPortConfig, getPortConfig());
-    	setPortConfig(desiredPortConfig);
-    	applyPortConfig();
-    }
-
-    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
-    // Make sure blocking is set properly
-    pSIODevice->getBlocking();
-    // Save off desiredConfig - base class should have modified it by now.
-    // Do this after applying, as getPortConfig() only gets the items in the SerialPortIODevice object.
-    desiredPortConfig = getPortConfig();
-
-    // check the raw mode parameters
-    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
-
-    NLOG(("First figure out whether we're talking to the sensor"));
-    if (findWorkingSerialPortConfig()) {
-        NLOG(("Found working sensor serial port configuration"));
-        NLOG((""));
-        NLOG(("Attempting to install the desired sensor serial parameter configuration"));
-        if (installDesiredSensorConfig()) {
-            NLOG(("Desired sensor serial port configuration successfully installed"));
-            NLOG((""));
-            NLOG(("Attempting to install the desired sensor science configuration"));
-            if (configureScienceParameters()) {
-                NLOG(("Desired sensor science configuration successfully installed"));
-                NLOG(("Opening the NIDAS Way..."));
-                SerialSensor::open(flags);
-            }
-            else {
-                NLOG(("Failed to install sensor science configuration"));
-            }
-        }
-        else {
-            NLOG(("Failed to install desired config. Reverted back to what works. "
-                    "Science configuration is not installed."));
-        }
-    }
-    else
-    {
-        NLOG(("Couldn't find a serial port configuration that worked with this PTB210 sensor. "
-              "May need to troubleshoot the sensor or cable. "
-              "!!!NOTE: Sensor is not open for data collection!!!"));
-    }
-}
-
-bool PTB210::findWorkingSerialPortConfig()
-{
-    bool foundIt = false;
-
-    // first see if the current configuration is working. If so, all done!
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-        NLOG(("Testing initial config which may be custom "));
-        printPortConfig();
-    }
-
-    if (!doubleCheckResponse()) {
-        // initial config didn't work, so sweep through all parameters starting w/the default
-        if (!isDefaultConfig(getPortConfig())) {
-            // it's a custom config, so test default first
-            NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
-            if (!testDefaultPortConfig()) {
-                NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
-                foundIt = sweepParameters(true);
-            }
-            else {
-                // found it!! Tell someone!!
-                foundIt = true;
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("Default PortConfig was successfull!!!"));
-                    printPortConfig();
-                }
-            }
-        }
-        else {
-            NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
-                  "parameter configurations..."));
-            foundIt = sweepParameters(true);
-        }
-    }
-    else {
-        // Found it! Tell someone!
-        if (!isDefaultConfig(getPortConfig())) {
-            NLOG(("SerialSensor customimized the default PortConfig and it succeeded!!"));
-        }
-        else {
-            NLOG(("SerialSensor did not customimize the default PortConfig and it succeeded!!"));
-        }
-
-        foundIt = true;
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-            printPortConfig();
-        }
-    }
-
-    return foundIt;
-}
-
-void PTB210::mergeDesiredWithWorkingConfig(PortConfig& rDesired, const PortConfig& rWorking)
-{
-	// Always want the desired port config to take precedence,
-	// if it's been changed by the derived class via the autoconfig tag
-	// Desired port config is initialized to the default port config. So if it
-	// hasn't changed, but is not equal to the working port config, then assign the
-	// working port config value to the desired port config
-	if (rDesired.termios == DEFAULT_PORT_CONFIG.termios && rDesired.termios != rWorking.termios) {
-		if (rDesired.termios.getBaudRate() != rWorking.termios.getBaudRate()) {
-			rDesired.termios.setBaudRate(rWorking.termios.getBaudRate());
-		}
-		if (rDesired.termios.getParity() != rWorking.termios.getParity()) {
-			rDesired.termios.setParity(rWorking.termios.getParity());
-		}
-		if (rDesired.termios.getDataBits() != rWorking.termios.getDataBits()) {
-			rDesired.termios.setDataBits(rWorking.termios.getDataBits());
-		}
-		if (rDesired.termios.getStopBits() != rWorking.termios.getStopBits()) {
-			rDesired.termios.setStopBits(rWorking.termios.getStopBits());
-		}
-	}
-
-	if (rDesired.rts485 == DEFAULT_PORT_CONFIG.rts485 && rDesired.rts485 != rWorking.rts485) {
-		rDesired.rts485 = rWorking.rts485;
-	}
-
-	if (rDesired.xcvrConfig == DEFAULT_PORT_CONFIG.xcvrConfig && rDesired.xcvrConfig != rWorking.xcvrConfig) {
-		if (rDesired.xcvrConfig.port == DEFAULT_PORT_CONFIG.xcvrConfig.port && rDesired.xcvrConfig.port != rWorking.xcvrConfig.port) {
-			rDesired.xcvrConfig.port = rWorking.xcvrConfig.port;
-		}
-		if (rDesired.xcvrConfig.portType == DEFAULT_PORT_CONFIG.xcvrConfig.portType && rDesired.xcvrConfig.portType != rWorking.xcvrConfig.portType) {
-			rDesired.xcvrConfig.portType = rWorking.xcvrConfig.portType;
-		}
-		if (rDesired.xcvrConfig.sensorPower == DEFAULT_PORT_CONFIG.xcvrConfig.sensorPower && rDesired.xcvrConfig.sensorPower != rWorking.xcvrConfig.sensorPower) {
-			rDesired.xcvrConfig.sensorPower = rWorking.xcvrConfig.sensorPower;
-		}
-		if (rDesired.xcvrConfig.termination == DEFAULT_PORT_CONFIG.xcvrConfig.termination && rDesired.xcvrConfig.termination != rWorking.xcvrConfig.termination) {
-			rDesired.xcvrConfig.termination = rWorking.xcvrConfig.termination;
-		}
-
-		rDesired.applied = false;
-	}
-}
-
-bool PTB210::installDesiredSensorConfig()
+bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 {
     bool installed = false;
-    PortConfig sensorPortConfig = getPortConfig();
+    const PortConfig sensorPortConfig = getPortConfig();
 
-    // at this point we need to determine whether or not the current working config 
+    // at this point we need to determine whether or not the current working config
     // is the desired config, and adjust as necessary
-    if (desiredPortConfig != sensorPortConfig) {
+    if (rDesiredConfig != sensorPortConfig) {
         // Gotta modify the PTB210 parameters first, and the modify our parameters to match and hope for the best.
-        // We only do this for the serial and science parameters, as the sensor is physically configured to use  
-        // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
+        // We only do this for the serial and science parameters, as the sensor is physically configured to use
+        // the transceiver mode we discovered it works on. To change these parameters, the user would have to
         // physically reconfigure the sensor and re-start the auto-config process.
         DLOG(("Attempting to set the serial configuration to the desired configuration."));
 
         serPortFlush(O_RDWR);
 
-        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, desiredPortConfig.termios.getBaudRate());
-        
+        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(rDesiredConfig.termios.getBaudRate()));
+
         // PTB210 only supports three combinations of word format - all based on parity
         // So just force it based on parity. Go ahead and reset now, so we can see if we're
         // still talking to each other...
-        switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
+        switch (rDesiredConfig.termios.getParityString(true).c_str()[0]) {
             case 'O':
-                sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
             case 'E':
-                sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
             case 'N':
-                sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, 0, true);
+                sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
             default:
                 break;
         }
 
-        setPortConfig(desiredPortConfig);
+        setPortConfig(rDesiredConfig);
         applyPortConfig();
-        if (getPortConfig() == desiredPortConfig) {
+        if (getPortConfig() == rDesiredConfig) {
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
             if (!doubleCheckResponse()) {
@@ -703,7 +562,7 @@ bool PTB210::installDesiredSensorConfig()
                     DLOG(("Setting the port config back to something that works for a retry"));
                     printPortConfig();
                 }
-                
+
                 if (!doubleCheckResponse()) {
                     DLOG(("The sensor port config which originally worked before attempting "
                           "to set the desired config no longer works. Really messed up now!"));
@@ -724,9 +583,9 @@ bool PTB210::installDesiredSensorConfig()
         }
 
         else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
+            DLOG(("Attempt to set PortConfig to the desired PortConfig failed."));
             DLOG(("Desired PortConfig: "));
-            printTargetConfig(desiredPortConfig);
+            printTargetConfig(rDesiredConfig);
             DLOG(("Actual set PortConfig: "));
             printPortConfig();
         }
@@ -742,24 +601,6 @@ bool PTB210::installDesiredSensorConfig()
 
     DLOG(("Returning installed status: ") << (installed ? "SUCCESS!!" : "failed..."));
     return installed;
-}
-
-bool PTB210::configureScienceParameters()
-{
-    DLOG(("Sending sensor science parameters."));
-    sendScienceParameters();
-    DLOG(("First check of desired science parameters"));
-    bool success = checkScienceParameters();
-    if (!success) {
-        DLOG(("First attempt to send science parameters failed - resending"));
-        sendScienceParameters();
-        success = checkScienceParameters();
-        if (!success) {
-            DLOG(("Second attempt to send science parameters failed. Giving up."));
-        }
-    }
-
-    return success;
 }
 
 void PTB210::sendScienceParameters() {
@@ -917,7 +758,7 @@ bool PTB210::checkScienceParameters() {
 
 bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
 {
-    PTB_CMD_ARG desiredCmd = getDesiredCmd(cmd);
+    n_c::SensorCmdData desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
     VLOG(("Searched command: ") << cmd);
 
@@ -946,8 +787,8 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
 
         // Need to match the command argument, which are all ints
         case SENSOR_SAMP_UNIT_CMD:
-            VLOG(("Arguments match: ") << (desiredCmd.arg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
-            return (desiredCmd.arg == pressUnitStr2PressUnit(match));
+            VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
+            return (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match));
             break;
 
         case SENSOR_SERIAL_BAUD_CMD:
@@ -961,8 +802,8 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
                 std::stringstream argStrm(match);
                 argStrm >> arg;
 
-                VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
-                return (desiredCmd.arg == arg);
+                VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == arg ? "TRUE" : "FALSE"));
+                return (desiredCmd.arg.intArg == arg);
             }
             break;
     }
@@ -971,7 +812,7 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
     return false;
 }
 
-PTB_CMD_ARG PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
+n_c::SensorCmdData PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -982,179 +823,10 @@ PTB_CMD_ARG PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    PTB_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
+    n_c::SensorCmdData nullRetVal(NULL_COMMAND, n_c::SensorCmdArg(0));
     return(nullRetVal);
 }
 
-
-bool PTB210::testDefaultPortConfig()
-{
-    // get the existing PortConfig to preserve the port
-    testPortConfig = getPortConfig();
-
-    // copy in the defaults
-    setTargetPortConfig(testPortConfig, DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS, 
-                                        DEFAULT_RTS485, DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION, 
-                                        DEFAULT_SENSOR_POWER);
-    // send it back up the hierarchy
-    setPortConfig(testPortConfig);
-
-    // apply it to the hardware
-    applyPortConfig();
-
-    // test it
-    return doubleCheckResponse();
-}
-
-bool PTB210::sweepParameters(bool defaultTested)
-{
-    bool foundIt = false;
-
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-        int rts485 = 0;
-        n_c::PORT_TYPES portType = SENSOR_PORT_TYPES[i];
-
-        if (portType == n_c::RS485_HALF)
-            rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
-        else if (portType == n_c::RS422)
-            rts485 = -1; // always high, since there are two drivers going both ways
-
-        for (int j=0; j<NUM_SENSOR_BAUDS; ++j) {
-            int baud = SENSOR_BAUDS[j];
-
-            for (int k=0; k<NUM_SENSOR_WORD_SPECS; ++k) {
-                WordSpec wordSpec = SENSOR_WORD_SPECS[k];
-
-                // get the existing port config to preserve the port
-                // which only gets set on construction
-                testPortConfig = getPortConfig();
-
-                // now set it to the new parameters
-                setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                    wordSpec.stopBits, rts485, portType, NO_TERM, 
-                                                    DEFAULT_SENSOR_POWER);
-
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("Asking for PortConfig:"));
-                    printTargetConfig(testPortConfig);
-                }
-
-                // don't test the default if already tested.
-                if (defaultTested && isDefaultConfig(testPortConfig))
-                {
-                    // skip
-                    NLOG((""));
-                    NLOG(("Skipping default configuration since it's already tested..."));
-                    continue;
-                }
-
-                setPortConfig(testPortConfig);
-                applyPortConfig();
-
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG((""));
-                    NLOG(("Testing PortConfig: "));
-                    printPortConfig();
-                }
-
-                DLOG(("Checking response once..."));
-                if (doubleCheckResponse()) {
-                    foundIt = true;
-                    return foundIt;
-                } 
-                else {
-                    if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
-                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
-                                                            DEFAULT_SENSOR_POWER);
-                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                            DLOG(("Asking for PortConfig:"));
-                            printTargetConfig(testPortConfig);
-                        }
-
-                        setPortConfig(testPortConfig);
-                        applyPortConfig();
-
-                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                            NLOG(("Testing PortConfig on RS422/RS485 with termination: "));
-                            printPortConfig();
-                        }
-
-                        if (doubleCheckResponse()) {
-                            foundIt = true;
-                            return foundIt;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return foundIt;
-}
-
-void PTB210::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
-                                                     int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
-                                                     n_c::SENSOR_POWER_STATE power)
-{
-    target.termios.setBaudRate(baud);
-    target.termios.setDataBits(dataBits);
-    target.termios.setParity(parity);
-    target.termios.setStopBits(stopBits);
-    target.rts485 = (rts485);
-    target.xcvrConfig.portType = portType;
-    target.xcvrConfig.termination = termination;
-    target.xcvrConfig.sensorPower = power;
-
-    target.applied =false;
-}
-
-bool PTB210::isDefaultConfig(const n_c::PortConfig& target)
-{
-    return ((target.termios.getBaudRate() == DEFAULT_BAUD_RATE)
-            && (target.termios.getParity() == DEFAULT_PARITY)
-            && (target.termios.getDataBits() == DEFAULT_DATA_BITS)
-            && (target.termios.getStopBits() == DEFAULT_STOP_BITS)
-            && (target.rts485 == DEFAULT_RTS485)
-            && (target.xcvrConfig.portType == DEFAULT_PORT_TYPE)
-            && (target.xcvrConfig.termination == DEFAULT_SENSOR_TERMINATION)
-            && (target.xcvrConfig.sensorPower == DEFAULT_SENSOR_POWER));
-}
-
-bool PTB210::doubleCheckResponse()
-{
-    bool foundIt = false;
-
-    DLOG(("Checking response once..."));
-    if (checkResponse()) {
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            // tell everyone
-            DLOG(("Found working port config: "));
-            printPortConfig();
-        }
-
-        foundIt = true;
-    } 
-    else {
-        DLOG(("Checking response twice..."));
-        if (checkResponse()) {
-            // tell everyone
-            DLOG(("Response checks out on second try..."));
-            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                DLOG(("Found working port config: "));
-                printPortConfig();
-            }
-
-            foundIt = true;
-        }
-        else {
-            DLOG(("Checked response twice, and failed twice."));
-        }
-    }
-
-    return foundIt;
-}
 
 bool PTB210::checkResponse()
 {
@@ -1283,7 +955,7 @@ bool PTB210::checkResponse()
 }
 
 
-void PTB210::sendSensorCmd(PTB_COMMANDS cmd, int arg, bool resetNow)
+void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
@@ -1299,7 +971,7 @@ void PTB210::sendSensorCmd(PTB_COMMANDS cmd, int arg, bool resetNow)
             {
                 int insertIdx = snsrCmd.find_last_of('.');
                 std::ostringstream argStr; 
-                argStr << arg;
+                argStr << arg.intArg;
                 snsrCmd.insert(insertIdx+1, argStr.str());
             }
             break;
@@ -1419,7 +1091,7 @@ void PTB210::updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (srchCmd == desiredScienceParameters[i].cmd) {
             desiredScienceParameters[i].cmd = cmd;  // always replace w/cmd, as srchCmd by be different
-            desiredScienceParameters[i].arg = arg;
+            desiredScienceParameters[i].arg.intArg = arg;
             break;
         }
     }
