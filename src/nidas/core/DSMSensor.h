@@ -33,6 +33,7 @@
 #include "IODevice.h"
 #include "DOMable.h"
 #include "Dictionary.h"
+#include "VariableIndex.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -1043,6 +1044,14 @@ protected:
      **/
     void
     trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed);
+
+    /**
+     * Search all the sample tags for a variable whose name starts with the
+     * given prefix, and return it's index in the list of variables in the
+     * sample tag.  If no such variable is not found, return -1.
+     **/
+    VariableIndex
+    findVariableIndex(const std::string& vprefix);
 
 private:
 

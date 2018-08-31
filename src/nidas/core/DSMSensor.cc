@@ -829,6 +829,36 @@ void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
 	    "id is zero","");
 }
 
+
+VariableIndex
+DSMSensor::
+findVariableIndex(const std::string& vprefix)
+{
+    unsigned int vlen = vprefix.length();
+    list<SampleTag*>& tags = getSampleTags();
+
+    list<SampleTag*>::const_iterator ti;
+    VariableIndex idx;
+
+    for (ti = tags.begin(); idx < 0 && ti != tags.end(); ++ti)
+    {
+        SampleTag* tag = *ti;
+        const vector<Variable*>& vars = tag->getVariables();
+        vector<Variable*>::const_iterator vi = vars.begin();
+        for (unsigned int i = 0; vi != vars.end(); ++vi, ++i)
+        {
+            Variable* var = *vi;
+            if (var->getName().substr(0, vlen) == vprefix)
+            {
+                idx = VariableIndex(var, i);
+                break;
+            }
+        }
+    }
+    return idx;
+}
+
+
 xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool complete) const
     throw(xercesc::DOMException)
 {

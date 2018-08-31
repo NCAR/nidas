@@ -41,9 +41,13 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,NCAR_TRH)
 
 NCAR_TRH::NCAR_TRH():
-    _ifanIndex(99),
+    _ifan(),
     _minIfan(-numeric_limits<float>::max()),
     _maxIfan(numeric_limits<float>::max()),
+    _traw(),
+    _rhraw(),
+    _t(),
+    _rh(),
     _Ta(3),
     _Ha(5)
 {
@@ -57,23 +61,28 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
 {
     nidas::core::SerialSensor::validate();
 
-    list<SampleTag*>& tags = getSampleTags();
-    list<SampleTag*>::const_iterator ti = tags.begin();
-    for ( ; ti != tags.end(); ++ti) {
-        SampleTag* tag = *ti;
-        const vector<Variable*>& vars = tag->getVariables();
-        vector<Variable*>::const_iterator vi = vars.begin();
-        for (unsigned int i = 0; vi != vars.end(); ++vi,i++) {
-            Variable* var = *vi;
-            if (var->getName().substr(0,4) == "Ifan") {
-                _ifanIndex = i;
-                _minIfan = var->getMinValue();
-                _maxIfan = var->getMaxValue();
-                var->setMinValue(-numeric_limits<float>::max());
-                var->setMaxValue(numeric_limits<float>::max());
-            }
-        }
+    _traw = findVariableIndex("Traw");
+    _rhraw = findVariableIndex("RHraw");
+    _rh = findVariableIndex("RH");
+    _t = findVariableIndex("T");
+    _ifan = findVariableIndex("Ifan");
+
+    if (_ifan)
+    {
+        Variable* ifan = _ifan.variable();
+        _minIfan = ifan->getMinValue();
+        _maxIfan = ifan->getMaxValue();
+        ifan->setMinValue(-numeric_limits<float>::max());
+        ifan->setMaxValue(numeric_limits<float>::max());
     }
+
+    // Check the T and RH variables for converters.  If found, inject a
+    // callback so this sensor can handle requests for raw calibrations,
+    // meaning T and RH will be calculated from Traw and RHraw using the
+    // coefficients stored here.  When a raw conversion is enabled,
+    // _t_use_raw or _rh_use_raw are true, otherwise the variable's
+    // converter is applied as usual.
+
 }
 
 
@@ -136,6 +145,18 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
         fp = var->convert(outs->getTimeTag(), fp);
     }
 
+    // For the T and RH variables in the sample tag, check if there is a
+    // calibration specifying a conversion from raw.
+
+    if (_t)
+    {
+        vector<string> fields;
+        Variable* tv = _t.variable();
+        VariableConverter* vc = tv->getConverter();
+        CalFile* cf = vc->getCalFile();
+        // Rest of the record is the coefficients.
+    }
+
     ifanFilter(results);
     return true;
 }
@@ -147,13 +168,13 @@ ifanFilter(std::list<const Sample*>& results)
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
 
-    if (slen > _ifanIndex)
+    if (_ifan)
     {
-        float ifan = csamp->getDataValue(_ifanIndex);
+        float ifan = csamp->getDataValue(_ifan.index());
 
         // flag T,RH if Ifan is less than _minIfan
-        if (ifan < _minIfan || ifan > _maxIfan) {
-
+        if (ifan < _minIfan || ifan > _maxIfan)
+        {
             SampleT<float>* news = getSample<float>(slen);
             news->setTimeTag(csamp->getTimeTag());
             news->setId(csamp->getId());
@@ -161,10 +182,13 @@ ifanFilter(std::list<const Sample*>& results)
             float* nfptr = news->getDataPtr();
 
             unsigned int i;
-            // flag any values other then Ifan
-            for (i = 0; i < slen; i++) {
-                if (i != _ifanIndex) nfptr[i] = floatNAN;
-                else nfptr[i] = csamp->getDataValue(i);
+            // flag any values other than Ifan
+            for (i = 0; i < slen; i++)
+            {
+                if (int(i) != _ifan.index())
+                    nfptr[i] = floatNAN;
+                else
+                    nfptr[i] = csamp->getDataValue(i);
             }
 
             csamp->freeReference();
