@@ -74,18 +74,11 @@ enum AUTOCONFIG_STATE {
 	WAITING_IDLE,
 	AUTOCONFIG_STARTED,
 	CONFIGURING_COMM_PARAMETERS,
-	SEARCHING_FOR_DEVICE,
-	FOUND_DEVICE,
-	SETTING_DESIRED_DEVICE_COMMS,
-	CHECKING_NEW_COMM_SETTINGS,
-	NEW_COMM_SETTINGS_VERIFIED,
-	NEW_COMM_SETTINGS_UNSUCCESSFUL,
+	COMM_PARAMETER_CFG_SUCCESSFUL,
+	COMM_PARAMETER_CFG_UNSUCCESSFUL,
 	CONFIGURING_SCIENCE_PARAMETERS,
-	SETTING_DESIRED_SCIENCE_PARAMS,
-	CHECKING_SCIENCE_PARAM_SETTINGS,
-	SCIENCE_SETTINGS_VERIFIED,
+	SCIENCE_SETTINGS_SUCCESSFUL,
 	SCIENCE_SETTINGS_UNSUCCESSFUL,
-	DEVICE_READY,
 	AUTOCONFIG_SUCCESSFUL,
 	AUTOCONFIG_UNSUCCESSFUL
 };
@@ -269,13 +262,15 @@ protected:
     bool sweepCommParameters();
     bool doubleCheckResponse();
     bool configureScienceParameters();
-    void printTargetConfig(PortConfig target)
+    static void printTargetConfig(PortConfig target)
     {
         target.print();
         target.xcvrConfig.print();
         std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         std::cout << std::endl;
     }
+
+    static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
 
     /**
      * These autoconfig methods do nothing, unless overridden in a subclass
@@ -314,10 +309,10 @@ protected:
     BaudRateList _baudRateList;			// list of baud rates this sensor may make use of
     WordSpecList _serialWordSpecList;	// list of serial word specifications (databits, parity, stopbits) this sensor may make use of
 
-    AUTOCONFIG_STATE autoConfigState;
-    AUTOCONFIG_STATE serialState;
-    AUTOCONFIG_STATE scienceState;
-    AUTOCONFIG_STATE deviceState;
+    AUTOCONFIG_STATE _autoConfigState;
+    AUTOCONFIG_STATE _serialState;
+    AUTOCONFIG_STATE _scienceState;
+    AUTOCONFIG_STATE _deviceState;
 
 private:
     /*

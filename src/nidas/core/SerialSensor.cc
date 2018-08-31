@@ -51,6 +51,10 @@ namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
     _workingPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
+	_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -61,6 +65,10 @@ SerialSensor::SerialSensor():
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
 		_workingPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
+		_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+		_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+		_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+		_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
 }
@@ -319,19 +327,28 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
     if (_serialDevice) {
 
         try {
-        ostr << "<td align=left>" << getPortConfig().termios.getBaudRate() <<
-            getPortConfig().termios.getParityString().substr(0,1) <<
-            getPortConfig().termios.getDataBits() << getPortConfig().termios.getStopBits();
-        if (getReadFd() < 0) {
-            ostr << ",<font color=red><b>not active</b></font>";
-            if (getTimeoutMsecs() > 0)
-                ostr << ",timeouts=" << getTimeoutCount();
-            ostr << "</td>" << endl;
-            return;
-        }
-        if (getTimeoutMsecs() > 0)
-                ostr << ",timeouts=" << getTimeoutCount();
-        ostr << "</td>" << endl;
+			ostr << "<td align=left>" << autoCfgToStr(_autoConfigState);
+			if (_autoConfigState == AUTOCONFIG_STARTED) {
+				ostr << "\n" << autoCfgToStr(_serialState);
+				if (_serialState != CONFIGURING_COMM_PARAMETERS) {
+					ostr << "\n" << autoCfgToStr(_scienceState);
+				}
+			}
+			ostr << "\n" << getPortConfig().termios.getBaudRate() <<
+				getPortConfig().termios.getParityString().substr(0,1) <<
+				getPortConfig().termios.getDataBits() << getPortConfig().termios.getStopBits();
+			if (getReadFd() < 0) {
+				ostr << ",<font color=red><b>not active</b></font>";
+				if (getTimeoutMsecs() > 0) {
+					ostr << ",timeouts=" << getTimeoutCount();
+				}
+				ostr << "</td>" << endl;
+				return;
+			}
+			if (getTimeoutMsecs() > 0) {
+				ostr << ",timeouts=" << getTimeoutCount();
+			}
+			ostr << "</td>" << endl;
         }
         catch(const n_u::IOException& ioe) {
             ostr << "<td>" << ioe.what() << "</td>" << endl;
@@ -481,7 +498,9 @@ void SerialSensor::doAutoConfig()
 {
 	// find out if we're a legacy subclass or a new autoconfig subclass
 	if (supportsAutoConfig()) {
+		_autoConfigState = AUTOCONFIG_STARTED;
 		// Must be a new autoconfig subclass...
+		_serialState = CONFIGURING_COMM_PARAMETERS;
 		if (findWorkingSerialPortConfig()) {
 			NLOG(("Found working sensor serial port configuration"));
 			NLOG((""));
@@ -490,16 +509,24 @@ void SerialSensor::doAutoConfig()
 				NLOG(("Desired sensor serial port configuration successfully installed"));
 				NLOG((""));
 				NLOG(("Attempting to install the desired sensor science configuration"));
+				_serialState = COMM_PARAMETER_CFG_SUCCESSFUL;
+				_scienceState = CONFIGURING_SCIENCE_PARAMETERS;
 				if (configureScienceParameters()) {
 					NLOG(("Desired sensor science configuration successfully installed"));
+					_scienceState = SCIENCE_SETTINGS_SUCCESSFUL;
+					_autoConfigState = AUTOCONFIG_SUCCESSFUL;
 				}
 				else {
 					NLOG(("Failed to install sensor science configuration"));
+					_scienceState = SCIENCE_SETTINGS_UNSUCCESSFUL;
+					_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 				}
 			}
 			else {
 				NLOG(("Failed to install desired config. Reverted back to what works. "
 						"Science configuration is not installed."));
+				_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
+				_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 			}
 		}
 		else
@@ -507,6 +534,8 @@ void SerialSensor::doAutoConfig()
 			NLOG(("Couldn't find a serial port configuration that worked with this PTB210 sensor. "
 				  "May need to troubleshoot the sensor or cable. "
 				  "!!!NOTE: Sensor is not open for data collection!!!"));
+			_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
+			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 		}
 	}
 }
@@ -764,6 +793,51 @@ bool SerialSensor::configureScienceParameters()
     }
 
     return success;
+}
+
+std::string SerialSensor::autoCfgToStr(AUTOCONFIG_STATE autoState)
+{
+	std::string stateStr;
+
+	switch (autoState) {
+		case AUTOCONFIG_UNSUPPORTED:
+			stateStr = "Autoconfig unsupported";
+			break;
+		case WAITING_IDLE:
+			stateStr = "Waiting/idle";
+			break;
+		case AUTOCONFIG_STARTED:
+			stateStr = "Autoconfig started";
+			break;
+		case CONFIGURING_COMM_PARAMETERS:
+			stateStr = "Configuring comm params";
+			break;
+		case COMM_PARAMETER_CFG_SUCCESSFUL:
+			stateStr = "Comm cfg successful";
+			break;
+		case COMM_PARAMETER_CFG_UNSUCCESSFUL:
+			stateStr = "Comm cfg unsuccessful";
+			break;
+		case CONFIGURING_SCIENCE_PARAMETERS:
+			stateStr = "Configuring science params";
+			break;
+		case SCIENCE_SETTINGS_SUCCESSFUL:
+			stateStr = "Science cfg successfull";
+			break;
+		case SCIENCE_SETTINGS_UNSUCCESSFUL:
+			stateStr = "Science cfg unsuccessful";
+			break;
+		case AUTOCONFIG_SUCCESSFUL:
+			stateStr = "Autoconfig successful";
+			break;
+		case AUTOCONFIG_UNSUCCESSFUL:
+			stateStr = "Autoconfig unsuccessful";
+			break;
+		default:
+			break;
+	}
+
+	return stateStr;
 }
 
 SerialSensor::Prompter::~Prompter()
