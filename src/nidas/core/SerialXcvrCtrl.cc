@@ -53,6 +53,15 @@ void XcvrConfig::print()
               << std::endl;
 }
 
+std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
+{
+    rOutStrm << "Port" << rObj.port << ": " << SerialXcvrCtrl::portTypeToStr(rObj.portType)
+                                << " | " << SerialXcvrCtrl::termToStr(rObj.termination)
+                                << " | " << SerialXcvrCtrl::powerStateToStr(rObj.sensorPower);
+
+    return rOutStrm;
+}
+
 
 
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
@@ -267,11 +276,7 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
 
     _rawXcvrConfig &= ~adjustBitPosition(0xF);
     _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-    	char buf[6];
-    	snprintf(buf, 5, "0X%2X", _rawXcvrConfig);
-        DLOG(("Raw xcvr config: ") << std::string(buf));
-    }
+	DLOG(("Raw xcvr config: 0X%2X", _rawXcvrConfig));
 
     if (gpioIsOpen()) {
         DLOG(("Writing xcvr config to FT4232H"));

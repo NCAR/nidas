@@ -262,6 +262,7 @@ protected:
     bool sweepCommParameters();
     bool doubleCheckResponse();
     bool configureScienceParameters();
+    void printResponseHex(int numCharsRead, const char* respBuf);
     static void printTargetConfig(PortConfig target)
     {
         target.print();

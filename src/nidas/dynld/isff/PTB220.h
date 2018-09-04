@@ -360,24 +360,11 @@ public:
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
 
-    // override open() to provide the default settings to the DSM port, and search for the correct 
-    // settings, should the default settings not result in successful communication.
-    void open(int flags) throw (n_u::IOException, n_u::InvalidParameterException);
-
 protected:
-    bool isDefaultConfig(const n_c::PortConfig& target);
-    bool findWorkingSerialPortConfig();
-    bool doubleCheckResponse();
     bool checkResponse();
     void sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg=PTB_ARG(0), bool resetNow=false);
-    bool testDefaultPortConfig();
     bool sweepParameters(bool defaultTested=false);
-    void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
-                                                      int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
-                                                      n_c::SENSOR_POWER_STATE power);
-    void mergeDesiredWithWorkingConfig(n_c::PortConfig& rDesired, const n_c::PortConfig& rWorking);
     bool installDesiredSensorConfig();
-    bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(PTB220_COMMANDS cmd, const char* match);

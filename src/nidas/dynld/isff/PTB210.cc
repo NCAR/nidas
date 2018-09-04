@@ -423,83 +423,6 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("PTB210:") + getName(), aname, aval);
                 }
-                else if (aname == "porttype") {
-                    if (upperAval == "RS232") 
-                        _workingPortConfig.xcvrConfig.portType = RS232;
-                    else if (upperAval == "RS422") 
-                        _workingPortConfig.xcvrConfig.portType = RS422;
-                    else if (upperAval == "RS485_HALF") 
-                        _workingPortConfig.xcvrConfig.portType = RS485_HALF;
-                    else if (upperAval == "RS485_FULL") 
-                        _workingPortConfig.xcvrConfig.portType = RS485_FULL;
-                    else
-                        throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "termination") {
-                    if (upperAval == "NO_TERM" || upperAval == "NO" || upperAval == "FALSE") 
-                        _workingPortConfig.xcvrConfig.termination = NO_TERM;
-                    else if (upperAval == "TERM_120_OHM" || upperAval == "YES" || upperAval == "TRUE") 
-                        _workingPortConfig.xcvrConfig.termination = TERM_120_OHM;
-                    else
-                        throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "baud") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || !_workingPortConfig.termios.setBaudRate(val))
-                        throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname,aval);
-                }
-                else if (aname == "parity") {
-                    if (upperAval == "ODD") 
-                        _workingPortConfig.termios.setParity(n_u::Termios::ODD);
-                    else if (upperAval == "EVEN") 
-                        _workingPortConfig.termios.setParity(n_u::Termios::EVEN);
-                    else if (upperAval == "NONE") 
-                        _workingPortConfig.termios.setParity(n_u::Termios::NONE);
-                    else throw n_u::InvalidParameterException(
-                        string("PTB210:") + getName(),
-                        aname,aval);
-                }
-                else if (aname == "databits") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || val < 5 || val > 8)
-                        throw n_u::InvalidParameterException(
-                        string("PTB210:") + getName(),
-                            aname, aval);
-                    _workingPortConfig.termios.setDataBits(val);
-                }
-                else if (aname == "stopbits") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || val < 1 || val > 2)
-                        throw n_u::InvalidParameterException(
-                        string("PTB210:") + getName(),
-                            aname, aval);
-                    _workingPortConfig.termios.setStopBits(val);
-                }
-                else if (aname == "rts485") {
-                    if (upperAval == "TRUE" || aval == "1") {
-                        _workingPortConfig.rts485 = 1;
-                    }
-                    else if (upperAval == "TRUE" || aval == "0") {
-                        _workingPortConfig.rts485 = 0;
-                    }
-                    else if (aval == "-1") {
-                        _workingPortConfig.rts485 = -1;
-                    }
-                    else {
-                        throw n_u::InvalidParameterException(
-                        string("PTB210:") + getName(),
-                            aname, aval);
-                    }
-                }
             }
         }
     }
@@ -549,53 +472,36 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
             if (!doubleCheckResponse()) {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
-                            "after setting desired serial port parameters. This is the current PortConfig"));
-                    printPortConfig();
-                }
+				NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
+						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
 
                 setPortConfig(sensorPortConfig);
                 applyPortConfig();
 
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("Setting the port config back to something that works for a retry"));
-                    printPortConfig();
-                }
+				DLOG(("Setting the port config back to something that works for a retry") << getPortConfig());
 
                 if (!doubleCheckResponse()) {
                     DLOG(("The sensor port config which originally worked before attempting "
                           "to set the desired config no longer works. Really messed up now!"));
                 }
 
-                else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("PTB210 reset to original!!!"));
-                    printPortConfig();
-                }
+				DLOG(("PTB210 reset to original!!!") << getPortConfig());
             }
             else {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("Success!! PTB210 set to desired configuration!!!"));
-                    printPortConfig();
-                }
+				NLOG(("Success!! PTB210 set to desired configuration!!!") << getPortConfig());
                 installed = true;
             }
         }
 
-        else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+        else {
             DLOG(("Attempt to set PortConfig to the desired PortConfig failed."));
-            DLOG(("Desired PortConfig: "));
-            printTargetConfig(rDesiredConfig);
-            DLOG(("Actual set PortConfig: "));
-            printPortConfig();
+            DLOG(("Desired PortConfig: ") << rDesiredConfig);
+            DLOG(("Actual set PortConfig: ") << getPortConfig());
         }
     }
 
     else {
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-            NLOG(("Desired config is already set and tested."));
-            printPortConfig();
-        }
+		NLOG(("Desired config is already set and tested.") << getPortConfig());
         installed = true;
     }
 
@@ -616,7 +522,8 @@ void PTB210::sendScienceParameters() {
     }
 
     if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB210"));
-    else NLOG(("Base class modified the default science parameters for this PB210"));
+    else
+    	NLOG(("Base class modified the default science parameters for this PB210"));
 
     DLOG(("Sending science parameters"));
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
@@ -644,18 +551,11 @@ bool PTB210::checkScienceParameters() {
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-        if (numCharsRead > 0) {
-            VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (int i=0; i<5; ++i) {
-                char hexBuf[60];
-                memset(hexBuf, 0, 60);
-                for (int j=0; j<10; ++j) {
-                    snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
-                }
-                VLOG((&(hexBuf[0])));
-            }
-        }
+    static n_u::LogContext lp(LOG_VERBOSE);
+    if (lp.active()) {
+		if (numCharsRead > 0) {
+			printResponseHex(numCharsRead, respBuf);
+		}
     }
     
     for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
@@ -663,14 +563,12 @@ bool PTB210::checkScienceParameters() {
         totalCharsRead += numCharsRead;
         bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-            if (numCharsRead == 0) {
-                VLOG(("Took ") << i+1 << " reads to get entire response");
-            }
-        }
+		if (numCharsRead == 0) {
+			VLOG(("Took ") << i+1 << " reads to get entire response");
+		}
     }
 
-    if (totalCharsRead && LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
+    if (totalCharsRead && lp.active()) {
         std::string respStr;
         respStr.append(&respBuf[0], totalCharsRead);
 
@@ -827,7 +725,6 @@ n_c::SensorCmdData PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
     return(nullRetVal);
 }
 
-
 bool PTB210::checkResponse()
 {
     static const char* PTB210_VER_STR =           "PTB210 Ver";
@@ -856,18 +753,11 @@ bool PTB210::checkResponse()
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-        if (numCharsRead > 0) {
-            DLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (int i=0; i<5; ++i) {
-                char hexBuf[60];
-                memset(hexBuf, 0, 60);
-                for (int j=0; j<10; ++j) {
-                    snprintf(&(hexBuf[j*6]), 6, "%-#.2x     ", respBuf[(i*10)+j]);
-                }
-                DLOG((&(hexBuf[0])));
-            }
-        }
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active()) {
+    	if (numCharsRead > 0) {
+    		printResponseHex(numCharsRead, respBuf);
+    	}
     }
     
     for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
@@ -875,10 +765,8 @@ bool PTB210::checkResponse()
         totalCharsRead += numCharsRead;
         bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            if (numCharsRead == 0) {
-                DLOG(("Took ") << i+1 << " reads to get entire response");
-            }
+		if (numCharsRead == 0) {
+			DLOG(("Took ") << i+1 << " reads to get entire response");
         }
     }
 

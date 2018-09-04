@@ -188,11 +188,6 @@ namespace nidas { namespace util {
 #undef	LOG_INFO
 #undef	LOG_DEBUG
 
-#define LOG_LEVEL_IS_ACTIVE(LEVEL)                                                    \
-    (nidas::util::Logger::getInstance()                                               \
-     && (Logger::getInstance()->getScheme().logLevel() >= nidas::util::LEVEL          \
-         && Logger::getInstance()->getScheme().logLevel() != nidas::util::LOGGER_NONE))
-
 #define LOG_LEVEL                                    \
     (nidas::util::Logger::getInstance() ?            \
      Logger::getInstance()->getScheme().logLevel() : \

@@ -67,12 +67,15 @@ struct XcvrConfig {
 									  && termination == rRight.termination
 									  && sensorPower == rRight.sensorPower);}
     void print();
-    
+    std::ostream& operator <<(std::ostream outStrm);
+
     PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
     SENSOR_POWER_STATE sensorPower;
 };
+
+std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
 
 /*
  ********************************************************************

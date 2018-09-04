@@ -95,7 +95,12 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
 // NOTE: list sensor bauds from highest to lowest as the higher 
 //       ones are the most likely
 const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
-const GILL2D_DATA_WORD_ARGS GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] = { N81, E81, O81};
+const n_c::WordSpec GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] =
+{
+	{8, Termios::NONE, 1},
+	{8, Termios::EVEN, 1},
+	{8, Termios::ODD, 1},
+};
 
 // GIL instruments do not use RS232
 const n_c::PORT_TYPES GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
@@ -107,21 +112,21 @@ const PortConfig GILL2D::DEFAULT_PORT_CONFIG(GILL2D::DEFAULT_BAUD_RATE, GILL2D::
                                              GILL2D::DEFAULT_PORT_TYPE, GILL2D::DEFAULT_SENSOR_TERMINATION, 
 											 GILL2D::DEFAULT_SENSOR_POWER, GILL2D::DEFAULT_RTS485, GILL2D::DEFAULT_CONFIG_APPLIED);
 
-const GILL2D_CMD_ARG GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
+const n_c::SensorCmdData GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {
-    {SENSOR_AVG_PERIOD_CMD, 0},
-    {SENSOR_HEATING_CMD, DISABLED},
-    {SENSOR_NMEA_ID_STR_CMD, IIMWV},
-    {SENSOR_MSG_TERM_CMD, CRLF},
-    {SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT},
-	{SENSOR_OUTPUT_FIELD_FMT_CMD, CSV},
-	{SENSOR_OUTPUT_RATE_CMD, ONE_PER_SEC},
-	{SENSOR_MEAS_UNITS_CMD, MPS},
-	{SENSOR_VERT_MEAS_PADDING_CMD, DISABLE_VERT_PAD},
-	{SENSOR_ALIGNMENT_CMD, U_EQ_NS}
+    n_c::SensorCmdData(SENSOR_AVG_PERIOD_CMD, n_c::SensorCmdArg(0)),
+    n_c::SensorCmdData(SENSOR_HEATING_CMD, n_c::SensorCmdArg(DISABLED)),
+    n_c::SensorCmdData(SENSOR_NMEA_ID_STR_CMD, n_c::SensorCmdArg(IIMWV)),
+    n_c::SensorCmdData(SENSOR_MSG_TERM_CMD, n_c::SensorCmdArg(CRLF)),
+    n_c::SensorCmdData(SENSOR_MSG_STREAM_CMD, n_c::SensorCmdArg(ASC_PLR_CONT)),
+	n_c::SensorCmdData(SENSOR_OUTPUT_FIELD_FMT_CMD, n_c::SensorCmdArg(CSV)),
+	n_c::SensorCmdData(SENSOR_OUTPUT_RATE_CMD, n_c::SensorCmdArg(ONE_PER_SEC)),
+	n_c::SensorCmdData(SENSOR_MEAS_UNITS_CMD, n_c::SensorCmdArg(MPS)),
+	n_c::SensorCmdData(SENSOR_VERT_MEAS_PADDING_CMD, n_c::SensorCmdArg(DISABLE_VERT_PAD)),
+	n_c::SensorCmdData(SENSOR_ALIGNMENT_CMD, n_c::SensorCmdArg(U_EQ_NS))
 };
 
-const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(GILL2D_CMD_ARG);
+const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
 
 /* Typical GILL2D D3 query response. L1 means all line endings are \r\n
  * 
@@ -205,7 +210,20 @@ GILL2D::GILL2D()
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
-    desiredScienceParameters = new GILL2D_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
+    // Let the base class know about PTB210 RS232 limitations
+    for (int i=0; i<NUM_PORT_TYPES; ++i) {
+    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
+    }
+
+    for (int i=0; i<NUM_BAUD_ARGS; ++i) {
+    	_baudRateList.push_back(SENSOR_BAUDS[i]);
+    }
+
+    for (int i=0; i<NUM_DATA_WORD_ARGS; ++i) {
+    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
+    }
+
+    desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
@@ -389,220 +407,11 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("GILL2D:") + getName(), aname, aval);
                 }
-                else if (aname == "porttype") {
-                    if (upperAval == "RS422")
-                        desiredPortConfig.xcvrConfig.portType = RS422;
-                    else if (upperAval == "RS485_HALF") 
-                        desiredPortConfig.xcvrConfig.portType = RS485_HALF;
-                    else if (upperAval == "RS485_FULL") 
-                        desiredPortConfig.xcvrConfig.portType = RS485_FULL;
-                    else
-                        throw n_u::InvalidParameterException(
-                            string("GILL2D:") + getName(), aname, aval);
-                }
-                else if (aname == "baud") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || !desiredPortConfig.termios.setBaudRate(val))
-                        throw n_u::InvalidParameterException(
-                            string("GILL2D:") + getName(), aname,aval);
-                }
-                else if (aname == "parity") {
-                    if (upperAval == "ODD") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::ODD);
-                    else if (upperAval == "EVEN") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::EVEN);
-                    else if (upperAval == "NONE") 
-                        desiredPortConfig.termios.setParity(n_u::Termios::NONE);
-                    else throw n_u::InvalidParameterException(
-                        string("GILL2D:") + getName(),
-                        aname,aval);
-
-                    // These are the only legal values for databits and stopbits,  
-                    // so force them.
-                    desiredPortConfig.termios.setDataBits(8);
-                    desiredPortConfig.termios.setStopBits(1);
-
-                }
-                // TODO: May want to remove this for the new boards???
-                else if (aname == "rts485") {
-                    if (upperAval == "TRUE" || aval == "1") {
-                        desiredPortConfig.rts485 = 1;
-                    }
-                    else if (upperAval == "NONE" || upperAval == "NA" || aval == "0") {
-                        desiredPortConfig.rts485 = 0;
-                    }
-                    else if (upperAval == "FALSE" || aval == "-1") {
-                        desiredPortConfig.rts485 = -1;
-                    }
-                    else {
-                        throw n_u::InvalidParameterException(
-                        string("GILL2D:") + getName(),
-                            aname, aval);
-                    }
-                }
             }
         }
     }
 
 	DLOG(("GILL2D::fromDOMElement() - exit"));
-}
-
-void GILL2D::open(int flags) throw (n_u::IOException, n_u::InvalidParameterException)
-{
-    // So open the device at the base class so we don't invoke any of the sampling functionality...
-	// But we do want to invoke the creation of SerialPortIODevice and fromDOMElement()
-    DSMSensor::open(flags);
-
-    // Merge the current working with the desired config. We do this because
-    // some things may change in the base class fromDOMElement(), affecting the
-    // working port config, and some may change in this subclass's fromDOMElement() override,
-    // affecting the desired port config.
-    if (desiredPortConfig != DEFAULT_PORT_CONFIG) {
-    	mergeDesiredWithWorkingConfig(desiredPortConfig, getPortConfig());
-    	setPortConfig(desiredPortConfig);
-    	applyPortConfig();
-    }
-
-    // Make sure blocking is set properly
-    n_c::SerialPortIODevice* pSIODevice = dynamic_cast<n_c::SerialPortIODevice*>(getIODevice());
-    pSIODevice->getBlocking();
-
-    // check the raw mode parameters
-    VLOG(("Raw mode is ") << (desiredPortConfig.termios.getRaw() ? "ON" : "OFF"));
-
-
-    NLOG(("First figure out whether we're talking to the sensor"));
-    if (findWorkingSerialPortConfig()) {
-        NLOG(("Found working sensor serial port configuration"));
-        NLOG((""));
-        NLOG(("Attempting to install the desired sensor serial parameter configuration"));
-        if (installDesiredSensorConfig()) {
-            NLOG(("Desired sensor serial port configuration successfully installed"));
-            NLOG((""));
-            NLOG(("Attempting to install the desired sensor science configuration"));
-            if (configureScienceParameters()) {
-                NLOG(("Desired sensor science configuration successfully installed"));
-
-                SerialSensor::open(flags);
-            }
-            else {
-                NLOG(("Failed to install sensor science configuration"));
-            }
-        }
-        else {
-            NLOG(("Failed to install desired config. Reverted back to what works. "
-                    "Science configuration is not installed."));
-        }
-    }
-    else
-    {
-        NLOG(("Couldn't find a serial port configuration that worked with this GILL2D sensor. "
-              "May need to troubleshoot the sensor or cable. "
-              "!!!NOTE: Sensor is not open for data collection!!!"));
-    }
-}
-
-bool GILL2D::findWorkingSerialPortConfig()
-{
-    bool foundIt = false;
-
-    // first see if the current configuration is working. If so, all done!
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-        NLOG(("Testing initial config which may be custom "));
-        printPortConfig();
-    }
-
-    GILL2D_CFG_MODE_STATUS cfgModeStatus = enterConfigMode();
-    if (cfgModeStatus == NOT_ENTERED || (cfgModeStatus == ENTERED && !doubleCheckResponse())) {
-        // initial config didn't work, so sweep through all parameters starting w/the default
-        if (!isDefaultConfig(getPortConfig())) {
-            // it's a custom config, so test default first
-            if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                NLOG(("This is the failed port config: "));
-                printPortConfig();
-            }
-            NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
-            if (!testDefaultPortConfig()) {
-                NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
-                foundIt = sweepParameters(true);
-            }
-            else {
-                // found it!! Tell someone!!
-                foundIt = true;
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("Default PortConfig was successfull!!!"));
-                    printPortConfig();
-                }
-            }
-        }
-        else {
-            NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
-                  "parameter configurations..."));
-            foundIt = sweepParameters(true);
-        }
-    }
-    else {
-        // Found it! Tell someone!
-        if (!isDefaultConfig(getPortConfig())) {
-            NLOG(("SerialSensor customized the default PortConfig and it succeeded!!"));
-        }
-        else {
-            NLOG(("SerialSensor did not customize the default PortConfig and it succeeded!!"));
-        }
-
-        foundIt = true;
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-            printPortConfig();
-        }
-    }
-
-    return foundIt;
-}
-
-void GILL2D::mergeDesiredWithWorkingConfig(PortConfig& rDesired, const PortConfig& rWorking)
-{
-	// Always want the desired port config to take precedence,
-	// if it's been changed by the derived class via the autoconfig tag
-	// Desired port config is initialized to the default port config. So if it
-	// hasn't changed, but is not equal to the working port config, then assign the
-	// working port config to the desired port config
-	if (rDesired.termios == DEFAULT_PORT_CONFIG.termios && rDesired.termios != rWorking.termios) {
-		if (rDesired.termios.getBaudRate() != rWorking.termios.getBaudRate()) {
-			rDesired.termios.setBaudRate(rWorking.termios.getBaudRate());
-		}
-		if (rDesired.termios.getParity() != rWorking.termios.getParity()) {
-			rDesired.termios.setParity(rWorking.termios.getParity());
-		}
-		if (rDesired.termios.getDataBits() != rWorking.termios.getDataBits()) {
-			rDesired.termios.setDataBits(rWorking.termios.getDataBits());
-		}
-		if (rDesired.termios.getStopBits() != rWorking.termios.getStopBits()) {
-			rDesired.termios.setStopBits(rWorking.termios.getStopBits());
-		}
-	}
-
-	if (rDesired.rts485 == DEFAULT_PORT_CONFIG.rts485 && rDesired.rts485 != rWorking.rts485) {
-		rDesired.rts485 = rWorking.rts485;
-	}
-
-	if (rDesired.xcvrConfig == DEFAULT_PORT_CONFIG.xcvrConfig && rDesired.xcvrConfig != rWorking.xcvrConfig) {
-		if (rDesired.xcvrConfig.port == DEFAULT_PORT_CONFIG.xcvrConfig.port && rDesired.xcvrConfig.port != rWorking.xcvrConfig.port) {
-			rDesired.xcvrConfig.port = rWorking.xcvrConfig.port;
-		}
-		if (rDesired.xcvrConfig.portType == DEFAULT_PORT_CONFIG.xcvrConfig.portType && rDesired.xcvrConfig.portType != rWorking.xcvrConfig.portType) {
-			rDesired.xcvrConfig.portType = rWorking.xcvrConfig.portType;
-		}
-		if (rDesired.xcvrConfig.sensorPower == DEFAULT_PORT_CONFIG.xcvrConfig.sensorPower && rDesired.xcvrConfig.sensorPower != rWorking.xcvrConfig.sensorPower) {
-			rDesired.xcvrConfig.sensorPower = rWorking.xcvrConfig.sensorPower;
-		}
-		if (rDesired.xcvrConfig.termination == DEFAULT_PORT_CONFIG.xcvrConfig.termination && rDesired.xcvrConfig.termination != rWorking.xcvrConfig.termination) {
-			rDesired.xcvrConfig.termination = rWorking.xcvrConfig.termination;
-		}
-
-		rDesired.applied = false;
-	}
 }
 
 bool GILL2D::installDesiredSensorConfig()
@@ -647,7 +456,7 @@ bool GILL2D::installDesiredSensorConfig()
 					break;
         	}
 
-        	sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, newBaudArg);
+        	sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(newBaudArg));
         }
 
         if (desiredPortConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
@@ -656,15 +465,15 @@ bool GILL2D::installDesiredSensorConfig()
 			// So just force it based on parity.
 			switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
 				case 'O':
-					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, O81);
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
 					break;
 
 				case 'E':
-					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, E81);
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(E81));
 					break;
 
 				case 'N':
-					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, N81);
+					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(N81));
 					break;
 
 				default:
@@ -676,76 +485,43 @@ bool GILL2D::installDesiredSensorConfig()
         applyPortConfig();
         if (getPortConfig() == desiredPortConfig) {
             if (!doubleCheckResponse()) {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
-                            "after setting desired serial port parameters. This is the current PortConfig"));
-                    printPortConfig();
-                }
+				NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
+						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
 
                 setPortConfig(sensorPortConfig);
                 applyPortConfig();
 
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("Setting the port config back to something that works for a retry"));
-                    printPortConfig();
-                }
+				DLOG(("Setting the port config back to something that works for a retry") << getPortConfig());
                 
                 if (!doubleCheckResponse()) {
                     DLOG(("The sensor port config which originally worked before attempting "
                           "to set the desired config no longer works. Really messed up now!"));
                 }
 
-                else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("GILL2D reset to original!!!"));
-                    printPortConfig();
+                else {
+                    DLOG(("GILL2D reset to original!!!") << getPortConfig());
                 }
             }
             else {
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG(("Success!! GILL2D set to desired configuration!!!"));
-                    printPortConfig();
-                }
+				NLOG(("Success!! GILL2D set to desired configuration!!!") << getPortConfig());
                 installed = true;
             }
         }
 
-        else if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
+        else {
             DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            DLOG(("Desired PortConfig: "));
-            printTargetConfig(desiredPortConfig);
-            DLOG(("Actual set PortConfig: "));
-            printPortConfig();
+            DLOG(("Desired PortConfig: ") << desiredPortConfig);
+            DLOG(("Actual set PortConfig: ") << getPortConfig());
         }
     }
 
     else {
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-            NLOG(("Desired config is already set and tested."));
-            printPortConfig();
-        }
+		NLOG(("Desired config is already set and tested.") << getPortConfig());
         installed = true;
     }
 
     DLOG(("Returning installed status: ") << (installed ? "SUCCESS!!" : "failed..."));
     return installed;
-}
-
-bool GILL2D::configureScienceParameters()
-{
-    DLOG(("Sending sensor science parameters."));
-    sendScienceParameters();
-    DLOG(("First check of desired science parameters"));
-    bool success = checkScienceParameters();
-    if (!success) {
-        DLOG(("First attempt to send science parameters failed - resending"));
-        sendScienceParameters();
-        success = checkScienceParameters();
-        if (!success) {
-            DLOG(("Second attempt to send science parameters failed. Giving up."));
-        }
-    }
-
-    return success;
 }
 
 void GILL2D::sendScienceParameters() {
@@ -777,7 +553,7 @@ bool GILL2D::checkScienceParameters()
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
-    sendSensorCmd(SENSOR_DIAG_QRY_CMD, OPER_CONFIG);
+    sendSensorCmd(SENSOR_DIAG_QRY_CMD, n_c::SensorCmdArg(OPER_CONFIG));
 
     static const int BUF_SIZE = 512;
     int bufRemaining = BUF_SIZE;
@@ -789,13 +565,11 @@ bool GILL2D::checkScienceParameters()
 
 
     if (numCharsRead ) {
-    	if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-			std::string respStr;
-			respStr.append(&respBuf[0], numCharsRead);
+		std::string respStr;
+		respStr.append(&respBuf[0], numCharsRead);
 
-			VLOG(("Response: "));
-			VLOG((respStr.c_str()));
-    	}
+		VLOG(("Response: "));
+		VLOG((respStr.c_str()));
 
 		VLOG(("GILL2D::checkScienceParameters() - Check the individual parameters available to us"));
 		int regexStatus = -1;
@@ -886,7 +660,7 @@ bool GILL2D::checkScienceParameters()
 
 bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const char* match)
 {
-    GILL2D_CMD_ARG desiredCmd = getDesiredCmd(cmd);
+    n_c::SensorCmdData desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
     VLOG(("Searched command: ") << cmd);
 
@@ -894,11 +668,11 @@ bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const char* match)
 	std::stringstream argStrm(match);
 	argStrm >> arg;
 
-	VLOG(("Arguments match: ") << (desiredCmd.arg == arg ? "TRUE" : "FALSE"));
-	return (desiredCmd.arg == arg);
+	VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == arg ? "TRUE" : "FALSE"));
+	return (desiredCmd.arg.intArg == arg);
 }
 
-GILL2D_CMD_ARG GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
+n_c::SensorCmdData GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -909,178 +683,8 @@ GILL2D_CMD_ARG GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    GILL2D_CMD_ARG nullRetVal = {NULL_COMMAND, 0};
+    n_c::SensorCmdData nullRetVal(NULL_COMMAND, n_c::SensorCmdArg(0));
     return(nullRetVal);
-}
-
-
-bool GILL2D::testDefaultPortConfig()
-{
-    // get the existing PortConfig to preserve the port
-    testPortConfig = getPortConfig();
-
-    // copy in the defaults
-    setTargetPortConfig(testPortConfig, DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS, 
-                                        DEFAULT_RTS485, DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION, 
-                                        DEFAULT_SENSOR_POWER);
-    // send it back up the hierarchy
-    setPortConfig(testPortConfig);
-
-    // apply it to the hardware
-    applyPortConfig();
-
-    // test it
-    return enterConfigMode();
-}
-
-bool GILL2D::sweepParameters(bool defaultTested)
-{
-    bool foundIt = false;
-
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-        int rts485 = 0;
-        n_c::PORT_TYPES portType = SENSOR_PORT_TYPES[i];
-
-        if (portType == n_c::RS485_HALF)
-            rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
-        else if (portType == n_c::RS422)
-            rts485 = -1; // always high, since there are two drivers going both ways
-
-        for (int j=0; j<NUM_BAUD_ARGS; ++j) {
-            int baud = SENSOR_BAUDS[j];
-
-            for (int k=0; k<NUM_DATA_WORD_ARGS; ++k) {
-                Termios::parity parity = (SENSOR_WORD_SPECS[k] == N81) ? Termios::NONE : (SENSOR_WORD_SPECS[k] == E81) ? Termios::EVEN : Termios::ODD;
-
-                // get the existing port config to preserve the port
-                // which only gets set on construction
-                testPortConfig = getPortConfig();
-
-                // now set it to the new parameters
-                setTargetPortConfig(testPortConfig, baud, 8, parity, 1,
-                                                    rts485, portType, NO_TERM,
-                                                    DEFAULT_SENSOR_POWER);
-
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                    DLOG(("Asking for PortConfig:"));
-                    printTargetConfig(testPortConfig);
-                }
-
-                // don't test the default if already tested.
-                if (defaultTested && isDefaultConfig(testPortConfig))
-                {
-                    // skip
-                    NLOG((""));
-                    NLOG(("Skipping default configuration since it's already tested..."));
-                    continue;
-                }
-
-                setPortConfig(testPortConfig);
-                applyPortConfig();
-
-                if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                    NLOG((""));
-                    NLOG(("Testing PortConfig: "));
-                    printPortConfig();
-                }
-
-                GILL2D_CFG_MODE_STATUS cfgModeStatus = enterConfigMode();
-                if (cfgModeStatus == ENTERED_RESP_CHECKED || (cfgModeStatus == ENTERED && doubleCheckResponse())) {
-                    foundIt = true;
-                    return foundIt;
-                } 
-                else {
-                    if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
-                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                        setTargetPortConfig(testPortConfig, baud, 8, parity, 1,
-															rts485, portType, TERM_120_OHM,
-                                                            DEFAULT_SENSOR_POWER);
-                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                            DLOG(("Asking for PortConfig:"));
-                            printTargetConfig(testPortConfig);
-                        }
-
-                        setPortConfig(testPortConfig);
-                        applyPortConfig();
-
-                        if (LOG_LEVEL_IS_ACTIVE(LOGGER_NOTICE)) {
-                            NLOG(("Testing PortConfig on RS422/RS485 with termination: "));
-                            printPortConfig();
-                        }
-
-                        if (cfgModeStatus == ENTERED_RESP_CHECKED || (cfgModeStatus == ENTERED && doubleCheckResponse())) {
-                            foundIt = true;
-                            return foundIt;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return foundIt;
-}
-
-void GILL2D::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
-                                                     int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
-                                                     n_c::SENSOR_POWER_STATE power)
-{
-    target.termios.setBaudRate(baud);
-    target.termios.setDataBits(dataBits);
-    target.termios.setParity(parity);
-    target.termios.setStopBits(stopBits);
-    target.rts485 = (rts485);
-    target.xcvrConfig.portType = portType;
-    target.xcvrConfig.termination = termination;
-    target.xcvrConfig.sensorPower = power;
-
-    target.applied =false;
-}
-
-bool GILL2D::isDefaultConfig(const n_c::PortConfig& target)
-{
-    return ((target.termios.getBaudRate() == DEFAULT_BAUD_RATE)
-            && (target.termios.getParity() == DEFAULT_PARITY)
-            && (target.termios.getDataBits() == DEFAULT_DATA_BITS)
-            && (target.termios.getStopBits() == DEFAULT_STOP_BITS)
-            && (target.rts485 == DEFAULT_RTS485)
-            && (target.xcvrConfig.portType == DEFAULT_PORT_TYPE)
-            && (target.xcvrConfig.termination == DEFAULT_SENSOR_TERMINATION)
-            && (target.xcvrConfig.sensorPower == DEFAULT_SENSOR_POWER));
-}
-
-bool GILL2D::doubleCheckResponse()
-{
-    bool foundIt = false;
-
-    DLOG(("Checking response once..."));
-    if (checkResponse()) {
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-            // tell everyone
-            DLOG(("Found working port config: "));
-            printPortConfig();
-        }
-
-        foundIt = true;
-    } 
-    else {
-        DLOG(("Checking response twice..."));
-        if (checkResponse()) {
-            // tell everyone
-            DLOG(("Response checks out on second try..."));
-            if (LOG_LEVEL_IS_ACTIVE(LOGGER_DEBUG)) {
-                DLOG(("Found working port config: "));
-                printPortConfig();
-            }
-
-            foundIt = true;
-        }
-        else {
-            DLOG(("Checked response twice, and failed twice."));
-        }
-    }
-
-    return foundIt;
 }
 
 bool GILL2D::checkResponse()
@@ -1093,7 +697,7 @@ bool GILL2D::checkResponse()
 
     // Just getting into config mode elicits a usable response...
     NLOG(("Sending GILL command to get current config..."));
-    sendSensorCmd(SENSOR_DIAG_QRY_CMD, OPER_CONFIG);
+    sendSensorCmd(SENSOR_DIAG_QRY_CMD, n_c::SensorCmdArg(OPER_CONFIG));
 
     static const int BUF_SIZE = 512;
     char respBuf[BUF_SIZE];
@@ -1130,7 +734,7 @@ bool GILL2D::checkResponse()
 }
 
 
-void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
+void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
@@ -1138,23 +742,23 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
 
     // Most GIL commands take character args starting at '1'.
     // Some do not, so if a value < 0 is passed in, skip this part.
-    if (arg >= 0) {
+    if (arg.intArg >= 0) {
     	if (cmd == SENSOR_AVG_PERIOD_CMD) {
         	// requires at least 4 numeric characters, 0 padded.
         	char buf[5];
-        	snprintf(buf, 5, "%04d", arg);
+        	snprintf(buf, 5, "%04d", arg.intArg);
         	argStr << std::string(buf, 5);
         }
-    	else if (arg >= 1) {
+    	else if (arg.intArg >= 1) {
     		if (cmd == SENSOR_CONFIG_MODE_CMD) {
-				argStr << (char)arg;
+				argStr << arg.intArg;
 			}
 			else {
-				argStr << arg;
+				argStr << arg.intArg;
 			}
     	}
 
-        DLOG(("Attempting to insert: ") << arg);
+        DLOG(("Attempting to insert: ") << arg.intArg);
     	int insertIdx = snsrCmd.find_last_of('\r');
     	DLOG(("Found \\r at position: ") << insertIdx);
     	snsrCmd.insert(insertIdx, argStr.str());
@@ -1198,7 +802,7 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
 			// like it does in minicom. So the strategy is to just assume that it's there and send the confirmation.
 			// Seems to be working.
 			DLOG(("Serial port setting change... changing termios to new parameters and sending confirmation..."));
-			if (confirmGillSerialPortChange(cmd, arg)) {
+			if (confirmGillSerialPortChange(cmd, arg.intArg)) {
 				DLOG(("Serial port setting confirmed: ") << cmdTable[cmd]);
 			}
 			else
@@ -1207,7 +811,7 @@ void GILL2D::sendSensorCmd(GILL2D_COMMANDS cmd, int arg)
     }
 }
 
-bool GILL2D::confirmGillSerialPortChange(GILL2D_COMMANDS cmd, int arg)
+bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 {
 	DLOG(("confirmGillSerialPortChange(): enter"));
 	ostringstream entireCmd(cmdTable[cmd]);
@@ -1314,20 +918,18 @@ size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-        if (numCharsRead > 0) {
-        	IosFlagSaver iosFlagRestorer(std::cout);
-            VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-            for (size_t i=0; i<5; ++i) {
-                for (int j=0; j<10; ++j) {
-                	if ((i*10 + j) > len)
-						break;
-                    std::cout << std::setw(5) << std::hex << (unsigned char)cbuf[(i*10)+j];
-                }
-                std::cout << endl << std::flush;
-//                VLOG((&hexBuf[0]));
-            }
-        }
+	if (numCharsRead > 0) {
+		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
+		for (size_t i=0; i<5; ++i) {
+			char hexBuf[51];
+			memset(hexBuf, 0, 51);
+			for (int j=0; j<10; ++j) {
+				if ((i*10 + j) > len)
+					break;
+				snprintf(&hexBuf[j*5], 5, "0X%02X ", cbuf[i*10+j]);
+			}
+            VLOG((&hexBuf[0]));
+		}
     }
 
     for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
@@ -1335,11 +937,9 @@ size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
         totalCharsRead += numCharsRead;
         bufRemaining -= numCharsRead;
 
-        if (LOG_LEVEL_IS_ACTIVE(LOGGER_VERBOSE)) {
-            if (numCharsRead == 0) {
-                VLOG(("Took ") << i+1 << " reads to get entire response");
-            }
-        }
+		if (numCharsRead == 0) {
+			VLOG(("Took ") << i+1 << " reads to get entire response");
+		}
     }
 
     return totalCharsRead;
@@ -1348,7 +948,7 @@ size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
 void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {
-            desiredScienceParameters[i].arg = arg;
+            desiredScienceParameters[i].arg.intArg = arg;
             break;
         }
     }
@@ -1369,17 +969,17 @@ bool GILL2D::checkConfigMode(bool continuous)
     // Just getting into config mode elicits a usable response...
     if (continuous) {
 		DLOG(("Sending GILL command to enter configuration mode in continuous operation..."));
-		sendSensorCmd(SENSOR_CONFIG_MODE_CMD, -1);
+		sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(-1));
     }
     else {
     	if (!unitId) {
     		DLOG(("Attempting to get unit ID"));
-    		sendSensorCmd(SENSOR_QRY_ID_CMD, -1);
+    		sendSensorCmd(SENSOR_QRY_ID_CMD, n_c::SensorCmdArg(-1));
     	}
 
     	if (unitId) {
 			DLOG(("Sending polled mode command to enter config mode"));
-			sendSensorCmd(SENSOR_CONFIG_MODE_CMD, unitId);
+			sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(unitId));
     	}
     	else
     		DLOG(("Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));

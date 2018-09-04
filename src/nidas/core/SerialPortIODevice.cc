@@ -42,7 +42,20 @@
 
 using namespace std;
 using namespace nidas::util;
-using namespace nidas::core;
+
+namespace nidas { namespace core {
+
+std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
+{
+    rOutStrm << "Termios: baud: " << rObj.termios.getBaudRate()
+         << " word: " << rObj.termios.getDataBits()
+                      << rObj.termios.getParityString(true)
+                      << rObj.termios.getStopBits() << std::endl;
+    rOutStrm << "RTS485: " << rObj.rts485 << std::endl;
+    rOutStrm << rObj.xcvrConfig;
+
+    return rOutStrm;
+}
 
 SerialPortIODevice::SerialPortIODevice():
     UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _usecsperbyte(0),  
@@ -582,3 +595,4 @@ int SerialPortIODevice::createPtyLink(const std::string& link)
     return fd;
 }
 
+}} // namespace nidas { namespace core

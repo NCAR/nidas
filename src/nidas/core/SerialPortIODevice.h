@@ -96,6 +96,9 @@ struct PortConfig {
     bool applied;
 };
 
+
+std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj);
+
 /**
  *  A serial port and all associated configurations. Typically these are enumerated by the 
  *  ftdi_sio kernel module at boot as /dev/ttyUSB[0...]. Standard unix termios operations 

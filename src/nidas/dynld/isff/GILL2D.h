@@ -185,17 +185,6 @@ enum GILL2D_ALIGNMENT_ARGS
     NUM_ALIGNMENT_ARGS = UPSIDE_DOWN_PLUS_45
 };
 
-// Valid GILL2D Command argument ranges
-struct GILL2D_ARG_RANGE {
-    int min;
-    int max;
-};
-
-struct GILL2D_CMD_ARG {
-    GILL2D_COMMANDS cmd;
-    int arg;
-};
-
 /**
  * Sensor class for the GIL 2D sonic anemometers.
  * 
@@ -247,24 +236,10 @@ public:
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
 
-    // override open() to provide the default settings to the DSM port, and search for the correct 
-    // settings, should the default settings not result in successful communication.
-    void open(int flags) throw (n_u::IOException, n_u::InvalidParameterException);
-
 protected:
-    bool isDefaultConfig(const n_c::PortConfig& target);
-    bool findWorkingSerialPortConfig();
-    bool doubleCheckResponse();
     bool checkResponse();
-    void sendSensorCmd(GILL2D_COMMANDS cmd, int arg=0);
-    bool testDefaultPortConfig();
-    bool sweepParameters(bool defaultTested=false);
-    void setTargetPortConfig(n_c::PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits, 
-                                                      int rts485, n_c::PORT_TYPES portType, n_c::TERM termination, 
-                                                      n_c::SENSOR_POWER_STATE power);
+    void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
     bool installDesiredSensorConfig();
-	void mergeDesiredWithWorkingConfig(n_c::PortConfig& rDesired, const n_c::PortConfig& rWorking);
-    bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(GILL2D_COMMANDS cmd, const char* match);
@@ -278,16 +253,16 @@ protected:
         std::cout << std::endl;
     }
     void updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg=0);
-    GILL2D_CMD_ARG getDesiredCmd(GILL2D_COMMANDS cmd);
+    n_c::SensorCmdData getDesiredCmd(GILL2D_COMMANDS cmd);
     bool checkConfigMode(bool continuous = CONTINUOUS);
     GILL2D_CFG_MODE_STATUS enterConfigMode();
-    bool isConfigCmd(GILL2D_COMMANDS cmd)
+    bool isConfigCmd(int cmd)
     {
     	return (cmd != SENSOR_QRY_ID_CMD && cmd != SENSOR_CONFIG_MODE_CMD
     			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD && cmd != SENSOR_POLL_MEAS_CMD
 				&& cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
     }
-    bool confirmGillSerialPortChange(GILL2D_COMMANDS cmd, int arg);
+    bool confirmGillSerialPortChange(int cmd, int arg);
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
@@ -310,7 +285,7 @@ private:
     static const int MAX_AVERAGING_TIME = 3600;
 
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const GILL2D_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+    static const n_c::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
 
     // GILL2D pre-packaged commands
     static const char* SENSOR_CONFIG_MODE_CMD_STR;
@@ -341,7 +316,7 @@ private:
     // NOTE: list sensor bauds from highest to lowest as the higher  
     //       ones are the most likely
     static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
-    static const GILL2D_DATA_WORD_ARGS SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
+    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
     static const int NUM_PORT_TYPES = 2;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
@@ -353,7 +328,7 @@ private:
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
 
-    GILL2D_CMD_ARG* desiredScienceParameters;
+    n_c::SensorCmdData* desiredScienceParameters;
 
     char unitId;
     bool polling;
