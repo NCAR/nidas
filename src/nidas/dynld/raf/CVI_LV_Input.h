@@ -65,11 +65,17 @@ public:
 
 private:
 
+    float CVTdiff(float f);
+
     /**
      * Time at 00:00:00 UTC of day
      */
     dsm_time_t _tt0;
 
+    /**
+     * Store previous CV time diff.  For repair of SOCRATES flights 3-7.
+     */
+    float prevCVTdiff;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
