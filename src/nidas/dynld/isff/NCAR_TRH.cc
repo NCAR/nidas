@@ -27,6 +27,7 @@
 #include "NCAR_TRH.h"
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/core/AsciiSscanf.h>
 
 #include <sstream>
@@ -40,6 +41,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,NCAR_TRH)
 
+
 NCAR_TRH::NCAR_TRH():
     _ifan(),
     _minIfan(-numeric_limits<float>::max()),
@@ -49,17 +51,47 @@ NCAR_TRH::NCAR_TRH():
     _t(),
     _rh(),
     _Ta(3),
-    _Ha(5)
+    _Ha(5),
+    _raw_t_handler(0),
+    _raw_rh_handler(0),
+    _compute_order()
 {
+    _raw_t_handler = makeCalFileHandler
+        (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
+    _raw_rh_handler = makeCalFileHandler
+        (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawRH), this));
 }
 
 NCAR_TRH::~NCAR_TRH()
 {
+    delete _raw_t_handler;
+    delete _raw_rh_handler;
 }
+
+
+void NCAR_TRH::convertNext(const VariableIndex& vi)
+{
+    if (vi)
+    {
+        vector<VariableIndex>::iterator it;
+        it = find(_compute_order.begin(), _compute_order.end(), vi);
+        if (it == _compute_order.end())
+        {
+            _compute_order.push_back(vi);
+        }
+    }
+}
+
 
 void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
 {
     nidas::core::SerialSensor::validate();
+
+    list<SampleTag*>& tags = getSampleTags();
+    if (tags.size() != 1)
+        throw n_u::InvalidParameterException
+            ("NCAR_TRH sensor only handles a single sample tag.");
+    SampleTag* stag = *tags.begin();
 
     _traw = findVariableIndex("Traw");
     _rhraw = findVariableIndex("RHraw");
@@ -79,12 +111,107 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     // Check the T and RH variables for converters.  If found, inject a
     // callback so this sensor can handle requests for raw calibrations,
     // meaning T and RH will be calculated from Traw and RHraw using the
-    // coefficients stored here.  When a raw conversion is enabled,
-    // _t_use_raw or _rh_use_raw are true, otherwise the variable's
-    // converter is applied as usual.
+    // coefficients stored here.  When a raw conversion is enabled, the
+    // corresponding array of coefficients is non-empty, otherwise the
+    // variable's converter is applied as usual.
 
+    VariableConverter* vc;
+    if (_t && (vc = _t.variable()->getConverter()))
+    {
+        vc->setCalFileHandler(this->_raw_t_handler);
+    }
+    if (_rh && (vc = _rh.variable()->getConverter()))
+    {
+        vc->setCalFileHandler(this->_raw_rh_handler);
+    }
+
+    // Finally, we need to process variables in a particular order,
+    // followed by anything else that wasn't inserted already.
+    convertNext(_traw);
+    convertNext(_rhraw);
+    convertNext(_t);
+    convertNext(_rh);
+    convertNext(_ifan);
+
+    const vector<Variable*>& vars = stag->getVariables();
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        convertNext(VariableIndex(vars[iv], iv));
+    }
+    static n_u::LogContext lp(LOG_DEBUG);
+    if (lp.active())
+    {
+        n_u::LogMessage msg(&lp);
+        msg << "TRH sensor " << getName() << " variable compute order: ";
+        for (unsigned int iv = 0; iv < vars.size(); iv++)
+        {
+            if (iv != 0)
+                msg << ",";
+            msg << vars[iv]->getName();
+        }
+    }
 }
 
+
+bool
+NCAR_TRH::
+handleRawT(CalFile* cf)
+{
+    // If the record starts with raw, then grab the raw temperature
+    // coefficients, otherwise rest the raw coefficients and pass the
+    // handling on the converter.
+    const std::vector<std::string>& fields = cf->getCurrentFields();
+    if (fields.size() > 0 && fields[0] == "raw")
+    {
+        // To compute T from raw, we need the raw T, so make sure it's
+        // available.
+        if (!_traw)
+        {
+            std::ostringstream out;
+            out << "raw temperature calibration requested in "
+                << cf->getFile() << ", line " << cf->getLineNumber()
+                << ", but Traw is not available from this sensor: "
+                << getName();
+            throw n_u::InvalidParameterException(out.str());
+        }
+        ILOG(("") << "sensor " << getName() << " switching to raw "
+             << "T calibrations at "
+             << n_u::UTime(cf->getCurrentTime()).format(true, "%Y%m%d,%H:%M:%S"));
+        _Ta.resize(3);
+        cf->getFields(1, 4, &(_Ta[0]));
+        return true;
+    }
+    _Ta.resize(0);
+    return false;
+}
+
+
+bool
+NCAR_TRH::
+handleRawRH(CalFile* cf)
+{
+    const std::vector<std::string>& fields = cf->getCurrentFields();
+    if (fields.size() > 0 && fields[0] == "raw")
+    {
+        if (!_rhraw)
+        {
+            std::ostringstream out;
+            out << "raw humidity calibration requested in "
+                << cf->getFile() << ", line " << cf->getLineNumber()
+                << ", but RHraw is not available from this sensor: "
+                << getName();
+            throw n_u::InvalidParameterException(out.str());
+        }
+        ILOG(("") << "sensor " << getName() << " switching to raw "
+             << "RH calibrations at "
+             << n_u::UTime(cf->getCurrentTime()).format(true, "%Y%m%d,%H:%M:%S"));
+        _Ha.resize(5);
+        cf->getFields(1, 6, &(_Ha[0]));
+        return true;
+    }
+    _Ha.resize(0);
+    return false;
+}
 
 
 /**
@@ -116,6 +243,35 @@ rhFromRaw(double rhraw, double temp_cal)
 
 
 
+void
+NCAR_TRH::
+convertVariable(SampleT<float>* outs, Variable* var, float* fp)
+{
+    VariableConverter* vc = var->getConverter();
+    // Advance the cal file, if necessary.  This also causes any raw
+    // calibrations to be handled.
+    vc->readCalFile(outs->getTimeTag());
+    float* values = outs->getDataPtr();
+    if (_t && _t.variable() == var && !_Ta.empty())
+    {
+        float Traw = values[_traw.index()];
+        float T = tempFromRaw(Traw);
+        *fp = T;
+    }
+    else if (_rh && _rh.variable() == var && !_Ha.empty())
+    {
+        float RHraw = values[_rhraw.index()];
+        float T = values[_t.index()];
+        *fp = rhFromRaw(RHraw, T);
+    }
+    else
+    {
+        var->convert(outs->getTimeTag(), fp);
+    }
+}
+
+
+
 bool
 NCAR_TRH::
 process(const Sample* samp, std::list<const Sample*>& results) throw()
@@ -132,31 +288,19 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     // Apply any time tag adjustments.
     adjustTimeTag(stag, outs);
 
-    results.push_back(outs);
-
     // Apply any variable conversions.  This replaces the call to
     // applyConversions() in the base class process() method, because we
-    // need to detect and handle raw conversions.
-    float* fp = outs->getDataPtr();
-    const vector<Variable*>& vars = stag->getVariables();
-    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    // need to detect and handle raw conversions.  We also need to do them
+    // in a specific order: raw first, then T, then RH.
+
+    float* values = outs->getDataPtr();
+    for (unsigned int iv = 0; iv < _compute_order.size(); iv++)
     {
-        Variable* var = vars[iv];
-        fp = var->convert(outs->getTimeTag(), fp);
+        VariableIndex vi(_compute_order[iv]);
+        convertVariable(outs, vi.variable(), values + vi.index());
     }
 
-    // For the T and RH variables in the sample tag, check if there is a
-    // calibration specifying a conversion from raw.
-
-    if (_t)
-    {
-        vector<string> fields;
-        Variable* tv = _t.variable();
-        VariableConverter* vc = tv->getConverter();
-        CalFile* cf = vc->getCalFile();
-        // Rest of the record is the coefficients.
-    }
-
+    results.push_back(outs);
     ifanFilter(results);
     return true;
 }
