@@ -135,8 +135,8 @@ protected:
     class Particle
     {
     public:
-        Particle() : height(0), width(0), area(0), edgeTouch(0),liveTime(0) { } ;
-        void zero() { height = width = area = liveTime = 0; edgeTouch = 0; }
+        Particle() : height(0), width(0), area(0), edgeTouch(0), liveTime(0), dofReject(false) { } ;
+        void zero() { height = width = area = liveTime = 0; edgeTouch = 0; dofReject = false; }
 
         /// Max particle height, along diode array.
         unsigned int height;
@@ -157,6 +157,9 @@ protected:
 	 * array.  Basically width * tas-clock-pulses.
 	 */
         unsigned int liveTime;
+
+        /// Depth Of Field Reject? Last bit of sync word.
+        bool dofReject;
     } ;
 
     // Probe produces Big Endian.

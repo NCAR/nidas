@@ -363,9 +363,12 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (cp[1] == _syncString[1] && (cp[2] & _dofMask) == 0) {
-                    // syncword
+                if (cp[1] == _syncString[1]) {  // is a syncWord
                     _totalParticles++;
+
+                    if ((cp[2] & _dofMask))
+                        _particle.dofReject = true;
+
 #ifdef SLICE_DEBUG
                     if (sdlog.active())
                     {
@@ -451,21 +454,6 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     sos = 0;    // not a particle slice
                     _prevTimeWord = thisTimeWord;
                 }
-                else if (*(cp+1) == (unsigned char)'\xaa') {
-                    // 0xaaaa but not complete syncword
-#ifdef SLICE_DEBUG
-                    if (sdlog.active())
-                    {
-                        for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
-                        {
-                            sdmsg << setw(2) << (int)*xp << ' ';
-                        }
-                        sdmsg << dec << " aaaa word" << endlog;
-                    }
-#endif
-                    cp += wordSize;
-                    sos = 0;    // not a particle slice
-                }
                 else {
                     // 0xaa is not an expected particle shadow.
                     sos = 0;    // not a particle slice
@@ -514,6 +502,7 @@ bool TwoD64_USB::process(const Sample * samp,
     switch (stype) {
         case TWOD_IMG_TYPE:
         case TWOD_IMGv2_TYPE:
+        case TWOD_IMGv3_TYPE:
             result = processImageRecord(samp, results, stype);
             break;
         case TWOD_SOR_TYPE:	// Shadow-or counter.

@@ -49,7 +49,7 @@ namespace n_u = nidas::util;
 using nidas::util::endlog;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
-TwoD64_USB_v3::TwoD64_USB_v3():_nvars(0)
+TwoD64_USB_v3::TwoD64_USB_v3():_nHskp(0)
 {
      _probeClockRate=33;                    //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits
@@ -107,9 +107,9 @@ void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
-        if(stag->getSampleId()==1) {
-            _nvars = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
-            if (_nvars != 10) {
+        if (stag->getSampleId() == 1) {
+            _nHskp = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
+            if (_nHskp != 10) {
                 throw n_u::InvalidParameterException(getName(),
                 "unexpected number of variables", " in processSOR sample"); 
             }
@@ -128,28 +128,29 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
         return false;
     }
     char sep = ',';
-    SampleT<float>* outs = getSample<float>(_nvars);
+    SampleT<float>* outs = getSample<float>(_nHskp);
     float * dout = outs->getDataPtr();
     float data=floatNAN;
     int iout = 0;
  
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-    for (size_t ifield = 0; ifield < _nvars; ifield++){
+    for (size_t ifield = 0; ifield < _nHskp; ifield++) {
         if (input == NULL)break;
 	const char * cp = ::strchr(input,sep);  
         cp++; 
         //First input will be the second char to skip "SOR,"
-        if(ifield != 0)
+        if (ifield != 0)
         { 
-            if (sscanf(input, "%f", &data) == 1){
+            if (sscanf(input, "%f", &data) == 1) {
                 dout[iout++] = double(data);
-            }else
-            dout[iout++] = double(NAN);
+            } else
+                dout[iout++] = double(NAN);
         }
         input=cp;
     }
-
+    list<SampleTag*> tags = getSampleTags();
+    applyConversions(tags.front() ,outs);
     results.push_back(outs);
     return true;
 }

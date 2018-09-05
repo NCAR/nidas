@@ -242,7 +242,7 @@ accept(const std::string& flag)
     size_t comma = _flags.find(',', start);
     if (comma == std::string::npos)
       comma = _flags.length();
-    if (_flags.substr(start, comma) == flag &&
+    if (_flags.substr(start, comma-start) == flag &&
 	(flag.length() > 2 || _enableShortFlag))
     {
       return true;
@@ -405,7 +405,9 @@ NidasApp(const std::string& name) :
   _deleteProject(false),
   _app_arguments(),
   _argv(),
-  _argi(0)
+  _argi(0),
+  _hasException(false),
+  _exception("")
 {
   enableArguments(LogShow | LogFields);
 
@@ -828,9 +830,39 @@ namespace
 
 bool
 NidasApp::
-interrupted()
+interrupted(bool allow_exception)
 {
+  if (allow_exception && hasException())
+  {
+    throw getException();
+  }
   return app_interrupted;
+}
+
+
+void
+NidasApp::
+setException(const nidas::util::Exception& ex)
+{
+  _hasException = true;
+  _exception = ex;
+  setInterrupted(true);
+}
+
+
+bool
+NidasApp::
+hasException()
+{
+  return _hasException;
+}
+
+
+nidas::util::Exception
+NidasApp::
+getException()
+{
+  return _exception;
 }
 
 

@@ -37,7 +37,7 @@
 #include <nidas/util/ThreadSupport.h>
 
 #ifdef SYNC_RECORD_JSON_OUTPUT
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #endif
 
 namespace nidas { namespace dynld { namespace raf {
@@ -291,7 +291,7 @@ write_sync_record_data_as_json(std::ostream& json,
                                size_t numValues)
 {
     Json::Value root;
-    root["time"] = tt;
+    root["time"] = Json::UInt64(tt);
     root["numValues"] = (int)numValues;
     // Unfortunately the JSON spec does not support NAN, and so
     // the data values are written as strings. NANs have a
@@ -347,9 +347,9 @@ write_sync_variable_as_json(const SyncRecordVariable* var,
     size_t lagoffset = var->getLagOffset();
     // int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
     dsm_time_t vtime = tt;
-    if (!isnan(rec[lagoffset]))
+    if (!std::isnan(rec[lagoffset]))
         vtime += (int) rec[lagoffset];
-    variable["time"] = vtime;
+    variable["time"] = Json::UInt64(vtime);
     variable["lagoffset"] = double_to_string(rec[lagoffset]);
     return variable;
 }           
@@ -361,7 +361,7 @@ write_sync_record_as_json(std::ostream& json, dsm_time_t tt,
                           std::vector<const SyncRecordVariable*>& vars)
 {
     Json::Value root;
-    root["time"] = tt;
+    root["time"] = Json::UInt64(tt);
     root["numValues"] = nvalues;
     Json::Value& data = root["data"];
     std::vector<const SyncRecordVariable*>::const_iterator it;

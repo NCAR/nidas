@@ -331,9 +331,20 @@ int ExtractFast2D::run() throw()
                             }
 
                             ++probe->recordCount;
+                            size_t partCnt = countParticles(probe, (const unsigned char *)&record);
+                            size_t diodeCnt = computeDiodeCount(probe, record.data);
+                            if (partCnt < minNumberParticlesRequired)
+                                ++probe->rejectTooFewParticleCount;
+                            if (diodeCnt < probe->nDiodes / 2)
+                                ++probe->rejectTooFewDiodesCount;
+
+                            /* Output record if:
+                             *   1) copying all records (-a).
+                             *   2) we meet minimum number particles in the record (default 5)
+                             *   3) at least 50% of the diodes had a count in them
+                             */
                             if (copyAllRecords ||
-                               (countParticles(probe, (const unsigned char *)&record) >= minNumberParticlesRequired &&
-                                computeDiodeCount(probe, record.data) != 1))
+                               (partCnt >= minNumberParticlesRequired && diodeCnt >= probe->nDiodes / 2))
                                 outFile.write((char *)&record, sizeof(record));
                             else
                                 ++probe->rejectRecordCount;
@@ -364,10 +375,20 @@ int ExtractFast2D::run() throw()
 
             if (probe->rejectRecordCount > 0) {
                 cout.width(10);
-                cout << probe->rejectRecordCount << " "
-                 << " records were rejected due to fewer than "
+                cout << probe->rejectRecordCount
+                 << " records were rejected." << endl;
+
+                cout.width(10);
+                cout << probe->rejectTooFewParticleCount
+                 << " were rejected due to fewer than "
                  << minNumberParticlesRequired
                  << " particles per record." << endl;
+
+                cout.width(10);
+                cout << probe->rejectTooFewDiodesCount
+                 << " were rejected due to fewer than "
+                 << "50%"
+                 << " diodes being triggered per record." << endl;
             }
 
             if (!copyAllRecords) {
@@ -386,26 +407,37 @@ int ExtractFast2D::run() throw()
                  << "%." << endl;
             }
 
+            cout << endl;
+
             if (outputDiodeCount) {
+                unsigned long sum = 0;
                 for (size_t i = 0; i < probe->nDiodes; ++i) {
-                    cout << "    Bin ";
+                    sum += probe->diodeCount[i];
+                    cout << "    Diode ";
                     cout.width(2);
                     cout << i << " count = ";
                     cout.width(10);
                     cout << probe->diodeCount[i] << endl;
                 }
+                cout << "           Average = "; cout.width(10);
+                cout << sum / probe->nDiodes << endl << endl;
             }
 
             if (outputParticleCount) {
-                for (size_t i = 0; i < 1024; ++i) {
-                  if (probe->particleCount[i] > 0) {
-                    cout.width(10);
-                    cout << probe->particleCount[i];
-                    cout << i << " records have ";
-                    cout << "    nParticles = ";
-                    cout.width(4);
+                unsigned long sum = 0;
+                unsigned long sumP = 0;
+                for (size_t i = 0; i < 512; ++i) {
+                    if (probe->particleCount[i] > 0) {
+                        sum += probe->particleCount[i];
+                        sumP += (probe->particleCount[i] * i);
+                        cout.width(10);
+                        cout << probe->particleCount[i];
+                        cout << " records have " << i;
+                        cout << " particles." << endl;
+                    }
                 }
-              }
+                cout << "Average particles per record = ";
+                cout << sumP / sum << endl << endl;
             }
 
             delete probe;
@@ -481,7 +513,7 @@ size_t ExtractFast2D::countParticles(Probe * probe, const unsigned char * record
 
     if (probe->nDiodes == 64) {
         unsigned char dof_flag_mask = 0x01;
-        if (probe->sensor->getCatalogName().find("_v2"))
+        if (probe->sensor->getCatalogName().find("_v2") != std::string::npos)
             dof_flag_mask = 0x10;
 
         for (size_t i = 0; i < 4093; ++i) {

@@ -841,9 +841,14 @@ LogScheme::
 show_log_point(LogContext& lp)
 {
   std::ostringstream buf;
+  const char* tags = "";
+  if (lp.tags())
+  {
+    tags = lp.tags();
+  }
   buf 
     << "Show log point: "
-    << lp.levelName() << "[" << lp.tags() << "]"
+    << lp.levelName() << "[" << tags << "]"
     << " in " << lp.function() << "@"
     << lp.filename() << ":" << lp.line()
     << " is" << (lp.active() ? "" : " not") << " active";

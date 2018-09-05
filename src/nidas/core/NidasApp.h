@@ -836,6 +836,18 @@ public:
     void
     resetLogging();
 
+    /**
+     * Set the process-data setting in this NidasApp.
+     **/
+    void
+    setProcessData(bool process)
+    {
+        _processData = process;
+    }
+
+    /**
+     * Return the current process-data setting for this NidasApp.
+     **/
     bool
     processData()
     {
@@ -863,8 +875,16 @@ public:
         return _endTime;
     }
 
+    /**
+     * Return the value of the global interrupted flag.  If @p
+     * allow_exception is true, and an exception interruption has been set
+     * with setException(), then this call will throw that exception.  This
+     * allows code which checks NidasApp::interrupted() in a loop to work
+     * the usual way but also propagate exceptions from the main loop when
+     * they happen elsewhere in the application.
+     **/
     bool
-    interrupted();
+    interrupted(bool allow_exception=true);
 
     /**
      * Set the global interrupted state for NidasApp.  The default signal
@@ -873,6 +893,34 @@ public:
      **/
     static void
     setInterrupted(bool interrupted);
+
+    /**
+     * Like setInterrupted(true), but also allows an exception to be stored
+     * which can be tested and retrieved later with hasException() and
+     * getException().  This is useful, for example, in sample receive()
+     * methods which may be called from multiple threads and not
+     * necessarily from the main thread where readSamples() is called.
+     *
+     * Note the exception type is strictly nidas::util::Exception, so a
+     * subclass reference can be passed, but the subclass is stripped when
+     * copied by NidasApp.
+     **/
+    void
+    setException(const nidas::util::Exception& ex);
+
+    /**
+     * See setException().
+     **/
+    bool
+    hasException();
+
+    /**
+     * Return the current exception.  If no exception has been set
+     * (hasException() returns false), then the return value is just a
+     * default constructed nidas::util::Exception.
+     **/
+    nidas::util::Exception
+    getException();
 
     /**
      * Return a pointer to the application-wide Project instance.  The lifetime
@@ -1126,6 +1174,9 @@ private:
 
     ArgVector _argv;
     int _argi;
+
+    bool _hasException;
+    nidas::util::Exception _exception;
 };
 
 

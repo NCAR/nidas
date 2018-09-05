@@ -35,7 +35,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,CVI_LV_Input)
 
-CVI_LV_Input::CVI_LV_Input(): _tt0(0) 
+CVI_LV_Input::CVI_LV_Input(): _tt0(0), prevCVTdiff(0)
 {
 }
 
@@ -51,6 +51,35 @@ IODevice* CVI_LV_Input::buildIODevice() throw(n_u::IOException)
     ServerSocketIODevice* dev = new ServerSocketIODevice();
     dev->setTcpNoDelay(true);
     return dev;
+}
+
+float CVI_LV_Input::CVTdiff(float cvtdiff_in)
+{
+    float cvtdiff = cvtdiff_in;
+
+    /*
+     * SOCRATES flights 3-7; Fix timing error due to formatting change that dropped
+     * the 0.5 on times after 100,000 seconds.  Times went 100000, 100002, 100002,
+     * 100004, 100004, etc
+     */
+
+    // Don't bother under 100000 or if we have the .5.
+    if (cvtdiff_in >= 100000.0 && (cvtdiff_in - (int)cvtdiff_in) == 0.0)
+    {
+        if (cvtdiff_in == 100000.0)  //  at 100000 just add .5.
+            cvtdiff += 0.5;
+        else
+        {
+            float thisTime = cvtdiff_in;
+            if (thisTime == prevCVTdiff)
+                cvtdiff += 0.5;
+            else
+                cvtdiff -= 0.5;
+        }
+        prevCVTdiff = cvtdiff_in;
+    }
+
+    return cvtdiff;
 }
 
 bool CVI_LV_Input::process(const Sample *samp,
@@ -80,12 +109,13 @@ bool CVI_LV_Input::process(const Sample *samp,
         dsm_time_t tt = fsamp->getTimeTag();
 
         const float* fptr = fsamp->getConstDataPtr();
+        float cvtdiff = CVTdiff(fptr[0]);  // we may need to correct time below.
 
         // seconds of day timetag echoed back by LabView
         // The received value (which is what we actually sent to LabView)
         // does not roll back to 0 after 00:00 midnight, but keeps incrementing,
         // so we mod it here.
-        double ttback = fmodf(fptr[0],86400.0f);
+        double ttback = fmodf(cvtdiff, 86400.0f);
 
         SampleT<float>* outs = getSample<float>(nd);
 

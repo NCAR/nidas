@@ -101,5 +101,12 @@ for mach in machs:
 
     first_mach = False
 
-env.Alias('install', [ '$PREFIX/modules' ])
+# Do not create an alias to just the $PREFIX/modules directory, because
+# there will be no targets under that directory if no modules are being
+# built, and scons reports an error if the source for the alias does not
+# exist and does not have any targets.  Instead, add an alias for any nodes
+# in that directory.
+submodules = env.Dir('$PREFIX/modules').glob('*')
+if submodules:
+    env.Alias('install', submodules)
 
