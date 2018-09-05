@@ -41,6 +41,31 @@ class DSMSensor;
 class CalFile;
 class Variable;
 
+/**
+ * This is the interface for handling CalFile records as they are read by a
+ * VariableConverter.  The handler method accepts a CalFile* as the sole
+ * argument, and it should return true if it handled the record, or false
+ * if the record should be handled by VariableConverter::parseFields(), the
+ * default record handler.  When the handler is called, the current fields
+ * and time from the CalFile record can be retrieved with
+ * CalFile::getCurrentFields() and CalFile::getCurrentTime().
+ *
+ * See makeCalFileHandler() and the CalFileHandlerFunction template for a
+ * simple way to create implementations of this interface which call
+ * existing functions, such as class methods.
+ **/
+class CalFileHandler
+{
+public:
+    CalFileHandler()
+    {}
+
+    virtual bool handleCalFileRecord(nidas::core::CalFile*) = 0;
+
+    virtual ~CalFileHandler() {}
+};
+
+
 class VariableConverter: public DOMable
 {
 public:
@@ -61,7 +86,26 @@ public:
 
     virtual VariableConverter* clone() const = 0;
 
+    /**
+     * Before a VariableConverter can be used for a conversion, the
+     * converter's CalFile, if it exists, needs to be advanced to the right
+     * record for the current sample time.  As records are read, this
+     * method calls parseFields() so the VariableConverter subclass can
+     * extract the particular information it needs from the CalFile fields,
+     * typically coefficients.
+     *
+     * For sensors which need to extend the kind of conversions which can
+     * be specified by a CalFile, there is a callback function available.
+     * See setCalFileHandler().
+     **/
     virtual void readCalFile(dsm_time_t) throw();
+
+    /**
+     * Set the instance of CalFileHandler which will be called and given
+     * first option to handle new CalFile records.  Pass null to disable
+     * the callbacks.
+     **/
+    void setCalFileHandler(CalFileHandler*);
 
     virtual double convert(dsm_time_t,double v) = 0;
 
@@ -166,6 +210,8 @@ protected:
     void abortCalFile(const std::string& what);
 
     CalFile* _calFile;
+
+    CalFileHandler* _handler;
 };
 
 /**
@@ -274,6 +320,51 @@ inline double Polynomial::eval(double x,float *p, unsigned int np)
     y += p[0];
     return y;
 }
+
+
+/**
+ * A template subclass which implements the CalFileHandler interface by
+ * calling a function object.
+ **/
+template <class F>
+class CalFileHandlerFunction : public CalFileHandler
+{
+public:
+    CalFileHandlerFunction(F& fo) : _handler(fo)
+    {}
+
+    virtual bool
+    handleCalFileRecord(nidas::core::CalFile* cf)
+    {
+        return _handler(cf);
+    }
+
+    F _handler;
+};
+
+/**
+ * Helper function to deduce the function object type and return a new
+ * instance of the CalFileHandlerFunction type which calls it.
+ *
+ * For example, this code creates a new instance of CalFileHandler which
+ * calls the handleRawT() method of the NCAR_TRH sensor class:
+ *
+ * @code
+ * makeCalFileHandler(std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
+ * @endcode
+ *
+ * Where handleRawT has a signature like this:
+ * @code
+ * bool handleRawT(nidas::core::CalFile* cf);
+ * @endcode
+ **/
+template <class F>
+CalFileHandler*
+makeCalFileHandler(F _fo)
+{
+    return new CalFileHandlerFunction<F>(_fo);
+}
+
 
 }}	// namespace nidas namespace core
 

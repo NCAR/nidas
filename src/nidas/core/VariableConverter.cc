@@ -46,7 +46,8 @@ VariableConverter::VariableConverter():
     _parameters(),
     _constParameters(),
     _variable(0),
-    _calFile(0)
+    _calFile(0),
+    _handler(0)
 {}
 
 VariableConverter::VariableConverter(const VariableConverter& x):
@@ -54,7 +55,8 @@ VariableConverter::VariableConverter(const VariableConverter& x):
     _units(x._units),
     _parameters(),_constParameters(),
     _variable(x._variable),
-    _calFile(0)
+    _calFile(0),
+    _handler(0)
 {
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -64,6 +66,7 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	addParameter(newp);
     }
     if (x._calFile) _calFile = new CalFile(*x._calFile);
+    // Handler is explicitly not copied.
 }
 
 
@@ -94,6 +97,9 @@ VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
         }
     }
     if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    // Handler is not copied, and since this is a "new" converter
+    // essentially, explicitly reset it.
+    _handler = 0;
     return *this;
 }
 
@@ -288,7 +294,11 @@ void VariableConverter::readCalFile(dsm_time_t t) throw()
         try {
             n_u::UTime calTime;
             _calFile->readCF(calTime, 0, 0);
-            parseFields(_calFile);
+            // There is a new record to be handled, see if the handler
+            // wants it, and if not, pass it on to the parseFields()
+            // method.
+            if (!_handler || !_handler->handleCalFileRecord(_calFile))
+                parseFields(_calFile);
         }
         catch(const n_u::EOFException& e)
         {
@@ -307,6 +317,13 @@ void VariableConverter::readCalFile(dsm_time_t t) throw()
     }
 }
 
+
+void
+VariableConverter::
+setCalFileHandler(CalFileHandler* cfh)
+{
+    _handler = cfh;
+}
 
 
 Linear::Linear():
