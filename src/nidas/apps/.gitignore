@@ -4,6 +4,7 @@
 /ck_calfile
 /ck_xml
 /data_dump
+/data_influxdb
 /data_stats
 /dmd_mmat_test
 /dsm
