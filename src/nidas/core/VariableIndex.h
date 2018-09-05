@@ -35,6 +35,13 @@ class Variable;
  * SampleTag.  Sensor classes can use this to keep a reference to a
  * Variable and locate the Variable's data in the samples with it's
  * SampleTag.  See DSMSensor::findVariableIndex().
+ *
+ * A variable's index into the sample tag is not necessarily the same as
+ * the offset to the variable's data inside a sample, since the preceding
+ * variables may have lengths greater than 1.  So this may be a good place
+ * to store the data offset also, and then sensor code could be modified to
+ * use this class and the offset rather than using simple integer index
+ * directly.
  **/
 class VariableIndex
 {
@@ -77,6 +84,11 @@ public:
         return *this;
     }
 
+    bool operator==(const VariableIndex& rhs) const
+    {
+        return (_variable == rhs._variable) && (_index == rhs._index);
+    }
+
     Variable*
     variable()
     {
@@ -90,12 +102,12 @@ public:
     }
 
     bool
-    operator!()
+    operator!() const
     {
         return _index < 0 || !_variable;
     }
 
-    operator bool()
+    operator bool() const
     {
         return _index >= 0 && _variable;
     }
