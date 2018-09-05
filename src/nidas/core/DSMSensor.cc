@@ -840,7 +840,7 @@ findVariableIndex(const std::string& vprefix)
     list<SampleTag*>::const_iterator ti;
     VariableIndex idx;
 
-    for (ti = tags.begin(); idx < 0 && ti != tags.end(); ++ti)
+    for (ti = tags.begin(); !idx && ti != tags.end(); ++ti)
     {
         SampleTag* tag = *ti;
         const vector<Variable*>& vars = tag->getVariables();

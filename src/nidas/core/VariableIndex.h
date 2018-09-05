@@ -107,7 +107,13 @@ public:
         return _index < 0 || !_variable;
     }
 
-    operator bool() const
+    bool
+    valid() const
+    {
+        return _index >= 0 && _variable;
+    }
+
+    explicit operator bool() const
     {
         return _index >= 0 && _variable;
     }
