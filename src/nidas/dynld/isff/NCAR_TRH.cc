@@ -118,10 +118,14 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     VariableConverter* vc;
     if (_t && (vc = _t.variable()->getConverter()))
     {
+        DLOG(("sensor ") << getName()
+             << ": installing CalFile handler for raw T");
         vc->setCalFileHandler(this->_raw_t_handler);
     }
     if (_rh && (vc = _rh.variable()->getConverter()))
     {
+        DLOG(("sensor ") << getName()
+             << ": installing CalFile handler for raw RH");
         vc->setCalFileHandler(this->_raw_rh_handler);
     }
 
@@ -143,11 +147,11 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     {
         n_u::LogMessage msg(&lp);
         msg << "TRH sensor " << getName() << " variable compute order: ";
-        for (unsigned int iv = 0; iv < vars.size(); iv++)
+        for (unsigned int iv = 0; iv < _compute_order.size(); iv++)
         {
             if (iv != 0)
                 msg << ",";
-            msg << vars[iv]->getName();
+            msg << _compute_order[iv].variable()->getName();
         }
     }
 }
@@ -250,7 +254,8 @@ convertVariable(SampleT<float>* outs, Variable* var, float* fp)
     VariableConverter* vc = var->getConverter();
     // Advance the cal file, if necessary.  This also causes any raw
     // calibrations to be handled.
-    vc->readCalFile(outs->getTimeTag());
+    if (vc)
+        vc->readCalFile(outs->getTimeTag());
     float* values = outs->getDataPtr();
     if (_t && _t.variable() == var && !_Ta.empty())
     {
