@@ -287,13 +287,17 @@ void VariableConverter::readCalFile(dsm_time_t t) throw()
     int i = 0;
     while (t >= _calFile->nextTime().toUsecs())
     {
-        if (++i == 1)
-            DLOG(("In ") << _calFile->getCurrentFileName()
-                 << ", looking for time "
-                 << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
         try {
             n_u::UTime calTime;
             _calFile->readCF(calTime, 0, 0);
+            // Wait until after readCF() in case file has not been opened
+            // yet, in which case the returned filename is empty.
+            if (++i == 1)
+            {
+                DLOG(("In ") << _calFile->getCurrentFileName()
+                     << ", looking for time "
+                     << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
+            }
             // There is a new record to be handled, see if the handler
             // wants it, and if not, pass it on to the parseFields()
             // method.
