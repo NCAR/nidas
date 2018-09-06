@@ -15,7 +15,8 @@ ck_calfile
 UTime
 sonic
 prep
-dausensor""")
+dausensor
+trh""")
 
 Import('env')
 SConscript(dirs=dirs, exports='env')
