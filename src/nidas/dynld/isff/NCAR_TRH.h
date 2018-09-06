@@ -69,6 +69,36 @@ public:
     double
     rhFromRaw(double rhraw, double temp_cal);
     
+    /**
+     * Set the three polynomial coefficients which enable converting the
+     * raw temperature counts variable Traw into the calibrated temperature
+     * variable T.  @p begin points to an array of three coefficients, in
+     * order a0, a1, and a2, up to but not including @p end.  Pass @p
+     * end to set less than all three coefficients, otherwise @p begin must
+     * point to an array with at least 3 values.  Pass @begin as null to
+     * disable raw temperature conversions.
+     **/
+    void
+    setRawTempCoefficients(float* begin = 0, float* end = 0);
+
+    /**
+     * Set the five polynomial coefficients which enable converting the raw
+     * temperature RH variable RHraw into the calibrated humidity variable
+     * RH.  @p begin points to an array of three coefficients, in order
+     * ha0, ha1, ha2, ha3, and ha4, up to but not including @p end.  Pass
+     * @p end to set less than all five coefficients, otherwise @p begin
+     * must point to an array with at least 5 values.  Pass @begin as null
+     * to disable raw humidity conversions.
+     **/
+    void
+    setRawRHCoefficients(float* begin = 0, float* end = 0);
+
+    std::vector<float>
+    getRawTempCoefficients();
+    
+    std::vector<float>
+    getRawRHCoefficients();
+
 private:
 
     void

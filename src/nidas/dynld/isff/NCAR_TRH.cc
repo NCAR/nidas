@@ -50,8 +50,8 @@ NCAR_TRH::NCAR_TRH():
     _rhraw(),
     _t(),
     _rh(),
-    _Ta(3),
-    _Ha(5),
+    _Ta(),
+    _Ha(),
     _raw_t_handler(0),
     _raw_rh_handler(0),
     _compute_order()
@@ -157,6 +157,59 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
 }
 
 
+namespace {
+void
+setCoefficients(std::vector<float>& dest, int max, float* begin, float* end)
+{
+    if (!begin || begin == end)
+    {
+        dest.resize(0);
+    }
+    else
+    {
+        if (!end)
+            end = begin + max;
+        dest.resize(max, 0);
+        vector<float>::iterator it = dest.begin();
+        for (float* fp = begin ; fp != end && it != dest.end(); ++fp, ++it)
+        {
+            *it = *fp;
+        }
+    }
+}
+}
+
+void
+NCAR_TRH::
+setRawTempCoefficients(float* begin, float* end)
+{
+    setCoefficients(_Ta, 3, begin, end);
+}
+
+void
+NCAR_TRH::
+setRawRHCoefficients(float* begin, float* end)
+{
+    setCoefficients(_Ha, 5, begin, end);
+}
+
+
+std::vector<float>
+NCAR_TRH::
+getRawTempCoefficients()
+{
+    return _Ta;
+}
+    
+
+std::vector<float>
+NCAR_TRH::
+getRawRHCoefficients()
+{
+    return _Ha;
+}
+
+
 bool
 NCAR_TRH::
 handleRawT(CalFile* cf)
@@ -185,6 +238,9 @@ handleRawT(CalFile* cf)
         cf->getFields(1, 4, &(_Ta[0]));
         return true;
     }
+    ILOG(("") << "sensor " << getName() << " disabling raw "
+         << "T calibrations at "
+         << n_u::UTime(cf->getCurrentTime()).format(true, "%Y%m%d,%H:%M:%S"));
     _Ta.resize(0);
     return false;
 }
@@ -213,6 +269,9 @@ handleRawRH(CalFile* cf)
         cf->getFields(1, 6, &(_Ha[0]));
         return true;
     }
+    ILOG(("") << "sensor " << getName() << " disabling raw "
+         << "RH calibrations at "
+         << n_u::UTime(cf->getCurrentTime()).format(true, "%Y%m%d,%H:%M:%S"));
     _Ha.resize(0);
     return false;
 }
