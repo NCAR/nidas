@@ -1,0 +1,10 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "Europe/Lisbon"
+# Poly correction
+#
+# DateTime     		 A0		 A1		A2		B0		B1
+2016 may  1 00:00:00 raw 226.4207        -1.25993        -0.0006539848   -9.56244        0.07918062
+2017 apr 20 17:50:33 raw 401.0063        -2.896463       -0.0005389938   -16.3027        0.1413339 	
+2017 apr 21 06:00:00 na na

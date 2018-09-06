@@ -35,6 +35,15 @@ opts.Add('BUILDS', '\n'
          '  host, arm, armbe, armel or armhf.',
          'host')
 
+opts.Add('NOVARIANT', '\n'
+         '  Name of a build to build in the source tree rather than as a\n'
+         '  variant build.  For example, if NOVARIANT is "host", then the\n'
+         '  host build output will be written alongside the source rather\n'
+         '  than in the "build" directory.  The value must match one of the\n'
+         '  elements in the BUILDS list, otherwise all the builds will be\n'
+         '  variant builds.',
+         None)
+
 opts.Add('MACHS', '\n'
          '  Space-separated list of machine names for the architecture\n'
          '  (viper, vulcan, titan, rpi2 or all), for building and installing\n'
@@ -188,10 +197,33 @@ def CheckStackProtectorOptions(env):
             break
     add_stack_option(env, '-fstack-check')
 
+def SConscriptVariant(arch, archenv):
+    if arch != env.get('NOVARIANT'):
+        if arch == 'host' or arch == 'x86':
+            vdir = 'build'
+        SConscript('nidas/SConscript',
+                   variant_dir=vdir,
+                   duplicate=0, exports={'env':archenv})
+        Alias(arch, vdir)
+        Clean(vdir, 'build')
+        if arch == 'x86':
+            Alias('host', vdir)
+        elif arch == 'host':
+            Alias('x86', vdir)
+    else:
+        SConscript('nidas/SConscript', exports={'env':archenv})
+        Alias(arch, 'nidas')
+        if arch == 'host':
+            Alias('host', 'nidas')
+
+
 ##
 ##  Create the env for building to the host processor...
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
+    hostarch = 'host'
+    if hostarch not in BUILDS:
+        hostarch = 'x86'
     print("Setting up for host builds...")
     host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
         ARCH = '', MACHS=[''])
@@ -208,18 +240,9 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 
     host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
 
-    exports = {'env':host_env}
-
-    SConscript('nidas/SConscript',
-               variant_dir='build',
-               duplicate=0, exports=exports)
-
-    Alias('x86','build')
-    Alias('host','build')
-    Clean('build','build')
-
+    SConscriptVariant(hostarch, host_env)
     # Testing targets, built and run only on host
-    SConscript("tests/SConscript", exports=exports)
+    SConscript("tests/SConscript", exports={'env':host_env})
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
@@ -250,12 +273,7 @@ if 'arm' in BUILDS:
     if 'DEBUG' not in arm_env or not arm_env['DEBUG']:
         arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-
-    SConscript('nidas/SConscript',
-               variant_dir='build_arm',
-               duplicate=0, exports={'env':arm_env})
-    Alias('arm','build_arm')
-    Clean('build_arm','build_arm')
+    SConscriptVariant('arm', arm_env)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
@@ -285,11 +303,7 @@ if 'armbe' in BUILDS:
     if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-    SConscript('nidas/SConscript',
-               variant_dir='build_armbe',
-               duplicate=0, exports={'env':armbe_env})
-    Alias('armbe','build_armbe')
-    Clean('build_armbe','build_armbe')
+    SConscript('armbe', armbe_env)
 
 if 'armel' in BUILDS:
     print("Setting up for armel build ...")
@@ -320,12 +334,7 @@ if 'armel' in BUILDS:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-
-    SConscript('nidas/SConscript',
-               variant_dir='build_armel',
-               duplicate=0, exports={'env':armel_env})
-    Alias('armel','build_armel')
-    Clean('build_armel','build_armel')
+    SConscript('armel', armel_env)
 
 if 'armhf' in BUILDS:
     print("Setting up for armhf build ...")
@@ -356,11 +365,7 @@ if 'armhf' in BUILDS:
 
 # armhf_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
-    SConscript('nidas/SConscript',
-               variant_dir='build_armhf',
-               duplicate=0, exports={'env':armhf_env})
-    Alias('armhf','build_armhf')
-    Clean('build_armhf','build_armhf')
+    SConscriptVariant('armhf', armhf_env)
 
 
 Default([BUILDS])

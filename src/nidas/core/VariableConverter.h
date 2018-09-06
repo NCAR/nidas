@@ -41,6 +41,31 @@ class DSMSensor;
 class CalFile;
 class Variable;
 
+/**
+ * This is the interface for handling CalFile records as they are read by a
+ * VariableConverter.  The handler method accepts a CalFile* as the sole
+ * argument, and it should return true if it handled the record, or false
+ * if the record should be handled by VariableConverter::parseFields(), the
+ * default record handler.  When the handler is called, the current fields
+ * and time from the CalFile record can be retrieved with
+ * CalFile::getCurrentFields() and CalFile::getCurrentTime().
+ *
+ * See makeCalFileHandler() and the CalFileHandlerFunction template for a
+ * simple way to create implementations of this interface which call
+ * existing functions, such as class methods.
+ **/
+class CalFileHandler
+{
+public:
+    CalFileHandler()
+    {}
+
+    virtual bool handleCalFileRecord(nidas::core::CalFile*) = 0;
+
+    virtual ~CalFileHandler() {}
+};
+
+
 class VariableConverter: public DOMable
 {
 public:
@@ -61,13 +86,26 @@ public:
 
     virtual VariableConverter* clone() const = 0;
 
-    virtual void setCalFile(CalFile*) = 0;
+    /**
+     * Before a VariableConverter can be used for a conversion, the
+     * converter's CalFile, if it exists, needs to be advanced to the right
+     * record for the current sample time.  As records are read, this
+     * method calls parseFields() so the VariableConverter subclass can
+     * extract the particular information it needs from the CalFile fields,
+     * typically coefficients.
+     *
+     * For sensors which need to extend the kind of conversions which can
+     * be specified by a CalFile, there is a callback function available.
+     * See setCalFileHandler().
+     **/
+    virtual void readCalFile(dsm_time_t) throw();
 
-    virtual CalFile* getCalFile() = 0;
-
-    virtual const CalFile* getCalFile() const = 0;
-
-    virtual void readCalFile(dsm_time_t) throw() {}
+    /**
+     * Set the instance of CalFileHandler which will be called and given
+     * first option to handle new CalFile records.  Pass null to disable
+     * the callbacks.
+     **/
+    void setCalFileHandler(CalFileHandler*);
 
     virtual double convert(dsm_time_t,double v) = 0;
 
@@ -78,6 +116,12 @@ public:
     void setVariable(const Variable* val) { _variable = val; }
 
     const Variable* getVariable() const { return _variable; }
+
+    /**
+     * Reset the converter to invalid or default settings, such as after an
+     * error occurs parsing a CalFile.
+     **/
+    virtual void reset() = 0;
 
     const DSMSensor* getDSMSensor() const;
 
@@ -126,6 +170,18 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    void setCalFile(CalFile*);
+
+    CalFile* getCalFile()
+    {
+        return _calFile;
+    }
+
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
+
 private:
 
     std::string _units;
@@ -143,33 +199,31 @@ private:
 
     const Variable* _variable;
 
+protected:
+    
+    /**
+     * Parse the fields in the current CalFile record for the particular
+     * settings and coefficients needed by this converter.
+     **/
+    virtual void parseFields(CalFile* cf) = 0;
+
+    void abortCalFile(const std::string& what);
+
+    CalFile* _calFile;
+
+    CalFileHandler* _handler;
 };
 
+/**
+ * Why isn't this a sublcass of Polynomial which sets MAX_NUM_COEFFS to 2?
+ **/
 class Linear: public VariableConverter
 {
 public:
 
     Linear();
 
-    Linear(const Linear& x);
-
-    Linear& operator=(const Linear& x);
-
     Linear* clone() const;
-
-    ~Linear();
-
-    void setCalFile(CalFile*);
-
-    CalFile* getCalFile()
-    {
-        return _calFile;
-    }
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     void setSlope(float val) { _slope = val; }
 
@@ -179,9 +233,11 @@ public:
 
     float getIntercept() const { return _intercept; }
 
-    void readCalFile(dsm_time_t t) throw();
+    double convert(dsm_time_t t, double val);
 
-    double convert(dsm_time_t t,double val);
+    void reset();
+
+    void parseFields(CalFile* cf);
 
     std::string toString() const;
 
@@ -193,13 +249,9 @@ public:
 
 private:
 
-    dsm_time_t _calTime;
-
     float _slope;
 
     float _intercept;
-
-    CalFile* _calFile;
 
 };
 
@@ -209,28 +261,7 @@ public:
 
     Polynomial();
 
-    /**
-     * Copy constructor.
-     */
-    Polynomial(const Polynomial&);
-
-    Polynomial& operator=(const Polynomial&);
-
-    ~Polynomial();
-
     Polynomial* clone() const;
-
-    void setCalFile(CalFile*);
-
-    CalFile* getCalFile()
-    {
-        return _calFile;
-    }
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     void setCoefficients(const std::vector<float>& vals);
 
@@ -244,9 +275,11 @@ public:
         return &_coefs[0];
     }
 
-    void readCalFile(dsm_time_t t) throw();
-
     double convert(dsm_time_t t,double val);
+
+    void reset();
+
+    void parseFields(CalFile* cf);
 
     std::string toString() const;
 
@@ -256,15 +289,16 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * This is static and defined inline below so the implementation can be
+     * shared with at least the one class in dynld which uses it:
+     * ParoSci_202BG_Calibration.
+     **/
     static double eval(double x,float *p, unsigned int np);
 
 private:
 
-    dsm_time_t _calTime;
-
     std::vector<float> _coefs;
-
-    CalFile* _calFile;
 
     /**
      *  Maximum number of coefficients that can be read
@@ -286,6 +320,51 @@ inline double Polynomial::eval(double x,float *p, unsigned int np)
     y += p[0];
     return y;
 }
+
+
+/**
+ * A template subclass which implements the CalFileHandler interface by
+ * calling a function object.
+ **/
+template <class F>
+class CalFileHandlerFunction : public CalFileHandler
+{
+public:
+    CalFileHandlerFunction(F& fo) : _handler(fo)
+    {}
+
+    virtual bool
+    handleCalFileRecord(nidas::core::CalFile* cf)
+    {
+        return _handler(cf);
+    }
+
+    F _handler;
+};
+
+/**
+ * Helper function to deduce the function object type and return a new
+ * instance of the CalFileHandlerFunction type which calls it.
+ *
+ * For example, this code creates a new instance of CalFileHandler which
+ * calls the handleRawT() method of the NCAR_TRH sensor class:
+ *
+ * @code
+ * makeCalFileHandler(std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
+ * @endcode
+ *
+ * Where handleRawT has a signature like this:
+ * @code
+ * bool handleRawT(nidas::core::CalFile* cf);
+ * @endcode
+ **/
+template <class F>
+CalFileHandler*
+makeCalFileHandler(F _fo)
+{
+    return new CalFileHandlerFunction<F>(_fo);
+}
+
 
 }}	// namespace nidas namespace core
 

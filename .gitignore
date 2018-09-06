@@ -3,3 +3,9 @@
 /rpm_build
 doxygen.log
 *~
+*.os
+*.a
+*.so
+*.so.*
+# The linux module build directories
+*_

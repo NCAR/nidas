@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="Perdigao"
+    system="ISFS"
+    version="$Revision: 4555 $">
+
+    <!--
+	xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    -->
+
+    <sensorcatalog>
+	<!--
+	    Some TRH sensors are bypassing the fan board, so Ifan is always
+	    zero and should not be used to filter the T and RH measurements.
+	    This sensor definition is just like NCAR_SHT except for the changes
+	    in ifan min and max.
+	-->
+	<serialSensor ID="NCAR_SHT_BYPASS" class="isff.NCAR_TRH"
+		      baud="9600" parity="none" databits="8" stopbits="1" init_string="\x12">
+            <sample id="1" scanfFormat="TRH%d%f%f%f%*f%f%f" rate="1">
+		<!-- generous minValue,maxValue range to screen periods when TRH goes batty -->
+		<variable name="ID" units="" plotrange="$ID_RANGE"/>
+		<variable name="T" units="degC" longname="Air Temperature, NCAR hygrothermometer"
+			  plotrange="$T_RANGE" minValue="-40" maxValue="40">
+                    <linear units="degC">
+			<calfile path="." file="T_${HEIGHT}.dat"/>
+                    </linear>
+		</variable>
+		<variable name="RH" units="%" longname="Relative Humidity, NCAR hygrothermometer"
+			  plotrange="$RH_RANGE" minValue="-5" maxValue="105">
+                    <!-- note we're using the T_ cal file for RH too -->
+                    <linear>
+			<calfile path="." file="RH_${HEIGHT}.dat"/>
+                    </linear>
+		</variable>
+		<variable name="Ifan" units="mA"
+			  longname="Aspiration fan current, NCAR hygrothermometer"
+			  plotrange="$IFAN_RANGE"/>
+		<variable name="Traw" units="" plotrange="$TRHRAW_RANGE"/>
+		<variable name="RHraw" units="" plotrange="$TRHRAW_RANGE"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+	</serialSensor>
+    </sensorcatalog>
+
+    <site name="rsw03" class="isff.GroundStation" suffix=".$SITE">
+        <dsm name="$SITE" id="34">
+            <serialSensor IDREF="NCAR_SHT_BYPASS"
+			  devicename="/dev/ttyS8" height="10m" id="102">
+  	    </serialSensor>
+        </dsm>
+    </site>
+
+</project>

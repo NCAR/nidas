@@ -751,7 +751,23 @@ parseInputs(const std::vector<std::string>& inputs_,
       _sockAddr.reset(new nidas::util::UnixSocketAddress(url));
     }
     else
+    {
       _dataFileNames.push_back(url);
+    }
+  }
+  static n_u::LogContext lp(LOG_DEBUG);
+  if (lp.active())
+  {
+    n_u::LogMessage msg(&lp);
+    msg << "parseInputs() found " << _dataFileNames.size() << " input files; ";
+    if (_sockAddr.get())
+    {
+      msg << "and socket input " << _sockAddr->toAddressString();
+    }
+    else
+    {
+      msg << "and no socket input set.";
+    }
   }
 }
 

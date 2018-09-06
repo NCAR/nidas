@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -163,8 +163,8 @@ public:
     void setPrefix(const std::string& val)
     {
         _prefix = val;
-	_name = _prefix + _suffix + _siteSuffix;
-	_nameWithoutSite = _prefix + _suffix;
+        _name = _prefix + _suffix + _siteSuffix;
+        _nameWithoutSite = _prefix + _suffix;
     }
 
     const std::string& getPrefix() const { return _prefix; }
@@ -181,8 +181,8 @@ public:
     void setSuffix(const std::string& val)
     {
         _suffix = val;
-	_name = _prefix + _suffix + _siteSuffix;
-	_nameWithoutSite = _prefix + _suffix;
+        _name = _prefix + _suffix + _siteSuffix;
+        _nameWithoutSite = _prefix + _suffix;
     }
 
     /**
@@ -197,11 +197,11 @@ public:
      */
     void setName(const std::string& val)
     {
-	_suffix.clear();
-	_siteSuffix.clear();
-	_prefix = val;
+        _suffix.clear();
+        _siteSuffix.clear();
+        _prefix = val;
         _name = _prefix;
-	_nameWithoutSite = _prefix;
+        _nameWithoutSite = _prefix;
     }
 
     const std::string& getName() const { return _name; }
@@ -243,9 +243,10 @@ public:
      * Set the VariableConverter for this Variable.
      * Variable will own the pointer and will delete it.
      */
-    void setConverter(VariableConverter* val) {
-	delete _converter;
-    	_converter = val;
+    void setConverter(VariableConverter* val)
+    {
+        delete _converter;
+        _converter = val;
     }
 
     const VariableConverter* getConverter() const { return _converter; }
@@ -320,7 +321,7 @@ public:
     void addParameter(Parameter* val)
     {
         _parameters.push_back(val);
-	_constParameters.push_back(val);
+        _constParameters.push_back(val);
     }
 
     /**
@@ -400,15 +401,15 @@ public:
     bool isDynamic() const { return _dynamic; }
 
     void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent,bool complete) const
+        throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node,bool complete) const
+        throw(xercesc::DOMException);
 
 private:
 
@@ -465,6 +466,6 @@ private:
 
 };
 
-}}	// namespace nidas namespace core
+}} // namespace nidas namespace core
 
 #endif
