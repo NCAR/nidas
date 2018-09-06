@@ -199,13 +199,14 @@ def CheckStackProtectorOptions(env):
 
 def SConscriptVariant(arch, archenv):
     if arch != env.get('NOVARIANT'):
+        vdir = "build_" + arch
         if arch == 'host' or arch == 'x86':
             vdir = 'build'
         SConscript('nidas/SConscript',
                    variant_dir=vdir,
                    duplicate=0, exports={'env':archenv})
         Alias(arch, vdir)
-        Clean(vdir, 'build')
+        Clean(vdir, vdir)
         if arch == 'x86':
             Alias('host', vdir)
         elif arch == 'host':
@@ -303,7 +304,7 @@ if 'armbe' in BUILDS:
     if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-    SConscript('armbe', armbe_env)
+    SConscriptVariant('armbe', armbe_env)
 
 if 'armel' in BUILDS:
     print("Setting up for armel build ...")
@@ -334,7 +335,7 @@ if 'armel' in BUILDS:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-    SConscript('armel', armel_env)
+    SConscriptVariant('armel', armel_env)
 
 if 'armhf' in BUILDS:
     print("Setting up for armhf build ...")
