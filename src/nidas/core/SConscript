@@ -109,6 +109,7 @@ headers = Split("""
     UnixIODevice.h
     Variable.h
     VariableConverter.h
+    VariableIndex.h
     Version.h
     XDOM.h
     requestXMLConfig.h

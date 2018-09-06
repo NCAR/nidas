@@ -31,8 +31,8 @@ namespace nidas { namespace core {
 class Variable;
 
 /**
- * A VariableIndex associates a Variable pointer with it's index in it's
- * SampleTag.  Sensor classes can use this to keep a reference to a
+ * A VariableIndex associates a Variable pointer with it's index into it's
+ * SampleTag.  Sensor classes can use this to keep a pointer to a
  * Variable and locate the Variable's data in the samples with it's
  * SampleTag.  See DSMSensor::findVariableIndex().
  *
@@ -42,6 +42,11 @@ class Variable;
  * to store the data offset also, and then sensor code could be modified to
  * use this class and the offset rather than using simple integer index
  * directly.
+ *
+ * This functionality could be rolled into the Variable class, but it would
+ * be up to the SampleTag to update the index of all the Variable's
+ * whenever the Variable list changes.  For now, this class at least allows
+ * managing a Variable pointer and index after the SampleTag is finished.
  **/
 class VariableIndex
 {
