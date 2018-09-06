@@ -1,6 +1,6 @@
 # project: Perdigao
 #
-# dateFormat= "%Y %02m %02d %02H:%02M:%02S"
+# dateFormat= "%Y %m %d %H:%M:%S"
 # timeZone = "Europe/Lisbon"
 #
 # DateTime             Offset  Gain
