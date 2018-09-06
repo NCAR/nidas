@@ -265,7 +265,6 @@ void CalFile::setDateTimeFormat(const std::string& val)
 
 void CalFile::open() throw(n_u::IOException)
 {
-
     if (_fin.is_open()) _fin.close();
 
     for (string::size_type ic = 0;;) {
@@ -289,8 +288,9 @@ void CalFile::open() throw(n_u::IOException)
     }
 
     _fin.open(_currentFileName.c_str());
-    if (_fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
-    n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",_currentFileName.c_str());
+    if (_fin.fail())
+        throw n_u::IOException(getPath() + ' ' + getFile(), "open", errno);
+    ILOG(("CalFile: ") << _currentFileName);
     _eofState = false;
     _curline[0] = '\0';
     _curpos = 0;
