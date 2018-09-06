@@ -103,6 +103,9 @@ public:
     void
     getHostNames(const Project& project, std::vector<std::string>& dsmnames);
 
+    void
+    resolveCalFile(CalFile* cf);
+
 private:
     string _xmlFile;
 
@@ -415,6 +418,23 @@ void PConfig::showAll(const Project& project)
     }
 }
 
+
+void
+PConfig::
+resolveCalFile(CalFile* cf)
+{
+    DLOG(("opening ") << cf->getFile());
+    try {
+        cf->open();
+        cout << ", calfile: " << cf->getCurrentFileName();
+        cf->close();
+    }
+    catch(const n_u::IOException&e) {
+        cout << ", calfile: " << e.what();
+    }
+}
+
+
 void PConfig::showCalFiles(const Project& project)
 {
     for (SiteIterator si = project.getSiteIterator();
@@ -434,19 +454,15 @@ void PConfig::showCalFiles(const Project& project)
 
                 if (!cfs.empty()) {
                     map<string,CalFile*>::const_iterator ci = cfs.begin();
-                    cout << "site: " << site->getName() << ", dsm: " << dsm->getName() <<
-                        ", sensor: " << sensor->getCatalogName() <<
-                        ' ' << sensor->getClassName() <<  ' ' <<
-                        sensor->getDeviceName() << ' ' << sensor->getHeightString();
+                    cout << "site: " << site->getName()
+                         << ", dsm: " << dsm->getName()
+                         << ", sensor: " << sensor->getCatalogName()
+                         << ' ' << sensor->getClassName()
+                         << ' ' << sensor->getDeviceName()
+                         << ' ' << sensor->getHeightString();
                     for ( ; ci != cfs.end(); ++ci) {
                         CalFile* cf = ci->second;
-                        try {
-                            cf->open();
-                            cout << ", calfile: " << cf->getCurrentFileName();
-                        }
-                        catch(const n_u::IOException&e) {
-                            cout << ", calfile: " << e.what();
-                        }
+                        resolveCalFile(cf);
                     }
                     cout << endl;
                 }
@@ -462,16 +478,14 @@ void PConfig::showCalFiles(const Project& project)
                         if (vc) {
                             CalFile* cf = vc->getCalFile();
                             if (cf) {
-                                cout << "site: " << site->getName() << ", dsm: " << dsm->getName() <<
-                                    ", sensor: " << sensor->getCatalogName() << ' ' << sensor->getClassName() <<
-                                    ' ' << sensor->getDeviceName() << ", variable: " << var->getName();
-                                try {
-                                    cf->open();
-                                    cout << ", calfile: " << cf->getCurrentFileName();
-                                }
-                                catch(const n_u::IOException&e) {
-                                    cout << ", calfile: " << e.what();
-                                }
+                                cout << "site: " << site->getName()
+                                     << ", dsm: " << dsm->getName()
+                                     << ", sensor: "
+                                     << sensor->getCatalogName()
+                                     << ' ' << sensor->getClassName()
+                                     << ' ' << sensor->getDeviceName()
+                                     << ", variable: " << var->getName();
+                                resolveCalFile(cf);
                                 cout << endl;
                             }
                         }
