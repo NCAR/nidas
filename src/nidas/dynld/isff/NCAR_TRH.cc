@@ -130,7 +130,9 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     }
 
     // Finally, we need to process variables in a particular order,
-    // followed by anything else that wasn't inserted already.
+    // followed by anything else that wasn't inserted already.  Clear the
+    // compute order in case validate() is called multiple times.
+    _compute_order.clear();
     convertNext(_traw);
     convertNext(_rhraw);
     convertNext(_t);
@@ -200,7 +202,7 @@ getRawTempCoefficients()
 {
     return _Ta;
 }
-    
+
 
 std::vector<float>
 NCAR_TRH::

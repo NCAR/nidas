@@ -95,7 +95,7 @@ public:
 
     std::vector<float>
     getRawTempCoefficients();
-    
+
     std::vector<float>
     getRawRHCoefficients();
 
