@@ -223,7 +223,7 @@ handleRawT(CalFile* cf)
     bool raw = false;
     if (fields.size() == 3 && fields[0] != "raw")
     {
-        WLOG(("") << cf->getFile()
+        WLOG(("") << cf->getCurrentFileName()
              << "[" << cf->getLineNumber() << "]: "
              << "3 fields specified but first field is not 'raw', "
              << "still assuming a raw T calibration.");
@@ -241,7 +241,7 @@ handleRawT(CalFile* cf)
         {
             std::ostringstream out;
             out << "raw temperature calibration requested in "
-                << cf->getFile() << ", line " << cf->getLineNumber()
+                << cf->getCurrentFileName() << ", line " << cf->getLineNumber()
                 << ", but Traw is not available from this sensor: "
                 << getName();
             throw n_u::InvalidParameterException(out.str());
@@ -269,7 +269,7 @@ handleRawRH(CalFile* cf)
     bool raw = false;
     if (fields.size() == 5 && fields[0] != "raw")
     {
-        WLOG(("") << cf->getFile()
+        WLOG(("") << cf->getCurrentFileName()
              << "[" << cf->getLineNumber() << "]: "
              << "5 fields specified but first field is not 'raw', "
              << "still assuming a raw RH calibration.");
@@ -285,7 +285,7 @@ handleRawRH(CalFile* cf)
         {
             std::ostringstream out;
             out << "raw humidity calibration requested in "
-                << cf->getFile() << ", line " << cf->getLineNumber()
+                << cf->getCurrentFileName() << ", line " << cf->getLineNumber()
                 << ", but RHraw is not available from this sensor: "
                 << getName();
             throw n_u::InvalidParameterException(out.str());
