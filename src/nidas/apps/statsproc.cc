@@ -256,6 +256,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     app.EndTime.setFlags("-E,--end");
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
+    // statsproc does not have a true default input, but a partial socket
+    // input can be specified, without the port, in which case the default
+    // port will be used.
+    app.InputFiles.setDefaultInput("", DEFAULT_PORT);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())

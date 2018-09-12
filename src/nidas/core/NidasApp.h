@@ -259,12 +259,20 @@ public:
     bool allowFiles;
     bool allowSockets;
 
+    /**
+     * Set a default input.  Typically @p spec is a default hostname or
+     * address, and a default port can be passed in @p default_port.  Set
+     * just a default port by passing an empty string in @p spec, in which
+     * case there is no valid default input, but a socket input string
+     * specified without a port (like sock:localhost) will use the default
+     * port.
+     **/
     void
-    setDefaultInput(const std::string& spec, int default_port_ = 0)
+    setDefaultInput(const std::string& spec, int port=0)
     {
         default_input = spec;
-        if (default_port_)
-            default_port = default_port_;
+        if (port)
+            default_port = port;
         updateUsage();
     }
 
