@@ -31,6 +31,10 @@
 
 namespace nidas {
 
+namespace core {
+    class Parameter;
+}
+
 namespace dynld { namespace isff {
 
 /**
@@ -59,6 +63,18 @@ public:
      **/
     void
     setOrientation(const std::string& orientation, const std::string& name="");
+
+    /**
+     * If the given @p parameter is "orientation", call setOrientation()
+     * with the value.  Throws InvalidParameterException if the parameter
+     * is the wrong length or type or the value does not match one of the
+     * supported orientations.  Return true if the parameter was handled,
+     * false otherwise.  Pass @p name to include a sensor name in log and
+     * exception messages.
+     **/
+    bool
+    handleParameter(const nidas::core::Parameter* parameter,
+                    const std::string& name);
 
 protected:
 

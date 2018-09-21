@@ -29,8 +29,12 @@
 
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/Logger.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/Project.h>
 
 using namespace nidas::dynld::isff;
+using nidas::core::Parameter;
+using nidas::core::Project;
 using namespace std;
 
 namespace n_u = nidas::util;
@@ -183,3 +187,26 @@ applyOrientation(float* uvwt)
 }
 
 
+bool
+WindOrienter::
+handleParameter(const Parameter* parameter, const std::string& name)
+{
+    if (parameter->getName() == "orientation") {
+        if (parameter->getType() == Parameter::STRING_PARAM &&
+            parameter->getLength() == 1)
+        {
+            const Project* project = Project::getInstance();
+            setOrientation
+                (project->expandString(parameter->getStringValue(0)),
+                name);
+            return true;
+        }
+        else
+        {
+            throw n_u::InvalidParameterException
+                (name, parameter->getName(),
+                 "must be a string parameter of length 1");
+        }
+    }
+    return false;
+}
