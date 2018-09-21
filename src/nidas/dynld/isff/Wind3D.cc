@@ -231,10 +231,6 @@ void Wind3D::validate() throw(n_u::InvalidParameterException)
 void Wind3D::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-    // Set default values of these parameters from the Project if they exist.
-    // The value can be overridden with sensor parameters, below.
-    const Project* project = Project::getInstance();
-
     const Parameter* parameter =
         Project::getInstance()->getParameter("wind3d_horiz_rotation");
     if (parameter) {
@@ -309,20 +305,8 @@ void Wind3D::parseParameters()
                     "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
             setDoTiltCorrection((bool)parameter->getNumericValue(0));
         }
-        else if (parameter->getName() == "orientation") {
-            if (parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1)
-            {
-                _orienter.setOrientation
-                    (project->expandString(parameter->getStringValue(0)),
-                     getName());
-            }
-            else
-            {
-                throw n_u::InvalidParameterException
-                    (getName(), parameter->getName(),
-                    "must be a string parameter of length 1");
-            }
+        else if (_orienter.handleParameter(parameter, getName())) {
+            // pass
         }
         else if (parameter->getName() == "shadowFactor") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
