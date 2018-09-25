@@ -34,14 +34,6 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
-struct WordSpec
-{
-    int dataBits;
-    Termios::parity parity;
-    int stopBits;
-};
-
-
 // create table indices
 enum PTB220_COMMANDS
 {   NULL_COMMAND = -1, // don't put in table, only used for null return value
@@ -293,35 +285,6 @@ PTB220_INTERVAL_UNITS_ARGS strToIntervalUnits(const char* intervalStr)
 	return strToIntervalUnits(std::string(intervalStr));
 }
 
-// Valid PTB220 Command argument ranges
-struct PTB220_ARG_RANGE {
-    int min;
-    int max;
-};
-
-struct PTB_ARG
-{
-	std::string strArg;
-	int intArg;
-	bool argIsString;
-
-	explicit PTB_ARG(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
-	explicit PTB_ARG(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
-	explicit PTB_ARG(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
-	bool operator==(const PTB_ARG& rRight)
-	{
-		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
-	}
-	bool operator!=(const PTB_ARG& rRight) {return !(*this == rRight);}
-};
-
-struct PTB_CMD_ARG {
-	PTB_CMD_ARG() : cmd(NULL_COMMAND), arg(0) {}
-	PTB_CMD_ARG(PTB220_COMMANDS initCmd, PTB_ARG initArg) : cmd(initCmd), arg(initArg) {}
-    PTB220_COMMANDS cmd;
-    PTB_ARG arg;
-};
-
 /**
  * Sensor class for the PTB220 barometer, built by Vaisala.
  * 
@@ -361,13 +324,8 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
 
 protected:
-    bool checkResponse();
-    void sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg=PTB_ARG(0), bool resetNow=false);
-    bool sweepParameters(bool defaultTested=false);
-    bool installDesiredSensorConfig();
-    void sendScienceParameters();
-    bool checkScienceParameters();
-    bool compareScienceParameter(PTB220_COMMANDS cmd, const char* match);
+    void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0), bool resetNow=false);
+    bool compareScienceParameter(int cmd, const char* match);
     size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
@@ -376,8 +334,14 @@ protected:
         std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         std::cout << std::endl;
     }
-    void updateDesiredScienceParameter(PTB220_COMMANDS cmd, PTB_ARG arg=PTB_ARG(0));
-    PTB_CMD_ARG getDesiredCmd(PTB220_COMMANDS cmd);
+    void updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
+    n_c::SensorCmdData getDesiredCmd(int cmd);
+
+    virtual bool supportsAutoConfig() { return true; }
+    virtual bool checkResponse();
+    virtual bool installDesiredSensorConfig();
+    virtual void sendScienceParameters();
+    virtual bool checkScienceParameters();
 
 private:
     // default serial parameters for the PB210
@@ -433,7 +397,7 @@ private:
     static const int DEFAULT_HEIGHT_CORR = 0;
 
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const PTB_CMD_ARG DEFAULT_SCIENCE_PARAMETERS[];
+    static const n_c::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
 
     // PB210 pre-packaged commands
     static const char* SENSOR_SEND_MODE_CMD_STR;
@@ -495,7 +459,7 @@ private:
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
     static const int NUM_SENSOR_WORD_SPECS = 9;
-    static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
+    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
@@ -509,7 +473,7 @@ private:
     n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
 
-    PTB_CMD_ARG* desiredScienceParameters;
+    n_c::SensorCmdData* desiredScienceParameters;
 
     std::string sensorSWVersion;
     std::string sensorSerialNumber;

@@ -242,4 +242,29 @@
         </sample>
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
+    <!-- Legacy CSAT3 no longer exists - It will always autoconfig -->
+	<serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+        baud="19200" parity="none" databits="8" stopbits="1" timeout="0.5">
+        <parameter name="soniclog" type="string" value="/var/log/isfs/${DSM}${SUFFIX}_${PROJECT}_csat3.log"/>
+        <parameter name="oversample" type="bool" value="false"/>
+        <parameter name="configure" type="bool" value="$CSAT3_INIT"/>
+        <parameter name="checkCounter" type="bool" value="$CSAT3_CKCNTR"/>
+        <calfile name="offsets_angles"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+            file="csat_${HEIGHT}.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR:$ISFS/cal_files"
+            file="csat_abc2uvw_${HEIGHT}_${DSM}.dat"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3" plotrange="$T_RANGE"/>
+            <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp" plotrange="$DIAG_RANGE"/>
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="Horizontal wind speed, CSAT3" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="Wind direction, CSAT3" plotrange="0 360"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="10"/>
+    </serialSensor>
 </sensorcatalog>

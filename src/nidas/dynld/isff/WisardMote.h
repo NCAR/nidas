@@ -91,6 +91,66 @@ namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
 
+/*
+ * AutoConfig enums, etc
+ */
+
+enum MOTE_CMDS
+{
+	NULL_CMD = -1, // don't include in any command tables
+	LIST_CMD,
+	NODE_ID_CMD,
+	SAMP_MODE_CMD,
+	MSG_OUT_CMD,
+	OUT_PORT_CMD,
+	MSG_STORE_CMD,
+	SENSORS_ON_CMD,
+	SENSOR_SRCH_CMD,
+	BT_INTERACTIVE_CMD,
+	XB_INTERACTIVE_CMD,
+	REBOOT_CMD,
+	DATA_RATE_CMD,
+	MSG_CACHE_CMD,
+	PWR_SAMP_RATE_CMD,
+	MSG_STORE_ROLLOVER_CMD,
+	SERIAL_NUMBER_CMD,
+	BRES_TIMING_CMD,
+	BRES_ADJ_CMD,
+	SET_TOD_CMD,
+	SET_ORD_DAY_CMD,
+	EE_CFG_CMD,
+	EE_UPDATE_CMD,
+	EE_INIT_CMD,
+	EE_FLAGS_CMD,
+	EE_LOAD_CMD,
+	VMON_ENABLE_CMD,
+	VMON_LOW_CMD,
+	VMON_START_CMD,
+	VMON_SLEEP_CMD,
+	XB_STATUS_RATE_CMD,
+	XB_STATUS_NOW_CMD,
+	XB_RESET_TIMEOUT_CMD,
+	XB_HEARTBEAT_MSG_CMD,
+	XB_REBOOT_CMD,
+	XB_AT_CMD,
+	XB_RADIO_CMD,
+	XM_GUARD_TIME_CMD,
+	GPS_SYNC_RATE_CMD,
+	GPS_ENABLE_CMD,
+	GPS_FORCE_RTCC_CMD,
+	GPS_INIT_CMD,
+	GPS_REQ_LOCKS_CMD,
+	GPS_LCKTMOUT_CMD,
+	GPS_LCKFAIL_RETRY_CMD,
+	GPS_SENDALL_MSGS_CMD
+};
+
+
+
+/*
+ *  Mote operational details
+ */
+
 struct VarInfo
 {
     const char *name;
@@ -154,6 +214,31 @@ public:
                     SampleTag* stag, SampleT< float >* osamp);
 
     static const nidas::util::EndianConverter * fromLittle;
+
+protected:
+    /*
+     * AutoConfig helpers
+     */
+    virtual bool supportsAutoConfig() { return true; }
+    virtual void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+    virtual bool checkResponse();
+    // There is only one configuration, so this is always successful
+    virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig) { return true; }
+    virtual void sendScienceParameters();
+    virtual bool checkScienceParameters();
+
+    void initCmdTable();
+    void initDesiredScienceParams();
+    void initPortCfgParams();
+    inline void initAutoCfg()
+    {
+    	initCmdTable();
+    	initPortCfgParams();
+    	initDesiredScienceParams();
+    }
+    void updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg = SensorCmdArg());
+    void sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
+    bool checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg);
 
 private:
 
@@ -403,6 +488,101 @@ private:
     };
     std::map<dsm_sample_id_t, TsoilData> _tsoilData;
 
+    /*
+     * AutoConfig attributes
+     */
+    static const int DEFAULT_BAUD_RATE = 9600;
+    static const Termios::parity DEFAULT_PARITY = Termios::ODD;
+    static const int DEFAULT_STOP_BITS = 1;
+    static const int DEFAULT_DATA_BITS = 8;
+    static const int DEFAULT_RTS485 = 0;
+    static const PORT_TYPES DEFAULT_PORT_TYPE = RS232;
+    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
+    static const TERM DEFAULT_SENSOR_TERMINATION = NO_TERM;
+    static const bool DEFAULT_CONFIG_APPLIED = false;
+    static const PortConfig DEFAULT_PORT_CONFIG;
+
+    static const int NUM_SENSOR_BAUDS = 1;
+    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
+    static const int NUM_SENSOR_WORD_SPECS = 1;
+    static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
+    static const int NUM_PORT_TYPES = 1;
+    static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+
+    // default message parameters for the PB210
+    static const int DEFAULT_MESSAGE_LENGTH = 0;
+    static const bool DEFAULT_MSG_SEP_EOM = true;
+    static const char* DEFAULT_MSG_SEP_CHARS;
+
+    static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
+    static const SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
+
+    static const int NODE_ID_MIN = 0;
+    static const int NODE_ID_MAX = 99;
+    static const int SAMP_MODE_MIN = 0;
+    static const int SAMP_MODE_MAX = 1;
+    static const int MSG_MODE_MIN = 0;
+    static const int MSG_MODE_MAX = 2;
+    static const int OUT_PORT_MIN = 0;
+    static const int OUT_PORT_MAX = 1;
+    static const int DATA_RATE_MIN = 0;
+    static const int DATA_RATE_MAX = 99; // ?? bigger??
+    static const int MSG_CACHE_MIN = 0;
+    static const int MSG_CACHE_MAX = 9; // ?? bigger??
+    static const int PWR_SAMP_RATE_MIN = 0;
+    static const int PWR_SAMP_RATE_MAX = 99; // ?? bigger??
+    static const int MSG_STORE_ROLLOVER_MIN = 0;
+    static const int MSG_STORE_ROLLOVER_DEFAULT = 600;
+    static const int MSG_STORE_ROLLOVER_MAX = 1200; // ?? bigger??
+    static const int SN_REPORT_RATE_MIN = 0;
+    static const int SN_REPORT_RATE_DEFAULT = 0;
+    static const int SN_REPORT_RATE_MAX = 99; // ?? bigger??
+    static const int BRES_TIMING_MIN = 40000000;
+    static const int BRES_TIMING_DEFAULT = BRES_TIMING_MIN;
+    static const int BRES_TIMING_MAX = 80000000; // ?? bigger??
+    static const int SET_TOD_MIN = 000000;
+    static const int SET_TOD_MAX = 235959;
+    static const int SET_ORD_DAY_MIN = 1;
+    static const int SET_ORD_DAY_MAX = 365;
+    static const int VMON_LOW_MIN = 0;
+    static const int VMON_LOW_MAX = 14400;
+    static const int VMON_HIGH_MIN = 0;
+    static const int VMON_HIGH_MAX = 14400;
+    static const int VMON_SLEEP_TIME_MIN = 0;
+    static const int VMON_SLEEP_TIME_MAX = 9999; // ?? bigger ??
+    static const int XB_STATUS_RATE_MIN = 0;
+    static const int XB_STATUS_RATE_MAX = 99; // ?? bigger ??
+    static const int XB_STATUS_RST_TMOUT_MIN = 0;
+    static const int XB_STATUS_RST_TMOUT_MAX = 99; // ?? bigger ??
+    static const int XB_GUARD_TIME_MIN = 0;
+    static const int XB_GUARD_TIME_DEFAULT = 120;
+    static const int XB_GUARD_TIME_MAX = 999; // ??
+    static const int GPS_SYNC_RATE_MIN = 0;
+    static const int GPS_SYNC_RATE_DEFAULT = 43200;
+    static const int GPS_SYNC_RATE_MAX = 6*GPS_SYNC_RATE_DEFAULT;
+    static const int GPS_REQ_LOCKS_MIN = 1;
+    static const int GPS_REQ_LOCKS_DEFAULT = 2;
+    static const int GPS_REQ_LOCKS_MAX = 6;
+    static const int GPS_LCKTMOUT_MIN = 0;
+    static const int GPS_LCKTMOUT_DEFAULT = 180;
+    static const int GPS_LCKTMOUT_MAX = 600;
+    static const int GPS_LCKFAIL_RETRY_MIN = 0;
+    static const int GPS_LCKFAIL_RETRY_MAX = 600;
+    static const int GPS_MSGS_LOCKED = 0;
+    static const int GPS_MSGS_ALL = 1;
+
+    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
+
+
+    MessageConfig defaultMessageConfig;
+
+    typedef std::map<MOTE_CMDS, SensorCmdArg> ScienceParamMap;
+    ScienceParamMap desiredScienceParameters;
+    bool scienceParametersOk;
+
+    typedef std::map<MOTE_CMDS, std::string> CmdMap;
+    CmdMap _commandTable;
+
     /** No copying. */
     WisardMote(const WisardMote&);
 
@@ -410,5 +590,7 @@ private:
     WisardMote& operator=(const WisardMote&);
 
 };
+
 }}}                             // nidas::dynld::isff
+
 #endif                          /* WISARDMOTE_H_ */

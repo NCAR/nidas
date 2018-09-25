@@ -177,19 +177,19 @@ const PortConfig PTB220::DEFAULT_PORT_CONFIG(PTB220::DEFAULT_BAUD_RATE, PTB220::
                                              PTB220::DEFAULT_SENSOR_POWER, PTB220::DEFAULT_RTS485,
                                              PTB220::DEFAULT_CONFIG_APPLIED);
 
-const PTB_CMD_ARG PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
-	PTB_CMD_ARG(DEFAULT_PRESS_UNITS_CMD, PTB_ARG(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),
-	PTB_CMD_ARG(DEFAULT_TEMP_UNITS_CMD, PTB_ARG(pressTempUnitsArgsToStr(DEFAULT_TEMP_UNITS))),
-	PTB_CMD_ARG(DEFAULT_OUTPUT_RATE_CMD, PTB_ARG(DEFAULT_OUTPUT_RATE)),
-	PTB_CMD_ARG(DEFAULT_OUTPUT_RATE_UNITS_CMD, PTB_ARG(DEFAULT_OUTPUT_RATE_UNIT)),
-	PTB_CMD_ARG(DEFAULT_SAMPLE_AVERAGING_CMD, PTB_ARG(DEFAULT_AVG_TIME)),
-	PTB_CMD_ARG(DEFAULT_OUTPUT_FORMAT_CMD, PTB_ARG(DEFAULT_SENSOR_OUTPUT_FORMAT)),
-	PTB_CMD_ARG(DEFAULT_SENSOR_SEND_MODE_CMD, PTB_ARG(DEFAULT_SENSOR_SEND_MODE))
+const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
+	n_c::SensorCmdData(DEFAULT_PRESS_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),
+	n_c::SensorCmdData(DEFAULT_TEMP_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_TEMP_UNITS))),
+	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE)),
+	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE_UNIT)),
+	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_AVG_TIME)),
+	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT)),
+	n_c::SensorCmdData(DEFAULT_SENSOR_SEND_MODE_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_SEND_MODE))
 };
 
-const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(PTB_CMD_ARG);
+const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
 
-const char* PTB220::DEFAULT_SENSOR_OUTPUT_FORMAT = "\"B\" ADDR " " 4.3 P1 3.1 T1 #r #n";
+const char* PTB220::DEFAULT_SENSOR_OUTPUT_FORMAT = "\"B\" ADDR \" \" 4.3 P1 3.1 T1 #r #n";
 const char* PTB220::DEFAULT_SENSOR_SEND_MODE = "RUN";
 const char* PTB220::DEFAULT_OUTPUT_RATE_UNIT = "s";
 
@@ -459,7 +459,20 @@ PTB220::PTB220()
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
-    desiredScienceParameters = new PTB_CMD_ARG[NUM_DEFAULT_SCIENCE_PARAMETERS];
+    // Let the base class know about PTB210 RS232 limitations
+    for (int i=0; i<NUM_PORT_TYPES; ++i) {
+    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
+    	_baudRateList.push_back(SENSOR_BAUDS[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
+    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
+    }
+
+    desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
@@ -509,14 +522,14 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config. May not have happened, so still need to take a look below.
                 if (aname == "pressunits") {
-                    updateDesiredScienceParameter(SENSOR_PRESS_UNIT_CMD, PTB_ARG(strToPressTempUnits(upperAval)));
+                    updateDesiredScienceParameter(SENSOR_PRESS_UNIT_CMD, n_c::SensorCmdArg(strToPressTempUnits(upperAval)));
                 }
                 if (aname == "tempunits") {
-                    updateDesiredScienceParameter(SENSOR_TEMP_UNIT_CMD, PTB_ARG(strToPressTempUnits(upperAval)));
+                    updateDesiredScienceParameter(SENSOR_TEMP_UNIT_CMD, n_c::SensorCmdArg(strToPressTempUnits(upperAval)));
                 }
                 else if (aname == "outputformat") {
                 	// Just assume they know what they're doin'
-                    updateDesiredScienceParameter(SENSOR_DATA_OUTPUT_FORMAT_CMD, PTB_ARG(upperAval));
+                    updateDesiredScienceParameter(SENSOR_DATA_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(upperAval));
                 }
                 else if (aname == "averagetime") {
                     istringstream ist(aval);
@@ -526,7 +539,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("PTB220:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_AVG_TIME_CMD, PTB_ARG(val));
+                    updateDesiredScienceParameter(SENSOR_AVG_TIME_CMD, n_c::SensorCmdArg(val));
                 }
                 else if (aname == "outputintvl") {
                     istringstream ist(aval);
@@ -536,7 +549,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("PTB220:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, PTB_ARG(val));
+                    updateDesiredScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, n_c::SensorCmdArg(val));
                 }
                 else if (aname == "outputintvlunit") {
                 	std::string arg(upperAval);
@@ -544,7 +557,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("PTB220:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, PTB_ARG(arg));
+                    updateDesiredScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, n_c::SensorCmdArg(arg));
                 }
                 else if (aname == "address") {
                     istringstream ist(aval);
@@ -554,7 +567,7 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                         throw n_u::InvalidParameterException(
                             string("PTB220:") + getName(), aname, aval);
 
-                    updateDesiredScienceParameter(SENSOR_ADDR_CMD, PTB_ARG(addr));
+                    updateDesiredScienceParameter(SENSOR_ADDR_CMD, n_c::SensorCmdArg(addr));
                 }
             }
         }
@@ -577,10 +590,10 @@ bool PTB220::installDesiredSensorConfig()
 
         serPortFlush(O_RDWR);
         
-        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, PTB_ARG(desiredPortConfig.termios.getBaudRate()));
-        sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, PTB_ARG(desiredPortConfig.termios.getParityString(true)));
-        sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, PTB_ARG(desiredPortConfig.termios.getDataBits()));
-        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, PTB_ARG(desiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
+        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getBaudRate()));
+        sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getParityString(true)));
+        sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getDataBits()));
+        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
 
         setPortConfig(desiredPortConfig);
         applyPortConfig();
@@ -810,9 +823,9 @@ bool PTB220::checkScienceParameters() {
     return scienceParametersOK;
 }
 
-bool PTB220::compareScienceParameter(PTB220_COMMANDS cmd, const char* match)
+bool PTB220::compareScienceParameter(int cmd, const char* match)
 {
-    PTB_CMD_ARG desiredCmd = getDesiredCmd(cmd);
+    n_c::SensorCmdData desiredCmd = getDesiredCmd(cmd);
     VLOG(("Looking for command: ") << cmd);
     VLOG(("Found command: ") << desiredCmd.cmd);
 
@@ -852,7 +865,7 @@ bool PTB220::compareScienceParameter(PTB220_COMMANDS cmd, const char* match)
     return false;
 }
 
-PTB_CMD_ARG PTB220::getDesiredCmd(PTB220_COMMANDS cmd) {
+n_c::SensorCmdData PTB220::getDesiredCmd(int cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -863,84 +876,8 @@ PTB_CMD_ARG PTB220::getDesiredCmd(PTB220_COMMANDS cmd) {
 
     VLOG(("Requested cmd not found: ") << cmd);
 
-    PTB_CMD_ARG nullRetVal(NULL_COMMAND, PTB_ARG(0));
+    n_c::SensorCmdData nullRetVal(NULL_COMMAND, n_c::SensorCmdArg(0));
     return(nullRetVal);
-}
-
-bool PTB220::sweepParameters(bool defaultTested)
-{
-    bool foundIt = false;
-
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-        int rts485 = 0;
-        n_c::PORT_TYPES portType = SENSOR_PORT_TYPES[i];
-
-        if (portType == n_c::RS485_HALF)
-            rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
-        else if (portType == n_c::RS422)
-            rts485 = -1; // always high, since there are two drivers going both ways
-
-        for (int j=0; j<NUM_SENSOR_BAUDS; ++j) {
-            int baud = SENSOR_BAUDS[j];
-
-            for (int k=0; k<NUM_SENSOR_WORD_SPECS; ++k) {
-                WordSpec wordSpec = SENSOR_WORD_SPECS[k];
-
-                // get the existing port config to preserve the port
-                // which only gets set on construction
-                testPortConfig = getPortConfig();
-
-                // now set it to the new parameters
-                setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                    wordSpec.stopBits, rts485, portType, NO_TERM, 
-                                                    DEFAULT_SENSOR_POWER);
-
-				DLOG(("Asking for PortConfig:") << testPortConfig);
-
-                // don't test the default if already tested.
-                if (defaultTested && isDefaultConfig(testPortConfig))
-                {
-                    // skip
-                    NLOG((""));
-                    NLOG(("Skipping default configuration since it's already tested..."));
-                    continue;
-                }
-
-                setPortConfig(testPortConfig);
-                applyPortConfig();
-
-				NLOG((""));
-				NLOG(("Testing PortConfig: ") << getPortConfig());
-
-                DLOG(("Checking response once..."));
-                if (doubleCheckResponse()) {
-                    foundIt = true;
-                    return foundIt;
-                } 
-                else {
-                    if (portType == n_c::RS485_HALF || portType == n_c::RS422) {
-                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM, 
-                                                            DEFAULT_SENSOR_POWER);
-						DLOG(("Asking for PortConfig:") << testPortConfig);
-
-                        setPortConfig(testPortConfig);
-                        applyPortConfig();
-
-						NLOG(("Testing PortConfig on RS422/RS485 with termination: ") << getPortConfig());
-
-                        if (doubleCheckResponse()) {
-                            foundIt = true;
-                            return foundIt;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return foundIt;
 }
 
 bool PTB220::checkResponse()
@@ -1123,7 +1060,7 @@ bool PTB220::checkResponse()
 }
 
 
-void PTB220::sendSensorCmd(PTB220_COMMANDS cmd, PTB_ARG arg, bool resetNow)
+void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
@@ -1298,7 +1235,7 @@ size_t PTB220::readResponse(void *buf, size_t len, int msecTimeout)
     return read(buf,len);
 }
 
-void PTB220::updateDesiredScienceParameter(PTB220_COMMANDS cmd, PTB_ARG arg) {
+void PTB220::updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {
             desiredScienceParameters[i].arg = arg;

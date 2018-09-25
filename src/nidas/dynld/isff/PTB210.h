@@ -174,11 +174,9 @@ protected:
     virtual bool checkResponse();
     virtual void sendSensorCmd(int cmd, n_c::SensorCmdArg arg = n_c::SensorCmdArg(0), bool resetNow=false);
     virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
-    bool configureScienceParameters();
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(PTB_COMMANDS cmd, const char* match);
-    size_t readResponse(void *buf, size_t len, int msecTimeout);
     void updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg=0);
     n_c::SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
 
@@ -263,7 +261,6 @@ private:
     // static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 100; // 100mSec
     static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
-    n_c::PortConfig testPortConfig;
     n_c::MessageConfig defaultMessageConfig;
     n_c::SensorCmdData* desiredScienceParameters;
 

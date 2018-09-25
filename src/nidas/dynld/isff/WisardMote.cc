@@ -31,13 +31,16 @@
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/util/util.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/InvalidParameterException.h>
+#include <nidas/util/IOException.h>
 
 #include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <regex.h>
 
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;
@@ -47,6 +50,12 @@ using namespace std;
 namespace n_u = nidas::util;
 
 #define MSECS_PER_HALF_DAY 43200000
+
+/*
+ * Used for AutoConfig
+ */
+static void compileRegex();
+static void freeRegex();
 
 /* static */
 bool WisardMote::_functionsMapped = false;
@@ -68,7 +77,8 @@ map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-    _sampleTagsById(),
+	SerialSensor(DEFAULT_PORT_CONFIG),
+	_sampleTagsById(),
     _processorSensor(0),
     _sensorSerialNumbersByMoteIdAndType(),
     _sequenceNumbersByMoteId(),
@@ -79,13 +89,29 @@ WisardMote::WisardMote() :
     _noSampleTags(),
     _ignoredSensorTypes(),
     _nowarnSensorTypes(),
-    _tsoilData()
+    _tsoilData(),
+    defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    desiredScienceParameters(),
+    scienceParametersOk(false),
+    _commandTable()
 {
     setDuplicateIdOK(true);
     initFuncMap();
+
+    /*
+     * AutoConfig setup
+     *
+     * We set the defaults at construction,
+     * letting the base class modify according to fromDOMElement()
+     */
+    setMessageParameters(defaultMessageConfig);
+
+    compileRegex();
+    initAutoCfg();
 }
 WisardMote::~WisardMote()
 {
+	freeRegex();
 }
 
 void WisardMote::validate()
@@ -676,10 +702,10 @@ namespace {
                 if (val != _missValueUint8)
                     *fp++ = val * scale;
                 else
-                    *fp++ = floatNAN;
+                    *fp++ = nidas::core::floatNAN;
             }
         }
-        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
         return cp;
     }
 
@@ -696,10 +722,10 @@ namespace {
                 if (val != _missValueUint16)
                     *fp++ = val * scale;
                 else
-                    *fp++ = floatNAN;
+                    *fp++ = nidas::core::floatNAN;
             }
         }
-        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
         return cp;
     }
 
@@ -716,10 +742,10 @@ namespace {
                 if (val != _missValueInt16)
                     *fp++ = val * scale;
                 else
-                    *fp++ = floatNAN;
+                    *fp++ = nidas::core::floatNAN;
             }
         }
-        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
         return cp;
     }
 
@@ -736,10 +762,10 @@ namespace {
                 if (val != _missValueUint32)
                     *fp++ = val * scale;
                 else
-                    *fp++ = floatNAN;
+                    *fp++ = nidas::core::floatNAN;
             }
         }
-        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
         return cp;
     }
 
@@ -755,9 +781,9 @@ namespace {
             if (val != _missValueInt32)
                 *fp++ = val * scale;
             else
-                *fp++ = floatNAN;
+                *fp++ = nidas::core::floatNAN;
         }
-        for ( ; i < nfields; i++) *fp++ = floatNAN;
+        for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
         return cp;
     }
 
@@ -1779,3 +1805,658 @@ SampInfo WisardMote::_samps[] = {
     },
     { 0, 0, { {0,0,0,0} }, WST_NORMAL },
 };
+
+/*
+ * AutoConfig Details
+ */
+const PortConfig WisardMote::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS,
+                                             	 DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION, DEFAULT_SENSOR_POWER,
+												 DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+
+const int WisardMote::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {38400};
+
+const WordSpec WisardMote::SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
+{
+	{8,Termios::NONE,1},
+};
+const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+
+//Default message parameters for the WisardMote
+const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
+
+static const char* NODEID_REGEX_STR =    		"ID[[:digit:]]+: 'id(=[[:digit:]])*'=([[:digit:]]+)";
+static const char* DATA_RATE_REGEX_STR =        "ID[[:digit:]]+: 'dr(=[[:digit:]])*'=([[:digit:]]+)";
+static const char* MSG_MODE_REGEX_STR =         "ID[[:digit:]]+: 'mp'*=([[:digit:]])'*";
+static const char* OUT_PORT_REGEX_STR =         "ID[[:digit:]]+: 'pp'*=([[:digit:]])'*";
+static const char* SENSORS_ON_REGEX_STR =       "ID[[:digit:]]+: 'sensors(ON|OFF)'";
+
+static regex_t regexNodeID;
+static regex_t regexDataRate;
+static regex_t regexMsgMode;
+static regex_t regexOutPort;
+static regex_t regexSensorsOn;
+
+static void compileRegex() {
+    static bool regexCompiled = false;
+    int regStatus = 0;
+
+    if (!regexCompiled) {
+    	regStatus = ::regcomp(&regexNodeID, NODEID_REGEX_STR, REG_EXTENDED);
+        regexCompiled = !regStatus;
+        if (regStatus) {
+            char regerrbuf[64];
+            regerror(regStatus, &regexNodeID, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("WisardMote Node ID regular expression", string(regerrbuf));
+        }
+
+        regStatus = ::regcomp(&regexDataRate, DATA_RATE_REGEX_STR, REG_EXTENDED);
+        regexCompiled = !regStatus;
+        if (regStatus) {
+            char regerrbuf[64];
+            regerror(regStatus, &regexDataRate, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("WisardMote Data Rate regular expression", string(regerrbuf));
+        }
+
+        regStatus = ::regcomp(&regexMsgMode, MSG_MODE_REGEX_STR, REG_EXTENDED);
+        regexCompiled = !regStatus;
+        if (regStatus) {
+            char regerrbuf[64];
+            regerror(regStatus, &regexMsgMode, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("WisardMote Message Mode regular expression", string(regerrbuf));
+        }
+
+        regStatus = ::regcomp(&regexOutPort, OUT_PORT_REGEX_STR, REG_EXTENDED);
+        regexCompiled = !regStatus;
+        if (regStatus) {
+            char regerrbuf[64];
+            regerror(regStatus, &regexOutPort, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("WisardMote Out Port regular expression", string(regerrbuf));
+        }
+
+        regStatus = ::regcomp(&regexSensorsOn, SENSORS_ON_REGEX_STR, REG_EXTENDED);
+        regexCompiled = !regStatus;
+        if (regStatus) {
+            char regerrbuf[64];
+            regerror(regStatus, &regexSensorsOn, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("WisardMote Sensors On regular expression", string(regerrbuf));
+        }
+    }
+}
+
+static void freeRegex() {
+    regfree(&regexNodeID);
+    regfree(&regexDataRate);
+    regfree(&regexMsgMode);
+}
+
+void WisardMote::initCmdTable()
+{
+	_commandTable[LIST_CMD] = 				"\r?\r";
+	_commandTable[NODE_ID_CMD] = 			"id\r";
+	_commandTable[SAMP_MODE_CMD] = 			"md\r";
+	_commandTable[MSG_OUT_CMD] = 			"mp\r";
+	_commandTable[OUT_PORT_CMD] = 			"pp\r";
+	_commandTable[MSG_STORE_CMD] = 			"fs\r";
+	_commandTable[SENSORS_ON_CMD] = 		"sensors\r";
+	_commandTable[SENSOR_SRCH_CMD] = 		"scani2c\r";
+	_commandTable[BT_INTERACTIVE_CMD] = 	"btradio\r";
+	_commandTable[XB_INTERACTIVE_CMD] =		"XBtalk\r";
+	_commandTable[REBOOT_CMD] = 			"reboot\r";
+	_commandTable[DATA_RATE_CMD] = 			"dr\r";
+	_commandTable[MSG_CACHE_CMD] = 			"cache\r";
+	_commandTable[PWR_SAMP_RATE_CMD] = 		"sp\r";
+	_commandTable[MSG_STORE_ROLLOVER_CMD] = "sfr\r";
+	_commandTable[SERIAL_NUMBER_CMD] =		"sn\r";
+	_commandTable[BRES_TIMING_CMD] = 		"bf\r";
+	_commandTable[BRES_ADJ_CMD] = 			"ba\r";
+	_commandTable[SET_TOD_CMD] = 			"st\r";
+	_commandTable[SET_ORD_DAY_CMD] =		"jd\r";
+	_commandTable[EE_CFG_CMD] = 			"eecfg\r";
+	_commandTable[EE_UPDATE_CMD] = 			"eeupdate\r";
+	_commandTable[EE_INIT_CMD] = 			"eeinit\r";
+	_commandTable[EE_FLAGS_CMD] = 			"eeflags\r";
+	_commandTable[EE_LOAD_CMD] = 			"eeload\r";
+	_commandTable[VMON_ENABLE_CMD] = 		"vm\r";
+	_commandTable[VMON_LOW_CMD] = 			"vl\r";
+	_commandTable[VMON_START_CMD] = 		"vh\r";
+	_commandTable[VMON_SLEEP_CMD] = 		"vs\r";
+	_commandTable[XB_STATUS_RATE_CMD] =		"sx\r";
+	_commandTable[XB_STATUS_NOW_CMD] = 		"xs\r";
+	_commandTable[XB_RESET_TIMEOUT_CMD] = 	"xr\r";
+	_commandTable[XB_HEARTBEAT_MSG_CMD] = 	"hb\r";
+	_commandTable[XB_REBOOT_CMD] =			"rxb\r";
+	_commandTable[XB_AT_CMD] = 				"xb\r";
+	_commandTable[XB_RADIO_CMD] = 			"xv\r";
+	_commandTable[XM_GUARD_TIME_CMD] = 		"xg\r";
+	_commandTable[GPS_SYNC_RATE_CMD] = 		"gr\r";
+	_commandTable[GPS_ENABLE_CMD] = 		"gps\r";
+	_commandTable[GPS_FORCE_RTCC_CMD] = 	"gforce\r";
+	_commandTable[GPS_INIT_CMD] = 			"ginit\r";
+	_commandTable[GPS_REQ_LOCKS_CMD] = 		"gnl\r";
+	_commandTable[GPS_LCKTMOUT_CMD] = 		"gto\r";
+	_commandTable[GPS_LCKFAIL_RETRY_CMD] = 	"gfr\r";
+	_commandTable[GPS_SENDALL_MSGS_CMD] = 	"gmf\r";
+}
+
+void WisardMote::initDesiredScienceParams()
+{
+}
+
+void WisardMote::initPortCfgParams()
+{
+    // Let the SerialSensor base class know about WisardMote serial port limitations
+    for (int i=0; i<NUM_PORT_TYPES; ++i) {
+    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
+    	_baudRateList.push_back(SENSOR_BAUDS[i]);
+    }
+
+    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
+    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
+    }
+}
+
+void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
+{
+	try {
+		SerialSensor::fromDOMElement(node);
+
+	    XDOMElement xnode(node);
+
+	    xercesc::DOMNode* child;
+	    for (child = node->getFirstChild(); child != 0;
+		    child=child->getNextSibling())
+	    {
+	        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+	            continue;
+	        XDOMElement xchild((xercesc::DOMElement*) child);
+	        const string& elname = xchild.getNodeName();
+
+	        if (elname == "autoconfig") {
+	            // get all the attributes of the node
+	            xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
+	            int nSize = pAttributes->getLength();
+
+	            for(int i=0; i<nSize; ++i) {
+	                XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+	                // get attribute name
+	                const std::string& aname = attr.getName();
+	                const std::string& aval = attr.getValue();
+
+	                // xform everything to uppercase - this shouldn't affect numbers
+	                string upperAval = aval;
+	                std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
+	                DLOG(("PTB210:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+	                std::istringstream avalXformer;
+	                int iArg = 0;
+
+	                // start with science parameters, assuming SerialSensor took care of any overrides to
+	                // the default port config.
+	                if (aname == "nodeid") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(NODE_ID_MIN, iArg, NODE_ID_MAX)) {
+	                		updateScienceParameter(NODE_ID_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "samplemode") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+
+	                	if (RANGE_CHECK_INC(SAMP_MODE_MIN, iArg, SAMP_MODE_MAX)) {
+	                		updateScienceParameter(SAMP_MODE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "msgmode") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(MSG_MODE_MIN, iArg, MSG_MODE_MAX)) {
+	                		updateScienceParameter(MSG_OUT_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "outputport") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(OUT_PORT_MIN, iArg, OUT_PORT_MAX)) {
+	                		updateScienceParameter(OUT_PORT_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "msgstore") {
+	                	if (upperAval == "ON" || upperAval == "TRUE") {
+	                		updateScienceParameter(MSG_STORE_CMD, SensorCmdArg("ON"));
+	                	}
+	                	else if (upperAval == "OFF" || upperAval == "FALSE") {
+	                		updateScienceParameter(MSG_STORE_CMD, SensorCmdArg("OFF"));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "enablesensors") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "OFF" || upperAval == "FALSE") {
+	                		updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("ON"));
+	                	}
+	                	else if (upperAval == "OFF" || upperAval == "FALSE") {
+	                		updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("OFF"));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "scansensors") {
+						updateScienceParameter(SENSOR_SRCH_CMD);
+	                }
+	                else if (aname == "regexDataRate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(DATA_RATE_MIN, iArg, DATA_RATE_MAX)) {
+	                		updateScienceParameter(DATA_RATE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "pwrsamprate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(PWR_SAMP_RATE_MIN, iArg, PWR_SAMP_RATE_MAX)) {
+	                		updateScienceParameter(PWR_SAMP_RATE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "msgrollover") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(MSG_STORE_ROLLOVER_MIN, iArg, MSG_STORE_ROLLOVER_MAX)) {
+	                		updateScienceParameter(MSG_STORE_ROLLOVER_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "snreportrate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(SN_REPORT_RATE_MIN, iArg, SN_REPORT_RATE_MAX)) {
+	                		updateScienceParameter(SERIAL_NUMBER_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "settime") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(SET_TOD_MIN, iArg, SET_TOD_MAX)) {
+	                		updateScienceParameter(SET_TOD_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "setday") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(SET_ORD_DAY_MIN, iArg, SET_ORD_DAY_MAX)) {
+	                		updateScienceParameter(SET_ORD_DAY_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "battmon") {
+	                	if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "OFF" || upperAval == "FALSE") {
+	                		updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(upperAval));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "battlow") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(VMON_LOW_MIN, iArg, VMON_LOW_MAX)) {
+	                		updateScienceParameter(VMON_LOW_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "batthigh") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(VMON_HIGH_MIN, iArg, VMON_HIGH_MAX)) {
+	                		updateScienceParameter(VMON_START_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "vmonsleep") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(VMON_SLEEP_TIME_MIN, iArg, VMON_SLEEP_TIME_MIN)) {
+	                		updateScienceParameter(VMON_SLEEP_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "xbstatusrate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(XB_STATUS_RATE_MIN, iArg, XB_STATUS_RATE_MAX)) {
+	                		updateScienceParameter(XB_STATUS_RATE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "xbstatusrate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(XB_STATUS_RATE_MIN, iArg, XB_STATUS_RATE_MAX)) {
+	                		updateScienceParameter(XB_STATUS_RATE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "gpssyncrate") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(GPS_SYNC_RATE_MIN, iArg, GPS_SYNC_RATE_MAX)) {
+	                		updateScienceParameter(GPS_SYNC_RATE_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "gpsenable") {
+	                	if (upperAval == "ON" || upperAval == "TRUE") {
+	                		updateScienceParameter(	GPS_ENABLE_CMD, SensorCmdArg("ON"));
+	                	}
+	                	else if (upperAval == "OFF" || upperAval == "FALSE") {
+	                		updateScienceParameter(	GPS_ENABLE_CMD, SensorCmdArg("OFF"));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "gpslocks") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(GPS_REQ_LOCKS_MIN, iArg, GPS_REQ_LOCKS_MAX)) {
+	                		updateScienceParameter(GPS_REQ_LOCKS_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "gpsretry") {
+	                	avalXformer.clear();
+	                	avalXformer.str(upperAval);
+	                	try {
+	                		avalXformer >> iArg;
+	                	} catch (std::exception e) {
+							throw n_u::InvalidParameterException(
+								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+	                	}
+	                	if (RANGE_CHECK_INC(GPS_LCKFAIL_RETRY_MIN, iArg, GPS_LCKFAIL_RETRY_MAX)) {
+	                		updateScienceParameter(GPS_LCKFAIL_RETRY_CMD, SensorCmdArg(iArg));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	                else if (aname == "gpsmsgs") {
+	                	if (upperAval == "ALL" || upperAval == "ANY") {
+	                		updateScienceParameter(	GPS_ENABLE_CMD, SensorCmdArg(GPS_MSGS_ALL));
+	                	}
+	                	else if (upperAval == "LOCKED" || upperAval == "LOCK") {
+	                		updateScienceParameter(	GPS_ENABLE_CMD, SensorCmdArg(GPS_MSGS_LOCKED));
+	                	}
+	                    else
+	                        throw n_u::InvalidParameterException(
+									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+	                }
+	            }
+	        }
+	    }
+
+	} catch (n_u::InvalidParameterException& e) {
+		WLOG(("WisardMote::fromDOMElement(): SerialSensor::fromDOMElement() failed: ") << e.what());
+	}
+}
+
+void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
+{
+	CmdMap::iterator cmdIter = _commandTable.find(cmd);
+
+	if (cmdIter != _commandTable.end()) {
+		std::string cmdStr = cmdIter->second;
+		if (!arg.argIsNull) {
+			int insertIdx = cmdStr.find_first_of ('\r');
+			if (arg.argIsString) {
+				cmdStr.insert(insertIdx+1, arg.strArg);
+			}
+			else {
+				std::ostringstream argStr;
+				argStr << arg.intArg;
+				cmdStr.insert(insertIdx+1, "=" + argStr.str());
+			}
+		}
+
+        DLOG(("WisardMote::sendSensorCmd() - sending command: ") << cmdStr);
+
+        // write command out slowly
+        for (unsigned int i=0; i<cmdStr.length(); ++i) {
+            write(&(cmdStr.c_str()[i]), 1);
+            usleep(CHAR_WRITE_DELAY);
+        }
+	}
+
+	else {
+		std::ostringstream eString;
+		eString << "WisardMote::sendSensorCmd(): unknown command index - " << cmd;
+		throw InvalidParameterException( eString.str());
+	}
+}
+
+bool WisardMote::checkResponse()
+{
+	sendSensorCmd(DATA_RATE_CMD, SensorCmdArg(0));
+	return checkCmdResponse(DATA_RATE_CMD, SensorCmdArg(0));
+}
+
+void WisardMote::sendScienceParameters()
+{
+	DLOG(("WisardMote::sendScienceParameters()"));
+	ScienceParamMap::iterator sciIter = desiredScienceParameters.begin();
+	if (sciIter != desiredScienceParameters.end()) {
+	    // flush the serial port - read and write
+	    serPortFlush(O_RDWR);
+		sendSensorCmd(sciIter->first, sciIter->second);
+		scienceParametersOk = (scienceParametersOk && checkCmdResponse(sciIter->first, sciIter->second));
+		sciIter++;
+
+		while (scienceParametersOk && sciIter++ != desiredScienceParameters.end()) {
+		    // flush the serial port - read and write
+		    serPortFlush(O_RDWR);
+			sendSensorCmd(sciIter->first, sciIter->second);
+			scienceParametersOk = (scienceParametersOk && checkCmdResponse(sciIter->first, sciIter->second));
+		}
+	}
+}
+
+bool WisardMote::checkScienceParameters()
+{
+	return scienceParametersOk;
+}
+
+void WisardMote::updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg){
+	desiredScienceParameters[cmd] = arg;
+}
+
+bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
+{
+    static const int BUF_SIZE = 512;
+    int bufRemaining = BUF_SIZE;
+    char respBuf[BUF_SIZE];
+    memset(respBuf, 0, BUF_SIZE);
+    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, 2000);
+
+    regmatch_t matches[4];
+    int nmatch = sizeof(matches) / sizeof(regmatch_t);
+    regex_t* pRegexInfo = 0;
+    string argStr = "";
+
+    // get the matching regex
+    switch (cmd) {
+    	case NODE_ID_CMD:
+    		pRegexInfo = &regexNodeID;
+    		break;
+    	case DATA_RATE_CMD:
+    		pRegexInfo = &regexDataRate;
+    		break;
+    	default:
+    		break;
+    }
+
+    int regexStatus = regexec(pRegexInfo, respBuf, nmatch, matches, 0);
+    if ((regexStatus == 0) && (matches[2].rm_so >= 0)) {
+        argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+    }
+    else {
+        char regerrbuf[64];
+        ::regerror(regexStatus, pRegexInfo, regerrbuf, sizeof regerrbuf);
+        throw n_u::ParseException("WisardMote::checkCmdResponse(): regexec(): ", string(regerrbuf));
+    }
+}
+

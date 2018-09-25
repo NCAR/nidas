@@ -556,12 +556,11 @@ bool GILL2D::checkScienceParameters()
     sendSensorCmd(SENSOR_DIAG_QRY_CMD, n_c::SensorCmdArg(OPER_CONFIG));
 
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("GILL2D::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
 
     if (numCharsRead ) {
@@ -792,9 +791,11 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
 		if (cmd == SENSOR_QRY_ID_CMD) {
 			unsigned stxPos = respStr.find_first_of('\x02');
 			unsigned etxPos = respStr.find_first_of('\x03', stxPos);
-			if (etxPos != string::npos && (etxPos - stxPos) == 2) {
-				// we can probably believe that we have captured the unit address response
-				unitId = respStr[stxPos+1];
+			if (etxPos != string::npos && etxPos != string::npos) {
+				if ((etxPos - stxPos) == 2) {
+					// we can probably believe that we have captured the unit address response
+					unitId = respStr[stxPos+1];
+				}
 			}
 		}
 		else if (cmd == SENSOR_SERIAL_BAUD_CMD || cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
@@ -877,7 +878,7 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 	DLOG(("Reading the confirmation response..."));
 	char confirmRespBuf[10];
 	memset(confirmRespBuf, 0, 10);
-	size_t numRespChars = readEntireResponse(confirmRespBuf, 10, 2000);
+	std::size_t numRespChars = readEntireResponse(confirmRespBuf, 10, 2000);
 	std::string respStr(confirmRespBuf, numRespChars);
 	DLOG(("Confirmation Response: ") << respStr);
 	DLOG(("confirmGillSerialPortChange(): exit"));
@@ -885,7 +886,7 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 	return 	(respStr.find(entireCmd.str()) != std::string::npos);
 }
 
-size_t GILL2D::readResponse(void *buf, size_t len, int msecTimeout)
+std::size_t GILL2D::readResponse(void *buf, std::size_t len, int msecTimeout)
 {
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -910,7 +911,7 @@ size_t GILL2D::readResponse(void *buf, size_t len, int msecTimeout)
     return read(buf,len);
 }
 
-size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
+std::size_t GILL2D::readEntireResponse(void *buf, std::size_t len, int msecTimeout)
 {
 	char* cbuf = (char*)buf;
 	int bufRemaining = len;
@@ -920,7 +921,7 @@ size_t GILL2D::readEntireResponse(void *buf, size_t len, int msecTimeout)
 
 	if (numCharsRead > 0) {
 		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-		for (size_t i=0; i<5; ++i) {
+		for (std::size_t i=0; i<5; ++i) {
 			char hexBuf[51];
 			memset(hexBuf, 0, 51);
 			for (int j=0; j<10; ++j) {
@@ -958,7 +959,6 @@ bool GILL2D::checkConfigMode(bool continuous)
 {
 	bool retVal = false;
     static const int BUF_SIZE = 75;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
     int numCharsRead = 0;
@@ -985,10 +985,9 @@ bool GILL2D::checkConfigMode(bool continuous)
     		DLOG(("Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));
     }
 
-    bufRemaining = BUF_SIZE;
     memset(respBuf, 0, BUF_SIZE);
 
-    numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
+    numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
     if (numCharsRead) {
         std::string respStr;

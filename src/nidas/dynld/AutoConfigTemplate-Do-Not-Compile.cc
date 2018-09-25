@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include "PTB210.h"
+#include "AutoConfigTemplate-Do-Not-Compile.h"
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/ParseException.h>
 
@@ -35,36 +35,40 @@
 using namespace nidas::core;
 using namespace std;
 
-NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
+/*
+ * Required for DYNLD feature to work!!!
+ */
+NIDAS_CREATOR_FUNCTION(AutoConfigTemplate)
+//NIDAS_CREATOR_FUNCTION_NS(isff, AutoConfigTemplate)
 
-namespace nidas { namespace dynld { namespace isff {
+namespace nidas { namespace dynld { //namespace isff {
 
-const char* PTB210::DEFAULT_MSG_SEP_CHARS = "\r\n";
+const char* AutoConfigTemplate::DEFAULT_MSG_SEP_CHARS = "\r\n";
 
-const char* PTB210::SENSOR_RESET_CMD_STR = ".RESET\r";
-const char* PTB210::SENSOR_SERIAL_BAUD_CMD_STR = ".BAUD.\r";
-const char* PTB210::SENSOR_SERIAL_EVENP_WORD_CMD_STR = ".E71\r";
-const char* PTB210::SENSOR_SERIAL_ODDP_WORD_CMD_STR = ".O71\r";
-const char* PTB210::SENSOR_SERIAL_NOP_WORD_CMD_STR = ".N81\r";
-const char* PTB210::SENSOR_PRESS_MIN_CMD_STR = ".PMIN.\r";
-const char* PTB210::SENSOR_PRESS_MAX_CMD_STR = ".PMAX.\r";
-const char* PTB210::SENSOR_MEAS_RATE_CMD_STR = ".MPM.\r";
-const char* PTB210::SENSOR_NUM_SAMP_AVG_CMD_STR = ".AVRG.\r";
-const char* PTB210::SENSOR_POWER_DOWN_CMD_STR = ".PD\r";
-const char* PTB210::SENSOR_POWER_UP_CMD_STR = "\r";
-const char* PTB210::SENSOR_SINGLE_SAMP_CMD_STR = ".P\r";
-const char* PTB210::SENSOR_START_CONT_SAMP_CMD_STR = ".BP\r";
-const char* PTB210::SENSOR_STOP_CONT_SAMP_CMD_STR = "\r";
-const char* PTB210::SENSOR_SAMP_UNIT_CMD_STR = ".UNIT.\r";
-const char* PTB210::SENSOR_EXC_UNIT_CMD_STR = ".FORM.0";
-const char* PTB210::SENSOR_INC_UNIT_CMD_STR = ".FORM.1";
-const char* PTB210::SENSOR_CORRECTION_ON_CMD_STR = ".MPCON\r";
-const char* PTB210::SENSOR_CORRECTION_OFF_CMD_STR = ".MPCOFF\r";
-const char* PTB210::SENSOR_TERM_ON_CMD_STR = ".RON\r";
-const char* PTB210::SENSOR_TERM_OFF_CMD_STR = ".ROFF\r";
-const char* PTB210::SENSOR_CONFIG_QRY_CMD_STR = "\r.?\r";
+const char* AutoConfigTemplate::SENSOR_RESET_CMD_STR = ".RESET\r";
+const char* AutoConfigTemplate::SENSOR_SERIAL_BAUD_CMD_STR = ".BAUD.\r";
+const char* AutoConfigTemplate::SENSOR_SERIAL_EVENP_WORD_CMD_STR = ".E71\r";
+const char* AutoConfigTemplate::SENSOR_SERIAL_ODDP_WORD_CMD_STR = ".O71\r";
+const char* AutoConfigTemplate::SENSOR_SERIAL_NOP_WORD_CMD_STR = ".N81\r";
+const char* AutoConfigTemplate::SENSOR_PRESS_MIN_CMD_STR = ".PMIN.\r";
+const char* AutoConfigTemplate::SENSOR_PRESS_MAX_CMD_STR = ".PMAX.\r";
+const char* AutoConfigTemplate::SENSOR_MEAS_RATE_CMD_STR = ".MPM.\r";
+const char* AutoConfigTemplate::SENSOR_NUM_SAMP_AVG_CMD_STR = ".AVRG.\r";
+const char* AutoConfigTemplate::SENSOR_POWER_DOWN_CMD_STR = ".PD\r";
+const char* AutoConfigTemplate::SENSOR_POWER_UP_CMD_STR = "\r";
+const char* AutoConfigTemplate::SENSOR_SINGLE_SAMP_CMD_STR = ".P\r";
+const char* AutoConfigTemplate::SENSOR_START_CONT_SAMP_CMD_STR = ".BP\r";
+const char* AutoConfigTemplate::SENSOR_STOP_CONT_SAMP_CMD_STR = "\r";
+const char* AutoConfigTemplate::SENSOR_SAMP_UNIT_CMD_STR = ".UNIT.\r";
+const char* AutoConfigTemplate::SENSOR_EXC_UNIT_CMD_STR = ".FORM.0";
+const char* AutoConfigTemplate::SENSOR_INC_UNIT_CMD_STR = ".FORM.1";
+const char* AutoConfigTemplate::SENSOR_CORRECTION_ON_CMD_STR = ".MPCON\r";
+const char* AutoConfigTemplate::SENSOR_CORRECTION_OFF_CMD_STR = ".MPCOFF\r";
+const char* AutoConfigTemplate::SENSOR_TERM_ON_CMD_STR = ".RON\r";
+const char* AutoConfigTemplate::SENSOR_TERM_OFF_CMD_STR = ".ROFF\r";
+const char* AutoConfigTemplate::SENSOR_CONFIG_QRY_CMD_STR = "\r.?\r";
 
-const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
+const char* AutoConfigTemplate::cmdTable[NUM_SENSOR_CMDS] =
 {
     SENSOR_RESET_CMD_STR,
     SENSOR_SERIAL_BAUD_CMD_STR,
@@ -94,23 +98,21 @@ const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
 
 // NOTE: list sensor bauds from highest to lowest as the higher 
 //       ones are the most likely
-const int PTB210::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
-const WordSpec PTB210::SENSOR_WORD_SPECS[PTB210::NUM_SENSOR_WORD_SPECS] = {
+const int AutoConfigTemplate::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
+const WordSpec AutoConfigTemplate::SENSOR_WORD_SPECS[AutoConfigTemplate::NUM_SENSOR_WORD_SPECS] = {
     {7,Termios::EVEN,1}, 
     {7,Termios::ODD,1}, 
     {8,Termios::NONE,1}
 };
-const n_c::PORT_TYPES PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
+const n_c::PORT_TYPES AutoConfigTemplate::SENSOR_PORT_TYPES[AutoConfigTemplate::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
 
 // static default configuration to send to base class...
-const PortConfig PTB210::DEFAULT_PORT_CONFIG(PTB210::DEFAULT_BAUD_RATE, PTB210::DEFAULT_DATA_BITS,
-                                             PTB210::DEFAULT_PARITY, PTB210::DEFAULT_STOP_BITS,
-                                             PTB210::DEFAULT_PORT_TYPE, PTB210::DEFAULT_SENSOR_TERMINATION, 
-                                             PTB210::DEFAULT_SENSOR_POWER, PTB210::DEFAULT_RTS485, 
-                                             PTB210::DEFAULT_CONFIG_APPLIED);
+const PortConfig AutoConfigTemplate::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS,
+                                             	 	 	 DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION, DEFAULT_SENSOR_POWER,
+														 DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
 
-const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
+const n_c::SensorCmdData AutoConfigTemplate::DEFAULT_SCIENCE_PARAMETERS[] = {
     n_c::SensorCmdData(DEFAULT_PRESSURE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_PRESSURE_UNITS)),
 	n_c::SensorCmdData(DEFAULT_SAMPLE_RATE_CMD, n_c::SensorCmdArg(DEFAULT_SAMPLE_RATE)),
 	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_NUM_SAMPLES_AVERAGED)),
@@ -118,11 +120,11 @@ const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_USE_CORRECTION_CMD, n_c::SensorCmdArg(0))
 };
 
-const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
+const int AutoConfigTemplate::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
 
-/* Typical PTB210 .? query response. All line endings are \r\n
+/* Typical AutoConfigSensor .? query response. All line endings are \r\n
  * 
- * PTB210 Ver 2.0                                              
+ * AutoConfigSensor Ver 2.0
  * CAL DATE       :2017-08-15                                  
  * ID CODE        :0                                           
  * SERIAL NUMBER  :N3310370                                    
@@ -137,19 +139,23 @@ const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
  */
 
 
+/*
+ * Helper regex structures and functions for checking response, etc.
+ */
+
 // regular expression strings, contexts, compilation
 // NOTE: the regular expressions need to search a buffer w/multiple lines separated by \r\n
-static const char* PTB210_VER_REGEX_STR =           "PTB210 Ver ([[:digit:]].[[:digit:]])[[:space:]]+";
-static const char* PTB210_CAL_DATE_REGEX_STR =      "(.*[[:space:]]+)+CAL DATE[[:blank:]]+:([[digit:]]{4}(-[[:digit:]]{2}){2}))[[:space:]]+";
-static const char* PTB210_ID_CODE_REGEX_STR =       "(.*[[:space:]]+)+ID CODE[[:blank:]]+:([[:digit:]]{1,3})[[:space:]]+";
-static const char* PTB210_SERIAL_NUMBER_REGEX_STR = "(.*[[:space:]]+)+SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)[[:space:]]+";
-static const char* PTB210_MULTI_PT_CORR_REGEX_STR = "(.*[[:space:]]+)+MULTIPOINT CORR:(ON|OFF)[[:space:]]+";
-static const char* PTB210_MEAS_PER_MIN_REGEX_STR =  "(.*[[:space:]]+)+MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})[[:space:]]+";
-static const char* PTB210_NUM_SMPLS_AVG_REGEX_STR = "(.*[[:space:]]+)+AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3})[[:space:]]+";
-static const char* PTB210_PRESS_UNIT_REGEX_STR =    "(.*[[:space:]]+)+PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})[[:space:]]+";
-static const char* PTB210_PRESS_MINMAX_REGEX_STR =  "(.*[[:space:]]+)+Pressure Min...Max:[[:blank:]]+([[:digit:]]{1,5})[[:blank:]]+([[:digit:]]{1,5})[[:space:]]+";
-static const char* PTB210_CURR_MODE_REGEX_STR =     "(.*[[:space:]]+)+CURRENT MODE";
-static const char* PTB210_RS485_RES_REGEX_STR =     "(.*[[:space:]]+)+RS485 RESISTOR (ON|OFF)[[:space:]]+";
+static const char* AutoConfigSensor_VER_REGEX_STR =           "AutoConfigSensor Ver ([[:digit:]].[[:digit:]])[[:space:]]+";
+static const char* AutoConfigSensor_CAL_DATE_REGEX_STR =      "(.*[[:space:]]+)+CAL DATE[[:blank:]]+:([[digit:]]{4}(-[[:digit:]]{2}){2}))[[:space:]]+";
+static const char* AutoConfigSensor_ID_CODE_REGEX_STR =       "(.*[[:space:]]+)+ID CODE[[:blank:]]+:([[:digit:]]{1,3})[[:space:]]+";
+static const char* AutoConfigSensor_SERIAL_NUMBER_REGEX_STR = "(.*[[:space:]]+)+SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)[[:space:]]+";
+static const char* AutoConfigSensor_MULTI_PT_CORR_REGEX_STR = "(.*[[:space:]]+)+MULTIPOINT CORR:(ON|OFF)[[:space:]]+";
+static const char* AutoConfigSensor_MEAS_PER_MIN_REGEX_STR =  "(.*[[:space:]]+)+MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})[[:space:]]+";
+static const char* AutoConfigSensor_NUM_SMPLS_AVG_REGEX_STR = "(.*[[:space:]]+)+AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3})[[:space:]]+";
+static const char* AutoConfigSensor_PRESS_UNIT_REGEX_STR =    "(.*[[:space:]]+)+PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})[[:space:]]+";
+static const char* AutoConfigSensor_PRESS_MINMAX_REGEX_STR =  "(.*[[:space:]]+)+Pressure Min...Max:[[:blank:]]+([[:digit:]]{1,5})[[:blank:]]+([[:digit:]]{1,5})[[:space:]]+";
+static const char* AutoConfigSensor_CURR_MODE_REGEX_STR =     "(.*[[:space:]]+)+CURRENT MODE";
+static const char* AutoConfigSensor_RS485_RES_REGEX_STR =     "(.*[[:space:]]+)+RS485 RESISTOR (ON|OFF)[[:space:]]+";
 
 static regex_t version;
 static regex_t calDate;
@@ -168,87 +174,87 @@ static bool compileRegex() {
     int regStatus = 0;
 
     if (!regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&version, PTB210_VER_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&version, AutoConfigSensor_VER_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &version, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 version regular expression", string(regerrbuf));
+            throw n_u::ParseException("AutoConfigSensor version regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&calDate, PTB210_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&calDate, AutoConfigSensor_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &calDate, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 cal date regular expression", string(regerrbuf));
+            throw n_u::ParseException("AutoConfigSensor cal date regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&idCode, PTB210_ID_CODE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&idCode, AutoConfigSensor_ID_CODE_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&idCode,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 id code regular expression", string(regerrbuf));
+            throw n_u::ParseException("AutoConfigSensor id code regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&serNum, PTB210_SERIAL_NUMBER_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&serNum, AutoConfigSensor_SERIAL_NUMBER_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus, &serNum, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 serial number regular expression", string(regerrbuf));
+            throw n_u::ParseException("AutoConfigSensor serial number regular expression", string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&multiCorr, PTB210_MULTI_PT_CORR_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&multiCorr, AutoConfigSensor_MULTI_PT_CORR_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&multiCorr,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 multipoint correction regular expression",
+            throw n_u::ParseException("AutoConfigSensor multipoint correction regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&measRate, PTB210_MEAS_PER_MIN_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&measRate, AutoConfigSensor_MEAS_PER_MIN_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&measRate,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 measurement rate regular expression",
+            throw n_u::ParseException("AutoConfigSensor measurement rate regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&averageSamp, PTB210_NUM_SMPLS_AVG_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&averageSamp, AutoConfigSensor_NUM_SMPLS_AVG_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&averageSamp,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 samples averaged regular expression",
+            throw n_u::ParseException("AutoConfigSensor samples averaged regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&pressUnit, PTB210_PRESS_UNIT_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&pressUnit, AutoConfigSensor_PRESS_UNIT_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&pressUnit,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 pressure unit regular expression",
+            throw n_u::ParseException("AutoConfigSensor pressure unit regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&pressMinMax, PTB210_PRESS_MINMAX_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&pressMinMax, AutoConfigSensor_PRESS_MINMAX_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&pressMinMax,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 min/max pressure range regular expression",
+            throw n_u::ParseException("AutoConfigSensor min/max pressure range regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&currentMode, PTB210_CURR_MODE_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&currentMode, AutoConfigSensor_CURR_MODE_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&currentMode,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 current mode regular expression",
+            throw n_u::ParseException("AutoConfigSensor current mode regular expression",
                 string(regerrbuf));
         }
 
-        regexCompiled = (regStatus = ::regcomp(&termination, PTB210_RS485_RES_REGEX_STR, REG_EXTENDED)) == 0;
+        regexCompiled = (regStatus = ::regcomp(&termination, AutoConfigSensor_RS485_RES_REGEX_STR, REG_EXTENDED)) == 0;
         if (regStatus) {
             char regerrbuf[64];
             regerror(regStatus,&termination,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB210 termination resistor regular expression",
+            throw n_u::ParseException("AutoConfigSensor termination resistor regular expression",
                 string(regerrbuf));
         }
     }
@@ -270,16 +276,15 @@ static void freeRegex() {
     regfree(&termination);
 }
 
-PTB210::PTB210()
-    : SerialSensor(DEFAULT_PORT_CONFIG),
-      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+AutoConfigTemplate::AutoConfigTemplate()
+    : SerialSensor(DEFAULT_PORT_CONFIG), defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
 
-    // Let the base class know about PTB210 RS232 limitations
+    // Let the base class know about AutoConfigTemplate RS232 limitations
     for (int i=0; i<NUM_PORT_TYPES; ++i) {
     	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
     }
@@ -300,13 +305,13 @@ PTB210::PTB210()
     compileRegex();
 }
 
-PTB210::~PTB210()
+AutoConfigTemplate::~AutoConfigTemplate()
 {
     freeRegex();
     delete [] desiredScienceParameters;
 }
 
-void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
+void AutoConfigTemplate::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
     // let the base classes have first shot at it, since we only care about an autoconfig child element
     // however, any duplicate items in autoconfig will override any items in the base classes
@@ -337,12 +342,12 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                 // xform everything to uppercase - this shouldn't affect numbers
                 string upperAval = aval;
                 std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
-                DLOG(("PTB210:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+                DLOG(("AutoConfigSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
                 if (aname == "pressunits") {
-                    PTB_PRESSURE_UNITS units = mbar;
+                    AUTOCONFIG_SENSOR_ATTRIB_VALUES units = mbar;
                     if (upperAval == "HPA") {
                         units = hPa;
                     }
@@ -378,7 +383,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
+                            string("AutoConfigSensor:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_SAMP_UNIT_CMD, units);
                 }
@@ -391,7 +396,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
+                            string("AutoConfigSensor:") + getName(), aname, aval);
                 }
                 else if (aname == "samplesaveraged") {
                     istringstream ist(aval);
@@ -399,7 +404,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     ist >> val;
                     if (ist.fail() || val < SENSOR_SAMPLE_AVG_MIN || val > SENSOR_SAMPLE_AVG_MAX)
                         throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
+                            string("AutoConfigSensor:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, val);
                 }
@@ -409,7 +414,7 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     ist >> val;
                     if (ist.fail() || val < SENSOR_MEAS_RATE_MIN || val > SENSOR_MEAS_RATE_MAX)
                         throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
+                            string("AutoConfigSensor:") + getName(), aname, aval);
 
                     updateDesiredScienceParameter(SENSOR_MEAS_RATE_CMD, val);
                 }
@@ -422,14 +427,14 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                     }
                     else
                         throw n_u::InvalidParameterException(
-                            string("PTB210:") + getName(), aname, aval);
+                            string("AutoConfigSensor:") + getName(), aname, aval);
                 }
             }
         }
     }
 }
 
-bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
+bool AutoConfigTemplate::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 {
     bool installed = false;
     const PortConfig sensorPortConfig = getPortConfig();
@@ -437,7 +442,7 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
     // at this point we need to determine whether or not the current working config
     // is the desired config, and adjust as necessary
     if (rDesiredConfig != sensorPortConfig) {
-        // Gotta modify the PTB210 parameters first, and the modify our parameters to match and hope for the best.
+        // Gotta modify the AutoConfigSensor parameters first, and the modify our parameters to match and hope for the best.
         // We only do this for the serial and science parameters, as the sensor is physically configured to use
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to
         // physically reconfigure the sensor and re-start the auto-config process.
@@ -447,7 +452,7 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 
         sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(rDesiredConfig.termios.getBaudRate()));
 
-        // PTB210 only supports three combinations of word format - all based on parity
+        // AutoConfigSensor only supports three combinations of word format - all based on parity
         // So just force it based on parity. Go ahead and reset now, so we can see if we're
         // still talking to each other...
         switch (rDesiredConfig.termios.getParityString(true).c_str()[0]) {
@@ -473,7 +478,7 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
             if (!doubleCheckResponse()) {
-				NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
+				NLOG(("AutoConfigTemplate::installDesiredSensorConfig() failed to achieve sensor communication "
 						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
 
                 setPortConfig(sensorPortConfig);
@@ -486,10 +491,10 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
                           "to set the desired config no longer works. Really messed up now!"));
                 }
 
-				DLOG(("PTB210 reset to original!!!") << getPortConfig());
+				DLOG(("AutoConfigSensor reset to original!!!") << getPortConfig());
             }
             else {
-				NLOG(("Success!! PTB210 set to desired configuration!!!") << getPortConfig());
+				NLOG(("Success!! AutoConfigSensor set to desired configuration!!!") << getPortConfig());
                 installed = true;
             }
         }
@@ -510,7 +515,7 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
     return installed;
 }
 
-void PTB210::sendScienceParameters() {
+void AutoConfigTemplate::sendScienceParameters() {
     bool desiredIsDefault = true;
 
     DLOG(("Check for whether the desired science parameters are the same as the default"));
@@ -534,9 +539,9 @@ void PTB210::sendScienceParameters() {
     usleep(SENSOR_RESET_WAIT_TIME);
 }
 
-bool PTB210::checkScienceParameters() {
+bool AutoConfigTemplate::checkScienceParameters() {
 
-    VLOG(("PTB210::checkScienceParameters() - Flush port and send query command"));
+    VLOG(("AutoConfigTemplate::checkScienceParameters() - Flush port and send query command"));
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
@@ -547,7 +552,7 @@ bool PTB210::checkScienceParameters() {
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
+    VLOG(("AutoConfigTemplate::checkScienceParameters() - Read the entire response"));
     int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
@@ -578,7 +583,7 @@ bool PTB210::checkScienceParameters() {
 
     }
 
-    VLOG(("PTB210::checkScienceParameters() - Check the individual parameters available to us"));
+    VLOG(("AutoConfigTemplate::checkScienceParameters() - Check the individual parameters available to us"));
     bool scienceParametersOK = false;
     int regexStatus = -1;
     regmatch_t matches[4];
@@ -655,7 +660,7 @@ bool PTB210::checkScienceParameters() {
     return scienceParametersOK;
 }
 
-bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
+bool AutoConfigTemplate::compareScienceParameter(AUTOCONFIG_SENSOR_COMMANDS cmd, const char* match)
 {
     n_c::SensorCmdData desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
@@ -686,8 +691,8 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
 
         // Need to match the command argument, which are all ints
         case SENSOR_SAMP_UNIT_CMD:
-            VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match) ? "TRUE" : "FALSE"));
-            return (desiredCmd.arg.intArg == pressUnitStr2PressUnit(match));
+            VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == sensorUnitStr2SensorUnit(match) ? "TRUE" : "FALSE"));
+            return (desiredCmd.arg.intArg == sensorUnitStr2SensorUnit(match));
             break;
 
         case SENSOR_SERIAL_BAUD_CMD:
@@ -711,7 +716,7 @@ bool PTB210::compareScienceParameter(PTB_COMMANDS cmd, const char* match)
     return false;
 }
 
-n_c::SensorCmdData PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
+n_c::SensorCmdData AutoConfigTemplate::getDesiredCmd(AUTOCONFIG_SENSOR_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (desiredScienceParameters[i].cmd == cmd) {
@@ -726,19 +731,19 @@ n_c::SensorCmdData PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
     return(nullRetVal);
 }
 
-bool PTB210::checkResponse()
+bool AutoConfigTemplate::checkResponse()
 {
-    static const char* PTB210_VER_STR =           "PTB210 Ver";
-    static const char* PTB210_CAL_DATE_STR =      "CAL DATE";
-    static const char* PTB210_ID_CODE_STR =       "ID CODE";
-    static const char* PTB210_SERIAL_NUMBER_STR = "SERIAL NUMBER";
-    static const char* PTB210_MULTI_PT_CORR_STR = "MULTIPOINT CORR";
-    static const char* PTB210_MEAS_PER_MIN_STR =  "MEAS PER MINUTE";
-    static const char* PTB210_NUM_SMPLS_AVG_STR = "AVERAGING";
-    static const char* PTB210_PRESS_UNIT_STR =    "PRESSURE UNIT";
-    static const char* PTB210_PRESS_MINMAX_STR =  "Pressure Min...Max";
-    static const char* PTB210_CURR_MODE_STR =     "CURRENT MODE";
-    static const char* PTB210_RS485_RES_STR =     "RS485 RESISTOR";
+    static const char* AutoConfigSensor_VER_STR =           "AutoConfigSensor Ver";
+    static const char* AutoConfigSensor_CAL_DATE_STR =      "CAL DATE";
+    static const char* AutoConfigSensor_ID_CODE_STR =       "ID CODE";
+    static const char* AutoConfigSensor_SERIAL_NUMBER_STR = "SERIAL NUMBER";
+    static const char* AutoConfigSensor_MULTI_PT_CORR_STR = "MULTIPOINT CORR";
+    static const char* AutoConfigSensor_MEAS_PER_MIN_STR =  "MEAS PER MINUTE";
+    static const char* AutoConfigSensor_NUM_SMPLS_AVG_STR = "AVERAGING";
+    static const char* AutoConfigSensor_PRESS_UNIT_STR =    "PRESSURE UNIT";
+    static const char* AutoConfigSensor_PRESS_MINMAX_STR =  "Pressure Min...Max";
+    static const char* AutoConfigSensor_CURR_MODE_STR =     "CURRENT MODE";
+    static const char* AutoConfigSensor_RS485_RES_STR =     "RS485 RESISTOR";
 
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
@@ -780,59 +785,59 @@ bool PTB210::checkResponse()
 
         // This is where the response is checked for signature elements
         int foundPos = 0;
-        bool retVal = (foundPos = respStr.find(PTB210_VER_STR, foundPos) != string::npos);
+        bool retVal = (foundPos = respStr.find(AutoConfigSensor_VER_STR, foundPos) != string::npos);
         if (retVal) {
-            retVal = (foundPos = respStr.find(PTB210_CAL_DATE_STR, foundPos+strlen(PTB210_VER_STR)) != string::npos);
+            retVal = (foundPos = respStr.find(AutoConfigSensor_CAL_DATE_STR, foundPos+strlen(AutoConfigSensor_VER_STR)) != string::npos);
             if (retVal) {
-                retVal = (foundPos = respStr.find(PTB210_ID_CODE_STR, foundPos+strlen(PTB210_CAL_DATE_STR)) != string::npos);
+                retVal = (foundPos = respStr.find(AutoConfigSensor_ID_CODE_STR, foundPos+strlen(AutoConfigSensor_CAL_DATE_STR)) != string::npos);
                 if (retVal) {
-                    retVal = (foundPos = respStr.find(PTB210_SERIAL_NUMBER_STR, foundPos+strlen(PTB210_ID_CODE_STR)) != string::npos);
+                    retVal = (foundPos = respStr.find(AutoConfigSensor_SERIAL_NUMBER_STR, foundPos+strlen(AutoConfigSensor_ID_CODE_STR)) != string::npos);
                     if (retVal) {
-                        retVal = (foundPos = respStr.find(PTB210_MULTI_PT_CORR_STR, foundPos+strlen(PTB210_SERIAL_NUMBER_STR)) != string::npos);
+                        retVal = (foundPos = respStr.find(AutoConfigSensor_MULTI_PT_CORR_STR, foundPos+strlen(AutoConfigSensor_SERIAL_NUMBER_STR)) != string::npos);
                         if (retVal) {
-                            retVal = (foundPos = respStr.find(PTB210_MEAS_PER_MIN_STR, foundPos+strlen(PTB210_MULTI_PT_CORR_STR)) != string::npos);
+                            retVal = (foundPos = respStr.find(AutoConfigSensor_MEAS_PER_MIN_STR, foundPos+strlen(AutoConfigSensor_MULTI_PT_CORR_STR)) != string::npos);
                             if (retVal) {
-                                retVal = (foundPos = respStr.find(PTB210_NUM_SMPLS_AVG_STR, foundPos+strlen(PTB210_MEAS_PER_MIN_STR)) != string::npos);
+                                retVal = (foundPos = respStr.find(AutoConfigSensor_NUM_SMPLS_AVG_STR, foundPos+strlen(AutoConfigSensor_MEAS_PER_MIN_STR)) != string::npos);
                                 if (retVal) {
-                                    retVal = (foundPos = respStr.find(PTB210_PRESS_UNIT_STR, foundPos+strlen(PTB210_NUM_SMPLS_AVG_STR)) != string::npos);
+                                    retVal = (foundPos = respStr.find(AutoConfigSensor_PRESS_UNIT_STR, foundPos+strlen(AutoConfigSensor_NUM_SMPLS_AVG_STR)) != string::npos);
                                     if (retVal) {
-                                        retVal = (foundPos = respStr.find(PTB210_PRESS_MINMAX_STR, foundPos+strlen(PTB210_PRESS_UNIT_STR)) != string::npos);
+                                        retVal = (foundPos = respStr.find(AutoConfigSensor_PRESS_MINMAX_STR, foundPos+strlen(AutoConfigSensor_PRESS_UNIT_STR)) != string::npos);
                                         if (retVal) {
-                                            retVal = (foundPos = respStr.find(PTB210_CURR_MODE_STR, foundPos+strlen(PTB210_PRESS_MINMAX_STR)) != string::npos);
+                                            retVal = (foundPos = respStr.find(AutoConfigSensor_CURR_MODE_STR, foundPos+strlen(AutoConfigSensor_PRESS_MINMAX_STR)) != string::npos);
                                             if (retVal) {
-                                                retVal = (foundPos = respStr.find(PTB210_RS485_RES_STR, foundPos+strlen(PTB210_CURR_MODE_STR)) != string::npos);
+                                                retVal = (foundPos = respStr.find(AutoConfigSensor_RS485_RES_STR, foundPos+strlen(AutoConfigSensor_CURR_MODE_STR)) != string::npos);
                                                 if (!retVal)
-                                                    DLOG(("Coundn't find ") << "\"" << PTB210_RS485_RES_STR << "\"");
+                                                    DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_RS485_RES_STR << "\"");
                                             }
                                             else
-                                                DLOG(("Coundn't find ") << "\"" << PTB210_CURR_MODE_STR << "\"");
+                                                DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_CURR_MODE_STR << "\"");
                                         }
                                         else
-                                            DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_MINMAX_STR << "\"");
+                                            DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_PRESS_MINMAX_STR << "\"");
                                     }
                                     else
-                                        DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_UNIT_STR << "\"");
+                                        DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_PRESS_UNIT_STR << "\"");
                                 }
                                 else
-                                    DLOG(("Coundn't find ") << "\"" << PTB210_NUM_SMPLS_AVG_STR << "\"");
+                                    DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_NUM_SMPLS_AVG_STR << "\"");
                             }
                             else
-                                DLOG(("Coundn't find ") << "\"" << PTB210_MEAS_PER_MIN_STR << "\"");
+                                DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_MEAS_PER_MIN_STR << "\"");
                         }
                         else
-                            DLOG(("Coundn't find ") << "\"" << PTB210_MULTI_PT_CORR_STR << "\"");
+                            DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_MULTI_PT_CORR_STR << "\"");
                     }
                     else
-                        DLOG(("Coundn't find ") << "\"" << PTB210_SERIAL_NUMBER_STR << "\"");
+                        DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_SERIAL_NUMBER_STR << "\"");
                 }
                 else
-                    DLOG(("Coundn't find ") << "\"" << PTB210_ID_CODE_STR << "\"");
+                    DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_ID_CODE_STR << "\"");
             }
             else
-                DLOG(("Coundn't find ") << "\"" << PTB210_CAL_DATE_STR << "\"");
+                DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_CAL_DATE_STR << "\"");
         }
         else
-            DLOG(("Coundn't find ") << "\"" << PTB210_VER_STR << "\"");
+            DLOG(("Coundn't find ") << "\"" << AutoConfigSensor_VER_STR << "\"");
 
         return retVal;
     }
@@ -844,7 +849,7 @@ bool PTB210::checkResponse()
 }
 
 
-void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
+void AutoConfigTemplate::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
 {
     assert(cmd < NUM_SENSOR_CMDS);
     std::string snsrCmd(cmdTable[cmd]);
@@ -885,7 +890,7 @@ void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     }
 
     // Write the command - assume the port is already open
-    // The PTB210 seems to not be able to keep up with a burst of data, so 
+    // The AutoConfigSensor seems to not be able to keep up with a burst of data, so
     // give it some time between chars - i.e. ~80 words/min rate
     DLOG(("Sending command: "));
     DLOG((snsrCmd.c_str()));
@@ -931,8 +936,33 @@ void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     }
 }
 
-void PTB210::updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg) {
-    PTB_COMMANDS srchCmd = cmd;
+std::size_t AutoConfigTemplate::readResponse(void *buf, std::size_t len, int msecTimeout)
+{
+    fd_set fdset;
+    FD_ZERO(&fdset);
+    FD_SET(getReadFd(), &fdset);
+
+    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
+        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
+
+    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+
+    if (res < 0) {
+        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
+        return -1;
+    }
+
+    if (res == 0) {
+        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
+        return 0;
+    }
+
+    // no select timeout or error, so get the goodies out of the buffer...
+    return read(buf,len);
+}
+
+void AutoConfigTemplate::updateDesiredScienceParameter(AUTOCONFIG_SENSOR_COMMANDS cmd, int arg) {
+    AUTOCONFIG_SENSOR_COMMANDS srchCmd = cmd;
 
     // some commands are paired, so look for cmd's opposite pair instead;
     switch (cmd) {

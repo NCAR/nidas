@@ -237,14 +237,8 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
 
 protected:
-    bool checkResponse();
     void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
-    bool installDesiredSensorConfig();
-    void sendScienceParameters();
-    bool checkScienceParameters();
     bool compareScienceParameter(GILL2D_COMMANDS cmd, const char* match);
-    size_t readEntireResponse(void *buf, size_t len, int msecTimeout);
-    size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
         target.print();
@@ -264,6 +258,11 @@ protected:
     }
     bool confirmGillSerialPortChange(int cmd, int arg);
 
+    virtual bool supportsAutoConfig() { return true; }
+    virtual bool checkResponse();
+    virtual bool installDesiredSensorConfig();
+    virtual void sendScienceParameters();
+    virtual bool checkScienceParameters();
 private:
     // default serial parameters for the GIL 2D Wind Observer
     static const int DEFAULT_BAUD_RATE = 9600;

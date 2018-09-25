@@ -78,6 +78,9 @@ extern std::string replaceChars(const std::string& in,const std::string& pat, co
  */
 extern std::string svnStatus(const std::string& path) throw (IOException);
 
+#define RANGE_CHECK_INC(min, val, max) ((min) <= (val) && (val) <= (max))
+#define RANGE_CHECK_EXC(min, val, max) ((min) < (val) && (val) < (max))
+
 }}	// namespace nidas namespace core
 
 #endif

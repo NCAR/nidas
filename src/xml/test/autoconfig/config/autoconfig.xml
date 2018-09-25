@@ -42,16 +42,21 @@
                 devicename="/dev/ttyUSB1" 
                 height="100m" 
                 id="100" / -->
-            <serialSensor 
+            <!-- serialSensor 
                 IDREF="PTB220_AUTO_1"
                 devicename="/dev/ttyUSB1" 
                 height="100m" 
-                id="100" />
+                id="100" / -->
             <!-- serialSensor 
                 IDREF="GILL2D_AUTO_1" 
                 devicename="/dev/ttyUSB5" 
                 height="50m" 
                 id="500" / -->
+            <serialSensor 
+                IDREF="CSAT3" 
+                devicename="/dev/ttyUSB5" 
+                height="200m" 
+                id="600" />
         </dsm>
     </site>
 </project>
