@@ -188,6 +188,11 @@ namespace nidas { namespace util {
 #undef	LOG_INFO
 #undef	LOG_DEBUG
 
+#define LOG_LEVEL                                    \
+    (nidas::util::Logger::getInstance() ?            \
+     Logger::getInstance()->getScheme().logLevel() : \
+     nidas::util::LOGGER_NONE)
+
 #define LOG_CONTEXT(LEVEL) \
     nidas::util::LEVEL, __FILE__, __PRETTY_FUNCTION__, __LINE__
 

@@ -30,6 +30,7 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/time_constants.h>
+#include <nidas/util/Logger.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -84,8 +85,10 @@ public:
      */
     void open(int flags) throw(nidas::util::IOException)
     {
+        ILOG(("UnixIODevice::open : entry"));
         if ((_fd = ::open(getName().c_str(),flags)) < 0)
 		throw nidas::util::IOException(getName(),"open",errno);
+        ILOG(("UnixIODevice::open : exit"));
     }
 
     /**

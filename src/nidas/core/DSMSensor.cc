@@ -338,16 +338,17 @@ void DSMSensor::open(int flags)
     _iodev->setName(getDeviceName());
 
     NLOG(("opening: ") << getDeviceName());
-
     _iodev->open(flags);
+
+    DLOG(("Building and initializing SampleScanner object"));
     if (!_scanner) _scanner = buildSampleScanner();
     _scanner->init();
+    DLOG(("SampleScanner object built and initialized"));
 }
 
 void DSMSensor::close() throw(n_u::IOException) 
 {
-    NLOG(("closing: %s, #timeouts=%d",
-        getDeviceName().c_str(),getTimeoutCount()));
+    NLOG(("closing: %s, #timeouts=%d", getDeviceName().c_str(), getTimeoutCount()));
     if (_iodev) _iodev->close();
 }
 

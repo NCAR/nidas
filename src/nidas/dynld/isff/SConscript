@@ -20,6 +20,7 @@ sources = Split("""
     CSI_IRGA_Sonic.cc
     CU_Coldwire.cc
     DAUSensor.cc
+    GILL2D.cc
     GroundStation.cc
     Licor7500.cc
     MOSMote.cc
@@ -27,6 +28,8 @@ sources = Split("""
     NetcdfRPCChannel.cc
     NetcdfRPCOutput.cc
     PropVane.cc
+    PTB210.cc
+    PTB220.cc
     RebsLinear.cc
     SonicAnemometer.cc
     Wind2D.cc
@@ -42,6 +45,7 @@ headers = Split("""
     CSI_IRGA_Sonic.h
     CU_Coldwire.h
     DAUSensor.h
+    GILL2D.h
     GroundStation.h
     Licor7500.h
     MOSMote.h
@@ -49,6 +53,8 @@ headers = Split("""
     NetcdfRPCChannel.h
     NetcdfRPCOutput.h
     PropVane.h
+    PTB210.h
+    PTB220.h
     RebsLinear.h
     SonicAnemometer.h
     Wind2D.h

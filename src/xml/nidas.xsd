@@ -23,6 +23,22 @@
 </xsd:element>
 </xsd:documentation></xsd:annotation>
 
+<xsd:simpleType> name="serialporttype">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="RS232"/>
+        <xsd:enumeration value="RS422"/>
+        <xsd:enumeration value="RS485_FULL"/>
+        <xsd:enumeration value="RS485_HALF"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType> name="terminationtype">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="NO_TERM"/>
+        <xsd:enumeration value="TERM_120_OHM"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="baudtype">
     <xsd:restriction base="xsd:positiveInteger">
 	<xsd:enumeration value="300"/>
@@ -307,17 +323,22 @@
 
 <xsd:complexType name="serialSensorT">
     <xsd:complexContent>
-	<xsd:extension base="messageSensorT">
-	    <!-- these attributes must occur after the above sequence -->
-	    <!-- Currently can't provide defaults here, because the defaults
-                 then over-ride the values that were specified for a sensor in
-                 the catalog.  Need to fix this. -->
-	    <xsd:attribute name="baud" type="baudtype"/>
-	    <xsd:attribute name="parity" type="paritytype"/>
-	    <xsd:attribute name="databits" type="databitstype"/>
-	    <xsd:attribute name="stopbits" type="stopbitstype"/>
-	    <xsd:attribute name="rts485" type="rts485type"/>
-	</xsd:extension>
+        <xsd:extension base="messageSensorT">
+                <!-- these attributes must occur after the above sequence -->
+                <!-- Currently can't provide defaults here, because the defaults
+                        then over-ride the values that were specified for a sensor in
+                        the catalog.  Need to fix this. -->
+            <xsd:attribute name="porttype" type="serialporttype"/>
+            <xsd:attribute name="termination" type="terminationtype"/>
+            <xsd:attribute name="baud" type="baudtype"/>
+            <xsd:attribute name="parity" type="paritytype"/>
+            <xsd:attribute name="databits" type="databitstype"/>
+            <xsd:attribute name="stopbits" type="stopbitstype"/>
+            <xsd:attribute name="rts485" type="rts485type"/>
+            <xsd:choice minOccurs="0" maxOccurs="1">
+                <xsd:element name="autoconfig" minOccurs="0" maxOccurs="1"/>
+            </xsd:choice>
+        </xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
 

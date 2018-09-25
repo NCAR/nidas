@@ -37,6 +37,14 @@ class AsciiSscanf;
 class Sample;
 class TimetagAdjuster;
 
+struct MessageConfig {
+    MessageConfig(const int initLength, const char* cSep, bool initEom ) 
+        : msgLength(initLength), sep(cSep), sepAtEnd(initEom) {}
+    int msgLength;
+    std::string sep;
+    bool sepAtEnd;
+};
+
 /**
  * Implementation of support for a sensor which generates 
  * character output. Typically this character output is
@@ -103,6 +111,11 @@ public:
       */
     virtual void setMessageParameters(unsigned int length, const std::string& val, bool eom)
         throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    virtual void setMessageParameters(const MessageConfig& rMsgCfg)
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException)
+    {
+        setMessageParameters(rMsgCfg.msgLength, rMsgCfg.sep, rMsgCfg.sepAtEnd);
+    }
 
     /**
      * Get message separator with backslash sequences replaced by their

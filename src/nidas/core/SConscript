@@ -91,6 +91,7 @@ headers = Split("""
     SensorHandler.h
     SensorOpener.h
     SerialPortIODevice.h
+    SerialXcvrCtrl.h
     SerialSensor.h
     ServiceCatalog.h
     Site.h
@@ -187,6 +188,7 @@ sources = Split("""
     SensorHandler.cc
     SensorOpener.cc
     SerialPortIODevice.cc
+    SerialXcvrCtrl.cc
     SerialSensor.cc
     ServiceCatalog.cc
     Site.cc
@@ -238,7 +240,7 @@ else:
 ##  Build the libnidas library. Search other needed libraries.
 ##
 lib = env.SharedLibrary3('nidas' , [sources, aobj, sampleobj],
-                         LIBS = env['LIBS'] + env.NidasUtilLibs() + ['dl'])
+                         LIBS = env['LIBS'] + env.NidasUtilLibs() + ['dl'] + ['usb-1.0', 'ftdi1'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS' + arch: lib[0]})

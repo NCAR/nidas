@@ -9,3 +9,13 @@ doxygen.log
 *.so.*
 # The linux module build directories
 *_
+c_cpp_properties.json
+nidas.code-workspace
+.gitignore
+src/nidas/core/SerialPortIODevice.old.h
+GPATH
+GRTAGS
+GTAGS
+.vscode/settings.json
+/.cproject
+/.project

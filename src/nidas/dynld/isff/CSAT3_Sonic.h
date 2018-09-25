@@ -32,7 +32,21 @@
 
 class TimetagAdjuster;
 
+using namespace nidas::core;
+
+
 namespace nidas { namespace dynld { namespace isff {
+
+/**
+ * AutoConig stuff....
+ */
+enum CSAT_COMMANDS {
+	TERMINAL_MODE_CMD,
+	DATA_MODE_CMD,
+	SYSCFG_QRY_CMD,
+	BAUD_RATE_CMD,
+	NUM_SENSOR_CMDS
+};
 
 /**
  * A class for making sense of data from a Campbell Scientific Inc
@@ -65,7 +79,7 @@ public:
      * will likely need to be changed.
      */
     void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    			       nidas::util::InvalidParameterException);
 
     /**
      * No correction for path curvature is needed on the CSAT,
@@ -110,6 +124,16 @@ protected:
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
+    /*
+     * Autoconfig overrides
+     */
+    virtual bool supportsAutoConfig() { return true; }
+    virtual bool checkResponse();
+    virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig);
+    virtual void sendScienceParameters();
+    virtual bool checkScienceParameters();
+
+
 private:
 
     /**
@@ -137,13 +161,14 @@ private:
      * section 12 of the CSAT3 manual.
      */
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
-        std::string& revsion, int& rtsIndep, int& recSep)
-        throw(nidas::util::IOException);
+    			   std::string& revsion, int& rtsIndep, int& recSep, int& baudRate) throw(nidas::util::IOException);
 
     const char* getRateCommand(int rate,bool overSample) const;
 
-    std::string sendRateCommand(const char* cmd)
-        throw(nidas::util::IOException);
+    void sendBaudCmd(int baud);
+    void sendRTSIndepCmd(bool on=true);
+    void sendRecSepCmd();
+    std::string sendRateCommand(const char* cmd) throw(nidas::util::IOException);
 
     /**
      * expected input sample length of basic CSAT3 record.
@@ -235,6 +260,34 @@ private:
     bool _checkCounter;
 
     nidas::core::TimetagAdjuster* _ttadjuster;
+
+    /**
+     * Serial port autoconfig items
+     */
+    static const PortConfig DEFAULT_PORT_CONFIG;
+    static const PORT_TYPES DEFAULT_PORT_TYPE = RS232;
+    static const int DEFAULT_BAUD_RATE = 9600;
+    static const int DEFAULT_DATA_BITS = 8;
+    static const Termios::parity DEFAULT_PARITY = Termios::NONE;
+    static const int DEFAULT_STOP_BITS = 1;
+    static const TERM DEFAULT_LINE_TERMINATION = NO_TERM;
+    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
+    static const int DEFAULT_RTS485 = -1; // De-assert, but don't mess w/this when writing to the port
+    static const bool DEFAULT_CONFIG_APPLIED = false;
+
+    MessageConfig defaultMessageConfig;
+    // default message parameters for the PB210
+    static const int DEFAULT_MESSAGE_LENGTH = 10;
+    static const bool DEFAULT_MSG_SEP_EOM = true;
+    static const char* DEFAULT_MSG_SEP_CHARS;
+
+    static const int NUM_SENSOR_BAUDS = 2;
+    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
+    static const int NUM_WORD_SPECS = 1;
+    static const WordSpec SENSOR_WORD_SPECS[NUM_WORD_SPECS];
+    static const int NUM_PORT_TYPES = 1;
+    static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+
 
     /**
      * No copying.

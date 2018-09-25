@@ -81,6 +81,8 @@ proj_configs
 rserial
 sensor_extract
 sensor_sim
+serstress
+sing
 statsproc
 status_listener
 sync_server
@@ -141,13 +143,21 @@ except OSerror:
 ncenv.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
-env.NidasUtilProgram('sing.cc')
+#env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
     env.NidasUtilProgram('tee_i2c.cc')
     env.NidasUtilProgram('ublox.cc')
 
 env.NidasUtilProgram('utime.cc')
+
+dpc = env.Program('dsm_port_config.cc', LIBS=['usb-1.0', 'ftdi1'])
+env.Install('$PREFIX/bin', dpc)
+env.Alias('dsm_port_config', dpc)
+
+dac = env.Program('dsm_auto_config.cc', LIBS=['xerces-c', 'usb-1.0', 'ftdi1', 'nidas_dynld', 'nidas_util', 'nidas'])
+env.Install('$PREFIX/bin', dac)
+env.Alias('dsm_auto_config', dac)
 
 if 'viper' in machs:
     # controls DIO pins on a Viper

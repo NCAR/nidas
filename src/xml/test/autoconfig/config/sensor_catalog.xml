@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sensorcatalog>
+    <!-- Legacy PTB210 DSMSerialSensor Dynld implementation -->
+    <serialSensor 
+        ID="PTB210" 
+        class="DSMSerialSensor" 
+        init_string="\r\n.BP\r\n"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- PTB210 autoconfig Dynld implementation -->
+    <!-- Leave defaults unchanged -->
+    <serialSensor 
+        ID="PTB210_AUTO_0" 
+        class="isff.PTB210" 
+        init_string="\r\n.BP\r\n">
+        <autoconfig />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- PTB210 autoconfig Dynld implementation -->
+    <!-- Change defaults in serialSensor attrs -->
+    <serialSensor 
+        ID="PTB210_AUTO_1" 
+        class="isff.PTB210" 
+        init_string="\r\n.BP\r\n"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <autoconfig />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- PTB210 autoconfig Dynld implementation -->
+    <!-- Change defaults in autoconfig attrs -->
+    <serialSensor 
+        ID="PTB210_AUTO_2" 
+        class="isff.PTB210" 
+        init_string="\r\n.BP\r\n">
+        <autoconfig 
+            baud="19200" 
+            parity="none" 
+            databits="8" 
+            stopbits="1" />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+    <!-- Gill Wind Observer, RS422! Legacy Dynld implmentation -->
+    <serialSensor class="isff.PropVane" ID="GILL_WO"
+        baud="9600" parity="none" databits="8" stopbits="1">
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Gill Wind Observer, RS422! AutoConfig w/defaults Dynld implmentation -->
+    <serialSensor class="isff.GILL2D" ID="GILL2D_AUTO_0">
+    	<autoconfig />
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Gill Wind Observer, RS422! AutoConfig w/custom Dynld implmentation -->
+    <serialSensor class="isff.GILL2D" ID="GILL2D_AUTO_1">
+    	<autoconfig 
+	        baud="19200" 
+	        parity="even" 
+	        databits="8" 
+	        stopbits="1" />
+        <!-- enabled Tc output, turned off heater:
+             *  (enter config mode)
+             A2 cr
+             H1 cr
+             Q cr
+             -->
+        <!-- \0x02A,157,000.08,M,+019.83,00,\0x031F\r\n -->
+        <sample id="1" scanfFormat="%*2c,%f,%f,M,%f,%f">
+            <variable name="Dir" units="deg" longname="Gill WindObserver, wind direction" plotrange="$DIR_RANGE">
+                <linear>
+                    <calfile path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/${SITE}:$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+                        file="dir_gillwo.dat"/>
+                </linear>
+            </variable>
+            <variable name="Spd" units="m/s" longname="Gill WindObserver, wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="Tc" units="degC" longname="Gill WindObserver, sonic temperature" plotrange="$T_RANGE"/>
+            <variable name="Status" units="" longname="Gill WindObserver, status" plotrange="0 60"/>
+            <variable name="U" units="m/s" longname="Gill WindObserver, wind U component" plotrange="$UV_RANGE"/>
+            <variable name="V" units="m/s" longname="Gill WindObserver, wind V component" plotrange="$UV_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Legacy PTB220 XML config -->
+    <serialSensor 
+    	ID="PTB220" 
+    	class="DSMSerialSensor"
+        baud="9600" 
+        parity="none" 
+        databits="8" 
+        stopbits="1">
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig default PTB220 XML config -->
+    <serialSensor 
+    	ID="PTB220_AUTO_0" 
+    	class="isff.PTB220">
+    	<autoconfig/>
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig PTB220 XML config w/changes to serial port -->
+    <serialSensor 
+    	ID="PTB220_AUTO_1" 
+    	class="isff.PTB220">
+    	<autoconfig
+    		baud = "19200"
+    		databits = "7"
+    		parity = "odd" />
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+    <!-- Autoconfig PTB220 XML config w/changes to serial port and science -->
+    <serialSensor 
+    	ID="PTB220_AUTO_2" 
+    	class="isff.PTB220">
+    	<autoconfig
+    		baud = "19200"
+    		databits = "7"
+    		parity = "odd"
+    		outputfmt = '"B5 " 4.3 P1 " " 3.1 T1 #r #n' />
+        <!-- |B7  832.44  22.7\r\n| -->
+        <sample id="1" scanfFormat="%*c%*d%f%f" rate="1">
+            <variable name="P" units="mb" longname="Barometric Pressure, Vaisala PTB" plotrange="$P_RANGE"/>
+            <variable name="Tbaro" units="degC" longname="Vaisala PTB internal temperature" plotrange="$T_RANGE"/>
+        </sample>
+        <message separator="\n" position="end" length="0"/>
+    </serialSensor>
+</sensorcatalog>

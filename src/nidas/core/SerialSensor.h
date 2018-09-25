@@ -30,9 +30,59 @@
 #include "LooperClient.h"
 #include "SerialPortIODevice.h"
 
+using namespace nidas::util; 
+
 namespace nidas { namespace core {
 
-using namespace nidas::core;
+/**
+ *  Autoconfig helpers
+ */
+struct WordSpec
+{
+    int dataBits;
+    Termios::parity parity;
+    int stopBits;
+};
+
+struct SensorCmdArg
+{
+	std::string strArg;
+	int intArg;
+	bool argIsString;
+
+	explicit SensorCmdArg(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
+	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
+	explicit SensorCmdArg(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
+	bool operator==(const SensorCmdArg& rRight)
+	{
+		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
+	}
+	bool operator!=(const SensorCmdArg& rRight) {return !(*this == rRight);}
+};
+
+const int NULL_COMMAND = -1;
+
+struct SensorCmdData {
+	SensorCmdData() : cmd(NULL_COMMAND), arg(0) {}
+	SensorCmdData(int initCmd, SensorCmdArg initArg) : cmd(initCmd), arg(initArg) {}
+    int cmd;
+    SensorCmdArg arg;
+};
+
+enum AUTOCONFIG_STATE {
+	AUTOCONFIG_UNSUPPORTED,
+	WAITING_IDLE,
+	AUTOCONFIG_STARTED,
+	CONFIGURING_COMM_PARAMETERS,
+	COMM_PARAMETER_CFG_SUCCESSFUL,
+	COMM_PARAMETER_CFG_UNSUCCESSFUL,
+	CONFIGURING_SCIENCE_PARAMETERS,
+	SCIENCE_SETTINGS_SUCCESSFUL,
+	SCIENCE_SETTINGS_UNSUCCESSFUL,
+	AUTOCONFIG_SUCCESSFUL,
+	AUTOCONFIG_UNSUCCESSFUL
+};
+
 
 /**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
@@ -71,6 +121,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
+    SerialSensor(const PortConfig& rInitPortConfig);
 
     ~SerialSensor();
 
@@ -78,12 +129,12 @@ public:
      * Expose the Termios. One must call applyTermios() to
      * apply any changes to the serial port.
      */
-    nidas::util::Termios& termios() { return _termios; }
+    nidas::util::Termios& termios() { return _workingPortConfig.termios; }
 
     /**
      * Get a read-only copy of the Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _termios; }
+    const nidas::util::Termios& getTermios() const { return _workingPortConfig.termios; }
 
     /**
      * Calls CharacterSensor::buildSampleScanner(), and then sets the 
@@ -94,13 +145,16 @@ public:
         throw(nidas::util::InvalidParameterException);
 
     /**
-     * Creates an IODevice depending on the device name prefix:
+     * Calls CharacterSensor::buildIODevice() to creates an IODevice depending 
+     * on the device name prefix:
      * name prefix      type of IODevice
      * inet:            TCPSocketIODevice
      * sock:            TCPSocketIODevice
      * usock:           UDPSocketIODevice
      * btspp:           BluetoothRFCommSocketIODevice
-     * all others       SerialPortIODevice
+     * 
+     * If UnixIODevice type is returned, then check 
+     * /dev/ttyUSB:     SerialPortIODevice
      *
      * If a SerialPortIODevice is created, the Termios of this SerialSensor is
      * copied to the device, which will then be applied when the device is opened.
@@ -120,6 +174,11 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
+    /* 
+     * Flush the serial port, if this is a serial device
+     */
+    void serPortFlush(const int flags=0);
+
     /**
      * If the underlying IODevice is a SerialPortIODevice, update
      * the current Termios to the device.
@@ -130,8 +189,8 @@ public:
      * Set message separator and message length parameters, which are used to
      * parse and time-tag samples from the IODevice.
      */
-    void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
-        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
+    // void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
+    //     throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
 
@@ -149,6 +208,7 @@ public:
 
     void stopPrompting() throw(nidas::util::IOException);
 
+    // get auto config parameters, after calling base class implementation
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(nidas::util::InvalidParameterException);
 
@@ -159,6 +219,20 @@ public:
      * for transmission delay will be applied.
      */
     int getUsecsPerByte() const;
+
+    /**
+     * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
+     * 
+     * Assumption: If SerialSensor is a traditional, RS232/422/485, device, then the associated PortConfig in 
+     *             SerialPortIODevice is all that matters. This should cover "non-sensor" devices such as GPS, cell 
+     *             modems, etc, since they may be traditional serial devices, but not have a SerialXcvrCtrl object 
+     *             associated with them. 
+     */
+    PortConfig getPortConfig();
+    void setPortConfig(const PortConfig newPortConfig);
+
+    void applyPortConfig();
+    void printPortConfig(bool flush=true);
 
 protected:
 
@@ -173,15 +247,79 @@ protected:
      */
     void shutdownPrompting() throw(nidas::util::IOException);
 
-    void unixDevInit(int flags)
-    	throw(nidas::util::IOException);
-
-private:
+    void unixDevInit(int flags) throw(nidas::util::IOException);
 
     /**
-     * Serial I/O parameters.
+     * autoconfig specific methods
      */
-    nidas::util::Termios _termios;
+    void doAutoConfig();
+    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
+												 int rts485, PORT_TYPES portType, TERM termination,
+												 SENSOR_POWER_STATE power);
+    bool isDefaultConfig(const PortConfig& rTestConfig) const;
+    bool findWorkingSerialPortConfig();
+    bool testDefaultPortConfig();
+    bool sweepCommParameters();
+    bool doubleCheckResponse();
+    bool configureScienceParameters();
+    void printResponseHex(int numCharsRead, const char* respBuf);
+    static void printTargetConfig(PortConfig target)
+    {
+        target.print();
+        target.xcvrConfig.print();
+        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
+        std::cout << std::endl;
+    }
+
+    static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
+
+    /**
+     * These autoconfig methods do nothing, unless overridden in a subclass
+     * Keep in mind that most subclasses will override all of these methods.
+     * In particular, supportsAutoConfig() must be overridden to return true,
+     * otherwise, the other virtual methods will not get called at all.
+     */
+    virtual bool supportsAutoConfig() { return false; }
+    virtual bool checkResponse() { return true; }
+    virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
+    virtual void sendScienceParameters() {}
+    virtual bool checkScienceParameters() { return true; }
+
+    /*******************************************************
+     * Aggregate serial port configuration
+     * 
+     * Holds a default port config (both Termios config and XcvrConfig) 
+     * which may be passed down by an auto-config subclass, 
+     * which may be further updated by fromDOMElement().
+     * 
+     * No other operations occur on this attribute, since if 
+     * this SerialSensor truly is a traditional serial port, then 
+     * all the necessary operations such as set/get/applyPortConfig
+     * occur in SerialPortIODevice. 
+     *******************************************************/
+    PortConfig _workingPortConfig;
+
+    /*
+     * Containers for holding the possible serial port parameters which may be used by a sensor
+     */
+    typedef std::list<PORT_TYPES> PortTypeList;
+    typedef std::list<int> BaudRateList;
+    typedef std::list<WordSpec> WordSpecList;
+
+	PortTypeList _portTypeList;			// list of PortTypes this sensor may make use of
+    BaudRateList _baudRateList;			// list of baud rates this sensor may make use of
+    WordSpecList _serialWordSpecList;	// list of serial word specifications (databits, parity, stopbits) this sensor may make use of
+
+    AUTOCONFIG_STATE _autoConfigState;
+    AUTOCONFIG_STATE _serialState;
+    AUTOCONFIG_STATE _scienceState;
+    AUTOCONFIG_STATE _deviceState;
+
+private:
+    /*
+     * The initial PortConfig sent by the subclass when constructing SerialSensor
+     */
+    const PortConfig _defaultPortConfig;
 
     /**
      * Non-null if the underlying IODevice is a SerialPortIODevice.
@@ -213,7 +351,7 @@ private:
     private:
         SerialSensor* _sensor;
         char* _prompt;
-	int _promptLen;
+        int _promptLen;
         int _promptPeriodMsec;
         int _promptOffsetMsec;
 
@@ -227,12 +365,6 @@ private:
     std::list<Prompter*> _prompters;
 
     bool _prompting;
-
-    /**
-     * Should the RTS line on this port be controled for half-duplex 485?
-     * See SerialPortIODevice.h.
-     */
-    int _rts485;
 
     /** No copying. */
     SerialSensor(const SerialSensor&);
