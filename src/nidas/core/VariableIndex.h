@@ -118,11 +118,6 @@ public:
         return _index >= 0 && _variable;
     }
 
-    explicit operator bool() const
-    {
-        return _index >= 0 && _variable;
-    }
-
 private:
 
     Variable* _variable;
