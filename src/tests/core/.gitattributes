@@ -1,0 +1,4 @@
+# These are calibration files not data files.  Unfortunately nidas uses the same extension for both.
+T_2m.dat text
+csat_tse07_10m.dat text
+RH_2m.dat text
