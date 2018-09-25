@@ -46,7 +46,8 @@ Wind2D::Wind2D():
     _speedName("Spd"),_dirName("Dir"),_uName("U"),_vName("V"),
     _speedIndex(-1),_dirIndex(-1),_uIndex(-1),_vIndex(-1),
     _outlen(0),_wind_sample_id(0),
-    _dirConverter(0),_speedConverter(0)
+    _dirConverter(0),_speedConverter(0),
+    _orienter()
 {
 }
 
@@ -150,11 +151,22 @@ void Wind2D::validateSscanfs() throw(n_u::InvalidParameterException)
 bool Wind2D::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
+    // Duplicate SerialSensor::process(samp,results), except don't call
+    // applyConversions(), since we might first need to orient the sonic
+    // before applying any adjustments to wind direction.
+    SampleTag* stag = 0;
+    SampleT<float>* outs = searchSampleScanners(samp, &stag);
+    if (!outs)
+    {
+        return false;
+    }
+    results.push_back(outs);
 
-    SerialSensor::process(samp,results);
+    // Apply any time tag adjustments.
+    adjustTimeTag(stag, outs);
 
-    if (results.empty()) return false;
-
+    // This appears to require that all four variables are always defined
+    // in a sample tag, except I'm not sure why that's necessary.
     if (results.size() != 1 || _speedIndex < 0 ||
         _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
     {
@@ -183,6 +195,8 @@ bool Wind2D::process(const Sample* samp,
 
     if (_speedIndex < _uIndex) {   
         // speed and dir parsed from sample, u and v derived
+
+        // if speed and dir not in this sample, nothing left to do.
         if ((signed) slen <= _speedIndex) return true;
         if ((signed) slen <= _dirIndex) return true;
 
@@ -220,6 +234,8 @@ bool Wind2D::process(const Sample* samp,
     }
     else {
         // u and v parsed from sample, speed and dir derived
+
+        // if u or v not parsed, nothing left to do
         if ((signed) slen <= _uIndex) return true;
         if ((signed) slen <= _vIndex) return true;
 
@@ -268,6 +284,14 @@ bool Wind2D::process(const Sample* samp,
 
         results.front() = news;
     }
+
+    // Apply any variable conversions.  Note this has to happen after the
+    // time is adjusted, since the calibrations are keyed by time.
+    applyConversions(stag, outs);
+
+
+
+
     return true;
 }
 
@@ -296,6 +320,9 @@ void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
 	    throw n_u::InvalidParameterException(getName(),
 		"parameter", string("bad length for ") + paramSet[i].name);
 	// invoke setXXX member function
-	(this->*paramSet[i].setFunc)(param->getStringValue(0));
+        if (! _orienter.handleParameter(param, getName()))
+        {
+            (this->*paramSet[i].setFunc)(param->getStringValue(0));
+        }
     }
 }
