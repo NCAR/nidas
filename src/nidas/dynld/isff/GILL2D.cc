@@ -886,66 +886,6 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 	return 	(respStr.find(entireCmd.str()) != std::string::npos);
 }
 
-std::size_t GILL2D::readResponse(void *buf, std::size_t len, int msecTimeout)
-{
-    fd_set fdset;
-    FD_ZERO(&fdset);
-    FD_SET(getReadFd(), &fdset);
-
-    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
-        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
-
-    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
-
-    if (res < 0) {
-        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-        return -1;
-    }
-
-    if (res == 0) {
-        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
-        return 0;
-    }
-
-    // no select timeout or error, so get the goodies out of the buffer...
-    return read(buf,len);
-}
-
-std::size_t GILL2D::readEntireResponse(void *buf, std::size_t len, int msecTimeout)
-{
-	char* cbuf = (char*)buf;
-	int bufRemaining = len;
-    int numCharsRead = readResponse(cbuf, len, msecTimeout);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
-
-	if (numCharsRead > 0) {
-		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-		for (std::size_t i=0; i<5; ++i) {
-			char hexBuf[51];
-			memset(hexBuf, 0, 51);
-			for (int j=0; j<10; ++j) {
-				if ((i*10 + j) > len)
-					break;
-				snprintf(&hexBuf[j*5], 5, "0X%02X ", cbuf[i*10+j]);
-			}
-            VLOG((&hexBuf[0]));
-		}
-    }
-
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-		if (numCharsRead == 0) {
-			VLOG(("Took ") << i+1 << " reads to get entire response");
-		}
-    }
-
-    return totalCharsRead;
-}
-
 void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {

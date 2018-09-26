@@ -110,7 +110,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
 
         if (getName() != name) {
-            VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different..."));
+            VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different. Delete and start over..."));
             delete _pXcvrCtrl;
         }
 
@@ -121,12 +121,17 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         }
     }
 
+    if (!SerialXcvrCtrl::xcvrCtrlSupported()) {
+    	ILOG(("SerialPortIODevice::checkXcvrCtrlRequired() : this DSM does not support line transceiver control!!!"));
+    	return;
+    }
+
     VLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device is a DSM serial port device"));
     // Determine if this needs SP339 port type control
     std::string ttyBase = "/dev/ttyUSB";
     std::size_t foundAt = name.find(ttyBase);
     if (foundAt != std::string::npos) {
-        VLOG(("SerialPortIODevice::checkXcvrCtrlRequired()/ : Device needs SerialXcvrCtrl object: ") << name);
+        VLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device needs SerialXcvrCtrl object: ") << name);
         const char* nameStr = name.c_str();
         const char* portChar = &nameStr[ttyBase.length()];
         unsigned int portID = UINT32_MAX;
@@ -161,23 +166,23 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     applyPortConfig();
     setBlocking(_blocking);
 
-    // Set rts485 flag RS422/RS485 half duplex
+    // Set rts485 flag RS422/RS485 to always xmit for full RS422/485
     if ( getPortType() == RS422) {
         VLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
         setRTS485(-1);
     } 
     
     else {
-        // set RTS according to how it's been set by the client
-        if (getPortType() == RS485_HALF) {
-            std::stringstream dStrm;
-            dStrm << "RS485_HALF: setting rts485 to as specified by client: " << getRTS485() 
-                      << ((getRTS485() < 0) ? ": should get a high level on the line." :
-                          (getRTS485() > 0  ? ": should get a low level on the line." : 
-                          "RTS is \"do not care\""));
-            VLOG((dStrm.str().c_str()));
-            setRTS485(getRTS485());
-        }
+        // set RTS according to how it's been set by the client regardless of the port type.
+    	// However, if the port type is RS485 half duplex, then the user needs to be sure of
+    	// how it needs to be set for the particular device.
+		std::stringstream dStrm;
+		dStrm << "Setting rts485 to as specified by client: " << getRTS485()
+				  << ((getRTS485() < 0) ? ": should get a high level on the line." :
+					  (getRTS485() > 0  ? ": should get a low level on the line." :
+					  "RTS is \"do not care\""));
+		VLOG((dStrm.str().c_str()));
+		setRTS485(getRTS485());
     }
     VLOG(("SerialPortIODevice::open : exit"));
 }
@@ -247,18 +252,16 @@ void SerialPortIODevice::setRTS485(int val)
     // NOTE: if the value is 0, don't do anything. This is the default. This allows HW to do the heavy lifting 
     //       w/o getting the software involved.
     _workingPortConfig.rts485 = val;
-    if (((getPortType() == RS422) || (getPortType() == RS485_HALF)) && (_fd >= 0)) {
-        if (getRTS485() > 0) {
-            // clear RTS
-            clearModemBits(TIOCM_RTS);
-        }
-        else if (getRTS485() < 0) {
-            // set RTS
-            setModemBits(TIOCM_RTS);
-        } // else ignore
+	if (getRTS485() > 0) {
+		// clear RTS
+		clearModemBits(TIOCM_RTS);
+	}
+	else if (getRTS485() < 0) {
+		// set RTS
+		setModemBits(TIOCM_RTS);
+	} // else ignore
 
-        _usecsperbyte = getUsecsPerByte();
-    }
+	_usecsperbyte = getUsecsPerByte();
 }
 
 
@@ -449,7 +452,7 @@ int SerialPortIODevice::readLine(char *buf, int len)
 /**
  * Write to the device.
  */
-size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util::IOException)
+std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(nidas::util::IOException)
 {
     ssize_t result;
 

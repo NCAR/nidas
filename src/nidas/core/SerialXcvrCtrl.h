@@ -114,6 +114,7 @@ public:
     // Destructor
     ~SerialXcvrCtrl();
 
+    static bool xcvrCtrlSupported() { return true; } // for now. Need to actually read an eeprom to know
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
     void setXcvrConfig(const XcvrConfig& newXcvrConfig) {_xcvrConfig = newXcvrConfig;}

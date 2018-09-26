@@ -125,6 +125,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 CSAT3_Sonic::~CSAT3_Sonic()
 {
     delete _ttadjuster;
+}
 
 
 bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
@@ -207,7 +208,7 @@ string CSAT3_Sonic::getSerialNumber(const string& str,
 }
 
 string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber,
-        string& revision, int& rtsIndep, int& recSep)
+        string& revision, int& rtsIndep, int& recSep, int& baudRate)
 throw(n_u::IOException)
 {
     string result;
@@ -337,7 +338,38 @@ throw(n_u::IOException)
     if (fs != string::npos && fs + 3 < rlen)
         recSep = atoi(result.substr(fs+3).c_str());
 
+    // get BR=n setting. 0=9600, 1=19200
+    fs = result.find("BR=");
+    if (fs != string::npos && fs + 3 < rlen)
+        baudRate = atoi(result.substr(fs+3).c_str());
+
     return result;
+}
+
+void CSAT3_Sonic::sendBaudCmd(int baud)
+{
+	std::ostringstream baudCmd;
+	baudCmd << "br "<< baud << "\r";
+    DLOG(("%s: sending %s", getName().c_str(), baudCmd.str().c_str()));
+	(void)write((void*)(baudCmd.str().c_str()), baudCmd.str().length());
+	usleep(100 * USECS_PER_MSEC);
+}
+
+void CSAT3_Sonic::sendRTSIndepCmd(bool on)
+{
+	std::ostringstream rtsIndepCmd;
+	rtsIndepCmd << "ri " << (on ? '1' : '0') << "\r";
+    DLOG(("%s: sending %s", getName().c_str(), rtsIndepCmd.str().c_str()));
+    (void)write((void*)(rtsIndepCmd.str().c_str()), rtsIndepCmd.str().length());
+    usleep(100 * USECS_PER_MSEC);
+}
+
+void CSAT3_Sonic::sendRecSepCmd()
+{
+    std::string cmd("rs 1\r");
+    DLOG(("%s: sending %s", getName().c_str(), cmd.c_str()));
+	(void)write(cmd.c_str(), cmd.length());
+	usleep(100 * USECS_PER_MSEC);
 }
 
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
@@ -938,9 +970,22 @@ int baudToCSATCmdArg(int baud)
 bool CSAT3_Sonic::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 {
 
+	/*
+	 * First send the commands to change the baud rate
+	 */
 	sendRTSIndepCmd(false); // Turn off RTS Independent before changing the baud rate
 	sendBaudCmd(baudToCSATCmdArg(rDesiredConfig.termios.getBaudRate()));
 	sendRTSIndepCmd();
+
+	/*
+	 * Then change DSM baud rate according to rDesiredConfig
+	 */
+	setPortConfig(rDesiredConfig);
+	applyPortConfig();
+
+	/*
+	 * Now check that we can still communicate
+	 */
 	std::string query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep, baudRate);
 
 	return ((rDesiredConfig.termios.getBaudRate() == 9600 && baudRate == 0) ||

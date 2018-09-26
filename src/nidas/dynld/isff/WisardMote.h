@@ -223,7 +223,7 @@ protected:
     virtual void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
     virtual bool checkResponse();
     // There is only one configuration, so this is always successful
-    virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig) { return true; }
+    virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; }
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
 

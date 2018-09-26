@@ -433,7 +433,7 @@ public:
 
     virtual char readchar();
 
-    virtual size_t write(const void *buf,size_t len) throw(nidas::util::IOException);
+    virtual std::size_t write(const void *buf, std::size_t len) throw(nidas::util::IOException);
 
     /**
      * Static utility that creates a pseudo-terminal, returning the

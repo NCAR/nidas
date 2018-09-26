@@ -49,10 +49,26 @@ struct SensorCmdArg
 	std::string strArg;
 	int intArg;
 	bool argIsString;
+	bool argIsNull;
 
-	explicit SensorCmdArg(const int iarg) : strArg(), intArg(iarg), argIsString(false) {}
-	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true) {}
-	explicit SensorCmdArg(const char* carg)  : strArg(carg), intArg(0), argIsString(true) {}
+	SensorCmdArg() : strArg(""), intArg(0), argIsString(false), argIsNull(true) {}
+	explicit SensorCmdArg(const int iarg) : strArg(""), intArg(iarg), argIsString(false), argIsNull(false) {}
+	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true), argIsNull(false) {}
+	explicit SensorCmdArg(const char* carg)  : strArg(carg), intArg(0), argIsString(true), argIsNull(false) {}
+
+	SensorCmdArg(const SensorCmdArg& rRight)
+		: strArg(rRight.strArg), intArg(rRight.intArg), argIsString(rRight.argIsString), argIsNull(rRight.argIsNull) {}
+	SensorCmdArg& operator=(const SensorCmdArg& rRight)
+	{
+		if (this != &rRight) {
+			strArg = rRight.strArg;
+			intArg = rRight.intArg;
+			argIsString = rRight.argIsString;
+			argIsNull = rRight.argIsNull;
+		}
+
+		return *this;
+	}
 	bool operator==(const SensorCmdArg& rRight)
 	{
 		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
@@ -129,12 +145,12 @@ public:
      * Expose the Termios. One must call applyTermios() to
      * apply any changes to the serial port.
      */
-    nidas::util::Termios& termios() { return _workingPortConfig.termios; }
+    nidas::util::Termios& termios() { return _desiredPortConfig.termios; }
 
     /**
      * Get a read-only copy of the Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _workingPortConfig.termios; }
+    const nidas::util::Termios& getTermios() const { return _desiredPortConfig.termios; }
 
     /**
      * Calls CharacterSensor::buildSampleScanner(), and then sets the 
@@ -260,6 +276,8 @@ protected:
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
     bool sweepCommParameters();
+    std::size_t readEntireResponse(void *buf, std::size_t len, int msecTimeout);
+    std::size_t readResponse(void *buf, std::size_t len, int msecTimeout);
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
@@ -297,7 +315,7 @@ protected:
      * all the necessary operations such as set/get/applyPortConfig
      * occur in SerialPortIODevice. 
      *******************************************************/
-    PortConfig _workingPortConfig;
+    PortConfig _desiredPortConfig;
 
     /*
      * Containers for holding the possible serial port parameters which may be used by a sensor

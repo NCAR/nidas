@@ -689,25 +689,28 @@ namespace {
 
     const int _missValueInt32 = 0x80000000;
 
-    const char *readUint8(const char *cp, const char *eos,
-            unsigned int nfields,float scale, float *fp)
-    {
-        /* convert unsigned chars to float */
-        unsigned int i;
-        for (i = 0; i < nfields; i++) {
-            if (cp + sizeof(uint8_t) > eos) break;
-            unsigned char val = *cp++;
-            cp += sizeof(uint8_t);
-            if (fp) {
-                if (val != _missValueUint8)
-                    *fp++ = val * scale;
-                else
-                    *fp++ = nidas::core::floatNAN;
-            }
-        }
-        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
-        return cp;
-    }
+    /*
+     * Currently not used
+     */
+//    const char *readUint8(const char *cp, const char *eos,
+//            unsigned int nfields,float scale, float *fp)
+//    {
+//        /* convert unsigned chars to float */
+//        unsigned int i;
+//        for (i = 0; i < nfields; i++) {
+//            if (cp + sizeof(uint8_t) > eos) break;
+//            unsigned char val = *cp++;
+//            cp += sizeof(uint8_t);
+//            if (fp) {
+//                if (val != _missValueUint8)
+//                    *fp++ = val * scale;
+//                else
+//                    *fp++ = nidas::core::floatNAN;
+//            }
+//        }
+//        if (fp) for ( ; i < nfields; i++) *fp++ = nidas::core::floatNAN;
+//        return cp;
+//    }
 
     const char *readUint16(const char *cp, const char *eos,
             unsigned int nfields,float scale, float *fp)
@@ -2426,37 +2429,50 @@ void WisardMote::updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg&
 
 bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 {
+	bool responseOK = false;
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
     int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, 2000);
 
-    regmatch_t matches[4];
-    int nmatch = sizeof(matches) / sizeof(regmatch_t);
-    regex_t* pRegexInfo = 0;
-    string argStr = "";
+    if (numCharsRead) {
+		regmatch_t matches[4];
+		int nmatch = sizeof(matches) / sizeof(regmatch_t);
+		regex_t* pRegexInfo = 0;
+		string argStr = "";
 
-    // get the matching regex
-    switch (cmd) {
-    	case NODE_ID_CMD:
-    		pRegexInfo = &regexNodeID;
-    		break;
-    	case DATA_RATE_CMD:
-    		pRegexInfo = &regexDataRate;
-    		break;
-    	default:
-    		break;
+		// get the matching regex
+		switch (cmd) {
+			case NODE_ID_CMD:
+				pRegexInfo = &regexNodeID;
+				break;
+			case DATA_RATE_CMD:
+				pRegexInfo = &regexDataRate;
+				break;
+			default:
+				break;
+		}
+
+		int regexStatus = regexec(pRegexInfo, respBuf, nmatch, matches, 0);
+		if ((regexStatus == 0) && (matches[2].rm_so >= 0)) {
+			argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+		}
+		else {
+			char regerrbuf[64];
+			::regerror(regexStatus, pRegexInfo, regerrbuf, sizeof regerrbuf);
+			throw n_u::ParseException("WisardMote::checkCmdResponse(): regexec(): ", string(regerrbuf));
+		}
+
+		if (arg.argIsString) {
+			responseOK = (argStr == arg.strArg);
+		}
+		else {
+			std::ostringstream convertStream;
+			convertStream << arg.intArg;
+			responseOK = (argStr == convertStream.str());
+		}
     }
 
-    int regexStatus = regexec(pRegexInfo, respBuf, nmatch, matches, 0);
-    if ((regexStatus == 0) && (matches[2].rm_so >= 0)) {
-        argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-    }
-    else {
-        char regerrbuf[64];
-        ::regerror(regexStatus, pRegexInfo, regerrbuf, sizeof regerrbuf);
-        throw n_u::ParseException("WisardMote::checkCmdResponse(): regexec(): ", string(regerrbuf));
-    }
+	return responseOK;
 }
 
