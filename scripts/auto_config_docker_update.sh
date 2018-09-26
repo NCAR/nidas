@@ -3,6 +3,9 @@
 # This script is used to update the docker container on the fly so that auto-config builds in Nidas.
 #
 
+#upgrade scons
+apt-get -y --only-upgrade install eol-scons
+
 # install libusb-1.0
 apt-get -y install libusb-1.0:armhf
 
