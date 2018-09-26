@@ -337,7 +337,7 @@ private:
     /*
      * The initial PortConfig sent by the subclass when constructing SerialSensor
      */
-    const PortConfig _defaultPortConfig;
+    PortConfig _defaultPortConfig;
 
     /**
      * Non-null if the underlying IODevice is a SerialPortIODevice.

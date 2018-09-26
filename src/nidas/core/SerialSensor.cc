@@ -61,6 +61,9 @@ SerialSensor::SerialSensor():
     _desiredPortConfig.termios.setRaw(true);
     _desiredPortConfig.termios.setRawLength(1);
     _desiredPortConfig.termios.setRawTimeout(0);
+    _defaultPortConfig.termios.setRaw(true);
+    _defaultPortConfig.termios.setRawLength(1);
+    _defaultPortConfig.termios.setRawTimeout(0);
 }
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
@@ -71,6 +74,13 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
 		_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
+    setDefaultMode(O_RDWR);
+    _desiredPortConfig.termios.setRaw(true);
+    _desiredPortConfig.termios.setRawLength(1);
+    _desiredPortConfig.termios.setRawTimeout(0);
+    _defaultPortConfig.termios.setRaw(true);
+    _defaultPortConfig.termios.setRawLength(1);
+    _defaultPortConfig.termios.setRawTimeout(0);
 }
 
 SerialSensor::~SerialSensor()
@@ -106,8 +116,14 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // auto-config may have passed down a default port config. No harm if a non-auto-config sensor
         // does not pass down the port config, as later it will be filled in by the XML.
         _serialDevice = new SerialPortIODevice(getDeviceName(), _desiredPortConfig);
+        if (!_serialDevice) {
+        	throw Exception("SerialSensor::buildIODevice(): failed to instantiate SerialPortIODevice object.");
+        }
         device = _serialDevice;
-        // !!!TODO check for _serialDevice != null!!!
+
+        // update desiredPortConfig with the port ID data which is populated in the SerialPortIODevice ctor
+        // this is needed for future comparisons.
+        _desiredPortConfig = getPortConfig();
     }
 
     return device;
@@ -597,6 +613,9 @@ void SerialSensor::doAutoConfig()
 			NLOG(("Checking whether found working port config is the desired port config"));
 			PortConfig foundWorkingConfig = getPortConfig();
 			if (foundWorkingConfig != _desiredPortConfig) {
+				NLOG(("found working config not equal to desired config"));
+				NLOG(("found working config: ") << foundWorkingConfig);
+				NLOG(("desired port config: ") << _desiredPortConfig);
 				NLOG(("Attempting to install the desired sensor serial parameter configuration"));
 				if (installDesiredSensorConfig(_desiredPortConfig)) {
 					NLOG(("Desired sensor serial port configuration successfully installed"));
@@ -610,10 +629,12 @@ void SerialSensor::doAutoConfig()
 				}
 			}
 			else {
+				NLOG(("Found working port config is same as desired port config."));
 				_serialState = COMM_PARAMETER_CFG_SUCCESSFUL;
 			}
 
 			if (_serialState == COMM_PARAMETER_CFG_SUCCESSFUL) {
+				NLOG(("Attempting to configure the sensor science parameters."));
 				_scienceState = CONFIGURING_SCIENCE_PARAMETERS;
 				if (configureScienceParameters()) {
 					NLOG(("Desired sensor science configuration successfully installed"));
@@ -632,9 +653,9 @@ void SerialSensor::doAutoConfig()
 		}
 		else
 		{
-			NLOG(("Couldn't find a serial port configuration that worked with this PTB210 sensor. "
+			NLOG(("Couldn't find a serial port configuration that worked with this sensor. "
 				  "May need to troubleshoot the sensor or cable. "
-				  "!!!NOTE: Sensor is not open for data collection!!!"));
+				  "!!!NOTE: Sensor is ready for data collection!!!"));
 			_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
 			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 		}
