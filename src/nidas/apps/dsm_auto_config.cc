@@ -59,6 +59,7 @@
 #include <nidas/dynld/isff/PTB210.h>
 #include <nidas/util/optionparser.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/DSMConfig.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -302,6 +303,11 @@ int main(int argc, char* argv[]) {
 
             // auto_ptr<xercesc::DOMDocument> doc(ap().parseXMLConfigFile(xmlFileName));
             ap().parseXMLConfigFile(xmlFileName);
+            DSMConfigIterator di = ap().getDSMConfigIterator();
+            while (di.hasNext()) {
+            	DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
+            	(*pDsm).validate();
+            }
 
             NLOG(("Iterating through all the sensors specified in the XML file"));
             SensorIterator sensit = ap().getSensorIterator();
@@ -311,6 +317,7 @@ int main(int argc, char* argv[]) {
                     NLOG(("Can't auto config a non-serial sensor. Skipping..."));
                     continue;
                 }
+                pSerialSensor->init();
                 pSerialSensor->open(O_RDWR);
                 pSerialSensor->close();
             }
