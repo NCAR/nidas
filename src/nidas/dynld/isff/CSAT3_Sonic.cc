@@ -65,15 +65,6 @@ const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
 
 const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
-static const char* rateCmd = 0;
-static int acqrate = 0;
-static string serialNumber;
-static char osc = ' ';
-static string revision;
-static int rtsIndep;
-static int recSep;
-static int baudRate;
-
 /*
  * CSAT3 stuff
  */
@@ -102,7 +93,15 @@ CSAT3_Sonic::CSAT3_Sonic():
     _checkConfiguration(true),
     _checkCounter(true),
     _ttadjuster(0),
-    defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM)
+    defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    rateCmd(0),
+    acqrate(0),
+    serialNumber(""),
+    osc(0),
+    revision(""),
+    rtsIndep(-1),
+    recSep(-1),
+    baudRate(-1)
 {
 	setMessageParameters(defaultMessageConfig);
 
@@ -310,8 +309,13 @@ throw(n_u::IOException)
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
     string::size_type fs = result.find("AQ=");
-    if (fs != string::npos && fs + 3 < rlen)
+    if (fs != string::npos && fs + 3 < rlen) {
         acqrate = atoi(result.substr(fs+3).c_str());
+    }
+    else {
+    	DLOG(("CSAT3_Sonic::querySensor(): Didn't find AQ parameter in query response."));
+    	return std::string();
+    }
 
     // get os parameter, e.g. "os=g"
     // g for 10Hz 6x oversampling
@@ -319,7 +323,13 @@ throw(n_u::IOException)
     // ' ' otherwise
     // For version 4, os=0 means no oversampling
     fs = result.find("os=");
-    if (fs != string::npos && fs + 3 < rlen) osc = result[fs+3];
+    if (fs != string::npos && fs + 3 < rlen) {
+    	osc = result[fs+3];
+	}
+	else {
+		DLOG(("CSAT3_Sonic::querySensor(): Didn't find os parameter in query response."));
+		return std::string();
+	}
 
     // get software revision, e.g. "rev 3.0f"
     fs = result.find("rev");
@@ -327,21 +337,40 @@ throw(n_u::IOException)
         string::size_type bl = result.find(' ',fs+4);
         revision = result.substr(fs+4,bl-fs-4);
     }
+	else {
+		DLOG(("CSAT3_Sonic::querySensor(): Didn't find rev parameter in query response."));
+		return std::string();
+	}
 
     // get RI=n setting. 0=power RS-232 drivers on RTS, 1=power always
     fs = result.find("RI=");
-    if (fs != string::npos && fs + 3 < rlen)
+    if (fs != string::npos && fs + 3 < rlen) {
         rtsIndep = atoi(result.substr(fs+3).c_str());
+    }
+	else {
+		DLOG(("CSAT3_Sonic::querySensor(): Didn't find RI parameter in query response."));
+		return std::string();
+	}
 
     // get RS=n setting. 0=no record separator, 1=0x55AA
     fs = result.find("RS=");
-    if (fs != string::npos && fs + 3 < rlen)
+    if (fs != string::npos && fs + 3 < rlen) {
         recSep = atoi(result.substr(fs+3).c_str());
+    }
+	else {
+		DLOG(("CSAT3_Sonic::querySensor(): Didn't find RS parameter in query response."));
+		return std::string();
+	}
 
     // get BR=n setting. 0=9600, 1=19200
     fs = result.find("BR=");
-    if (fs != string::npos && fs + 3 < rlen)
+    if (fs != string::npos && fs + 3 < rlen) {
         baudRate = atoi(result.substr(fs+3).c_str());
+    }
+	else {
+		DLOG(("CSAT3_Sonic::querySensor(): Didn't find BR parameter in query response."));
+		return std::string();
+	}
 
     return result;
 }
@@ -438,9 +467,14 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 {
 	// Gotta set up the rate command before it's used.
 	// Should have everything needed at this point to configure this.
+	// But if being instantiated outside the context of a DOM, this may not be the case.
+	if (getCatalogName().length() == 0) {
+		DLOG(("Not operating in the context of a DOM, so init _rate"));
+		_rate = 20;
+	}
 	DLOG(("%s: _rate=%d",getName().c_str(),_rate));
 	if (_rate > 0) {
-		rateCmd = getRateCommand(_rate,_oversample);
+		rateCmd = const_cast<char*>(getRateCommand(_rate,_oversample));
 		if (!rateCmd) {
 			ostringstream ost;
 			ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
@@ -902,7 +936,19 @@ bool CSAT3_Sonic::checkResponse()
     // switch sonic to terminal mode
     terminalMode();
 
+    acqrate = -1;
+    osc = 'Z';
+    serialNumber = "";
+    revision = "";
+    rtsIndep = -1;
+    recSep = -1;
+    baudRate = -1;
+
     string query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep, baudRate);
+    if (query.length() == 0) {
+    	return false;
+    }
+
     DLOG(("%s: AQ=%d,os=%c,serial number=\"",getName().c_str(),acqrate,osc) << serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
             ", recSep(RS)=" << recSep << ", baud(BR)=" << baudRate);
 
@@ -924,7 +970,7 @@ bool CSAT3_Sonic::checkResponse()
 			assert(rateCmd != 0);
 			rateResult = sendRateCommand(rateCmd);
 			sleep(3);
-			query = querySonic(acqrate,osc,serialNumber,revision, rtsIndep, recSep, baudRate);
+			query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep, baudRate);
 			DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
 		}
 

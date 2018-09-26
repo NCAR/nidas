@@ -288,6 +288,19 @@ private:
     static const int NUM_PORT_TYPES = 1;
     static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
+    /**
+     *  Attributes for querySensor. Need to add them as attributes because
+     *  there may well be more than one of these sensors per DSM. This
+     *  means that these cannot be file scope variables.
+     */
+    char* rateCmd;
+    int acqrate;
+    std::string serialNumber;
+    char osc;
+    std::string revision;
+    int rtsIndep;
+    int recSep;
+    int baudRate;
 
     /**
      * No copying.
