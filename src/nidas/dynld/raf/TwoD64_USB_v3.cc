@@ -122,6 +122,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 {
     const char * input = (const char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
+    const char * eoinput = input + slen;
 
     if (slen < 4 || memcmp(input, "SOR,", 4)){
         cout<<"Twod64v3 processSOR returning false. slen = "<<slen<<endl;
@@ -139,6 +140,9 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
         if (input == NULL)break;
 	const char * cp = ::strchr(input,sep);  
         cp++; 
+        if (cp >= eoinput)
+            return false;
+
         //First input will be the second char to skip "SOR,"
         if (ifield != 0)
         { 
@@ -150,7 +154,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
         input=cp;
     }
     list<SampleTag*> tags = getSampleTags();
-    applyConversions(tags.front() ,outs);
+    applyConversions(tags.front(), outs);
     results.push_back(outs);
     return true;
 }
