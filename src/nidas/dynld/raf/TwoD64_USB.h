@@ -94,9 +94,6 @@ protected:
     /**
      * Sync and overload words/masks.
      */
-#ifdef THE_KNIGHTS_WHO_SAY_NI
-    static const unsigned long long _syncMask, _syncWord, _overldWord;
-#endif
     static const unsigned char _syncString[];
     static const unsigned char _overldString[];
     static const unsigned char _blankString[];
