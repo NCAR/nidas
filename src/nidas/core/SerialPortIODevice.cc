@@ -39,6 +39,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 
 using namespace std;
 using namespace nidas::util;
@@ -134,7 +135,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         VLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device needs SerialXcvrCtrl object: ") << name);
         const char* nameStr = name.c_str();
         const char* portChar = &nameStr[ttyBase.length()];
-        unsigned int portID = UINT32_MAX;
+        unsigned int portID = numeric_limits<uint32_t>::max();
         istringstream portStream(portChar);
 
         try {
