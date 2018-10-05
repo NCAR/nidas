@@ -856,7 +856,7 @@ std::size_t SerialSensor::readResponse(void *buf, std::size_t len, int msecTimeo
 
     if (res < 0) {
         DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-        return -1;
+        return (std::size_t)-1;
     }
 
     if (res == 0) {
