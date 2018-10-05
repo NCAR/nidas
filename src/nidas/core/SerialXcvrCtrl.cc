@@ -339,7 +339,7 @@ unsigned char SerialXcvrCtrl::assembleBits(const PORT_TYPES portType,
 
 unsigned char SerialXcvrCtrl::portType2Bits(const PORT_TYPES portType) 
 {
-    unsigned char bits = 0b11111111;
+    unsigned char bits = 0xFF;
     switch (portType) {
         case RS422:
         //case RS485_FULL:
@@ -366,7 +366,7 @@ unsigned char SerialXcvrCtrl::portType2Bits(const PORT_TYPES portType)
 PORT_TYPES SerialXcvrCtrl::bits2PortType(const unsigned char bits) 
 {
     PORT_TYPES portType = static_cast<PORT_TYPES>(-1);
-    switch (bits & 0b00000011) {
+    switch (bits & 0x03) {
         case RS422_RS485_BITS:
             portType = RS422;
             break;

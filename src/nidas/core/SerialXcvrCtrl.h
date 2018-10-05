@@ -214,12 +214,18 @@ private:
     static const char* STR_POWER_OFF;
     static const char* STR_POWER_ON;
 
-    static const unsigned char LOOPBACK_BITS = 0b00000000;
-    static const unsigned char RS232_BITS = 0b00000001;
-    static const unsigned char RS485_HALF_BITS = 0b00000010;
-    static const unsigned char RS422_RS485_BITS = 0b00000011;
-    static const unsigned char TERM_120_OHM_BIT = 0b00000100;
-    static const unsigned char SENSOR_POWER_ON_BIT = 0b00001000;
+//    static const unsigned char LOOPBACK_BITS = 0b00000000;
+    static const unsigned char LOOPBACK_BITS = 0x00;
+//    static const unsigned char RS232_BITS = 0b00000001;
+    static const unsigned char RS232_BITS = 0x01;
+//    static const unsigned char RS485_HALF_BITS = 0b00000010;
+    static const unsigned char RS485_HALF_BITS = 0x02;
+//    static const unsigned char RS422_RS485_BITS = 0b00000011;
+    static const unsigned char RS422_RS485_BITS = 0x03;
+//    static const unsigned char TERM_120_OHM_BIT = 0b00000100;
+    static const unsigned char TERM_120_OHM_BIT = 0x04;
+//    static const unsigned char SENSOR_POWER_ON_BIT = 0b00001000;
+    static const unsigned char SENSOR_POWER_ON_BIT = 0x08;
 
     // Aggregation of xcvr port knobs to twiddle
     XcvrConfig _xcvrConfig;
