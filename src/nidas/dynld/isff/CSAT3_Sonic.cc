@@ -103,7 +103,9 @@ CSAT3_Sonic::CSAT3_Sonic():
     recSep(-1),
     baudRate(-1)
 {
-	setMessageParameters(defaultMessageConfig);
+    // We set the defaults at construction,
+    // letting the base class modify according to fromDOMElement()
+    setMessageParameters(defaultMessageConfig);
 
 	// copy the serial comm parameters to the SerialSensor lists
     // Let the base class know about PTB210 RS232 limitations
@@ -135,6 +137,7 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
     write("D",1);
     usleep(250 * USECS_PER_MSEC);
     std::size_t ml = getMessageLength() + getMessageSeparator().length();
+    DLOG(("Expected message length: ") << ml);
 
     // read until we get an actual sample or 5 seconds have elapsed.
     n_u::UTime quit;
@@ -156,7 +159,10 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
                     // of the expected 14.
                     if (samp->getDataByteLength() >= ml &&
                         samp->getDataByteLength() < ml*2) goodsample = true;
-                    else nbad++;
+                    else {
+                    	nbad++;
+                    	DLOG(("Bad sample length: ") << samp->getDataByteLength());
+                    }
 
                     distributeRaw(samp);
                 }
@@ -507,12 +513,13 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	 * responses, then this code may have to be modified.
 	 */
 
-	int ml = getMessageLength();
-	string sep = getMessageSeparator();
-	bool eom = getMessageSeparatorAtEOM();
-
+	/*
+	 * Code originally set the message parameters to those already held by the base class. However,
+	 * the AutoConfig code sets those values to that expected when entering terminal mode, which is 0 + '>'.
+	 * So use the defaultMessageConfig instead to enter data mode.
+	 */
 	try {
-		setMessageParameters(ml,sep,eom);
+		setMessageParameters(defaultMessageConfig);
 	}
 	catch(const n_u::InvalidParameterException& e) {
 		throw n_u::IOException(getName(),"open",e.what());
