@@ -131,7 +131,7 @@ const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 /* Typical GILL2D D3 query response. L1 means all line endings are \r\n
  * 
  * This is actually the factory default settings. For most WindObserver models, 
- * wihch this class implements, A, C, T, Y and Z are not settable.
+ * which this class implements, A, C, T, Y and Z are not settable.
  * 
  * For non-heated models, H is also not settable.
  * 
