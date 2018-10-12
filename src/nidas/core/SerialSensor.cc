@@ -143,6 +143,8 @@ void SerialSensor::open(int flags)
 
     serPortFlush();
 
+    setSensorState(SENSOR_CONFIGURING);
+
     doAutoConfig();
 
     sendInitString();

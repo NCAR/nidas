@@ -73,7 +73,12 @@ DSMSensor::DSMSensor() :
     _duplicateIdOK(false),
     _applyVariableConversions(),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
-    _nTimeouts(0),_lag(0),_station(-1)
+    _nTimeouts(0), _nRealTimeouts(0),
+	_lag(0),_station(-1),
+	_serialNumber("Not Queryable"), _swVersion("Not Queryable"),
+	_calDate("Not Queryable"),
+    _nSamplesTested(0), _nSamplesGood(0),
+	_lastSampleSurveillance(0), _sensorState(SENSOR_CLOSED)
 {
 }
 
@@ -344,12 +349,20 @@ void DSMSensor::open(int flags)
     if (!_scanner) _scanner = buildSampleScanner();
     _scanner->init();
     DLOG(("SampleScanner object built and initialized"));
+
+    /*
+     * initialize _nRealTimeouts back to zero
+     */
+    DLOG(("Initializing _nRealTimeouts to 0."));
+    _nRealTimeouts = 0;
 }
 
 void DSMSensor::close() throw(n_u::IOException) 
 {
     NLOG(("closing: %s, #timeouts=%d", getDeviceName().c_str(), getTimeoutCount()));
     if (_iodev) _iodev->close();
+
+    setSensorState(SENSOR_CLOSED);
 }
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
@@ -359,6 +372,9 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
     bool exhausted = readBuffer();
+    static uint64_t nsamp = 0;
+
+    testCheckHealthInterval();
 
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -372,14 +388,12 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
                 string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
         }
 #endif
-
-#ifdef DEBUG
         nsamp++;
-#endif
+
+        if ((nsamp > 0) && ((nsamp %100) == 0)) {
+        	ILOG(("%s:%s collected %lu samples...", getName().c_str(), getClassName().c_str(), nsamp));
+        }
     }
-#ifdef DEBUG
-    cerr << "nsamp=" << nsamp << endl;
-#endif
 
     return exhausted;
 }
@@ -387,7 +401,8 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
 bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
-    process(samp,results);
+    checkSensorHealth(process(samp,results));
+
     _source.distribute(results);	// distribute does the freeReference
     return true;
 }
@@ -528,6 +543,96 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 	"<td>" << getMinSampleLength() << "</td>" << endl <<
 	"<td>" << getMaxSampleLength() << "</td>" << endl <<
 	"<td>" << getBadTimeTagCount() << "</td>" << endl;
+}
+
+std::string DSMSensor::sensorStateToString(const DSM_SENSOR_STATE sensorState) const
+{
+	switch (sensorState) {
+		case SENSOR_CLOSED:
+			return std::string("SENSOR_CLOSED");
+			break;
+
+		case SENSOR_OPEN:
+			return std::string("SENSOR_OPEN");
+			break;
+
+		case SENSOR_CONFIGURING:
+			return std::string("SENSOR_CONFIGURING");
+			break;
+
+		case SENSOR_ACTIVE:
+			return std::string("SENSOR_ACTIVE");
+			break;
+
+		case SENSOR_CHECKING_HEALTH:
+			return std::string("SENSOR_CHECKING_HEALTH");
+			break;
+
+		case SENSOR_UNHEALTHY:
+			return std::string("SENSOR_UNHEALTHY");
+			break;
+
+		case SENSOR_REQUEST_RESTART:
+			return std::string("SENSOR_UNHEALTHY");
+			break;
+
+		case SENSOR_HEALTHY:
+			return std::string("SENSOR_HEALTHY");
+			break;
+
+		default:
+			break;
+
+	}
+
+	return std::string("");
+}
+
+void DSMSensor::testCheckHealthInterval(bool sensorStartup)
+{
+	if (getSensorState() != SENSOR_CHECKING_HEALTH) {
+		dsm_time_t now = nidas::util::getSystemTime();
+		if (sensorStartup || (now -_lastSampleSurveillance) > DEFAULT_SURVEILLANCE_PERIOD) {
+			ILOG(("Starting process health check on ") << getName() << ":" << getClassName());
+			setSensorState(SENSOR_CHECKING_HEALTH);
+			_lastSampleSurveillance = now;
+			addRawSampleClient(this);
+			_nSamplesTested = 0;
+			_nSamplesGood = 0;
+		}
+	}
+}
+
+void DSMSensor::checkSensorHealth(bool processSuccess)
+{
+    if (getSensorState() == SENSOR_CHECKING_HEALTH) {
+		++_nSamplesTested;
+    	if (processSuccess)
+    		++_nSamplesGood;
+    	testHealthCheckDone();
+    }
+}
+
+void DSMSensor::testHealthCheckDone()
+{
+	bool retVal = _nSamplesTested >= DEFAULT_NUM_SAMPLES_TO_TEST;
+	if (retVal)
+	{
+		removeRawSampleClient(this);
+		float pctGood = _nSamplesGood/_nSamplesTested*100;
+		if (pctGood > 90.0) {
+			setSensorState((SENSOR_HEALTHY));
+		}
+		else if (pctGood > 75.0) {
+			setSensorState((SENSOR_UNHEALTHY));
+		}
+
+		else {
+			setSensorState(SENSOR_REQUEST_RESTART);
+		}
+
+		ILOG(("Health check complete for ") << getName() << ":" << getClassName() << ". Score: " << pctGood);
+	}
 }
 
 /* static */
@@ -806,6 +911,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     }
     _rawSampleTag.setRate(rawRate);
     _rawSource.addSampleTag(&_rawSampleTag);
+
+    setSensorState(SENSOR_CLOSED);
 
 #ifdef DEBUG
     cerr << getName() << ", suffix=" << getSuffix() << ": ";

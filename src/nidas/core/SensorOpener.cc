@@ -85,6 +85,7 @@ void SensorOpener::interrupt()
     _sensorCond.lock();
     _sensorCond.signal();
     _sensorCond.unlock();
+
     // This thread may be in the middle of an sensor->open(), which may
     // do a fair amount of initialization, including I/O.
     // 
@@ -115,29 +116,29 @@ int SensorOpener::run() throw(n_u::Exception)
     // point, such as amInterupted(), or sleeps, or the sensor open.
 
     for (;;) {
-	_sensorCond.lock();
-	while (!isInterrupted() && (_sensors.size() + _problemSensors.size()) == 0) {
-            _sensorCond.wait();
-        }
+		_sensorCond.lock();
+		while (!isInterrupted() && (_sensors.size() + _problemSensors.size()) == 0) {
+			_sensorCond.wait();
+		}
 
-	if (isInterrupted()) break;
+		if (isInterrupted()) break;
 
-	DSMSensor* sensor = 0;
-	if (_sensors.size() > 0) {
-	    sensor = _sensors.front();
-	    _sensors.pop_front();
-	}
-	else {
-	    // don't pound on the recalcitrant sensors too fast
+		DSMSensor* sensor = 0;
+		if (_sensors.size() > 0) {
+			sensor = _sensors.front();
+			_sensors.pop_front();
+		}
+		else {
+			// don't pound on the recalcitrant sensors too fast
 
-	    _sensorCond.unlock();
-	    struct timespec sleepPeriod = {10,0};
-	    nanosleep(&sleepPeriod,0);
-	    _sensorCond.lock();
+			_sensorCond.unlock();
+			struct timespec sleepPeriod = {10,0};
+			nanosleep(&sleepPeriod,0);
+			_sensorCond.lock();
 
-	    sensor = _problemSensors.front();
-	    _problemSensors.pop_front();
-	}
+			sensor = _problemSensors.front();
+			_problemSensors.pop_front();
+		}
 
         if (isInterrupted()) break;
         _sensorCond.unlock();
@@ -164,6 +165,7 @@ int SensorOpener::run() throw(n_u::Exception)
             // on this thread.  However since sensorIsOpen() holds a lock
             // in the SensorHander it would be too difficult to prevent
             // a thread deadlock bug.
+            sensor->setSensorState(SENSOR_OPEN);
             _selector->sensorIsOpen(sensor);
         }
         catch(const n_u::IOException& e) {

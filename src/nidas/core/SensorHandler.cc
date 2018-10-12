@@ -542,6 +542,9 @@ int SensorHandler::run() throw(n_u::Exception)
 #if POLLING_METHOD == POLL_EPOLL_ET
             if (!pp->handlePollEvents(event->events)) leftovers.push_back(pp);
 #else
+//            PolledDSMSensor* pDSMSensor = reinterpret_cast<PolledDSMSensor*>(pp);
+//            assert(pp);
+//            ILOG(("Current polled sensor: %s", pDSMSensor->getName().c_str()));
             pp->handlePollEvents(event->events);
 #endif
         }
@@ -816,6 +819,7 @@ void SensorHandler::add(DSMSensor* sensor) throw()
         _pollingMutex.unlock();
 
         _polledSensors.push_back(psensor);
+        sensor->setSensorState(SENSOR_ACTIVE);
     }
     catch(const n_u::IOException & e) {
         PLOG(("%s: %s", sensor->getName().c_str(), e.what()));

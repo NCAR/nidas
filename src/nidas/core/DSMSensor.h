@@ -37,12 +37,13 @@
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
+#include <nidas/util/time_constants.h>
+#include <nidas/util/UTime.h>
 
 #include <xmlrpcpp/XmlRpc.h>
 
 #include <string>
 #include <list>
-
 #include <fcntl.h>
 
 namespace nidas { namespace core {
@@ -51,6 +52,17 @@ class DSMConfig;
 class Parameter;
 class CalFile;
 class Looper;
+
+enum DSM_SENSOR_STATE {
+	SENSOR_CLOSED = 0,		// not participating
+	SENSOR_OPEN,			// woken up
+	SENSOR_CONFIGURING,		// getting into the game
+	SENSOR_ACTIVE,			// actively participating
+	SENSOR_CHECKING_HEALTH, // Surveilling timeouts and processing
+	SENSOR_UNHEALTHY,		// not playing well
+	SENSOR_REQUEST_RESTART, // failing, start over
+	SENSOR_HEALTHY,			// playing well
+};
 
 /**
  * DSMSensor provides the basic support for reading, processing
@@ -413,6 +425,26 @@ public:
      * to the SampleClient must remain valid, until after
      * it is removed.
      */
+    void addRawSampleClient(SampleClient* c) throw()
+    {
+        return _rawSource.addSampleClient(c);
+    }
+
+    /**
+     * Remove a SampleClient from this SampleSource
+     * This will also remove a SampleClient if it has been
+     * added with addSampleClientForTag().
+     */
+    void removeRawSampleClient(SampleClient* c) throw()
+    {
+        return _rawSource.removeSampleClient(c);
+    }
+
+    /**
+     * Add a SampleClient to this SampleSource.  The pointer
+     * to the SampleClient must remain valid, until after
+     * it is removed.
+     */
     void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
     {
         return _source.addSampleClientForTag(client,tag);
@@ -539,6 +571,16 @@ public:
     void incrementTimeoutCount()
     {
         _nTimeouts++;
+    }
+
+    void incrementRealTimeouts()
+    {
+    	++_nRealTimeouts;
+    }
+
+    uint64_t getRealTimeouts()
+    {
+    	return _nRealTimeouts;
     }
 
     /**
@@ -905,6 +947,69 @@ public:
 
     IODevice* getIODevice() const { return _iodev; }
 
+    /*
+     * AutoConfig helpers - Need to record some sensor metadata, if it's available.
+     * This will be done in the AutoConfig subclasses of SerialSensor. If the sensor
+     * has no such subclass, then these values will likely be set to "Not Queryable",
+     * unless some other mechanism sets them.
+     *
+     */
+    void setSerialNumber(const std::string& rSerialNumber)
+    {
+    	_serialNumber = rSerialNumber;
+    }
+
+    const std::string getSerialNumber() const
+    {
+    	return _serialNumber;
+    }
+
+    void setSwVersion(const std::string& rSwVersion)
+    {
+    	_swVersion = rSwVersion;
+    }
+
+    const std::string getSwVersion()
+    {
+    	return _swVersion;
+    }
+
+    void setCalDate(const std::string& rCalDate)
+    {
+    	_calDate = rCalDate;
+    }
+
+    const std::string getCalDate() const
+    {
+    	return _calDate;
+    }
+
+    void setSensorState(const DSM_SENSOR_STATE sensorState)
+    {
+    	_sensorState = sensorState;
+    	ILOG(("Sensor state for ") << getName() << ":" << getClassName() << " is now " << getReadableSensorState());
+    }
+
+    std::string sensorStateToString(const DSM_SENSOR_STATE sensorState) const;
+
+    DSM_SENSOR_STATE getSensorState() const
+    {
+
+    	return _sensorState;
+    }
+
+    const std::string getReadableSensorState() const
+    {
+
+    	return sensorStateToString(_sensorState);
+    }
+
+    void testCheckHealthInterval(bool sensorStartup = false);
+
+    void checkSensorHealth(bool processSuccess);
+
+    void testHealthCheckDone();
+
 protected:
 
     /**
@@ -1164,7 +1269,18 @@ private:
 
     int _driverTimeTagUsecs;
 
+    /*
+     * This is incremented once every 10 times that SensorHandler calls derived class PolledDSMSensor::checkTimeout()
+     * when no data has been received. However, SensorHandler only does this at most once per second and the
+     * counter which PolledDSMSensor uses is reset when data does arrive. This means that if one data sample gets through
+     * once every 10 seconds, then no warning of any kind would be issued - ever.
+     */
     int _nTimeouts;
+
+    /*
+     * This is incremented every time SampleScanner::readBuffer() is called with a timeout which is not met.
+     */
+    uint64_t _nRealTimeouts;
 
     static Looper* _looper;
 
@@ -1174,7 +1290,42 @@ private:
 
     int _station;
 
-private:
+    std::string _serialNumber;
+
+    std::string _swVersion;
+
+    std::string _calDate;
+
+    /*
+     * Number of samples to process when surveilling for healthy operation
+     *
+     */
+    static const uint32_t DEFAULT_NUM_SAMPLES_TO_TEST = 100;
+
+    /*
+     * Keeps track of number of samples surveilled
+     */
+    uint32_t _nSamplesTested;
+
+    /*
+     * Keeps track of the number of samples successfully processed
+     */
+    uint32_t _nSamplesGood;
+
+    /*
+     * Default period between surveillances = 1 hour.
+     */
+    static const uint32_t DEFAULT_SURVEILLANCE_PERIOD = USECS_PER_SEC * 60; //SECS_PER_HOUR;
+
+    /*
+     * Last time that a surveillance occurred since sensor opened.
+     */
+    dsm_time_t _lastSampleSurveillance;
+
+    /*
+     * Sensor state
+     */
+    DSM_SENSOR_STATE _sensorState;
 
     // no copying
     DSMSensor(const DSMSensor& x);
