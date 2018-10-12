@@ -117,7 +117,7 @@ public:
     /**
      * Get serial number field and its index in "??" query output.
      */
-    std::string getSerialNumber(const std::string& str,
+    std::string parseSerialNumber(const std::string& str,
             std::string::size_type & index );
 
 protected:
@@ -216,7 +216,8 @@ private:
 
     bool _oversample;
 
-    std::string _serialNumber;
+//    Move to DSMSensor so that all sensors can collect this metadata
+//    std::string _serialNumber;
 
     std::string _sonicLogFile;
 

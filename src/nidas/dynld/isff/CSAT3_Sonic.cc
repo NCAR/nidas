@@ -85,7 +85,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 #endif
     _rate(0),
     _oversample(false),
-    _serialNumber(),_sonicLogFile(),
+    _sonicLogFile(),
     _gapDtUsecs(0),
     _ttlast(0),
     _nanIfDiag(true),
@@ -190,7 +190,7 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
 }
 
 /* static */
-string CSAT3_Sonic::getSerialNumber(const string& str,
+string CSAT3_Sonic::parseSerialNumber(const string& str,
         string::size_type & idx)
 {
     // Version 3 and 4 serial numbers: "SNXXXX", version 5: "SnXXXX".
@@ -289,7 +289,7 @@ throw(n_u::IOException)
             if (stidx == string::npos) {
                 string::size_type etidx = result.find("ET=");
                 string::size_type snidx;
-                serialNumber = getSerialNumber(result, snidx);
+                serialNumber = parseSerialNumber(result, snidx);
                 stidx = std::min(snidx, etidx);
 
                 if (stidx != string::npos) {
@@ -956,8 +956,9 @@ bool CSAT3_Sonic::checkResponse()
     	return false;
     }
 
-    DLOG(("%s: AQ=%d,os=%c,serial number=\"",getName().c_str(),acqrate,osc) << serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep <<
-            ", recSep(RS)=" << recSep << ", baud(BR)=" << baudRate);
+    DLOG(("%s: AQ=%d,os=%c,serial number=\"", getName().c_str(), acqrate, osc)
+    		<< serialNumber << "\" rev=" << revision << ", rtsIndep(RI)=" << rtsIndep
+			<< ", recSep(RS)=" << recSep << ", baud(BR)=" << baudRate);
 
 	if (!serialNumber.empty()) {
 		// Is current sonic rate OK?  If requested rate is 0, don't change.
@@ -982,7 +983,7 @@ bool CSAT3_Sonic::checkResponse()
 		}
 
 		// On rate or serial number change, log to file.
-		if (!serialNumber.empty() && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+		if (!serialNumber.empty() && (!rateOK || serialNumber != getSerialNumber()) && _sonicLogFile.length() > 0) {
 			n_u::UTime now;
 			string fname = getDSMConfig()->expandString(_sonicLogFile);
 			ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
@@ -998,7 +999,11 @@ bool CSAT3_Sonic::checkResponse()
 			if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
 			fst.close();
 		}
-		_serialNumber = serialNumber;
+		setSerialNumber(serialNumber);
+	}
+
+	if (!revision.empty()) {
+		setSwVersion(revision);
 	}
 
     return (query.length() != 0);
