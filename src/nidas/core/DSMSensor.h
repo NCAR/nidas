@@ -1315,7 +1315,7 @@ private:
     /*
      * Default period between surveillances = 1 hour.
      */
-    static const uint32_t DEFAULT_SURVEILLANCE_PERIOD = USECS_PER_SEC * 60; //SECS_PER_HOUR;
+    static const uint32_t DEFAULT_SURVEILLANCE_PERIOD = USECS_PER_SEC * SECS_PER_HOUR;
 
     /*
      * Last time that a surveillance occurred since sensor opened.
