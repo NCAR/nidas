@@ -74,8 +74,6 @@ public:
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
 
-protected:
-
     dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
         throw();
 
@@ -84,6 +82,8 @@ protected:
 
     dsm_time_t parseHDT(const char* input,double *dout,int nvars,dsm_time_t tt)
         throw();
+
+protected:
 
     /**
      * Timetag set by parseGGA and parseRMC, used by parseHDT.
