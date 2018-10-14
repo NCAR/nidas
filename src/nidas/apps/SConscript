@@ -95,7 +95,8 @@ didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
 if not dbconf.CheckCpp11():
     print("No C++11 support, data_influxdb will not be built.")
-elif bool(check_pkg_config(didbenv, 'jsoncpp') and
+elif bool(not arch and
+          check_pkg_config(didbenv, 'jsoncpp') and
           check_pkg_config(didbenv, 'libcurl')):
     print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
     didbenv.AppendUnique(CXXFLAGS='-std=c++11')
@@ -107,7 +108,7 @@ dbconf.Finish()
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
 sdconf = sdenv.Configure()
-if check_pkg_config(sdenv, 'jsoncpp'):
+if not arch and check_pkg_config(sdenv, 'jsoncpp'):
     print("sync_dump will be built with json support")
     sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
 else:
