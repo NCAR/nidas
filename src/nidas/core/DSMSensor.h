@@ -1010,6 +1010,18 @@ public:
 
     void testHealthCheckDone();
 
+    void setNumQCSamples(uint32_t numSamples)
+    {
+    	_nSamplesToTest = numSamples;
+    }
+
+    /*
+     * Does a rough calculation of the number of samples to QC based on the
+     * sample rate and the sample period. The idea is to not allow the number
+     * of samples cause the QC cycle to exceed the QC period.
+     */
+    void calcNumQCSamples(double sampleRate);
+
 protected:
 
     /**
@@ -1300,8 +1312,20 @@ private:
      * Number of samples to process when surveilling for healthy operation
      *
      */
-    static const uint32_t DEFAULT_NUM_SAMPLES_TO_TEST = 100;
+    static const uint32_t DEFAULT_NUM_SAMPLES_TO_TEST = 10;
 
+    /*
+     * Number of samples to QC based on the raw sample tag rate. Raw sample tag
+     * rate is determined as the maximum of all the samples defined in the XML
+     * for this sensor. So this value initially gets set to DEFAULT_NUM_SAMPLES_TO_TEST,
+     * but may be adjusted according to the XML, or a subclass.
+     */
+    uint32_t _nSamplesToTest;
+
+    /*
+     * Keeps track of the total number of samples read
+     */
+    uint64_t _nSamplesRead;
     /*
      * Keeps track of number of samples surveilled
      */
@@ -1313,9 +1337,14 @@ private:
     uint32_t _nSamplesGood;
 
     /*
-     * Default period between surveillances = 1 hour.
+     * Default period between surveillances = 1 hour in microseconds.
      */
-    static const uint32_t DEFAULT_SURVEILLANCE_PERIOD = USECS_PER_SEC * SECS_PER_HOUR;
+    static const dsm_time_t DEFAULT_QC_CHECK_PERIOD = (uint64_t)USECS_PER_SEC * SECS_PER_HOUR;
+
+    /*
+     * Actual qc check period in microseconds
+     */
+    uint64_t _qcCheckPeriod;
 
     /*
      * Last time that a surveillance occurred since sensor opened.

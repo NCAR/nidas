@@ -34,6 +34,7 @@
 #include "SensorCatalog.h"
 #include "Looper.h"
 #include "Variable.h"
+#include "Sample.h"
 
 #include "SamplePool.h"
 #include "CalFile.h"
@@ -41,6 +42,7 @@
 #include <nidas/util/Logger.h>
 
 #include <cmath>
+#include <cfloat>
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -77,7 +79,10 @@ DSMSensor::DSMSensor() :
 	_lag(0),_station(-1),
 	_serialNumber("Not Queryable"), _swVersion("Not Queryable"),
 	_calDate("Not Queryable"),
+	_nSamplesToTest(DEFAULT_NUM_SAMPLES_TO_TEST),
+	_nSamplesRead(0),
     _nSamplesTested(0), _nSamplesGood(0),
+    _qcCheckPeriod(DEFAULT_QC_CHECK_PERIOD),
 	_lastSampleSurveillance(0), _sensorState(SENSOR_CLOSED)
 {
 }
@@ -367,12 +372,12 @@ void DSMSensor::close() throw(n_u::IOException)
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
 {
+    DLOG(("Calling DSMSensor::init() as subclass does not override."));
 }
 
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
     bool exhausted = readBuffer();
-    static uint64_t nsamp = 0;
 
     testCheckHealthInterval();
 
@@ -388,10 +393,10 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
                 string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
         }
 #endif
-        nsamp++;
+        _nSamplesRead++;
 
-        if ((nsamp > 0) && ((nsamp %100) == 0)) {
-        	ILOG(("%s:%s collected %lu samples...", getName().c_str(), getClassName().c_str(), nsamp));
+        if ((_nSamplesRead > 0) && ((_nSamplesRead %100) == 0)) {
+        	ILOG(("%s:%s collected %lu samples...", getName().c_str(), getClassName().c_str(), _nSamplesRead));
         }
     }
 
@@ -401,7 +406,10 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
 bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
-    checkSensorHealth(process(samp,results));
+    bool processOK = process(samp,results);
+    checkSensorHealth(processOK);
+    if (!processOK)
+        DLOG(("") << getName() << ":" << getClassName() << ": raw sample contents: " << (char*)samp->getConstVoidDataPtr());
 
     _source.distribute(results);	// distribute does the freeReference
     return true;
@@ -545,6 +553,17 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 	"<td>" << getBadTimeTagCount() << "</td>" << endl;
 }
 
+void DSMSensor::calcNumQCSamples(double sampleRate)
+{
+	double secsPerSample = 1/sampleRate;
+	assert(secsPerSample != doubleNAN && secsPerSample > 0.0 && secsPerSample != DBL_MAX);
+	uint32_t samplesPerQCPeriod = _qcCheckPeriod/(secsPerSample * USECS_PER_SEC);
+    DLOG(("") << getName() << ":" << getClassName() << " - samplesPerQCPeriod = " << samplesPerQCPeriod);
+	uint32_t numQCSamples = std::max((uint32_t)1, samplesPerQCPeriod/1000);
+	DLOG(("") << getName() << ":" << getClassName() << " - numQCSamples = " << numQCSamples);
+	setNumQCSamples(numQCSamples);
+}
+
 std::string DSMSensor::sensorStateToString(const DSM_SENSOR_STATE sensorState) const
 {
 	switch (sensorState) {
@@ -592,13 +611,13 @@ void DSMSensor::testCheckHealthInterval(bool sensorStartup)
 {
 	if (getSensorState() != SENSOR_CHECKING_HEALTH) {
 		dsm_time_t now = nidas::util::getSystemTime();
-		if (sensorStartup || (now -_lastSampleSurveillance) > DEFAULT_SURVEILLANCE_PERIOD) {
-			ILOG(("Starting process health check on ") << getName() << ":" << getClassName());
+		if (sensorStartup || (now -_lastSampleSurveillance) > DEFAULT_QC_CHECK_PERIOD) {
+			ILOG(("Starting health check on ") << getName() << ":" << getClassName());
 			setSensorState(SENSOR_CHECKING_HEALTH);
 			_lastSampleSurveillance = now;
+            _nSamplesTested = 0;
+            _nSamplesGood = 0;
 			addRawSampleClient(this);
-			_nSamplesTested = 0;
-			_nSamplesGood = 0;
 		}
 	}
 }
@@ -615,7 +634,7 @@ void DSMSensor::checkSensorHealth(bool processSuccess)
 
 void DSMSensor::testHealthCheckDone()
 {
-	bool retVal = _nSamplesTested >= DEFAULT_NUM_SAMPLES_TO_TEST;
+	bool retVal = _nSamplesTested >= _nSamplesToTest;
 	if (retVal)
 	{
 		removeRawSampleClient(this);
@@ -912,7 +931,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     _rawSampleTag.setRate(rawRate);
     _rawSource.addSampleTag(&_rawSampleTag);
 
-    setSensorState(SENSOR_CLOSED);
+    calcNumQCSamples(rawRate);
 
 #ifdef DEBUG
     cerr << getName() << ", suffix=" << getSuffix() << ": ";
