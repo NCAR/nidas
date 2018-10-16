@@ -155,45 +155,57 @@ bool CharacterSensor::doesAsciiSscanfs()
     return false;
 }
  
-void CharacterSensor::init() throw(n_u::InvalidParameterException)
+
+void CharacterSensor::init() throw (n_u::InvalidParameterException)
 {
+    DLOG(("CharacterSensor::init() : Adding sscanfer's."));
     DSMSensor::init();
 
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
-    for ( ; si != tags.end(); ++si) {
-	SampleTag* tag = *si;
-	const string& sfmt = tag->getScanfFormat();
-	if (sfmt.length() > 0) {
-	    AsciiSscanf* sscanf = new AsciiSscanf();
-	    try {
-	       sscanf->setFormat(n_u::replaceBackslashSequences(sfmt));
-	    }
-	    catch (n_u::ParseException& pe) {
-		throw n_u::InvalidParameterException(getName(),
-		       "setScanfFormat",pe.what());
-	    }
+    for (; si != tags.end(); ++si)
+    {
+        SampleTag* tag = *si;
+        const string& sfmt = tag->getScanfFormat();
+        if (sfmt.length() > 0)
+        {
+            AsciiSscanf* sscanf = new AsciiSscanf();
+            try
+            {
+                sscanf->setFormat(n_u::replaceBackslashSequences(sfmt));
+            } catch (n_u::ParseException& pe)
+            {
+                throw n_u::InvalidParameterException(getName(),
+                        "setScanfFormat", pe.what());
+            }
 
             int nd = 0;
-            for (unsigned int iv = 0; iv < tag->getVariables().size(); iv++) {
+            for (unsigned int iv = 0; iv < tag->getVariables().size(); iv++)
+            {
                 const Variable* var = tag->getVariables()[iv];
                 nd += var->getLength();
             }
 
-	    sscanf->setSampleTag(tag);
-	    _sscanfers.push_back(sscanf);
-	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
-	}
+            sscanf->setSampleTag(tag);
+            _sscanfers.push_back(sscanf);
+            _maxScanfFields = std::max(
+                    std::max(_maxScanfFields, sscanf->getNumberOfFields()), nd);
+        }
 
-        if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0) {
-            _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
-                tag->getTimetagAdjustPeriod(),
-                tag->getTimetagAdjustSampleGap());
+        if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0)
+        {
+            _ttadjusters[tag] =
+                new TimetagAdjuster(tag->getRate(),
+                    tag->getTimetagAdjustPeriod(),
+                    tag->getTimetagAdjustSampleGap());
         }
     }
-	
-    if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
+
+    if (!_sscanfers.empty())
+        _nextSscanfer = _sscanfers.begin();
+    else
+        DLOG(("No sscanfer's added!!"));
     validateSscanfs();
 }
 
@@ -366,6 +378,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
     // data for later use, but doesn't (currently) parse it.
     if (_sscanfers.empty())
     {
+        DLOG(("No sscanfer's found!"));
         return 0;
     }
     assert(samp->getType() == CHAR_ST);
@@ -430,6 +443,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
 
     if (!nparsed)
     {
+        DLOG(("Nothing parsed: num failures: ") << _scanfFailures);
         _scanfFailures++;
         outs->freeReference();  // remember!
         return 0;               // no sample
