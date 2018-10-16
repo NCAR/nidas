@@ -878,19 +878,7 @@ std::size_t SerialSensor::readEntireResponse(void *buf, std::size_t len, int mse
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-	if (numCharsRead > 0) {
-		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-		for (std::size_t i=0; i<5; ++i) {
-			char hexBuf[51];
-			memset(hexBuf, 0, 51);
-			for (int j=0; j<10; ++j) {
-				if ((i*10 + j) > len)
-					break;
-				snprintf(&hexBuf[j*5], 5, "0X%02X ", cbuf[i*10+j]);
-			}
-            VLOG((&hexBuf[0]));
-		}
-    }
+    printResponseHex(numCharsRead, cbuf);
 
     for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
         numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout);
@@ -995,19 +983,26 @@ std::string SerialSensor::autoCfgToStr(AUTOCONFIG_STATE autoState)
 }
 
 void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf) {
-	VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-	for (int i = 0; i < 5; ++i) {
-		if ((i*10) > numCharsRead)
+	if (numCharsRead > 0) {
+		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
+		for (int i = 0; i < 5; ++i) {
+			if ((i*10) > numCharsRead)
 				break;
-		char hexBuf[60];
-		memset(hexBuf, 0, 60);
-		for (int j = 0; j < 10; ++j) {
-			if ((i*10 + j) > numCharsRead)
-				break;
-			snprintf(&(hexBuf[j * 5]), 5, "%02x ", respBuf[(i * 10) + j]);
+
+			char hexBuf[60];
+			memset(hexBuf, 0, 60);
+			for (int j = 0; j < 10; ++j) {
+				if ((i*10 + j) > numCharsRead)
+					break;
+				snprintf(&(hexBuf[j * 5]), 6, "0x%02x  ", respBuf[(i * 10) + j]);
+			}
+
+			char* pBytes = &hexBuf[0];
+			VLOG(("%s", pBytes));
 		}
-		VLOG((&(hexBuf[0])));
 	}
+	else
+		VLOG(("No chars read"));
 }
 
 
