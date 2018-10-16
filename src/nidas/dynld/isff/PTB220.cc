@@ -652,7 +652,7 @@ void PTB220::sendScienceParameters() {
         }
     }
 
-    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB210"));
+    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB220"));
     else NLOG(("Base class modified the default science parameters for this PB210"));
 
     DLOG(("Sending science parameters"));
@@ -819,7 +819,12 @@ bool PTB220::checkScienceParameters() {
 //            throw n_u::ParseException("regexec calDate RE", string(regerrbuf));
 //        }
 //    }
-//
+
+    // PTB220 entries in sensor_catalog.xml don't tend to have an init_string, so need to start it up here.
+    if (scienceParametersOK) {
+        sendSensorCmd(SENSOR_RUN_CMD);
+    }
+
     return scienceParametersOK;
 }
 
