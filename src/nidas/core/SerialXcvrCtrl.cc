@@ -99,7 +99,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
                 }
 
                 // while we're at it, set the GPIO during initialization
-                applyXcvrConfig(false);
+                applyXcvrConfig(true);
                 gpioClose(ifWeOpenedIt);
             }
 
@@ -163,7 +163,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
                 }
 
                 // while we're at it, set the GPIO during initialization
-                applyXcvrConfig(false);
+                applyXcvrConfig(true);
                 gpioClose(ifWeOpenedIt);
             }
 
@@ -222,7 +222,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
                 }
                 // And while we're at it, set the port type and termination.
                 // Don't need to open the device this time.
-                applyXcvrConfig(false);
+                applyXcvrConfig(true);
                 gpioClose(ifWeOpenedIt);
             }
 
@@ -274,9 +274,11 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
     DLOG(("Applying termination: ") << termToStr(_xcvrConfig.termination));
     DLOG(("Applying power: ") << powerStateToStr(_xcvrConfig.sensorPower));
 
+    DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
     _rawXcvrConfig &= ~adjustBitPosition(0xF);
+    DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
     _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination , _xcvrConfig.sensorPower));
-	DLOG(("Raw xcvr config: 0X%2X", _rawXcvrConfig));
+	DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
 
     if (gpioIsOpen()) {
         DLOG(("Writing xcvr config to FT4232H"));
