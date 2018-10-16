@@ -536,7 +536,7 @@ void GILL2D::sendScienceParameters() {
         }
     }
 
-    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB210"));
+    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this Gill sensor"));
     else NLOG(("Base class modified the default science parameters for this PB210"));
 
     DLOG(("Sending science parameters"));
