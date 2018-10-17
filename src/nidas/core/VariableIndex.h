@@ -118,7 +118,7 @@ public:
         return _index >= 0 && _variable;
     }
 
-    explicit operator bool() const
+    /*explicit*/ operator bool() const
     {
         return _index >= 0 && _variable;
     }
