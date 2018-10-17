@@ -34,12 +34,6 @@ namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
-enum GILL2D_CFG_MODE_STATUS {
-	NOT_ENTERED,
-	ENTERED_RESP_CHECKED,
-	ENTERED
-};
-
 enum GILL2D_OUTPUT_MODE
 {
 	CONTINUOUS = true,
@@ -249,7 +243,6 @@ protected:
     void updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg=0);
     n_c::SensorCmdData getDesiredCmd(GILL2D_COMMANDS cmd);
     bool checkConfigMode(bool continuous = CONTINUOUS);
-    GILL2D_CFG_MODE_STATUS enterConfigMode();
     bool isConfigCmd(int cmd)
     {
     	return (cmd != SENSOR_QRY_ID_CMD && cmd != SENSOR_CONFIG_MODE_CMD
@@ -259,6 +252,8 @@ protected:
     bool confirmGillSerialPortChange(int cmd, int arg);
 
     virtual bool supportsAutoConfig() { return true; }
+    virtual n_c::CFG_MODE_STATUS enterConfigMode();
+    virtual void exitConfigMode();
     virtual bool checkResponse();
     virtual bool installDesiredSensorConfig();
     virtual void sendScienceParameters();
@@ -324,13 +319,13 @@ private:
     static const int CHAR_WRITE_DELAY = NSECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
-    n_c::PortConfig desiredPortConfig;
-    n_c::MessageConfig defaultMessageConfig;
+    n_c::PortConfig _desiredPortConfig;
+    n_c::MessageConfig _defaultMessageConfig;
 
-    n_c::SensorCmdData* desiredScienceParameters;
+    n_c::SensorCmdData* _desiredScienceParameters;
 
-    char unitId;
-    bool polling;
+    char _unitId;
+    bool _polling;
 
 
     // no copying

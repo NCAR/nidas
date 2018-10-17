@@ -202,13 +202,13 @@ static void freeRegex() {
 GILL2D::GILL2D()
     : Wind2D(DEFAULT_PORT_CONFIG),
 	  testPortConfig(),
-	  desiredPortConfig(DEFAULT_PORT_CONFIG),
-      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
-      desiredScienceParameters(), unitId('\0'), polling(false)
+	  _desiredPortConfig(DEFAULT_PORT_CONFIG),
+      _defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
+      _desiredScienceParameters(), _unitId('\0'), _polling(false)
 {
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
-    setMessageParameters(defaultMessageConfig);
+    setMessageParameters(_defaultMessageConfig);
 
     // Let the base class know about PTB210 RS232 limitations
     for (int i=0; i<NUM_PORT_TYPES; ++i) {
@@ -223,9 +223,9 @@ GILL2D::GILL2D()
     	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
     }
 
-    desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
+    _desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
+        _desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
 
     compileRegex();
@@ -234,7 +234,7 @@ GILL2D::GILL2D()
 GILL2D::~GILL2D()
 {
     freeRegex();
-    delete [] desiredScienceParameters;
+    delete [] _desiredScienceParameters;
 }
 
 void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
@@ -421,7 +421,7 @@ bool GILL2D::installDesiredSensorConfig()
 
     // at this point we need to determine whether or not the current working config 
     // is the desired config, and adjust as necessary
-    if (desiredPortConfig != sensorPortConfig) {
+    if (_desiredPortConfig != sensorPortConfig) {
         // Gotta modify the GILL2D parameters first, and the modify our parameters to match and hope for the best.
         // We only do this for the serial and science parameters, as the sensor is physically configured to use  
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
@@ -430,10 +430,10 @@ bool GILL2D::installDesiredSensorConfig()
 
         serPortFlush(O_RDWR);
 
-        if (desiredPortConfig.termios.getBaudRate() != sensorPortConfig.termios.getBaudRate()) {
-        	DLOG(("Changing baud rate to: ") << desiredPortConfig.termios.getBaudRate());
+        if (_desiredPortConfig.termios.getBaudRate() != sensorPortConfig.termios.getBaudRate()) {
+        	DLOG(("Changing baud rate to: ") << _desiredPortConfig.termios.getBaudRate());
         	GILL2D_BAUD_ARGS newBaudArg = G38400;
-        	switch (desiredPortConfig.termios.getBaudRate()) {
+        	switch (_desiredPortConfig.termios.getBaudRate()) {
 				case 38400:
 					break;
 				case 19200:
@@ -459,11 +459,11 @@ bool GILL2D::installDesiredSensorConfig()
         	sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(newBaudArg));
         }
 
-        if (desiredPortConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
-        	DLOG(("Changing parity to: ") << desiredPortConfig.termios.getParityString());
+        if (_desiredPortConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
+        	DLOG(("Changing parity to: ") << _desiredPortConfig.termios.getParityString());
 			// GILL2D only supports three combinations of word format - all based on parity
 			// So just force it based on parity.
-			switch (desiredPortConfig.termios.getParityString(true).c_str()[0]) {
+			switch (_desiredPortConfig.termios.getParityString(true).c_str()[0]) {
 				case 'O':
 					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
 					break;
@@ -481,9 +481,9 @@ bool GILL2D::installDesiredSensorConfig()
 			}
         }
 
-        setPortConfig(desiredPortConfig);
+        setPortConfig(_desiredPortConfig);
         applyPortConfig();
-        if (getPortConfig() == desiredPortConfig) {
+        if (getPortConfig() == _desiredPortConfig) {
             if (!doubleCheckResponse()) {
 				NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
 						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
@@ -510,7 +510,7 @@ bool GILL2D::installDesiredSensorConfig()
 
         else {
             DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            DLOG(("Desired PortConfig: ") << desiredPortConfig);
+            DLOG(("Desired PortConfig: ") << _desiredPortConfig);
             DLOG(("Actual set PortConfig: ") << getPortConfig());
         }
     }
@@ -529,8 +529,8 @@ void GILL2D::sendScienceParameters() {
 
     DLOG(("Check for whether the desired science parameters are the same as the default"));
     for (int i=0; i< NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if ((desiredScienceParameters[i].cmd != DEFAULT_SCIENCE_PARAMETERS[i].cmd)
-            || (desiredScienceParameters[i].arg != DEFAULT_SCIENCE_PARAMETERS[i].arg)) {
+        if ((_desiredScienceParameters[i].cmd != DEFAULT_SCIENCE_PARAMETERS[i].cmd)
+            || (_desiredScienceParameters[i].arg != DEFAULT_SCIENCE_PARAMETERS[i].arg)) {
             desiredIsDefault = false;
             break;
         }
@@ -541,7 +541,7 @@ void GILL2D::sendScienceParameters() {
 
     DLOG(("Sending science parameters"));
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
-        sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
+        sendSensorCmd(_desiredScienceParameters[j].cmd, _desiredScienceParameters[j].arg);
     }
 }
 
@@ -674,9 +674,9 @@ bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const char* match)
 n_c::SensorCmdData GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
     VLOG(("Looking in desiredScienceParameters[] for ") << cmd);
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if (desiredScienceParameters[i].cmd == cmd) {
+        if (_desiredScienceParameters[i].cmd == cmd) {
             VLOG(("Found command: ") << cmd);
-            return desiredScienceParameters[i];
+            return _desiredScienceParameters[i];
         }
     }
 
@@ -794,7 +794,7 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
 			if (etxPos != string::npos && etxPos != string::npos) {
 				if ((etxPos - stxPos) == 2) {
 					// we can probably believe that we have captured the unit address response
-					unitId = respStr[stxPos+1];
+					_unitId = respStr[stxPos+1];
 				}
 			}
 		}
@@ -888,8 +888,8 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 
 void GILL2D::updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if (cmd == desiredScienceParameters[i].cmd) {
-            desiredScienceParameters[i].arg.intArg = arg;
+        if (cmd == _desiredScienceParameters[i].cmd) {
+            _desiredScienceParameters[i].arg.intArg = arg;
             break;
         }
     }
@@ -912,14 +912,14 @@ bool GILL2D::checkConfigMode(bool continuous)
 		sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(-1));
     }
     else {
-    	if (!unitId) {
+    	if (!_unitId) {
     		DLOG(("Attempting to get unit ID"));
     		sendSensorCmd(SENSOR_QRY_ID_CMD, n_c::SensorCmdArg(-1));
     	}
 
-    	if (unitId) {
+    	if (_unitId) {
 			DLOG(("Sending polled mode command to enter config mode"));
-			sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(unitId));
+			sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(_unitId));
     	}
     	else
     		DLOG(("Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));
@@ -957,13 +957,13 @@ bool GILL2D::checkConfigMode(bool continuous)
     return retVal;
 }
 
-GILL2D_CFG_MODE_STATUS GILL2D::enterConfigMode()
+n_c::CFG_MODE_STATUS GILL2D::enterConfigMode()
 {
 	DLOG(("GILL2D::enterConfigMode(): enter..."));
-	GILL2D_CFG_MODE_STATUS retVal = NOT_ENTERED;
+	n_c::CFG_MODE_STATUS retVal = NOT_ENTERED;
 
 	DLOG(("Trying to get into Configuration Mode"));
-	DLOG(("First check to see if sensor is in continous output..."));
+	DLOG(("First check to see if sensor is in continuous output..."));
 	if (!checkConfigMode()) {
 		DLOG(("Must not be in continuous mode, or serial port not set up right"));
 		if (!checkConfigMode(POLLED)) {
@@ -988,5 +988,11 @@ GILL2D_CFG_MODE_STATUS GILL2D::enterConfigMode()
 	DLOG(("GILL2D::enterConfigMode(): exit..."));
 	return retVal;
 }
+
+void GILL2D::exitConfigMode()
+{
+    sendSensorCmd(SENSOR_START_MEAS_CMD);
+}
+
 
 }}} //namespace nidas { namespace dynld { namespace isff {

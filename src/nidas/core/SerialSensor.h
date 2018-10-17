@@ -85,6 +85,12 @@ struct SensorCmdData {
     SensorCmdArg arg;
 };
 
+enum CFG_MODE_STATUS {
+    NOT_ENTERED,
+    ENTERED_RESP_CHECKED,
+    ENTERED
+};
+
 enum AUTOCONFIG_STATE {
 	AUTOCONFIG_UNSUPPORTED,
 	WAITING_IDLE,
@@ -224,6 +230,8 @@ public:
 
     void stopPrompting() throw(nidas::util::IOException);
 
+    virtual void sendInitString() throw(nidas::util::IOException);
+
     // get auto config parameters, after calling base class implementation
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(nidas::util::InvalidParameterException);
@@ -297,6 +305,8 @@ protected:
      * In particular, supportsAutoConfig() must be overridden to return true,
      * otherwise, the other virtual methods will not get called at all.
      */
+    virtual CFG_MODE_STATUS enterConfigMode() { return ENTERED; }
+    virtual void exitConfigMode() {}
     virtual bool supportsAutoConfig() { return false; }
     virtual bool checkResponse() { return true; }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };

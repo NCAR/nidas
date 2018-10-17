@@ -158,6 +158,19 @@ void SerialSensor::open(int flags)
     initPrompting();
 }
 
+void SerialSensor::sendInitString() throw(nidas::util::IOException)
+{
+    NLOG(("%s:%s: Putting sensor into measurement mode", getName().c_str(), getClassName().c_str()));
+    if (getInitString().length() != 0) {
+        CharacterSensor::sendInitString();
+    }
+
+    else {
+        exitConfigMode();
+    }
+}
+
+
 void SerialSensor::serPortFlush(const int flags) 
 {
     // used to hold the port access flags, whether passed in or read from the device.
@@ -669,30 +682,47 @@ bool SerialSensor::findWorkingSerialPortConfig()
     bool foundIt = false;
 
     // first see if the current configuration is working. If so, all done!
-	NLOG(("Testing initial config which may be custom ") << _desiredPortConfig);
+    NLOG(("Testing initial config which may be custom ") << _desiredPortConfig);
 
-    if (!doubleCheckResponse()) {
-        // initial config didn't work, so sweep through all parameters starting w/the default
-        if (!isDefaultConfig(getPortConfig())) {
-            // it's a custom config, so test default first
-            NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
-            if (!testDefaultPortConfig()) {
-                NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
-                foundIt = sweepCommParameters();
+    NLOG(("Entering sensor config mode, if it overrides this method"));
+    CFG_MODE_STATUS cfgMode = enterConfigMode();
+
+    if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
+        if (!doubleCheckResponse()) {
+            // initial config didn't work, so sweep through all parameters starting w/the default
+            if (!isDefaultConfig(getPortConfig())) {
+                // it's a custom config, so test default first
+                NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
+                if (!testDefaultPortConfig()) {
+                    NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
+                    foundIt = sweepCommParameters();
+                }
+                else {
+                    // found it!! Tell someone!!
+                    foundIt = true;
+                    NLOG(("Default PortConfig was successfull!!!") << getPortConfig());
+                }
             }
             else {
-                // found it!! Tell someone!!
-                foundIt = true;
-				NLOG(("Default PortConfig was successfull!!!") << getPortConfig());
+                NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
+                      "parameter configurations..."));
+                foundIt = sweepCommParameters();
             }
         }
         else {
-            NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
-                  "parameter configurations..."));
-            foundIt = sweepCommParameters();
+            // Found it! Tell someone!
+            if (!isDefaultConfig(getPortConfig())) {
+                NLOG(("SerialSensor customized the default PortConfig and it succeeded!!"));
+            }
+            else {
+                NLOG(("SerialSensor did not customize the default PortConfig and it succeeded!!"));
+            }
+
+            foundIt = true;
+            NLOG(("") << getPortConfig());
         }
     }
-    else {
+    else if (cfgMode == ENTERED_RESP_CHECKED) {
         // Found it! Tell someone!
         if (!isDefaultConfig(getPortConfig())) {
             NLOG(("SerialSensor customized the default PortConfig and it succeeded!!"));
@@ -705,12 +735,20 @@ bool SerialSensor::findWorkingSerialPortConfig()
         NLOG(("") << getPortConfig());
     }
 
+    else {
+        NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
+              getName().c_str(),getClassName().c_str()));
+        throw n_u::IOException(getName()+":"+getClassName(),
+                               "SerialSensor::findWorkingPortConfig(): unknown response returned by enterConfigMode(): ",
+                               cfgMode);
+    }
     return foundIt;
 }
 
 bool SerialSensor::sweepCommParameters()
 {
     bool foundIt = false;
+    CFG_MODE_STATUS cfgMode = NOT_ENTERED;
 
     for (PortTypeList::iterator portTypeIter = _portTypeList.begin();
     	 portTypeIter != _portTypeList.end() && !foundIt;
@@ -764,26 +802,55 @@ bool SerialSensor::sweepCommParameters()
 				NLOG((""));
 				NLOG(("Testing PortConfig: ") << getPortConfig());
 
-                if (doubleCheckResponse()) {
+				cfgMode = enterConfigMode();
+				if (cfgMode == ENTERED) {
+                    if (doubleCheckResponse()) {
+                        foundIt = true;
+                        break;
+                    }
+
+                    else if (portType == RS485_HALF || portType == RS422) {
+                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
+                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
+                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM,
+                                                            _defaultPortConfig.xcvrConfig.sensorPower);
+                        DLOG(("Asking for PortConfig:") << testPortConfig);
+
+                        setPortConfig(testPortConfig);
+                        applyPortConfig();
+
+                        NLOG(("Testing PortConfig on RS422/RS485 with termination: ") << getPortConfig());
+
+                        cfgMode = enterConfigMode();
+                        if (cfgMode == ENTERED) {
+                            if (doubleCheckResponse()) {
+                                foundIt = true;
+                                break;
+                            }
+                        }
+                        else if (cfgMode == ENTERED_RESP_CHECKED) {
+                            foundIt = true;
+                            break;
+                        }
+                        else if (cfgMode != NOT_ENTERED){
+                            NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
+                                  getName().c_str(),getClassName().c_str()));
+                            throw n_u::IOException(getName()+":"+getClassName(),
+                                                   "SerialSensor::sweepCommParameters(): unknown response returned by enterConfigMode(): ",
+                                                   cfgMode);
+                        }
+                    }
+                }
+                else if (cfgMode == ENTERED_RESP_CHECKED) {
                     foundIt = true;
                     break;
                 }
-                else if (portType == RS485_HALF || portType == RS422) {
-					DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-					setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-														wordSpec.stopBits, rts485, portType, TERM_120_OHM,
-														_defaultPortConfig.xcvrConfig.sensorPower);
-					DLOG(("Asking for PortConfig:") << testPortConfig);
-
-					setPortConfig(testPortConfig);
-					applyPortConfig();
-
-					NLOG(("Testing PortConfig on RS422/RS485 with termination: ") << getPortConfig());
-
-					if (doubleCheckResponse()) {
-						foundIt = true;
-						break;
-                    }
+                else if (cfgMode != NOT_ENTERED){
+                    NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
+                          getName().c_str(),getClassName().c_str()));
+                    throw n_u::IOException(getName()+":"+getClassName(),
+                                           "SerialSensor::sweepCommParameters(): unknown response returned by enterConfigMode(): ",
+                                           cfgMode);
                 }
             }
         }
