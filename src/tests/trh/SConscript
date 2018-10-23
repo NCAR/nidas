@@ -20,13 +20,6 @@ env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"
-                            " --gen-suppressions=all ${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
-
-env.ValgrindLog('threadcheck', 
-                env.Command('vg.threadcheck.log', tests,
-                            "cd ${SOURCE.dir} && "
-                            "${VALGRIND_PATH} --tool=helgrind"
-                            " --gen-suppressions=all ${SOURCE.file}"
+                            " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
