@@ -1339,7 +1339,7 @@ private:
     /*
      * Default period between surveillances = 1 hour in microseconds.
      */
-    static const dsm_time_t DEFAULT_QC_CHECK_PERIOD = (uint64_t)USECS_PER_SEC * SECS_PER_HOUR;
+    static const dsm_time_t DEFAULT_QC_CHECK_PERIOD = (uint64_t)USECS_PER_SEC * 60; //SECS_PER_HOUR;
 
     /*
      * Actual qc check period in microseconds
