@@ -1,0 +1,45 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone(tools = ['nidas', 'valgrind'])
+
+env.Append(CXXFLAGS='-Wno-effc++')
+env.Append(LIBS = env.NidasLibs())
+env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex', 'boost_system'])
+env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/tests/autoconfig/lib-cpp-pre" ])
+tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc"])
+# env.Depends(tests, libs)
+#
+
+env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
+runtest = env.Command("xtest", tests,
+                      env.ChdirActions(["./$SOURCE.file"]))
+env.Precious(runtest)
+AlwaysBuild(runtest)
+Alias('test', runtest)
+
+env.ValgrindLog('memcheck', 
+                env.Command('vg.memcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --leak-check=full"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
+
+env.ValgrindLog('threadcheck', 
+                env.Command('vg.threadcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --tool=helgrind"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
+
+def write_env(env, target, source):
+    "Write a sh file with env settings which can be sourced to run tests."
+    out = open(str(target[0]), "w")
+    for s in source:
+        out.write("export LD_LIBRARY_PATH=%s:${LD_LIBRARY_PATH}\n" %
+                  (str(s.dir.get_abspath())))
+    out.close()
+
+env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL"], write_env)
+
+
