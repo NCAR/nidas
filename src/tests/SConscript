@@ -2,6 +2,7 @@
 # Testing targets, built and run only on host
 
 dirs = Split("""
+autoconfig
 iterators
 serial_sensor
 tlogger
