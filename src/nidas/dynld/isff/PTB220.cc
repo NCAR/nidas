@@ -946,7 +946,7 @@ bool PTB220::checkResponse()
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        unsigned int foundPos = 0;
+        size_t foundPos = 0;
         if ((foundPos = respStr.find(PTB220_VER_STR, foundPos)) == string::npos) {
 			DLOG(("Coundn't find ") << "\"" << PTB220_VER_STR << "\"");
 			return false;
