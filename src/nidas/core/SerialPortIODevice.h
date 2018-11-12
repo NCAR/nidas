@@ -202,6 +202,7 @@ public:
      *  Get the SerialXcvrCtrl object for direct updating
      */
     SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
+    void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl = pXcvrCtrl;}
 
     /**
      *  Set and retrieve the _portType member attribute 

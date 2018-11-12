@@ -55,6 +55,7 @@ SerialSensor::SerialSensor():
 	_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 	_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 	_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	_configMode(NOT_ENTERED),
 	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -72,6 +73,7 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
 		_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 		_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 		_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	    _configMode(NOT_ENTERED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);

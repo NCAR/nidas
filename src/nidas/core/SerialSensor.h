@@ -39,6 +39,8 @@ namespace nidas { namespace core {
  */
 struct WordSpec
 {
+    WordSpec(int dataBits, Termios::parity parity, int stopBits)
+        : dataBits(dataBits), parity(parity), stopBits(stopBits) {}
     int dataBits;
     Termios::parity parity;
     int stopBits;
@@ -182,6 +184,8 @@ public:
      * copied to the device, which will then be applied when the device is opened.
      */
     IODevice* buildIODevice() throw(nidas::util::IOException);
+    void setSerialPortIODevice(SerialPortIODevice* pSerialPortIODevice) {_serialDevice = pSerialPortIODevice;}
+    SerialPortIODevice* getSerialPortIODevice() {return _serialDevice;}
 
     /**
      * Open the device connected to the sensor. This calls
@@ -255,8 +259,15 @@ public:
     PortConfig getPortConfig();
     void setPortConfig(const PortConfig newPortConfig);
 
+    PortConfig getDefaultPortConfig() {return _defaultPortConfig;}
+    PortConfig getDesiredPortConfig() {return _desiredPortConfig;}
+
     void applyPortConfig();
     void printPortConfig(bool flush=true);
+
+    AUTOCONFIG_STATE getAutoConfigState() {return _autoConfigState; }
+    AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
+    AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
 
 protected:
 
@@ -307,6 +318,9 @@ protected:
      */
     virtual CFG_MODE_STATUS enterConfigMode() { return ENTERED; }
     virtual void exitConfigMode() {}
+    CFG_MODE_STATUS getConfigMode() {return _configMode;}
+    void setConfigMode(CFG_MODE_STATUS newCfgMode) {_configMode = newCfgMode;}
+
     virtual bool supportsAutoConfig() { return false; }
     virtual bool checkResponse() { return true; }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
@@ -342,6 +356,7 @@ protected:
     AUTOCONFIG_STATE _serialState;
     AUTOCONFIG_STATE _scienceState;
     AUTOCONFIG_STATE _deviceState;
+    CFG_MODE_STATUS _configMode;
 
 private:
     /*

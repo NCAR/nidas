@@ -83,11 +83,14 @@ public:
     /**
      * open the device.
      */
-    void open(int flags) throw(nidas::util::IOException)
+    virtual void open(int flags) throw(nidas::util::IOException)
     {
         ILOG(("UnixIODevice::open : entry"));
-        if ((_fd = ::open(getName().c_str(),flags)) < 0)
-		throw nidas::util::IOException(getName(),"open",errno);
+        if ((_fd = ::open(getName().c_str(),flags)) < 0) {
+            std::string excStr("open: ");
+            excStr.append(getName());
+            throw nidas::util::IOException(getName(), getName().c_str(), errno);
+        }
         ILOG(("UnixIODevice::open : exit"));
     }
 
