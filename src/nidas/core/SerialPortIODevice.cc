@@ -84,9 +84,6 @@ SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
     _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
     checkXcvrCtrlRequired(getName());
-    if (getXcvrCtrl()) {
-        getXcvrCtrl()->initFtdi();
-    }
 }
 
 
@@ -99,9 +96,6 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initP
     _workingPortConfig.termios.setRawTimeout(0);
 
     checkXcvrCtrlRequired(name);
-    if (getXcvrCtrl()) {
-        getXcvrCtrl()->initFtdi();
-    }
 }
 
 SerialPortIODevice::~SerialPortIODevice()
