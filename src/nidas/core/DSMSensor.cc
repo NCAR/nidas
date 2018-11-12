@@ -92,14 +92,14 @@ DSMSensor::~DSMSensor()
 
     for (list<SampleTag*>::const_iterator si = _sampleTags.begin();
     	si != _sampleTags.end(); ++si) {
-	delete *si;
+        delete *si;
     }
     delete _scanner;
     delete _iodev;
 
     map<std::string,Parameter*>::const_iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
-	delete pi->second;
+        delete pi->second;
 
     removeCalFiles();
 }
