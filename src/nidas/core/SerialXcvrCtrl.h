@@ -112,8 +112,9 @@ public:
                               const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
-    ~SerialXcvrCtrl();
+    virtual ~SerialXcvrCtrl();
 
+    virtual void initFtdi();
     static bool xcvrCtrlSupported() { return true; } // for now. Need to actually read an eeprom to know
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
@@ -195,11 +196,12 @@ protected:
     PORT_TYPES bits2PortType(const unsigned char bits);
     // safe FT4232H open - must be bracket all gpio operations!!!
     // returns true if already open or successfully open, false if attempted open fails.
-    bool gpioOpen();
+    virtual bool gpioOpen();
     // safe FT4232H close - must bracket all gpio operations!!!
     // returns true if already closed or successfully closed, false if attempted close fails.
-    bool gpioClose(bool weOpenedIt);
-    bool gpioIsOpen() {return _gpioOpen;}
+    virtual bool gpioClose(bool weOpenedIt);
+    virtual bool gpioIsOpen() {return _gpioOpen;}
+
 private:
     // At present there are only 7 available ports on a DSM
     static const PORT_DEFS MAX_PORT = PORT7;

@@ -182,7 +182,7 @@ public:
      * open the serial port. The current Termios settings
      * are also applied to the port.
      */
-    void open(int flags = O_RDONLY) throw(nidas::util::IOException);
+    virtual void open(int flags = O_RDONLY) throw(nidas::util::IOException);
 
     /**
      * close the file descriptor.
@@ -196,11 +196,12 @@ public:
     /* 
      * Check whether this serial port is using a device which needs port control
      */
-    void checkXcvrCtrlRequired(const std::string& name);
+    virtual void checkXcvrCtrlRequired(const std::string& name);
 
     /**
-     *  Get the SerialXcvrCtrl object for direct updating
+     *  Set/Get the SerialXcvrCtrl object for direct updating
      */
+    void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl =  pXcvrCtrl;}
     SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
 
     /**

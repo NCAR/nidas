@@ -39,6 +39,11 @@ namespace nidas { namespace core {
  */
 struct WordSpec
 {
+    WordSpec() : dataBits(8), parity(Termios::NONE), stopBits(1) {}
+
+    WordSpec(int dataBitsArg, Termios::parity parityArg, int stopBitsArg)
+    : dataBits(dataBitsArg), parity(parityArg), stopBits(stopBitsArg) {}
+
     int dataBits;
     Termios::parity parity;
     int stopBits;
@@ -182,6 +187,8 @@ public:
      * copied to the device, which will then be applied when the device is opened.
      */
     IODevice* buildIODevice() throw(nidas::util::IOException);
+    void setSerialPortIODevice(SerialPortIODevice* pSerialPortIODevice) {_serialDevice = pSerialPortIODevice;}
+    IODevice* getSerialPortIODevice() {return _serialDevice;}
 
     /**
      * Open the device connected to the sensor. This calls
@@ -280,7 +287,7 @@ protected:
     void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
 												 int rts485, PORT_TYPES portType, TERM termination,
 												 SENSOR_POWER_STATE power);
-    bool isDefaultConfig(const PortConfig& rTestConfig) const;
+    bool isDefaultConfig(const PortConfig& rTestConfig) const {return (rTestConfig == getDefaultPortConfig());}
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
     bool sweepCommParameters();
@@ -297,7 +304,13 @@ protected:
         std::cout << std::endl;
     }
 
+    AUTOCONFIG_STATE getAutoConfigState() const {return _autoConfigState; }
+    AUTOCONFIG_STATE getSerialConfigState() const {return _serialState; }
+    AUTOCONFIG_STATE getScienceConfigState() const  {return _scienceState; }
     static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
+
+    PortConfig getDefaultPortConfig() const {return _defaultPortConfig;}
+    PortConfig getDesiredPortConfig() const {return _desiredPortConfig;}
 
     /**
      * These autoconfig methods do nothing, unless overridden in a subclass
@@ -306,6 +319,8 @@ protected:
      * otherwise, the other virtual methods will not get called at all.
      */
     virtual CFG_MODE_STATUS enterConfigMode() { return ENTERED; }
+    virtual CFG_MODE_STATUS getConfigMode() const { return _cfgMode; }
+    virtual void setConfigMode(CFG_MODE_STATUS newCfgMode) { _cfgMode = newCfgMode; }
     virtual void exitConfigMode() {}
     virtual bool supportsAutoConfig() { return false; }
     virtual bool checkResponse() { return true; }
@@ -341,7 +356,8 @@ protected:
     AUTOCONFIG_STATE _autoConfigState;
     AUTOCONFIG_STATE _serialState;
     AUTOCONFIG_STATE _scienceState;
-    AUTOCONFIG_STATE _deviceState;
+
+    CFG_MODE_STATUS _cfgMode;
 
 private:
     /*

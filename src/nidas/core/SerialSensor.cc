@@ -54,8 +54,7 @@ SerialSensor::SerialSensor():
 	_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 	_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
 	_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-	_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
+	_cfgMode(NOT_ENTERED), _defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -67,12 +66,11 @@ SerialSensor::SerialSensor():
 }
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
-		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
-		_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
+    _desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
+    _autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+    _serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+    _scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+    _cfgMode(NOT_ENTERED), _defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -673,6 +671,8 @@ void SerialSensor::doAutoConfig()
 				  "!!!NOTE: Sensor is ready for data collection!!!"));
 			_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
 			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
+
+			setConfigMode(NOT_ENTERED);
 		}
 	}
 }
@@ -688,6 +688,7 @@ bool SerialSensor::findWorkingSerialPortConfig()
     CFG_MODE_STATUS cfgMode = enterConfigMode();
 
     if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
+        // if not entered, then maybe it's already entered.
         if (!doubleCheckResponse()) {
             // initial config didn't work, so sweep through all parameters starting w/the default
             if (!isDefaultConfig(getPortConfig())) {
@@ -872,18 +873,6 @@ void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBit
     target.xcvrConfig.sensorPower = power;
 
     target.applied =false;
-}
-
-bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
-{
-    return ((rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate())
-            && (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity())
-            && (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits())
-            && (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits())
-            && (rTestConfig.rts485 == _defaultPortConfig.rts485)
-            && (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType)
-            && (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination)
-            && (rTestConfig.xcvrConfig.sensorPower == _defaultPortConfig.xcvrConfig.sensorPower));
 }
 
 bool SerialSensor::testDefaultPortConfig()
