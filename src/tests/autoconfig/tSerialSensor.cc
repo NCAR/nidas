@@ -17,19 +17,27 @@ using boost::unit_test_framework::test_suite;
 using namespace nidas::util;
 using namespace nidas::core;
 
-PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM, SENSOR_POWER_OFF, -1, false);
+PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM, SENSOR_POWER_ON, -1, false);
 PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, SENSOR_POWER_ON, 0, false);
 
 struct Fixture {
-    Fixture()
+    Fixture() : logger(0)
     {
-        logger = Logger::getInstance();
-        scheme = logger->getScheme("autoconfig_default");
-        LogConfig lc("level=verbose");
-        scheme.addConfig(lc);
-        logger->setScheme(scheme);
+        // Uncomment the logger for debugging...
+//        logger = Logger::getInstance();
+//        scheme = logger->getScheme("autoconfig_default");
+//        LogConfig lc("level=verbose");
+//        scheme.addConfig(lc);
+//        logger->setScheme(scheme);
 
-//        SerialPort::createPtyLink("/dev/ttyUSB0");
+        // Needs to be set up same as SerialSensor::SerialSensor() ctors
+        // in order for mocked checkResponse() to work.
+        defaultPortConfig.termios.setRaw(true);
+        defaultPortConfig.termios.setRawLength(1);
+        defaultPortConfig.termios.setRawTimeout(0);
+        deviceOperatingPortConfig.termios.setRaw(true);
+        deviceOperatingPortConfig.termios.setRawLength(1);
+        deviceOperatingPortConfig.termios.setRawTimeout(0);
     }
 
     ~Fixture()
@@ -79,7 +87,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(ssArg.getDefaultPortConfig().termios.getStopBits() == 1);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.port == PORT0);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.portType == RS485_FULL);
-    BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.sensorPower == SENSOR_POWER_OFF);
+    BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.sensorPower == SENSOR_POWER_ON);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.termination == TERM_120_OHM);
 }
 
@@ -93,17 +101,17 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
     BOOST_TEST(ssArg.findWorkingSerialPortConfig() == true);
     BOOST_TEST(ssArg.getPortConfig() == deviceOperatingPortConfig);
 
-//    // default port config same as sensor operating config
-//    TestSerialSensor ssArg2(defaultPortConfig);
-//    deviceOperatingPortConfig = defaultPortConfig;
-//    BOOST_TEST(ssArg2.findWorkingSerialPortConfig() == true);
-//    BOOST_TEST(ssArg2.getPortConfig() == deviceOperatingPortConfig);
-//
-//    // Sensor operating config not in allowed port configs
-//    TestSerialSensor ssArg3(defaultPortConfig);
-//    deviceOperatingPortConfig.termios.setBaudRate(115200);
-//    BOOST_TEST(ssArg3.findWorkingSerialPortConfig() == false);
-//    BOOST_TEST(ssArg3.getPortConfig() != deviceOperatingPortConfig);
+    // default port config same as sensor operating config
+    MockSerialSensor ssArg2(defaultPortConfig);
+    deviceOperatingPortConfig = defaultPortConfig;
+    BOOST_TEST(ssArg2.findWorkingSerialPortConfig() == true);
+    BOOST_TEST(ssArg2.getPortConfig() == deviceOperatingPortConfig);
+
+    // Sensor operating config not in allowed port configs
+    MockSerialSensor ssArg3(defaultPortConfig);
+    deviceOperatingPortConfig.termios.setBaudRate(115200);
+    BOOST_TEST(ssArg3.findWorkingSerialPortConfig() == false);
+    BOOST_TEST(ssArg3.getPortConfig() != deviceOperatingPortConfig);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

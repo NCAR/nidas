@@ -103,7 +103,7 @@ public:
      *             modems, etc, since they may be traditional serial devices, but not have a SerialXcvrCtrl object
      *             associated with them.
      */
-    PortConfig getPortConfig() {return SerialSensor::getDefaultPortConfig(); }
+    PortConfig getPortConfig() {return SerialSensor::getPortConfig(); }
     void setPortConfig(const PortConfig newPortConfig){SerialSensor::setPortConfig(newPortConfig);}
     void applyPortConfig() {SerialSensor::applyPortConfig();}
     void printPortConfig(bool flush=true){SerialSensor::printPortConfig(flush);}
@@ -143,7 +143,15 @@ public:
 //    virtual void setConfigMode(CFG_MODE_STATUS newCfgMode) { _cfgMode = newCfgMode; }
 //    virtual void exitConfigMode() {}
     virtual bool supportsAutoConfig() { return true; }
-    virtual bool checkResponse() { return getPortConfig() == deviceOperatingPortConfig; }
+    virtual bool checkResponse()
+    {
+        bool retval = (getPortConfig() == deviceOperatingPortConfig);
+        if (!retval) {
+            DLOG(("WorkingPortConfig:\n") << getPortConfig());
+            DLOG(("Device Operating Config:\n") << deviceOperatingPortConfig);
+        }
+        return retval;
+    }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
     virtual void sendScienceParameters() {}
     virtual bool checkScienceParameters() { return true; }

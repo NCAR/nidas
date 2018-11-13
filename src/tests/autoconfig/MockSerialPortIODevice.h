@@ -93,6 +93,19 @@ public:
         applyPortConfig();
     }
 
+    /**
+     * Don't apply the Termios settings to an opened serial port.
+     */
+    virtual void applyTermios()
+    {
+        // ignore if not controlled by FT4232H GPIO
+        if (getXcvrCtrl()) {
+            getXcvrCtrl()->applyXcvrConfig();
+        }
+
+        setPortConfigApplied();
+    }
+
     void flush() {};
 
     /* 
