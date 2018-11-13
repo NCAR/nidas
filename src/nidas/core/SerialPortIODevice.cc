@@ -204,14 +204,14 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
 
 void SerialPortIODevice::applyPortConfig()
 {
-    _workingPortConfig.termios.apply(_fd, getName());
+    applyTermios();
 
     // ignore if not controlled by FT4232H GPIO
     if (getXcvrCtrl()) {
         getXcvrCtrl()->applyXcvrConfig();
     }
 
-    _workingPortConfig.applied = true;
+    setPortConfigApplied();
 }
 
 int SerialPortIODevice::getUsecsPerByte() const

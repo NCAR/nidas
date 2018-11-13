@@ -173,7 +173,7 @@ public:
     /**
      * Apply the Termios settings to an opened serial port.
      */
-    void applyTermios()
+    virtual void applyTermios()
     {
         _workingPortConfig.termios.apply(_fd, getName());
     }
@@ -245,6 +245,8 @@ public:
     }
 
     void applyPortConfig();
+
+    void setPortConfigApplied(bool applied=true) {_workingPortConfig.applied = applied;}
 
     void printPortConfig(bool readFirst=true);
 
