@@ -14,6 +14,8 @@ using boost::unit_test_framework::test_suite;
 #include <sys/types.h>
 #include <signal.h>
 
+#define UNIT_TEST_DEBUG_LOG 0
+
 using namespace nidas::util;
 using namespace nidas::core;
 
@@ -21,14 +23,18 @@ PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM, SE
 PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, SENSOR_POWER_ON, 0, false);
 
 struct Fixture {
-    Fixture() : logger(0)
+    Fixture()
     {
-        // Uncomment the logger for debugging...
-//        logger = Logger::getInstance();
-//        scheme = logger->getScheme("autoconfig_default");
-//        LogConfig lc("level=verbose");
-//        scheme.addConfig(lc);
-//        logger->setScheme(scheme);
+#if UNIT_TEST_DEBUG_LOG != 0
+        logger = Logger::getInstance();
+        scheme = logger->getScheme("autoconfig_default");
+        LogConfig lc("level=verbose");
+        scheme.addConfig(lc);
+        logger->setScheme(scheme);
+
+        Logger* logger;
+        LogScheme scheme;
+#endif //UNIT_TEST_DEBUG_LOG != 0
 
         // Needs to be set up same as SerialSensor::SerialSensor() ctors
         // in order for mocked checkResponse() to work.
@@ -40,14 +46,7 @@ struct Fixture {
         deviceOperatingPortConfig.termios.setRawTimeout(0);
     }
 
-    ~Fixture()
-    {
-
-    }
-
-    Logger* logger;
-    LogScheme scheme;
-
+    ~Fixture() {}
 };
 
 BOOST_FIXTURE_TEST_SUITE(autoconfig_test_suite, Fixture)
@@ -60,9 +59,9 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
 
     BOOST_TEST(ss.supportsAutoConfig() == true);
     BOOST_TEST(ss.getName().c_str() == "unknown:/tmp/ttyUSB0");
-    BOOST_TEST(ss.getAutoConfigState() == AUTOCONFIG_UNSUPPORTED);
-    BOOST_TEST(ss.getSerialConfigState() == AUTOCONFIG_UNSUPPORTED);
-    BOOST_TEST(ss.getScienceConfigState() == AUTOCONFIG_UNSUPPORTED);
+    BOOST_TEST(ss.getAutoConfigState() == WAITING_IDLE);
+    BOOST_TEST(ss.getSerialConfigState() == WAITING_IDLE);
+    BOOST_TEST(ss.getScienceConfigState() == WAITING_IDLE);
     BOOST_TEST(ss.getDefaultPortConfig() == ss.getDesiredPortConfig());
     BOOST_TEST(ss.getDefaultPortConfig().termios.getBaudRate() == 9600);
     BOOST_TEST(ss.getDefaultPortConfig().termios.getDataBits() == 8);
@@ -77,9 +76,9 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
 
     BOOST_TEST(ssArg.supportsAutoConfig() == true);
     BOOST_TEST(ssArg.getName().c_str() == "unknown:/tmp/ttyUSB0");
-    BOOST_TEST(ssArg.getAutoConfigState() == AUTOCONFIG_UNSUPPORTED);
-    BOOST_TEST(ssArg.getSerialConfigState() == AUTOCONFIG_UNSUPPORTED);
-    BOOST_TEST(ssArg.getScienceConfigState() == AUTOCONFIG_UNSUPPORTED);
+    BOOST_TEST(ssArg.getAutoConfigState() == WAITING_IDLE);
+    BOOST_TEST(ssArg.getSerialConfigState() == WAITING_IDLE);
+    BOOST_TEST(ssArg.getScienceConfigState() == WAITING_IDLE);
     BOOST_TEST(ssArg.getDefaultPortConfig() == ssArg.getDesiredPortConfig());
     BOOST_TEST(ssArg.getDefaultPortConfig().termios.getBaudRate() == 19200);
     BOOST_TEST(ssArg.getDefaultPortConfig().termios.getDataBits() == 7);

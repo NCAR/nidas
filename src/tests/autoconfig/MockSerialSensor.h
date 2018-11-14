@@ -41,6 +41,8 @@ public:
         _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
         _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
 
+        initAutoConfig();
+
         setDeviceName("/tmp/ttyUSB0");
         SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), _desiredPortConfig);
         setIODevice(pIODevice);
@@ -66,6 +68,8 @@ public:
         _serialWordSpecList.push_back(WordSpec(7, Termios::EVEN, 1));
         _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
         _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
+
+        initAutoConfig();
 
         setDeviceName("/tmp/ttyUSB0");
         SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), _desiredPortConfig);
