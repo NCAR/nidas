@@ -188,7 +188,9 @@ Logger::
 createInstance(const char *ident, int logopt, int facility, const char *TZ) 
 {
   Synchronized sync(Logger::mutex);
-  delete _instance;
+  if (_instance) {
+      delete _instance;
+  }
   _instance = new Logger(ident,logopt,facility,TZ);
   return _instance;
 }
@@ -197,15 +199,19 @@ createInstance(const char *ident, int logopt, int facility, const char *TZ)
 Logger* Logger::createInstance(std::ostream* out) 
 {
   Synchronized sync(Logger::mutex);
-  delete _instance;
+  if (_instance) {
+      delete _instance;
+  }
   _instance = new Logger(out);
   return _instance;
 }
 
 /* static */
 Logger* Logger::getInstance() {
-  if (!_instance) createInstance(&cerr);
-  return _instance;
+  if (!_instance)
+      return createInstance(&cerr);
+  else
+      return _instance;
 }
 
 void Logger::setTZ(const char* val) {
