@@ -51,10 +51,8 @@ namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
     _desiredPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
-	_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-	_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-	_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-	_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
+	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
 	_configMode(NOT_ENTERED),
 	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
 {
@@ -69,10 +67,8 @@ SerialSensor::SerialSensor():
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
 		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
-		_autoConfigState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_serialState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_scienceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
-		_deviceState(supportsAutoConfig() ? WAITING_IDLE : AUTOCONFIG_UNSUPPORTED),
+		_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
+		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
 	    _configMode(NOT_ENTERED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
 {
@@ -617,6 +613,16 @@ void SerialSensor::fromDOMElement(
  *  Autoconfig functions
  */
 
+void SerialSensor::initAutoConfig()
+{
+    if (supportsAutoConfig()) {
+        _autoConfigState = WAITING_IDLE;
+        _serialState = WAITING_IDLE;
+        _scienceState = WAITING_IDLE;
+        _deviceState = WAITING_IDLE;
+    }
+}
+
 void SerialSensor::doAutoConfig()
 {
 	// find out if we're a legacy subclass or a new autoconfig subclass
@@ -1058,12 +1064,12 @@ void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf) {
 			if ((i*10) > numCharsRead)
 				break;
 
-			char hexBuf[60];
-			memset(hexBuf, 0, 60);
+			char hexBuf[70];
+			memset(hexBuf, 0, 70);
 			for (int j = 0; j < 10; ++j) {
 				if ((i*10 + j) > numCharsRead)
 					break;
-				snprintf(&(hexBuf[j * 5]), 6, "0x%02x  ", respBuf[(i * 10) + j]);
+				snprintf(&(hexBuf[j * 6]), 6, "0x%02x ", respBuf[(i * 10) + j]);
 			}
 
 			char* pBytes = &hexBuf[0];

@@ -327,6 +327,8 @@ protected:
     virtual void sendScienceParameters() {}
     virtual bool checkScienceParameters() { return true; }
 
+    void initAutoConfig();
+
     /*******************************************************
      * Aggregate serial port configuration
      * 
