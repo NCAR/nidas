@@ -297,6 +297,7 @@ if 'armbe' in BUILDS:
         PREFIX=env['PREFIX'] + '/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    armbe_env.AppendUnique(CXXFLAGS = ['-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
@@ -329,6 +330,8 @@ if 'armel' in BUILDS:
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+# add these when/if this platform moves to AutoConfig
+#            '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
