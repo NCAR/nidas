@@ -789,9 +789,9 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
 		oss << "Sent: " << snsrCmd << std::endl << " Received: " << std::hex << respStr;
 		DLOG((oss.str().c_str()));
 		if (cmd == SENSOR_QRY_ID_CMD) {
-			unsigned stxPos = respStr.find_first_of('\x02');
-			unsigned etxPos = respStr.find_first_of('\x03', stxPos);
-			if (etxPos != string::npos && etxPos != string::npos) {
+			size_t stxPos = respStr.find_first_of('\x02');
+			size_t etxPos = respStr.find_first_of('\x03', stxPos);
+			if (stxPos != string::npos && etxPos != string::npos) {
 				if ((etxPos - stxPos) == 2) {
 					// we can probably believe that we have captured the unit address response
 					_unitId = respStr[stxPos+1];
