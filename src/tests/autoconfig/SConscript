@@ -6,14 +6,14 @@ env = env.Clone(tools = ['nidas', 'valgrind'])
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex', 'boost_system'])
-env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/tests/autoconfig/lib-cpp-pre" ])
+env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
 tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc"])
 # env.Depends(tests, libs)
 #
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file"]))
+                      env.ChdirActions(["./$SOURCE.file --log_level=message"]))
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
@@ -22,17 +22,17 @@ env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "source ./libs.sh && "
-                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all"
-                            " --gen-suppressions=all ./${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
+                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all "
+                            "--gen-suppressions=all --log-file=${TARGET.abspath} "
+                            "./${SOURCE.file} --log_level=message"))
 
 env.ValgrindLog('threadcheck', 
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "source ./libs.sh && "
-                            "${VALGRIND_PATH} --tool=helgrind"
-                            " --gen-suppressions=all ./${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
+                            "${VALGRIND_PATH} --tool=helgrind "
+                            "--gen-suppressions=all --log-file=${TARGET.abspath} "
+                            "./${SOURCE.file} --log_level=message"))
 
 def write_env(env, target, source):
     "Write a sh file with env settings which can be sourced to run tests."
