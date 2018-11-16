@@ -11,6 +11,7 @@ using namespace nidas::core;
 
 extern PortConfig deviceOperatingPortConfig;
 
+namespace nidas { namespace dynld { namespace isff {
 // Expose some protected methods in SerialSensor...
 class MockSerialSensor : public SerialSensor
 {
@@ -167,5 +168,9 @@ public:
 
     MessageConfig defaultMessageConfig;
 };
+
+}}} //namespace nidas { namespace dynld { namespace isff {
+
+NIDAS_CREATOR_FUNCTION_NS(isff, MockSerialSensor)
 
 #endif //TEST_SERIAL_SENSOR_HPP
