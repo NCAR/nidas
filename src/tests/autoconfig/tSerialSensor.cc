@@ -8,22 +8,42 @@ using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
 
-#include "NidasApp.h"
+#include "nidas/core/Project.h"
+#include <nidas/core/DSMConfig.h>
+#include "nidas/dynld/DSMSerialSensor.h"
 #include "MockSerialSensor.h"
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define UNIT_TEST_DEBUG_LOG 0
 
 using namespace nidas::util;
 using namespace nidas::core;
+using namespace nidas::dynld;
+using namespace nidas::dynld::isff;
+
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+    Project& operator()() {return *Project::getInstance();}
+};
 
 PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM, SENSOR_POWER_ON, -1, false);
 PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, SENSOR_POWER_ON, 0, false);
 
+void cleanup(int /*signal*/)
+{
+    perror("socat child process died and became zombified!");
+    while (waitpid(-1, (int*)0, WNOHANG) > 0) {}
+}
+
 struct Fixture {
-    Fixture()
+    Fixture() : child_pid(-1)
     {
 #if UNIT_TEST_DEBUG_LOG != 0
         logger = Logger::getInstance();
@@ -46,17 +66,51 @@ struct Fixture {
         deviceOperatingPortConfig.termios.setRawTimeout(0);
     }
 
-    ~Fixture() {}
+    ~Fixture()
+    {
+        // assume socat is still running...
+        kill(child_pid, SIGINT);
+    }
+
+    pid_t child_pid;
 };
 
-BOOST_FIXTURE_TEST_SUITE(autoconfig_test_suite, Fixture)
+bool init_unit_test()
+{
+    // start up socat
+    // register cleanup handler first
+    signal(SIGCHLD, cleanup);
+    int pid = fork();
+    if (pid == 0) {
+        if (execlp("/usr/bin/socat", "-d", "-d",
+                   "pty,link=/tmp/ttyUSB0,wait-slave,raw,b9600",
+                   "pty,link=/tmp/ttyUSB1,wait-slave,raw,b9600",
+                   (char*)NULL) == -1) {
+            perror("execlp failed!!");
+        }
+        exit(EXIT_FAILURE);
+    }
+    else {
+        child_pid = pid;
+        sleep(5);
+    }
+}
+
+// entry point:
+int main(int argc, char* argv[])
+{
+  return boost::unit_test::unit_test_main( &init_unit_test, argc, argv );
+}
+
+
+BOOST_AUTO_TEST_SUITE(autoconfig_test_suite)
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
 {
-    MockSerialSensor ss;
-
     BOOST_TEST_MESSAGE("Testing SerialSensor Constructors...");
 
+    BOOST_TEST_MESSAGE("    Testing Default Constructor...");
+    MockSerialSensor ss;
     BOOST_TEST(ss.supportsAutoConfig() == true);
     BOOST_TEST(ss.getName().c_str() == "unknown:/tmp/ttyUSB0");
     BOOST_TEST(ss.getAutoConfigState() == WAITING_IDLE);
@@ -72,6 +126,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.sensorPower == SENSOR_POWER_ON);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.termination == NO_TERM);
 
+    BOOST_TEST_MESSAGE("    Testing Constructor with Default PortConfig arg...");
     MockSerialSensor ssArg(defaultPortConfig);
 
     BOOST_TEST(ssArg.supportsAutoConfig() == true);
@@ -94,23 +149,60 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
 {
     BOOST_TEST_MESSAGE("Testing SerialSensor::findWorkingSerialPortConfig()...");
 
-    // default port config different from sensor operating config
+    BOOST_TEST_MESSAGE("    Default port config different from sensor operating config.");
+    BOOST_TEST_MESSAGE("        causes sweepCommParameters() to be invoked.");
     MockSerialSensor ssArg(defaultPortConfig);
     ssArg.open(O_RDWR);
     BOOST_TEST(ssArg.findWorkingSerialPortConfig() == true);
     BOOST_TEST(ssArg.getPortConfig() == deviceOperatingPortConfig);
 
-    // default port config same as sensor operating config
+    BOOST_TEST_MESSAGE("    Default port config same as sensor operating config.");
+    defaultPortConfig = deviceOperatingPortConfig;
     MockSerialSensor ssArg2(defaultPortConfig);
-    deviceOperatingPortConfig = defaultPortConfig;
     BOOST_TEST(ssArg2.findWorkingSerialPortConfig() == true);
     BOOST_TEST(ssArg2.getPortConfig() == deviceOperatingPortConfig);
 
-    // Sensor operating config not in allowed port configs
+    BOOST_TEST_MESSAGE("    Sensor operating config not in allowed port configs.");
+    BOOST_TEST_MESSAGE("        causes sweepCommParameters() to be invoked.");
     MockSerialSensor ssArg3(defaultPortConfig);
     deviceOperatingPortConfig.termios.setBaudRate(115200);
     BOOST_TEST(ssArg3.findWorkingSerialPortConfig() == false);
     BOOST_TEST(ssArg3.getPortConfig() != deviceOperatingPortConfig);
+}
+
+BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
+{
+    BOOST_TEST_MESSAGE("Testing SerialSensor::fromDOMElement()...");
+
+    AutoProject ap;
+    struct stat statbuf;
+    std::string xmlFileName = "";
+
+    BOOST_TEST_MESSAGE("    Testing Legacy DSMSerialSensor Dynld Implementation");
+    xmlFileName = "legacy_autoconfig.xml";
+    BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
+    NLOG(("Found XML file: ") << xmlFileName);
+
+    ap().parseXMLConfigFile(xmlFileName);
+    DSMConfigIterator di = ap().getDSMConfigIterator();
+    while (di.hasNext()) {
+        DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
+        (*pDsm).validate();
+    }
+
+    NLOG(("Iterating through all the sensors specified in the XML file"));
+    SensorIterator sensIter = ap().getSensorIterator();
+    while (sensIter.hasNext() ) {
+        SerialSensor* pSerialSensor = dynamic_cast<SerialSensor*>(sensIter.next());
+        if (!pSerialSensor) {
+            NLOG(("Can't auto config a non-serial sensor. Skipping..."));
+            continue;
+        }
+        DSMSerialSensor* pDSMSerialSensor = dynamic_cast<DSMSerialSensor*>(pSerialSensor);
+        BOOST_TEST(pDSMSerialSensor != static_cast<DSMSerialSensor*>(0));
+        pSerialSensor->init();
+        // Don't open/close because the pty being for mock can't handle termios details
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
