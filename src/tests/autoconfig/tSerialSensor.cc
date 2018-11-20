@@ -1,8 +1,8 @@
+
 #define BOOST_TEST_DYN_LINK
-#define BOOST_AUTO_TEST_MAIN
-#define BOOST_TEST_MODULE SerialSensorAutoConfig
-#include <boost/test/auto_unit_test.hpp>
-//#include <pre/boost/asio/mockup_serial_port_service.hpp>
+//#define BOOST_AUTO_TEST_MAIN
+//#define BOOST_TEST_MODULE SerialSensorAutoConfig
+#include <boost/test/unit_test.hpp>
 
 using boost::unit_test_framework::test_suite;
 
@@ -25,6 +25,8 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;
 
+static int child_pid = -1;
+
 class AutoProject
 {
 public:
@@ -38,12 +40,16 @@ PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM,
 
 void cleanup(int /*signal*/)
 {
-    perror("socat child process died and became zombified!");
+    if (errno != 0)
+        perror("Socat child process died and became zombified!");
+    else
+        perror("Waiting for socat child process to exit...");
+
     while (waitpid(-1, (int*)0, WNOHANG) > 0) {}
 }
 
 struct Fixture {
-    Fixture() : child_pid(-1)
+    Fixture()
     {
 #if UNIT_TEST_DEBUG_LOG != 0
         logger = Logger::getInstance();
@@ -66,17 +72,14 @@ struct Fixture {
         deviceOperatingPortConfig.termios.setRawTimeout(0);
     }
 
-    ~Fixture()
-    {
-        // assume socat is still running...
-        kill(child_pid, SIGINT);
-    }
-
-    pid_t child_pid;
+    ~Fixture() {}
 };
 
 bool init_unit_test()
 {
+    std::cout << "Initializing unit test by starting socat..." << std::endl << std::flush;
+    bool retval = false;
+
     // start up socat
     // register cleanup handler first
     signal(SIGCHLD, cleanup);
@@ -87,23 +90,33 @@ bool init_unit_test()
                    "pty,link=/tmp/ttyUSB1,wait-slave,raw,b9600",
                    (char*)NULL) == -1) {
             perror("execlp failed!!");
+            return retval;
         }
         exit(EXIT_FAILURE);
     }
     else {
         child_pid = pid;
-        sleep(5);
+        sleep(2);
+        retval = true;
     }
+
+    return retval;
 }
 
 // entry point:
 int main(int argc, char* argv[])
 {
-  return boost::unit_test::unit_test_main( &init_unit_test, argc, argv );
+    int retval = boost::unit_test::unit_test_main( &init_unit_test, argc, argv );
+
+    // assume socat is still running, kill it nicely so it cleans up after itself...
+    std::cout << "Tearing unit test down by killing socat..." << std::endl << std::flush;
+    kill(child_pid, SIGINT);
+
+    return retval;
 }
 
 
-BOOST_AUTO_TEST_SUITE(autoconfig_test_suite)
+BOOST_FIXTURE_TEST_SUITE(autoconfig_test_suite, Fixture)
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
 {
