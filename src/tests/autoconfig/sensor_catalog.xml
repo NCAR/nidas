@@ -4,7 +4,7 @@
     <serialSensor 
         ID="LegacySerialSensor" 
         class="DSMSerialSensor" 
-        init_string="\r\n.BP\r\n"
+        init_string="DSMSensorTestInitString"
 		baud="9600" 
         parity="even" 
         databits="7" 
@@ -31,7 +31,7 @@
     <serialSensor 
         ID="MockSerialSensor_AUTO_0" 
         class="isff.MockSerialSensor" 
-        init_string="\r\n.BP\r\n">
+        init_string="MockSensor0TestInitString">
         <autoconfig />
         <!-- 838.26\r\n -->
         <sample 
@@ -55,7 +55,7 @@
     <serialSensor 
         ID="MockSerialSensor_AUTO_1" 
         class="isff.MockSerialSensor" 
-        init_string="\r\n.BP\r\n"
+        init_string="MockSensor1TestInitString"
 		baud="9600" 
         parity="even" 
         databits="7" 
@@ -83,12 +83,12 @@
     <serialSensor 
         ID="MockSerialSensor_AUTO_2" 
         class="isff.MockSerialSensor" 
-        init_string="\r\n.BP\r\n">
+        init_string="MockSensor2TestInitString">
         <autoconfig 
             baud="19200" 
-            parity="none" 
+            parity="odd" 
             databits="8" 
-            stopbits="1" />
+            stopbits="2" />
         <!-- 838.26\r\n -->
         <sample 
             id="1" 
