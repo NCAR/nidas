@@ -187,34 +187,37 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
 {
     BOOST_TEST_MESSAGE("Testing SerialSensor::fromDOMElement()...");
 
-    AutoProject ap;
     struct stat statbuf;
     std::string xmlFileName = "";
 
-    BOOST_TEST_MESSAGE("    Testing Legacy DSMSerialSensor Dynld Implementation");
-    xmlFileName = "legacy_autoconfig.xml";
-    BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
-    NLOG(("Found XML file: ") << xmlFileName);
+    {
+        AutoProject ap;
 
-    ap().parseXMLConfigFile(xmlFileName);
-    DSMConfigIterator di = ap().getDSMConfigIterator();
-    while (di.hasNext()) {
+        BOOST_TEST_MESSAGE("    Testing Legacy DSMSerialSensor Dynld Implementation");
+        xmlFileName = "legacy_autoconfig.xml";
+        BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
+
+        ap().parseXMLConfigFile(xmlFileName);
+        DSMConfigIterator di = ap().getDSMConfigIterator();
+        BOOST_REQUIRE(di.hasNext() == true);
         DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
         (*pDsm).validate();
-    }
 
-    NLOG(("Iterating through all the sensors specified in the XML file"));
-    SensorIterator sensIter = ap().getSensorIterator();
-    while (sensIter.hasNext() ) {
+        SensorIterator sensIter = ap().getSensorIterator();
+        BOOST_REQUIRE(sensIter.hasNext() == true );
         SerialSensor* pSerialSensor = dynamic_cast<SerialSensor*>(sensIter.next());
-        if (!pSerialSensor) {
-            NLOG(("Can't auto config a non-serial sensor. Skipping..."));
-            continue;
-        }
+        BOOST_REQUIRE(pSerialSensor != 0);
+        // validate that the sensor really is a legacy DSMSerialSensor...
         DSMSerialSensor* pDSMSerialSensor = dynamic_cast<DSMSerialSensor*>(pSerialSensor);
         BOOST_TEST(pDSMSerialSensor != static_cast<DSMSerialSensor*>(0));
         pSerialSensor->init();
-        // Don't open/close because the pty being for mock can't handle termios details
+        // Don't open/close because the pty being mocked can't handle termios details
+        PortConfig desiredPortConfig = pSerialSensor->getDesiredPortConfig();
+        BOOST_TEST(desiredPortConfig != pSerialSensor->getPortConfig());
+        BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 9600);
+        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
+        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
+        BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
     }
 }
 
