@@ -260,7 +260,9 @@ public:
     void setPortConfig(const PortConfig newPortConfig);
 
     PortConfig getDefaultPortConfig() {return _defaultPortConfig;}
+    void setDefaultPortConfig(const PortConfig& newDefaultPortConfig) {_defaultPortConfig = newDefaultPortConfig;}
     PortConfig getDesiredPortConfig() {return _desiredPortConfig;}
+    void setDesiredPortConfig(const PortConfig& newDesiredPortConfig) {_desiredPortConfig = newDesiredPortConfig;}
 
     void applyPortConfig();
     void printPortConfig(bool flush=true);
