@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sensorcatalog>
+    <!-- Legacy DSMSerialSensor Dynld implementation -->
+    <serialSensor 
+        ID="LegacySerialSensor" 
+        class="DSMSerialSensor" 
+        init_string="\r\n.BP\r\n"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- MockSerialSensor autoconfig dynld implementation -->
+    <!-- Leave defaults unchanged -->
+    <serialSensor 
+        ID="MockSerialSensor_AUTO_0" 
+        class="isff.MockSerialSensor" 
+        init_string="\r\n.BP\r\n">
+        <autoconfig />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- MockSerialSensor autoconfig dynld implementation -->
+    <!-- Change defaults in serialSensor attrs -->
+    <serialSensor 
+        ID="MockSerialSensor_AUTO_1" 
+        class="isff.MockSerialSensor" 
+        init_string="\r\n.BP\r\n"
+		baud="9600" 
+        parity="even" 
+        databits="7" 
+        stopbits="1">
+        <autoconfig />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+
+    <!-- MockSerialSensor autoconfig Dynld implementation -->
+    <!-- Change defaults in autoconfig attrs -->
+    <serialSensor 
+        ID="MockSerialSensor_AUTO_2" 
+        class="isff.MockSerialSensor" 
+        init_string="\r\n.BP\r\n">
+        <autoconfig 
+            baud="19200" 
+            parity="none" 
+            databits="8" 
+            stopbits="1" />
+        <!-- 838.26\r\n -->
+        <sample 
+            id="1" 
+            scanfFormat="%f" 
+            rate="1">
+            <variable 
+                name="P" 
+                units="mb"
+                longname="Barometric Pressure, Vaisala PTB 210"
+                plotrange="$P_RANGE"/>
+        </sample>
+        <message 
+            separator="\n" 
+            position="end" 
+            length="0"/>
+    </serialSensor>
+</sensorcatalog>
