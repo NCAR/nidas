@@ -120,6 +120,7 @@ BOOST_FIXTURE_TEST_SUITE(autoconfig_test_suite, Fixture)
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
 {
+    BOOST_TEST_MESSAGE("");
     BOOST_TEST_MESSAGE("Testing SerialSensor Constructors...");
 
     BOOST_TEST_MESSAGE("    Testing Default Constructor...");
@@ -185,6 +186,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
 {
+    BOOST_TEST_MESSAGE("");
     BOOST_TEST_MESSAGE("Testing SerialSensor::fromDOMElement()...");
 
     struct stat statbuf;
@@ -213,11 +215,96 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         pSerialSensor->init();
         // Don't open/close because the pty being mocked can't handle termios details
         PortConfig desiredPortConfig = pSerialSensor->getDesiredPortConfig();
-        BOOST_TEST(desiredPortConfig != pSerialSensor->getPortConfig());
+        BOOST_TEST(desiredPortConfig != pSerialSensor->getDefaultPortConfig());
         BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 9600);
         BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
         BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
         BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
+        BOOST_TEST(pSerialSensor->getInitString() == "DSMSensorTestInitString");
+    }
+
+    {
+        AutoProject ap;
+
+        BOOST_TEST_MESSAGE("    Testing MockSerialSensor - No <serialSensor> tag attributes...");
+        xmlFileName = "autoconfig0.xml";
+        BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
+
+        ap().parseXMLConfigFile(xmlFileName);
+        DSMConfigIterator di = ap().getDSMConfigIterator();
+        BOOST_REQUIRE(di.hasNext() == true);
+        DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
+        (*pDsm).validate();
+
+        SensorIterator sensIter = ap().getSensorIterator();
+        BOOST_REQUIRE(sensIter.hasNext() == true );
+        MockSerialSensor* pMockSerialSensor = dynamic_cast<MockSerialSensor*>(sensIter.next());
+        BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
+        pMockSerialSensor->init();
+        // Don't open/close because the pty being for mock can't handle termios details
+        PortConfig desiredPortConfig = pMockSerialSensor->getDesiredPortConfig();
+        BOOST_TEST(desiredPortConfig == pMockSerialSensor->getDefaultPortConfig());
+        BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 9600);
+        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::NONE);
+        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 8);
+        BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
+        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor0TestInitString");
+    }
+
+    {
+        AutoProject ap;
+
+        BOOST_TEST_MESSAGE("    Testing MockSerialSensor - Use <serialSensor> tag attributes");
+        xmlFileName = "autoconfig1.xml";
+        BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
+
+        ap().parseXMLConfigFile(xmlFileName);
+        DSMConfigIterator di = ap().getDSMConfigIterator();
+        BOOST_REQUIRE(di.hasNext() == true);
+        DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
+        (*pDsm).validate();
+
+        SensorIterator sensIter = ap().getSensorIterator();
+        BOOST_REQUIRE(sensIter.hasNext() == true );
+        MockSerialSensor* pMockSerialSensor = dynamic_cast<MockSerialSensor*>(sensIter.next());
+        BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
+        pMockSerialSensor->init();
+        // Don't open/close because the pty being for mock can't handle termios details
+        PortConfig desiredPortConfig = pMockSerialSensor->getDesiredPortConfig();
+        BOOST_TEST(desiredPortConfig != pMockSerialSensor->getDefaultPortConfig());
+        BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 9600);
+        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
+        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
+        BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
+        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor1TestInitString");
+    }
+
+    {
+        AutoProject ap;
+
+        BOOST_TEST_MESSAGE("    Testing MockSerialSensor - Use <autoconfig> tag attributes");
+        xmlFileName = "autoconfig2.xml";
+        BOOST_TEST_REQUIRE(::stat(xmlFileName.c_str(),&statbuf) == 0);
+
+        ap().parseXMLConfigFile(xmlFileName);
+        DSMConfigIterator di = ap().getDSMConfigIterator();
+        BOOST_REQUIRE(di.hasNext() == true);
+        DSMConfig* pDsm = const_cast<DSMConfig*>(di.next());
+        (*pDsm).validate();
+
+        SensorIterator sensIter = ap().getSensorIterator();
+        BOOST_REQUIRE(sensIter.hasNext() == true );
+        MockSerialSensor* pMockSerialSensor = dynamic_cast<MockSerialSensor*>(sensIter.next());
+        BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
+        pMockSerialSensor->init();
+        // Don't open/close because the pty being for mock can't handle termios details
+        PortConfig desiredPortConfig = pMockSerialSensor->getDesiredPortConfig();
+        BOOST_TEST(desiredPortConfig != pMockSerialSensor->getDefaultPortConfig());
+        BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 19200);
+        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::ODD);
+        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 8);
+        BOOST_TEST(desiredPortConfig.termios.getStopBits() == 2);
+        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor2TestInitString");
     }
 }
 
