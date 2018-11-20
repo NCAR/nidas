@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2012 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="AutoConfig"
+    system="ISFS"
+    version="$Revision: 4555 $">
+
+    <xi:include href="sensor_catalog.xml" parse="xml">
+        <xi:fallback>
+        </xi:fallback>
+    </xi:include>
+
+    <dsmcatalog>
+        <!-- Bare Pi DSM for autoconfig testing -->
+        <dsm ID="BASEPI" rserialPort="30002">
+            <output class="RawSampleOutputStream">
+                <fileset dir="/media/usbdisk/projects/${PROJECT}/raw_data"
+                        file="BASEPI_%Y%m%d_%H%M%S.dat"
+                        length="43200">
+                <!-- mount dir="/media/usbdisk"/ -->
+                </fileset>
+            </output>
+        </dsm>
+    </dsmcatalog>
+
+    <site name="nanolab-01" class="isff.GroundStation" suffix=".lab">
+        <dsm 
+            IDREF="BASEPI" 
+            name="nanolab-01" 
+            id="1">
+            <serialSensor 
+                IDREF="LegacySerialSensor" 
+                devicename="/tmp/ttyUSB0" 
+                height="2m" 
+                id="20" />
+        </dsm>
+    </site>
+</project>
