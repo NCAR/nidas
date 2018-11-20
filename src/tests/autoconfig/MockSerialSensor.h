@@ -45,7 +45,7 @@ public:
         initAutoConfig();
 
         setDeviceName("/tmp/ttyUSB0");
-        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), _desiredPortConfig);
+        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), getDefaultPortConfig());
         setIODevice(pIODevice);
         setSerialPortIODevice(pIODevice);
     }
@@ -73,7 +73,7 @@ public:
         initAutoConfig();
 
         setDeviceName("/tmp/ttyUSB0");
-        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), _desiredPortConfig);
+        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), getDefaultPortConfig());
         setIODevice(pIODevice);
         setSerialPortIODevice(pIODevice);
     }
