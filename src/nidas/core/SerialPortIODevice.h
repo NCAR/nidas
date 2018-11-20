@@ -71,10 +71,11 @@ struct PortConfig {
 
     PortConfig(const PortConfig& rInitPortConfig)
         : termios(rInitPortConfig.termios), xcvrConfig(rInitPortConfig.xcvrConfig), 
-          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied) {}
-
+          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied){}
     PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) {}
-    PortConfig(const std::string& rDeviceName, const int fd) : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) {}
+    PortConfig(const std::string& rDeviceName, const int fd)
+        : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) {}
+
     bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
     bool operator==(const PortConfig& rRight) const
         {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 

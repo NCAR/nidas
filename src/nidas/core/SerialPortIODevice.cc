@@ -141,7 +141,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         try {
             portStream >> portID;
         }
-        catch (exception e) {
+        catch (exception& e) {
             throw n_u::Exception("SerialPortIODevice: device name arg "
                                 "cannot be parsed for canonical port ID");
         }
