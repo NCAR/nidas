@@ -57,9 +57,9 @@
 #include <nidas/util/auto_ptr.h>
 #include <nidas/util/Logger.h>
 #include <nidas/dynld/isff/PTB210.h>
-#include <nidas/util/optionparser.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
+#include <nidas/core/NidasApp.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -73,235 +73,53 @@ public:
     n_c::Project& operator()() {return *n_c::Project::getInstance();}
 };
 
-struct Arg: public option::Arg
+
+NidasAppArg Device("-d,--device", "i.e. /dev/ttyUSBx",
+        "Serial device to use when running autoconfig on a sensor.\n"
+        "Only specify this if -x/--xml is not used", "");
+
+NidasAppArg Sensor("-s,--sensor", "i.e. isff.PTB210",
+        "Sensor on which autoconfig will be performed.\n"
+        "Only specify this if -x/--xml is not used", "");
+
+static NidasApp app("dsm_auto_config");
+
+int usage(const char* argv0)
 {
-    static void printError(const char* msg1, const option::Option& opt, const char* msg2)
-    {
-        std::cerr << "ERROR: " << msg1;
-        std::string optName(opt.name, opt.namelen );
-        std::cerr << optName;
-        std::cerr << msg2;
-    }
+    std::cerr << "\
+Usage: " << argv0
+         << " [options] [-d | -s | -x | -l]"
+         << app.usage();
 
-    static option::ArgStatus Unknown(const option::Option& option, bool msg)
-    {
-        if (msg) printError("Unknown option '", option, "'\n");
-        return option::ARG_ILLEGAL;
-    }
+    return 1;
+}
 
-    static option::ArgStatus Required(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0)
-        return option::ARG_OK;
-        if (msg) printError("Option '", option, "' requires an argument\n");
-        return option::ARG_ILLEGAL;
-    }
-
-    static option::ArgStatus NonEmpty(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0 && option.arg[0] != 0)
-        return option::ARG_OK;
-        if (msg) printError("Option '", option, "' requires a non-empty argument\n");
-        return option::ARG_ILLEGAL;
-    }
-
-    static option::ArgStatus Numeric(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0)
-        {
-            try {
-                int arg = -1;
-                std::istringstream("abcd") >> arg;
-                std::cout << "Numeric arg test gave: " << arg << std::endl;
-                return option::ARG_OK;
-            }
-            catch (std::exception e)
-            {
-                if (msg) printError("Option '", option, "' requires a numeric argument\n");
-                return option::ARG_ILLEGAL;
-            }
-        }
-
-        return option::ARG_ILLEGAL;
-    }
-
-    static option::ArgStatus Xml(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = NonEmpty( option, msg);
-        if ( argStatus == option::ARG_OK ) 
-        {
-            struct stat fileMeta;
-            if (stat(option.arg, &fileMeta) < 0)
-            {
-                argStatus = option::ARG_ILLEGAL;
-                if (msg) printError("Option '", option, "' Could not stat XML file.\n");
-            }
-        }
-
-        return argStatus;
-    }
-    static option::ArgStatus Sensor(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = Required( option, msg);
-        if ( argStatus == option::ARG_OK ) 
-        {
-            argStatus = NonEmpty( option, msg);
-        }
-
-        return argStatus;
-    }
-
-    static option::ArgStatus Device(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = Required(option, msg);
-        if ( argStatus == option::ARG_OK ) 
-        {
-            argStatus = NonEmpty(option, msg);
-            if (argStatus == option::ARG_OK)
-            {
-                struct stat fileMeta;
-                if (stat(option.arg, &fileMeta) < 0)
-                {
-                    argStatus = option::ARG_ILLEGAL;
-                    if (msg) printError("Option '", option, "' Could not stat device file.\n");
-                }
-            }
-        }
-
-        return argStatus;
-    }
-
-    static option::ArgStatus LogLevel(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = Optional(option, msg);
-
-        if (argStatus == option::ARG_OK) {
-            argStatus = Numeric(option, msg);
-            if ( argStatus == option::ARG_OK ) {
-                try {
-                    // this shouldn't fail since Numeric() succeeded...
-                    int arg = -1;
-                    std::istringstream(option.arg) >> arg;
-                    if (1 <= arg && arg <=4) {
-                        return option::ARG_OK;
-                    }
-                    else {
-                        if (msg) printError("Option '", option, "' must be in the range of 1..4\n");
-                        return option::ARG_ILLEGAL;
-                    }
-                }
-                catch (std::exception e)
-                {
-                    if (msg) printError("Option '", option, "' requires a pure numeric argument, if one is supplied\n");
-                    return option::ARG_ILLEGAL;
-                }
-            }
-        }
-
-        return argStatus;
-    }
-};
-
-enum  optionIndex { UNKNOWN, HELP, LOG, XML, SENSOR, DEVICE };
-const option::Descriptor usage[] =
+int parseRunString(int argc, char* argv[])
 {
-    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: dsm_auto_config [options]\n\n"
-                                            "Options:" },
-    {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
-    {LOG, 0, "l", "log", Arg::LogLevel, "  --log, -l[1..4]  \tSet the log level to debug. If there is an argument, it must be attached: -l2." },
-    {XML, 0, "x", "xml", Arg::Xml, "  --xml, -x  \tSpecify the xml file containing the sensor settings." },
-    {SENSOR, 0, "s", "sensor", Arg::Sensor,   "  --sensor, -s  \tSpecify the sensor to be configured:\n" },
-    {DEVICE, 0, "d", "dev", Arg::Device,   "  --device, -d  \tSpecify the device on which to perform auto" 
-                                           " config activities. Must be the device to which the sensor is attached.\n" },
-    {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
-                                "  dsm_auto_config -d /dev/ttyUSB0\n"
-                                "  dsm_auto_config -l -d /dev/ttyUSB0\n"
-                                "  dsm_auto_config -l2 -d /dev/ttyUSB0\n" },
-    {0,0,0,0,0,0}
-};
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
+                        app.Version | app.Help | Device | Sensor);
 
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
+        return usage(argv[0]);
+    }
+    return 0;
+}
 
 int main(int argc, char* argv[]) {
-    // options handler setup
-    if (argc > 0) // skip program name argv[0] if present
-    {
-        argc--;
-        argv += 1;
-    }
-
-    option::Stats  stats(usage, argc, argv);
-    option::Option options[stats.options_max];
-    option::Option buffer[stats.buffer_max];
-    option::Parser parse(usage, argc, argv, &options[0], &buffer[0]);
-    if (parse.error())
-    {
-        std::cerr << "Failed to parse the command line options!" << std::endl;
-        return 1;
-    }
-
-    if (options[HELP] || argc == 0) {
-        option::printUsage(std::cout, usage);
-        return 0;
-    }
-
-    n_u::Logger* logger = 0;
-    n_u::LogScheme scheme;
-
-    std::string levelStr("level=");
-
-    if (options[LOG]) {
-        int arg = -1;
-
-        try {
-            std::istringstream(options[LOG].arg) >> arg;
-        }
-        catch (std::exception e) {}
-
-        switch (arg) {
-            case 1: 
-                levelStr.append("notice");
-                break;
-
-            case 2: 
-                levelStr.append("info");
-                break;
-
-            case 3: 
-                levelStr.append("debug");
-                break;
-
-            case 4: 
-                levelStr.append("verbose");
-                break;
-
-            default:
-                levelStr.append("warning");
-                break;
-        }
-
-    }
-
-    if (levelStr == "level=") {
-        levelStr.append("warning");
-    }
-    std::cout << "Log level string: " << levelStr << std::endl;
-
-    logger = Logger::getInstance();
-    scheme = logger->getScheme("autoconfig_default");
-    LogConfig lc(levelStr.c_str());
-    scheme.addConfig(lc);
-    logger->setScheme(scheme);
+    if (parseRunString(argc, argv))
+        exit(1);
 
     // xml config file use case
-    if (options[XML]) {
+    std::string xmlFileName = app.xmlHeaderFile();
+    if (xmlFileName.length() != 0) {
         AutoProject ap;
     	struct stat statbuf;
-        std::string xmlFileName = options[XML].arg;
 
         if (::stat(xmlFileName.c_str(),&statbuf) == 0) {
             NLOG(("Found XML file: ") << xmlFileName);
 
-            // auto_ptr<xercesc::DOMDocument> doc(ap().parseXMLConfigFile(xmlFileName));
             ap().parseXMLConfigFile(xmlFileName);
             DSMConfigIterator di = ap().getDSMConfigIterator();
             while (di.hasNext()) {
@@ -325,11 +143,13 @@ int main(int argc, char* argv[]) {
     }
 
     else {
-        if (options[SENSOR]) {
-            std::string deviceStr;
+        std::string sensorClass = Sensor.getValue();
+        if (sensorClass.length() != 0) {
+            NLOG(("Using Sensor: ") << sensorClass);
+
+            std::string deviceStr = Device.getValue();
             
-            if (options[DEVICE]) {
-                deviceStr = options[DEVICE].arg;
+            if (deviceStr.length() != 0) {
                 NLOG(("Performing Auto Config on Device: ") << deviceStr);
             }
             else
@@ -339,8 +159,6 @@ int main(int argc, char* argv[]) {
             }
 
             DOMObjectFactory sensorFactory;
-            std::string sensorClass = options[SENSOR].arg;
-            NLOG(("Using Sensor: ") << sensorClass);
 
             DOMable* domSensor = sensorFactory.createObject(sensorClass);
             if (!domSensor) {
