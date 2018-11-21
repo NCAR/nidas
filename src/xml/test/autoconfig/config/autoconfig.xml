@@ -21,7 +21,7 @@
                 <fileset dir="/media/usbdisk/projects/${PROJECT}/raw_data"
                         file="BASEPI_%Y%m%d_%H%M%S.dat"
                         length="43200">
-                <mount dir="/media/usbdisk"/>
+                <!-- mount dir="/media/usbdisk"/ -->
                 </fileset>
             </output>
         </dsm>
@@ -37,16 +37,16 @@
                 devicename="/dev/ttyUSB0" 
                 height="2m" 
                 id="20" / -->
-            <!--  serialSensor 
+            <!-- serialSensor 
                 IDREF="PTB210_AUTO_2"
-                devicename="/dev/ttyUSB1" 
+                devicename="/dev/ttyUSB0" 
                 height="100m" 
                 id="100" / -->
             <!-- serialSensor 
                 IDREF="PTB220_AUTO_1"
                 devicename="/dev/ttyUSB1" 
-                height="100m" 
-                id="100" / -->
+                height="50m" 
+                id="200" / -->
             <!-- serialSensor 
                 IDREF="GILL2D_AUTO_1" 
                 devicename="/dev/ttyUSB5" 
