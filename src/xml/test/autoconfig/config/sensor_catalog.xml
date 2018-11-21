@@ -267,4 +267,125 @@
         </sample>
         <message separator="\x55\xaa" position="end" length="10"/>
     </serialSensor>
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_IRGA_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1">
+	<!-- protocol:RS422 -->
+        <parameter name="bandwidth" type="float" value="5"/>
+        <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+        <calfile name="offsets_angles"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/$SITE"
+            file="csat.dat"/>
+        <calfile name="abc2uvw"
+            path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR"
+            file="csat_abc2uvw.dat"/>
+        <sample id="1" rate="20">
+            <variable name="u" units="m/s" longname="Wind U component, CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="v" units="m/s" longname="Wind V component, CSAT3" plotrange="$UV_RANGE"/>
+            <variable name="w" units="m/s" longname="Wind W component, CSAT3" plotrange="$W_RANGE"/>
+            <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                plotrange="$T_RANGE"/>
+            <variable name="diagbits" units=""
+                longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                plotrange="$DIAG_RANGE"/>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA" plotrange="$CO2_RANGE">
+                <linear units="g/m^3">
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/$SITE"
+                        file="irga_co2.dat"/>
+                </linear>
+            </variable>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" plotrange="$H2O_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/$SITE"
+                        file="irga_h2o.dat"/>
+                </linear>
+            </variable>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature" plotrange="$T_RANGE">
+	    </variable>
+	    <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+		<linear units="mb" slope="10" intercept="0.0" plotrange="$P_RANGE"/>
+	    </variable>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength" plotrange="0 10"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength" plotrange="0 10"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure" plotrange="100 300"/>
+            <!-- Tirga_src, Tirga_det are not in binary output of software version EC100.04.2. Results will be nan -->
+            <variable name="Tirga_src" units="degC" longname="CSI IRGA source temperature" plotrange="$T_RANGE"/>
+            <variable name="Tirga_det" units="degC" longname="CSI IRGA detector temperature" plotrange="$T_RANGE"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+
+    <!-- EC150 with an EC100 box but no sonic head attached, so no wind
+         variables in the sample.  Since this is a binary message, there is
+         no way to skip extracting a variable like there would be when
+         parsing with scanf, so the wind variables must be qualified to
+         distinguish them from the wind variables of a colocated sonic, and
+         to make it clear that no data should ever be expected from
+         them.
+
+         I also tried replacing the wind values with NaN using a linear
+         converter, but nidas can't parse that.
+    -->
+    <serialSensor class="isff.CSI_IRGA_Sonic" ID="CSAT3_EC150_BIN"
+        baud="115200" parity="none" databits="8" stopbits="1">
+        <parameter name="bandwidth" type="float" value="5"/>
+        <sample id="1">
+            <variable name="u.na" units="m/s" longname="Wind U component, CSAT3"
+		      plotrange="$UV_RANGE">
+	    </variable>
+            <variable name="v.na" units="m/s" longname="Wind V component, CSAT3"
+		      plotrange="$UV_RANGE">
+	    </variable>
+            <variable name="w.na" units="m/s" longname="Wind W component, CSAT3"
+		      plotrange="$W_RANGE">
+	    </variable>
+            <variable name="tc.na" units="degC" longname="Virtual air temperature from speed of sound, CSAT3"
+                      plotrange="$T_RANGE">
+	    </variable>
+            <variable name="diagbits.na" units=""
+                longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"
+                plotrange="$DIAG_RANGE">
+	    </variable>
+            <variable name="co2" units="mg/m^3" longname="CO2 density from CSI IRGA" plotrange="$CO2_RANGE">
+                <linear units="g/m^3">
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/$SITE"
+                        file="irga_co2.dat"/>
+                </linear>
+            </variable>
+            <variable name="h2o" units="g/m^3" longname="Water vapor density from CSI IRGA" plotrange="$H2O_RANGE">
+                <linear>
+                    <calfile
+                        path="$ISFS/projects/$PROJECT/ISFS/cal_files/$CAL_DIR/$SITE"
+                        file="irga_h2o.dat"/>
+                </linear>
+            </variable>
+            <variable name="irgadiag" units="" longname="CSI IRGA diagnostic" plotrange="$DIAG_RANGE"/>
+            <variable name="Tirga" units="degC" longname="CSI IRGA temperature" plotrange="$T_RANGE">
+	    </variable>
+	    <variable name="Pirga" units="kPa" longname="CSI IRGA pressure">
+		<linear units="mb" slope="10" intercept="0.0" plotrange="$P_RANGE"/>
+	    </variable>
+            <variable name="SSco2" units="" longname="CSI IRGA CO2 signal strength" plotrange="0 10"/>
+            <variable name="SSh2o" units="" longname="CSI IRGA H2O signal strength" plotrange="0 10"/>
+            <variable name="dPirga" units="mb" longname="CSI IRGA differential pressure" plotrange="100 300"/>
+            <!-- Tirga_src, Tirga_det are not in binary output of software version EC100.04.2. Results will be nan -->
+            <variable name="Tirga_src" units="degC" longname="CSI IRGA source temperature" plotrange="$T_RANGE"/>
+            <variable name="Tirga_det" units="degC" longname="CSI IRGA detector temperature" plotrange="$T_RANGE"/>
+            <!-- derived variables ldiag, spd, dir should be at the end of the sample -->
+	    <!--
+            <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)" plotrange="$LDIAG_RANGE"/>
+            <variable name="spd" units="m/s" longname="CSAT3 horizontal wind speed" plotrange="$SPD_RANGE"/>
+            <variable name="dir" units="deg" longname="CSAT3 wind direction" plotrange="0 360"/>
+	    -->
+        </sample>
+        <message separator="\x55\xaa" position="end" length="58"/>
+    </serialSensor>
+
 </sensorcatalog>
