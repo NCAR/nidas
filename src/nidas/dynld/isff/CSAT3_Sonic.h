@@ -128,6 +128,15 @@ protected:
      * Autoconfig overrides
      */
     virtual bool supportsAutoConfig() { return true; }
+    /**
+     * @return: ENTERED or ENTERED_RESP_CHECK=successful, '>' prompt received, and then no data.
+     */
+    virtual nidas::core::CFG_MODE_STATUS enterConfigMode() throw(nidas::util::IOException);
+
+    /**
+     * @return: none.
+     */
+    virtual void exitConfigMode() throw(nidas::util::IOException);
     virtual bool checkResponse();
     virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig);
     virtual void sendScienceParameters();
@@ -135,16 +144,6 @@ protected:
 
 
 private:
-
-    /**
-     * @return: true=successful, '>' prompt received, and then no data.
-     */
-    bool terminalMode() throw(nidas::util::IOException);
-
-    /**
-     * @return: true=data received, false=no or invalid data received.
-     */
-    bool dataMode() throw(nidas::util::IOException);
 
     /**
      * Send a "??CR" string, and read the response, parsing out the

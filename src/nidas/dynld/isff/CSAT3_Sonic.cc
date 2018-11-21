@@ -129,64 +129,12 @@ CSAT3_Sonic::~CSAT3_Sonic()
 }
 
 
-bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
+void CSAT3_Sonic::exitConfigMode() throw(n_u::IOException)
 {
     clearBuffer();
 
-    DLOG(("%s: sending D (nocr)",getName().c_str()));
+    DLOG(("%s:%s sending D (nocr)",getName().c_str(), getClassName().c_str()));
     write("D",1);
-    usleep(250 * USECS_PER_MSEC);
-    std::size_t ml = getMessageLength() + getMessageSeparator().length();
-    DLOG(("Expected message length: ") << ml);
-
-    // read until we get an actual sample or 5 seconds have elapsed.
-    n_u::UTime quit;
-    quit += USECS_PER_SEC * 5;
-
-    int nbad = 0;
-
-    for (int ntimeout = 0; ; ) {
-        try {
-            for (;;) {
-                bool goodsample = false;
-                readBuffer(1 * MSECS_PER_SEC);
-                DLOG(("%s: CSAT3 buffer read",getName().c_str()));
-                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                    // Sample might be slightly larger that what is configured
-                    // if a serializer is adding some bytes
-                    // Or if a port is configured for serializer, but no serializer
-                    // is present, the records will be of length 24 (2*12) instead
-                    // of the expected 14.
-                    if (samp->getDataByteLength() >= ml &&
-                        samp->getDataByteLength() < ml*2) goodsample = true;
-                    else {
-                    	nbad++;
-                    	DLOG(("Bad sample length: ") << samp->getDataByteLength());
-                    }
-
-                    distributeRaw(samp);
-                }
-                if (goodsample) return true;
-                if (nbad > 0) ILOG(("%s: %d unrecognized samples", getName().c_str(),nbad));
-                if (n_u::UTime() > quit) {
-                    ILOG(("%s: timeout reading CSAT3 samples",getName().c_str()));
-                    return false;
-                }
-            }
-        }
-        catch (const n_u::IOTimeoutException& e) {
-            if ((++ntimeout % 3)) {
-                ILOG(("%s: timeout reading CSAT3 data, sending D (nocr)",getName().c_str()));
-                write("D",1);
-            }
-            else {
-                ILOG(("%s: timeout reading CSAT3 data, sending D& (nocr)",getName().c_str()));
-                write("D&",2);
-            }
-            if (n_u::UTime() > quit) return false;
-        }
-    }
-    return false;
 }
 
 /* static */
@@ -216,8 +164,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber,
         string& revision, int& rtsIndep, int& recSep, int& baudRate)
 throw(n_u::IOException)
 {
-    string result;
-
+    std::string result = "";
     acqrate = 0;
     osc = ' ';
     serialNumber = "";
@@ -253,31 +200,31 @@ throw(n_u::IOException)
     bool scanned = false;
 
     for ( ; !scanned && n_u::UTime() < quit; ) {
-        DLOG(("%s: sending ?? CR",getName().c_str()));
+        DLOG(("%s:%s sending ?? CR",getName().c_str(), getClassName().c_str()));
         write("??\r",3);    // must send CR
         // sonic takes a while to respond to ??
         int timeout = 4 * MSECS_PER_SEC;
-        result.clear();
         string::size_type stidx = string::npos;
 
         // read until timeout, or complete message
         for ( ; !scanned && n_u::UTime() < quit; ) {
             try {
-                readBuffer(timeout);
-                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                    unsigned int l = samp->getDataByteLength();
-                    // strings will not be null terminated
-                    const char * cp = (const char*)samp->getConstVoidDataPtr();
-                    // sonic echoes back "T" or "??" command
-                    if (result.length() == 0)
-                        while (l && (*cp == 'T' || *cp == '?' || ::isspace(*cp))) { cp++; l--; }
-                    string rec(cp,l);
-                    DLOG(("%s: CSAT3 query: len=",getName().c_str())
-                            << rec.length() << ", \"" << rec << '"');
+                char buf[512];
+                memset(buf, 0, 512);
+                unsigned int l = readEntireResponse(buf, 511, timeout);
+                // strings will not be null terminated
+                const char * cp = (const char*)buf;
+                // sonic echoes back "T" or "??" command
+                if (l != 0)
+                    while (*cp == 'T' || *cp == '?' || ::isspace(*cp)) {
+                        cp++;
+                        l--;
+                    }
+                string rec(cp,l);
+                DLOG(("%s: CSAT3 query: len=",getName().c_str())
+                        << rec.length() << ", \"" << rec << '"');
 
-                    result += rec;
-                    distributeRaw(samp);
-                }
+                result += rec;
             }
             catch (const n_u::IOTimeoutException& e) {
                 DLOG(("%s: timeout",getName().c_str()));
@@ -489,12 +436,13 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 		}
 	}
 
+	// AutoConfig happens here...
 	SerialSensor::open(flags);
 
 	if (!_checkConfiguration) return;
 
-	const int NOPEN_TRY = 5;
-
+//	const int NOPEN_TRY = 5;
+//
 	/*
 	 * Typical session when a sonic port is opened. If the sonic rate is determined
 	 * to be correct after the first query, then the "change rate" and "second query"
@@ -524,83 +472,71 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	catch(const n_u::InvalidParameterException& e) {
 		throw n_u::IOException(getName(),"open",e.what());
 	}
-
-	// returns true if some recognizeable samples are received.
-	bool dataok = dataMode();
-
-	/*
-	 * An IOTimeoutException is thrown, which will cause another open attempt to
-	 * be scheduled, in the following circumstances:
-	 *   1. If a serial number is not successfully queried, and no data is arriving.
-	 *      We don't add any extra log messages in this case to avoid filling up the
-	 *      logs when a sonic simply isn't connected. We don't want to give up in
-	 *      this case, and return without an exception, because then a sonic might
-	 *      later be connected and the data read without knowing the serial number,
-	 *      which is only determined in this open method. The serial number is often
-	 *      important to know for later analysis and QC purposes.
-	 *   2. If no serial number, but some data is received and less than NOPEN_TRY
-	 *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
-	 *      consecutive failures, just return from this open method without an
-	 *      exception, which will pass this DSMSensor to the select loop for reading,
-	 *      i.e. give up on getting the serial number - the data is more important.
-	 *   3. If a serial number, but no data is received, and less than NOPEN_TRY
-	 *      attempts have been tried, throw a timeout exception. This should be a
-	 *      rare situation because if the sonic responds to serial number queries, it
-	 *      generally should spout data.  After NOPEN_TRY consecutive failures,
-	 *      just return from this open method, and this DSMSensor will be passed to
-	 *      the select loop for reading. If a timeout value is defined for this DSMSensor,
-	 *      and data doesn't start arriving in that amount of time, then this
-	 *      DSMSensor will be scheduled for another open.
-	 */
-	if (serialNumber.empty()) {
-		// can't query sonic
-		_consecutiveOpenFailures++;
-		if (dataok) {
-			if (_consecutiveOpenFailures >= NOPEN_TRY) {
-				WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
-							getName().c_str(),_consecutiveOpenFailures));
-				return; // return from open, proceed to read data.
-			}
-			WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures.",
-						getName().c_str(),_consecutiveOpenFailures));
-		}
-		throw n_u::IOTimeoutException(getName(),"open");
-	}
-	else {
-		// serial number query success, but no data - should be a rare occurence.
-		if (!dataok) {
-			_consecutiveOpenFailures++;
-			if (_consecutiveOpenFailures >= NOPEN_TRY) {
-				WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
-							getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-				return; // return from open, proceed to read data.
-			}
-			WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
-						getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-			throw n_u::IOTimeoutException(getName(),"open");
-		}
-		else
-			DLOG(("%s: successful open of CSAT3: serial number=\"",
-							getName().c_str()) << serialNumber << "\"");
-		_consecutiveOpenFailures = 0;   // what-a-ya-know, success!
-	}
+//	/*
+//	 * An IOTimeoutException is thrown, which will cause another open attempt to
+//	 * be scheduled, in the following circumstances:
+//	 *   1. If a serial number is not successfully queried, and no data is arriving.
+//	 *      We don't add any extra log messages in this case to avoid filling up the
+//	 *      logs when a sonic simply isn't connected. We don't want to give up in
+//	 *      this case, and return without an exception, because then a sonic might
+//	 *      later be connected and the data read without knowing the serial number,
+//	 *      which is only determined in this open method. The serial number is often
+//	 *      important to know for later analysis and QC purposes.
+//	 *   2. If no serial number, but some data is received and less than NOPEN_TRY
+//	 *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
+//	 *      consecutive failures, just return from this open method without an
+//	 *      exception, which will pass this DSMSensor to the select loop for reading,
+//	 *      i.e. give up on getting the serial number - the data is more important.
+//	 *   3. If a serial number, but no data is received, and less than NOPEN_TRY
+//	 *      attempts have been tried, throw a timeout exception. This should be a
+//	 *      rare situation because if the sonic responds to serial number queries, it
+//	 *      generally should spout data.  After NOPEN_TRY consecutive failures,
+//	 *      just return from this open method, and this DSMSensor will be passed to
+//	 *      the select loop for reading. If a timeout value is defined for this DSMSensor,
+//	 *      and data doesn't start arriving in that amount of time, then this
+//	 *      DSMSensor will be scheduled for another open.
+//	 */
+//	if (serialNumber.empty()) {
+//		// can't query sonic
+//		_consecutiveOpenFailures++;
+//		if (dataok) {
+//			if (_consecutiveOpenFailures >= NOPEN_TRY) {
+//				WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
+//							getName().c_str(),_consecutiveOpenFailures));
+//				return; // return from open, proceed to read data.
+//			}
+//			WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures.",
+//						getName().c_str(),_consecutiveOpenFailures));
+//		}
+//		throw n_u::IOTimeoutException(getName(),"open");
+//	}
+//	else {
+//		// serial number query success, but no data - should be a rare occurence.
+//		if (!dataok) {
+//			_consecutiveOpenFailures++;
+//			if (_consecutiveOpenFailures >= NOPEN_TRY) {
+//				WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
+//							getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
+//				return; // return from open, proceed to read data.
+//			}
+//			WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
+//						getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
+//			throw n_u::IOTimeoutException(getName(),"open");
+//		}
+//		else
+//			DLOG(("%s: successful open of CSAT3: serial number=\"",
+//							getName().c_str()) << serialNumber << "\"");
+//		_consecutiveOpenFailures = 0;   // what-a-ya-know, success!
+//	}
 }
 
-bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
+n_c::CFG_MODE_STATUS CSAT3_Sonic::enterConfigMode() throw(n_u::IOException)
 {
+    n_c::CFG_MODE_STATUS cfgStatus = getConfigMode();
+    bool timedOut = false;
 
-    // in terminal mode, sonic sends ">" prompts
-    try {
-        setMessageParameters(0,">",true);
-    }
-    catch(const n_u::InvalidParameterException& e) {
-        throw n_u::IOException(getName(),"open",e.what());
-    }
-
-    bool rcvdPrompt = false;
-    bool rcvdTimeout = false;
-    for (int i = 0; i < 2; i++) {
-        DLOG(("%s: sending T (nocr)",getName().c_str()));
+    for (int i = 0; i < 2 && cfgStatus != ENTERED && !timedOut; i++) {
+        DLOG(("%s: sending (P)T (nocr)",getName().c_str()));
         /*
          * P means print status and turn off internal triggering.
          * If rev 5 sonics are set to 60 Hz raw sampling or
@@ -609,27 +545,31 @@ bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
         if (i > 1) write("PT",2);
         else write("T",1);
         try {
-            for (int j = 0; j < 20; j++) {
-                unsigned int l;
-                l = readBuffer(MSECS_PER_SEC + 10);
-                rcvdPrompt = false;
-                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                    if ((l = samp->getDataByteLength()) > 0 &&
-                            ((const char*)samp->getConstVoidDataPtr())[l-1] == '>') rcvdPrompt = true;
-                    distributeRaw(samp);
-                }
+            unsigned int l;
+            char buf[50];
+            memset(buf, 0, 50);
+            l = readEntireResponse(buf, 49, MSECS_PER_SEC + 10);
+            if (l > 0 && strstr(buf, ">") != 0) {
+                cfgStatus = ENTERED;
+                setConfigMode(cfgStatus);
+                ILOG(("%s:%s Successfully entered config mode!",
+                      getName().c_str(), getClassName().c_str()));
+                break;
             }
         }
         catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s: timeout",getName().c_str()));
-            rcvdTimeout = true;
+            DLOG(("%s:%s CSAT3_Sonic::enterConfigMode(): timeout",getName().c_str(), getClassName().c_str()));
+            timedOut = true;
             break;
         }
     }
 
-    if (!rcvdTimeout && !rcvdPrompt)
-        WLOG(("%s: cannot switch CSAT3 to terminal mode",getName().c_str()));
-    return rcvdTimeout || rcvdPrompt;
+    if (cfgStatus != ENTERED) {
+        WLOG(("%s:%s cannot switch CSAT3 to terminal mode",
+              getName().c_str(), getClassName().c_str()));
+    }
+
+    return cfgStatus;
 }
 
 float CSAT3_Sonic::correctTcForPathCurvature(float tc, float, float, float)
@@ -940,9 +880,6 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 
 bool CSAT3_Sonic::checkResponse()
 {
-    // switch sonic to terminal mode
-    terminalMode();
-
     acqrate = -1;
     osc = 'Z';
     serialNumber = "";
