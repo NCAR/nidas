@@ -62,9 +62,12 @@
 #include <sstream>
 #include <vector>
 #include <unistd.h>
-#include "libusb.h"
-#include "ftdi.h"
-#include "../util/optionparser.h"
+#include <libusb-1.0/libusb.h>
+#include <libftdi1/ftdi.h>
+#include "nidas/core/NidasApp.h"
+//#include "SerialXcvrCtrl.h"
+
+using namespace nidas::core;
 
 static const char* ARG_LOOPBACK = "LOOPBACK";
 static const char* ARG_RS232 = "RS232";
@@ -72,121 +75,121 @@ static const char* ARG_RS422 = "RS422";
 static const char* ARG_RS485_HALF = "RS485_HALF";
 static const char* ARG_RS485_FULL = "RS485_FULL";
 
-struct Arg: public option::Arg
-{
-    static void printError(const char* msg1, const option::Option& opt, const char* msg2)
-    {
-        std::cerr << "ERROR: " << msg1;
-        std::string optName(opt.name, opt.namelen );
-        std::cerr << optName;
-        std::cerr << msg2;
-    }
-    static option::ArgStatus Unknown(const option::Option& option, bool msg)
-    {
-        if (msg) printError("Unknown option '", option, "'\n");
-        return option::ARG_ILLEGAL;
-    }
-    static option::ArgStatus Required(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0)
-        return option::ARG_OK;
-        if (msg) printError("Option '", option, "' requires an argument\n");
-        return option::ARG_ILLEGAL;
-    }
-    static option::ArgStatus NonEmpty(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0 && option.arg[0] != 0)
-        return option::ARG_OK;
-        if (msg) printError("Option '", option, "' requires a non-empty argument\n");
-        return option::ARG_ILLEGAL;
-    }
-    static option::ArgStatus Numeric(const option::Option& option, bool msg)
-    {
-        if (option.arg != 0)
-        {
-            try {
-                int arg = -1;
-                std::istringstream(option.arg) >> arg;
-                return option::ARG_OK;
-            }
-            catch (std::exception& e)
-            {
-                if (msg) printError("Option '", option, "' requires a numeric argument\n");
-                return option::ARG_ILLEGAL;
-            }
-        }
-
-        return option::ARG_ILLEGAL;
-    }
-    static option::ArgStatus PortNum(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = Numeric( option, msg);
-        if ( argStatus == option::ARG_OK ) 
-        {
-            int port = -1;
-            std::istringstream(option.arg) >> port;
-            if (port < 0 || port > 8 ) // 0-7
-            {
-                argStatus = option::ARG_ILLEGAL;
-                if (msg) printError("Option '", option, "' Port option arg must be in range 0-7.\n");
-            }
-        }
-
-        return argStatus;
-    }
-    static option::ArgStatus PortType(const option::Option& option, bool msg)
-    {
-        option::ArgStatus argStatus = Required( option, msg);
-        if ( argStatus == option::ARG_OK ) 
-        {
-            argStatus = NonEmpty(option, msg);
-            if (argStatus == option::ARG_OK)
-            {
-                std::string argStr(option.arg);
-                std::transform(argStr.begin(), argStr.end(), argStr.begin(), ::toupper);
-                if ( argStr == ARG_LOOPBACK
-                    || argStr == ARG_RS232 
-                    || argStr == ARG_RS485_HALF 
-                    || argStr == ARG_RS485_FULL 
-                    || argStr == ARG_RS422 )
-                {
-                    return option::ARG_OK;
-                }
-                else
-                {
-                    argStatus = option::ARG_ILLEGAL; 
-                    if (msg)
-                    {
-                        printError("Option '", option, "' does not specify a valid port type\n");
-                    }
-                }
-            }
-        }
-
-        return argStatus;
-    }
-};
-
-enum  optionIndex { UNKNOWN, HELP, DISPLAY, PORT, TYPE };
-const option::Descriptor usage[] =
-{
-    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: dsm_port_config [options]\n\n"
-                                            "Options:" },
-    {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
-    {DISPLAY, 0, "d", "display", Arg::None, "  --display, -d  \tRead and display only" },
-    {PORT, 0, "p", "port", Arg::PortNum, "  --port, -p  \tSpecify port index 0-7." },
-    {TYPE, 0, "t", "type", Arg::PortType,   "  --type, -t  \tSpecify port type:\n"
-                                            "    LOOPBACK\n"
-                                            "    RS232\n"
-                                            "    RS485_HALF\n"
-                                            "    RS485_FULL\n"
-                                            "    RS422\n" },
-    {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
-                                "  dsm_port_config -p0 -tRS232\n"
-                                "  dsm_port_config -p3 -tRS422\n"
-                                "  dsm_port_config -p6 -tRS485_HALF\n"},
-    {0,0,0,0,0,0}
-};
+//struct Arg: public option::Arg
+//{
+//    static void printError(const char* msg1, const option::Option& opt, const char* msg2)
+//    {
+//        std::cerr << "ERROR: " << msg1;
+//        std::string optName(opt.name, opt.namelen );
+//        std::cerr << optName;
+//        std::cerr << msg2;
+//    }
+//    static option::ArgStatus Unknown(const option::Option& option, bool msg)
+//    {
+//        if (msg) printError("Unknown option '", option, "'\n");
+//        return option::ARG_ILLEGAL;
+//    }
+//    static option::ArgStatus Required(const option::Option& option, bool msg)
+//    {
+//        if (option.arg != 0)
+//        return option::ARG_OK;
+//        if (msg) printError("Option '", option, "' requires an argument\n");
+//        return option::ARG_ILLEGAL;
+//    }
+//    static option::ArgStatus NonEmpty(const option::Option& option, bool msg)
+//    {
+//        if (option.arg != 0 && option.arg[0] != 0)
+//        return option::ARG_OK;
+//        if (msg) printError("Option '", option, "' requires a non-empty argument\n");
+//        return option::ARG_ILLEGAL;
+//    }
+//    static option::ArgStatus Numeric(const option::Option& option, bool msg)
+//    {
+//        if (option.arg != 0)
+//        {
+//            try {
+//                int arg = -1;
+//                std::istringstream(option.arg) >> arg;
+//                return option::ARG_OK;
+//            }
+//            catch (std::exception& e)
+//            {
+//                if (msg) printError("Option '", option, "' requires a numeric argument\n");
+//                return option::ARG_ILLEGAL;
+//            }
+//        }
+//
+//        return option::ARG_ILLEGAL;
+//    }
+//    static option::ArgStatus PortNum(const option::Option& option, bool msg)
+//    {
+//        option::ArgStatus argStatus = Numeric( option, msg);
+//        if ( argStatus == option::ARG_OK )
+//        {
+//            int port = -1;
+//            std::istringstream(option.arg) >> port;
+//            if (port < 0 || port > 8 ) // 0-7
+//            {
+//                argStatus = option::ARG_ILLEGAL;
+//                if (msg) printError("Option '", option, "' Port option arg must be in range 0-7.\n");
+//            }
+//        }
+//
+//        return argStatus;
+//    }
+//    static option::ArgStatus PortType(const option::Option& option, bool msg)
+//    {
+//        option::ArgStatus argStatus = Required( option, msg);
+//        if ( argStatus == option::ARG_OK )
+//        {
+//            argStatus = NonEmpty(option, msg);
+//            if (argStatus == option::ARG_OK)
+//            {
+//                std::string argStr(option.arg);
+//                std::transform(argStr.begin(), argStr.end(), argStr.begin(), ::toupper);
+//                if ( argStr == ARG_LOOPBACK
+//                    || argStr == ARG_RS232
+//                    || argStr == ARG_RS485_HALF
+//                    || argStr == ARG_RS485_FULL
+//                    || argStr == ARG_RS422 )
+//                {
+//                    return option::ARG_OK;
+//                }
+//                else
+//                {
+//                    argStatus = option::ARG_ILLEGAL;
+//                    if (msg)
+//                    {
+//                        printError("Option '", option, "' does not specify a valid port type\n");
+//                    }
+//                }
+//            }
+//        }
+//
+//        return argStatus;
+//    }
+//};
+//
+//enum  optionIndex { UNKNOWN, HELP, DISPLAY, PORT, TYPE };
+//const option::Descriptor usage[] =
+//{
+//    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: dsm_port_config [options]\n\n"
+//                                            "Options:" },
+//    {HELP, 0, "h", "help", option::Arg::None, "  --help  \tPrint usage and exit." },
+//    {DISPLAY, 0, "d", "display", Arg::None, "  --display, -d  \tRead and display only" },
+//    {PORT, 0, "p", "port", Arg::PortNum, "  --port, -p  \tSpecify port index 0-7." },
+//    {TYPE, 0, "t", "type", Arg::PortType,   "  --type, -t  \tSpecify port type:\n"
+//                                            "    LOOPBACK\n"
+//                                            "    RS232\n"
+//                                            "    RS485_HALF\n"
+//                                            "    RS485_FULL\n"
+//                                            "    RS422\n" },
+//    {UNKNOWN, 0, "", "",option::Arg::None, "\nExamples:\n"
+//                                "  dsm_port_config -p0 -tRS232\n"
+//                                "  dsm_port_config -p3 -tRS422\n"
+//                                "  dsm_port_config -p6 -tRS485_HALF\n"},
+//    {0,0,0,0,0,0}
+//};
 
 // This enum specifies the bit pattern which should be written to the control FT4232H device.
 typedef enum {LOOP_BACK, RS232, RS485_HALF, RS485_RS422_FULL} PORT_TYPE;
@@ -301,43 +304,61 @@ enum ftdi_interface port2iface(const unsigned int port)
     return iface;
 }
 
+NidasApp app("dsm_port_config");
+
+NidasAppArg Port("-p,--port-id", "<0-7>",
+        		 "DSM canonical serial port id.", "0");
+NidasAppArg Mode("-m,--xcvr-mode", "<RS232>",
+				 "Port transceiver modes supported by Exar SP339 chip. i.e. - \n"
+				 "    LOOPBACK\n"
+				 "    RS232\n"
+				 "    RS422\n"
+				 "    RS485_FULL\n"
+				 "    RS485_HALF", "RS232");
+NidasAppArg Display("-d,--display", "",
+					 "Display current port setting and exit", "");
+NidasAppArg LineTerm("-t,--term", "<NONE>",
+					 "Port transceiver line termination supported by Exar SP339 chip. i.e. - \n"
+					 "    NONE\n"
+					 "    TERM_120", "NONE");
+
+int usage(const char* argv0)
+{
+    std::cerr << "\
+Usage: " << argv0 << "-p <port ID> -m <mode ID> [-t <termination> -l <log level>]" << std::endl
+		 << argv0 << "-p <port ID> -d" << std::endl << std::endl
+         << app.usage();
+
+    return 1;
+}
+
+int parseRunString(int argc, char* argv[])
+{
+    app.enableArguments(app.loggingArgs() | app.Version | app.Help
+    		            | Port | Mode | Display);
+
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
+        return usage(argv[0]);
+    }
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
-    // options handler setup
-    if (argc > 0) // skip program name argv[0] if present
-    {
-        argc--;
-        argv += 1;
-    }
 
-    option::Stats  stats(usage, argc, argv);
-    option::Option options[stats.options_max];
-    option::Option buffer[stats.buffer_max];
-    option::Parser parse(usage, argc, argv, &options[0], &buffer[0]);
-    if (parse.error())
-    {
-        std::cerr << "Failed to parse the command line options!" << std::endl;
-        return 1;
-    }
-
-    if (options[HELP] || argc == 0) {
-        option::printUsage(std::cout, usage);
-        return 0;
-    }
-
-    if(options[DISPLAY]) {
-
-    }
-
-    int portOpt;
+    if (parseRunString(argc, argv))
+        exit(1);
 
     PORT_DEFS port = (PORT_DEFS)-1;
     PORT_TYPE portType = (PORT_TYPE)-1;
 
     // check the options first to set up the port and port control
-    if (options[PORT]) {
-        std::istringstream popt(options[PORT].arg);
-        popt >> portOpt;
-        switch (portOpt) 
+    NLOG(("Port Option Flag/Value: ") << Port.getFlag() << ": " << Port.asInt());
+    NLOG(("Port Option Flag Length: ") << Port.getFlag().length());
+    if (Port.getFlag().length() != 0) {
+        port = (PORT_DEFS)Port.asInt();
+        switch (port)
         {
             case 0:
                 port = PORT0;
@@ -372,36 +393,33 @@ int main(int argc, char* argv[]) {
     else 
     {
         std::cerr << "Must supply a port option on the command line.\n" << std::endl;
-        option::printUsage(std::cout, usage);
+        usage(argv[0]);
         return 1;
     }
 
-    if(options[DISPLAY]) {
-        
-    }
-
-    if (options[TYPE]) 
+    if (Mode.getFlag().length() != 0)
     {
-        std::string portStr(options[TYPE].arg);
-        std::transform(portStr.begin(), portStr.end(), portStr.begin(), ::toupper);
-        if (portStr == ARG_LOOPBACK) portType = LOOP_BACK;
-        else if (portStr == ARG_RS232) portType = RS232;
-        else if (portStr == ARG_RS422) portType = RS485_RS422_FULL;
-        else if (portStr == ARG_RS485_HALF) portType = RS485_HALF;
-        else if (portStr == ARG_RS485_FULL) portType = RS485_RS422_FULL;
+        std::string modeStr(Mode.getValue());
+        NLOG(("Mode Option Flag/Value: ") << Mode.getFlag() << ": " << modeStr);
+        std::transform(modeStr.begin(), modeStr.end(), modeStr.begin(), ::toupper);
+        if (modeStr == ARG_LOOPBACK) portType = LOOP_BACK;
+        else if (modeStr == ARG_RS232) portType = RS232;
+        else if (modeStr == ARG_RS422) portType = RS485_RS422_FULL;
+        else if (modeStr == ARG_RS485_HALF) portType = RS485_HALF;
+        else if (modeStr == ARG_RS485_FULL) portType = RS485_RS422_FULL;
         else
         {
                 std::cerr << "Unknown/Illegal/Missing port type argumeent.\n" << std::endl;
-                option::printUsage(std::cout, usage);
+                usage(argv[0]);
                 return 1;
         }
     }
 
     else
     {
-        if (!options[DISPLAY]) {
-            std::cerr << "Must supply a port type option on the command line.\n" << std::endl;
-            option::printUsage(std::cout, usage);
+        if (Display.getFlag().length() == 0) {
+            std::cerr << "Must supply a port mode option on the command line.\n" << std::endl;
+            usage(argv[0]);
             return 1;
         }
     }
@@ -430,17 +448,15 @@ int main(int argc, char* argv[]) {
             << descript << ", "
             << serialNo << std::endl; 
 
-        // set the baud clock to push the data out
-        //ftdi_set_baudrate(c_context, 9600);
         // Now initialize the chosen device for bit-bang mode, all outputs
         ftdi_set_bitmode(c_context, 0xFF, BITMODE_BITBANG);
 
         // get the current port definitions
         ftdi_read_pins(c_context, &portTypeDefs);
-        std::cout << std::endl << "Initial Port Definitions" << std::endl << "========================" << std::endl;
+        std::cout << std::endl << "Current Port Definitions" << std::endl << "========================" << std::endl;
         printPortDefs(iface);
 
-        if(options[DISPLAY]) {
+        if(Display.getFlag().length()) {
             // don't do anything else
             return 0;
         }
