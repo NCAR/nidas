@@ -88,7 +88,7 @@ int usage(const char* argv0)
 {
     std::cerr << "\
 Usage: " << argv0
-         << " [options] [-d | -s | -x | -l]"
+         << " [options] [-h | -d | -s | -x | -l]" << std::endl << std::endl
          << app.usage();
 
     return 1;
@@ -100,7 +100,7 @@ int parseRunString(int argc, char* argv[])
                         app.Version | app.Help | Device | Sensor);
 
     ArgVector args = app.parseArgs(argc, argv);
-    if (app.helpRequested())
+    if (app.helpRequested() || argc < 2)
     {
         return usage(argv[0]);
     }
@@ -186,14 +186,12 @@ int main(int argc, char* argv[]) {
 
             delete pSerialSensor;
         }
+
+        else {
+            std::cerr << "Must supply the sensor class name if not using DSM config file!!" << std::endl;
+            return usage(argv[0]);
+        }
     }
-
-
-        // There's only PTB210 for now, so let's just instantiate it, and see how it goes.
-        // PTB210 ptb210;
-        // ptb210.setDeviceName("/dev/ttyUSB0");
-        // ptb210.open(O_RDWR);
-        // ptb210.close();
 
     // all good, return 0
     return 0;
