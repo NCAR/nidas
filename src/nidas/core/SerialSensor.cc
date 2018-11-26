@@ -942,7 +942,7 @@ std::size_t SerialSensor::readResponse(void *buf, std::size_t len, int msecTimeo
     }
 
     // no select timeout or error, so get the goodies out of the buffer...
-    return read(buf,len);
+    return read(buf,len, msecTimeout);
 }
 
 std::size_t SerialSensor::readEntireResponse(void *buf, std::size_t len, int msecTimeout)
@@ -1069,7 +1069,7 @@ void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf) {
 			for (int j = 0; j < 10; ++j) {
 				if ((i*10 + j) > numCharsRead)
 					break;
-				snprintf(&(hexBuf[j * 6]), 6, "0x%02x ", respBuf[(i * 10) + j]);
+				snprintf(&(hexBuf[j * 5]), 6, "0x%02x ", respBuf[(i * 10) + j]);
 			}
 
 			char* pBytes = &hexBuf[0];
