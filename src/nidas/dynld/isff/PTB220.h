@@ -339,7 +339,7 @@ protected:
 
     virtual bool supportsAutoConfig() { return true; }
     virtual bool checkResponse();
-    virtual bool installDesiredSensorConfig();
+    virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredPortConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
 

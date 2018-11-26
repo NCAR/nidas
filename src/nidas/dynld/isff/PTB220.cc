@@ -574,14 +574,14 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
     }
 }
 
-bool PTB220::installDesiredSensorConfig()
+bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
 {
     bool installed = false;
     PortConfig sensorPortConfig = getPortConfig();
 
     // at this point we need to determine whether or not the current working config 
     // is the desired config, and adjust as necessary
-    if (desiredPortConfig != sensorPortConfig) {
+    if (rDesiredPortConfig != sensorPortConfig) {
         // Gotta modify the PTB220 parameters first, and the modify our parameters to match and hope for the best.
         // We only do this for the serial and science parameters, as the sensor is physically configured to use  
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
@@ -590,14 +590,14 @@ bool PTB220::installDesiredSensorConfig()
 
         serPortFlush(O_RDWR);
         
-        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getBaudRate()));
-        sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getParityString(true)));
-        sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getDataBits()));
-        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, n_c::SensorCmdArg(desiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
+        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getBaudRate()));
+        sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getParityString(true)));
+        sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getDataBits()));
+        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
 
-        setPortConfig(desiredPortConfig);
+        setPortConfig(rDesiredPortConfig);
         applyPortConfig();
-        if (getPortConfig() == desiredPortConfig) {
+        if (getPortConfig() == rDesiredPortConfig) {
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
             if (!doubleCheckResponse()) {
