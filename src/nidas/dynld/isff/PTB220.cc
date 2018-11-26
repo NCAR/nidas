@@ -687,16 +687,6 @@ bool PTB220::checkScienceParameters() {
         	printResponseHex(numCharsRead, respBuf);
     }
     
-//    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-//        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-//        totalCharsRead += numCharsRead;
-//        bufRemaining -= numCharsRead;
-//
-//		if (numCharsRead == 0) {
-//			VLOG(("Took ") << i+1 << " reads to get entire response");
-//        }
-//    }
-
     if (numCharsRead) {
         DLOG(("Response: "));
         DLOG((std::string(&respBuf[0], totalCharsRead).c_str()));
@@ -918,8 +908,6 @@ bool PTB220::checkResponse()
     memset(respBuf, 0, BUF_SIZE);
 
     int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 100);
-//    int totalCharsRead = numCharsRead;
-//    bufRemaining -= numCharsRead;
 
     static LogContext lp(LOG_DEBUG);
     if (lp.active()) {
@@ -927,17 +915,7 @@ bool PTB220::checkResponse()
         	printResponseHex(numCharsRead, respBuf);
         }
     }
-    
-//    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-//        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-//        totalCharsRead += numCharsRead;
-//        bufRemaining -= numCharsRead;
-//
-//		if (numCharsRead == 0) {
-//			DLOG(("Took ") << i+1 << " reads to get entire response");
-//		}
-//    }
-//
+
     if (numCharsRead) {
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
