@@ -65,7 +65,6 @@
 #include <libusb-1.0/libusb.h>
 #include <libftdi1/ftdi.h>
 #include "nidas/core/NidasApp.h"
-//#include "SerialXcvrCtrl.h"
 
 using namespace nidas::core;
 
