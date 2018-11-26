@@ -326,7 +326,7 @@ public:
 protected:
     void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0), bool resetNow=false);
     bool compareScienceParameter(int cmd, const char* match);
-    size_t readResponse(void *buf, size_t len, int msecTimeout);
+//    size_t readResponse(void *buf, size_t len, int msecTimeout);
     void printTargetConfig(n_c::PortConfig target)
     {
         target.print();

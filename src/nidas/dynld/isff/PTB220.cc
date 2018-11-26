@@ -165,7 +165,7 @@ const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
 	{7,Termios::NONE,2},
 	{7,Termios::EVEN,2},
 	{7,Termios::ODD,2},
-	{8,Termios::NONE,2},
+	{8,Termios::NONE,2}
 };
 
 const n_c::PORT_TYPES PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
@@ -677,7 +677,7 @@ bool PTB220::checkScienceParameters() {
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 100);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
@@ -687,17 +687,17 @@ bool PTB220::checkScienceParameters() {
         	printResponseHex(numCharsRead, respBuf);
     }
     
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
+//    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
+//        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
+//        totalCharsRead += numCharsRead;
+//        bufRemaining -= numCharsRead;
+//
+//		if (numCharsRead == 0) {
+//			VLOG(("Took ") << i+1 << " reads to get entire response");
+//        }
+//    }
 
-		if (numCharsRead == 0) {
-			VLOG(("Took ") << i+1 << " reads to get entire response");
-        }
-    }
-
-    if (totalCharsRead) {
+    if (numCharsRead) {
         DLOG(("Response: "));
         DLOG((std::string(&respBuf[0], totalCharsRead).c_str()));
     }
@@ -917,9 +917,9 @@ bool PTB220::checkResponse()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
+    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 100);
+//    int totalCharsRead = numCharsRead;
+//    bufRemaining -= numCharsRead;
 
     static LogContext lp(LOG_DEBUG);
     if (lp.active()) {
@@ -928,19 +928,19 @@ bool PTB220::checkResponse()
         }
     }
     
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-		if (numCharsRead == 0) {
-			DLOG(("Took ") << i+1 << " reads to get entire response");
-		}
-    }
-
-    if (totalCharsRead) {
+//    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
+//        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
+//        totalCharsRead += numCharsRead;
+//        bufRemaining -= numCharsRead;
+//
+//		if (numCharsRead == 0) {
+//			DLOG(("Took ") << i+1 << " reads to get entire response");
+//		}
+//    }
+//
+    if (numCharsRead) {
         std::string respStr;
-        respStr.append(&respBuf[0], totalCharsRead);
+        respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
@@ -1215,30 +1215,30 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     }
 }
 
-size_t PTB220::readResponse(void *buf, size_t len, int msecTimeout)
-{
-    fd_set fdset;
-    FD_ZERO(&fdset);
-    FD_SET(getReadFd(), &fdset);
-
-    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
-        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
-
-    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
-
-    if (res < 0) {
-        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-        return -1;
-    }
-
-    if (res == 0) {
-        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
-        return 0;
-    }
-
-    // no select timeout or error, so get the goodies out of the buffer...
-    return read(buf,len);
-}
+//size_t PTB220::readResponse(void *buf, size_t len, int msecTimeout)
+//{
+//    fd_set fdset;
+//    FD_ZERO(&fdset);
+//    FD_SET(getReadFd(), &fdset);
+//
+//    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
+//        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
+//
+//    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+//
+//    if (res < 0) {
+//        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
+//        return -1;
+//    }
+//
+//    if (res == 0) {
+//        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
+//        return 0;
+//    }
+//
+//    // no select timeout or error, so get the goodies out of the buffer...
+//    return read(buf,len);
+//}
 
 void PTB220::updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
