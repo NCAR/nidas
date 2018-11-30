@@ -561,6 +561,18 @@ startArgs(const ArgVector& args)
 }
 
 
+void
+NidasApp::
+startArgs(int argc, const char* const argv[]) throw (NidasAppException)
+{
+  if (_argv0.empty())
+  {
+    setProcessName(argv[0]);
+  }
+  startArgs(ArgVector(argv+1, argv+argc));
+}
+
+
 NidasAppArg*
 NidasApp::
 parseNext() throw (NidasAppException)

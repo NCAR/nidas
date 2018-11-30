@@ -322,6 +322,7 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * - nidsmerge
  * - sensor_extract
  * - statsproc (uses -B and -E for time range)
+ * - prep (uses -B and -E for time range)
  * - data_nc
  * - dsm (esp logging)
  * - dsm_server (esp logging)
@@ -702,6 +703,14 @@ public:
      **/
     void
     startArgs(const ArgVector& args);
+
+    /**
+     * Convenience method to convert the (argc, argv) run string to a list
+     * of arguments to pass to startArgs().  Also, if the process name has
+     * not been set with setProcessName(), then set it to argv[0].
+     **/
+    void
+    startArgs(int argc, const char* const argv[]) throw (NidasAppException);
 
     /**
      * Parse the next recognized argument from the list set in
