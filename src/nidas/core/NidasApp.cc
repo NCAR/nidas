@@ -1301,6 +1301,41 @@ getConfigsXML()
 }
 
 
+namespace
+{
+  const char* ISFSDATASETSXML = "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
+  const char* ISFFDATASETSXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+}
+
+
+Dataset
+NidasApp::
+getDataset(const std::string& datasetname)
+  throw(n_u::InvalidParameterException, XMLException)
+{
+    string XMLName;
+
+    const char* ie = ::getenv("ISFS");
+    const char* ieo = ::getenv("ISFF");
+    const char* pe = ::getenv("PROJECT");
+    if (ie && pe)
+      XMLName = n_u::Process::expandEnvVars(ISFSDATASETSXML);
+    else if (ieo && pe)
+      XMLName = n_u::Process::expandEnvVars(ISFFDATASETSXML);
+    if (XMLName.length() == 0)
+      throw n_u::InvalidParameterException("environment variables",
+                                           "ISFS,PROJECT","not found");
+
+    Datasets datasets;
+    datasets.parseXML(XMLName);
+
+    Dataset dataset = datasets.getDataset(datasetname);
+    dataset.putenv();
+    return dataset;
+}
+
+
+
 std::string
 NidasApp::
 getHostName()

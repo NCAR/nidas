@@ -10,6 +10,7 @@
 
 #include "SampleTag.h"
 #include "SampleMatcher.h"
+#include "Datasets.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
 #include <nidas/util/auto_ptr.h>
@@ -892,6 +893,20 @@ public:
      **/
     std::string
     getConfigsXML();
+
+    /**
+     * Derive a path to an XML datasets file according to the current
+     * environment settings, searching these paths in order:
+     *
+     *  - "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"
+     *  - "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml"
+     *
+     * Parse the derived file and return from it the Dataset with the given
+     * name.  Throws an exception if the Dataset cannt be loaded.
+     **/
+    nidas::core::Dataset
+    getDataset(const std::string& datasetname)
+        throw(nidas::util::InvalidParameterException, XMLException);
 
     nidas::util::UTime
     getStartTime()
