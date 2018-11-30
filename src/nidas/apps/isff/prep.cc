@@ -57,7 +57,6 @@
 #include <iomanip>
 
 #include <unistd.h>
-#include <getopt.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -141,16 +140,10 @@ public:
 
     static int main(int argc, char** argv);
 
-    static int usage(const char* argv0);
-
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-
-    static void setupSignals();
+    static int usage(const std::string& argv0);
 
     map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
-
-    static void interrupt() { _interrupted = true; }
 
     static void finishUp() { _finished = true; }
 
@@ -169,9 +162,7 @@ public:
     
 private:
 
-    string _progname;
-
-    static bool _interrupted;
+    NidasApp _app;
 
     static bool _finished;
 
@@ -246,7 +237,7 @@ private:
 const float DataPrep::defaultNCFillValue = 1.e37;
 
 DataPrep::DataPrep(): 
-    _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(),
+    _app("prep"),_xmlFileName(),_dataFileNames(),_sockAddr(),
     _sorterLength(1.00), _format(DumpClient::ASCII),
     _reqVarsByRate(),_sites(),
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
@@ -401,190 +392,202 @@ bool DumpClient::receive(const Sample* samp) throw()
 
 int DataPrep::parseRunstring(int argc, char** argv)
 {
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-    char* p1,*p2;
+    const char* p1,*p2;
     double rate = 0.0;
 
-    _progname = argv[0];
+    NidasAppArg DataVariables
+        ("-D", "var[,var,...]",
+         "One or more variable names to output at the current rate");
+    NidasAppArg DataRate
+        ("-r,-R", "<rate in Hz>",
+         "Set the resample rate, in Hz, for all successive variables "
+         "specified with -D.\n"
+         "With -r, output timetags will be in middle of periods.\n"
+         "With -R, output timetags will be at integral deltaTs.\n"
+         "When writing NetCDF files, it can be useful for prep to generate\n"
+         "output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n"
+         "If multiple -D options, specify the rate BEFORE the -D var\n.");
+    NidasAppArg DatasetName("-S,--dataset", "<datasetname>",
+                            "dataset name from $ISFS/projects/$PROJECT/"
+                            "ISFS/config/datasets.xml");
+    NidasAppArg ConfigsName("-c,--config", "<configname>",
+                            "(optional) name of configuration period to use, "
+                            "from configs.xml");
+    NidasAppArg DSMName("-d,--dsm", "<dsm>",
+                        "Look for a <fileset> belonging to the given dsm to "
+                        "determine input file names.");
+    NidasAppArg DumpASCII("-A", "", "ascii output (default)");
+    NidasAppArg DumpBINARY("-C", "",
+                           "binary column output, double seconds since "
+                           "Jan 1, 1970, followed by floats for each var");
+    NidasAppArg DOSOutput("-w,--dos", "", "windows/dos output "
+                          "(records terminated by CRNL instead of just NL)");
 
-    while ((opt_char = getopt(argc, argv, "AB:c:CD:d:E:hHl:n:p:R:r:s:S:vwx:")) != -1) {
-	switch (opt_char) {
-	case 'A':
+    NidasAppArg SorterLength("-s,--sortlen", "<seconds>",
+                             "input data sorter length in seconds (optional)",
+                             "1");
+    NidasAppArg Precision("-p,--precision", "ndigits",
+                          "number of digits in ASCII output values", "5");
+    NidasAppArg NoHeader("-H,--noheader", "",
+                         "do not print initial 2-line ASCII header of "
+                         "variable names and units");
+
+    std::ostringstream nchelp;
+    nchelp << 
+        "server: host name of system running nc_server RPC process\n"
+        "dir: directory on server to write files\n"
+        "file: format of NetCDF file names. For example: xxx_%Y%m%d.nc\n"
+        "interval: deltaT in seconds between time values in file. Default: "
+           << defaultNCInterval << "\n"
+        "length: length of file, in seconds. 0 for no limit to the file size. Default: "
+           << defaultNCInterval << "\n"
+        "cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n"
+        "missing: missing data value in file. Default: "
+           << setprecision(2) << defaultNCFillValue << "\n"
+        "timeout: time in seconds that nc_server is expected to respond. Default: "
+           << defaultNCTimeout << "\n"
+        "batchperiod: check for response back from server after this number of seconds.\n"
+        "Default: " << defaultNCInterval << "\n";
+    NidasAppArg NetcdfOutput
+        ("-n,--netcdf",
+         "server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod",
+         nchelp.str());
+
+    _app.enableArguments(DataVariables | DataRate |
+                         _app.StartTime | _app.EndTime |
+                         _app.InputFiles |
+                         DatasetName | ConfigsName | DSMName |
+                         DumpASCII | DumpBINARY | DOSOutput |
+                         NetcdfOutput |
+                         SorterLength | Precision |
+                         _app.loggingArgs() | _app.XmlHeaderFile |
+                         _app.Version | _app.Help);
+
+    _app.startArgs(argc, argv);
+    NidasAppArg* arg;
+    while ((arg = _app.parseNext()))
+    {
+        if (arg == &DumpASCII)
 	    _format = DumpClient::ASCII;
-	    break;
-	case 'B':
-	    try {
-		_startTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch(const n_u::ParseException& e) {
-	        cerr << e.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-	case 'c':
-	    _configName = optarg;
-	    break;
-	case 'C':
+        else if (arg == &DumpBINARY)
 	    _format = DumpClient::BINARY1;
-	    break;
-	case 'D':
-	    {
-		p1 = optarg;
-		while ((p2 = strchr(p1,','))) {
-		    Variable *var = new Variable();
-                    char* ph = strchr(p1,'#');
-                    if (ph && ph < p2) {
-                        var->setName(string(p1,ph-p1));
-                        ph++;
-                        _sites[var] = string(ph,p2-ph);
-                    } else {
-                        var->setName(string(p1,p2-p1));
-                        _sites[var] = "";
-                    }
-		    _reqVarsByRate[rate].push_back(var);
-		    p1 = p2 + 1;
-		}
-
-		Variable *var = new Variable();
-                char* ph = strchr(p1,'#');
-                if (ph) {
+        else if (arg == &DataRate)
+        {
+            rate = arg->asFloat();
+            if (rate < 0)
+            {
+                cerr << "Invalid resample rate: " << arg->getValue() << endl;
+                return usage(argv[0]);
+            }
+            _middleTimeTags = arg->getFlag() == "-r";
+        }
+        else if (arg == &DataVariables)
+        {
+            string opt = arg->getValue();
+            p1 = opt.c_str();
+            while ((p2 = strchr(p1,','))) {
+                Variable *var = new Variable();
+                const char* ph = strchr(p1,'#');
+                if (ph && ph < p2) {
                     var->setName(string(p1,ph-p1));
                     ph++;
-                    _sites[var] = string(ph);
-                }
-                else {
-                    var->setName(string(p1));
+                    _sites[var] = string(ph,p2-ph);
+                } else {
+                    var->setName(string(p1,p2-p1));
                     _sites[var] = "";
                 }
-		_reqVarsByRate[rate].push_back(var);
-	    }
-	    break;
-	case 'd':
-	    _dsmName = optarg;
-	    break;
-	case 'E':
-	    try {
-		_endTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch(const n_u::ParseException& e) {
-	        cerr << e.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-        case 'h':
-            return usage(argv[0]);
-            break;
-        case 'H':
-            _doHeader = false;
-            break;
-        case 'l':
-            _logLevel = atoi(optarg);
-            break;
-        case 'n':
-#ifdef HAVE_LIBNC_SERVER_RPC
-	    {
-		string ncarg(optarg);
-                string::size_type i1=0,i2;
-
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncserver = ncarg.substr(i1,i2-i1);
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncdir = ncarg.substr(i1,i2-i1);
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncfile = ncarg.substr(i1,i2-i1);
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncinterval = atoi(ncarg.substr(i1,i2-i1).c_str());
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _nclength = atoi(ncarg.substr(i1,i2-i1).c_str());
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _nccdl = ncarg.substr(i1,i2-i1);
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncfill = atof(ncarg.substr(i1,i2-i1).c_str());
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _nctimeout = atoi(ncarg.substr(i1,i2-i1).c_str());
-                if (i2 == string::npos) break;
-
-                i1 = i2 + 1;
-                i2 = ncarg.find(':',i1);
-                if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
-                if (i2 == string::npos) break;
+                _reqVarsByRate[rate].push_back(var);
+                p1 = p2 + 1;
             }
+
+            Variable *var = new Variable();
+            const char* ph = strchr(p1,'#');
+            if (ph) {
+                var->setName(string(p1,ph-p1));
+                ph++;
+                _sites[var] = string(ph);
+            }
+            else {
+                var->setName(string(p1));
+                _sites[var] = "";
+            }
+            _reqVarsByRate[rate].push_back(var);
+        }
+        else if (arg == &NetcdfOutput)
+        {
+#ifdef HAVE_LIBNC_SERVER_RPC
+            string ncarg(arg->getValue());
+            string::size_type i1=0,i2;
+
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncserver = ncarg.substr(i1,i2-i1);
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncdir = ncarg.substr(i1,i2-i1);
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncfile = ncarg.substr(i1,i2-i1);
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncinterval = atoi(ncarg.substr(i1,i2-i1).c_str());
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _nclength = atoi(ncarg.substr(i1,i2-i1).c_str());
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _nccdl = ncarg.substr(i1,i2-i1);
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncfill = atof(ncarg.substr(i1,i2-i1).c_str());
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _nctimeout = atoi(ncarg.substr(i1,i2-i1).c_str());
+            if (i2 == string::npos) break;
+
+            i1 = i2 + 1;
+            i2 = ncarg.find(':',i1);
+            if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
+            if (i2 == string::npos) break;
 #else
-            cerr << "-n option is not supported on this version of " << argv[0] << ", which was built without nc_server-devel package" << endl;
+            cerr << "-n option is not supported on this version of " << argv[0]
+                 << ", which was built without nc_server-devel package" << endl;
             return usage(argv[0]);
 #endif
-            break;
-        case 'p':
-            {
-                istringstream ist(optarg);
-                ist >> _asciiPrecision;
-                if (ist.fail() || _asciiPrecision < 1) {
-                    cerr << "Invalid precision: " << optarg << endl;
-                    return usage(argv[0]);
-                }
-            }
-            break;
-        case 'r':
-        case 'R':
-            {
-                istringstream ist(optarg);
-                ist >> rate;
-                if (ist.fail() || rate < 0) {
-                    cerr << "Invalid resample rate: " << optarg << endl;
-                    return usage(argv[0]);
-                }
-            }
-            _middleTimeTags = opt_char == 'r';
-            break;
-        case 's':
-            {
-                istringstream ist(optarg);
-                ist >> _sorterLength;
-                if (ist.fail() || _sorterLength < 0 || _sorterLength > 10000) {
-                    cerr << "Invalid sorter length: " << optarg << endl;
-                    return usage(argv[0]);
-                }
-            }
-            break;
-	case 'S':
-	    _datasetName = optarg;
-	    break;
-	case 'v':
-	    cout << "Version: " << Version::getSoftwareVersion() << endl;
-	    exit(0);
-	    break;
-	case 'w':
-	    _dosOut = true;
-	    break;
-	case 'x':
-	    _xmlFileName = optarg;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
+        }
+    }
+
+    _datasetName = DatasetName.getValue();
+    _configName = ConfigsName.getValue();
+    _dsmName = DSMName.getValue();
+    _dosOut = DOSOutput.asBool();
+    _doHeader = !NoHeader.asBool();
+    _xmlFileName = _app.xmlHeaderFile();
+    _sorterLength = SorterLength.asInt();
+    if (_sorterLength < 0 || _sorterLength > 10000)
+    {
+        cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
+        return usage(_app.getProcessName());
+    }
+
+    _asciiPrecision = Precision.asInt();
+    if (_asciiPrecision < 1)
+    {
+        cerr << "Invalid precision: " << Precision.getValue() << endl;
+        return usage(_app.getProcessName());
     }
 
     if (_reqVarsByRate.empty()) {
@@ -648,48 +651,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
     return 0;
 }
 
-int DataPrep::usage(const char* argv0)
+int DataPrep::usage(const std::string& argv0)
 {
     cerr << "\
 Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B time] [-E time]\n\
         [-h] [-s sorterLength] [-S dataSet_name ] [-x xml_file] [input ...]\n\
-    -A :ascii output (default)\n\
-    -c configName: (optional) name of configuration period to use, from configs.xml\n\
-    -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
-    -d dsmname: Look for a <fileset> belonging to the given dsm to determine input file names\n\
-    -D var[,var,...]: One or more variable names to output at the current rate\n\
-    -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
-    -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
-    -h : this help\n\
-    -H : don't print out initial two line ASCII header of variable names and units\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel <<
-#ifdef HAVE_LIBNC_SERVER_RPC
-        "\n\
-    -n server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod\n\
-        server: host name of system running nc_server RPC process\n\
-        dir: directory on server to write files\n\
-        file: format of NetCDF file names. For example: xxx_%Y%m%d.nc\n\
-        interval: deltaT in seconds between time values in file. Default: " << defaultNCInterval << "\n\
-        length: length of file, in seconds. 0 for no limit to the file size. Default: " << defaultNCInterval << "\n\
-        cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n\
-        missing: missing data value in file. Default: " << setprecision(2) << defaultNCFillValue << "\n\
-        timeout: time in seconds that nc_server is expected to respond. Default: " << defaultNCTimeout << "\n\
-        batchperiod: check for response back from server after this number of seconds.\n\
-            Default: " << defaultNCInterval <<
-#endif
-        "\n\
-    -p precision: number of digits in ASCII output values, default is 5\n\
-    -r rate: optional resample rate, in Hz for successive variables.\n\
-       Output timetags will be in middle of periods.\n\
-       When writing to NetCDF files, it can be useful for prep to generate\n\
-       output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n\
-       If there are more than one -D option, specify the -r rate BEFORE the -D var\n\
-    -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
-       As with the -r option, prep can output at more than one rate\n\
-    -s sorterLength: input data sorter length in seconds (optional)\n\
-    -S dataSet_name from $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
-    -v : show version\n\
-    -w : windows/dos output (records terminated by CRNL instead of just NL)\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n\
     input: data input (optional). One of the following:\n\
@@ -723,53 +689,13 @@ Notes on choosing rates with -r or -R:\n\
 }
 
 /* static */
-bool DataPrep::_interrupted = false;
-
 bool DataPrep::_finished = false;
-
-/* static */
-void DataPrep::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            DataPrep::_interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void DataPrep::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = DataPrep::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
 
 /* static */
 int DataPrep::main(int argc, char** argv)
 {
-    setupSignals();
-
     DataPrep dump;
+    NidasApp::setupSignals();
 
     int res;
 
@@ -839,8 +765,9 @@ DataPrep::matchVariables(const Project& project,
                 }
             }
             if (!match) throw
-                n_u::InvalidParameterException(
-                    _progname,"cannot find variable",reqvar->getName());
+                n_u::InvalidParameterException(_app.getProcessName(),
+                                               "cannot find variable",
+                                               reqvar->getName());
         }
     }
     return variables;
@@ -918,7 +845,7 @@ int DataPrep::run() throw()
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
             n_u::Socket* sock = 0;
-            for (int i = 0; !sock && !_interrupted; i++) {
+            for (int i = 0; !sock && !_app.interrupted(); i++) {
                 try {
                     sock = new n_u::Socket(*_sockAddr.get());
                 }
@@ -1143,7 +1070,6 @@ int DataPrep::run() throw()
             for ( ; mi != variablesByRate.end(); ++mi) {
                 double rate = mi->first;
                 const vector<const Variable*>& vars = mi->second;
-                vector<const Variable*>::const_iterator vi = vars.begin();
 
                 if (rate > 0.0) {
                     NearestResamplerAtRate* smplr =
@@ -1182,7 +1108,7 @@ int DataPrep::run() throw()
 
                 for (;;) {
                     sis.readSamples();
-                    if (_finished || _interrupted) break;
+                    if (_finished || _app.interrupted()) break;
                 }
             }
             catch (n_u::EOFException& e) {
@@ -1285,6 +1211,8 @@ int DataPrep::run() throw()
 
             nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
 
+            output.setTimeClippingWindow(_startTime, _endTime);
+
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
                 (*ri)->addSampleClient(&output);
 
@@ -1297,7 +1225,7 @@ int DataPrep::run() throw()
                 }
                 for (;;) {
                     sis.readSamples();
-                    if (_finished || _interrupted) break;
+                    if (_finished || _app.interrupted()) break;
                 }
             }
             catch (n_u::EOFException& e) {
@@ -1342,7 +1270,7 @@ int DataPrep::run() throw()
         cerr << "returning exception" << endl;
 	return 1;
     }
-    if (_interrupted) return 1;       // interrupted
+    if (_app.interrupted()) return 1;       // interrupted
     return 0;
 }
 
