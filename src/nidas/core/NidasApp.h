@@ -877,6 +877,19 @@ public:
         return _xmlFileName;
     }
 
+    /**
+     * Derive the path to the XML file which lists project configs.  This uses
+     * standard paths parameterized by environment variables, and accepts the
+     * first path whose environment variables are set in the environment:
+     *
+     *  - "$NIDAS_CONFIGS"
+     *  - "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml"
+     *  - "$ISFS/projects/$PROJECT/ISFS/config/configs.xml"
+     *  - "$ISFF/projects/$PROJECT/ISFF/config/configs.xml"
+     *
+     * If none of the above paths can be derived because of missing
+     * environment variables, then throw InvalidParameterException.
+     **/
     std::string
     getConfigsXML();
 

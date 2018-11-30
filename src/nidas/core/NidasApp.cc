@@ -1266,11 +1266,12 @@ std::string
 NidasApp::
 getConfigsXML()
 {
-  std::string _configsXMLName;
+  std::string configsXMLName;
   const char* cfg = getenv("NIDAS_CONFIGS");
   if (cfg)
   {
-    _configsXMLName = cfg;
+    // Should this be expanded for environment variables?
+    configsXMLName = cfg;
   }
   else
   {
@@ -1281,23 +1282,22 @@ getConfigsXML()
     const char* ieo = getenv("ISFF");
 
     if (re && pe && ae)
-      _configsXMLName = n_u::Process::expandEnvVars(RAFXML);
+      configsXMLName = n_u::Process::expandEnvVars(RAFXML);
     else if (ie && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
+      configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
     else if (ieo && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
+      configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
   }
-#ifdef notdef
-  if (_configsXMLName.length() == 0)
+  if (configsXMLName.empty())
   {
-    cerr <<
-      "Environment variables not set correctly to find XML "
-      "file of project configurations." << endl;
-    cerr << "Cannot find " << RAFXML << endl << "or " << ISFSXML << endl;
-    return usage(argv[0]);
+    std::ostringstream msg;
+    msg <<
+      "Cannot derive path to XML project configurations.\n" <<
+      "Missing environment variables for "
+      " " << RAFXML << "\n and " << ISFSXML << "\n";
+    throw n_u::InvalidParameterException(msg.str());
   }
-#endif
-  return _configsXMLName;
+  return configsXMLName;
 }
 
 
