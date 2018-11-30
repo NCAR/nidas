@@ -105,6 +105,11 @@ public:
         return _dosOut;
     }
 
+    bool finished() const
+    {
+        return _finished;
+    }
+
 private:
 
     format_t _format;
@@ -123,6 +128,7 @@ private:
 
     int _asciiPrecision;
 
+    bool _finished;
 };
 
 
@@ -145,8 +151,6 @@ public:
     map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
 
-    static void finishUp() { _finished = true; }
-
     // default initialization values, which are displayed in usage() method.
     static const int defaultLogLevel = n_u::LOGGER_INFO;
     static const int defaultNCInterval = 1;
@@ -157,14 +161,9 @@ public:
 
     Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
 
-    std::string
-    getConfigsXML();
-    
 private:
 
     NidasApp _app;
-
-    static bool _finished;
 
     string _xmlFileName;
 
@@ -193,12 +192,6 @@ private:
     bool _dosOut;
 
     bool _doHeader;
-
-    static const char* _rafXML;
-
-    static const char* _isffXML;
-
-    static const char* _isfsXML;
 
     static const char* _isffDatasetsXML;
 
@@ -271,15 +264,6 @@ DataPrep::~DataPrep()
 
 
 /* static */
-const char* DataPrep::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
-
-/* static */
-const char* DataPrep::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-
-/* static */
-const char* DataPrep::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
-
-/* static */
 const char* DataPrep::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 
 /* static */
@@ -288,7 +272,7 @@ const char* DataPrep::_isfsDatasetsXML = "$ISFS/projects/$PROJECT/ISFS/config/da
 DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 	_format(fmt),_ostr(outstr),_startTime((time_t)0),_endTime((time_t)0),
         _checkStart(false),_checkEnd(false),_dosOut(false),
-        _asciiPrecision(precision)
+        _asciiPrecision(precision),_finished(false)
 {
 }
 
@@ -340,7 +324,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     if (_checkStart && tt < _startTime.toUsecs()) return false;
     if (_checkEnd && tt > _endTime.toUsecs()) {
-        DataPrep::finishUp();
+        _finished = true;
         return false;
     }
 
@@ -689,9 +673,6 @@ Notes on choosing rates with -r or -R:\n\
 }
 
 /* static */
-bool DataPrep::_finished = false;
-
-/* static */
 int DataPrep::main(int argc, char** argv)
 {
     DataPrep dump;
@@ -773,36 +754,6 @@ DataPrep::matchVariables(const Project& project,
     return variables;
 }
 
-#ifdef PROJECT_IS_SINGLETON
-class AutoProject
-{
-public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
-};
-#endif
-
-
-std::string
-DataPrep::
-getConfigsXML()
-{
-    const char* re = ::getenv("PROJ_DIR");
-    const char* pe = ::getenv("PROJECT");
-    const char* ae = ::getenv("AIRCRAFT");
-    const char* ie = ::getenv("ISFS");
-    const char* ieo = ::getenv("ISFF");
-    string configsXMLName;
-    if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-    else if (ieo && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-    if (configsXMLName.length() == 0)
-        throw n_u::InvalidParameterException("environment variables",
-                                             "PROJ_DIR,AIRCRAFT,PROJECT "
-                                             "or ISFS,PROJECT","not found");
-    return configsXMLName;
-}
-
 
 
 int DataPrep::run() throw()
@@ -827,7 +778,7 @@ int DataPrep::run() throw()
         if (_sockAddr.get()) {
             if (_xmlFileName.length() == 0) {
 
-                string configsXMLName = getConfigsXML();
+                string configsXMLName = _app.getConfigsXML();
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
                 ILOG(("parsed:") <<  configsXMLName);
@@ -872,7 +823,7 @@ int DataPrep::run() throw()
                 // XML of the ProjectConfig.
                 if (_xmlFileName.length() == 0)
                 {
-                    string configsXMLName = getConfigsXML();
+                    string configsXMLName = _app.getConfigsXML();
                     ProjectConfigs configs;
                     configs.parseXML(configsXMLName);
                     ILOG(("parsed:") <<  configsXMLName);
@@ -1108,7 +1059,7 @@ int DataPrep::run() throw()
 
                 for (;;) {
                     sis.readSamples();
-                    if (_finished || _app.interrupted()) break;
+                    if (dumper.finished() || _app.interrupted()) break;
                 }
             }
             catch (n_u::EOFException& e) {
@@ -1225,7 +1176,7 @@ int DataPrep::run() throw()
                 }
                 for (;;) {
                     sis.readSamples();
-                    if (_finished || _app.interrupted()) break;
+                    if (_app.interrupted()) break;
                 }
             }
             catch (n_u::EOFException& e) {
