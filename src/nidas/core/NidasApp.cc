@@ -281,10 +281,13 @@ NidasAppArg::
 usage(const std::string& indent)
 {
   std::ostringstream oss;
-  oss << indent << getUsageFlags();
+  string flags = getUsageFlags();
+  oss << indent << flags;
   if (!_syntax.empty())
   {
-    oss << " " << _syntax;
+    if (!flags.empty())
+      oss << " ";
+    oss << _syntax;
     if (!_default.empty())
       oss << " [default: " << _default << "]";
   }
@@ -1007,7 +1010,8 @@ updateUsage()
   {
     oss << "  path [...]          file names\n";
   }
-  oss << "Default inputURL is \"sock:localhost\"\n";
+  if (default_input.length())
+    oss << "Default inputURL is \"" << default_input << "\"\n";
   setUsageString(oss.str());
 }
 
