@@ -142,6 +142,8 @@ public:
 
     int parseRunstring(int argc, char** argv);
 
+    void parseNcServerSpec(const std::string& spec);
+
     int run() throw();
 
     static int main(int argc, char** argv);
@@ -346,6 +348,59 @@ bool DumpClient::receive(const Sample* samp) throw()
     return true;
 }
 
+void
+DataPrep::
+parseNcServerSpec(const std::string& spec)
+{
+    string ncarg(spec);
+    string::size_type i1=0,i2;
+
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncserver = ncarg.substr(i1,i2-i1);
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncdir = ncarg.substr(i1,i2-i1);
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncfile = ncarg.substr(i1,i2-i1);
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncinterval = atoi(ncarg.substr(i1,i2-i1).c_str());
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _nclength = atoi(ncarg.substr(i1,i2-i1).c_str());
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _nccdl = ncarg.substr(i1,i2-i1);
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncfill = atof(ncarg.substr(i1,i2-i1).c_str());
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _nctimeout = atoi(ncarg.substr(i1,i2-i1).c_str());
+    if (i2 == string::npos) return;
+
+    i1 = i2 + 1;
+    i2 = ncarg.find(':',i1);
+    if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
+    if (i2 == string::npos) return;
+}
+
+
 int DataPrep::parseRunstring(int argc, char** argv)
 {
     const char* p1,*p2;
@@ -454,7 +509,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
             if (rate < 0)
             {
                 cerr << "Invalid resample rate: " << arg->getValue() << endl;
-                return usage();
+                return 1;
             }
             _middleTimeTags = arg->getFlag() == "-r";
         }
@@ -493,62 +548,22 @@ int DataPrep::parseRunstring(int argc, char** argv)
         else if (arg == &NetcdfOutput)
         {
 #ifdef HAVE_LIBNC_SERVER_RPC
-            string ncarg(arg->getValue());
-            string::size_type i1=0,i2;
-
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncserver = ncarg.substr(i1,i2-i1);
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncdir = ncarg.substr(i1,i2-i1);
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncfile = ncarg.substr(i1,i2-i1);
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncinterval = atoi(ncarg.substr(i1,i2-i1).c_str());
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _nclength = atoi(ncarg.substr(i1,i2-i1).c_str());
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _nccdl = ncarg.substr(i1,i2-i1);
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncfill = atof(ncarg.substr(i1,i2-i1).c_str());
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _nctimeout = atoi(ncarg.substr(i1,i2-i1).c_str());
-            if (i2 == string::npos) break;
-
-            i1 = i2 + 1;
-            i2 = ncarg.find(':',i1);
-            if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
-            if (i2 == string::npos) break;
+            parseNcServerSpec(arg->getValue());
 #else
             cerr << "-n option is not supported on this version of " << argv[0]
                  << ", which was built without nc_server-devel package" << endl;
-            return usage();
+            return 1;
 #endif
         }
     }
     _app.parseInputs(_app.unparsedArgs());
 
-
+    // NidasApp uses MIN and MAX as defaults for unset times, but DataPrep
+    // expects zero.
+    if (_app.getStartTime() != LONG_LONG_MIN)
+        _startTime = _app.getStartTime();
+    if (_app.getEndTime() != LONG_LONG_MAX)
+        _endTime = _app.getEndTime();
     _datasetName = DatasetName.getValue();
     _configName = ConfigsName.getValue();
     _dsmName = DSMName.getValue();
@@ -560,20 +575,20 @@ int DataPrep::parseRunstring(int argc, char** argv)
     if (_sorterLength < 0 || _sorterLength > 10000)
     {
         cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
-        return usage();
+        return 1;
     }
 
     _asciiPrecision = Precision.asInt();
     if (_asciiPrecision < 1)
     {
         cerr << "Invalid precision: " << Precision.getValue() << endl;
-        return usage();
+        return 1;
     }
 
     if (_reqVarsByRate.empty()) {
-        cerr << "no variables requested, must have one or more -D options" <<
-            endl;
-        return usage();
+        cerr << "no variables requested, must have one or more -D options"
+             << endl;
+        return 1;
     }
 
     /* If one set of variables was requested, apply the rate to those variables.
@@ -594,9 +609,15 @@ int DataPrep::parseRunstring(int argc, char** argv)
     //  2. a socket to connect to
     //  3. or a time period and a $PROJECT environment variable
     if (_dataFileNames.size() == 0 && !_app.socketAddress() &&
-        _startTime.toUsecs() == 0) return usage();
+        _startTime.toUsecs() == 0)
+    {
+        cerr << "No inputs and no -B begin time." << endl;
+        return 1;
+    }
     if (_startTime.toUsecs() != 0 && _endTime.toUsecs() == 0)
+    {
         _endTime = _startTime + 90 * USECS_PER_DAY;
+    }
     return 0;
 }
 
@@ -638,7 +659,7 @@ Notes on choosing rates with -r or -R:\n\
          << endl;
     cerr <<
 "\nOptions:\n"
-                                                        << _app.usage();
+         << _app.usage();
     return 1;
 }
 
@@ -753,8 +774,6 @@ int DataPrep::run() throw()
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
                 ILOG(("parsed:") <<  configsXMLName);
-                // cerr << "parsed:" <<  configsXMLName << endl;
-                // throws InvalidParameterException if no config for time
                 
                 const ProjectConfig* cfg;
                 if (_configName.length() > 0)
