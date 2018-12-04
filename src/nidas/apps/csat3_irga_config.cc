@@ -70,8 +70,8 @@ using namespace nidas::util;
 
 NidasApp app("csat_irga_config");
 
-NidasAppArg Device("-d,--device", "</dev/ttyUSBx>",
-        		 "DSM linux device path.", "");
+NidasAppArg Device("-d, --device", "</dev/ttyUSBx>",
+        		   "DSM linux device path.", "");
 
 nidas::util::SerialPort serPort;
 
@@ -119,8 +119,7 @@ size_t readAll(char* buf, const size_t bufSize, int msTimeout)
     }
 
     if (nfd == 0) {
-        std::cerr << serPort.getName() << ": timeout " << msTimeout <<
-            " mS" << std::endl;
+        ILOG((serPort.getName().c_str()) << ": timeout " << msTimeout << " mS");
         return -1;
     }
 
@@ -150,10 +149,10 @@ bool promptFound(const char* prompt, int numTries)
 
     bool retval = false;
     int tries = 1;
-    std::cerr << "Looking for " << prompt << std::endl;
+    ILOG(("Looking for ") << prompt);
 
     do {
-        std::cerr << "Try: " << tries++ << std::endl;
+        ILOG(("Try: ") << tries++);
         // Send wakeup command several times...
         serPort.write("\n", 1);
 
@@ -163,7 +162,7 @@ bool promptFound(const char* prompt, int numTries)
         if (numChars > 0) {
             response.append(buf);
 
-            std::cerr << "Response for this try: " << response << std::endl;
+            ILOG(("Response for this try: ") << response);
 
             size_t promptIdx = response.find(prompt);
             if (promptIdx != std::string::npos) {
@@ -181,11 +180,10 @@ void exitCSATTerm()
     // Get the heck out...
     serPort.write("quit", 4);
     if (!promptFound("EC100>", 4)) {
-        std::cerr << "Couldn't find the EC100> prompt." << std::endl;
+        ILOG(("Couldn't find the EC100> prompt."));
         exit(-8);
     }
-    std::cerr << "Found the EC100> prompt after exiting CSAT3 terminal mode."
-            << std::endl;
+    ILOG(("Found the EC100> prompt after exiting CSAT3 terminal mode."));
 }
 
 int main(int argc, char* argv[]) {
@@ -198,7 +196,7 @@ int main(int argc, char* argv[]) {
         devName = Device.getValue();
 
         if (devName.length() == 0) {
-            std::cerr << "Must supply the serial port path on the command line." << std::endl;
+            ILOG(("Must supply the serial port path on the command line."));
             usage(argv[0]);
             return 2;
         }
@@ -206,7 +204,7 @@ int main(int argc, char* argv[]) {
 
     else 
     {
-        std::cerr << "Must supply a device option on the command line." << std::endl;
+        ILOG(("Must supply a device option on the command line."));
         usage(argv[0]);
         return 1;
     }
@@ -218,26 +216,28 @@ int main(int argc, char* argv[]) {
     // Set baud rate of serial device
     nidas::util::Termios serTermios = serPort.getTermios();
     if (!serTermios.setBaudRate(115200)) {
-        std::cerr << "Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate." << std::endl;
+        ILOG(("Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate."));
         usage(argv[0]);
         return 3;
     }
 
     if (promptFound("EC100>", 5)) {
-        std::cerr << "Found the EC100> prompt: " << std::endl;
+        ILOG(("Found the EC100> prompt."));
     }
     else {
-        std::cerr << "EC100> prompt not found!" << std::endl;
+        ILOG(("EC100> prompt not found!"));
         return 4;
     }
 
-    std::cerr << "Send TERM command to access CSAT3" << std::endl;
+    // Put code to update the EC100 settings here...
+
+    ILOG(("Send TERM command to access CSAT3"));
     serPort.write("TERM\n", 5);
     if (promptFound("CSAT>", 3)) {
-        std::cerr << "Found the CSAT> prompt: " << std::endl;
+        ILOG(("Found the CSAT> prompt."));
     }
     else {
-        std::cerr << "CSAT> prompt not found!" << std::endl;
+        ILOG(("CSAT> prompt not found!"));
         return 4;
     }
 
@@ -251,11 +251,11 @@ int main(int argc, char* argv[]) {
     std::string response = "";
     readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
     response.append(settingsBuf);
-    std::cerr << "Response to CSAT query: " << settingsBuf << std::endl;
+    ILOG(("Response to CSAT query: ") << settingsBuf);
 
     size_t matchIdx = response.find("AA=");
     if (matchIdx == std::string::npos) {
-        std::cerr << "Couldn't find the AA setting." << std::endl;
+        ILOG(("Couldn't find the AA setting."));
         exitCSATTerm();
         return 6;
     }
@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
 
     int aa = atoi(aaStart);
 
-    std::cerr << "Found the AA= setting: " << aa << std::endl;
+    ILOG(("Found the AA= setting: ") << aa);
 
     // Modify AA setting
     int numAdj = (50 - aa)/5;       // adjustments in increments of 5.
@@ -283,17 +283,17 @@ int main(int argc, char* argv[]) {
         aaAdjStr.append("-\n");
     }
     else {
-        std::cerr << "No adustment needed." << std::endl;
+        ILOG(("No adustment needed."));
         return 0;
     }
 
-    std::cerr << "Command to adjust AA setting: " << aaAdjStr << std::endl;
+    ILOG(("Command to adjust AA setting: ") << aaAdjStr);
 
     for (int i = abs(numAdj); i > 0; --i) {
         serPort.write(aaAdjStr.c_str(), aaAdjStr.length());
         memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
         readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
-        std::cerr << settingsBuf << std::endl;
+        ILOG((settingsBuf));
     }
 
     // Check new AA setting by sending the query command again
@@ -306,7 +306,7 @@ int main(int argc, char* argv[]) {
     response.append(settingsBuf);
     matchIdx = response.find("AA=");
     if (!matchIdx) {
-        std::cerr << "Couldn't find the AA setting for adjustment check." << std::endl;
+        ILOG(("Couldn't find the AA setting for adjustment check."));
         exitCSATTerm();
         return 6;
     }
@@ -321,10 +321,10 @@ int main(int argc, char* argv[]) {
     aa = atoi(aaStart);
 
     if (aa == 50) {
-        std::cerr << "Success: AA setting: " << aa << std::endl;
+        ILOG(("Success: AA setting: ") << aa);
     }
     else {
-        std::cerr << "Failure: AA setting != 50: " << aa << std::endl;
+        ILOG(("Failure: AA setting != 50: ") << aa);
         exitCSATTerm();
         return 7;
     }
