@@ -81,6 +81,35 @@ NidasAppArg Rate("-r,--rate", "[10|20|50|Open]"
 
 nidas::util::SerialPort serPort;
 
+typedef std::map<std::string, std::string> MapType;
+MapType bwMap;
+MapType rateMap;
+
+std::map<std::string, std::string> createBwMap()
+{
+    MapType m;
+    m.insert(MapType::value_type("5", "0"));
+    m.insert(MapType::value_type("10", "1"));
+    m.insert(MapType::value_type("12.5", "2"));
+    m.insert(MapType::value_type("20", "3"));
+    m.insert(MapType::value_type("25", "4"));
+    m.insert(MapType::value_type("Open", "5"));
+
+    return m;
+}
+
+std::map<std::string, std::string> createRateMap()
+{
+    MapType m;
+    m.insert(MapType::value_type("10", "0"));
+    m.insert(MapType::value_type("20", "1"));
+    m.insert(MapType::value_type("25", "2"));
+    m.insert(MapType::value_type("50", "3"));
+    m.insert(MapType::value_type("Open", "4"));
+
+    return m;
+}
+
 int usage(const char* argv0)
 {
     std::cerr << "\
@@ -160,7 +189,7 @@ bool promptFound(const char* prompt, int numTries)
     do {
         DLOG(("Try: ") << tries++);
         // Send wakeup command several times...
-        serPort.write("\n", 1);
+        serPort.write("\r\n", 1);
 
         memset(buf, 0, BUF_SIZE);
         response = "";
@@ -197,9 +226,24 @@ int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
+    bwMap = createBwMap();
+    rateMap = createRateMap();
+
     std::string devName;
     if (Device.specified()) {
         devName = Device.getValue();
+
+        // Open device for rw
+        serPort.setName(devName);
+        serPort.open(O_RDWR);
+
+        // Set baud rate of serial device
+        nidas::util::Termios serTermios = serPort.getTermios();
+        if (!serTermios.setBaudRate(115200)) {
+            DLOG(("Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate."));
+            usage(argv[0]);
+            return 3;
+        }
     }
 
     else 
@@ -207,18 +251,6 @@ int main(int argc, char* argv[]) {
         ILOG(("Must supply a device option on the command line."));
         usage(argv[0]);
         return 1;
-    }
-
-    // Open device for rw
-    serPort.setName(devName);
-    serPort.open(O_RDWR);
-
-    // Set baud rate of serial device
-    nidas::util::Termios serTermios = serPort.getTermios();
-    if (!serTermios.setBaudRate(115200)) {
-        DLOG(("Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate."));
-        usage(argv[0]);
-        return 3;
     }
 
     // Always have to find the EC100 prompt first, before anything else.
@@ -237,7 +269,7 @@ int main(int argc, char* argv[]) {
 
     // Check if the user only wants the sensor information to be dumped
     if (Info.specified()) {
-        serPort.write("D\n", 2);
+        serPort.write("D\r", 2);
         if (readAll(settingsBuf, SETTINGS_BUF_SIZE, 100)) {
             std::cerr << std::endl << settingsBuf << std::endl;
             return 0;
@@ -245,12 +277,41 @@ int main(int argc, char* argv[]) {
     }
 
     // Put code to update the EC100 settings here...
-    if (Bandwidth.getFlag().length()) {
+    if (Bandwidth.specified()) {
+        ILOG(("Modifying bandwidth..."));
 
+        std::string cmd = "N\r";
+        serPort.write(cmd.c_str(), cmd.length());
+
+        char bwBuf[256];
+        memset(bwBuf, 0, 256);
+        readAll(bwBuf, 256, 100);
+        DLOG(("Response to bandwidth menu request, N<cr>:\n") << bwBuf);
+        cmd = "1\r";
+        serPort.write(cmd.c_str(), cmd.length());
+
+        memset(bwBuf, 0, 256);
+        readAll(bwBuf, 256, 100);
+        DLOG(("Response to bandwidth menu request, 1<cr>:\n") << bwBuf);
+
+        MapType::iterator mIter = bwMap.find(Bandwidth.getValue());
+        if (mIter == bwMap.end()) {
+            CLOG(("Illegal bandwidth value: ") << Bandwidth.getValue());
+            return 5;
+        }
+
+        std::string newBW = mIter->second;
+        newBW.append("\r");
+        DLOG(("Bandwidth command line argument parameter: ") << newBW);
+        serPort.write(newBW.c_str(), newBW.length());
+        memset(bwBuf, 0, 256);
+        readAll(bwBuf, 256, 100);
+        DLOG(("Response to bandwidth modification:\n") << bwBuf);
     }
 
+    ILOG(("Always check the CSAT AA setting..."));
     DLOG(("Send TERM command to access CSAT3"));
-    serPort.write("TERM\n", 5);
+    serPort.write("TERM\r", 5);
     if (promptFound("CSAT>", 3)) {
         ILOG(("Found the CSAT> prompt."));
     }
@@ -260,7 +321,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Send CSAT query command
-    serPort.write("??\n", 3);
+    serPort.write("??\r", 3);
 
     // Check whether AA setting needs to be modified
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
@@ -293,10 +354,10 @@ int main(int argc, char* argv[]) {
     int numAdj = (50 - aa)/5;       // adjustments in increments of 5.
     std::string aaAdjStr = "AA";
     if (numAdj > 0) {
-        aaAdjStr.append("+\n");
+        aaAdjStr.append("+\r");
     }
     else if (numAdj < 0) {
-        aaAdjStr.append("-\n");
+        aaAdjStr.append("-\r");
     }
     else {
         ILOG(("No adustment needed."));
@@ -314,7 +375,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Check new AA setting by sending the query command again
-    serPort.write("??\n", 3);
+    serPort.write("??\r", 3);
 
     // Check whether AA setting needs to be modified
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
