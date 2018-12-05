@@ -74,6 +74,10 @@ NidasAppArg Device("-d,--device", "</dev/ttyUSBx>",
                    "DSM linux device path.", "");
 NidasAppArg Info("-i,--info", "",
                    "Respond with the output of the EC100 \'D\' command and exit.", "");
+NidasAppArg Bandwidth("-b,--bandwidth", "[5|10|12.5|20|25|Open]"
+                      "Set the anemometer measurement bandwidth in hertz.", "20");
+NidasAppArg Rate("-r,--rate", "[10|20|50|Open]"
+                      "Set the anemometer measurement bandwidth in hertz.", "20");
 
 nidas::util::SerialPort serPort;
 
@@ -89,7 +93,7 @@ Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Version | app.Help
-    		            | Device | Info);
+    		            | Device | Info | Bandwidth | Rate);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -154,7 +158,7 @@ bool promptFound(const char* prompt, int numTries)
     ILOG(("Looking for ") << prompt);
 
     do {
-        ILOG(("Try: ") << tries++);
+        DLOG(("Try: ") << tries++);
         // Send wakeup command several times...
         serPort.write("\n", 1);
 
@@ -164,7 +168,7 @@ bool promptFound(const char* prompt, int numTries)
         if (numChars > 0) {
             response.append(buf);
 
-            ILOG(("Response for this try: ") << response);
+            DLOG(("Response for this try: ") << response);
 
             size_t promptIdx = response.find(prompt);
             if (promptIdx != std::string::npos) {
@@ -194,14 +198,8 @@ int main(int argc, char* argv[]) {
         exit(1);
 
     std::string devName;
-    if (Device.getFlag().length() != 0) {
+    if (Device.specified()) {
         devName = Device.getValue();
-
-        if (devName.length() == 0) {
-            ILOG(("Must supply the serial port path on the command line."));
-            usage(argv[0]);
-            return 2;
-        }
     }
 
     else 
@@ -218,7 +216,7 @@ int main(int argc, char* argv[]) {
     // Set baud rate of serial device
     nidas::util::Termios serTermios = serPort.getTermios();
     if (!serTermios.setBaudRate(115200)) {
-        ILOG(("Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate."));
+        DLOG(("Couldn't set the serial port baud rate to 115200, the normal EC100 baud rate."));
         usage(argv[0]);
         return 3;
     }
@@ -237,8 +235,8 @@ int main(int argc, char* argv[]) {
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
     std::string response = "";
 
-    // Put code to update the EC100 settings here...
-    if (Info.getFlag().length()) {
+    // Check if the user only wants the sensor information to be dumped
+    if (Info.specified()) {
         serPort.write("D\n", 2);
         if (readAll(settingsBuf, SETTINGS_BUF_SIZE, 100)) {
             std::cerr << std::endl << settingsBuf << std::endl;
@@ -246,7 +244,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    ILOG(("Send TERM command to access CSAT3"));
+    // Put code to update the EC100 settings here...
+    if (Bandwidth.getFlag().length()) {
+
+    }
+
+    DLOG(("Send TERM command to access CSAT3"));
     serPort.write("TERM\n", 5);
     if (promptFound("CSAT>", 3)) {
         ILOG(("Found the CSAT> prompt."));
@@ -264,11 +267,11 @@ int main(int argc, char* argv[]) {
     response = "";
     readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
     response.append(settingsBuf);
-    ILOG(("Response to CSAT query: ") << settingsBuf);
+    DLOG(("Response to CSAT query: ") << settingsBuf);
 
     size_t matchIdx = response.find("AA=");
     if (matchIdx == std::string::npos) {
-        ILOG(("Couldn't find the AA setting."));
+        DLOG(("Couldn't find the AA setting."));
         exitCSATTerm();
         return 6;
     }
@@ -301,13 +304,13 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    ILOG(("Command to adjust AA setting: ") << aaAdjStr);
+    DLOG(("Command to adjust AA setting: ") << aaAdjStr);
 
     for (int i = abs(numAdj); i > 0; --i) {
         serPort.write(aaAdjStr.c_str(), aaAdjStr.length());
         memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
         readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
-        ILOG((settingsBuf));
+        DLOG((settingsBuf));
     }
 
     // Check new AA setting by sending the query command again
@@ -320,7 +323,7 @@ int main(int argc, char* argv[]) {
     response.append(settingsBuf);
     matchIdx = response.find("AA=");
     if (!matchIdx) {
-        ILOG(("Couldn't find the AA setting for adjustment check."));
+        DLOG(("Couldn't find the AA setting for adjustment check."));
         exitCSATTerm();
         return 6;
     }
