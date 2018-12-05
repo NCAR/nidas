@@ -70,8 +70,10 @@ using namespace nidas::util;
 
 NidasApp app("csat_irga_config");
 
-NidasAppArg Device("-d, --device", "</dev/ttyUSBx>",
-        		   "DSM linux device path.", "");
+NidasAppArg Device("-d,--device", "</dev/ttyUSBx>",
+                   "DSM linux device path.", "");
+NidasAppArg Info("-i,--info", "",
+                   "Respond with the output of the EC100 \'D\' command and exit.", "");
 
 nidas::util::SerialPort serPort;
 
@@ -87,7 +89,7 @@ Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Version | app.Help
-    		            | Device);
+    		            | Device | Info);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -221,6 +223,7 @@ int main(int argc, char* argv[]) {
         return 3;
     }
 
+    // Always have to find the EC100 prompt first, before anything else.
     if (promptFound("EC100>", 5)) {
         ILOG(("Found the EC100> prompt."));
     }
@@ -229,7 +232,19 @@ int main(int argc, char* argv[]) {
         return 4;
     }
 
+    const int SETTINGS_BUF_SIZE = 512;
+    char settingsBuf[SETTINGS_BUF_SIZE];
+    memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
+    std::string response = "";
+
     // Put code to update the EC100 settings here...
+    if (Info.getFlag().length()) {
+        serPort.write("D\n", 2);
+        if (readAll(settingsBuf, SETTINGS_BUF_SIZE, 100)) {
+            std::cerr << std::endl << settingsBuf << std::endl;
+            return 0;
+        }
+    }
 
     ILOG(("Send TERM command to access CSAT3"));
     serPort.write("TERM\n", 5);
@@ -245,10 +260,8 @@ int main(int argc, char* argv[]) {
     serPort.write("??\n", 3);
 
     // Check whether AA setting needs to be modified
-    const int SETTINGS_BUF_SIZE = 256;
-    char settingsBuf[SETTINGS_BUF_SIZE];
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
-    std::string response = "";
+    response = "";
     readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
     response.append(settingsBuf);
     ILOG(("Response to CSAT query: ") << settingsBuf);
@@ -284,6 +297,7 @@ int main(int argc, char* argv[]) {
     }
     else {
         ILOG(("No adustment needed."));
+        exitCSATTerm();
         return 0;
     }
 
