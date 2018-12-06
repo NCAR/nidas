@@ -79,7 +79,9 @@ NidasAppArg Bandwidth("-b,--bandwidth", "[5|10|12.5|20|25|Open]",
 NidasAppArg Rate("-r,--rate", "[10|20|50|Open]",
                       "Set the sample rate in hertz. Should be 2X the bandwidth.", "20");
 
-std::string explanatoryText = "";
+std::string explanatoryText = "  This utility configures the EC100 and CSAT3 sensors.\n"
+                              "  The computer running this utility must be connected to the EC100 USB port.\n"
+                              "  Please ensure that this connection is made before proceeding.";
 
 nidas::util::SerialPort serPort;
 
@@ -115,8 +117,8 @@ std::map<std::string, std::string> createRateMap()
 int usage(const char* argv0)
 {
     std::cerr << "\
-Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl
-         << explanatoryText << std::endl
+Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl << std::endl
+         << explanatoryText << std::endl << std::endl
          << app.usage();
 
     return 1;
@@ -128,7 +130,7 @@ int parseRunString(int argc, char* argv[])
     		            | Device | Info | Bandwidth | Rate);
 
     ArgVector args = app.parseArgs(argc, argv);
-    if (app.helpRequested())
+    if (app.helpRequested() || !Device.specified())
     {
         return usage(argv[0]);
     }
@@ -229,8 +231,9 @@ int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
-    std::cerr << explanatoryText << std::endl;
-    std::string input = std::cin;
+    std::cerr  << std::endl << explanatoryText << std::endl << std::endl << "Type any character to continue...";
+    (void)getchar();
+    std::cerr << std::endl << std::endl;
 
     bwMap = createBwMap();
     rateMap = createRateMap();
