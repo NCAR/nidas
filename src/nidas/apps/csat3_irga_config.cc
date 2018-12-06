@@ -71,13 +71,15 @@ using namespace nidas::util;
 NidasApp app("csat_irga_config");
 
 NidasAppArg Device("-d,--device", "</dev/ttyUSBx>",
-                   "DSM linux device path.", "");
+                   "Linux device path.", "");
 NidasAppArg Info("-i,--info", "",
                    "Respond with the output of the EC100 \'D\' command and exit.", "");
-NidasAppArg Bandwidth("-b,--bandwidth", "[5|10|12.5|20|25|Open]"
-                      "Set the anemometer measurement bandwidth in hertz.", "20");
-NidasAppArg Rate("-r,--rate", "[10|20|50|Open]"
-                      "Set the anemometer measurement bandwidth in hertz.", "20");
+NidasAppArg Bandwidth("-b,--bandwidth", "[5|10|12.5|20|25|Open]",
+                      "Set the measurement bandwidth in hertz.", "10");
+NidasAppArg Rate("-r,--rate", "[10|20|50|Open]",
+                      "Set the sample rate in hertz. Should be 2X the bandwidth.", "20");
+
+std::string explanatoryText = "";
 
 nidas::util::SerialPort serPort;
 
@@ -114,6 +116,7 @@ int usage(const char* argv0)
 {
     std::cerr << "\
 Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl
+         << explanatoryText << std::endl
          << app.usage();
 
     return 1;
@@ -214,7 +217,7 @@ void exitCSATTerm()
 {
     // Get the heck out...
     serPort.write("quit", 4);
-    if (!promptFound("EC100>", 4)) {
+    if (!promptFound("EC100>", 5)) {
         ILOG(("Couldn't find the EC100> prompt."));
         exit(-8);
     }
@@ -225,6 +228,9 @@ int main(int argc, char* argv[]) {
 
     if (parseRunString(argc, argv))
         exit(1);
+
+    std::cerr << explanatoryText << std::endl;
+    std::string input = std::cin;
 
     bwMap = createBwMap();
     rateMap = createRateMap();
@@ -278,7 +284,7 @@ int main(int argc, char* argv[]) {
 
     // Put code to update the EC100 settings here...
     if (Bandwidth.specified()) {
-        ILOG(("Modifying bandwidth..."));
+        ILOG(("Modifying bandwidth to: ") << Bandwidth.getValue());
 
         std::string cmd = "N\r";
         serPort.write(cmd.c_str(), cmd.length());
@@ -307,6 +313,68 @@ int main(int argc, char* argv[]) {
         memset(bwBuf, 0, 256);
         readAll(bwBuf, 256, 100);
         DLOG(("Response to bandwidth modification:\n") << bwBuf);
+
+        // now save it...
+        serPort.write("Y\r", 2);
+        memset(bwBuf, 0, 256);
+        readAll(bwBuf, 256, 100);
+        DLOG(("Response to rate save operation:\n") << bwBuf);
+    }
+
+    // Get the EC100> prompt back...
+    if (promptFound("EC100>", 5)) {
+        ILOG(("Found the EC100> prompt."));
+    }
+    else {
+        ILOG(("EC100> prompt not found!"));
+        return 4;
+    }
+
+    if (Rate.specified()) {
+        ILOG(("Modifying unattended update rate to: ") << Rate.getValue());
+
+        std::string cmd = "N\r";
+        serPort.write(cmd.c_str(), cmd.length());
+
+        char rateBuf[256];
+        memset(rateBuf, 0, 256);
+        readAll(rateBuf, 256, 100);
+        DLOG(("Response to rate menu request, N<cr>:\n") << rateBuf);
+        cmd = "3\r";
+        serPort.write(cmd.c_str(), cmd.length());
+
+        memset(rateBuf, 0, 256);
+        readAll(rateBuf, 256, 100);
+        DLOG(("Response to rate menu request, 3<cr>:\n") << rateBuf);
+
+        MapType::iterator mIter = rateMap.find(Rate.getValue());
+        if (mIter == rateMap.end()) {
+            CLOG(("Illegal rate value: ") << Rate.getValue());
+            return 6;
+        }
+
+        std::string newRate = mIter->second;
+        newRate.append("\r");
+        DLOG(("Rate command line argument parameter: ") << newRate);
+        serPort.write(newRate.c_str(), newRate.length());
+        memset(rateBuf, 0, 256);
+        readAll(rateBuf, 256, 100);
+        DLOG(("Response to rate modification:\n") << rateBuf);
+
+        // now save it...
+        serPort.write("Y\r", 2);
+        memset(rateBuf, 0, 256);
+        readAll(rateBuf, 256, 100);
+        DLOG(("Response to rate save operation:\n") << rateBuf);
+    }
+
+    // Get the EC100> prompt back...
+    if (promptFound("EC100>", 5)) {
+        ILOG(("Found the EC100> prompt."));
+    }
+    else {
+        ILOG(("EC100> prompt not found!"));
+        return 4;
     }
 
     ILOG(("Always check the CSAT AA setting..."));
@@ -332,7 +400,7 @@ int main(int argc, char* argv[]) {
 
     size_t matchIdx = response.find("AA=");
     if (matchIdx == std::string::npos) {
-        DLOG(("Couldn't find the AA setting."));
+        ILOG(("Couldn't find the AA setting."));
         exitCSATTerm();
         return 6;
     }
@@ -348,7 +416,7 @@ int main(int argc, char* argv[]) {
 
     int aa = atoi(aaStart);
 
-    ILOG(("Found the AA= setting: ") << aa);
+    ILOG(("Found the AA setting: ") << aa);
 
     // Modify AA setting
     int numAdj = (50 - aa)/5;       // adjustments in increments of 5.
@@ -384,7 +452,7 @@ int main(int argc, char* argv[]) {
     response.append(settingsBuf);
     matchIdx = response.find("AA=");
     if (!matchIdx) {
-        DLOG(("Couldn't find the AA setting for adjustment check."));
+        ILOG(("Couldn't find the AA setting for adjustment check."));
         exitCSATTerm();
         return 6;
     }
