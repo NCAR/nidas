@@ -44,7 +44,7 @@
 
 #include <cmath>
 
-#include "sample_traits.h"
+#include "sample_type_traits.h"
 
 namespace nidas { namespace core {
 
