@@ -7,8 +7,7 @@ Import('env')
 arch = env['ARCH']  # empty string for native builds
 
 try:
-    if pc.CheckConfig(env, 'pkg-config nc_server'):
-        env.MergeFlags('!pkg-config --cflags nc_server')
+    env.ParseConfig('pkg-config --cflags --libs nc_server')
 except OSError:
     pass
 
