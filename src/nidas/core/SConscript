@@ -69,6 +69,7 @@ headers = Split("""
     SampleClientList.h
     SampleClock.h
     Sample.h
+    sample_type_traits.h
     SampleInput.h
     SampleInputHeader.h
     SampleIOProcessor.h
