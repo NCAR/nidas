@@ -285,7 +285,8 @@ protected:
     void unixDevInit(int flags) throw(nidas::util::IOException);
 
     /**
-     * autoconfig specific methods
+     *  autoconfig specific methods which are entirely implemented in
+     *  SerialSensor.
      */
     void doAutoConfig();
     void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
