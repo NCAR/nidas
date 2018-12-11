@@ -101,6 +101,10 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
 */
 class SerialXcvrCtrl {
 public:
+    SerialXcvrCtrl()
+        : _xcvrConfig(), _rawXcvrConfig(RS232_BITS|SENSOR_POWER_ON_BIT),
+          _busAddr(0), _deviceAddr(0), _pContext(ftdi_new()), _gpioOpen(false) {}
+
     // Constructor needs to know what port is being controlled
     // Constructor uses portID to decide which FTDI interface to 
     // use to control the port type.
@@ -113,11 +117,19 @@ public:
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
-
-    static bool xcvrCtrlSupported() { return true; } // for now. Need to actually read an eeprom to know
+    // look for USB devices with the FTDI vendor/product ID and the manufacturer == UCAR and product == GPIO
+    bool findGPIODevice();
+    // safe FT4232H open - must be bracket all gpio operations!!!
+    // returns true if already open or successfully open, false if attempted open fails.
+    bool gpioOpen();
+    // safe FT4232H close - must bracket all gpio operations!!!
+    // returns true if already closed or successfully closed, false if attempted close fails.
+    bool gpioClose(bool weOpenedIt);
+    bool gpioIsOpen() {return _gpioOpen;}
+    static bool xcvrCtrlSupported() { return true; }
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
-    void setXcvrConfig(const XcvrConfig& newXcvrConfig) {_xcvrConfig = newXcvrConfig;}
+    void setXcvrConfig(const XcvrConfig& newXcvrConfig);
     // This is the primary client API that does all the heavy lifting  
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
     void applyXcvrConfig(const bool readDevice=true);
@@ -130,7 +142,7 @@ public:
     void readXcvrConfig();
     // This informs the class as to which USB device to open.
     // This has no effect until the device is closed and then re-opened
-    void setBusAddress(const int busId=1, const int deviceId=6);
+    void setBusAddress(const int busId=1, const int deviceId=8);
     // This utility converts a PORT_TYPE to a string
     static const std::string portTypeToStr(const PORT_TYPES portType);
     // This utility converts a string to a PORT_TYPE
@@ -193,13 +205,7 @@ protected:
     unsigned char portType2Bits(const PORT_TYPES portType);
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
     PORT_TYPES bits2PortType(const unsigned char bits);
-    // safe FT4232H open - must be bracket all gpio operations!!!
-    // returns true if already open or successfully open, false if attempted open fails.
-    bool gpioOpen();
-    // safe FT4232H close - must bracket all gpio operations!!!
-    // returns true if already closed or successfully closed, false if attempted close fails.
-    bool gpioClose(bool weOpenedIt);
-    bool gpioIsOpen() {return _gpioOpen;}
+    // find the GPIO FTDI chip on the USB bus.
 private:
     // At present there are only 7 available ports on a DSM
     static const PORT_DEFS MAX_PORT = PORT7;
@@ -233,16 +239,15 @@ private:
     unsigned char _rawXcvrConfig;
     // at present we're relying on bus address to locate the 
     // desired device.
-    int _busAddr;
-    int _deviceAddr;
+    uint8_t _busAddr;
+    uint8_t _deviceAddr;
     // This is the libftdi1 context of the USB device we're interested in using
     // to control the port types via GPIO.
     struct ftdi_context* _pContext;
     // keeps track of whether the FT4232H GPIO is open
     bool _gpioOpen;
 
-    // never use default constructor, copy constructors, operator=
-    SerialXcvrCtrl();
+    // never use copy constructors, operator=
     SerialXcvrCtrl(const SerialXcvrCtrl& rRight);
     SerialXcvrCtrl(SerialXcvrCtrl& rRight);
     const SerialXcvrCtrl& operator=(const SerialXcvrCtrl& rRight);
