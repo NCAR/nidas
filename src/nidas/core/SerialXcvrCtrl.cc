@@ -70,7 +70,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 {
     if (findGPIODevice()) {
 
-        ILOG(("GPIO Device found at ") << _busAddr << ":" << _deviceAddr);
+        DLOG(("GPIO Device found at ") << _busAddr << ":" << _deviceAddr);
 
         bool ifWeOpenedIt = false;
         if (_pContext)
@@ -289,12 +289,12 @@ void SerialXcvrCtrl::setXcvrConfig(const PORT_TYPES portType,
 void SerialXcvrCtrl::setXcvrConfig(const XcvrConfig& newXcvrConfig)
 {
     if (newXcvrConfig.port != _xcvrConfig.port) {
-        ILOG(("Current port: ") << _xcvrConfig.port << " - New port: " << newXcvrConfig.port);
+        DLOG(("Current port: ") << _xcvrConfig.port << " - New port: " << newXcvrConfig.port);
         _xcvrConfig.port = newXcvrConfig.port;
         enum ftdi_interface iface = port2iface();
-        ILOG(("Current interface: ") << _pContext->interface << " - New interface: " << iface);
+        DLOG(("Current interface: ") << _pContext->interface << " - New interface: " << iface);
         if (iface != INTERFACE_ANY && iface != _pContext->interface) {
-            ILOG(("Setting the FTDI BitBang interface to INTERFACE_") << (iface==INTERFACE_A ? "A" :
+            DLOG(("Setting the FTDI BitBang interface to INTERFACE_") << (iface==INTERFACE_A ? "A" :
                                                                             iface==INTERFACE_B ? "B" :
                                                                             iface==INTERFACE_C ? "C" :
                                                                             iface==INTERFACE_D ? "D" : "???"));
@@ -554,7 +554,7 @@ bool SerialXcvrCtrl::findGPIODevice()
     libusb_device **devs;
     libusb_init(NULL);
     ssize_t numDevices = libusb_get_device_list(NULL, &devs);
-    ILOG(("Found ") << numDevices << " USB devices to check...");
+    DLOG(("Found ") << numDevices << " USB devices to check...");
     if (numDevices > 0) {
         for (int i=0; i<numDevices; ++i) {
             libusb_device_descriptor desc;
@@ -576,10 +576,10 @@ bool SerialXcvrCtrl::findGPIODevice()
                             std::string prodDescStr = (char*)descrString;
                             if (prodDescStr == "GPIO") {
                                 foundIt = true;
-                                ILOG(("Found GPIO FTDI device at"));
-                                ILOG(("    Bus:") << (int)libusb_get_bus_number(devs[i]) << ", Port:" << (int)libusb_get_device_address(devs[i]));
-                                ILOG(("    Vendor:Product: ") << std::hex << "0x" << desc.idVendor << ":" << "0x" << desc.idProduct << std::dec);
-                                ILOG(("    Manufacturer: ") << manDescStr << ", Product: " << prodDescStr);
+                                DLOG(("Found GPIO FTDI device at"));
+                                DLOG(("    Bus:") << (int)libusb_get_bus_number(devs[i]) << ", Port:" << (int)libusb_get_device_address(devs[i]));
+                                DLOG(("    Vendor:Product: ") << std::hex << "0x" << desc.idVendor << ":" << "0x" << desc.idProduct << std::dec);
+                                DLOG(("    Manufacturer: ") << manDescStr << ", Product: " << prodDescStr);
                                 _busAddr = libusb_get_bus_number(devs[i]);
                                 _deviceAddr = libusb_get_device_address(devs[i]);
                             }
