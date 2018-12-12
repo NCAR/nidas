@@ -6,11 +6,6 @@ import eol_scons.parseconfig as pc
 Import('env')
 arch = env['ARCH']  # empty string for native builds
 
-try:
-    env.ParseConfig('pkg-config --cflags --libs nc_server')
-except OSError:
-    pass
-
 sources = Split("""
     ATIK_Sonic.cc
     CSAT3_Sonic.cc
