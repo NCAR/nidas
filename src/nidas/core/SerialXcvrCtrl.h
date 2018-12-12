@@ -118,7 +118,7 @@ public:
     // Destructor
     ~SerialXcvrCtrl();
     // look for USB devices with the FTDI vendor/product ID and the manufacturer == UCAR and product == GPIO
-    bool findGPIODevice();
+    bool findFTDIDevice(const std::string productStr);
     // safe FT4232H open - must be bracket all gpio operations!!!
     // returns true if already open or successfully open, false if attempted open fails.
     bool gpioOpen();
@@ -162,6 +162,19 @@ public:
                 break;
         }
     } 
+    // This utility converts a binary term configuration to a string
+    static TERM strToTerm(const std::string termStr)
+    {
+        if (termStr == std::string(STR_NO_TERM)) {
+            return NO_TERM;
+        }
+
+        if (termStr == std::string(STR_TERM_120_OHM)) {
+            return TERM_120_OHM;
+        }
+
+        return (TERM)-1;
+    }
     // This utility converts a binary power configuration to a string
     static const std::string powerStateToStr(SENSOR_POWER_STATE sensorState)
     {
@@ -179,6 +192,19 @@ public:
                 break;
         }
     } 
+    // This utility converts a string to the SENSOR_POWER_STATE enum
+    static SENSOR_POWER_STATE strToPowerState(const std::string powerStr)
+    {
+        if (powerStr == std::string(STR_POWER_OFF)) {
+            return SENSOR_POWER_OFF;
+        }
+
+        if (powerStr == std::string(STR_POWER_ON)) {
+            return SENSOR_POWER_ON;
+        }
+
+        return (SENSOR_POWER_STATE)-1;
+    }
     // This utility converts a binary term configuration to a string
     static const std::string rawTermToStr(unsigned char termCfg); 
     // This utility converts a binary power configuration to a string
