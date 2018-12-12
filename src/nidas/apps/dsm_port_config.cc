@@ -88,14 +88,14 @@ NidasAppArg Mode("-m,--xcvr-mode", "<RS232>",
 				 "    RS485_HALF", "RS232");
 NidasAppArg Display("-d,--display", "",
 					 "Display current port configuration and exit", "");
-NidasAppArg LineTerm("-t,--term", "<NONE>",
+NidasAppArg LineTerm("-t,--term", "<NO_TERM>",
                      "Port transceiver line termination supported by Exar SP339 chip. i.e. - \n"
-                     "    NONE\n"
-                     "    TERM_120", "NONE");
-NidasAppArg Energy("-e,--energy", "<ON>",
+                     "    NO_TERM\n"
+                     "    TERM_120_OHM", "NO_TERM");
+NidasAppArg Energy("-e,--energy", "<POWER_ON>",
                   "Controls whether the DSM sends power to the sensor via the bulgin port - \n"
-                  "    OFF\n"
-                  "    ON", "ON");
+                  "    POWER_OFF\n"
+                  "    POWER_ON", "POWER_ON");
 
 int usage(const char* argv0)
 {
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
         else if (modeStr == ARG_RS485_FULL) portType = RS485_FULL;
         else
         {
-            std::cerr << "Unknown/Illegal/Missing port type argument.\n" << std::endl;
+            std::cerr << "Unknown/Illegal/Missing port type argument: " << Mode.getValue() << std::endl;
             usage(argv[0]);
             return 4;
         }
@@ -182,26 +182,30 @@ int main(int argc, char* argv[]) {
     }
 
     if (LineTerm.specified()) {
+        std::string termStr(LineTerm.getValue());
+        std::transform(termStr.begin(), termStr.end(), termStr.begin(), ::toupper);
         TERM lineTerm = xcvrCtrl.strToTerm(LineTerm.getValue());
         if (lineTerm != -1) {
             newXcvrConfig.termination = lineTerm;
         }
         else
         {
-            std::cerr << "Unknown/Illegal/Missing line termination argument.\n" << std::endl;
+            std::cerr << "Unknown/Illegal/Missing line termination argument: " << LineTerm.getValue() << std::endl;
             usage(argv[0]);
             return 5;
         }
     }
 
     if (Energy.specified()) {
-        SENSOR_POWER_STATE power = xcvrCtrl.strToPowerState(Energy.getValue());
+        std::string pwrStr(Energy.getValue());
+        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
+        SENSOR_POWER_STATE power = xcvrCtrl.strToPowerState(pwrStr);
         if (power != -1) {
             newXcvrConfig.sensorPower = power;
         }
         else
         {
-            std::cerr << "Unknown/Illegal/Missing energy argument.\n" << std::endl;
+            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
             usage(argv[0]);
             return 5;
         }
