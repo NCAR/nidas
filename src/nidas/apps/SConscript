@@ -159,6 +159,10 @@ dac = env.Program('dsm_auto_config.cc', LIBS=['xerces-c', 'usb-1.0', 'ftdi1', 'n
 env.Install('$PREFIX/bin', dac)
 env.Alias('dsm_auto_config', dac)
 
+cic = env.Program('csat3_irga_config.cc', LIBS=['nidas_util', 'nidas'])
+env.Install('$PREFIX/bin', cic)
+env.Alias('csat3_irga_config', cic)
+
 if 'viper' in machs:
     # controls DIO pins on a Viper
     env.NidasProgram('viper_dio.cc')
