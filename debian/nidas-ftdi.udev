@@ -1,0 +1,12 @@
+#
+# Links to FTDI devices which keep a static rational interface to 
+# USB devices which can move around when unplugged, then re-plugged
+#
+# FTDI Devices: FT4232HL/Q
+SUBSYSTEMS=="usb", ENV{.LOCAL_iface}="$attr{bInterfaceNumber}"
+# Note: The raw interface ID is a leading 0 filled number, like 01, 02, etc. When 0 is added to is in the bash shell script, 
+#       the leading 0 is stripped.
+#       Additionally, the FTDI official udev rules in /lib/udev/rules.d/99-libftdi.rules, is required to set the group and mode correctly.
+#       Otherwise, the device cannot be opened. That probably means these settings can be deleted from this rules file.
+SUBSYSTEMS=="usb", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", ATTRS{manufacturer}=="UCAR", ATTRS{product}=="P0-P3", PROGRAM="/bin/sh -c 'echo $((%E{.LOCAL_iface}+0))'", MODE="0664", GROUP="plugdev", SYMLINK+="ttyDSM%c"
+SUBSYSTEMS=="usb", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", ATTRS{manufacturer}=="UCAR", ATTRS{product}=="P4-P7", PROGRAM="/bin/sh -c 'echo $((%E{.LOCAL_iface}+4))'", MODE="0664", GROUP="plugdev", SYMLINK+="ttyDSM%c"
