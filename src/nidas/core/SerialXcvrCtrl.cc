@@ -68,7 +68,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 : _xcvrConfig(portId, RS232, NO_TERM), _rawXcvrConfig(0),
   _busAddr(0), _deviceAddr(0), _pContext(ftdi_new()), _gpioOpen(false)
 {
-    if (findGPIODevice()) {
+    if (findFTDIDevice("GPIO")) {
 
         DLOG(("GPIO Device found at ") << _busAddr << ":" << _deviceAddr);
 
@@ -142,7 +142,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
 : _xcvrConfig(portId, portType, termination, pwrState), _rawXcvrConfig(0), 
   _busAddr(0), _deviceAddr(0), _pContext(ftdi_new()), _gpioOpen(false)
 {
-    if (findGPIODevice()) {
+    if (findFTDIDevice("GPIO")) {
 
         bool ifWeOpenedIt = false;
         if (_pContext)
@@ -209,7 +209,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
 : _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), 
   _busAddr(0), _deviceAddr(0), _pContext(ftdi_new()), _gpioOpen(false)
 {
-    if (findGPIODevice()) {
+    if (findFTDIDevice("GPIO")) {
 
         bool ifWeOpenedIt = false;
         if (_pContext)
@@ -548,7 +548,7 @@ const std::string SerialXcvrCtrl::rawPowerToStr(unsigned char powerCfg)
     return powerStr;
 }
 
-bool SerialXcvrCtrl::findGPIODevice()
+bool SerialXcvrCtrl::findFTDIDevice(const std::string productStr)
 {
     bool foundIt = false;
     libusb_device **devs;
@@ -559,31 +559,47 @@ bool SerialXcvrCtrl::findGPIODevice()
         for (int i=0; i<numDevices; ++i) {
             libusb_device_descriptor desc;
             if (libusb_get_device_descriptor(devs[i], &desc) > -1) {
+
                 DLOG(("Checking USB device #") << i << " at ");
                 DLOG(("    Bus:") << (int)libusb_get_bus_number(devs[i]) << ", Port:" << (int)libusb_get_device_address(devs[i]));
                 DLOG(("    Vendor:Product: ") << std::hex << "0x" << desc.idVendor << ":" << "0x" << desc.idProduct << std::dec);
                 // only care about FTDI 4232H parts
                 if (desc.idVendor == 0x0403 && desc.idProduct == 0x6011) {
+                    DLOG(("    Found an FTDI chip..."));
                     libusb_device_handle* pHdl = 0;
-                    if (libusb_open(devs[i], &pHdl) == LIBUSB_SUCCESS) {
+                    int libusbOpenStatus = libusb_open(devs[i], &pHdl);
+                    if (libusbOpenStatus == LIBUSB_SUCCESS) {
                         uint8_t descrString[256];
                         memset(descrString, 0, 256);
                         libusb_get_string_descriptor_ascii(pHdl, desc.iManufacturer, descrString, 256);
                         std::string manDescStr = (char*)descrString;
+                        DLOG(("    Manufacturer: ") << manDescStr);
                         if (manDescStr == "UCAR") {
                             memset(descrString, 0, 256);
                             libusb_get_string_descriptor_ascii(pHdl, desc.iProduct, descrString, 256);
                             std::string prodDescStr = (char*)descrString;
-                            if (prodDescStr == "GPIO") {
+                            DLOG(("    Product: ") << prodDescStr);
+                            if (prodDescStr == productStr) {
                                 foundIt = true;
-                                DLOG(("Found GPIO FTDI device at"));
+                                DLOG(("Found ") << productStr << " FTDI device at");
                                 DLOG(("    Bus:") << (int)libusb_get_bus_number(devs[i]) << ", Port:" << (int)libusb_get_device_address(devs[i]));
                                 DLOG(("    Vendor:Product: ") << std::hex << "0x" << desc.idVendor << ":" << "0x" << desc.idProduct << std::dec);
                                 DLOG(("    Manufacturer: ") << manDescStr << ", Product: " << prodDescStr);
                                 _busAddr = libusb_get_bus_number(devs[i]);
                                 _deviceAddr = libusb_get_device_address(devs[i]);
                             }
+                            else {
+                                DLOG(("Not a product candidate: "));
+                                DLOG(("    Manufacturer: ") << manDescStr << ", Product: " << prodDescStr);
+                            }
                         }
+                        else {
+                            DLOG(("Not a manufacturer candidate: "));
+                            DLOG(("    Manufacturer: ") << manDescStr);
+                        }
+                    }
+                    else {
+                        DLOG(("    <<<*** Failed to open USB device. Error: ") << libusbOpenStatus << " ***>>>");
                     }
                     libusb_close(pHdl);
                     if (foundIt) {
