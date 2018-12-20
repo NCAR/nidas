@@ -78,7 +78,7 @@ Bzip2FileSet::~Bzip2FileSet()
     catch(const IOException& e) {}
 }
 
-void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOException)
+void Bzip2FileSet::openFileForWriting(const std::string& filename)
 {
     int bzerror;
     FileSet::openFileForWriting(filename);
@@ -121,7 +121,7 @@ void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOExcep
     _openedForWriting = true;
 }
 
-void Bzip2FileSet::openNextFile() throw(IOException)
+void Bzip2FileSet::openNextFile()
 {
     FileSet::openNextFile();
     if (getFd() == 0) _fp = stdin;  // read from stdin
@@ -158,7 +158,7 @@ void Bzip2FileSet::openNextFile() throw(IOException)
     _openedForWriting = false;
 }
 
-void Bzip2FileSet::closeFile() throw(IOException)
+void Bzip2FileSet::closeFile()
 {
     if (_bzfp != NULL) {
         BZFILE* bzfp = _bzfp;
@@ -202,7 +202,7 @@ void Bzip2FileSet::closeFile() throw(IOException)
     FileSet::closeFile();
 }
 
-size_t Bzip2FileSet::read(void* buf, size_t count) throw(IOException)
+size_t Bzip2FileSet::read(void* buf, size_t count)
 {
     _newFile = false;
     if (getFd() < 0) openNextFile();		// throws EOFException
@@ -235,7 +235,7 @@ size_t Bzip2FileSet::read(void* buf, size_t count) throw(IOException)
     return res;
 }
 
-size_t Bzip2FileSet::write(const void* buf, size_t count) throw(IOException)
+size_t Bzip2FileSet::write(const void* buf, size_t count)
 {
     int bzerror;
     BZ2_bzWrite(&bzerror,_bzfp,(void*) buf,count);
@@ -253,7 +253,7 @@ size_t Bzip2FileSet::write(const void* buf, size_t count) throw(IOException)
     return count;
 }
 
-size_t Bzip2FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
+size_t Bzip2FileSet::write(const struct iovec* iov, int iovcnt)
 {
     size_t res = 0;
     for (int i = 0; i < iovcnt; i++) {

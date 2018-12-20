@@ -146,8 +146,10 @@ public:
      * @param exact Use exact time when creating file name, else
      *        the time is truncated by getFileLengthSecs.
      * @return Start time of next file, i.e. when to create next file.
-     */
-    virtual UTime createFile(UTime tfile,bool exact) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    virtual UTime createFile(UTime tfile, bool exact);
 
     void setStartTime(const UTime& val) { _startTime = val; } 
 
@@ -166,39 +168,54 @@ public:
      * Closes any file currently open.  The base implementation
      * closes the file descriptor.  Subclasses override this method
      * to close alternate resources.
+     *
+     * @throws IOException
      **/
     virtual void
-    closeFile() throw(IOException);
+    closeFile();
 
     /**
      * Open a new file for writing.  The @p filename is the path for the
      * new file as generated from the filename template and a time.  The
      * base implementation calls open64() and sets the file descriptor.
+     *
+     * @throws IOException
      **/
     virtual void
-    openFileForWriting(const std::string& filename) throw(IOException);
+    openFileForWriting(const std::string& filename);
 
     /**
      * Open the next file to be read.
+     *
+     * @throws IOException
      **/
-    void openNextFile() throw(IOException);
+    void openNextFile();
 
     /**
      * Read from current file.
-     */
-    virtual size_t read(void* buf, size_t count) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    virtual size_t read(void* buf, size_t count);
 
     /**
      * Write to current file.
-     */
-    virtual size_t write(const void* buf, size_t count) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    virtual size_t write(const void* buf, size_t count);
 
-    virtual size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    virtual size_t write(const struct iovec* iov, int iovcnt);
 
     static const char pathSeparator;
 
-    static void createDirectory(const std::string& name,mode_t mode)
-        throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    static void createDirectory(const std::string& name, mode_t mode);
 
     /**
      * Utility function to return the directory portion of a
@@ -228,14 +245,21 @@ public:
      * a default lexical sort will sort the file path names in time order.
      * The descriptors in the path must be in decreasing time-interval
      * order, e.g. year before month, month before day, etc.
-     */
-    void checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    void checkPathFormat(const UTime& t1, const UTime& t2);
 #endif
 
-    std::list<std::string> matchFiles(const UTime& t1, const UTime& t2)
-    	throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    std::list<std::string> matchFiles(const UTime& t1, const UTime& t2);
 
-    long long getFileSize() const throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    long long getFileSize() const;
 
     /**
      * Get last error value. Should be 0. Currently only supported

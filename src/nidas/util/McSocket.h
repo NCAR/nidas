@@ -314,8 +314,10 @@ public:
 
     /**
      * Return all network interfaces on this system.
-     */
-    std::list<Inet4NetworkInterface> getInterfaces() const throw(IOException);
+     *
+     * @throws IOException
+     **/
+    std::list<Inet4NetworkInterface> getInterfaces() const;
 
     /**
      * Get the multicast address for listening to requests.
@@ -356,8 +358,10 @@ public:
      * method of this McSocket. offer() then calls the virtual connected()
      * method, passing a pointer to the connected socket.
      * Use either listen() or accept() to wait for a connection.
-     */
-    void listen() throw(IOException);
+     *
+     * @throws IOException
+     **/
+    void listen();
 
     /**
      * Like ServerSocket::accept(), this method will return a connected socket.
@@ -369,8 +373,10 @@ public:
      * with a default destination address of the requesting host and port.
      * The caller owns the pointer to the socket and is responsible for
      * closing and deleting it when done.
-     */
-    SocketT* accept(Inet4PacketInfoX&) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    SocketT* accept(Inet4PacketInfoX&);
 
     /**
      * Virtual method that is called when a socket connection is established.
@@ -390,8 +396,10 @@ public:
      * connection in the case of a socket type of SOCK_STREAM, or a datagram
      * is received in the case of a socket type of SOCK_DGRAM, then the
      * connected() method is called.
-     */
-    void request() throw(IOException);
+     *
+     * @throws IOException
+     **/
+    void request();
 
     /**
      * Do a request(), and then wait until a TCP connection is established,
@@ -399,13 +407,17 @@ public:
      * TCP Socket or the DatagramSocket.
      * McSocket then owns the pointer to the socket and is responsible
      * for closing and deleting it when done.
-     */
-    SocketT* connect(Inet4PacketInfoX&) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    SocketT* connect(Inet4PacketInfoX&);
 
     /**
      * Unregister this McSocket from the multicasting and listening threads.
-     */
-    virtual void close() throw(IOException);
+     *
+     * @throws IOException
+     **/
+    virtual void close();
 
 private:
     /**
@@ -478,8 +490,10 @@ private:
      * and a socket type of SOCK_STREAM, then a TCP socket connection is made back
      * to the requesting host, and the connected socket is passed back to the
      * McSocket via McSocket::offer();
-     */
-    static void accept(McSocket<Socket>* sock) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    static void accept(McSocket<Socket>* sock);
 
     /**
      * How a McSocket<DatagramSocket> registers with a McSocketListener. If
@@ -489,24 +503,33 @@ private:
      * and a socket type of SOCK_DGRAM, then a DatagramSocket is created, with a default
      * destination address of the requesting host and port.
      * This DatagramSocket is passed back to the McSocket via McSocket::offer();
-     */
-    static void accept(McSocket<DatagramSocket>* sock) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    static void accept(McSocket<DatagramSocket>* sock);
 
     /**
      * Remove the given McSocket from the list being served by this listener.
      * If there are no more McSockets that are listening on a given
      * multicast address and port, then the listener is shut down.
-     */
-    static void close(McSocket<Socket>* sock) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    static void close(McSocket<Socket>* sock);
 
     /**
      * Remove the given McSocket from the list being served by this listener.
      * If there are no more McSockets which are listening on a given
      * multicast address and port, then the listener is shut down.
-     */
-    static void close(McSocket<DatagramSocket>* sock) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    static void close(McSocket<DatagramSocket>* sock);
 
-    int run() throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    int run();
 
     void interrupt();
 
@@ -567,7 +590,10 @@ private:
 
     virtual ~McSocketMulticaster();
 
-    int run() throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    int run();
 
     void interrupt();
 
@@ -638,7 +664,7 @@ McSocket<SocketT>::~McSocket() {
 }
 
 template<class SocketT>
-std::list<Inet4NetworkInterface> McSocket<SocketT>::getInterfaces() const throw(IOException)
+std::list<Inet4NetworkInterface> McSocket<SocketT>::getInterfaces() const
 {
     MulticastSocket tmpsock(_mcastAddr.getPort());
     std::list<Inet4NetworkInterface> ifcs = tmpsock.getInterfaces();
@@ -647,7 +673,7 @@ std::list<Inet4NetworkInterface> McSocket<SocketT>::getInterfaces() const throw(
 }
 
 template<class SocketT>
-void McSocket<SocketT>::listen() throw(IOException)
+void McSocket<SocketT>::listen()
 {
     if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
@@ -666,7 +692,7 @@ void McSocket<SocketT>::listen() throw(IOException)
  * Does a listen and then waits for the connection.
  */
 template<class SocketT>
-SocketT* McSocket<SocketT>::accept(Inet4PacketInfoX& pktinfo) throw(IOException)
+SocketT* McSocket<SocketT>::accept(Inet4PacketInfoX& pktinfo)
 {
     listen();
     _connectCond.lock();
@@ -681,7 +707,7 @@ SocketT* McSocket<SocketT>::accept(Inet4PacketInfoX& pktinfo) throw(IOException)
 }
 
 template<class SocketT>
-void McSocket<SocketT>::request() throw(IOException)
+void McSocket<SocketT>::request()
 {
     if (getRequestType() < 0)
         throw IOException(_mcastAddr.toString(),"listen",
@@ -708,7 +734,7 @@ void McSocket<SocketT>::request() throw(IOException)
  * Does a request() and then waits for the connection.
  */
 template<class SocketT>
-SocketT* McSocket<SocketT>::connect(Inet4PacketInfoX& pktinfo) throw(IOException)
+SocketT* McSocket<SocketT>::connect(Inet4PacketInfoX& pktinfo)
 {
     request();
     _connectCond.lock();
@@ -790,7 +816,7 @@ void McSocket<SocketT>::offer(int err)
 }
 
 template<class SocketT>
-void McSocket<SocketT>::close() throw(IOException)
+void McSocket<SocketT>::close()
 {
     VLOG(("Mcsocket::close"));
     _multicaster_mutex.lock();
@@ -866,7 +892,7 @@ listMulticastInterfaces(MulticastSocket* requestmsock,
                         std::vector<Inet4NetworkInterface>& ifaces);
 
 template<class SocketT>
-int McSocketMulticaster<SocketT>::run() throw(Exception)
+int McSocketMulticaster<SocketT>::run()
 {
     MulticastSocket* requestmsock = 0;
 

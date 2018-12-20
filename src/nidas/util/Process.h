@@ -121,11 +121,13 @@ public:
      *      value (lower priority).  If niceval is negative
      *      and the user does not have sufficient permisions
      *      to lower the nice value, the error is silently ignored.
+     *
+     * @throws IOException
      */
     static Process spawn(const std::string& cmd,
-        const std::vector<std::string>& args,
-        const std::map<std::string, std::string>& env,
-        int niceval=0) throw(IOException);
+                         const std::vector<std::string>& args,
+                         const std::map<std::string, std::string>& env,
+                         int niceval=0);
 
     /**
      * Fork and execute a command and associated arguments.
@@ -135,21 +137,27 @@ public:
      * the command name does not contain a slash (/) character,
      * then a search is done for the command name using the
      * PATH environment variable.
+     *
+     * @throws IOException
      */
     static Process spawn(const std::string& cmd,
-        const std::vector<std::string>& args,
-        int niceval=0) throw(IOException);
+                         const std::vector<std::string>& args,
+                         int niceval=0);
 
     /**
      * Execute a command by forking and executing command from the
      * shell command line using "sh -c cmd".  Return the Process.
+     *
+     * @throws IOException
      */
-    static Process spawn(const std::string& cmd) throw(IOException);
+    static Process spawn(const std::string& cmd);
 
     /**
      * Send a signal to the process.
+     *
+     * @throws IOException
      */
-    void kill(int signal) throw(IOException);
+    void kill(int signal);
 
     /**
      * Do a system wait on a process.
@@ -162,8 +170,10 @@ public:
      * @param status: status of process. See man 2 waitpid.
      * After a successfull wait, any file descriptors connected to the
      * process will be closed.
+     *
+     * @throws IOException
      */
-    int wait(bool hang, int *status) throw(IOException);
+    int wait(bool hang, int *status);
 
     /**
      * Get the file descriptor of the pipe that is connected
@@ -262,9 +272,10 @@ public:
      *  process. checkPidFile also calls atexit() to schedule the
      *  removePidFile() function to be run when the current process exits.
      *  One typically does not have to call removePidFile explicitly.
+     *
+     * @throws IOException
      */
-    static pid_t checkPidFile(const std::string& pidFile)
-        throw(IOException);
+    static pid_t checkPidFile(const std::string& pidFile);
 
     /** 
      * Remove the pid file. Note that checkPidFile schedules this
@@ -277,15 +288,22 @@ public:
      * If a process has been started with an effective uid of 0(root),
      * one should call prctl(PR_SET_KEEPCAPS,1,0,0,0) prior to doing
      * setuid to a uid > 0. Then use this method to add a capability.
+     *
+     * @throws Exception
      */
-    static void addEffectiveCapability(int cap) throw(Exception);
+    static void addEffectiveCapability(int cap);
 
-    static void clearEffectiveCapability(int cap) throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    static void clearEffectiveCapability(int cap);
 
     /**
      * Check if this process has an effective capability. See man 7 capabilities.
+     *
+     * @throws Exception
      */
-    static bool getEffectiveCapability(int cap) throw(Exception);
+    static bool getEffectiveCapability(int cap);
 
     static std::string expandEnvVars(std::string input);
     

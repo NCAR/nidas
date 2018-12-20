@@ -70,8 +70,10 @@ public:
      * Set the mutex type attribute, one of
      * PTHREAD_MUTEX_NORMAL,PTHREAD_MUTEX_ERRORCHECK,PTHREAD_MUTEX_RECURSIVE,
      * or PTHREAD_MUTEX_DEFAULT. See pthread_mutexattr_settype.
-     */
-    void setType(int val) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    void setType(int val);
     int getType() const;
 
 #ifdef PTHREAD_PRIO_INHERIT
@@ -101,8 +103,10 @@ public:
      * Set the mutex pshared attribute, one of
      * PTHREAD_PROCESS_PRIVATE or PTHREAD_PROCESS_SHARED.
      * See pthread_mutexattr_setpshared.
-     */
-    void setPShared(int val) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    void setPShared(int val);
     int getPShared() const;
 
 
@@ -135,8 +139,10 @@ public:
      * Set the mutex pshared attribute, one of
      * PTHREAD_PROCESS_PRIVATE or PTHREAD_PROCESS_SHARED.
      * See pthread_rwlockattr_setpshared.
-     */
-    void setPShared(int val) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    void setPShared(int val);
     int getPShared() const;
 
 
@@ -177,8 +183,10 @@ public:
      * EAGAIN: system lacked resources
      * ENOMEM: system lacked memory
      * EINVAL: invalid attributes
-     */
-    Mutex(const MutexAttributes& attr) throw(Exception);
+     *
+     * @throws Exception
+     **/
+    Mutex(const MutexAttributes& attr);
 
     /**
      * Copy constructor. Creates a new, unlocked mutex with
@@ -202,8 +210,10 @@ public:
      * created with the protocol attribute having the value
      * PTHREAD_PRIO_PROTECT and the  calling  thread’s priority
      * is higher than the mutex’s current priority ceiling.
-     */
-    void lock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void lock()
     {
         int res;
         if((res = ::pthread_mutex_lock(&_p_mutex)))
@@ -214,8 +224,10 @@ public:
      * Unlock the Mutex. An exception will be thrown for error
      * condition EPERM if this is an PTHREAD_MUTEX_ERRORCHECK Mutex
      * and the current thread does not hold a lock.
-     */
-    void unlock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void unlock()
     {
         int res;
         if ((res = ::pthread_mutex_unlock(&_p_mutex)))
@@ -286,8 +298,10 @@ public:
      * if (x > y) xyCond.signal();
      * xyCond.unlock();
      * @endcode
-     */
-    void lock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void lock()
     {
         _mutex.lock();
     }
@@ -295,8 +309,10 @@ public:
     /**
      * Unlock the mutex associated with the condition variable.
      * @see lock() for an example.
-     */
-    void unlock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void unlock()
     {
         _mutex.unlock();
     }
@@ -306,8 +322,10 @@ public:
      * @see lock() for an example.  According to the man page, it is
      * not safe to call Cond::signal() from an asynchronous signal
      * handler.
-     */
-    void signal() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void signal()
     {
         // only fails with EINVAL if _p_cond is not initialized.
         int res;
@@ -337,8 +355,10 @@ public:
      * wait() is a cancellation point, which sets up the
      * appropriate cancellation cleanup handlers so that the
      * mutex is unlocked if the thread is cancelled.
-     */
-    void wait() throw(Exception);
+     *
+     * @throws Exception
+     **/
+    void wait();
 
 private:
     /**
@@ -366,7 +386,11 @@ public:
      */
     RWLock() throw();
 
-    RWLock(const RWLockAttributes& attr) throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    RWLock(const RWLockAttributes& attr);
+
     /**
      * Copy constructor. Creates a new, unlocked rwlock.
      */
@@ -381,8 +405,10 @@ public:
     /**
      * Acquire a read lock. May throw an exception if the maximum
      * number of read locks for this RWLock has been exceeded.
-     */
-    void rdlock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void rdlock()
     {
         int res;
         if ((res = ::pthread_rwlock_rdlock(&_p_rwlock)))
@@ -392,8 +418,10 @@ public:
     /**
      * Acquire a write lock. May throw an exception if the current
      * thread already owns the lock.
-     */
-    void wrlock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void wrlock()
     {
         int res;
         if ((res = ::pthread_rwlock_wrlock(&_p_rwlock)))
@@ -403,8 +431,10 @@ public:
     /**
      * Unlock the RWLock. Will throw an exception EPERM
      * if the current thread does not hold a lock.
-     */
-    void unlock() throw(Exception)
+     *
+     * @throws Exception
+     **/
+    void unlock()
     {
         int res;
         if ((res = ::pthread_rwlock_unlock(&_p_rwlock)))
@@ -550,12 +580,18 @@ public:
      * of recursively entering sections Synchronized on the same lock within
      * the same thread.  The default, posix mutexes are not recursive and so
      * the thread will deadlock.
+     *
+     * @throws Exception
      **/
-    Synchronized (Cond &cond_) throw(Exception): mutexp(0),condp(&cond_)
+    Synchronized (Cond &cond_): mutexp(0),condp(&cond_)
     {
         condp->lock();
     }
-    Synchronized (Mutex &mutex_) throw(Exception): mutexp(&mutex_),condp(0) 
+
+    /**
+     * @throws Exception
+     **/
+    Synchronized (Mutex &mutex_): mutexp(&mutex_),condp(0)
     {
         mutexp->lock();
     }
@@ -593,15 +629,19 @@ public:
 
     /**
      * Construct the guard object and lock() the lock.
+     *
+     * @throws Exception
      **/
-    Autolock (Cond &cond) throw(Exception): _mutexp(0),_condp(&cond)
+    Autolock (Cond &cond): _mutexp(0),_condp(&cond)
     {
         cond.lock();
     }
     /**
      * Construct the guard object and lock() the lock.
+     *
+     * @throws Exception
      **/
-    Autolock (Mutex &mutex) throw(Exception): _mutexp(&mutex),_condp(0)
+    Autolock (Mutex &mutex): _mutexp(&mutex),_condp(0)
     {
         mutex.lock();
     }
@@ -634,8 +674,10 @@ public:
 
     /**
      * Construct the guard object and lock() the lock.
+     *
+     * @throws Exception
      **/
-    AutoRdLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
+    AutoRdLock (RWLock &rwlock): _rwlock(rwlock)
     {
         _rwlock.rdlock();
     }
@@ -665,8 +707,10 @@ public:
 
     /**
      * Construct the guard object and lock() the lock.
+     *
+     * @throws Exception
      **/
-    AutoWrLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
+    AutoWrLock (RWLock &rwlock): _rwlock(rwlock)
     {
         _rwlock.wrlock();
     }

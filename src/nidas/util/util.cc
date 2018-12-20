@@ -164,7 +164,6 @@ std::string nidas::util::replaceChars(const std::string& in,const std::string& p
 }
 
 std::string nidas::util::svnStatus(const std::string& path)
-    throw (nidas::util::IOException)
 {
 
     const string& cmd = "svn";

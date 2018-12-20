@@ -51,23 +51,27 @@ public:
      * @param hostname: either a local hostname, like "linus",
      *        or a fully qualified name, "linus.atd.ucar.edu",
      *		or an address in dot notation: "128.117.80.208".
+     *
+     * @throws UnknownHostException;
      */
-    static std::list<Inet4Address> getAllByName(const std::string& hostname)
-  	throw(UnknownHostException);
+    static std::list<Inet4Address> getAllByName(const std::string& hostname);
 
     /**
      * Return an address of a name, the first one found by getAllByName.
+     *
+     * @throws UnknownHostException;
      */
-    static Inet4Address getByName(const std::string& hostname)
-  	throw(UnknownHostException);
+    static Inet4Address getByName(const std::string& hostname);
 
     /**
      * Do reverse lookup of a name, given an address.
      * This is the address-to-name lookup method.
      * If a host name is not found for the address, returns
      * a string in dot notation: "x.x.x.x" using getHostAddress().
+     *
+     * @throw()
      */
-    static std::string getHostName(const Inet4Address& addr) throw();
+    static std::string getHostName(const Inet4Address& addr);
 
     /**
      * Default constructor. Creates address: 0.0.0.0, aka: INADDR_ANY.

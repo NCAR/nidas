@@ -52,15 +52,18 @@ public:
     /**
      * Return a BluetoothAddress given a string in the format 
      *  00:00:00:00:00:00, six pairs of hex digits, separated by colons.
+     *
+     * @throws UnknownHostException
      */
-    static BluetoothAddress getByName(const std::string& addrstr)
-  	throw(UnknownHostException);
+    static BluetoothAddress getByName(const std::string& addrstr);
 
     /**
      * Convert a BluetoothAddress to a string, in the format
      *  00:00:00:00:00:00, six pairs of hex digits, separated by colons.
+     *
+     * @throw()
      */
-    static std::string getHostName(const BluetoothAddress& addr) throw();
+    static std::string getHostName(const BluetoothAddress& addr);
 
     /**
      * Default constructor. Creates address: 0:0:0:0:0:0, aka: BDADDR_ANY.
