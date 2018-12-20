@@ -38,8 +38,7 @@ XMLCh* DOMable::namespaceURI = 0;
  * Create a DOMElement and append it to the parent.
  */
 xercesc::DOMElement*
-    DOMable::toDOMParent(xercesc::DOMElement* /* parent */,bool /* brief */) const
-            throw(xercesc::DOMException)
+DOMable::toDOMParent(xercesc::DOMElement* /* parent */,bool /* brief */) const
 {
 
 #if XERCES_VERSION_MAJOR < 3
@@ -63,8 +62,7 @@ xercesc::DOMElement*
  * Add my content into a DOMElement.
  */
 xercesc::DOMElement*
-    DOMable::toDOMElement(xercesc::DOMElement*,bool) const
-            throw(xercesc::DOMException)
+DOMable::toDOMElement(xercesc::DOMElement*, bool) const
 {
 #if XERCES_VERSION_MAJOR < 3
     XMLStringConverter msg("toDOMParent not supported in this DOMable");

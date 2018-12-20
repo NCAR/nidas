@@ -62,7 +62,7 @@ regex_t CalFile::_timeZonePreg;
 regex_t CalFile::_includePreg;
 
 /* static */
-void CalFile::compileREs() throw(n_u::ParseException)
+void CalFile::compileREs()
 {
     // cerr << "compileREs" << endl;
     int regstatus;
@@ -263,7 +263,7 @@ void CalFile::setDateTimeFormat(const std::string& val)
          << _dateTimeFormat << "'");
 }
 
-void CalFile::open() throw(n_u::IOException)
+void CalFile::open()
 {
     if (_fin.is_open()) _fin.close();
 
@@ -344,7 +344,6 @@ getCurrentFields(nidas::util::UTime* time)
  * If eof() is true after this search, then the include file contains no data.
  */
 n_u::UTime CalFile::search(const n_u::UTime& tsearch)
-    throw(n_u::IOException,n_u::ParseException)
 {
     n_u::Autolock autolock(_mutex);
 
@@ -385,7 +384,6 @@ n_u::UTime CalFile::search(const n_u::UTime& tsearch)
 }
 
 n_u::UTime CalFile::parseTime()
-    throw(n_u::ParseException)
 {
     n_u::UTime t((long long)0);
 
@@ -411,7 +409,7 @@ n_u::UTime CalFile::parseTime()
     return t;
 }
 
-n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
+n_u::UTime CalFile::readTime()
 { 
     readLine();
     if (eof())
@@ -432,7 +430,6 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
  */
 int CalFile::readCF(n_u::UTime& time, float* data, int ndata,
                     std::vector<std::string>* fields)
-    throw(n_u::IOException,n_u::ParseException)
 {
     n_u::Autolock autolock(_mutex);
     return readCFNoLock(time, data, ndata, fields);
@@ -533,7 +530,6 @@ int CalFile::readCFInclude(n_u::UTime& time, float* data, int ndata,
  */
 int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
                           std::vector<std::string>* fields_out)
-    throw(n_u::IOException,n_u::ParseException)
 {
     // Make sure the "current record" looks invalid in case this throws an
     // exception.
@@ -670,7 +666,7 @@ getFloatField(int column, const std::vector<std::string>* fields)
 }
 
 
-void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
+void CalFile::readLine()
 {
     if (!_fin.is_open()) open();
 
@@ -769,7 +765,6 @@ parseTimeComments()
  * than or equal to the time of the include statement.
  */
 void CalFile::openInclude(const string& name)
-    throw(n_u::IOException,n_u::ParseException)
 {
 
     // time stamp of  include "file" record
@@ -790,7 +785,6 @@ void CalFile::openInclude(const string& name)
 }
 
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     // const string& elname = xnode.getNodeName();

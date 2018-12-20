@@ -79,8 +79,8 @@ CharacterSensor::~CharacterSensor() {
     	tti != _ttadjusters.end(); ++tti) delete tti->second;
 }
 
-void CharacterSensor::setMessageParameters(unsigned int len, const std::string& sep, bool eom)
-    throw(n_u::InvalidParameterException,n_u::IOException)
+void CharacterSensor::setMessageParameters(unsigned int len,
+                                           const std::string& sep, bool eom)
 {
     if (sep.length() == 0 && len == 0)
         throw n_u::InvalidParameterException(getName(),"message","no message separator and message length equals 0");
@@ -91,7 +91,6 @@ void CharacterSensor::setMessageParameters(unsigned int len, const std::string& 
 }
 
 void CharacterSensor::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
     // Cannot sendInitString yet.
@@ -100,7 +99,7 @@ void CharacterSensor::open(int flags)
     // DSMSerialSensor.
 }
 
-void CharacterSensor::sendInitString() throw(n_u::IOException)
+void CharacterSensor::sendInitString()
 {
     if (getInitString().length() > 0) {
 	DLOG(("sending init string '") << getInitString()
@@ -110,7 +109,7 @@ void CharacterSensor::sendInitString() throw(n_u::IOException)
     }
 }
 
-IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
+IODevice* CharacterSensor::buildIODevice()
 {
     if (getDeviceName().find("inet:") == 0)
         return new TCPSocketIODevice();
@@ -126,7 +125,6 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* CharacterSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr;
     if (getDeviceName().find("usock:") == 0) {
@@ -155,7 +153,7 @@ bool CharacterSensor::doesAsciiSscanfs()
     return false;
 }
  
-void CharacterSensor::init() throw(n_u::InvalidParameterException)
+void CharacterSensor::init()
 {
     DSMSensor::init();
 
@@ -197,7 +195,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
     validateSscanfs();
 }
 
-void CharacterSensor::validateSscanfs() throw(n_u::InvalidParameterException)
+void CharacterSensor::validateSscanfs()
 {
     /* default implementation */
     std::list<AsciiSscanf*>::const_iterator si = _sscanfers.begin();
@@ -219,9 +217,7 @@ void CharacterSensor::validateSscanfs() throw(n_u::InvalidParameterException)
     }
 }
 
-void CharacterSensor::fromDOMElement(
-	const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+void CharacterSensor::fromDOMElement(const xercesc::DOMElement* node)
 {
 
     DSMSensor::fromDOMElement(node);
@@ -320,7 +316,7 @@ void CharacterSensor::fromDOMElement(
     }
 }
 
-void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
+void CharacterSensor::validate()
 {
     DSMSensor::validate();
 
@@ -445,7 +441,7 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
 
 bool
 CharacterSensor::
-process(const Sample* samp, list<const Sample*>& results) throw()
+process(const Sample* samp, list<const Sample*>& results)
 {
     // Try to scan the variables of a sample tag from the raw sensor
     // message.

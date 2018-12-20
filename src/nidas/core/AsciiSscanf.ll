@@ -181,7 +181,6 @@ int nidas::core::AsciiSscanfAdapter::LexerInput(char* buf, int max_size)
 }
 
 void AsciiSscanf::setFormat(const std::string& val)
-	  throw(nidas::util::ParseException)
 {
 
     _format = val;
