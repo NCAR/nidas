@@ -128,11 +128,7 @@ int main(int argc, char* argv[]) {
     PORT_TYPES portType = (PORT_TYPES)-1;
 
     XcvrConfig newXcvrConfig;
-    SerialXcvrCtrl xcvrCtrl;
-    if (!xcvrCtrl.findFTDIDevice("GPIO")) {
-        ILOG(("Couldn't find the GPIO FTDI Chip!!!"));
-        return 1;
-    }
+    SerialXcvrCtrl xcvrCtrl(newXcvrConfig);
 
     // check the options first to set up the port and port control
     DLOG(("Port Option Flag/Value: ") << Port.getFlag() << ": " << Port.asInt());
@@ -196,20 +192,20 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (Energy.specified()) {
-        std::string pwrStr(Energy.getValue());
-        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-        SENSOR_POWER_STATE power = xcvrCtrl.strToPowerState(pwrStr);
-        if (power != -1) {
-            newXcvrConfig.sensorPower = power;
-        }
-        else
-        {
-            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
-            usage(argv[0]);
-            return 5;
-        }
-    }
+//    if (Energy.specified()) {
+//        std::string pwrStr(Energy.getValue());
+//        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
+//        SENSOR_POWER_STATE power = xcvrCtrl.strToPowerState(pwrStr);
+//        if (power != -1) {
+//            newXcvrConfig.sensorPower = power;
+//        }
+//        else
+//        {
+//            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
+//            usage(argv[0]);
+//            return 5;
+//        }
+//    }
 
     xcvrCtrl.setXcvrConfig(newXcvrConfig);
     xcvrCtrl.applyXcvrConfig();

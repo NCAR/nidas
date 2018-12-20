@@ -52,12 +52,9 @@ using namespace nidas::util;
 
 namespace nidas { namespace core {
 
-
-
 struct PortConfig {
     PortConfig(const int baudRate, const int dataBits, const n_u::Termios::parity parity, const int stopBits, 
-               const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE sensorPower,
-               const int initRts485, const bool initApplied) 
+               const PORT_TYPES portType, const TERM term, const int initRts485, const bool initApplied)
         : termios(), xcvrConfig(), rts485(initRts485), applied(initApplied)
     {
         termios.setBaudRate(baudRate);
@@ -66,7 +63,6 @@ struct PortConfig {
         termios.setStopBits(stopBits);
         xcvrConfig.portType = portType;
         xcvrConfig.termination = term;
-        xcvrConfig.sensorPower = sensorPower;
     }
 
     PortConfig(const PortConfig& rInitPortConfig)
@@ -89,6 +85,9 @@ struct PortConfig {
         if (printApplied) {
             std::cout << "PortConfig " << (applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
         }
+
+        std::cout << "Serial port transceiver configuration:" << std::endl;
+        xcvrConfig.print();
     }
 
     Termios termios;
@@ -220,8 +219,8 @@ public:
     /**
      *  Set and retrieve the _power member attribute 
      */
-    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_workingPortConfig.xcvrConfig.sensorPower = thePowerState;}
-    SENSOR_POWER_STATE getPowerState() const {return _workingPortConfig.xcvrConfig.sensorPower;}
+//    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_workingPortConfig.xcvrConfig.sensorPower = thePowerState;}
+//    SENSOR_POWER_STATE getPowerState() const {return _workingPortConfig.xcvrConfig.sensorPower;}
 
     /**
      *  Commands the serial board to set the GPIO switches to configure for 

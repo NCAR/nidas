@@ -29,6 +29,8 @@
 #include <ftdi.h>
 #include <sstream>
 
+#include "nidas/util/AutoConfigHW.h"
+
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
 
@@ -40,7 +42,7 @@ enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=422, RS485_HALF=48
 /*
  * This enum specifies the ports in the DSM.
  */
-enum PORT_DEFS {PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
+enum PORT_DEFS {ILLEGAL_PORT=-1, PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
 /*
  * Serial termination settings for RS422/RS485
  */
@@ -57,22 +59,20 @@ typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
  *  the auto-config base classes as an easy means to change the transceiver mode of operation.
  */
 struct XcvrConfig {
-    XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM), sensorPower(SENSOR_POWER_ON) {}
-    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM, SENSOR_POWER_STATE initPower=SENSOR_POWER_ON) 
-        : port(initPortID), portType(initPortType), termination(initTerm), sensorPower(initPower) {}
+    XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM) {}
+    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM)
+        : port(initPortID), portType(initPortType), termination(initTerm) {}
     bool operator!=(const XcvrConfig& rRight) const {return !((*this) == rRight);}
     bool operator==(const XcvrConfig& rRight) const
         {return (this == &rRight) || (port == rRight.port
         		                      && portType == rRight.portType
-									  && termination == rRight.termination
-									  && sensorPower == rRight.sensorPower);}
+									  && termination == rRight.termination);}
     void print();
     std::ostream& operator <<(std::ostream outStrm);
 
     PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
-    SENSOR_POWER_STATE sensorPower;
 };
 
 std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
@@ -102,8 +102,8 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
 class SerialXcvrCtrl {
 public:
     SerialXcvrCtrl()
-        : _xcvrConfig(), _rawXcvrConfig(RS232_BITS|SENSOR_POWER_ON_BIT),
-          _busAddr(0), _deviceAddr(0), _pContext(ftdi_new()), _gpioOpen(false) {}
+        : _xcvrConfig(), _rawXcvrConfig(RS232_BITS),
+          _pSerialGPIO(0) {}
 
     // Constructor needs to know what port is being controlled
     // Constructor uses portID to decide which FTDI interface to 
@@ -112,23 +112,13 @@ public:
     // So default them to the values known today, but may be 
     // overridden later.
     SerialXcvrCtrl(const PORT_DEFS portId);
-    SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM, 
-                              const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON);
+    SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM);
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
-    // look for USB devices with the FTDI vendor/product ID and the manufacturer == UCAR and product == GPIO
-    bool findFTDIDevice(const std::string productStr);
-    // safe FT4232H open - must be bracket all gpio operations!!!
-    // returns true if already open or successfully open, false if attempted open fails.
-    bool gpioOpen();
-    // safe FT4232H close - must bracket all gpio operations!!!
-    // returns true if already closed or successfully closed, false if attempted close fails.
-    bool gpioClose(bool weOpenedIt);
-    bool gpioIsOpen() {return _gpioOpen;}
     static bool xcvrCtrlSupported() { return true; }
     // This sets the class state to be used by applyXcvrConfig();
-    void setXcvrConfig(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
+    void setXcvrConfig(const PORT_TYPES portType, const TERM term);
     void setXcvrConfig(const XcvrConfig& newXcvrConfig);
     // This is the primary client API that does all the heavy lifting  
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
@@ -136,7 +126,7 @@ public:
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
     // the port mode, including termination and sensor power
     unsigned char getRawXcvrConfig() {return _rawXcvrConfig;};
-    // Returns the raw bits indicating current state of the port mode, including sensor power
+    // Returns the raw bits indicating current state of the port mode
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // Reads the xcvr config from the FTDI chip and put it in _rawXcvrConfig
     void readXcvrConfig();
@@ -222,11 +212,12 @@ protected:
     // shift the port type into the correct location in the GPIO for insertion
     unsigned char adjustBitPosition(const unsigned char bits );
     // assembles the port config bits into a low nibble, ready for shifting.
-    unsigned char assembleBits(const PORT_TYPES portType, const TERM term, const SENSOR_POWER_STATE powerState);
+    unsigned char assembleBits(const PORT_TYPES portType, const TERM term);
     // deduces the FT4232H GPIO interface form the port in _xcvrConfig.
     // need to select the interface based on the specified port 
     // at present, assume 4 bits per port definition
     enum ftdi_interface port2iface();
+    enum ftdi_interface port2iface(PORT_DEFS port);
     // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
     unsigned char portType2Bits(const PORT_TYPES portType);
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
@@ -263,15 +254,8 @@ private:
     XcvrConfig _xcvrConfig;
     // This is the current port configuration contained in the lowest nibble always
     unsigned char _rawXcvrConfig;
-    // at present we're relying on bus address to locate the 
-    // desired device.
-    uint8_t _busAddr;
-    uint8_t _deviceAddr;
-    // This is the libftdi1 context of the USB device we're interested in using
-    // to control the port types via GPIO.
-    struct ftdi_context* _pContext;
-    // keeps track of whether the FT4232H GPIO is open
-    bool _gpioOpen;
+    // This is the FTDI object which controls the SP339 xcvr bitbanging on a specific interface.
+    n_u::SerialGPIO* _pSerialGPIO;
 
     // never use copy constructors, operator=
     SerialXcvrCtrl(const SerialXcvrCtrl& rRight);

@@ -790,8 +790,7 @@ bool SerialSensor::sweepCommParameters()
 
                 // now set it to the new parameters
                 setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                    wordSpec.stopBits, rts485, portType, NO_TERM,
-                                                    _defaultPortConfig.xcvrConfig.sensorPower);
+                                                    wordSpec.stopBits, rts485, portType, NO_TERM);
 
 				DLOG(("Asking for PortConfig:") << testPortConfig);
 
@@ -820,8 +819,7 @@ bool SerialSensor::sweepCommParameters()
                     else if (portType == RS485_HALF || portType == RS422) {
                         DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
                         setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM,
-                                                            _defaultPortConfig.xcvrConfig.sensorPower);
+                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM);
                         DLOG(("Asking for PortConfig:") << testPortConfig);
 
                         setPortConfig(testPortConfig);
@@ -867,8 +865,7 @@ bool SerialSensor::sweepCommParameters()
 }
 
 void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-														   int rts485, PORT_TYPES portType, TERM termination,
-														   SENSOR_POWER_STATE power)
+														   int rts485, PORT_TYPES portType, TERM termination)
 {
     target.termios.setBaudRate(baud);
     target.termios.setDataBits(dataBits);
@@ -877,7 +874,6 @@ void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBit
     target.rts485 = (rts485);
     target.xcvrConfig.portType = portType;
     target.xcvrConfig.termination = termination;
-    target.xcvrConfig.sensorPower = power;
 
     target.applied =false;
 }
@@ -890,8 +886,7 @@ bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
             && (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits())
             && (rTestConfig.rts485 == _defaultPortConfig.rts485)
             && (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType)
-            && (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination)
-            && (rTestConfig.xcvrConfig.sensorPower == _defaultPortConfig.xcvrConfig.sensorPower));
+            && (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination));
 }
 
 bool SerialSensor::testDefaultPortConfig()
@@ -907,8 +902,7 @@ bool SerialSensor::testDefaultPortConfig()
 						_defaultPortConfig.termios.getStopBits(),
 						_defaultPortConfig.rts485,
 						_defaultPortConfig.xcvrConfig.portType,
-						_defaultPortConfig.xcvrConfig.termination,
-						_defaultPortConfig.xcvrConfig.sensorPower);
+						_defaultPortConfig.xcvrConfig.termination);
 
     // send it back up the hierarchy
     setPortConfig(testPortConfig);

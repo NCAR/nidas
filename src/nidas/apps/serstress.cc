@@ -28,7 +28,7 @@
     serstress: null modem style testing program for serial ports. Loops through the three port 
                types (RS232, RS422/485 Full Duplex, RS422/485 Half Duplex) and all the baud rates.
                At the end of each loop, it calculates transmission statistics. It sets up similar 
-               to the 'sing' utility.
+               to the 'serstress' utility.
 
 */
 
@@ -76,7 +76,7 @@ static unsigned int debug = 0;
 static bool ascii = false;
 static int dataSize = 0;
 static unsigned int nPacketsOut = 999998;
-static string defaultTermioOpts = "9600n81lnr";
+static string defaultTermioOpts = "n81lnr";
 static string termioOpts = defaultTermioOpts;
 static string device;
 static string echoDevice;
@@ -90,6 +90,8 @@ static n_c::SerialPortIODevice port;
 static string shortName;
 static n_c::SerialPortIODevice echoPort;
 static string echoShortName;
+static n_c::PortConfig portConfig;
+static n_c::PortConfig echoPortConfig;
 
 /**
  * Format of test packet:
@@ -246,7 +248,7 @@ private:
 
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
-
+
 /* Written by Q. Frank Xia, qx@math.columbia.edu.
    Cosmetic changes and reorganization by David MacKenzie, djm@gnu.ai.mit.edu.
 
@@ -522,7 +524,7 @@ int Receiver::run() throw(n_u::IOException)
     FD_SET(myPort.getFd(),&readfds);
     int nfds = myPort.getFd() + 1;
     struct timeval timeout;
-    n_u::Termios tio = myPort.getTermios();
+//    n_u::Termios tio = myPort.getTermios();
 
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
     ILOG(("Current ") << (_sender ? "Sender" : "Echo") << "modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
@@ -795,6 +797,10 @@ int parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
+    if (argc < 3) {
+        usage(argv[0]);
+        exit(1);
+    }
     while ((opt_char = getopt(argc, argv, "b:d:hm:n:o:pr:s:t:v")) != -1) {
         switch (opt_char) {
         case 'b':
@@ -809,7 +815,7 @@ int parseRunstring(int argc, char** argv)
                 }
             }
 
-            cout << " baudStartIdx:" << baudStartIdx << endl;
+            cout << "baudStartIdx: " << baudStartIdx << endl;
             if (!baudStartIdx) {
                 cout << "Unknown starting baud rate!!" << endl;
                 usage(argv[0]);
@@ -865,9 +871,10 @@ int parseRunstring(int argc, char** argv)
     return 0;
 }
 
-void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException, n_u::ParseException)
+void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::ParseException)
 {
     n_c::SerialPortIODevice& myPort = isSender ? port : echoPort;
+    n_c::PortConfig myPortConfig = isSender ? portConfig : echoPortConfig;
     string& myShortName = isSender ? shortName : echoShortName;
     string& myDevice = isSender ? device : echoDevice;
 
@@ -877,28 +884,28 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
     myShortName = myDevice;
     if (myShortName.substr(0,8) == "/dev/tty")  myShortName = myShortName.substr(8);
 
-    n_u::Termios& tio = myPort.termios();
-    n_u::SerialOptions options;
-    options.parse(termioOpts);
-    tio = options.getTermios();
-    tio.setBaudRate(baud);
-    tio.setRaw(true);
-    tio.setRawLength(1);
-    tio.setRawTimeout(0);
     myPort.setBlocking(true);
 
     try { 
         myPort.open(O_RDWR | O_NOCTTY | O_NONBLOCK); 
     }
     catch (n_u::IOException e)    {
-        throw n_u::Exception(std::string("sing: port open error: " + myPort.getName() + e.what()));
+        throw n_u::Exception(std::string("serstress: port open error: " + myPort.getName() + e.what()));
     }
 
-    int setBaud = tio.getBaudRate() * 1.0;
+    myPort.setPortConfig(myPortConfig);
+    myPort.applyPortConfig();
+
+    if (isSender) {
+        cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
+        myPort.getPortConfig().print();
+    }
+
+    int setBaud = myPortConfig.termios.getBaudRate() * 1.0;
     int bytesPerPacket = MIN_PACKET_LENGTH + dataSize;
-    int dataBits = tio.getDataBits();
-    int stopBits = tio.getStopBits();
-    int parityBits = tio.getParity() == n_u::Termios::NONE ? 0 : 1;
+    int dataBits = myPortConfig.termios.getDataBits();
+    int stopBits = myPortConfig.termios.getStopBits();
+    int parityBits = myPortConfig.termios.getParity() == n_u::Termios::NONE ? 0 : 1;
     float bytesPerSec = setBaud / ((dataBits + stopBits + parityBits) * 1.0);
 
     float calcRate = rate;
@@ -934,7 +941,7 @@ void openPort(bool isSender, int baud, int& rcvrTimeout) throw(n_u::IOException,
 
     // only want to report this once
     if (isSender) { 
-        cout << "packet send rate = " << fixed; 
+        cout << std::endl << "Packet send rate = " << fixed;
         if (calcRate < 0.5) {
             cout << setprecision(4);
         }
@@ -984,7 +991,7 @@ void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
 static void sigAction(int sig, siginfo_t* siginfo, void*) {
 
     cout <<
-    	"sing received signal " << strsignal(sig) << '(' << sig << ')' <<
+    	"serstress received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
 	", si_code=" << (siginfo ? siginfo->si_code : -1) <<
@@ -1023,7 +1030,7 @@ void setupSignals()
 
 int main(int argc, char**argv)
 {
-    n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF};
+    n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422}; // leave this off for now, since HW doesn't support it, n_c::RS485_HALF};
 
     int status = 0;
     int calcRecvrTimeout = -1;
@@ -1059,39 +1066,47 @@ int main(int argc, char**argv)
     cout << endl << "Serial Option String: " << termioOpts << endl;
     setupSignals();
 
-    if (device.substr(0,11) == "/dev/ttyUSB"){
+    if (device.substr(0,11) == "/dev/ttyDSM"){
 
         istringstream(device.substr(11)) >> senderPortNum;
         port.setName(device);
     }
+    else {
+        CLOG(("Didn't find sender device: ") << device);
+        exit(3);
+    }
 
-    if (echoDevice.substr(0,11) == "/dev/ttyUSB"){
+    if (echoDevice.substr(0,11) == "/dev/ttyDSM"){
         istringstream(echoDevice.substr(11)) >> echoPortNum;
         echoPort.setName(echoDevice);
+    }
+    else {
+        CLOG(("Didn't find echo device: ") << echoDevice);
+        exit(3);
     }
 
     ILOG(("Setting up port type for Sender port: ") << senderPortNum);
     ILOG(("Setting up port type for Echo port: ") << echoPortNum);
-
-    cout << "Initial Port Configuration" << endl << "======================" << endl;
-    cout << "Sender: ";
-    port.printPortConfig();
-    cout << "Echo: ";
-    echoPort.printPortConfig();
 
     // save a virgin copy and prepend the baud rate later.
     string tempTermiosOpts = termioOpts;
 
     // if portType != LOOPBACK, then user supplied a portType, so use it and loop forever-ish...
     // otherwise just loop through the port types list
-    int looptest = 3;
+    int looptest = sizeof(portTypeList)/sizeof(portTypeList[0]);
     if (portType != n_c::LOOPBACK) {
         looptest = INT_MAX;
     }
 
+    DLOG(("portType == ") << n_c::SerialXcvrCtrl::portTypeToStr(portType) << ", looptest == " << looptest);
+
     for (int i=0; i<looptest; ++i) {
+        n_c::PORT_TYPES nextPortType = portType;
         // change port type only if it wasn't specified on the command line
-        n_c::PORT_TYPES thisPortType = (portType != n_c::LOOPBACK ? portType : portTypeList[i]);
+        if (looptest != INT_MAX) {
+            nextPortType = portTypeList[i];
+            DLOG(("Changing the port type because it wasn't specified on the command line: ") << nextPortType);
+        }
 
         for (int j=baudStartIdx; j < baudTableSize; ++j) { // skip 0 baud!!
 
@@ -1101,24 +1116,30 @@ int main(int argc, char**argv)
             termioOpts = baudStr.str();
             termioOpts.append(tempTermiosOpts);
 
-            port.setPortType(thisPortType);
-            echoPort.setPortType(thisPortType);
+            n_u::SerialOptions options;
+            options.parse(termioOpts);
 
-            cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
-            cout << "Sender: ";
-            port.printPortConfig();
-            cout << "Echo: ";
-            echoPort.printPortConfig();
-            cout << "Baud Rate: " << n_u::Termios::bauds[j].rate << endl;
-            cout << endl;
+            portConfig.termios.setBaudRate(options.getTermios().getBaudRate());
+            portConfig.termios.setDataBits(options.getTermios().getDataBits());
+            portConfig.termios.setStopBits(options.getTermios().getStopBits());
+            portConfig.termios.setParity(options.getTermios().getParity());
+            portConfig.termios.setRaw(true);
+            portConfig.termios.setRawLength(1);
+            portConfig.termios.setRawTimeout(0);
+            portConfig.xcvrConfig.port = static_cast<n_c::PORT_DEFS>(senderPortNum);
+            portConfig.xcvrConfig.portType = nextPortType;
+
+            // echo PortConfig is identical, but for the port ID
+            echoPortConfig = portConfig;
+            echoPortConfig.xcvrConfig.port = static_cast<n_c::PORT_DEFS>(echoPortNum);
 
             /*************************************************************************
             ** TODO: RS485 half duplex? Set the GPIO to short Bulgin pins 3&4, and 5&6
             *************************************************************************/
 
             try {
-                openPort(SENDING, n_u::Termios::bauds[j].rate, calcRecvrTimeout);
-                openPort(ECHOING, n_u::Termios::bauds[j].rate, calcRecvrTimeout);
+                openPort(SENDING, calcRecvrTimeout);
+                openPort(ECHOING, calcRecvrTimeout);
             }
             catch(const n_u::IOException &e) {
                 cout << "Error: " << e.what() << endl;
@@ -1212,14 +1233,7 @@ int main(int argc, char**argv)
             }
 
             cout << endl << "Finished test run for:" << endl;
-            cout << "Sender: ";
-            port.printPortConfig(false);
-            cout << " baud:" << port.getTermios().getBaudRate() << " data bits:" << port.getTermios().getDataBits() 
-                 << " parity:" << port.getTermios().getParityString() << " stop bits:" << port.getTermios().getStopBits() << endl;
-            cout << "Echo: ";
-            echoPort.printPortConfig(false);
-            cout << " baud:" << echoPort.getTermios().getBaudRate() << " data bits:" << echoPort.getTermios().getDataBits() 
-                 << " parity:" << echoPort.getTermios().getParityString() << " stop bits:" << echoPort.getTermios().getStopBits() << endl;
+            port.getPortConfig().print(true);
             cout << endl;
 
             sendRcvr.reportBulkStats();

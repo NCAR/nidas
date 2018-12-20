@@ -290,8 +290,7 @@ protected:
      */
     void doAutoConfig();
     void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-												 int rts485, PORT_TYPES portType, TERM termination,
-												 SENSOR_POWER_STATE power);
+												 int rts485, PORT_TYPES portType, TERM termination);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();

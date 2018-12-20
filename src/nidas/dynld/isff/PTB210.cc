@@ -107,7 +107,7 @@ const n_c::PORT_TYPES PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::
 const PortConfig PTB210::DEFAULT_PORT_CONFIG(PTB210::DEFAULT_BAUD_RATE, PTB210::DEFAULT_DATA_BITS,
                                              PTB210::DEFAULT_PARITY, PTB210::DEFAULT_STOP_BITS,
                                              PTB210::DEFAULT_PORT_TYPE, PTB210::DEFAULT_SENSOR_TERMINATION, 
-                                             PTB210::DEFAULT_SENSOR_POWER, PTB210::DEFAULT_RTS485, 
+                                             PTB210::DEFAULT_RTS485,
                                              PTB210::DEFAULT_CONFIG_APPLIED);
 
 const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
