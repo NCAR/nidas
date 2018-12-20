@@ -128,8 +128,10 @@ private:
 
     static void spline(float* x,float* y,int n,double yp1,double ypn,float* y2);
 
-    static double splint (float* xa,float* ya,float* y2a,int n, double x)
-    	throw(std::range_error);
+    /**
+     * @throws std::range_error
+     **/
+    static double splint (float* xa,float* ya,float* y2a,int n, double x);
 
     void initStatistics(float u);
 

@@ -165,8 +165,8 @@ void AdaptiveDespiker::spline(float* x,float* y,int n,double yp1,double ypn,
  * cubic-spline interpolated value y.
  */
 /* static */
-double AdaptiveDespiker::splint( float* xa, float* ya, float* y2a,
-  int n, double x) throw(std::range_error)
+double AdaptiveDespiker::splint(float* xa, float* ya, float* y2a,
+                                int n, double x)
 {
     int klo,khi,k;
     float h,b,a;
