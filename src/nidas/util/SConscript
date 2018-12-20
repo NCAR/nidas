@@ -17,6 +17,7 @@ arch = env['ARCH']  # empty string for native builds
 ##
 headers = [ Split("""
     auto_ptr.h
+    AutoConfigHW.h
     BitArray.h
     BluetoothAddress.h
     BluetoothRFCommSocket.h
@@ -27,6 +28,7 @@ headers = [ Split("""
     EOFException.h
     Exception.h
     FileSet.h
+    FtdiHW.h
     Inet4Address.h
     Inet4NetworkInterface.h
     Inet4PacketInfo.h
@@ -65,6 +67,7 @@ sources = [ Split("""
     EndianConverter.cc
     Exception.cc
     FileSet.cc
+    FtdiHW.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
@@ -100,7 +103,7 @@ env = conf.Finish()
 
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util' , objects,
-    LIBS= ['pthread'] + env['LIBS'])
+    LIBS= ['pthread'] + env['LIBS'] + ['usb-1.0', 'ftdi1'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS_UTIL' + arch: lib[0]})
