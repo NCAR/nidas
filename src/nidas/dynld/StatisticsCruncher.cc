@@ -158,8 +158,8 @@ void StatisticsCruncher::setStartTime(const nidas::util::UTime& val)
 }
 
 /* static */
-StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const string& type)
-	throw(n_u::InvalidParameterException)
+StatisticsCruncher::statisticsType
+StatisticsCruncher::getStatisticsType(const string& type)
 {
     statisticsType stype;
 
@@ -182,7 +182,6 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
 }
 
 void StatisticsCruncher::connect(SampleSource* source)
-	throw(n_u::InvalidParameterException)
 {
     assert(_outSample.getVariables().size() == 0);
     assert (!_resampler);
@@ -285,7 +284,6 @@ void StatisticsCruncher::disconnect(SampleSource* source) throw()
 }
 
 void StatisticsCruncher::attach(SampleSource* source)
-	throw(n_u::InvalidParameterException)
 {
     // In order to improve support for the ISFS Wisard motes, where
     // the same variable can appear in more than one sample 
@@ -775,7 +773,6 @@ addVariable(const std::string& name,
 
 
 void StatisticsCruncher::setupWindDir()
-    throw(n_u::InvalidParameterException)
 {
     /*
      * From u,U and v,V, create dir,Dir
@@ -1108,7 +1105,6 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 }
 
 void StatisticsCruncher::createCombinations()
-    throw(n_u::InvalidParameterException)
 {
     if (_triComb) {
 	for (unsigned int i=0; i < _ntri; i++) delete [] _triComb[i];

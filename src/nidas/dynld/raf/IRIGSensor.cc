@@ -59,20 +59,18 @@ IRIGSensor::IRIGSensor():
 IRIGSensor::~IRIGSensor() {
 }
 
-IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
+IODevice* IRIGSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* IRIGSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
 
-void IRIGSensor::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void IRIGSensor::open(int flags)
 {
 
     DSMSensor::open(flags);
@@ -94,7 +92,7 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
  * Get the current time from the IRIG card.
  * This is not meant to be used for frequent use.
  */
-dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
+dsm_time_t IRIGSensor::getIRIGTime()
 {
     struct pc104sg_status status;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
@@ -109,7 +107,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
     return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
 
-void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
+void IRIGSensor::setIRIGTime(dsm_time_t val)
 {
     struct timeval32 tval;
     tval.tv_sec = val / USECS_PER_SEC;
@@ -117,7 +115,7 @@ void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
     ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
 }
 
-void IRIGSensor::checkClock() throw(n_u::IOException)
+void IRIGSensor::checkClock()
 {
     dsm_time_t unixTime,unixTimeLast=0;
     dsm_time_t irigTime,irigTimeLast=0;
@@ -204,7 +202,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
             "IRIG: %s",it.format(true,timeFormat).c_str());
 }
 
-void IRIGSensor::close() throw(n_u::IOException)
+void IRIGSensor::close()
 {
     DSMSensor::close();
 }
@@ -380,7 +378,6 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 }
 
 void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
     int ntags = getSampleTags().size();

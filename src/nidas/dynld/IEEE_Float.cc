@@ -46,13 +46,13 @@ IEEE_Float::IEEE_Float(): SerialSensor(),
 {
 }
 
-void IEEE_Float::init() throw(n_u::InvalidParameterException)
+void IEEE_Float::init()
 {
     _converter = n_u::EndianConverter::getConverter(_endian,
             n_u::EndianConverter::getHostEndianness());
 }
 
-void IEEE_Float::validate() throw(n_u::InvalidParameterException)
+void IEEE_Float::validate()
 {
     SerialSensor::validate();
 

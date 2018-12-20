@@ -103,7 +103,6 @@ void StatisticsProcessor::flush() throw()
 }
 
 void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
-	throw(n_u::InvalidParameterException)
 {
 
     // At this point this SampleTag doesn't contain any

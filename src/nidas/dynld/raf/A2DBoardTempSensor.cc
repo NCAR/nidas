@@ -55,30 +55,28 @@ A2DBoardTempSensor::~A2DBoardTempSensor()
 {
 }
 
-IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
+IODevice* A2DBoardTempSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
 }
 
 void A2DBoardTempSensor::open(int /* flags */)
-	throw(n_u::IOException, n_u::InvalidParameterException)
 {
     throw n_u::IOException(getName(),"open","obsolete");
 }
 
-void A2DBoardTempSensor::close() throw(n_u::IOException)
+void A2DBoardTempSensor::close()
 {
     throw n_u::IOException(getName(),"close","obsolete");
 }
 
-void A2DBoardTempSensor::init() throw(n_u::InvalidParameterException)
+void A2DBoardTempSensor::init()
 {
     DSMSensor::init();
     for (SampleTagIterator ti = getSampleTagIterator(); ti.hasNext(); ) {

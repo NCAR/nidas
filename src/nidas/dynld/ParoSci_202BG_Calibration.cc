@@ -49,7 +49,6 @@ ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
 }
 
 void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
-    throw(n_u::Exception)
 {
     // Read CalFile of calibration parameters.
     while(tt >= cf->nextTime().toUsecs()) {

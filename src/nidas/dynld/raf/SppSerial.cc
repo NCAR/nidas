@@ -86,7 +86,7 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     return sum;
 }
 
-void SppSerial::validate() throw(n_u::InvalidParameterException)
+void SppSerial::validate()
 {
     // _sampleRate = (int)rint(getPromptRate());
 
@@ -181,7 +181,6 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 }
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
-throw(n_u::IOException)
 {   
     std::string eType("SppSerial init-ack");
 

@@ -56,19 +56,17 @@ DSC_FreqCounter::~DSC_FreqCounter()
 {
 }
 
-IODevice* DSC_FreqCounter::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_FreqCounter::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_FreqCounter::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
-void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void DSC_FreqCounter::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -79,7 +77,7 @@ void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
     ioctl(GPIO_MM_FCNTR_START,&cfg,sizeof(cfg));
 }
 
-void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
+void DSC_FreqCounter::validate()
 {
     DSMSensor::validate();
 
@@ -110,7 +108,7 @@ void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
     readParams(stag->getParameters());
 }
 
-void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
+void DSC_FreqCounter::init()
 {
     DSMSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
@@ -118,7 +116,6 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
 }
 
 void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
-    throw(n_u::InvalidParameterException)
 {
     list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
@@ -139,7 +136,7 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
     }
 }
 
-void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
+void DSC_FreqCounter::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {

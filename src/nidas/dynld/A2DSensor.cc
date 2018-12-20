@@ -62,18 +62,17 @@ A2DSensor::~A2DSensor()
 }
 
 void A2DSensor::open(int flags)
-    	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
     initParameters();
 }
 
-void A2DSensor::close() throw(n_u::IOException)
+void A2DSensor::close()
 {
     DSMSensor::close();
 }
 
-void A2DSensor::init() throw(n_u::InvalidParameterException)
+void A2DSensor::init()
 {
     DSMSensor::init();
     initParameters();
@@ -92,7 +91,6 @@ int A2DSensor::getBipolar(int ichan) const
 }
 
 void A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
-    throw(n_u::InvalidParameterException)
 {
     initParameters();
     if (ichan < 0 || ichan >= _maxNChannels) {
@@ -118,7 +116,7 @@ void A2DSensor::getA2DParameters(int ichan, int& gain, int& bipolar) const
 }
 
 void A2DSensor::setConversionCorrection(int ichan, float corIntercept,
-    float corSlope) throw(n_u::InvalidParameterException)
+                                        float corSlope)
 {
     initParameters();
     if (ichan < 0 || ichan >= _maxNChannels) {
@@ -256,7 +254,6 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
 }
 
 void A2DSensor::validate()
-        throw(n_u::InvalidParameterException)
 {
     /*
      Hypothetical, somewhat complex sensor configuration:

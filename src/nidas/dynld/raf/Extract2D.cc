@@ -170,8 +170,7 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
 }
 
 
-void Extract2D::sendHeader(dsm_time_t,SampleOutput* out)
-    throw(n_u::IOException)
+void Extract2D::sendHeader(dsm_time_t, SampleOutput* out)
 {
     header.write(out);
 }

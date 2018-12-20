@@ -81,7 +81,6 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
 }
 
 void CDP_Serial::validate()
-    throw(n_u::InvalidParameterException)
 {
     // If fixed record delimiter.
     if (getMessageSeparator().length() > 0) {	// PACDEX
@@ -112,7 +111,7 @@ void CDP_Serial::validate()
     SppSerial::validate();
 }
 
-void CDP_Serial::sendInitString() throw(n_u::IOException)
+void CDP_Serial::sendInitString()
 {
     // zero initialize
     InitCDP_blk setup_pkt = InitCDP_blk();
@@ -148,8 +147,7 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     }
 }
 
-bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
-	throw()
+bool CDP_Serial::process(const Sample* samp, list<const Sample*>& results)
 {
     if (! appendDataAndFindGood(samp))
         return false;

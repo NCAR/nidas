@@ -136,12 +136,12 @@ void SampleInputStream::setIOChannel(IOChannel* val)
     }
 }
 
-void SampleInputStream::setNonBlocking(bool val) throw(n_u::IOException)
+void SampleInputStream::setNonBlocking(bool val)
 {
     if (_iochan) _iochan->setNonBlocking(val);
 }
 
-bool SampleInputStream::isNonBlocking() const throw(n_u::IOException)
+bool SampleInputStream::isNonBlocking() const
 {
     if (_iochan) return _iochan->isNonBlocking();
     return false;
@@ -172,7 +172,6 @@ void SampleInputStream::flush() throw()
 }
 
 void SampleInputStream::requestConnection(DSMService* requester)
-            throw(n_u::IOException)
 {
     _service = requester;
     _iochan->requestConnection(this);
@@ -214,7 +213,7 @@ void SampleInputStream::init() throw()
 }
 #endif
 
-void SampleInputStream::close() throw(n_u::IOException)
+void SampleInputStream::close()
 {
     delete _iostream;
     _iostream = 0;
@@ -226,7 +225,7 @@ const DSMConfig* SampleInputStream::getDSMConfig() const
     return _dsm;
 }
 
-void SampleInputStream::readInputHeader() throw(n_u::IOException)
+void SampleInputStream::readInputHeader()
 {
     if (_samp) _samp->freeReference();
     _samp = 0;
@@ -237,7 +236,7 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
     _inputHeaderParsed = true;
 }
 
-bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
+bool SampleInputStream::parseInputHeader()
 {
     if (!_expectHeader) {
         _inputHeaderParsed = true;
@@ -285,7 +284,7 @@ namespace {
  * DSMSenors.  This will perform only one physical
  * read of the underlying device.
  */
-bool SampleInputStream::readSamples() throw(n_u::IOException)
+bool SampleInputStream::readSamples()
 {
     _iostream->read();		// read a buffer's worth
 
@@ -310,7 +309,7 @@ bool SampleInputStream::readSamples() throw(n_u::IOException)
 
 bool
 SampleInputStream::
-readSampleHeader(bool keepreading) throw(n_u::IOException)
+readSampleHeader(bool keepreading)
 {
     while (_headerToRead > 0) {
         size_t len;
@@ -334,7 +333,7 @@ readSampleHeader(bool keepreading) throw(n_u::IOException)
 
 bool
 SampleInputStream::
-readSampleData(bool keepreading) throw(n_u::IOException)
+readSampleData(bool keepreading)
 {
     while (_dataToRead > 0) {
         size_t len;
@@ -381,7 +380,7 @@ Sample* SampleInputStream::nextSample() throw()
  * complete sample available.  Otherwise keep reading until a full sample
  * is read.
  */
-Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
+Sample* SampleInputStream::nextSample(bool keepreading)
 {
     for (;;) {
         if (_headerToRead > 0) {
@@ -465,7 +464,7 @@ sampleFromHeader() throw()
  * Read the next full sample. The caller must call freeReference on the
  * sample when they're done with it.
  */
-Sample* SampleInputStream::readSample() throw(n_u::IOException)
+Sample* SampleInputStream::readSample()
 {
     return nextSample(true);
 }
@@ -473,7 +472,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 /*
  * Search for a sample with timetag >= tt.
  */
-void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
+void SampleInputStream::search(const n_u::UTime& tt)
 {
     size_t len;
     if (_samp) _samp->freeReference();
@@ -556,7 +555,6 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
  * process <input> element
  */
 void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
-        throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
 

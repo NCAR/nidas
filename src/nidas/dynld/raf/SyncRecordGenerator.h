@@ -67,9 +67,10 @@ public:
 
     /**
      * Method called to write a header to an SampleOutput.
-     */
-    void sendHeader(dsm_time_t thead,SampleOutput* output)
-        throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void sendHeader(dsm_time_t thead,SampleOutput* output);
 
     void init(dsm_time_t sampleTime) throw();
 

@@ -41,7 +41,6 @@ Arinc_IRS::Arinc_IRS() :
 }
 
 void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
-  throw(n_u::InvalidParameterException)
 {
   DSMArincSensor::fromDOMElement(node);
   XDOMElement xnode(node);

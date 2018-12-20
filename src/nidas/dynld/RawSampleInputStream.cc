@@ -68,7 +68,6 @@ RawSampleInputStream::~RawSampleInputStream()
 }
 
 void RawSampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
-        throw(n_u::InvalidParameterException)
 {
     SampleInputStream::fromDOMElement(node);
     if (_iochan->getRequestType() < 0)

@@ -69,13 +69,17 @@ public:
 
     /**
      * Open the DIO device.
-     */
-    void open() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void open();
 
     /**
      * Close the DIO device.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Return number of DOUT pins on this device (8).
@@ -100,37 +104,44 @@ public:
     /**
      * Clear, to low state, viper digital output ports OUT0-7,
      * as selected by bits 0-7 of which.
-     */
-    void clearOutputs(const nidas::util::BitArray& which) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void clearOutputs(const nidas::util::BitArray& which);
 
     /**
      * Set, to high state, viper digital output ports OUT0-7,
      * as selected by bits 0-7 of which
-     */
-    void setOutputs(const nidas::util::BitArray& which) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setOutputs(const nidas::util::BitArray& which);
 
     /**
      * Set ports OUT0-7, selected by bits 0-7 of which,
      * to 0(low) or high(1) based on bits 0-7 of val
-     */
+     *
+     * @throws nidas::util::IOException,
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setOutputs(const nidas::util::BitArray& which,
-        const nidas::util::BitArray& val) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+                    const nidas::util::BitArray& val);
 
     /**
      * Get current settings of OUT0-7
-     */ 
-    nidas::util::BitArray getOutputs() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::util::BitArray getOutputs();
 
     /**
      * get current settings of IN0-7
-     */
-    nidas::util::BitArray getInputs() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::util::BitArray getInputs();
 
 private:
 

@@ -43,8 +43,11 @@ public:
 
     bool isRaw() const { return true; }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
+
 protected:
 
     RawSampleOutputStream* clone(IOChannel* iochannel);

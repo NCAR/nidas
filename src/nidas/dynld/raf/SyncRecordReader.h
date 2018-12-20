@@ -116,9 +116,10 @@ public:
 
     /**
      * Get the list of variables in a sync record.
-     */
-    const std::list<const SyncRecordVariable*> getVariables()
-    	throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    const std::list<const SyncRecordVariable*> getVariables();
 
     /**
      * Get a pointer to a SyncRecordVariable, searching by name.
@@ -140,8 +141,10 @@ public:
      * @param len Number of values to read. Use getNumValues() to find
      *            out the number of values in a sync record.
      * @returns @p len on success or 0 on eof or failure.
-     */
-    size_t read(dsm_time_t* tt, double *ptr,size_t len) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(dsm_time_t* tt, double *ptr, size_t len);
 
     const std::string &
     textHeader()
@@ -162,13 +165,17 @@ public:
     void
     endOfStream();
 
+    /**
+     * @throws SyncRecHeaderException
+     **/
     int
-    getSyncRecOffset(const nidas::core::Variable* var) 
-        throw (SyncRecHeaderException);
+    getSyncRecOffset(const nidas::core::Variable* var);
 
+    /**
+     * @throws SyncRecHeaderException
+     **/
     int
-    getLagOffset(const nidas::core::Variable* var)
-        throw (SyncRecHeaderException);
+    getLagOffset(const nidas::core::Variable* var);
 
     /**
      * After creating a SyncRecordReader on a socket, this method returns
@@ -198,9 +205,11 @@ private:
     bool _read_sync_server;
 
     std::string getQuotedString(std::istringstream& str);
-    
-    void readKeyedQuotedValues(std::istringstream& header)
-    	throw(SyncRecHeaderException);
+
+    /**
+     * @throws SyncRecHeaderException
+     **/
+    void readKeyedQuotedValues(std::istringstream& header);
 
     SyncRecHeaderException* headException;
 

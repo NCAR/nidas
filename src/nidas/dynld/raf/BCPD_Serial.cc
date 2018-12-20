@@ -76,7 +76,7 @@ BCPD_Serial::BCPD_Serial(): SppSerial("BCPD")
 }
 
 
-void BCPD_Serial::validate() throw(n_u::InvalidParameterException)
+void BCPD_Serial::validate()
 {
     SppSerial::validate();
 
@@ -84,7 +84,7 @@ void BCPD_Serial::validate() throw(n_u::InvalidParameterException)
 
 }
 
-void BCPD_Serial::sendInitString() throw(n_u::IOException)
+void BCPD_Serial::sendInitString()
 {
     // zero initialize
     InitBCPD_blk setup_pkt = InitBCPD_blk();

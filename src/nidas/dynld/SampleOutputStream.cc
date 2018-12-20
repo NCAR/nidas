@@ -87,7 +87,7 @@ SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc)
     return new SampleOutputStream(*this,ioc);
 }
 
-void SampleOutputStream::close() throw(n_u::IOException)
+void SampleOutputStream::close()
 {
     VLOG(("SampleOutputStream::close"));
     delete _iostream;
@@ -96,7 +96,6 @@ void SampleOutputStream::close() throw(n_u::IOException)
 }
 
 void SampleOutputStream::setLatency(float val)
-    	throw(nidas::util::InvalidParameterException)
 {
     int usecs = (int)(val * USECS_PER_SEC);
     if (usecs < USECS_PER_SEC / 50 || usecs > USECS_PER_SEC * 60)
@@ -176,13 +175,12 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 }
 
 size_t SampleOutputStream::write(const void* buf, size_t len, bool flush)
-	throw(n_u::IOException)
 {
     if (!_iostream) return 0;
     return _iostream->write(buf,len,flush);
 }
 
-size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u::IOException)
+size_t SampleOutputStream::write(const Sample* samp, bool streamFlush)
 {
     if (!_iostream) return 0;
     static int nsamps = 0;

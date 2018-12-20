@@ -166,7 +166,6 @@ void SyncRecordGenerator::addSampleClient(SampleClient* client) throw()
 
 
 void SyncRecordGenerator::sendHeader(dsm_time_t, SampleOutput* output)
-	throw(n_u::IOException)
 {
     HeaderSource::sendDefaultHeader(output);
     DLOG(("Stream header written, sending sync header sample."));

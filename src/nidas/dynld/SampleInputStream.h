@@ -109,17 +109,25 @@ public:
 
     /**
      * Read archive information at beginning of input stream or file.
-     */
-    void readInputHeader() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void readInputHeader();
 
-    bool parseInputHeader() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool parseInputHeader();
 
     const nidas::core::SampleInputHeader& getInputHeader() const
     {
         return _inputHeader;
     }
 
-    void requestConnection(nidas::core::DSMService*) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(nidas::core::DSMService*);
 
     virtual nidas::core::SampleInput* getOriginal() const
     {
@@ -134,9 +142,15 @@ public:
      */
     nidas::core::SampleInput* connected(nidas::core::IOChannel* iochan) throw();
 
-    void setNonBlocking(bool val) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val);
 
-    bool isNonBlocking() const throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const;
 
     /**
      * What DSM am I connnected to? May be NULL if it cannot be determined.
@@ -244,24 +258,30 @@ public:
      * @return false: no data available for physical read, likely the result of
      *  an EAGAIN from a non-blocking read on a file descriptor.
      *  true: physical read did not necessarily consume all available data.
-     */
-    bool readSamples() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    bool readSamples();
 
     /**
      * Search forward until a sample header is read whose time is 
      * greater than or equal to tt.  Leaves the InputStream
      * positioned so that the next call to readSample() or
      * readSamples() will read the rest of the sample.
-     */
-    void search(const nidas::util::UTime& tt) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void search(const nidas::util::UTime& tt);
 
     /**
      * Read the next sample from the InputStream. The caller must
      * call freeReference on the sample when they're done with it.
      * This method may perform zero or more reads of the IOChannel.
      * @return pointer to a sample, never NULL.
-     */
-    nidas::core::Sample* readSample() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::core::Sample* readSample();
 
 
     /**
@@ -275,9 +295,15 @@ public:
 
     size_t getBadSamples() const { return _badSamples; }
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    void newFile() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void newFile();
 
     void setFilterBadSamples(bool val)
     {
@@ -308,8 +334,10 @@ public:
         setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
     }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     void setExpectHeader(bool val) { _expectHeader = val; }
 
@@ -339,12 +367,20 @@ private:
     /**
      * Unpack the next sample from the InputStream buffer or by reading
      * more data if @p keepreading is true.
+     *
+     * @throws nidas::util::IOException
      **/
-    nidas::core::Sample* nextSample(bool keepreading) 
-        throw(nidas::util::IOException);
+    nidas::core::Sample* nextSample(bool keepreading);
 
-    bool readSampleHeader(bool keepreading) throw(nidas::util::IOException);
-    bool readSampleData(bool keepreading) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool readSampleHeader(bool keepreading);
+
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool readSampleData(bool keepreading);
 
     /**
      * Check the current header for validity and generate a sample for it.

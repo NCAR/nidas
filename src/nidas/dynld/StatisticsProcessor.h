@@ -52,9 +52,10 @@ public:
      * Request a sample from this StatisticsProcessor,
      * containing Parameters indicating what variables to
      * process and what kind of statistics to compute.
-     */
-    void addRequestedSampleTag(SampleTag* tag)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addRequestedSampleTag(SampleTag* tag);
 
     void selectRequestedSampleTags(const std::vector<unsigned int>& sampleIds);
 

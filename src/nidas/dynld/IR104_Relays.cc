@@ -52,19 +52,17 @@ IR104_Relays::~IR104_Relays()
 {
 }
 
-IODevice* IR104_Relays::buildIODevice() throw(n_u::IOException)
+IODevice* IR104_Relays::buildIODevice()
 {
     return new UnixIODevice();
 }   
         
 SampleScanner* IR104_Relays::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
     
-void IR104_Relays::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void IR104_Relays::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -75,8 +73,7 @@ void IR104_Relays::open(int flags) throw(n_u::IOException,
         throw n_u::IOException(getDeviceName(),"ioctl GET_NIN",errno);
 }
 
-bool IR104_Relays::process(const Sample* insamp,std::list<const Sample*>& results)
-            throw()
+bool IR104_Relays::process(const Sample* insamp, std::list<const Sample*>& results)
 {
     // data is a 3 byte array, first byte containing the 
     // settings of relays 0-7.
@@ -105,8 +102,6 @@ bool IR104_Relays::process(const Sample* insamp,std::list<const Sample*>& result
 }
 
 void IR104_Relays::setOutputs(const n_u::BitArray& which)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
 {
     if (which.getLength() != _noutputs) {
         ostringstream ost;
@@ -119,8 +114,6 @@ void IR104_Relays::setOutputs(const n_u::BitArray& which)
 }
 
 void IR104_Relays::clearOutputs(const n_u::BitArray& which)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
 {
 
     if (which.getLength() != _noutputs) {
@@ -133,9 +126,7 @@ void IR104_Relays::clearOutputs(const n_u::BitArray& which)
         throw n_u::IOException(getDeviceName(),"ioctl IR104_SET",errno);
 }
 
-void IR104_Relays::setOutputs(const n_u::BitArray& which,const n_u::BitArray& val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
+void IR104_Relays::setOutputs(const n_u::BitArray& which, const n_u::BitArray& val)
 {
     if (which.getLength() != _noutputs || val.getLength() != _noutputs) {
         ostringstream ost;
@@ -150,7 +141,6 @@ void IR104_Relays::setOutputs(const n_u::BitArray& which,const n_u::BitArray& va
 }
 
 n_u::BitArray IR104_Relays::getOutputs()
-            throw(nidas::util::IOException)
 {
     unsigned char bits[3];
     if (::ioctl(getReadFd(),IR104_GET_DOUT,&bits) < 0)
@@ -163,7 +153,6 @@ n_u::BitArray IR104_Relays::getOutputs()
 }
 
 n_u::BitArray IR104_Relays::getInputs()
-            throw(nidas::util::IOException)
 {
     unsigned char bits[3];
     if (::ioctl(getReadFd(),IR104_GET_DIN,&bits) < 0)

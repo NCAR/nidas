@@ -46,43 +46,57 @@ public:
     DSMMesaSensor();
     ~DSMMesaSensor();
 
+    /**
+     * @throws nidas::util::IOException
+     **/
     IODevice *
-        buildIODevice() throw(nidas::util::IOException);
+    buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * open the sensor and perform any intialization to the driver.
-     */
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
     void
-        open(int flags) throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+    open(int flags);
 
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
     void
-        fromDOMElement(const xercesc::DOMElement *)
-        throw(nidas::util::InvalidParameterException);
+    fromDOMElement(const xercesc::DOMElement *);
 
+    /**
+     * @throw()
+     **/
     bool
-        process(const Sample * samp, std::list<const Sample *>& results)
-        throw();
+    process(const Sample * samp, std::list<const Sample *>& results);
 
 private:
     /**
      * Download FPGA code from flash/disk to driver.
      *
      * @returns whether file was succesfully transmitted.
-     */
+     * @throws nidas::util::IOException
+     **/
     void
-        sendFPGACodeToDriver() throw(nidas::util::IOException);
+    sendFPGACodeToDriver();
 
     /**
      * Set up for processing the input file.
      *
      * @see sendFPGACodeToDriver()
-     */
+     *
+     * @throws nidas::util::IOException
+     **/
     void
-        selectfiletype(FILE * fp,const std::string& fname) throw(nidas::util::IOException);
+    selectfiletype(FILE * fp, const std::string& fname);
 
     struct radar_set radar_info;
     struct pms260x_set p260x_info;

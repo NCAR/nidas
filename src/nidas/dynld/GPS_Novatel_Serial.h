@@ -42,7 +42,10 @@ public:
 
     GPS_Novatel_Serial();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     /**
      * Virtual method that is called to convert a raw sample containing

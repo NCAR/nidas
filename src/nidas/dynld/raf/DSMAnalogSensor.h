@@ -45,39 +45,53 @@ public:
     DSMAnalogSensor();
     ~DSMAnalogSensor();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /**
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Called prior to any call to process().
-     */
-    void init() throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void init();
 
     void printStatus(std::ostream& ostr) throw();
 
     int getMaxNumChannels() const { return NUM_NCAR_A2D_CHANNELS; }
 
-    void setA2DParameters(int ichan,int gain,int bipolar)
-               throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setA2DParameters(int ichan, int gain, int bipolar);
 
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
-    void setConversionCorrection(int ichan, float corIntercept, float corSlope)
-	throw(nidas::util::InvalidParameterException);
-
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setConversionCorrection(int ichan, float corIntercept, float corSlope);
 
     void setOutputMode(OutputMode mode) { _outputMode = mode; }
 
@@ -91,12 +105,17 @@ public:
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     /**
      * Get the current temperature. Sends a ioctl to the driver module.
-     */
-    float getTemp() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    float getTemp();
 
     /**
      * Read calibration file for this A2D. Does not throw exceptions,
