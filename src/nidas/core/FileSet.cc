@@ -93,7 +93,6 @@ void FileSet::setDir(const std::string& val)
 }
 
 IOChannel* FileSet::connect()
-       throw(n_u::IOException)
 {
     // synchronous mount
     if (_mount) _mount->mount();
@@ -101,7 +100,6 @@ IOChannel* FileSet::connect()
 }
 
 void FileSet::requestConnection(IOChannelRequester* rqstr)
-       throw(n_u::IOException)
 {
     if (_mount && !_mount->isMounted()) {
 	_requester = rqstr;
@@ -117,7 +115,7 @@ void FileSet::mounted()
     if (_mount && _mount->isMounted()) _requester->connected(this);
 }
 
-void FileSet::close() throw(n_u::IOException)
+void FileSet::close()
 {
     _fset->closeFile();
     if (_mount) {
@@ -126,8 +124,7 @@ void FileSet::close() throw(n_u::IOException)
     }
 }
 
-dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
-	throw(n_u::IOException)
+dsm_time_t FileSet::createFile(dsm_time_t t, bool exact)
 {
     n_u::UTime ut(t);
     ut = _fset->createFile(ut,exact);
@@ -135,7 +132,6 @@ dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
 }
 
 void FileSet::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     // const string& elname = xnode.getNodeName();
@@ -184,7 +180,6 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 
 /* static */
 FileSet* FileSet::getFileSet(const list<string>& filenames)
-    throw(nidas::util::InvalidParameterException)
 {
     int bzFile = -1;
     list<string>::const_iterator fi = filenames.begin();

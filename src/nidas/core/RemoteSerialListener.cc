@@ -43,7 +43,7 @@ namespace n_u = nidas::util;
  * Open a ServerSocket for listening on a given port.
  */
 RemoteSerialListener::RemoteSerialListener(unsigned short port,
-        SensorHandler* handler) throw(n_u::IOException):
+                                           SensorHandler* handler):
 	_socket(port),_handler(handler)
 {
 #if POLLING_METHOD == POLL_EPOLL_ET
@@ -75,7 +75,7 @@ RemoteSerialListener::~RemoteSerialListener()
     }
 }
 
-void RemoteSerialListener::close() throw (n_u::IOException)
+void RemoteSerialListener::close()
 {
     if (_socket.getFd() >= 0) {
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT

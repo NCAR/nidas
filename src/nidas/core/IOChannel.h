@@ -114,27 +114,34 @@ public:
      * is called back is the channel actually open and ready for IO.
      * The IOChannel* returned by IOChannelRequester::connected
      * may be another instance of an IOChannel.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual void requestConnection(IOChannelRequester*)
-    	throw(nidas::util::IOException) = 0;
+    virtual void requestConnection(IOChannelRequester*) = 0;
 
     virtual int getReconnectDelaySecs() const
     {
         return 10;
     }
 
-    virtual void setNonBlocking(bool val)
-        throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void setNonBlocking(bool val) = 0;
 
-    virtual bool isNonBlocking() const
-        throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual bool isNonBlocking() const = 0;
 
     /**
      * Establish a connection. On return, the connection has been
      * established. It may return a new instance of an IOChannel.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::UnknownHostException
      */
-    virtual IOChannel* connect()
-        throw(nidas::util::IOException,nidas::util::UnknownHostException) = 0;
+    virtual IOChannel* connect() = 0;
 
     /**
      * What is the IP address of the host at the other end
@@ -162,36 +169,48 @@ public:
      * Physical read method which must be implemented in derived
      * classes. Returns the number of bytes written, which
      * may be less than the number requested.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t read(void* buf, size_t len) throw(nidas::util::IOException) = 0;
+    virtual size_t read(void* buf, size_t len) = 0;
 
     /**
      * Physical write method which must be implemented in derived
      * classes. Returns the number of bytes written, which
      * may be less than the number requested.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t write(const void* buf, size_t len)
-    	throw(nidas::util::IOException) = 0;
+    virtual size_t write(const void* buf, size_t len) = 0;
 
     /**
      * Physical write method which must be implemented in derived
      * classes. Returns the number of bytes written, which
      * may be less than the number requested.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t write(const struct iovec* iov, int iovcnt)
-    	throw(nidas::util::IOException) = 0;
+    virtual size_t write(const struct iovec* iov, int iovcnt) = 0;
 
     /**
      * Default flush implementation does nothing.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual void flush() throw(nidas::util::IOException) {}
+    virtual void flush()
+    {}
 
-    virtual void close() throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void close() = 0;
 
     virtual int getFd() const = 0;
 
-    static IOChannel* createIOChannel(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    static IOChannel* createIOChannel(const xercesc::DOMElement* node);
 
     /**
      * Request that an IOChannel open a new file, with a name
@@ -202,13 +221,13 @@ public:
      * @param t Time to use when creating file name.
      * @param exact Use exact time when creating file name, else
      *        the time is adjusted to an even time interval.
+     *
+     * @throws nidas::util::IOException
      */
 #ifdef DOXYGEN
     virtual dsm_time_t createFile(dsm_time_t t, bool exact)
-    	throw(nidas::util::IOException)
 #else
     virtual dsm_time_t createFile(dsm_time_t, bool)
-    	throw(nidas::util::IOException)
 #endif
     {
         return LONG_LONG_MAX;

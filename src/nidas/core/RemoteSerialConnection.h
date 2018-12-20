@@ -55,23 +55,34 @@ public:
 
     void setName(const std::string& val) { _name = val; }
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    void readSensorName() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void readSensorName();
 
     int getFd() const { return _socket->getFd(); }
 
     const std::string& getSensorName() const { return _devname; }
 
-    void setSensor(CharacterSensor* val) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setSensor(CharacterSensor* val);
 
     DSMSensor* getDSMSensor() const { return _sensor; }
 
     /** 
      * Notify this RemoteSerialConnection that a sensor
      * matching getSensorName() was not found.
-     */
-    void sensorNotFound() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void sensorNotFound();
 
     /**
      * Receive a sample from the DSMSensor, write data portion to socket.
@@ -102,8 +113,10 @@ public:
      * ESC-ESC send ESC to sensor
      * @param inputstr input string
      * @return output string, with recognized escape sequences removed.
-     */
-    std::string doEscCmds(const std::string& inputstr) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    std::string doEscCmds(const std::string& inputstr);
   
 private:
 

@@ -133,7 +133,6 @@ void DSMConfig::removeSensor(DSMSensor* sensor)
 
 
 void DSMConfig::initSensors()
-	throw(n_u::IOException)
 {
     list<DSMSensor*>::iterator si;
     for (si = _allSensors.begin(); si != _allSensors.end(); ++si) {
@@ -168,7 +167,6 @@ list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const
 }
 
 void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     
@@ -450,7 +448,6 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void DSMConfig::validate()
-	throw(n_u::InvalidParameterException)
 {
     for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
@@ -460,7 +457,6 @@ void DSMConfig::validate()
 }
 
 DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     assert(getProject());
     string classattr =
@@ -527,7 +523,6 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
 }
 
 void DSMConfig::validateSensorAndSampleIds()
-	throw(n_u::InvalidParameterException)
 {
 
     // check for sensor ids which have value less than 0, or are not unique.
@@ -660,8 +655,8 @@ void DSMConfig::validateSensorAndSampleIds()
     }
 }
 
-xercesc::DOMElement* DSMConfig::toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* DSMConfig::toDOMParent(xercesc::DOMElement* parent,
+                                            bool complete) const
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -671,8 +666,8 @@ xercesc::DOMElement* DSMConfig::toDOMParent(xercesc::DOMElement* parent,bool com
     return toDOMElement(elem,complete);
 }
 
-xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,
+                                             bool complete) const
 {
 
     if (complete) return 0; // not supported yet

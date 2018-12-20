@@ -68,7 +68,10 @@ public:
         delete _sockAddr;
     }
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
 private:
     nidas::util::SocketAddress* _sockAddr;
@@ -86,7 +89,10 @@ public:
     
     DSMServerStat(const std::string& name,DSMServer* svr);
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
 private:
 

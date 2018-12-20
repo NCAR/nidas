@@ -77,7 +77,7 @@ StatusListener::~StatusListener()
     xercesc::XMLPlatformUtils::Terminate();
 }
 
-int StatusListener::run() throw(n_u::Exception)
+int StatusListener::run()
 {
     // create a socket to listen for the XML status messages
     n_u::MulticastSocket msock(NIDAS_STATUS_PORT_UDP);

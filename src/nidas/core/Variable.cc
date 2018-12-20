@@ -273,7 +273,6 @@ const Parameter* Variable::getParameter(const std::string& name) const
 }
 
 void Variable::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     XDOMElement xnode(node);
@@ -397,8 +396,8 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-xercesc::DOMElement* Variable::toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* Variable::toDOMParent(xercesc::DOMElement* parent,
+                                           bool complete) const
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -408,8 +407,8 @@ xercesc::DOMElement* Variable::toDOMParent(xercesc::DOMElement* parent,bool comp
     return toDOMElement(elem,complete);
 }
 
-xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,
+                                            bool complete) const
 {
     if (complete) return 0; // not supported yet
 

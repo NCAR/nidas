@@ -161,20 +161,36 @@ private:
      * Initialize the DSMEngine based on the parameters in the
      * DOMDocument.  This method initializes the Project object,
      * _project from the DOM, and sets the value of _dsmConfig.
-     */
-    void initialize(xercesc::DOMDocument* projectDoc)
-            throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void initialize(xercesc::DOMDocument* projectDoc);
 
-    void startXmlRpcThread() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void startXmlRpcThread();
 
-    void killXmlRpcThread() throw();
+    /**
+     * @throw()
+     **/
+    void killXmlRpcThread();
 
-    void openSensors() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void openSensors();
 
-    void connectOutputs() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void connectOutputs();
 
-    void connectProcessors() throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void connectProcessors();
 
     void disconnectProcessors() throw();
 

@@ -52,7 +52,7 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
     unblockSignal(SIGUSR1);
 }
 
-int DSMEngineStat::run() throw(n_u::Exception)
+int DSMEngineStat::run()
 {
     DSMEngine* engine = DSMEngine::getInstance();
 
@@ -148,7 +148,7 @@ DSMServerStat::DSMServerStat(const std::string& name,DSMServer* server):
 {
 }
 
-int DSMServerStat::run() throw(n_u::Exception)
+int DSMServerStat::run()
 {
     n_u::auto_ptr<n_u::SocketAddress> saddr(_server->getStatusSocketAddr().clone());
     n_u::Inet4Address mcaddr;

@@ -41,7 +41,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
+size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout)
 {
     // If the user blocks SIGUSR1 prior to calling readBuffer,
     // then we can catch it here in the pselect.

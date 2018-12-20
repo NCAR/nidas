@@ -73,7 +73,6 @@ SampleIOProcessor::~SampleIOProcessor()
 }
 
 void SampleIOProcessor::addRequestedSampleTag(SampleTag* tag)
-	throw(nidas::util::InvalidParameterException)
 {
     n_u::Autolock autolock(_tagsMutex);
     if (find(_requestedTags.begin(),_requestedTags.end(),tag) ==
@@ -120,7 +119,6 @@ void SampleIOProcessor::removeSampleTag(const SampleTag* tag) throw()
 }
 
 void SampleIOProcessor::addParameter(Parameter* val)
-	throw(n_u::InvalidParameterException)
 {
     _parameters.push_back(val);
     _constParameters.push_back(val);
@@ -134,7 +132,6 @@ void SampleIOProcessor::setName(const std::string& val) { _name = val; }
  * process <processor> element
  */
 void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     string className = xnode.getAttributeValue("class");

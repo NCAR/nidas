@@ -79,7 +79,10 @@ public:
 	return _allSensors;
     }
 
-    void initSensors() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void initSensors();
 
     /**
      * Pass my sensors to the SensorHandler for opening.
@@ -218,23 +221,32 @@ public:
      * or, if the devicename matches a previous DSMSensor that has
      * been added to this DSMConfig, will point to the matching
      * DSMSensor.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    DSMSensor* sensorFromDOMElement(const xercesc::DOMElement* node)
-        throw(nidas::util::InvalidParameterException);
+    DSMSensor* sensorFromDOMElement(const xercesc::DOMElement* node);
 
-    void validate()
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent,bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node,bool complete) const;
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
@@ -305,9 +317,10 @@ private:
     /**
      * Validate the ids of the DSMSensors belonging to this DSMConfig,
      * and their SampleTags, for uniqueness.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    void validateSensorAndSampleIds()
-	throw(nidas::util::InvalidParameterException);
+    void validateSensorAndSampleIds();
 
     const Site* _site;
 

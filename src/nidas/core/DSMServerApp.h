@@ -72,25 +72,43 @@ public:
 
     /**
      * Invoke a XMLCachingParser to parse the XML and initialize the Project.
-     */
-    void parseXMLConfigFile(const std::string& xmlFileName,Project&)
-        throw(nidas::core::XMLException,
-            nidas::util::InvalidParameterException,nidas::util::IOException);
+     *
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::InvalidParameterException
+     * @throws nidas::util::IOException
+     **/
+    void parseXMLConfigFile(const std::string& xmlFileName, Project&);
 
-    void startXmlRpcThread() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void startXmlRpcThread();
 
-    void killXmlRpcThread() throw();
+    /**
+     * @throw()
+     **/
+    void killXmlRpcThread();
 
-    void startStatusThread(DSMServer* svr) throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void startStatusThread(DSMServer* svr);
 
-    void killStatusThread() throw();
+    /**
+     * @throw()
+     **/
+    void killStatusThread();
 
     /**
      * What is the XML configuration file name.
      */
     const std::string& getXMLFileName() { return _xmlFileName; }
 
-    Dataset getDataset() throw(nidas::util::InvalidParameterException, XMLException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     * @throws XMLException
+     **/
+    Dataset getDataset();
 
 private:
 

@@ -79,7 +79,7 @@ void IOStream::reallocateBuffer(size_t len)
  * Will return length of 0 if there is already data in the buffer,
  * or at end-of-file, or if the _iochannel is non-blocking.
  */
-size_t IOStream::read() throw(n_u::IOException)
+size_t IOStream::read()
 {
     _newInput = false;
     size_t l = available(); 	// head - tail;
@@ -106,7 +106,7 @@ size_t IOStream::read() throw(n_u::IOException)
  * an end-of-file or if the _iochannel is non-blocking
  * and no data is available.
  */
-size_t IOStream::read(void* buf, size_t len) throw(n_u::IOException)
+size_t IOStream::read(void* buf, size_t len)
 {
     size_t req = len;
     _newInput = false;
@@ -128,7 +128,7 @@ size_t IOStream::read(void* buf, size_t len) throw(n_u::IOException)
  * Skip over nbytes of IOStream buffer.
  * May return less than len.
  */
-size_t IOStream::skip(size_t len) throw(n_u::IOException)
+size_t IOStream::skip(size_t len)
 {
     if (available() == 0) read();
     _newInput = false;
@@ -145,7 +145,6 @@ size_t IOStream::skip(size_t len) throw(n_u::IOException)
  * Will not work well with non-blocking reads.
  */
 size_t IOStream::readUntil(void* buf, size_t len,char term)
-	throw(n_u::IOException)
 {
     register char* outp = (char*) buf;
     const char* eout = outp + len - 1;	// leave room for trailing '\0'
@@ -188,7 +187,7 @@ size_t IOStream::backup() throw()
 
 size_t
 IOStream::
-write(const void*buf, size_t len, bool flush) throw (n_u::IOException)
+write(const void*buf, size_t len, bool flush)
 {
     struct iovec iov;
     iov.iov_base = const_cast<void*>(buf);
@@ -201,7 +200,7 @@ write(const void*buf, size_t len, bool flush) throw (n_u::IOException)
  */
 size_t
 IOStream::
-write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
+write(const struct iovec*iov, int nbufs, bool flush)
 {
     size_t l;
     int ibuf;
@@ -291,7 +290,7 @@ write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
     return (nbufs > 0) ? 0 : tlen;
 }
 
-void IOStream::flush() throw (n_u::IOException)
+void IOStream::flush()
 {
     size_t l;
 

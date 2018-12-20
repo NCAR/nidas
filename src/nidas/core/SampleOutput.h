@@ -68,9 +68,10 @@ public:
      * this method to request the SampleTags that should be
      * output from a SampleOutput. SampleOutput will own the
      * pointer.
-     */
-    virtual void addRequestedSampleTag(SampleTag* tag)
-        throw(nidas::util::InvalidParameterException) = 0;
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void addRequestedSampleTag(SampleTag* tag) = 0;
 
     virtual std::list<const SampleTag*> getRequestedSampleTags() const = 0;
 
@@ -79,12 +80,15 @@ public:
      * they will be receiving from their SampleSources before they
      * make a connection. Users of SampleOutputs should call
      * this method before calling requestConnection().
-     */
-    virtual void addSourceSampleTag(const SampleTag* tag)
-        throw(nidas::util::InvalidParameterException) = 0;
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void addSourceSampleTag(const SampleTag* tag) = 0;
 
-    virtual void addSourceSampleTags(const std::list<const SampleTag*>& tags)
-        throw(nidas::util::InvalidParameterException) = 0;
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void addSourceSampleTags(const std::list<const SampleTag*>& tags) = 0;
 
     virtual std::list<const SampleTag*> getSourceSampleTags() const = 0;
 
@@ -96,9 +100,10 @@ public:
      * of the original request, and the second is often a
      * new instance of a SampleOutput with a new IOChannel connection.
      * Or the two pointers may point to the same SampleOutput.
-     */
-    virtual void requestConnection(SampleConnectionRequester*)
-        throw(nidas::util::IOException) = 0;
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual void requestConnection(SampleConnectionRequester*) = 0;
 
     /**
      * Derived classes implement this to indicate whether a
@@ -118,11 +123,15 @@ public:
     /**
      * Plain raw write, typically only used to write an initial
      * header.
-     */
-    virtual size_t write(const void* buf, size_t len)
-    	throw(nidas::util::IOException) = 0;
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual size_t write(const void* buf, size_t len) = 0;
 
-    virtual void close() throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void close() = 0;
 
     virtual void setHeaderSource(HeaderSource* val) = 0;
 
@@ -130,8 +139,10 @@ public:
 
     virtual const DSMConfig* getDSMConfig() const = 0;
 
-    virtual void setLatency(float val)
-    	throw(nidas::util::InvalidParameterException) = 0;
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void setLatency(float val) = 0;
 
     virtual float getLatency() const = 0;
 
@@ -180,16 +191,22 @@ public:
 
     bool isRaw() const { return false; }
 
-    void addRequestedSampleTag(SampleTag* tag)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addRequestedSampleTag(SampleTag* tag);
 
     std::list<const SampleTag*> getRequestedSampleTags() const;
 
-    void addSourceSampleTag(const SampleTag* tag)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addSourceSampleTag(const SampleTag* tag);
 
-    void addSourceSampleTags(const std::list<const SampleTag*>& tags)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addSourceSampleTags(const std::list<const SampleTag*>& tags);
 
     std::list<const SampleTag*> getSourceSampleTags() const;
 
@@ -198,9 +215,10 @@ public:
      * notified via SampleConnectionRequester interface when the connection
      * has been made.  It is not necessary to call this method
      * if a SampleOutput is constructed with a connected IOChannel.
-     */
-    void requestConnection(SampleConnectionRequester*)
-        throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(SampleConnectionRequester*);
 
     /**
      * Implementation of IOChannelRequester::connected().
@@ -222,21 +240,30 @@ public:
 
     int getFd() const;
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     dsm_time_t getNextFileTime() const { return _nextFileTime; }
 
-    void createNextFile(dsm_time_t) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void createNextFile(dsm_time_t);
 
     /**
      * Raw write method, typically used to write the initial
      * header.
-     */
-    size_t write(const void* buf, size_t len)
-    	throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void* buf, size_t len);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     IOChannel* getIOChannel() const { return _iochan; }
 
@@ -286,9 +313,10 @@ public:
      * data in the IOStream for a 1/10 sec, then send the data
      * to the physical device.
      * @param val Latency, in seconds.
-     */
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setLatency(float val)
-    	throw(nidas::util::InvalidParameterException)
     {
         _latency = val;
     }
@@ -320,8 +348,10 @@ protected:
      * is to delete this SampleOutput after the removing
      * it from the sample stream. So the caller method should
      * immediately return after calling disconnect().
-     */
-    void disconnect() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void disconnect();
 
 private:
 

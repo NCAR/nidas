@@ -123,7 +123,6 @@ void SampleOutputBase::setReconnectDelaySecs(int val)
 }
 
 void SampleOutputBase::addRequestedSampleTag(SampleTag* tag)
-    throw(n_u::InvalidParameterException)
 {
     n_u::Autolock autolock(_tagsMutex);
     if (find(_requestedTags.begin(),_requestedTags.end(),tag) ==
@@ -140,7 +139,6 @@ std::list<const SampleTag*> SampleOutputBase::getRequestedSampleTags() const
 }
 
 void SampleOutputBase::addSourceSampleTag(const SampleTag* tag)
-    throw(n_u::InvalidParameterException)
 {
     n_u::Autolock autolock(_tagsMutex);
     if (find(_sourceTags.begin(),_sourceTags.end(),tag) == _sourceTags.end())
@@ -148,7 +146,6 @@ void SampleOutputBase::addSourceSampleTag(const SampleTag* tag)
 }
 
 void SampleOutputBase::addSourceSampleTags(const list<const SampleTag*>& tags)
-    throw(n_u::InvalidParameterException)
 {
     list<const SampleTag*>::const_iterator ti = tags.begin();
     for ( ; ti != tags.end(); ++ti) {
@@ -166,7 +163,7 @@ list<const SampleTag*> SampleOutputBase::getSourceSampleTags() const
     return list<const SampleTag*>(_sourceTags);
 }
 
-void SampleOutputBase::close() throw(n_u::IOException)
+void SampleOutputBase::close()
 {
 #ifdef DEBUG
     DLOG(("closing: ") << getName());
@@ -191,7 +188,6 @@ void SampleOutputBase::setIOChannel(IOChannel* val)
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
-	throw(n_u::IOException)
 {
     _connectionRequester = requester;
     _iochan->requestConnection(this);
@@ -229,7 +225,6 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 
 /* implementation of SampleOutput::disconnect() */
 void SampleOutputBase::disconnect()
-	throw(n_u::IOException)
 {
     ILOG(("%s: disconnecting",getName().c_str()));
 
@@ -276,7 +271,6 @@ const Parameter* SampleOutputBase::getParameter(const string& name) const
 }
 
 void SampleOutputBase::createNextFile(dsm_time_t tt)
-	throw(n_u::IOException)
 {
     // The very first file we use an exact time in the name,
     // otherwise it is truncated down.
@@ -290,7 +284,6 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
 }
 
 size_t SampleOutputBase::write(const void* buf, size_t len)
-	throw(n_u::IOException)
 {
     // brute force it. This is typically only used for
     // writing the header.
@@ -305,7 +298,6 @@ size_t SampleOutputBase::write(const void* buf, size_t len)
 }
 
 void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
 

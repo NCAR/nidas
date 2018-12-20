@@ -51,8 +51,10 @@ namespace nidas { namespace core {
 
 class XMLImplementation {
 public:
-    static xercesc::DOMImplementation *getImplementation()
-    	throw(nidas::core::XMLException);
+    /**
+     * @throws nidas::core::XMLException
+     **/
+    static xercesc::DOMImplementation *getImplementation();
     static void terminate();
 
 private:
@@ -107,9 +109,10 @@ private :
 /**
  * Utility function which creates a temporary XMLParser, sets the options we
  * typically want and parses the XML into a DOMDocument.
+ *
+ * @throws nidas::core::XMLException
  */
-xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
-    throw(nidas::core::XMLException);
+xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName);
 
 /**
  * Wrapper class around xerces-c DOMBuilder to parse XML.
@@ -120,8 +123,10 @@ public:
     /**
      * Constructor. The default setting for
      * setXercesUserAdoptsDOMDocument(true) is true.
+     *
+     * @throws nidas::core::XMLException
      */
-    XMLParser() throw(nidas::core::XMLException);
+    XMLParser();
 
     /**
      * Nuke the parser. This does a release() (delete) of the
@@ -218,11 +223,15 @@ public:
 
     void setXercesDoXInclude(bool val);
 
-    xercesc::DOMDocument* parse(const std::string& xmlFile,bool verbose=true)
-    	throw(nidas::core::XMLException);
+    /**
+     * @throws nidas::core::XMLException
+     **/
+    xercesc::DOMDocument* parse(const std::string& xmlFile, bool verbose=true);
 
-    xercesc::DOMDocument* parse(xercesc::InputSource& source)
-    	throw(nidas::core::XMLException);
+    /**
+     * @throws nidas::core::XMLException
+     **/
+    xercesc::DOMDocument* parse(xercesc::InputSource& source);
 
 protected:
     
@@ -252,8 +261,10 @@ private:
 class XMLCachingParser : public XMLParser {
 public:
 
-    static XMLCachingParser* getInstance()
-    	throw(nidas::core::XMLException);
+    /**
+     * @throws nidas::core::XMLException
+     **/
+    static XMLCachingParser* getInstance();
 
     static void destroyInstance();
 
@@ -264,9 +275,11 @@ public:
      * parsed. The pointer to the DOMDocuemnt is owned by
      * XMLCachingParser and the user should not call
      * doc->release();
+     *
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::IOException
      */
-    xercesc::DOMDocument* parse(const std::string& xmlFile)
-    	throw(nidas::core::XMLException,nidas::util::IOException);
+    xercesc::DOMDocument* parse(const std::string& xmlFile);
 
     /**
      * Parse from an InputSource. This is not cached.
@@ -279,10 +292,16 @@ public:
     }
     */
 
-    static time_t getFileModTime(const std::string&  name) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    static time_t getFileModTime(const std::string& name);
 
 protected:
-    XMLCachingParser() throw(nidas::core::XMLException);
+    /**
+     * @throws nidas::core::XMLException
+     **/
+    XMLCachingParser();
     ~XMLCachingParser();
 
 protected:

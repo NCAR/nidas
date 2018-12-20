@@ -140,7 +140,7 @@ SampleSorter::~SampleSorter()
 /**
  * Thread function.
  */
-int SampleSorter::run() throw(n_u::Exception)
+int SampleSorter::run()
 {
 
 // #define TEST_CPU_TIME

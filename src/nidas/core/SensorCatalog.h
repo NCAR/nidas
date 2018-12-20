@@ -59,9 +59,10 @@ public:
     /**
      * Build this SensorCatalog from a catalog element.
      * The SensorCatalog does not own the DOM elements.
-     */
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     const std::map<std::string,xercesc::DOMElement*>& getMap() const 
         {return _sensors;}

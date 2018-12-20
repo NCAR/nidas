@@ -78,18 +78,29 @@ public:
      */
     void setFileName(const std::string& val);
 
-    void requestConnection(IOChannelRequester* requester)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(IOChannelRequester* requester);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IOChannel* connect();
 
-    void setNonBlocking(bool val) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val)
     {
         if (val) PLOG(("%s: setNonBlocking(true) not implemented",
                     getName().c_str()));
     }
 
-    bool isNonBlocking() const throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const
     {
         return false;
     }
@@ -112,33 +123,51 @@ public:
         return new FileSet(*this);
     }
 
-    dsm_time_t createFile(dsm_time_t t,bool exact)
-	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    dsm_time_t createFile(dsm_time_t t, bool exact);
 
-    size_t read(void* buf, size_t len) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void* buf, size_t len)
     {
         return _fset->read(buf,len);
     }
-        
-    size_t write(const void* buf, size_t len) throw(nidas::util::IOException)
+
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void* buf, size_t len)
     {
 #ifdef DEBUG
 	std::cerr << getName() << " write, len=" << len << std::endl;
 #endif
         return _fset->write(buf,len);
     }
-        
-    size_t write(const struct iovec* iov, int iovcnt) throw(nidas::util::IOException)
+
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec* iov, int iovcnt)
     {
         return _fset->write(iov,iovcnt);
     }
-        
-    void close() throw(nidas::util::IOException);
 
-    int getFd() const { return _fset->getFd(); }
-        
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
+
+    int getFd() const {
+        return _fset->getFd();
+    }
+
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     /**
      * Get name of current file.
@@ -186,7 +215,10 @@ public:
         _fset->addFileName(val);
     }
 
-    long long getFileSize() const throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    long long getFileSize() const
     {
         return _fset->getFileSize();
     }
@@ -206,9 +238,10 @@ public:
      * the FileSet returned will be a nidas::core::Bzip2FileSet. Note that
      * a Bzip2FileSet cannot be used to read a non-compressed file, so
      * one should not mix compressed and non-compressed files in the list.
-     */
-    static FileSet* getFileSet(const std::list<std::string>& filenames)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    static FileSet* getFileSet(const std::list<std::string>& filenames);
 
 protected:
 

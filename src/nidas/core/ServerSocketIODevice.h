@@ -73,23 +73,29 @@ public:
     }
 
     /**
-    * open the socket.
-    */
-    void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+     * Open the socket.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /**
-    * Read from the sensor.
-    */
-    size_t read(void *buf, size_t len) throw(nidas::util::IOException)
+     * Read from the sensor.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void *buf, size_t len)
     {
         return _socket->recv(buf,len);
     }
 
     /**
-    * Read from the sensor with a timeout in milliseconds.
-    */
-    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
+     * Read from the sensor with a timeout in milliseconds.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void *buf, size_t len, int msecTimeout)
     {
 	size_t l = 0;
 	try {
@@ -105,41 +111,56 @@ public:
     }
 
     /**
-    * Write to the sensor.
-    */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
+     * Write to the sensor.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void *buf, size_t len)
     {
         return _socket->send(buf,len);
     }
 
-    /*
-    * Perform an ioctl on the device. Not necessary for a socket,
-    * and will throw an IOException.
-    */
-    void ioctl(int, void*, size_t) throw(nidas::util::IOException)
+    /**
+     * Perform an ioctl on the device. Not necessary for a socket,
+     * and will throw an IOException.
+     *
+     * @throws nidas::util::IOException
+     **/
+    void ioctl(int, void*, size_t)
     {
         throw nidas::util::IOException(getName(),
 		"ioctl","not supported on SocketIODevice");
     }
 
     /**
-    * close the sensor (and any associated FIFOs).
-    */
-    void close() throw(nidas::util::IOException);
+     * close the sensor (and any associated FIFOs).
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    void setTcpNoDelay(bool val) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setTcpNoDelay(bool val)
     {
         _tcpNoDelay = val;
     }
 
-    bool getTcpNoDelay() throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool getTcpNoDelay()
     {
-	return _tcpNoDelay;
+        return _tcpNoDelay;
     }
 
 protected:
 
-    void closeServerSocket() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void closeServerSocket();
 
 private:
 

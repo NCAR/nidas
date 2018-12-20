@@ -49,8 +49,10 @@ public:
 
     /**
      * Connect the resampler to a source.
-     */
-    virtual void connect(SampleSource* source) throw(nidas::util::InvalidParameterException) = 0;
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void connect(SampleSource* source) = 0;
 
     virtual void disconnect(SampleSource* source) throw() = 0;
 

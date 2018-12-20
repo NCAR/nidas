@@ -196,9 +196,10 @@ public:
      * if they can't support the rate value.  Sometimes
      * a rate of 0.0 may mean don't sample the variables in the
      * SampleTag.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
     virtual void setRate(double val)
-    	throw(nidas::util::InvalidParameterException)
     {
         _rate = val;
     }
@@ -212,9 +213,10 @@ public:
     /**
      * Set sampling period (1/rate) in sec.
      * A value of 0.0 means an unknown period.
+     *
+     * @throw nidas::util::InvalidParameterException
      */
     virtual void setPeriod(double val)
-    	throw(nidas::util::InvalidParameterException)
     {
         _rate = (val > 0.0) ? 1.0 / val : 0.0;
     }
@@ -231,9 +233,10 @@ public:
 
     /**
      * Set if this sample is going to be post processed.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
     void setProcessed(bool val)
-    	throw(nidas::util::InvalidParameterException)
     {
         _processed = val;
     }
@@ -265,9 +268,10 @@ public:
      * Add a variable to this SampleTag.  SampleTag
      * will own the Variable, and will delete
      * it in its destructor.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void addVariable(Variable* var)
-    	throw(nidas::util::InvalidParameterException);
+    virtual void addVariable(Variable* var);
 
     const std::vector<const Variable*>& getVariables() const;
 
@@ -319,16 +323,22 @@ public:
 
     VariableIterator getVariableIterator() const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent,bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node,bool complete) const;
 
 protected:
 

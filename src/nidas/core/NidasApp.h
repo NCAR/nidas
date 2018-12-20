@@ -709,9 +709,11 @@ public:
      * Convenience method to convert the (argc, argv) run string to a list
      * of arguments to pass to startArgs().  Also, if the process name has
      * not been set with setProcessName(), then set it to argv[0].
+     *
+     * @throws NidasAppException
      **/
     void
-    startArgs(int argc, const char* const argv[]) throw (NidasAppException);
+    startArgs(int argc, const char* const argv[]);
 
     /**
      * Parse the next recognized argument from the list set in
@@ -730,9 +732,11 @@ public:
      * are not handled here, since they cannot be differentiated from
      * app-specific arguments yet.  Instead those arguments can be passed
      * explicitly to the parseInputs() method.
+     *
+     * @throws NidasAppException
      **/
     NidasAppArg*
-    parseNext() throw (NidasAppException);
+    parseNext();
 
     ArgVector
     unparsedArgs();
@@ -758,31 +762,38 @@ public:
      *
      * @param args Just the arguments, without the process name.
      * @returns Any remaining arguments not accepted by this NidasApp.
+     * @throws NidasAppException
      **/
     ArgVector
-    parseArgs(const ArgVector& args) throw (NidasAppException);
+    parseArgs(const ArgVector& args);
 
     /**
      * Convenience method to convert the (argc, argv) run string to a list
      * of arguments to pass to parseArgs().  Also, if the process name has
      * not been set with setProcessName(), then set it to argv[0].
+     *
+     * @throws NidasAppException
      **/
     ArgVector
-    parseArgs(int argc, const char* const argv[]) throw (NidasAppException);
+    parseArgs(int argc, const char* const argv[]);
 
     /**
      * Parse a LogConfig from the given argument using the LogConfig string
      * syntax, and add that LogConfig to the current LogScheme.
+     *
+     * @throws NidasAppException
      **/
     void
-    parseLogConfig(const std::string& optarg) throw (NidasAppException);
+    parseLogConfig(const std::string& optarg);
 
     /**
      * This is an alias for parseLogConfig(), since the LogConfig string
      * syntax is backwards compatible with parsing just log levels.
+     *
+     * @throws NidasAppException
      **/
     void
-    parseLogLevel(const std::string& optarg) throw (NidasAppException)
+    parseLogLevel(const std::string& optarg)
     {
         parseLogConfig(optarg);
     }
@@ -800,11 +811,13 @@ public:
      * instance.  If no inputs are provided, then the defaults are used.
      * If no default is specified, then inputsProvided() will return false.
      * An exception is not thrown just because no inputs were provided.
+     *
+     * @throws NidasAppException
      **/
     void
     parseInputs(const std::vector<std::string>& inputs,
                 std::string default_input = "",
-                int default_port = 0) throw (NidasAppException);
+                int default_port = 0);
 
     /**
      **/
@@ -817,9 +830,11 @@ public:
     /**
      * Parse an output specifier in the form
      * <strptime-filename-pattern>[@<length>[smh]].
+     *
+     * @throws NidasAppException
      **/
     void
-    parseOutput(const std::string& optarg) throw (NidasAppException);
+    parseOutput(const std::string& optarg);
 
     /**
      * Return just the output file pattern specified by an output option,
@@ -903,10 +918,12 @@ public:
      *
      * Parse the derived file and return from it the Dataset with the given
      * name.  Throws an exception if the Dataset cannt be loaded.
+     *
+     * @throws nidas::util::InvalidParameterException
+     * @throws XMLException
      **/
     nidas::core::Dataset
-    getDataset(const std::string& datasetname)
-        throw(nidas::util::InvalidParameterException, XMLException);
+    getDataset(const std::string& datasetname);
 
     nidas::util::UTime
     getStartTime()

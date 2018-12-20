@@ -35,7 +35,6 @@ namespace n_u = nidas::util;
 
 extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
   const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask)
- throw(n_u::Exception)
 {
     DLOG(("entering requestXMLConfig(all=") << all
          << ",mcastaddr=" << mcastAddr.toString() << ")");

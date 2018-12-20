@@ -63,11 +63,16 @@ public:
 
     Socket* clone() const;
 
-    void requestConnection(IOChannelRequester* service)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(IOChannelRequester* service);
 
-    IOChannel* connect()
-        throw(nidas::util::IOException,nidas::util::UnknownHostException);
+    /**
+     * @throws nidas::util::IOException
+     * @throws nidas::util::UnknownHostException
+     **/
+    IOChannel* connect();
 
     virtual bool isNewInput() const { return _newInput; }
 
@@ -87,24 +92,30 @@ public:
 
     /**
      * Do setKeepAliveIdleSecs(int secs) on underlying socket.
-     */
-    void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setKeepAliveIdleSecs(int val)
     {
-	_keepAliveIdleSecs = val;
-	if (_nusocket) _nusocket->setKeepAliveIdleSecs(val);
+        _keepAliveIdleSecs = val;
+        if (_nusocket) _nusocket->setKeepAliveIdleSecs(val);
     }
 
     /**
      * Return getKeepAliveIdleSecs() on underlying socket.
-     */
-    int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    int getKeepAliveIdleSecs() const
     {
-	if (_nusocket) return _nusocket->getKeepAliveIdleSecs();
-	return _keepAliveIdleSecs;
+        if (_nusocket) return _nusocket->getKeepAliveIdleSecs();
+        return _keepAliveIdleSecs;
     }
 
+    /**
+     * @throws nidas::util::IOException
+     **/
     std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
-        throw(nidas::util::IOException)
     {
         if (_nusocket) return _nusocket->getInterfaces();
         return std::list<nidas::util::Inet4NetworkInterface>();
@@ -112,28 +123,34 @@ public:
 
     /**
      * Do setNonBlocking(val) on underlying socket.
-     */
-    void setNonBlocking(bool val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val)
     {
-	_nonBlocking = val;
-	if (_nusocket) _nusocket->setNonBlocking(val);
+        _nonBlocking = val;
+        if (_nusocket) _nusocket->setNonBlocking(val);
     }
 
     /**
      * Return isNonBlocking() of underlying socket.
-     */
-    bool isNonBlocking() const throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const
     {
-	if (_nusocket) return _nusocket->isNonBlocking();
-	return _nonBlocking;
+        if (_nusocket) return _nusocket->isNonBlocking();
+        return _nonBlocking;
     }
 
     size_t getBufferSize() const throw();
 
     /**
      * Do the actual hardware read.
-     */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void* buf, size_t len)
     {
         if (_firstRead) _firstRead = false;
         else _newInput = false;
@@ -142,8 +159,10 @@ public:
 
     /**
      * Do the actual hardware write.
-     */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void* buf, size_t len)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
 #ifdef DEBUG
@@ -154,24 +173,29 @@ public:
 
     /**
      * Do the actual hardware write.
-     */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec* iov, int iovcnt)
     {
-	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+        // std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
 #ifdef DEBUG
-	size_t l = 0;
-	for (int i =0; i < iovcnt; i++) l += iov[i].iov_len;
-	std::cerr << "writing, len=" << l << std::endl;
+        size_t l = 0;
+        for (int i =0; i < iovcnt; i++) l += iov[i].iov_len;
+        std::cerr << "writing, len=" << l << std::endl;
 #endif
-	return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
+        return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
     }
 
-    void close() throw (nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     int getFd() const
     {
         if (_nusocket) return _nusocket->getFd();
-	return -1;
+        return -1;
     }
 
     const std::string& getName() const { return _name; }
@@ -220,18 +244,22 @@ public:
      * and so it can throw an UnknownHostException. This is different
      * behaviour from the the nidas::util::Socket::getRemoteSocketAddress()
      * method, which does not throw an exception.
-     */
-    const nidas::util::SocketAddress& getRemoteSocketAddress()
-        throw(nidas::util::UnknownHostException);
+     *
+     * @throws nidas::util::UnknownHostException
+     **/
+    const nidas::util::SocketAddress& getRemoteSocketAddress();
 
     /**
      * Create either a Socket or a McSocket from a DOMElement.
-     */
-    static IOChannel* createSocket(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    static IOChannel* createSocket(const xercesc::DOMElement*);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     class ConnectionThread: public nidas::util::Thread
     {
@@ -239,7 +267,7 @@ public:
         ConnectionThread(Socket* sock);
         ~ConnectionThread();
 
-        int run() throw(nidas::util::IOException);
+        int run();
 
         void interrupt();
 
@@ -312,11 +340,15 @@ public:
 
     ServerSocket* clone() const;
 
-    void requestConnection(IOChannelRequester* service)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(IOChannelRequester* service);
 
-    IOChannel* connect()
-        throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IOChannel* connect();
 
     const std::string& getName() const { return _name; }
 
@@ -332,88 +364,110 @@ public:
      * Set the value of keepAliveIdleSecs.  This is set on each
      * accepted socket connection. It does not pertain to the socket
      * which is waiting for connections.
-     */
-    void setKeepAliveIdleSecs(int val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setKeepAliveIdleSecs(int val)
     {
-	_keepAliveIdleSecs = val;
+        _keepAliveIdleSecs = val;
     }
 
     /**
      * Return keepAliveIdleSecs for this ServerSocket.
-     */
-    int getKeepAliveIdleSecs() const throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    int getKeepAliveIdleSecs() const
     {
-	return _keepAliveIdleSecs;
+        return _keepAliveIdleSecs;
     }
 
     /**
      * The blocking flag that will be set on accepted connections.
      * The ServerSocket itself is always non-blocking.
-     */
-    void setNonBlocking(bool val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val)
     {
-	_nonBlocking = val;
+        _nonBlocking = val;
     }
 
     /**
-     * 
-     */
-    bool isNonBlocking() const throw (nidas::util::IOException)
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const
     {
-	return _nonBlocking;
+        return _nonBlocking;
     }
 
     /**
-    * ServerSocket will never be called to do an actual read.
-    */
-    size_t read(void*, size_t) throw (nidas::util::IOException)
+     * ServerSocket will never be called to do an actual read.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void*, size_t)
     {
-	assert(false);
-	return 0;
-    }
-
-    /**
-    * ServerSocket should never be called to do an actual write.
-    */
-    size_t write(const void*, size_t) throw (nidas::util::IOException)
-    {
-	assert(false);
-	return 0;
+        assert(false);
+        return 0;
     }
 
     /**
      * ServerSocket should never be called to do an actual write.
-     */
-    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void*, size_t)
     {
-	assert(false);
-	return 0;
+        assert(false);
+        return 0;
     }
 
-    void close() throw (nidas::util::IOException);
+    /**
+     * ServerSocket should never be called to do an actual write.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec*, int)
+    {
+        assert(false);
+        return 0;
+    }
+
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Create either a Socket or a McSocket from a DOMElement.
-     */
-    static IOChannel* createSocket(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+    **/
+    static IOChannel* createSocket(const xercesc::DOMElement*);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-        toDOMParent(xercesc::DOMElement* parent)
-                throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-        toDOMElement(xercesc::DOMElement* node)
-                throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node);
 
     class ConnectionThread: public nidas::util::Thread
     {
     public:
         ConnectionThread(ServerSocket* sock);
-        int run() throw(nidas::util::IOException);
+        int run();
         void interrupt();
 
     private:

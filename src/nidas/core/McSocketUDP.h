@@ -82,10 +82,15 @@ public:
 
     const std::string& getName() const { return _name; }
 
-    void requestConnection(IOChannelRequester* service)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(IOChannelRequester* service);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IOChannel* connect();
 
     virtual bool isNewInput() const { return _newInput; }
 
@@ -94,26 +99,45 @@ public:
 
     /**
      * Do setNonBlocking(val) on underlying socket.
-     */
-    void setNonBlocking(bool val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val)
     {
-	_nonBlocking = val;
+        _nonBlocking = val;
     }
 
     /**
      * Return isNonBlocking() of underlying socket.
-     */
-    bool isNonBlocking() const throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const
     {
-	return _nonBlocking;
+        return _nonBlocking;
     }
 
     /**
      * A McSocketUDP shouldn't be used to do any actual reads or writes,
      * it just sets up the connection. The returned IOChannel should
      * be used to read/write. Calling this method will fail with an assert.
-     */
-    size_t read(void*, size_t) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void*, size_t)
+    {
+        assert(false);
+        return 0;
+    }
+
+    /**
+     * A McSocketUDP shouldn't be used to do any actual reads or writes,
+     * it just sets up the connection. The returned IOChannel should
+     * be used to read/write. Calling this method will fail with an assert.
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void*, size_t)
     {
 	assert(false);
         return 0;
@@ -123,30 +147,26 @@ public:
      * A McSocketUDP shouldn't be used to do any actual reads or writes,
      * it just sets up the connection. The returned IOChannel should
      * be used to read/write. Calling this method will fail with an assert.
-     */
-    size_t write(const void*, size_t) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec*, int)
     {
 	assert(false);
         return 0;
     }
 
     /**
-     * A McSocketUDP shouldn't be used to do any actual reads or writes,
-     * it just sets up the connection. The returned IOChannel should
-     * be used to read/write. Calling this method will fail with an assert.
-     */
-    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
-    {
-	assert(false);
-        return 0;
-    }
-
-    void close() throw (nidas::util::IOException);
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     int getFd() const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     class MyMcSocket:  public nidas::util::McSocket<nidas::util::DatagramSocket>
     {

@@ -42,10 +42,13 @@ namespace nidas { namespace core {
  * a given multicast socket address.
  * @param all: If true, request the entire project XML, otherwise just
  *    the XML which corresponds to the address of the calling DSM.
- */
-extern xercesc::DOMDocument* requestXMLConfig(bool all,
-  const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask=(sigset_t*)0 )
- throw(n_u::Exception);
+ *
+ * @throws nidas::util::Exception
+ **/
+extern xercesc::DOMDocument*
+requestXMLConfig(bool all,
+                 const n_u::Inet4SocketAddress& mcastAddr,
+                 sigset_t* signalMask=(sigset_t*)0 );
 
 }}  // namespace nidas namespace core
 
