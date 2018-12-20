@@ -180,6 +180,19 @@ double DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int ti
     return (double) tics / pulses / _clockRate * USECS_PER_SEC;
 }
 
+// As of GCC 7, -Wextra enables -Wimplicit-fallthrough which warns when
+// case statements fall through.  Use the GCC null statement attribute to
+// disable the warning until the C++17 [[fallthrough]] standard syntax is
+// available.  GCC can also use comments to detect when fall through code
+// should not warn.  See here:
+// https://developers.redhat.com/blog/2017/03/10/wimplicit-fallthrough-in-gcc-7/
+
+#if __GNUC__
+#define FALLTHROUGH __attribute__((fallthrough))
+#else
+#define FALLTHROUGH
+#endif
+
 bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     throw()
 {
@@ -201,8 +214,10 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     switch (_nvars) {
     case 3:
         fp[2] = floatNAN;
+        FALLTHROUGH;
     case 2:
         fp[1] = USECS_PER_SEC / usec;
+        FALLTHROUGH;
     case 1:
         fp[0] = (float) usec;
         break;
