@@ -30,6 +30,7 @@
 #include <list>
 #include <ftdi.h>
 
+#include "ThreadSupport.h"
 #include "IOException.h"
 #include "auto_ptr.h"
 #include "Logger.h"
@@ -155,10 +156,17 @@ private:
 class FtdiDevice
 {
 public:
+    class Sync : public Synchronized
+    {
+    public:
+        Sync(FtdiDevice* me) : Synchronized(me->_devMutex) {}
+    };
+
     /*
-     *  FtdiDevice constructor.
+     *  FtdiDevice constructor/destructor.
      */
     FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface);
+    ~FtdiDevice() {ftdi_free(_pContext);}
 
     /*
      *  Method finds the USB device which is described by the vendor and product strings. It
@@ -175,6 +183,7 @@ public:
      *  Used to set the operational mode of the device, usually bitbang mode.
      */
     bool setMode(unsigned char mask, unsigned char mode) {
+        Sync sync(this);
         return (ftdi_set_bitmode(_pContext, mask, mode) == 0);
     }
 
@@ -182,6 +191,7 @@ public:
      *  Used to set the device interface, upon which the operations in this class operate.
      */
     bool setInterface(ftdi_interface iface) {
+        Sync sync(this);
         return (ftdi_set_interface(_pContext, iface) == 0);
     }
 
@@ -227,6 +237,14 @@ private:
     int _busAddr;
     int _devAddr;
     bool _foundDevice;
+    Mutex _devMutex;
+
+    /*
+     *  No copying
+     */
+    FtdiDevice(const FtdiDevice& rRight);
+    FtdiDevice& operator=(const FtdiDevice& rRight);
+    FtdiDevice& operator=(FtdiDevice& rRight);
 };
 
 }} //namespace nidas { namespace util {
