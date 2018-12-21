@@ -271,7 +271,7 @@ private:
     static const Termios::parity DEFAULT_PARITY = Termios::NONE;
     static const int DEFAULT_STOP_BITS = 1;
     static const TERM DEFAULT_LINE_TERMINATION = NO_TERM;
-    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
+//    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
     static const int DEFAULT_RTS485 = -1; // De-assert, but don't mess w/this when writing to the port
     static const bool DEFAULT_CONFIG_APPLIED = false;
 
