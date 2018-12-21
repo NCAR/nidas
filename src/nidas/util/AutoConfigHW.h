@@ -85,6 +85,7 @@ public:
     {
         setMode(0xFF, BITMODE_BITBANG);
     }
+    virtual ~SerialGPIO(){}
 };
 
 }} //namespace nidas { namespace util {
