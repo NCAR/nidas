@@ -40,10 +40,6 @@ namespace nidas { namespace core {
 enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=422, RS485_HALF=484};
 
 /*
- * This enum specifies the ports in the DSM.
- */
-enum PORT_DEFS {ILLEGAL_PORT=-1, PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
-/*
  * Serial termination settings for RS422/RS485
  */
 enum TERM {NO_TERM=0, TERM_120_OHM};
@@ -59,8 +55,8 @@ typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
  *  the auto-config base classes as an easy means to change the transceiver mode of operation.
  */
 struct XcvrConfig {
-    XcvrConfig() : port(PORT0), portType(RS232), termination(NO_TERM) {}
-    XcvrConfig(PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM)
+    XcvrConfig() : port(n_u::PORT0), portType(RS232), termination(NO_TERM) {}
+    XcvrConfig(n_u::PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM)
         : port(initPortID), portType(initPortType), termination(initTerm) {}
     bool operator!=(const XcvrConfig& rRight) const {return !((*this) == rRight);}
     bool operator==(const XcvrConfig& rRight) const
@@ -70,7 +66,7 @@ struct XcvrConfig {
     void print();
     std::ostream& operator <<(std::ostream outStrm);
 
-    PORT_DEFS port;
+    n_u::PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
 };
@@ -111,8 +107,8 @@ public:
     // Bus address is the means by which the USB device is opened.
     // So default them to the values known today, but may be 
     // overridden later.
-    SerialXcvrCtrl(const PORT_DEFS portId);
-    SerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM);
+    SerialXcvrCtrl(const n_u::PORT_DEFS portId);
+    SerialXcvrCtrl(const n_u::PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM);
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
@@ -203,10 +199,12 @@ public:
     void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of PORT_DEFS
-    static PORT_DEFS int2PortDef(const unsigned portNum)
+    static n_u::PORT_DEFS int2PortDef(const unsigned portNum)
     {
-        return static_cast<PORT_DEFS>(portNum);
+        return static_cast<n_u::PORT_DEFS>(portNum);
     }
+    // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE
+    static PORT_TYPES bits2PortType(const unsigned char bits);
 
 protected:
     // shift the port type into the correct location in the GPIO for insertion
@@ -217,15 +215,9 @@ protected:
     // need to select the interface based on the specified port 
     // at present, assume 4 bits per port definition
     enum ftdi_interface port2iface();
-    enum ftdi_interface port2iface(PORT_DEFS port);
     // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
     unsigned char portType2Bits(const PORT_TYPES portType);
-    // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE 
-    PORT_TYPES bits2PortType(const unsigned char bits);
-    // find the GPIO FTDI chip on the USB bus.
 private:
-    // At present there are only 7 available ports on a DSM
-    static const PORT_DEFS MAX_PORT = PORT7;
     // String-ize config values
     static const char* STR_LOOPBACK;
     static const char* STR_RS232;

@@ -95,7 +95,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
 }
 
 SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
-: _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), _pSerialGPIO(new SerialGPIO(port2iface(initXcvrConfig.port)))
+: _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), _pSerialGPIO(new SerialGPIO(n_u::port2iface(initXcvrConfig.port)))
 {
     if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
@@ -243,37 +243,7 @@ unsigned char SerialXcvrCtrl::adjustBitPosition(const unsigned char bits )
 
 enum ftdi_interface SerialXcvrCtrl::port2iface()
 {
- return port2iface(_xcvrConfig.port);
-}
-
-enum ftdi_interface SerialXcvrCtrl::port2iface(PORT_DEFS port)
-{
-    enum ftdi_interface iface = INTERFACE_ANY;
-    switch ( port )
-    {
-        case PORT0:
-        case PORT1:
-            iface = INTERFACE_A;
-            break;
-        case PORT2:
-        case PORT3:
-            iface = INTERFACE_B;
-            break;
-
-        case PORT4:
-        case PORT5:
-            iface = INTERFACE_C;
-            break;
-        case PORT6:
-        case PORT7:
-            iface = INTERFACE_D;
-            break;
-
-        default:
-            break;
-    }
-
-    return iface;
+    return n_u::port2iface(_xcvrConfig.port);
 }
 
 const std::string SerialXcvrCtrl::portTypeToStr(const PORT_TYPES portType)
