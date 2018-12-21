@@ -166,7 +166,7 @@ public:
      *  FtdiDevice constructor/destructor.
      */
     FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface);
-    ~FtdiDevice() {ftdi_free(_pContext);}
+    virtual ~FtdiDevice() {ftdi_free(_pContext);}
 
     /*
      *  Method finds the USB device which is described by the vendor and product strings. It
