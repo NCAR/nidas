@@ -1126,12 +1126,12 @@ int main(int argc, char**argv)
             portConfig.termios.setRaw(true);
             portConfig.termios.setRawLength(1);
             portConfig.termios.setRawTimeout(0);
-            portConfig.xcvrConfig.port = static_cast<n_c::PORT_DEFS>(senderPortNum);
+            portConfig.xcvrConfig.port = static_cast<n_u::PORT_DEFS>(senderPortNum);
             portConfig.xcvrConfig.portType = nextPortType;
 
             // echo PortConfig is identical, but for the port ID
             echoPortConfig = portConfig;
-            echoPortConfig.xcvrConfig.port = static_cast<n_c::PORT_DEFS>(echoPortNum);
+            echoPortConfig.xcvrConfig.port = static_cast<n_u::PORT_DEFS>(echoPortNum);
 
             /*************************************************************************
             ** TODO: RS485 half duplex? Set the GPIO to short Bulgin pins 3&4, and 5&6
