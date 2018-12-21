@@ -44,11 +44,6 @@ enum PORT_TYPES {LOOPBACK=0, RS232=232, RS422=422, RS485_FULL=422, RS485_HALF=48
  */
 enum TERM {NO_TERM=0, TERM_120_OHM};
 
-/*
- * Sensor power setting
- */
-typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
-
 /*  
  *  struct XcvrConfig is used to house and contain all the parameters which are used to 
  *  set up the EXAR SP339 serial line driver/transceiver chip. It is intended to be used extensively by 
@@ -161,40 +156,8 @@ public:
 
         return (TERM)-1;
     }
-    // This utility converts a binary power configuration to a string
-    static const std::string powerStateToStr(SENSOR_POWER_STATE sensorState)
-    {
-        switch (sensorState) {
-            case SENSOR_POWER_OFF: 
-                return std::string(STR_POWER_OFF);
-                break;
-            case SENSOR_POWER_ON: 
-                return std::string(STR_POWER_ON);
-                break;
-            default: 
-                std::stringstream sstrm("Unknown sensor power state: ");
-                sstrm << sensorState;
-                return sstrm.str();
-                break;
-        }
-    } 
-    // This utility converts a string to the SENSOR_POWER_STATE enum
-    static SENSOR_POWER_STATE strToPowerState(const std::string powerStr)
-    {
-        if (powerStr == std::string(STR_POWER_OFF)) {
-            return SENSOR_POWER_OFF;
-        }
-
-        if (powerStr == std::string(STR_POWER_ON)) {
-            return SENSOR_POWER_ON;
-        }
-
-        return (SENSOR_POWER_STATE)-1;
-    }
     // This utility converts a binary term configuration to a string
     static const std::string rawTermToStr(unsigned char termCfg); 
-    // This utility converts a binary power configuration to a string
-    static const std::string rawPowerToStr(unsigned char powerCfg); 
     // This utility prints the port types for the assigned port.
     void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a PORT_DEFS port ID

@@ -43,8 +43,6 @@ const char* SerialXcvrCtrl::STR_RS485_HALF = "RS485_HALF";
 const char* SerialXcvrCtrl::STR_RS485_FULL = "RS485_FULL";
 const char* SerialXcvrCtrl::STR_NO_TERM = "NO_TERM";
 const char* SerialXcvrCtrl::STR_TERM_120_OHM = "TERM_120_OHM";
-const char* SerialXcvrCtrl::STR_POWER_ON = "POWER_ON";
-const char* SerialXcvrCtrl::STR_POWER_OFF = "POWER_OFF";
 
 void XcvrConfig::print()
 {
@@ -163,10 +161,11 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
 //    DLOG(("Applying power: ") << powerStateToStr(_xcvrConfig.sensorPower));
 
     DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
-    _rawXcvrConfig &= ~adjustBitPosition(0xF);
-    DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
+    _rawXcvrConfig &= ~adjustBitPosition(0b00000111);
+    DLOG(("Raw xcvr config after mask: 0X%02X", _rawXcvrConfig));
+
     _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination));// , _xcvrConfig.sensorPower));
-	DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
+	DLOG(("New raw xcvr config: 0X%02X", _rawXcvrConfig));
 
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
@@ -306,22 +305,6 @@ const std::string SerialXcvrCtrl::rawTermToStr(unsigned char termCfg)
     return termStr;
 }
 
-const std::string SerialXcvrCtrl::rawPowerToStr(unsigned char powerCfg)
-{
-    std::string powerStr("");
-    switch (powerCfg) {
-        case SENSOR_POWER_ON_BIT:
-            powerStr.append(STR_POWER_ON);
-            break;
-        case SENSOR_POWER_OFF:
-        default:
-            powerStr.append(STR_POWER_OFF);
-            break;
-    }
-
-    return powerStr;
-}
-
 void SerialXcvrCtrl::readXcvrConfig() 
 {
     DLOG(("Attempting to read the current FT4232H GPIO pin settings"));
@@ -339,7 +322,6 @@ void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst
     if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
     std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
                                 << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT);
-//                                << " | " << rawPowerToStr(tmpPortConfig & SENSOR_POWER_ON_BIT);
     }
     else {
         _xcvrConfig.print();
