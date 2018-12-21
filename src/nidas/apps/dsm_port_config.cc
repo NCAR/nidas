@@ -66,8 +66,10 @@
 #include <libftdi1/ftdi.h>
 #include "nidas/core/NidasApp.h"
 #include "nidas/core/SerialXcvrCtrl.h"
+#include "nidas/util/SensorPowerCtrl.h"
 
 using namespace nidas::core;
+using namespace nidas::util;
 
 static const char* ARG_LOOPBACK = "LOOPBACK";
 static const char* ARG_RS232 = "RS232";
@@ -127,15 +129,14 @@ int main(int argc, char* argv[]) {
 
     PORT_TYPES portType = (PORT_TYPES)-1;
 
-    XcvrConfig newXcvrConfig;
-    SerialXcvrCtrl xcvrCtrl(newXcvrConfig);
+    XcvrConfig xcvrConfig;
 
     // check the options first to set up the port and port control
     DLOG(("Port Option Flag/Value: ") << Port.getFlag() << ": " << Port.asInt());
     DLOG(("Port Option Flag Length: ") << Port.getFlag().length());
     if (Port.specified()) {
-        newXcvrConfig.port = (PORT_DEFS)Port.asInt();
-        if (!(0 <= newXcvrConfig.port && newXcvrConfig.port <= 7)) {
+        xcvrConfig.port = (n_u::PORT_DEFS)Port.asInt();
+        if (!(0 <= xcvrConfig.port && xcvrConfig.port <= 7)) {
             std::cerr << "Something went wrong, as the port arg wasn't in the range 0-7" << std::endl;
             return 2;
         }
@@ -150,8 +151,19 @@ int main(int argc, char* argv[]) {
 
     // print out the existing port configurations
     std::cout << std::endl << "Current Port Definitions" << std::endl << "========================" << std::endl;
-    xcvrCtrl.setXcvrConfig(newXcvrConfig);
-    xcvrCtrl.printXcvrConfig();
+    n_u::SerialGPIO sgpio(n_u::port2iface(xcvrConfig.port));
+    unsigned char rawConfig = sgpio.readInterface();
+    DLOG(("rawConfig: %x", rawConfig));
+    if (xcvrConfig.port % 2) rawConfig >>= 4;
+    DLOG(("rawConfig after shift: %x", rawConfig));
+    xcvrConfig.portType = SerialXcvrCtrl::bits2PortType(rawConfig);
+    DLOG(("port type: ") << xcvrConfig.portType << " - "
+                         << SerialXcvrCtrl::portTypeToStr(xcvrConfig.portType));
+    xcvrConfig.termination = rawConfig & n_u::BITS_TERM ? TERM_120_OHM : NO_TERM;
+    xcvrConfig.print();
+
+    SensorPowerCtrl sensrPwrCtrl((n_u::PORT_DEFS)Port.asInt());
+    sensrPwrCtrl.print();
 
     if (Display.specified()) {
         return 0;
@@ -174,15 +186,15 @@ int main(int argc, char* argv[]) {
             return 4;
         }
 
-        newXcvrConfig.portType = portType;
+        xcvrConfig.portType = portType;
     }
 
     if (LineTerm.specified()) {
         std::string termStr(LineTerm.getValue());
         std::transform(termStr.begin(), termStr.end(), termStr.begin(), ::toupper);
-        TERM lineTerm = xcvrCtrl.strToTerm(LineTerm.getValue());
+        TERM lineTerm = SerialXcvrCtrl::strToTerm(LineTerm.getValue());
         if (lineTerm != -1) {
-            newXcvrConfig.termination = lineTerm;
+            xcvrConfig.termination = lineTerm;
         }
         else
         {
@@ -192,27 +204,27 @@ int main(int argc, char* argv[]) {
         }
     }
 
-//    if (Energy.specified()) {
-//        std::string pwrStr(Energy.getValue());
-//        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-//        SENSOR_POWER_STATE power = xcvrCtrl.strToPowerState(pwrStr);
-//        if (power != -1) {
-//            newXcvrConfig.sensorPower = power;
-//        }
-//        else
-//        {
-//            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
-//            usage(argv[0]);
-//            return 5;
-//        }
-//    }
-
-    xcvrCtrl.setXcvrConfig(newXcvrConfig);
-    xcvrCtrl.applyXcvrConfig();
+    if (Energy.specified()) {
+        std::string pwrStr(Energy.getValue());
+        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
+        SENSOR_POWER_STATE power = SensorPowerCtrl::strToPowerState(pwrStr);
+        if (power != -1) {
+            sensrPwrCtrl.enablePwrCtrl(true);
+            power == SENSOR_POWER_ON ? sensrPwrCtrl.pwrOn() : sensrPwrCtrl.pwrOff();
+        }
+        else
+        {
+            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
+            usage(argv[0]);
+            return 5;
+        }
+    }
 
     // print out the new port configurations
     std::cout << std::endl << "New Port Definitions" << std::endl << "====================" << std::endl;
+    SerialXcvrCtrl xcvrCtrl(xcvrConfig);
     xcvrCtrl.printXcvrConfig();
+    sensrPwrCtrl.print();
 
     // all good, return 0
     return 0;
