@@ -30,12 +30,60 @@
 
 namespace nidas { namespace util {
 
+/*
+ * This enum specifies the ports in the DSM.
+ */
+enum PORT_DEFS {ILLEGAL_PORT=-1, PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
+// At present there are only 7 available ports on a DSM
+const PORT_DEFS MAX_PORT = PORT7;
+
+// deduces the FT4232H GPIO interface form the port in _xcvrConfig.
+// need to select the interface based on the specified port
+// at present, assume 4 bits per port definition
+inline enum ftdi_interface port2iface(PORT_DEFS port)
+{
+    enum ftdi_interface iface = INTERFACE_ANY;
+    switch ( port )
+    {
+        case PORT0:
+        case PORT1:
+            iface = INTERFACE_A;
+            break;
+        case PORT2:
+        case PORT3:
+            iface = INTERFACE_B;
+            break;
+
+        case PORT4:
+        case PORT5:
+            iface = INTERFACE_C;
+            break;
+        case PORT6:
+        case PORT7:
+            iface = INTERFACE_D;
+            break;
+
+        default:
+            break;
+    }
+
+    return iface;
+}
+
+const unsigned char BITS_PORT_TYPE = 0b00000011;
+const unsigned char BITS_TERM =      0b00000100;
+const unsigned char BITS_POWER =     0b00001000;
+
+/*
+ *  Class SerialGPIO provides the means to access the FTDI FT4232H device
+ *  which is designated for serial transceiver and power control.
+ */
 class SerialGPIO : public FtdiDevice
 {
 public:
     SerialGPIO(ftdi_interface iface) : FtdiDevice(std::string("UCAR"), std::string("GPIO"), iface)
     {
-        setMode(0xf, BITMODE_BITBANG);
+        setMode(0xFF, BITMODE_BITBANG);
     }
 };
 
