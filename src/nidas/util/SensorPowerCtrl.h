@@ -30,11 +30,16 @@
 #include "PowerCtrlAbs.h"
 
 namespace nidas { namespace util {
+/*
+ * Sensor power setting
+ */
+typedef enum {SENSOR_POWER_OFF, SENSOR_POWER_ON} SENSOR_POWER_STATE;
+
 
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class SensorPowerCtrl : public SerialGPIO, PowerCtrlAbs
+class SensorPowerCtrl : public SerialGPIO, public PowerCtrlAbs
 {
 public:
     SensorPowerCtrl(PORT_DEFS port);
@@ -44,10 +49,24 @@ public:
     virtual void pwrOff();
     virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0);
     virtual bool pwrIsOn();
+    void print();
+    void getPowerState();
+
+    // This utility converts a string to the SENSOR_POWER_STATE enum
+    static SENSOR_POWER_STATE strToPowerState(const std::string powerStr);
+    // This utility converts a binary power configuration to a string
+    static const std::string rawPowerToStr(unsigned char powerCfg);
+    // This utility converts a binary power configuration to state representation
+    static SENSOR_POWER_STATE rawPowerToState(unsigned char powerCfg);
+    // This utility converts a binary power configuration to a string
+    static const std::string powerStateToStr(SENSOR_POWER_STATE sensorState);
+
+    static const char* STR_POWER_ON;
+    static const char* STR_POWER_OFF;
 
 private:
     PORT_DEFS _port;
-    bool _pwrIsOn;
+    SENSOR_POWER_STATE _pwrState;
 };
 
 }} //namespace nidas { namespace util {
