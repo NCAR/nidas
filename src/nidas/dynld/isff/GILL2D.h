@@ -266,7 +266,7 @@ private:
     static const int DEFAULT_DATA_BITS = 8;
     static const int DEFAULT_RTS485 = -1;
     static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS422;
-    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
+//    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
     static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
     static const bool DEFAULT_CONFIG_APPLIED = false;
 

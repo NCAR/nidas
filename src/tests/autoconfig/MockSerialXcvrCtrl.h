@@ -40,8 +40,8 @@ public:
     // So default them to the values known today, but may be
     // overridden later.
     MockSerialXcvrCtrl(const PORT_DEFS portId) : SerialXcvrCtrl(portId), _gpioOpen(false), _rawXcvrConfig(0) {}
-    MockSerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM,
-                       const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON)
+    MockSerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM) //,
+//                       const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON)
         : SerialXcvrCtrl(portId, portType, termination, powerState), _gpioOpen(false), _rawXcvrConfig(0) {}
     MockSerialXcvrCtrl(const XcvrConfig initXcvrConfig)
         : SerialXcvrCtrl(initXcvrConfig), _gpioOpen(false), _rawXcvrConfig(0) {}
