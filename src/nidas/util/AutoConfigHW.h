@@ -81,6 +81,65 @@ const unsigned char BITS_POWER =     0b00001000;
 class SerialGPIO : public FtdiDevice
 {
 public:
+    /*
+     *  Because multiple specializations may exist on a single FTDI device interface
+     *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
+     *
+     *  Specializations of SerialGPIO should use the Sync class to protect their operations on
+     *  the interface which they are concerned.
+     */
+    class Sync : public Synchronized
+    {
+    public:
+        Sync(SerialGPIO* me) : Synchronized(Sync::selectIfaceMutex(me->getInterface())), _me(me)
+        {
+            ftdi_interface iface = me->getInterface();
+            DLOG(("Synced on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
+                                            iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
+        }
+        ~Sync()
+        {
+            ftdi_interface iface = _me->getInterface();
+            DLOG(("Sync released on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
+                                                    iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
+            _me = 0;
+        }
+    private:
+        static Mutex _ifaceAMutex;
+        static Mutex _ifaceBMutex;
+        static Mutex _ifaceCMutex;
+        static Mutex _ifaceDMutex;
+        SerialGPIO* _me;
+
+        static Mutex& selectIfaceMutex(ftdi_interface iface)
+        {
+            Mutex* pMutex = 0;
+            switch (iface) {
+            case INTERFACE_A:
+                pMutex = &_ifaceAMutex;
+                break;
+            case INTERFACE_B:
+                pMutex = &_ifaceBMutex;
+                break;
+            case INTERFACE_C:
+                pMutex = &_ifaceCMutex;
+                break;
+            case INTERFACE_D:
+                pMutex = &_ifaceDMutex;
+                break;
+            default:
+                throw Exception("selectIfaceMutex(): Unknown FTDI interface value");
+            }
+
+            return *pMutex;
+        }
+
+        // no copying
+        Sync(const Sync& rRight);
+        Sync& operator=(const Sync& rRight);
+        Sync& operator=(Sync& rRight);
+    };
+
     SerialGPIO(ftdi_interface iface) : FtdiDevice(std::string("UCAR"), std::string("GPIO"), iface)
     {
         setMode(0xFF, BITMODE_BITBANG);

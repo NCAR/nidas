@@ -96,32 +96,33 @@ SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
 void SensorPowerCtrl::pwrOn()
 {
     if (pwrCtrlEnabled()) {
+        Sync sync(this);
         unsigned char pins = readInterface();
         pins |= BITS_POWER;
         writeInterface(pins);
-        getPowerState();
     }
     else {
         DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
+    getPowerState();
 }
 
 void SensorPowerCtrl::pwrOff()
 {
     if (pwrCtrlEnabled()) {
+        Sync sync(this);
         unsigned char pins = readInterface();
         pins &= ~BITS_POWER;
         writeInterface(pins);
-        getPowerState();
     }
     else {
         DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
+    getPowerState();
 }
 
 void SensorPowerCtrl::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
 {
-
     if (pwrCtrlEnabled()) {
         if (pwrOffDelayMs) {
             sleepUntil(pwrOffDelayMs);
@@ -145,7 +146,9 @@ bool SensorPowerCtrl::pwrIsOn()
 
 void SensorPowerCtrl::getPowerState()
 {
+    Sync sync(this);
     unsigned char ifaceState = readInterface();
+
     DLOG(("current interface state: %x", int(ifaceState)));
     if (_port % 2) ifaceState >>= 4;
     DLOG(("interface state after shift: %x", (int)ifaceState));

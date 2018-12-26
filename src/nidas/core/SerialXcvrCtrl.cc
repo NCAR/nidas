@@ -152,23 +152,24 @@ void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
 {
     if (readDevice) {
         DLOG(("SerialXcvrCtrl::applyXcvrConfig(): Reading GPIO pin state before adjusting them."));
+        // Don't sync here because readXcvrConfig already syncs.
         readXcvrConfig();
     }
 
     DLOG(("Working on PORT") << (int)(_xcvrConfig.port));
     DLOG(("Applying port type: ") << portTypeToStr(_xcvrConfig.portType));
     DLOG(("Applying termination: ") << termToStr(_xcvrConfig.termination));
-//    DLOG(("Applying power: ") << powerStateToStr(_xcvrConfig.sensorPower));
 
     DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
     _rawXcvrConfig &= ~adjustBitPosition(0b00000111);
     DLOG(("Raw xcvr config after mask: 0X%02X", _rawXcvrConfig));
 
-    _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination));// , _xcvrConfig.sensorPower));
+    _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination));
 	DLOG(("New raw xcvr config: 0X%02X", _rawXcvrConfig));
 
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
+    SerialGPIO::Sync sync(_pSerialGPIO);
     _pSerialGPIO->writeInterface(_rawXcvrConfig);
 
     // re-read to compare....
@@ -307,6 +308,7 @@ const std::string SerialXcvrCtrl::rawTermToStr(unsigned char termCfg)
 
 void SerialXcvrCtrl::readXcvrConfig() 
 {
+    SerialGPIO::Sync sync(_pSerialGPIO);
     DLOG(("Attempting to read the current FT4232H GPIO pin settings"));
     _rawXcvrConfig = _pSerialGPIO->readInterface();
     DLOG(("Successfully read FT4232H GPIO pin settings. Now closing device."));
@@ -318,10 +320,10 @@ void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst
         DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
         readXcvrConfig();
 
-    unsigned char tmpPortConfig = _rawXcvrConfig;
-    if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
-    std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS)) 
-                                << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT);
+        unsigned char tmpPortConfig = _rawXcvrConfig;
+        if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
+        std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS))
+                                    << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT);
     }
     else {
         _xcvrConfig.print();

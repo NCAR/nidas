@@ -152,22 +152,16 @@ private:
  *  Generic FTDI device aimed at a particular interface on a device with an eeprom which has been programmed
  *  with specified manufacturer and product description strings. It is further specialized by specifying which
  *  FTDI interface/port is to be used for the operations performed by the methods.
+ *
+ *  NOTE: Class FtdiDevice is *not* intended to be used on its own, and so the constructor is not public.
+ *        This is due to the fact that a single interface (i.e. byte-wide I/O port) can be assigned multiple
+ *        responsibilities in different domains. For instance, one domain might be serial transceiver control
+ *        while another domain might be scientific instrument power control. This is a very real use case in
+ *        NIDAS for those systems which use the new EOL serial port boards.
  */
 class FtdiDevice
 {
 public:
-    class Sync : public Synchronized
-    {
-    public:
-        Sync(FtdiDevice* me) : Synchronized(me->_devMutex) {}
-    };
-
-    /*
-     *  FtdiDevice constructor/destructor.
-     */
-    FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface);
-    virtual ~FtdiDevice() {ftdi_free(_pContext);}
-
     /*
      *  Method finds the USB device which is described by the vendor and product strings. It
      *  then stores the bus and device addresses in the object for later use re-opening the device.
@@ -183,7 +177,6 @@ public:
      *  Used to set the operational mode of the device, usually bitbang mode.
      */
     bool setMode(unsigned char mask, unsigned char mode) {
-        Sync sync(this);
         return (ftdi_set_bitmode(_pContext, mask, mode) == 0);
     }
 
@@ -191,9 +184,11 @@ public:
      *  Used to set the device interface, upon which the operations in this class operate.
      */
     bool setInterface(ftdi_interface iface) {
-        Sync sync(this);
+        _interface = iface;
         return (ftdi_set_interface(_pContext, iface) == 0);
     }
+
+    ftdi_interface getInterface() {return _interface;}
 
     // safe FT4232H open - must bracket all bitbang type operations!!!
     // returns w/o action, if already open.
@@ -231,13 +226,22 @@ public:
         return std::string(_pContext->error_str);
     }
 
+protected:
+    /*
+     *  FtdiDevice constructor/destructor.
+     *
+     *  Make protected so that class must be specialized to be used.
+     */
+    FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface);
+    virtual ~FtdiDevice() {ftdi_free(_pContext);}
+
+
 private:
     ftdi_interface _interface;
     ftdi_context* _pContext;
     int _busAddr;
     int _devAddr;
     bool _foundDevice;
-    Mutex _devMutex;
 
     /*
      *  No copying

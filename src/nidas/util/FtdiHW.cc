@@ -108,7 +108,7 @@ void FtdiHW::findFtdiDevices()
 }
 
 FtdiDevice::FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface)
-: _interface(iface), _pContext(ftdi_new()), _busAddr(0), _devAddr(0), _foundDevice(false), _devMutex()
+: _interface(iface), _pContext(ftdi_new()), _busAddr(0), _devAddr(0), _foundDevice(false)
 {
     if (!_pContext) {
         throw IOException("FtdiDevice::FtdiDevice()", ": Failed to allocate ftdi_context object.");
@@ -137,7 +137,6 @@ FtdiDevice::FtdiDevice(const std::string vendor, const std::string product, ftdi
 
 void FtdiDevice::find(std::string vendorStr, std::string productStr)
 {
-    Sync sync(this);
     bool foundIt = false;
     FtdiList& devList = FtdiHW::getFtdiHW().getFtdiDeviceList();
     for (FtdiList::iterator it = devList.begin(); it != devList.end(); it++) {
@@ -236,7 +235,6 @@ void FtdiDevice::close()
 
 unsigned char FtdiDevice::readInterface()
 {
-    Sync sync(this);
     unsigned char pins = 0;
     open();
     if (isOpen()) {
@@ -262,7 +260,6 @@ unsigned char FtdiDevice::readInterface()
 
 void FtdiDevice::writeInterface(unsigned char pins)
 {
-    Sync sync(this);
     open();
     if (ftdi_write_data(_pContext, &pins, 1) < 0) {
         throw IOException(std::string("FtdiDevice::writeInterface(): Could not write to interface: "),

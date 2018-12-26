@@ -42,6 +42,7 @@ headers = [ Split("""
     MutexCount.h
     ParseException.h
     Process.h
+    SensorPowerCtrl.h
     SerialOptions.h
     SerialPort.h
     SocketAddress.h
@@ -59,6 +60,7 @@ headers = [ Split("""
 # print(["headers="] + [str(h) for h in headers])
 
 sources = [ Split("""
+    AutoConfigHW.cc
     BitArray.cc
     BluetoothAddress.cc
     BluetoothRFCommSocket.cc
@@ -74,6 +76,7 @@ sources = [ Split("""
     Logger.cc
     McSocket.cc
     Process.cc
+    SensorPowerCtrl.cc
     SerialOptions.cc
     SerialPort.cc
     Socket.cc
