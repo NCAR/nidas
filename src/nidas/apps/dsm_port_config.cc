@@ -191,6 +191,7 @@ int main(int argc, char* argv[]) {
 
     if (LineTerm.specified()) {
         std::string termStr(LineTerm.getValue());
+        DLOG(("LineTerm Option Flag/Value: ") << LineTerm.getFlag() << ": " << termStr);
         std::transform(termStr.begin(), termStr.end(), termStr.begin(), ::toupper);
         TERM lineTerm = SerialXcvrCtrl::strToTerm(LineTerm.getValue());
         if (lineTerm != -1) {
@@ -206,6 +207,7 @@ int main(int argc, char* argv[]) {
 
     if (Energy.specified()) {
         std::string pwrStr(Energy.getValue());
+        DLOG(("Energy Option Flag/Value: ") << Energy.getFlag() << ": " << pwrStr);
         std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
         SENSOR_POWER_STATE power = SensorPowerCtrl::strToPowerState(pwrStr);
         if (power != -1) {
