@@ -26,7 +26,7 @@
 #ifndef NIDAS_UTIL_POWERCTRLABS_H
 #define NIDAS_UTIL_POWERCTRLABS_H
 
-#include <PowerCtrlIf.h>
+#include "PowerCtrlIf.h"
 
 namespace nidas { namespace util {
 
