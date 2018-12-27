@@ -41,6 +41,8 @@ headers = [ Split("""
     McSocket.h
     MutexCount.h
     ParseException.h
+    PowerCtrlIf.h
+    PowerCtrlAbs.h
     Process.h
     SensorPowerCtrl.h
     SerialOptions.h
@@ -75,6 +77,7 @@ sources = [ Split("""
     Inet4SocketAddress.cc
     Logger.cc
     McSocket.cc
+    PowerCtrlAbs.cc
     Process.cc
     SensorPowerCtrl.cc
     SerialOptions.cc

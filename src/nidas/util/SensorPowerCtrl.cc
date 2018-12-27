@@ -25,13 +25,8 @@
 */
 
 #include "SensorPowerCtrl.h"
-#include "Logger.h"
-#include "UTime.h"
 
 namespace nidas { namespace util {
-
-const char* SensorPowerCtrl::STR_POWER_ON = "POWER_ON";
-const char* SensorPowerCtrl::STR_POWER_OFF = "POWER_OFF";
 
 const std::string SensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
@@ -46,56 +41,26 @@ const std::string SensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
     return powerStr;
 }
 
-SENSOR_POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
+POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
-    SENSOR_POWER_STATE retval = SENSOR_POWER_OFF;
+    POWER_STATE retval = POWER_OFF;
     if (powerCfg & BITS_POWER) {
-        retval = SENSOR_POWER_ON;
+        retval = POWER_ON;
     }
 
     return retval;
 }
 
-// This utility converts a string to the SENSOR_POWER_STATE enum
-SENSOR_POWER_STATE SensorPowerCtrl::strToPowerState(const std::string powerStr)
-{
-    if (powerStr == std::string(STR_POWER_OFF)) {
-        return SENSOR_POWER_OFF;
-    }
-
-    if (powerStr == std::string(STR_POWER_ON)) {
-        return SENSOR_POWER_ON;
-    }
-
-    return (SENSOR_POWER_STATE)-1;
-}
-
-const std::string SensorPowerCtrl::powerStateToStr(SENSOR_POWER_STATE sensorState)
-{
-    switch (sensorState) {
-        case SENSOR_POWER_OFF:
-            return std::string(STR_POWER_OFF);
-            break;
-        case SENSOR_POWER_ON:
-            return std::string(STR_POWER_ON);
-            break;
-        default:
-            std::stringstream sstrm("Unknown sensor power state: ");
-            sstrm << sensorState;
-            return sstrm.str();
-            break;
-    }
-}
 
 SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
-: SerialGPIO(port2iface(port)), _port(port), _pwrState(SENSOR_POWER_OFF)
+: SerialGPIO(port2iface(port)), PowerCtrlAbs(), _port(port)
 {
-    getPowerState();
+    retrievePowerState();
 }
 
 void SensorPowerCtrl::pwrOn()
 {
-    if (pwrCtrlEnabled()) {
+    if (deviceFound() && pwrCtrlEnabled()) {
         Sync sync(this);
         unsigned char pins = readInterface();
         pins |= BITS_POWER;
@@ -104,12 +69,12 @@ void SensorPowerCtrl::pwrOn()
     else {
         DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
-    getPowerState();
+    retrievePowerState();
 }
 
 void SensorPowerCtrl::pwrOff()
 {
-    if (pwrCtrlEnabled()) {
+    if (deviceFound() && pwrCtrlEnabled()) {
         Sync sync(this);
         unsigned char pins = readInterface();
         pins &= ~BITS_POWER;
@@ -118,47 +83,21 @@ void SensorPowerCtrl::pwrOff()
     else {
         DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
-    getPowerState();
+    retrievePowerState();
 }
 
-void SensorPowerCtrl::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
+void SensorPowerCtrl::retrievePowerState()
 {
-    if (pwrCtrlEnabled()) {
-        if (pwrOffDelayMs) {
-            sleepUntil(pwrOffDelayMs);
-        }
-        pwrOff();
+    if (deviceFound()) {
+        Sync sync(this);
+        unsigned char ifaceState = readInterface();
 
-        if (pwrOnDelayMs) {
-            sleepUntil(pwrOnDelayMs);
-        }
-        pwrOn();
+        DLOG(("current interface state: %x", int(ifaceState)));
+        if (_port % 2) ifaceState >>= 4;
+        DLOG(("interface state after shift: %x", (int)ifaceState));
+        setPowerState(rawPowerToState(ifaceState));
+        DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
     }
-    else {
-        DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
-    }
-}
-
-bool SensorPowerCtrl::pwrIsOn()
-{
-    return _pwrState == SENSOR_POWER_ON;
-}
-
-void SensorPowerCtrl::getPowerState()
-{
-    Sync sync(this);
-    unsigned char ifaceState = readInterface();
-
-    DLOG(("current interface state: %x", int(ifaceState)));
-    if (_port % 2) ifaceState >>= 4;
-    DLOG(("interface state after shift: %x", (int)ifaceState));
-    _pwrState = rawPowerToState(ifaceState);
-    DLOG(("power state: %s", powerStateToStr(_pwrState).c_str()));
-}
-
-void SensorPowerCtrl::print()
-{
-    std::cout << "Power state: " << powerStateToStr(_pwrState) << std::endl;
 }
 
 }} //namespace nidas { namespace util {

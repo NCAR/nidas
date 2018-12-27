@@ -26,7 +26,15 @@
 #ifndef NIDAS_UTIL_POWERCTRLIF_H
 #define NIDAS_UTIL_POWERCTRLIF_H
 
+#include <stdint.h>
+
 namespace nidas { namespace util {
+
+/*
+ * Sensor power setting
+ */
+typedef enum {ILLEGAL_POWER=-1, POWER_OFF=0, POWER_ON, POWER_RESETTING} POWER_STATE;
+
 
 /*
  *  This class provides the standard interface for controlling power to
@@ -37,6 +45,9 @@ public:
     virtual ~PowerCtrlIf() {}
     virtual void enablePwrCtrl(bool enable) = 0;
     virtual bool pwrCtrlEnabled() = 0;
+    virtual void setPower(POWER_STATE newPwrState) = 0;
+    virtual void setPowerState(POWER_STATE newPwrState) = 0;
+    virtual POWER_STATE getPowerState() = 0;
     virtual void pwrOn() = 0;
     virtual void pwrOff() = 0;
     virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0) = 0;

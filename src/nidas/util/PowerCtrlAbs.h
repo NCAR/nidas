@@ -26,24 +26,43 @@
 #ifndef NIDAS_UTIL_POWERCTRLABS_H
 #define NIDAS_UTIL_POWERCTRLABS_H
 
+#include "Logger.h"
+#include "UTime.h"
 #include "PowerCtrlIf.h"
 
 namespace nidas { namespace util {
 
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
+ *  and to maintain the current power state.
  */
 class PowerCtrlAbs : public PowerCtrlIf
 {
 public:
-    PowerCtrlAbs() : _pwrCtrlEnabled(false) {}
+    // This utility converts a string to the SENSOR_POWER_STATE enum
+    static POWER_STATE strToPowerState(const std::string powerStr);
+    // This utility converts a binary power configuration to a string
+    static const std::string powerStateToStr(POWER_STATE pwrState);
+
+    static const char* STR_POWER_ON;
+    static const char* STR_POWER_OFF;
+
+
+    PowerCtrlAbs() : _pwrCtrlEnabled(false), _pwrState(ILLEGAL_POWER) {}
     virtual ~PowerCtrlAbs() {}
 
     virtual void enablePwrCtrl(bool enable) {_pwrCtrlEnabled = enable;}
     virtual bool pwrCtrlEnabled() {return _pwrCtrlEnabled;}
+    virtual void setPower(POWER_STATE newPwrState);
+    virtual void setPowerState(POWER_STATE newPwrState) {_pwrState = newPwrState;}
+    virtual POWER_STATE getPowerState() {return _pwrState;}
+    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0);
+    virtual bool pwrIsOn() {return getPowerState() == POWER_ON;}
+    virtual void print();
 
 private:
     bool _pwrCtrlEnabled;
+    POWER_STATE _pwrState;
 };
 
 }} //namespace nidas { namespace util {

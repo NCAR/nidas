@@ -209,10 +209,10 @@ int main(int argc, char* argv[]) {
         std::string pwrStr(Energy.getValue());
         DLOG(("Energy Option Flag/Value: ") << Energy.getFlag() << ": " << pwrStr);
         std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-        SENSOR_POWER_STATE power = SensorPowerCtrl::strToPowerState(pwrStr);
-        if (power != -1) {
+        POWER_STATE power = PowerCtrlAbs::strToPowerState(pwrStr);
+        if (power != ILLEGAL_POWER) {
             sensrPwrCtrl.enablePwrCtrl(true);
-            power == SENSOR_POWER_ON ? sensrPwrCtrl.pwrOn() : sensrPwrCtrl.pwrOff();
+            power == POWER_ON ? sensrPwrCtrl.pwrOn() : sensrPwrCtrl.pwrOff();
         }
         else
         {
