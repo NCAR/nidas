@@ -114,24 +114,25 @@ FtdiDevice::FtdiDevice(const std::string vendor, const std::string product, ftdi
         throw IOException("FtdiDevice::FtdiDevice()", ": Failed to allocate ftdi_context object.");
     }
 
-    DLOG(("FtdiDevice(): start..."));
+    DLOG(("FtdiDevice(): testing to see if device exists..."));
     find(vendor, product);
-    DLOG(("FtdiDevice(): set interface..."));
-    if (setInterface(_interface)) {
-        DLOG(("Opening device and setting bitbang mode"));
-        open();
-        if (setMode(0xFF, BITMODE_BITBANG)) {
-            DLOG(("FtdiDevice(): Successfully set mode to bitbang: "));
-            _foundDevice = true;
+    if (deviceFound()) {
+        DLOG(("FtdiDevice(): set interface..."));
+        if (setInterface(_interface)) {
+            DLOG(("Opening device and setting bitbang mode"));
+            open();
+            if (setMode(0xFF, BITMODE_BITBANG)) {
+                DLOG(("FtdiDevice(): Successfully set mode to bitbang: "));
+            }
+            else {
+                DLOG(("FtdiDevice(): failed to set mode to bitbang: ") << error_string());
+            }
+            DLOG(("FtdiDevice(): Closing device after bitbang mode operation"));
+            close();
         }
         else {
-            DLOG(("FtdiDevice(): failed to set mode to bitbang: ") << error_string());
+            DLOG(("FtdiDevice(): failed to set the interface...") << error_string());
         }
-        DLOG(("FtdiDevice(): Closing device after bitbang mode operation"));
-        close();
-    }
-    else {
-        DLOG(("FtdiDevice(): failed to set the interface...") << error_string());
     }
 }
 
@@ -199,19 +200,21 @@ void FtdiDevice::find(std::string vendorStr, std::string productStr)
 
 void FtdiDevice::open()
 {
-    if (!isOpen()) {
-        DLOG(("FtdiDevice::open(): Attempting to open FTDI device..."));
-        int openStatus = ftdi_usb_open_bus_addr(_pContext, _busAddr, _devAddr);
-        if (openStatus == 0) {
-            DLOG(("FtdiDevice::open(): Successfully opened FTDI device..."));
+    if (deviceFound()) {
+        if (!isOpen()) {
+            DLOG(("FtdiDevice::open(): Attempting to open FTDI device..."));
+            int openStatus = ftdi_usb_open_bus_addr(_pContext, _busAddr, _devAddr);
+            if (openStatus == 0) {
+                DLOG(("FtdiDevice::open(): Successfully opened FTDI device..."));
+            }
+            else {
+                DLOG(("FtdiDevice::open(): Failed to open FTDI device, trying reopen ") << error_string() << " open() status: " << openStatus);
+
+            }
         }
         else {
-            DLOG(("FtdiDevice::open(): Failed to open FTDI device, trying reopen ") << error_string() << " open() status: " << openStatus);
-
+            DLOG(("FtdiDevice::open(): FTDI device already open..."));
         }
-    }
-    else {
-        DLOG(("FtdiDevice::open(): FTDI device already open..."));
     }
 }
 
@@ -219,40 +222,44 @@ void FtdiDevice::open()
 // returns true if already closed or successfully closed, false if attempted close fails.
 void FtdiDevice::close()
 {
-    if (isOpen()) {
-        DLOG(("FtdiDevice::close(): Attempting to close FTDI device..."));
-        if (!ftdi_usb_close(_pContext)) {
-            DLOG(("FtdiDevice::close(): Successfully closed FTDI device..."));
+    if (deviceFound()) {
+        if (isOpen()) {
+            DLOG(("FtdiDevice::close(): Attempting to close FTDI device..."));
+            if (!ftdi_usb_close(_pContext)) {
+                DLOG(("FtdiDevice::close(): Successfully closed FTDI device..."));
+            }
+            else {
+                DLOG(("FtdiDevice::close(): Failed to close FTDI device...") << error_string());
+            }
         }
         else {
-            DLOG(("FtdiDevice::close(): Failed to close FTDI device...") << error_string());
+            DLOG(("FtdiDevice::close(): FTDI device already closed..."));
         }
-    }
-    else {
-        DLOG(("FtdiDevice::close(): FTDI device already closed..."));
     }
 }
 
 unsigned char FtdiDevice::readInterface()
 {
     unsigned char pins = 0;
-    open();
-    if (isOpen()) {
-        DLOG(("FtdiDevice::readInterface(): Successfully opened FTDI device"));
-        if (!ftdi_read_pins(_pContext, &pins)) {
-            DLOG(("FtdiDevice::readInterface(): Successfully read the device pins..."));
+    if (deviceFound()) {
+        open();
+        if (isOpen()) {
+            DLOG(("FtdiDevice::readInterface(): Successfully opened FTDI device"));
+            if (!ftdi_read_pins(_pContext, &pins)) {
+                DLOG(("FtdiDevice::readInterface(): Successfully read the device pins..."));
+            }
+            else {
+                DLOG(("FtdiDevice::readInterface(): Failed to read the device pins...") << error_string());
+                throw IOException(std::string("FtdiDevice::readInterface(): Could not read from interface: "),
+                                  error_string());
+            }
+            close();
         }
         else {
-            DLOG(("FtdiDevice::readInterface(): Failed to read the device pins...") << error_string());
-            throw IOException(std::string("FtdiDevice::readInterface(): Could not read from interface: "),
+            DLOG(("FtdiDevice::readInterface(): Failed to open FTDI device: ") << error_string());
+            throw IOException(std::string("FtdiDevice::readInterface(): Failed to open the device"),
                               error_string());
         }
-        close();
-    }
-    else {
-        DLOG(("FtdiDevice::readInterface(): Failed to open FTDI device: ") << error_string());
-        throw IOException(std::string("FtdiDevice::readInterface(): Failed to open the device"),
-                          error_string());
     }
 
     return pins;
@@ -260,12 +267,14 @@ unsigned char FtdiDevice::readInterface()
 
 void FtdiDevice::writeInterface(unsigned char pins)
 {
-    open();
-    if (ftdi_write_data(_pContext, &pins, 1) < 0) {
-        throw IOException(std::string("FtdiDevice::writeInterface(): Could not write to interface: "),
-                                      error_string());
+    if (deviceFound()) {
+        open();
+        if (ftdi_write_data(_pContext, &pins, 1) < 0) {
+            throw IOException(std::string("FtdiDevice::writeInterface(): Could not write to interface: "),
+                                          error_string());
+        }
+        close();
     }
-    close();
 }
 
 FtdiList::FtdiList()
