@@ -58,6 +58,8 @@ else:
     arch = ''
     machs = []
 
+env.Append(LIBPATH="/opt/nidas/lib/arm-linux-gnueabihf")
+
 programs = Split("""
 arl-ingest
 arinc_out
@@ -150,7 +152,7 @@ env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
     env.Alias('tee_i2c', env.NidasProgram('tee_i2c.cc'))
-    env.NidasUtilProgram('ublox.cc')
+    env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
 
 env.NidasUtilProgram('utime.cc')
 

@@ -72,6 +72,9 @@
 
 using namespace std;
 using nidas::core::NidasApp;
+using nidas::core::NidasAppArg;
+using nidas::core::ArgVector;
+using nidas::core::NidasAppException;
 
 namespace n_u = nidas::util;
 
@@ -254,14 +257,24 @@ private:
     int _maxwfd;
 
     NidasApp _app;
-
+    NidasAppArg Priority;
+    NidasAppArg Foreground;
+    NidasAppArg KeepMSB;
 };
 
 TeeI2C::TeeI2C():
     progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
     _ptynames(), _ptyfds(),
     asDaemon(true),priority(-1),_signalMask(), _writefdset(), _maxwfd(0),
-    _app()
+    _app(""),
+    Priority("-p,--priority", "priority",
+             "Set FIFO priority: 0-99, where 0 is low and 99 is highest.\n"
+             "If process lacks sufficient permissions,\n"
+             "a warning will be logged but program will continue."),
+    Foreground("-f,--foreground", "", "Run foreground, not as background daemon"),
+    KeepMSB("-k,--keepmsb", "",
+            "By default the most-significant bit is cleared, to work\n"
+            "around bugs on some Pi/Ublox.  Set this to leave the bit unchanged.")
 {
 }
 
@@ -295,16 +308,10 @@ static void sigAction(int sig, siginfo_t* siginfo, void*)
 
 int TeeI2C::parseRunstring(int argc, char** argv)
 {
-    NidasAppArg Priority("-p,--priority", "priority",
-                         "Set FIFO priority: 0-99, where 0 is low and 99 is highest.\n"
-                         "If process lacks sufficient permissions,\n"
-                         "a warning will be logged but program will continue.")
-    NidasAppArg Foreground("-f,--foreground", "", "Run foreground, not as background daemon");
-
     _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
-                         Priority | Foreground);
+                         Priority | Foreground | KeepMSB);
 
-    args = _app.parseArgs(argc, argv);
+    ArgVector args = _app.parseArgs(argc, argv);
 
     asDaemon = !Foreground.asBool();
     if (Priority.specified())
@@ -320,14 +327,14 @@ int TeeI2C::parseRunstring(int argc, char** argv)
     progname = argv[0];
     int iarg = 1;
 
-    for (int iarg = 0; iarg < args.size; iarg++) {
+    for (int iarg = 0; iarg < args.size(); iarg++) {
         string arg = args[iarg];
         if (arg[0] == '-') return usage();
         else {
             if (_i2cname.length() == 0)
                 _i2cname = args[iarg];
             else if (_i2caddr == 0)
-                _i2caddr = strtol(args[iarg], NULL, 0);
+                _i2caddr = strtol(args[iarg].c_str(), NULL, 0);
             else
                 // user will only read from this pty
                 _ptynames.push_back(args[iarg]);
@@ -347,7 +354,7 @@ int TeeI2C::parseRunstring(int argc, char** argv)
 int TeeI2C::usage()
 {
     cerr << "\
-Usage: " << argv0 << "[-f] i2cdev i2caddr ptyname ... \n"
+Usage: " << _app.getName() << "[-f] [-p priority] i2cdev i2caddr ptyname ...\n"
          << _app.usage() << 
 "  i2cdev: name of I2C bus to open, e.g. /dev/i2c-1\n"
 "  i2caddr: address of I2C device, usually in hex: e.g. 0x42\n"
@@ -534,6 +541,7 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
+    bool keepmsb = KeepMSB.asBool();
     unsigned char i2cbuf[8192];
     for ( ; ; ) {
         int len;
@@ -554,7 +562,13 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
         }
         // cerr << "len=" << len << endl;
         if (len == 0) break;
-        writeptys(i2cbuf,len);
+        // Unless KeepMSB is set, clear the high bit before writing to ptys.
+        if (!keepmsb)
+        {
+            for (int i = 0; i < len; ++i)
+                i2cbuf[i] &= 0x7f;
+        }
+        writeptys(i2cbuf, len);
     }
 }
 
@@ -593,7 +607,8 @@ int main(int argc, char** argv)
     catch (const NidasAppException &appx)
     {
         cerr << appx.what() << endl;
-        return tee.usage();
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
     }
     return tee.run();
 }
