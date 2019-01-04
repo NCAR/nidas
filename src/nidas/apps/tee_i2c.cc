@@ -546,6 +546,7 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
     unsigned char i2cbuf[8192];
     // Unless KeepMSB is set, clear the high bit before writing to ptys.
     unsigned int mask = 0x7f;
+    unsigned int msbfound = 0;
     if (KeepMSB.asBool())
         mask = 0xff;
     for ( ; ; ) {
@@ -563,6 +564,16 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
             if (db < 0) break;
 #endif
             if (db == '\xff') break;
+            if (db > 0xff)
+            {
+                ++msbfound;
+                VLOG(("i2c returned %u bytes > 0xff: %0x '%c' '%c'",
+                      msbfound, db, (db >> 8) & 0x7f, db & 0x7f));
+                if (msbfound % 100 == 1)
+                {
+                    NLOG(("%d bytes > 0xff from i2c so far", msbfound));
+                }
+            }
             i2cbuf[len] = (db & mask);
         }
         // XXX what should happen if 0xff never found?  Do we really want
