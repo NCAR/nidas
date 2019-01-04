@@ -58,6 +58,7 @@
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 #include <nidas/core/NidasApp.h>
 
 #include <linux/i2c-dev.h>
@@ -260,6 +261,7 @@ private:
     NidasAppArg Priority;
     NidasAppArg Foreground;
     NidasAppArg KeepMSB;
+    NidasAppArg BlockingWrites;
 };
 
 TeeI2C::TeeI2C():
@@ -274,7 +276,10 @@ TeeI2C::TeeI2C():
     Foreground("-f,--foreground", "", "Run foreground, not as background daemon"),
     KeepMSB("-k,--keepmsb", "",
             "By default the most-significant bit is cleared, to work\n"
-            "around bugs on some Pi/Ublox.  Set this to leave the bit unchanged.")
+            "around bugs on some Pi/Ublox.  Set this to leave the bit unchanged."),
+    BlockingWrites("-b,--blocking", "",
+                   "Use blocking writes instead of skipping writes to ptys which\n"
+                   "are not immediately writable.")
 {
 }
 
@@ -309,9 +314,12 @@ static void sigAction(int sig, siginfo_t* siginfo, void*)
 int TeeI2C::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
-                         Priority | Foreground | KeepMSB);
+                         Priority | Foreground | KeepMSB | BlockingWrites);
 
     ArgVector args = _app.parseArgs(argc, argv);
+
+    if (_app.helpRequested())
+        return usage();
 
     asDaemon = !Foreground.asBool();
     if (Priority.specified())
@@ -322,10 +330,6 @@ int TeeI2C::parseRunstring(int argc, char** argv)
             throw NidasAppException("Priority must be 0-99");
         }
     }
-
-
-    progname = argv[0];
-    int iarg = 1;
 
     for (int iarg = 0; iarg < args.size(); iarg++) {
         string arg = args[iarg];
@@ -382,11 +386,10 @@ int TeeI2C::run() throw()
     int result = 0;
 
     try {
-        nidas::util::Logger* logger = 0;
-        n_u::LogConfig lc;
-        n_u::LogScheme logscheme("tee_i2c");
-        lc.level = 6;
-
+        // NidasApp creates a log scheme and configures it, so use it.
+        n_u::Logger* logger = n_u::Logger::getInstance();
+        n_u::LogScheme logscheme = logger->getScheme();
+    
         if (asDaemon) {
             if (daemon(0,0) < 0)
                 throw n_u::IOException(progname, "daemon", errno);
@@ -396,7 +399,6 @@ int TeeI2C::run() throw()
         else
             logger = n_u::Logger::createInstance(&std::cerr);
 
-        logscheme.addConfig(lc);
         logger->setScheme(logscheme);
 
         if (priority >= 0) setFIFOPriority(priority);
@@ -541,11 +543,14 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
-    bool keepmsb = KeepMSB.asBool();
     unsigned char i2cbuf[8192];
+    // Unless KeepMSB is set, clear the high bit before writing to ptys.
+    unsigned int mask = 0x7f;
+    if (KeepMSB.asBool())
+        mask = 0xff;
     for ( ; ; ) {
         int len;
-        for (len = 0; len < (signed) sizeof(i2cbuf); len++) {
+        for (len = 0; len < (signed)sizeof(i2cbuf)-1; len++) {
 #ifdef READ_BYTE_DATA
             int db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
 #else
@@ -558,16 +563,15 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
             if (db < 0) break;
 #endif
             if (db == '\xff') break;
-            i2cbuf[len] = (db & 0xff);
+            i2cbuf[len] = (db & mask);
         }
+        // XXX what should happen if 0xff never found?  Do we really want
+        // to dump 8192 bytes of unterminated i2c data to the ptys?
         // cerr << "len=" << len << endl;
         if (len == 0) break;
-        // Unless KeepMSB is set, clear the high bit before writing to ptys.
-        if (!keepmsb)
-        {
-            for (int i = 0; i < len; ++i)
-                i2cbuf[i] &= 0x7f;
-        }
+        i2cbuf[len] = '\0';
+        VLOG(("writing ") << len << " bytes to ptys: "
+             << n_u::addBackslashSequences(string(i2cbuf, i2cbuf+len)));
         writeptys(i2cbuf, len);
     }
 }
@@ -575,24 +579,38 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 void TeeI2C::writeptys(const unsigned char* buf, int len)
     throw(n_u::IOException)
 {
-    int nwfd;
+    int nwfd = 0;
     fd_set wfds = _writefdset;
-
+    bool blockwrites = BlockingWrites.asBool();
     struct timespec writeTimeout = {0,NSECS_PER_SEC / 10};
 
     /*
      * Only write to the ptys that are ready, so that
      * one laggard doesn't block everybody.
      * TODO: should we use NON_BLOCK writes?
+     *
+     * Or use a select loop in a separate thread which buffers data
+     * for each pty and writes when it is writable?
      */
-    if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
+    if (blockwrites) {
+        nwfd = _ptyfds.size();
+    }
+    else if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
         throw n_u::IOException("ptys","pselect",errno);
-    for (unsigned int i = 0; nwfd > 0 && i < _ptyfds.size(); i++)  {
+    for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
         if (FD_ISSET(_ptyfds[i],&wfds)) {
-            // cerr << _ptyfds[i] << " is writable, len=" << len << endl;
-            nwfd--;
-            ssize_t lw = ::write(_ptyfds[i],buf, len);
+            if (blockwrites)
+                VLOG(("pty ") << _ptyfds[i] << " blocking write of "
+                     << len << " bytes.");
+            else
+                VLOG(("pty ") << _ptyfds[i] << " is writable, len=" << len);
+            ssize_t lw = ::write(_ptyfds[i], buf, len);
             if (lw < 0) throw n_u::IOException(_ptynames[i],"write",errno);
+        }
+        else
+        {
+            NLOG(("pty ") << _ptyfds[i] << " NOT writable, dropping "
+                 << len << " bytes.");
         }
     }
 }
