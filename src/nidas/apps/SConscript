@@ -15,6 +15,7 @@
 # The top few lines of this file setup the Environment accordingly, while
 # the rest of the file does not need to change.
 
+import os
 import eol_scons
 import eol_scons.parseconfig as pc
 
@@ -57,8 +58,11 @@ else:
     pc.PassPkgConfigPath(env)
     arch = ''
     machs = []
-
-env.Append(LIBPATH="/opt/nidas/lib/arm-linux-gnueabihf")
+    # If this path exists, then probably we're building on a Pi and it
+    # needs to be on the path.
+    xlibs = env.subst("${NIDAS_PATH}/lib/arm-linux-gnueabihf")
+    if os.path.exists(xlibs):
+        env.Append(LIBPATH=xlibs)
 
 programs = Split("""
 arl-ingest
