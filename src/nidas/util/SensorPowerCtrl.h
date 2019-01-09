@@ -42,7 +42,7 @@ public:
 
     virtual void pwrOn();
     virtual void pwrOff();
-    void retrievePowerState();
+    void updatePowerState();
 
     // This utility converts a binary power configuration to a string
     static const std::string rawPowerToStr(unsigned char powerCfg);

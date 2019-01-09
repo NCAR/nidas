@@ -53,49 +53,40 @@ POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
-: SerialGPIO(port2iface(port)), PowerCtrlAbs(), _port(port)
+: SerialGPIO(port), PowerCtrlAbs(), _port(port)
 {
-    retrievePowerState();
+    updatePowerState();
 }
 
 void SensorPowerCtrl::pwrOn()
 {
     if (deviceFound() && pwrCtrlEnabled()) {
         Sync sync(this);
-        unsigned char pins = readInterface();
-        pins |= BITS_POWER;
-        writeInterface(pins);
+        write(BITS_POWER, BITS_POWER);
     }
     else {
-        DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
+        DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
-    retrievePowerState();
+    updatePowerState();
 }
 
 void SensorPowerCtrl::pwrOff()
 {
     if (deviceFound() && pwrCtrlEnabled()) {
         Sync sync(this);
-        unsigned char pins = readInterface();
-        pins &= ~BITS_POWER;
-        writeInterface(pins);
+        write(0, BITS_POWER);
     }
     else {
-        DLOG(("SerialPowerCtrl::SerialPowerCtrl(): Power control for device: ") << _port << " is not enabled");
+        DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
-    retrievePowerState();
+    updatePowerState();
 }
 
-void SensorPowerCtrl::retrievePowerState()
+void SensorPowerCtrl::updatePowerState()
 {
     if (deviceFound()) {
         Sync sync(this);
-        unsigned char ifaceState = readInterface();
-
-        DLOG(("current interface state: %x", int(ifaceState)));
-        if (_port % 2) ifaceState >>= 4;
-        DLOG(("interface state after shift: %x", (int)ifaceState));
-        setPowerState(rawPowerToState(ifaceState));
+        setPowerState(rawPowerToState(read()));
         DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
     }
 }

@@ -30,6 +30,9 @@
 #include "LooperClient.h"
 #include "SerialPortIODevice.h"
 
+#include <nidas/util/PowerCtrlIf.h>
+#include <nidas/util/SensorPowerCtrl.h>
+
 using namespace nidas::util; 
 
 namespace nidas { namespace core {
@@ -113,6 +116,15 @@ enum AUTOCONFIG_STATE {
  * of the device name, see buildIODevice() below.
  * A SerialSensor also creates a SampleScanner, depending on the device name.
  * 
+ * SerialSensor is also a PowerCtrlIf subclass. This means that the SerialSensor class
+ * itself may control power to the sensor using PowerCtrlIf virtual functions, which
+ * are implemented in this class as inline methods. These methods can be inline
+ * because SerialSensor attempts to instantiate a SensorPowerCtrl object. SensorPowerCtrl
+ * attempts to find special FTDI HW which is reserved for controlling power to the sensors.
+ * If such HW is not found, then _pSensrPwrCtrl attribute is deleted and set to 0. All
+ * PowerCtrlIf virtual overrides must check for the presence of this attribute before
+ * attempting to use its methods.
+ *
  * Configuration and opening of a SerialSensor is done in the following sequence:
  * 1.  After the configuration XML is being parsed, an instance of SerialSensor() is
  *     created, and the virtual method fromDOMElement() is called.
@@ -133,7 +145,7 @@ enum AUTOCONFIG_STATE {
  *              Calls CharacterSensor::buildSampleScanner().
  *         scanr->init()
  */
-class SerialSensor : public CharacterSensor
+class SerialSensor : public CharacterSensor, public PowerCtrlIf
 {
 
 public:
@@ -143,7 +155,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
-    SerialSensor(const PortConfig& rInitPortConfig);
+    SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState=POWER_ON);
 
     ~SerialSensor();
 
@@ -269,6 +281,105 @@ public:
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
     AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
 
+    /**
+     *  PowerCtrlIf virtual overrides using _pSensrPwrCtrl as functionality provider
+     */
+    virtual void enablePwrCtrl(bool enable)
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->enablePwrCtrl(enable);
+        }
+    }
+
+    virtual bool pwrCtrlEnabled()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            retval = _pSensrPwrCtrl->pwrCtrlEnabled();
+        }
+
+        return retval;
+    }
+
+    virtual void setPower(POWER_STATE newPwrState)
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->setPower(newPwrState);
+        }
+    }
+
+    virtual void setPowerState(POWER_STATE newPwrState)
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->setPowerState(newPwrState);
+        }
+    }
+
+    virtual POWER_STATE getPowerState()
+    {   POWER_STATE retval = ILLEGAL_POWER;
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            retval = _pSensrPwrCtrl->getPowerState();
+        }
+
+        return retval;
+    }
+
+    virtual void pwrOn()
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->pwrOn();
+        }
+    }
+
+    virtual void pwrOff()
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->pwrOff();
+        }
+    }
+
+    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
+        }
+    }
+
+    virtual bool pwrIsOn()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            retval = _pSensrPwrCtrl->pwrIsOn();
+        }
+        return retval;
+    }
+
+    virtual void updatePowerState()
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->updatePowerState();
+        }
+    }
+
+    virtual void printPowerState()
+    {
+        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        {
+            _pSensrPwrCtrl->updatePowerState();
+            _pSensrPwrCtrl->print();
+        }
+    }
+
 protected:
 
     /**
@@ -362,14 +473,19 @@ protected:
 
 private:
     /*
-     * The initial PortConfig sent by the subclass when constructing SerialSensor
+     *  The initial PortConfig sent by the subclass when constructing SerialSensor
      */
     PortConfig _defaultPortConfig;
 
     /**
-     * Non-null if the underlying IODevice is a SerialPortIODevice.
+     *  Non-null if the underlying IODevice is a SerialPortIODevice.
      */
     SerialPortIODevice* _serialDevice;
+
+    /*
+     *  Non-null if the FTDI chip underlying the SensorPowerCtrl class exists
+     */
+    SensorPowerCtrl* _pSensrPwrCtrl;
 
     class Prompter: public nidas::core::LooperClient
     {

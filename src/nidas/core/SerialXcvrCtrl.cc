@@ -61,11 +61,11 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
 
 
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
-: _xcvrConfig(portId, RS232, NO_TERM), _rawXcvrConfig(0), _pSerialGPIO(new SerialGPIO(port2iface()))
+: _xcvrConfig(portId, RS232, NO_TERM), _pSerialGPIO(new SerialGPIO(portId))
 {
     if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
-        applyXcvrConfig(true);
+        applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
     }
 
@@ -78,11 +78,11 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId, 
                                const PORT_TYPES portType, 
                                const TERM termination)
-: _xcvrConfig(portId, portType, termination), _rawXcvrConfig(0), _pSerialGPIO(new SerialGPIO(port2iface()))
+: _xcvrConfig(portId, portType, termination), _pSerialGPIO(new SerialGPIO(portId))
 {
     if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
-        applyXcvrConfig(true);
+        applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
     }
 
@@ -93,11 +93,11 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
 }
 
 SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
-: _xcvrConfig(initXcvrConfig), _rawXcvrConfig(0), _pSerialGPIO(new SerialGPIO(n_u::port2iface(initXcvrConfig.port)))
+: _xcvrConfig(initXcvrConfig), _pSerialGPIO(new SerialGPIO(initXcvrConfig.port))
 {
     if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
-        applyXcvrConfig(true);
+        applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
     }
 
@@ -124,11 +124,12 @@ void SerialXcvrCtrl::setXcvrConfig(const XcvrConfig& newXcvrConfig)
     if (newXcvrConfig.port != _xcvrConfig.port) {
         DLOG(("Current port: ") << _xcvrConfig.port << " - New port: " << newXcvrConfig.port);
         _xcvrConfig.port = newXcvrConfig.port;
-        enum ftdi_interface iface = port2iface();
-        DLOG(("Setting the FTDI BitBang interface to INTERFACE_") << (iface==INTERFACE_A ? "A" :
-                                                                        iface==INTERFACE_B ? "B" :
-                                                                        iface==INTERFACE_C ? "C" :
-                                                                        iface==INTERFACE_D ? "D" : "???"));
+        DLOG(("Pointing SerialGPIO object to new port"));
+        if (_pSerialGPIO) {
+            delete _pSerialGPIO;
+            _pSerialGPIO = 0;
+            _pSerialGPIO = new SerialGPIO(_xcvrConfig.port);
+        }
     }
 
     _xcvrConfig = newXcvrConfig;
@@ -148,34 +149,20 @@ unsigned char SerialXcvrCtrl::assembleBits(const PORT_TYPES portType,
     return bits;
 }
 
-void SerialXcvrCtrl::applyXcvrConfig(const bool readDevice)
+void SerialXcvrCtrl::applyXcvrConfig()
 {
-    if (readDevice) {
-        DLOG(("SerialXcvrCtrl::applyXcvrConfig(): Reading GPIO pin state before adjusting them."));
-        // Don't sync here because readXcvrConfig already syncs.
-        readXcvrConfig();
-    }
-
     DLOG(("Working on PORT") << (int)(_xcvrConfig.port));
     DLOG(("Applying port type: ") << portTypeToStr(_xcvrConfig.portType));
     DLOG(("Applying termination: ") << termToStr(_xcvrConfig.termination));
 
-    DLOG(("Raw xcvr config: 0X%02X", _rawXcvrConfig));
-    _rawXcvrConfig &= ~adjustBitPosition(0b00000111);
-    DLOG(("Raw xcvr config after mask: 0X%02X", _rawXcvrConfig));
-
-    _rawXcvrConfig |= adjustBitPosition(assembleBits(_xcvrConfig.portType, _xcvrConfig.termination));
-	DLOG(("New raw xcvr config: 0X%02X", _rawXcvrConfig));
+    unsigned char desiredConfig = assembleBits(_xcvrConfig.portType, _xcvrConfig.termination);
 
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
     SerialGPIO::Sync sync(_pSerialGPIO);
-    _pSerialGPIO->writeInterface(_rawXcvrConfig);
+    _pSerialGPIO->write(desiredConfig, 0b00000111);
 
-    // re-read to compare....
-    unsigned char checkConfig = _pSerialGPIO->readInterface();
-
-    if (checkConfig != _rawXcvrConfig) {
+    if ((_pSerialGPIO->read() & ~BITS_POWER) != desiredConfig) {
         throw n_u::Exception("SerialXcvrCtrl: the pins written to the GPIO "
                             "do not match the pins read from the GPIO");
     }
@@ -232,18 +219,6 @@ PORT_TYPES SerialXcvrCtrl::bits2PortType(const unsigned char bits)
     }
 
     return portType;
-}
-
-unsigned char SerialXcvrCtrl::adjustBitPosition(const unsigned char bits ) 
-{
-    // adjust port shift to always be 0 or 4, assuming 4 bits per port configuration.
-    unsigned char portShift = (_xcvrConfig.port % PORT2)*4;
-    return bits << portShift;
-}
-
-enum ftdi_interface SerialXcvrCtrl::port2iface()
-{
-    return n_u::port2iface(_xcvrConfig.port);
 }
 
 const std::string SerialXcvrCtrl::portTypeToStr(const PORT_TYPES portType)
@@ -306,22 +281,12 @@ const std::string SerialXcvrCtrl::rawTermToStr(unsigned char termCfg)
     return termStr;
 }
 
-void SerialXcvrCtrl::readXcvrConfig() 
-{
-    SerialGPIO::Sync sync(_pSerialGPIO);
-    DLOG(("Attempting to read the current FT4232H GPIO pin settings"));
-    _rawXcvrConfig = _pSerialGPIO->readInterface();
-    DLOG(("Successfully read FT4232H GPIO pin settings. Now closing device."));
-}
-
 void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst)
 {
     if (readFirst) {
         DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
-        readXcvrConfig();
 
-        unsigned char tmpPortConfig = _rawXcvrConfig;
-        if (_xcvrConfig.port % 2) tmpPortConfig >>= 4;
+        unsigned char tmpPortConfig = _pSerialGPIO->read();
         std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS))
                                     << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT);
     }

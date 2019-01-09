@@ -35,10 +35,10 @@
 #include "Looper.h"
 #include "Prompt.h"
 
+#include <nidas/util/SensorPowerCtrl.h>
 #include <nidas/util/Logger.h>
 
 #include <cmath>
-
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -54,7 +54,7 @@ SerialSensor::SerialSensor():
 	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
 	_configMode(NOT_ENTERED),
-	_defaultPortConfig(), _serialDevice(0), _prompters(), _prompting(false)
+	_defaultPortConfig(), _serialDevice(0), _pSensrPwrCtrl(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -65,12 +65,14 @@ SerialSensor::SerialSensor():
     _defaultPortConfig.termios.setRawTimeout(0);
 }
 
-SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
+SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState):
 		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 		_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
 	    _configMode(NOT_ENTERED),
-		_defaultPortConfig(rInitPortConfig), _serialDevice(0), _prompters(), _prompting(false)
+		_defaultPortConfig(rInitPortConfig), _serialDevice(0),
+        _pSensrPwrCtrl(new n_u::SensorPowerCtrl(rInitPortConfig.xcvrConfig.port)),
+        _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -79,6 +81,20 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
     _defaultPortConfig.termios.setRaw(true);
     _defaultPortConfig.termios.setRawLength(1);
     _defaultPortConfig.termios.setRawTimeout(0);
+
+    if (_pSensrPwrCtrl) {
+        if (!_pSensrPwrCtrl->deviceFound()) {
+            delete _pSensrPwrCtrl;
+            _pSensrPwrCtrl = 0;
+        }
+        else {
+            enablePwrCtrl(true);
+            setPower(initPowerState);
+        }
+    }
+    else {
+        DLOG(("SerialSensor::SerialSensor(PortConfig): Failed to instantiate SensorPowerCtrl object!!"));
+    }
 }
 
 SerialSensor::~SerialSensor()
@@ -187,15 +203,15 @@ void SerialSensor::serPortFlush(const int flags)
         int accmode = attrFlags & O_ACCMODE;
         if (accmode == O_RDONLY) {
              _serialDevice->flushInput();
-             ILOG(("Flushed serial port input on device: ") << getName());
+             DLOG(("Flushed serial port input on device: ") << getName());
         }
         else if (accmode == O_WRONLY) {
             _serialDevice->flushOutput();
-             ILOG(("Flushed serial port output on device: ") << getName());
+             DLOG(("Flushed serial port output on device: ") << getName());
         }
         else {
             _serialDevice->flushBoth();
-             ILOG(("Flushed serial port input and output on device: ") << getName());
+             DLOG(("Flushed serial port input and output on device: ") << getName());
         }
     }
 }
@@ -291,6 +307,7 @@ void SerialSensor::printPortConfig(bool flush)
                  "or is newer type serial device such as USB or socket-oriented, "
                  " which has no need of a PortConfig."));
     }
+    printPowerState();
 }
 
 void SerialSensor::initPrompting() throw(n_u::IOException)
@@ -649,6 +666,7 @@ void SerialSensor::doAutoConfig()
 					installDesiredSensorConfig(foundWorkingConfig);
 					_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
 					_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
+		            setSensorState(SENSOR_CONFIGURE_FAILED);
 				}
 			}
 			else {
@@ -663,11 +681,13 @@ void SerialSensor::doAutoConfig()
 					NLOG(("Desired sensor science configuration successfully installed"));
 					_scienceState = SCIENCE_SETTINGS_SUCCESSFUL;
 					_autoConfigState = AUTOCONFIG_SUCCESSFUL;
+		            setSensorState(SENSOR_CONFIGURE_SUCCEEDED);
 				}
 				else {
 					NLOG(("Failed to install sensor science configuration"));
 					_scienceState = SCIENCE_SETTINGS_UNSUCCESSFUL;
 					_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
+		            setSensorState(SENSOR_CONFIGURE_FAILED);
 				}
 			}
 			else {
@@ -678,9 +698,10 @@ void SerialSensor::doAutoConfig()
 		{
 			NLOG(("Couldn't find a serial port configuration that worked with this sensor. "
 				  "May need to troubleshoot the sensor or cable. "
-				  "!!!NOTE: Sensor is ready for data collection!!!"));
+				  "!!!NOTE: Sensor is NOT ready for data collection!!!"));
 			_serialState = COMM_PARAMETER_CFG_UNSUCCESSFUL;
 			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
+			setSensorState(SENSOR_CONFIGURE_FAILED);
 		}
 	}
 }
@@ -808,6 +829,7 @@ bool SerialSensor::sweepCommParameters()
 
 				NLOG((""));
 				NLOG(("Testing PortConfig: ") << getPortConfig());
+				printPowerState();
 
 				cfgMode = enterConfigMode();
 				if (cfgMode == ENTERED) {

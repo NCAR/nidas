@@ -92,9 +92,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
 */
 class SerialXcvrCtrl {
 public:
-    SerialXcvrCtrl()
-        : _xcvrConfig(), _rawXcvrConfig(RS232_BITS),
-          _pSerialGPIO(0) {}
+    SerialXcvrCtrl() : _xcvrConfig(), _pSerialGPIO(0) {}
 
     // Constructor needs to know what port is being controlled
     // Constructor uses portID to decide which FTDI interface to 
@@ -113,17 +111,13 @@ public:
     void setXcvrConfig(const XcvrConfig& newXcvrConfig);
     // This is the primary client API that does all the heavy lifting  
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
-    void applyXcvrConfig(const bool readDevice=true);
+    void applyXcvrConfig();
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
     // the port mode, including termination and sensor power
-    unsigned char getRawXcvrConfig() {return _rawXcvrConfig;};
+    unsigned char getRawXcvrConfig() {return _pSerialGPIO->read();};
     // Returns the raw bits indicating current state of the port mode
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
-    // Reads the xcvr config from the FTDI chip and put it in _rawXcvrConfig
-    void readXcvrConfig();
     // This informs the class as to which USB device to open.
-    // This has no effect until the device is closed and then re-opened
-    void setBusAddress(const int busId=1, const int deviceId=8);
     // This utility converts a PORT_TYPE to a string
     static const std::string portTypeToStr(const PORT_TYPES portType);
     // This utility converts a string to a PORT_TYPE
@@ -170,14 +164,8 @@ public:
     static PORT_TYPES bits2PortType(const unsigned char bits);
 
 protected:
-    // shift the port type into the correct location in the GPIO for insertion
-    unsigned char adjustBitPosition(const unsigned char bits );
     // assembles the port config bits into a low nibble, ready for shifting.
     unsigned char assembleBits(const PORT_TYPES portType, const TERM term);
-    // deduces the FT4232H GPIO interface form the port in _xcvrConfig.
-    // need to select the interface based on the specified port 
-    // at present, assume 4 bits per port definition
-    enum ftdi_interface port2iface();
     // Morphs PORT_TYPES to the SP339 M0/M1 bit definitions
     unsigned char portType2Bits(const PORT_TYPES portType);
 private:
@@ -207,8 +195,6 @@ private:
 
     // Aggregation of xcvr port knobs to twiddle
     XcvrConfig _xcvrConfig;
-    // This is the current port configuration contained in the lowest nibble always
-    unsigned char _rawXcvrConfig;
     // This is the FTDI object which controls the SP339 xcvr bitbanging on a specific interface.
     n_u::SerialGPIO* _pSerialGPIO;
 
