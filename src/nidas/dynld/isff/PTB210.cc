@@ -750,27 +750,17 @@ bool PTB210::checkResponse()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readResponse(&(respBuf[0]), bufRemaining, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    static LogContext lp(LOG_VERBOSE);
+    static LogContext lp(LOG_DEBUG);
     if (lp.active()) {
     	if (numCharsRead > 0) {
     		printResponseHex(numCharsRead, respBuf);
     	}
     }
     
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&(respBuf[totalCharsRead]), bufRemaining, 2000);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-		if (numCharsRead == 0) {
-			DLOG(("Took ") << i+1 << " reads to get entire response");
-        }
-    }
-
     if (totalCharsRead) {
         std::string respStr;
         respStr.append(&respBuf[0], totalCharsRead);
