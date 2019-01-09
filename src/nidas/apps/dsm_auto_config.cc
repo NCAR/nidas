@@ -177,6 +177,10 @@ int main(int argc, char* argv[]) {
             pSerialSensor->setDeviceName(deviceStr);
             NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
 
+            NLOG(("Printing sensor power State..."));
+            pSerialSensor->updatePowerState();
+            pSerialSensor->printPowerState();
+
             NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
             pSerialSensor->open(O_RDWR);
 
