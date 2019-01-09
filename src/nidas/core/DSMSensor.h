@@ -54,14 +54,16 @@ class CalFile;
 class Looper;
 
 enum DSM_SENSOR_STATE {
-	SENSOR_CLOSED = 0,		// not participating
-	SENSOR_OPEN,			// woken up
-	SENSOR_CONFIGURING,		// getting into the game
-	SENSOR_ACTIVE,			// actively participating
-	SENSOR_CHECKING_HEALTH, // Surveilling timeouts and processing
-	SENSOR_UNHEALTHY,		// not playing well
-	SENSOR_REQUEST_RESTART, // failing, start over
-	SENSOR_HEALTHY,			// playing well
+	SENSOR_CLOSED = 0,		    // not participating
+	SENSOR_OPEN,			    // woken up
+	SENSOR_CONFIGURING,		    // auto configuration started
+    SENSOR_CONFIGURE_FAILED,    // auto configuration failed
+    SENSOR_CONFIGURE_SUCCEEDED, // auto configuration OK
+	SENSOR_ACTIVE,			    // actively participating
+	SENSOR_CHECKING_HEALTH,     // Surveilling timeouts and processing
+	SENSOR_UNHEALTHY,		    // not playing well
+	SENSOR_REQUEST_RESTART,     // failing, start over
+	SENSOR_HEALTHY,			    // playing well
 };
 
 /**
@@ -987,7 +989,7 @@ public:
     void setSensorState(const DSM_SENSOR_STATE sensorState)
     {
     	_sensorState = sensorState;
-    	ILOG(("Sensor state for ") << getName() << ":" << getClassName() << " is now " << getReadableSensorState());
+    	NLOG(("Sensor state for ") << getName() << ":" << getClassName() << " is now " << getReadableSensorState());
     }
 
     std::string sensorStateToString(const DSM_SENSOR_STATE sensorState) const;
