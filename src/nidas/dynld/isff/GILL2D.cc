@@ -414,14 +414,14 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 	DLOG(("GILL2D::fromDOMElement() - exit"));
 }
 
-bool GILL2D::installDesiredSensorConfig()
+bool GILL2D::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 {
     bool installed = false;
     PortConfig sensorPortConfig = getPortConfig();
 
     // at this point we need to determine whether or not the current working config 
     // is the desired config, and adjust as necessary
-    if (_desiredPortConfig != sensorPortConfig) {
+    if (rDesiredConfig != sensorPortConfig) {
         // Gotta modify the GILL2D parameters first, and the modify our parameters to match and hope for the best.
         // We only do this for the serial and science parameters, as the sensor is physically configured to use  
         // the transceiver mode we discovered it works on. To change these parameters, the user would have to  
@@ -430,10 +430,10 @@ bool GILL2D::installDesiredSensorConfig()
 
         serPortFlush(O_RDWR);
 
-        if (_desiredPortConfig.termios.getBaudRate() != sensorPortConfig.termios.getBaudRate()) {
-        	DLOG(("Changing baud rate to: ") << _desiredPortConfig.termios.getBaudRate());
+        if (rDesiredConfig.termios.getBaudRate() != sensorPortConfig.termios.getBaudRate()) {
+        	DLOG(("Changing baud rate to: ") << rDesiredConfig.termios.getBaudRate());
         	GILL2D_BAUD_ARGS newBaudArg = G38400;
-        	switch (_desiredPortConfig.termios.getBaudRate()) {
+        	switch (rDesiredConfig.termios.getBaudRate()) {
 				case 38400:
 					break;
 				case 19200:
@@ -459,11 +459,11 @@ bool GILL2D::installDesiredSensorConfig()
         	sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(newBaudArg));
         }
 
-        if (_desiredPortConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
-        	DLOG(("Changing parity to: ") << _desiredPortConfig.termios.getParityString());
+        if (rDesiredConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
+        	DLOG(("Changing parity to: ") << rDesiredConfig.termios.getParityString());
 			// GILL2D only supports three combinations of word format - all based on parity
 			// So just force it based on parity.
-			switch (_desiredPortConfig.termios.getParityString(true).c_str()[0]) {
+			switch (rDesiredConfig.termios.getParityString(true).c_str()[0]) {
 				case 'O':
 					sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
 					break;
@@ -481,9 +481,9 @@ bool GILL2D::installDesiredSensorConfig()
 			}
         }
 
-        setPortConfig(_desiredPortConfig);
+        setPortConfig(rDesiredConfig);
         applyPortConfig();
-        if (getPortConfig() == _desiredPortConfig) {
+        if (getPortConfig() == rDesiredConfig) {
             if (!doubleCheckResponse()) {
 				NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
 						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
@@ -510,7 +510,7 @@ bool GILL2D::installDesiredSensorConfig()
 
         else {
             DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            DLOG(("Desired PortConfig: ") << _desiredPortConfig);
+            DLOG(("Desired PortConfig: ") << rDesiredConfig);
             DLOG(("Actual set PortConfig: ") << getPortConfig());
         }
     }
@@ -933,7 +933,7 @@ bool GILL2D::checkConfigMode(bool continuous)
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
 
-        DLOG(("Response: "));
+        DLOG(("Config Mode Response: "));
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements

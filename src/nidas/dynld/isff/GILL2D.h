@@ -255,7 +255,7 @@ protected:
     virtual n_c::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual bool checkResponse();
-    virtual bool installDesiredSensorConfig();
+    virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
 private:
