@@ -755,7 +755,7 @@ int usage(const char* argv0)
     with a null modem cable. It cycles through the known supported serial port types (RS232, RS422:full/half,\n\
     RS485:full/half) and sweeps the available baud rates to see where communication breaks down. It reports \n\
     bulk transmission statistics at the end of each test.\n\n\
-Usage: " << argv0 << " [-d [1-3]] [-e] [-h] [-m [mode]] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
+Usage: " << argv0 << " [-d [1-3]] [-h] [-m [mode]] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] senddevice echodevice\n\
     -d: output debug information.\n\
     -h: display this help\n\
     -m: select a single port mode to use, RS232, RS422 (same as RS485_FULL), RS485_HALF\n\
@@ -777,15 +777,15 @@ Usage: " << argv0 << " [-d [1-3]] [-e] [-h] [-m [mode]] [-n N] [-o ttyopts] [-p]
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
     Note that the port is always opened in raw mode, overriding what\n\
     the user specifies in ttyopts\n\n\
-Example of testing a serial link at 115200 baud with modem control\n\
+Example of testing a serial link starting at 115200 baud with modem control\n\
     lines (carrier detect) and hardware flow control. The transmitted\n\
     packets will be 2012+36=2048 bytes in length and will be\n\
     sent as fast as possible. The send side is connected to the echo side\n\
     with a null-modem cable:\n\n\
-    " << argv0 << " -o n81mhr -s 2012 /dev/ttyUSB1 /dev/ttyUSB0\n\n\
+    " << argv0 << " -b 115200 -o n81mhr -s 2012 /dev/ttyDSM1 /dev/ttyDSM0\n\n\
 Example of testing a serial link at 9600 baud without modem control\n\
     or hardware flow control. 36 byte packets be sent 10 times per second:\n\
-    " << argv0 << " -o n81lnr -r 10 /dev/ttyUSB0 /dev/ttyUSB1\n" 
+    " << argv0 << " -b 9600 -m RS232 -o n81lnr -r 10 /dev/ttyDSM0 /dev/ttyDSM1\n"
 << endl;
 
     return 1;
