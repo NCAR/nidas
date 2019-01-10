@@ -527,7 +527,7 @@ int Receiver::run() throw(n_u::IOException)
 //    n_u::Termios tio = myPort.getTermios();
 
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
-    ILOG(("Current ") << (_sender ? "Sender" : "Echo") << "modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
+    ILOG(("Current ") << (_sender ? "Sender" : "Echo") << " modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
 
     for ( ; isInterrupted() || !interrupted; ) {
         timeout.tv_sec = _timeoutSecs;
@@ -1119,10 +1119,7 @@ int main(int argc, char**argv)
             n_u::SerialOptions options;
             options.parse(termioOpts);
 
-            portConfig.termios.setBaudRate(options.getTermios().getBaudRate());
-            portConfig.termios.setDataBits(options.getTermios().getDataBits());
-            portConfig.termios.setStopBits(options.getTermios().getStopBits());
-            portConfig.termios.setParity(options.getTermios().getParity());
+            portConfig.termios = options.getTermios();
             portConfig.termios.setRaw(true);
             portConfig.termios.setRawLength(1);
             portConfig.termios.setRawTimeout(0);
@@ -1131,6 +1128,9 @@ int main(int argc, char**argv)
 
             // echo PortConfig is identical, but for the port ID
             echoPortConfig = portConfig;
+            if (echoPortConfig != portConfig) {
+                throw Exception("Sender and Echo PortConfigs don't match!!!");
+            }
             echoPortConfig.xcvrConfig.port = static_cast<n_u::PORT_DEFS>(echoPortNum);
 
             /*************************************************************************
