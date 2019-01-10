@@ -731,18 +731,27 @@ void Receiver::reportBulkStats()
         cout << "Bulk Transmission Stats" << endl << "============================" << endl;
         cout << "Total Sender discarded: " << _sender->getDiscarded() << endl;
         cout << "Total Receiver bad packets: " << _totalBad << endl << endl;
-        cout << "                 Min     Max     Mean   StdDev" << endl;
-        cout << "Out Rate (KBps): " << setw(4) << (outRateStats._min < 1.0 ? setprecision(4) : setprecision(1)) << outRateStats._min << "\t" 
+        cout << "                   Min    Max    Mean StdDev" << endl;
+        cout << "Out Rate (KBps): " << setw(6) << right << fixed
+                                    << (outRateStats._min < 1.0 ? setprecision(4) : setprecision(1)) << outRateStats._min << "\t"
+                                    << setw(6) << right << fixed
                                     << (outRateStats._max < 1.0 ? setprecision(4) : setprecision(1)) << outRateStats._max << "\t" 
+                                    << setw(6) << right << fixed
                                     << (outRateStats._mean < 1.0 ? setprecision(4) : setprecision(1)) << outRateStats._mean  << "\t" 
+                                    << setw(6) << right << fixed
                                     << (outRateStats._stddev < 1.0 ? setprecision(4) : setprecision(1)) << outRateStats._stddev << endl;
-        cout << "In Rate (KBps):  " << setw(4) << (inRateStats._min < 1.0 ? setprecision(4) : setprecision(1)) << inRateStats._min << "\t" 
+        cout << "In Rate (KBps):  " << setw(6) << right << fixed
+                                    << (inRateStats._min < 1.0 ? setprecision(4) : setprecision(1)) << inRateStats._min << "\t"
+                                    << setw(6) << right << fixed
                                     << (inRateStats._max < 1.0 ? setprecision(4) : setprecision(1)) << inRateStats._max << "\t" 
+                                    << setw(6) << right << fixed
                                     << (inRateStats._mean < 1.0 ? setprecision(4) : setprecision(1)) << inRateStats._mean << "\t" 
+                                    << setw(6) << right << fixed
                                     << (inRateStats._stddev < 1.0 ? setprecision(4) : setprecision(1)) << inRateStats._stddev << endl;
-        cout << "Roundtrip (ms):  " << setw(4) << setprecision(0)
-                                    << roundTripStats._min << "\t" << roundTripStats._max << "\t" 
-                                    << roundTripStats._mean << "\t" << roundTripStats._stddev << endl;
+        cout << "Roundtrip (ms):  " << setw(6) << right << fixed << setprecision(0) << roundTripStats._min << "\t"
+                                    << setw(6) << right << fixed << roundTripStats._max << "\t"
+                                    << setw(6) << right << fixed << roundTripStats._mean << "\t"
+                                    << setw(6) << right << fixed << roundTripStats._stddev << endl;
     }
 }
 
