@@ -37,6 +37,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/SerialOptions.h>
+#include <nidas/util/SensorPowerCtrl.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
@@ -902,13 +903,16 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
         throw n_u::Exception(std::string("serstress: port open error: " + myPort.getName() + e.what()));
     }
 
+    PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
+    n_u::SensorPowerCtrl sensorPower(sensorPortID);
+    sensorPower.pwrOn();
+
     myPort.setPortConfig(myPortConfig);
     myPort.applyPortConfig();
 
-    if (isSender) {
-        cout << endl << "Testing Port Configuration" << endl << "======================" << endl;
-        myPort.getPortConfig().print();
-    }
+
+    cout << endl << "Testing " << (isSender ? "Sender " : "Echo ") << "Port Configuration" << endl << "======================" << endl;
+    myPort.printPortConfig();
 
     int setBaud = myPortConfig.termios.getBaudRate() * 1.0;
     int bytesPerPacket = MIN_PACKET_LENGTH + dataSize;
@@ -995,6 +999,10 @@ void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
     n_c::SerialPortIODevice& myPort = isSender ? port : echoPort;
     myPort.flushBoth();
     myPort.close();
+
+    PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
+    n_u::SensorPowerCtrl sensorPower(sensorPortID);
+    sensorPower.pwrOff();
 }
 
 static void sigAction(int sig, siginfo_t* siginfo, void*) {
@@ -1039,6 +1047,10 @@ void setupSignals()
 
 int main(int argc, char**argv)
 {
+    cout << endl << "****************************************" << endl;
+    cout         << "**        SerStress Test Start        **" << endl;
+    cout         << "****************************************" << endl;
+
     n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422}; // leave this off for now, since HW doesn't support it, n_c::RS485_HALF};
 
     int status = 0;
@@ -1118,6 +1130,8 @@ int main(int argc, char**argv)
         }
 
         for (int j=baudStartIdx; j < baudTableSize; ++j) { // skip 0 baud!!
+            cout << endl << "****************************************" << endl;
+            cout         << "****************************************" << endl;
 
             // convert rate integer to string
             ostringstream baudStr;
@@ -1125,6 +1139,7 @@ int main(int argc, char**argv)
             termioOpts = baudStr.str();
             termioOpts.append(tempTermiosOpts);
 
+            cout << "termioOpts: " << termioOpts << endl;
             n_u::SerialOptions options;
             options.parse(termioOpts);
 
@@ -1248,6 +1263,10 @@ int main(int argc, char**argv)
             sendRcvr.reportBulkStats();
         }
     }
+
+    cout << endl << "****************************************" << endl;
+    cout         << "**        SerStress Test End          **" << endl;
+    cout         << "****************************************" << endl;
 
     return status;
 }
