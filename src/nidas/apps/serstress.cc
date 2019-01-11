@@ -905,6 +905,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
 
     PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
     n_u::SensorPowerCtrl sensorPower(sensorPortID);
+    sensorPower.enablePwrCtrl(true);
     sensorPower.pwrOn();
 
     myPort.setPortConfig(myPortConfig);
@@ -912,7 +913,8 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
 
 
     cout << endl << "Testing " << (isSender ? "Sender " : "Echo ") << "Port Configuration" << endl << "======================" << endl;
-    myPort.printPortConfig();
+    myPort.getPortConfig().print();
+    sensorPower.print();
 
     int setBaud = myPortConfig.termios.getBaudRate() * 1.0;
     int bytesPerPacket = MIN_PACKET_LENGTH + dataSize;
@@ -1002,6 +1004,7 @@ void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
 
     PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
     n_u::SensorPowerCtrl sensorPower(sensorPortID);
+    sensorPower.enablePwrCtrl(true);
     sensorPower.pwrOff();
 }
 
