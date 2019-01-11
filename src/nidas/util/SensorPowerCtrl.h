@@ -42,6 +42,11 @@ public:
 
     virtual void pwrOn();
     virtual void pwrOff();
+    virtual void print()
+    {
+        std::cout << "Port" << _port << " ";
+        PowerCtrlAbs::print();
+    }
     void updatePowerState();
 
     // This utility converts a binary power configuration to a string

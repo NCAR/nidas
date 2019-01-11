@@ -65,7 +65,7 @@ void SensorPowerCtrl::pwrOn()
         write(BITS_POWER, BITS_POWER);
     }
     else {
-        DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
+        ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
     updatePowerState();
 }
@@ -77,7 +77,7 @@ void SensorPowerCtrl::pwrOff()
         write(0, BITS_POWER);
     }
     else {
-        DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
+        ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
     }
     updatePowerState();
 }
