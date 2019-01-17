@@ -43,8 +43,8 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-// 33 m/s mimics the spinning disk.
-const float TwoD_USB::DefaultTrueAirspeed = 33.0;
+// 23 m/s mimics the newer spinning disk. 33 for the older.
+const float TwoD_USB::DefaultTrueAirspeed = 23.0;
 
 const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
