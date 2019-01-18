@@ -114,7 +114,7 @@ env.Append (LIBNIDAS_DYNLD_SOURCES =
 
 # build libnidas_dynld.so
 lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
-                         LIBS=['nidas'] + env['LIBS'])
+                         LIBS=['nidas'] + env['LIBS'] + ['boost_regex'])
 
 # Export the locally built library 
 Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
