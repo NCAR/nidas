@@ -112,14 +112,14 @@ if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
 
 tmp_env = conf.Finish()
 
-env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
+env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 
 # Update Revision.h from git describe
 info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
 info2 = env.GitInfo("include/nidas/linux/Revision.h", "#/nidas/linux")
 
-env.Install('$PREFIX/include/nidas',info1)
-env.Install('$PREFIX/include/nidas/linux',info2)
+env.Install('$ARCHPREFIX/include/nidas',info1)
+env.Install('$ARCHPREFIX/include/nidas/linux',info2)
 
 # When duplicate=0, the variant_dir of this SConscript, 
 # ("build","build_arm" or "build_armbe") is not duplicated using
@@ -145,11 +145,11 @@ for dir in subdirs:
 Alias('lib', subdirs[0:3])
 Clean('lib', subdirs[0:3])
 
-env.Alias('install', ['$PREFIX/include', '$PREFIX/$ARCHLIBDIR'])
+env.Alias('install', ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR'])
 
-# Don't want to do a Clean of $PREFIX here, in case there is
-# other stuff there from other packages: we won't own $PREFIX.
-# We can nuke $PREFIX/include/nidas, but don't do a global
-# Clean of $PREFIX/bin and lib.  Also we don't assume we
-# own $PREFIX/modules.
-env.Clean('install','$PREFIX/include/nidas')
+# Don't want to do a Clean of $ARCHPREFIX here, in case there is
+# other stuff there from other packages: we won't own $ARCHPREFIX.
+# We can nuke $ARCHPREFIX/include/nidas, but don't do a global
+# Clean of $ARCHPREFIX/bin and lib.  Also we don't assume we
+# own $ARCHPREFIX/modules.
+env.Clean('install','$ARCHPREFIX/include/nidas')

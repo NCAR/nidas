@@ -88,6 +88,10 @@ xml_dump
 isff/datasets
 """)
 
+# For all these targets, wherever PREFIX is used, it should use
+# ARCHPREFIX instead.
+env['PREFIX'] = env.subst('$ARCHPREFIX')
+
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc'))
 

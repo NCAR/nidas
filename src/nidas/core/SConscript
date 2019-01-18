@@ -248,8 +248,8 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes.extend(env.SharedLibrary3Install('$PREFIX',lib))
-nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
+nodes.extend(env.SharedLibrary3Install('$ARCHPREFIX',lib))
+nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core',headers))
 
 Alias('install', nodes)
 Clean('install', nodes)

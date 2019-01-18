@@ -120,6 +120,19 @@ if 'armhf' in BUILDS:
 
 opts.Update(env)
 
+# NIDAS uses PREFIX as the root install prefix, but since it's a
+# Variable that SCons sets, that means it should only have one value
+# for the entire build rather than be modified for each variant build.
+# So the arch-specific prefix is stored in the ARCHPREFIX variable,
+# and it defaults to just PREFIX.  This way there can be an
+# arch-specific install location which gets built up from the main
+# PREFIX.
+#
+# Targets which should be installed in arch-specific locations should
+# use ARCHPREFIX, while targets which are not arch-specific can go
+# under PREFIX.  For native host builds, they will be the same.
+env['ARCHPREFIX'] = '$PREFIX'
+
 ##
 ##  Define compiler flags and paths for all builds.
 ##
@@ -274,7 +287,7 @@ if 'arm' in BUILDS:
     machs = getMachineTypes('arm', MACHS)
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'arm', ARCHLIBDIR='lib', MACHS=machs,
-        PREFIX=env['PREFIX'] + '/arm')
+        ARCHPREFIX='$PREFIX/arm')
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     CheckStackProtectorOptions(arm_env)
@@ -296,7 +309,7 @@ if 'armbe' in BUILDS:
     machs = getMachineTypes('armbe', MACHS)
     armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
-        PREFIX=env['PREFIX'] + '/armbe')
+        ARCHPREFIX='$PREFIX/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     CheckStackProtectorOptions(armbe_env)
