@@ -84,12 +84,16 @@
 #include <iostream>
 #include <exception>
 
-//#include <sstream>
+#include <limits>
 #include <list>
+
+#include <boost/regex.hpp>
+
 
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
+using namespace boost;
 
 /*
  * AutoConfig enums, etc
@@ -113,8 +117,7 @@ enum MOTE_CMDS
 
     // Local file Cmds
     MSG_STORE_CMD,
-    MSG_FLUSH_RATE_CMD,
-    MSG_STORE_ROLLOVER_CMD,
+    MSG_STORE_FLUSHRATE_CMD,
 
     // Battery Monitor Cmds
     VMON_ENABLE_CMD,
@@ -252,6 +255,7 @@ protected:
     // There is only one configuration, so this is always successful
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; }
     virtual void sendScienceParameters();
+    virtual void sendEpilogScienceParameters();
     virtual bool checkScienceParameters();
 
     void initCmdTable();
@@ -265,10 +269,15 @@ protected:
     }
     void updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg = SensorCmdArg());
     void sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
-    bool checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg);
+    bool sendAndCheckSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
+    // Need a special method for this parameter, as it is a toggle,
+    // or there is no way to query it. Nor is it a part of the eecfg command response.
+    bool _checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const regex& matchStr, int matchGroup, const char* buf);
+    bool checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
+    bool checkIfCmdNeeded(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     bool captureResetMetaData(const char* buf);
     bool captureCfgData(const char* buf);
-
+    void updateCfgParam(MOTE_CMDS cmd, std::string val);
 
 private:
 
@@ -544,55 +553,79 @@ private:
     static const bool DEFAULT_MSG_SEP_EOM = true;
     static const char* DEFAULT_MSG_SEP_CHARS;
 
+    // Sample rate range/default
+    static const int DATA_RATE_MIN = 0;
+    static const int DATA_RATE_DEFAULT = 5;
+    static const int DATA_RATE_MAX = INT16_MAX;
+
+    static const int PWR_SAMP_RATE_MIN = 0;
+    static const int PWR_SAMP_RATE_DEFAULT = 5;
+    static const int PWR_SAMP_RATE_MAX = INT16_MAX;
+
+    static const int SN_REPORT_RATE_MIN = 0;
+    static const int SN_REPORT_RATE_DEFAULT = 360;
+    static const int SN_REPORT_RATE_MAX = INT16_MAX;
+
+    // Operating mode range/default
     static const int NODE_ID_MIN = 0;
     static const int NODE_ID_MAX = INT16_MAX;
+
     static const int SAMP_MODE_MIN = 0;
     static const int SAMP_MODE_DEFAULT = 0;
     static const int SAMP_MODE_MAX = 1;
+
     static const int MSG_FMT_MIN = 0;
     static const int MSG_FMT_DEFAULT = 0;
     static const int MSG_FMT_MAX = 2;
+
     static const int OUT_PORT_MIN = 0;
     static const int OUT_PORT_DEFAULT = 0;
     static const int OUT_PORT_MAX = 1;
-    static const int DATA_RATE_MIN = 0;
-    static const int DATA_RATE_DEFAULT = 5;
-    static const int DATA_RATE_MAX = INT16_MAX; // ?? bigger??
-    static const int MSG_CACHE_MIN = 0;
-    static const int MSG_CACHE_MAX = 9; // ?? bigger??
-    static const int PWR_SAMP_RATE_MIN = 0;
-    static const int PWR_SAMP_RATE_DEFAULT = 5;
-    static const int PWR_SAMP_RATE_MAX = INT16_MAX; // ?? bigger??
-    static const int MSG_STORE_ROLLOVER_MIN = 0;
-    static const int MSG_STORE_ROLLOVER_DEFAULT = 600;
-    static const int MSG_STORE_ROLLOVER_MAX = INT16_MAX; // ?? bigger??
-    static const int SN_REPORT_RATE_MIN = 0;
-    static const int SN_REPORT_RATE_DEFAULT = 360;
-    static const int SN_REPORT_RATE_MAX = INT16_MAX; // ?? bigger??
-    static const int BRES_TIMING_MIN = 40000000;
-    static const int BRES_TIMING_DEFAULT = BRES_TIMING_MIN;
-    static const int BRES_TIMING_MAX = 80000000; // ?? bigger??
+
+
+    static const int MSG_STORE_FLUSHRATE_MIN = 0;
+    static const int MSG_STORE_FLUSHRATE_DEFAULT = MSG_STORE_FLUSHRATE_MIN;
+    static const int MSG_STORE_FLUSHRATE_MAX = INT16_MAX;
+
+    // NOTE: The v2.7 Mote command reference shows these values in mVs.
+    //       However,
     static const int VMON_LOW_MIN = 0;
-    static const int VMON_LOW_DEFAULT = 11900;
-    static const int VMON_LOW_MAX = 14400;
+    static const int VMON_LOW_DEFAULT = 1190;
+    static const int VMON_LOW_MAX = INT16_MAX;
+
     static const int VMON_HIGH_MIN = 0;
-    static const int VMON_HIGH_DEFAULT = 12300;
-    static const int VMON_HIGH_MAX = 14400;
+    static const int VMON_HIGH_DEFAULT = 1230;
+    static const int VMON_HIGH_MAX = INT16_MAX;
+
     static const int VMON_SLEEP_TIME_MIN = 0;
     static const int VMON_SLEEP_TIME_DEFAULT = 30;
-    static const int VMON_SLEEP_TIME_MAX = 9999; // ?? bigger ??
+    static const int VMON_SLEEP_TIME_MAX = INT16_MAX;
+
+    static const float VBATT_GAIN_CAL_MIN = 0.0f;
+    static const float VBATT_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
+    static const float I3_GAIN_CAL_MIN = 0.0f;
+    static const float I3_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
+    static const float IIN_GAIN_CAL_MIN = 0.0f;
+    static const float IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
     static const int GPS_SYNC_RATE_MIN = 0;
     static const int GPS_SYNC_RATE_DEFAULT = 43200;
     static const int GPS_SYNC_RATE_MAX = INT32_MAX;
+
     static const int GPS_REQ_LOCKS_MIN = 0;
     static const int GPS_REQ_LOCKS_DEFAULT = 2;
     static const int GPS_REQ_LOCKS_MAX = 6;
+
     static const int GPS_LCKTMOUT_MIN = 0;
     static const int GPS_LCKTMOUT_DEFAULT = 360;
     static const int GPS_LCKTMOUT_MAX = 600;
+
     static const int GPS_MSGS_LOCKED = 0;
     static const int GPS_MSGS_DEFAULT = GPS_MSGS_LOCKED;
     static const int GPS_MSGS_ALL = 1;
+
     static const int GPS_LCKFAIL_RETRY_MIN = 0;
     static const int GPS_LCKFAIL_RETRY_DEFAULT = 1800;
     static const int GPS_LCKFAIL_RETRY_MAX = INT16_MAX;
@@ -602,12 +635,40 @@ private:
 
     MessageConfig defaultMessageConfig;
 
-    typedef std::map<MOTE_CMDS, SensorCmdArg> ScienceParamMap;
-    ScienceParamMap _scienceParameters;
+    typedef std::vector<SensorCmdData> ScienceParamVector;
+    ScienceParamVector _scienceParameters;
+    ScienceParamVector _epilogScienceParameters;
+
     bool _scienceParametersOk;
 
     typedef std::map<MOTE_CMDS, std::string> CmdMap;
     CmdMap _commandTable;
+    typedef std::map<MOTE_CMDS, std::string*> CfgMap;
+    CfgMap _cfgParameters;
+
+    std::string _eeCfg;
+    std::string _dataRateCfg;
+    std::string _pwrSampCfg;
+    std::string _serNumSampCfg;
+    std::string _idCfg;
+    std::string _msgFmtCfg;
+    std::string _portCfg;
+    std::string _sensorsOnCfg;
+    std::string _fileEnableCfg;
+    std::string _fileFlushCfg;
+    std::string _vmonEnableCfg;
+    std::string _vmonLowCfg;
+    std::string _vmonRestartCfg;
+    std::string _vmonSleepCfg;
+    std::string _vbCalCfg;
+    std::string _i3CalCfg;
+    std::string _iiCalCfg;
+    std::string _gpsEnableCfg;
+    std::string _gpsResyncCfg;
+    std::string _gpsFailRetryCfg;
+    std::string _gpsNumLocksCfg;
+    std::string _gpsTimeOutCfg;
+    std::string _gpsMsgsCfg;
 
     /** No copying. */
     WisardMote(const WisardMote&);
@@ -617,6 +678,6 @@ private:
 
 };
 
-}}}                             // nidas::dynld::isff
+}}}       // nidas::dynld::isff
 
-#endif                          /* WISARDMOTE_H_ */
+#endif    /* WISARDMOTE_H_ */

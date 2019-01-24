@@ -42,16 +42,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-//#include <regex.h>
 
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
+using namespace nidas::util;
 using namespace std;
 using namespace boost;
-
-namespace n_c = nidas::core;
-namespace n_u = nidas::util;
 
 #define MSECS_PER_HALF_DAY 43200000
 
@@ -95,9 +92,15 @@ WisardMote::WisardMote() :
     _nowarnSensorTypes(),
     _tsoilData(),
     defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
-    _scienceParameters(),
+    _scienceParameters(), _epilogScienceParameters(),
     _scienceParametersOk(false),
-    _commandTable()
+    _commandTable(), _cfgParameters(),
+    _eeCfg(), _dataRateCfg(), _pwrSampCfg(), _serNumSampCfg(),
+    _idCfg(), _msgFmtCfg(), _portCfg(), _sensorsOnCfg(),
+    _fileEnableCfg(), _fileFlushCfg(),
+    _vmonEnableCfg(), _vmonLowCfg(), _vmonRestartCfg(), _vmonSleepCfg(),
+    _vbCalCfg(), _i3CalCfg(), _iiCalCfg(),
+    _gpsEnableCfg(), _gpsResyncCfg(), _gpsFailRetryCfg(), _gpsNumLocksCfg(), _gpsTimeOutCfg(), _gpsMsgsCfg()
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -1832,102 +1835,118 @@ const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
 
 // Data output after reset
-static const regex MODEL_ID_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(_[[:alnum:]]+)+) ResetSource = Software Reset");
-static const regex RESET_SRC_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = (([[:alpha:]]+[[:blank:]]*)+)");
-static const regex VERSION_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[:digit:]+)");
-static const regex CPU_CLK_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ ([:alnum:]+)");
-static const regex TIMING_SRC_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ [:alnum:]+ \'([:alpha:]-*)+\'");
+static const regex MODEL_ID_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
+static const regex RESET_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
+static const regex VERSION_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[:digit:]+)");
+static const regex CPU_CLK_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ ([:alnum:]+)");
+static const regex TIMING_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ [:alnum:]+ '([:alpha:]-*)+'");
 static const regex BUILD_DATE_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
-static const regex RTCC_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
+static const regex RTCC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
 
-static const regex TEMP_SENSOR_INIT_REGEX_STR("ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2}");
-static const regex SENSOR_SERNUMS_REGEX_STR("ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:(.*)");
+static const regex TEMP_SENSOR_INIT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
+static const regex SENSOR_SERNUMS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:(.*)");
 
 // Data Rates
-static const regex DATA_RATE_REGEX_STR("ID[[:digit:]]+: 'dr(=[[:digit:]])*'=([[:digit:]]+)");
-static const regex PWR_SMPRATE_REGEX_STR("ID[[:digit:]]+: 'sp(=[[:digit:]])*'=([[:digit:]]+)");
-static const regex SERNUM_RATE_REGEX_STR("ID[[:digit:]]+: 'sn(=[[:digit:]])*'=([[:digit:]]+)");
+static const regex DATA_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex PWR_SMPRATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sp(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex SERNUM_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sn(?:=[[:digit:]])*'=([[:digit:]]+)");
 
 // operating modes
-static const regex NODEID_REGEX_STR("ID[[:digit:]]+: 'id(=[[:digit:]])*'=([[:digit:]]+)");
-static const regex MSG_FMT_REGEX_STR("ID[[:digit:]]+: 'mp'*=([[:digit:]])'*");
-static const regex OUT_PORT_REGEX_STR("ID[[:digit:]]+: 'pp'*=([[:digit:]])'*");
-static const regex SENSORS_ON_REGEX_STR("ID[[:digit:]]+: 'sensors(ON|OFF)'");
+static const regex NODEID_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'id(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex MSG_FMT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'mp'*=([[:digit:]])'*");
+static const regex OUT_PORT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'pp'*=([[:digit:]])'*");
+static const regex SENSORS_ON_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
 
 // local file
-static const regex MSG_STORE_ENABLE_REGEX_STR("ID[[:digit:]]+: \'[[:digit:]]+ID\.[[:digit:]]{3}\' opened");
-static const regex MSG_STORE_DISABLE_REGEX_STR("ID[[:digit:]]+: Closing msdFile \'[[:digit:]]+ID\.[[:digit:]]{3}");
-static const regex MSG_FLUSH_RATE_REGEX_STR("ID[[:digit:]]+: 'fsr(=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex MSG_STORE_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' opened");
+static const regex MSG_STORE_DISABLE_REGEX_STR("(?:ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(?:ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
+static const regex MSG_FLUSH_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 // battery monitor
-static const regex VMON_ENABLE_REGEX_STR("ID[[:digit:]]+: 'vm'Toggling (0|1) to (1|0)");
-static const regex VMON_LOW_REGEX_STR("ID[[:digit:]]+: 'vl(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_RESTART_REGEX_STR("ID[[:digit:]]+: 'vh(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_SLEEP_REGEX_STR("ID[[:digit:]]+: 'vs(=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vm=[[:digit:]]'Toggling (?:0|1) to (1|0)");
+static const regex VMON_LOW_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_RESTART_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_SLEEP_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 
 // calibrations
-static const regex ADC_CALS_REGEX_STR("ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
-                                      "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Vin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
-                                      "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(I3 i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
-                                      "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Iin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+");
-static const regex VBG_CAL_REGEX_STR("ID[[:digit:]]+: 'vbg(=[[:digit:]]+\.[[:digit:]]+)*'=([[:digit:]]+\.[[:digit:]]+)");
-static const regex IIG_CAL_REGEX_STR("ID[[:digit:]]+: 'iig(=[[:digit:]]*\.[[:digit:]]+)*'=([[:digit:]]+\.[[:digit:]]+)");
-static const regex I3G_CAL_REGEX_STR("ID[[:digit:]]+: 'i3g(=[[:digit:]]*\.[[:digit:]]+)*'=([[:digit:]]+\.[[:digit:]]+)");
+static const regex ADC_CALS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
+                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Vin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
+                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(I3 i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
+                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Iin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+");
+static const regex VBG_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vbg(?:=[[:digit:]]+\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static const regex IIG_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'iig(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static const regex I3G_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'i3g(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
 
 // eeprom
-static const regex EECFG_REGEX_STR("ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE=(Set) id([[:digit:]]+),pp=(sio|xb),md0,mp([0-2]),dr([[:digit:]]{1,5})s skips:sp([[:digit:]]{1,5}),sn([[:digit:]]{1,5}) fsr([[:digit:]]{1,5})s[[:space:]]+"
-                                   "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} batt: vm=(0|1),vl=([[:digit:]]{1,5}),vh=([[:digit:]]{1,5}),vs=([[:digit:]]{1,5})s[[:space:]]+"
-                                   "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} cals: vb=([[:digit:]]+\.[[:digit:]]+) i3=([[:digit:]]+\.[[:digit:]]+) iIn=([[:digit:]]+\.[[:digit:]]+)[[:space:]]+"
-                                   "ID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} gps: gr=([[:digit:]]{1,5})s,gfr=([[:digit:]]{1,5})s,gnl=([[:digit:]]{1,5}),gto=([[:digit:]]{1,5})s,gmf=(0|1)");
-static const regex EEUPDATE_REGEX_STR("ID[[:digit:]]+: EE Cfg Update: ([A-Z]+)");
-static const regex EEINIT_REGEX_STR("ID[[:digit:]]+: EE Cfg Initialize: ([A-Z]+)");
-static const regex EELOAD_REGEX_STR("IDID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([A-Z+]), nc=([[:digit:]]+)")
+static const regex EECFG_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE=(Set) id([[:digit:]]+),pp=(sio|xb),md0,mp([0-2]),dr([[:digit:]]{1,5})s skips:sp([[:digit:]]{1,5}),sn([[:digit:]]{1,5}) fsr([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
+                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} batt: vm=(0|1),vl=([[:digit:]]{1,5}),vh=([[:digit:]]{1,5}),vs=([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
+                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} cals: vb=([[:digit:]]+\\.[[:digit:]]+) i3=([[:digit:]]+\\.[[:digit:]]+) iIn=([[:digit:]]+\\.[[:digit:]]+)(?:\x03\x04)*[[:space:]]+"
+                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} gps: gr=([[:digit:]]{1,5})s,gfr=([[:digit:]]{1,5})s,gnl=([[:digit:]]{1,5}),gto=([[:digit:]]{1,5})s,gmf=(0|1)(?:\x03\x04)*");
+static const regex EEUPDATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Update: ([[:alpha:]]+)");
+static const regex EEINIT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Initialize: ([[:alpha:]]+)");
+static const regex EELOAD_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([[:alpha:]]+), nc=([[:digit:]]+)");
 
 // GPS
-static const regex GPS_ENABLE_REGEX_STR("ID[[:digit:]]+: GPS Power(ON|OFF) (Timeout=|CloseTimer).*(Open|Close)INT[[:digit:]]");
-static const regex GPS_SYNC_REGEX_STR("ID[[:digit:]]+: 'gr(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKTMOUT_REGEX_STR("ID[[:digit:]]+: 'gto(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKFAIL_REGEX_STR("ID[[:digit:]]+: 'gfr(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_NLOCKS_CNFRM_REGEX_STR("ID[[:digit:]]+: 'gnl(=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_SENDALL_REGEX_STR("ID[[:digit:]]+: 'gmf'Toggling [[:digit:]] to ([[:digit:]])");
+static const regex GPS_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)GPS Power(ON|OFF) (?=Timeout=|CloseTimer).*(?:Open|Close)INT[[:digit:]]");
+static const regex GPS_SYNC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_LCKTMOUT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gto(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_LCKFAIL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gfr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_NLOCKS_CNFRM_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gnl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_SENDALL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gmf'Toggling [[:digit:]] to ([[:digit:]])");
 
 // Misc
-static const regex LIST_COMMANDS_REGEX_STR("ID[[:digit:]]+: Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
-                                           "ID[[:digit:]]+: Cmds: 'adcals' 'eecfg' 'eeinit' 'eeupdate' 'vm' 'vh' 'vl' 'vs' 'vbg' 'i3g'[[:space:]]+"
-                                           "ID[[:digit:]]+: Cmds: 'iig' 'sensorsON' 'sensorsOFF' 'gpsON' 'gpsOFF' 'gr' 'gnl' 'gto' 'gfr'[[:space:]]+"
-                                           "ID[[:digit:]]+: Cmds: 'gmf' 'scani2c' 'reset' 'reboot' '?'[[:space:]]*");
+static const regex LIST_COMMANDS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
+                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'adcals' 'eecfg' 'eeinit' 'eeupdate' 'vm' 'vh' 'vl' 'vs' 'vbg' 'i3g'[[:space:]]+"
+                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'iig' 'sensorsON' 'sensorsOFF' 'gpsON' 'gpsOFF' 'gr' 'gnl' 'gto' 'gfr'[[:space:]]+"
+                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'gmf' 'scani2c' 'reset' 'reboot' '?'[[:space:]]*");
 
 
 void WisardMote::initCmdTable()
 {
     // Sampling Rate Cmds
     _commandTable[DATA_RATE_CMD] =          "dr\r";         // output data every 'val' seconds - can be very very large w/o declaring an error
+    _cfgParameters[DATA_RATE_CMD] =         &_dataRateCfg;
     _commandTable[PWR_SAMP_RATE_CMD] =      "sp\r";         // output power data every 'val' * dr seconds
+    _cfgParameters[PWR_SAMP_RATE_CMD] =     &_pwrSampCfg;
     _commandTable[SERNUM_RATE_CMD] =        "sn\r";         // output serial number data every 'val' * dr seconds
+    _cfgParameters[SERNUM_RATE_CMD] =       &_serNumSampCfg;
 
     // Operating Mode Cmds
 //    _commandTable[SAMP_MODE_CMD] =          "md\r";       // doesn't work???  select either self-timed, or timed on XBee wakeup
     _commandTable[NODE_ID_CMD] =            "id\r";         // set the node ID
+    _cfgParameters[NODE_ID_CMD] =           &_idCfg;
     _commandTable[MSG_FMT_CMD] =            "mp\r";         // set the message format, Wisard binary, dsm printable (w/binary start/end chars, or ASCII
+    _cfgParameters[MSG_FMT_CMD] =           &_msgFmtCfg;
     _commandTable[OUT_PORT_CMD] =           "pp\r";         // select either XBee or serial console
+    _cfgParameters[OUT_PORT_CMD] =          &_portCfg;
     _commandTable[SENSORS_ON_CMD] =         "sensors\r";    // turn attached sensors ON/OFF
+    _cfgParameters[SENSORS_ON_CMD] =        &_sensorsOnCfg;
 
     // Local file Cmds
     _commandTable[MSG_STORE_CMD] =          "fs\r";         // turn ON/OFF the local file system data storage
-    _commandTable[MSG_FLUSH_RATE_CMD] =     "fsr\r";        // flush/cycle the local storage file every 'val' seconds
+    _cfgParameters[MSG_STORE_CMD] =         &_fileEnableCfg;
+    _commandTable[MSG_STORE_FLUSHRATE_CMD] =  "fsr\r";        // flush/cycle the local storage file every 'val' seconds
+    _cfgParameters[MSG_STORE_FLUSHRATE_CMD] = &_fileFlushCfg;
 
     // Battery Monitor Cmds
     _commandTable[VMON_ENABLE_CMD] =        "vm\r";         // turn battery voltage monitoring ON/OFF
+    _cfgParameters[VMON_ENABLE_CMD] =       &_vmonEnableCfg;
     _commandTable[VMON_LOW_CMD] =           "vl\r";         // turn Mote operation off at 'XXXX' volts, i.e. - 7000 == 7.000 V
+    _cfgParameters[VMON_LOW_CMD] =          &_vmonLowCfg;
     _commandTable[VMON_RESTART_CMD] =       "vh\r";         // turn Mote operation on at 'XXXXX' volts, i.e. - 12300 == 12.3 V
+    _cfgParameters[VMON_RESTART_CMD] =      &_vmonRestartCfg;
     _commandTable[VMON_SLEEP_CMD] =         "vs\r";         // after turning itself off, retest Vbatt every 'val' seconds
+    _cfgParameters[VMON_SLEEP_CMD] =        &_vmonSleepCfg;
 
     // Calibration
     _commandTable[ADCALS_CMD] =            "adcals\r";     // report adc cal data
     _commandTable[VBG_CAL_CMD] =           "vbg\r";        // get/set gain for vbatt
+    _cfgParameters[VBG_CAL_CMD] =           &_vbCalCfg;
     _commandTable[IIG_CAL_CMD] =           "iig\r";        // get/set gain for iIn
+    _cfgParameters[IIG_CAL_CMD] =           &_iiCalCfg;
     _commandTable[I3G_CAL_CMD] =           "i3g\r";        // get/set gain for i3
+    _cfgParameters[I3G_CAL_CMD] =           &_i3CalCfg;
 
     // EEPROM
     _commandTable[EE_CFG_CMD] =             "eecfg\r";      // report current operating settings stored in eeprom
@@ -1956,11 +1975,17 @@ void WisardMote::initCmdTable()
 
     // GPS/Timing Cmds
     _commandTable[GPS_ENABLE_CMD] =         "gps\r";        // GPS ON/OFF
+    _cfgParameters[GPS_ENABLE_CMD] =        &_gpsEnableCfg;
     _commandTable[GPS_SYNC_RATE_CMD] =      "gr\r";         // number of seconds between setting the RTCC from the GPS
+    _cfgParameters[GPS_SYNC_RATE_CMD] =     &_gpsResyncCfg;
     _commandTable[GPS_LCKTMOUT_CMD] =       "gto\r";        // number of seconds to timeout if no lock acquired after power on
+    _cfgParameters[GPS_LCKTMOUT_CMD] =      &_gpsTimeOutCfg;
     _commandTable[GPS_LCKFAIL_RETRY_CMD] =  "gfr\r";        // number of seconds to wait between lock retries
+    _cfgParameters[GPS_LCKFAIL_RETRY_CMD] = &_gpsFailRetryCfg;
     _commandTable[GPS_NLOCKS_CNFRM_CMD] =   "gnl\r";        // number of sequential valid messages to confirm lock
+    _cfgParameters[GPS_NLOCKS_CNFRM_CMD] =  &_gpsNumLocksCfg;
     _commandTable[GPS_SENDALL_MSGS_CMD] =   "gmf\r";        // toggles between 0 and 1
+    _cfgParameters[GPS_SENDALL_MSGS_CMD] =  &_gpsMsgsCfg;
 
     // List commands, reset
 	_commandTable[LIST_CMD] = 				"?\r";          // prints out a list of available commands
@@ -1972,7 +1997,34 @@ void WisardMote::initCmdTable()
 
 void WisardMote::initScienceParams()
 {
+    // These are the default values. They can be changed from fromDOMElement()
+    // They get packed into a vector so that there is some sense of ordering
+
+    // GPS and message store to flash are typically not used
+    updateScienceParameter(GPS_ENABLE_CMD, SensorCmdArg("OFF"));
+    updateScienceParameter(MSG_STORE_CMD, SensorCmdArg("OFF"));
+    updateScienceParameter(MSG_STORE_FLUSHRATE_CMD, SensorCmdArg(MSG_STORE_FLUSHRATE_DEFAULT));
+
+    // Turn on all sensors
+    updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("ON"));
+
+    // Enable battery monitor
+    updateScienceParameter(VMON_LOW_CMD, SensorCmdArg(VMON_LOW_DEFAULT));
+    updateScienceParameter(VMON_RESTART_CMD, SensorCmdArg(VMON_HIGH_DEFAULT));
+    updateScienceParameter(VMON_SLEEP_CMD, SensorCmdArg(VMON_SLEEP_TIME_DEFAULT));
+    updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(0));
+
+    // NOTE: These following parameters actually get put into a separate attribute
+    // called _epilogScienceParameter. These parameters are installed at the exit of
+    // the configuration phase. This covers the case that fromDOMElement
+    // may have added some changes to _scienceParameters.
+
+    // Use MOTE binary msg format.
+    updateScienceParameter(MSG_FMT_CMD, SensorCmdArg(MSG_FMT_DEFAULT));
+    // Data rate enables the MOTE to send data on its own w/o prompting.
     updateScienceParameter(DATA_RATE_CMD, SensorCmdArg(DATA_RATE_DEFAULT));
+    // update the eeprom w/the configs
+    updateScienceParameter(EE_UPDATE_CMD);
 }
 
 void WisardMote::initPortCfgParams()
@@ -2021,13 +2073,62 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                // xform everything to uppercase - this shouldn't affect numbers
 	                string upperAval = aval;
 	                std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
-	                DLOG(("PTB210:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+	                DLOG(("WisardMote:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
 	                std::istringstream avalXformer;
 	                int iArg = 0;
+	                float fArg = 0.0;
 
 	                // start with science parameters, assuming SerialSensor took care of any overrides to
 	                // the default port config.
-	                if (aname == "nodeid") {
+	                if (aname == "datarate") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> iArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(DATA_RATE_MIN, iArg, DATA_RATE_MAX)) {
+                            updateScienceParameter(DATA_RATE_CMD, SensorCmdArg(iArg));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "pwrsamprate") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> iArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(PWR_SAMP_RATE_MIN, iArg, PWR_SAMP_RATE_MAX)) {
+                            updateScienceParameter(PWR_SAMP_RATE_CMD, SensorCmdArg(iArg));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "snreportrate") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> iArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(SN_REPORT_RATE_MIN, iArg, SN_REPORT_RATE_MAX)) {
+                            updateScienceParameter(SERNUM_RATE_CMD, SensorCmdArg(iArg));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+	                else if (aname == "nodeid") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2043,25 +2144,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-//                      Changing the sampling timer mode doesn't work in v2.7
-//	                else if (aname == "samplemode") {
-//	                	avalXformer.clear();
-//	                	avalXformer.str(upperAval);
-//	                	try {
-//	                		avalXformer >> iArg;
-//	                	} catch (std::exception e) {
-//							throw n_u::InvalidParameterException(
-//								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-//	                	}
-//
-//	                	if (RANGE_CHECK_INC(SAMP_MODE_MIN, iArg, SAMP_MODE_MAX)) {
-//	                		updateScienceParameter(SAMP_MODE_CMD, SensorCmdArg(iArg));
-//	                	}
-//	                    else
-//	                        throw n_u::InvalidParameterException(
-//									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-//	                }
-	                else if (aname == "msgmode") {
+	                else if (aname == "msgfmt") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2093,6 +2176,28 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
+                    else if (aname == "enablesensors") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> iArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "OFF" || upperAval == "FALSE") {
+                            updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("ON"));
+                        }
+                        else if (upperAval == "OFF" || upperAval == "FALSE") {
+                            updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("OFF"));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "scansensors") {
+                        updateScienceParameter(SENSOR_SRCH_CMD);
+                    }
 	                else if (aname == "msgstore") {
 	                	if (upperAval == "ON" || upperAval == "TRUE") {
 	                		updateScienceParameter(MSG_STORE_CMD, SensorCmdArg("ON"));
@@ -2104,7 +2209,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-	                else if (aname == "enablesensors") {
+	                else if (aname == "msgstoreflush") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2113,78 +2218,8 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
-	                	if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "OFF" || upperAval == "FALSE") {
-	                		updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("ON"));
-	                	}
-	                	else if (upperAval == "OFF" || upperAval == "FALSE") {
-	                		updateScienceParameter(SENSORS_ON_CMD, SensorCmdArg("OFF"));
-	                	}
-	                    else
-	                        throw n_u::InvalidParameterException(
-									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-	                }
-	                else if (aname == "scansensors") {
-						updateScienceParameter(SENSOR_SRCH_CMD);
-	                }
-	                else if (aname == "regexDataRate") {
-	                	avalXformer.clear();
-	                	avalXformer.str(upperAval);
-	                	try {
-	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
-							throw n_u::InvalidParameterException(
-								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-	                	}
-	                	if (RANGE_CHECK_INC(DATA_RATE_MIN, iArg, DATA_RATE_MAX)) {
-	                		updateScienceParameter(DATA_RATE_CMD, SensorCmdArg(iArg));
-	                	}
-	                    else
-	                        throw n_u::InvalidParameterException(
-									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-	                }
-	                else if (aname == "pwrsamprate") {
-	                	avalXformer.clear();
-	                	avalXformer.str(upperAval);
-	                	try {
-	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
-							throw n_u::InvalidParameterException(
-								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-	                	}
-	                	if (RANGE_CHECK_INC(PWR_SAMP_RATE_MIN, iArg, PWR_SAMP_RATE_MAX)) {
-	                		updateScienceParameter(PWR_SAMP_RATE_CMD, SensorCmdArg(iArg));
-	                	}
-	                    else
-	                        throw n_u::InvalidParameterException(
-									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-	                }
-	                else if (aname == "msgrollover") {
-	                	avalXformer.clear();
-	                	avalXformer.str(upperAval);
-	                	try {
-	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
-							throw n_u::InvalidParameterException(
-								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-	                	}
-	                	if (RANGE_CHECK_INC(MSG_STORE_ROLLOVER_MIN, iArg, MSG_STORE_ROLLOVER_MAX)) {
-	                		updateScienceParameter(MSG_STORE_ROLLOVER_CMD, SensorCmdArg(iArg));
-	                	}
-	                    else
-	                        throw n_u::InvalidParameterException(
-									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-	                }
-	                else if (aname == "snreportrate") {
-	                	avalXformer.clear();
-	                	avalXformer.str(upperAval);
-	                	try {
-	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
-							throw n_u::InvalidParameterException(
-								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-	                	}
-	                	if (RANGE_CHECK_INC(SN_REPORT_RATE_MIN, iArg, SN_REPORT_RATE_MAX)) {
-	                		updateScienceParameter(SERNUM_RATE_CMD, SensorCmdArg(iArg));
+	                	if (RANGE_CHECK_INC(MSG_STORE_FLUSHRATE_MIN, iArg, MSG_STORE_FLUSHRATE_MAX)) {
+	                		updateScienceParameter(MSG_STORE_FLUSHRATE_CMD, SensorCmdArg(iArg));
 	                	}
 	                    else
 	                        throw n_u::InvalidParameterException(
@@ -2201,7 +2236,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-	                else if (aname == "battlow") {
+	                else if (aname == "battmonlo") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2217,7 +2252,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-	                else if (aname == "batthigh") {
+	                else if (aname == "battmonhi") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2233,7 +2268,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-	                else if (aname == "vmonsleep") {
+	                else if (aname == "battmonsleep") {
 	                	avalXformer.clear();
 	                	avalXformer.str(upperAval);
 	                	try {
@@ -2249,39 +2284,70 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                        throw n_u::InvalidParameterException(
 									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
 	                }
-// XBee stuff doesn't really work in v2.7
-//	                else if (aname == "xbstatusrate") {
-//	                	avalXformer.clear();
-//	                	avalXformer.str(upperAval);
-//	                	try {
-//	                		avalXformer >> iArg;
-//	                	} catch (std::exception e) {
-//							throw n_u::InvalidParameterException(
-//								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-//	                	}
-//	                	if (RANGE_CHECK_INC(XB_STATUS_RATE_MIN, iArg, XB_STATUS_RATE_MAX)) {
-//	                		updateScienceParameter(XB_STATUS_RATE_CMD, SensorCmdArg(iArg));
-//	                	}
-//	                    else
-//	                        throw n_u::InvalidParameterException(
-//									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-//	                }
-	                else if (aname == "gpssyncrate") {
-	                	avalXformer.clear();
-	                	avalXformer.str(upperAval);
-	                	try {
-	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
-							throw n_u::InvalidParameterException(
-								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
-	                	}
-	                	if (RANGE_CHECK_INC(GPS_SYNC_RATE_MIN, iArg, GPS_SYNC_RATE_MAX)) {
-	                		updateScienceParameter(GPS_SYNC_RATE_CMD, SensorCmdArg(iArg));
-	                	}
-	                    else
-	                        throw n_u::InvalidParameterException(
-									string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
-	                }
+                    else if (aname == "vbattgaincal") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> fArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(VBATT_GAIN_CAL_MIN, fArg, VBATT_GAIN_CAL_MAX)) {
+                            updateScienceParameter(VBG_CAL_CMD, SensorCmdArg(upperAval));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "i3gaincal") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> fArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(I3_GAIN_CAL_MIN, fArg, I3_GAIN_CAL_MAX)) {
+                            updateScienceParameter(I3G_CAL_CMD, SensorCmdArg(upperAval));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "iingaincal") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> fArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(IIN_GAIN_CAL_MIN, fArg, IIN_GAIN_CAL_MAX)) {
+                            updateScienceParameter(IIG_CAL_CMD, SensorCmdArg(upperAval));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
+                    else if (aname == "gpssyncrate") {
+                        avalXformer.clear();
+                        avalXformer.str(upperAval);
+                        try {
+                            avalXformer >> iArg;
+                        } catch (std::exception e) {
+                            throw n_u::InvalidParameterException(
+                                string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
+                        }
+                        if (RANGE_CHECK_INC(GPS_SYNC_RATE_MIN, iArg, GPS_SYNC_RATE_MAX)) {
+                            updateScienceParameter(GPS_SYNC_RATE_CMD, SensorCmdArg(iArg));
+                        }
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval);
+                    }
 	                else if (aname == "gpsenable") {
 	                	if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "ENABLE") {
 	                		updateScienceParameter(	GPS_ENABLE_CMD, SensorCmdArg("ON"));
@@ -2345,85 +2411,62 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	}
 }
 
-void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
-{
-	CmdMap::iterator cmdIter = _commandTable.find(cmd);
-
-	if (cmdIter != _commandTable.end()) {
-		std::string cmdStr = cmdIter->second;
-		if (!arg.argIsNull) {
-			int insertIdx = cmdStr.find_first_of ('\r');
-			if (arg.argIsString) {
-				cmdStr.insert(insertIdx, arg.strArg);
-			}
-			else {
-				std::ostringstream argStr;
-				argStr << arg.intArg;
-				cmdStr.insert(insertIdx, "=" + argStr.str());
-			}
-		}
-
-        DLOG(("WisardMote::sendSensorCmd() - flush port then sending command: ") << cmdStr);
-        serPortFlush(O_RDWR);
-
-        // write command out slowly
-        for (unsigned int i=0; i<cmdStr.length(); ++i) {
-            write(&(cmdStr.c_str()[i]), 1);
-            usleep(CHAR_WRITE_DELAY);
-        }
-	}
-
-	else {
-		std::ostringstream eString;
-		eString << "WisardMote::sendSensorCmd(): unknown command index - " << cmd;
-		throw InvalidParameterException( eString.str());
-	}
-}
-
-n_c::CFG_MODE_STATUS WisardMote::enterConfigMode()
+CFG_MODE_STATUS WisardMote::enterConfigMode()
 {
     DLOG(("WisardMote::enterConfigMode()"));
-    n_c::CFG_MODE_STATUS retVal = NOT_ENTERED;
+    CFG_MODE_STATUS retVal = NOT_ENTERED;
 
-    n_c::SensorCmdArg cmdArg(0);
-    sendSensorCmd(DATA_RATE_CMD, cmdArg);
-    if (checkCmdResponse(DATA_RATE_CMD, cmdArg)) {
-        retVal = ENTERED;
+    if (sendAndCheckSensorCmd(MSG_FMT_CMD, SensorCmdArg(2))) {
+        if (sendAndCheckSensorCmd(DATA_RATE_CMD, SensorCmdArg(0))) {
+            // Must only send EE_CFG_CMD after msg format is changed to ASCII...
+            if (sendAndCheckSensorCmd(EE_CFG_CMD)) {
+                    retVal = ENTERED_RESP_CHECKED;
+                    // update the shadow config to match the commands above.
+                    updateCfgParam(MSG_FMT_CMD, "2");
+                    updateCfgParam(DATA_RATE_CMD, "0");
+            }
+        }
     }
-
     return retVal;
 }
 
 void WisardMote::exitConfigMode()
 {
-    DLOG(("WisardMote::exitConfigMode() - does nothing really"));
+    DLOG(("WisardMote::exitConfigMode()"));
+    sendEpilogScienceParameters();
 }
 
 bool WisardMote::checkResponse()
 {
     DLOG(("WisardMote::checkResponse()"));
-	sendSensorCmd(LIST_CMD, SensorCmdArg());
-	return checkCmdResponse(LIST_CMD, SensorCmdArg());
+	return sendAndCheckSensorCmd(EE_CFG_CMD);
 }
 
 void WisardMote::sendScienceParameters()
 {
 	DLOG(("WisardMote::sendScienceParameters()"));
-	ScienceParamMap::iterator sciIter = _scienceParameters.begin();
-	if (sciIter != _scienceParameters.end()) {
+	_scienceParametersOk = true;
+    bool responseOk = false;
+
+    for (size_t i=0; i<_scienceParameters.size(); ++i) {
 	    // flush the serial port - read and write
 	    serPortFlush(O_RDWR);
-		sendSensorCmd(sciIter->first, sciIter->second);
-		_scienceParametersOk = (_scienceParametersOk && checkCmdResponse(sciIter->first, sciIter->second));
-		sciIter++;
-
-		while (_scienceParametersOk && sciIter++ != _scienceParameters.end()) {
-		    // flush the serial port - read and write
-		    serPortFlush(O_RDWR);
-			sendSensorCmd(sciIter->first, sciIter->second);
-			_scienceParametersOk = (_scienceParametersOk && checkCmdResponse(sciIter->first, sciIter->second));
-		}
+	    responseOk = sendAndCheckSensorCmd(static_cast<MOTE_CMDS>(_scienceParameters[i].cmd), _scienceParameters[i].arg);
+		_scienceParametersOk = (_scienceParametersOk && responseOk);
 	}
+}
+
+void WisardMote::sendEpilogScienceParameters()
+{
+    DLOG(("WisardMote::sendEpilogScienceParameters()"));
+    bool responseOk = false;
+
+    for (size_t i=0; i<_epilogScienceParameters.size(); ++i) {
+        // flush the serial port - read and write
+        serPortFlush(O_RDWR);
+        responseOk = sendAndCheckSensorCmd(static_cast<MOTE_CMDS>(_epilogScienceParameters[i].cmd), _epilogScienceParameters[i].arg);
+        _scienceParametersOk = (_scienceParametersOk && responseOk);
+    }
 }
 
 bool WisardMote::checkScienceParameters()
@@ -2432,46 +2475,134 @@ bool WisardMote::checkScienceParameters()
 }
 
 void WisardMote::updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg){
-	_scienceParameters[cmd] = arg;
+    ScienceParamVector* pParams = 0;
+    if (cmd != DATA_RATE_CMD && cmd != EE_UPDATE_CMD && cmd != MSG_FMT_CMD) {
+        pParams = &_scienceParameters;
+    }
+    else {
+        pParams = &_epilogScienceParameters;
+    }
+
+    ScienceParamVector::iterator iter = pParams->begin();
+    while (iter != pParams->end() && iter->cmd != cmd) {
+        ++iter;
+    }
+    if (iter != pParams->end()) {
+        iter->arg = arg;
+    }
+    else {
+        pParams->push_back(SensorCmdData(cmd, arg));
+    }
+}
+
+bool WisardMote::checkIfCmdNeeded(MOTE_CMDS cmd, SensorCmdArg arg)
+{
+    bool cmdNeeded = true;
+    string argStr;
+    string cmdStr = _commandTable[cmd];
+    cmdStr.resize(cmdStr.find('\r'));
+
+//    DLOG(("WisardMote::checkIfCmdNeeded(): cmd integer: %i", cmd));
+    if (_cfgParameters.count(cmd)) {
+        string& rCfgStr = *_cfgParameters[cmd];
+
+        // check if same.
+        if (!arg.argIsNull) {
+            if (arg.argIsString) {
+                argStr = arg.strArg;
+                cmdNeeded = (rCfgStr != argStr);
+            }
+            else {
+                std::ostringstream ostrm;
+                ostrm << arg.intArg;
+                argStr = ostrm.str();
+                cmdNeeded = (rCfgStr != argStr);
+            }
+        }
+        DLOG(("WisardMote::checkIfCmdNeeded(): cmd: %s is %s needed, as configuration: %s ==  arg: %s", cmdStr.c_str(), (cmdNeeded ? "" : "NOT"), rCfgStr.c_str(), argStr.c_str()));
+    }
+    else {
+        DLOG(("WisardMote::checkIfCmdNeeded(): cmd: %s is needed, as it is not a part of the recorded configurations", cmdStr.c_str()));
+    }
+
+    return cmdNeeded;
+}
+
+void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
+{
+    CmdMap::iterator cmdIter = _commandTable.find(cmd);
+
+    if (cmdIter != _commandTable.end()) {
+        std::string cmdStr = cmdIter->second;
+        if (!arg.argIsNull) {
+            int insertIdx = cmdStr.find_first_of('\r');
+            if (arg.argIsString) {
+                cmdStr.insert(insertIdx, arg.strArg);
+            }
+            else {
+                std::ostringstream argStr;
+                argStr << arg.intArg;
+                cmdStr.insert(insertIdx, "=" + argStr.str());
+            }
+        }
+
+        DLOG(("WisardMote::sendSensorCmd() - flush port then sending command: ") << cmdStr);
+        serPortFlush(O_RDWR);
+
+        // write command out slowly
+        for (unsigned int i = 0; i < cmdStr.length(); ++i) {
+            write(&(cmdStr.c_str()[i]), 1);
+            usleep(CHAR_WRITE_DELAY);
+        }
+    }
+
+    else {
+        std::ostringstream eString;
+        eString << "WisardMote::sendSensorCmd(): unknown command index - " << cmd;
+        throw InvalidParameterException(eString.str());
+    }
 }
 
 bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 {
 	bool responseOK = false;
+	bool checkMatch = true;
     static const int BUF_SIZE = 2048;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
     int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, 3000);
+    // regular expression specific to the cmd
+    regex matchStr;
+    // sub match to compare against
+    int compareMatch = 0;
+    // string composed of the sub match chars
+    string valStr = "";
+    // string composed of the primary match
+    string resultsStr = "";
 
     if (numCharsRead) {
         DLOG(("WisardMote::checkCmdRepsonse(): chars read - %s", respBuf));
-		// regular expression specific to the cmd
-		regex matchStr;
-		// sub match to compare against
-		int compareMatch = 0;
-		// string composed of the sub match chars
-        string argStr = "";
 
 		// get the matching regex
 		switch (cmd) {
 		    // Data Rates
             case DATA_RATE_CMD:
                 matchStr = DATA_RATE_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case PWR_SAMP_RATE_CMD:
                 matchStr = PWR_SMPRATE_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case SERNUM_RATE_CMD:
                 matchStr = SERNUM_RATE_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
 
             // operating modes
             case NODE_ID_CMD:
                 matchStr = NODEID_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case MSG_FMT_CMD:
                 matchStr = MSG_FMT_REGEX_STR;
@@ -2495,27 +2626,33 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                     matchStr = MSG_STORE_DISABLE_REGEX_STR;
                 }
                 break;
-            case MSG_FLUSH_RATE_CMD:
+            case MSG_STORE_FLUSHRATE_CMD:
                 matchStr = MSG_FLUSH_RATE_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
 
             // battery monitor
             case VMON_ENABLE_CMD:
-                matchStr = VMON_ENABLE_REGEX_STR;
-                compareMatch = 2;
+                // May need to check this twice, since it's a toggle w/no ability to check first
+                compareMatch = 1;
+                responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, respBuf);
+                if (!responseOK) {
+                    sendSensorCmd(cmd, arg);
+                    responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, respBuf);
+                }
+                checkMatch = false;
                 break;
             case VMON_LOW_CMD:
-                matchStr = VMON_RESTART_REGEX_STR;
-                compareMatch = 2;
+                matchStr = VMON_LOW_REGEX_STR;
+                compareMatch = 1;
                 break;
             case VMON_RESTART_CMD:
                 matchStr = VMON_RESTART_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case VMON_SLEEP_CMD:
                 matchStr = VMON_SLEEP_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
 
             // calibrations
@@ -2524,25 +2661,37 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                 break;
             case VBG_CAL_CMD:
                 matchStr = VBG_CAL_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case IIG_CAL_CMD:
                 matchStr = IIG_CAL_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case I3G_CAL_CMD:
                 matchStr = I3G_CAL_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
 
             // eeprom
             case EE_CFG_CMD:
                 responseOK = captureCfgData(respBuf);
+                checkMatch = false;
                 break;
 
-                static const regex EEUPDATE_REGEX_STR("ID[[:digit:]]+: EE Cfg Update: ([A-Z]+)");
-                static const regex EEINIT_REGEX_STR("ID[[:digit:]]+: EE Cfg Initialize: ([A-Z]+)");
-                static const regex EELOAD_REGEX_STR("IDID[[:digit:]]+:  [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([A-Z+]), nc=([[:digit:]]+)")
+            case EE_UPDATE_CMD:
+                matchStr = EEUPDATE_REGEX_STR;
+                compareMatch = 1;
+                break;
+
+            case EE_INIT_CMD:
+                matchStr = EEINIT_REGEX_STR;
+                compareMatch = 1;
+                break;
+
+            case EE_LOAD_CMD:
+                matchStr = EELOAD_REGEX_STR;
+                compareMatch = 1;
+                break;
 
             // GPS
             case GPS_ENABLE_CMD:
@@ -2551,19 +2700,19 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                 break;
             case GPS_SYNC_RATE_CMD:
                 matchStr = GPS_SYNC_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case GPS_LCKTMOUT_CMD:
                 matchStr = GPS_LCKTMOUT_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case GPS_LCKFAIL_RETRY_CMD:
                 matchStr = GPS_LCKFAIL_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case GPS_NLOCKS_CNFRM_CMD:
                 matchStr = GPS_NLOCKS_CNFRM_REGEX_STR;
-                compareMatch = 2;
+                compareMatch = 1;
                 break;
             case GPS_SENDALL_MSGS_CMD:
                 matchStr = GPS_SENDALL_REGEX_STR;
@@ -2573,55 +2722,116 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 		    case LIST_CMD:
 		        matchStr = LIST_COMMANDS_REGEX_STR;
 		        break;
-			case NODE_ID_CMD:
-				matchStr = NODEID_REGEX_STR;
-				break;
 			case RESET_CMD:
 			    responseOK = captureResetMetaData(respBuf);
+			    checkMatch = false;
 			    break;
 			default:
 				break;
 		}
 
-		if (!responseOK) {
-            DLOG(("WisardMote::checkCmdResponse(): matching: ") << matchStr);
-            cmatch results;
-            bool regexFound = regex_search(respBuf, results, matchStr);
-            if (regexFound && results[0].matched) {
-                if (!arg.argIsNull) {
-                    if (results[compareMatch].matched) {
-                        argStr = std::string(&(respBuf[results[compareMatch].first]), (results[compareMatch].second - results[compareMatch].first));
+		if (checkMatch) {
+		    responseOK = _checkSensorCmdResponse(cmd, arg, matchStr, compareMatch, respBuf);
+		}
+    }
+	return responseOK;
+}
 
-                        if (arg.argIsString) {
-                            responseOK = (argStr == arg.strArg);
-                        }
-                        else {
-                            std::ostringstream convertStream;
-                            convertStream << arg.intArg;
-                            responseOK = (argStr == convertStream.str());
-                        }
+bool WisardMote::_checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const regex& matchStr, int matchGroup, const char* buf)
+{
+    bool responseOK = false;
+    // regular expression specific to the cmd
+    // sub match to compare against
+    // string composed of the sub match chars
+    string valStr = "";
+    // string composed of the primary match
+    string resultsStr = "";
+
+    DLOG(("WisardMote::checkVmonSensorCmdResponse(): matching: ") << matchStr);
+    cmatch results;
+    bool regexFound = regex_search(buf, results, matchStr);
+    if (regexFound && results[0].matched) {
+        resultsStr = std::string(results[0].first, (results[0].second - results[0].first));
+        if (!arg.argIsNull) {
+            if (results[matchGroup].matched) {
+                if (matchGroup > 0) {
+                    valStr = std::string(results[matchGroup].first, (results[matchGroup].second - results[matchGroup].first));
+
+                    if (arg.argIsString) {
+                        responseOK = (valStr == arg.strArg);
                     }
                     else {
-                        DLOG(("WisardMote::checkCmdResponse(): Didn't find matches to argument as expected."));
+                        std::ostringstream convertStream;
+                        convertStream << arg.intArg;
+                        responseOK = (valStr == convertStream.str());
                     }
                 }
                 else {
                     responseOK = true;
                 }
             }
-		}
+            else {
+                DLOG(("WisardMote::checkCmdResponse(): Didn't find matches to argument as expected."));
+            }
+        }
+        else {
+            responseOK = true;
+        }
     }
+    else {
+        DLOG(("WisardMote::checkCmdResponse(): Didn't find overall match to string as expected."));
+    }
+
+    updateCfgParam(cmd, valStr);
 
     string cmdStr = _commandTable[cmd];
     int idx = cmdStr.find('\r');
     cmdStr[idx] = 0;
 
-    DLOG(("WisardMote::checkCmdResponse(): cmd: %s with arg: %i did %ssucceed", cmdStr.c_str(), arg.intArg, (responseOK ? "" : "NOT ")));
+    if (arg.argIsNull) {
+            DLOG(("WisardMote::checkCmdResponse(): Results of checking command w/NULL argument"));
+            DLOG(("Overall match: ") << resultsStr);
+            DLOG(("WisardMote::checkCmdResponse(): cmd: %s %s", cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED")));
+        } else if (arg.argIsString) {
+            DLOG(("WisardMote::checkCmdResponse(): Results of checking command w/string argument"));
+            DLOG(("Overall match: ") << resultsStr);
+            DLOG(("WisardMote::checkCmdResponse(): cmd: %s: %s. expected: %s => saw: %s", cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED"), arg.strArg.c_str(), valStr.c_str()));
+        }
+        else {
+            DLOG(("WisardMote::checkCmdResponse(): Results of checking command w/integer argument"));
+            DLOG(("Overall match: ") << resultsStr);
+            DLOG(("WisardMote::checkCmdResponse(): cmd: %s: %s. expected: %i => saw: %s", cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED"), arg.intArg, valStr.c_str()));
+    }
 
-	return responseOK;
+    return responseOK;
 }
 
-bool WisardMote::captureResetMetaData(const char* buf) {
+bool WisardMote::sendAndCheckSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
+{
+    bool paramOK = true;
+
+    if (checkIfCmdNeeded(cmd, arg)) {
+        sendSensorCmd(cmd, arg);
+        paramOK = checkCmdResponse(cmd, arg);
+    }
+
+    return paramOK;
+}
+
+
+void WisardMote::updateCfgParam(MOTE_CMDS cmd, std::string val)
+{
+    if (_cfgParameters.count(cmd)) {
+        string cmdStr = _commandTable[cmd];
+        cmdStr.resize(cmdStr.find('\r'));
+
+        *_cfgParameters[cmd] = val;
+        DLOG(("WisardMote::updateCfgParam(): cmd: %s, val: %s", cmdStr.c_str(), (*_cfgParameters[cmd]).c_str()));
+    }
+}
+
+bool WisardMote::captureResetMetaData(const char* buf)
+{
     bool responseOK = false;
 
     string modelIdStr;
@@ -2771,28 +2981,9 @@ bool WisardMote::captureResetMetaData(const char* buf) {
     return responseOK;
 }
 
-bool WisardMote::captureCfgData(const char* buf) {
+bool WisardMote::captureCfgData(const char* buf)
+{
     bool responseOK = false;
-    string eeResult;
-    string idResult;
-    string portResult;
-    string msgFmtResult;
-    string dataRateResult;
-    string pwrSampResult;
-    string serNumSampResult;
-    string fileFlushResult;
-    string vmonEnabledResult;
-    string vmonLowResult;
-    string vmonRestartResult;
-    string vmonSleepResult;
-    string vbCalResult;
-    string i3CalResult;
-    string iiCalResult;
-    string gpsResyncResult;
-    string gpsFailRetryResult;
-    string gpsNumLocksResult;
-    string gpsTimeOutResult;
-    string gpsMsgsResult;
 
     cmatch results;
     bool regexFound = regex_search(buf, results, EECFG_REGEX_STR);
@@ -2804,7 +2995,7 @@ bool WisardMote::captureCfgData(const char* buf) {
     }
 
     if (results[1].matched) {
-        eeResult.append(results[1].first, results[1].second - results[1].first);
+        _eeCfg.append(results[1].first, results[1].second - results[1].first);
         responseOK = true;
     }
     else {
@@ -2813,7 +3004,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[2].matched;
     if (results[2].matched) {
-        idResult.append(results[2].first, results[2].second - results[2].first);
+        _idCfg.append(results[2].first, results[2].second - results[2].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the sensor ID."));
@@ -2821,7 +3012,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[3].matched;
     if (results[3].matched) {
-        portResult.append(results[3].first, results[3].second - results[3].first);
+        _portCfg.append(results[3].first, results[3].second - results[3].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the output port."));
@@ -2829,7 +3020,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[4].matched;
     if (results[4].matched) {
-        msgFmtResult.append(results[4].first, results[4].second - results[4].first);
+        _msgFmtCfg.append(results[4].first, results[4].second - results[4].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the message format."));
@@ -2837,7 +3028,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[5].matched;
     if (results[5].matched) {
-        dataRateResult.append(results[5].first, results[5].second - results[5].first);
+        _dataRateCfg.append(results[5].first, results[5].second - results[5].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the data rate."));
@@ -2845,7 +3036,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[6].matched;
     if (results[6].matched) {
-        pwrSampResult.append(results[6].first, results[6].second - results[6].first);
+        _pwrSampCfg.append(results[6].first, results[6].second - results[6].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the power sample rate."));
@@ -2853,7 +3044,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[7].matched;
     if (results[7].matched) {
-        pwrSampResult.append(results[7].first, results[7].second - results[7].first);
+        _serNumSampCfg.append(results[7].first, results[7].second - results[7].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the serial numbers sample rate."));
@@ -2861,7 +3052,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[8].matched;
     if (results[8].matched) {
-        fileFlushResult.append(results[8].first, results[8].second - results[8].first);
+        _fileFlushCfg.append(results[8].first, results[8].second - results[8].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the file flush rate."));
@@ -2869,7 +3060,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[9].matched;
     if (results[9].matched) {
-        vmonEnabledResult.append(results[9].first, results[9].second - results[9].first);
+        _vmonEnableCfg.append(results[9].first, results[9].second - results[9].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon enabled state."));
@@ -2877,7 +3068,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[10].matched;
     if (results[10].matched) {
-        vmonLowResult.append(results[10].first, results[10].second - results[10].first);
+        _vmonLowCfg.append(results[10].first, results[10].second - results[10].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon low volts."));
@@ -2885,7 +3076,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[11].matched;
     if (results[11].matched) {
-        vmonRestartResult.append(results[11].first, results[11].second - results[11].first);
+        _vmonRestartCfg.append(results[11].first, results[11].second - results[11].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon restart voltage."));
@@ -2893,7 +3084,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[12].matched;
     if (results[12].matched) {
-        vmonSleepResult.append(results[12].first, results[12].second - results[12].first);
+        _vmonSleepCfg.append(results[12].first, results[12].second - results[12].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon sleep recheck rate."));
@@ -2901,7 +3092,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[13].matched;
     if (results[13].matched) {
-        vbCalResult.append(results[13].first, results[13].second - results[13].first);
+        _vbCalCfg.append(results[13].first, results[13].second - results[13].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vbat cal data."));
@@ -2909,7 +3100,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[14].matched;
     if (results[14].matched) {
-        i3CalResult.append(results[14].first, results[14].second - results[14].first);
+        _i3CalCfg.append(results[14].first, results[14].second - results[14].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the i3g cal data."));
@@ -2917,7 +3108,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[15].matched;
     if (results[15].matched) {
-        iiCalResult.append(results[15].first, results[15].second - results[15].first);
+        _iiCalCfg.append(results[15].first, results[15].second - results[15].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon sleep recheck rate."));
@@ -2925,7 +3116,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[16].matched;
     if (results[16].matched) {
-        gpsResyncResult.append(results[16].first, results[16].second - results[16].first);
+        _gpsResyncCfg.append(results[16].first, results[16].second - results[16].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -2933,7 +3124,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[17].matched;
     if (results[17].matched) {
-        gpsFailRetryResult.append(results[17].first, results[17].second - results[17].first);
+        _gpsFailRetryCfg.append(results[17].first, results[17].second - results[17].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -2941,7 +3132,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[18].matched;
     if (results[18].matched) {
-        gpsNumLocksResult.append(results[18].first, results[18].second - results[18].first);
+        _gpsNumLocksCfg.append(results[18].first, results[18].second - results[18].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -2949,7 +3140,7 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[19].matched;
     if (results[19].matched) {
-        gpsTimeOutResult.append(results[19].first, results[19].second - results[19].first);
+        _gpsTimeOutCfg.append(results[19].first, results[19].second - results[19].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -2957,31 +3148,33 @@ bool WisardMote::captureCfgData(const char* buf) {
 
     responseOK &= results[20].matched;
     if (results[20].matched) {
-        gpsMsgsResult.append(results[20].first, results[20].second - results[19].first);
+        _gpsMsgsCfg.append(results[20].first, results[20].second - results[19].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
     }
 
     DLOG(("Mote Eeprom Cfg: "));
-    DLOG(("    Eeprom State:         ") << eeResult);
-    DLOG(("    Sensor ID:            ") << idResult);
-    DLOG(("    Output Port:          ") << portResult);
-    DLOG(("    Msg Format:           ") << msgFmtResult);
-    DLOG(("    Data Rate(s):         ") << dataRateResult);
-    DLOG(("    Pwr Samp Skip:        ") << pwrSampResult);
-    DLOG(("    SerNums Samp Skip:    ") << serNumSampResult);
-    DLOG(("    File Flush Rate:      ") << fileFlushResult);
-    DLOG(("    Vmon Enabled:         ") << vmonEnabledResult);
-    DLOG(("    Vmon Low Volts:       ") << vmonLowResult);
-    DLOG(("    Vmon Restart Volts:   ") << vmonRestartResult);
-    DLOG(("    Vmon Sleep Retry:     ") << vmonSleepResult);
-    DLOG(("    Vbatt Gain:           ") << vbCalResult);
-    DLOG(("    I3 Gain:              ") << i3CalResult);
-    DLOG(("    Iin Gain:             ") << iiCalResult);
-    DLOG(("    GPS RTCC Resync Rate: ") << gpsResyncResult);
-    DLOG(("    GPS Fail Retry Rate:  ") << gpsFailRetryResult);
-    DLOG(("    GPS Num Locks Resync: ") << gpsNumLocksResult);
-    DLOG(("    GPS Timeout:          ") << gpsTimeOutResult);
-    DLOG(("    GPS Send All Msgs:    ") << gpsMsgsResult);
+    DLOG(("    Eeprom State:         ") << _eeCfg);
+    DLOG(("    Sensor ID:            ") << _idCfg);
+    DLOG(("    Output Port:          ") << _portCfg);
+    DLOG(("    Msg Format:           ") << _msgFmtCfg);
+    DLOG(("    Data Rate(s):         ") << _dataRateCfg);
+    DLOG(("    Pwr Samp Skip:        ") << _pwrSampCfg);
+    DLOG(("    SerNums Samp Skip:    ") << _serNumSampCfg);
+    DLOG(("    File Flush Rate:      ") << _fileFlushCfg);
+    DLOG(("    Vmon Enabled:         ") << _vmonEnableCfg);
+    DLOG(("    Vmon Low Volts:       ") << _vmonLowCfg);
+    DLOG(("    Vmon Restart Volts:   ") << _vmonRestartCfg);
+    DLOG(("    Vmon Sleep Retry:     ") << _vmonSleepCfg);
+    DLOG(("    Vbatt Gain:           ") << _vbCalCfg);
+    DLOG(("    I3 Gain:              ") << _i3CalCfg);
+    DLOG(("    Iin Gain:             ") << _iiCalCfg);
+    DLOG(("    GPS RTCC Resync Rate: ") << _gpsResyncCfg);
+    DLOG(("    GPS Fail Retry Rate:  ") << _gpsFailRetryCfg);
+    DLOG(("    GPS Num Locks Resync: ") << _gpsNumLocksCfg);
+    DLOG(("    GPS Timeout:          ") << _gpsTimeOutCfg);
+    DLOG(("    GPS Send All Msgs:    ") << _gpsMsgsCfg);
+
+    return responseOK;
 }
