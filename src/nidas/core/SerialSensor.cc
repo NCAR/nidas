@@ -53,7 +53,7 @@ SerialSensor::SerialSensor():
     _desiredPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	_configMode(NOT_ENTERED),
+	_configMode(NOT_ENTERED), _sensorMetaData(),
 	_defaultPortConfig(), _serialDevice(0), _pSensrPwrCtrl(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -69,7 +69,7 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
 		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 		_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	    _configMode(NOT_ENTERED),
+	    _configMode(NOT_ENTERED), _sensorMetaData(),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0),
         _pSensrPwrCtrl(new n_u::SensorPowerCtrl(rInitPortConfig.xcvrConfig.port)),
         _prompters(), _prompting(false)
