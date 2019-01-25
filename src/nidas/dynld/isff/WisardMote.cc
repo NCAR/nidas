@@ -94,13 +94,7 @@ WisardMote::WisardMote() :
     defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
     _scienceParameters(), _epilogScienceParameters(),
     _scienceParametersOk(false),
-    _commandTable(), _cfgParameters(),
-    _eeCfg(), _dataRateCfg(), _pwrSampCfg(), _serNumSampCfg(),
-    _idCfg(), _msgFmtCfg(), _portCfg(), _sensorsOnCfg(),
-    _fileEnableCfg(), _fileFlushCfg(),
-    _vmonEnableCfg(), _vmonLowCfg(), _vmonRestartCfg(), _vmonSleepCfg(),
-    _vbCalCfg(), _i3CalCfg(), _iiCalCfg(),
-    _gpsEnableCfg(), _gpsResyncCfg(), _gpsFailRetryCfg(), _gpsNumLocksCfg(), _gpsTimeOutCfg(), _gpsMsgsCfg()
+    _commandTable(), _cfgParameters(), _configMetaData()
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -1837,14 +1831,14 @@ const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
 // Data output after reset
 static const regex MODEL_ID_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
 static const regex RESET_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
-static const regex VERSION_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[:digit:]+)");
-static const regex CPU_CLK_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ ([:alnum:]+)");
-static const regex TIMING_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[:digit:]+.[[:digit:]]+ [:alnum:]+ '([:alpha:]-*)+'");
-static const regex BUILD_DATE_REGEX_STR("ID[[:digit:]]+: [[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
+static const regex VERSION_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[[:digit:]]+)");
+static const regex CPU_CLK_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ ([[:alnum:]]+)");
+static const regex TIMING_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ [[:alnum:]]+ '(.*)'");
+static const regex BUILD_DATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
 static const regex RTCC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
 
 static const regex TEMP_SENSOR_INIT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
-static const regex SENSOR_SERNUMS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:(.*)");
+static const regex SENSOR_SERNUMS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:[[:blank:]]+(.*)(?:\x01\x02|[[:space:]]+)");
 
 // Data Rates
 static const regex DATA_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
@@ -1858,8 +1852,8 @@ static const regex OUT_PORT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'
 static const regex SENSORS_ON_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
 
 // local file
-static const regex MSG_STORE_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' opened");
-static const regex MSG_STORE_DISABLE_REGEX_STR("(?:ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(?:ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
+static const regex MSG_STORE_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' (opened)");
+static const regex MSG_STORE_DISABLE_REGEX_STR("(ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
 static const regex MSG_FLUSH_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 // battery monitor
@@ -1906,47 +1900,47 @@ void WisardMote::initCmdTable()
 {
     // Sampling Rate Cmds
     _commandTable[DATA_RATE_CMD] =          "dr\r";         // output data every 'val' seconds - can be very very large w/o declaring an error
-    _cfgParameters[DATA_RATE_CMD] =         &_dataRateCfg;
+    _cfgParameters[DATA_RATE_CMD] =         &_configMetaData._dataRateCfg;
     _commandTable[PWR_SAMP_RATE_CMD] =      "sp\r";         // output power data every 'val' * dr seconds
-    _cfgParameters[PWR_SAMP_RATE_CMD] =     &_pwrSampCfg;
+    _cfgParameters[PWR_SAMP_RATE_CMD] =     &_configMetaData._pwrSampCfg;
     _commandTable[SERNUM_RATE_CMD] =        "sn\r";         // output serial number data every 'val' * dr seconds
-    _cfgParameters[SERNUM_RATE_CMD] =       &_serNumSampCfg;
+    _cfgParameters[SERNUM_RATE_CMD] =       &_configMetaData._serNumSampCfg;
 
     // Operating Mode Cmds
 //    _commandTable[SAMP_MODE_CMD] =          "md\r";       // doesn't work???  select either self-timed, or timed on XBee wakeup
     _commandTable[NODE_ID_CMD] =            "id\r";         // set the node ID
-    _cfgParameters[NODE_ID_CMD] =           &_idCfg;
+    _cfgParameters[NODE_ID_CMD] =           &_configMetaData._idCfg;
     _commandTable[MSG_FMT_CMD] =            "mp\r";         // set the message format, Wisard binary, dsm printable (w/binary start/end chars, or ASCII
-    _cfgParameters[MSG_FMT_CMD] =           &_msgFmtCfg;
+    _cfgParameters[MSG_FMT_CMD] =           &_configMetaData._msgFmtCfg;
     _commandTable[OUT_PORT_CMD] =           "pp\r";         // select either XBee or serial console
-    _cfgParameters[OUT_PORT_CMD] =          &_portCfg;
+    _cfgParameters[OUT_PORT_CMD] =          &_configMetaData._portCfg;
     _commandTable[SENSORS_ON_CMD] =         "sensors\r";    // turn attached sensors ON/OFF
-    _cfgParameters[SENSORS_ON_CMD] =        &_sensorsOnCfg;
+    _cfgParameters[SENSORS_ON_CMD] =        &_configMetaData._sensorsOnCfg;
 
     // Local file Cmds
     _commandTable[MSG_STORE_CMD] =          "fs\r";         // turn ON/OFF the local file system data storage
-    _cfgParameters[MSG_STORE_CMD] =         &_fileEnableCfg;
+    _cfgParameters[MSG_STORE_CMD] =         &_configMetaData._fileEnableCfg;
     _commandTable[MSG_STORE_FLUSHRATE_CMD] =  "fsr\r";        // flush/cycle the local storage file every 'val' seconds
-    _cfgParameters[MSG_STORE_FLUSHRATE_CMD] = &_fileFlushCfg;
+    _cfgParameters[MSG_STORE_FLUSHRATE_CMD] = &_configMetaData._fileFlushCfg;
 
     // Battery Monitor Cmds
     _commandTable[VMON_ENABLE_CMD] =        "vm\r";         // turn battery voltage monitoring ON/OFF
-    _cfgParameters[VMON_ENABLE_CMD] =       &_vmonEnableCfg;
+    _cfgParameters[VMON_ENABLE_CMD] =       &_configMetaData._vmonEnableCfg;
     _commandTable[VMON_LOW_CMD] =           "vl\r";         // turn Mote operation off at 'XXXX' volts, i.e. - 7000 == 7.000 V
-    _cfgParameters[VMON_LOW_CMD] =          &_vmonLowCfg;
+    _cfgParameters[VMON_LOW_CMD] =          &_configMetaData._vmonLowCfg;
     _commandTable[VMON_RESTART_CMD] =       "vh\r";         // turn Mote operation on at 'XXXXX' volts, i.e. - 12300 == 12.3 V
-    _cfgParameters[VMON_RESTART_CMD] =      &_vmonRestartCfg;
+    _cfgParameters[VMON_RESTART_CMD] =      &_configMetaData._vmonRestartCfg;
     _commandTable[VMON_SLEEP_CMD] =         "vs\r";         // after turning itself off, retest Vbatt every 'val' seconds
-    _cfgParameters[VMON_SLEEP_CMD] =        &_vmonSleepCfg;
+    _cfgParameters[VMON_SLEEP_CMD] =        &_configMetaData._vmonSleepCfg;
 
     // Calibration
     _commandTable[ADCALS_CMD] =            "adcals\r";     // report adc cal data
     _commandTable[VBG_CAL_CMD] =           "vbg\r";        // get/set gain for vbatt
-    _cfgParameters[VBG_CAL_CMD] =           &_vbCalCfg;
+    _cfgParameters[VBG_CAL_CMD] =           &_configMetaData._vbCalCfg;
     _commandTable[IIG_CAL_CMD] =           "iig\r";        // get/set gain for iIn
-    _cfgParameters[IIG_CAL_CMD] =           &_iiCalCfg;
+    _cfgParameters[IIG_CAL_CMD] =           &_configMetaData._iiCalCfg;
     _commandTable[I3G_CAL_CMD] =           "i3g\r";        // get/set gain for i3
-    _cfgParameters[I3G_CAL_CMD] =           &_i3CalCfg;
+    _cfgParameters[I3G_CAL_CMD] =           &_configMetaData._i3CalCfg;
 
     // EEPROM
     _commandTable[EE_CFG_CMD] =             "eecfg\r";      // report current operating settings stored in eeprom
@@ -1975,17 +1969,17 @@ void WisardMote::initCmdTable()
 
     // GPS/Timing Cmds
     _commandTable[GPS_ENABLE_CMD] =         "gps\r";        // GPS ON/OFF
-    _cfgParameters[GPS_ENABLE_CMD] =        &_gpsEnableCfg;
+    _cfgParameters[GPS_ENABLE_CMD] =        &_configMetaData._gpsEnableCfg;
     _commandTable[GPS_SYNC_RATE_CMD] =      "gr\r";         // number of seconds between setting the RTCC from the GPS
-    _cfgParameters[GPS_SYNC_RATE_CMD] =     &_gpsResyncCfg;
+    _cfgParameters[GPS_SYNC_RATE_CMD] =     &_configMetaData._gpsResyncCfg;
     _commandTable[GPS_LCKTMOUT_CMD] =       "gto\r";        // number of seconds to timeout if no lock acquired after power on
-    _cfgParameters[GPS_LCKTMOUT_CMD] =      &_gpsTimeOutCfg;
+    _cfgParameters[GPS_LCKTMOUT_CMD] =      &_configMetaData._gpsTimeOutCfg;
     _commandTable[GPS_LCKFAIL_RETRY_CMD] =  "gfr\r";        // number of seconds to wait between lock retries
-    _cfgParameters[GPS_LCKFAIL_RETRY_CMD] = &_gpsFailRetryCfg;
+    _cfgParameters[GPS_LCKFAIL_RETRY_CMD] = &_configMetaData._gpsFailRetryCfg;
     _commandTable[GPS_NLOCKS_CNFRM_CMD] =   "gnl\r";        // number of sequential valid messages to confirm lock
-    _cfgParameters[GPS_NLOCKS_CNFRM_CMD] =  &_gpsNumLocksCfg;
+    _cfgParameters[GPS_NLOCKS_CNFRM_CMD] =  &_configMetaData._gpsNumLocksCfg;
     _commandTable[GPS_SENDALL_MSGS_CMD] =   "gmf\r";        // toggles between 0 and 1
-    _cfgParameters[GPS_SENDALL_MSGS_CMD] =  &_gpsMsgsCfg;
+    _cfgParameters[GPS_SENDALL_MSGS_CMD] =  &_configMetaData._gpsMsgsCfg;
 
     // List commands, reset
 	_commandTable[LIST_CMD] = 				"?\r";          // prints out a list of available commands
@@ -2418,12 +2412,13 @@ CFG_MODE_STATUS WisardMote::enterConfigMode()
 
     if (sendAndCheckSensorCmd(MSG_FMT_CMD, SensorCmdArg(2))) {
         if (sendAndCheckSensorCmd(DATA_RATE_CMD, SensorCmdArg(0))) {
-            // Must only send EE_CFG_CMD after msg format is changed to ASCII...
-            if (sendAndCheckSensorCmd(EE_CFG_CMD)) {
-                    retVal = ENTERED_RESP_CHECKED;
-                    // update the shadow config to match the commands above.
-                    updateCfgParam(MSG_FMT_CMD, "2");
-                    updateCfgParam(DATA_RATE_CMD, "0");
+            if (sendAndCheckSensorCmd(EE_UPDATE_CMD)) {
+                if (sendAndCheckSensorCmd(RESET_CMD)) {
+                    // Must only send EE_CFG_CMD after msg format is changed to ASCII...
+                    if (sendAndCheckSensorCmd(EE_CFG_CMD)) {
+                            retVal = ENTERED_RESP_CHECKED;
+                    }
+                }
             }
         }
     }
@@ -2546,9 +2541,9 @@ void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
             }
         }
 
-        DLOG(("WisardMote::sendSensorCmd() - flush port then sending command: ") << cmdStr);
         serPortFlush(O_RDWR);
 
+        DLOG(("WisardMote::sendSensorCmd() - sending command: ") << cmdStr);
         // write command out slowly
         for (unsigned int i = 0; i < cmdStr.length(); ++i) {
             write(&(cmdStr.c_str()[i]), 1);
@@ -2568,9 +2563,14 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 	bool responseOK = false;
 	bool checkMatch = true;
     static const int BUF_SIZE = 2048;
+    int selectTimeout = 2000;
+    if (cmd == RESET_CMD) {
+        selectTimeout = 10000;
+    }
+
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
-    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, 3000);
+    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, selectTimeout);
     // regular expression specific to the cmd
     regex matchStr;
     // sub match to compare against
@@ -2581,7 +2581,12 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
     string resultsStr = "";
 
     if (numCharsRead) {
-        DLOG(("WisardMote::checkCmdRepsonse(): chars read - %s", respBuf));
+        char* buf = respBuf;
+        if (cmd == RESET_CMD) {
+            buf++;
+        }
+        DLOG(("WisardMote::checkCmdRepsonse(): Number of chars read - %i", numCharsRead));
+        DLOG(("WisardMote::checkCmdRepsonse(): chars read - %s", buf));
 
 		// get the matching regex
 		switch (cmd) {
@@ -2635,10 +2640,10 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
             case VMON_ENABLE_CMD:
                 // May need to check this twice, since it's a toggle w/no ability to check first
                 compareMatch = 1;
-                responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, respBuf);
+                responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
                 if (!responseOK) {
                     sendSensorCmd(cmd, arg);
-                    responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, respBuf);
+                    responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
                 }
                 checkMatch = false;
                 break;
@@ -2723,7 +2728,7 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 		        matchStr = LIST_COMMANDS_REGEX_STR;
 		        break;
 			case RESET_CMD:
-			    responseOK = captureResetMetaData(respBuf);
+			    responseOK = captureResetMetaData(buf);
 			    checkMatch = false;
 			    break;
 			default:
@@ -2753,7 +2758,10 @@ bool WisardMote::_checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const 
     if (regexFound && results[0].matched) {
         resultsStr = std::string(results[0].first, (results[0].second - results[0].first));
         if (!arg.argIsNull) {
-            if (results[matchGroup].matched) {
+            if (cmd == MSG_STORE_CMD && (results[1].matched || results[2].matched)) {
+                valStr = arg.strArg;
+            }
+            else if (results[matchGroup].matched) {
                 if (matchGroup > 0) {
                     valStr = std::string(results[matchGroup].first, (results[matchGroup].second - results[matchGroup].first));
 
@@ -2853,6 +2861,8 @@ bool WisardMote::captureResetMetaData(const char* buf)
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
         modelIdStr.append(results[1].first, results[1].second - results[1].first);
+        setModel(modelIdStr);
+        setManufacturer("UCAR/EOL");
     } else {
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the model ID string as expected."));
     }
@@ -2870,11 +2880,18 @@ bool WisardMote::captureResetMetaData(const char* buf)
     regexFound = regex_search(buf, results, VERSION_REGEX_STR);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
-    if (matchFound && results[1].matched) {
-        versionStr.append(results[1].first, results[1].second - results[1].first);
+    if (matchFound) {
+        if (results[1].matched) {
+            versionStr.append(results[1].first, results[1].second - results[1].first);
+            setFwVersion(versionStr);
+        }
+        else {
+            responseOK = false;
+            DLOG(("WisardMote::captureResetMetaData(): Didn't find version string match group as expected."));
+        }
     }
     else {
-        DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the version string as expected."));
+        DLOG(("WisardMote::captureResetMetaData(): Didn't find overall match to the version string as expected."));
     }
 
     regexFound = regex_search(buf, results, CPU_CLK_REGEX_STR);
@@ -2959,6 +2976,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
         sensorSerialNumsStr.append(results[1].first, results[1].second - results[1].first);
+        setSerialNumber(sensorSerialNumsStr);
     }
     else {
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the sensor serial numbers string as expected."));
@@ -2973,7 +2991,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
     DLOG(("    Build Date:       ") << buildDateStr);
     DLOG(("    RTCC Cfg:         ") << rtccCfgStr);
     DLOG(("    Vin Cal:          ") << vinCalStr);
-    DLOG(("    I3 Cal:          ") <<  i3gCalStr);
+    DLOG(("    I3 Cal:           ") << i3gCalStr);
     DLOG(("    Iin Cal:          ") << iigCalStr);
     DLOG(("    Temp Sensor Init: ") << tempSensorInitStr);
     DLOG(("    Sensor Serial #s: ") << sensorSerialNumsStr);
@@ -2995,7 +3013,7 @@ bool WisardMote::captureCfgData(const char* buf)
     }
 
     if (results[1].matched) {
-        _eeCfg.append(results[1].first, results[1].second - results[1].first);
+        _configMetaData._eeCfg.assign(results[1].first, results[1].second - results[1].first);
         responseOK = true;
     }
     else {
@@ -3004,7 +3022,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[2].matched;
     if (results[2].matched) {
-        _idCfg.append(results[2].first, results[2].second - results[2].first);
+        _configMetaData._idCfg.assign(results[2].first, results[2].second - results[2].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the sensor ID."));
@@ -3012,7 +3030,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[3].matched;
     if (results[3].matched) {
-        _portCfg.append(results[3].first, results[3].second - results[3].first);
+        _configMetaData._portCfg.assign(results[3].first, results[3].second - results[3].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the output port."));
@@ -3020,7 +3038,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[4].matched;
     if (results[4].matched) {
-        _msgFmtCfg.append(results[4].first, results[4].second - results[4].first);
+        _configMetaData._msgFmtCfg.assign(results[4].first, results[4].second - results[4].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the message format."));
@@ -3028,7 +3046,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[5].matched;
     if (results[5].matched) {
-        _dataRateCfg.append(results[5].first, results[5].second - results[5].first);
+        _configMetaData._dataRateCfg.assign(results[5].first, results[5].second - results[5].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the data rate."));
@@ -3036,7 +3054,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[6].matched;
     if (results[6].matched) {
-        _pwrSampCfg.append(results[6].first, results[6].second - results[6].first);
+        _configMetaData._pwrSampCfg.assign(results[6].first, results[6].second - results[6].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the power sample rate."));
@@ -3044,7 +3062,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[7].matched;
     if (results[7].matched) {
-        _serNumSampCfg.append(results[7].first, results[7].second - results[7].first);
+        _configMetaData._serNumSampCfg.assign(results[7].first, results[7].second - results[7].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the serial numbers sample rate."));
@@ -3052,7 +3070,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[8].matched;
     if (results[8].matched) {
-        _fileFlushCfg.append(results[8].first, results[8].second - results[8].first);
+        _configMetaData._fileFlushCfg.assign(results[8].first, results[8].second - results[8].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the file flush rate."));
@@ -3060,7 +3078,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[9].matched;
     if (results[9].matched) {
-        _vmonEnableCfg.append(results[9].first, results[9].second - results[9].first);
+        _configMetaData._vmonEnableCfg.assign(results[9].first, results[9].second - results[9].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon enabled state."));
@@ -3068,7 +3086,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[10].matched;
     if (results[10].matched) {
-        _vmonLowCfg.append(results[10].first, results[10].second - results[10].first);
+        _configMetaData._vmonLowCfg.assign(results[10].first, results[10].second - results[10].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon low volts."));
@@ -3076,7 +3094,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[11].matched;
     if (results[11].matched) {
-        _vmonRestartCfg.append(results[11].first, results[11].second - results[11].first);
+        _configMetaData._vmonRestartCfg.assign(results[11].first, results[11].second - results[11].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon restart voltage."));
@@ -3084,7 +3102,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[12].matched;
     if (results[12].matched) {
-        _vmonSleepCfg.append(results[12].first, results[12].second - results[12].first);
+        _configMetaData._vmonSleepCfg.assign(results[12].first, results[12].second - results[12].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon sleep recheck rate."));
@@ -3092,7 +3110,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[13].matched;
     if (results[13].matched) {
-        _vbCalCfg.append(results[13].first, results[13].second - results[13].first);
+        _configMetaData._vbCalCfg.assign(results[13].first, results[13].second - results[13].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vbat cal data."));
@@ -3100,7 +3118,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[14].matched;
     if (results[14].matched) {
-        _i3CalCfg.append(results[14].first, results[14].second - results[14].first);
+        _configMetaData._i3CalCfg.assign(results[14].first, results[14].second - results[14].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the i3g cal data."));
@@ -3108,7 +3126,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[15].matched;
     if (results[15].matched) {
-        _iiCalCfg.append(results[15].first, results[15].second - results[15].first);
+        _configMetaData._iiCalCfg.assign(results[15].first, results[15].second - results[15].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the Vmon sleep recheck rate."));
@@ -3116,7 +3134,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[16].matched;
     if (results[16].matched) {
-        _gpsResyncCfg.append(results[16].first, results[16].second - results[16].first);
+        _configMetaData._gpsResyncCfg.assign(results[16].first, results[16].second - results[16].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -3124,7 +3142,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[17].matched;
     if (results[17].matched) {
-        _gpsFailRetryCfg.append(results[17].first, results[17].second - results[17].first);
+        _configMetaData._gpsFailRetryCfg.assign(results[17].first, results[17].second - results[17].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -3132,7 +3150,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[18].matched;
     if (results[18].matched) {
-        _gpsNumLocksCfg.append(results[18].first, results[18].second - results[18].first);
+        _configMetaData._gpsNumLocksCfg.assign(results[18].first, results[18].second - results[18].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -3140,7 +3158,7 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[19].matched;
     if (results[19].matched) {
-        _gpsTimeOutCfg.append(results[19].first, results[19].second - results[19].first);
+        _configMetaData._gpsTimeOutCfg.assign(results[19].first, results[19].second - results[19].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
@@ -3148,33 +3166,12 @@ bool WisardMote::captureCfgData(const char* buf)
 
     responseOK &= results[20].matched;
     if (results[20].matched) {
-        _gpsMsgsCfg.append(results[20].first, results[20].second - results[19].first);
+        _configMetaData._gpsMsgsCfg.assign(results[20].first, results[20].second - results[19].first);
     }
     else {
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the GPS RTCC Resync rate data."));
     }
 
-    DLOG(("Mote Eeprom Cfg: "));
-    DLOG(("    Eeprom State:         ") << _eeCfg);
-    DLOG(("    Sensor ID:            ") << _idCfg);
-    DLOG(("    Output Port:          ") << _portCfg);
-    DLOG(("    Msg Format:           ") << _msgFmtCfg);
-    DLOG(("    Data Rate(s):         ") << _dataRateCfg);
-    DLOG(("    Pwr Samp Skip:        ") << _pwrSampCfg);
-    DLOG(("    SerNums Samp Skip:    ") << _serNumSampCfg);
-    DLOG(("    File Flush Rate:      ") << _fileFlushCfg);
-    DLOG(("    Vmon Enabled:         ") << _vmonEnableCfg);
-    DLOG(("    Vmon Low Volts:       ") << _vmonLowCfg);
-    DLOG(("    Vmon Restart Volts:   ") << _vmonRestartCfg);
-    DLOG(("    Vmon Sleep Retry:     ") << _vmonSleepCfg);
-    DLOG(("    Vbatt Gain:           ") << _vbCalCfg);
-    DLOG(("    I3 Gain:              ") << _i3CalCfg);
-    DLOG(("    Iin Gain:             ") << _iiCalCfg);
-    DLOG(("    GPS RTCC Resync Rate: ") << _gpsResyncCfg);
-    DLOG(("    GPS Fail Retry Rate:  ") << _gpsFailRetryCfg);
-    DLOG(("    GPS Num Locks Resync: ") << _gpsNumLocksCfg);
-    DLOG(("    GPS Timeout:          ") << _gpsTimeOutCfg);
-    DLOG(("    GPS Send All Msgs:    ") << _gpsMsgsCfg);
-
+    DLOG(("Mote Eeprom Cfg: ") << _configMetaData);
     return responseOK;
 }
