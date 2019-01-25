@@ -77,8 +77,7 @@ DSMSensor::DSMSensor() :
     _driverTimeTagUsecs(USECS_PER_TMSEC),
     _nTimeouts(0), _nRealTimeouts(0),
 	_lag(0),_station(-1),
-	_serialNumber("Not Queryable"), _swVersion("Not Queryable"),
-	_calDate("Not Queryable"),
+	_manufMetaData(), _configMetaData(),
 	_nSamplesToTest(DEFAULT_NUM_SAMPLES_TO_TEST),
 	_nSamplesRead(0),
     _nSamplesTested(0), _nSamplesGood(0),
@@ -575,9 +574,17 @@ std::string DSMSensor::sensorStateToString(const DSM_SENSOR_STATE sensorState) c
 			return std::string("SENSOR_OPEN");
 			break;
 
-		case SENSOR_CONFIGURING:
-			return std::string("SENSOR_CONFIGURING");
-			break;
+        case SENSOR_CONFIGURING:
+            return std::string("SENSOR_CONFIGURING");
+            break;
+
+        case SENSOR_CONFIGURE_SUCCEEDED:
+            return std::string("SENSOR_CONFIGURE_SUCCEEDED");
+            break;
+
+        case SENSOR_CONFIGURE_FAILED:
+            return std::string("SENSOR_CONFIGURE_FAILED");
+            break;
 
 		case SENSOR_ACTIVE:
 			return std::string("SENSOR_ACTIVE");
@@ -592,7 +599,7 @@ std::string DSMSensor::sensorStateToString(const DSM_SENSOR_STATE sensorState) c
 			break;
 
 		case SENSOR_REQUEST_RESTART:
-			return std::string("SENSOR_UNHEALTHY");
+			return std::string("SENSOR_REQUEST_RESTART");
 			break;
 
 		case SENSOR_HEALTHY:

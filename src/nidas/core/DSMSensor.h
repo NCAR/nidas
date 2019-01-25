@@ -66,6 +66,60 @@ enum DSM_SENSOR_STATE {
 	SENSOR_HEALTHY,			    // playing well
 };
 
+// This structure contains any information about the sensor make/model, HW or SW version, etc
+struct SensorManufacturerMetaData
+{
+    SensorManufacturerMetaData()
+    : manufacturer("Not Available"), model("Not Available"),
+      serialNum("Not Available"), hwVersion("Not Available"),
+      fwVersion("Not Available"), calDate("Not Available") {/*intentionally left blank*/}
+
+    std::string manufacturer;
+    std::string model;
+    std::string serialNum;
+    std::string hwVersion;
+    std::string fwVersion;
+    std::string calDate;
+
+    friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorManufacturerMetaData& rObj)
+    {
+        rOutStrm << "Manufacturer:  " << rObj.manufacturer << std::endl;
+        rOutStrm << "Model:         " << rObj.model << std::endl;
+        rOutStrm << "Serial Number: " << rObj.serialNum << std::endl;
+        rOutStrm << "HW Version:    " << rObj.hwVersion << std::endl;
+        rOutStrm << "FW Version:    " << rObj.fwVersion << std::endl;
+        rOutStrm << "Cal Date:      " << rObj.calDate << std::endl;
+
+        return rOutStrm;
+    }
+};
+
+/**
+ * Designed to be subclassed by AutoConfig subclasses to provide the specifics of that
+ * particular sensor. Subclasses of this struct also must also provide their own
+ * output stream operator.
+ */
+struct SensorConfigMetaData
+{
+    SensorConfigMetaData() : _dsmSensorCfg("Not Available")
+    {/*Intentionally Left Blank*/}
+    virtual ~SensorConfigMetaData() {}
+
+    virtual void printConfigMetaData(std::ostream& ostrm) const
+    {
+        ostrm << "DSM Base Config: " << _dsmSensorCfg << std::endl;
+    }
+
+    std::string _dsmSensorCfg;
+
+    friend inline std::ostream& operator <<(std::ostream& ostrm, const SensorConfigMetaData& rObj)
+    {
+        rObj.printConfigMetaData(ostrm);
+        return ostrm;
+    }
+};
+
+
 /**
  * DSMSensor provides the basic support for reading, processing
  * and distributing samples from a sensor attached to a DSM.
@@ -840,6 +894,9 @@ public:
     	toDOMElement(xercesc::DOMElement* node,bool complete) const
     		throw(xercesc::DOMException);
 
+    //************************************************************
+    //** Deprecated: Use _manufMetaData and helper methods
+    //************************************************************
     /**
      * Set the type name of this sensor, e.g.:
      * "ACME Model 99 Mach7 Particle Disambiguator".
@@ -851,6 +908,9 @@ public:
         _typeName = val;
     }
 
+    //************************************************************
+    //** Deprecated: Use _manufMetaData and helper methods
+    //************************************************************
     /**
      * Get the type name of this sensor.
      */
@@ -955,35 +1015,68 @@ public:
      * has no such subclass, then these values will likely be set to "Not Queryable",
      * unless some other mechanism sets them.
      *
+     * NOTE: The getters are supplied as a means to pull the individual values. The
+     *       entire data set can be output via standard streaming mechanisms.
+     *
      */
+    void setManufacturer(const std::string& rManufacturer)
+    {
+        _manufMetaData.manufacturer = rManufacturer;
+    }
+
+    const std::string getManufacturer() const
+    {
+        return _manufMetaData.manufacturer;
+    }
+
+    void setModel(const std::string& rModel)
+    {
+        _manufMetaData.model = rModel;
+    }
+
+    const std::string getModel() const
+    {
+        return _manufMetaData.model;
+    }
+
     void setSerialNumber(const std::string& rSerialNumber)
     {
-    	_serialNumber = rSerialNumber;
+        _manufMetaData.serialNum = rSerialNumber;
     }
 
     const std::string getSerialNumber() const
     {
-    	return _serialNumber;
+        return _manufMetaData.serialNum;
     }
 
-    void setSwVersion(const std::string& rSwVersion)
+    void setFwVersion(const std::string& rFwVersion)
     {
-    	_swVersion = rSwVersion;
+    	_manufMetaData.fwVersion = rFwVersion;
     }
 
-    const std::string getSwVersion()
+    const std::string getFwVersion()
     {
-    	return _swVersion;
+    	return _manufMetaData.fwVersion;
     }
 
     void setCalDate(const std::string& rCalDate)
     {
-    	_calDate = rCalDate;
+        _manufMetaData.calDate = rCalDate;
     }
 
     const std::string getCalDate() const
     {
-    	return _calDate;
+    	return _manufMetaData.calDate;
+    }
+
+    const SensorManufacturerMetaData& getSensorManufMetaData()
+    {
+        return _manufMetaData;
+    }
+
+    virtual const SensorConfigMetaData& getSensorConfigMetaData() const
+    {
+        return _configMetaData;
     }
 
     void setSensorState(const DSM_SENSOR_STATE sensorState)
@@ -1304,11 +1397,13 @@ private:
 
     int _station;
 
-    std::string _serialNumber;
+    // contains manufacturer, device name, device version, hw version, fw version
+    // Object is iostream capable
+    SensorManufacturerMetaData _manufMetaData;
 
-    std::string _swVersion;
-
-    std::string _calDate;
+    // base sensor config meta data object. Usually gets nothing, as sensor config
+    // doesn't happen at this level.
+    SensorConfigMetaData _configMetaData;
 
     /*
      * Number of samples to process when surveilling for healthy operation

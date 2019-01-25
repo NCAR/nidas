@@ -108,27 +108,6 @@ enum AUTOCONFIG_STATE {
 	AUTOCONFIG_UNSUCCESSFUL
 };
 
-// This structure contains any information about the sensor make/model, HW or SW version, etc
-struct SensorMetaData
-{
-    std::string manufacturer;
-    std::string model;
-    std::string serial_no;
-    std::string hw_version;
-    std::string sw_version;
-};
-
-inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorMetaData& rObj)
-{
-    rOutStrm << "Manufacturer:  " << rObj.manufacturer << std::endl;
-    rOutStrm << "Model:         " << rObj.model << std::endl;
-    rOutStrm << "Serial Number: " << rObj.serial_no << std::endl;
-    rOutStrm << "HW Version:    " << rObj.hw_version << std::endl;
-    rOutStrm << "SW Version:    " << rObj.sw_version << std::endl;
-
-    return rOutStrm;
-}
-
 /**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
  * Bluetooth RF Comm socket, or a good old RS232/422/485 serial port.
@@ -490,7 +469,6 @@ protected:
     AUTOCONFIG_STATE _scienceState;
     AUTOCONFIG_STATE _deviceState;
     CFG_MODE_STATUS _configMode;
-    SensorMetaData _sensorMetaData;
 
 private:
     /*

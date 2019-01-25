@@ -53,7 +53,7 @@ SerialSensor::SerialSensor():
     _desiredPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	_configMode(NOT_ENTERED), _sensorMetaData(),
+	_configMode(NOT_ENTERED),
 	_defaultPortConfig(), _serialDevice(0), _pSensrPwrCtrl(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -69,7 +69,7 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
 		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 		_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	    _configMode(NOT_ENTERED), _sensorMetaData(),
+	    _configMode(NOT_ENTERED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0),
         _pSensrPwrCtrl(new n_u::SensorPowerCtrl(rInitPortConfig.xcvrConfig.port)),
         _prompters(), _prompting(false)
@@ -713,7 +713,7 @@ bool SerialSensor::findWorkingSerialPortConfig()
     // first see if the current configuration is working. If so, all done!
     NLOG(("Testing initial config which may be custom ") << _desiredPortConfig);
 
-    NLOG(("Entering sensor config mode, if it overrides this method"));
+    NLOG(("Entering sensor config mode, if a subclass has overridden enterConfigMode()"));
     CFG_MODE_STATUS cfgMode = enterConfigMode();
 
     if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
