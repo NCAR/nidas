@@ -138,6 +138,10 @@ int main(int argc, char* argv[]) {
                 pSerialSensor->init();
                 pSerialSensor->open(O_RDWR);
                 pSerialSensor->close();
+
+                std::cout << std::endl;
+                std::cout << pSerialSensor->getSensorManufMetaData() << std::endl;
+                std::cout << pSerialSensor->getSensorConfigMetaData() << std::endl;
             }
         }
     }
@@ -187,6 +191,10 @@ int main(int argc, char* argv[]) {
             NLOG(("All the fun there was to be had, has been had"));
             NLOG(("Close the device"));
             pSerialSensor->close();
+
+            std::cout << std::endl;
+            std::cout << pSerialSensor->getSensorManufMetaData() << std::endl;
+            std::cout << pSerialSensor->getSensorConfigMetaData() << std::endl;
 
             delete pSerialSensor;
         }
