@@ -940,7 +940,7 @@ bool CSAT3_Sonic::checkResponse()
 	}
 
 	if (!revision.empty()) {
-		setSwVersion(revision);
+		setFwVersion(revision);
 	}
 
     return (query.length() != 0);
