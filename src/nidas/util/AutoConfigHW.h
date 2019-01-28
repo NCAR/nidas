@@ -140,11 +140,42 @@ public:
         Sync& operator=(Sync& rRight);
     };
 
-    SerialGPIO(ftdi_interface iface) : FtdiDevice(std::string("UCAR"), std::string("GPIO"), iface)
+    SerialGPIO(PORT_DEFS port)
+    : FtdiDevice(std::string("UCAR"), std::string("GPIO"), port2iface(port)),
+	  _port(port)
     {
         setMode(0xFF, BITMODE_BITBANG);
     }
     virtual ~SerialGPIO(){}
+    unsigned char read()
+    {
+    	unsigned char value = readInterface();
+    	// adjust bits up a nibble for odd numbered ports
+    	if (_port & 1) {
+    		value >>= 4;
+    	}
+    	else {
+    		// mask off upper nibble
+    		value &= 0x0F;
+    	}
+
+    	return value;
+    }
+    void write(unsigned char bits, unsigned char bitmask)
+    {
+    	// adjust bits up a nibble for odd numbered ports
+    	if (_port & 1) {
+    		bits <<= 4;
+    		bitmask <<= 4;
+    	}
+    	unsigned char shadow = readInterface() & ~bitmask;
+    	writeInterface(shadow | bits);
+
+    }
+
+private:
+    PORT_DEFS _port;
+
 };
 
 }} //namespace nidas { namespace util {

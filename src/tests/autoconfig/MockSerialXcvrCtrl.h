@@ -29,6 +29,7 @@
 #include "SerialXcvrCtrl.h"
 
 using namespace nidas::core;
+using namespace nidas::util;
 
 class MockSerialXcvrCtrl : public SerialXcvrCtrl
 {
@@ -42,7 +43,7 @@ public:
     MockSerialXcvrCtrl(const PORT_DEFS portId) : SerialXcvrCtrl(portId), _gpioOpen(false), _rawXcvrConfig(0) {}
     MockSerialXcvrCtrl(const PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM) //,
 //                       const SENSOR_POWER_STATE powerState=SENSOR_POWER_ON)
-        : SerialXcvrCtrl(portId, portType, termination, powerState), _gpioOpen(false), _rawXcvrConfig(0) {}
+        : SerialXcvrCtrl(portId, portType, termination), _gpioOpen(false), _rawXcvrConfig(0) {}
     MockSerialXcvrCtrl(const XcvrConfig initXcvrConfig)
         : SerialXcvrCtrl(initXcvrConfig), _gpioOpen(false), _rawXcvrConfig(0) {}
 
@@ -55,9 +56,14 @@ public:
     // to actually change the SP339 driver port type/mode (RS232, RS422, etc).
     void applyXcvrConfig(const bool /*readDevice=true*/)
     {
-        _rawXcvrConfig &= ~adjustBitPosition(0xF);
-        _rawXcvrConfig |= adjustBitPosition(
-                            assembleBits(getXcvrConfig().portType, getXcvrConfig().termination , getXcvrConfig().sensorPower));
+    	unsigned char mask = 0x0F;
+    	unsigned char bits = assembleBits(getXcvrConfig().portType, getXcvrConfig().termination);
+    	if (getXcvrConfig().port & 1) {
+    		mask <<= 4;
+    		bits <<= 4;
+    	}
+        _rawXcvrConfig &= ~mask;
+        _rawXcvrConfig |= bits;
     };
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of
     // the port mode, including termination and sensor power

@@ -114,7 +114,7 @@ public:
     void applyXcvrConfig();
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
     // the port mode, including termination and sensor power
-    unsigned char getRawXcvrConfig() {return _pSerialGPIO->read();};
+    unsigned char getRawXcvrConfig() {return _pSerialGPIO->readInterface();};
     // Returns the raw bits indicating current state of the port mode
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // This informs the class as to which USB device to open.

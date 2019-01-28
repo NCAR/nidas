@@ -117,8 +117,7 @@ public:
         // it always is...
         setXcvrCtrl(new MockSerialXcvrCtrl(thisPortConfig.xcvrConfig.port,
                                            thisPortConfig.xcvrConfig.portType,
-                                           thisPortConfig.xcvrConfig.termination,
-                                           thisPortConfig.xcvrConfig.sensorPower));
+                                           thisPortConfig.xcvrConfig.termination));
     }
 
     /**

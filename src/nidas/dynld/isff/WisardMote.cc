@@ -1813,6 +1813,17 @@ SampInfo WisardMote::_samps[] = {
 /*
  * AutoConfig Details
  */
+
+const float WisardMote::VBATT_GAIN_CAL_MIN = 0.0f;
+const float WisardMote::VBATT_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
+const float WisardMote::I3_GAIN_CAL_MIN = 0.0f;
+const float WisardMote::I3_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
+const float WisardMote::IIN_GAIN_CAL_MIN = 0.0f;
+const float WisardMote::IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+
+
 const PortConfig WisardMote::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS,
                                              	 DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
 												 DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);

@@ -42,6 +42,8 @@ namespace nidas { namespace core {
  */
 struct WordSpec
 {
+	WordSpec(int dbits, Termios::parity prty, int stopbits)
+	: dataBits(dbits), parity(prty), stopBits(stopbits) {}
     int dataBits;
     Termios::parity parity;
     int stopBits;

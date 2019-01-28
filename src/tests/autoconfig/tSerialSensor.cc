@@ -35,8 +35,8 @@ public:
     Project& operator()() {return *Project::getInstance();}
 };
 
-PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM, SENSOR_POWER_ON, -1, false);
-PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, SENSOR_POWER_ON, 0, false);
+PortConfig defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM,-1, false);
+PortConfig deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, 0, false);
 
 void cleanup(int /*signal*/)
 {
@@ -137,7 +137,6 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(ss.getDefaultPortConfig().termios.getStopBits() == 1);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.port == PORT0);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.portType == RS232);
-    BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.sensorPower == SENSOR_POWER_ON);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.termination == NO_TERM);
 
     BOOST_TEST_MESSAGE("    Testing Constructor with Default PortConfig arg...");
@@ -155,7 +154,6 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(ssArg.getDefaultPortConfig().termios.getStopBits() == 1);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.port == PORT0);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.portType == RS485_FULL);
-    BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.sensorPower == SENSOR_POWER_ON);
     BOOST_TEST(ssArg.getDefaultPortConfig().xcvrConfig.termination == TERM_120_OHM);
 }
 

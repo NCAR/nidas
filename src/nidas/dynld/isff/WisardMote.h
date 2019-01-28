@@ -677,14 +677,12 @@ private:
     static const int VMON_SLEEP_TIME_DEFAULT = 30;
     static const int VMON_SLEEP_TIME_MAX = INT16_MAX;
 
-    static const float VBATT_GAIN_CAL_MIN = 0.0f;
-    static const float VBATT_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
-
-    static const float I3_GAIN_CAL_MIN = 0.0f;
-    static const float I3_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
-
-    static const float IIN_GAIN_CAL_MIN = 0.0f;
-    static const float IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
+    static const float VBATT_GAIN_CAL_MIN;
+    static const float VBATT_GAIN_CAL_MAX;
+    static const float I3_GAIN_CAL_MIN;
+    static const float I3_GAIN_CAL_MAX;
+    static const float IIN_GAIN_CAL_MIN;
+    static const float IIN_GAIN_CAL_MAX;
 
     static const int GPS_SYNC_RATE_MIN = 0;
     static const int GPS_SYNC_RATE_DEFAULT = 43200;

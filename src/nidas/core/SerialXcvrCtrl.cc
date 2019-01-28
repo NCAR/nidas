@@ -160,7 +160,7 @@ void SerialXcvrCtrl::applyXcvrConfig()
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
     SerialGPIO::Sync sync(_pSerialGPIO);
-    _pSerialGPIO->write(desiredConfig, 0b00000111);
+    _pSerialGPIO->write(desiredConfig, BITS_PORT_TYPE|BITS_TERM);
 
     if ((_pSerialGPIO->read() & ~BITS_POWER) != desiredConfig) {
         throw n_u::Exception("SerialXcvrCtrl: the pins written to the GPIO "
