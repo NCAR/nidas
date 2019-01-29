@@ -146,36 +146,38 @@ public:
     {
         setMode(0xFF, BITMODE_BITBANG);
     }
+
     virtual ~SerialGPIO(){}
-    unsigned char read()
+    virtual void write(unsigned char bits, unsigned char mask)
     {
-    	unsigned char value = readInterface();
-    	// adjust bits up a nibble for odd numbered ports
-    	if (_port & 1) {
-    		value >>= 4;
-    	}
-    	else {
-    		// mask off upper nibble
-    		value &= 0x0F;
-    	}
-
-    	return value;
+        unsigned char rawBits = readInterface();
+        DLOG(("SerialGPIO::write(): Raw bits: 0x%0x", rawBits));
+        rawBits &= ~adjustBitPosition(mask);
+        rawBits |= adjustBitPosition(bits);
+        DLOG(("SerialGPIO::write(): New bits: 0x%0x", rawBits));
+        FtdiDevice::writeInterface(rawBits);
     }
-    void write(unsigned char bits, unsigned char bitmask)
-    {
-    	// adjust bits up a nibble for odd numbered ports
-    	if (_port & 1) {
-    		bits <<= 4;
-    		bitmask <<= 4;
-    	}
-    	unsigned char shadow = readInterface() & ~bitmask;
-    	writeInterface(shadow | bits);
 
+    virtual unsigned char read()
+    {
+        return adjustBitPosition(readInterface(), true);
+    }
+
+protected:
+    unsigned char adjustBitPosition(const unsigned char bits, bool read=false)
+    {
+        // adjust port shift to always be 0 or 4, assuming 4 bits per port configuration.
+        unsigned char portShift = (_port % PORT2)*4;
+        unsigned char retVal = bits << portShift;
+        if (read) {
+            retVal = (bits >> portShift) & 0x0F;
+        }
+
+        return retVal;
     }
 
 private:
     PORT_DEFS _port;
-
 };
 
 }} //namespace nidas { namespace util {

@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
     // print out the existing port configurations
     std::cout << std::endl << "Current Port Definitions" << std::endl << "========================" << std::endl;
     n_u::SerialGPIO sgpio(xcvrConfig.port);
-    unsigned char rawConfig = sgpio.readInterface();
+    unsigned char rawConfig = sgpio.read();
     DLOG(("rawConfig: %x", rawConfig));
     xcvrConfig.portType = SerialXcvrCtrl::bits2PortType(rawConfig);
     DLOG(("port type: ") << xcvrConfig.portType << " - "
