@@ -96,9 +96,9 @@ const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
 //       ones are the most likely
 const int PTB210::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
 const WordSpec PTB210::SENSOR_WORD_SPECS[PTB210::NUM_SENSOR_WORD_SPECS] = {
-    {7,Termios::EVEN,1}, 
-    {7,Termios::ODD,1}, 
-    {8,Termios::NONE,1}
+    WordSpec(7,Termios::EVEN,1),
+    WordSpec(7,Termios::ODD,1),
+    WordSpec(8,Termios::NONE,1)
 };
 const n_c::PORT_TYPES PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 

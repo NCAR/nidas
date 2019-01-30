@@ -155,17 +155,17 @@ const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200, 4800, 2400, 120
 // list the possible word specifications - most likely first
 
 const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
-	{7,Termios::EVEN,1},
-	{7,Termios::ODD,1},
-	{8,Termios::NONE,1},
-	{8,Termios::EVEN,1},
-	{8,Termios::ODD,1},
+    WordSpec(7,Termios::EVEN,1),
+    WordSpec(7,Termios::ODD,1),
+    WordSpec(8,Termios::NONE,1),
+    WordSpec(8,Termios::EVEN,1),
+    WordSpec(8,Termios::ODD,1),
 
 	// put 2 stop bits last because these are really rarely used.
-	{7,Termios::NONE,2},
-	{7,Termios::EVEN,2},
-	{7,Termios::ODD,2},
-	{8,Termios::NONE,2}
+    WordSpec(7,Termios::NONE,2),
+    WordSpec(7,Termios::EVEN,2),
+    WordSpec(7,Termios::ODD,2),
+    WordSpec(8,Termios::NONE,2)
 };
 
 const n_c::PORT_TYPES PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };

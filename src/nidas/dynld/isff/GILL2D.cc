@@ -97,9 +97,9 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
 const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
 const n_c::WordSpec GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] =
 {
-	{8, Termios::NONE, 1},
-	{8, Termios::EVEN, 1},
-	{8, Termios::ODD, 1},
+    WordSpec(8, Termios::NONE, 1),
+    WordSpec(8, Termios::EVEN, 1),
+    WordSpec(8, Termios::ODD, 1),
 };
 
 // GIL instruments do not use RS232

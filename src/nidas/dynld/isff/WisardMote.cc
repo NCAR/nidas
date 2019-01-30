@@ -1832,7 +1832,7 @@ const int WisardMote::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {38400};
 
 const WordSpec WisardMote::SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
 {
-	{8,Termios::NONE,1},
+	WordSpec(8,Termios::NONE,1),
 };
 const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
