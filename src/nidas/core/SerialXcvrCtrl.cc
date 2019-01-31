@@ -63,7 +63,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 : _xcvrConfig(portId, RS232, NO_TERM), _pSerialGPIO(new SerialGPIO(portId))
 {
-    if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
+    if (_pSerialGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -80,7 +80,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
                                const TERM termination)
 : _xcvrConfig(portId, portType, termination), _pSerialGPIO(new SerialGPIO(portId))
 {
-    if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
+    if (_pSerialGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -95,7 +95,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
 SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
 : _xcvrConfig(initXcvrConfig), _pSerialGPIO(new SerialGPIO(initXcvrConfig.port))
 {
-    if (_pSerialGPIO && _pSerialGPIO->deviceFound()) {
+    if (_pSerialGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -109,7 +109,8 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
 
 SerialXcvrCtrl::~SerialXcvrCtrl()
 {
-//    ftdi_free(_pContext);
+    DLOG(("SerialXcvrCtrl::~SerialXcvrCtrl(): destructing..."));
+    delete _pSerialGPIO;
 }
 
 void SerialXcvrCtrl::setXcvrConfig(const PORT_TYPES portType, 

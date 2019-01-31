@@ -38,7 +38,10 @@ class SensorPowerCtrl : public SerialGPIO, public PowerCtrlAbs
 {
 public:
     SensorPowerCtrl(PORT_DEFS port);
-    virtual ~SensorPowerCtrl() {}
+    virtual ~SensorPowerCtrl()
+    {
+        DLOG(("SensorPowerCtrl::~SensorPowerCtrl(): destructing..."));
+    }
 
     virtual void pwrOn();
     virtual void pwrOff();

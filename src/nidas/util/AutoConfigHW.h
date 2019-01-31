@@ -76,9 +76,11 @@ const unsigned char BITS_POWER =     0b00001000;
 
 /*
  *  Class SerialGPIO provides the means to access the FTDI FT4232H device
- *  which is designated for serial transceiver and power control.
+ *  which is designated for serial transceiver and power control. If a FT4232H
+ *  device is not found, then a simple shadow register will be used for testing
+ *  purposes only.
  */
-class SerialGPIO : public FtdiDevice
+class SerialGPIO
 {
 public:
     /*
@@ -91,47 +93,47 @@ public:
     class Sync : public Synchronized
     {
     public:
-        Sync(SerialGPIO* me) : Synchronized(Sync::selectIfaceMutex(me->getInterface())), _me(me)
+        Sync(SerialGPIO* me) : Synchronized(Sync::selectIfaceLock(port2iface(me->getPort()))), _me(me)
         {
-            ftdi_interface iface = me->getInterface();
+            ftdi_interface iface = port2iface(me->getPort());
             DLOG(("Synced on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
                                             iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
         }
         ~Sync()
         {
-            ftdi_interface iface = _me->getInterface();
+            ftdi_interface iface = port2iface(_me->getPort());
             DLOG(("Sync released on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
                                                     iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
             _me = 0;
         }
     private:
-        static Mutex _ifaceAMutex;
-        static Mutex _ifaceBMutex;
-        static Mutex _ifaceCMutex;
-        static Mutex _ifaceDMutex;
+        static Cond _ifaceACondVar;
+        static Cond _ifaceBCondVar;
+        static Cond _ifaceCCondVar;
+        static Cond _ifaceDCondVar;
         SerialGPIO* _me;
 
-        static Mutex& selectIfaceMutex(ftdi_interface iface)
+        static Cond& selectIfaceLock(ftdi_interface iface)
         {
-            Mutex* pMutex = 0;
+            Cond* pCond = 0;
             switch (iface) {
             case INTERFACE_A:
-                pMutex = &_ifaceAMutex;
+                pCond = &_ifaceACondVar;
                 break;
             case INTERFACE_B:
-                pMutex = &_ifaceBMutex;
+                pCond = &_ifaceBCondVar;
                 break;
             case INTERFACE_C:
-                pMutex = &_ifaceCMutex;
+                pCond = &_ifaceCCondVar;
                 break;
             case INTERFACE_D:
-                pMutex = &_ifaceDMutex;
+                pCond = &_ifaceDCondVar;
                 break;
             default:
-                throw Exception("selectIfaceMutex(): Unknown FTDI interface value");
+                throw InvalidParameterException("Sync::selectIfaceMutex(): Unknown FTDI interface value");
             }
 
-            return *pMutex;
+            return *pCond;
         }
 
         // no copying
@@ -141,29 +143,76 @@ public:
     };
 
     SerialGPIO(PORT_DEFS port)
-    : FtdiDevice(std::string("UCAR"), std::string("GPIO"), port2iface(port)),
-	  _port(port)
+    : _pFtdiDevice(0), _port(port), _shadow(0)
     {
-        setMode(0xFF, BITMODE_BITBANG);
+        try {
+            _pFtdiDevice = getFtdiDevice(port2iface(port), std::string("UCAR"), std::string("GPIO"));
+        }
+        catch (InvalidParameterException& e) {
+            _pFtdiDevice = 0;
+        }
+
+        if (deviceFound()) {
+            _pFtdiDevice->setMode(0xFF, BITMODE_BITBANG);
+        }
     }
 
-    virtual ~SerialGPIO(){}
+    virtual ~SerialGPIO()
+    {
+        DLOG(("SerialGPIO::~SerialGPIO(): destructing..."));
+        // don't delete _pFtdiDevice, because someone else may be using it
+        _pFtdiDevice = 0;
+    }
+
     virtual void write(unsigned char bits, unsigned char mask)
     {
-        unsigned char rawBits = readInterface();
-        DLOG(("SerialGPIO::write(): Raw bits: 0x%0x", rawBits));
-        rawBits &= ~adjustBitPosition(mask);
-        rawBits |= adjustBitPosition(bits);
-        DLOG(("SerialGPIO::write(): New bits: 0x%0x", rawBits));
-        FtdiDevice::writeInterface(rawBits);
+        unsigned char rawBits = _shadow;
+        if (deviceFound()) {
+            rawBits = _pFtdiDevice->readInterface();
+            DLOG(("SerialGPIO::write(): Raw bits: 0x%0x", rawBits));
+            rawBits &= ~adjustBitPosition(mask);
+            rawBits |= adjustBitPosition(bits);
+            DLOG(("SerialGPIO::write(): New bits: 0x%0x", rawBits));
+            _pFtdiDevice->writeInterface(rawBits);
+        }
+        else {
+            rawBits &= ~adjustBitPosition(mask);
+            rawBits |= adjustBitPosition(bits);
+            _shadow = rawBits;
+        }
     }
 
     virtual unsigned char read()
     {
-        return adjustBitPosition(readInterface(), true);
+        unsigned char retval = adjustBitPosition(_shadow, true);
+        if (deviceFound()) {
+            retval = adjustBitPosition(_pFtdiDevice->readInterface(), true);
+        }
+        return retval;
     }
 
+    PORT_DEFS getPort() {return _port;}
+
+    ftdi_interface getInterface()
+    {
+        ftdi_interface retval = port2iface(_port);
+        if (_pFtdiDevice) {
+            retval =_pFtdiDevice->getInterface();
+        }
+        return retval;
+    }
+
+
 protected:
+    bool deviceFound()
+    {
+        bool retval = false;
+        if (_pFtdiDevice) {
+            retval = _pFtdiDevice->deviceFound();
+        }
+        return retval;
+    }
+
     unsigned char adjustBitPosition(const unsigned char bits, bool read=false)
     {
         // adjust port shift to always be 0 or 4, assuming 4 bits per port configuration.
@@ -177,7 +226,19 @@ protected:
     }
 
 private:
+    FtdiDeviceIF* _pFtdiDevice;
     PORT_DEFS _port;
+
+    // only used for testing
+    unsigned char _shadow;
+
+    /*
+     *  No copying
+     */
+
+    SerialGPIO(const SerialGPIO&);
+    SerialGPIO& operator=(SerialGPIO&);
+    const SerialGPIO& operator=(const SerialGPIO&);
 };
 
 }} //namespace nidas { namespace util {

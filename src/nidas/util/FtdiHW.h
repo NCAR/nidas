@@ -27,126 +27,73 @@
 #define NIDAS_UTIL_FTDIHW_H
 
 #include <string>
-#include <list>
+#include <libusb-1.0/libusb.h>
 #include <ftdi.h>
+
+#include "Logger.h"
 
 #include "ThreadSupport.h"
 #include "IOException.h"
-#include "auto_ptr.h"
 #include "Logger.h"
+#include "InvalidParameterException.h"
 
 struct libusb_device;
 
 namespace nidas { namespace util {
 
-class FtdiList
-{
-public:
-    FtdiList();
-    ~FtdiList();
-
-    /// List type storing "Context" objects
-    typedef std::list<libusb_device*> ListType;
-    /// Iterator type for the container
-    typedef ListType::iterator iterator;
-    /// Const iterator type for the container
-    typedef ListType::const_iterator const_iterator;
-    /// Reverse iterator type for the container
-    typedef ListType::reverse_iterator reverse_iterator;
-    /// Const reverse iterator type for the container
-    typedef ListType::const_reverse_iterator const_reverse_iterator;
-
-    iterator begin();
-    iterator end();
-    const_iterator begin() const;
-    const_iterator end() const;
-
-    reverse_iterator rbegin();
-    reverse_iterator rend();
-    const_reverse_iterator rbegin() const;
-    const_reverse_iterator rend() const;
-
-    ListType::size_type size() const;
-    bool empty() const;
-    void clear();
-
-    void push_back(libusb_device* element);
-    void push_front(libusb_device* element);
-
-    iterator erase(iterator pos);
-    iterator erase(iterator beg, iterator end);
-
-private:
-    class Private
-    {
-    public:
-        Private() : list() {}
-
-        ~Private() {}
-
-        std::list<libusb_device*> list;
-    };
-    auto_ptr<Private> d;
-};
-
-
 /*
- ********************************************************************
- ** Class FtdiHW captures the serial board FTDI chips so that there is
- ** a central place to manage these devices.
- **
- ** Class FtdiHW is a singleton.
- **
- **
- ********************************************************************
+ *  FtdiDevice interface class
  */
-class FtdiHW
+class FtdiDeviceIF
 {
 public:
-    /*
-     *  Static method to instantiate and/or return the singleton FtdiHW object.
-     */
-    static FtdiHW& getFtdiHW();
+    virtual ~FtdiDeviceIF() {}
+    virtual bool deviceFound() = 0;
 
     /*
-     *  Method to find all the FTDI FT4232H devices in the system and put them into
-     *  a list<>. Can be used to rescan an already instantiated FtdiHW singleton.
+     *  Used to set the operational mode of the device, usually bitbang mode.
      */
-    void findFtdiDevices();
+    virtual bool setMode(unsigned char mask, unsigned char mode) = 0;
 
     /*
-     *  Gets a reference to the FtdiList object
+     *  Used to set the device interface, upon which the operations in this class operate.
      */
-    FtdiList& getFtdiDeviceList() {return _devList;}
+    virtual bool setInterface(ftdi_interface iface) = 0;
+
+    virtual ftdi_interface getInterface() = 0;
+
+    // safe FT4232H open - must bracket all bitbang type operations!!!
+    // returns w/o action, if already open.
+    virtual void open() = 0;
+
+    // safe FT4232H close - must bracket all FTDI bitbang type operations!!!
+    // returns w/o action, if already closed.
+    virtual void close() = 0;
 
     /*
-     *  Gets a copy of the serial number string.
+     *  Helper method to return the open status of the device.
      */
-    std::string getFtdiSerialNumber() {return _serialNo;}
-
-private:
+    virtual bool isOpen() = 0;
 
     /*
-     *  Constructor for the singleton object. This method calls findFtdiDevices() and then
-     *  gets the first device found to extract the serial board serial number.
+     *  Method opens the device, reads the pre-selected interface and
+     *  returns the value of the port pins last written, then closes the device.
      */
-    FtdiHW();
-
-    static const int _VENDOR = 0x403;
-    static const int _PRODUCT = 0x6011;
-
-    static FtdiHW* _pFtdiHW;
-
-    std::string _serialNo;
-    FtdiList _devList;
+    virtual unsigned char readInterface() = 0;
 
     /*
-     *  No copying
+     *  Method opens the device, writes to the pre-selected interface,
+     *  and then closes the device.
      */
-    FtdiHW(const FtdiHW& rRight);
-    FtdiHW& operator=(const FtdiHW& rRight);
-    FtdiHW& operator=(FtdiHW& rRight);
+    virtual void writeInterface(unsigned char pins) = 0;
+
+    /*
+     * returns the last textual status of the last operation.
+     */
+    virtual std::string error_string() = 0;
+
 };
+
 
 /*
  *  Generic FTDI device aimed at a particular interface on a device with an eeprom which has been programmed
@@ -159,89 +106,77 @@ private:
  *        while another domain might be scientific instrument power control. This is a very real use case in
  *        NIDAS for those systems which use the new EOL serial port boards.
  */
-class FtdiDevice
+template<ftdi_interface IFACE>
+class FtdiDevice : public FtdiDeviceIF
 {
 public:
-    /*
-     *  Method finds the USB device which is described by the vendor and product strings. It
-     *  then stores the bus and device addresses in the object for later use re-opening the device.
-     */
-    void find(std::string vendor, std::string product);
+    // static singleton getter
+    static FtdiDevice<IFACE>* getFtdiDevice(const std::string manufStr = "UCAR", const std::string productStr = "GPIO");
+
+    // static singleton detroyer
+    static void deleteFtdiDevice();
 
     /*
      *  Helper method to return the device found status
      */
-    bool deviceFound() {return _foundDevice;}
+    virtual bool deviceFound();
 
     /*
      *  Used to set the operational mode of the device, usually bitbang mode.
      */
-    bool setMode(unsigned char mask, unsigned char mode) {
-        return (ftdi_set_bitmode(_pContext, mask, mode) == 0);
-    }
+    virtual bool setMode(unsigned char mask, unsigned char mode);
 
     /*
      *  Used to set the device interface, upon which the operations in this class operate.
      */
-    bool setInterface(ftdi_interface iface) {
-        _interface = iface;
-        return (ftdi_set_interface(_pContext, iface) == 0);
-    }
+    virtual bool setInterface(ftdi_interface iface);
 
-    ftdi_interface getInterface() {return _interface;}
+    virtual ftdi_interface getInterface();
 
     // safe FT4232H open - must bracket all bitbang type operations!!!
     // returns w/o action, if already open.
-    void open();
+    virtual void open();
 
     // safe FT4232H close - must bracket all FTDI bitbang type operations!!!
     // returns w/o action, if already closed.
-    void close();
+    virtual void close();
 
     /*
      *  Helper method to return the open status of the device.
      */
-    bool isOpen()
-    {
-        return  _pContext->usb_dev != 0;
-    }
+    virtual bool isOpen();
 
     /*
      *  Method opens the device, reads the pre-selected interface and
      *  returns the value of the port pins last written, then closes the device.
      */
-    unsigned char readInterface();
+    virtual unsigned char readInterface();
 
     /*
      *  Method opens the device, writes to the pre-selected interface,
      *  and then closes the device.
      */
-    void writeInterface(unsigned char pins);
+    virtual void writeInterface(unsigned char pins);
 
     /*
      * returns the last textual status of the last operation.
      */
-    std::string error_string()
-    {
-        return std::string(_pContext->error_str);
-    }
+    virtual std::string error_string();
 
-protected:
+private:
+    static FtdiDevice<IFACE>* _pFtdiDevice;
+    ftdi_context* _pContext;
+    std::string _manufStr;
+    std::string _productStr;
+    bool _foundDevice;
+
     /*
      *  FtdiDevice constructor/destructor.
      *
-     *  Make protected so that class must be specialized to be used.
+     *  Make private so that class can be a singleton.
      */
-    FtdiDevice(const std::string vendor, const std::string product, ftdi_interface iface);
-    virtual ~FtdiDevice() {ftdi_free(_pContext);}
-
-
-private:
-    ftdi_interface _interface;
-    ftdi_context* _pContext;
-    int _busAddr;
-    int _devAddr;
-    bool _foundDevice;
+    FtdiDevice(const std::string vendor, const std::string product);
+    virtual ~FtdiDevice();
 
     /*
      *  No copying
@@ -250,6 +185,234 @@ private:
     FtdiDevice& operator=(const FtdiDevice& rRight);
     FtdiDevice& operator=(FtdiDevice& rRight);
 };
+
+template<ftdi_interface IFACE>
+FtdiDevice<IFACE>* FtdiDevice<IFACE>::getFtdiDevice(const std::string manufStr, const std::string productStr)
+{
+    DLOG(("Getting FtdiDevice<%s> singleton", IFACE == INTERFACE_A ? "INTERFACE_A" : (IFACE == INTERFACE_B ? "INTERFACE_B" :
+                                         (IFACE == INTERFACE_C ? "INTERFACE_C" : (IFACE == INTERFACE_D ? "INTERFACE_D" : "?")))));
+    if (!_pFtdiDevice) {
+        DLOG(("Constructing FtdiDevice<%s> singleton", IFACE == INTERFACE_A ? "INTERFACE_A" : (IFACE == INTERFACE_B ? "INTERFACE_B" :
+                                             (IFACE == INTERFACE_C ? "INTERFACE_C" : (IFACE == INTERFACE_D ? "INTERFACE_D" : "?")))));
+        _pFtdiDevice = new FtdiDevice<IFACE>(manufStr, productStr);
+    }
+
+    return _pFtdiDevice;
+}
+
+template<ftdi_interface IFACE>
+void FtdiDevice<IFACE>::deleteFtdiDevice()
+{
+    delete _pFtdiDevice;
+}
+
+
+
+template<ftdi_interface IFACE>
+FtdiDevice<IFACE>::FtdiDevice(const std::string manufStr, const std::string productStr)
+: _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundDevice(false)
+{
+    if (!_pContext) {
+        throw IOException("FtdiDevice::FtdiDevice()", ": Failed to allocate ftdi_context object.");
+    }
+
+    open();
+    if (isOpen()) {
+        DLOG(("FtdiDevice(): set interface..."));
+        if (setInterface(IFACE)) {
+            DLOG(("FtdiDevice(): successfully set the interface: "));
+            DLOG(("FtdiDevice(): set bitbang mode"));
+            if (setMode(0xFF, BITMODE_BITBANG)) {
+                DLOG(("FtdiDevice(): Successfully set mode to bitbang"));
+            }
+            else {
+                ILOG(("FtdiDevice(): failed to set mode to bitbang: ") << error_string());
+            }
+        }
+        else {
+            ILOG(("FtdiDevice(): failed to set the interface...") << error_string());
+        }
+    }
+    else {
+        ILOG(("FtdiDevice(): Failed to open the device!!"));
+    }
+    close();
+}
+
+template<ftdi_interface IFACE>
+FtdiDevice<IFACE>::~FtdiDevice()
+{
+    DLOG(("Destroying FtdiDevice..."));
+//    close();
+    ftdi_usb_close(_pContext);
+    ftdi_free(_pContext);
+    _pContext = 0;
+}
+
+
+template<ftdi_interface IFACE>
+void FtdiDevice<IFACE>::open()
+{
+    if (!isOpen()) {
+        DLOG(("FtdiDevice::open(): Attempting to open FTDI device..."));
+        int openStatus = ftdi_usb_open_desc(_pContext, (int)0x0403, (int)0x6011, _productStr.c_str(), 0);
+        _foundDevice = !openStatus;
+        if (deviceFound()) {
+            // TODO: let's check the manuf string as well...
+
+            DLOG(("FtdiDevice::open(): Successfully opened FTDI device..."));
+        }
+        else {
+            DLOG(("FtdiDevice::open(): Failed to open FTDI device: ") << error_string() << " open() status: " << openStatus);
+        }
+    }
+    else {
+        DLOG(("FtdiDevice::open(): FTDI device already open..."));
+    }
+}
+
+// safe FTDI close - must bracket all FTDI bitbang type operations!!!
+// returns true if already closed or successfully closed, false if attempted close fails.
+template<ftdi_interface IFACE>
+void FtdiDevice<IFACE>::close()
+{
+    if (deviceFound()) {
+        if (isOpen()) {
+            DLOG(("FtdiDevice::close(): Attempting to close FTDI device..."));
+            if (!ftdi_usb_close(_pContext)) {
+                DLOG(("FtdiDevice::close(): Successfully closed FTDI device..."));
+            }
+            else {
+                DLOG(("FtdiDevice::close(): Failed to close FTDI device...") << error_string());
+            }
+        }
+        else {
+            DLOG(("FtdiDevice::close(): FTDI device already closed..."));
+        }
+    }
+}
+
+template<ftdi_interface IFACE>
+unsigned char FtdiDevice<IFACE>::readInterface()
+{
+    unsigned char pins = 0;
+    if (deviceFound()) {
+        open();
+        if (isOpen()) {
+            DLOG(("FtdiDevice::readInterface(): Successfully opened FTDI device"));
+            if (!ftdi_read_pins(_pContext, &pins)) {
+                DLOG(("FtdiDevice::readInterface(): Successfully read the device pins..."));
+            }
+            else {
+                DLOG(("FtdiDevice::readInterface(): Failed to read the device pins...") << error_string());
+                throw IOException(std::string("FtdiDevice::readInterface(): Could not read from interface: "),
+                                  error_string());
+            }
+            close();
+        }
+        else {
+            DLOG(("FtdiDevice::readInterface(): Failed to open FTDI device: ") << error_string());
+            throw IOException(std::string("FtdiDevice::readInterface(): Failed to open the device"),
+                              error_string());
+        }
+    }
+
+    return pins;
+}
+
+template<ftdi_interface IFACE>
+void FtdiDevice<IFACE>::writeInterface(unsigned char pins)
+{
+    if (deviceFound()) {
+        open();
+        if (ftdi_write_data(_pContext, &pins, 1) < 0) {
+            throw IOException(std::string("FtdiDevice::writeInterface(): Could not write to interface: "),
+                                          error_string());
+        }
+        close();
+    }
+}
+
+template<ftdi_interface IFACE>
+bool FtdiDevice<IFACE>::deviceFound()
+{
+    return _foundDevice;
+}
+
+template<ftdi_interface IFACE>
+bool FtdiDevice<IFACE>::setMode(unsigned char mask, unsigned char mode) {
+    bool retval = true;
+    if (deviceFound()) {
+        retval = !ftdi_set_bitmode(_pContext, mask, mode);
+    }
+
+    return retval;
+}
+
+template<ftdi_interface IFACE>
+bool FtdiDevice<IFACE>::setInterface(ftdi_interface iface) {
+    bool retval = true;
+    if (deviceFound()) {
+        retval = !ftdi_set_interface(_pContext, iface);
+    }
+    return retval;
+}
+
+template<ftdi_interface IFACE>
+ftdi_interface FtdiDevice<IFACE>::getInterface()
+{
+    return IFACE;
+}
+
+template<ftdi_interface IFACE>
+bool FtdiDevice<IFACE>::isOpen()
+{
+    return  _pContext->usb_dev != 0;
+}
+
+template<ftdi_interface IFACE>
+std::string FtdiDevice<IFACE>::error_string()
+{
+    return std::string(_pContext->error_str);
+}
+
+template<ftdi_interface IFACE>
+FtdiDevice<IFACE>* FtdiDevice<IFACE>::_pFtdiDevice = 0;
+
+/*
+ *  Helper method to get the right FtdiDevice singleton
+ */
+
+inline FtdiDeviceIF* getFtdiDevice(ftdi_interface iface, std::string productStr, std::string manufStr = "UCAR") {
+    FtdiDeviceIF* pFtdiDevice = 0;
+
+    switch (iface) {
+    case INTERFACE_A:
+        DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_A> singleton..."));
+        pFtdiDevice = FtdiDevice<INTERFACE_A>::getFtdiDevice(manufStr, productStr);
+        break;
+    case INTERFACE_B:
+        DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_B> singleton..."));
+        pFtdiDevice = FtdiDevice<INTERFACE_B>::getFtdiDevice(manufStr, productStr);
+        break;
+    case INTERFACE_C:
+        DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_C> singleton..."));
+        pFtdiDevice = FtdiDevice<INTERFACE_C>::getFtdiDevice(manufStr, productStr);
+        break;
+    case INTERFACE_D:
+        DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_D> singleton..."));
+        pFtdiDevice = FtdiDevice<INTERFACE_D>::getFtdiDevice(manufStr, productStr);
+        break;
+    default:
+        ILOG(("getFtdiDevice(): Illegal ftdi_interface value!!"));
+        throw InvalidParameterException("FtdiHW", "getFtdiDevice()", "Illegal ftdi_interface value!!");
+        break;
+    }
+
+    return pFtdiDevice;
+}
+
+
 
 }} //namespace nidas { namespace util {
 

@@ -105,7 +105,12 @@ public:
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
-    static bool xcvrCtrlSupported() { return true; }
+    static bool xcvrCtrlSupported(const n_u::PORT_DEFS port)
+    {
+        DLOG(("SerialXcvrCtrl::xcvrCtrlSupported()..."));
+        n_u::FtdiDeviceIF* pFtdiDevice = n_u::getFtdiDevice(port2iface(port), "GPIO", "UCAR");
+        return pFtdiDevice->deviceFound();
+    }
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term);
     void setXcvrConfig(const XcvrConfig& newXcvrConfig);
@@ -114,7 +119,7 @@ public:
     void applyXcvrConfig();
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
     // the port mode, including termination and sensor power
-    unsigned char getRawXcvrConfig() {return _pSerialGPIO->readInterface();};
+    unsigned char getRawXcvrConfig() {return _pSerialGPIO->read();};
     // Returns the raw bits indicating current state of the port mode
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // This informs the class as to which USB device to open.

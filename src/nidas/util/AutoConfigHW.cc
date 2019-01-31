@@ -28,9 +28,9 @@
 
 namespace nidas { namespace util {
 
-Mutex SerialGPIO::Sync::_ifaceAMutex;
-Mutex SerialGPIO::Sync::_ifaceBMutex;
-Mutex SerialGPIO::Sync::_ifaceCMutex;
-Mutex SerialGPIO::Sync::_ifaceDMutex;
+Cond SerialGPIO::Sync::_ifaceACondVar;
+Cond SerialGPIO::Sync::_ifaceBCondVar;
+Cond SerialGPIO::Sync::_ifaceCCondVar;
+Cond SerialGPIO::Sync::_ifaceDCondVar;
 
 }} //namespace nidas { namespace util {

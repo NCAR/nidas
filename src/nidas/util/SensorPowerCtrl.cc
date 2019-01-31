@@ -60,7 +60,7 @@ SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
 
 void SensorPowerCtrl::pwrOn()
 {
-    if (deviceFound() && pwrCtrlEnabled()) {
+    if (pwrCtrlEnabled()) {
         Sync sync(this);
         write(BITS_POWER, BITS_POWER);
     }
@@ -72,7 +72,7 @@ void SensorPowerCtrl::pwrOn()
 
 void SensorPowerCtrl::pwrOff()
 {
-    if (deviceFound() && pwrCtrlEnabled()) {
+    if (pwrCtrlEnabled()) {
         Sync sync(this);
         write(0, BITS_POWER);
     }
@@ -84,11 +84,9 @@ void SensorPowerCtrl::pwrOff()
 
 void SensorPowerCtrl::updatePowerState()
 {
-    if (deviceFound()) {
-        Sync sync(this);
-        setPowerState(rawPowerToState(read()));
-        DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
-    }
+    Sync sync(this);
+    setPowerState(rawPowerToState(read()));
+    DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
 }
 
 }} //namespace nidas { namespace util {
