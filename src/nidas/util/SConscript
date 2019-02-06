@@ -44,6 +44,7 @@ headers = [ Split("""
     PowerCtrlIf.h
     PowerCtrlAbs.h
     Process.h
+    ptytools.h
     SensorPowerCtrl.h
     SerialOptions.h
     SerialPort.h
@@ -79,6 +80,7 @@ sources = [ Split("""
     McSocket.cc
     PowerCtrlAbs.cc
     Process.cc
+    ptytools.cc
     SensorPowerCtrl.cc
     SerialOptions.cc
     SerialPort.cc
