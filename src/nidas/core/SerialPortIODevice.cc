@@ -30,6 +30,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Exception.h>
+#include <nidas/util/SensorPowerCtrl.h>
 
 #include <cmath>
 #include <sys/ioctl.h>
@@ -59,8 +60,8 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 }
 
 SerialPortIODevice::SerialPortIODevice():
-    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _usecsperbyte(0),  
-    _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(true)
+    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(true)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
@@ -68,28 +69,28 @@ SerialPortIODevice::SerialPortIODevice():
 }
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
-    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _usecsperbyte(0),
-    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
     _workingPortConfig.termios.setRawTimeout(0);
     getBlocking();
-    checkXcvrCtrlRequired(getName());
 }
 
 SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
     UnixIODevice(x.getName()), _workingPortConfig(x._workingPortConfig), 
-    _pXcvrCtrl((const_cast<SerialPortIODevice&>(x).getXcvrCtrl())), _usecsperbyte(0),
-    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
+    _pXcvrCtrl((const_cast<SerialPortIODevice&>(x).getXcvrCtrl())),
+    _pSensorPwrCtrl((const_cast<SerialPortIODevice&>(x).getPwrCtrl())),
+    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
     checkXcvrCtrlRequired(getName());
 }
 
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
-    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _usecsperbyte(0),
-    _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
@@ -102,6 +103,14 @@ SerialPortIODevice::~SerialPortIODevice()
 {
     close();
     delete [] _savebuf;
+
+    if (_pXcvrCtrl) {
+        delete _pXcvrCtrl;
+    }
+
+    if (_pSensorPwrCtrl) {
+        delete _pSensorPwrCtrl;
+    }
 }
 
 void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
@@ -122,17 +131,12 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         }
     }
 
-    if (!SerialXcvrCtrl::xcvrCtrlSupported()) {
-    	ILOG(("SerialPortIODevice::checkXcvrCtrlRequired() : this DSM does not support line transceiver control!!!"));
-    	return;
-    }
-
-    VLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device is a DSM serial port device"));
+    DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device is a DSM serial port device"));
     // Determine if this needs SP339 port type control
     std::string ttyBase = "/dev/ttyDSM";
     std::size_t foundAt = name.find(ttyBase);
     if (foundAt != std::string::npos) {
-        VLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device needs SerialXcvrCtrl object: ") << name);
+        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device needs SerialXcvrCtrl object: ") << name);
         const char* nameStr = name.c_str();
         const char* portChar = &nameStr[ttyBase.length()];
         unsigned int portID = numeric_limits<uint32_t>::max();
@@ -156,6 +160,15 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         {
             throw n_u::Exception("SerialPortIODevice: Cannot construct SerialXcvrCtrl object");
         }
+
+        _pSensorPwrCtrl = new SensorPowerCtrl(static_cast<PORT_DEFS>(portID));
+        if (_pSensorPwrCtrl == 0)
+        {
+            throw n_u::Exception("SerialPortIODevice: Cannot construct SensorPowerCtrl object");
+        }
+    }
+    else {
+        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device doesn't need SerialXcvrCtrl object: ") << name);
     }
 }
 
