@@ -30,6 +30,7 @@
 #include <sstream>
 #endif
 
+#include "Logger.h"
 #include "Termios.h"
 #include <sys/ioctl.h>
 #include <cerrno>
@@ -98,10 +99,17 @@ Termios::Termios(int fd,const std::string& name) throw(IOException):
     }
 }
 
-void Termios::apply(int fd, const string& name) throw(IOException)
+// accessed in tests/tserialsensor.cc to turn off tcsetattr below
+bool autoConfigUnitTest = false;
+
+void Termios::apply(int fd, const std::string& name) throw(IOException)
 {
-    if (::tcsetattr(fd, TCSANOW, &_tio) < 0)
-        throw IOException(name,"tcsetattr",errno);
+    if (!autoConfigUnitTest) {
+        if (::tcsetattr(fd, TCSANOW, &_tio) < 0) {
+            DLOG(("Termios::apply(): tcsetattr() failure for fd: ") << fd);
+            throw IOException(name,"tcsetattr",errno);
+        }
+    }
 }
 
 const struct termios* Termios::get()
