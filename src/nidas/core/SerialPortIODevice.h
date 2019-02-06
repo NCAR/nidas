@@ -33,7 +33,7 @@
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Termios.h>
 #include <nidas/util/IOException.h>
-
+#include <nidas/util/SensorPowerCtrl.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -133,13 +133,6 @@ public:
     SerialPortIODevice(const SerialPortIODevice&);
 
     /**
-     * Constructor, given a device name. The device is *NOT* opened, mainly
-     * just to avoid throwing an exception in the constructor. Perhaps
-     * that should be changed.
-     */
-    SerialPortIODevice(const std::string& name);
-
-    /**
      * For serial port that is already open (stdin for example).
      * */
     SerialPortIODevice(const std::string& name, int fd);
@@ -203,6 +196,12 @@ public:
      */
     SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
     void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl = pXcvrCtrl;}
+
+    /**
+     *  Get the SerialPowerCtrl object for direct updating
+     */
+    SensorPowerCtrl* getPwrCtrl() {return _pSensorPwrCtrl;}
+    void setPwrCtrl(SensorPowerCtrl* pPwrCtrl) {_pSensorPwrCtrl = pPwrCtrl;}
 
     /**
      *  Set and retrieve the _portType member attribute 
@@ -462,6 +461,8 @@ protected:
     PortConfig _workingPortConfig;
 
     SerialXcvrCtrl* _pXcvrCtrl;
+
+    SensorPowerCtrl* _pSensorPwrCtrl;
 
     unsigned int _usecsperbyte;
 
