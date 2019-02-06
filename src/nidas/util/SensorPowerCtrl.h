@@ -50,6 +50,10 @@ public:
         std::cout << "Port" << _port << " ";
         PowerCtrlAbs::print();
     }
+
+    std::string getPowerStateStr() {
+        return rawPowerToStr(read());
+    }
     void updatePowerState();
 
     // This utility converts a binary power configuration to a string

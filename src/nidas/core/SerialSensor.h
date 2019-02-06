@@ -322,9 +322,17 @@ public:
 
     virtual POWER_STATE getPowerState()
     {   POWER_STATE retval = ILLEGAL_POWER;
-        if (_pSensrPwrCtrl)
-        {
+        if (_pSensrPwrCtrl) {
             retval = _pSensrPwrCtrl->getPowerState();
+        }
+
+        return retval;
+    }
+
+    std::string getPowerStateStr() {
+        std::string retval = "No Power Ctrl";
+        if (_pSensrPwrCtrl) {
+            retval = _pSensrPwrCtrl->getPowerStateStr();
         }
 
         return retval;
@@ -487,6 +495,8 @@ private:
      *  Non-null if the FTDI chip underlying the SensorPowerCtrl class exists
      */
     SensorPowerCtrl* _pSensrPwrCtrl;
+
+    POWER_STATE _initPowerState;
 
     class Prompter: public nidas::core::LooperClient
     {

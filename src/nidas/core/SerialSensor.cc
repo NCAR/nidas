@@ -53,8 +53,8 @@ SerialSensor::SerialSensor():
     _desiredPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	_configMode(NOT_ENTERED),
-	_defaultPortConfig(), _serialDevice(0), _pSensrPwrCtrl(0), _prompters(), _prompting(false)
+	_configMode(NOT_ENTERED), _defaultPortConfig(), _serialDevice(0),
+	_pSensrPwrCtrl(0), _initPowerState(POWER_OFF), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -71,7 +71,7 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
 		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
 	    _configMode(NOT_ENTERED),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0),
-        _pSensrPwrCtrl(new n_u::SensorPowerCtrl(rInitPortConfig.xcvrConfig.port)),
+        _pSensrPwrCtrl(0), _initPowerState(initPowerState),
         _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -81,20 +81,15 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
     _defaultPortConfig.termios.setRaw(true);
     _defaultPortConfig.termios.setRawLength(1);
     _defaultPortConfig.termios.setRawTimeout(0);
-
-    if (_pSensrPwrCtrl) {
-        enablePwrCtrl(true);
-        setPower(initPowerState);
-    }
-    else {
-        DLOG(("SerialSensor::SerialSensor(PortConfig): SensorPowerCtrl object not present/supported!!"));
-    }
 }
 
 SerialSensor::~SerialSensor()
 {
     list<Prompter*>::const_iterator pi = _prompters.begin();
     for (; pi != _prompters.end(); ++pi) delete *pi;
+
+    _serialDevice = 0;
+    _pSensrPwrCtrl = 0;
 }
 
 SampleScanner* SerialSensor::buildSampleScanner()
@@ -132,6 +127,16 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // update desiredPortConfig with the port ID data which is populated in the SerialPortIODevice ctor
         // this is needed for future comparisons.
         _desiredPortConfig = getPortConfig();
+
+        _pSensrPwrCtrl = _serialDevice->getPwrCtrl();
+        if (_pSensrPwrCtrl) {
+            enablePwrCtrl(true);
+            setPower(_initPowerState);
+        }
+        else {
+            DLOG(("SerialSensor::SerialSensor(PortConfig): SensorPowerCtrl object not present/supported!!"));
+        }
+
     }
 
     return device;
@@ -290,6 +295,7 @@ void SerialSensor::printPortConfig(bool flush)
 {
     if (_serialDevice) {
         _serialDevice->printPortConfig();
+        printPowerState();
         if (flush) {
         	std::cerr << std::flush;
         	std::cout << std::flush;
@@ -301,7 +307,6 @@ void SerialSensor::printPortConfig(bool flush)
                  "or is newer type serial device such as USB or socket-oriented, "
                  " which has no need of a PortConfig."));
     }
-    printPowerState();
 }
 
 void SerialSensor::initPrompting() throw(n_u::IOException)
@@ -823,7 +828,7 @@ bool SerialSensor::sweepCommParameters()
 
 				NLOG((""));
 				NLOG(("Testing PortConfig: ") << getPortConfig());
-				printPowerState();
+				NLOG(("Power State: ") << getPowerStateStr());
 
 				cfgMode = enterConfigMode();
 				if (cfgMode == ENTERED) {
