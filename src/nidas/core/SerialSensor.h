@@ -287,7 +287,7 @@ public:
      */
     virtual void enablePwrCtrl(bool enable)
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->enablePwrCtrl(enable);
         }
@@ -296,7 +296,7 @@ public:
     virtual bool pwrCtrlEnabled()
     {
         bool retval = false;
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             retval = _pSensrPwrCtrl->pwrCtrlEnabled();
         }
@@ -306,7 +306,7 @@ public:
 
     virtual void setPower(POWER_STATE newPwrState)
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->setPower(newPwrState);
         }
@@ -314,7 +314,7 @@ public:
 
     virtual void setPowerState(POWER_STATE newPwrState)
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->setPowerState(newPwrState);
         }
@@ -322,7 +322,7 @@ public:
 
     virtual POWER_STATE getPowerState()
     {   POWER_STATE retval = ILLEGAL_POWER;
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             retval = _pSensrPwrCtrl->getPowerState();
         }
@@ -332,7 +332,7 @@ public:
 
     virtual void pwrOn()
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->pwrOn();
         }
@@ -340,7 +340,7 @@ public:
 
     virtual void pwrOff()
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->pwrOff();
         }
@@ -348,7 +348,7 @@ public:
 
     virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
         }
@@ -357,7 +357,7 @@ public:
     virtual bool pwrIsOn()
     {
         bool retval = false;
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             retval = _pSensrPwrCtrl->pwrIsOn();
         }
@@ -366,7 +366,7 @@ public:
 
     virtual void updatePowerState()
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->updatePowerState();
         }
@@ -374,7 +374,7 @@ public:
 
     virtual void printPowerState()
     {
-        if (_pSensrPwrCtrl && _pSensrPwrCtrl->deviceFound())
+        if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->updatePowerState();
             _pSensrPwrCtrl->print();

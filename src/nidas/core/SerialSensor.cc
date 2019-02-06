@@ -83,17 +83,11 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
     _defaultPortConfig.termios.setRawTimeout(0);
 
     if (_pSensrPwrCtrl) {
-        if (!_pSensrPwrCtrl->deviceFound()) {
-            delete _pSensrPwrCtrl;
-            _pSensrPwrCtrl = 0;
-        }
-        else {
-            enablePwrCtrl(true);
-            setPower(initPowerState);
-        }
+        enablePwrCtrl(true);
+        setPower(initPowerState);
     }
     else {
-        DLOG(("SerialSensor::SerialSensor(PortConfig): Failed to instantiate SensorPowerCtrl object!!"));
+        DLOG(("SerialSensor::SerialSensor(PortConfig): SensorPowerCtrl object not present/supported!!"));
     }
 }
 
