@@ -13,7 +13,7 @@ case $1 in
         image=maclean/debian-armel-cross:jessie
         ;;
     armhf | rpi2)
-        image=maclean/debian-armhf-cross:jessie
+#        image=ncar/nidas:debian-jessie-build-armhf-cross
         ;;
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael
