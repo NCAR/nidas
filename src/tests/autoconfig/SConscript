@@ -32,6 +32,7 @@ env.ValgrindLog('threadcheck',
                             ". ./libs.sh && "
                             "${VALGRIND_PATH} --tool=helgrind "
                             "--gen-suppressions=all --log-file=${TARGET.abspath} "
+                            "--suppressions=vg.threadcheck.supp "
                             "./${SOURCE.file} --log_level=message"))
 
 def write_env(env, target, source):

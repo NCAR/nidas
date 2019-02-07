@@ -5,10 +5,9 @@
 #include "SerialSensor.h"
 #include "../../nidas/util/SerialPort.h"
 
-#include "MockSerialPortIODevice.h"
-
 using namespace nidas::core;
 
+extern PortConfig defaultPortConfig;
 extern PortConfig deviceOperatingPortConfig;
 
 namespace nidas { namespace dynld { namespace isff {
@@ -23,7 +22,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     MockSerialSensor()
-    : SerialSensor(), defaultMessageConfig(0, "\r", true)
+    : SerialSensor(defaultPortConfig), defaultMessageConfig(0, "\r", true)
     {
         // We set the defaults at construction,
         // letting the base class modify according to fromDOMElement()
@@ -43,62 +42,32 @@ public:
         _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
 
         initAutoConfig();
-
-        setDeviceName("/tmp/ttyUSB0");
-        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), getDefaultPortConfig());
-        setIODevice(pIODevice);
-        setSerialPortIODevice(pIODevice);
     }
 
-    MockSerialSensor(const PortConfig& rInitPortConfig)
-    : SerialSensor(rInitPortConfig), defaultMessageConfig(0, "\r", true)
-    {
-        // We set the defaults at construction,
-        // letting the base class modify according to fromDOMElement()
-        setMessageParameters(defaultMessageConfig);
-
-        _portTypeList.push_back(RS232);
-        _portTypeList.push_back(RS422);
-        _portTypeList.push_back(RS485_HALF);
-
-        _baudRateList.push_back(4800);
-        _baudRateList.push_back(9600);
-        _baudRateList.push_back(19200);
-        _baudRateList.push_back(38400);
-
-        _serialWordSpecList.push_back(WordSpec(7, Termios::EVEN, 1));
-        _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
-        _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
-
-        initAutoConfig();
-
-        setDeviceName("/tmp/ttyUSB0");
-        SerialPortIODevice* pIODevice = new MockSerialPortIODevice(getDeviceName(), getDefaultPortConfig());
-        setIODevice(pIODevice);
-        setSerialPortIODevice(pIODevice);
-    }
+//    MockSerialSensor(const PortConfig& rInitPortConfig)
+//    : SerialSensor(rInitPortConfig), defaultMessageConfig(0, "\r", true)
+//    {
+//        // We set the defaults at construction,
+//        // letting the base class modify according to fromDOMElement()
+//        setMessageParameters(defaultMessageConfig);
+//
+//        _portTypeList.push_back(RS232);
+//        _portTypeList.push_back(RS422);
+//        _portTypeList.push_back(RS485_HALF);
+//
+//        _baudRateList.push_back(4800);
+//        _baudRateList.push_back(9600);
+//        _baudRateList.push_back(19200);
+//        _baudRateList.push_back(38400);
+//
+//        _serialWordSpecList.push_back(WordSpec(7, Termios::EVEN, 1));
+//        _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
+//        _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
+//
+//        initAutoConfig();
+//    }
 
     ~MockSerialSensor() {}
-
-    virtual IODevice* buildIODevice() throw(nidas::util::IOException)
-    {
-        DLOG(("TestSerialSensor::buildIODevice(): instantiating TestSerialPortIODevice()"));
-        setSerialPortIODevice(new MockSerialPortIODevice(getDeviceName(), _desiredPortConfig));
-        if (!getSerialPortIODevice()) {
-            throw Exception("SerialSensor::buildIODevice(): failed to instantiate SerialPortIODevice object.");
-        }
-
-        // update desiredPortConfig with the port ID data which is populated in the SerialPortIODevice ctor
-        // this is needed for future comparisons.
-        _desiredPortConfig = getPortConfig();
-
-        return getSerialPortIODevice();
-    }
-
-    void open(int flags) throw (nidas::util::IOException, nidas::util::InvalidParameterException)
-    {
-        getSerialPortIODevice()->open(flags);
-    }
 
     /**
      * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
@@ -113,6 +82,7 @@ public:
     void applyPortConfig() {SerialSensor::applyPortConfig();}
     void printPortConfig(bool flush=true){SerialSensor::printPortConfig(flush);}
 
+    bool getAutoConfigSupport() {return supportsAutoConfig(); }
     AUTOCONFIG_STATE getAutoConfigState() {return SerialSensor::getAutoConfigState(); }
     AUTOCONFIG_STATE getSerialConfigState() {return SerialSensor::getSerialConfigState(); }
     AUTOCONFIG_STATE getScienceConfigState() {return SerialSensor::getScienceConfigState(); }
@@ -136,6 +106,14 @@ public:
     std::size_t readResponse(void *buf, std::size_t len, int msecTimeout);
     bool doubleCheckResponse();
     bool configureScienceParameters();
+
+    // some test helpers
+    WordSpecList& getWordSpecList() {return _serialWordSpecList;}
+    BaudRateList& getBaudRateList() {return _baudRateList;}
+    PortTypeList& getPortTypeList() {return _portTypeList;}
+
+protected:
+    MessageConfig defaultMessageConfig;
 
     /**
      * These autoconfig methods do nothing, unless overridden in a subclass
@@ -161,12 +139,6 @@ public:
     virtual void sendScienceParameters() {}
     virtual bool checkScienceParameters() { return true; }
 
-    // some test helpers
-    WordSpecList& getWordSpecList() {return _serialWordSpecList;}
-    BaudRateList& getBaudRateList() {return _baudRateList;}
-    PortTypeList& getPortTypeList() {return _portTypeList;}
-
-    MessageConfig defaultMessageConfig;
 };
 
 }}} //namespace nidas { namespace dynld { namespace isff {

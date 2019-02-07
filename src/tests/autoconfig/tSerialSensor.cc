@@ -158,16 +158,16 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
 
     mss.setDeviceName("/tmp/dev/ttyDSM0");
     mss.open(O_RDWR);
-    BOOST_TEST(mss.getPortConfig() == defaultPortConfig);
+    BOOST_TEST(mss.getDefaultPortConfig() == defaultPortConfig);
 
     BOOST_TEST_MESSAGE("    Default port config same as sensor operating config.");
 
-    deviceOperatingPortConfig = defaultPortConfig;
+    defaultPortConfig = deviceOperatingPortConfig;
 
     MockSerialSensor mss2;
     mss2.setDeviceName("/tmp/dev/ttyDSM0");
     mss2.open(O_RDWR);
-    BOOST_TEST(mss2.getPortConfig() == defaultPortConfig);
+    BOOST_TEST(mss2.getDefaultPortConfig() == deviceOperatingPortConfig);
 
     BOOST_TEST_MESSAGE("    Sensor operating config not in allowed port configs.");
     BOOST_TEST_MESSAGE("        causes sweepCommParameters() to be invoked.");
