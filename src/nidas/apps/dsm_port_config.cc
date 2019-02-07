@@ -151,13 +151,13 @@ int main(int argc, char* argv[]) {
 
     // print out the existing port configurations
     std::cout << std::endl << "Current Port Definitions" << std::endl << "========================" << std::endl;
-    n_u::SerialGPIO sgpio(xcvrConfig.port);
+    n_u::XcvrGPIO sgpio(xcvrConfig.port);
     unsigned char rawConfig = sgpio.read();
     DLOG(("rawConfig: %x", rawConfig));
     xcvrConfig.portType = SerialXcvrCtrl::bits2PortType(rawConfig);
     DLOG(("port type: ") << xcvrConfig.portType << " - "
                          << SerialXcvrCtrl::portTypeToStr(xcvrConfig.portType));
-    xcvrConfig.termination = rawConfig & n_u::BITS_TERM ? TERM_120_OHM : NO_TERM;
+    xcvrConfig.termination = rawConfig & n_u::XCVR_BITS_TERM ? TERM_120_OHM : NO_TERM;
     xcvrConfig.print();
 
     SensorPowerCtrl sensrPwrCtrl((n_u::PORT_DEFS)Port.asInt());

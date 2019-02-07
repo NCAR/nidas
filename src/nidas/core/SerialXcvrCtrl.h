@@ -92,7 +92,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj);
 */
 class SerialXcvrCtrl {
 public:
-    SerialXcvrCtrl() : _xcvrConfig(), _pSerialGPIO(0) {}
+    SerialXcvrCtrl() : _xcvrConfig(), _pXcvrGPIO(0) {}
 
     // Constructor needs to know what port is being controlled
     // Constructor uses portID to decide which FTDI interface to 
@@ -119,7 +119,7 @@ public:
     void applyXcvrConfig();
     // Returns the raw bits already reported by readXcvrConfig() indicating current state of  
     // the port mode, including termination and sensor power
-    unsigned char getRawXcvrConfig() {return _pSerialGPIO->read();};
+    unsigned char getRawXcvrConfig() {return _pXcvrGPIO->read();};
     // Returns the raw bits indicating current state of the port mode
     XcvrConfig& getXcvrConfig() {return _xcvrConfig;};
     // This informs the class as to which USB device to open.
@@ -201,7 +201,7 @@ private:
     // Aggregation of xcvr port knobs to twiddle
     XcvrConfig _xcvrConfig;
     // This is the FTDI object which controls the SP339 xcvr bitbanging on a specific interface.
-    n_u::SerialGPIO* _pSerialGPIO;
+    n_u::XcvrGPIO* _pXcvrGPIO;
 
     // never use copy constructors, operator=
     SerialXcvrCtrl(const SerialXcvrCtrl& rRight);

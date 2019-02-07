@@ -28,9 +28,9 @@
 
 namespace nidas { namespace util {
 
-Cond SerialGPIO::Sync::_ifaceACondVar;
-Cond SerialGPIO::Sync::_ifaceBCondVar;
-Cond SerialGPIO::Sync::_ifaceCCondVar;
-Cond SerialGPIO::Sync::_ifaceDCondVar;
+Cond XcvrGPIO::Sync::_ifaceACondVar;
+Cond XcvrGPIO::Sync::_ifaceBCondVar;
+Cond XcvrGPIO::Sync::_ifaceCCondVar;
+Cond XcvrGPIO::Sync::_ifaceDCondVar;
 
 }} //namespace nidas { namespace util {

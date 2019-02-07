@@ -70,30 +70,30 @@ inline enum ftdi_interface port2iface(PORT_DEFS port)
     return iface;
 }
 
-const unsigned char BITS_PORT_TYPE = 0b00000011;
-const unsigned char BITS_TERM =      0b00000100;
-const unsigned char BITS_POWER =     0b00001000;
+const unsigned char XCVR_BITS_PORT_TYPE = 0b00000011;
+const unsigned char XCVR_BITS_TERM =      0b00000100;
+const unsigned char SENSOR_BITS_POWER =     0b00001000;
 
 /*
- *  Class SerialGPIO provides the means to access the FTDI FT4232H device
+ *  Class XcvrGPIO provides the means to access the FTDI FT4232H device
  *  which is designated for serial transceiver and power control. If a FT4232H
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
  */
-class SerialGPIO
+class XcvrGPIO
 {
 public:
     /*
      *  Because multiple specializations may exist on a single FTDI device interface
      *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
      *
-     *  Specializations of SerialGPIO should use the Sync class to protect their operations on
+     *  Specializations of XcvrGPIO should use the Sync class to protect their operations on
      *  the interface which they are concerned.
      */
     class Sync : public Synchronized
     {
     public:
-        Sync(SerialGPIO* me) : Synchronized(Sync::selectIfaceLock(port2iface(me->getPort()))), _me(me)
+        Sync(XcvrGPIO* me) : Synchronized(Sync::selectIfaceLock(port2iface(me->getPort()))), _me(me)
         {
             ftdi_interface iface = port2iface(me->getPort());
             DLOG(("Synced on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
@@ -111,7 +111,7 @@ public:
         static Cond _ifaceBCondVar;
         static Cond _ifaceCCondVar;
         static Cond _ifaceDCondVar;
-        SerialGPIO* _me;
+        XcvrGPIO* _me;
 
         static Cond& selectIfaceLock(ftdi_interface iface)
         {
@@ -142,7 +142,7 @@ public:
         Sync& operator=(Sync& rRight);
     };
 
-    SerialGPIO(PORT_DEFS port)
+    XcvrGPIO(PORT_DEFS port)
     : _pFtdiDevice(0), _port(port), _shadow(0)
     {
         try {
@@ -157,9 +157,9 @@ public:
         }
     }
 
-    virtual ~SerialGPIO()
+    virtual ~XcvrGPIO()
     {
-        DLOG(("SerialGPIO::~SerialGPIO(): destructing..."));
+        DLOG(("XcvrGPIO::~XcvrGPIO(): destructing..."));
         // don't delete _pFtdiDevice, because someone else may be using it
         _pFtdiDevice = 0;
     }
@@ -169,10 +169,10 @@ public:
         unsigned char rawBits = _shadow;
         if (deviceFound()) {
             rawBits = _pFtdiDevice->readInterface();
-            DLOG(("SerialGPIO::write(): Raw bits: 0x%0x", rawBits));
+            DLOG(("XcvrGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits &= ~adjustBitPosition(mask);
             rawBits |= adjustBitPosition(bits);
-            DLOG(("SerialGPIO::write(): New bits: 0x%0x", rawBits));
+            DLOG(("XcvrGPIO::write(): New bits: 0x%0x", rawBits));
             _pFtdiDevice->writeInterface(rawBits);
         }
         else {
@@ -236,9 +236,9 @@ private:
      *  No copying
      */
 
-    SerialGPIO(const SerialGPIO&);
-    SerialGPIO& operator=(SerialGPIO&);
-    const SerialGPIO& operator=(const SerialGPIO&);
+    XcvrGPIO(const XcvrGPIO&);
+    XcvrGPIO& operator=(XcvrGPIO&);
+    const XcvrGPIO& operator=(const XcvrGPIO&);
 };
 
 }} //namespace nidas { namespace util {

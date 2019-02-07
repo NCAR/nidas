@@ -61,9 +61,9 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
 
 
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
-: _xcvrConfig(portId, RS232, NO_TERM), _pSerialGPIO(new SerialGPIO(portId))
+: _xcvrConfig(portId, RS232, NO_TERM), _pXcvrGPIO(new XcvrGPIO(portId))
 {
-    if (_pSerialGPIO) {
+    if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -78,9 +78,9 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
 SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId, 
                                const PORT_TYPES portType, 
                                const TERM termination)
-: _xcvrConfig(portId, portType, termination), _pSerialGPIO(new SerialGPIO(portId))
+: _xcvrConfig(portId, portType, termination), _pXcvrGPIO(new XcvrGPIO(portId))
 {
-    if (_pSerialGPIO) {
+    if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -93,9 +93,9 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId,
 }
 
 SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
-: _xcvrConfig(initXcvrConfig), _pSerialGPIO(new SerialGPIO(initXcvrConfig.port))
+: _xcvrConfig(initXcvrConfig), _pXcvrGPIO(new XcvrGPIO(initXcvrConfig.port))
 {
-    if (_pSerialGPIO) {
+    if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
         applyXcvrConfig();
         DLOG(("SerialXcvrCtrl(): applied XcvrConfig..."));
@@ -110,7 +110,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
 SerialXcvrCtrl::~SerialXcvrCtrl()
 {
     DLOG(("SerialXcvrCtrl::~SerialXcvrCtrl(): destructing..."));
-    delete _pSerialGPIO;
+    delete _pXcvrGPIO;
 }
 
 void SerialXcvrCtrl::setXcvrConfig(const PORT_TYPES portType, 
@@ -125,11 +125,11 @@ void SerialXcvrCtrl::setXcvrConfig(const XcvrConfig& newXcvrConfig)
     if (newXcvrConfig.port != _xcvrConfig.port) {
         DLOG(("Current port: ") << _xcvrConfig.port << " - New port: " << newXcvrConfig.port);
         _xcvrConfig.port = newXcvrConfig.port;
-        DLOG(("Pointing SerialGPIO object to new port"));
-        if (_pSerialGPIO) {
-            delete _pSerialGPIO;
-            _pSerialGPIO = 0;
-            _pSerialGPIO = new SerialGPIO(_xcvrConfig.port);
+        DLOG(("Pointing XcvrGPIO object to new port"));
+        if (_pXcvrGPIO) {
+            delete _pXcvrGPIO;
+            _pXcvrGPIO = 0;
+            _pXcvrGPIO = new XcvrGPIO(_xcvrConfig.port);
         }
     }
 
@@ -160,10 +160,10 @@ void SerialXcvrCtrl::applyXcvrConfig()
 
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
-    SerialGPIO::Sync sync(_pSerialGPIO);
-    _pSerialGPIO->write(desiredConfig, BITS_PORT_TYPE|BITS_TERM);
+    XcvrGPIO::Sync sync(_pXcvrGPIO);
+    _pXcvrGPIO->write(desiredConfig, XCVR_BITS_PORT_TYPE|XCVR_BITS_TERM);
 
-    if ((_pSerialGPIO->read() & ~BITS_POWER) != desiredConfig) {
+    if ((_pXcvrGPIO->read() & ~SENSOR_BITS_POWER) != desiredConfig) {
         throw n_u::Exception("SerialXcvrCtrl: the pins written to the GPIO "
                             "do not match the pins read from the GPIO");
     }
@@ -287,7 +287,7 @@ void SerialXcvrCtrl::printXcvrConfig(const bool addNewline, const bool readFirst
     if (readFirst) {
         DLOG(("SerialXcvrCtrl: Reading GPIO pin state before reporting them."));
 
-        unsigned char tmpPortConfig = _pSerialGPIO->read();
+        unsigned char tmpPortConfig = _pXcvrGPIO->read();
         std::cout << "Port" << _xcvrConfig.port << ": " << portTypeToStr(bits2PortType(tmpPortConfig & RS422_RS485_BITS))
                                     << " | " << rawTermToStr(tmpPortConfig & TERM_120_OHM_BIT);
     }

@@ -31,7 +31,7 @@ namespace nidas { namespace util {
 const std::string SensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
     std::string powerStr("");
-    if (powerCfg & BITS_POWER) {
+    if (powerCfg & SENSOR_BITS_POWER) {
         powerStr.append(STR_POWER_ON);
     }
     else {
@@ -44,7 +44,7 @@ const std::string SensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
     POWER_STATE retval = POWER_OFF;
-    if (powerCfg & BITS_POWER) {
+    if (powerCfg & SENSOR_BITS_POWER) {
         retval = POWER_ON;
     }
 
@@ -53,7 +53,7 @@ POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
-: SerialGPIO(port), PowerCtrlAbs(), _port(port)
+: XcvrGPIO(port), PowerCtrlAbs(), _port(port)
 {
     updatePowerState();
 }
@@ -62,7 +62,7 @@ void SensorPowerCtrl::pwrOn()
 {
     if (pwrCtrlEnabled()) {
         Sync sync(this);
-        write(BITS_POWER, BITS_POWER);
+        write(SENSOR_BITS_POWER, SENSOR_BITS_POWER);
     }
     else {
         ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
@@ -74,7 +74,7 @@ void SensorPowerCtrl::pwrOff()
 {
     if (pwrCtrlEnabled()) {
         Sync sync(this);
-        write(0, BITS_POWER);
+        write(0, SENSOR_BITS_POWER);
     }
     else {
         ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");

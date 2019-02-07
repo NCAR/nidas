@@ -34,7 +34,7 @@ namespace nidas { namespace util {
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class SensorPowerCtrl : public SerialGPIO, public PowerCtrlAbs
+class SensorPowerCtrl : public XcvrGPIO, public PowerCtrlAbs
 {
 public:
     SensorPowerCtrl(PORT_DEFS port);
