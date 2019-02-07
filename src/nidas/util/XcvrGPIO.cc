@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include "AutoConfigHW.h"
+#include "XcvrGPIO.h"
 
 namespace nidas { namespace util {
 

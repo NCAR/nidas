@@ -17,7 +17,7 @@ arch = env['ARCH']  # empty string for native builds
 ##
 headers = [ Split("""
     auto_ptr.h
-    AutoConfigHW.h
+    XcvrGPIO.h
     BitArray.h
     BluetoothAddress.h
     BluetoothRFCommSocket.h
@@ -63,7 +63,7 @@ headers = [ Split("""
 # print(["headers="] + [str(h) for h in headers])
 
 sources = [ Split("""
-    AutoConfigHW.cc
+    XcvrGPIO.cc
     BitArray.cc
     BluetoothAddress.cc
     BluetoothRFCommSocket.cc

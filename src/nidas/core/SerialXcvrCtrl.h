@@ -29,7 +29,7 @@
 #include <ftdi.h>
 #include <sstream>
 
-#include "nidas/util/AutoConfigHW.h"
+#include "nidas/util/XcvrGPIO.h"
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {

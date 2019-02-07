@@ -23,8 +23,8 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_UTIL_AUTOCONFIGHW_H
-#define NIDAS_UTIL_AUTOCONFIGHW_H
+#ifndef NIDAS_UTIL_XCVRGPIO_H
+#define NIDAS_UTIL_XCVRGPIO_H
 
 #include "FtdiHW.h"
 
@@ -243,4 +243,4 @@ private:
 
 }} //namespace nidas { namespace util {
 
-#endif //NIDAS_UTIL_AUTOCONFIGHW_H
+#endif //NIDAS_UTIL_XCVRGPIO_H
