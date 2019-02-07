@@ -146,7 +146,7 @@ public:
     : _pFtdiDevice(0), _port(port), _shadow(0)
     {
         try {
-            _pFtdiDevice = getFtdiDevice(port2iface(port), std::string("UCAR"), std::string("GPIO"));
+            _pFtdiDevice = getFtdiDevice(FTDI_GPIO, port2iface(port));
         }
         catch (InvalidParameterException& e) {
             _pFtdiDevice = 0;

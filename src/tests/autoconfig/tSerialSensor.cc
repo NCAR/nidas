@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
     mss3.open(O_RDWR);
     BOOST_TEST(mss3.getPortConfig() != deviceOperatingPortConfig);
 
-    FtdiDevice<INTERFACE_A>::deleteFtdiDevice();
+    FtdiDevice<FTDI_GPIO, INTERFACE_A>::deleteFtdiDevice();
 }
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
