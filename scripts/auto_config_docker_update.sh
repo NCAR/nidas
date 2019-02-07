@@ -6,6 +6,14 @@
 #upgrade scons
 apt-get -y --only-upgrade install eol-scons
 
+# add boost-regex
+apt-get -y install libboost-regex1.55-dev:armhf
+
+# add libi2c-dev as original docker image didn't have correct one
+# don't need an armhf variant, as all the functions are in-line
+# in a single header.
+apt-get -y install libi2c-dev
+
 # install libusb-1.0
 apt-get -y install libusb-1.0:armhf
 
