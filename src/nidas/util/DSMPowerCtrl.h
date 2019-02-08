@@ -23,8 +23,8 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_UTIL_SERIALPOWERCTRL_H
-#define NIDAS_UTIL_SERIALPOWERCTRL_H
+#ifndef NIDAS_UTIL_DSMPOWERCTRL_H
+#define NIDAS_UTIL_DSMPOWERCTRL_H
 
 #include "PowerGPIO.h"
 #include "PowerCtrlAbs.h"
@@ -140,4 +140,4 @@ private:
 
 }} //namespace nidas { namespace util {
 
-#endif //NIDAS_UTIL_POWERCTRLIF_H
+#endif //NIDAS_UTIL_DSMPOWERCTRL_H
