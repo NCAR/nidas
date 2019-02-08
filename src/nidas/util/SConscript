@@ -17,13 +17,13 @@ arch = env['ARCH']  # empty string for native builds
 ##
 headers = [ Split("""
     auto_ptr.h
-    XcvrGPIO.h
     BitArray.h
     BluetoothAddress.h
     BluetoothRFCommSocket.h
     BluetoothRFCommSocketAddress.h
     Bzip2FileSet.h
     DatagramPacket.h
+    DSMPowerCtrl.h
     EndianConverter.h
     EOFException.h
     Exception.h
@@ -43,6 +43,7 @@ headers = [ Split("""
     ParseException.h
     PowerCtrlIf.h
     PowerCtrlAbs.h
+    PowerGPIO.h
     Process.h
     ptytools.h
     SensorPowerCtrl.h
@@ -58,17 +59,18 @@ headers = [ Split("""
     UnknownHostException.h
     UTime.h
     util.h
+    XcvrGPIO.h
     """)
 ]
 # print(["headers="] + [str(h) for h in headers])
 
 sources = [ Split("""
-    XcvrGPIO.cc
     BitArray.cc
     BluetoothAddress.cc
     BluetoothRFCommSocket.cc
     BluetoothRFCommSocketAddress.cc
     Bzip2FileSet.cc
+    DSMPowerCtrl.cc
     EndianConverter.cc
     Exception.cc
     FileSet.cc
@@ -79,6 +81,7 @@ sources = [ Split("""
     Logger.cc
     McSocket.cc
     PowerCtrlAbs.cc
+    PowerGPIO.cc
     Process.cc
     ptytools.cc
     SensorPowerCtrl.cc
@@ -91,6 +94,7 @@ sources = [ Split("""
     UnixSocketAddress.cc
     UTime.cc
     util.cc
+    XcvrGPIO.cc
     """)
 ]
 # print(["sources="] + [str(h) for h in sources])
