@@ -53,7 +53,7 @@ POWER_STATE DSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 DSMPowerCtrl::DSMPowerCtrl(DSM_POWER_IFACES iface)
-: PowerGPIO(), PowerCtrlAbs(), _iface(iface)
+: FtdiPowerGPIO(), PowerCtrlAbs(), _iface(iface)
 {
     updatePowerState();
 }

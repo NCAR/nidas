@@ -26,7 +26,7 @@
 #ifndef NIDAS_UTIL_DSMPOWERCTRL_H
 #define NIDAS_UTIL_DSMPOWERCTRL_H
 
-#include "PowerGPIO.h"
+#include "FtdiPowerGPIO.h"
 #include "PowerCtrlAbs.h"
 
 namespace nidas { namespace util {
@@ -105,7 +105,7 @@ inline std::string pwrIface2Str(DSM_POWER_IFACES iface) {
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class DSMPowerCtrl : public PowerGPIO, public PowerCtrlAbs
+class DSMPowerCtrl : public FtdiPowerGPIO, public PowerCtrlAbs
 {
 public:
     DSMPowerCtrl(DSM_POWER_IFACES device);
