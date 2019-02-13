@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(ss.getDefaultPortConfig().termios.getDataBits() == 8);
     BOOST_TEST(ss.getDefaultPortConfig().termios.getParity() == Termios::NONE);
     BOOST_TEST(ss.getDefaultPortConfig().termios.getStopBits() == 1);
-    BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.port == PORT0);
+    BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.port == SER_PORT0);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.portType == RS232);
     BOOST_TEST(ss.getDefaultPortConfig().xcvrConfig.termination == NO_TERM);
 
@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST(mss.getDefaultPortConfig().termios.getDataBits() == 7);
     BOOST_TEST(mss.getDefaultPortConfig().termios.getParity() == Termios::EVEN);
     BOOST_TEST(mss.getDefaultPortConfig().termios.getStopBits() == 1);
-    BOOST_TEST(mss.getDefaultPortConfig().xcvrConfig.port == PORT0);
+    BOOST_TEST(mss.getDefaultPortConfig().xcvrConfig.port == SER_PORT0);
     BOOST_TEST(mss.getDefaultPortConfig().xcvrConfig.portType == RS485_FULL);
     BOOST_TEST(mss.getDefaultPortConfig().xcvrConfig.termination == TERM_120_OHM);
 }
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
     mss3.open(O_RDWR);
     BOOST_TEST(mss3.getPortConfig() != deviceOperatingPortConfig);
 
-    FtdiDevice<FTDI_GPIO, INTERFACE_A>::deleteFtdiDevice();
+    FtdiGpio<FTDI_GPIO, INTERFACE_A>::deleteFtdiGpio();
 }
 
 BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
