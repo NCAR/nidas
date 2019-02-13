@@ -27,6 +27,7 @@
 #define NIDAS_UTIL_SERIALPOWERCTRL_H
 
 #include "XcvrGPIO.h"
+#include "SysfsGpio.h"
 #include "PowerCtrlAbs.h"
 
 namespace nidas { namespace util {
@@ -34,10 +35,10 @@ namespace nidas { namespace util {
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class SensorPowerCtrl : public XcvrGPIO, public PowerCtrlAbs
+class SensorPowerCtrl : public PowerCtrlAbs
 {
 public:
-    SensorPowerCtrl(PORT_DEFS port);
+    SensorPowerCtrl(GPIO_PORT_DEFS port);
     virtual ~SensorPowerCtrl()
     {
         DLOG(("SensorPowerCtrl::~SensorPowerCtrl(): destructing..."));
@@ -52,8 +53,9 @@ public:
     }
 
     std::string getPowerStateStr() {
-        return rawPowerToStr(read());
+        return _pPwrCtrl->getPowerStateStr();
     }
+
     void updatePowerState();
 
     // This utility converts a binary power configuration to a string
@@ -62,7 +64,17 @@ public:
     static POWER_STATE rawPowerToState(unsigned char powerCfg);
 
 private:
-    PORT_DEFS _port;
+    GPIO_PORT_DEFS _port;
+    PowerCtrlAbs* _pPwrCtrl;
+
+    /*
+     *  No copying
+     */
+    SensorPowerCtrl(const SensorPowerCtrl& rRight);
+    SensorPowerCtrl(SensorPowerCtrl& rRight);
+    const SensorPowerCtrl& operator=(const SensorPowerCtrl& rRight);
+    SensorPowerCtrl & operator=(SensorPowerCtrl& rRight);
+
 };
 
 }} //namespace nidas { namespace util {

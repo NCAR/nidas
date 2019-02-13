@@ -25,6 +25,8 @@
 */
 
 #include "SensorPowerCtrl.h"
+#include "FtdiSensorPowerCtrl.h"
+#include "SysfsSensorPowerCtrl.h"
 
 namespace nidas { namespace util {
 
@@ -52,41 +54,51 @@ POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 }
 
 
-SensorPowerCtrl::SensorPowerCtrl(PORT_DEFS port)
-: XcvrGPIO(port), PowerCtrlAbs(), _port(port)
+SensorPowerCtrl::SensorPowerCtrl(GPIO_PORT_DEFS port)
+: PowerCtrlAbs(), _port(port), _pPwrCtrl(0)
 {
+    // always assume new USB FTDI board first...
+    GpioIF* pGpio = new FtdiSensorPowerCtrl(port);
+    if (pGpio) {
+        if (!pGpio->ifaceFound()) {
+            delete pGpio;
+
+            pGpio = new SysfsSensorPowerCtrl(port);
+            if (pGpio) {
+                if (!pGpio->ifaceFound()) {
+                    delete pGpio;
+                    pGpio = 0;
+                }
+            }
+        }
+
+        if (pGpio) {
+            _pPwrCtrl = dynamic_cast<PowerCtrlAbs*>(pGpio);
+
+        }
+    }
     updatePowerState();
 }
 
 void SensorPowerCtrl::pwrOn()
 {
-    if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(SENSOR_BITS_POWER, SENSOR_BITS_POWER);
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrOn();
     }
-    else {
-        ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
-    }
-    updatePowerState();
 }
 
 void SensorPowerCtrl::pwrOff()
 {
-    if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(0, SENSOR_BITS_POWER);
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrOff();
     }
-    else {
-        ILOG(("SensorPowerCtrl::SensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
-    }
-    updatePowerState();
 }
 
 void SensorPowerCtrl::updatePowerState()
 {
-    Sync sync(this);
-    setPowerState(rawPowerToState(read()));
-    DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
+    if (_pPwrCtrl) {
+        _pPwrCtrl->updatePowerState();
+    }
 }
 
 }} //namespace nidas { namespace util {
