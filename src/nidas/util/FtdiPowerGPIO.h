@@ -32,11 +32,11 @@ namespace nidas { namespace util {
 
 /*
  *  Class PowerGPIO provides the means to access the FTDI FT4232H device
- *  which is designated for serial transceiver and power control. If a FT4232H
+ *  which is designated for i2c and DSM power control. If a FT4232H
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
  */
-class PowerGPIO
+class FtdiPowerGPIO
 {
 public:
     /*
@@ -49,7 +49,9 @@ public:
     class Sync : public Synchronized
     {
     public:
-        Sync(PowerGPIO* me) : Synchronized(_ifaceACondVar), _me(me)
+        // TODO: When the reworked FTDI USB Serial Interface board comes out then the FTDI interface used
+        //       for DSM power control will be INTERFACE_C
+        Sync(FtdiPowerGPIO* me) : Synchronized(_ifaceACondVar), _me(me)
         {
             DLOG(("Synced on interface A"));
         }
@@ -60,7 +62,7 @@ public:
         }
     private:
         static Cond _ifaceACondVar;
-        PowerGPIO* _me;
+        FtdiPowerGPIO* _me;
 
 
         // no copying
@@ -69,22 +71,23 @@ public:
         Sync& operator=(Sync& rRight);
     };
 
-    PowerGPIO()
+    FtdiPowerGPIO()
     : _pFtdiDevice(0), _shadow(0)
     {
         try {
+            // See TODO above
             _pFtdiDevice = getFtdiDevice(FTDI_GPIO, INTERFACE_A);
         }
         catch (InvalidParameterException& e) {
             _pFtdiDevice = 0;
         }
 
-        if (deviceFound()) {
+        if (ifaceFound()) {
             _pFtdiDevice->setMode(0xFF, BITMODE_BITBANG);
         }
     }
 
-    virtual ~PowerGPIO()
+    virtual ~FtdiPowerGPIO()
     {
         DLOG(("PowerGPIO::~PowerGPIO(): destructing..."));
         // don't delete _pFtdiDevice, because someone else may be using it
@@ -94,13 +97,13 @@ public:
     virtual void write(unsigned char bits, unsigned char mask)
     {
         unsigned char rawBits = _shadow;
-        if (deviceFound()) {
-            rawBits = _pFtdiDevice->readInterface();
+        if (ifaceFound()) {
+            rawBits = _pFtdiDevice->read();
             DLOG(("PowerGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits &= mask;
             rawBits |= bits;
             DLOG(("PowerGPIO::write(): New bits: 0x%0x", rawBits));
-            _pFtdiDevice->writeInterface(rawBits);
+            _pFtdiDevice->write(rawBits);
         }
         else {
             rawBits &= mask;
@@ -112,8 +115,8 @@ public:
     virtual unsigned char read()
     {
         unsigned char retval = _shadow;
-        if (deviceFound()) {
-            retval = _pFtdiDevice->readInterface();
+        if (ifaceFound()) {
+            retval = _pFtdiDevice->read();
         }
         return retval;
     }
@@ -129,17 +132,17 @@ public:
 
 
 protected:
-    bool deviceFound()
+    bool ifaceFound()
     {
         bool retval = false;
         if (_pFtdiDevice) {
-            retval = _pFtdiDevice->deviceFound();
+            retval = _pFtdiDevice->ifaceFound();
         }
         return retval;
     }
 
 private:
-    FtdiDeviceIF* _pFtdiDevice;
+    FtdiHwIF* _pFtdiDevice;
 
     // only used for testing
     unsigned char _shadow;
@@ -148,9 +151,9 @@ private:
      *  No copying
      */
 
-    PowerGPIO(const PowerGPIO&);
-    PowerGPIO& operator=(PowerGPIO&);
-    const PowerGPIO& operator=(const PowerGPIO&);
+    FtdiPowerGPIO(const FtdiPowerGPIO&);
+    FtdiPowerGPIO& operator=(FtdiPowerGPIO&);
+    const FtdiPowerGPIO& operator=(const FtdiPowerGPIO&);
 };
 
 }} //namespace nidas { namespace util {

@@ -24,10 +24,10 @@
  ********************************************************************
 */
 
-#include "PowerGPIO.h"
+#include "FtdiPowerGPIO.h"
 
 namespace nidas { namespace util {
 
-Cond PowerGPIO::Sync::_ifaceACondVar;
+Cond FtdiPowerGPIO::Sync::_ifaceACondVar;
 
 }} //namespace nidas { namespace util {
