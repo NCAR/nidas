@@ -51,6 +51,9 @@ public:
     PowerCtrlAbs() : _pwrCtrlEnabled(false), _pwrState(ILLEGAL_POWER) {}
     virtual ~PowerCtrlAbs() {}
 
+    virtual std::string getPowerStateStr() = 0;
+    virtual void updatePowerState() = 0;
+
     virtual void enablePwrCtrl(bool enable) {_pwrCtrlEnabled = enable;}
     virtual bool pwrCtrlEnabled() {return _pwrCtrlEnabled;}
     virtual void setPower(POWER_STATE newPwrState);
