@@ -152,7 +152,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
 
         VLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
-        _workingPortConfig.xcvrConfig.port = static_cast<PORT_DEFS>(portID);
+        _workingPortConfig.xcvrConfig.port = static_cast<GPIO_PORT_DEFS>(portID);
         _pXcvrCtrl = new SerialXcvrCtrl(_workingPortConfig.xcvrConfig.port, 
                                         _workingPortConfig.xcvrConfig.portType, 
                                         _workingPortConfig.xcvrConfig.termination);
@@ -161,7 +161,7 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
             throw n_u::Exception("SerialPortIODevice: Cannot construct SerialXcvrCtrl object");
         }
 
-        _pSensorPwrCtrl = new SensorPowerCtrl(static_cast<PORT_DEFS>(portID));
+        _pSensorPwrCtrl = new SensorPowerCtrl(static_cast<GPIO_PORT_DEFS>(portID));
         if (_pSensorPwrCtrl == 0)
         {
             throw n_u::Exception("SerialPortIODevice: Cannot construct SensorPowerCtrl object");
