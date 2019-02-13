@@ -74,7 +74,7 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, const PORT_TYPES
 
         NLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _portType);
-        _pSerialControl = new SerialXcvrCtrl(static_cast<PORT_DEFS>(portID), 
+        _pSerialControl = new SerialXcvrCtrl(static_cast<GPIO_PORT_DEFS>(portID), 
                                                         _portType, _term);
         if (_pSerialControl == 0)
         {

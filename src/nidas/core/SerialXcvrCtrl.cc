@@ -60,7 +60,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
 }
 
 
-SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
+SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId)
 : _xcvrConfig(portId, RS232, NO_TERM), _pXcvrGPIO(new XcvrGPIO(portId))
 {
     if (_pXcvrGPIO) {
@@ -75,7 +75,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId)
     }
 }
 
-SerialXcvrCtrl::SerialXcvrCtrl(const PORT_DEFS portId, 
+SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId, 
                                const PORT_TYPES portType, 
                                const TERM termination)
 : _xcvrConfig(portId, portType, termination), _pXcvrGPIO(new XcvrGPIO(portId))
