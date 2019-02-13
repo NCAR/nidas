@@ -43,7 +43,8 @@ headers = [ Split("""
     ParseException.h
     PowerCtrlIf.h
     PowerCtrlAbs.h
-    PowerGPIO.h
+    FtdiPowerGPIO.h
+    FtdiSensorPowerCtrl.h
     Process.h
     ptytools.h
     SensorPowerCtrl.h
@@ -51,6 +52,8 @@ headers = [ Split("""
     SerialPort.h
     SocketAddress.h
     Socket.h
+    SysfsGpio.h
+    SysfsSensorPowerCtrl.h
     Termios.h
     Thread.h
     ThreadSupport.h
@@ -75,19 +78,22 @@ sources = [ Split("""
     Exception.cc
     FileSet.cc
     FtdiHW.cc
+    FtdiSensorPowerCtrl.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
     Logger.cc
     McSocket.cc
     PowerCtrlAbs.cc
-    PowerGPIO.cc
+    FtdiPowerGPIO.cc
     Process.cc
     ptytools.cc
     SensorPowerCtrl.cc
     SerialOptions.cc
     SerialPort.cc
     Socket.cc
+    SysfsGpio.cc
+    SysfsSensorPowerCtrl.cc
     Termios.cc
     Thread.cc
     ThreadSupport.cc
@@ -115,7 +121,7 @@ env = conf.Finish()
 
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util' , objects,
-    LIBS= ['pthread'] + env['LIBS'] + ['usb-1.0', 'ftdi1'])
+    LIBS= ['pthread'] + env['LIBS'] + ['usb-1.0', 'ftdi1', 'boost_regex', 'boost_system', 'boost_filesystem'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS_UTIL' + arch: lib[0]})
