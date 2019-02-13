@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
     DLOG(("Port Option Flag/Value: ") << Port.getFlag() << ": " << Port.asInt());
     DLOG(("Port Option Flag Length: ") << Port.getFlag().length());
     if (Port.specified()) {
-        xcvrConfig.port = (n_u::PORT_DEFS)Port.asInt();
+        xcvrConfig.port = (n_u::GPIO_PORT_DEFS)Port.asInt();
         if (!(0 <= xcvrConfig.port && xcvrConfig.port <= 7)) {
             std::cerr << "Something went wrong, as the port arg wasn't in the range 0-7" << std::endl;
             return 2;
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
     xcvrConfig.termination = rawConfig & n_u::XCVR_BITS_TERM ? TERM_120_OHM : NO_TERM;
     xcvrConfig.print();
 
-    SensorPowerCtrl sensrPwrCtrl((n_u::PORT_DEFS)Port.asInt());
+    SensorPowerCtrl sensrPwrCtrl((n_u::GPIO_PORT_DEFS)Port.asInt());
     sensrPwrCtrl.print();
 
     if (Display.specified()) {
