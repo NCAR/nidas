@@ -30,36 +30,29 @@
 
 namespace nidas { namespace util {
 
-/*
- * This enum specifies the ports in the DSM.
- */
-enum PORT_DEFS {ILLEGAL_PORT=-1, PORT0=0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7};
-// At present there are only 7 available ports on a DSM
-const PORT_DEFS MAX_PORT = PORT7;
-
 // deduces the FT4232H GPIO interface form the port in _xcvrConfig.
 // need to select the interface based on the specified port
 // at present, assume 4 bits per port definition
-inline enum ftdi_interface port2iface(PORT_DEFS port)
+inline enum ftdi_interface port2iface(GPIO_PORT_DEFS port)
 {
     enum ftdi_interface iface = INTERFACE_ANY;
     switch ( port )
     {
-        case PORT0:
-        case PORT1:
+        case SER_PORT0:
+        case SER_PORT1:
             iface = INTERFACE_A;
             break;
-        case PORT2:
-        case PORT3:
+        case SER_PORT2:
+        case SER_PORT3:
             iface = INTERFACE_B;
             break;
 
-        case PORT4:
-        case PORT5:
+        case SER_PORT4:
+        case SER_PORT5:
             iface = INTERFACE_C;
             break;
-        case PORT6:
-        case PORT7:
+        case SER_PORT6:
+        case SER_PORT7:
             iface = INTERFACE_D;
             break;
 
@@ -80,7 +73,7 @@ const unsigned char SENSOR_BITS_POWER =     0b00001000;
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
  */
-class XcvrGPIO
+class XcvrGPIO : public GpioIF
 {
 public:
     /*
@@ -142,7 +135,7 @@ public:
         Sync& operator=(Sync& rRight);
     };
 
-    XcvrGPIO(PORT_DEFS port)
+    XcvrGPIO(GPIO_PORT_DEFS port)
     : _pFtdiDevice(0), _port(port), _shadow(0)
     {
         try {
@@ -152,7 +145,7 @@ public:
             _pFtdiDevice = 0;
         }
 
-        if (deviceFound()) {
+        if (ifaceFound()) {
             _pFtdiDevice->setMode(0xFF, BITMODE_BITBANG);
         }
     }
@@ -164,16 +157,41 @@ public:
         _pFtdiDevice = 0;
     }
 
+    GPIO_PORT_DEFS getPort() {return _port;}
+
+    bool ifaceFound()
+    {
+        bool retval = false;
+        if (_pFtdiDevice) {
+            retval = _pFtdiDevice->ifaceFound();
+        }
+        return retval;
+    }
+
+    ftdi_interface getInterface()
+    {
+        ftdi_interface retval = port2iface(_port);
+        if (_pFtdiDevice) {
+            retval =_pFtdiDevice->getInterface();
+        }
+        return retval;
+    }
+
+    virtual void write(unsigned char bits)
+    {
+        _pFtdiDevice->write(bits);
+    }
+
     virtual void write(unsigned char bits, unsigned char mask)
     {
         unsigned char rawBits = _shadow;
-        if (deviceFound()) {
-            rawBits = _pFtdiDevice->readInterface();
+        if (ifaceFound()) {
+            rawBits = _pFtdiDevice->read();
             DLOG(("XcvrGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits &= ~adjustBitPosition(mask);
             rawBits |= adjustBitPosition(bits);
             DLOG(("XcvrGPIO::write(): New bits: 0x%0x", rawBits));
-            _pFtdiDevice->writeInterface(rawBits);
+            write(rawBits);
         }
         else {
             rawBits &= ~adjustBitPosition(mask);
@@ -185,38 +203,17 @@ public:
     virtual unsigned char read()
     {
         unsigned char retval = adjustBitPosition(_shadow, true);
-        if (deviceFound()) {
-            retval = adjustBitPosition(_pFtdiDevice->readInterface(), true);
+        if (ifaceFound()) {
+            retval = adjustBitPosition(_pFtdiDevice->read(), true);
         }
         return retval;
     }
-
-    PORT_DEFS getPort() {return _port;}
-
-    ftdi_interface getInterface()
-    {
-        ftdi_interface retval = port2iface(_port);
-        if (_pFtdiDevice) {
-            retval =_pFtdiDevice->getInterface();
-        }
-        return retval;
-    }
-
 
 protected:
-    bool deviceFound()
-    {
-        bool retval = false;
-        if (_pFtdiDevice) {
-            retval = _pFtdiDevice->deviceFound();
-        }
-        return retval;
-    }
-
     unsigned char adjustBitPosition(const unsigned char bits, bool read=false)
     {
         // adjust port shift to always be 0 or 4, assuming 4 bits per port configuration.
-        unsigned char portShift = (_port % PORT2)*4;
+        unsigned char portShift = (_port % SER_PORT2)*4;
         unsigned char retVal = bits << portShift;
         if (read) {
             retVal = (bits >> portShift) & 0x0F;
@@ -226,8 +223,8 @@ protected:
     }
 
 private:
-    FtdiDeviceIF* _pFtdiDevice;
-    PORT_DEFS _port;
+    FtdiHwIF* _pFtdiDevice;
+    GPIO_PORT_DEFS _port;
 
     // only used for testing
     unsigned char _shadow;
