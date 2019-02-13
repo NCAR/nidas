@@ -50,8 +50,8 @@ enum TERM {NO_TERM=0, TERM_120_OHM};
  *  the auto-config base classes as an easy means to change the transceiver mode of operation.
  */
 struct XcvrConfig {
-    XcvrConfig() : port(n_u::PORT0), portType(RS232), termination(NO_TERM) {}
-    XcvrConfig(n_u::PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM)
+    XcvrConfig() : port(n_u::SER_PORT0), portType(RS232), termination(NO_TERM) {}
+    XcvrConfig(n_u::GPIO_PORT_DEFS initPortID, PORT_TYPES initPortType, TERM initTerm=NO_TERM)
         : port(initPortID), portType(initPortType), termination(initTerm) {}
     bool operator!=(const XcvrConfig& rRight) const {return !((*this) == rRight);}
     bool operator==(const XcvrConfig& rRight) const
@@ -61,7 +61,7 @@ struct XcvrConfig {
     void print();
     std::ostream& operator <<(std::ostream outStrm);
 
-    n_u::PORT_DEFS port;
+    n_u::GPIO_PORT_DEFS port;
     PORT_TYPES portType;
     TERM termination;
 };
@@ -100,16 +100,16 @@ public:
     // Bus address is the means by which the USB device is opened.
     // So default them to the values known today, but may be 
     // overridden later.
-    SerialXcvrCtrl(const n_u::PORT_DEFS portId);
-    SerialXcvrCtrl(const n_u::PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM);
+    SerialXcvrCtrl(const n_u::GPIO_PORT_DEFS portId);
+    SerialXcvrCtrl(const n_u::GPIO_PORT_DEFS portId, const PORT_TYPES portType, const TERM termination=NO_TERM);
     SerialXcvrCtrl(const XcvrConfig initXcvrConfig);
     // Destructor
     ~SerialXcvrCtrl();
-    static bool xcvrCtrlSupported(const n_u::PORT_DEFS port)
+    static bool xcvrCtrlSupported(const n_u::GPIO_PORT_DEFS port)
     {
         DLOG(("SerialXcvrCtrl::xcvrCtrlSupported()..."));
-        n_u::FtdiDeviceIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
-        return pFtdiDevice->deviceFound();
+        n_u::FtdiHwIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
+        return pFtdiDevice->ifaceFound();
     }
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term);
@@ -159,11 +159,11 @@ public:
     static const std::string rawTermToStr(unsigned char termCfg); 
     // This utility prints the port types for the assigned port.
     void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
-    // This is a utility to convert an integer to a PORT_DEFS port ID
-    // Currently assumes that the portNum is in the range of PORT_DEFS
-    static n_u::PORT_DEFS int2PortDef(const unsigned portNum)
+    // This is a utility to convert an integer to a GPIO_PORT_DEFS port ID
+    // Currently assumes that the portNum is in the range of GPIO_PORT_DEFS
+    static n_u::GPIO_PORT_DEFS int2PortDef(const unsigned portNum)
     {
-        return static_cast<n_u::PORT_DEFS>(portNum);
+        return static_cast<n_u::GPIO_PORT_DEFS>(portNum);
     }
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE
     static PORT_TYPES bits2PortType(const unsigned char bits);

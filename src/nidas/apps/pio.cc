@@ -147,14 +147,14 @@ void printAll()
 }
 
 int main(int argc, char* argv[]) {
-    deviceArgMap.insert(DeviceArgMapPair(std::string("0"), PORT0));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("1"), PORT1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("2"), PORT2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("3"), PORT3));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("4"), PORT4));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("5"), PORT5));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("6"), PORT6));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("7"), PORT7));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("0"), SER_PORT0));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("1"), SER_PORT1));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("2"), SER_PORT2));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("3"), SER_PORT3));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("4"), SER_PORT4));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
     deviceArgMap.insert(DeviceArgMapPair(std::string("28V"), PWR_DEVICE_28V));
     deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_DEVICE_AUX));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_DEVICE_BANK1));
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 
     // print out the existing power state of the device
     std::cout << std::endl << "Current Device Power State" << std::endl << "========================" << std::endl;
-    SensorPowerCtrl sensrPwrCtrl((n_u::PORT_DEFS)Port.asInt());
+    SensorPowerCtrl sensrPwrCtrl((n_u::GPIO_PORT_DEFS)Port.asInt());
     sensrPwrCtrl.print();
 
     if (View.specified()) {
