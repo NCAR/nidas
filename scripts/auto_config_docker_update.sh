@@ -7,7 +7,7 @@
 apt-get -y --only-upgrade install eol-scons
 
 # add boost-regex
-apt-get -y install libboost-regex1.55-dev:armhf
+apt-get -y install libboost-regex1.55-dev:armhf libboost-filesystem1.55-dev:armhf
 
 # add libi2c-dev as original docker image didn't have correct one
 # don't need an armhf variant, as all the functions are in-line
