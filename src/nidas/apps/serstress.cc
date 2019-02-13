@@ -903,7 +903,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
         throw n_u::Exception(std::string("serstress: port open error: " + myPort.getName() + e.what()));
     }
 
-    PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
+    GPIO_PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
     n_u::SensorPowerCtrl sensorPower(sensorPortID);
     sensorPower.enablePwrCtrl(true);
     sensorPower.pwrOn();
@@ -1002,7 +1002,7 @@ void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
     myPort.flushBoth();
     myPort.close();
 
-    PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
+    GPIO_PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
     n_u::SensorPowerCtrl sensorPower(sensorPortID);
     sensorPower.enablePwrCtrl(true);
     sensorPower.pwrOff();
@@ -1150,7 +1150,7 @@ int main(int argc, char**argv)
             portConfig.termios.setRaw(true);
             portConfig.termios.setRawLength(1);
             portConfig.termios.setRawTimeout(0);
-            portConfig.xcvrConfig.port = static_cast<n_u::PORT_DEFS>(senderPortNum);
+            portConfig.xcvrConfig.port = static_cast<n_u::GPIO_PORT_DEFS>(senderPortNum);
             portConfig.xcvrConfig.portType = nextPortType;
 
             // echo PortConfig is identical, but for the port ID
@@ -1158,7 +1158,7 @@ int main(int argc, char**argv)
             if (echoPortConfig != portConfig) {
                 throw Exception("Sender and Echo PortConfigs don't match!!!");
             }
-            echoPortConfig.xcvrConfig.port = static_cast<n_u::PORT_DEFS>(echoPortNum);
+            echoPortConfig.xcvrConfig.port = static_cast<n_u::GPIO_PORT_DEFS>(echoPortNum);
 
             /*************************************************************************
             ** TODO: RS485 half duplex? Set the GPIO to short Bulgin pins 3&4, and 5&6
