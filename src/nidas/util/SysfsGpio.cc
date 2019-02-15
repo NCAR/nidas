@@ -54,10 +54,10 @@ Cond SysfsGpio::Sync::_sysfsCondVar;
 /*
  *  Proc filesystem GPIO interface class for Rpi2
  */
-SysfsGpio::SysfsGpio(int sysfsGPIO, RPI_GPIO_DIRECTION dir)
-: _gpioN(sysfsGPIO), _foundInterface(false), _gpioFileStream(), _direction(dir)
+SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
+: _rpiGpio(rpiGPIO), _foundInterface(false), _gpioFileStream(), _direction(dir)
 {
-    if (RANGE_CHECK_INC(RPI_GPIO_MIN, _gpioN, RPI_GPIO_MAX)) {
+    if (RANGE_CHECK_INC(RPI_GPIO_MIN, _rpiGpio, RPI_GPIO_MAX)) {
         std::ifstream cpuInfoStrm(PROCFS_CPUINFO.c_str());
         std::string cpuInfoBuf;
 
@@ -76,7 +76,7 @@ SysfsGpio::SysfsGpio(int sysfsGPIO, RPI_GPIO_DIRECTION dir)
 
             if (isRaspberryPi) {
                 std::ostringstream sysfsGpioN(SYSFS_GPIO_ROOT_PATH.str());
-                sysfsGpioN << "/gpio" << _gpioN;
+                sysfsGpioN << "/gpio" << _rpiGpio;
 
                 // check to see if gpioN has been exported, and export if needed
                 if (!boost::filesystem::exists(sysfsGpioN.str())) {
@@ -86,7 +86,7 @@ SysfsGpio::SysfsGpio(int sysfsGPIO, RPI_GPIO_DIRECTION dir)
 
                     // Find the export executable?
                     if (exportStrm.good()) {
-                        exportStrm << _gpioN;
+                        exportStrm << _rpiGpio;
                         bool gpioNExists = boost::filesystem::exists(sysfsGpioN.str());
                         for (int i=0; i<5 && !gpioNExists; ++i) {
                             sleep(1);
@@ -113,19 +113,19 @@ SysfsGpio::SysfsGpio(int sysfsGPIO, RPI_GPIO_DIRECTION dir)
                                         _foundInterface = true;
                                     }
                                     else {
-                                        DLOG(("SysfsGpio::SysfsGpio(): Interface not found: No group r/w access to GPIO") << _gpioN);
+                                        DLOG(("SysfsGpio::SysfsGpio(): Interface not found: No group r/w access to GPIO") << _rpiGpio);
                                     }
                                 }
                                 else {
-                                    DLOG(("SysfsGpio::SysfsGpio(): Interface not found: GPIO") << _gpioN << "is not in group: gpio.");
+                                    DLOG(("SysfsGpio::SysfsGpio(): Interface not found: GPIO") << _rpiGpio << "is not in group: gpio.");
                                 }
                             }
                             else {
-                                DLOG(("SysfsGpio::SysfsGpio(): Interface not found: Could not stat sysfs for GPIO") << _gpioN);
+                                DLOG(("SysfsGpio::SysfsGpio(): Interface not found: Could not stat sysfs for GPIO") << _rpiGpio);
                             }
                         }
                         else {
-                            DLOG(("SysfsGpio::SysfsGpio(): Interface not found: Could not export GPIO") << _gpioN);
+                            DLOG(("SysfsGpio::SysfsGpio(): Interface not found: Could not export GPIO") << _rpiGpio);
                         }
                     }
                 }
@@ -147,9 +147,9 @@ SysfsGpio::SysfsGpio(int sysfsGPIO, RPI_GPIO_DIRECTION dir)
 
     if (ifaceFound()) {
         std::ostringstream gpioFile(SYSFS_GPIO_ROOT_PATH.str());
-        gpioFile << "/gpio" << _gpioN;
+        gpioFile << "/gpio" << _rpiGpio;
         _gpioFileStream.open(gpioFile.str().c_str(), std::_S_in| std::_S_out);
-        DLOG(("SysfsGpio::SysfsGpio(): Interface found: GPIO") << _gpioN);
+        DLOG(("SysfsGpio::SysfsGpio(): Interface found: GPIO") << _rpiGpio);
     }
 }
 
