@@ -28,67 +28,32 @@
 
 namespace nidas { namespace util {
 
-    const char* PowerCtrlAbs::STR_POWER_ON = "POWER_ON";
-    const char* PowerCtrlAbs::STR_POWER_OFF = "POWER_OFF";
+void PowerCtrlAbs::setPower(POWER_STATE newPwrState)
+{
+    newPwrState == POWER_ON ? pwrOn() : pwrOff();
+}
 
-
-    // This utility converts a string to the POWER_STATE enum
-    POWER_STATE PowerCtrlAbs::strToPowerState(const std::string powerStr)
-    {
-        if (powerStr == std::string(STR_POWER_OFF)) {
-            return POWER_OFF;
+void PowerCtrlAbs::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
+{
+    if (pwrCtrlEnabled()) {
+        if (pwrOffDelayMs) {
+            sleepUntil(pwrOffDelayMs);
         }
+        pwrOff();
 
-        if (powerStr == std::string(STR_POWER_ON)) {
-            return POWER_ON;
+        if (pwrOnDelayMs) {
+            sleepUntil(pwrOnDelayMs);
         }
-
-        return ILLEGAL_POWER;
+        pwrOn();
     }
-
-    const std::string PowerCtrlAbs::powerStateToStr(POWER_STATE sensorState)
-    {
-        switch (sensorState) {
-            case POWER_OFF:
-                return std::string(STR_POWER_OFF);
-                break;
-            case POWER_ON:
-                return std::string(STR_POWER_ON);
-                break;
-            default:
-                std::stringstream sstrm("Unknown sensor power state: ");
-                sstrm << sensorState;
-                return sstrm.str();
-                break;
-        }
+    else {
+        DLOG(("PowerCtrlAbs::pwrReset(): Power control is not enabled"));
     }
-
-    void PowerCtrlAbs::setPower(POWER_STATE newPwrState)
-    {
-        newPwrState == POWER_ON ? pwrOn() : pwrOff();
-    }
-
-    void PowerCtrlAbs::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
-    {
-        if (pwrCtrlEnabled()) {
-            if (pwrOffDelayMs) {
-                sleepUntil(pwrOffDelayMs);
-            }
-            pwrOff();
-
-            if (pwrOnDelayMs) {
-                sleepUntil(pwrOnDelayMs);
-            }
-            pwrOn();
-        }
-        else {
-            DLOG(("PowerCtrlAbs::pwrReset(): Power control is not enabled"));
-        }
-    }
-    void PowerCtrlAbs::print()
-    {
-        std::cout << "Power state: " << powerStateToStr(_pwrState) << std::endl;
-    }
+}
+void PowerCtrlAbs::print()
+{
+    std::cout << "Power state: " << powerStateToStr(_pwrState) << std::endl;
+}
 
 
 

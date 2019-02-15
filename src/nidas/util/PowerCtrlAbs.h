@@ -39,20 +39,11 @@ namespace nidas { namespace util {
 class PowerCtrlAbs : public PowerCtrlIf
 {
 public:
-    // This utility converts a string to the SENSOR_POWER_STATE enum
-    static POWER_STATE strToPowerState(const std::string powerStr);
-    // This utility converts a binary power configuration to a string
-    static const std::string powerStateToStr(POWER_STATE pwrState);
-
-    static const char* STR_POWER_ON;
-    static const char* STR_POWER_OFF;
-
-
     PowerCtrlAbs() : _pwrCtrlEnabled(false), _pwrState(ILLEGAL_POWER) {}
     virtual ~PowerCtrlAbs() {}
 
-    virtual std::string getPowerStateStr() = 0;
     virtual void updatePowerState() = 0;
+    virtual bool ifaceAvailable() = 0;
 
     virtual void enablePwrCtrl(bool enable) {_pwrCtrlEnabled = enable;}
     virtual bool pwrCtrlEnabled() {return _pwrCtrlEnabled;}
