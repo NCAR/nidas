@@ -51,6 +51,8 @@ public:
         PowerCtrlAbs::print();
     }
 
+    bool ifaceAvailable() {return SysfsGpio::ifaceFound();}
+
     std::string getPowerStateStr() {
         unsigned char rawPwr = read();
         return rawPowerToStr(rawPwr);

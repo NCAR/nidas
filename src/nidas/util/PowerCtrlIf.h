@@ -26,6 +26,7 @@
 #ifndef NIDAS_UTIL_POWERCTRLIF_H
 #define NIDAS_UTIL_POWERCTRLIF_H
 
+#include <algorithm>
 #include <stdint.h>
 
 namespace nidas { namespace util {
@@ -34,6 +35,46 @@ namespace nidas { namespace util {
  * Sensor power setting
  */
 typedef enum {ILLEGAL_POWER=-1, POWER_OFF=0, POWER_ON, POWER_RESETTING} POWER_STATE;
+
+static const char* STR_POWER_ON = "POWER_ON";
+static const char* STR_POWER_OFF = "POWER_OFF";
+
+// This utility converts a string to the POWER_STATE enum
+inline POWER_STATE strToPowerState(const std::string powerStr)
+{
+    std::string xformStr(powerStr);
+    std::transform(powerStr.begin(), powerStr.end(), xformStr.begin(), ::toupper);
+    if (xformStr == std::string(STR_POWER_OFF)
+        || xformStr == std::string("OFF")
+        || xformStr == std::string("0")) {
+        return POWER_OFF;
+    }
+
+    if (powerStr == std::string(STR_POWER_ON)
+        || xformStr == std::string("ON")
+        || xformStr == std::string("1")) {
+        return POWER_ON;
+    }
+
+    return ILLEGAL_POWER;
+}
+
+inline const std::string powerStateToStr(POWER_STATE sensorState)
+{
+    switch (sensorState) {
+        case POWER_OFF:
+            return std::string(STR_POWER_OFF);
+            break;
+        case POWER_ON:
+            return std::string(STR_POWER_ON);
+            break;
+        default:
+            std::stringstream sstrm("Unknown sensor power state: ");
+            sstrm << sensorState;
+            return sstrm.str();
+            break;
+    }
+}
 
 
 /*
@@ -52,6 +93,9 @@ public:
     virtual void pwrOff() = 0;
     virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0) = 0;
     virtual bool pwrIsOn() = 0;
+    virtual void print() = 0;
+    virtual bool ifaceAvailable() = 0;
+    virtual void updatePowerState() = 0;
 };
 
 }} //namespace nidas { namespace util {
