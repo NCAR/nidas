@@ -55,28 +55,26 @@ POWER_STATE SensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 SensorPowerCtrl::SensorPowerCtrl(GPIO_PORT_DEFS port)
-: PowerCtrlAbs(), _port(port), _pPwrCtrl(0)
+: PowerCtrlIf(), _port(port), _pPwrCtrl(0)
 {
     // always assume new USB FTDI board first...
-    GpioIF* pGpio = new FtdiSensorPowerCtrl(port);
-    if (pGpio) {
-        if (!pGpio->ifaceFound()) {
-            delete pGpio;
+    _pPwrCtrl = new FtdiSensorPowerCtrl(port);
+    if (_pPwrCtrl) {
+        if (!_pPwrCtrl->ifaceAvailable()) {
+            delete _pPwrCtrl;
 
-            pGpio = new SysfsSensorPowerCtrl(port);
-            if (pGpio) {
-                if (!pGpio->ifaceFound()) {
-                    delete pGpio;
-                    pGpio = 0;
-                }
+            _pPwrCtrl = new SysfsSensorPowerCtrl(port);
+            if (!_pPwrCtrl) {
+                DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Failed to instantiate SysfsSensorPowerCtrl object!!"));
+                throw Exception("SensorPowerCtrl::SensorPowerCtrl()", "Failed to reserve memory for SysfsSensorPowerCtrl object.");
             }
         }
-
-        if (pGpio) {
-            _pPwrCtrl = dynamic_cast<PowerCtrlAbs*>(pGpio);
-
-        }
     }
+    else {
+        DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Failed to instantiate FtdiSensorPowerCtrl object!!"));
+        throw Exception("SensorPowerCtrl::SensorPowerCtrl()", "Failed to reserve memory for FtdiSensorPowerCtrl object.");
+    }
+
     updatePowerState();
 }
 
@@ -98,6 +96,7 @@ void SensorPowerCtrl::updatePowerState()
 {
     if (_pPwrCtrl) {
         _pPwrCtrl->updatePowerState();
+        setPowerState(_pPwrCtrl->getPowerState());
     }
 }
 

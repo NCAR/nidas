@@ -28,14 +28,14 @@
 
 #include "XcvrGPIO.h"
 #include "SysfsGpio.h"
-#include "PowerCtrlAbs.h"
+#include "PowerCtrlIf.h"
 
 namespace nidas { namespace util {
 
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class SensorPowerCtrl : public PowerCtrlAbs
+class SensorPowerCtrl : public PowerCtrlIf
 {
 public:
     SensorPowerCtrl(GPIO_PORT_DEFS port);
@@ -49,14 +49,66 @@ public:
     virtual void print()
     {
         std::cout << "Port" << _port << " ";
-        PowerCtrlAbs::print();
+        _pPwrCtrl->print();
     }
 
-    std::string getPowerStateStr() {
-        return _pPwrCtrl->getPowerStateStr();
+    virtual bool ifaceAvailable() { return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : true; }
+
+    virtual void updatePowerState();
+    virtual void enablePwrCtrl(bool enable)
+    {
+        if (_pPwrCtrl) {
+            _pPwrCtrl->enablePwrCtrl(enable);
+        }
     }
 
-    void updatePowerState();
+    virtual void setPower(POWER_STATE pwrState)
+    {
+        if (_pPwrCtrl) {
+            _pPwrCtrl->setPower(pwrState);
+        }
+    }
+
+    virtual void setPowerState(POWER_STATE pwrState)
+    {
+        if (_pPwrCtrl) {
+            _pPwrCtrl->setPowerState(pwrState);
+        }
+    }
+
+    virtual POWER_STATE getPowerState()
+    {
+        POWER_STATE retval = ILLEGAL_POWER;
+        if (_pPwrCtrl) {
+            retval = _pPwrCtrl->getPowerState();
+        }
+        return retval;
+    }
+
+    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
+    {
+        if (_pPwrCtrl) {
+            _pPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
+        }
+    }
+
+    virtual bool pwrIsOn()
+    {
+        bool retval = false;
+        if (_pPwrCtrl) {
+            retval = _pPwrCtrl->pwrIsOn();
+        }
+        return retval;
+    }
+
+    virtual bool pwrCtrlEnabled()
+    {
+        bool retval = false;
+        if (_pPwrCtrl) {
+            retval = _pPwrCtrl->pwrCtrlEnabled();
+        }
+        return retval;
+    }
 
     // This utility converts a binary power configuration to a string
     static const std::string rawPowerToStr(unsigned char powerCfg);
@@ -65,7 +117,7 @@ public:
 
 private:
     GPIO_PORT_DEFS _port;
-    PowerCtrlAbs* _pPwrCtrl;
+    PowerCtrlIf* _pPwrCtrl;
 
     /*
      *  No copying
