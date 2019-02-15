@@ -285,6 +285,16 @@ public:
     /**
      *  PowerCtrlIf virtual overrides using _pSensrPwrCtrl as functionality provider
      */
+
+    virtual bool ifaceAvailable()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl)
+        {
+            retval = _pSensrPwrCtrl->ifaceAvailable();
+        }
+        return retval;
+    }
     virtual void enablePwrCtrl(bool enable)
     {
         if (_pSensrPwrCtrl)
@@ -332,7 +342,7 @@ public:
     std::string getPowerStateStr() {
         std::string retval = "No Power Ctrl";
         if (_pSensrPwrCtrl) {
-            retval = _pSensrPwrCtrl->getPowerStateStr();
+            retval = powerStateToStr(_pSensrPwrCtrl->getPowerState());
         }
 
         return retval;
@@ -382,13 +392,17 @@ public:
 
     virtual void printPowerState()
     {
+        print();
+    }
+
+    virtual void print()
+    {
         if (_pSensrPwrCtrl)
         {
             _pSensrPwrCtrl->updatePowerState();
             _pSensrPwrCtrl->print();
         }
     }
-
 protected:
 
     /**
