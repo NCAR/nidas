@@ -55,7 +55,7 @@ POWER_STATE SysfsSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 SysfsSensorPowerCtrl::SysfsSensorPowerCtrl(GPIO_PORT_DEFS port)
-: SysfsGpio(port), PowerCtrlAbs(), _port(port)
+: SysfsGpio(gpioPort2RpiGpio(port)), PowerCtrlAbs(), _port(port)
 {
     updatePowerState();
 }
