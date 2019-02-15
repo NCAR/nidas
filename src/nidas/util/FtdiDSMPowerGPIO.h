@@ -36,7 +36,7 @@ namespace nidas { namespace util {
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
  */
-class FtdiPowerGPIO
+class FtdiDSMPowerGPIO : public GpioIF
 {
 public:
     /*
@@ -51,7 +51,7 @@ public:
     public:
         // TODO: When the reworked FTDI USB Serial Interface board comes out then the FTDI interface used
         //       for DSM power control will be INTERFACE_C
-        Sync(FtdiPowerGPIO* me) : Synchronized(_ifaceACondVar), _me(me)
+        Sync(FtdiDSMPowerGPIO* me) : Synchronized(_ifaceACondVar), _me(me)
         {
             DLOG(("Synced on interface A"));
         }
@@ -62,7 +62,7 @@ public:
         }
     private:
         static Cond _ifaceACondVar;
-        FtdiPowerGPIO* _me;
+        FtdiDSMPowerGPIO* _me;
 
 
         // no copying
@@ -71,12 +71,12 @@ public:
         Sync& operator=(Sync& rRight);
     };
 
-    FtdiPowerGPIO()
+    FtdiDSMPowerGPIO()
     : _pFtdiDevice(0), _shadow(0)
     {
         try {
             // See TODO above
-            _pFtdiDevice = getFtdiDevice(FTDI_GPIO, INTERFACE_A);
+            _pFtdiDevice = getFtdiDevice(FTDI_I2C, INTERFACE_A);
         }
         catch (InvalidParameterException& e) {
             _pFtdiDevice = 0;
@@ -87,29 +87,11 @@ public:
         }
     }
 
-    virtual ~FtdiPowerGPIO()
+    virtual ~FtdiDSMPowerGPIO()
     {
         DLOG(("PowerGPIO::~PowerGPIO(): destructing..."));
         // don't delete _pFtdiDevice, because someone else may be using it
         _pFtdiDevice = 0;
-    }
-
-    virtual void write(unsigned char bits, unsigned char mask)
-    {
-        unsigned char rawBits = _shadow;
-        if (ifaceFound()) {
-            rawBits = _pFtdiDevice->read();
-            DLOG(("PowerGPIO::write(): Raw bits: 0x%0x", rawBits));
-            rawBits &= mask;
-            rawBits |= bits;
-            DLOG(("PowerGPIO::write(): New bits: 0x%0x", rawBits));
-            _pFtdiDevice->write(rawBits);
-        }
-        else {
-            rawBits &= mask;
-            rawBits |= bits;
-            _shadow = rawBits;
-        }
     }
 
     virtual unsigned char read()
@@ -121,6 +103,31 @@ public:
         return retval;
     }
 
+    virtual void write(unsigned char bits)
+    {
+        if (ifaceFound()) {
+            _pFtdiDevice->write(bits);
+        }
+    }
+
+    virtual void write(unsigned char bits, unsigned char mask)
+    {
+        unsigned char rawBits = _shadow;
+        if (ifaceFound()) {
+            rawBits = _pFtdiDevice->read();
+            DLOG(("PowerGPIO::write(): Raw bits: 0x%0x", rawBits));
+            rawBits &= mask;
+            rawBits |= bits;
+            DLOG(("PowerGPIO::write(): New bits: 0x%0x", rawBits));
+            write(rawBits);
+        }
+        else {
+            rawBits &= mask;
+            rawBits |= bits;
+            _shadow = rawBits;
+        }
+    }
+
     ftdi_interface getInterface()
     {
         ftdi_interface retval = INTERFACE_A;
@@ -130,8 +137,6 @@ public:
         return retval;
     }
 
-
-protected:
     bool ifaceFound()
     {
         bool retval = false;
@@ -151,9 +156,9 @@ private:
      *  No copying
      */
 
-    FtdiPowerGPIO(const FtdiPowerGPIO&);
-    FtdiPowerGPIO& operator=(FtdiPowerGPIO&);
-    const FtdiPowerGPIO& operator=(const FtdiPowerGPIO&);
+    FtdiDSMPowerGPIO(const FtdiDSMPowerGPIO&);
+    FtdiDSMPowerGPIO& operator=(FtdiDSMPowerGPIO&);
+    const FtdiDSMPowerGPIO& operator=(const FtdiDSMPowerGPIO&);
 };
 
 }} //namespace nidas { namespace util {
