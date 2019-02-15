@@ -166,6 +166,10 @@ ss = env.Program('serstress.cc', LIBS=['usb-1.0', 'ftdi1', 'nidas_util', 'nidas'
 env.Install('$PREFIX/bin', ss)
 env.Alias('serstress', ss)
 
+pio = env.Program('pio.cc', LIBS=['usb-1.0', 'ftdi1', 'nidas_util', 'nidas'])
+env.Install('$PREFIX/bin', pio)
+env.Alias('pio', pio)
+
 if 'viper' in machs:
     # controls DIO pins on a Viper
     env.NidasProgram('viper_dio.cc')

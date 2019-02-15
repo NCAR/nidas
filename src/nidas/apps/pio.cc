@@ -46,6 +46,7 @@
 #include "nidas/core/NidasApp.h"
 #include "nidas/util/SensorPowerCtrl.h"
 #include "nidas/util/DSMPowerCtrl.h"
+#include "nidas/util/util.h"
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -53,8 +54,8 @@ using namespace nidas::util;
 // global bool used to determine whether to use the old /proc filesystem control, or the new FTDI control.
 bool useFTDICtrl = true;
 
-typedef std::map<std::string, int> DeviceArgMapType;
-typedef std::pair<std::string, int> DeviceArgMapPair;
+typedef std::map<std::string, GPIO_PORT_DEFS> DeviceArgMapType;
+typedef std::pair<std::string, GPIO_PORT_DEFS> DeviceArgMapPair;
 
 DeviceArgMapType deviceArgMap;
 
@@ -64,11 +65,11 @@ NidasApp app("pio");
 
 NidasAppArg Device("-d,--device-id", "<0>",
         		 "DSM devices which power setting are managed - \n"
-		         "     0-7   - Sensor ports 0-7\n"
-                 "     28V   - 28 volt power port\n"
-                 "     aux   - auxiliary power port - typically used to power another DSM\n"
-                 "     bank1 - bank1 12V power port - powers Serial IO Panel\n"
-                 "     bank2 - bank2 12V power port\n",
+		         "     0-7         - Sensors 0-7 port power \n"
+                 "     28V         - 28 volt power port\n"
+                 "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
+                 "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
+                 "     bank2|BANK2 - bank2 12V power port\n",
                  "");
 NidasAppArg Map("-m,--map", "",
 			      "Output the devices which power can be controlled and exit", "");
@@ -101,25 +102,15 @@ int usage(const char* argv0)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.loggingArgs() | app.Version | app.Help
+    app.enableArguments(app.loggingArgs() | app.Help
     		            | Device | Map | View | Power);
 
     ArgVector args = app.parseArgs(argc, argv);
-    if (app.helpRequested())
+    if (app.helpRequested() || argc < 2)
     {
         return usage(argv[0]);
     }
     return 0;
-}
-
-/*************************************************
- *
- * TODO: Move all rpi2_gpio into the NIDAS util lib
- *
- *************************************************/
-int executeRpiGPIO(int argc, char* argv[])
-{
-   return exec("/usr/bin/rpi2_gpio", argc, argv);
 }
 
 void printDevice(std::string device, int port)
@@ -139,7 +130,7 @@ void printAll()
     std::cout << "Current Power Settings" << std::endl
               << "----------------------" << std::endl
               << "Device          Setting"<< std::endl;
-    for (DeviceArgMapType::iterator iter = deviceArgMap.begin;
+    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
          iter != deviceArgMap.end();
          iter++) {
         printDevice(iter->first, iter->second);
@@ -155,35 +146,41 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
     deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
     deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("28V"), PWR_DEVICE_28V));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_DEVICE_AUX));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_DEVICE_BANK1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_DEVICE_BANK2));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("28V"), PWR_28V));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
 
     if (parseRunString(argc, argv))
         exit(1);
 
     // check the options first
-    DLOG(("Map Option Flag Set: ") << Map.specified() ? "true" : "false");
+    DLOG(("Map Option Flag Set: ") << (Map.specified() ? "true" : "false"));
     if (Map.specified()) {
-        Device.usage();
+        std::cout << Device.usage();
         return 0;
     }
 
     DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
     if (View.specified()) {
         std::string value(View.getValue());
-        std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+        if (value.length()) {
+            std::transform(value.begin(), value.end(), value.begin(), ::toupper);
 
-        if (value == "ALL") {
-            printAll();
-            return 0;
+            if (value == "ALL") {
+                printAll();
+                return 0;
+            }
         }
     }
 
     DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
+    GPIO_PORT_DEFS deviceArg = ILLEGAL_PORT;
     if (Device.specified()) {
-        if (!(1)) {
+        std::string deviceArgStr(Device.getValue());
+        std::transform(deviceArgStr.begin(), deviceArgStr.end(), deviceArgStr.begin(), ::toupper);
+        deviceArg = deviceArgMap[deviceArgStr];
+        if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, PWR_BANK2))) {
             std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
             return 2;
         }
@@ -191,15 +188,28 @@ int main(int argc, char* argv[]) {
 
     else 
     {
-        std::cerr << "Must device ID option on the command line.\n" << std::endl;
+        std::cerr << "Must provide the device ID option on the command line.\n" << std::endl;
         usage(argv[0]);
         return 3;
     }
 
+    PowerCtrlIf* pPwrCtrl = 0;
+    if (deviceArg < PWR_28V) {
+        pPwrCtrl = new SensorPowerCtrl(deviceArg);
+    }
+    else {
+        pPwrCtrl = new DSMPowerCtrl(deviceArg);
+    }
+
+    if (!pPwrCtrl) {
+        std::cerr << "pio: failed to instantiate power control object for: " << gpio2Str(deviceArg);
+        return -1;
+    }
+    PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
+
     // print out the existing power state of the device
     std::cout << std::endl << "Current Device Power State" << std::endl << "========================" << std::endl;
-    SensorPowerCtrl sensrPwrCtrl((n_u::GPIO_PORT_DEFS)Port.asInt());
-    sensrPwrCtrl.print();
+    rPwrCtrl.print();
 
     if (View.specified()) {
         return 0;
@@ -209,14 +219,14 @@ int main(int argc, char* argv[]) {
         std::string pwrStr(Power.getValue());
         DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
         std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-        POWER_STATE power = PowerCtrlAbs::strToPowerState(pwrStr);
+        POWER_STATE power = strToPowerState(pwrStr);
         if (power != ILLEGAL_POWER) {
-            sensrPwrCtrl.enablePwrCtrl(true);
-            power == POWER_ON ? sensrPwrCtrl.pwrOn() : sensrPwrCtrl.pwrOff();
+            rPwrCtrl.enablePwrCtrl(true);
+            power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
         }
         else
         {
-            std::cerr << "Unknown/Illegal/Missing power state argument: " << State.getValue() << std::endl;
+            std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
             usage(argv[0]);
             return 5;
         }
@@ -224,7 +234,7 @@ int main(int argc, char* argv[]) {
 
     // print out the new power state
     std::cout << std::endl << "New Power State" << std::endl << "====================" << std::endl;
-    sensrPwrCtrl.print();
+    rPwrCtrl.print();
 
     // all good, return 0
     return 0;
