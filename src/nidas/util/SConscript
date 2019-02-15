@@ -43,7 +43,8 @@ headers = [ Split("""
     ParseException.h
     PowerCtrlIf.h
     PowerCtrlAbs.h
-    FtdiPowerGPIO.h
+    FtdiDSMPowerCtrl.h
+    FtdiDSMPowerGPIO.h
     FtdiSensorPowerCtrl.h
     Process.h
     ptytools.h
@@ -53,6 +54,7 @@ headers = [ Split("""
     SocketAddress.h
     Socket.h
     SysfsGpio.h
+    SysfsDSMPowerCtrl.h
     SysfsSensorPowerCtrl.h
     Termios.h
     Thread.h
@@ -78,6 +80,8 @@ sources = [ Split("""
     Exception.cc
     FileSet.cc
     FtdiHW.cc
+    FtdiDSMPowerCtrl.cc
+    FtdiDSMPowerGPIO.cc
     FtdiSensorPowerCtrl.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
@@ -85,7 +89,6 @@ sources = [ Split("""
     Logger.cc
     McSocket.cc
     PowerCtrlAbs.cc
-    FtdiPowerGPIO.cc
     Process.cc
     ptytools.cc
     SensorPowerCtrl.cc
@@ -93,6 +96,7 @@ sources = [ Split("""
     SerialPort.cc
     Socket.cc
     SysfsGpio.cc
+    SysfsDSMPowerCtrl.cc
     SysfsSensorPowerCtrl.cc
     Termios.cc
     Thread.cc
