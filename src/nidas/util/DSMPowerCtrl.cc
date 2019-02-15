@@ -25,70 +25,30 @@
 */
 
 #include "DSMPowerCtrl.h"
+#include "FtdiDSMPowerCtrl.h"
+#include "SysfsDSMPowerCtrl.h"
 
 namespace nidas { namespace util {
 
-const std::string DSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
+DSMPowerCtrl::DSMPowerCtrl(GPIO_PORT_DEFS gpio)
+: PowerCtrlIf(), _pPwrCtrl(0)
 {
-    std::string powerStr("");
-    if (powerCfg & pwrIface2bits(getPwrIface())) {
-        powerStr.append(STR_POWER_ON);
+    _pPwrCtrl = new FtdiDSMPowerCtrl(gpio);
+    if (_pPwrCtrl) {
+        if (!_pPwrCtrl->ifaceAvailable()) {
+            delete _pPwrCtrl;
+            _pPwrCtrl = new SysfsDSMPowerCtrl(gpio);
+            if (!_pPwrCtrl) {
+                DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Failed to instantiate SysfsDSMPowerCtrl object!!"));
+                throw Exception("DSMPowerCtrl::DSMPowerCtrl()", "Failed to reserve memory for SysfsDSMPowerCtrl object.");
+            }
+        }
     }
     else {
-        powerStr.append(STR_POWER_OFF);
-    }
-
-    return powerStr;
-}
-
-POWER_STATE DSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
-{
-    POWER_STATE retval = POWER_OFF;
-    if (powerCfg & pwrIface2bits(getPwrIface())) {
-        retval = POWER_ON;
-    }
-
-    return retval;
-}
-
-
-DSMPowerCtrl::DSMPowerCtrl(DSM_POWER_IFACES iface)
-: FtdiPowerGPIO(), PowerCtrlAbs(), _iface(iface)
-{
-    updatePowerState();
-}
-
-void DSMPowerCtrl::pwrOn()
-{
-    if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(pwrIface2bits(getPwrIface()), pwrIface2bits(getPwrIface()));
-    }
-    else {
-        ILOG(("DSMPowerCtrl::DSMPowerCtrl(): Power control for device: ") << pwrIface2Str(getPwrIface())
-        																  << " is not enabled");
+        DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Failed to instantiate FtdiDSMPowerCtrl object!!"));
+        throw Exception("DSMPowerCtrl::DSMPowerCtrl()", "Failed to reserve memory for FtdiDSMPowerCtrl object.");
     }
     updatePowerState();
-}
-
-void DSMPowerCtrl::pwrOff()
-{
-    if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(0, pwrIface2bits(getPwrIface()));
-    }
-    else {
-        ILOG(("DSMPowerCtrl::DSMPowerCtrl(): Power control for device: ") << pwrIface2Str(getPwrIface())
-        																  << " is not enabled");
-    }
-    updatePowerState();
-}
-
-void DSMPowerCtrl::updatePowerState()
-{
-    Sync sync(this);
-    setPowerState(rawPowerToState(read()));
-    DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
 }
 
 }} //namespace nidas { namespace util {
