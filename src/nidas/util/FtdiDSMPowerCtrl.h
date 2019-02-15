@@ -23,79 +23,38 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_UTIL_DSMPOWERCTRL_H
-#define NIDAS_UTIL_DSMPOWERCTRL_H
+#ifndef NIDAS_UTIL_FTDIDSMPOWERCTRL_H
+#define NIDAS_UTIL_FTDIDSMPOWERCTRL_H
 
-#include "FtdiPowerGPIO.h"
+#include "FtdiDSMPowerGPIO.h"
 #include "PowerCtrlAbs.h"
 
 namespace nidas { namespace util {
-
-enum DSM_POWER_IFACES
-{
-	PWR_DEVICE_ILLEGAL = -1,
-	PWR_DEVICE_28V,		// any device can use this
-	PWR_DEVICE_AUX,		// typically used by another DSM
-	PWR_DEVICE_BANK1,	// turns off the serial panel power altogether (all sensors)
-	PWR_DEVICE_BANK2,	// turns of the FTDI board  (TODO: This changes in next board turn!)
-	NUM_PWR_DEVICES
-};
 
 const unsigned char PWR_BITS_28V = 0b00000001;
 const unsigned char PWR_BITS_AUX = 0b00000010;
 const unsigned char PWR_BITS_BANK1 = 0b00000100;
 const unsigned char PWR_BITS_BANK2 = 0b00001000;
-const char* PWR_IFACE_STR_ILLEGAL = "DSM_PWR_IFACE_ILLEGAL";
-const char* PWR_IFACE_STR_28V =     "DSM_PWR_IFACE_28V";
-const char* PWR_IFACE_STR_AUX =     "DSM_PWR_IFACE_AUX";
-const char* PWR_IFACE_STR_BANK1 =   "DSM_PWR_IFACE_BANK1";
-const char* PWR_IFACE_STR_BANK2 =   "DSM_PWR_IFACE_BANK2";
 
-inline unsigned char pwrIface2bits(DSM_POWER_IFACES iface) {
+inline unsigned char pwrGpio2bits(GPIO_PORT_DEFS gpio) {
 	unsigned char retval = 0;
 
-	switch (iface) {
-	case PWR_DEVICE_28V:
+	switch (gpio) {
+	case PWR_28V:
 		retval = PWR_BITS_28V;
 		break;
-	case PWR_DEVICE_AUX:
+	case PWR_AUX:
 		retval = PWR_BITS_AUX;
 		break;
-	case PWR_DEVICE_BANK1:
+	case PWR_BANK1:
 		retval = PWR_BITS_BANK1;
 		break;
-	case PWR_DEVICE_BANK2:
+	case PWR_BANK2:
 		retval = PWR_BITS_BANK2;
 		break;
-	case PWR_DEVICE_ILLEGAL:
+	case ILLEGAL_PORT:
 	default:
-		DLOG(("pwrDevice2Bits(): Unknown power iface ID") << iface);
-		break;
-	}
-
-	return retval;
-}
-
-inline std::string pwrIface2Str(DSM_POWER_IFACES iface) {
-	std::string retval;
-
-	switch (iface) {
-	case PWR_DEVICE_28V:
-		retval.append(PWR_IFACE_STR_28V);
-		break;
-	case PWR_DEVICE_AUX:
-		retval.append(PWR_IFACE_STR_AUX);
-		break;
-	case PWR_DEVICE_BANK1:
-		retval.append(PWR_IFACE_STR_BANK1);
-		break;
-	case PWR_DEVICE_BANK2:
-		retval.append(PWR_IFACE_STR_BANK2);
-		break;
-	case PWR_DEVICE_ILLEGAL:
-	default:
-		retval.append(PWR_IFACE_STR_ILLEGAL);
-		DLOG(("pwrDevice2Bits(): Unknown power iface ID") << iface);
+		DLOG(("pwrGpio2Bits(): Unknown power gpio ID") << gpio);
 		break;
 	}
 
@@ -105,24 +64,26 @@ inline std::string pwrIface2Str(DSM_POWER_IFACES iface) {
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class DSMPowerCtrl : public FtdiPowerGPIO, public PowerCtrlAbs
+class FtdiDSMPowerCtrl : public FtdiDSMPowerGPIO, public PowerCtrlAbs
 {
 public:
-    DSMPowerCtrl(DSM_POWER_IFACES device);
-    virtual ~DSMPowerCtrl()
+    FtdiDSMPowerCtrl(GPIO_PORT_DEFS gpio);
+    virtual ~FtdiDSMPowerCtrl()
     {
-        DLOG(("DSMPowerCtrl::~DSMPowerCtrl(): destructing..."));
+        DLOG(("FtdiDSMPowerCtrl::~FtdiDSMPowerCtrl(): destructing..."));
     }
 
     virtual void pwrOn();
     virtual void pwrOff();
     virtual void print()
     {
-        std::cout << "Power Device" << pwrIface2Str(getPwrIface()) << " ";
+        std::cout << "Power Device" << gpio2Str(getPwrIface()) << " ";
         PowerCtrlAbs::print();
     }
 
-    DSM_POWER_IFACES getPwrIface() {return _iface;}
+    bool ifaceAvailable() {return FtdiDSMPowerGPIO::ifaceFound(); }
+
+    GPIO_PORT_DEFS getPwrIface() {return _iface;}
 
     std::string getPowerStateStr() {
         return rawPowerToStr(read());
@@ -135,9 +96,9 @@ public:
     POWER_STATE rawPowerToState(unsigned char powerCfg);
 
 private:
-    DSM_POWER_IFACES _iface;
+    GPIO_PORT_DEFS _iface;
 };
 
 }} //namespace nidas { namespace util {
 
-#endif //NIDAS_UTIL_DSMPOWERCTRL_H
+#endif //NIDAS_UTIL_FTDIDSMPOWERCTRL_H

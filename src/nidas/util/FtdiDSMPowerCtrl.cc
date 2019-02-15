@@ -24,14 +24,14 @@
  ********************************************************************
 */
 
-#include "DSMPowerCtrl.h"
+#include "FtdiDSMPowerCtrl.h"
 
 namespace nidas { namespace util {
 
-const std::string DSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
+const std::string FtdiDSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
     std::string powerStr("");
-    if (powerCfg & pwrIface2bits(getPwrIface())) {
+    if (powerCfg & pwrGpio2bits(getPwrIface())) {
         powerStr.append(STR_POWER_ON);
     }
     else {
@@ -41,10 +41,10 @@ const std::string DSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
     return powerStr;
 }
 
-POWER_STATE DSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
+POWER_STATE FtdiDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
     POWER_STATE retval = POWER_OFF;
-    if (powerCfg & pwrIface2bits(getPwrIface())) {
+    if (powerCfg & pwrGpio2bits(getPwrIface())) {
         retval = POWER_ON;
     }
 
@@ -52,39 +52,39 @@ POWER_STATE DSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 }
 
 
-DSMPowerCtrl::DSMPowerCtrl(DSM_POWER_IFACES iface)
-: FtdiPowerGPIO(), PowerCtrlAbs(), _iface(iface)
+FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(GPIO_PORT_DEFS gpio)
+: FtdiDSMPowerGPIO(), PowerCtrlAbs(), _iface(gpio)
 {
     updatePowerState();
 }
 
-void DSMPowerCtrl::pwrOn()
+void FtdiDSMPowerCtrl::pwrOn()
 {
     if (pwrCtrlEnabled()) {
         Sync sync(this);
-        write(pwrIface2bits(getPwrIface()), pwrIface2bits(getPwrIface()));
+        write(pwrGpio2bits(getPwrIface()), pwrGpio2bits(getPwrIface()));
     }
     else {
-        ILOG(("DSMPowerCtrl::DSMPowerCtrl(): Power control for device: ") << pwrIface2Str(getPwrIface())
+        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrIface())
         																  << " is not enabled");
     }
     updatePowerState();
 }
 
-void DSMPowerCtrl::pwrOff()
+void FtdiDSMPowerCtrl::pwrOff()
 {
     if (pwrCtrlEnabled()) {
         Sync sync(this);
-        write(0, pwrIface2bits(getPwrIface()));
+        write(0, pwrGpio2bits(getPwrIface()));
     }
     else {
-        ILOG(("DSMPowerCtrl::DSMPowerCtrl(): Power control for device: ") << pwrIface2Str(getPwrIface())
+        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrIface())
         																  << " is not enabled");
     }
     updatePowerState();
 }
 
-void DSMPowerCtrl::updatePowerState()
+void FtdiDSMPowerCtrl::updatePowerState()
 {
     Sync sync(this);
     setPowerState(rawPowerToState(read()));
