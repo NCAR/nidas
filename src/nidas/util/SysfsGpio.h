@@ -139,7 +139,7 @@ public:
 private:
     RPI_PWR_GPIO _rpiGpio;
     bool _foundInterface;
-    std::fstream _gpioFileStream;
+    std::ostringstream _gpioValueFile;
     RPI_GPIO_DIRECTION _direction;
 
 };

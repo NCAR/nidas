@@ -41,6 +41,8 @@
 #include "InvalidParameterException.h"
 #include "util.h"
 
+namespace bf = boost::filesystem;
+
 namespace nidas { namespace util {
 
 static const std::string PROCFS_CPUINFO = "/proc/cpuinfo";
@@ -52,49 +54,68 @@ static const int RPI_GPIO_MAX = 27;
 Cond SysfsGpio::Sync::_sysfsCondVar;
 
 /*
- *  Proc filesystem GPIO interface class for Rpi2
+ *  Sysfs GPIO interface class for Rpi2
  */
 SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
-: _rpiGpio(rpiGPIO), _foundInterface(false), _gpioFileStream(), _direction(dir)
+: _rpiGpio(rpiGPIO), _foundInterface(false),
+  _gpioValueFile(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app),
+  _direction(dir)
 {
+    bool gpioNAlreadyExists = false;
+    bool gpioNExported = false;
+
+    DLOG(("SysfsGpio::SysfsGpio(): Checking range of rpiGPIO: ") << rpiGPIO);
     if (RANGE_CHECK_INC(RPI_GPIO_MIN, _rpiGpio, RPI_GPIO_MAX)) {
+        DLOG(("SysfsGpio::SysfsGpio(): Try to open /proc/cpuinfo in an ifstream..."));
         std::ifstream cpuInfoStrm(PROCFS_CPUINFO.c_str());
         std::string cpuInfoBuf;
 
         // check that procfs is implemented...
         if (cpuInfoStrm.good()) {
-            cpuInfoStrm.seekg(0, std::ios::end);
-            cpuInfoBuf.reserve(cpuInfoStrm.tellg());
-            cpuInfoStrm.seekg(0, std::ios::beg);
-
+            DLOG(("SysfsGpio::SysfsGpio(): Can open /proc/cpuinfo"));
+            DLOG(("SysfsGpio::SysfsGpio(): Copying data out of /proc/cpuinfo into string buf"));
             cpuInfoBuf.assign((std::istreambuf_iterator<char>(cpuInfoStrm)),
                                std::istreambuf_iterator<char>());
 
+            DLOG(("SysfsGpio::SysfsGpio(): Found the following in procfs cpuinfo: ") << cpuInfoBuf);
+
             // check for Rpi...
+            DLOG(("SysfsGpio::SysfsGpio(): Checking for Raspberry Pi system..."));
             boost::cmatch results;
             bool isRaspberryPi = boost::regex_search(cpuInfoBuf.c_str(), results, RPI2_DETECTOR);
 
             if (isRaspberryPi) {
-                std::ostringstream sysfsGpioN(SYSFS_GPIO_ROOT_PATH.str());
+                DLOG(("SysfsGpio::SysfsGpio(): Found Raspberry Pi system, checking to see if GPIO is already exported."));
+                std::ostringstream sysfsGpioN(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
                 sysfsGpioN << "/gpio" << _rpiGpio;
 
                 // check to see if gpioN has been exported, and export if needed
-                if (!boost::filesystem::exists(sysfsGpioN.str())) {
-                    std::ostringstream sysfsGpioExport(SYSFS_GPIO_ROOT_PATH.str());
+                if (!bf::exists(bf::path(sysfsGpioN.str().c_str()))) {
+                    DLOG(("SysfsGpio::SysfsGpio(): GPIO is not exported - attempting export to: ") << sysfsGpioN.str());
+                    std::ostringstream sysfsGpioExport(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
                     sysfsGpioExport << "/export";
-                    std::ofstream exportStrm(sysfsGpioExport.str().c_str());
+                    DLOG(("SysfsGpio::SysfsGpio(): Export to: ") << sysfsGpioExport.str());
+                    std::ofstream exportStrm(sysfsGpioExport.str().c_str(), std::ios_base::out|std::ios_base::app);
 
                     // Find the export executable?
                     if (exportStrm.good()) {
+                        DLOG(("SysfsGpio::SysfsGpio(): Export file is opened successfully. Exporting GPIO ID ") << _rpiGpio);
                         exportStrm << _rpiGpio;
-                        bool gpioNExists = boost::filesystem::exists(sysfsGpioN.str());
-                        for (int i=0; i<5 && !gpioNExists; ++i) {
+                        exportStrm.close();
+                        sleep(1);
+                        // We use symlink_status() because we know in advance that /sys/class/gpio/gpioN is a symbolic link.
+                        bf::file_status gpioFileStatus = bf::symlink_status(bf::path(sysfsGpioN.str().c_str()));
+                        gpioNExported = bf::is_symlink(gpioFileStatus);
+                        DLOG(("SysfsGpio::SysfsGpio(): ") << sysfsGpioN.str() << (gpioNExported ? " exported." : " not exported yet."));
+                        for (int i=0; i<10 && !gpioNAlreadyExists; ++i) {
                             sleep(1);
-                            gpioNExists = boost::filesystem::exists(sysfsGpioN.str());
+                            gpioFileStatus = bf::symlink_status(bf::path(sysfsGpioN.str().c_str()));
+                            gpioNAlreadyExists = bf::is_symlink(gpioFileStatus);
                         }
 
                         // did the export work?
-                        if (gpioNExists) {
+                        if (gpioNExported) {
+                            DLOG(("SysfsGpio::SysfsGpio(): GPIO successfully exported. Checking group id..."));
                             // check the group - should have gpio assigned by udev...
                             struct stat fInfo;
                             if (!stat(sysfsGpioN.str().c_str(), &fInfo)) {
@@ -103,13 +124,14 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
                                 // did udev set the gpioN file to the correct gpio group?
                                 if (pGroup && std::string("gpio") == pGroup->gr_name) {
 
+                                    DLOG(("SysfsGpio::SysfsGpio(): gpio group ID checks out..."));
                                     // check group permissions
-                                    boost::filesystem::file_status gpioFileStatus;
-                                    gpioFileStatus.permissions(boost::filesystem::owner_read|boost::filesystem::owner_write
-                                                          |boost::filesystem::group_read|boost::filesystem::group_write);
+                                    bool groupPermsOk = gpioFileStatus.permissions()
+                                                        && (bf::group_read|bf::group_write);
 
                                     // Are the gpioN file permissions set correctly?
-                                    if (boost::filesystem::permissions_present(gpioFileStatus)) {
+                                    if (groupPermsOk) {
+                                        DLOG(("SysfsGpio::SysfsGpio(): gpio group perms look good. Setting interface available."));
                                         _foundInterface = true;
                                     }
                                     else {
@@ -130,7 +152,8 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
                     }
                 }
                 else {
-                    _foundInterface = true;
+                    DLOG(("SysfsGpio::SysfsGpio(): Interface already exported."));
+                    gpioNAlreadyExists = true;
                 }
             }
             else {
@@ -145,28 +168,85 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
         DLOG(("SysfsGpio::SysfsGpio(): System is not a RaspberryPi platform"));
     }
 
-    if (ifaceFound()) {
-        std::ostringstream gpioFile(SYSFS_GPIO_ROOT_PATH.str());
-        gpioFile << "/gpio" << _rpiGpio;
-        _gpioFileStream.open(gpioFile.str().c_str(), std::_S_in| std::_S_out);
-        DLOG(("SysfsGpio::SysfsGpio(): Interface found: GPIO") << _rpiGpio);
+    std::fstream gpioFileStream;
+
+    if (_foundInterface || gpioNAlreadyExists) {
+        std::ostringstream gpioDirFile(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
+        gpioDirFile << "/gpio" << _rpiGpio << "/direction";
+        DLOG(("SysfsGpio::SysfsGpio(): Attempting to open Rpi GPIO") << _rpiGpio << " direction control on this sysfs path: " << gpioDirFile.str());
+        gpioFileStream.open(gpioDirFile.str().c_str(), std::_S_in| std::_S_out);
+        if (gpioFileStream.good()) {
+            DLOG(("SysfsGpio::SysfsGpio(): Successfully opened Rpi GPIO") << _rpiGpio << " direction control on this sysfs path: " << gpioDirFile.str());
+            std::string dir((_direction == RPI_GPIO_OUTPUT ? "out" : "in"));
+            if (gpioNExported) {
+                DLOG(("SysfsGpio::SysfsGpio(): GPIO") << _rpiGpio << " was just exported, setting direction: " << dir);
+                gpioFileStream << dir;
+            }
+
+            dir.clear();
+            gpioFileStream >> dir;
+            DLOG(("SysfsGpio::SysfsGpio(): Checking GPIO") << _rpiGpio << " direction: " << dir);
+            gpioFileStream.close();
+            if (((_direction == RPI_GPIO_OUTPUT) && (dir == "out"))
+                 || ((_direction == RPI_GPIO_OUTPUT) && dir == "in")) {
+                DLOG(("SysfsGpio::SysfsGpio(): GPIO") << _rpiGpio << " direction matches desired:" << dir);
+            }
+            else {
+                DLOG(("SysfsGpio::SysfsGpio(): GPIO") << _rpiGpio << " direction DOES NOT match desired:" << dir);
+                _foundInterface = false;
+            }
+        }
+        else {
+            _foundInterface = false;
+            DLOG(("SysfsGpio::SysfsGpio(): Could not open gpio direction file:") << gpioDirFile.str());
+        }
+
+        _gpioValueFile << "/gpio" << _rpiGpio << "/value";
+        DLOG(("SysfsGpio::SysfsGpio(): Attempting to open Rpi GPIO value file on this sysfs path: ") << _gpioValueFile.str());
+        gpioFileStream.open(_gpioValueFile.str().c_str(), std::_S_in| std::_S_out);
+        if (gpioFileStream.good()) {
+            _foundInterface = true;
+            DLOG(("SysfsGpio::SysfsGpio(): Interface found: GPIO") << _rpiGpio);
+            std::string value;
+            gpioFileStream >> value;
+            DLOG(("SysfsGpio::SysfsGpio(): Current value of GPIO") << _rpiGpio << ": " << value);
+        }
+        else {
+            _foundInterface = false;
+            DLOG(("SysfsGpio::SysfsGpio(): Interface NOT found: GPIO") << _rpiGpio);
+        }
+        gpioFileStream.close();
     }
 }
 
 unsigned char SysfsGpio::read()
 {
     unsigned char retval = 0xFF;
-    if (_gpioFileStream.good()) {
-        _gpioFileStream >> retval;
+    if (ifaceFound()) {
+        DLOG(("SysfsGpio::read(): Reading gpio from ") << _gpioValueFile.str());
+        std::fstream gpioFileStream(_gpioValueFile.str().c_str(), std::ios_base::in);
+        if (gpioFileStream.good()) {
+            gpioFileStream.seekg(0, std::ios::beg);
+            gpioFileStream >> retval;
+            DLOG(("SysfsGpio::read(): Value read from") << _gpioValueFile.str() << " is " << (char)retval);
+            gpioFileStream.close();
+        }
     }
-
+    else {
+        DLOG(("SysfsGpio::read(): No interface to read."));
+    }
     return retval;
 }
 
 void SysfsGpio::write(unsigned char pins)
 {
-    if (_gpioFileStream.good()) {
-        _gpioFileStream << (pins ? "1" : "0");
+    if (ifaceFound()) {
+        std::fstream gpioFileStream(_gpioValueFile.str().c_str(), std::ios_base::out|std::ios_base::app);
+        if (gpioFileStream.good()) {
+            gpioFileStream << pins;
+            DLOG(("SysfsGpio::write(): Value written to ") << _gpioValueFile.str() << " is " << (char)pins);
+            gpioFileStream.close();
+        }
     }
 }
 
