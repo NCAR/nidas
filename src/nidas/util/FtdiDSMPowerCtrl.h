@@ -31,10 +31,11 @@
 
 namespace nidas { namespace util {
 
-const unsigned char PWR_BITS_28V = 0b00000001;
-const unsigned char PWR_BITS_AUX = 0b00000010;
-const unsigned char PWR_BITS_BANK1 = 0b00000100;
-const unsigned char PWR_BITS_BANK2 = 0b00001000;
+// TODO: These change to bits 0-3 when the second iteration of the new board arrives.
+const unsigned char PWR_BITS_28V =   0b00001000;
+const unsigned char PWR_BITS_AUX =   0b00010000;
+const unsigned char PWR_BITS_BANK1 = 0b00100000;
+const unsigned char PWR_BITS_BANK2 = 0b01000000;
 
 inline unsigned char pwrGpio2bits(GPIO_PORT_DEFS gpio) {
 	unsigned char retval = 0;
@@ -77,7 +78,7 @@ public:
     virtual void pwrOff();
     virtual void print()
     {
-        std::cout << "Power Device" << gpio2Str(getPwrIface()) << " ";
+        std::cout << gpio2Str(getPwrIface()) << " ";
         PowerCtrlAbs::print();
     }
 

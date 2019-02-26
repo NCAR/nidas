@@ -52,7 +52,7 @@ void PowerCtrlAbs::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
 }
 void PowerCtrlAbs::print()
 {
-    std::cout << "Power state: " << powerStateToStr(_pwrState) << std::endl;
+    std::cout << powerStateToStr(_pwrState) << std::endl;
 }
 
 

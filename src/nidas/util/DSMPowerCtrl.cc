@@ -33,14 +33,20 @@ namespace nidas { namespace util {
 DSMPowerCtrl::DSMPowerCtrl(GPIO_PORT_DEFS gpio)
 : PowerCtrlIf(), _pPwrCtrl(0)
 {
+    DLOG(("Attempting to use FTDI Power Control..."));
     _pPwrCtrl = new FtdiDSMPowerCtrl(gpio);
     if (_pPwrCtrl) {
         if (!_pPwrCtrl->ifaceAvailable()) {
+            DLOG(("FTDI Power Control not found, tear it down..."));
             delete _pPwrCtrl;
+            DLOG(("Attempting to use Sysfs Power Control..."));
             _pPwrCtrl = new SysfsDSMPowerCtrl(gpio);
             if (!_pPwrCtrl) {
                 DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Failed to instantiate SysfsDSMPowerCtrl object!!"));
                 throw Exception("DSMPowerCtrl::DSMPowerCtrl()", "Failed to reserve memory for SysfsDSMPowerCtrl object.");
+            }
+            else {
+                DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Instantiated SysfsDSMPowerCtrl object and it is ") << (ifaceAvailable() ? "" : "NOT ") << "available.");
             }
         }
     }
