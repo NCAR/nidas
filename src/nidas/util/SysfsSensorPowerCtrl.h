@@ -47,7 +47,7 @@ public:
     virtual void pwrOff();
     virtual void print()
     {
-        std::cout << "Port" << _port << " ";
+        std::cout << gpio2Str(_port) << " ";
         PowerCtrlAbs::print();
     }
 
