@@ -31,7 +31,7 @@
 namespace nidas { namespace util {
 
 /*
- *  Class PowerGPIO provides the means to access the FTDI FT4232H device
+ *  Class FtdiDSMPowerGPIO provides the means to access the FTDI FT4232H device
  *  which is designated for i2c and DSM power control. If a FT4232H
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
@@ -43,7 +43,7 @@ public:
      *  Because multiple specializations may exist on a single FTDI device interface
      *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
      *
-     *  Specializations of PowerGPIO should use the Sync class to protect their operations on
+     *  Specializations of FtdiDSMPowerGPIO should use the Sync class to protect their operations on
      *  the interface which they are concerned.
      */
     class Sync : public Synchronized
@@ -89,7 +89,7 @@ public:
 
     virtual ~FtdiDSMPowerGPIO()
     {
-        DLOG(("PowerGPIO::~PowerGPIO(): destructing..."));
+        DLOG(("FtdiDSMPowerGPIO::~FtdiDSMPowerGPIO(): destructing..."));
         // don't delete _pFtdiDevice, because someone else may be using it
         _pFtdiDevice = 0;
     }
@@ -115,14 +115,15 @@ public:
         unsigned char rawBits = _shadow;
         if (ifaceFound()) {
             rawBits = _pFtdiDevice->read();
-            DLOG(("PowerGPIO::write(): Raw bits: 0x%0x", rawBits));
-            rawBits &= mask;
+            DLOG(("FtdiDSMPowerGPIO::write(): Raw bits: 0x%0x", rawBits));
+            rawBits &= ~mask;
             rawBits |= bits;
-            DLOG(("PowerGPIO::write(): New bits: 0x%0x", rawBits));
+            DLOG(("FtdiDSMPowerGPIO::write(): New bits: 0x%0x", rawBits));
             write(rawBits);
+            _shadow = rawBits;
         }
         else {
-            rawBits &= mask;
+            rawBits &= ~mask;
             rawBits |= bits;
             _shadow = rawBits;
         }

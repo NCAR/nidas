@@ -45,7 +45,7 @@ namespace nidas { namespace util {
 enum FTDI_DEVICES {FTDI_ILLEGAL_DEVICE=-1, FTDI_I2C, FTDI_GPIO, FTDI_P0_P4, FTDI_P5_P7, NUM_FTDI_DEVICES};
 
 /*
- *  FtdiDevice interface class
+ *  FtdiHwIF interface class
  */
 class FtdiHwIF : public GpioIF
 {
@@ -90,7 +90,7 @@ public:
  *  with specified manufacturer and product description strings. It is further specialized by specifying which
  *  FTDI interface/port is to be used for the operations performed by the methods.
  *
- *  NOTE: Class FtdiDevice is *not* intended to be used on its own, and so the constructor is not public.
+ *  NOTE: Class FtdiGpio<DEVICE, IFACE> is *not* intended to be used on its own, and so the constructor is not public.
  *        This is due to the fact that a single interface (i.e. byte-wide I/O port) can be assigned multiple
  *        responsibilities in different domains. For instance, one domain might be serial transceiver control
  *        while another domain might be scientific instrument power control. This is a very real use case in
@@ -159,7 +159,7 @@ private:
     bool _foundIface;
 
     /*
-     *  FtdiDevice constructor/destructor.
+     *  FtdiGpio<DEVICE, IFACE> constructor/destructor.
      *
      *  Make private so that class can be a singleton.
      */
@@ -177,11 +177,11 @@ private:
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>* FtdiGpio<DEVICE, IFACE>::getFtdiGpio(const std::string manufStr, const std::string productStr)
 {
-    DLOG(("Getting FtdiDevice<%s> singleton", IFACE == INTERFACE_A ? "INTERFACE_A" : (IFACE == INTERFACE_B ? "INTERFACE_B" :
-                                         (IFACE == INTERFACE_C ? "INTERFACE_C" : (IFACE == INTERFACE_D ? "INTERFACE_D" : "?")))));
     if (!_pFtdiDevice) {
-        DLOG(("Constructing FtdiDevice<%s> singleton", IFACE == INTERFACE_A ? "INTERFACE_A" : (IFACE == INTERFACE_B ? "INTERFACE_B" :
-                                             (IFACE == INTERFACE_C ? "INTERFACE_C" : (IFACE == INTERFACE_D ? "INTERFACE_D" : "?")))));
+        DLOG(("Constructing FtdiGpio<DEVICE, IFACE><%s, %s> singleton",
+                DEVICE == FTDI_GPIO ? "FTDI_GPIO" : (DEVICE == FTDI_I2C ? "FTDI_I2C" : "?"),
+                IFACE == INTERFACE_A ? "INTERFACE_A" : (IFACE == INTERFACE_B ? "INTERFACE_B" :
+                 (IFACE == INTERFACE_C ? "INTERFACE_C" : (IFACE == INTERFACE_D ? "INTERFACE_D" : "?")))));
         _pFtdiDevice = new FtdiGpio<DEVICE, IFACE>(manufStr, productStr);
     }
 
@@ -201,36 +201,37 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
 : _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundIface(false)
 {
     if (!_pContext) {
-        throw IOException("FtdiDevice::FtdiDevice()", ": Failed to allocate ftdi_context object.");
+        throw IOException("FtdiGpio<DEVICE, IFACE>::FtdiGpio()", ": Failed to allocate ftdi_context object.");
     }
 
-    open();
-    if (isOpen()) {
-        DLOG(("FtdiDevice(): set interface..."));
-        if (setInterface(IFACE)) {
-            DLOG(("FtdiDevice(): successfully set the interface: "));
-            DLOG(("FtdiDevice(): set bitbang mode"));
+    DLOG(("FtdiGpio<DEVICE, IFACE>(): set interface..."));
+    if (setInterface(IFACE)) {
+        DLOG(("FtdiGpio<DEVICE, IFACE>(): successfully set the interface: "));
+
+        open();
+        if (isOpen()) {
+            DLOG(("FtdiGpio<DEVICE, IFACE>(): set bitbang mode"));
             if (setMode(0xFF, BITMODE_BITBANG)) {
-                DLOG(("FtdiDevice(): Successfully set mode to bitbang"));
+                DLOG(("FtdiGpio<DEVICE, IFACE>(): Successfully set mode to bitbang"));
             }
             else {
-                ILOG(("FtdiDevice(): failed to set mode to bitbang: ") << error_string());
+                DLOG(("FtdiGpio<DEVICE, IFACE>(): failed to set mode to bitbang: ") << error_string());
             }
+            close();
         }
         else {
-            ILOG(("FtdiDevice(): failed to set the interface...") << error_string());
+            DLOG(("FtdiGpio<DEVICE, IFACE>(): failed to open the FTDI device."));
         }
     }
     else {
-        ILOG(("FtdiDevice(): Failed to open the device!!"));
+        DLOG(("FtdiGpio<DEVICE, IFACE>(): Failed to set the interface: ") << error_string());
     }
-    close();
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
 {
-    DLOG(("Destroying FtdiDevice..."));
+    DLOG(("Destroying FtdiGpio<DEVICE, IFACE>..."));
 //    close();
     ftdi_usb_close(_pContext);
     ftdi_free(_pContext);
@@ -242,20 +243,20 @@ template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::open()
 {
     if (!isOpen()) {
-        DLOG(("FtdiDevice::open(): Attempting to open FTDI device..."));
+        DLOG(("FtdiGpio<DEVICE, IFACE>::open(): Attempting to open FTDI device..."));
         int openStatus = ftdi_usb_open_desc(_pContext, (int)0x0403, (int)0x6011, _productStr.c_str(), 0);
         _foundIface = !openStatus;
         if (ifaceFound()) {
             // TODO: let's check the manuf string as well...
 
-            DLOG(("FtdiDevice::open(): Successfully opened FTDI device..."));
+            DLOG(("FtdiGpio<DEVICE, IFACE>::open(): Successfully opened FTDI device..."));
         }
         else {
-            DLOG(("FtdiDevice::open(): Failed to open FTDI device: ") << error_string() << " open() status: " << openStatus);
+            DLOG(("FtdiGpio<DEVICE, IFACE>::open(): Failed to open FTDI device: ") << error_string() << " open() status: " << openStatus);
         }
     }
     else {
-        DLOG(("FtdiDevice::open(): FTDI device already open..."));
+        DLOG(("FtdiGpio<DEVICE, IFACE>::open(): FTDI device already open..."));
     }
 }
 
@@ -266,16 +267,16 @@ void FtdiGpio<DEVICE, IFACE>::close()
 {
     if (ifaceFound()) {
         if (isOpen()) {
-            DLOG(("FtdiDevice::close(): Attempting to close FTDI device..."));
+            DLOG(("FtdiGpio<DEVICE, IFACE>::close(): Attempting to close FTDI device..."));
             if (!ftdi_usb_close(_pContext)) {
-                DLOG(("FtdiDevice::close(): Successfully closed FTDI device..."));
+                DLOG(("FtdiGpio<DEVICE, IFACE>::close(): Successfully closed FTDI device..."));
             }
             else {
-                DLOG(("FtdiDevice::close(): Failed to close FTDI device...") << error_string());
+                DLOG(("FtdiGpio<DEVICE, IFACE>::close(): Failed to close FTDI device...") << error_string());
             }
         }
         else {
-            DLOG(("FtdiDevice::close(): FTDI device already closed..."));
+            DLOG(("FtdiGpio<DEVICE, IFACE>::close(): FTDI device already closed..."));
         }
     }
 }
@@ -287,20 +288,20 @@ unsigned char FtdiGpio<DEVICE, IFACE>::read()
     if (ifaceFound()) {
         open();
         if (isOpen()) {
-            DLOG(("FtdiDevice::read(): Successfully opened FTDI device"));
+            DLOG(("FtdiGpio<DEVICE, IFACE>::read(): Successfully opened FTDI device"));
             if (!ftdi_read_pins(_pContext, &pins)) {
-                DLOG(("FtdiDevice::read(): Successfully read the device pins..."));
+                DLOG(("FtdiGpio<DEVICE, IFACE>::read(): Successfully read the device pins: 0x%0x", pins));
             }
             else {
-                DLOG(("FtdiDevice::read(): Failed to read the device pins...") << error_string());
-                throw IOException(std::string("FtdiDevice::read(): Could not read from interface: "),
+                DLOG(("FtdiGpio<DEVICE, IFACE>::read(): Failed to read the device pins...") << error_string());
+                throw IOException(std::string("FtdiGpio<DEVICE, IFACE>::read(): Could not read from interface: "),
                                   error_string());
             }
             close();
         }
         else {
-            DLOG(("FtdiDevice::read(): Failed to open FTDI device: ") << error_string());
-            throw IOException(std::string("FtdiDevice::read(): Failed to open the device"),
+            DLOG(("FtdiGpio<DEVICE, IFACE>::read(): Failed to open FTDI device: ") << error_string());
+            throw IOException(std::string("FtdiGpio<DEVICE, IFACE>::read(): Failed to open the device"),
                               error_string());
         }
     }
@@ -314,7 +315,7 @@ void FtdiGpio<DEVICE, IFACE>::write(unsigned char pins)
     if (ifaceFound()) {
         open();
         if (ftdi_write_data(_pContext, &pins, 1) < 0) {
-            throw IOException(std::string("FtdiDevice::write(): Could not write to interface: "),
+            throw IOException(std::string("FtdiGpio<DEVICE, IFACE>::write(): Could not write to interface: "),
                                           error_string());
         }
         close();
@@ -339,17 +340,13 @@ bool FtdiGpio<DEVICE, IFACE>::setMode(unsigned char mask, unsigned char mode) {
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 bool FtdiGpio<DEVICE, IFACE>::setInterface(ftdi_interface iface) {
-    bool retval = true;
-    if (ifaceFound()) {
-        retval = !ftdi_set_interface(_pContext, iface);
-    }
-    return retval;
+    return !ftdi_set_interface(_pContext, iface);
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 ftdi_interface FtdiGpio<DEVICE, IFACE>::getInterface()
 {
-    return IFACE;
+    return static_cast<ftdi_interface>(_pContext->interface);
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
@@ -361,14 +358,19 @@ bool FtdiGpio<DEVICE, IFACE>::isOpen()
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 std::string FtdiGpio<DEVICE, IFACE>::error_string()
 {
-    return std::string(_pContext->error_str);
+    std::string retval;
+    if (ftdi_get_error_string(_pContext)) {
+        retval.append(ftdi_get_error_string(_pContext));
+    }
+
+    return retval;
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>* FtdiGpio<DEVICE, IFACE>::_pFtdiDevice = 0;
 
 /*
- *  Helper method to get the right FtdiDevice singleton
+ *  Helper method to get the right FtdiGpio<DEVICE, IFACE> singleton
  */
 inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
     FtdiHwIF* pFtdiDevice = 0;
@@ -377,23 +379,23 @@ inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
     case FTDI_I2C:
 		switch (iface) {
 		case INTERFACE_A:
-			DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_A> singleton..."));
+			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_A> singleton..."));
 			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_A>::getFtdiGpio("UCAR", "I2C");
 			break;
 		case INTERFACE_B:
-			DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_B> singleton..."));
+			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_B> singleton..."));
 			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_B>::getFtdiGpio("UCAR", "I2C");
 			break;
 		case INTERFACE_C:
-			DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_C> singleton..."));
+			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_C> singleton..."));
 			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_C>::getFtdiGpio("UCAR", "I2C");
 			break;
 		case INTERFACE_D:
-			DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_D> singleton..."));
+			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_D> singleton..."));
 			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_D>::getFtdiGpio("UCAR", "I2C");
 			break;
 		default:
-			ILOG(("getFtdiDevice(): Illegal ftdi_interface value!!"));
+			ILOG(("getFtdiDevice(): Illegal ftdi_interface value for device, I2C!!"));
 			throw InvalidParameterException("FtdiHW", "getFtdiDevice()", "Illegal ftdi_interface value!!");
 			break;
 		}
@@ -402,23 +404,23 @@ inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
 	    case FTDI_GPIO:
 			switch (iface) {
 			case INTERFACE_A:
-				DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_A> singleton..."));
+				DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_GPIO, INTERFACE_A> singleton..."));
 				pFtdiDevice = FtdiGpio<FTDI_GPIO, INTERFACE_A>::getFtdiGpio("UCAR", "GPIO");
 				break;
 			case INTERFACE_B:
-				DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_B> singleton..."));
+				DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_GPIO, INTERFACE_B> singleton..."));
 				pFtdiDevice = FtdiGpio<FTDI_GPIO, INTERFACE_B>::getFtdiGpio("UCAR", "GPIO");
 				break;
 			case INTERFACE_C:
-				DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_C> singleton..."));
+				DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_GPIO, INTERFACE_C> singleton..."));
 				pFtdiDevice = FtdiGpio<FTDI_GPIO, INTERFACE_C>::getFtdiGpio("UCAR", "GPIO");
 				break;
 			case INTERFACE_D:
-				DLOG(("getFtdiDevice(): getting FtdiDevice<INTERFACE_D> singleton..."));
+				DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_GPIO, INTERFACE_D> singleton..."));
 				pFtdiDevice = FtdiGpio<FTDI_GPIO, INTERFACE_D>::getFtdiGpio("UCAR", "GPIO");
 				break;
 			default:
-				ILOG(("getFtdiDevice(): Illegal ftdi_interface value!!"));
+				ILOG(("getFtdiDevice(): Illegal ftdi_interface value for GPIO device!!"));
 				throw InvalidParameterException("FtdiHW", "getFtdiDevice()", "Illegal ftdi_interface value!!");
 				break;
 			}
