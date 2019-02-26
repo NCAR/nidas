@@ -59,12 +59,10 @@ typedef std::pair<std::string, GPIO_PORT_DEFS> DeviceArgMapPair;
 
 DeviceArgMapType deviceArgMap;
 
-static const char* ARG_AUX_DEVICE = "AUX";
-
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<0>",
-        		 "DSM devices which power setting are managed - \n"
+NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2",
+        		 "DSM devices for which power setting is managed - \n"
 		         "     0-7         - Sensors 0-7 port power \n"
                  "     28V         - 28 volt power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
@@ -72,11 +70,9 @@ NidasAppArg Device("-d,--device-id", "<0>",
                  "     bank2|BANK2 - bank2 12V power port\n",
                  "");
 NidasAppArg Map("-m,--map", "",
-			      "Output the devices which power can be controlled and exit", "");
-NidasAppArg View("-v,--view", "<blank>",
-			      "Output the current power settings for one or all devices and exit"
-                  "    all - all devices"
-                  "    <blank> - device specified by -d",
+			      "Output the devices for which power can be controlled and exit", "");
+NidasAppArg View("-v,--view", "",
+			      "Output the current power settings for all devices and exit",
                   "");
 NidasAppArg Power("-p,--power", "<on>",
                   "Controls whether the DSM sends power to the DSM device - \n"
@@ -113,15 +109,13 @@ int parseRunString(int argc, char* argv[])
     return 0;
 }
 
-void printDevice(std::string device, int port)
+void printDevice(GPIO_PORT_DEFS port)
 {
-    if (device.length() == 1) {
-        // see if it's a numeral indicating a sensor
-        std::ostringstream ostrm(device);
-        int sensorID;
+    if (port < PWR_28V) {
+        SensorPowerCtrl(port).print();
     }
     else {
-        // check to see if it's one of the other DSM power interfaces
+        DSMPowerCtrl(port).print();
     }
 }
 
@@ -130,10 +124,22 @@ void printAll()
     std::cout << "Current Power Settings" << std::endl
               << "----------------------" << std::endl
               << "Device          Setting"<< std::endl;
+    // Print out serial port power settings first
     for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
          iter != deviceArgMap.end();
          iter++) {
-        printDevice(iter->first, iter->second);
+        if (iter->second < PWR_28V) {
+            printDevice(iter->second);
+        }
+    }
+
+    // Then print out DSM power settings
+    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
+         iter != deviceArgMap.end();
+         iter++) {
+        if (iter->second > SER_PORT7) {
+            printDevice(iter->second);
+        }
     }
 }
 
@@ -163,15 +169,8 @@ int main(int argc, char* argv[]) {
 
     DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
     if (View.specified()) {
-        std::string value(View.getValue());
-        if (value.length()) {
-            std::transform(value.begin(), value.end(), value.begin(), ::toupper);
-
-            if (value == "ALL") {
-                printAll();
-                return 0;
-            }
-        }
+        printAll();
+        return 0;
     }
 
     DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
@@ -195,9 +194,11 @@ int main(int argc, char* argv[]) {
 
     PowerCtrlIf* pPwrCtrl = 0;
     if (deviceArg < PWR_28V) {
+        DLOG(("Instantiating SensorPowerCtrl object..."));
         pPwrCtrl = new SensorPowerCtrl(deviceArg);
     }
     else {
+        DLOG(("Instantiating DSMPowerCtrl object..."));
         pPwrCtrl = new DSMPowerCtrl(deviceArg);
     }
 
@@ -208,18 +209,22 @@ int main(int argc, char* argv[]) {
     PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
 
     // print out the existing power state of the device
-    std::cout << std::endl << "Current Device Power State" << std::endl << "========================" << std::endl;
+    std::cout << std::endl << "Current Device Power State"
+              << std::endl << "========================"
+              << std::endl;
     rPwrCtrl.print();
 
-    if (View.specified()) {
+    // just display power state if -p X is not provided
+    if (!Power.specified()) {
         return 0;
     }
 
-    if (Power.specified()) {
+    else {
         std::string pwrStr(Power.getValue());
         DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
         std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
         POWER_STATE power = strToPowerState(pwrStr);
+        DLOG(("Transformed Power State Value: ") << powerStateToStr(power));
         if (power != ILLEGAL_POWER) {
             rPwrCtrl.enablePwrCtrl(true);
             power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
@@ -233,7 +238,9 @@ int main(int argc, char* argv[]) {
     }
 
     // print out the new power state
-    std::cout << std::endl << "New Power State" << std::endl << "====================" << std::endl;
+    std::cout << std::endl << "New Power State"
+              << std::endl << "===================="
+              << std::endl;
     rPwrCtrl.print();
 
     // all good, return 0
