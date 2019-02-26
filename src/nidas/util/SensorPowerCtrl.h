@@ -39,76 +39,19 @@ class SensorPowerCtrl : public PowerCtrlIf
 {
 public:
     SensorPowerCtrl(GPIO_PORT_DEFS port);
-    virtual ~SensorPowerCtrl()
-    {
-        DLOG(("SensorPowerCtrl::~SensorPowerCtrl(): destructing..."));
-    }
-
+    virtual ~SensorPowerCtrl();
+    virtual void enablePwrCtrl(bool enable);
+    virtual bool pwrCtrlEnabled();
+    virtual void setPower(POWER_STATE pwrState);
+    virtual void setPowerState(POWER_STATE pwrState);
+    virtual POWER_STATE getPowerState();
     virtual void pwrOn();
     virtual void pwrOff();
-    virtual void print()
-    {
-        std::cout << "Port" << _port << " ";
-        _pPwrCtrl->print();
-    }
-
-    virtual bool ifaceAvailable() { return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : true; }
-
+    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0);
+    virtual bool pwrIsOn();
+    virtual void print();
+    virtual bool ifaceAvailable();
     virtual void updatePowerState();
-    virtual void enablePwrCtrl(bool enable)
-    {
-        if (_pPwrCtrl) {
-            _pPwrCtrl->enablePwrCtrl(enable);
-        }
-    }
-
-    virtual void setPower(POWER_STATE pwrState)
-    {
-        if (_pPwrCtrl) {
-            _pPwrCtrl->setPower(pwrState);
-        }
-    }
-
-    virtual void setPowerState(POWER_STATE pwrState)
-    {
-        if (_pPwrCtrl) {
-            _pPwrCtrl->setPowerState(pwrState);
-        }
-    }
-
-    virtual POWER_STATE getPowerState()
-    {
-        POWER_STATE retval = ILLEGAL_POWER;
-        if (_pPwrCtrl) {
-            retval = _pPwrCtrl->getPowerState();
-        }
-        return retval;
-    }
-
-    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
-    {
-        if (_pPwrCtrl) {
-            _pPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
-        }
-    }
-
-    virtual bool pwrIsOn()
-    {
-        bool retval = false;
-        if (_pPwrCtrl) {
-            retval = _pPwrCtrl->pwrIsOn();
-        }
-        return retval;
-    }
-
-    virtual bool pwrCtrlEnabled()
-    {
-        bool retval = false;
-        if (_pPwrCtrl) {
-            retval = _pPwrCtrl->pwrCtrlEnabled();
-        }
-        return retval;
-    }
 
     // This utility converts a binary power configuration to a string
     static const std::string rawPowerToStr(unsigned char powerCfg);

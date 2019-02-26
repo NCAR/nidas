@@ -78,6 +78,50 @@ SensorPowerCtrl::SensorPowerCtrl(GPIO_PORT_DEFS port)
     updatePowerState();
 }
 
+SensorPowerCtrl::~SensorPowerCtrl()
+{
+    DLOG(("SensorPowerCtrl::~SensorPowerCtrl(): destructing..."));
+}
+
+void SensorPowerCtrl::enablePwrCtrl(bool enable)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->enablePwrCtrl(enable);
+    }
+}
+
+bool SensorPowerCtrl::pwrCtrlEnabled()
+{
+    bool retval = false;
+    if (_pPwrCtrl) {
+        retval = _pPwrCtrl->pwrCtrlEnabled();
+    }
+    return retval;
+}
+
+void SensorPowerCtrl::setPower(POWER_STATE pwrState)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->setPower(pwrState);
+    }
+}
+
+void SensorPowerCtrl::setPowerState(POWER_STATE pwrState)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->setPowerState(pwrState);
+    }
+}
+
+POWER_STATE SensorPowerCtrl::getPowerState()
+{
+    POWER_STATE retval = ILLEGAL_POWER;
+    if (_pPwrCtrl) {
+        retval = _pPwrCtrl->getPowerState();
+    }
+    return retval;
+}
+
 void SensorPowerCtrl::pwrOn()
 {
     if (_pPwrCtrl) {
@@ -92,6 +136,32 @@ void SensorPowerCtrl::pwrOff()
     }
 }
 
+void SensorPowerCtrl::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
+    }
+}
+
+bool SensorPowerCtrl::pwrIsOn()
+{
+    bool retval = false;
+    if (_pPwrCtrl) {
+        retval = _pPwrCtrl->pwrIsOn();
+    }
+    return retval;
+}
+
+void SensorPowerCtrl::print()
+{
+    _pPwrCtrl->print();
+}
+
+bool SensorPowerCtrl::ifaceAvailable()
+{
+    return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : true;
+}
+
 void SensorPowerCtrl::updatePowerState()
 {
     if (_pPwrCtrl) {
@@ -99,5 +169,6 @@ void SensorPowerCtrl::updatePowerState()
         setPowerState(_pPwrCtrl->getPowerState());
     }
 }
+
 
 }} //namespace nidas { namespace util {
