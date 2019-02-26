@@ -52,6 +52,7 @@ POWER_STATE SysfsDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 SysfsDSMPowerCtrl::SysfsDSMPowerCtrl(GPIO_PORT_DEFS gpio)
 : SysfsGpio(gpioPort2RpiGpio(gpio)), PowerCtrlAbs(), _iface(gpio)
 {
+    DLOG(("SysfsDSMPowerCtrl::SysfsDSMPowerCtrl(): SysfsGpio instantiated, updating power state"));
     updatePowerState();
 }
 

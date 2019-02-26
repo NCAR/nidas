@@ -47,7 +47,7 @@ public:
     virtual void pwrOff();
     virtual void print()
     {
-        std::cout << "Power Device" << gpio2Str(getPwrIface()) << " ";
+        std::cout << gpio2Str(getPwrIface()) << " ";
         PowerCtrlAbs::print();
     }
 
