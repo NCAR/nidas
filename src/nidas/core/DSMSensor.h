@@ -39,12 +39,16 @@
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/PowerCtrlIf.h>
+#include <nidas/util/SensorPowerCtrl.h>
 
 #include <xmlrpcpp/XmlRpc.h>
 
 #include <string>
 #include <list>
 #include <fcntl.h>
+
+using namespace nidas::util;
 
 namespace nidas { namespace core {
 
@@ -152,7 +156,7 @@ struct SensorConfigMetaData
  * samples to all associated SampleClient's of this DSMSensor.
  *
  */
-class DSMSensor : public SampleSource, public SampleClient, public DOMable
+class DSMSensor : public SampleSource, public SampleClient, public DOMable, public nidas::util::PowerCtrlIf
 {
 
 public:
@@ -1117,6 +1121,130 @@ public:
      */
     void calcNumQCSamples(double sampleRate);
 
+    /**
+     *  PowerCtrlIf virtual overrides using _pSensrPwrCtrl as functionality provider
+     */
+
+    void setPowerCtrl(SensorPowerCtrl* pPwrCtrl) {_pSensrPwrCtrl = pPwrCtrl;}
+
+    virtual bool ifaceAvailable()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl)
+        {
+            retval = _pSensrPwrCtrl->ifaceAvailable();
+        }
+        return retval;
+    }
+    virtual void enablePwrCtrl(bool enable)
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->enablePwrCtrl(enable);
+        }
+    }
+
+    virtual bool pwrCtrlEnabled()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl)
+        {
+            retval = _pSensrPwrCtrl->pwrCtrlEnabled();
+        }
+
+        return retval;
+    }
+
+    virtual void setPower(POWER_STATE newPwrState)
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->setPower(newPwrState);
+        }
+    }
+
+    virtual void setPowerState(POWER_STATE newPwrState)
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->setPowerState(newPwrState);
+        }
+    }
+
+    virtual POWER_STATE getPowerState()
+    {   POWER_STATE retval = ILLEGAL_POWER;
+        if (_pSensrPwrCtrl) {
+            retval = _pSensrPwrCtrl->getPowerState();
+        }
+
+        return retval;
+    }
+
+    std::string getPowerStateStr() {
+        std::string retval = "No Power Ctrl";
+        if (_pSensrPwrCtrl) {
+            retval = powerStateToStr(_pSensrPwrCtrl->getPowerState());
+        }
+
+        return retval;
+    }
+
+    virtual void pwrOn()
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->pwrOn();
+        }
+    }
+
+    virtual void pwrOff()
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->pwrOff();
+        }
+    }
+
+    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
+        }
+    }
+
+    virtual bool pwrIsOn()
+    {
+        bool retval = false;
+        if (_pSensrPwrCtrl)
+        {
+            retval = _pSensrPwrCtrl->pwrIsOn();
+        }
+        return retval;
+    }
+
+    virtual void updatePowerState()
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->updatePowerState();
+        }
+    }
+
+    virtual void printPowerState()
+    {
+        print();
+    }
+
+    virtual void print()
+    {
+        if (_pSensrPwrCtrl)
+        {
+            _pSensrPwrCtrl->updatePowerState();
+            _pSensrPwrCtrl->print();
+        }
+    }
+
 protected:
 
     /**
@@ -1447,6 +1575,11 @@ private:
      * Last time that a surveillance occurred since sensor opened.
      */
     dsm_time_t _lastSampleSurveillance;
+
+    /*
+     *  Non-null if the FTDI chip underlying the SensorPowerCtrl class exists
+     */
+    SensorPowerCtrl* _pSensrPwrCtrl;
 
     /*
      * Sensor state

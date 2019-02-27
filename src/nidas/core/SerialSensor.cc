@@ -35,7 +35,7 @@
 #include "Looper.h"
 #include "Prompt.h"
 
-#include <nidas/util/SensorPowerCtrl.h>
+#include <nidas/util/PowerCtrlIf.h>
 #include <nidas/util/Logger.h>
 
 #include <cmath>
@@ -46,15 +46,14 @@
 
 using namespace std;
 using namespace nidas::core;
-
-namespace n_u = nidas::util;
+using namespace nidas::util;
 
 SerialSensor::SerialSensor():
     _desiredPortConfig(), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 	_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 	_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	_configMode(NOT_ENTERED), _defaultPortConfig(), _serialDevice(0),
-	_pSensrPwrCtrl(0), _initPowerState(POWER_OFF), _prompters(), _prompting(false)
+	_configMode(NOT_ENTERED), _initPowerState(n_u::POWER_OFF), _defaultPortConfig(),
+	_serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -69,9 +68,8 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
 		_desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(), _serialWordSpecList(),
 		_autoConfigState(AUTOCONFIG_UNSUPPORTED), _serialState(AUTOCONFIG_UNSUPPORTED),
 		_scienceState(AUTOCONFIG_UNSUPPORTED), _deviceState(AUTOCONFIG_UNSUPPORTED),
-	    _configMode(NOT_ENTERED),
+	    _configMode(NOT_ENTERED), _initPowerState(initPowerState),
 		_defaultPortConfig(rInitPortConfig), _serialDevice(0),
-        _pSensrPwrCtrl(0), _initPowerState(initPowerState),
         _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
@@ -89,7 +87,6 @@ SerialSensor::~SerialSensor()
     for (; pi != _prompters.end(); ++pi) delete *pi;
 
     _serialDevice = 0;
-    _pSensrPwrCtrl = 0;
 }
 
 SampleScanner* SerialSensor::buildSampleScanner()
@@ -128,8 +125,8 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // this is needed for future comparisons.
         _desiredPortConfig = getPortConfig();
 
-        _pSensrPwrCtrl = _serialDevice->getPwrCtrl();
-        if (_pSensrPwrCtrl) {
+        setPowerCtrl(_serialDevice->getPwrCtrl());
+        if (_serialDevice->getPwrCtrl()) {
             enablePwrCtrl(true);
             setPower(_initPowerState);
         }

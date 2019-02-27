@@ -82,7 +82,8 @@ DSMSensor::DSMSensor() :
 	_nSamplesRead(0),
     _nSamplesTested(0), _nSamplesGood(0),
     _qcCheckPeriod(DEFAULT_QC_CHECK_PERIOD),
-	_lastSampleSurveillance(0), _sensorState(SENSOR_CLOSED)
+	_lastSampleSurveillance(0), _sensorState(SENSOR_CLOSED),
+	_pSensrPwrCtrl(0)
 {
 }
 
@@ -101,6 +102,8 @@ DSMSensor::~DSMSensor()
         delete pi->second;
 
     removeCalFiles();
+    delete _pSensrPwrCtrl;
+    _pSensrPwrCtrl = 0;
 }
 
 void DSMSensor::setDSMConfig(const DSMConfig* val)
@@ -857,7 +860,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException(getName() + ": " + e.what());
             }
 	    if (newtag->getSampleId() == 0)
-	        newtag->setSampleId(getSampleTags().size()+1);
+	        newtag->setSampleId(static_cast<unsigned int>(getSampleTags().size()+1));
 
 	    list<SampleTag*>::const_iterator si = _sampleTags.begin();
 	    for ( ; si != _sampleTags.end(); ++si) {

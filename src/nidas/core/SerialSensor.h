@@ -30,9 +30,6 @@
 #include "LooperClient.h"
 #include "SerialPortIODevice.h"
 
-#include <nidas/util/PowerCtrlIf.h>
-#include <nidas/util/SensorPowerCtrl.h>
-
 using namespace nidas::util; 
 
 namespace nidas { namespace core {
@@ -117,15 +114,6 @@ enum AUTOCONFIG_STATE {
  * of the device name, see buildIODevice() below.
  * A SerialSensor also creates a SampleScanner, depending on the device name.
  * 
- * SerialSensor is also a PowerCtrlIf subclass. This means that the SerialSensor class
- * itself may control power to the sensor using PowerCtrlIf virtual functions, which
- * are implemented in this class as inline methods. These methods can be inline
- * because SerialSensor attempts to instantiate a SensorPowerCtrl object. SensorPowerCtrl
- * attempts to find special FTDI HW which is reserved for controlling power to the sensors.
- * If such HW is not found, then _pSensrPwrCtrl attribute is deleted and set to 0. All
- * PowerCtrlIf virtual overrides must check for the presence of this attribute before
- * attempting to use its methods.
- *
  * Configuration and opening of a SerialSensor is done in the following sequence:
  * 1.  After the configuration XML is being parsed, an instance of SerialSensor() is
  *     created, and the virtual method fromDOMElement() is called.
@@ -146,7 +134,7 @@ enum AUTOCONFIG_STATE {
  *              Calls CharacterSensor::buildSampleScanner().
  *         scanr->init()
  */
-class SerialSensor : public CharacterSensor, public PowerCtrlIf
+class SerialSensor : public CharacterSensor
 {
 
 public:
@@ -282,127 +270,6 @@ public:
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
     AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
 
-    /**
-     *  PowerCtrlIf virtual overrides using _pSensrPwrCtrl as functionality provider
-     */
-
-    virtual bool ifaceAvailable()
-    {
-        bool retval = false;
-        if (_pSensrPwrCtrl)
-        {
-            retval = _pSensrPwrCtrl->ifaceAvailable();
-        }
-        return retval;
-    }
-    virtual void enablePwrCtrl(bool enable)
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->enablePwrCtrl(enable);
-        }
-    }
-
-    virtual bool pwrCtrlEnabled()
-    {
-        bool retval = false;
-        if (_pSensrPwrCtrl)
-        {
-            retval = _pSensrPwrCtrl->pwrCtrlEnabled();
-        }
-
-        return retval;
-    }
-
-    virtual void setPower(POWER_STATE newPwrState)
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->setPower(newPwrState);
-        }
-    }
-
-    virtual void setPowerState(POWER_STATE newPwrState)
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->setPowerState(newPwrState);
-        }
-    }
-
-    virtual POWER_STATE getPowerState()
-    {   POWER_STATE retval = ILLEGAL_POWER;
-        if (_pSensrPwrCtrl) {
-            retval = _pSensrPwrCtrl->getPowerState();
-        }
-
-        return retval;
-    }
-
-    std::string getPowerStateStr() {
-        std::string retval = "No Power Ctrl";
-        if (_pSensrPwrCtrl) {
-            retval = powerStateToStr(_pSensrPwrCtrl->getPowerState());
-        }
-
-        return retval;
-    }
-
-    virtual void pwrOn()
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->pwrOn();
-        }
-    }
-
-    virtual void pwrOff()
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->pwrOff();
-        }
-    }
-
-    virtual void pwrReset(uint32_t pwrOnDelayMs=0, uint32_t pwrOffDelayMs=0)
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
-        }
-    }
-
-    virtual bool pwrIsOn()
-    {
-        bool retval = false;
-        if (_pSensrPwrCtrl)
-        {
-            retval = _pSensrPwrCtrl->pwrIsOn();
-        }
-        return retval;
-    }
-
-    virtual void updatePowerState()
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->updatePowerState();
-        }
-    }
-
-    virtual void printPowerState()
-    {
-        print();
-    }
-
-    virtual void print()
-    {
-        if (_pSensrPwrCtrl)
-        {
-            _pSensrPwrCtrl->updatePowerState();
-            _pSensrPwrCtrl->print();
-        }
-    }
 protected:
 
     /**
@@ -493,6 +360,7 @@ protected:
     AUTOCONFIG_STATE _scienceState;
     AUTOCONFIG_STATE _deviceState;
     CFG_MODE_STATUS _configMode;
+    POWER_STATE _initPowerState;
 
 private:
     /*
@@ -504,13 +372,6 @@ private:
      *  Non-null if the underlying IODevice is a SerialPortIODevice.
      */
     SerialPortIODevice* _serialDevice;
-
-    /*
-     *  Non-null if the FTDI chip underlying the SensorPowerCtrl class exists
-     */
-    SensorPowerCtrl* _pSensrPwrCtrl;
-
-    POWER_STATE _initPowerState;
 
     class Prompter: public nidas::core::LooperClient
     {
