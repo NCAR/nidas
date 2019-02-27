@@ -473,6 +473,14 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
 {
     ssize_t result;
 
+    //TODO: Current production FTDI board does not directly manipulate RTS to control transmission/reception
+    //      on RS485 half duplex devices. And so the below hack was created to implement this control.
+    //
+    //      The current iteration of the FTDI board does control transmission/reception on RS485 Half Duplex
+    //      devices. However it is not yet production ready (as of 02/27/2019).
+    //
+    //      The point being that soon the code needs to ascertain which regime should be used, and then use that regime.
+    //
 //    // remember that setting the FT4232H register has the opposite effect on
 //    // the RTS line signal which it outputs. Other UARTS may behave differently. YMMV.
 //    if (getPortType() == RS485_HALF) {

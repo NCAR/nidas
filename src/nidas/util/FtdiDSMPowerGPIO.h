@@ -23,8 +23,8 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_UTIL_POWERGPIO_H
-#define NIDAS_UTIL_POWERGPIO_H
+#ifndef NIDAS_UTIL_FTDIDSMPOWERGPIO_H
+#define NIDAS_UTIL_FTDIDSMPOWERGPIO_H
 
 #include "FtdiHW.h"
 
@@ -164,4 +164,4 @@ private:
 
 }} //namespace nidas { namespace util {
 
-#endif //NIDAS_UTIL_POWERGPIO_H
+#endif //NIDAS_UTIL_FTDIDSMPOWERGPIO_H

@@ -82,8 +82,9 @@ DSMSensor::DSMSensor() :
 	_nSamplesRead(0),
     _nSamplesTested(0), _nSamplesGood(0),
     _qcCheckPeriod(DEFAULT_QC_CHECK_PERIOD),
-	_lastSampleSurveillance(0), _sensorState(SENSOR_CLOSED),
-	_pSensrPwrCtrl(0)
+	_lastSampleSurveillance(0),
+    _pSensrPwrCtrl(0),
+    _sensorState(SENSOR_CLOSED)
 {
 }
 
