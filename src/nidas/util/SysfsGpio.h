@@ -141,6 +141,7 @@ private:
     bool _foundInterface;
     std::ostringstream _gpioValueFile;
     RPI_GPIO_DIRECTION _direction;
+    unsigned char _shadow;
 
 };
 

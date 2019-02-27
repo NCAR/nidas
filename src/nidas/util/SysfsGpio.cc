@@ -59,7 +59,7 @@ Cond SysfsGpio::Sync::_sysfsCondVar;
 SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
 : _rpiGpio(rpiGPIO), _foundInterface(false),
   _gpioValueFile(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app),
-  _direction(dir)
+  _direction(dir), _shadow(0)
 {
     bool gpioNAlreadyExists = false;
     bool gpioNExported = false;
@@ -221,13 +221,14 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
 
 unsigned char SysfsGpio::read()
 {
-    unsigned char retval = 0xFF;
+    unsigned char retval = _shadow;
     if (ifaceFound()) {
         DLOG(("SysfsGpio::read(): Reading gpio from ") << _gpioValueFile.str());
         std::fstream gpioFileStream(_gpioValueFile.str().c_str(), std::ios_base::in);
         if (gpioFileStream.good()) {
             gpioFileStream.seekg(0, std::ios::beg);
             gpioFileStream >> retval;
+            _shadow = retval;
             DLOG(("SysfsGpio::read(): Value read from") << _gpioValueFile.str() << " is " << (char)retval);
             gpioFileStream.close();
         }
@@ -248,6 +249,7 @@ void SysfsGpio::write(unsigned char pins)
             gpioFileStream.close();
         }
     }
+    _shadow = pins;
 }
 
 
