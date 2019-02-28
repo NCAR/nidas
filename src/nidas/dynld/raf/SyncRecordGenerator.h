@@ -37,7 +37,7 @@ using namespace nidas::core;
 class SyncRecordGenerator: public SampleIOProcessor, public HeaderSource
 {
 public:
-    
+
     /**
      * Constructor.
      */
@@ -49,7 +49,7 @@ public:
      * Implementation of SampleIOProcessor::connect(SampleSource*).
      */
     void connect(SampleSource* source) throw();
-    
+
     /**
      * Implementation of SampleIOProcessor::disconnect(SampleSource*).
      */

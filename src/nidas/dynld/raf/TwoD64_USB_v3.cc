@@ -101,7 +101,7 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 {
     TwoD64_USB::validate();
- 
+
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
 
@@ -111,7 +111,7 @@ void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
             _nHskp = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
             if (_nHskp != 10) {
                 throw n_u::InvalidParameterException(getName(),
-                "unexpected number of variables", " in processSOR sample"); 
+                "unexpected number of variables", " in processSOR sample");
             }
         }
     }
@@ -134,7 +134,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     float * dout = outs->getDataPtr();
     float data=floatNAN;
     int iout = 0;
- 
+
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
 
@@ -148,7 +148,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 
         //First input will be the second char to skip "SOR,"
         if (ifield != 0)
-        { 
+        {
             if (sscanf(input, "%f", &data) == 1) {
                 dout[iout++] = double(data);
             } else

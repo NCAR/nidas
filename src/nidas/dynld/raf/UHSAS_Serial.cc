@@ -188,7 +188,7 @@ UHSAS_Serial::~UHSAS_Serial()
 
 
 void UHSAS_Serial::open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
+	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     const Parameter *p;
     p = getParameter("sendInit");
@@ -262,8 +262,8 @@ void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
         }
     }
 
-    /*    
-     * We'll be adding a bogus zeroth bin to the data to match historical 
+    /*
+     * We'll be adding a bogus zeroth bin to the data to match historical
      * behavior. Remove all traces of this after the netCDF file refactor.
      */
     /*
@@ -364,7 +364,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         const Sample* psamp = results.front();
 
         // now figure out what elements of pdata contain the histogram
-        // don't go past nvals though...  You could hard-code things, or 
+        // don't go past nvals though...  You could hard-code things, or
         // In validate() method you could loop over the variables in the sample
         // checking their names to figure out what might be the first and last bin.
 
@@ -377,9 +377,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
                 if (! isnan(val)) sum += val;
             }
         }
-         
+
         SampleT<float> * outs = getSample<float>(1);
-        outs->setTimeTag(psamp->getTimeTag());
+        outs->setTimeTag(psamp->getTimeTag() - getLagUsecs());
         outs->setId(psamp->getId() + 1);
         float* dout = outs->getDataPtr();
         *dout  = sum;
@@ -516,9 +516,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         int nhouse = (ip - sizeof(marker7) - housePtr) / sizeof(short);
 
         SampleT<float> * outs = getSample<float>(_noutValues);
-        float * dout = outs->getDataPtr();
         outs->setTimeTag(samp->getTimeTag() + results.size() * _dtUsec);
         outs->setId(getId() + 1);
+        float * dout = outs->getDataPtr();
 
         // variable index within the sample, used to get the VariableConverters
         unsigned int ivar = 0;

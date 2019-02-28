@@ -86,7 +86,7 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
     // It takes a while (~1/2 sec) for the update to take effect
     // and in the meantime the time fields are wrong (off by many years).
     // checkClock waits a maximum of 5 seconds until the pc104sg
-    // time fields agree with the Unix time. 
+    // time fields agree with the Unix time.
     checkClock();
 }
 
@@ -129,11 +129,11 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     statusOR = status.statusOR;
 
     n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)statusOR,
-    	statusString(statusOR,false).c_str());
+	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)statusOR,
+	statusString(statusOR,false).c_str());
 
-    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)statusOR << dec << 
-    // 	" (" << statusString(statusOR,false) << ')' << endl;
+    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)statusOR << dec <<
+    //	" (" << statusString(statusOR,false) << ')' << endl;
 
     irigTime = getIRIGTime();
     unixTime = n_u::getSystemTime();
@@ -181,8 +181,8 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
                 unixTime - irigTime,fabs((float)(dtunix - dtirig)) / dtunix);
 
 	    // cerr << "UNIX-IRIG=" << unixTime - irigTime <<
-	    // 	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
-	    // 	", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
+	    //	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
+	    //	", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
 
 	    if (::llabs(unixTime - irigTime) < 10 * USECS_PER_SEC &&
 		fabs((float)(dtunix - dtirig)) / dtunix < 1.e-2) break;
@@ -221,13 +221,13 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
 		{"SYNC","<font color=red><b>NOSYNC</b></font>"}},
 	{0x10,{"YEAR","NOYEAR"},
 		{"YEAR","<font color=red><b>NOYEAR</b></font>"}},
-    	{0x08,{"MAJTM","NOMAJTM"},
+	{0x08,{"MAJTM","NOMAJTM"},
 		{"MAJTM","<font color=red><b>NOMAJTM</b></font>"}},
-    	{0x04,{"PPS_LOCK","NOPPS_LOCK"},
+	{0x04,{"PPS_LOCK","NOPPS_LOCK"},
 		{"PPS_LOCK","<font color=red><b>NOPPS_LOCK</b></font>"}},
-    	{0x02,{"CODE","NOCODE"},
+	{0x02,{"CODE","NOCODE"},
 		{"CODE","<font color=red><b>NOCODE</b></font>"}},
-    	{0x01,{"SYNC","NOSYNC"},
+	{0x01,{"SYNC","NOSYNC"},
 		{"SYNC","<font color=red><b>NOSYNC</b></font>"}},
     };
     ostringstream ostr;
@@ -251,13 +251,13 @@ string IRIGSensor::shortStatusString(unsigned char status,bool xml)
 		{"S","<font color=red><b>s</b></font>"}},
 	{0x10,{"Y","y"},
 		{"Y","<font color=red><b>y</b></font>"}},
-    	{0x08,{"M","m"},
+	{0x08,{"M","m"},
 		{"M","<font color=red><b>m</b></font>"}},
-    	{0x04,{"P","p"},
+	{0x04,{"P","p"},
 		{"P","<font color=red><b>p</b></font>"}},
-    	{0x02,{"C","c"},
+	{0x02,{"C","c"},
 		{"C","<font color=red><b>c</b></font>"}},
-    	{0x01,{"S","s"},
+	{0x01,{"S","s"},
 		{"S","<font color=red><b>s</b></font>"}},
     };
     ostringstream ostr;
@@ -288,7 +288,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 		" (0x" << hex << (int)statusOR << dec << ')';
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
-        float dt = (float)(irigTime - unixTime)/USECS_PER_SEC; 
+        float dt = (float)(irigTime - unixTime)/USECS_PER_SEC;
         bool iwarn = fabsf(dt) > .05;
 
 	ostr << ", IRIG-UNIX=" <<
@@ -311,7 +311,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             ioe.what());
     }
 
-    // Currently the status thread in DSMEngine queries the sensors once 
+    // Currently the status thread in DSMEngine queries the sensors once
     // every 3 seconds.  For initial testing we'll log this information
     // every minute.  The driver accumulates the slew counts. We'll print
     // the difference from the last.
@@ -386,7 +386,7 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
     int ntags = getSampleTags().size();
 
     if (ntags == 0 || ntags > 1)
-    	throw n_u::InvalidParameterException(getName(),"<sample>",
+	throw n_u::InvalidParameterException(getName(),"<sample>",
 		"should only be one <sample> tag");
 
     SampleTag* stag = getSampleTags().front();

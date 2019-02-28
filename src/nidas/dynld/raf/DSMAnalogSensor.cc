@@ -223,7 +223,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 	if (n != 1) {
 	    if ((n = getc(fp)) != '#') {
 		fclose(fp);
-	    	throw n_u::IOException(name,"fscanf",
+		throw n_u::IOException(name,"fscanf",
 			string("bad input character: \'") +
 			string((char)n,1) + "\'");
 	    }
@@ -283,7 +283,7 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      * 2. Then either a 2(bipolar) or 4(unipolar) volt offset is removed.
      * 3. Then the voltage is inverted.
      * 4. Converted to counts
-     * 
+     *
      * Example: -10:10 V input, gain=1,bipolar=true
      *	Gf=gain*10=10,  F=0.2,  offset=2
      *    Here are the values after the above steps:
@@ -293,11 +293,11 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      * back to user space, so for purposes here, it is as if
      * the A2D converts -4:0 volts to -32767:32767 counts
      *
-     * For bipolar=T 
+     * For bipolar=T
      *	cnts = ((V * gain * 0.2) - 2) * 65536 / 4 + 32767 =
      *		V * gain * 0.05 * 65536 + 0
      *	So:   V = cnts * 20 / 65536 / gain
-     * For bipolar=F 
+     * For bipolar=F
      *	cnts = ((V * gain * 0.2) - 4) * 65536 / 4 + 32767 =
      *		V * gain * 0.05 * 65536 - 32767
      *	So:   V = (cnts + 32767) * 20 / 65536 / gain
@@ -403,7 +403,7 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
     if (insamp->getDataByteLength() / sizeof(short) != 2) return false;
 
     const signed short* sp = (const signed short*)
-    	insamp->getConstVoidDataPtr();
+	insamp->getConstVoidDataPtr();
     if (*sp++ != NCAR_A2D_TEMPERATURE_INDEX) return false;
 
     // cerr << "temperature=" << *sp << ", " << *sp * DEGC_PER_CNT << endl;
@@ -524,7 +524,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             //
             // ...I already replaced similar code in A2DSensor, so maybe
             // it's silly not to do it here too.
-            // 
+            //
             Variable* var = vars[ival];
             if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();

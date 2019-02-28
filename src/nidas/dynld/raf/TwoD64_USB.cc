@@ -506,7 +506,7 @@ bool TwoD64_USB::process(const Sample * samp,
             result = processImageRecord(samp, results, stype);
             break;
         case TWOD_SOR_TYPE:	// Shadow-or counter.
-        case TWOD_SORv3_TYPE:	// Housekeeping 
+        case TWOD_SORv3_TYPE:	// Housekeeping
             result = processSOR(samp, results);
             break;
     }

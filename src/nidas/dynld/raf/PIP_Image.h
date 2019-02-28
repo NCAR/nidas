@@ -36,8 +36,8 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 
-/*
- * Sensor class to receive PIP images 
+/**
+ * Sensor class to receive PIP images
  */
 class PIP_Image : public SerialSensor
 {
@@ -66,5 +66,5 @@ private:
 };
 
 }}}
- 
+
 #endif

@@ -64,18 +64,18 @@ PIP_Serial::PIP_Serial(): SppSerial("PIP"),
     //
     char* headPtr;
     char* chksumPtr;
-    
+
     InitPIP_blk init;
     headPtr = (char*)&init;
     chksumPtr = (char*)&(init.chksum);
     assert((chksumPtr - headPtr) == (_InitPacketSize - 2));
-    
+
     _nChannels = N_PIP_CHANNELS;
     PIP_blk data;
     headPtr = (char*)&data;
     chksumPtr = (char*)&(data.chksum);
     assert((chksumPtr - headPtr) == (packetLen() - 4));
-    
+
     //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
@@ -88,7 +88,7 @@ PIP_Serial::PIP_Serial(): SppSerial("PIP"),
 void PIP_Serial::validate()
     throw(n_u::InvalidParameterException)
 {
-    // Need this if fixed record delimiter, to ensure 
+    // Need this if fixed record delimiter, to ensure
     // it doesn't try to check the checksum at packetLen()-2
     // seeing as this has the checksum at packetLen()-4 due to the trailers.
 //    if (getMessageSeparator().length() > 0) {
@@ -132,14 +132,14 @@ void PIP_Serial::sendTimePacket() throw(n_u::IOException)
     if( gettimeofday( &tv,NULL) != -1 ) {
         //extranious chars here are to deal with overflows
         char h = (char)tv.tv_sec/3600;
-        setTime_pkt.hour=h; 
+        setTime_pkt.hour=h;
         char m = tv.tv_sec/60;
-        setTime_pkt.hour=m; 
+        setTime_pkt.hour=m;
         char s = tv.tv_sec;
-        setTime_pkt.hour=s; 
+        setTime_pkt.hour=s;
         char mili = (char)tv.tv_usec/1000;
-        setTime_pkt.hour=mili; 
-    } 
+        setTime_pkt.hour=mili;
+    }
      //time packet should have a size of 8, including checksum
      PackDMT_UShort(setTime_pkt.chksum,
                    computeCheckSum((unsigned char*)&setTime_pkt,
@@ -174,7 +174,7 @@ void PIP_Serial::sendInitString() throw(n_u::IOException)
 //    sendTimePacket();
 
 //cerr<<"init, after time"<<endl;
-    
+
     //may need lock on xml or something to prevent half formed pas
     //can I just modify the 4 relevant bytes?
 
@@ -206,7 +206,7 @@ bool PIP_Serial::process(const Sample* samp,list<const Sample*>& results)
 //    cerr<<"reset flag:"<<UnpackDMT_UShort(inRec.resetFlag)<<endl;
 //    cerr<<"time hour:min "<<inRec.hour<<":"<<inRec.min<<endl;
 //    cerr<<"time :"<<UnpackDMT_UShort(inRec.SecMili)<<endl;
-   
+
     // Create the output stuff
     SampleT<float>* outs = getSample<float>(_noutValues);
 
@@ -236,7 +236,6 @@ bool PIP_Serial::process(const Sample* samp,list<const Sample*>& results)
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.oversizeReject), ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.DOFRejectCount), ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.EndRejectCount), ivar++);
-    
 
 
 #ifdef ZERO_BIN_HACK
@@ -258,7 +257,7 @@ bool PIP_Serial::process(const Sample* samp,list<const Sample*>& results)
     assert(dout == dend);
 
     results.push_back(outs);
- 
+
     return true;
 }
 
@@ -279,7 +278,7 @@ int PIP_Serial::appendDataAndFindGood(const Sample* samp)
     /*
      * Hunt in the waiting data until we find a packetLen() sized stretch
      * where the last two bytes are a good checksum for the rest or match
-     * the expected record delimiter.  Most of the time, we should find it 
+     * the expected record delimiter.  Most of the time, we should find it
      * on the first pass through the loop.
      */
     bool foundRecord = 0;
@@ -368,10 +367,10 @@ void PIP_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) thr
     SendPIP_BLK send_data_pkt;
     send_data_pkt.esc = 0x1b;
     send_data_pkt.id = 0x02;
-    PackDMT_UShort(send_data_pkt.hostSyncCounter , 0x0001); //use packDMT_Ushort here, right below and checksum 
+    PackDMT_UShort(send_data_pkt.hostSyncCounter , 0x0001); //use packDMT_Ushort here, right below and checksum
     PackDMT_UShort(send_data_pkt.relayControl,  0x0000);
 
-    _trueAirSpeed = s->getTrueAirspeed();   // save it to display in printStatus 
+    _trueAirSpeed = s->getTrueAirspeed();   // save it to display in printStatus
 //cerr<<"trueairspeed:"<<_trueAirSpeed<<endl;
 //
     //calculate tas - get resolution out of validate

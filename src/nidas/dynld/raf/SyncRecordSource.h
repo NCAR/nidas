@@ -50,7 +50,7 @@ class SyncRecordSource: public Resampler
     /**
      * SyncRecordSource builds "sync records" from a sample stream.
      * This is a lossy process whete data is being munged into a one-second,
-     * ragged matrix of double precision values, called a sync record. 
+     * ragged matrix of double precision values, called a sync record.
      * Each row of the matrix contains the data for the variables with
      * a given sample id. In NIDAS, a sample is a group of variables
      * all with the same timetag.  In order to build sync records
@@ -157,7 +157,7 @@ class SyncRecordSource: public Resampler
      * maintain two sync records as they are filled.
      */
 public:
-    
+
     SyncRecordSource();
 
     virtual ~SyncRecordSource();
@@ -177,14 +177,14 @@ public:
      * the Project instead of the sync record header.
      **/
     static void
-    selectVariablesFromProject(Project* project, 
+    selectVariablesFromProject(Project* project,
                                std::list<const Variable*>& variables);
 
     /**
      * See selectVariablesFromProject().
      **/
     static void
-    selectVariablesFromSensor(DSMSensor* sensor, 
+    selectVariablesFromSensor(DSMSensor* sensor,
                               std::list<const Variable*>& variables);
 
     SampleSource* getRawSampleSource() { return 0; }

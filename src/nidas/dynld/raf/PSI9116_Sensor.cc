@@ -174,7 +174,7 @@ void PSI9116_Sensor::open(int flags)
     cmdstream.str("");
     cmdstream.clear();
     cmdstream << "c 00 " << stream << ' ' <<
-    	hex << setw(4) << setfill('0') << chans << ' ' <<
+	hex << setw(4) << setfill('0') << chans << ' ' <<
         dec << setfill(' ') << sync << ' ' <<
 	_msecPeriod <<  ' ' <<
 	format <<  ' ' <<
@@ -228,7 +228,6 @@ void PSI9116_Sensor::validate() throw(n_u::InvalidParameterException)
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
 
-        
         _sampleId = stag->getId();
         const vector<Variable*>& vars = stag->getVariables();
 
@@ -236,7 +235,7 @@ void PSI9116_Sensor::validate() throw(n_u::InvalidParameterException)
         for (unsigned int i = 0; i < vars.size(); i++) {
             const Variable* var = vars[i];
             _nchannels += var->getLength();
-            
+
             if (!var->getUnits().compare("mb") ||
                 !var->getUnits().compare("mbar") ||
                 !var->getUnits().compare("hPa"))
@@ -263,7 +262,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     float* dout;
     int bytesTaken = 0;
         int valsTaken = 0;
-        int vals2Take = 0; 
+        int vals2Take = 0;
 
     if (_partialFirst || _partialSecond) {
         // we have part of a sample saved from before
@@ -271,7 +270,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
         if (_partialFirst) {
             dout = _firstPrevious->getDataPtr();
         } else {
-            dout = _secondPrevious->getDataPtr(); 
+            dout = _secondPrevious->getDataPtr();
         }
 
         nvalsin = slen/sizeof(float);
@@ -280,7 +279,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
         if (_prevPartNBytes > 0)
         {
             float* ddout;
-            ddout = dout + _nPrevSampVals; 
+            ddout = dout + _nPrevSampVals;
             for (int bn = _prevPartNBytes; bn < (int)sizeof(float); bn++) {
 #if __BYTE_ORDER == __BIG_ENDIAN
 	        _prevPartial.bytes[(3-bn)] = *input++;
@@ -323,34 +322,34 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
         }
         // Do we have at least one full sample?
         if (vals2Take == _nchannels) {
-            if (_partialFirst) 
+            if (_partialFirst)
                 results.push_back(_firstPrevious);
-            else if (_partialSecond) 
+            else if (_partialSecond)
                 results.push_back(_secondPrevious);
             _gotOne = true;
             input++;input++; // skip size indicator bytes
 
             slen = slen - (valsTaken*sizeof(float)) - bytesTaken - 2; // -2 for size indicator bytes
-            nvalsin = (slen - 5) / sizeof(float); 
+            nvalsin = (slen - 5) / sizeof(float);
             if (nvalsin > _nchannels) {
                 // More than two full samples - should not see this
                 n_u::Logger::getInstance()->log(LOG_WARNING,
                 "More than 2 out samples found in %s, vt=%u,slen=%u,nvalsin=%u",
                  getName().c_str(),valsTaken,slen,nvalsin);
-                _gotOne = _partialFirst = _partialSecond = false; // Reset 
-                return true;  
+                _gotOne = _partialFirst = _partialSecond = false; // Reset
+                return true;
             }
         } else
             return false; // We still only have a partial sample
 
-    } else 
+    } else
         // Should be at the beginning of a new sample
         nvalsin = (slen - 5) / sizeof(float);
 
     // eliminate any REALLY incomplete records
     if ((slen < 1 || *input++ != 1) || slen < 5) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
-                    "Very incomplete sample from %s, slen=%u, inp=%d, vt=%u", 
+                    "Very incomplete sample from %s, slen=%u, inp=%d, vt=%u",
                     getName().c_str(),slen,*(input-1),valsTaken);
         if (_partialFirst && _gotOne) {
             _partialFirst = _gotOne = false;
@@ -375,7 +374,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 
     if (_sequenceNumber == 0) _sequenceNumber = seqnum.lval;
     else if (seqnum.lval != ++_sequenceNumber) {
-        if (!(_outOfSequence++ % 100)) 
+        if (!(_outOfSequence++ % 100))
 		n_u::Logger::getInstance()->log(LOG_WARNING,
                     "%d out of sequence samples from %s, num=%u, expected=%u,slen=%d",
                     _outOfSequence,getName().c_str(),seqnum.lval,_sequenceNumber,slen);
@@ -393,13 +392,13 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     // need to fudge the time of the next output sample
     if (_gotOne) {
         if (_partialFirst) {
-            outs->setTimeTag(_firstPrevious->getTimeTag() 
+            outs->setTimeTag(_firstPrevious->getTimeTag()
                                + (dsm_time_t) _msecPeriod*MSECS_PER_SEC);
             _secondPrevious = outs;
             _partialSecond = true; //Might be complete we'll check later
             _partialFirst = false; // It's been sent
         } else if (_partialSecond) {
-            outs->setTimeTag(_secondPrevious->getTimeTag() 
+            outs->setTimeTag(_secondPrevious->getTimeTag()
                                + (dsm_time_t) _msecPeriod*MSECS_PER_SEC);
             _firstPrevious = outs;
             _partialFirst = true;   // Might be complete we'll check later
@@ -411,7 +410,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
         }
     } else {
         outs->setTimeTag(samp->getTimeTag());
-        _firstPrevious = outs;  
+        _firstPrevious = outs;
         _partialFirst = true;
     }
 
@@ -437,9 +436,9 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     if (iout < _nchannels) {
         // Partial sample - check to see if it broke mid-value
         if ((slen-1) % sizeof(float)) {
-            _prevPartNBytes = (slen - 1) % sizeof(float); 
+            _prevPartNBytes = (slen - 1) % sizeof(float);
 
-       bytesTaken = 0;
+            bytesTaken = 0;
 
             for (int bn = 0; bn < _prevPartNBytes; bn++) {
                 bytesTaken++;
@@ -459,7 +458,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
             return false;
     }
 
-    _gotOne = _partialFirst = _partialSecond = false; // Reset 
+    _gotOne = _partialFirst = _partialSecond = false; // Reset
     _nPrevSampVals = 0;
     results.push_back(outs);
     return true;

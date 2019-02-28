@@ -66,7 +66,7 @@ public:
     int getTASRate() const { return _tasRate; }
 
     void setTASRate(int val) { _tasRate = val; }
-    
+
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
@@ -74,7 +74,7 @@ public:
      * @returns The probe resolution in meters.
      */
     float getResolution() const { return _resolutionMeters; }
-     
+
     /**
      * The probe resolution in micrometers.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
@@ -82,7 +82,7 @@ public:
      * @returns The probe resolution in micrometers.
      */
     unsigned int getResolutionMicron() const { return _resolutionMicron; }
-     
+
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
      * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
@@ -92,7 +92,7 @@ public:
     virtual int NumberOfDiodes() const = 0;
 
     /**
-     * Called by post-processing code 
+     * Called by post-processing code
      */
     void init() throw(nidas::util::InvalidParameterException);
 
@@ -205,7 +205,7 @@ protected:
     virtual bool acceptThisParticle1D(const Particle& p) const;
     virtual bool acceptThisParticle2D(const Particle& p) const;
 //@}
-    
+
 //@{
     /**
      * Send derived data and reset.  The process() method for image data is
@@ -224,7 +224,7 @@ protected:
 //@}
 
     /**
-     * How often to send the true air speed. 
+     * How often to send the true air speed.
      * Probes also send back the shadowOR when they receive
      * the true airspeed, so in general this is also the
      * receive rate of the shadowOR.
@@ -408,7 +408,6 @@ stream_histogram(T& out, V* sizedist, unsigned int nbins)
     }
 }
 
-            
-
 }}}                     // namespace nidas namespace dynld namespace raf
+
 #endif

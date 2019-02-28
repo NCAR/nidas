@@ -23,9 +23,9 @@
  **
  ********************************************************************
 */
-/* 
+/*
  * Watlow
- * 
+ *
  */
 
 #include "WatlowCLS208.h"
@@ -42,10 +42,10 @@ NIDAS_CREATOR_FUNCTION_NS(raf,Watlow)
 
 bool Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw()
 {
-    //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25    
+    //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25
     uint16_t checksum = 0xffff;
     for ( int i=0; i<=messageLength; i++)
-    { 
+    {
         uint16_t data_byte =input[start+i];
         checksum = checksum ^ data_byte;
         for (int j =0; j<8;j++)
@@ -61,7 +61,7 @@ bool Watlow::crcCheck(unsigned char * input, int messageLength, int start) throw
             }
         }
     }
-    
+
     uint16_t calculatedChecksum = _fromBig->int16Value(checksum);
     uint16_t  givenChecksum = _fromBig->int16Value( (&input[start+messageLength+1]));
     if (calculatedChecksum ==givenChecksum){
@@ -120,7 +120,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
             *douts2++ = (float)_fromBig->int16Value( &input[24]) / 10.0;
         }
         results.push_back(outs2);
-    } 
+    }
 
     SampleT<float> * outs3 = getSample<float>(4);
     float *douts3 = outs3->getDataPtr();
