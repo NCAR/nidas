@@ -67,7 +67,8 @@ NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2",
                  "     28V         - 28 volt power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
                  "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
-                 "     bank2|BANK2 - bank2 12V power port\n",
+                 "     bank2|BANK2 - bank2 12V power port\n"
+                 "     btcon|BTCON - bluetooth console hat board on Rpi",
                  "");
 NidasAppArg Map("-m,--map", "",
 			      "Output the devices for which power can be controlled and exit", "");
@@ -156,6 +157,7 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("BTCON"), PWR_BTCON));
 
     if (parseRunString(argc, argv))
         exit(1);
@@ -179,7 +181,7 @@ int main(int argc, char* argv[]) {
         std::string deviceArgStr(Device.getValue());
         std::transform(deviceArgStr.begin(), deviceArgStr.end(), deviceArgStr.begin(), ::toupper);
         deviceArg = deviceArgMap[deviceArgStr];
-        if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, PWR_BANK2))) {
+        if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, PWR_BTCON))) {
             std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
             return 2;
         }
