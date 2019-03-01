@@ -25,6 +25,7 @@
 */
 
 #include "SysfsDSMPowerCtrl.h"
+#include "util.h"
 
 namespace nidas { namespace util {
 
@@ -52,6 +53,10 @@ POWER_STATE SysfsDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 SysfsDSMPowerCtrl::SysfsDSMPowerCtrl(GPIO_PORT_DEFS gpio)
 : SysfsGpio(gpioPort2RpiGpio(gpio)), PowerCtrlAbs(), _iface(gpio)
 {
+    if (!RANGE_CHECK_INC(PWR_28V, gpio, PWR_BTCON)) {
+        throw IOException("SysfsDSMPowerCtrl::SysfsDSMPowerCtrl()", "Illegal/Unknown DSM power control GPIO definition", gpio);
+    }
+
     DLOG(("SysfsDSMPowerCtrl::SysfsDSMPowerCtrl(): SysfsGpio instantiated, updating power state"));
     updatePowerState();
 }

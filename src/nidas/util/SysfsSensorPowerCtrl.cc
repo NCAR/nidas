@@ -25,6 +25,7 @@
 */
 
 #include "SysfsSensorPowerCtrl.h"
+#include "util.h"
 
 #include <string>
 
@@ -54,10 +55,14 @@ POWER_STATE SysfsSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
     return retval;
 }
 
-
 SysfsSensorPowerCtrl::SysfsSensorPowerCtrl(GPIO_PORT_DEFS port)
 : SysfsGpio(gpioPort2RpiGpio(port)), PowerCtrlAbs(), _port(port)
 {
+    if (!RANGE_CHECK_INC(SER_PORT0, port, SER_PORT7)) {
+        throw IOException("SysfsSensorPowerCtrl::SysfsSensorPowerCtrl()", "Illegal/Unknown sensor port definition", port);
+    }
+
+    DLOG(("SysfsSensorPowerCtrl::SysfsSensorPowerCtrl(): SysfsGpio instantiated, updating power state"));
     updatePowerState();
 }
 
