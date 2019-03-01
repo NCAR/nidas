@@ -1,0 +1,4 @@
+# FTDI Devices: FT4232HL/Q
+SUBSYSTEMS=="usb", ENV{.LOCAL_iface}="$attr{bInterfaceNumber}"
+SUBSYSTEMS=="usb", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", ATTRS{manufacturer}=="UCAR", ATTRS{product}=="P0-P3", PROGRAM="/bin/sh -c 'echo $((%E{.LOCAL_iface}+0))'", MODE="0664", GROUP="plugdev", SYMLINK+="ttyDSM%c"
+SUBSYSTEMS=="usb", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", ATTRS{manufacturer}=="UCAR", ATTRS{product}=="P4-P7", PROGRAM="/bin/sh -c 'echo $((%E{.LOCAL_iface}+4))'", MODE="0664", GROUP="plugdev", SYMLINK+="ttyDSM%c"
