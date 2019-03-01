@@ -516,7 +516,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         int nhouse = (ip - sizeof(marker7) - housePtr) / sizeof(short);
 
         SampleT<float> * outs = getSample<float>(_noutValues);
-        outs->setTimeTag(samp->getTimeTag() + results.size() * _dtUsec);
+        outs->setTimeTag(samp->getTimeTag() + (results.size() * _dtUsec) - getLagUsecs());
         outs->setId(getId() + 1);
         float * dout = outs->getDataPtr();
 
@@ -579,7 +579,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         list<Sample*>::iterator ri = osamps.begin();
         for ( ; ri != osamps.end(); ++ri) {
             Sample* osamp = *ri;
-            osamp->setTimeTag(osamp->getTimeTag() - results.size() * _dtUsec);
+            osamp->setTimeTag(osamp->getTimeTag() - (results.size() * _dtUsec) - getLagUsecs());
         }
     }
     return !results.empty();
