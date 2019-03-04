@@ -125,15 +125,20 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // this is needed for future comparisons.
         _desiredPortConfig = getPortConfig();
 
-        setPowerCtrl(_serialDevice->getPwrCtrl());
-        if (_serialDevice->getPwrCtrl()) {
-            enablePwrCtrl(true);
-            setPower(_initPowerState);
-        }
-        else {
-            DLOG(("SerialSensor::SerialSensor(PortConfig): SensorPowerCtrl object not present/supported!!"));
-        }
+        /*
+         *  Create sensor power control object here...
+         */
 
+        GPIO_PORT_DEFS portID = _desiredPortConfig.xcvrConfig.port;
+        DLOG(("SerialSensor::buildIODevice() : Instantiating SensorPowerCtrl object: ") << n_u::gpio2Str(portID));
+        SensorPowerCtrl* pSensorPwrCtrl = new SensorPowerCtrl(portID);
+        if (pSensorPwrCtrl == 0)
+        {
+            throw n_u::Exception("SerialPortIODevice: Cannot construct SensorPowerCtrl object");
+        }
+        setPowerCtrl(pSensorPwrCtrl);
+        enablePwrCtrl(true);
+        setPower(_initPowerState);
     }
 
     return device;
@@ -877,6 +882,19 @@ bool SerialSensor::sweepCommParameters()
                                            cfgMode);
                 }
             }
+        }
+
+        /*
+         *  If this is running on a DSM which doesn't support serial port transceiver control,
+         *  then just break out after first round of serial port parameter checks
+         */
+        if (!_serialDevice->getXcvrCtrl()) {
+            DLOG(("SerialSensor::sweepCommParameters(): "
+                  "SerialXcvrCtrl not instantiated, so done "
+                  "after first round of serial parameter checks."));
+            NLOG(("Couldn't find working serial port parameters. Try changing the device type or transceiver jumpers."));
+            foundIt = false;
+            break;
         }
     }
     return foundIt;

@@ -27,6 +27,7 @@
 #include "SerialPortIODevice.h"
 #include "Looper.h"
 #include "Prompt.h"
+#include <nidas/util/FtdiHW.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Exception.h>
@@ -40,7 +41,6 @@
 #include <cstdlib>
 #include <sstream>
 #include <iomanip>
-#include <limits>
 
 using namespace std;
 using namespace nidas::util;
@@ -84,7 +84,7 @@ SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
     _pSensorPwrCtrl((const_cast<SerialPortIODevice&>(x).getPwrCtrl())),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
-    checkXcvrCtrlRequired(getName());
+    checkXcvrCtrlAvailable(getName());
 }
 
 
@@ -96,7 +96,7 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initP
     _workingPortConfig.termios.setRawLength(1);
     _workingPortConfig.termios.setRawTimeout(0);
 
-    checkXcvrCtrlRequired(name);
+    checkXcvrCtrlAvailable(name);
 }
 
 SerialPortIODevice::~SerialPortIODevice()
@@ -113,12 +113,11 @@ SerialPortIODevice::~SerialPortIODevice()
     }
 }
 
-void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
+void SerialPortIODevice::checkXcvrCtrlAvailable(const std::string& name)
 {
     // if a port control object already exists, delete it first
     if (getXcvrCtrl()) {
         VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
-
         if (getName() != name) {
             VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different. Delete and start over..."));
             delete _pXcvrCtrl;
@@ -131,28 +130,15 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         }
     }
 
-    DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device is a DSM serial port device"));
+    DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device xcvr is controlled by GPIO"));
+    n_u::GPIO_PORT_DEFS portID = SerialXcvrCtrl::devName2PortDef(name);
+    n_u::FtdiHwIF* pXcvrGpio = getFtdiDevice(FTDI_GPIO, port2iface(portID));
+
     // Determine if this needs SP339 port type control
-    std::string ttyBase = "/dev/ttyDSM";
-    std::size_t foundAt = name.find(ttyBase);
-    if (foundAt != std::string::npos) {
-        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device needs SerialXcvrCtrl object: ") << name);
-        const char* nameStr = name.c_str();
-        const char* portChar = &nameStr[ttyBase.length()];
-        unsigned int portID = numeric_limits<uint32_t>::max();
-        istringstream portStream(portChar);
-
-        try {
-            portStream >> portID;
-        }
-        catch (exception& e) {
-            throw n_u::Exception("SerialPortIODevice: device name arg "
-                                "cannot be parsed for canonical port ID");
-        }
-
+    if (pXcvrGpio && pXcvrGpio->ifaceFound()) {
         VLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
-        _workingPortConfig.xcvrConfig.port = static_cast<GPIO_PORT_DEFS>(portID);
+        _workingPortConfig.xcvrConfig.port = portID;
         _pXcvrCtrl = new SerialXcvrCtrl(_workingPortConfig.xcvrConfig.port, 
                                         _workingPortConfig.xcvrConfig.portType, 
                                         _workingPortConfig.xcvrConfig.termination);
@@ -160,15 +146,9 @@ void SerialPortIODevice::checkXcvrCtrlRequired(const std::string& name)
         {
             throw n_u::Exception("SerialPortIODevice: Cannot construct SerialXcvrCtrl object");
         }
-
-        _pSensorPwrCtrl = new SensorPowerCtrl(static_cast<GPIO_PORT_DEFS>(portID));
-        if (_pSensorPwrCtrl == 0)
-        {
-            throw n_u::Exception("SerialPortIODevice: Cannot construct SensorPowerCtrl object");
-        }
     }
     else {
-        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device doesn't need SerialXcvrCtrl object: ") << name);
+        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device doesn't support SerialXcvrCtrl object: ") << name);
     }
 }
 

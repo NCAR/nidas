@@ -148,7 +148,7 @@ public:
     virtual void setName(const std::string& name)
     {
         UnixIODevice::setName(name);
-        checkXcvrCtrlRequired(name);
+        checkXcvrCtrlAvailable(name);
     }
 
     /**
@@ -189,7 +189,7 @@ public:
     /* 
      * Check whether this serial port is using a device which needs port control
      */
-    void checkXcvrCtrlRequired(const std::string& name);
+    void checkXcvrCtrlAvailable(const std::string& name);
 
     /**
      *  Get the SerialXcvrCtrl object for direct updating
