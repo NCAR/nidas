@@ -30,6 +30,7 @@
 #include <sstream>
 
 #include "nidas/util/XcvrGPIO.h"
+#include "nidas/util/util.h"
 
 namespace n_u = nidas::util;
 namespace nidas { namespace core {
@@ -161,12 +162,21 @@ public:
     void printXcvrConfig(const bool addNewline=true, const bool readFirst=true);
     // This is a utility to convert an integer to a GPIO_PORT_DEFS port ID
     // Currently assumes that the portNum is in the range of GPIO_PORT_DEFS
-    static n_u::GPIO_PORT_DEFS int2PortDef(const unsigned portNum)
+    static n_u::GPIO_PORT_DEFS int2PortDef(const unsigned int portNum)
     {
-        return static_cast<n_u::GPIO_PORT_DEFS>(portNum);
+        n_u::GPIO_PORT_DEFS portDef = static_cast<n_u::GPIO_PORT_DEFS>(portNum);
+        if (!RANGE_CHECK_INC(n_u::SER_PORT0, portDef, n_u::SER_PORT7)) {
+            portDef = n_u::ILLEGAL_PORT;
+        }
+        return portDef;
     }
+
     // Morphs the SP339 M0/M1 bit definitions to the associated PORT_TYPE
     static PORT_TYPES bits2PortType(const unsigned char bits);
+    /*
+     *  Converts device name (/dev/ttyDSM? to GPIO_PORT_DEF
+     */
+    static n_u::GPIO_PORT_DEFS devName2PortDef(std::string devname);
 
 protected:
     // assembles the port config bits into a low nibble, ready for shifting.

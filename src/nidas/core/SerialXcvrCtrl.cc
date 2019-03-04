@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <sstream>
 #include <libusb.h>
+#include <limits>
 
 namespace n_u = nidas::util;
 using namespace nidas::util;
@@ -221,6 +222,29 @@ PORT_TYPES SerialXcvrCtrl::bits2PortType(const unsigned char bits)
 
     return portType;
 }
+
+n_u::GPIO_PORT_DEFS SerialXcvrCtrl::devName2PortDef(std::string devName)
+{
+    unsigned int portID = std::numeric_limits<uint32_t>::max();
+    std::string ttyBase = "/dev/tty";
+    std::size_t foundAt = devName.find(ttyBase);
+    if (foundAt != std::string::npos) {
+        const char* nameStr = devName.c_str();
+        const char* portChar = &nameStr[ttyBase.length()+3];
+        std::istringstream portStream(portChar);
+
+        try {
+            portStream >> portID;
+        }
+        catch (std::exception& e) {
+            throw n_u::Exception("SerialPortIODevice: device name arg "
+                                "cannot be parsed for canonical port ID");
+        }
+    }
+
+    return int2PortDef(portID);
+}
+
 
 const std::string SerialXcvrCtrl::portTypeToStr(const PORT_TYPES portType)
 {
