@@ -888,15 +888,15 @@ bool SerialSensor::sweepCommParameters()
          *  If this is running on a DSM which doesn't support serial port transceiver control,
          *  then just break out after first round of serial port parameter checks
          */
-        if (!_serialDevice->getXcvrCtrl()) {
+        if (!foundIt && !_serialDevice->getXcvrCtrl()) {
             DLOG(("SerialSensor::sweepCommParameters(): "
                   "SerialXcvrCtrl not instantiated, so done "
                   "after first round of serial parameter checks."));
             NLOG(("Couldn't find working serial port parameters. Try changing the device type or transceiver jumpers."));
-            foundIt = false;
             break;
         }
     }
+
     return foundIt;
 }
 
