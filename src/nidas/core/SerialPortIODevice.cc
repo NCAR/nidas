@@ -117,9 +117,9 @@ void SerialPortIODevice::checkXcvrCtrlAvailable(const std::string& name)
 {
     // if a port control object already exists, delete it first
     if (getXcvrCtrl()) {
-        VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): _pXcvrCtrl is not NULL..."));
+        VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): _pXcvrCtrl is not NULL..."));
         if (getName() != name) {
-            VLOG(("SerialPortIODevice::checkXcvrCtrlRequired(): device names are different. Delete and start over..."));
+            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): device names are different. Delete and start over..."));
             delete _pXcvrCtrl;
         }
 
@@ -130,12 +130,11 @@ void SerialPortIODevice::checkXcvrCtrlAvailable(const std::string& name)
         }
     }
 
-    DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : check if device xcvr is controlled by GPIO"));
+    DLOG(("SerialPortIODevice::checkXcvrCtrlAvailable() : check if device xcvr is controlled by GPIO"));
     n_u::GPIO_PORT_DEFS portID = SerialXcvrCtrl::devName2PortDef(name);
-    n_u::FtdiHwIF* pXcvrGpio = getFtdiDevice(FTDI_GPIO, port2iface(portID));
 
     // Determine if this needs SP339 port type control
-    if (pXcvrGpio && pXcvrGpio->ifaceFound()) {
+    if (SerialXcvrCtrl::xcvrCtrlSupported(portID)) {
         VLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
             << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
         _workingPortConfig.xcvrConfig.port = portID;
@@ -161,23 +160,23 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     setBlocking(_blocking);
 
     // Set rts485 flag RS422/RS485 to always xmit for full RS422/485
-//    if ( getPortType() == RS422) {
-//        VLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
-//        setRTS485(-1);
-//    }
-//
-//    else {
-//        // set RTS according to how it's been set by the client regardless of the port type.
-//    	// However, if the port type is RS485 half duplex, then the user needs to be sure of
-//    	// how it needs to be set for the particular device.
-//		std::stringstream dStrm;
-//		dStrm << "Setting rts485 to as specified by client: " << getRTS485()
-//				  << ((getRTS485() < 0) ? ": should get a high level on the line." :
-//					  (getRTS485() > 0  ? ": should get a low level on the line." :
-//					  "RTS is \"do not care\""));
-//		VLOG((dStrm.str().c_str()));
-//		setRTS485(getRTS485());
-//    }
+    if ( getPortType() == RS422) {
+        DLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
+        setRTS485(-1);
+    }
+
+    else {
+        // set RTS according to how it's been set by the client regardless of the port type.
+    	// However, if the port type is RS485 half duplex, then the user needs to be sure of
+    	// how it needs to be set for the particular device.
+		std::stringstream dStrm;
+		dStrm << "Setting rts485 to as specified by client: " << getRTS485()
+				  << ((getRTS485() < 0) ? ": should get a high level on the line." :
+					  (getRTS485() > 0  ? ": should get a low level on the line." :
+					  "RTS is \"do not care\""));
+		DLOG((dStrm.str().c_str()));
+		setRTS485(getRTS485());
+    }
     VLOG(("SerialPortIODevice::open : exit"));
 }
 
@@ -461,27 +460,27 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
     //
     //      The point being that soon the code needs to ascertain which regime should be used, and then use that regime.
     //
-//    // remember that setting the FT4232H register has the opposite effect on
-//    // the RTS line signal which it outputs. Other UARTS may behave differently. YMMV.
-//    if (getPortType() == RS485_HALF) {
-//        // see the above discussion about RTS and 485. Here we
-//        // try an in-exact set/clear of RTS on either side of a write.
-//        if (getRTS485() > 0) {
-//            // set RTS before write
-//            setModemBits(TIOCM_RTS);
-//        }
-//        else if (getRTS485() < 0) {
-//            // clear RTS before write
-//            clearModemBits(TIOCM_RTS);
-//        }
-//
-//        // else rts485 == 0, so do nothing
-//    }
-//
-//    if (_pXcvrCtrl && _pXcvrCtrl->getXcvrConfig().portType == RS485_HALF) {
-//        VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
-//              << modemFlagsToString(getModemStatus() & TIOCM_RTS));
-//    }
+    // remember that setting the FT4232H register has the opposite effect on
+    // the RTS line signal which it outputs. Other UARTS may behave differently. YMMV.
+    if (getPortType() == RS485_HALF) {
+        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
+            // see the above discussion about RTS and 485. Here we
+            // try an in-exact set/clear of RTS on either side of a write.
+            if (getRTS485() > 0) {
+                // set RTS before write
+                setModemBits(TIOCM_RTS);
+            }
+            else if (getRTS485() < 0) {
+                // clear RTS before write
+                clearModemBits(TIOCM_RTS);
+            }
+
+            // else rts485 == 0, so do nothing
+        }
+
+        VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
+              << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    }
 
     if ((result = ::write(_fd,buf,len)) < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -497,20 +496,20 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
         // Sleep until we think the last bit has been transmitted.
         // Add a fudge-factor of one quarter of a character.
         ::usleep(len * _usecsperbyte + _usecsperbyte/4);
-//        if (getRTS485() > 0) {
-//            // then clear RTS
-//            clearModemBits(TIOCM_RTS);
-//        }
-//        else if (getRTS485() < 0) {
-//            // then set RTS
-//            setModemBits(TIOCM_RTS);
-//        }
-    }
+        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
+            if (getRTS485() > 0) {
+                // then clear RTS
+                clearModemBits(TIOCM_RTS);
+            }
+            else if (getRTS485() < 0) {
+                // then set RTS
+                setModemBits(TIOCM_RTS);
+            }
+        }
     
-//    if (_pXcvrCtrl && _pXcvrCtrl->getXcvrConfig().portType == RS485_HALF) {
-//        VLOG(("Post SerialPortIODevice::write() RTS state: ")
-//                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
-//    }
+        VLOG(("Post SerialPortIODevice::write() RTS state: ")
+                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    }
 
    return result;
 }
