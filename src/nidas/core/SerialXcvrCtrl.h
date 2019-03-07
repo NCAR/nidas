@@ -108,8 +108,8 @@ public:
     ~SerialXcvrCtrl();
     static bool xcvrCtrlSupported(const n_u::GPIO_PORT_DEFS port)
     {
-        DLOG(("SerialXcvrCtrl::xcvrCtrlSupported()..."));
         n_u::FtdiHwIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
+        DLOG(("SerialXcvrCtrl::xcvrCtrlSupported(): ") << (pFtdiDevice->ifaceFound() ? "true" : "false"));
         return pFtdiDevice->ifaceFound();
     }
     // This sets the class state to be used by applyXcvrConfig();
