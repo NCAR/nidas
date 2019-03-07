@@ -676,6 +676,8 @@ void SerialSensor::doAutoConfig()
 			}
 
 			if (_serialState == COMM_PARAMETER_CFG_SUCCESSFUL) {
+			    NLOG(("Collecting sensor metadata..."));
+			    updateMetaData();
 				NLOG(("Attempting to configure the sensor science parameters."));
 				_scienceState = CONFIGURING_SCIENCE_PARAMETERS;
 				if (configureScienceParameters()) {

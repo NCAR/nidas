@@ -327,6 +327,10 @@ protected:
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
     virtual void sendScienceParameters() {}
     virtual bool checkScienceParameters() { return true; }
+    virtual void updateMetaData()
+    {
+        NLOG(("Sensor does not support metadata collection."));
+    }
 
     void initAutoConfig();
 
