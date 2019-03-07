@@ -2421,7 +2421,10 @@ CFG_MODE_STATUS WisardMote::enterConfigMode()
     DLOG(("WisardMote::enterConfigMode()"));
     CFG_MODE_STATUS retVal = NOT_ENTERED;
 
-    if (sendAndCheckSensorCmd(MSG_FMT_CMD, SensorCmdArg(2))) {
+    bool msgFmtSucceeded = false;
+    // Must get to ASCII message format in order for the rest to work...
+    for (int i=0; i<3 && !(msgFmtSucceeded = sendAndCheckSensorCmd(MSG_FMT_CMD, SensorCmdArg(2))); ++i);
+    if (msgFmtSucceeded) {
         if (sendAndCheckSensorCmd(DATA_RATE_CMD, SensorCmdArg(0))) {
             if (sendAndCheckSensorCmd(EE_UPDATE_CMD)) {
                 if (sendAndCheckSensorCmd(RESET_CMD)) {
@@ -2433,6 +2436,7 @@ CFG_MODE_STATUS WisardMote::enterConfigMode()
             }
         }
     }
+
     return retVal;
 }
 
