@@ -245,8 +245,11 @@ protected:
     bool checkConfigMode(bool continuous = CONTINUOUS);
     bool isConfigCmd(int cmd)
     {
-    	return (cmd != SENSOR_QRY_ID_CMD && cmd != SENSOR_CONFIG_MODE_CMD
-    			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD && cmd != SENSOR_POLL_MEAS_CMD
+    	return (cmd != SENSOR_DIAG_QRY_CMD
+    	        && cmd != SENSOR_QRY_ID_CMD
+    	        && cmd != SENSOR_CONFIG_MODE_CMD
+    			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD
+    			&& cmd != SENSOR_POLL_MEAS_CMD
 				&& cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
     }
     bool confirmGillSerialPortChange(int cmd, int arg);
@@ -258,13 +261,15 @@ protected:
     virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
+    virtual void updateMetaData();
+
 private:
     // default serial parameters for the GIL 2D Wind Observer
     static const int DEFAULT_BAUD_RATE = 9600;
     static const Termios::parity DEFAULT_PARITY = Termios::NONE;
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 8;
-    static const int DEFAULT_RTS485 = -1;
+    static const int DEFAULT_RTS485 = 0;
     static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS422;
 //    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
     static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
