@@ -574,6 +574,17 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
     }
 }
 
+nidas::core::CFG_MODE_STATUS PTB220::enterConfigMode()
+{
+    sendSensorCmd(SENSOR_STOP_CMD);
+    return nidas::core::ENTERED;
+}
+
+void PTB220::exitConfigMode()
+{
+    sendSensorCmd(SENSOR_RUN_CMD);
+}
+
 bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
 {
     bool installed = false;

@@ -179,6 +179,9 @@ protected:
     bool compareScienceParameter(PTB_COMMANDS cmd, const char* match);
     void updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg=0);
     n_c::SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
+    virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
+    virtual void exitConfigMode();
+
 
 private:
     // default serial parameters for the PB210

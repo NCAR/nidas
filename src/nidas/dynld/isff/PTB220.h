@@ -338,6 +338,8 @@ protected:
     n_c::SensorCmdData getDesiredCmd(int cmd);
 
     virtual bool supportsAutoConfig() { return true; }
+    nidas::core::CFG_MODE_STATUS enterConfigMode();
+    void exitConfigMode();
     virtual bool checkResponse();
     virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredPortConfig);
     virtual void sendScienceParameters();
