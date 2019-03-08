@@ -181,7 +181,7 @@ protected:
     n_c::SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
     virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
-
+    virtual void updateMetaData();
 
 private:
     // default serial parameters for the PB210
