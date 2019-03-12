@@ -344,6 +344,7 @@ protected:
     virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredPortConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
+    virtual void updateMetaData();
 
 private:
     // default serial parameters for the PB210

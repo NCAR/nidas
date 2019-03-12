@@ -30,11 +30,12 @@
 
 #include <sstream>
 #include <limits>
-#include <regex.h>
+#include <boost/regex.hpp>
 
 using namespace nidas::core;
 using namespace nidas::util;
 using namespace std;
+using namespace boost;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
 
@@ -222,233 +223,29 @@ const char* PTB220::DEFAULT_OUTPUT_RATE_UNIT = "s";
 // regular expression strings, contexts, compilation
 // NOTE: the regular expressions need to search a buffer w/multiple lines separated by \r\n
 
-static const char* PTB220_VER_REGEX_STR =           "Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})[[:space:]]+";
-static const char* PTB220_SERIAL_NUMBER_REGEX_STR = "(.*[[:space:]]+)+Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)[[:space:]]+";
-static const char* PTB220_CONFIG_REGEX_STR =        "(.*[[:space:]]+)+Configuration[[:blank:]]+([[:digit:]])[[:space:]]+";
-static const char* PTB220_LINEAR_CORR_REGEX_STR =   "(.*[[:space:]]+)+Linear adjustments[[:blank:]]+(ON|OFF){1}[[:space:]]+";
-static const char* PTB220_MULTI_PT_CORR_REGEX_STR = "(.*[[:space:]]+)+Multipoint adjustments[[:blank:]]+(ON|OFF)[[:space:]]+";
-//static const char* PTB220_CAL_DATE_REGEX_STR =      "(.*[[:space:]]+)+Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})[[:space:]]+";
-static const char* PTB220_SERIAL_CFG_REGEX_STR =    "(.*[[:space:]]+)+Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
+static regex PTB220_MODEL_REGEX_STR("^Software version[[:blank:]]+([[:alnum:]]+) / [[:digit:]].[[:digit:]]{1,2}$");
+static regex PTB220_VER_REGEX_STR("^Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})$");
+static regex PTB220_SERIAL_NUMBER_REGEX_STR("^Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)$");
+static regex PTB220_CONFIG_REGEX_STR("^Configuration[[:blank:]]+([[:digit:]])$");
+static regex PTB220_LINEAR_CORR_REGEX_STR("^Linear adjustments[[:blank:]]+(ON|OFF){1}$");
+static regex PTB220_MULTI_PT_CORR_REGEX_STR("^Multipoint adjustments[[:blank:]]+(ON|OFF)$");
+static regex PTB220_CAL_DATE_REGEX_STR("^Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})$");
+static regex PTB220_SERIAL_CFG_REGEX_STR("^Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
 														"(N|E|O){1}[[:blank:]]+(7|8){1}[[:blank:]]+(1|2){1}[[:blank:]]+"
-														"([[:upper:]])[[:space:]]+";
-static const char* PTB220_ECHO_REGEX_STR =       	"(.*[[:space:]]+)+Echo[[:blank:]]+(ON|OFF){1}[[:space:]]+";
-static const char* PTB220_SENDING_MODE_REGEX_STR =  "(.*[[:space:]]+)+Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*[[:space:]]+";
-static const char* PTB220_PULSE_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Pulse mode[[:blank:]]+(OFF){1}.*[[:space:]]+";
-static const char* PTB220_MEAS_MODE_REGEX_STR =  	"(.*[[:space:]]+)+Measurement mode[[:blank:]]+(NORMAL|FAST){1}[[:space:]]+";
-static const char* PTB220_ADDRESS_REGEX_STR =       "(.*[[:space:]]+)+Address[[:blank:]]+([[:digit:]]{1,3})[[:space:]]+";
-static const char* PTB220_OUTPUT_INTERVAL_REGEX_STR =   "(.*[[:space:]]+)+Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})[[:space:]]+";
-static const char* PTB220_OUTPUT_RATE_XML_REGEX_STR = "(.*)([[:digit:]]{1,3}) ((s|min|hr){1})";
-static const char* PTB220_OUTPUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Output format[[:blank:]]+([[:alnum:]\"#.])+[[:space:]]+";
-static const char* PTB220_ERR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+Error output format[[:blank:]]+([[:alnum:]\"#.])*[[:space:]]+";
-static const char* PTB220_USR_OUT_FMT_REGEX_STR =	"(.*[[:space:]]+)+SCOM format[[:blank:]]+([[:alnum:]\"#.])*[[:space:]]+";
-static const char* PTB220_PRESS_UNIT_REGEX_STR =    "(.*[[:space:]]+)+Pressure unit[[:blank:]]+([[:alnum:]]{2,5})[[:space:]]+";
-static const char* PTB220_TEMP_UNIT_REGEX_STR =		"(.*[[:space:]]+)+Temperature unit[[:blank:]]+\'(C|F){1}[[:space:]]+";
-static const char* PTB220_AVG_TIME_REGEX_STR =		"(.*[[:space:]]+)+Averaging time[[:blank:]]+([[:digit:]]{1,3}).0 s[[:space:]]+";
-
-static regex_t version;
-static regex_t serNum;
-static regex_t baroCfg;
-static regex_t linearCorr;
-static regex_t multiCorr;
-//static regex_t calDate;
-static regex_t serialCfg;
-static regex_t echo;
-static regex_t sendMode;
-static regex_t pulseMode;
-static regex_t measMode;
-static regex_t addr;
-static regex_t outInterval;
-static regex_t xmlOutRate;
-static regex_t outFormat;
-static regex_t errOutFormat;
-static regex_t usrOutFormat;
-static regex_t pressUnit;
-static regex_t tempUnit;
-static regex_t avgTime;
-
-static bool compileRegex() {
-    static bool regexCompiled = false;
-    int regStatus = 0;
-
-    if (!regexCompiled) {
-        regexCompiled = (regStatus = ::regcomp(&version, PTB220_VER_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &version, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 version regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&serNum, PTB220_SERIAL_NUMBER_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &serNum, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 serial number regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&baroCfg, PTB220_CONFIG_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &baroCfg, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 barometer cfg regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&linearCorr, PTB220_LINEAR_CORR_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &linearCorr, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 linear correction regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&multiCorr, PTB220_MULTI_PT_CORR_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &multiCorr, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 linear correction regular expression", string(regerrbuf));
-        }
-
-//        regexCompiled = (regStatus = ::regcomp(&calDate, PTB220_CAL_DATE_REGEX_STR, REG_EXTENDED)) == 0;
-//        if (regStatus) {
-//            char regerrbuf[64];
-//            regerror(regStatus, &calDate, regerrbuf, sizeof regerrbuf);
-//            throw n_u::ParseException("PTB220 cal date regular expression", string(regerrbuf));
-//        }
-
-        regexCompiled = (regStatus = ::regcomp(&serialCfg, PTB220_SERIAL_CFG_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&serialCfg,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 serial config regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&echo, PTB220_ECHO_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus, &echo, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 serial number regular expression", string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&sendMode, PTB220_SENDING_MODE_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&sendMode,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 sending mode regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&pulseMode, PTB220_PULSE_MODE_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&pulseMode,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 pulse mode regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&measMode, PTB220_MEAS_MODE_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&measMode,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 measurement mode regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&addr, PTB220_ADDRESS_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&addr,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 address regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&outInterval, PTB220_OUTPUT_INTERVAL_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&outInterval,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 output rate regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&xmlOutRate, PTB220_OUTPUT_RATE_XML_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&xmlOutRate,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 output rate XML regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&outFormat, PTB220_OUTPUT_FMT_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&outFormat,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 output format regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&errOutFormat, PTB220_ERR_OUT_FMT_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&errOutFormat,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 error output format regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&usrOutFormat, PTB220_USR_OUT_FMT_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&usrOutFormat,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 error output format regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&pressUnit, PTB220_PRESS_UNIT_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&pressUnit,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 pressure unit regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&tempUnit, PTB220_TEMP_UNIT_REGEX_STR, REG_EXTENDED)) == 0;
-
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&tempUnit,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 temp unit regular expression",
-                string(regerrbuf));
-        }
-
-        regexCompiled = (regStatus = ::regcomp(&avgTime, PTB220_AVG_TIME_REGEX_STR, REG_EXTENDED)) == 0;
-        if (regStatus) {
-            char regerrbuf[64];
-            regerror(regStatus,&avgTime,regerrbuf,sizeof regerrbuf);
-            throw n_u::ParseException("PTB220 average time regular expression",
-                string(regerrbuf));
-        }
-    }
-
-    return regexCompiled;
-}
-
-static void freeRegex() {
-    regfree(&version);
-    regfree(&serNum);
-    regfree(&baroCfg);
-    regfree(&linearCorr);
-    regfree(&multiCorr);
-//    regfree(&calDate);
-    regfree(&serialCfg);
-    regfree(&echo);
-    regfree(&sendMode);
-    regfree(&pulseMode);
-    regfree(&measMode);
-    regfree(&addr);
-    regfree(&outInterval);
-    regfree(&outFormat);
-    regfree(&errOutFormat);
-    regfree(&usrOutFormat);
-    regfree(&pressUnit);
-    regfree(&tempUnit);
-    regfree(&avgTime);
-}
+														"([[:upper:]])$");
+static regex PTB220_ECHO_REGEX_STR("^Echo[[:blank:]]+(ON|OFF){1}$");
+static regex PTB220_SENDING_MODE_REGEX_STR("^Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*$");
+static regex PTB220_PULSE_MODE_REGEX_STR("^Pulse mode[[:blank:]]+(OFF){1}.*$");
+static regex PTB220_MEAS_MODE_REGEX_STR("^Measurement mode[[:blank:]]+(NORMAL|FAST){1}$");
+static regex PTB220_ADDRESS_REGEX_STR("^Address[[:blank:]]+([[:digit:]]{1,3})$");
+static regex PTB220_OUTPUT_INTERVAL_REGEX_STR("^Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})$");
+static regex PTB220_OUTPUT_RATE_XML_REGEX_STR("(.*)([[:digit:]]{1,3}) ((s|min|hr){1})");
+static regex PTB220_OUTPUT_FMT_REGEX_STR("^Output format[[:blank:]]+([[:alnum:]\"#.])+$");
+static regex PTB220_ERR_OUT_FMT_REGEX_STR("^Error output format[[:blank:]]+([[:alnum:]\"#.])*$");
+static regex PTB220_USR_OUT_FMT_REGEX_STR("^SCOM format[[:blank:]]+([[:alnum:]\"#.])*$");
+static regex PTB220_PRESS_UNIT_REGEX_STR("^Pressure unit[[:blank:]]+([[:alnum:]]{2,5})$");
+static regex PTB220_TEMP_UNIT_REGEX_STR("^Temperature unit[[:blank:]]+\'(C|F){1}$");
+static regex PTB220_AVG_TIME_REGEX_STR("^Averaging time[[:blank:]]+([[:digit:]]{1,3}.[[:digit:]]) s$");
 
 PTB220::PTB220()
     : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(DEFAULT_PORT_CONFIG),
@@ -476,13 +273,10 @@ PTB220::PTB220()
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
-
-    compileRegex();
 }
 
 PTB220::~PTB220()
 {
-    freeRegex();
     delete [] desiredScienceParameters;
 }
 
@@ -674,8 +468,8 @@ void PTB220::sendScienceParameters() {
     usleep(SENSOR_RESET_WAIT_TIME);
 }
 
-bool PTB220::checkScienceParameters() {
-
+bool PTB220::checkScienceParameters()
+{
     VLOG(("PTB220::checkScienceParameters() - Flush port and send query command"));
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
@@ -683,148 +477,130 @@ bool PTB220::checkScienceParameters() {
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
     static const int BUF_SIZE = 2048;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 100);
-    int totalCharsRead = numCharsRead;
-    bufRemaining -= numCharsRead;
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 100);
 
-    static LogContext lp(LOG_VERBOSE);
-    if (lp.active())
-        if (numCharsRead > 0) {
-        	printResponseHex(numCharsRead, respBuf);
-    }
-    
+    std::string respStr;
     if (numCharsRead) {
+        respStr.append(&respBuf[0], numCharsRead);
         DLOG(("Response: "));
-        DLOG((std::string(&respBuf[0], totalCharsRead).c_str()));
+        DLOG((respStr.c_str()));
     }
 
     VLOG(("PTB220::checkScienceParameters() - Check the individual parameters available to us"));
     bool scienceParametersOK = false;
-    int regexStatus = -1;
-    regmatch_t matches[4];
-    int nmatch = sizeof(matches) / sizeof(regmatch_t);
+    cmatch results;
     
     // check for sample averaging
-    if ((regexStatus = regexec(&avgTime, &(respBuf[0]), nmatch, matches, 0)) == 0) {
-    	if (matches[2].rm_so >= 0) {
-			string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-			VLOG(("Checking sample averaging with argument: ") << argStr);
-			scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
-			if (!scienceParametersOK) {
-				DLOG(("PTB220::checkScienceParameters(): Failed to find averaging time: ") << argStr );
-			}
+    bool regexFound = regex_search(respStr.c_str(), results, PTB220_AVG_TIME_REGEX_STR);
+    if (regexFound && results[0].matched && results[1].matched) {
+    	string argStr = results.str(1);
+        DLOG(("Checking sample averaging with argument: ") << argStr);
+        scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
+        if (!scienceParametersOK) {
+            DLOG(("PTB220::checkScienceParameters(): Reported averaging time doesn't match expected value ") << argStr );
     	}
     }
     else {
-        char regerrbuf[64];
-        ::regerror(regexStatus, &avgTime, regerrbuf, sizeof regerrbuf);
-        throw n_u::ParseException("regexec average time RE", string(regerrbuf));
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time RE")
+              << PTB220_AVG_TIME_REGEX_STR.str());
     }    
 
     // check for output interval
     if (scienceParametersOK) {
-        if ((regexStatus = regexec(&outInterval, respBuf, nmatch, matches, 0)) == 0) {
-        	if (matches[2].rm_so >= 0) {
-                string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-                DLOG(("Checking output interval with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
-    			if (!scienceParametersOK) {
-    				DLOG(("PTB220::checkScienceParameters(): Failed to find output interval: ") << argStr );
-    			}
-    			else if (matches[3].rm_so >= 0) {
-                    string argStr = std::string(&(respBuf[matches[3].rm_so]), (matches[3].rm_eo - matches[3].rm_so));
-                    DLOG(("Checking output interval units with argument: ") << argStr);
-                    scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, argStr.c_str());
-        			if (!scienceParametersOK) {
-        				DLOG(("PTB220::checkScienceParameters(): Failed to find output interval units: ") << argStr );
-        			}
-    			}
+        regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_INTERVAL_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched && results[2].matched) {
+            string argStr = results.str(1);
+            DLOG(("Checking output interval with argument: ") << argStr);
+            scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
+            if (!scienceParametersOK) {
+                DLOG(("PTB220::checkScienceParameters(): Reported output interval does not match expected value: ") << argStr );
+            }
+            else if (results[2].matched) {
+                string argStr = results[2].str();
+                DLOG(("Checking output interval units with argument: ") << argStr);
+                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, argStr.c_str());
+                if (!scienceParametersOK) {
+                    DLOG(("PTB220::checkScienceParameters(): Reported output interval units does not match expected value: ") << argStr );
+                }
         	}
         }
         else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &outInterval, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec output interval RE", string(regerrbuf));
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval RE")
+                  << PTB220_OUTPUT_INTERVAL_REGEX_STR.str());
         }    
     }
 
     // check for pressure units
     if (scienceParametersOK) {
-        if ((regexStatus = regexec(&pressUnit, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking pressure units with argument: ") << argStr);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_PRESS_UNIT_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            string argStr = results.str(1);
+            DLOG(("Checking output interval with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_PRESS_UNIT_CMD, argStr.c_str());
-			if (!scienceParametersOK) {
-				DLOG(("PTB220::checkScienceParameters(): Failed to find pressure units: ") << argStr );
-			}
+            if (!scienceParametersOK) {
+                DLOG(("PTB220::checkScienceParameters(): Reported pressure units does not match expected value: ") << argStr );
+            }
         }
         else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &pressUnit, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec pressure unit RE", string(regerrbuf));
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units RE")
+                  << PTB220_PRESS_UNIT_REGEX_STR.str());
         }
     }
 
     // check for temperature units
     if (scienceParametersOK) {
-        if ((regexStatus = regexec(&tempUnit, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking temperature units with argument: ") << argStr);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_TEMP_UNIT_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            string argStr = results.str(1);
+            DLOG(("Checking output interval with argument: ") << argStr);
             scienceParametersOK = compareScienceParameter(SENSOR_TEMP_UNIT_CMD, argStr.c_str());
-			if (!scienceParametersOK) {
-				DLOG(("PTB220::checkScienceParameters(): Failed to find temperature units: ") << argStr );
-			}
+            if (!scienceParametersOK) {
+                DLOG(("PTB220::checkScienceParameters(): Reported temperature units does not match expected value: ") << argStr );
+            }
         }
         else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &tempUnit, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec temp unit RE", string(regerrbuf));
-        }    
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units RE")
+                  << PTB220_TEMP_UNIT_REGEX_STR.str());
+        }
     }
 
     // check for multi-point correction
     if (scienceParametersOK) {
-        if ((regexStatus = regexec(&multiCorr, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-            VLOG(("Checking multi-point correction with argument: ") << argStr);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_MULTI_PT_CORR_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            string argStr = results.str(1);
+            DLOG(("Checking multipoint correction enabled with argument: ") << argStr);
             scienceParametersOK = (argStr == "ON");
-			if (!scienceParametersOK) {
-				DLOG(("PTB220::checkScienceParameters(): Failed to determine multipoint correction status ON: ") << argStr );
-			}
+            if (!scienceParametersOK) {
+                DLOG(("PTB220::checkScienceParameters(): Reported multipoint correction does not match expected value: ") << argStr );
+            }
         }
         else {
-            char regerrbuf[64];
-            ::regerror(regexStatus, &multiCorr, regerrbuf, sizeof regerrbuf);
-            throw n_u::ParseException("regexec multi-point correction RE", string(regerrbuf));
-        }    
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction RE")
+                  << PTB220_MULTI_PT_CORR_REGEX_STR.str());
+        }
     }
 
 //    // check for calibration date correction
 //    if (scienceParametersOK) {
-//        if ((regexStatus = regexec(&calDate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-//            string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-//            VLOG(("Checking cal date with argument: ") << argStr);
-//            scienceParametersOK = true; // TODO: for now. My unit has this set to ????
-//            if (argStr != "\?\?\?\?-\?\?-\?\?") {
-//            	WLOG(("PTB220::checkScienceParameters() - Cal Date is invalid: ") << argStr);
+//        regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX_STR);
+//        if (regexFound && results[0].matched && results[1].matched) {
+//            string argStr = results.str(1);
+//            DLOG(("Checking calibration date with argument: ") << argStr);
+//            //            scienceParametersOK = true; // TODO: for now. My unit has this set to ????
+//            if (!scienceParametersOK) {
+//                DLOG(("PTB220::checkScienceParameters(): Reported calibration date does not match expected value: ") << argStr );
 //            }
 //        }
 //        else {
-//            char regerrbuf[64];
-//            ::regerror(regexStatus, &calDate, regerrbuf, sizeof regerrbuf);
-//            throw n_u::ParseException("regexec calDate RE", string(regerrbuf));
+//            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find cal date RE")
+//                  << PTB220_CAL_DATE_REGEX_STR.str());
 //        }
 //    }
-
-    // PTB220 entries in sensor_catalog.xml don't tend to have an init_string, so need to start it up here.
-    if (scienceParametersOK) {
-        sendSensorCmd(SENSOR_RUN_CMD);
-    }
 
     return scienceParametersOK;
 }
@@ -1204,31 +980,6 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     }
 }
 
-//size_t PTB220::readResponse(void *buf, size_t len, int msecTimeout)
-//{
-//    fd_set fdset;
-//    FD_ZERO(&fdset);
-//    FD_SET(getReadFd(), &fdset);
-//
-//    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
-//        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
-//
-//    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
-//
-//    if (res < 0) {
-//        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-//        return -1;
-//    }
-//
-//    if (res == 0) {
-//        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
-//        return 0;
-//    }
-//
-//    // no select timeout or error, so get the goodies out of the buffer...
-//    return read(buf,len);
-//}
-
 void PTB220::updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg) {
     for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         if (cmd == desiredScienceParameters[i].cmd) {
@@ -1238,6 +989,51 @@ void PTB220::updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg) {
     }
 }
 
+void PTB220::updateMetaData()
+{
+    setManufacturer("Vaisala, Inc.");
+
+    VLOG(("PTB220::updateMetaData() - Flush port and send query command"));
+    // flush the serial port - read and write
+    serPortFlush(O_RDWR);
+
+    sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
+
+    static const int BUF_SIZE = 2048;
+    char respBuf[BUF_SIZE];
+    memset(respBuf, 0, BUF_SIZE);
+
+    VLOG(("PTB220::udpateMetaData() - Read the entire response"));
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 100);
+
+    std::string respStr;
+    if (numCharsRead) {
+        respStr.append(&respBuf[0], numCharsRead);
+        DLOG(("Response: "));
+        DLOG((respStr.c_str()));
+    }
+
+    cmatch results;
+    bool regexFound = regex_search(respStr.c_str(), results, PTB220_MODEL_REGEX_STR);
+    if (regexFound && results[0].matched && results[1].matched) {
+        setModel(results.str(1));
+    }
+
+    regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_NUMBER_REGEX_STR);
+    if (regexFound && results[0].matched && results[1].matched) {
+        setSerialNumber(results.str(1));
+    }
+
+    regexFound = regex_search(respStr.c_str(), results, PTB220_VER_REGEX_STR);
+    if (regexFound && results[0].matched && results[1].matched) {
+        setFwVersion(results.str(1));
+    }
+
+    regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX_STR);
+    if (regexFound && results[0].matched && results[1].matched) {
+        setCalDate(results.str(1));
+    }
+}
 
 
 }}} //namespace nidas { namespace dynld { namespace isff {
