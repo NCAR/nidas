@@ -2870,6 +2870,8 @@ bool WisardMote::captureResetMetaData(const char* buf)
     string tempSensorInitStr;
     string sensorSerialNumsStr;
 
+    setManufacturer("UCAR/EOL");
+
     cmatch results;
     bool regexFound = regex_search(buf, results, MODEL_ID_REGEX_STR);
     bool matchFound = regexFound && results[0].matched;
@@ -2877,7 +2879,6 @@ bool WisardMote::captureResetMetaData(const char* buf)
     if (matchFound && results[1].matched) {
         modelIdStr.append(results[1].first, results[1].second - results[1].first);
         setModel(modelIdStr);
-        setManufacturer("UCAR/EOL");
     } else {
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the model ID string as expected."));
     }
