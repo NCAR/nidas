@@ -70,31 +70,74 @@ enum DSM_SENSOR_STATE {
 	SENSOR_HEALTHY,			    // playing well
 };
 
+/*
+ *  first is a short description, second is the data
+ */
+typedef std::pair<std::string, std::string> MetaDataItem;
+/*
+ *  used to allow client classes to add on to metadata structs
+ */
+typedef std::vector<MetaDataItem> CustomMetaData;
+
 // This structure contains any information about the sensor make/model, HW or SW version, etc
 struct SensorManufacturerMetaData
 {
     SensorManufacturerMetaData()
     : manufacturer("Not Available"), model("Not Available"),
       serialNum("Not Available"), hwVersion("Not Available"),
-      fwVersion("Not Available"), calDate("Not Available") {/*intentionally left blank*/}
+      manufactureDate("Not Available"),
+      fwVersion("Not Available"), fwBuild("Not Available"),
+      calDate("Not Available"), customMetaData()
+    {/*intentionally left blank*/}
 
     std::string manufacturer;
     std::string model;
     std::string serialNum;
     std::string hwVersion;
+    std::string manufactureDate;
     std::string fwVersion;
+    std::string fwBuild;
     std::string calDate;
+    CustomMetaData customMetaData;
+
 
     friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorManufacturerMetaData& rObj)
     {
+        rOutStrm << "Sensor Manufacturer MetaData" << std::endl;
         rOutStrm << "Manufacturer:  " << rObj.manufacturer << std::endl;
         rOutStrm << "Model:         " << rObj.model << std::endl;
         rOutStrm << "Serial Number: " << rObj.serialNum << std::endl;
         rOutStrm << "HW Version:    " << rObj.hwVersion << std::endl;
+        rOutStrm << "Manufacture Date: " << rObj.manufactureDate << std::endl;
         rOutStrm << "FW Version:    " << rObj.fwVersion << std::endl;
+        rOutStrm << "FW Build:      " << rObj.fwBuild << std::endl;
         rOutStrm << "Cal Date:      " << rObj.calDate << std::endl;
 
+        for (unsigned int i=0; i<rObj.customMetaData.size(); ++i ) {
+            MetaDataItem rItem = rObj.customMetaData[i];
+            rOutStrm << rItem.first << ": " << rItem.second << std::endl;
+        }
+
         return rOutStrm;
+    }
+
+    inline CustomMetaData::iterator findCustomMetaData(const std::string& rFirst)
+    {
+        CustomMetaData::iterator iter = customMetaData.begin();
+        while (iter++ != customMetaData.end()) {
+            if (iter->first == rFirst) {
+                break;
+            }
+        }
+
+        return iter;
+    }
+
+    inline void addMetaDataItem(const MetaDataItem& rItem)
+    {
+        if (findCustomMetaData(rItem.first) == customMetaData.end()) {
+            customMetaData.push_back(rItem);
+        }
     }
 };
 
@@ -105,22 +148,42 @@ struct SensorManufacturerMetaData
  */
 struct SensorConfigMetaData
 {
-    SensorConfigMetaData() : _dsmSensorCfg("Not Available")
+    SensorConfigMetaData() : customMetaData()
     {/*Intentionally Left Blank*/}
     virtual ~SensorConfigMetaData() {}
 
-    virtual void printConfigMetaData(std::ostream& ostrm) const
+    CustomMetaData customMetaData;
+
+    friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorConfigMetaData& rObj)
     {
-        ostrm << "DSM Base Config: " << _dsmSensorCfg << std::endl;
+        rOutStrm << "Sensor Config MetaData" << std::endl;
+        for (unsigned int i=0; i< rObj.customMetaData.size(); ++i ) {
+            MetaDataItem rItem = rObj.customMetaData[i];
+            rOutStrm << rItem.first << ": " << rItem.second << std::endl;
+        }
+
+        return rOutStrm;
     }
 
-    std::string _dsmSensorCfg;
-
-    friend inline std::ostream& operator <<(std::ostream& ostrm, const SensorConfigMetaData& rObj)
+    inline CustomMetaData::iterator findCustomMetaData(const std::string& rFirst)
     {
-        rObj.printConfigMetaData(ostrm);
-        return ostrm;
+        CustomMetaData::iterator iter = customMetaData.begin();
+        while (iter++ != customMetaData.end()) {
+            if (iter->first == rFirst) {
+                break;
+            }
+        }
+
+        return iter;
     }
+
+    inline void addMetaDataItem(const MetaDataItem& rItem)
+    {
+        if (findCustomMetaData(rItem.first) == customMetaData.end()) {
+            customMetaData.push_back(rItem);
+        }
+    }
+
 };
 
 
@@ -1055,12 +1118,42 @@ public:
 
     void setFwVersion(const std::string& rFwVersion)
     {
-    	_manufMetaData.fwVersion = rFwVersion;
+        _manufMetaData.fwVersion = rFwVersion;
     }
 
     const std::string getFwVersion()
     {
-    	return _manufMetaData.fwVersion;
+        return _manufMetaData.fwVersion;
+    }
+
+    void setHwVersion(const std::string& rHwVersion)
+    {
+        _manufMetaData.hwVersion = rHwVersion;
+    }
+
+    const std::string getHwVersion()
+    {
+        return _manufMetaData.hwVersion;
+    }
+
+    void setManufactureDate(const std::string& rMfgDate)
+    {
+        _manufMetaData.manufactureDate = rMfgDate;
+    }
+
+    const std::string getManufactureDate() const
+    {
+        return _manufMetaData.manufactureDate;
+    }
+
+    void setFwBuild(const std::string& rFwBuild)
+    {
+        _manufMetaData.fwBuild = rFwBuild;
+    }
+
+    const std::string getFwBuild()
+    {
+        return _manufMetaData.fwBuild;
     }
 
     void setCalDate(const std::string& rCalDate)
@@ -1242,6 +1335,50 @@ public:
         {
             _pSensrPwrCtrl->updatePowerState();
             _pSensrPwrCtrl->print();
+        }
+    }
+
+    virtual void addMetaDataItem(const MetaDataItem& rItem, bool config=true)
+    {
+        if (config) {
+            _configMetaData.addMetaDataItem(rItem);
+        }
+        else {
+            _manufMetaData.addMetaDataItem(rItem);
+        }
+    }
+
+    /*
+     *  Updates a MetaDataItem in the CustomMetaData member for either config or
+     *  manufacturing metadata.
+     */
+    virtual void updateMetaDataItem(const MetaDataItem& rItem, bool config=true)
+    {
+        if (config) {
+            CustomMetaData::iterator iter = _configMetaData.findCustomMetaData(rItem.first);
+            if (iter != _configMetaData.customMetaData.end()) {
+                iter->second = rItem.second;
+            }
+        }
+        else {
+            CustomMetaData::iterator iter = _manufMetaData.findCustomMetaData(rItem.first);
+            if (iter != _manufMetaData.customMetaData.end()) {
+                iter->second = rItem.second;
+            }
+        }
+    }
+
+    virtual void printDeviceMetaData(bool log=true)
+    {
+        if (log) {
+            ILOG(("") << _manufMetaData);
+            ILOG(("On Device: ") << getDeviceName());
+            ILOG(("") << _configMetaData);
+        }
+        else {
+            std::cout << _manufMetaData;
+            std::cout << "On Device: " << getDeviceName() << std::endl;
+            std::cout << _configMetaData;
         }
     }
 
