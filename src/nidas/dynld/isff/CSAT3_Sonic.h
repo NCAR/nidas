@@ -141,6 +141,7 @@ protected:
     virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
+    virtual void updateMetaData();
 
 
 private:

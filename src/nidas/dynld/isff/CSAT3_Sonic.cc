@@ -60,7 +60,7 @@ const char* CSAT3_Sonic::DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
 const int CSAT3_Sonic::SENSOR_BAUDS[CSAT3_Sonic::NUM_SENSOR_BAUDS] = {9600, 19200};
 const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
 {
-	{8,Termios::NONE,1},
+	WordSpec(8,Termios::NONE,1),
 };
 
 const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
@@ -936,11 +936,6 @@ bool CSAT3_Sonic::checkResponse()
 			if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
 			fst.close();
 		}
-		setSerialNumber(serialNumber);
-	}
-
-	if (!revision.empty()) {
-		setFwVersion(revision);
 	}
 
     return (query.length() != 0);
@@ -997,4 +992,21 @@ void CSAT3_Sonic::sendScienceParameters()
 bool CSAT3_Sonic::checkScienceParameters()
 {
 	return doubleCheckResponse();
+}
+
+void CSAT3_Sonic::updateMetaData()
+{
+    setManufacturer("Campbell Scientific, Inc.");
+
+    /*
+     *  All these details should already be available at this point in the process.
+     */
+
+    if (!serialNumber.empty()) {
+        setSerialNumber(serialNumber);
+    }
+
+    if (!revision.empty()) {
+        setFwVersion(revision);
+    }
 }
