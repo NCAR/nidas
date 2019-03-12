@@ -78,6 +78,8 @@ NidasAppArg Bandwidth("-b,--bandwidth", "[5|10|12.5|20|25|Open]",
                       "Set the measurement bandwidth in hertz.", "10");
 NidasAppArg Rate("-r,--rate", "[10|20|50|Open]",
                       "Set the sample rate in hertz. Should be 2X the bandwidth.", "20");
+NidasAppArg Pro("-y,--yes", "",
+                      "I know what I'm doing, so skip the wait for keypress before continuing.");
 
 std::string explanatoryText = "  This utility configures the EC100 and CSAT3 sensors.\n"
                               "  The computer running this utility must be connected to the EC100 USB port.\n"
@@ -127,7 +129,7 @@ Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl << std::endl
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Version | app.Help
-    		            | Device | Info | Bandwidth | Rate);
+    		            | Device | Info | Bandwidth | Rate | Pro);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested() || !Device.specified())
@@ -231,9 +233,11 @@ int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
-    std::cerr  << std::endl << explanatoryText << std::endl << std::endl << "Type any character to continue...";
-    (void)getchar();
-    std::cerr << std::endl << std::endl;
+    if (!Pro.specified()) {
+        std::cerr  << std::endl << explanatoryText << std::endl << std::endl << "Type any character to continue...";
+        (void)getchar();
+        std::cerr << std::endl << std::endl;
+    }
 
     bwMap = createBwMap();
     rateMap = createRateMap();
@@ -244,7 +248,12 @@ int main(int argc, char* argv[]) {
 
         // Open device for rw
         serPort.setName(devName);
-        serPort.open(O_RDWR);
+        try {
+            serPort.open(O_RDWR);
+        } catch (const IOException& e) {
+            ILOG((e.what()));
+            return 8;
+        }
 
         // Set baud rate of serial device
         nidas::util::Termios serTermios = serPort.getTermios();
