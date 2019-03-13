@@ -262,6 +262,7 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
+    void initCustomMetadata();
 
 private:
     // default serial parameters for the GIL 2D Wind Observer

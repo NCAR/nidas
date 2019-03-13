@@ -142,6 +142,7 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
+    virtual void initCustomMetaData();
 
 
 private:

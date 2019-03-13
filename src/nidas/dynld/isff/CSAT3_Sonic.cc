@@ -65,6 +65,12 @@ const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
 
 const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
+std::string DATA_RATE_CFG_DESC("Data Rate");
+std::string OVERSAMPLE_CFG_DESC("Over Sampling");
+std::string RTS_INDEP_CFG_DESC("RTSIdep");
+std::string BAUD_RATE_CFG_DESC("Baud");
+
+
 /*
  * CSAT3 stuff
  */
@@ -121,6 +127,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
     }
 
+    initCustomMetaData();
 }
 
 CSAT3_Sonic::~CSAT3_Sonic()
@@ -128,14 +135,6 @@ CSAT3_Sonic::~CSAT3_Sonic()
     delete _ttadjuster;
 }
 
-
-void CSAT3_Sonic::exitConfigMode() throw(n_u::IOException)
-{
-    clearBuffer();
-
-    DLOG(("%s:%s sending D (nocr)",getName().c_str(), getClassName().c_str()));
-    write("D",1);
-}
 
 /* static */
 string CSAT3_Sonic::parseSerialNumber(const string& str,
@@ -359,27 +358,42 @@ throw(n_u::IOException)
 {
     DLOG(("%s: sending %s",getName().c_str(),cmd));
     write(cmd,2);
-    int timeout = MSECS_PER_SEC * 4;
 
     string result;
-    // do up to 10 reads or a timeout.
-    for (int i = 0; i < 10; i++) {
-        try {
-            readBuffer(timeout);
-        }
-        catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s: timeout",getName().c_str()));
-            break;
-        }
-        for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-            // strings will not be null terminated
-            const char * cp = (const char*)samp->getConstVoidDataPtr();
-            result += string(cp,samp->getDataByteLength());
-            distributeRaw(samp);
-        }
+
+// This should be happening in terminal mode, and so none of this should work. Do it the
+// new way be reading the port buffer directly.
+//
+//    int timeout = MSECS_PER_SEC * 4;
+//    // do up to 10 reads or a timeout.
+//    for (int i = 0; i < 10; i++) {
+//        try {
+//            readBuffer(timeout);
+//        }
+//        catch (const n_u::IOTimeoutException& e) {
+//            DLOG(("%s: timeout",getName().c_str()));
+//            break;
+//        }
+//        for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+//            // strings will not be null terminated
+//            const char * cp = (const char*)samp->getConstVoidDataPtr();
+//            result += string(cp,samp->getDataByteLength());
+//            distributeRaw(samp);
+//        }
+//    }
+//    clearBuffer();
+//    while (result.length() > 0 && result[result.length() - 1] == '>') result.resize(result.length()-1);
+    const unsigned long BUF_SIZE = 100;
+    char buf[BUF_SIZE];
+    std::memset(buf, 0, BUF_SIZE);
+
+    std::size_t numChars = readEntireResponse((void*)buf, (std::size_t)BUF_SIZE, 1000);
+    if (numChars) {
+        result.append(buf);
+        const char* brStr = result.c_str() + result.find("BR=");
+        result.assign(brStr);
     }
-    clearBuffer();
-    while (result.length() > 0 && result[result.length() - 1] == '>') result.resize(result.length()-1);
+
     return result;
 }
 
@@ -528,48 +542,6 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 //							getName().c_str()) << serialNumber << "\"");
 //		_consecutiveOpenFailures = 0;   // what-a-ya-know, success!
 //	}
-}
-
-n_c::CFG_MODE_STATUS CSAT3_Sonic::enterConfigMode() throw(n_u::IOException)
-{
-    n_c::CFG_MODE_STATUS cfgStatus = getConfigMode();
-    bool timedOut = false;
-
-    for (int i = 0; i < 2 && cfgStatus != ENTERED && !timedOut; i++) {
-        DLOG(("%s: sending (P)T (nocr)",getName().c_str()));
-        /*
-         * P means print status and turn off internal triggering.
-         * If rev 5 sonics are set to 60 Hz raw sampling or
-         * 3x or 6x oversampling, they don't respond until sent a P
-         */
-        if (i > 1) write("PT",2);
-        else write("T",1);
-        try {
-            unsigned int l;
-            char buf[50];
-            memset(buf, 0, 50);
-            l = readEntireResponse(buf, 49, MSECS_PER_SEC + 10);
-            if (l > 0 && strstr(buf, ">") != 0) {
-                cfgStatus = ENTERED;
-                setConfigMode(cfgStatus);
-                ILOG(("%s:%s Successfully entered config mode!",
-                      getName().c_str(), getClassName().c_str()));
-                break;
-            }
-        }
-        catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s:%s CSAT3_Sonic::enterConfigMode(): timeout",getName().c_str(), getClassName().c_str()));
-            timedOut = true;
-            break;
-        }
-    }
-
-    if (cfgStatus != ENTERED) {
-        WLOG(("%s:%s cannot switch CSAT3 to terminal mode",
-              getName().c_str(), getClassName().c_str()));
-    }
-
-    return cfgStatus;
 }
 
 float CSAT3_Sonic::correctTcForPathCurvature(float tc, float, float, float)
@@ -878,6 +850,56 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 #endif
 }
 
+n_c::CFG_MODE_STATUS CSAT3_Sonic::enterConfigMode() throw(n_u::IOException)
+{
+    n_c::CFG_MODE_STATUS cfgStatus = getConfigMode();
+    bool timedOut = false;
+
+    for (int i = 0; i < 2 && cfgStatus != ENTERED && !timedOut; i++) {
+        DLOG(("%s: sending (P)T (nocr)",getName().c_str()));
+        /*
+         * P means print status and turn off internal triggering.
+         * If rev 5 sonics are set to 60 Hz raw sampling or
+         * 3x or 6x oversampling, they don't respond until sent a P
+         */
+        if (i > 1) write("PT",2);
+        else write("T",1);
+        try {
+            unsigned int l;
+            char buf[50];
+            memset(buf, 0, 50);
+            l = readEntireResponse(buf, 49, MSECS_PER_SEC + 10);
+            if (l > 0 && strstr(buf, ">") != 0) {
+                cfgStatus = ENTERED;
+                setConfigMode(cfgStatus);
+                ILOG(("%s:%s Successfully entered config mode!",
+                      getName().c_str(), getClassName().c_str()));
+                break;
+            }
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            DLOG(("%s:%s CSAT3_Sonic::enterConfigMode(): timeout",getName().c_str(), getClassName().c_str()));
+            timedOut = true;
+            break;
+        }
+    }
+
+    if (cfgStatus != ENTERED) {
+        WLOG(("%s:%s cannot switch CSAT3 to terminal mode",
+              getName().c_str(), getClassName().c_str()));
+    }
+
+    return cfgStatus;
+}
+
+void CSAT3_Sonic::exitConfigMode() throw(n_u::IOException)
+{
+    clearBuffer();
+
+    DLOG(("%s:%s sending D (nocr)",getName().c_str(), getClassName().c_str()));
+    write("D",1);
+}
+
 bool CSAT3_Sonic::checkResponse()
 {
     acqrate = -1;
@@ -920,7 +942,9 @@ bool CSAT3_Sonic::checkResponse()
 		}
 
 		// On rate or serial number change, log to file.
-		if (!serialNumber.empty() && (!rateOK || serialNumber != getSerialNumber()) && _sonicLogFile.length() > 0) {
+		if (!serialNumber.empty()
+		    && (!rateOK || serialNumber != getSerialNumber())
+		    && _sonicLogFile.length() > 0) {
 			n_u::UTime now;
 			string fname = getDSMConfig()->expandString(_sonicLogFile);
 			ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
@@ -1009,4 +1033,31 @@ void CSAT3_Sonic::updateMetaData()
     if (!revision.empty()) {
         setFwVersion(revision);
     }
+
+    std::ostringstream tmpCfg;
+    tmpCfg << osc;
+    updateMetaDataItem(MetaDataItem(OVERSAMPLE_CFG_DESC, tmpCfg.str()));
+
+    tmpCfg.clear();
+    tmpCfg << acqrate;
+    updateMetaDataItem(MetaDataItem(DATA_RATE_CFG_DESC, tmpCfg.str()));
+
+    tmpCfg.clear();
+    tmpCfg << rtsIndep;
+    updateMetaDataItem(MetaDataItem(RTS_INDEP_CFG_DESC, tmpCfg.str()));
+
+    tmpCfg.clear();
+    tmpCfg << baudRate;
+    updateMetaDataItem(MetaDataItem(BAUD_RATE_CFG_DESC, tmpCfg.str()));
+
 }
+
+
+void CSAT3_Sonic::initCustomMetaData()
+{
+    addMetaDataItem(MetaDataItem(DATA_RATE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(OVERSAMPLE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(RTS_INDEP_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(BAUD_RATE_CFG_DESC, ""));
+}
+

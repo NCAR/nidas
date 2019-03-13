@@ -172,6 +172,11 @@ enum MOTE_CMDS
     NUM_SUPPORTED_CMDS
 };
 
+/*
+ *  Used to keep track of what config data has been captured already,
+ *  and whether a command needs to be re-sent. If the metadata is same
+ *  as what is to be sent, then the command is canceled.
+ */
 struct MoteSensorConfigMetaData : public SensorConfigMetaData
 {
     MoteSensorConfigMetaData()
@@ -182,36 +187,10 @@ struct MoteSensorConfigMetaData : public SensorConfigMetaData
       _vmonRestartCfg("Not Available"), _vmonSleepCfg("Not Available"), _vbCalCfg("Not Available"),
       _i3CalCfg("Not Available"), _iiCalCfg("Not Available"), _gpsEnableCfg("Not Available"),
       _gpsResyncCfg("Not Available"), _gpsFailRetryCfg("Not Available"),
-      _gpsNumLocksCfg("Not Available"), _gpsTimeOutCfg("Not Available"), _gpsMsgsCfg("Not Available")
+      _gpsNumMsgsToLockCfg("Not Available"), _gpsTimeOutCfg("Not Available"),
+      _gpsSendAllMsgsCfg("Not Available")
     {/*Intentionally Left Blank*/}
     virtual ~MoteSensorConfigMetaData() {}
-
-    virtual void printConfigMetaData(std::ostream& ostrm) const
-    {
-        ostrm << "Eeprom set state:  " << _eeCfg << std::endl;
-        ostrm << "Data Rate:         " << _dataRateCfg << std::endl;
-        ostrm << "Power Sample Skip: " << _pwrSampCfg << std::endl;
-        ostrm << "Serial Numb Skip:  " << _serNumSampCfg << std::endl;
-        ostrm << "Unit ID:           " << _idCfg << std::endl;
-        ostrm << "Message Format:    " << _msgFmtCfg << std::endl;
-        ostrm << "Output Port:       " << _portCfg << std::endl;
-        ostrm << "Sensors Power:     " << _sensorsOnCfg << std::endl;
-        ostrm << "File Log Enable:   " << _fileEnableCfg << std::endl;
-        ostrm << "File Log Flush Rate: " << _fileFlushCfg << std::endl;
-        ostrm << "Vbatt Mon Enable:  " << _vmonEnableCfg << std::endl;
-        ostrm << "Vbatt Low:         " << _vmonLowCfg << std::endl;
-        ostrm << "Vbatt Restart:     " << _vmonRestartCfg << std::endl;
-        ostrm << "Vbatt Sleep:       " << _vmonSleepCfg << std::endl;
-        ostrm << "Vbatt Gain Cal:    " << _vbCalCfg << std::endl;
-        ostrm << "I3 Gain Cal:       " << _i3CalCfg << std::endl;
-        ostrm << "Iin Gain Cal:      " << _iiCalCfg << std::endl;
-        ostrm << "GPS Enable:        " << _gpsEnableCfg << std::endl;
-        ostrm << "GPS RTCC Resync:   " << _gpsResyncCfg << std::endl;
-        ostrm << "GPS Fail Retry:    " << _gpsFailRetryCfg << std::endl;
-        ostrm << "GPS Num Locks:     " << _gpsNumLocksCfg << std::endl;
-        ostrm << "GPS Timeout:       " << _gpsTimeOutCfg << std::endl;
-        ostrm << "GPS Msg Type:      " << _gpsMsgsCfg << std::endl;
-    }
 
     std::string _eeCfg;
     std::string _dataRateCfg;
@@ -233,15 +212,9 @@ struct MoteSensorConfigMetaData : public SensorConfigMetaData
     std::string _gpsEnableCfg;
     std::string _gpsResyncCfg;
     std::string _gpsFailRetryCfg;
-    std::string _gpsNumLocksCfg;
+    std::string _gpsNumMsgsToLockCfg;
     std::string _gpsTimeOutCfg;
-    std::string _gpsMsgsCfg;
-
-//    friend inline std::ostream& operator<<(std::ostream& ostrm, const MoteSensorConfigMetaData& rObj)
-//    {
-//        rObj.printConfigMetaData(ostrm);
-//        return ostrm;
-//    }
+    std::string _gpsSendAllMsgsCfg;
 };
 
 
@@ -335,6 +308,7 @@ protected:
     virtual bool checkScienceParameters();
 
     void initCmdTable();
+    void initCustomMetaData();
     void initScienceParams();
     void initPortCfgParams();
     inline void initAutoCfg()

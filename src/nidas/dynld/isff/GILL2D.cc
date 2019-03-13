@@ -156,6 +156,18 @@ static const regex GILL2D_CONFIG_MODE_REGEX_STR("[[:space:]]+CONFIGURATION MODE"
 static const regex GILL2D_SERNO_REGEX_STR("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
 static const regex GILL2D_FW_VER_REGEX_STR("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
 
+static const std::string AVERAGING_CFG_DESC("Avg secs");
+static const std::string HEATING_CFG_DESC("Heater");
+static const std::string NMEA_ID_STR_CFG_DESC("NMEA");
+static const std::string MSG_TERM_CFG_DESC("Msg Term");
+static const std::string MSG_STREAM_CFG_DESC("Msg Stream");
+static const std::string FIELD_FMT_CFG_DESC("Field Fmt");
+static const std::string OUTPUT_RATE_CFG_DESC("Output Rate");
+static const std::string MEAS_UNITS_CFG_DESC("Meas Units");
+static const std::string NODE_ADDR_CFG_DESC("Node Addr");
+static const std::string VERT_MEAS_PAD_CFG_DESC("Vert Pad");
+static const std::string ALIGN_45_DEG_CFG_DESC("Align/45 Deg");
+
 GILL2D::GILL2D()
     : Wind2D(DEFAULT_PORT_CONFIG),
 	  testPortConfig(),
@@ -184,6 +196,8 @@ GILL2D::GILL2D()
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         _desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
+
+    initCustomMetadata();
 }
 
 GILL2D::~GILL2D()
@@ -533,70 +547,70 @@ bool GILL2D::checkScienceParameters()
         }
 
         else {
-			if (results[7].matched) {
-				string argStr = std::string(results[7].first, results[7].second - results[7].first);
-				VLOG(("Checking sample averaging time(G) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, argStr.c_str());
+			if (results[6].matched) {
+				VLOG(("Checking sample averaging time(G) with argument: ") << results.str(6));
+				scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(6).c_str());
+				updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(6)));
 			}
 
-			if (scienceParametersOK && results[8].matched) {
-				string argStr = std::string(results[8].first, results[8].second - results[8].first);
-				VLOG(("Checking heater status(H) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, argStr.c_str());
+			if (scienceParametersOK && results[7].matched) {
+				VLOG(("Checking heater status(H) with argument: ") << results.str(7));
+				scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, results.str(7).c_str());
+                updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(7)));
+			}
+
+			if (scienceParametersOK && results[9].matched) {
+				VLOG(("Checking NMEA string(K) with argument: ") << results.str(9));
+				scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(9).c_str());
+                updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(9)));
 			}
 
 			if (scienceParametersOK && results[10].matched) {
-				string argStr = std::string(results[10].first, results[10].second - results[10].first);
-				VLOG(("Checking NMEA string(K) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, argStr.c_str());
+				VLOG(("Checking message termination(L) with argument: ") << results.str(10));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(10).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(10)));
 			}
 
 			if (scienceParametersOK && results[11].matched) {
-				string argStr = std::string(results[11].first, results[11].second - results[11].first);
-				VLOG(("Checking message termination(L) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, argStr.c_str());
+				VLOG(("Checking message stream format(M) with argument: ") << results.str(11));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(11).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(11)));
 			}
 
 			if (scienceParametersOK && results[12].matched) {
-				string argStr = std::string(results[12].first, results[12].second - results[12].first);
-				VLOG(("Checking message stream format(M) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, argStr.c_str());
+				VLOG(("Checking node address(N) with argument: ") << results.str(12));
+				scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(12).c_str());
+                updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(12)));
 			}
 
 			if (scienceParametersOK && results[13].matched) {
-				string argStr = std::string(results[13].first, results[13].second - results[13].first);
-				VLOG(("Checking node address(N) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, argStr.c_str());
+				VLOG(("Checking output field format(O) with argument: ") << results.str(13));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(13).c_str());
+                updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(13)));
 			}
 
 			if (scienceParametersOK && results[14].matched) {
-				string argStr = std::string(results[14].first, results[14].second - results[14].first);
-				VLOG(("Checking output field format(O) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, argStr.c_str());
-			}
+				VLOG(("Checking output rate(P) with argument: ") << results.str(14));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, results.str(14).c_str());
+                updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, results.str(14)));
+		}
 
-			if (scienceParametersOK && results[15].matched) {
-				string argStr = std::string(results[15].first, results[15].second - results[15].first);
-				VLOG(("Checking output rate(P) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, argStr.c_str());
+			if (scienceParametersOK && results[16].matched) {
+				VLOG(("Checking wind speed units(U) with argument: ") << results.str(16));
+				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(16).c_str());
+                updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(16)));
 			}
 
 			if (scienceParametersOK && results[17].matched) {
-				string argStr = std::string(results[17].first, results[17].second - results[17].first);
-				VLOG(("Checking wind speed units(U) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
+				VLOG(("Checking vertical output pad(V) with argument: ") << results.str(17));
+				scienceParametersOK = compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(17).c_str());
+                updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(17)));
 			}
 
 			if (scienceParametersOK && results[18].matched) {
-				string argStr = std::string(results[18].first, results[18].second - results[18].first);
-				VLOG(("Checking vertical output pad(V) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
-			}
-
-			if (scienceParametersOK && results[19].matched) {
-				string argStr = std::string(results[19].first, results[19].second - results[19].first);
-				VLOG(("Checking sensor alignment(X) with argument: ") << argStr);
-				scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, argStr.c_str());
+				VLOG(("Checking sensor alignment(X) with argument: ") << results.str(18));
+				scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(18).c_str());
+                updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(18)));
 			}
 		}
     }
@@ -982,6 +996,21 @@ void GILL2D::updateMetaData()
     else {
         DLOG(("GILL2D::updateMetaData(): Didn't find firmware version string as expected."));
     }
+}
+
+void GILL2D::initCustomMetadata()
+{
+    addMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(HEATING_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, ""));
 }
 
 
