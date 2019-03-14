@@ -182,6 +182,7 @@ protected:
     virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual void updateMetaData();
+    void initCustomMetaData();
 
 private:
     // default serial parameters for the PB210

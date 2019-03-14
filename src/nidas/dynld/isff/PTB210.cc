@@ -138,8 +138,22 @@ const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
  */
 
 
-// regular expression strings, contexts, compilation
+// regular expression strings, contexts
 // NOTE: the regular expressions need to search a buffer w/multiple lines separated by \r\n
+
+static const regex PTB210_RESPONSE_REGEX(
+        "PTB210 Ver [[:digit:]].[[:digit:]]+[[:space:]]+"
+        "CAL DATE[[:blank:]]+:[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}[[:space:]]+"
+        "ID CODE[[:blank:]]+:[[:digit:]]+[[:space:]]+"
+        "SERIAL NUMBER[[:blank:]]+:[A-Z][[:digit:]]+[[:space:]]+"
+        "MULTIPOINT CORR:(ON|OFF)[[:space:]]+"
+        "MEAS PER MINUTE:[[:blank:]]+[[:digit:]]+[[:space:]]+"
+        "AVERAGING[[:blank:]]+:[[:blank:]]+[[:digit:]]+[[:space:]]+"
+        "PRESSURE UNIT[[:blank:]]+: mBar[[:space:]]+"
+        "Pressure Min...Max:[[:blank:]]+[[:digit:]]+[[:blank:]]+[[:digit:]]+[[:space:]]+"
+        "[[:alpha:]]+ CURRENT MODE[[:space:]]+"
+        "RS485 RESISTOR (OFF|ON)[[:space:]]+");
+
 static const regex PTB210_MODEL_REGEX_STR("^([[:alnum:]]+)[[:blank:]]Ver.*$",
                                           regex_constants::extended);
 static const regex PTB210_VER_REGEX_STR("^PTB210 (Ver[[:blank:]][[:digit:]]\\.[[:digit:]])$",
@@ -162,6 +176,20 @@ static const regex PTB210_CURR_MODE_REGEX_STR("^([^ \r\n\t]+)[[:blank:]]CURRENT 
                                               regex_constants::extended);
 static const regex PTB210_RS485_RES_REGEX_STR("^RS485 RESISTOR (ON|OFF)$",
                                               regex_constants::extended);
+
+static const std::string PTB210_VER_CFG_DESC("PTB210 Ver");
+static const std::string PTB210_CAL_DATE_CFG_DESC("CAL DATE");
+static const std::string PTB210_ID_CODE_CFG_DESC("ID CODE");
+static const std::string PTB210_SERIAL_NUMBER_CFG_DESC("SERIAL NUMBER");
+static const std::string PTB210_MULTI_PT_CORR_CFG_DESC("MULTIPOINT CORR");
+static const std::string PTB210_MEAS_PER_MIN_CFG_DESC("MEAS PER MINUTE");
+static const std::string PTB210_NUM_SMPLS_AVG_CFG_DESC("AVERAGING");
+static const std::string PTB210_PRESS_UNIT_CFG_DESC("PRESSURE UNIT");
+static const std::string PTB210_PRESS_MINMAX_CFG_DESC("Pressure Min...Max");
+static const std::string PTB210_CURR_MODE_CFG_DESC("CURRENT MODE");
+static const std::string PTB210_RS485_RES_CFG_DESC("RS485 RESISTOR");
+
+
 
 PTB210::PTB210()
     : SerialSensor(DEFAULT_PORT_CONFIG),
@@ -189,6 +217,8 @@ PTB210::PTB210()
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
+
+    initCustomMetaData();
 }
 
 PTB210::~PTB210()
@@ -469,9 +499,9 @@ bool PTB210::checkScienceParameters() {
     // check for sample averaging
     bool regexFound = regex_search(respStr.c_str(), results, PTB210_NUM_SMPLS_AVG_REGEX_STR);
     if (regexFound && results[0].matched && results[1].matched) {
-        string argStr = std::string(results[1].first, (results[1].second - results[1].first));
-        VLOG(("Checking sample averaging with argument: ") << argStr);
-        scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, argStr.c_str());
+        VLOG(("Checking sample averaging with argument: ") << results.str(1));
+        scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, results.str(1).c_str());
+        updateMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, results.str(1)));
     }
     else {
         DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
@@ -485,9 +515,9 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         regexFound = regex_search(respStr.c_str(), results, PTB210_MEAS_PER_MIN_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = std::string(results[1].first, (results[1].second - results[1].first));
-            VLOG(("Checking measurement rate with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
+            VLOG(("Checking measurement rate with argument: ") << results.str(1));
+            scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, results.str(1).c_str());
+            updateMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find measurement rate RE")
@@ -499,9 +529,9 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_UNIT_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = std::string(results[1].first, (results[1].second - results[1].first));
-            VLOG(("Checking pressure units with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, argStr.c_str());
+            VLOG(("Checking pressure units with argument: ") << results.str(1));
+            scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, results.str(1).c_str());
+            updateMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find pressure unit RE")
@@ -513,10 +543,10 @@ bool PTB210::checkScienceParameters() {
     if (scienceParametersOK) {
         regexFound = regex_search(respStr.c_str(), results, PTB210_MULTI_PT_CORR_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = std::string(results[1].first, (results[1].second - results[1].first));
-            VLOG(("Checking multi-point correction with argument: ") << argStr);
-            scienceParametersOK = (argStr == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, argStr.c_str())
-                                                  : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, argStr.c_str()));
+            VLOG(("Checking multi-point correction with argument: ") << results.str(1));
+            scienceParametersOK = (results.str(1) == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, results.str(1).c_str())
+                                                          : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, results.str(1).c_str()));
+            updateMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find multi-point correction RE")
@@ -613,18 +643,6 @@ n_c::SensorCmdData PTB210::getDesiredCmd(PTB_COMMANDS cmd) {
 
 bool PTB210::checkResponse()
 {
-    static const char* PTB210_VER_STR =           "PTB210 Ver";
-    static const char* PTB210_CAL_DATE_STR =      "CAL DATE";
-    static const char* PTB210_ID_CODE_STR =       "ID CODE";
-    static const char* PTB210_SERIAL_NUMBER_STR = "SERIAL NUMBER";
-    static const char* PTB210_MULTI_PT_CORR_STR = "MULTIPOINT CORR";
-    static const char* PTB210_MEAS_PER_MIN_STR =  "MEAS PER MINUTE";
-    static const char* PTB210_NUM_SMPLS_AVG_STR = "AVERAGING";
-    static const char* PTB210_PRESS_UNIT_STR =    "PRESSURE UNIT";
-    static const char* PTB210_PRESS_MINMAX_STR =  "Pressure Min...Max";
-    static const char* PTB210_CURR_MODE_STR =     "CURRENT MODE";
-    static const char* PTB210_RS485_RES_STR =     "RS485 RESISTOR";
-
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
@@ -654,62 +672,10 @@ bool PTB210::checkResponse()
         DLOG((respStr.c_str()));
 
         // This is where the response is checked for signature elements
-        int foundPos = 0;
-        bool retVal = (foundPos = respStr.find(PTB210_VER_STR, foundPos) != string::npos);
-        if (retVal) {
-            retVal = (foundPos = respStr.find(PTB210_CAL_DATE_STR, foundPos+strlen(PTB210_VER_STR)) != string::npos);
-            if (retVal) {
-                retVal = (foundPos = respStr.find(PTB210_ID_CODE_STR, foundPos+strlen(PTB210_CAL_DATE_STR)) != string::npos);
-                if (retVal) {
-                    retVal = (foundPos = respStr.find(PTB210_SERIAL_NUMBER_STR, foundPos+strlen(PTB210_ID_CODE_STR)) != string::npos);
-                    if (retVal) {
-                        retVal = (foundPos = respStr.find(PTB210_MULTI_PT_CORR_STR, foundPos+strlen(PTB210_SERIAL_NUMBER_STR)) != string::npos);
-                        if (retVal) {
-                            retVal = (foundPos = respStr.find(PTB210_MEAS_PER_MIN_STR, foundPos+strlen(PTB210_MULTI_PT_CORR_STR)) != string::npos);
-                            if (retVal) {
-                                retVal = (foundPos = respStr.find(PTB210_NUM_SMPLS_AVG_STR, foundPos+strlen(PTB210_MEAS_PER_MIN_STR)) != string::npos);
-                                if (retVal) {
-                                    retVal = (foundPos = respStr.find(PTB210_PRESS_UNIT_STR, foundPos+strlen(PTB210_NUM_SMPLS_AVG_STR)) != string::npos);
-                                    if (retVal) {
-                                        retVal = (foundPos = respStr.find(PTB210_PRESS_MINMAX_STR, foundPos+strlen(PTB210_PRESS_UNIT_STR)) != string::npos);
-                                        if (retVal) {
-                                            retVal = (foundPos = respStr.find(PTB210_CURR_MODE_STR, foundPos+strlen(PTB210_PRESS_MINMAX_STR)) != string::npos);
-                                            if (retVal) {
-                                                retVal = (foundPos = respStr.find(PTB210_RS485_RES_STR, foundPos+strlen(PTB210_CURR_MODE_STR)) != string::npos);
-                                                if (!retVal)
-                                                    DLOG(("Coundn't find ") << "\"" << PTB210_RS485_RES_STR << "\"");
-                                            }
-                                            else
-                                                DLOG(("Coundn't find ") << "\"" << PTB210_CURR_MODE_STR << "\"");
-                                        }
-                                        else
-                                            DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_MINMAX_STR << "\"");
-                                    }
-                                    else
-                                        DLOG(("Coundn't find ") << "\"" << PTB210_PRESS_UNIT_STR << "\"");
-                                }
-                                else
-                                    DLOG(("Coundn't find ") << "\"" << PTB210_NUM_SMPLS_AVG_STR << "\"");
-                            }
-                            else
-                                DLOG(("Coundn't find ") << "\"" << PTB210_MEAS_PER_MIN_STR << "\"");
-                        }
-                        else
-                            DLOG(("Coundn't find ") << "\"" << PTB210_MULTI_PT_CORR_STR << "\"");
-                    }
-                    else
-                        DLOG(("Coundn't find ") << "\"" << PTB210_SERIAL_NUMBER_STR << "\"");
-                }
-                else
-                    DLOG(("Coundn't find ") << "\"" << PTB210_ID_CODE_STR << "\"");
-            }
-            else
-                DLOG(("Coundn't find ") << "\"" << PTB210_CAL_DATE_STR << "\"");
-        }
-        else
-            DLOG(("Coundn't find ") << "\"" << PTB210_VER_STR << "\"");
-
-        return retVal;
+        // check for sample averaging
+        cmatch results;
+        bool regexFound = regex_search(respStr.c_str(), results, PTB210_RESPONSE_REGEX);
+        return (regexFound && results[0].matched);
     }
 
     else {
@@ -872,20 +838,17 @@ void PTB210::updateMetaData()
         cmatch results;
         bool regexFound = regex_search(respStr.c_str(), results, PTB210_MODEL_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-//            resultsStr = std::string(results[1].first, (results[1].second - results[1].first));
             setModel(results.str(1));
         }
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_VER_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-//            resultsStr = std::string(results[1].first, (results[1].second - results[1].first));
             setFwVersion(results.str(1));
         }
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_CAL_DATE_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-            resultsStr = std::string(results[1].first, (results[1].second - results[1].first));
-            setCalDate(resultsStr);
+            setCalDate(results.str(1));
         }
         else {
             DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
@@ -896,13 +859,24 @@ void PTB210::updateMetaData()
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_SERIAL_NUMBER_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-//            resultsStr = std::string(results[1].first, (results[1].second - results[1].first));
             setSerialNumber(results.str(1));
         }
     }
 }
 
-
-
+void PTB210::initCustomMetaData()
+{
+    addMetaDataItem(MetaDataItem(PTB210_VER_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_CAL_DATE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_ID_CODE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_SERIAL_NUMBER_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, ""));
+}
 
 }}} //namespace nidas { namespace dynld { namespace isff {
