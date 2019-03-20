@@ -192,10 +192,6 @@ int main(int argc, char* argv[]) {
             NLOG(("Close the device"));
             pSerialSensor->close();
 
-            std::cout << std::endl;
-            std::cout << pSerialSensor->getSensorManufMetaData() << std::endl;
-            std::cout << pSerialSensor->getSensorConfigMetaData() << std::endl;
-
             delete pSerialSensor;
         }
 
