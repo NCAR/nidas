@@ -706,6 +706,8 @@ void SerialSensor::doAutoConfig()
 			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 			setSensorState(SENSOR_CONFIGURE_FAILED);
 		}
+
+		printDeviceMetaData();
 	}
 }
 
