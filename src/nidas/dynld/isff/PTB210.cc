@@ -177,10 +177,7 @@ static const regex PTB210_CURR_MODE_REGEX_STR("^([^ \r\n\t]+)[[:blank:]]CURRENT 
 static const regex PTB210_RS485_RES_REGEX_STR("^RS485 RESISTOR (ON|OFF)$",
                                               regex_constants::extended);
 
-static const std::string PTB210_VER_CFG_DESC("PTB210 Ver");
-static const std::string PTB210_CAL_DATE_CFG_DESC("CAL DATE");
 static const std::string PTB210_ID_CODE_CFG_DESC("ID CODE");
-static const std::string PTB210_SERIAL_NUMBER_CFG_DESC("SERIAL NUMBER");
 static const std::string PTB210_MULTI_PT_CORR_CFG_DESC("MULTIPOINT CORR");
 static const std::string PTB210_MEAS_PER_MIN_CFG_DESC("MEAS PER MINUTE");
 static const std::string PTB210_NUM_SMPLS_AVG_CFG_DESC("AVERAGING");
@@ -866,10 +863,8 @@ void PTB210::updateMetaData()
 
 void PTB210::initCustomMetaData()
 {
-    addMetaDataItem(MetaDataItem(PTB210_VER_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_CAL_DATE_CFG_DESC, ""));
+    DLOG(("PTB210::initCustomMetaData(): start"));
     addMetaDataItem(MetaDataItem(PTB210_ID_CODE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_SERIAL_NUMBER_CFG_DESC, ""));
     addMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, ""));
     addMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, ""));
     addMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, ""));
@@ -877,6 +872,7 @@ void PTB210::initCustomMetaData()
     addMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, ""));
     addMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, ""));
     addMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, ""));
+    DLOG(("PTB210::initCustomMetaData(): end"));
 }
 
 }}} //namespace nidas { namespace dynld { namespace isff {
