@@ -476,10 +476,10 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
             }
 
             // else rts485 == 0, so do nothing
-        }
 
-        VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
-              << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+            VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
+                  << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+        }
     }
 
     if ((result = ::write(_fd,buf,len)) < 0) {
@@ -505,10 +505,10 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
                 // then set RTS
                 setModemBits(TIOCM_RTS);
             }
+
+            VLOG(("Post SerialPortIODevice::write() RTS state: ")
+                    << modemFlagsToString(getModemStatus() & TIOCM_RTS));
         }
-    
-        VLOG(("Post SerialPortIODevice::write() RTS state: ")
-                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
     }
 
    return result;
