@@ -36,8 +36,8 @@ namespace nidas { namespace dynld { namespace isff {
 
 enum GILL2D_OUTPUT_MODE
 {
-	CONTINUOUS = true,
-	POLLED = false
+    CONTINUOUS = true,
+    POLLED = false
 };
 
 // create table indices
@@ -48,27 +48,27 @@ enum GILL2D_COMMANDS
     SENSOR_POLL_MEAS_CMD,
     SENSOR_QRY_ID_CMD,
     SENSOR_DISABLE_POLLED_MODE_CMD,
-	//TODO - Add A, C, T, etc commands so that this becomes more generic.
-	SENSOR_SERIAL_BAUD_CMD,
+    //TODO - Add A, C, T, etc commands so that this becomes more generic.
+    SENSOR_SERIAL_BAUD_CMD,
     SENSOR_DIAG_QRY_CMD,
     SENSOR_DUPLEX_COMM_CMD,
-	SENSOR_SERIAL_DATA_WORD_CMD,
-	SENSOR_AVG_PERIOD_CMD,
-	SENSOR_HEATING_CMD,
-	SENSOR_NMEA_ID_STR_CMD,
-	SENSOR_MSG_TERM_CMD,
-	SENSOR_MSG_STREAM_CMD,
-	SENSOR_NODE_ADDR_CMD,
-	SENSOR_OUTPUT_FIELD_FMT_CMD,
-	SENSOR_OUTPUT_RATE_CMD,
-	SENSOR_START_MEAS_CMD,
-	SENSOR_MEAS_UNITS_CMD,
-	SENSOR_VERT_MEAS_PADDING_CMD,
-	SENSOR_ALIGNMENT_CMD,
+    SENSOR_SERIAL_DATA_WORD_CMD,
+    SENSOR_AVG_PERIOD_CMD,
+    SENSOR_HEATING_CMD,
+    SENSOR_NMEA_ID_STR_CMD,
+    SENSOR_MSG_TERM_CMD,
+    SENSOR_MSG_STREAM_CMD,
+    SENSOR_NODE_ADDR_CMD,
+    SENSOR_OUTPUT_FIELD_FMT_CMD,
+    SENSOR_OUTPUT_RATE_CMD,
+    SENSOR_START_MEAS_CMD,
+    SENSOR_MEAS_UNITS_CMD,
+    SENSOR_VERT_MEAS_PADDING_CMD,
+    SENSOR_ALIGNMENT_CMD,
     NUM_SENSOR_CMDS
 };
 
-enum GILL2D_BAUD_ARGS 
+enum GILL2D_BAUD_ARGS
 {
     G2400 = 1,
     G4800,
@@ -181,18 +181,18 @@ enum GILL2D_ALIGNMENT_ARGS
 
 /**
  * Sensor class for the GIL 2D sonic anemometers.
- * 
- * This subclass adds features to automatically set the serial port configuration 
- * to default values, or overridden values provided by the sensor XML definition as 
+ *
+ * This subclass adds features to automatically set the serial port configuration
+ * to default values, or overridden values provided by the sensor XML definition as
  * provided in the sensor, dsm or project catalogs.
- * 
+ *
  * If this class cannot communicate with the sensor, then it will modify the serial port
- * settings, such as baud rate, word length/parity/stop bits, as well as port type (RS232, 
+ * settings, such as baud rate, word length/parity/stop bits, as well as port type (RS232,
  * RS422/485, or RS485 half duplex), until it can successfully communicate with the sensor.
- * 
- * This class also provides features to send to the sensor, the desired configuration settings, including 
- * both serial port and science/measurement settings. 
- * 
+ *
+ * This class also provides features to send to the sensor, the desired configuration settings, including
+ * both serial port and science/measurement settings.
+ *
  * NOTE: The default settings are taken from the entry in sensor_catalog.xml:
  *  <serialSensor class="isff.PropVane" ID="GILL_WO"
  *      baud="9600" parity="none" databits="8" stopbits="1">
@@ -218,8 +218,6 @@ enum GILL2D_ALIGNMENT_ARGS
  *      </sample>
  *      <message separator="\n" position="end" length="0"/>
  *  </serialSensor>
-
-
  */
 class GILL2D: public Wind2D
 {
@@ -245,12 +243,12 @@ protected:
     bool checkConfigMode(bool continuous = CONTINUOUS);
     bool isConfigCmd(int cmd)
     {
-    	return (cmd != SENSOR_DIAG_QRY_CMD
-    	        && cmd != SENSOR_QRY_ID_CMD
-    	        && cmd != SENSOR_CONFIG_MODE_CMD
-    			&& cmd != SENSOR_ENABLE_POLLED_MODE_CMD
-    			&& cmd != SENSOR_POLL_MEAS_CMD
-				&& cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
+        return (cmd != SENSOR_DIAG_QRY_CMD
+                && cmd != SENSOR_QRY_ID_CMD
+                && cmd != SENSOR_CONFIG_MODE_CMD
+                && cmd != SENSOR_ENABLE_POLLED_MODE_CMD
+                && cmd != SENSOR_POLL_MEAS_CMD
+                && cmd != SENSOR_DISABLE_POLLED_MODE_CMD);
     }
     bool confirmGillSerialPortChange(int cmd, int arg);
 
@@ -262,7 +260,6 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
-    void initCustomMetadata();
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
@@ -293,27 +290,27 @@ private:
     static const char* SENSOR_POLL_MEAS_CMD_STR;
     static const char* SENSOR_QRY_ID_CMD_STR;
     static const char* SENSOR_DISABLE_POLLED_MODE_CMD_STR;
-	static const char* SENSOR_SERIAL_BAUD_CMD_STR;
+    static const char* SENSOR_SERIAL_BAUD_CMD_STR;
     static const char* SENSOR_DIAG_QRY_CMD_STR;
     static const char* SENSOR_DUPLEX_COMM_CMD_STR;
-	static const char* SENSOR_SERIAL_DATA_WORD_CMD_STR;
-	static const char* SENSOR_AVG_PERIOD_CMD_STR;
-	static const char* SENSOR_HEATING_CMD_STR;
-	static const char* SENSOR_NMEA_ID_STR_CMD_STR;
-	static const char* SENSOR_MSG_TERM_CMD_STR;
-	static const char* SENSOR_MSG_STREAM_CMD_STR;
-	static const char* SENSOR_NODE_ADDR_CMD_STR;
-	static const char* SENSOR_OUTPUT_FIELD_FMT_CMD_STR;
-	static const char* SENSOR_OUTPUT_RATE_CMD_STR;
-	static const char* SENSOR_START_MEAS_CMD_STR;
-	static const char* SENSOR_MEAS_UNITS_CMD_STR;
-	static const char* SENSOR_VERT_MEAS_PADDING_CMD_STR;
-	static const char* SENSOR_ALIGNMENT_CMD_STR;
+    static const char* SENSOR_SERIAL_DATA_WORD_CMD_STR;
+    static const char* SENSOR_AVG_PERIOD_CMD_STR;
+    static const char* SENSOR_HEATING_CMD_STR;
+    static const char* SENSOR_NMEA_ID_STR_CMD_STR;
+    static const char* SENSOR_MSG_TERM_CMD_STR;
+    static const char* SENSOR_MSG_STREAM_CMD_STR;
+    static const char* SENSOR_NODE_ADDR_CMD_STR;
+    static const char* SENSOR_OUTPUT_FIELD_FMT_CMD_STR;
+    static const char* SENSOR_OUTPUT_RATE_CMD_STR;
+    static const char* SENSOR_START_MEAS_CMD_STR;
+    static const char* SENSOR_MEAS_UNITS_CMD_STR;
+    static const char* SENSOR_VERT_MEAS_PADDING_CMD_STR;
+    static const char* SENSOR_ALIGNMENT_CMD_STR;
 
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    // NOTE: list sensor bauds from highest to lowest as the higher  
+    // NOTE: list sensor bauds from highest to lowest as the higher
     //       ones are the most likely
     static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
     static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
@@ -341,6 +338,6 @@ private:
     GILL2D& operator=(const GILL2D&);
 };
 
-}}}	// namespace nidas namespace dynld namespace isff
+}}} // namespace nidas namespace dynld namespace isff
 
 #endif
