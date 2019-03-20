@@ -152,10 +152,11 @@ const char* PTB220::cmdTable[NUM_SENSOR_CMDS] =
 
 // NOTE: list sensor bauds from highest to lowest as the higher 
 //       ones are the most likely
-const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200, 4800, 2400, 1200};
+const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 4800, 2400, 1200, 600};
 // list the possible word specifications - most likely first
 
 const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
+    WordSpec(7,Termios::NONE,1),
     WordSpec(7,Termios::EVEN,1),
     WordSpec(7,Termios::ODD,1),
     WordSpec(8,Termios::NONE,1),
@@ -166,6 +167,8 @@ const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
     WordSpec(7,Termios::NONE,2),
     WordSpec(7,Termios::EVEN,2),
     WordSpec(7,Termios::ODD,2),
+    WordSpec(8,Termios::NONE,2),
+    WordSpec(8,Termios::NONE,2),
     WordSpec(8,Termios::NONE,2)
 };
 
@@ -184,8 +187,7 @@ const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE)),
 	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE_UNIT)),
 	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_AVG_TIME)),
-	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT)),
-	n_c::SensorCmdData(DEFAULT_SENSOR_SEND_MODE_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_SEND_MODE))
+	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT))
 };
 
 const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);

@@ -462,7 +462,7 @@ private:
     //       ones are the most likely
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_SENSOR_WORD_SPECS = 9;
+    static const int NUM_SENSOR_WORD_SPECS = 12;
     static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
