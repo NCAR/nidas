@@ -79,16 +79,27 @@ typedef std::pair<std::string, std::string> MetaDataItem;
  */
 typedef std::vector<MetaDataItem> CustomMetaData;
 
+struct MetaDataBase {
+    MetaDataBase() : customMetaData() {/*Intentionally left blank*/}
+    virtual ~MetaDataBase() {}
+
+    CustomMetaData::iterator findCustomMetaData(const std::string& rFirst);
+    void addMetaDataItem(const MetaDataItem& rItem);
+
+    CustomMetaData customMetaData;
+};
+
 // This structure contains any information about the sensor make/model, HW or SW version, etc
-struct SensorManufacturerMetaData
+struct SensorManufacturerMetaData : public MetaDataBase
 {
     SensorManufacturerMetaData()
     : manufacturer("Not Available"), model("Not Available"),
       serialNum("Not Available"), hwVersion("Not Available"),
       manufactureDate("Not Available"),
       fwVersion("Not Available"), fwBuild("Not Available"),
-      calDate("Not Available"), customMetaData()
+      calDate("Not Available")
     {/*intentionally left blank*/}
+    ~SensorManufacturerMetaData() {/*intentionally left blank*/}
 
     std::string manufacturer;
     std::string model;
@@ -98,8 +109,6 @@ struct SensorManufacturerMetaData
     std::string fwVersion;
     std::string fwBuild;
     std::string calDate;
-    CustomMetaData customMetaData;
-
 
     friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorManufacturerMetaData& rObj)
     {
@@ -120,25 +129,6 @@ struct SensorManufacturerMetaData
 
         return rOutStrm;
     }
-
-    inline CustomMetaData::iterator findCustomMetaData(const std::string& rFirst)
-    {
-        CustomMetaData::iterator iter = customMetaData.begin();
-        while (iter++ != customMetaData.end()) {
-            if (iter->first == rFirst) {
-                break;
-            }
-        }
-
-        return iter;
-    }
-
-    inline void addMetaDataItem(const MetaDataItem& rItem)
-    {
-        if (findCustomMetaData(rItem.first) == customMetaData.end()) {
-            customMetaData.push_back(rItem);
-        }
-    }
 };
 
 /**
@@ -146,13 +136,11 @@ struct SensorManufacturerMetaData
  * particular sensor. Subclasses of this struct also must also provide their own
  * output stream operator.
  */
-struct SensorConfigMetaData
+struct SensorConfigMetaData : public MetaDataBase
 {
-    SensorConfigMetaData() : customMetaData()
+    SensorConfigMetaData()
     {/*Intentionally Left Blank*/}
     virtual ~SensorConfigMetaData() {}
-
-    CustomMetaData customMetaData;
 
     friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorConfigMetaData& rObj)
     {
@@ -164,26 +152,6 @@ struct SensorConfigMetaData
 
         return rOutStrm;
     }
-
-    inline CustomMetaData::iterator findCustomMetaData(const std::string& rFirst)
-    {
-        CustomMetaData::iterator iter = customMetaData.begin();
-        while (iter++ != customMetaData.end()) {
-            if (iter->first == rFirst) {
-                break;
-            }
-        }
-
-        return iter;
-    }
-
-    inline void addMetaDataItem(const MetaDataItem& rItem)
-    {
-        if (findCustomMetaData(rItem.first) == customMetaData.end()) {
-            customMetaData.push_back(rItem);
-        }
-    }
-
 };
 
 
@@ -1341,9 +1309,11 @@ public:
     virtual void addMetaDataItem(const MetaDataItem& rItem, bool config=true)
     {
         if (config) {
+            VLOG(("DSMSensor::addMetaDataItem() to config metadata: ") << rItem.first);
             _configMetaData.addMetaDataItem(rItem);
         }
         else {
+            VLOG(("DSMSensor::addMetaDataItem() to mfg metadata: ") << rItem.first);
             _manufMetaData.addMetaDataItem(rItem);
         }
     }
@@ -1355,8 +1325,11 @@ public:
     virtual void updateMetaDataItem(const MetaDataItem& rItem, bool config=true)
     {
         if (config) {
+            VLOG(("DSMSensor::updateMetaDataItem(): Looking for config metadata item: ") << rItem.first);
             CustomMetaData::iterator iter = _configMetaData.findCustomMetaData(rItem.first);
             if (iter != _configMetaData.customMetaData.end()) {
+                VLOG(("DSMSensor::updateMetaDataItem(): Found and updating config metadata item: ")
+                      << rItem.first << ": " << rItem.second);
                 iter->second = rItem.second;
             }
         }
@@ -1371,9 +1344,9 @@ public:
     virtual void printDeviceMetaData(bool log=true)
     {
         if (log) {
-            ILOG(("") << _manufMetaData);
-            ILOG(("On Device: ") << getDeviceName());
-            ILOG(("") << _configMetaData);
+            NLOG(("") << _manufMetaData);
+            NLOG(("On Device: ") << getDeviceName());
+            NLOG(("") << _configMetaData);
         }
         else {
             std::cout << _manufMetaData;

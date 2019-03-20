@@ -52,6 +52,40 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
+CustomMetaData::iterator MetaDataBase::findCustomMetaData(const std::string& rFirst)
+{
+    VLOG(("MetaDataBase::findCustomMetaData(): starting at the beginning..."));
+    CustomMetaData::iterator iter = customMetaData.begin();
+    while (iter != customMetaData.end()) {
+        VLOG(("MetaDataBase::findCustomMetaData(): testing customMetaData item ")
+              << iter->first << " against " << rFirst);
+        if (iter->first == rFirst) {
+            VLOG(("MetaDataBase::findCustomMetaData(): Found a match!"));
+            break;
+        }
+        iter++;
+    }
+    if (iter == customMetaData.end()) {
+        VLOG(("MetaDataBase::findCustomMetaData(): No match found!"));
+    }
+
+    return iter;
+}
+
+void MetaDataBase::addMetaDataItem(const MetaDataItem& rItem)
+{
+    if (findCustomMetaData(rItem.first) == customMetaData.end()) {
+        VLOG(("MetaDataBase::addMetaDataItem(): Didn't find ")
+              << rItem.first << " so adding it.");
+        customMetaData.push_back(rItem);
+    }
+    else {
+        VLOG(("MetaDataBase::addMetaDataItem(): ")
+              << rItem.first << " already exists so not adding it.");
+    }
+}
+
+
 /* static */
 bool DSMSensor::zebra = false;
 
