@@ -348,12 +348,14 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
 nidas::core::CFG_MODE_STATUS PTB210::enterConfigMode()
 {
+    serPortFlush(O_RDWR);
     sendSensorCmd(SENSOR_STOP_CONT_SAMP_CMD);
     return nidas::core::ENTERED;
 }
 
 void PTB210::exitConfigMode()
 {
+    serPortFlush(O_RDWR);
     sendSensorCmd(SENSOR_START_CONT_SAMP_CMD);
 }
 
@@ -458,8 +460,8 @@ void PTB210::sendScienceParameters() {
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
-    sendSensorCmd(SENSOR_RESET_CMD);
-    usleep(SENSOR_RESET_WAIT_TIME);
+//    sendSensorCmd(SENSOR_RESET_CMD);
+//    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB210::checkScienceParameters() {
@@ -477,12 +479,11 @@ bool PTB210::checkScienceParameters() {
 
     VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
     int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
     std::string respStr;
-    if (totalCharsRead) {
-        respStr.append(&respBuf[0], totalCharsRead);
+    if (numCharsRead) {
+        respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
@@ -651,19 +652,11 @@ bool PTB210::checkResponse()
     memset(respBuf, 0, BUF_SIZE);
 
     int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    static LogContext lp(LOG_DEBUG);
-    if (lp.active()) {
-    	if (numCharsRead > 0) {
-    		printResponseHex(numCharsRead, respBuf);
-    	}
-    }
-    
-    if (totalCharsRead) {
+    if (numCharsRead) {
         std::string respStr;
-        respStr.append(&respBuf[0], totalCharsRead);
+        respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
@@ -814,20 +807,12 @@ void PTB210::updateMetaData()
     memset(respBuf, 0, BUF_SIZE);
 
     int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    static LogContext lp(LOG_DEBUG);
-    if (lp.active()) {
-        if (numCharsRead > 0) {
-            printResponseHex(numCharsRead, respBuf);
-        }
-    }
-
-    if (totalCharsRead) {
+    if (numCharsRead) {
         std::string respStr;
         std::string resultsStr;
-        respStr.append(&respBuf[0], totalCharsRead);
+        respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
