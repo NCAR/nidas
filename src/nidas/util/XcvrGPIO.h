@@ -205,7 +205,7 @@ public:
         unsigned char retval = adjustBitPosition(_shadow, true);
         if (ifaceFound()) {
             retval = adjustBitPosition(_pFtdiDevice->read(), true);
-            DLOG(("XcvrGPIO::read(): Actually read the device and the value is: ") << retval);
+            DLOG(("XcvrGPIO::read(): Actually read the device and the value is: 0x%02x", retval));
         }
         return retval;
     }
