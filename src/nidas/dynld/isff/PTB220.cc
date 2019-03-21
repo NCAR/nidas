@@ -86,7 +86,7 @@ const char* PTB220::SENSOR_RESET_CMD_STR = "RESET\r\n";
 const char* PTB220::SENSOR_POLL_OPEN_CMD_STR = "OPEN \r\n";
 const char* PTB220::SENSOR_POLL_CLOSE_CMD_STR = "CLOSE \r\n";
 const char* PTB220::SENSOR_CORR_STATUS_CMD_STR = "CORR \r\n";
-const char* PTB220::SENSOR_CONFIG_QRY_CMD_STR = "S\r\n?\r\n";
+const char* PTB220::SENSOR_CONFIG_QRY_CMD_STR = "?\r\n";
 const char* PTB220::SENSOR_SW_VER_CMD_STR = "VERS\r\n";
 const char* PTB220::SENSOR_SER_NUM_CMD_STR = "SNUM_CPU\r\n";
 const char* PTB220::SENSOR_ERR_LIST_CMD_STR = "ERRS\r\n";
@@ -168,8 +168,8 @@ const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
     WordSpec(7,Termios::EVEN,2),
     WordSpec(7,Termios::ODD,2),
     WordSpec(8,Termios::NONE,2),
-    WordSpec(8,Termios::NONE,2),
-    WordSpec(8,Termios::NONE,2)
+    WordSpec(8,Termios::EVEN,2),
+    WordSpec(8,Termios::ODD,2)
 };
 
 const n_c::PORT_TYPES PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
@@ -187,7 +187,8 @@ const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE)),
 	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE_UNIT)),
 	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_AVG_TIME)),
-	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT))
+	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT)),
+	n_c::SensorCmdData(DEFAULT_SENSOR_SEND_MODE_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_SEND_MODE))
 };
 
 const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
@@ -504,8 +505,9 @@ void PTB220::sendScienceParameters() {
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
-    sendSensorCmd(SENSOR_RESET_CMD);
-    usleep(SENSOR_RESET_WAIT_TIME);
+// TODO: Verify that PTB220 can now set science parameters
+//    sendSensorCmd(SENSOR_RESET_CMD);
+//    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB220::checkScienceParameters()
@@ -521,7 +523,7 @@ bool PTB220::checkScienceParameters()
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 100);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
     std::string respStr;
     if (numCharsRead) {
@@ -657,7 +659,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SERIAL_PARAM_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg RE")
               << PTB220_SERIAL_CFG_REGEX_STR.str());
     }
 
@@ -666,7 +668,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SERIAL_ECHO_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg RE")
               << PTB220_ECHO_REGEX_STR.str());
     }
 
@@ -675,7 +677,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SENDING_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg RE")
               << PTB220_SENDING_MODE_REGEX_STR.str());
     }
 
@@ -684,7 +686,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_PULSE_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg RE")
               << PTB220_PULSE_MODE_REGEX_STR.str());
     }
 
@@ -693,7 +695,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_MEAS_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg RE")
               << PTB220_MEAS_MODE_REGEX_STR.str());
     }
 
@@ -702,7 +704,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_ADDRESS_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg RE")
               << PTB220_ADDRESS_REGEX_STR.str());
     }
 
@@ -711,7 +713,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg RE")
               << PTB220_OUTPUT_FMT_REGEX_STR.str());
     }
 
@@ -720,7 +722,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_ERR_OUTPUT_FMT_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg RE")
               << PTB220_ERR_OUT_FMT_REGEX_STR.str());
     }
 
@@ -729,7 +731,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_USR_SEND_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg RE")
               << PTB220_USR_OUT_FMT_REGEX_STR.str());
     }
 
@@ -805,7 +807,7 @@ bool PTB220::checkResponse()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 100);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
 
     static LogContext lp(LOG_DEBUG);
     if (lp.active()) {
@@ -925,13 +927,11 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     // Write the command - assume the port is already open
     // The PTB220 seems to not be able to keep up with a burst of data, so
     // give it some time between chars - i.e. ~80 words/min rate
-    DLOG(("Sending command: "));
-    DLOG((snsrCmd.c_str()));
     for (unsigned int i=0; i<snsrCmd.length(); ++i) {
         write(&(snsrCmd.c_str()[i]), 1);
         usleep(CHAR_WRITE_DELAY);
     }
-    DLOG(("write() sent ") << snsrCmd.length());;
+    DLOG(("write() sent ") << snsrCmd.length() << " chars");;
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
@@ -1009,7 +1009,7 @@ void PTB220::updateMetaData()
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::udpateMetaData() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 100);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
     std::string respStr;
     if (numCharsRead) {
