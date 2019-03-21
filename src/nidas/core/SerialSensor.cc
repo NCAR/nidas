@@ -1091,7 +1091,8 @@ std::string SerialSensor::autoCfgToStr(AUTOCONFIG_STATE autoState)
 	return stateStr;
 }
 
-void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf) {
+void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf)
+{
 	if (numCharsRead > 0) {
 		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
 		for (int i = 0; i < 5; ++i) {
