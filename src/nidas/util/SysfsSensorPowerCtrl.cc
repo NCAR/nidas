@@ -46,7 +46,7 @@ const std::string SysfsSensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 
 POWER_STATE SysfsSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
-    DLOG(("SysfsSensorPowerCtrl::rawPowerToState(): powerCfg = 0x%0X", powerCfg));
+    DLOG(("SysfsSensorPowerCtrl::rawPowerToState(): powerCfg = 0x%02X", powerCfg));
     POWER_STATE retval = POWER_OFF;
     if (powerCfg == '1') {
         retval = POWER_ON;
