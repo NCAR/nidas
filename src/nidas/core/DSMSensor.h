@@ -1344,9 +1344,9 @@ public:
     virtual void printDeviceMetaData(bool log=true)
     {
         if (log) {
-            NLOG(("") << _manufMetaData);
-            NLOG(("On Device: ") << getDeviceName());
-            NLOG(("") << _configMetaData);
+            ILOG(("") << _manufMetaData);
+            ILOG(("On Device: ") << getDeviceName());
+            ILOG(("") << _configMetaData);
         }
         else {
             std::cout << _manufMetaData;
