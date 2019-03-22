@@ -430,6 +430,59 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
     return 0;
 }
 
+void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
+{
+    NLOG(("CSAT3_Sonic - checking for sensor customizations in the DSM/Sensor Catalog XML..."));
+    DLOG(("CSAT3_Sonic::fromDOMElement() - entry"));
+    // let the base classes have first shot at it, since we only care about an autoconfig child element
+    // however, any duplicate items in autoconfig will override any items in the base classes
+    SerialSensor::fromDOMElement(node);
+
+    // Handle common autoconfig attributes first...
+    fromDOMElementAutoConfig(node);
+
+    xercesc::DOMNode* child;
+    for (child = node->getFirstChild(); child != 0;
+        child=child->getNextSibling())
+    {
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+            continue;
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
+
+        if (elname == "autoconfig") {
+            DLOG(("Found the <autoconfig /> tag..."));
+            setAutoConfigSupported();
+
+            /*
+             *  Nothing to do at this time...
+             */
+//            // get all the attributes of the node
+//            xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
+//            int nSize = pAttributes->getLength();
+//
+//            for(int i=0; i<nSize; ++i) {
+//                XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+//                // get attribute name
+//                const std::string& aname = attr.getName();
+//                const std::string& aval = attr.getValue();
+//
+//                // xform everything to uppercase - this shouldn't affect numbers
+//                string upperAval = aval;
+//                std::transform(upperAval.begin(), upperAval.end(), upperAval.begin(), ::toupper);
+//                 DLOG(("CSAT3_Sonic::fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+//
+//                // start with science parameters, assuming SerialSensor took care of any overrides to
+//                // the default port config.
+//                if (aname == "units") {
+//                }
+//            }
+        }
+    }
+
+    DLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
+}
+
 void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterException)
 {
 	// Gotta set up the rate command before it's used.

@@ -252,7 +252,6 @@ protected:
     }
     bool confirmGillSerialPortChange(int cmd, int arg);
 
-    virtual bool supportsAutoConfig() { return true; }
     virtual n_c::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual bool checkResponse();

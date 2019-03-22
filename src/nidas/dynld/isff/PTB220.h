@@ -337,7 +337,6 @@ protected:
     void updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
     n_c::SensorCmdData getDesiredCmd(int cmd);
 
-    virtual bool supportsAutoConfig() { return true; }
     nidas::core::CFG_MODE_STATUS enterConfigMode();
     void exitConfigMode();
     virtual bool checkResponse();

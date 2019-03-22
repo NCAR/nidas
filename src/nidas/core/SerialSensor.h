@@ -321,8 +321,9 @@ protected:
     virtual void exitConfigMode() {}
     CFG_MODE_STATUS getConfigMode() {return _configMode;}
     void setConfigMode(CFG_MODE_STATUS newCfgMode) {_configMode = newCfgMode;}
+    bool supportsAutoConfig() { return _autoConfigSupported; }
+    void setAutoConfigSupported() { _autoConfigSupported = true; }
 
-    virtual bool supportsAutoConfig() { return false; }
     virtual bool checkResponse() { return true; }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
     virtual void sendScienceParameters() {}
@@ -333,6 +334,9 @@ protected:
     }
 
     void initAutoConfig();
+    void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
+
+    bool _autoConfigSupported;
 
     /*******************************************************
      * Aggregate serial port configuration

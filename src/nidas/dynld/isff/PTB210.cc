@@ -229,7 +229,8 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
     // however, any duplicate items in autoconfig will override any items in the base classes
     SerialSensor::fromDOMElement(node);
 
-    XDOMElement xnode(node);
+    // Handle common autoconfig attributes first...
+    fromDOMElementAutoConfig(node);
 
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
@@ -241,6 +242,9 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
         const string& elname = xchild.getNodeName();
 
         if (elname == "autoconfig") {
+            DLOG(("PTB210::fromDOMElement(): autoconfig tag found."));
+            setAutoConfigSupported();
+
             // get all the attributes of the node
             xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
             int nSize = pAttributes->getLength();

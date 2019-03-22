@@ -327,7 +327,8 @@ void PTB220::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
     // however, any duplicate items in autoconfig will override any items in the base classes
     SerialSensor::fromDOMElement(node);
 
-    XDOMElement xnode(node);
+    // Handle common autoconfig attributes first...
+    fromDOMElementAutoConfig(node);
 
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;

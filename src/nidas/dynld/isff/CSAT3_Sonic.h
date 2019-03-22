@@ -64,6 +64,9 @@ public:
 
     ~CSAT3_Sonic();
 
+    // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
+    void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+
     /**
      * Open the serial port connected to this sonic. open() 
      * also queries the sonic, with "??", for its status message,
@@ -127,7 +130,6 @@ protected:
     /*
      * Autoconfig overrides
      */
-    virtual bool supportsAutoConfig() { return true; }
     /**
      * @return: ENTERED or ENTERED_RESP_CHECK=successful, '>' prompt received, and then no data.
      */

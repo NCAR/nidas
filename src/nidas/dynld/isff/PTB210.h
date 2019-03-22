@@ -170,7 +170,6 @@ public:
     }
 
 protected:
-    virtual bool supportsAutoConfig() { return true; }
     virtual bool checkResponse();
     virtual void sendSensorCmd(int cmd, n_c::SensorCmdArg arg = n_c::SensorCmdArg(0), bool resetNow=false);
     virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
