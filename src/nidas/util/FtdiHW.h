@@ -300,7 +300,7 @@ void FtdiGpio<DEVICE, IFACE>::open()
 {
     if (!isOpen()) {
         VLOG(("FtdiGpio<%s, %s>::open(): Attempting to open FTDI device...",
-              device2Str(DEVICE), iface2Str(IFACE)));
+              device2Str(DEVICE), iface2Str(IFACE)) << "product: " << _productStr);
         int openStatus = ftdi_usb_open_desc(_pContext, (int)0x0403, (int)0x6011, _productStr.c_str(), 0);
         _foundIface = !openStatus;
         if (ifaceFound()) {
@@ -310,7 +310,8 @@ void FtdiGpio<DEVICE, IFACE>::open()
                   device2Str(DEVICE), iface2Str(IFACE)));
         }
         else {
-            VLOG(("FtdiGpio<%s, %s>::open(): Failed to open FTDI device: ") << error_string() << " open() status: " << openStatus);
+            VLOG(("FtdiGpio<%s, %s>::open(): Failed to open FTDI device: ",
+                  device2Str(DEVICE), iface2Str(IFACE)) << error_string() << " - status: " << openStatus);
         }
     }
     else {
