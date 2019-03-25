@@ -157,8 +157,6 @@ void SerialSensor::open(int flags)
 
     serPortFlush();
 
-    setSensorState(SENSOR_CONFIGURING);
-
     doAutoConfig();
 
     sendInitString();
@@ -637,6 +635,7 @@ void SerialSensor::doAutoConfig()
 {
 	// find out if we're a legacy subclass or a new autoconfig subclass
 	if (supportsAutoConfig()) {
+	    setSensorState(SENSOR_CONFIGURING);
 		_autoConfigState = AUTOCONFIG_STARTED;
 		// Must be a new autoconfig subclass...
 		_serialState = CONFIGURING_COMM_PARAMETERS;
@@ -700,6 +699,9 @@ void SerialSensor::doAutoConfig()
 		}
 
 		printDeviceMetaData();
+	}
+	else {
+	    DLOG(("Autoconfig is not enabled or is not supported."));
 	}
 }
 

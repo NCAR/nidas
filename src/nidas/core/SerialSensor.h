@@ -269,6 +269,7 @@ public:
     AUTOCONFIG_STATE getAutoConfigState() {return _autoConfigState; }
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
     AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
+    void setAutoConfigSupported() { _autoConfigSupported = true; }
 
 protected:
 
@@ -322,7 +323,6 @@ protected:
     CFG_MODE_STATUS getConfigMode() {return _configMode;}
     void setConfigMode(CFG_MODE_STATUS newCfgMode) {_configMode = newCfgMode;}
     bool supportsAutoConfig() { return _autoConfigSupported; }
-    void setAutoConfigSupported() { _autoConfigSupported = true; }
 
     virtual bool checkResponse() { return true; }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
