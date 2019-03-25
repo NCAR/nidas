@@ -243,7 +243,6 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
         if (elname == "autoconfig") {
             DLOG(("PTB210::fromDOMElement(): autoconfig tag found."));
-            setAutoConfigSupported();
 
             // get all the attributes of the node
             xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
