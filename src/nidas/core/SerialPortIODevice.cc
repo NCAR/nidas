@@ -482,19 +482,16 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
 //              << modemFlagsToString(getModemStatus() & TIOCM_RTS));
 //    }
 
-    char * data = (char*)buf;
-    int dataLen = 1;
-    if (*data == '\r') {
+    std::string data((char*)buf, 1);
+    if (data == "\r") {
         data = "\\r";
-        dataLen = 2;
     }
 
-    if (*data == '\n') {
+    if (data == "\n") {
         data = "\\n";
-        dataLen = 2;
     }
 
-    VLOG(("SerialPortIODevice::write(): device: ") << getName() << " data: " << std::string(data, dataLen) );
+    VLOG(("SerialPortIODevice::write(): device: ") << getName() << " data: " << data);
     result = ::write(_fd, buf, len);
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
