@@ -43,57 +43,9 @@ struct libusb_device;
 namespace nidas { namespace util {
 
 enum FTDI_DEVICES {FTDI_ILLEGAL_DEVICE=-1, FTDI_I2C, FTDI_GPIO, FTDI_P0_P3, FTDI_P4_P7, NUM_FTDI_DEVICES};
-inline const char* device2Str(FTDI_DEVICES device)
-{
-    std::string retval;
 
-    switch (device) {
-        case FTDI_I2C:
-            retval = "FTDI_I2C";
-            break;
-        case FTDI_GPIO:
-            retval = "FTDI_GPIO";
-            break;
-        case FTDI_P0_P3:
-            retval = "FTDI_P0_P3";
-            break;
-        case FTDI_P4_P7:
-            retval = "FTDI_P4_P7";
-            break;
-        case FTDI_ILLEGAL_DEVICE:
-        default:
-            retval = "ILLEGAL_DEVICE";
-            break;
-    }
-
-    return retval.c_str();
-}
-
-inline const char* iface2Str(ftdi_interface iface)
-{
-    std::string retval = "";
-
-    switch (iface) {
-        case INTERFACE_A:
-            retval = "IFACE_A";
-            break;
-        case INTERFACE_B:
-            retval = "IFACE_B";
-            break;
-        case INTERFACE_C:
-            retval = "IFACE_C";
-            break;
-        case INTERFACE_D:
-            retval = "IFACE_D";
-            break;
-        case INTERFACE_ANY:
-        default:
-            retval = "IFACE_ANY";
-            break;
-    }
-
-    return retval.c_str();
-}
+const char* device2Str(FTDI_DEVICES device);
+const char* iface2Str(ftdi_interface iface);
 
 /*
  *  FtdiHwIF interface class

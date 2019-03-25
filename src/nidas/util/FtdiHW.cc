@@ -29,4 +29,66 @@
 
 namespace nidas { namespace util {
 
+static const char* i2cStr= "FTDI_I2C";
+static const char* gpioStr= "FTDI_GPIO";
+static const char* p0p3Str= "FTDI_P0_P3";
+static const char* p4p7Str= "FTDI_P4_P7";
+static const char* illegalStr= "FTDI_ILLEGAL_DEVICE";
+
+const char* device2Str(FTDI_DEVICES device)
+{
+    switch (device) {
+        case FTDI_I2C:
+            return i2cStr;
+            break;
+        case FTDI_GPIO:
+            return gpioStr;
+            break;
+        case FTDI_P0_P3:
+            return p0p3Str;
+            break;
+        case FTDI_P4_P7:
+            return p4p7Str;
+            break;
+        case FTDI_ILLEGAL_DEVICE:
+        default:
+            break;
+    }
+
+    return illegalStr;
+}
+
+static const char* ifaceAStr = "IFACE_A";
+static const char* ifaceBStr = "IFACE_B";
+static const char* ifaceCStr = "IFACE_C";
+static const char* ifaceDStr = "IFACE_D";
+static const char* ifaceAnyStr = "IFACE_ANY";
+static const char* ifaceIllegalStr = "IFACE_ILLEGAL";
+
+const char* iface2Str(ftdi_interface iface)
+{
+    switch (iface) {
+        case INTERFACE_A:
+            return ifaceAStr;
+            break;
+        case INTERFACE_B:
+            return ifaceBStr;
+            break;
+        case INTERFACE_C:
+            return ifaceCStr;
+            break;
+        case INTERFACE_D:
+            return ifaceDStr;
+            break;
+        case INTERFACE_ANY:
+            return ifaceAnyStr;
+            break;
+        default:
+            break;
+    }
+
+    return ifaceIllegalStr;
+}
+
+
 }} // namespace nidas { namespace util {
