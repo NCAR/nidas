@@ -173,12 +173,14 @@ void SerialSensor::open(int flags)
 void SerialSensor::sendInitString() throw(nidas::util::IOException)
 {
     NLOG(("%s:%s: Putting sensor into measurement mode", getName().c_str(), getClassName().c_str()));
-    if (getInitString().length() != 0) {
-        CharacterSensor::sendInitString();
+    if (supportsAutoConfig()) {
+        exitConfigMode();
     }
 
     else {
-        exitConfigMode();
+        if (getInitString().length() != 0) {
+            CharacterSensor::sendInitString();
+        }
     }
 }
 
