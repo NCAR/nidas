@@ -549,7 +549,7 @@ bool PTB220::checkScienceParameters()
     	}
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time regex: ")
               << PTB220_AVG_TIME_REGEX_STR.str());
     }
 
@@ -575,7 +575,7 @@ bool PTB220::checkScienceParameters()
         	}
         }
         else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval RE")
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval regex: ")
                   << PTB220_OUTPUT_INTERVAL_REGEX_STR.str());
         }    
     }
@@ -593,7 +593,7 @@ bool PTB220::checkScienceParameters()
             }
         }
         else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units RE")
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units regex: ")
                   << PTB220_PRESS_UNIT_REGEX_STR.str());
         }
     }
@@ -611,7 +611,7 @@ bool PTB220::checkScienceParameters()
             }
         }
         else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units RE")
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units regex: ")
                   << PTB220_TEMP_UNIT_REGEX_STR.str());
         }
     }
@@ -629,7 +629,7 @@ bool PTB220::checkScienceParameters()
             }
         }
         else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction RE")
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction regex: ")
                   << PTB220_MULTI_PT_CORR_REGEX_STR.str());
         }
     }
@@ -642,7 +642,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_XDUCER_CFG_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find transducer config RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find transducer config regex: ")
               << PTB220_CONFIG_REGEX_STR.str());
     }
 
@@ -651,7 +651,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_LINEAR_CORR_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg regex: ")
               << PTB220_LINEAR_CORR_REGEX_STR.str());
     }
 
@@ -660,7 +660,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SERIAL_PARAM_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg regex: ")
               << PTB220_SERIAL_CFG_REGEX_STR.str());
     }
 
@@ -669,7 +669,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SERIAL_ECHO_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg regex: ")
               << PTB220_ECHO_REGEX_STR.str());
     }
 
@@ -678,7 +678,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_SENDING_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg regex: ")
               << PTB220_SENDING_MODE_REGEX_STR.str());
     }
 
@@ -687,7 +687,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_PULSE_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg regex: ")
               << PTB220_PULSE_MODE_REGEX_STR.str());
     }
 
@@ -696,7 +696,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_MEAS_MODE_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg regex: ")
               << PTB220_MEAS_MODE_REGEX_STR.str());
     }
 
@@ -705,7 +705,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_ADDRESS_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg regex: ")
               << PTB220_ADDRESS_REGEX_STR.str());
     }
 
@@ -714,7 +714,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg regex: ")
               << PTB220_OUTPUT_FMT_REGEX_STR.str());
     }
 
@@ -723,7 +723,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_ERR_OUTPUT_FMT_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg regex: ")
               << PTB220_ERR_OUT_FMT_REGEX_STR.str());
     }
 
@@ -732,7 +732,7 @@ bool PTB220::checkScienceParameters()
         updateMetaDataItem(MetaDataItem(PTB220_USR_SEND_CFG_DESC, results.str(1)));
     }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg RE")
+        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg regex: ")
               << PTB220_USR_OUT_FMT_REGEX_STR.str());
     }
 
