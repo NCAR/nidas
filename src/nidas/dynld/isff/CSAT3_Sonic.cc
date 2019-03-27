@@ -452,7 +452,6 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inv
 
         if (elname == "autoconfig") {
             DLOG(("Found the <autoconfig /> tag..."));
-            setAutoConfigSupported();
 
             /*
              *  Nothing to do at this time...
