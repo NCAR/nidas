@@ -2142,7 +2142,8 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	try {
 		SerialSensor::fromDOMElement(node);
 
-	    XDOMElement xnode(node);
+	    // Handle common autoconfig attributes first...
+	    fromDOMElementAutoConfig(node);
 
 	    xercesc::DOMNode* child;
 	    for (child = node->getFirstChild(); child != 0;
