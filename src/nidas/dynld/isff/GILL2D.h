@@ -48,8 +48,9 @@ enum GILL2D_COMMANDS
     SENSOR_POLL_MEAS_CMD,
     SENSOR_QRY_ID_CMD,
     SENSOR_DISABLE_POLLED_MODE_CMD,
-    //TODO - Add A, C, T, etc commands so that this becomes more generic.
-    SENSOR_SERIAL_BAUD_CMD,
+    SENSOR_SOS_TEMP_CMD,
+    //TODO - Add C, T, etc commands so that this becomes more generic.
+	SENSOR_SERIAL_BAUD_CMD,
     SENSOR_DIAG_QRY_CMD,
     SENSOR_DUPLEX_COMM_CMD,
     SENSOR_SERIAL_DATA_WORD_CMD,
@@ -68,7 +69,25 @@ enum GILL2D_COMMANDS
     NUM_SENSOR_CMDS
 };
 
-enum GILL2D_BAUD_ARGS
+/*
+ *  Configuration cmmands for GILL2D sonic anemometers are typically
+ *  single letters, A-Z, with some letters being left out, depending
+ *  on the model.
+ *
+ *  Arguments for these commands are typically a single digit, 0-9.
+ *  So the following enums define those digits for each command.
+ */
+
+enum GILL2D_SOS_TEMP_ARGS
+{
+    REPORT_DISABLED=0,
+    REPORT_SOS,    // speed of sound
+    REPORT_TEMP,
+    REPORT_BOTH,
+    NUM_SOS_TEMP_ARGS
+};
+
+enum GILL2D_BAUD_ARGS 
 {
     G2400 = 1,
     G4800,
@@ -108,10 +127,9 @@ enum GILL2D_DATA_WORD_ARGS
 
 enum GILD2D_HEATING_ARGS
 {
-    DISABLED = 1,
-    ACTIVE_H2,
-    ACTIVE_H3,
-    NUM_HEATING_ARGS = ACTIVE_H3
+    HTG_DISABLED = 1,
+    HTG_ACTIVE,
+    NUM_HEATING_ARGS = HTG_ACTIVE
 };
 
 enum GILL2D_NMEA_STR_ARGS
@@ -259,6 +277,7 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
+    void initCustomMetadata();
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
@@ -289,22 +308,23 @@ private:
     static const char* SENSOR_POLL_MEAS_CMD_STR;
     static const char* SENSOR_QRY_ID_CMD_STR;
     static const char* SENSOR_DISABLE_POLLED_MODE_CMD_STR;
-    static const char* SENSOR_SERIAL_BAUD_CMD_STR;
+    static const char* SENSOR_SOS_TEMP_CMD_STR;
+	static const char* SENSOR_SERIAL_BAUD_CMD_STR;
     static const char* SENSOR_DIAG_QRY_CMD_STR;
     static const char* SENSOR_DUPLEX_COMM_CMD_STR;
-    static const char* SENSOR_SERIAL_DATA_WORD_CMD_STR;
-    static const char* SENSOR_AVG_PERIOD_CMD_STR;
-    static const char* SENSOR_HEATING_CMD_STR;
-    static const char* SENSOR_NMEA_ID_STR_CMD_STR;
-    static const char* SENSOR_MSG_TERM_CMD_STR;
-    static const char* SENSOR_MSG_STREAM_CMD_STR;
-    static const char* SENSOR_NODE_ADDR_CMD_STR;
-    static const char* SENSOR_OUTPUT_FIELD_FMT_CMD_STR;
-    static const char* SENSOR_OUTPUT_RATE_CMD_STR;
-    static const char* SENSOR_START_MEAS_CMD_STR;
-    static const char* SENSOR_MEAS_UNITS_CMD_STR;
-    static const char* SENSOR_VERT_MEAS_PADDING_CMD_STR;
-    static const char* SENSOR_ALIGNMENT_CMD_STR;
+	static const char* SENSOR_SERIAL_DATA_WORD_CMD_STR;
+	static const char* SENSOR_AVG_PERIOD_CMD_STR;
+	static const char* SENSOR_HEATING_CMD_STR;
+	static const char* SENSOR_NMEA_ID_STR_CMD_STR;
+	static const char* SENSOR_MSG_TERM_CMD_STR;
+	static const char* SENSOR_MSG_STREAM_CMD_STR;
+	static const char* SENSOR_NODE_ADDR_CMD_STR;
+	static const char* SENSOR_OUTPUT_FIELD_FMT_CMD_STR;
+	static const char* SENSOR_OUTPUT_RATE_CMD_STR;
+	static const char* SENSOR_START_MEAS_CMD_STR;
+	static const char* SENSOR_MEAS_UNITS_CMD_STR;
+	static const char* SENSOR_VERT_MEAS_PADDING_CMD_STR;
+	static const char* SENSOR_ALIGNMENT_CMD_STR;
 
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
@@ -325,6 +345,7 @@ private:
     n_c::MessageConfig _defaultMessageConfig;
 
     n_c::SensorCmdData* _desiredScienceParameters;
+    bool _sosEnabled;
 
     char _unitId;
     bool _polling;

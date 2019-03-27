@@ -52,6 +52,7 @@ const char* GILL2D::SENSOR_ENABLE_POLLED_MODE_CMD_STR = "?";
 const char* GILL2D::SENSOR_POLL_MEAS_CMD_STR = "?";
 const char* GILL2D::SENSOR_QRY_ID_CMD_STR = "&";
 const char* GILL2D::SENSOR_DISABLE_POLLED_MODE_CMD_STR = "!\r";
+const char* GILL2D::SENSOR_SOS_TEMP_CMD_STR = "A\r";
 const char* GILL2D::SENSOR_SERIAL_BAUD_CMD_STR = "B\r";
 const char* GILL2D::SENSOR_DIAG_QRY_CMD_STR = "D\r";
 const char* GILL2D::SENSOR_DUPLEX_COMM_CMD_STR = "E\r";
@@ -76,6 +77,7 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
     SENSOR_POLL_MEAS_CMD_STR,
     SENSOR_QRY_ID_CMD_STR,
     SENSOR_DISABLE_POLLED_MODE_CMD_STR,
+    SENSOR_SOS_TEMP_CMD_STR,
     SENSOR_SERIAL_BAUD_CMD_STR,
     SENSOR_DIAG_QRY_CMD_STR,
     SENSOR_DUPLEX_COMM_CMD_STR,
@@ -116,16 +118,17 @@ const PortConfig GILL2D::DEFAULT_PORT_CONFIG(GILL2D::DEFAULT_BAUD_RATE, GILL2D::
 
 const n_c::SensorCmdData GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {
+    n_c::SensorCmdData(SENSOR_SOS_TEMP_CMD, n_c::SensorCmdArg(REPORT_TEMP)),
     n_c::SensorCmdData(SENSOR_AVG_PERIOD_CMD, n_c::SensorCmdArg(0)),
-    n_c::SensorCmdData(SENSOR_HEATING_CMD, n_c::SensorCmdArg(DISABLED)),
+    n_c::SensorCmdData(SENSOR_HEATING_CMD, n_c::SensorCmdArg(HTG_DISABLED)),
     n_c::SensorCmdData(SENSOR_NMEA_ID_STR_CMD, n_c::SensorCmdArg(IIMWV)),
-    n_c::SensorCmdData(SENSOR_MSG_TERM_CMD, n_c::SensorCmdArg(CRLF)),
+    n_c::SensorCmdData(SENSOR_MSG_TERM_CMD, n_c::SensorCmdArg(LF)),
     n_c::SensorCmdData(SENSOR_MSG_STREAM_CMD, n_c::SensorCmdArg(ASC_PLR_CONT)),
-    n_c::SensorCmdData(SENSOR_OUTPUT_FIELD_FMT_CMD, n_c::SensorCmdArg(CSV)),
-    n_c::SensorCmdData(SENSOR_OUTPUT_RATE_CMD, n_c::SensorCmdArg(ONE_PER_SEC)),
-    n_c::SensorCmdData(SENSOR_MEAS_UNITS_CMD, n_c::SensorCmdArg(MPS)),
-    n_c::SensorCmdData(SENSOR_VERT_MEAS_PADDING_CMD, n_c::SensorCmdArg(DISABLE_VERT_PAD)),
-    n_c::SensorCmdData(SENSOR_ALIGNMENT_CMD, n_c::SensorCmdArg(U_EQ_NS))
+	n_c::SensorCmdData(SENSOR_OUTPUT_FIELD_FMT_CMD, n_c::SensorCmdArg(FIXED_FIELD)),
+	n_c::SensorCmdData(SENSOR_OUTPUT_RATE_CMD, n_c::SensorCmdArg(ONE_PER_SEC)),
+	n_c::SensorCmdData(SENSOR_MEAS_UNITS_CMD, n_c::SensorCmdArg(MPS)),
+	n_c::SensorCmdData(SENSOR_VERT_MEAS_PADDING_CMD, n_c::SensorCmdArg(DISABLE_VERT_PAD)),
+	n_c::SensorCmdData(SENSOR_ALIGNMENT_CMD, n_c::SensorCmdArg(U_EQ_NS))
 };
 
 const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
@@ -144,25 +147,38 @@ const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 
 // regular expression strings, contexts, compilation
 static const regex GILL2D_RESPONSE_REGEX_STR("[[:space:]]+"
-                                             "(A[[:digit:]]){0,1} B[[:digit:]] (C[[:digit:]]){0,1} E[[:digit:]] F[[:digit:]] "
-                                             "G[[:digit:]]{4} H[[:digit:]] (J[[:digit:]]){0,1} K[[:digit:]] L[[:digit:]] "
-                                             "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] (T[[:digit:]]){0,1} "
-                                             "U[[:digit:]] V[[:digit:]] X[[:digit:]] (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}");
+											 "A([[:digit:]]) B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
+		                                     "G[[:digit:]]{4} H[[:digit:]] J[[:digit:]] K[[:digit:]] L[[:digit:]] "
+		                                     "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] T[[:digit:]] "
+		                                     "U[[:digit:]] V[[:digit:]] X[[:digit:]] Y[[:digit:]] Z[[:digit:]]");
 static const regex GILL2D_COMPARE_REGEX_STR("[[:space:]]+"
-                                            "(A[[:digit:]]){0,1} B([[:digit:]]) (C[[:digit:]]){0,1} E([[:digit:]]) F([[:digit:]]) "
-                                            "G([[:digit:]]{4}) H([[:digit:]]) (J[[:digit:]]){0,1} K([[:digit:]]) L([[:digit:]]) "
-                                            "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) (T[[:digit:]]){0,1} "
-                                            "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) (Y[[:digit:]]){0,1} (Z[[:digit:]]){0,1}");
+											"A([[:digit:]]) B([[:digit:]]) C([[:digit:]]) E([[:digit:]]) F([[:digit:]]) "
+		                                    "G([[:digit:]]{4}) H([[:digit:]]) J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
+		                                    "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) T([[:digit:]]) "
+		                                    "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) Y([[:digit:]]) Z([[:digit:]])");
 static const regex GILL2D_CONFIG_MODE_REGEX_STR("[[:space:]]+CONFIGURATION MODE");
 static const regex GILL2D_SERNO_REGEX_STR("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
 static const regex GILL2D_FW_VER_REGEX_STR("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
+
+static const std::string AVERAGING_CFG_DESC("Avg secs");
+static const std::string SOS_TEMP_CFG_DESC("SpdOfSnd/Temp Rprt");
+static const std::string HEATING_CFG_DESC("Heater");
+static const std::string NMEA_ID_STR_CFG_DESC("NMEA");
+static const std::string MSG_TERM_CFG_DESC("Msg Term");
+static const std::string MSG_STREAM_CFG_DESC("Msg Stream");
+static const std::string FIELD_FMT_CFG_DESC("Field Fmt");
+static const std::string OUTPUT_RATE_CFG_DESC("Output Rate");
+static const std::string MEAS_UNITS_CFG_DESC("Meas Units");
+static const std::string NODE_ADDR_CFG_DESC("Node Addr");
+static const std::string VERT_MEAS_PAD_CFG_DESC("Vert Pad");
+static const std::string ALIGN_45_DEG_CFG_DESC("Align/45 Deg");
 
 GILL2D::GILL2D()
     : Wind2D(DEFAULT_PORT_CONFIG),
       testPortConfig(),
       _desiredPortConfig(DEFAULT_PORT_CONFIG),
       _defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
-      _desiredScienceParameters(), _unitId('\0'), _polling(false)
+      _desiredScienceParameters(), _sosEnabled(false), _unitId('\0'), _polling(false)
 {
     // We set the defaults at construction,
     // letting the base class modify according to fromDOMElement()
@@ -185,6 +201,8 @@ GILL2D::GILL2D()
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         _desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
+
+    initCustomMetadata();
 }
 
 GILL2D::~GILL2D()
@@ -214,7 +232,6 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
         if (elname == "autoconfig") {
             DLOG(("Found the <autoconfig /> tag..."));
-            setAutoConfigSupported();
 
             // get all the attributes of the node
             xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
@@ -266,13 +283,31 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
                     updateDesiredScienceParameter(SENSOR_AVG_PERIOD_CMD, val);
                 }
-                else if (aname == "heating") {
-                    if (upperAval == "TRUE" || upperAval == "YES" || upperAval == "ENABLE" || aval == "1") {
-                        updateDesiredScienceParameter(SENSOR_HEATING_CMD, ACTIVE_H3);
+                else if (aname == "sostemp") {
+                    if (upperAval == "SOS") {
+                        updateDesiredScienceParameter(SENSOR_SOS_TEMP_CMD, REPORT_SOS);
+                    }
+                    else if (upperAval == "TEMP") {
+                        updateDesiredScienceParameter(SENSOR_SOS_TEMP_CMD, REPORT_TEMP);
+                    }
+                    else if (upperAval == "BOTH") {
+                        updateDesiredScienceParameter(SENSOR_SOS_TEMP_CMD, REPORT_BOTH);
                     }
                     else if (upperAval == "FALSE" || upperAval == "NO" || upperAval == "NONE"
                              || upperAval == "NA" || upperAval == "DISABLE" || aval == "0") {
-                        updateDesiredScienceParameter(SENSOR_HEATING_CMD, DISABLED);
+                        updateDesiredScienceParameter(SENSOR_SOS_TEMP_CMD, REPORT_DISABLED);
+                    }
+                    else
+                        throw n_u::InvalidParameterException(
+                            string("GILL2D:") + getName(), aname, aval);
+                }
+                else if (aname == "heating") {
+                    if (upperAval == "TRUE" || upperAval == "YES" || upperAval == "ENABLE" || aval == "1") {
+                        updateDesiredScienceParameter(SENSOR_HEATING_CMD, HTG_ACTIVE);
+                    }
+                    else if (upperAval == "FALSE" || upperAval == "NO" || upperAval == "NONE"
+                             || upperAval == "NA" || upperAval == "DISABLE" || aval == "0") {
+                        updateDesiredScienceParameter(SENSOR_HEATING_CMD, HTG_DISABLED);
                     }
                     else
                         throw n_u::InvalidParameterException(
@@ -301,26 +336,26 @@ void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
                             string("GILL2D:") + getName(), aname, aval);
                 }
                 else if (aname == "stream") {
-                    if (upperAval.find("ASC")) {
-                        if (upperAval.find("UV")) {
-                            if (upperAval.find("CONT")) {
-                                updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_UV_CONT);
-                            }
-                            else if (upperAval.find("POLL")) {
-                                updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT);
-                            }
-                            else
+                	if (upperAval.find("ASC")) {
+                		if (upperAval.find("UV")) {
+                			if (upperAval.find("CONT")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_UV_CONT);
+                			}
+                			else if (upperAval.find("POLL")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_POLLED);
+                			}
+                			else
                                 throw n_u::InvalidParameterException(
                                     string("GILL2D:") + getName(), aname, aval);
-                        }
-                        if (upperAval.find("POLAR") || upperAval.find("PLR")) {
-                            if (upperAval.find("CONT")) {
-                                updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_UV_CONT);
-                            }
-                            else if (upperAval.find("POLL")) {
-                                updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT);
-                            }
-                            else
+                		}
+                		if (upperAval.find("POLAR") || upperAval.find("PLR")) {
+                			if (upperAval.find("CONT")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_CONT);
+                			}
+                			else if (upperAval.find("POLL")) {
+                        		updateDesiredScienceParameter(SENSOR_MSG_STREAM_CMD, ASC_PLR_POLLED);
+                			}
+                			else
                                 throw n_u::InvalidParameterException(
                                     string("GILL2D:") + getName(), aname, aval);
                         }
@@ -529,7 +564,7 @@ bool GILL2D::checkScienceParameters()
 
         VLOG(("GILL2D::checkScienceParameters() - Check the individual parameters available to us"));
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_RESPONSE_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_COMPARE_REGEX_STR);
         bool responseOK = regexFound && results[0].matched;
         if (!responseOK) {
             DLOG(("GILL2D::checkScienceParameters(): regex failed"));
@@ -537,72 +572,78 @@ bool GILL2D::checkScienceParameters()
         }
 
         else {
-            if (results[7].matched) {
-                string argStr = std::string(results[7].first, results[7].second - results[7].first);
-                VLOG(("Checking sample averaging time(G) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, argStr.c_str());
+            if (results[1].matched) {
+                VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(1));
+                scienceParametersOK = compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(1).c_str());
+                updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(1)));
             }
 
-            if (scienceParametersOK && results[8].matched) {
-                string argStr = std::string(results[8].first, results[8].second - results[8].first);
-                VLOG(("Checking heater status(H) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[6].matched) {
+				VLOG(("Checking sample averaging time(G) with argument: ") << results.str(6));
+				scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(6).c_str());
+				updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(6)));
+			}
 
-            if (scienceParametersOK && results[10].matched) {
-                string argStr = std::string(results[10].first, results[10].second - results[10].first);
-                VLOG(("Checking NMEA string(K) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[7].matched) {
+				VLOG(("Checking heater status(H) with argument: ") << results.str(7));
+				scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, results.str(7).c_str());
+                updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(7)));
+			}
 
-            if (scienceParametersOK && results[11].matched) {
-                string argStr = std::string(results[11].first, results[11].second - results[11].first);
-                VLOG(("Checking message termination(L) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[9].matched) {
+				VLOG(("Checking NMEA string(K) with argument: ") << results.str(9));
+				scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(9).c_str());
+                updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(9)));
+			}
 
-            if (scienceParametersOK && results[12].matched) {
-                string argStr = std::string(results[12].first, results[12].second - results[12].first);
-                VLOG(("Checking message stream format(M) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[10].matched) {
+				VLOG(("Checking message termination(L) with argument: ") << results.str(10));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(10).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(10)));
+			}
 
-            if (scienceParametersOK && results[13].matched) {
-                string argStr = std::string(results[13].first, results[13].second - results[13].first);
-                VLOG(("Checking node address(N) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[11].matched) {
+				VLOG(("Checking message stream format(M) with argument: ") << results.str(11));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(11).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(11)));
+			}
 
-            if (scienceParametersOK && results[14].matched) {
-                string argStr = std::string(results[14].first, results[14].second - results[14].first);
-                VLOG(("Checking output field format(O) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[12].matched) {
+				VLOG(("Checking node address(N) with argument: ") << results.str(12));
+				scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(12).c_str());
+                updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(12)));
+			}
 
-            if (scienceParametersOK && results[15].matched) {
-                string argStr = std::string(results[15].first, results[15].second - results[15].first);
-                VLOG(("Checking output rate(P) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[13].matched) {
+				VLOG(("Checking output field format(O) with argument: ") << results.str(13));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(13).c_str());
+                updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(13)));
+			}
 
-            if (scienceParametersOK && results[17].matched) {
-                string argStr = std::string(results[17].first, results[17].second - results[17].first);
-                VLOG(("Checking wind speed units(U) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[14].matched) {
+				VLOG(("Checking output rate(P) with argument: ") << results.str(14));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, results.str(14).c_str());
+                updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, results.str(14)));
+		}
 
-            if (scienceParametersOK && results[18].matched) {
-                string argStr = std::string(results[18].first, results[18].second - results[18].first);
-                VLOG(("Checking vertical output pad(V) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, argStr.c_str());
-            }
+			if (scienceParametersOK && results[16].matched) {
+				VLOG(("Checking wind speed units(U) with argument: ") << results.str(16));
+				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(16).c_str());
+                updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(16)));
+			}
 
-            if (scienceParametersOK && results[19].matched) {
-                string argStr = std::string(results[19].first, results[19].second - results[19].first);
-                VLOG(("Checking sensor alignment(X) with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, argStr.c_str());
-            }
-        }
+			if (scienceParametersOK && results[17].matched) {
+				VLOG(("Checking vertical output pad(V) with argument: ") << results.str(17));
+				scienceParametersOK = compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(17).c_str());
+                updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(17)));
+			}
+
+			if (scienceParametersOK && results[18].matched) {
+				VLOG(("Checking sensor alignment(X) with argument: ") << results.str(18));
+				scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(18).c_str());
+                updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(18)));
+			}
+		}
     }
     else
         DLOG(("No characters returned from serial port"));
@@ -671,6 +712,14 @@ bool GILL2D::checkResponse()
         if (!retVal) {
             DLOG(("GILL2D::checkResponse(): regex failed"));
         }
+        else {
+            // Check for Speed of Sound and Temperature measurement capability
+            if (results[1].matched) {
+                if (results.str(1) != "0") {
+                    _sosEnabled = true;
+                }
+            }
+        }
     }
 
     else {
@@ -688,6 +737,14 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
     std::string snsrCmd(cmdTable[cmd]);
     std::ostringstream argStr;
 
+    // Don't bother sending the SOS/Temp command
+    // if the instrument can't handle it.
+    if (cmd == SENSOR_SOS_TEMP_CMD && !_sosEnabled) {
+       ILOG(("GILL2D::sendSensorCmd(): Not sending SOS/Temp command"
+             "as this particular model of WindObserver does not support it."));
+       return;
+    }
+
     // Most GIL commands take character args starting at '1'.
     // Some do not, so if a value < 0 is passed in, skip this part.
     if (arg.intArg >= 0) {
@@ -697,14 +754,15 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
             snprintf(buf, 5, "%04d", arg.intArg);
             argStr << std::string(buf, 5);
         }
-        else if (arg.intArg >= 1) {
-            if (cmd == SENSOR_CONFIG_MODE_CMD) {
-                argStr << arg.intArg;
-            }
-            else {
-                argStr << arg.intArg;
-            }
-        }
+    	// TODO ???What???
+    	else if (arg.intArg >= 1) {
+    		if (cmd == SENSOR_CONFIG_MODE_CMD) {
+				argStr << arg.intArg;
+			}
+			else {
+				argStr << arg.intArg;
+			}
+    	}
 
         DLOG(("Attempting to insert: ") << arg.intArg);
         int insertIdx = snsrCmd.find_last_of('\r');
@@ -726,7 +784,7 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
         write(&(snsrCmd.c_str()[i]), 1);
         nanosleep(&writeWait, 0);
     }
-    DLOG(("write() sent ") << snsrCmd.length());;
+    DLOG(("write() sent ") << snsrCmd.length());
 
     if (isConfigCmd(cmd) || cmd == SENSOR_QRY_ID_CMD) {
         const int CMD_RESP_BUF_SIZE = 20;
@@ -735,7 +793,7 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
         int numCharsRead = readEntireResponse(cmdRespBuf, CMD_RESP_BUF_SIZE, 2000);
         std::string respStr(cmdRespBuf, numCharsRead);
         std::ostringstream oss;
-        oss << "Sent: " << snsrCmd << std::endl << " Received: " << std::hex << respStr;
+        oss << "Sent: " << snsrCmd << std::endl << "   Received: " << respStr;
         DLOG((oss.str().c_str()));
         if (cmd == SENSOR_QRY_ID_CMD) {
             std::size_t stxPos = respStr.find_first_of('\x02');
@@ -986,6 +1044,22 @@ void GILL2D::updateMetaData()
     else {
         DLOG(("GILL2D::updateMetaData(): Didn't find firmware version string as expected."));
     }
+}
+
+void GILL2D::initCustomMetadata()
+{
+    addMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(HEATING_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, ""));
+    addMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, ""));
 }
 
 
