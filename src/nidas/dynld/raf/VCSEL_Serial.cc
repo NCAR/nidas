@@ -100,8 +100,8 @@ bool VCSEL_Serial::process(const Sample * samp,
 
         // housekeeping comes on-the-second but after the first 25Hz sample
         if ((nco_samp->getId() - getId()) == 1) {
-              _hz_counter = 1;
-              continue;
+            _hz_counter = 1;
+            continue;
         }
 
         int usec = nco_samp->getTimeTag() % USECS_PER_SEC;
