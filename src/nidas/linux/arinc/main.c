@@ -501,9 +501,17 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         // Verify read or write access to the user arg, if necessary
         if (_IOC_DIR(cmd) & _IOC_READ)
-                ret = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                ret =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else ret = 0;
         if (ret) return -EFAULT;
 
