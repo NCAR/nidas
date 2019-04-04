@@ -483,7 +483,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                          DatasetName | ConfigsName | DSMName |
                          DumpASCII | DumpBINARY | DOSOutput |
                          NetcdfOutput | Clipping |
-                         SorterLength | Precision |
+                         SorterLength | Precision | NoHeader |
                          _app.loggingArgs() | _app.XmlHeaderFile |
                          _app.Version | _app.Help);
 
