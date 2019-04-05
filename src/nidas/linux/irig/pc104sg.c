@@ -1176,10 +1176,17 @@ static int counterRejam(void)
 /* convenience function to read current unix time into a struct timeval32 */
 static void do_gettimeofday_tv32(struct timeval32* tv32)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
         struct timeval tv;
         do_gettimeofday(&tv);
         tv32->tv_sec = tv.tv_sec;
         tv32->tv_usec = tv.tv_usec;
+#else
+        struct timespec64 tv;
+        ktime_get_real_ts64(&tv);
+        tv32->tv_sec = tv.tv_sec;
+        tv32->tv_usec = tv.tv_nsec / 1000;
+#endif
 }
 
 /**
@@ -2322,11 +2329,19 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
          * Verify read or write access to the user arg, if necessary
          */
         if ((_IOC_DIR(cmd) & _IOC_READ) &&
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
             !access_ok(VERIFY_WRITE, userptr, len))
+#else
+            !access_ok(userptr, len))
+#endif
                 return -EFAULT;
 
         if ((_IOC_DIR(cmd) & _IOC_WRITE) &&
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
             !access_ok(VERIFY_READ, userptr, len))
+#else
+            !access_ok(userptr, len))
+#endif
                 return -EFAULT;
 
 
@@ -2614,7 +2629,17 @@ static int __init pc104sg_init(void)
          * Set the major time from the unix clock if the IRIG
          * time disagrees with the unix time.
          */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
         do_gettimeofday(&unix_timeval);
+#else
+        {
+                struct timespec64 tv;
+                ktime_get_real_ts64(&tv);
+                unix_timeval.tv_sec = tv.tv_sec;
+                unix_timeval.tv_usec = tv.tv_nsec / 1000;
+        }
+#endif
         get_irig_time_tv32(&irig_timeval);
         tdiff = (unix_timeval.tv_sec - irig_timeval.tv_sec) * MSECS_PER_SEC +
                 (unix_timeval.tv_usec - irig_timeval.tv_usec) / USECS_PER_MSEC;
