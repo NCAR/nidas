@@ -351,7 +351,7 @@ public:
      *       The mechanism for this will be to use a value of 0 to indicate that the SW need not 
      *       inject the RTS line control in the write command.
      */
-    void setRTS485(int val);
+    void setRTS485(int val=0);
     int getRTS485() const {return _workingPortConfig.rts485;}
 
     /**
