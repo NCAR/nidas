@@ -200,7 +200,7 @@ bool promptFound(const char* prompt, int numTries)
 
         memset(buf, 0, BUF_SIZE);
         response = "";
-        std::size_t numChars = readAll(buf, BUF_SIZE, 1000);
+        std::size_t numChars = readAll(buf, BUF_SIZE-1, 1000);
         if (numChars > 0) {
             response.append(buf);
 
@@ -406,7 +406,7 @@ int main(int argc, char* argv[]) {
     // Check whether AA setting needs to be modified
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
     response = "";
-    readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
+    readAll(settingsBuf, SETTINGS_BUF_SIZE-1, 100);
     response.append(settingsBuf);
     DLOG(("Response to CSAT query: ") << settingsBuf);
 
@@ -450,7 +450,7 @@ int main(int argc, char* argv[]) {
     for (int i = abs(numAdj); i > 0; --i) {
         serPort.write(aaAdjStr.c_str(), aaAdjStr.length());
         memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
-        readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
+        readAll(settingsBuf, SETTINGS_BUF_SIZE-1, 100);
         DLOG((settingsBuf));
     }
 
@@ -460,7 +460,7 @@ int main(int argc, char* argv[]) {
     // Check whether AA setting needs to be modified
     memset(settingsBuf, 0, SETTINGS_BUF_SIZE);
     response = "";
-    readAll(settingsBuf, SETTINGS_BUF_SIZE, 100);
+    readAll(settingsBuf, SETTINGS_BUF_SIZE-1, 100);
     response.append(settingsBuf);
     matchIdx = response.find("AA=");
     if (!matchIdx) {
