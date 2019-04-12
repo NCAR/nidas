@@ -40,9 +40,11 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <boost/regex.hpp>
 
 using namespace nidas::dynld::isff;
 using namespace std;
+using namespace boost;
 
 namespace n_u = nidas::util;
 namespace n_c = nidas::core;
@@ -64,6 +66,73 @@ const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
 };
 
 const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+
+/*
+ *  AutoConfig stuff
+ */
+
+/*  Typical ?? response
+ *
+ *  v3.0-v3.9
+ *  ET= 10 ts=i XD=d GN=111a TK=1 UP=5 FK=0 RN=1 IT=1 DR=102 rx=2 fx=038 BX=0
+ *  AH=1 AT=0 RS=0 BR=0 RI=0 GO=00000 HA=0 6X=3 3X=2 PD=2 SD=0 ?d sa=1 WM=o
+ *  ar=0 ZZ=0 DC=6 ELo=021 021 021 ELb=021 021 021 TNo=dbb d TNb=ccc JD= 007
+ *  C0o=-2-2-2 C0b=-2-2-2 RC=0 tlo=9 9 9 tlb=9 9 9 DTR=01740 CA=0 TD=
+ *  duty=026 AQ= 10 AC=1 CD=0 SR=1 UX=0 MX=0 DTU=02320 DTC=01160 RD=o ss=1
+ *  XP=2 RF=018 DS=007 SN0315 06aug01 HF=005 JC=3 CB=3 MD=5 DF=05000 RNA=1 rev
+ *  3.0a cs=22486 &=0 os=
+ *
+ *  v4.0+
+ *  (from device)
+ *  SN1121 26may16 rev 5.0f &=1 AA=040 AC=1 AF=040 AH=1 ao=00300 ar=0 AS=-005\r\n
+ *   AQ= 20 BR=0 BX=0 c0o= 0 0 0 c0b= 0 0 0 CA=1 CD=0 cf=1 cs=46886 CX=d DC=8\r\n
+ *   dl=015 dm=c DR=03465 duty=053 DT=16240 et= 20 fa=00050 FD=  02880 FL=007\r\n
+ *   fx=038 GN=848a go=00000 ha=0 hg=01560 HH=02700 kt=0 lg=00832 LH=00100 MA=-020\r\n
+ *   MS=-010 mx=0 N5=0 ND=1 NI=2 OC=0 or=1 os=0 pd=2 ra=00020 RC=0 rf=00900 rh=015\r\n
+ *   RI=1 RS=1 rx=002 SD=0 SL=035 sr=1 ss=1 t0123=1000 TD=a TF=02600 02600 02600\r\n
+ *   TK=1 TO= 0 0 0 tp=t ts=i UF=0 ux=0 WM=o WR=006 WT=06000 XD=d xp=2 xx=00875 ZZ=0\r\n
+ *   5T= 1.0000e+01 5k= 5.0000e-03\r\n
+ *
+ *   (from doc)
+ *   SN0315 02mar04 rev 4.0s &=0 AC=1 AF=050 AH=1 AO=00300 ar=0 AQ= 20 BR=0 BX=0
+ *    CF=1 C0o= 0 0 0 C0b= 0 0 0 CA=1 CD=0 cs=25417 DC=8 dl=015 DM=c DR=03465
+ *    duty=048 DT=16240 ET= 20 FA=00050 FL=007 FX=038 GN=121a GO=00000 HA=0
+ *    HG=01560 HH=02700 KT=0 LG=00832 LH=00100 MA=-020 MS=-010 MX=0 ND=1 NI=2
+ *    ns=00223 OR=1 os=0 PD=2 RA=00020 RC=0 RF=00900 RH=015 RI=0 RS=0 RX=002
+ *    SD=0 SL=035 SR=1 ss=1 T0123=1000 TD=a TF=02600 02600 02600 TK=1 TO= 0 0 0
+ *    TP=t ts=i UX=0 WM=o WR=006 XD=d xp=2 XX=00875 ZZ=0.
+ *
+ */
+
+//regex V4_PLUS_CONFIG_RESPONSE(
+//      "(?<serno>SN[[:digit:]]+) (?<caldate>[[:digit:]]{2}[[:lower:]]{3}[[:digit:]]{2}) "
+//      "rev (?<fwrev>[[:digit:]]+\\.[[:digit:]]+[[:lower:]]) &=[[:digit:]] (AA=[[:digit:]]+ )*"
+//      "AC=[[:digit:]] AF=[[:digit:]]+ AH=[[:digit:]] (ao|AO)=[[:digit:]]+ ar=[[:digit:]] "
+//      "(AS=-*[[:digit:]]+)*[[:space:]]+"
+//
+//      "AQ= (?<acqrate>[[:digit:]]{1,2}) BR=(?<baud>0|1) BX=[[:digit:]][[:space:]]+"
+//      "(CF=[[:digit:]] )*c0o= [[:digit:]]+ [[:digit:]]+ [[:digit:]]+ c0b= [[:digit:]]+ [[:digit:]]+ [[:digit:]]+ "
+//      "CA=[[:digit:]] CD=[[:digit:]] (cf=[[:digit:]] )*cs=[[:digit:]]+ (CX=. )*DC=[[:digit:]]"
+//      "[[:space:]]+"
+//
+//      "dl=[[:digit:]]+ (dm|dM==DM)=. DR=[[:digit:]]+[[:space:]]+duty=[[:digit:]]+ DT=[[:digit:]]+ "
+//      "(et|ET)= [[:digit:]]+ fa=[[:digit:]]+ (FD=  [[:digit:]]+ )*FL=[[:digit:]]+[[:space:]]+"
+//
+//      "(fx|FX)=[[:digit:]]+ GN=[[:digit:]]+[[:lower:]] (go|GO)=[[:digit:]]+ (ha|HA)=[[:digit:]][[:space:]]+"
+//      "(hg|HG)=[[:digit:]]+ HH=[[:digit:]]+ (kt|KT)=[[:digit:]] (lg|LG)=[[:digit:]]+ LH=[[:digit:]]+ "
+//      "MA=-*[[:digit:]]+[[:space:]]"
+////START HERE
+//      "MS=-*[[:digit:]]+ (mx|MX)=[[:digit:]] N5=[[:digit:]] ND=[[:digit:]] NI=[[:digit:]][[:space:]]+"
+//      "OC=[[:digit:]] or=[[:digit:]] os=[[:digit:]] pd=[[:digit:]] ra=[[:digit:]]+ RC=[[:digit:]]"
+//      "rf=[[:digit:]]+ rh=[[:digit:]]+[[:space:]]"
+//
+//      "RI=(?<rtsindep>[[:digit:]]) RS=(?<msgsep>[[:digit:]]) rx=[[:digit:]]+ SD=[[:digit:]] SL=[[:digit:]]+ sr=[[:digit:]] "
+//      "ss=[[:digit:]]+ t0123=[[:digit:]]+ TD=[[:lower:]] TF=[[:digit:]]+ [[:digit:]]+ [[:digit:]]+[[:space:]]+"
+//
+//      "TK=[[:digit:]] TO= [[:digit:]]+ [[:digit:]]+ [[:digit:]]+ tp=[[:lower:]] ts=[[:lower:]] "
+//      "UF=[[:digit:]] ux=[[:digit:]] WM=[[:lower:]] WR=[[:digit:]]+ WT=[[:digit:]]+ XD=[[:lower:]] "
+//      "xp=[[:digit:]] xx=[[:digit:]]+ ZZ=[[:digit:]]"
+//      );
 
 std::string DATA_RATE_CFG_DESC("Data Rate");
 std::string OVERSAMPLE_CFG_DESC("Over Sampling");
@@ -100,7 +169,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     _checkCounter(true),
     _ttadjuster(0),
     defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
-    rateCmd(0),
+    rateCmd(""),
     acqrate(0),
     serialNumber(""),
     osc(0),
@@ -172,101 +241,77 @@ throw(n_u::IOException)
     recSep = -1;  // rs setting, record separator, -1=unknown
 
     /*
-     * Make this robust around the following situations:
-     * 1. No sonic connected to the port. This will result in a timeout and a break
-     *    out of the inner loop. Will try up to the number of times in the
-     *    outer loop, and return an empty result, and the returned parameters will
-     *    have the above initial values.
-     *    If a timeout is set for this sensor in the config, the open() will be
-     *    retried again and things should succeed once a sonic, with power is connected.
-     * 2. Sonic is connected but it isn't responding to commands, just spewing binary
-     *    wind data.  Since we're trying to split into records by a ">" terminator, we may
-     *    not not get anything in result, or it would be non-ASCII jibberish.
-     *    The returned parameters will have the above initial values since the
-     *    keywords won't be found.  An attempt may be made to set the rate, which
-     *    will also not succeed, the open() will return anyway and the good data
-     *    will be read as usual but it may have the wrong rate.
-     * 3. sonic isn't responding to commands and is sending jibberish data, i.e.
-     *    a wrong baud rate or bad cable connection. result will be as in
-     *    2 above, but the data read will be junk. User is expected to notice
-     *    the bad data and resolve the issue. Software can't do anything about it
-     *    (could try other baud rates, but that ain't worth doing...).
-     * 4. Operational sonic. All should be happy.
+     *  Assumption is that with autoconfig, the system is already in terminal mode
+     *  when this function is called and only ASCII is coming back.
      */
 
-    n_u::UTime quit;
-    quit += USECS_PER_SEC * 5;
-    bool scanned = false;
+    findConfigPrompt(false, true);
 
-    for ( ; !scanned && n_u::UTime() < quit; ) {
-        DLOG(("%s:%s sending ?? CR",getName().c_str(), getClassName().c_str()));
-        write("??\r",3);    // must send CR
-        // sonic takes a while to respond to ??
-        int timeout = 4 * MSECS_PER_SEC;
-        string::size_type stidx = string::npos;
+    DLOG(("%s:%s sending ?? CR",getName().c_str(), getClassName().c_str()));
+    std::string qryCmd("??\r");    // must send CR
+    writePause(qryCmd.c_str(), qryCmd.length());
 
-        // read until timeout, or complete message
-        for ( ; !scanned && n_u::UTime() < quit; ) {
-            try {
-                char buf[512];
-                memset(buf, 0, 512);
-                unsigned int l = readEntireResponse(buf, 511, timeout);
-                // strings will not be null terminated
-                const char * cp = (const char*)buf;
-                // sonic echoes back "T" or "??" command
-                if (l != 0)
-                    while (*cp == 'T' || *cp == '?' || ::isspace(*cp)) {
-                        cp++;
-                        l--;
-                    }
-                string rec(cp,l);
-                DLOG(("%s: CSAT3 query: len=",getName().c_str())
-                        << rec.length() << ", \"" << rec << '"');
+    // sonic takes a while to respond to ??
+    sleep(4);
+    int timeout = 500; // mSecs
+    string::size_type stidx = string::npos;
 
-                result += rec;
-            }
-            catch (const n_u::IOTimeoutException& e) {
-                DLOG(("%s: timeout",getName().c_str()));
-                break;
-            }
-
-            // rev 3 message, starts with ET=, contains serial number
-            // rev 4 or 5 message, starts with serial number
-            if (stidx == string::npos) {
-                string::size_type etidx = result.find("ET=");
-                string::size_type snidx;
-                serialNumber = parseSerialNumber(result, snidx);
-                stidx = std::min(snidx, etidx);
-
-                if (stidx != string::npos) {
-                    result = result.substr(stidx);
-                    stidx = 0;
-                }
-            }
-            if (stidx != string::npos) {
-                string::size_type ri = result.find("\n>");
-                if (ri != string::npos) {
-                    result.resize(ri);
-                    scanned = true;
-                }
-            }
+    const int BUF_SIZE = 600;
+    char buf[BUF_SIZE];
+    memset(buf, 0, BUF_SIZE);
+    int l = readEntireResponse(buf, BUF_SIZE-1, timeout, true);
+    // strings will not be null terminated
+    const char * cp = (const char*)buf;
+    // sonic echoes back "T" or "??" command
+    if (l > 0) {
+        while (*cp == 'T' || *cp == '?' || ::isspace(*cp)) {
+            cp++;
+            l--;
         }
-    }
-    clearBuffer();
+        string rec(cp,l);
+        DLOG(("%s: CSAT3 query: len=%i, \"%s\"",getName().c_str(), rec.length(), rec.c_str()));
 
-    if (result.empty()) return result;
+        result = rec;
+    }
+    else {
+        return result;
+    }
+
+    // rev 3 message, starts with ET=, contains serial number
+    // rev 4 or 5 message, starts with serial number
+//    if (stidx == string::npos) {
+//        string::size_type etidx = result.find("ET=");
+        string::size_type snidx;
+        serialNumber = parseSerialNumber(result, snidx);
+//        stidx = std::min(snidx, etidx);
+//
+//        if (stidx != string::npos) {
+//            result = result.substr(stidx);
+//            stidx = 0;
+//        }
+//    }
+//    if (stidx != string::npos) {
+//        string::size_type ri = result.find("\n>");
+//        if (ri != string::npos) {
+//            result.resize(ri);
+//        }
+//    }
+
+//    clearBuffer();
+
+//    if (result.empty()) return result;
 
     string::size_type rlen = result.length();
     DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << rlen);
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
-    string::size_type fs = result.find("AQ=");
-    if (fs != string::npos && fs + 3 < rlen) {
-        acqrate = atoi(result.substr(fs+3).c_str());
+    string::size_type fs = result.find("AQ= ");
+    if (fs != string::npos && fs + 4 < rlen) {
+        acqrate = atoi(result.substr(fs+4, 2).c_str());
     }
     else {
-    	DLOG(("CSAT3_Sonic::querySensor(): Didn't find AQ parameter in query response."));
-    	return std::string();
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find AQ parameter in query response."));
+        return std::string();
     }
 
     // get os parameter, e.g. "os=g"
@@ -276,53 +321,54 @@ throw(n_u::IOException)
     // For version 4, os=0 means no oversampling
     fs = result.find("os=");
     if (fs != string::npos && fs + 3 < rlen) {
-    	osc = result[fs+3];
-	}
-	else {
-		DLOG(("CSAT3_Sonic::querySensor(): Didn't find os parameter in query response."));
-		return std::string();
-	}
+        osc = result[fs+3];
+    }
+    else {
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find os parameter in query response."));
+        return std::string();
+    }
 
     // get software revision, e.g. "rev 3.0f"
-    fs = result.find("rev");
+    fs = result.find("rev ");
     if (fs != string::npos && fs + 4 < rlen) {
         string::size_type bl = result.find(' ',fs+4);
         revision = result.substr(fs+4,bl-fs-4);
     }
-	else {
-		DLOG(("CSAT3_Sonic::querySensor(): Didn't find rev parameter in query response."));
-		return std::string();
-	}
+    else {
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find rev parameter in query response."));
+        return std::string();
+    }
 
     // get RI=n setting. 0=power RS-232 drivers on RTS, 1=power always
     fs = result.find("RI=");
     if (fs != string::npos && fs + 3 < rlen) {
-        rtsIndep = atoi(result.substr(fs+3).c_str());
+        rtsIndep = atoi(result.substr(fs+3, 1).c_str());
     }
-	else {
-		DLOG(("CSAT3_Sonic::querySensor(): Didn't find RI parameter in query response."));
-		return std::string();
-	}
+    else {
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find RI parameter in query response."));
+        return std::string();
+    }
 
     // get RS=n setting. 0=no record separator, 1=0x55AA
     fs = result.find("RS=");
     if (fs != string::npos && fs + 3 < rlen) {
-        recSep = atoi(result.substr(fs+3).c_str());
+        recSep = atoi(result.substr(fs+3, 1).c_str());
     }
-	else {
-		DLOG(("CSAT3_Sonic::querySensor(): Didn't find RS parameter in query response."));
-		return std::string();
-	}
+    else {
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find RS parameter in query response."));
+        return std::string();
+    }
 
     // get BR=n setting. 0=9600, 1=19200
     fs = result.find("BR=");
     if (fs != string::npos && fs + 3 < rlen) {
-        baudRate = atoi(result.substr(fs+3).c_str());
+
+        baudRate = atoi(result.substr(fs+3, 1).c_str());
     }
-	else {
-		DLOG(("CSAT3_Sonic::querySensor(): Didn't find BR parameter in query response."));
-		return std::string();
-	}
+    else {
+        DLOG(("CSAT3_Sonic::querySensor(): Didn't find BR parameter in query response."));
+        return std::string();
+    }
 
     return result;
 }
@@ -332,8 +378,7 @@ void CSAT3_Sonic::sendBaudCmd(int baud)
 	std::ostringstream baudCmd;
 	baudCmd << "br "<< baud << "\r";
     DLOG(("%s: sending %s", getName().c_str(), baudCmd.str().c_str()));
-	(void)write((void*)(baudCmd.str().c_str()), baudCmd.str().length());
-	usleep(100 * USECS_PER_MSEC);
+    writePause(baudCmd.str().c_str(), baudCmd.str().length());
 }
 
 void CSAT3_Sonic::sendRTSIndepCmd(bool on)
@@ -341,68 +386,64 @@ void CSAT3_Sonic::sendRTSIndepCmd(bool on)
 	std::ostringstream rtsIndepCmd;
 	rtsIndepCmd << "ri " << (on ? '1' : '0') << "\r";
     DLOG(("%s: sending %s", getName().c_str(), rtsIndepCmd.str().c_str()));
-    (void)write((void*)(rtsIndepCmd.str().c_str()), rtsIndepCmd.str().length());
-    usleep(100 * USECS_PER_MSEC);
+    writePause(rtsIndepCmd.str().c_str(), rtsIndepCmd.str().length());
 }
 
 void CSAT3_Sonic::sendRecSepCmd()
 {
     std::string cmd("rs 1\r");
     DLOG(("%s: sending %s", getName().c_str(), cmd.c_str()));
-	(void)write(cmd.c_str(), cmd.length());
-	usleep(100 * USECS_PER_MSEC);
+    writePause(cmd.c_str(), cmd.length());
 }
 
-string CSAT3_Sonic::sendRateCommand(const char* cmd)
+void CSAT3_Sonic::sendRateCommand(const std::string cmd)
 throw(n_u::IOException)
 {
-    DLOG(("%s: sending %s",getName().c_str(),cmd));
-    write(cmd,2);
-
-    string result;
-
-// This should be happening in terminal mode, and so none of this should work. Do it the
-// new way be reading the port buffer directly.
-//
-//    int timeout = MSECS_PER_SEC * 4;
-//    // do up to 10 reads or a timeout.
-//    for (int i = 0; i < 10; i++) {
-//        try {
-//            readBuffer(timeout);
-//        }
-//        catch (const n_u::IOTimeoutException& e) {
-//            DLOG(("%s: timeout",getName().c_str()));
-//            break;
-//        }
-//        for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-//            // strings will not be null terminated
-//            const char * cp = (const char*)samp->getConstVoidDataPtr();
-//            result += string(cp,samp->getDataByteLength());
-//            distributeRaw(samp);
-//        }
-//    }
-//    clearBuffer();
-//    while (result.length() > 0 && result[result.length() - 1] == '>') result.resize(result.length()-1);
-    const unsigned long BUF_SIZE = 100;
-    char buf[BUF_SIZE];
-    std::memset(buf, 0, BUF_SIZE);
-
-    std::size_t numChars = readEntireResponse((void*)buf, (std::size_t)BUF_SIZE, 1000);
-    if (numChars) {
-        result.append(buf);
-        const char* brStr = result.c_str() + result.find("BR=");
-        result.assign(brStr);
-    }
-
-    return result;
+    DLOG(("%s: sending %s",getName().c_str(),cmd.c_str()));
+    writePause(cmd.c_str(), cmd.length());
 }
 
-const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
+void CSAT3_Sonic::checkSerPortSettings(bool drain)
+{
+    const int BUF_SIZE = 100;
+    char buf[BUF_SIZE];
+    int numCharsRead = 0;
+
+    if (drain) {
+        VLOG(("CSAT3_Sonic::checkSerPortSettings(): Drain requested..."));
+        if (findConfigPrompt(drain, drain ? true : false)) {
+            VLOG(("CSAT3_Sonic::checkSerPortSettings(): Found the config prompt: '>'"));
+        }
+        else {
+            VLOG(("CSAT3_Sonic::checkSerPortSettings(): Config prompt, '>', not found..."));
+            VLOG(("CSAT3_Sonic::checkSerPortSettings(): Don't bother looking at RI/BR settings..."));
+            return;
+        }
+    }
+
+    std::string serPortSettingsTestCmd("ri\r");
+    DLOG(("%s: sending %s",getName().c_str(),serPortSettingsTestCmd.c_str()));
+    writePause(serPortSettingsTestCmd.c_str(), serPortSettingsTestCmd.length());
+
+    memset(buf, 0, BUF_SIZE);
+    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, 4000);
+    DLOG(("CSAT3_Sonic::checkSerPortSettings(): ri:") << std::string(buf, numCharsRead));
+
+    serPortSettingsTestCmd.assign("br\r");
+    DLOG(("%s: sending %s",getName().c_str(),serPortSettingsTestCmd.c_str()));
+    writePause(serPortSettingsTestCmd.c_str(), serPortSettingsTestCmd.length());
+
+    memset(buf, 0, BUF_SIZE);
+    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, 4000);
+    DLOG(("CSAT3_Sonic::checkSerPortSettings(): br: ") << std::string(buf, numCharsRead));
+}
+
+const std::string& CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 {
     struct acqSigTable {
         int rate;
         bool oversample;
-        const char* cmd;
+        std::string cmd;
     };
     static const struct acqSigTable acqSigCmds[] = {
         {1,false,"A2"},
@@ -420,14 +461,18 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
         {20,true,"Ah"},
     };
 
+    static std::string retval("");
+
     int nr =  (signed)(sizeof(acqSigCmds)/sizeof(acqSigCmds[0]));
     for (int i = 0; i < nr; i++) {
         if (acqSigCmds[i].rate == rate &&
                 (oversample == acqSigCmds[i].oversample)) {
-            return acqSigCmds[i].cmd;
+            retval.assign(acqSigCmds[i].cmd);
+            break;
         }
     }
-    return 0;
+
+    return retval;
 }
 
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
@@ -493,8 +538,8 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	}
 	DLOG(("%s: _rate=%d",getName().c_str(),_rate));
 	if (_rate > 0) {
-		rateCmd = const_cast<char*>(getRateCommand(_rate,_oversample));
-		if (!rateCmd) {
+		rateCmd = getRateCommand(_rate,_oversample);
+		if (rateCmd == "") {
 			ostringstream ost;
 			ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
 			throw n_u::InvalidParameterException(getName(),
@@ -538,62 +583,6 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	catch(const n_u::InvalidParameterException& e) {
 		throw n_u::IOException(getName(),"open",e.what());
 	}
-//	/*
-//	 * An IOTimeoutException is thrown, which will cause another open attempt to
-//	 * be scheduled, in the following circumstances:
-//	 *   1. If a serial number is not successfully queried, and no data is arriving.
-//	 *      We don't add any extra log messages in this case to avoid filling up the
-//	 *      logs when a sonic simply isn't connected. We don't want to give up in
-//	 *      this case, and return without an exception, because then a sonic might
-//	 *      later be connected and the data read without knowing the serial number,
-//	 *      which is only determined in this open method. The serial number is often
-//	 *      important to know for later analysis and QC purposes.
-//	 *   2. If no serial number, but some data is received and less than NOPEN_TRY
-//	 *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
-//	 *      consecutive failures, just return from this open method without an
-//	 *      exception, which will pass this DSMSensor to the select loop for reading,
-//	 *      i.e. give up on getting the serial number - the data is more important.
-//	 *   3. If a serial number, but no data is received, and less than NOPEN_TRY
-//	 *      attempts have been tried, throw a timeout exception. This should be a
-//	 *      rare situation because if the sonic responds to serial number queries, it
-//	 *      generally should spout data.  After NOPEN_TRY consecutive failures,
-//	 *      just return from this open method, and this DSMSensor will be passed to
-//	 *      the select loop for reading. If a timeout value is defined for this DSMSensor,
-//	 *      and data doesn't start arriving in that amount of time, then this
-//	 *      DSMSensor will be scheduled for another open.
-//	 */
-//	if (serialNumber.empty()) {
-//		// can't query sonic
-//		_consecutiveOpenFailures++;
-//		if (dataok) {
-//			if (_consecutiveOpenFailures >= NOPEN_TRY) {
-//				WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
-//							getName().c_str(),_consecutiveOpenFailures));
-//				return; // return from open, proceed to read data.
-//			}
-//			WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures.",
-//						getName().c_str(),_consecutiveOpenFailures));
-//		}
-//		throw n_u::IOTimeoutException(getName(),"open");
-//	}
-//	else {
-//		// serial number query success, but no data - should be a rare occurence.
-//		if (!dataok) {
-//			_consecutiveOpenFailures++;
-//			if (_consecutiveOpenFailures >= NOPEN_TRY) {
-//				WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures. Will try to read.",
-//							getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-//				return; // return from open, proceed to read data.
-//			}
-//			WLOG(("%s: Sonic serial number=\"%s\", but no data received. %d open failures.",
-//						getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
-//			throw n_u::IOTimeoutException(getName(),"open");
-//		}
-//		else
-//			DLOG(("%s: successful open of CSAT3: serial number=\"",
-//							getName().c_str()) << serialNumber << "\"");
-//		_consecutiveOpenFailures = 0;   // what-a-ya-know, success!
-//	}
 }
 
 float CSAT3_Sonic::correctTcForPathCurvature(float tc, float, float, float)
@@ -902,37 +891,76 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 #endif
 }
 
+bool CSAT3_Sonic::findConfigPrompt(bool drain, bool prompt)
+{
+    bool retval = false;
+    unsigned int l = 0;
+    const int BUF_SIZE = 50;
+    char buf[BUF_SIZE];
+    VLOG(("CSAT3_Sonic::findConfigPrompt(): ") << (drain ? "Draining" : "NOT draining"));
+    VLOG(("CSAT3_Sonic::findConfigPrompt(): ") << (prompt ? "Prompting" : "NOT prompting"));
+    do {
+        if (prompt) {
+            writePause("\r\r", 2);
+        }
+        memset(buf, 0, BUF_SIZE);
+        l = readEntireResponse(buf, BUF_SIZE-1, 2000);
+        if (l > 0 && strstr(buf, ">") != 0) {
+            VLOG(("CSAT3_Sonic::findConfigPrompt(): Found config prompt: '>'"));
+            retval = true;
+            break;
+        }
+        else {
+            if (l > 0) {
+                LogContext ctx(LOG_VERBOSE);
+                if (ctx.active()) {
+                    printResponseHex(l, buf);
+                }
+            }
+        }
+    } while (l != 0 && drain);
+
+    if (!retval) {
+        VLOG(("CSAT3_Sonic::findConfigPrompt(): Config prompt, '>', not found"));
+    }
+
+    return retval;
+}
+
 n_c::CFG_MODE_STATUS CSAT3_Sonic::enterConfigMode() throw(n_u::IOException)
 {
     n_c::CFG_MODE_STATUS cfgStatus = getConfigMode();
-    bool timedOut = false;
 
-    for (int i = 0; i < 2 && cfgStatus != ENTERED && !timedOut; i++) {
-        DLOG(("%s: sending (P)T (nocr)",getName().c_str()));
-        /*
-         * P means print status and turn off internal triggering.
-         * If rev 5 sonics are set to 60 Hz raw sampling or
-         * 3x or 6x oversampling, they don't respond until sent a P
-         */
-        if (i > 1) write("PT",2);
-        else write("T",1);
-        try {
-            unsigned int l;
-            char buf[50];
-            memset(buf, 0, 50);
-            l = readEntireResponse(buf, 49, MSECS_PER_SEC + 10);
-            if (l > 0 && strstr(buf, ">") != 0) {
+    for (int i = 0; i < 3 && cfgStatus != ENTERED; i++) {
+        // First just see if we're already in terminal mode...
+        if (findConfigPrompt(false, true)) {
+            cfgStatus = ENTERED;
+            setConfigMode(cfgStatus);
+            ILOG(("%s:%s Successfully entered config mode!",
+                  getName().c_str(), getClassName().c_str()));
+            break;
+        }
+        else {
+            // No, so send the T command and then check.
+            DLOG(("%s: sending (P)T\\r",getName().c_str()));
+            /*
+             * P means print status and turn off internal triggering.
+             * If rev 5 sonics are set to 60 Hz raw sampling or
+             * 3x or 6x oversampling, they don't respond until sent a P
+             */
+            /*if (i > 1) writePause("PT",2);
+            else*/ writePause("T",1);
+            /*
+             *  DO NOT use drain in findConfigPrompt(),
+             *  in case sensor is in data collection mode, which is binary.
+             */
+            if (findConfigPrompt()) {
                 cfgStatus = ENTERED;
                 setConfigMode(cfgStatus);
                 ILOG(("%s:%s Successfully entered config mode!",
                       getName().c_str(), getClassName().c_str()));
                 break;
             }
-        }
-        catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s:%s CSAT3_Sonic::enterConfigMode(): timeout",getName().c_str(), getClassName().c_str()));
-            timedOut = true;
-            break;
         }
     }
 
@@ -986,9 +1014,9 @@ bool CSAT3_Sonic::checkResponse()
 		string rateResult;
 		// set rate if it is different from what is desired, or sonic doesn't respond to first query.
 		if (!rateOK) {
-			assert(rateCmd != 0);
-			rateResult = sendRateCommand(rateCmd);
-			sleep(3);
+			assert(rateCmd != "");
+			sendRateCommand(rateCmd);
+			sleep(4);
 			query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep, baudRate);
 			DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
 		}
@@ -1035,27 +1063,98 @@ int baudToCSATCmdArg(int baud)
 
 bool CSAT3_Sonic::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
 {
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): ") << rDesiredConfig);
 
-	/*
-	 * First send the commands to change the baud rate
-	 */
-	sendRTSIndepCmd(false); // Turn off RTS Independent before changing the baud rate
-	sendBaudCmd(baudToCSATCmdArg(rDesiredConfig.termios.getBaudRate()));
-	sendRTSIndepCmd();
+    serPortFlush(O_RDWR);
+
+    LogContext logCtx(LOG_VERBOSE);
+    if (logCtx.active()) {
+        checkSerPortSettings(true);
+        serPortFlush(O_RDWR);
+    }
+
+    /*
+     * First send the commands to change the baud rate
+     */
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): turn off RS232 drivers"));
+    sendRTSIndepCmd(false); // Turn off RTS Independent before changing the baud rate
+
+    serPortFlush(O_WRONLY);
+    findConfigPrompt();
+
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): set new baud rate"));
+    sendBaudCmd(baudToCSATCmdArg(rDesiredConfig.termios.getBaudRate()));
+
+    serPortFlush(O_WRONLY);
+    findConfigPrompt();
+
+    if (logCtx.active()) {
+        checkSerPortSettings(true);
+        serPortFlush(O_RDWR);
+    }
+
+
+    SerialPortIODevice* pIODevice = reinterpret_cast<SerialPortIODevice*>(getIODevice());
+    PortConfig workingPortConfig = pIODevice->getPortConfig();
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): modem lines before force RTS deassert: ")
+         << pIODevice->modemFlagsToString(pIODevice->getModemStatus()));
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): force deassert RTS on serial port"));
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): flow control was: ") << workingPortConfig.termios.getFlowControlString());
+    bool local = workingPortConfig.termios.getLocal();
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): local was: ") << local);
+    workingPortConfig.termios.setFlowControl(Termios::HARDWARE);
+    workingPortConfig.termios.setLocal(true);
+    setPortConfig(workingPortConfig);
+    applyPortConfig();
+    serPortFlush(O_RDWR);
+
+    pIODevice->clearModemBits(TIOCM_RTS);
+    serPortFlush(O_RDWR);
+
+	VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): modem lines after RTS deassert: ")
+	     << pIODevice->modemFlagsToString(pIODevice->getModemStatus()));
 
 	/*
 	 * Then change DSM baud rate according to rDesiredConfig
 	 */
-	setPortConfig(rDesiredConfig);
-	applyPortConfig();
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): Change DSM port config"));
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): force re-assert RTS on serial port"));
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): flow control was: ") << rDesiredConfig.termios.getFlowControlString());
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): local was: ") << rDesiredConfig.termios.getLocal());
+    PortConfig desiredConfig = rDesiredConfig;
+    desiredConfig.termios.setFlowControl(Termios::HARDWARE);
+    desiredConfig.termios.setLocal(true);
+    setPortConfig(desiredConfig);
+    applyPortConfig();
+    serPortFlush(O_RDWR);
 
-	/*
+    pIODevice->setModemBits(TIOCM_RTS);
+//    pIODevice->setModemBits(TIOCM_DTR);
+    serPortFlush(O_RDWR);
+
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): Desired Port Config: ") << desiredConfig);
+
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): flow control is: ") << getPortConfig().termios.getFlowControlString());
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): local is: ") << getPortConfig().termios.getLocal());
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): modem lines after apply desired config: ")
+         << pIODevice->modemFlagsToString(pIODevice->getModemStatus()));
+
+    /*
 	 * Now check that we can still communicate
 	 */
-	std::string query = querySonic(acqrate, osc, serialNumber, revision, rtsIndep, recSep, baudRate);
+    VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): make sure we're in config mode..."));
+    setConfigMode(NOT_ENTERED);
+    serPortFlush(O_RDWR);
+    setConfigMode(enterConfigMode());
+    if (getConfigMode() == ENTERED) {
+        VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): turn RS232 drivers back on"));
+        sendRTSIndepCmd();
 
-	return ((rDesiredConfig.termios.getBaudRate() == 9600 && baudRate == 0) ||
-		   (rDesiredConfig.termios.getBaudRate() == 19200 && baudRate == 1));
+        VLOG(("CSAT3_Sonic::installDesiredSensorConfig(): double check response"));
+        return doubleCheckResponse();
+	}
+
+	return false;
 }
 
 void CSAT3_Sonic::sendScienceParameters()
@@ -1090,15 +1189,15 @@ void CSAT3_Sonic::updateMetaData()
     tmpCfg << osc;
     updateMetaDataItem(MetaDataItem(OVERSAMPLE_CFG_DESC, tmpCfg.str()));
 
-    tmpCfg.clear();
+    tmpCfg.str("");
     tmpCfg << acqrate;
     updateMetaDataItem(MetaDataItem(DATA_RATE_CFG_DESC, tmpCfg.str()));
 
-    tmpCfg.clear();
+    tmpCfg.str("");
     tmpCfg << rtsIndep;
     updateMetaDataItem(MetaDataItem(RTS_INDEP_CFG_DESC, tmpCfg.str()));
 
-    tmpCfg.clear();
+    tmpCfg.str("");
     tmpCfg << baudRate;
     updateMetaDataItem(MetaDataItem(BAUD_RATE_CFG_DESC, tmpCfg.str()));
 

@@ -145,7 +145,7 @@ protected:
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
     virtual void initCustomMetaData();
-
+    bool findConfigPrompt(bool drain=false, bool prompt=false);
 
 private:
 
@@ -166,12 +166,13 @@ private:
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
     			   std::string& revsion, int& rtsIndep, int& recSep, int& baudRate) throw(nidas::util::IOException);
 
-    const char* getRateCommand(int rate,bool overSample) const;
+    const std::string& getRateCommand(int rate,bool overSample) const;
 
     void sendBaudCmd(int baud);
     void sendRTSIndepCmd(bool on=true);
     void sendRecSepCmd();
-    std::string sendRateCommand(const char* cmd) throw(nidas::util::IOException);
+    void sendRateCommand(const std::string cmd) throw(nidas::util::IOException);
+    void checkSerPortSettings(bool drain=false);
 
     /**
      * expected input sample length of basic CSAT3 record.
@@ -276,7 +277,7 @@ private:
     static const int DEFAULT_STOP_BITS = 1;
     static const TERM DEFAULT_LINE_TERMINATION = NO_TERM;
 //    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
-    static const int DEFAULT_RTS485 = -1; // De-assert, but don't mess w/this when writing to the port
+    static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
     static const bool DEFAULT_CONFIG_APPLIED = false;
 
     MessageConfig defaultMessageConfig;
@@ -297,7 +298,7 @@ private:
      *  there may well be more than one of these sensors per DSM. This
      *  means that these cannot be file scope variables.
      */
-    char* rateCmd;
+    std::string rateCmd;
     int acqrate;
     std::string serialNumber;
     char osc;
