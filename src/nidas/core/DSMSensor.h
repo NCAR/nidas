@@ -57,6 +57,8 @@ class Parameter;
 class CalFile;
 class Looper;
 
+const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
+
 enum DSM_SENSOR_STATE {
 	SENSOR_CLOSED = 0,		    // not participating
 	SENSOR_OPEN,			    // woken up
@@ -798,9 +800,29 @@ public:
      * without a file descriptor argument, and with an IOException.
      */
     virtual size_t write(const void *buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->write(buf,len);
+    }
+
+    /**
+     * Write to the device with a delay between chars.
+     */
+    virtual size_t writePause(const void *buf, size_t len, int pause=CHAR_WRITE_DELAY)
+        throw(nidas::util::IOException)
+    {
+        int secs = pause / USECS_PER_SEC;
+        int usecs = pause % USECS_PER_SEC;
+        struct timespec writeWait = {secs, usecs};
+        unsigned int i=0;
+        const char* pChar = (const char*)buf;
+        for (; i<len; ++i) {
+            write(&(pChar[i]), 1);
+            nanosleep(&writeWait, 0);
+        }
+        DLOG(("write() sent ") << i);
+
+        return i;
     }
 
     /**
