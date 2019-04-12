@@ -475,98 +475,96 @@ bool PTB210::checkScienceParameters() {
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
+    bool scienceParametersOK = false;
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    bufRemaining -= numCharsRead;
+//    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
     std::string respStr;
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         respStr.append(&respBuf[0], numCharsRead);
 
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
 
-    }
+        VLOG(("PTB210::checkScienceParameters() - Check the individual parameters available to us"));
+        cmatch results;
 
-    VLOG(("PTB210::checkScienceParameters() - Check the individual parameters available to us"));
-    bool scienceParametersOK = false;
-    cmatch results;
-    
-    // check for sample averaging
-    bool regexFound = regex_search(respStr.c_str(), results, PTB210_NUM_SMPLS_AVG_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        VLOG(("Checking sample averaging with argument: ") << results.str(1));
-        scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, results.str(1).c_str());
-        updateMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
-        DLOG(("results[0].matched: ") << (results[0].matched ? "true" : "false"));
-        DLOG(("results[1].matched: ") << (results[1].matched ? "true" : "false"));
-        DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find average samples RE ")
-             << PTB210_NUM_SMPLS_AVG_REGEX_STR.str());
-    }    
-
-    // check for measurement rate
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB210_MEAS_PER_MIN_REGEX_STR);
+        // check for sample averaging
+        bool regexFound = regex_search(respStr.c_str(), results, PTB210_NUM_SMPLS_AVG_REGEX_STR);
         if (regexFound && results[0].matched && results[1].matched) {
-            VLOG(("Checking measurement rate with argument: ") << results.str(1));
-            scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, results.str(1).c_str());
-            updateMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, results.str(1)));
+            VLOG(("Checking sample averaging with argument: ") << results.str(1));
+            scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, results.str(1).c_str());
+            updateMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, results.str(1)));
         }
         else {
-            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find measurement rate RE")
-                  << PTB210_MEAS_PER_MIN_REGEX_STR.str());
+            DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
+            DLOG(("results[0].matched: ") << (results[0].matched ? "true" : "false"));
+            DLOG(("results[1].matched: ") << (results[1].matched ? "true" : "false"));
+            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find average samples RE ")
+                 << PTB210_NUM_SMPLS_AVG_REGEX_STR.str());
         }    
-    }
 
-    // check for pressure units
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_UNIT_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched) {
-            VLOG(("Checking pressure units with argument: ") << results.str(1));
-            scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, results.str(1).c_str());
-            updateMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, results.str(1)));
+        // check for measurement rate
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB210_MEAS_PER_MIN_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                VLOG(("Checking measurement rate with argument: ") << results.str(1));
+                scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, results.str(1).c_str());
+                updateMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, results.str(1)));
+            }
+            else {
+                DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find measurement rate RE")
+                      << PTB210_MEAS_PER_MIN_REGEX_STR.str());
+            }
         }
-        else {
-            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find pressure unit RE")
-                  << PTB210_PRESS_UNIT_REGEX_STR.str());
-        }    
-    }
 
-    // check for multi-point correction
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB210_MULTI_PT_CORR_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched) {
-            VLOG(("Checking multi-point correction with argument: ") << results.str(1));
-            scienceParametersOK = (results.str(1) == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, results.str(1).c_str())
-                                                          : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, results.str(1).c_str()));
-            updateMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, results.str(1)));
+        // check for pressure units
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_UNIT_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                VLOG(("Checking pressure units with argument: ") << results.str(1));
+                scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, results.str(1).c_str());
+                updateMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, results.str(1)));
+            }
+            else {
+                DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find pressure unit RE")
+                      << PTB210_PRESS_UNIT_REGEX_STR.str());
+            }
         }
-        else {
-            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find multi-point correction RE")
-                  << PTB210_MULTI_PT_CORR_REGEX_STR.str());
-        }    
-    }
 
-    // // check for termination???
-    // if (scienceParametersOK) {
-    //     if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-    //         string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-    //         scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
-    //     }
-    //     else {
-    //         char regerrbuf[64];
-    //         ::regerror(regexStatus, &measRate, regerrbuf, sizeof regerrbuf);
-    //         throw n_u::ParseException("regexec measurement rate RE", string(regerrbuf));
-    //     }    
-    // }
+        // check for multi-point correction
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB210_MULTI_PT_CORR_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                VLOG(("Checking multi-point correction with argument: ") << results.str(1));
+                scienceParametersOK = (results.str(1) == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, results.str(1).c_str())
+                                                              : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, results.str(1).c_str()));
+                updateMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, results.str(1)));
+            }
+            else {
+                DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find multi-point correction RE")
+                      << PTB210_MULTI_PT_CORR_REGEX_STR.str());
+            }
+        }
+
+        // // check for termination???
+        // if (scienceParametersOK) {
+        //     if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
+        //         string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
+        //         scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
+        //     }
+        //     else {
+        //         char regerrbuf[64];
+        //         ::regerror(regexStatus, &measRate, regerrbuf, sizeof regerrbuf);
+        //         throw n_u::ParseException("regexec measurement rate RE", string(regerrbuf));
+        //     }
+        // }
+    }
 
     return scienceParametersOK;
 }
@@ -650,14 +648,13 @@ bool PTB210::checkResponse()
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    bufRemaining -= numCharsRead;
+//    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
 
@@ -672,7 +669,7 @@ bool PTB210::checkResponse()
     }
 
     else {
-        DLOG(("Didn't get any chars from serial port"));
+        DLOG(("Didn't get any chars from serial port or got garbage"));
         return false;
     }
 }
@@ -805,14 +802,15 @@ void PTB210::updateMetaData()
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD, nidas::core::SensorCmdArg());
 
     static const int BUF_SIZE = 512;
-    int bufRemaining = BUF_SIZE;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
-    bufRemaining -= numCharsRead;
+//    int waitTime = (BUF_SIZE/4); // bytes
+//    waitTime /= (getPortConfig().termios.getBaudRate()/10); // bytes/bytes/s == Sec
+//    waitTime *= MSECS_PER_SEC; // Sec*mS/Sec = mS
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
 
-    if (numCharsRead) {
+    if(numCharsRead > 0) {
         std::string respStr;
         std::string resultsStr;
         respStr.append(&respBuf[0], numCharsRead);

@@ -261,8 +261,6 @@ private:
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 
     static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 3;
-    // static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 100; // 100mSec
-    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
     n_c::MessageConfig defaultMessageConfig;
     n_c::SensorCmdData* desiredScienceParameters;
