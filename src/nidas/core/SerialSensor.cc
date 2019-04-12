@@ -668,27 +668,25 @@ void SerialSensor::doAutoConfig()
 				_serialState = COMM_PARAMETER_CFG_SUCCESSFUL;
 			}
 
-			if (_serialState == COMM_PARAMETER_CFG_SUCCESSFUL) {
-			    NLOG(("Collecting sensor metadata..."));
-			    updateMetaData();
-				NLOG(("Attempting to configure the sensor science parameters."));
-				_scienceState = CONFIGURING_SCIENCE_PARAMETERS;
-				if (configureScienceParameters()) {
-					NLOG(("Desired sensor science configuration successfully installed"));
-					_scienceState = SCIENCE_SETTINGS_SUCCESSFUL;
-					_autoConfigState = AUTOCONFIG_SUCCESSFUL;
-		            setSensorState(SENSOR_CONFIGURE_SUCCEEDED);
-				}
-				else {
-					NLOG(("Failed to install sensor science configuration"));
-					_scienceState = SCIENCE_SETTINGS_UNSUCCESSFUL;
-					_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
-		            setSensorState(SENSOR_CONFIGURE_FAILED);
-				}
-			}
-			else {
-				DLOG(("Science configuration is not installed."));
-			}
+            NLOG(("Collecting sensor metadata..."));
+            updateMetaData();
+            NLOG(("Attempting to configure the sensor science parameters."));
+            _scienceState = CONFIGURING_SCIENCE_PARAMETERS;
+            if (configureScienceParameters()) {
+                NLOG(("Desired sensor science configuration successfully installed"));
+                _scienceState = SCIENCE_SETTINGS_SUCCESSFUL;
+                _autoConfigState =
+                        _serialState == COMM_PARAMETER_CFG_SUCCESSFUL ?
+                                        AUTOCONFIG_SUCCESSFUL : AUTOCONFIG_UNSUCCESSFUL;
+                setSensorState(COMM_PARAMETER_CFG_SUCCESSFUL ?
+                               SENSOR_CONFIGURE_SUCCEEDED : SENSOR_CONFIGURE_FAILED);
+            }
+            else {
+                NLOG(("Failed to install sensor science configuration"));
+                _scienceState = SCIENCE_SETTINGS_UNSUCCESSFUL;
+                _autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
+                setSensorState(SENSOR_CONFIGURE_FAILED);
+            }
 		}
 		else
 		{
@@ -718,7 +716,11 @@ bool SerialSensor::findWorkingSerialPortConfig()
     CFG_MODE_STATUS cfgMode = enterConfigMode();
 
     if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
-        if (!doubleCheckResponse()) {
+        if (cfgMode == ENTERED) {
+            foundIt = doubleCheckResponse();
+        }
+
+        if (!foundIt) {
             // initial config didn't work, so sweep through all parameters starting w/the default
             if (!isDefaultConfig(getPortConfig())) {
                 // it's a custom config, so test default first
@@ -916,6 +918,21 @@ void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBit
 
 bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
 {
+    DLOG(("SerialSensor::isDefaultConfig(): default is - ") << _defaultPortConfig);
+    VLOG(("rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate(): ")
+          << (rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate() ? "true" : "false"));
+    VLOG(("rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity(): ")
+          << (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity() ? "true" : "false"));
+    VLOG(("rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits(): ")
+          << (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits() ? "true" : "false"));
+    VLOG(("rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits(): ")
+          << (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits() ? "true" : "false"));
+    VLOG(("rTestConfig.rts485 == _defaultPortConfig.rts485: ")
+          << (rTestConfig.rts485 == _defaultPortConfig.rts485 ? "true" : "false"));
+    VLOG(("rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType: ")
+          << (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType ? "true" : "false"));
+    VLOG(("rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination: ")
+          << (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination ? "true" : "false"));
     return ((rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate())
             && (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity())
             && (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits())
@@ -940,17 +957,21 @@ bool SerialSensor::testDefaultPortConfig()
 						_defaultPortConfig.xcvrConfig.portType,
 						_defaultPortConfig.xcvrConfig.termination);
 
+
     // send it back up the hierarchy
     setPortConfig(testPortConfig);
 
     // apply it to the hardware
     applyPortConfig();
 
+    // print it out
+    DLOG(("Testing default port config: ") << testPortConfig);
+
     // test it
     return doubleCheckResponse();
 }
 
-std::size_t SerialSensor::readResponse(void *buf, std::size_t len, int msecTimeout)
+int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPrintable)
 {
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -958,6 +979,7 @@ std::size_t SerialSensor::readResponse(void *buf, std::size_t len, int msecTimeo
 
     struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
         (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
+    VLOG(("SerialSensor::readResponse(): timeout sec: %i, usec: %i", tmpto.tv_sec, tmpto.tv_usec));
 
     int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
 
@@ -971,29 +993,57 @@ std::size_t SerialSensor::readResponse(void *buf, std::size_t len, int msecTimeo
         return 0;
     }
 
+    VLOG(("SerialSensor::readResponse(): Select successful, reading..."));
     // no select timeout or error, so get the goodies out of the buffer...
-    return read(buf,len, msecTimeout);
+    std::size_t numChars = read((void*)buf, (unsigned long)len);
+    if (numChars && checkPrintable) {
+        if (containsNonPrintable((const char*)buf, numChars)) {
+            numChars = -1;
+        }
+    }
+
+    return numChars;
 }
 
-std::size_t SerialSensor::readEntireResponse(void *buf, std::size_t len, int msecTimeout)
+int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout, bool checkPrintable)
 {
 	char* cbuf = (char*)buf;
 	int bufRemaining = len;
-    int numCharsRead = readResponse(cbuf, len, msecTimeout);
+    int numCharsRead = readResponse(cbuf, len, msecTimeout, checkPrintable);
     int totalCharsRead = numCharsRead;
     bufRemaining -= numCharsRead;
 
-    printResponseHex(numCharsRead, cbuf);
-
-    for (int i=0; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout);
-        totalCharsRead += numCharsRead;
-        bufRemaining -= numCharsRead;
-
-		if (numCharsRead == 0) {
-			VLOG(("Took ") << i+1 << " reads to get entire response");
-		}
+    static LogContext logctxt(LOG_VERBOSE);
+    if (numCharsRead > 0 && logctxt.active()) {
+        logctxt.log(nidas::util::LogMessage().format("Initial num chars read is: ")
+                                                     << numCharsRead << " comprised of: ");
+        printResponseHex(numCharsRead, cbuf);
     }
+
+    int i=0;
+    for (; (numCharsRead > 0 && bufRemaining > 0); ++i) {
+        numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout, checkPrintable);
+        if (numCharsRead < 0) {
+            // getting garbage, bail out early
+            totalCharsRead = -1;
+            break;
+        }
+        totalCharsRead += numCharsRead;
+        if (totalCharsRead >= len) {
+            totalCharsRead = len;
+            break;
+        }
+        bufRemaining -= numCharsRead;
+        VLOG(("SerialSensor::readEntireResponse(): looping: %i, total chars: %i", i, totalCharsRead));
+        VLOG(("SerialSensor::readEntireResponse(): num chars: %i, buf remaining: %i", numCharsRead, bufRemaining));
+    }
+
+    if (totalCharsRead > 0 && logctxt.active()) {
+        logctxt.log(nidas::util::LogMessage().format("Chars read is: ")
+                                                     << totalCharsRead << " comprised of: ");
+        printResponseHex(totalCharsRead, cbuf);
+    }
+    VLOG(("Took ") << i+1 << " reads to get entire response");
 
     return totalCharsRead;
 }
@@ -1089,26 +1139,25 @@ std::string SerialSensor::autoCfgToStr(AUTOCONFIG_STATE autoState)
 
 void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf)
 {
-	if (numCharsRead > 0) {
-		VLOG(("Initial num chars read is: ") << numCharsRead << " comprised of: ");
-		for (int i = 0; i < 5; ++i) {
-			if ((i*10) > numCharsRead)
-				break;
+    if (numCharsRead > 0) {
+        for (int i = 0; i < 5; ++i) {
+            if ((i*10) > numCharsRead)
+                break;
 
-			char hexBuf[70];
-			memset(hexBuf, 0, 70);
-			for (int j = 0; j < 10; ++j) {
-				if ((i*10 + j) > numCharsRead)
-					break;
-				snprintf(&(hexBuf[j * 5]), 6, "0x%02x ", respBuf[(i * 10) + j]);
-			}
+            char hexBuf[70];
+            memset(hexBuf, 0, 70);
+            for (int j = 0; j < 10; ++j) {
+                if ((i*10 + j) > numCharsRead)
+                    break;
+                snprintf(&(hexBuf[j * 5]), 6, "0x%02x ", respBuf[(i * 10) + j]);
+            }
 
-			char* pBytes = &hexBuf[0];
-			VLOG(("%s", pBytes));
-		}
+            char* pBytes = &hexBuf[0];
+            std::cout << std::string(pBytes) << std::endl;
+        }
+
+        DLOG(("SerialSensor::printResponseHex(): all done..."));
 	}
-	else
-		VLOG(("No chars read"));
 }
 
 

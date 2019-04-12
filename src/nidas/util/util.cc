@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "Process.h"
+#include "Logger.h"
 
 #include <sstream>
 #include <iomanip>
@@ -212,4 +213,47 @@ std::string nidas::util::svnStatus(const std::string& path)
         throw IOException("svn status -v --depth empty",strerr);
     }
     return strout;
+}
+
+bool nidas::util::isNonPrintable(const char c, bool allowSTXETX)
+{
+    bool retval = false;
+    const int STX = 2;
+    const int ETX = 3;
+    const int TAB = 9;
+    const int NL = 10;
+    const int CR = 13;
+
+    // first check if c is not one of the standard printable characters.
+    if (!RANGE_CHECK_INC(' ', c, '~')
+            && c != TAB && c != CR && c != NL) {
+        // if STX/ETX is allowed, then check to make sure it isn't one of those
+        if (allowSTXETX ) {
+            if (c != STX && c != ETX) {
+                retval = true;
+                DLOG(("isNonPrintable(): non printable character 0x%02x", c));
+            }
+        }
+        else {
+            retval = true;
+            DLOG(("isNonPrintable(): non printable character 0x%02x", c));
+        }
+    }
+
+    return retval;
+}
+
+bool nidas::util::containsNonPrintable(char const * buf, std::size_t len, bool allowSTXETX)
+{
+    bool retval = false;
+
+    for (std::size_t i=0; i<len; ++i) {
+        if (isNonPrintable(buf[i], allowSTXETX)) {
+            retval = true;
+            DLOG(("containsNonPrintable(): non-printable found at: %i", i));
+            break;
+        }
+    }
+
+    return retval;
 }

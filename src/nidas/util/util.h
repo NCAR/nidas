@@ -66,21 +66,33 @@ extern std::string addBackslashSequences(const std::string& str);
 extern void trimString(std::string& str);
 
 /**
- * Replace all occurences of pat in string in with rep.
+ * Replace all occurrences of pat in string in with rep.
  */
 extern void replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep);
 
 extern std::string replaceChars(const std::string& in,const std::string& pat, const std::string& rep);
 
 /**
- * Run "svn status -v --depth empty" on a path and return a concatentated
+ * Run "svn status -v --depth empty" on a path and return a concatenated
  * string of revision + flags, where flags are the first 8 characters.
  */
 extern std::string svnStatus(const std::string& path) throw (IOException);
 
+/*
+ *  Test whether a numerical value is between two limits
+ */
 #define RANGE_CHECK_INC(min, val, max) ((min) <= (val) && (val) <= (max))
 #define RANGE_CHECK_EXC(min, val, max) ((min) < (val) && (val) < (max))
 
-}}	// namespace nidas namespace core
+/*
+ *  Check for characters which are not printable. Generally speaking, this means that
+ *  the baud/parity/databits/stopbits are not set up right for sensor comm or the
+ *  sensor normal runtime outputs are binary and it has not been put in config mode.
+ */
+bool isNonPrintable(const char c, bool allowSTXETX);
+bool containsNonPrintable(char const * buf, std::size_t len, bool allowSTXETX=false);
+
+
+}}	// namespace nidas namespace util
 
 #endif
