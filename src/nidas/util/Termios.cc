@@ -109,6 +109,9 @@ void Termios::apply(int fd, const std::string& name) throw(IOException)
             DLOG(("Termios::apply(): tcsetattr() failure for fd: ") << fd);
             throw IOException(name,"tcsetattr",errno);
         }
+        else {
+            VLOG(("Termios::apply(): successful"));
+        }
     }
 }
 
