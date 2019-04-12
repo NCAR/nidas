@@ -297,8 +297,8 @@ protected:
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
     bool sweepCommParameters();
-    std::size_t readEntireResponse(void *buf, std::size_t len, int msecTimeout);
-    std::size_t readResponse(void *buf, std::size_t len, int msecTimeout);
+    int readEntireResponse(void *buf, int len, int msecTimeout, bool checkPrintable=false);
+    int readResponse(void *buf, int len, int msecTimeout, bool checkPrintable=false);
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
