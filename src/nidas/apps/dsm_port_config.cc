@@ -65,6 +65,7 @@
 #include <libusb-1.0/libusb.h>
 #include <libftdi1/ftdi.h>
 #include "nidas/core/NidasApp.h"
+#include "nidas/core/SerialPortIODevice.h"
 #include "nidas/core/SerialXcvrCtrl.h"
 #include "nidas/util/SensorPowerCtrl.h"
 
@@ -79,7 +80,7 @@ static const char* ARG_RS485_FULL = "RS485_FULL";
 
 NidasApp app("dsm_port_config");
 
-NidasAppArg Port("-p,--port-id", "<0-7>",
+NidasAppArg Device("-d,--device", "<0-7>",
         		 "DSM canonical serial port id.", "0");
 NidasAppArg Mode("-m,--xcvr-mode", "<RS232>",
 				 "Serial line transceiver modes supported by Exar SP339 chip. i.e. - \n"
@@ -88,22 +89,28 @@ NidasAppArg Mode("-m,--xcvr-mode", "<RS232>",
 				 "    RS422\n"
 				 "    RS485_FULL\n"
 				 "    RS485_HALF", "RS232");
-NidasAppArg Display("-d,--display", "",
-					 "Display current port configuration and exit", "");
+//NidasAppArg Display("-d,--display", "",
+//					 "Display current port configuration and exit", "");
 NidasAppArg LineTerm("-t,--term", "<NO_TERM>",
                      "Port transceiver line termination supported by Exar SP339 chip. i.e. - \n"
                      "    NO_TERM\n"
                      "    TERM_120_OHM", "NO_TERM");
-NidasAppArg Energy("-e,--energy", "<POWER_ON>",
+NidasAppArg Power("-p,--power", "<POWER_ON>",
                   "Controls whether the DSM sends power to the sensor via the bulgin port - \n"
                   "    POWER_OFF\n"
                   "    POWER_ON", "POWER_ON");
+NidasAppArg RTS("-r,--rts", "<CLEAR>",
+                "Manages the RTS (Request To Send) serial port control line. - \n"
+                "    CLEAR\n"
+                "    SET", "CLEAR");
 
 int usage(const char* argv0)
 {
     std::cerr << "\
-Usage: " << argv0 << "-p <port ID> -m <mode ID> [-t <termination> -e <power state> -l <log level>]" << std::endl << "       "
-		 << argv0 << "-p <port ID> -d" << std::endl << std::endl
+Usage: " << "Controls various aspects of a DSM serial port. Typically, one which is used to attach sensors."
+         << std::endl << std::endl
+         << argv0 << "-d <port ID> -m <mode ID> [-t <termination> -p <power state> -r <RTS line state> -l <log level>]" << std::endl << "       "
+		 << argv0 << "-p <port ID>" << std::endl << std::endl
          << app.usage();
 
     return 1;
@@ -112,7 +119,7 @@ Usage: " << argv0 << "-p <port ID> -m <mode ID> [-t <termination> -e <power stat
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Version | app.Help
-    		            | Port | Mode | Display | LineTerm | Energy);
+    		            | Device | Mode | LineTerm | Power | RTS);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -121,6 +128,40 @@ int parseRunString(int argc, char* argv[])
     }
     return 0;
 }
+
+int setRTS(int fd, bool setRTS)
+{
+    int status;
+
+    if (ioctl(fd, TIOCMGET, &status) == -1) {
+        perror("setRTS(): TIOCMGET");
+        return 0;
+    }
+
+    if (setRTS)
+        status |= TIOCM_RTS;
+    else
+        status &= ~TIOCM_RTS;
+
+    if (ioctl(fd, TIOCMSET, &status) == -1) {
+        perror("setRTS(): TIOCMSET");
+        return 0;
+    }
+    return 1;
+}
+
+bool rtsIsSet(int fd)
+{
+    int status;
+
+    if (ioctl(fd, TIOCMGET, &status) == -1) {
+        perror("setRTS(): TIOCMGET");
+        return 0;
+    }
+    return ((status & TIOCM_RTS) != 0);
+}
+
+
 
 int main(int argc, char* argv[]) {
 
@@ -132,10 +173,10 @@ int main(int argc, char* argv[]) {
     XcvrConfig xcvrConfig;
 
     // check the options first to set up the port and port control
-    DLOG(("Port Option Flag/Value: ") << Port.getFlag() << ": " << Port.asInt());
-    DLOG(("Port Option Flag Length: ") << Port.getFlag().length());
-    if (Port.specified()) {
-        xcvrConfig.port = (n_u::GPIO_PORT_DEFS)Port.asInt();
+    DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.asInt());
+    DLOG(("Device Option Flag Length: ") << Device.getFlag().length());
+    if (Device.specified()) {
+        xcvrConfig.port = (n_u::GPIO_PORT_DEFS)Device.asInt();
         if (!(0 <= xcvrConfig.port && xcvrConfig.port <= 7)) {
             std::cerr << "Something went wrong, as the port arg wasn't in the range 0-7" << std::endl;
             return 2;
@@ -160,12 +201,13 @@ int main(int argc, char* argv[]) {
     xcvrConfig.termination = rawConfig & n_u::XCVR_BITS_TERM ? TERM_120_OHM : NO_TERM;
     xcvrConfig.print();
 
-    SensorPowerCtrl sensrPwrCtrl((n_u::GPIO_PORT_DEFS)Port.asInt());
+    SensorPowerCtrl sensrPwrCtrl((n_u::GPIO_PORT_DEFS)Device.asInt());
     sensrPwrCtrl.print();
 
-    if (Display.specified()) {
-        return 0;
-    }
+    std::string devName("/dev/ttyDSM");
+    devName.append(Device.getValue());
+    int fd = ::open(devName.c_str(), O_RDONLY);
+    std::cout << "RTS Line is " << (rtsIsSet(fd) ? "set" : "clear") << std::endl;
 
     if (Mode.specified())
     {
@@ -203,9 +245,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (Energy.specified()) {
-        std::string pwrStr(Energy.getValue());
-        DLOG(("Energy Option Flag/Value: ") << Energy.getFlag() << ": " << pwrStr);
+    if (Power.specified()) {
+        std::string pwrStr(Power.getValue());
+        DLOG(("Power Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
         std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
         POWER_STATE power = strToPowerState(pwrStr);
         if (power != ILLEGAL_POWER) {
@@ -214,17 +256,53 @@ int main(int argc, char* argv[]) {
         }
         else
         {
-            std::cerr << "Unknown/Illegal/Missing energy argument: " << Energy.getValue() << std::endl;
+            std::cerr << "Unknown/Illegal/Missing Power argument: " << Power.getValue() << std::endl;
             usage(argv[0]);
             return 5;
         }
     }
 
-    // print out the new port configurations
-    std::cout << std::endl << "New Port Definitions" << std::endl << "====================" << std::endl;
-    SerialXcvrCtrl xcvrCtrl(xcvrConfig);
-    xcvrCtrl.printXcvrConfig();
-    sensrPwrCtrl.print();
+    if (RTS.specified()) {
+        std::string rtsStr(RTS.getValue());
+        DLOG(("RTS Option Flag/Value: ") << RTS.getFlag() << ": " << rtsStr);
+        std::transform(rtsStr.begin(), rtsStr.end(), rtsStr.begin(), ::toupper);
+        struct termios attr;
+        tcgetattr(fd, &attr);
+        attr.c_cflag |= CRTSCTS | CLOCAL;
+        if (tcflush(fd, TCIOFLUSH) == -1) {
+            perror("RTS: tcflush()");
+            return 0;
+        }
+        if (tcsetattr(fd, TCSANOW, &attr) == -1) {
+            perror("RTS: tcflush()");
+            return 0;
+        }
+
+
+        int status;
+
+        if (ioctl(fd, TIOCMGET, &status) == -1) {
+            perror("setRTS(): TIOCMGET");
+            return 0;
+        }
+
+        if (rtsStr == "SET") {
+            setRTS(fd, true);
+        }
+        else {
+            setRTS(fd, false);
+        }
+    }
+
+    if (Mode.specified() || LineTerm.specified() || Power.specified() || RTS.specified()) {
+        // print out the new port configurations
+        std::cout << std::endl << "New Port Definitions" << std::endl
+                  << "====================" << std::endl;
+        SerialXcvrCtrl xcvrCtrl(xcvrConfig);
+        xcvrCtrl.printXcvrConfig();
+        sensrPwrCtrl.print();
+        std::cout << "RTS Line is " << (rtsIsSet(fd) ? "set" : "clear") << std::endl;
+    }
 
     // all good, return 0
     return 0;
