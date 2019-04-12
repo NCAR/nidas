@@ -41,10 +41,7 @@ enum PTB220_COMMANDS
 	// Require SW4 set to WRITE ENABLE
 	// SENSOR_MEAS_MODE_CMD,
 	// END - Require SW4 set to WRITE ENABLE
-	SENSOR_SERIAL_BAUD_CMD,
-	SENSOR_SERIAL_PARITY_CMD,
-	SENSOR_SERIAL_DATABITS_CMD,
-	SENSOR_SERIAL_STOPBITS_CMD,
+	SENSOR_SERIAL_CMD,
 	SENSOR_ECHO_CMD,
 	SENSOR_DATA_OUTPUT_FORMAT_CMD,
 	SENSOR_ERROR_OUTPUT_FORMAT_CMD,
@@ -411,10 +408,7 @@ private:
 	// static const char* SENSOR_SET_LINEAR_CORR_CMD_STR;
 	// static const char* SENSOR_SET_MULTPT_CORR_CMD_STR;
 	// static const char* SENSOR_SET_CAL_DATE_CMD_STR;
-	static const char* SENSOR_SERIAL_BAUD_CMD_STR;
-	static const char* SENSOR_SERIAL_PARITY_CMD_STR;
-	static const char* SENSOR_SERIAL_DATABITS_CMD_STR;
-	static const char* SENSOR_SERIAL_STOPBITS_CMD_STR;
+	static const char* SENSOR_SERIAL_CMD_STR;
 	static const char* SENSOR_ECHO_CMD_STR;
 	static const char* SENSOR_DATA_OUTPUT_FORMAT_CMD_STR;
 	static const char* SENSOR_ERROR_OUTPUT_FORMAT_CMD_STR;
@@ -461,7 +455,7 @@ private:
     //       ones are the most likely
     static const int NUM_SENSOR_BAUDS = 5;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_SENSOR_WORD_SPECS = 12;
+    static const int NUM_SENSOR_WORD_SPECS = 9;
     static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
@@ -469,8 +463,6 @@ private:
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 
     static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 3;
-    // static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 100; // 100mSec
-    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
     n_c::PortConfig desiredPortConfig;

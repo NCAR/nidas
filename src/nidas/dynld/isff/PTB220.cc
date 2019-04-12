@@ -51,10 +51,7 @@ const char* PTB220::SENSOR_SEND_MODE_CMD_STR = "SMODE \r\n";
 //const char* PTB220::SENSOR_SET_LINEAR_CORR_CMD_STR = "LCI \r\n";
 //const char* PTB220::SENSOR_SET_MULTPT_CORR_CMD_STR = "MPCI \r\n";
 //const char* PTB220::SENSOR_SET_CAL_DATE_CMD_STR = "CALD \r\n";
-const char* PTB220::SENSOR_SERIAL_BAUD_CMD_STR = "SERI \r\n";
-const char* PTB220::SENSOR_SERIAL_PARITY_CMD_STR = "SERI \r\n";
-const char* PTB220::SENSOR_SERIAL_DATABITS_CMD_STR = "SERI \r\n";
-const char* PTB220::SENSOR_SERIAL_STOPBITS_CMD_STR = "SERI \r\n";
+const char* PTB220::SENSOR_SERIAL_CMD_STR = "SERI \r\n";
 const char* PTB220::SENSOR_ECHO_CMD_STR = "ECHO \r\n";
 const char* PTB220::SENSOR_DATA_OUTPUT_FORMAT_CMD_STR = "FORM \r\n";
 const char* PTB220::SENSOR_ERROR_OUTPUT_FORMAT_CMD_STR = "EFORM \r\n";
@@ -105,10 +102,7 @@ const char* PTB220::cmdTable[NUM_SENSOR_CMDS] =
 	// SENSOR_SET_LINEAR_CORR_CMD_STR,
 	// SENSOR_SET_MULTPT_CORR_CMD_STR,
 	// SENSOR_SET_CAL_DATE_CMD_STR,
-	SENSOR_SERIAL_BAUD_CMD_STR,
-	SENSOR_SERIAL_PARITY_CMD_STR,
-	SENSOR_SERIAL_DATABITS_CMD_STR,
-	SENSOR_SERIAL_STOPBITS_CMD_STR,
+	SENSOR_SERIAL_CMD_STR,
 	SENSOR_ECHO_CMD_STR,
 	SENSOR_DATA_OUTPUT_FORMAT_CMD_STR,
 	SENSOR_ERROR_OUTPUT_FORMAT_CMD_STR,
@@ -156,7 +150,6 @@ const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 4800, 2400, 1200, 600}
 // list the possible word specifications - most likely first
 
 const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
-    WordSpec(7,Termios::NONE,1),
     WordSpec(7,Termios::EVEN,1),
     WordSpec(7,Termios::ODD,1),
     WordSpec(8,Termios::NONE,1),
@@ -167,9 +160,7 @@ const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
     WordSpec(7,Termios::NONE,2),
     WordSpec(7,Termios::EVEN,2),
     WordSpec(7,Termios::ODD,2),
-    WordSpec(8,Termios::NONE,2),
-    WordSpec(8,Termios::EVEN,2),
-    WordSpec(8,Termios::ODD,2)
+    WordSpec(8,Termios::NONE,2)
 };
 
 const n_c::PORT_TYPES PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
@@ -188,7 +179,7 @@ const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_OUTPUT_RATE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_OUTPUT_RATE_UNIT)),
 	n_c::SensorCmdData(DEFAULT_SAMPLE_AVERAGING_CMD, n_c::SensorCmdArg(DEFAULT_AVG_TIME)),
 	n_c::SensorCmdData(DEFAULT_OUTPUT_FORMAT_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_OUTPUT_FORMAT)),
-	n_c::SensorCmdData(DEFAULT_SENSOR_SEND_MODE_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_SEND_MODE))
+    n_c::SensorCmdData(DEFAULT_SENSOR_SEND_MODE_CMD, n_c::SensorCmdArg(DEFAULT_SENSOR_SEND_MODE))
 };
 
 const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(n_c::SensorCmdData);
@@ -314,6 +305,8 @@ PTB220::PTB220()
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
+
+    initCustomMetaData();
 }
 
 PTB220::~PTB220()
@@ -437,16 +430,23 @@ bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
 
         serPortFlush(O_RDWR);
         
-        sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getBaudRate()));
-        sendSensorCmd(SENSOR_SERIAL_PARITY_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getParityString(true)));
-        sendSensorCmd(SENSOR_SERIAL_DATABITS_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getDataBits()));
-        sendSensorCmd(SENSOR_SERIAL_STOPBITS_CMD, n_c::SensorCmdArg(rDesiredPortConfig.termios.getStopBits()), true); // send RESET w/this one...
+        std::ostringstream baudStr;
+        baudStr << rDesiredPortConfig.termios.getBaudRate()
+                << " " << rDesiredPortConfig.termios.getParityString(true)
+                << " " << rDesiredPortConfig.termios.getDataBits()
+                << " " << rDesiredPortConfig.termios.getStopBits()
+                << " F";
+
+        DLOG(("PTB220::installDesiredSensorConfig(): serial command string: ") << baudStr.str());
+
+        sendSensorCmd(SENSOR_SERIAL_CMD, n_c::SensorCmdArg(baudStr.str()), true);
 
         setPortConfig(rDesiredPortConfig);
         applyPortConfig();
         if (getPortConfig() == rDesiredPortConfig) {
             // wait for the sensor to reset - ~1 second
             usleep(SENSOR_RESET_WAIT_TIME);
+            enterConfigMode();
             if (!doubleCheckResponse()) {
 				NLOG(("PTB220::installDesiredSensorConfig() failed to achieve sensor communication "
 						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
@@ -506,234 +506,241 @@ void PTB220::sendScienceParameters() {
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
-// TODO: Verify that PTB220 can now set science parameters
-//    sendSensorCmd(SENSOR_RESET_CMD);
-//    usleep(SENSOR_RESET_WAIT_TIME);
+
+    sendSensorCmd(SENSOR_RESET_CMD);
+    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB220::checkScienceParameters()
 {
     VLOG(("PTB220::checkScienceParameters() - Flush port and send query command"));
+    // We should have just reset, so get back into config mode
+    enterConfigMode();
+
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 2048;
+    static const int BUF_SIZE = 1240;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
 
     std::string respStr;
-    if (numCharsRead) {
+    bool scienceParametersOK = false;
+    if (numCharsRead > 0) {
         respStr.append(&respBuf[0], numCharsRead);
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
-    }
 
-    VLOG(("PTB220::checkScienceParameters() - Check the individual parameters available to us"));
-    bool scienceParametersOK = false;
-    cmatch results;
-    
-    // check for sample averaging
-    bool regexFound = regex_search(respStr.c_str(), results, PTB220_AVG_TIME_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-    	string argStr = results.str(1);
-        DLOG(("Checking sample averaging with argument: ") << argStr);
-        scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
-        updateMetaDataItem(MetaDataItem(PTB220_AVG_TIME_CFG_DESC, argStr));
-        if (!scienceParametersOK) {
-            DLOG(("PTB220::checkScienceParameters(): Reported averaging time doesn't match expected value ") << argStr );
-    	}
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time regex: ")
-              << PTB220_AVG_TIME_REGEX_STR.str());
-    }
+        VLOG(("PTB220::checkScienceParameters() - Check the individual parameters available to us"));
+        cmatch results;
 
-    // check for output interval
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_INTERVAL_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched && results[2].matched) {
+        // check for sample averaging
+        bool regexFound = regex_search(respStr.c_str(), results, PTB220_AVG_TIME_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
             string argStr = results.str(1);
-            DLOG(("Checking output interval with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
-            updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_INTVL_CFG_DESC, argStr));
+            DLOG(("Checking sample averaging with argument: ") << argStr);
+            scienceParametersOK = compareScienceParameter(SENSOR_AVG_TIME_CMD, argStr.c_str());
+            updateMetaDataItem(MetaDataItem(PTB220_AVG_TIME_CFG_DESC, argStr));
             if (!scienceParametersOK) {
-                DLOG(("PTB220::checkScienceParameters(): Reported output interval does not match expected value: ") << argStr );
+                DLOG(("PTB220::checkScienceParameters(): Reported averaging time doesn't match expected value ") << argStr );
             }
-            else if (results[2].matched) {
-                string argStr = results[2].str();
-                DLOG(("Checking output interval units with argument: ") << argStr);
-                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, argStr.c_str());
-                updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, argStr));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time regex: ")
+                  << PTB220_AVG_TIME_REGEX_STR.str());
+        }
+
+        // check for output interval
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_INTERVAL_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched && results[2].matched) {
+                string argStr = results.str(1);
+                DLOG(("Checking output interval with argument: ") << argStr);
+                scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_VAL_CMD, argStr.c_str());
+                updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_INTVL_CFG_DESC, argStr));
                 if (!scienceParametersOK) {
-                    DLOG(("PTB220::checkScienceParameters(): Reported output interval units does not match expected value: ") << argStr );
+                    DLOG(("PTB220::checkScienceParameters(): Reported output interval does not match expected value: ") << argStr );
                 }
-        	}
-        }
-        else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval regex: ")
-                  << PTB220_OUTPUT_INTERVAL_REGEX_STR.str());
-        }    
-    }
-
-    // check for pressure units
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB220_PRESS_UNIT_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = results.str(1);
-            DLOG(("Checking output interval with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_PRESS_UNIT_CMD, argStr.c_str());
-            updateMetaDataItem(MetaDataItem(PTB220_PRESS_UNIT_CFG_DESC, argStr));
-            if (!scienceParametersOK) {
-                DLOG(("PTB220::checkScienceParameters(): Reported pressure units does not match expected value: ") << argStr );
+                else if (results[2].matched) {
+                    string argStr = results[2].str();
+                    DLOG(("Checking output interval units with argument: ") << argStr);
+                    scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_INTERVAL_UNIT_CMD, argStr.c_str());
+                    updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, argStr));
+                    if (!scienceParametersOK) {
+                        DLOG(("PTB220::checkScienceParameters(): Reported output interval units does not match expected value: ") << argStr );
+                    }
+                }
+            }
+            else {
+                DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval regex: ")
+                      << PTB220_OUTPUT_INTERVAL_REGEX_STR.str());
             }
         }
-        else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units regex: ")
-                  << PTB220_PRESS_UNIT_REGEX_STR.str());
-        }
-    }
 
-    // check for temperature units
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB220_TEMP_UNIT_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = results.str(1);
-            DLOG(("Checking output interval with argument: ") << argStr);
-            scienceParametersOK = compareScienceParameter(SENSOR_TEMP_UNIT_CMD, argStr.c_str());
-            updateMetaDataItem(MetaDataItem(PTB220_TEMP_UNIT_CFG_DESC, argStr));
-            if (!scienceParametersOK) {
-                DLOG(("PTB220::checkScienceParameters(): Reported temperature units does not match expected value: ") << argStr );
+        // check for pressure units
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB220_PRESS_UNIT_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                string argStr = results.str(1);
+                DLOG(("Checking output interval with argument: ") << argStr);
+                scienceParametersOK = compareScienceParameter(SENSOR_PRESS_UNIT_CMD, argStr.c_str());
+                updateMetaDataItem(MetaDataItem(PTB220_PRESS_UNIT_CFG_DESC, argStr));
+                if (!scienceParametersOK) {
+                    DLOG(("PTB220::checkScienceParameters(): Reported pressure units does not match expected value: ") << argStr );
+                }
+            }
+            else {
+                DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units regex: ")
+                      << PTB220_PRESS_UNIT_REGEX_STR.str());
             }
         }
-        else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units regex: ")
-                  << PTB220_TEMP_UNIT_REGEX_STR.str());
-        }
-    }
 
-    // check for multi-point correction
-    if (scienceParametersOK) {
-        regexFound = regex_search(respStr.c_str(), results, PTB220_MULTI_PT_CORR_REGEX_STR);
-        if (regexFound && results[0].matched && results[1].matched) {
-            string argStr = results.str(1);
-            DLOG(("Checking multipoint correction enabled with argument: ") << argStr);
-            scienceParametersOK = (argStr == "ON");
-            updateMetaDataItem(MetaDataItem(PTB220_MULTI_PT_CORR_CFG_DESC, argStr));
-            if (!scienceParametersOK) {
-                DLOG(("PTB220::checkScienceParameters(): Reported multipoint correction does not match expected value: ") << argStr );
+        // check for temperature units
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB220_TEMP_UNIT_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                string argStr = results.str(1);
+                DLOG(("Checking output interval with argument: ") << argStr);
+                scienceParametersOK = compareScienceParameter(SENSOR_TEMP_UNIT_CMD, argStr.c_str());
+                updateMetaDataItem(MetaDataItem(PTB220_TEMP_UNIT_CFG_DESC, argStr));
+                if (!scienceParametersOK) {
+                    DLOG(("PTB220::checkScienceParameters(): Reported temperature units does not match expected value: ") << argStr );
+                }
+            }
+            else {
+                DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units regex: ")
+                      << PTB220_TEMP_UNIT_REGEX_STR.str());
             }
         }
+
+        // check for multi-point correction
+        if (scienceParametersOK) {
+            regexFound = regex_search(respStr.c_str(), results, PTB220_MULTI_PT_CORR_REGEX_STR);
+            if (regexFound && results[0].matched && results[1].matched) {
+                string argStr = results.str(1);
+                DLOG(("Checking multipoint correction enabled with argument: ") << argStr);
+                scienceParametersOK = (argStr == "ON");
+                updateMetaDataItem(MetaDataItem(PTB220_MULTI_PT_CORR_CFG_DESC, argStr));
+                if (!scienceParametersOK) {
+                    DLOG(("PTB220::checkScienceParameters(): Reported multipoint correction does not match expected value: ") << argStr );
+                }
+            }
+            else {
+                DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction regex: ")
+                      << PTB220_MULTI_PT_CORR_REGEX_STR.str());
+            }
+        }
+
+        /*
+         *  These items we just keep track of - no checking necessary at this point.
+         */
+        regexFound = regex_search(respStr.c_str(), results, PTB220_CONFIG_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_XDUCER_CFG_CFG_DESC, results.str(1)));
+        }
         else {
-            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction regex: ")
-                  << PTB220_MULTI_PT_CORR_REGEX_STR.str());
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find transducer config regex: ")
+                  << PTB220_CONFIG_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_LINEAR_CORR_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_LINEAR_CORR_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg regex: ")
+                  << PTB220_LINEAR_CORR_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_CFG_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_SERIAL_PARAM_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg regex: ")
+                  << PTB220_SERIAL_CFG_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ECHO_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_SERIAL_ECHO_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg regex: ")
+                  << PTB220_ECHO_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SENDING_MODE_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_SENDING_MODE_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg regex: ")
+                  << PTB220_SENDING_MODE_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_PULSE_MODE_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_PULSE_MODE_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg regex: ")
+                  << PTB220_PULSE_MODE_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_MEAS_MODE_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_MEAS_MODE_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg regex: ")
+                  << PTB220_MEAS_MODE_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ADDRESS_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_ADDRESS_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg regex: ")
+                  << PTB220_ADDRESS_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_FMT_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg regex: ")
+                  << PTB220_OUTPUT_FMT_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ERR_OUT_FMT_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_ERR_OUTPUT_FMT_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg regex: ")
+                  << PTB220_ERR_OUT_FMT_REGEX_STR.str());
+        }
+
+        regexFound = regex_search(respStr.c_str(), results, PTB220_USR_OUT_FMT_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            updateMetaDataItem(MetaDataItem(PTB220_USR_SEND_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg regex: ")
+                  << PTB220_USR_OUT_FMT_REGEX_STR.str());
         }
     }
-
-    /*
-     *  These items we just keep track of - no checking necessary at this point.
-     */
-    regexFound = regex_search(respStr.c_str(), results, PTB220_CONFIG_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_XDUCER_CFG_CFG_DESC, results.str(1)));
-    }
     else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find transducer config regex: ")
-              << PTB220_CONFIG_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_LINEAR_CORR_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_LINEAR_CORR_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg regex: ")
-              << PTB220_LINEAR_CORR_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_CFG_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_SERIAL_PARAM_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg regex: ")
-              << PTB220_SERIAL_CFG_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_ECHO_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_SERIAL_ECHO_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg regex: ")
-              << PTB220_ECHO_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_SENDING_MODE_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_SENDING_MODE_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg regex: ")
-              << PTB220_SENDING_MODE_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_PULSE_MODE_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_PULSE_MODE_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg regex: ")
-              << PTB220_PULSE_MODE_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_MEAS_MODE_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_MEAS_MODE_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg regex: ")
-              << PTB220_MEAS_MODE_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_ADDRESS_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_ADDRESS_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg regex: ")
-              << PTB220_ADDRESS_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_FMT_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg regex: ")
-              << PTB220_OUTPUT_FMT_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_ERR_OUT_FMT_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_ERR_OUTPUT_FMT_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg regex: ")
-              << PTB220_ERR_OUT_FMT_REGEX_STR.str());
-    }
-
-    regexFound = regex_search(respStr.c_str(), results, PTB220_USR_OUT_FMT_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        updateMetaDataItem(MetaDataItem(PTB220_USR_SEND_CFG_DESC, results.str(1)));
-    }
-    else {
-        DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg regex: ")
-              << PTB220_USR_OUT_FMT_REGEX_STR.str());
+        DLOG(("PTB220::checkScienceParameters(): Getting garbage or no chars from serial port"));
     }
 
     return scienceParametersOK;
@@ -803,21 +810,14 @@ bool PTB220::checkResponse()
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 2048;
-    int bufRemaining = BUF_SIZE;
+    static const int BUF_SIZE = 1240; // from the example above * 2
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readEntireResponse(&(respBuf[0]), bufRemaining, 2000);
+    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
 
-    static LogContext lp(LOG_DEBUG);
-    if (lp.active()) {
-        if (numCharsRead > 0) {
-        	printResponseHex(numCharsRead, respBuf);
-        }
-    }
-
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
 
@@ -830,9 +830,8 @@ bool PTB220::checkResponse()
         bool regexFound = regex_search(respStr.c_str(), results, PTB220_RESPONSE_REGEX);
         return (regexFound && results[0].matched);
     }
-
     else {
-        DLOG(("Didn't get any chars from serial port"));
+        DLOG(("PTB220::checkResponse(): Didn't get any chars or getting garbage from serial port"));
         return false;
     }
 }
@@ -873,10 +872,6 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     switch (cmd) {
         // these commands all take an argument...
     	// these take integers...
-		case SENSOR_SERIAL_BAUD_CMD:
-		case SENSOR_SERIAL_PARITY_CMD:
-		case SENSOR_SERIAL_DATABITS_CMD:
-		case SENSOR_SERIAL_STOPBITS_CMD:
 		case SENSOR_OUTPUT_INTERVAL_VAL_CMD:
 		case SENSOR_HEIGHT_CORR_CMD:
 		case SENSOR_AVG_TIME_CMD:
@@ -890,6 +885,7 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
             break;
 
 		// these take strings
+        case SENSOR_SERIAL_CMD:
         case SENSOR_ECHO_CMD:
 		case SENSOR_PRESS_UNIT_CMD:
 		case SENSOR_TEMP_UNIT_CMD:
@@ -936,10 +932,7 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
-		case SENSOR_SERIAL_BAUD_CMD:
-		case SENSOR_SERIAL_PARITY_CMD:
-		case SENSOR_SERIAL_DATABITS_CMD:
-		case SENSOR_SERIAL_STOPBITS_CMD:
+		case SENSOR_SERIAL_CMD:
     	case SENSOR_SEND_MODE_CMD:
     	// Requires SW4 set to write enable
     	// case SENSOR_MEAS_MODE_CMD;
@@ -1005,39 +998,44 @@ void PTB220::updateMetaData()
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 2048;
+    static const int BUF_SIZE = 1240;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
+    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
+
     VLOG(("PTB220::udpateMetaData() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
 
     std::string respStr;
-    if (numCharsRead) {
+    if(numCharsRead > 0) {
         respStr.append(&respBuf[0], numCharsRead);
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
-    }
 
-    cmatch results;
-    bool regexFound = regex_search(respStr.c_str(), results, PTB220_MODEL_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        setModel(results.str(1));
-    }
+        cmatch results;
+        bool regexFound = regex_search(respStr.c_str(), results, PTB220_MODEL_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            setModel(results.str(1));
+        }
 
-    regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_NUMBER_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        setSerialNumber(results.str(1));
-    }
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_NUMBER_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            setSerialNumber(results.str(1));
+        }
 
-    regexFound = regex_search(respStr.c_str(), results, PTB220_VER_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        setFwVersion(results.str(1));
-    }
+        regexFound = regex_search(respStr.c_str(), results, PTB220_VER_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            setFwVersion(results.str(1));
+        }
 
-    regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX_STR);
-    if (regexFound && results[0].matched && results[1].matched) {
-        setCalDate(results.str(1));
+        regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            setCalDate(results.str(1));
+        }
+    }
+    else {
+        DLOG(("PTB220::updateMetaData(): Getting garbage or no response."));
     }
 }
 
