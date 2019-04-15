@@ -31,6 +31,7 @@
 
 #include <nidas/Config.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/core/VariableIndex.h>
 
 class TimetagAdjuster;
 
@@ -65,6 +66,8 @@ public:
 
 private:
 
+    typedef nidas::core::VariableIndex VariableIndex;
+
     bool reportBadCRC();
 
     /**
@@ -91,11 +94,11 @@ private:
      */
     unsigned int _badCRCs;
 
-    int _irgaDiagIndex;
-
-    int _h2oIndex;
-
-    int _co2Index;
+    VariableIndex _irgaDiag;
+    VariableIndex _h2o;
+    VariableIndex _co2;
+    VariableIndex _Pirga;
+    VariableIndex _Tirga;
 
     /**
      * Campbell has provided custom firmware on the EC100 logger box so that

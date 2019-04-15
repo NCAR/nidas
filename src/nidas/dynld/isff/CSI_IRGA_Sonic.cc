@@ -45,9 +45,11 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),
-    _irgaDiagIndex(-1),
-    _h2oIndex(-1),
-    _co2Index(-1),
+    _irgaDiag(),
+    _h2o(),
+    _co2(),
+    _Pirga(),
+    _Tirga(),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),
@@ -129,17 +131,11 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
     if (_dirIndex >= 0) _numParsed--; // derived, not parsed
     if (_ldiagIndex >= 0) _numParsed--; // derived, not parsed
 
-    VariableIterator vi = stag->getVariableIterator();
-    for (int i = 0; vi.hasNext(); i++) {
-        const Variable* var = vi.next();
-        const string& vname = var->getName();
-        if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
-            _irgaDiagIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "h2o")
-            _h2oIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "co2")
-            _co2Index = i;
-    }
+    _irgaDiag = findVariableIndex("irgadiag");
+    _h2o = findVariableIndex("h2o");
+    _co2 = findVariableIndex("co2");
+    _Pirga = findVariableIndex("Pirga");
+    _Tirga = findVariableIndex("Tirga");
 
     if (_numParsed  < 5)
         throw n_u::InvalidParameterException(getName() +
@@ -384,15 +380,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         dout[_dirIndex] = dr;
     }
 
-    // screen h2o and co2 values when the IRGA diagnostic value is non-zero.
-    // If _irgaDiagIndex is -1, then we're not checking against it.
-    bool irgaOK = (_irgaDiagIndex < 0);
-    if (_irgaDiagIndex >= 0) irgaOK = (dout[_irgaDiagIndex] == 0.0);
-    if (!irgaOK) {
-        if (_h2oIndex >= 0) dout[_h2oIndex] = floatNAN;
-        if (_co2Index >= 0) dout[_co2Index] = floatNAN;
+    // screen h2o and co2 values when the IRGA diagnostic value is indexed
+    // and is non-zero.
+    unsigned int irgadiag = (unsigned int)_irgaDiag.get(dout, 0.0);
+    if (irgadiag != 0) {
+        _h2o.set(dout, floatNAN);
+        _co2.set(dout, floatNAN);
     }
-
+    // During startup the Pirga and Tirga values can be wonky, so flag them.
+    if (irgadiag & 0x4/*Sys Startup*/)
+    {
+        _Pirga.set(dout, floatNAN);
+        _Tirga.set(dout, floatNAN);
+    }
     if (psamp) psamp->freeReference();
 
     results.push_back(wsamp);
