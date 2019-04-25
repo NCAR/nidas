@@ -184,7 +184,7 @@ public:
 
     int getFd() const { return _fd; }
 
-    void flush();
+//    void flush();
 
     /* 
      * Check whether this serial port is using a device which needs port control
@@ -396,6 +396,20 @@ public:
 
     void setBlocking(bool val);
     bool getBlocking();
+
+    /*
+     *  Return the number of bytes waiting in the device input queue
+     */
+    size_t bytesReadyToRead()
+    {
+        int bytesWaiting = 0;
+        if (::ioctl(getFd(), FIONREAD, &bytesWaiting) < 0) {
+            throw IOException("SerialPortIODevice::bytesReadyToRead()",
+                              "ioctl failed on FIONREAD for fd");
+        }
+
+        return bytesWaiting;
+    }
 
     /**
      * Do a tcdrain() system call on the device. According to the tcdrain man page, it
