@@ -728,6 +728,7 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
+    VLOG(("DSMSensor::fromDOMElement(): entry..."));
 
     /*
      * The first time DSMSensor::fromDOMElement is called for
@@ -747,45 +748,49 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // Set device name before scanning catalog entry,
     // so that error messages have something useful in the name.
     string dname = expandString(xnode.getAttributeValue("devicename"));
-    if (dname.length() > 0) setDeviceName(dname);
+    if (dname.length() > 0) {
+        VLOG(("DSMSensor::fromDOMElement() aname==\"devicename\": ") << dname);
+        setDeviceName(dname);
+    }
 
     // set id before scanning catalog entry
     const string& idstr = xnode.getAttributeValue("id");
     if (idstr.length() > 0) {
-	istringstream ist(idstr);
-	// If you unset the dec flag, then a leading '0' means
-	// octal, and 0x means hex.
-	ist.unsetf(ios::dec);
-	unsigned int val;
-	ist >> val;
-	if (ist.fail())
-	    throw n_u::InvalidParameterException(
-		string("sensor on dsm ") + getDSMConfig()->getName(),
-		"id",idstr);
-	setSensorId(val);
+        istringstream ist(idstr);
+        // If you unset the dec flag, then a leading '0' means
+        // octal, and 0x means hex.
+        ist.unsetf(ios::dec);
+        unsigned int val;
+        ist >> val;
+        if (ist.fail())
+            throw n_u::InvalidParameterException(
+                    string("sensor on dsm ") + getDSMConfig()->getName(),
+                    "id",idstr);
+        setSensorId(val);
     }
     const string& idref = xnode.getAttributeValue("IDREF");
     // scan catalog entry
     if (idref.length() > 0) {
         const Project* project = getDSMConfig()->getProject();
         assert(project);
-	if (!project->getSensorCatalog())
-	    throw n_u::InvalidParameterException(
-		string("dsm") + ": " + getName(),
-		"cannot find sensorcatalog for sensor with IDREF",
-		idref);
+        if (!project->getSensorCatalog())
+            throw n_u::InvalidParameterException(
+                string("dsm") + ": " + getName(),
+                "cannot find sensorcatalog for sensor with IDREF",
+                idref);
 
-	map<string,xercesc::DOMElement*>::const_iterator mi;
+        map<string,xercesc::DOMElement*>::const_iterator mi;
 
         const xercesc::DOMElement* cnode = 
-	project->getSensorCatalog()->find(idref);
+                project->getSensorCatalog()->find(idref);
         if (!cnode)
-		throw n_u::InvalidParameterException(
-	    string("dsm") + ": " + getName(),
-	    "sensorcatalog does not contain a sensor with ID",
-	    idref);
-	// read catalog entry
-	setCatalogName(idref);
+            throw n_u::InvalidParameterException(
+                string("dsm") + ": " + getName(),
+                "sensorcatalog does not contain a sensor with ID",
+                idref);
+        // read catalog entry
+        setCatalogName(idref);
+        VLOG(("DSMSensor::fromDOMElement(): calling myself recursively and virtually????"));
         fromDOMElement(cnode);
     }
 
@@ -796,145 +801,147 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
         // setSuffix("");
 
         // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    const string& aname = attr.getName();
-	    const string aval = expandString(attr.getValue());
-	    // get attribute name
-	    if (aname == "devicename")
-		setDeviceName(aval);
-	    else if (aname == "id");	// already scanned
-	    else if (aname == "IDREF");		// already parsed
-	    else if (aname == "class") {
-	        if (getClassName().length() == 0)
-		    setClassName(aval);
-		else if (getClassName() != aval)
-		    n_u::Logger::getInstance()->log(LOG_WARNING,
-		    	"class attribute=%s does not match getClassName()=%s\n",
-			aval.c_str(),getClassName().c_str());
-	    }
-	    else if (aname == "location") setLocation(aval);
-	    else if (aname == "latency") {
-		istringstream ist(aval);
-		float val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException("sensor",
-		    	aname,aval);
-		setLatency(val);
-	    }
-	    else if (aname == "height")
-	    	setHeight(aval);
-	    else if (aname == "depth")
-	    	setDepth(aval);
-	    else if (aname == "suffix")
-	    	setSuffix(aval);
-	    else if (aname == "type") setTypeName(aval);
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            const string& aname = attr.getName();
+            const string aval = expandString(attr.getValue());
+            // get attribute name
+            if (aname == "devicename") {
+                VLOG(("DSMSensor::fromDOMElement() aname==\"devicename\": ") << aval);
+                setDeviceName(aval);
+            }
+            else if (aname == "id");	// already scanned
+            else if (aname == "IDREF");		// already parsed
+            else if (aname == "class") {
+                if (getClassName().length() == 0)
+                    setClassName(aval);
+            else if (getClassName() != aval)
+                n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "class attribute=%s does not match getClassName()=%s\n",
+                aval.c_str(),getClassName().c_str());
+            }
+            else if (aname == "location") setLocation(aval);
+            else if (aname == "latency") {
+                istringstream ist(aval);
+                float val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException("sensor",
+                        aname,aval);
+                setLatency(val);
+            }
+            else if (aname == "height")
+                setHeight(aval);
+            else if (aname == "depth")
+                setDepth(aval);
+            else if (aname == "suffix")
+                setSuffix(aval);
+            else if (aname == "type") setTypeName(aval);
             else if (aname == "duplicateIdOK") {
                 istringstream ist(aval);
-		bool val;
-		ist >> boolalpha >> val;
-		if (ist.fail()) {
-		    ist.clear();
-		    ist >> noboolalpha >> val;
-		    if (ist.fail())
-			throw n_u::InvalidParameterException(
-				getName(),aname,aval);
-		}
-		setDuplicateIdOK(val);
-	    }
+                bool val;
+                ist >> boolalpha >> val;
+                if (ist.fail()) {
+                    ist.clear();
+                    ist >> noboolalpha >> val;
+                    if (ist.fail())
+                    throw n_u::InvalidParameterException(
+                        getName(),aname,aval);
+                }
+                setDuplicateIdOK(val);
+            }
             else if (aname == "timeout") {
                 istringstream ist(aval);
-		float val;
-		ist >> val;
-		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
+                float val;
+                ist >> val;
+                if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setTimeoutMsecs((int)rint(val * MSECS_PER_SEC));
             }
             else if (aname == "readonly") {
                 istringstream ist(aval);
-		bool val;
-		ist >> boolalpha >> val;
-		if (ist.fail()) {
-		    ist.clear();
-		    ist >> noboolalpha >> val;
-		    if (ist.fail())
-			throw n_u::InvalidParameterException(
-				getName(),aname,aval);
-		}
+                bool val;
+                ist >> boolalpha >> val;
+                if (ist.fail()) {
+                    ist.clear();
+                    ist >> noboolalpha >> val;
+                    if (ist.fail())
+                    throw n_u::InvalidParameterException(
+                        getName(),aname,aval);
+                }
                 if (val) setDefaultMode((getDefaultMode() & ~O_ACCMODE) | O_RDONLY);
                 else setDefaultMode((getDefaultMode() & ~O_ACCMODE) | O_RDWR);
-	    }
+            }
             else if (aname == "station") {
                 istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
+                int val;
+                ist >> val;
+                if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setStation(val);
             }
             else if (aname == "xml:base" || aname == "xmlns") {}
-	}
+        }
     }
     
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
     {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
-	const string& elname = xchild.getNodeName();
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        XDOMElement xchild((xercesc::DOMElement*) child);
+        const string& elname = xchild.getNodeName();
 
-	if (elname == "sample") {
-	    SampleTag* newtag = new SampleTag(this);
-            // add sensor name to any InvalidParameterException thrown by sample.
-            try {
-                newtag->fromDOMElement((xercesc::DOMElement*)child);
-            }
-            catch (const n_u::InvalidParameterException& e) {
-                throw n_u::InvalidParameterException(getName() + ": " + e.what());
-            }
-	    if (newtag->getSampleId() == 0)
-	        newtag->setSampleId(static_cast<unsigned int>(getSampleTags().size()+1));
+        if (elname == "sample") {
+            SampleTag* newtag = new SampleTag(this);
+                // add sensor name to any InvalidParameterException thrown by sample.
+                try {
+                    newtag->fromDOMElement((xercesc::DOMElement*)child);
+                }
+                catch (const n_u::InvalidParameterException& e) {
+                    throw n_u::InvalidParameterException(getName() + ": " + e.what());
+                }
+            if (newtag->getSampleId() == 0)
+                newtag->setSampleId(static_cast<unsigned int>(getSampleTags().size()+1));
 
-	    list<SampleTag*>::const_iterator si = _sampleTags.begin();
-	    for ( ; si != _sampleTags.end(); ++si) {
-		SampleTag* stag = *si;
-		// If a sample id matches a previous one (most likely
-		// from the catalog) then update it from this DOMElement.
-		if (stag->getSampleId() == newtag->getSampleId()) {
+            list<SampleTag*>::const_iterator si = _sampleTags.begin();
+            for ( ; si != _sampleTags.end(); ++si) {
+                SampleTag* stag = *si;
+                // If a sample id matches a previous one (most likely
+                // from the catalog) then update it from this DOMElement.
+                if (stag->getSampleId() == newtag->getSampleId()) {
                     try {
                         stag->fromDOMElement((xercesc::DOMElement*)child);
                     }
                     catch (const n_u::InvalidParameterException& e) {
                         throw n_u::InvalidParameterException(getName() + ": " + e.what());
                     }
-		    
-		    delete newtag;
-		    newtag = 0;
-		    break;
-		}
-	    }
-	    if (newtag) addSampleTag(newtag);
-	}
-	else if (elname == "parameter") {
-	    Parameter* parameter =
-                Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
-	    addParameter(parameter);
+
+                    delete newtag;
+                    newtag = 0;
+                    break;
+                }
+            }
+            if (newtag) addSampleTag(newtag);
+        }
+        else if (elname == "parameter") {
+            Parameter* parameter =
+                    Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
+            addParameter(parameter);
             if (parameter->getName() == "lag") {
                 if ((parameter->getType() != Parameter::FLOAT_PARAM &&
-                        parameter->getType() != Parameter::INT_PARAM) ||
-                        parameter->getLength() != 1)
+                    parameter->getType() != Parameter::INT_PARAM) ||
+                    parameter->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),"lag","must be float or integer of length 1");
                 setLagSecs(parameter->getNumericValue(0));
             }
-	}
-	else if (elname == "calfile") {
-	    CalFile* cf = new CalFile();
+        }
+        else if (elname == "calfile") {
+            CalFile* cf = new CalFile();
             cf->setDSMSensor(this);
             cf->fromDOMElement((xercesc::DOMElement*)child);
-	    addCalFile(cf);
-	}
+            addCalFile(cf);
+        }
     }
 
     _rawSampleTag.setSampleId(0);
@@ -955,24 +962,25 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     set<unsigned int> ids;
     list<SampleTag*>::const_iterator si = _sampleTags.begin();
     for ( ; si != _sampleTags.end(); ++si) {
-	SampleTag* stag = *si;
+        SampleTag* stag = *si;
 
-	stag->setSensorId(getSensorId());
-	stag->setSuffix(getFullSuffix());
+        stag->setSensorId(getSensorId());
+        stag->setSuffix(getFullSuffix());
 
-	if (getSensorId() == 0) throw n_u::InvalidParameterException(
-	    	getName(),"id","zero or missing");
+        if (getSensorId() == 0) throw n_u::InvalidParameterException(
+        getName(),"id","zero or missing");
 
-	pair<set<unsigned int>::const_iterator,bool> ins =
-		ids.insert(stag->getId());
-	if (!ins.second) {
-	    ostringstream ost;
-	    ost << stag->getDSMId() << ',' << stag->getSpSId();
-	    throw n_u::InvalidParameterException(
-	    	getName(),"duplicate sample id", ost.str());
-	}
-	rawRate = std::max(rawRate,stag->getRate());
+        pair<set<unsigned int>::const_iterator,bool> ins =
+            ids.insert(stag->getId());
+        if (!ins.second) {
+            ostringstream ost;
+            ost << stag->getDSMId() << ',' << stag->getSpSId();
+            throw n_u::InvalidParameterException(
+                getName(),"duplicate sample id", ost.str());
+        }
+        rawRate = std::max(rawRate,stag->getRate());
     }
+
     _rawSampleTag.setRate(rawRate);
     _rawSource.addSampleTag(&_rawSampleTag);
 
@@ -987,6 +995,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     }
     cerr << endl;
 #endif
+
+    VLOG(("DSMSensor::fromDOMElement(): exit..."));
 }
 
 void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
