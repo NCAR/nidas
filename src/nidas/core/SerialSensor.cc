@@ -434,8 +434,7 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
                 string upperAval = aval;
                 std::transform(upperAval.begin(), upperAval.end(),
                         upperAval.begin(), ::toupper);
-                DLOG(
-                        ("SerialSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+                DLOG(("SerialSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
                 if (aname == "porttype") {
                     if (upperAval == "RS232")
                         _desiredPortConfig.xcvrConfig.portType = RS232;
@@ -532,6 +531,7 @@ void SerialSensor::fromDOMElement(
 	const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
+    VLOG(("SerialSensor::fromDOMElement(): entry..."));
 
     CharacterSensor::fromDOMElement(node);
 
@@ -617,6 +617,8 @@ void SerialSensor::fromDOMElement(
             "unknown attribute",aname);
         }
     }
+
+    VLOG(("SerialSensor::fromDOMElement(): exit..."));
 }
 
 /**
@@ -967,25 +969,62 @@ bool SerialSensor::testDefaultPortConfig()
     // print it out
     DLOG(("Testing default port config: ") << testPortConfig);
 
-    // test it
-    return doubleCheckResponse();
+    if (enterConfigMode()) {
+        // test it
+        return doubleCheckResponse();
+    }
+    else {
+        DLOG(("SerialSensor::testDefaultPortConfig(): Failed to get into config mode..."));
+    }
+    return false;
 }
 
-int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPrintable)
+int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPrintable,
+                               bool backOffTimeout, int retryTimeoutFactor)
 {
     fd_set fdset;
     FD_ZERO(&fdset);
     FD_SET(getReadFd(), &fdset);
 
     struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
-        (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC };
+                            (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC
+                           };
+    struct timeval to = tmpto;
+
     VLOG(("SerialSensor::readResponse(): timeout sec: %i, usec: %i", tmpto.tv_sec, tmpto.tv_usec));
 
-    int res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+    int res = 0;
+
+    if (msecTimeout >= MSECS_PER_SEC) {
+        VLOG(("SerialSensor::readResponse(): Waiting on select just once as timeout >= 1s"));
+        res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+    }
+    else {
+        // allow for some slop in data coming in...
+        VLOG(("SerialSensor::readResponse(): Waiting on select a few times to allow for slowdowns"));
+        for (int i=0; res <= 0 && i < 4; ++i) {
+            tmpto = to;
+            VLOG(("SerialSensor::readResponse(): select loop: i: %i; to.sec: %i; to.usec: %i"
+                                                            , i, tmpto.tv_sec, tmpto.tv_usec));
+            res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+            VLOG(("SerialSensor::readResponse(): select loop: res: %i; ", res));
+
+            if (res <= 0 && backOffTimeout) {
+                VLOG(("SerialSensor::readResponse(): select loop backing off: i: %i; ", i));
+                to.tv_usec *= retryTimeoutFactor;
+                if (to.tv_usec >= 1000000) {
+                    to.tv_sec = to.tv_usec / USECS_PER_SEC;
+                    to.tv_usec %= USECS_PER_SEC;
+                }
+                FD_ZERO(&fdset);
+                FD_SET(getReadFd(), &fdset);
+            }
+        }
+    }
 
     if (res < 0) {
         DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-        return (std::size_t)-1;
+        return (std::size_t)0x40000000;
     }
 
     if (res == 0) {
@@ -998,19 +1037,32 @@ int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPr
     std::size_t numChars = read((void*)buf, (unsigned long)len);
     if (numChars && checkPrintable) {
         if (containsNonPrintable((const char*)buf, numChars)) {
-            numChars = -1;
+            // not so big assumption here that numChars never gets to 0x80000000
+            numChars |= 0x80000000;
         }
     }
 
     return numChars;
 }
 
-int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout, bool checkPrintable)
+int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout,
+                                     bool checkPrintable, int retryTimeoutFactor)
 {
 	char* cbuf = (char*)buf;
 	int bufRemaining = len;
-    int numCharsRead = readResponse(cbuf, len, msecTimeout, checkPrintable);
+    int charsReadStatus = readResponse(cbuf, len, msecTimeout, checkPrintable, true, retryTimeoutFactor);
+
+    bool readJunk = charsReadStatus & 0x80000000;
+    DLOG(("SerialSensor::readEntireResponse(): readJunk: %s", (readJunk ? "true" : "false")));
+    int numCharsRead = charsReadStatus & ~0xC0000000;
+    DLOG(("SerialSensor::readResponse(): numCharsRead: %i", numCharsRead));
     int totalCharsRead = numCharsRead;
+    bool selectError = charsReadStatus & 0x40000000;
+    if (selectError) {
+        return 0;
+    }
+
+    int bufIdx = totalCharsRead;
     bufRemaining -= numCharsRead;
 
     static LogContext logctxt(LOG_VERBOSE);
@@ -1021,16 +1073,21 @@ int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout, bool c
     }
 
     int i=0;
-    for (; (numCharsRead > 0 && bufRemaining > 0); ++i) {
-        numCharsRead = readResponse(&cbuf[totalCharsRead], bufRemaining, msecTimeout, checkPrintable);
-        if (numCharsRead < 0) {
-            // getting garbage, bail out early
+    for (; (!readJunk && numCharsRead && bufRemaining > 0); ++i) {
+        charsReadStatus = readResponse(&cbuf[bufIdx], bufRemaining, 5*getUsecsPerByte()/USECS_PER_MSEC,
+                                       checkPrintable, true, retryTimeoutFactor);
+        readJunk = charsReadStatus & 0x80000000;
+        numCharsRead = charsReadStatus & ~0x80000000;
+        if (readJunk) {
+            DLOG(("SerialSensor::readEntireResponse(): Got junk. Bailing out of read loop."));
             totalCharsRead = -1;
             break;
         }
         totalCharsRead += numCharsRead;
+        bufIdx = totalCharsRead;
         if (totalCharsRead >= len) {
-            totalCharsRead = len;
+            bufIdx = len;
+            bufRemaining = 0;
             break;
         }
         bufRemaining -= numCharsRead;
@@ -1038,10 +1095,30 @@ int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout, bool c
         VLOG(("SerialSensor::readEntireResponse(): num chars: %i, buf remaining: %i", numCharsRead, bufRemaining));
     }
 
-    if (totalCharsRead > 0 && logctxt.active()) {
-        logctxt.log(nidas::util::LogMessage().format("Chars read is: ")
-                                                     << totalCharsRead << " comprised of: ");
+    if (bufIdx > 0 && logctxt.active()) {
+        logctxt.log(nidas::util::LogMessage().format("Num chars read: ")
+                                                     << bufIdx << " comprised of: ");
         printResponseHex(totalCharsRead, cbuf);
+    }
+
+    // getting garbage, bail out early, but first drain the swamp
+    if (readJunk) {
+        DLOG(("SerialSensor::readEntireResponse(): Got junk. Draining the swamp."));
+        bufRemaining -= numCharsRead;
+        bufIdx += numCharsRead;
+        int drainedChars = 0;
+        do {
+            numCharsRead = readResponse(&cbuf[bufIdx], bufRemaining,
+                                        2*getUsecsPerByte()/USECS_PER_MSEC, false);
+            drainedChars += numCharsRead;
+            bufIdx += numCharsRead;
+            bufRemaining -= numCharsRead;
+            if (bufRemaining < 0) {
+                bufRemaining = 0;
+            }
+        } while (numCharsRead && bufRemaining > 0);
+        VLOG(("SerialSensor::readEntireResponse(): got garbage, so drained ")
+             << drainedChars << " characters.");
     }
     VLOG(("Took ") << i+1 << " reads to get entire response");
 

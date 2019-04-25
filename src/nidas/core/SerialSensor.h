@@ -297,8 +297,18 @@ protected:
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
     bool sweepCommParameters();
-    int readEntireResponse(void *buf, int len, int msecTimeout, bool checkPrintable=false);
-    int readResponse(void *buf, int len, int msecTimeout, bool checkPrintable=false);
+    int bytesAvailable()
+    {
+        int bytesInReadBuffer = 0;
+        if (_serialDevice) {
+            bytesInReadBuffer = _serialDevice->getBytesAvailable();
+        }
+        return bytesInReadBuffer;
+    }
+    int readEntireResponse(void *buf, int len, int msecTimeout,
+                           bool checkPrintable=false, int retryTimeoutFactor=2);
+    int readResponse(void *buf, int len, int msecTimeout, bool checkPrintable=false,
+                     bool backOffTimeout=true, int retryTimeoutFactor=2);
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
