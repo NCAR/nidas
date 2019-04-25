@@ -133,7 +133,7 @@ protected:
     /**
      * @return: ENTERED or ENTERED_RESP_CHECK=successful, '>' prompt received, and then no data.
      */
-    virtual nidas::core::CFG_MODE_STATUS enterConfigMode() throw(nidas::util::IOException);
+    virtual CFG_MODE_STATUS enterConfigMode() throw(nidas::util::IOException);
 
     /**
      * @return: none.

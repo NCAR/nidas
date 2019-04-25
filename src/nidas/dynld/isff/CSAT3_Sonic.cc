@@ -252,14 +252,12 @@ throw(n_u::IOException)
     writePause(qryCmd.c_str(), qryCmd.length());
 
     // sonic takes a while to respond to ??
-    sleep(4);
-    int timeout = 500; // mSecs
     string::size_type stidx = string::npos;
 
     const int BUF_SIZE = 600;
     char buf[BUF_SIZE];
     memset(buf, 0, BUF_SIZE);
-    int l = readEntireResponse(buf, BUF_SIZE-1, timeout, true);
+    int l = readEntireResponse(buf, BUF_SIZE-1, MSECS_PER_SEC, true);
     // strings will not be null terminated
     const char * cp = (const char*)buf;
     // sonic echoes back "T" or "??" command
@@ -426,7 +424,7 @@ void CSAT3_Sonic::checkSerPortSettings(bool drain)
     writePause(serPortSettingsTestCmd.c_str(), serPortSettingsTestCmd.length());
 
     memset(buf, 0, BUF_SIZE);
-    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, 4000);
+    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, MSECS_PER_SEC);
     DLOG(("CSAT3_Sonic::checkSerPortSettings(): ri:") << std::string(buf, numCharsRead));
 
     serPortSettingsTestCmd.assign("br\r");
@@ -434,7 +432,7 @@ void CSAT3_Sonic::checkSerPortSettings(bool drain)
     writePause(serPortSettingsTestCmd.c_str(), serPortSettingsTestCmd.length());
 
     memset(buf, 0, BUF_SIZE);
-    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, 4000);
+    numCharsRead = readEntireResponse((void*)&buf[0], BUF_SIZE-1, MSECS_PER_SEC);
     DLOG(("CSAT3_Sonic::checkSerPortSettings(): br: ") << std::string(buf, numCharsRead));
 }
 
@@ -477,10 +475,9 @@ const std::string& CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
-    NLOG(("CSAT3_Sonic - checking for sensor customizations in the DSM/Sensor Catalog XML..."));
-    DLOG(("CSAT3_Sonic::fromDOMElement() - entry"));
-    // let the base classes have first shot at it, since we only care about an autoconfig child element
-    // however, any duplicate items in autoconfig will override any items in the base classes
+    NLOG(("CSAT3_Sonic::fromDOMElement(): Checking for sensor customizations in the DSM/Sensor Catalog XML..."));
+
+    // Let the base classes have first shot at it.
     SerialSensor::fromDOMElement(node);
 
     // Handle common autoconfig attributes first...
@@ -522,6 +519,15 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inv
 //                }
 //            }
         }
+        else if (elname == "message");
+        else if (elname == "prompt");
+        else if (elname == "sample");
+        else if (elname == "parameter");
+        else if (elname == "calfile");
+        else
+            throw n_u::InvalidParameterException(
+                    string("SerialSensor:") + getName(), "unknown element",
+                    elname);
     }
 
     DLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
@@ -904,7 +910,7 @@ bool CSAT3_Sonic::findConfigPrompt(bool drain, bool prompt)
             writePause("\r\r", 2);
         }
         memset(buf, 0, BUF_SIZE);
-        l = readEntireResponse(buf, BUF_SIZE-1, 2000);
+        l = readEntireResponse(buf, BUF_SIZE-1, MSECS_PER_SEC);
         if (l > 0 && strstr(buf, ">") != 0) {
             VLOG(("CSAT3_Sonic::findConfigPrompt(): Found config prompt: '>'"));
             retval = true;
