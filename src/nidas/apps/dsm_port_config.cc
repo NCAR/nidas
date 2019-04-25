@@ -64,6 +64,8 @@
 #include <unistd.h>
 #include <libusb-1.0/libusb.h>
 #include <libftdi1/ftdi.h>
+#include <termios.h>
+
 #include "nidas/core/NidasApp.h"
 #include "nidas/core/SerialPortIODevice.h"
 #include "nidas/core/SerialXcvrCtrl.h"
@@ -89,8 +91,6 @@ NidasAppArg Mode("-m,--xcvr-mode", "<RS232>",
 				 "    RS422\n"
 				 "    RS485_FULL\n"
 				 "    RS485_HALF", "RS232");
-//NidasAppArg Display("-d,--display", "",
-//					 "Display current port configuration and exit", "");
 NidasAppArg LineTerm("-t,--term", "<NO_TERM>",
                      "Port transceiver line termination supported by Exar SP339 chip. i.e. - \n"
                      "    NO_TERM\n"
@@ -131,22 +131,25 @@ int parseRunString(int argc, char* argv[])
 
 int setRTS(int fd, bool setRTS)
 {
-    int status;
+    int cmd = TIOCMBIC;
+    int bit = TIOCM_RTS;
 
-    if (ioctl(fd, TIOCMGET, &status) == -1) {
-        perror("setRTS(): TIOCMGET");
+    if (setRTS) {
+        cmd = TIOCMBIS;
+    }
+
+    if (ioctl(fd, cmd, &bit) == -1) {
+        std::string errStr("setRTS(): ");
+        if (cmd == TIOCMBIC) {
+            errStr.append("TIOCMBIC");
+        }
+        else {
+            errStr.append("TIOCMBIS");
+        }
+        perror(errStr.c_str());
         return 0;
     }
 
-    if (setRTS)
-        status |= TIOCM_RTS;
-    else
-        status &= ~TIOCM_RTS;
-
-    if (ioctl(fd, TIOCMSET, &status) == -1) {
-        perror("setRTS(): TIOCMSET");
-        return 0;
-    }
     return 1;
 }
 
@@ -274,15 +277,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
         if (tcsetattr(fd, TCSANOW, &attr) == -1) {
-            perror("RTS: tcflush()");
-            return 0;
-        }
-
-
-        int status;
-
-        if (ioctl(fd, TIOCMGET, &status) == -1) {
-            perror("setRTS(): TIOCMGET");
+            perror("RTS: tcsetattr()");
             return 0;
         }
 
