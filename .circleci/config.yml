@@ -9,9 +9,9 @@ jobs:
     steps:
       - checkout
       - run:
-        name: NIDAS Build of Master Branch for Host
-        command: |
-          ls
+          name: NIDAS Build of Master Branch for Host
+          command: |
+            ls -alg
   build-autoconfig-armhf:
     docker:
       - image: docker.io/ncar/nidas:latest
@@ -21,8 +21,8 @@ jobs:
     steps:
       - checkout
       - run:
-        name: NIDAS Build of AutoConfig Branch for RPi DSM
-        command: | 
-          pwd
-          cd nidas/src
+          name: NIDAS Build of AutoConfig Branch for RPi DSM
+          command: | 
+            pwd
+            cd nidas/src
           scons LINUX_MODULES=no BUILDS=armhf
