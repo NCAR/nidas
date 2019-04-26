@@ -12,7 +12,7 @@ jobs:
         name: NIDAS Build of Master Branch for Host
         command: |
           pwd
-          ls -alg
+          `ls -alg`
   build-autoconfig-armhf:
     docker:
       - image: docker.io/ncar/nidas:latest
