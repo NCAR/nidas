@@ -278,6 +278,7 @@ protected:
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
     void initCustomMetadata();
+    void transformEmbeddedNulls(std::string& respStr);
 
 private:
     // default serial parameters for the GIL 2D Wind Observer
@@ -337,8 +338,6 @@ private:
     static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
-
-    static const int CHAR_WRITE_DELAY = NSECS_PER_MSEC * 110; // 110mSec
 
     n_c::PortConfig testPortConfig;
     n_c::PortConfig _desiredPortConfig;

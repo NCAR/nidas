@@ -35,6 +35,7 @@
 #include <limits>
 #include <boost/regex.hpp>
 #include <time.h>
+#include <string.h>
 #include <sys/select.h>
 
 using namespace nidas::core;
@@ -474,37 +475,27 @@ bool GILL2D::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
             }
         }
 
-        setPortConfig(rDesiredConfig);
-        applyPortConfig();
-        if (getPortConfig() == rDesiredConfig) {
+        if (!doubleCheckResponse()) {
+            NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
+                    "after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
+
+            setPortConfig(sensorPortConfig);
+            applyPortConfig();
+
+            DLOG(("Setting the port config back to something that works for a retry") << getPortConfig());
+
             if (!doubleCheckResponse()) {
-                NLOG(("GILL2D::installDesiredSensorConfig() failed to achieve sensor communication "
-                        "after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
-
-                setPortConfig(sensorPortConfig);
-                applyPortConfig();
-
-                DLOG(("Setting the port config back to something that works for a retry") << getPortConfig());
-
-                if (!doubleCheckResponse()) {
-                    DLOG(("The sensor port config which originally worked before attempting "
-                          "to set the desired config no longer works. Really messed up now!"));
-                }
-
-                else {
-                    DLOG(("GILL2D reset to original!!!") << getPortConfig());
-                }
+                DLOG(("The sensor port config which originally worked before attempting "
+                      "to set the desired config no longer works. Really messed up now!"));
             }
+
             else {
-                NLOG(("Success!! GILL2D set to desired configuration!!!") << getPortConfig());
-                installed = true;
+                DLOG(("GILL2D reset to original!!!") << getPortConfig());
             }
         }
-
         else {
-            DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            DLOG(("Desired PortConfig: ") << rDesiredConfig);
-            DLOG(("Actual set PortConfig: ") << getPortConfig());
+            NLOG(("Success!! GILL2D set to desired configuration!!!") << getPortConfig());
+            installed = true;
         }
     }
 
@@ -548,16 +539,17 @@ bool GILL2D::checkScienceParameters()
 
     sendSensorCmd(SENSOR_DIAG_QRY_CMD, n_c::SensorCmdArg(OPER_CONFIG));
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 240;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("GILL2D::checkScienceParameters() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
     if (numCharsRead ) {
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
+        transformEmbeddedNulls(respStr);
 
         VLOG(("Response: "));
         VLOG((respStr.c_str()));
@@ -680,6 +672,66 @@ n_c::SensorCmdData GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
     return(nullRetVal);
 }
 
+
+// TODO: Gotta clear out the string NULLs when Gill responds to command:
+// K1
+// K\0+\r*K1\r
+void GILL2D::transformEmbeddedNulls(std::string& respStr)
+{
+    DLOG(("GILL2D::transformEmbeddedNulls(): respStr before: ") << respStr);
+    for (std::size_t i=0; i<respStr.length(); ++i) {
+        char& rC = respStr[i];
+        DLOG(("GILL2D::transformEmbeddedNulls(): rC: 0X%02X", rC));
+        if (isNonPrintable(rC, false)) {
+            DLOG(("GILL2D::transformEmbeddedNulls(): non-printable, replacing with <space>"));
+            rC = ' ';
+        }
+        else if (i < respStr.length()-1) {
+            char& rC2 = respStr[i+1];
+            if (i == 0) {
+                if ((rC == '\r' && rC2 != '\n')) {
+                    respStr.insert(i+1, "\n");
+                    ++i;
+                    DLOG(("GILL2D::transformEmbeddedNulls(): insert \\n after \\r"));
+                }
+                else if ((rC == '\n' && rC2 != '\r')) {
+                    respStr.insert(i+1, "\r");
+                    ++i;
+                    DLOG(("GILL2D::transformEmbeddedNulls(): insert \\r after \\n"));
+                }
+                else if ((rC == '\n' && rC2 == '\r')
+                         || (rC == '\r' && rC2 == '\n')) {
+                    DLOG(("GILL2D::transformEmbeddedNulls(): found \\n\\r pair, continue..."));
+                    ++i;
+                    continue;
+                }
+            }
+            else {
+                char& rCminusOne = respStr[i-1];
+                if ((rCminusOne == '\r' && rC == '\n')
+                    || (rCminusOne == '\n' && rC == '\r')
+                    || (rC == '\n' && rC2 == '\r')
+                    || (rC == '\r' && rC2 == '\n')) {
+                    DLOG(("GILL2D::transformEmbeddedNulls(): found \\n\\r pair, continue..."));
+                    ++i;
+                    continue;
+                }
+                else if ((rCminusOne == '\n' && rC != '\r')) {
+                    DLOG(("GILL2D::transformEmbeddedNulls(): insert \\r after \\n"));
+                    respStr.insert(i, "\r");
+                    ++i;
+                }
+                else if ((rCminusOne == '\r' && rC != '\n')) {
+                    DLOG(("GILL2D::transformEmbeddedNulls(): insert \\n after \\r"));
+                    respStr.insert(i, "\n");
+                    ++i;
+                }
+            }
+        }
+    }
+    DLOG(("GILL2D::transformEmbeddedNulls(): respStr after: ") << respStr);
+}
+
 bool GILL2D::checkResponse()
 {
     DLOG(("GILL2D::checkResponse(): enter..."));
@@ -692,15 +744,17 @@ bool GILL2D::checkResponse()
     NLOG(("Sending GILL command to get current config..."));
     sendSensorCmd(SENSOR_DIAG_QRY_CMD, n_c::SensorCmdArg(OPER_CONFIG));
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 240;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         std::string respStr(&respBuf[0], numCharsRead);
 
+        // trim beyond null/non-printables
+        transformEmbeddedNulls(respStr);
         DLOG(("Response: "));
         DLOG((respStr.c_str()));
 
@@ -710,7 +764,7 @@ bool GILL2D::checkResponse()
         bool regexFound = regex_search(respStr.c_str(), results, GILL2D_RESPONSE_REGEX_STR);
         retVal = regexFound && results[0].matched;
         if (!retVal) {
-            DLOG(("GILL2D::checkResponse(): regex failed"));
+            DLOG(("GILL2D::checkResponse(): regex_search(GILL2D_RESPONSE_REGEX_STR) failed"));
         }
         else {
             // Check for Speed of Sound and Temperature measurement capability
@@ -723,7 +777,7 @@ bool GILL2D::checkResponse()
     }
 
     else {
-        DLOG(("Didn't get any chars from serial port"));
+        DLOG(("Didn't get any chars from serial port, or got garbage"));
     }
 
     DLOG(("GILL2D::checkResponse(): exit..."));
@@ -779,33 +833,10 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
     // give it some time between chars - i.e. ~80 words/min rate
     DLOG(("Sending command: "));
     DLOG((snsrCmd.c_str()));
-    struct timespec writeWait = {0, CHAR_WRITE_DELAY};
-    for (unsigned int i=0; i<snsrCmd.length(); ++i) {
-        write(&(snsrCmd.c_str()[i]), 1);
-        nanosleep(&writeWait, 0);
-    }
-    DLOG(("write() sent ") << snsrCmd.length());
+    writePause(snsrCmd.c_str(), snsrCmd.length());
 
     if (isConfigCmd(cmd) || cmd == SENSOR_QRY_ID_CMD) {
-        const int CMD_RESP_BUF_SIZE = 20;
-        char cmdRespBuf[CMD_RESP_BUF_SIZE];
-        memset(cmdRespBuf, 0, CMD_RESP_BUF_SIZE);
-        int numCharsRead = readEntireResponse(cmdRespBuf, CMD_RESP_BUF_SIZE, 2000);
-        std::string respStr(cmdRespBuf, numCharsRead);
-        std::ostringstream oss;
-        oss << "Sent: " << snsrCmd << std::endl << "   Received: " << respStr;
-        DLOG((oss.str().c_str()));
-        if (cmd == SENSOR_QRY_ID_CMD) {
-            std::size_t stxPos = respStr.find_first_of('\x02');
-            std::size_t etxPos = respStr.find_first_of('\x03', stxPos);
-            if (stxPos != string::npos && etxPos != string::npos) {
-                if ((etxPos - stxPos) == 2) {
-                    // we can probably believe that we have captured the unit address response
-                    _unitId = respStr[stxPos+1];
-                }
-            }
-        }
-        else if (cmd == SENSOR_SERIAL_BAUD_CMD || cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
+        if (cmd == SENSOR_SERIAL_BAUD_CMD || cmd == SENSOR_SERIAL_DATA_WORD_CMD) {
             // used to look for the "confirm >" response here, but it doesn't always come back in programmatic use cases
             // like it does in minicom. So the strategy is to just assume that it's there and send the confirmation.
             // Seems to be working.
@@ -816,12 +847,51 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
             else
                 DLOG(("Serial port setting NOT confirmed: ") << cmdTable[cmd]);
         }
+
+        else {
+            const int BUF_SIZE = 20;
+            char cmdRespBuf[BUF_SIZE];
+            memset(cmdRespBuf, 0, BUF_SIZE);
+
+            int numCharsRead = readEntireResponse(cmdRespBuf, BUF_SIZE-1, MSECS_PER_SEC);
+            if (numCharsRead > 0) {
+                std::string respStr(cmdRespBuf, numCharsRead);
+                transformEmbeddedNulls(respStr);
+                std::ostringstream oss;
+                oss << "Sent: " << snsrCmd << std::endl << "   Received: " << respStr;
+                DLOG((oss.str().c_str()));
+                if (cmd == SENSOR_QRY_ID_CMD) {
+                    std::size_t stxPos = respStr.find_first_of('\x02');
+                    std::size_t etxPos = respStr.find_first_of('\x03', stxPos);
+                    if (stxPos != string::npos && etxPos != string::npos) {
+                        if ((etxPos - stxPos) == 2) {
+                            // we can probably believe that we have captured the unit address response
+                            _unitId = respStr[stxPos+1];
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
 {
-    DLOG(("confirmGillSerialPortChange(): enter"));
+    DLOG(("GILL2D::confirmGillSerialPortChange(): enter"));
+    DLOG(("GILL2D::confirmGillSerialPortChange(): verifying the confirm > prompt.."));
+
+    const int BUF_SIZE = 50;
+    char confirmRespBuf[BUF_SIZE];
+    memset(confirmRespBuf, 0, BUF_SIZE);
+
+    std::size_t numRespChars = readEntireResponse(confirmRespBuf, BUF_SIZE-1, MSECS_PER_SEC);
+    std::string respStr;
+    if (numRespChars > 0) {
+        respStr.append(confirmRespBuf);
+        transformEmbeddedNulls(respStr);
+        DLOG(("Confirmation Prompt: ") << respStr);
+    }
+
     ostringstream entireCmd(cmdTable[cmd]);
     entireCmd << arg;
 
@@ -880,16 +950,19 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
     applyPortConfig();
 
     DLOG(("Writing the confirmation command..."));
-    write(confirmCmd.c_str(), 3);
+    writePause(confirmCmd.c_str(), 3);
 
     DLOG(("Reading the confirmation response..."));
-    char confirmRespBuf[10];
-    memset(confirmRespBuf, 0, 10);
-    std::size_t numRespChars = readEntireResponse(confirmRespBuf, 10, 2000);
-    std::string respStr(confirmRespBuf, numRespChars);
-    DLOG(("Confirmation Response: ") << respStr);
-    DLOG(("confirmGillSerialPortChange(): exit"));
+    memset(confirmRespBuf, 0, BUF_SIZE);
 
+    numRespChars = readEntireResponse(confirmRespBuf, BUF_SIZE-1, MSECS_PER_SEC);
+    if (numRespChars > 0) {
+        respStr.assign(confirmRespBuf);
+        transformEmbeddedNulls(respStr);
+        DLOG(("Confirmation Response: ") << respStr);
+    }
+
+    DLOG(("confirmGillSerialPortChange(): exit"));
     return  (respStr.find(entireCmd.str()) != std::string::npos);
 }
 
@@ -908,7 +981,7 @@ bool GILL2D::checkConfigMode(bool continuous)
     static const int BUF_SIZE = 75;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
-    std::size_t numCharsRead = 0;
+    int numCharsRead = 0;
 
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
@@ -934,14 +1007,15 @@ bool GILL2D::checkConfigMode(bool continuous)
 
     memset(respBuf, 0, BUF_SIZE);
 
-    numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
-    if (numCharsRead < 21) {
-        numCharsRead += readEntireResponse(&(respBuf[numCharsRead]), BUF_SIZE-numCharsRead, 2000);
+    if (RANGE_CHECK_EXC(-1, numCharsRead, 21)) {
+        numCharsRead += readEntireResponse(&(respBuf[numCharsRead]), BUF_SIZE-numCharsRead-1, MSECS_PER_SEC);
     }
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         std::string respStr;
         respStr.append(&respBuf[0], numCharsRead);
+        transformEmbeddedNulls(respStr);
 
         DLOG(("Config Mode Response: "));
         DLOG((respStr.c_str()));
@@ -952,12 +1026,12 @@ bool GILL2D::checkConfigMode(bool continuous)
         bool regexFound = regex_search(respStr.c_str(), results, GILL2D_CONFIG_MODE_REGEX_STR);
         retVal = regexFound && results[0].matched;
         if (!retVal) {
-            DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the model ID string as expected."));
+            DLOG(("GILL2D::checkConfigMode(): Didn't find matches to the model ID string as expected."));
         }
     }
 
     else {
-        DLOG(("Didn't get any chars from serial port"));
+        DLOG(("Didn't get any chars from serial port or got garbage"));
     }
 
     return retVal;
@@ -1007,42 +1081,54 @@ void GILL2D::updateMetaData()
     static const int BUF_SIZE = 75;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
-    std::size_t numCharsRead = 0;
-
-    sendSensorCmd(SENSOR_DIAG_QRY_CMD, nidas::core::SensorCmdArg(TYPE_SER_NO));
-    numCharsRead = readEntireResponse(&respBuf[0], BUF_SIZE, 2000);
-    std::string respStr(&respBuf[0], numCharsRead);
-    DLOG(("GILL2D::updateMetaData(): Serial number response: ") << respStr);
-
+    int numCharsRead = 0;
+    bool regexFound = false;
+    std::string respStr;
     cmatch results;
-    bool regexFound = regex_search(respStr.c_str(), results, GILL2D_SERNO_REGEX_STR);
-    DLOG(("GILL2D::updateMetaData(): regex_search() ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
-    bool matchFound = regexFound && results[0].matched && results[1].matched;
-    if (matchFound) {
-        std::string serNoStr;
-        serNoStr.append(results[1].first, results[1].second - results[1].first);
-        setSerialNumber(serNoStr);
-    } else {
-        DLOG(("GILL2D::updateMetaData(): Didn't find serial number string as expected."));
+    bool matchFound = false;
+
+    serPortFlush(O_RDWR);
+    sendSensorCmd(SENSOR_DIAG_QRY_CMD, nidas::core::SensorCmdArg(TYPE_SER_NO));
+    numCharsRead = readEntireResponse(&respBuf[0], BUF_SIZE-1, MSECS_PER_SEC);
+    if (numCharsRead > 0) {
+        respStr.append(&respBuf[0], numCharsRead);
+        transformEmbeddedNulls(respStr);
+
+        DLOG(("GILL2D::updateMetaData(): Serial number response: ") << respStr);
+
+        regexFound = regex_search(respStr.c_str(), results, GILL2D_SERNO_REGEX_STR);
+        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_SERNO_REGEX_STR) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
+        matchFound = regexFound && results[0].matched && results[1].matched;
+        if (matchFound) {
+            std::string serNoStr;
+            serNoStr.append(results[1].first, results[1].second - results[1].first);
+            setSerialNumber(serNoStr);
+        } else {
+            DLOG(("GILL2D::updateMetaData(): Didn't find serial number string as expected."));
+        }
     }
 
     memset(respBuf, 0, BUF_SIZE);
+    serPortFlush(O_RDWR);
     sendSensorCmd(SENSOR_DIAG_QRY_CMD, nidas::core::SensorCmdArg(SW_VER));
-    numCharsRead = readEntireResponse(&respBuf[0], BUF_SIZE, 2000);
+    numCharsRead = readEntireResponse(&respBuf[0], BUF_SIZE-1, MSECS_PER_SEC);
     respStr.clear();
-    respStr.append(&respBuf[0]);
-    DLOG(("GILL2D::updateMetaData(): FW version response: ") << respStr);
+    if (numCharsRead > 0) {
+        respStr.append(&respBuf[0], numCharsRead);
+        DLOG(("GILL2D::updateMetaData(): FW version response: ") << respStr);
+        transformEmbeddedNulls(respStr);
 
-    regexFound = regex_search(respStr.c_str(), results, GILL2D_FW_VER_REGEX_STR);
-    DLOG(("GILL2D::updateMetaData(): regex_search() ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
-    matchFound = regexFound && results[0].matched && results[1].matched;
-    if (matchFound) {
-        std::string fwVerStr;
-        fwVerStr.append(results[1].first, results[1].second - results[1].first);
-        setFwVersion(fwVerStr);
-    }
-    else {
-        DLOG(("GILL2D::updateMetaData(): Didn't find firmware version string as expected."));
+        regexFound = regex_search(respStr.c_str(), results, GILL2D_FW_VER_REGEX_STR);
+        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_FW_VER_REGEX_STR) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
+        matchFound = regexFound && results[0].matched && results[1].matched;
+        if (matchFound) {
+            std::string fwVerStr;
+            fwVerStr.append(results[1].first, results[1].second - results[1].first);
+            setFwVersion(fwVerStr);
+        }
+        else {
+            DLOG(("GILL2D::updateMetaData(): Didn't find firmware version string as expected."));
+        }
     }
 }
 

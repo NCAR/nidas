@@ -678,9 +678,6 @@ private:
     static const int GPS_LCKFAIL_RETRY_DEFAULT = 1800;
     static const int GPS_LCKFAIL_RETRY_MAX = INT16_MAX;
 
-    static const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
-
-
     MessageConfig defaultMessageConfig;
 
     typedef std::vector<SensorCmdData> ScienceParamVector;

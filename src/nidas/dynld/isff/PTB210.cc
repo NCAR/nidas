@@ -52,10 +52,10 @@ const char* PTB210::SENSOR_PRESS_MAX_CMD_STR = ".PMAX.\r";
 const char* PTB210::SENSOR_MEAS_RATE_CMD_STR = ".MPM.\r";
 const char* PTB210::SENSOR_NUM_SAMP_AVG_CMD_STR = ".AVRG.\r";
 const char* PTB210::SENSOR_POWER_DOWN_CMD_STR = ".PD\r";
-const char* PTB210::SENSOR_POWER_UP_CMD_STR = "\r";
+const char* PTB210::SENSOR_POWER_UP_CMD_STR = "\r\r";
 const char* PTB210::SENSOR_SINGLE_SAMP_CMD_STR = ".P\r";
 const char* PTB210::SENSOR_START_CONT_SAMP_CMD_STR = ".BP\r";
-const char* PTB210::SENSOR_STOP_CONT_SAMP_CMD_STR = "\r";
+const char* PTB210::SENSOR_STOP_CONT_SAMP_CMD_STR = "\r\r";
 const char* PTB210::SENSOR_SAMP_UNIT_CMD_STR = ".UNIT.\r";
 const char* PTB210::SENSOR_EXC_UNIT_CMD_STR = ".FORM.0";
 const char* PTB210::SENSOR_INC_UNIT_CMD_STR = ".FORM.1";
@@ -63,7 +63,7 @@ const char* PTB210::SENSOR_CORRECTION_ON_CMD_STR = ".MPCON\r";
 const char* PTB210::SENSOR_CORRECTION_OFF_CMD_STR = ".MPCOFF\r";
 const char* PTB210::SENSOR_TERM_ON_CMD_STR = ".RON\r";
 const char* PTB210::SENSOR_TERM_OFF_CMD_STR = ".ROFF\r";
-const char* PTB210::SENSOR_CONFIG_QRY_CMD_STR = "\r.?\r";
+const char* PTB210::SENSOR_CONFIG_QRY_CMD_STR = ".?\r";
 
 const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
 {
@@ -149,7 +149,7 @@ static const regex PTB210_RESPONSE_REGEX(
         "MULTIPOINT CORR:(ON|OFF)[[:space:]]+"
         "MEAS PER MINUTE:[[:blank:]]+[[:digit:]]+[[:space:]]+"
         "AVERAGING[[:blank:]]+:[[:blank:]]+[[:digit:]]+[[:space:]]+"
-        "PRESSURE UNIT[[:blank:]]+: mBar[[:space:]]+"
+        "PRESSURE UNIT[[:blank:]]+: (hPa|mBar|inHg|psia|torr|mmHg|kPa|Pa|mmH2O|inH20|bar)[[:space:]]+"
         "Pressure Min...Max:[[:blank:]]+[[:digit:]]+[[:blank:]]+[[:digit:]]+[[:space:]]+"
         "[[:alpha:]]+ CURRENT MODE[[:space:]]+"
         "RS485 RESISTOR (OFF|ON)[[:space:]]+");
@@ -351,8 +351,10 @@ void PTB210::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidP
 
 nidas::core::CFG_MODE_STATUS PTB210::enterConfigMode()
 {
+    DLOG(("PTB210::enterConfigMode(): start"));
     serPortFlush(O_RDWR);
     sendSensorCmd(SENSOR_STOP_CONT_SAMP_CMD);
+    DLOG(("PTB210::enterConfigMode(): end"));
     return nidas::core::ENTERED;
 }
 
@@ -400,19 +402,28 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
                 break;
         }
 
+        serPortFlush(O_RDWR);
+
+        // wait for the sensor to reset - ~1 second
+        DLOG(("PTB210::installDesiredSensorConfig(): Waiting SENSOR_RESET_WAIT_TIME secs for sensor reset."));
+        usleep(SENSOR_RESET_WAIT_TIME);
+
+        sendSensorCmd(SENSOR_RESET_CMD);
+        serPortFlush(O_RDWR);
+        usleep(SENSOR_RESET_WAIT_TIME);
+
         setPortConfig(rDesiredConfig);
         applyPortConfig();
         if (getPortConfig() == rDesiredConfig) {
-            // wait for the sensor to reset - ~1 second
-            usleep(SENSOR_RESET_WAIT_TIME);
+            DLOG(("PTB210::installDesiredSensorConfig(): Desired PortConfig is installed in termios: \n") << getPortConfig());
             if (!doubleCheckResponse()) {
-				NLOG(("PTB210::installDesiredSensorConfig() failed to achieve sensor communication "
+				NLOG(("PTB210::installDesiredSensorConfig(): failed to achieve sensor communication "
 						"after setting desired serial port parameters. This is the current PortConfig") << getPortConfig());
 
                 setPortConfig(sensorPortConfig);
                 applyPortConfig();
 
-				DLOG(("Setting the port config back to something that works for a retry") << getPortConfig());
+				DLOG(("Setting the port config back to something that works for a retry: ") << getPortConfig());
 
                 if (!doubleCheckResponse()) {
                     DLOG(("The sensor port config which originally worked before attempting "
@@ -455,7 +466,8 @@ void PTB210::sendScienceParameters() {
         }
     }
 
-    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB210"));
+    if (desiredIsDefault)
+        NLOG(("Base class did not modify the default science parameters for this PB210"));
     else
     	NLOG(("Base class modified the default science parameters for this PB210"));
 
@@ -463,8 +475,8 @@ void PTB210::sendScienceParameters() {
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
         sendSensorCmd(desiredScienceParameters[j].cmd, desiredScienceParameters[j].arg);
     }
-//    sendSensorCmd(SENSOR_RESET_CMD);
-//    usleep(SENSOR_RESET_WAIT_TIME);
+    sendSensorCmd(SENSOR_RESET_CMD);
+    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB210::checkScienceParameters() {
@@ -476,13 +488,12 @@ bool PTB210::checkScienceParameters() {
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
     bool scienceParametersOK = false;
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 350;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
-//    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
     std::string respStr;
     if (numCharsRead > 0) {
@@ -647,12 +658,11 @@ bool PTB210::checkResponse()
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD);
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 350;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-//    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC, true);
 
     if (numCharsRead > 0) {
         std::string respStr;
@@ -720,11 +730,7 @@ void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     // give it some time between chars - i.e. ~80 words/min rate
     DLOG(("Sending command: "));
     DLOG((snsrCmd.c_str()));
-    for (unsigned int i=0; i<snsrCmd.length(); ++i) {
-        write(&(snsrCmd.c_str()[i]), 1);
-        usleep(CHAR_WRITE_DELAY);
-    }
-    DLOG(("write() sent ") << snsrCmd.length());;
+    writePause((const void*)snsrCmd.c_str(), snsrCmd.length());
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
@@ -801,14 +807,11 @@ void PTB210::updateMetaData()
 
     sendSensorCmd(SENSOR_CONFIG_QRY_CMD, nidas::core::SensorCmdArg());
 
-    static const int BUF_SIZE = 512;
+    static const int BUF_SIZE = 350;
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-//    int waitTime = (BUF_SIZE/4); // bytes
-//    waitTime /= (getPortConfig().termios.getBaudRate()/10); // bytes/bytes/s == Sec
-//    waitTime *= MSECS_PER_SEC; // Sec*mS/Sec = mS
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE, 2000);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
     if(numCharsRead > 0) {
         std::string respStr;

@@ -440,12 +440,12 @@ bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
         DLOG(("PTB220::installDesiredSensorConfig(): serial command string: ") << baudStr.str());
 
         sendSensorCmd(SENSOR_SERIAL_CMD, n_c::SensorCmdArg(baudStr.str()), true);
+        // wait for the sensor to reset - 3 seconds
+        usleep(SENSOR_RESET_WAIT_TIME);
 
         setPortConfig(rDesiredPortConfig);
         applyPortConfig();
         if (getPortConfig() == rDesiredPortConfig) {
-            // wait for the sensor to reset - ~1 second
-            usleep(SENSOR_RESET_WAIT_TIME);
             enterConfigMode();
             if (!doubleCheckResponse()) {
 				NLOG(("PTB220::installDesiredSensorConfig() failed to achieve sensor communication "
@@ -527,8 +527,7 @@ bool PTB220::checkScienceParameters()
     memset(respBuf, 0, BUF_SIZE);
 
     VLOG(("PTB220::checkScienceParameters() - Read the entire response"));
-    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC, true);
 
     std::string respStr;
     bool scienceParametersOK = false;
@@ -814,8 +813,7 @@ bool PTB220::checkResponse()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC, true);
 
     if (numCharsRead > 0) {
         std::string respStr;
@@ -924,11 +922,7 @@ void PTB220::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     // Write the command - assume the port is already open
     // The PTB220 seems to not be able to keep up with a burst of data, so
     // give it some time between chars - i.e. ~80 words/min rate
-    for (unsigned int i=0; i<snsrCmd.length(); ++i) {
-        write(&(snsrCmd.c_str()[i]), 1);
-        usleep(CHAR_WRITE_DELAY);
-    }
-    DLOG(("write() sent ") << snsrCmd.length() << " chars");;
+    writePause(snsrCmd.c_str(), snsrCmd.length());
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
@@ -1002,10 +996,8 @@ void PTB220::updateMetaData()
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
 
-    int waitTime = (BUF_SIZE/4)*MSECS_PER_SEC/(getPortConfig().termios.getBaudRate()/10);
-
     VLOG(("PTB220::udpateMetaData() - Read the entire response"));
-    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, waitTime, true);
+    int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC, true);
 
     std::string respStr;
     if(numCharsRead > 0) {

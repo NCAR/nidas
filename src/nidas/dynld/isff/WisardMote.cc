@@ -1869,7 +1869,7 @@ static const regex MSG_STORE_DISABLE_REGEX_STR("(ID[[:digit:]]+:(?:\x01\x02|[[:b
 static const regex MSG_FLUSH_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 // battery monitor
-static const regex VMON_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vm=[[:digit:]]'Toggling (?:0|1) to (1|0)");
+static const regex VMON_ENABLE_REGEX_STR("(?:(?:ID)*(?:(?:[[:digit:]]+)*:)*(?:\x01\x02|[[:blank:]]+)*)*'vm'Toggling (?:0|1) to (1|0)");
 static const regex VMON_LOW_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 static const regex VMON_RESTART_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 static const regex VMON_SLEEP_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
@@ -2113,10 +2113,10 @@ void WisardMote::initScienceParams()
     // the configuration phase. This covers the case that fromDOMElement
     // may have added some changes to _scienceParameters.
 
-    // Use MOTE binary msg format.
-    updateScienceParameter(MSG_FMT_CMD, SensorCmdArg(MSG_FMT_DEFAULT));
     // Data rate enables the MOTE to send data on its own w/o prompting.
     updateScienceParameter(DATA_RATE_CMD, SensorCmdArg(DATA_RATE_DEFAULT));
+    // Use MOTE binary msg format.
+    updateScienceParameter(MSG_FMT_CMD, SensorCmdArg(MSG_FMT_DEFAULT));
     // update the eeprom w/the configs
     updateScienceParameter(EE_UPDATE_CMD);
 }
@@ -2322,10 +2322,10 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                }
 	                else if (aname == "battmon") {
                         if (upperAval == "ON" || upperAval == "TRUE" || upperAval == "ENABLE") {
-                            updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg("ON"));
+                            updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(1));
                         }
                         else if (upperAval == "OFF" || upperAval == "FALSE" || upperAval == "DISABLE" ) {
-                                updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg("OFF"));
+                                updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(0));
                             }
                             else
 	                        throw n_u::InvalidParameterException(
@@ -2372,7 +2372,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
-	                	if (RANGE_CHECK_INC(VMON_SLEEP_TIME_MIN, iArg, VMON_SLEEP_TIME_MIN)) {
+	                	if (RANGE_CHECK_INC(VMON_SLEEP_TIME_MIN, iArg, VMON_SLEEP_TIME_MAX)) {
 	                		updateScienceParameter(VMON_SLEEP_CMD, SensorCmdArg(iArg));
 	                	}
 	                    else
@@ -2521,10 +2521,15 @@ CFG_MODE_STATUS WisardMote::enterConfigMode()
                     // Must only send EE_CFG_CMD after msg format is changed to ASCII...
                     if (sendAndCheckSensorCmd(EE_CFG_CMD)) {
                             retVal = ENTERED_RESP_CHECKED;
+                            DLOG(("WisardMote::enterConfigMode(): succeeded"));
                     }
                 }
             }
         }
+    }
+
+    if (!retVal) {
+        DLOG(("WisardMote::enterConfigMode(): failed"));
     }
 
     return retVal;
@@ -2640,9 +2645,11 @@ void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
                 cmdStr.insert(insertIdx, arg.strArg);
             }
             else {
-                std::ostringstream argStr;
-                argStr << arg.intArg;
-                cmdStr.insert(insertIdx, "=" + argStr.str());
+                if (cmd != VMON_ENABLE_CMD) {
+                    std::ostringstream argStr;
+                    argStr << arg.intArg;
+                    cmdStr.insert(insertIdx, "=" + argStr.str());
+                }
             }
         }
 
@@ -2650,10 +2657,7 @@ void WisardMote::sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg)
 
         DLOG(("WisardMote::sendSensorCmd() - sending command: ") << cmdStr);
         // write command out slowly
-        for (unsigned int i = 0; i < cmdStr.length(); ++i) {
-            write(&(cmdStr.c_str()[i]), 1);
-            usleep(CHAR_WRITE_DELAY);
-        }
+        writePause(cmdStr.c_str(), cmdStr.length());
     }
 
     else {
@@ -2668,14 +2672,21 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 	bool responseOK = false;
 	bool checkMatch = true;
     static const int BUF_SIZE = 2048;
-    int selectTimeout = 2000;
-    if (cmd == RESET_CMD) {
-        selectTimeout = 10000;
+    int selectTimeout = 4000;
+    bool checkForUnprintables = true;
+    int retryTimeoutFactor = 5;
+    if (cmd == RESET_CMD || cmd == MSG_FMT_CMD) {
+        checkForUnprintables = false;
+        if (cmd == RESET_CMD) {
+            retryTimeoutFactor = 15;
+            selectTimeout = 5000;
+        }
     }
 
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
-    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE, selectTimeout);
+    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE-1, selectTimeout,
+                                          checkForUnprintables, retryTimeoutFactor);
     // regular expression specific to the cmd
     regex matchStr;
     // sub match to compare against
@@ -2685,9 +2696,11 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
     // string composed of the primary match
     string resultsStr = "";
 
-    if (numCharsRead) {
+    if (numCharsRead > 0) {
         char* buf = respBuf;
         if (cmd == RESET_CMD) {
+            // Always sends a null character first for some reason,
+            // so gotta get past it...
             buf++;
         }
         DLOG(("WisardMote::checkCmdRepsonse(): Number of chars read - %i", numCharsRead));
@@ -2747,6 +2760,7 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                 compareMatch = 1;
                 responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
                 if (!responseOK) {
+                    DLOG(("WisardMote::checkCmdResponse(): VM is a toggle, so may need to do it twice."));
                     sendSensorCmd(cmd, arg);
                     responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
                 }
@@ -2857,7 +2871,7 @@ bool WisardMote::_checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const 
     // string composed of the primary match
     string resultsStr = "";
 
-    DLOG(("WisardMote::checkVmonSensorCmdResponse(): matching: ") << matchStr);
+    DLOG(("WisardMote::_checkSensorCmdResponse(): matching: ") << matchStr);
     cmatch results;
     bool regexFound = regex_search(buf, results, matchStr);
     if (regexFound && results[0].matched) {
@@ -2945,9 +2959,11 @@ void WisardMote::updateCfgParam(MOTE_CMDS cmd, std::string val)
 
 bool WisardMote::captureResetMetaData(const char* buf)
 {
-    bool responseOK = false;
+    bool responseOK = true;
 
     setManufacturer("UCAR/EOL");
+
+    DLOG(("WisardMote::captureResetMetaData(): checking reset response data."));
 
     cmatch results;
     bool regexFound = regex_search(buf, results, MODEL_ID_REGEX_STR);
