@@ -160,23 +160,26 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     setBlocking(_blocking);
 
     // Set rts485 flag RS422/RS485 to always xmit for full RS422/485
-    if ( getPortType() == RS422) {
-        DLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
-        setRTS485(-1);
+    if (!_pXcvrCtrl) {
+        if ( getPortType() == RS422) {
+            DLOG(("RS422/485_FULL: forcing rts485 to -1, should get a high level on the line."));
+            setRTS485(-1);
+        }
+
+        else {
+            // set RTS according to how it's been set by the client regardless of the port type.
+            // However, if the port type is RS485 half duplex, then the user needs to be sure of
+            // how it needs to be set for the particular device.
+            std::stringstream dStrm;
+            dStrm << "Setting rts485 to as specified by client: " << getRTS485()
+                      << ((getRTS485() < 0) ? ": should get a high level on the line." :
+                          (getRTS485() > 0  ? ": should get a low level on the line." :
+                          " RTS is \"do not care\""));
+            DLOG((dStrm.str().c_str()));
+            setRTS485(getRTS485());
+        }
     }
 
-    else {
-        // set RTS according to how it's been set by the client regardless of the port type.
-    	// However, if the port type is RS485 half duplex, then the user needs to be sure of
-    	// how it needs to be set for the particular device.
-		std::stringstream dStrm;
-		dStrm << "Setting rts485 to as specified by client: " << getRTS485()
-				  << ((getRTS485() < 0) ? ": should get a high level on the line." :
-					  (getRTS485() > 0  ? ": should get a low level on the line." :
-					  " RTS is \"do not care\""));
-		DLOG((dStrm.str().c_str()));
-		setRTS485(getRTS485());
-    }
     VLOG(("SerialPortIODevice::open : exit"));
 }
 
