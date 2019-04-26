@@ -1168,6 +1168,8 @@ void CSAT3_Sonic::sendScienceParameters()
 	sendRTSIndepCmd();
 	sendRecSepCmd();
 	sendRateCommand(rateCmd);
+	// rate command gives user a chance to abort for about 4 seconds
+	usleep(5*USECS_PER_SEC);
 }
 
 bool CSAT3_Sonic::checkScienceParameters()
