@@ -11,7 +11,7 @@ jobs:
       - run: 
         name: NIDAS Build of Master Branch for Host
         command: |
-          echo $PWD
+          pwd
           cd nidas/src
           scons LINUX_MODULES=no BUILDS=host
   build-autoconfig-armhf:
@@ -25,6 +25,6 @@ jobs:
       - run:
         name: NIDAS Build of AutoConfig Branch for RPi DSM
         command: |
-          echo $PWD
+          pwd
           cd nidas/src
           scons LINUX_MODULES=no BUILDS=armhf
