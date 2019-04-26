@@ -8,10 +8,10 @@ jobs:
         - master
     steps:
       - checkout
-      - run: 
+      - run:
         name: NIDAS Build of Master Branch for Host
         command: | 
-          ls -alg
+          ls
   build-autoconfig-armhf:
     docker:
       - image: docker.io/ncar/nidas:latest
