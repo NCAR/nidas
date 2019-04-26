@@ -3,6 +3,28 @@ jobs:
   build:
     docker:
       - image: docker.io/ncar/nidas-ubuntu-base:latest
+    branches:
+      only:
+        - master
+    working-directory: /home/builder/circleci
     steps:
       - checkout
-      - run: echo "A first hello"
+      - run: 
+        name: NIDAS Build of Master Branch for Host
+        command: |
+          cd nidas/src
+          scons LINUX_MODULES=no BUILDS=host
+  build-autoconfig-armhf:
+    docker:
+      - image: docker.io/ncar/nidas:latest
+    branches:
+      only:
+        - auto-config
+    working-directory: /home/builder/circleci
+    steps:
+      - checkout
+      - run:
+        name: NIDAS Build of AutoConfig Branch for RPi DSM
+        command: |
+          cd nidas/src
+          scons LINUX_MODULES=no BUILDS=armhf
