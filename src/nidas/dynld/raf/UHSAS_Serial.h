@@ -30,8 +30,6 @@
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/util/EndianConverter.h>
 
-#include <iostream>
-
 namespace nidas { namespace core {
     class VariableConverter;
 }}
@@ -103,6 +101,11 @@ private:
      * Housekeeping scale factors.
      */
     float _hkScale[12];
+
+    /**
+     * Some UHSAS insturments generate ASCII.
+     */
+    bool _binary;
 
     /**
      * UHSAS sample-rate, currently used for scaling the sum of the bins.

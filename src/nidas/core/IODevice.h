@@ -104,6 +104,12 @@ public:
      * necessary on other types of IODevices, where it is just a matter
      * of using a big enough buffer to get all (or most) available data
      * after a select.
+     *
+     * According to man udp(7), FIONREAD will return 0 if the size of the
+     * next packet is 0. So, if select/poll indicate there is data
+     * available, one read at least should be done, just in case a
+     * sensor sends a datagram of length 0, otherwise it will never
+     * be consumed.
      */
     virtual size_t getBytesAvailable() const throw(nidas::util::IOException)
     {

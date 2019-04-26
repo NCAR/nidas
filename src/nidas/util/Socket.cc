@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -54,8 +54,6 @@
 
 #include <linux/sockios.h>
                                                                                 
-#ifdef DEBUG
-#endif
 #include <iostream>
 
 using namespace nidas::util;
@@ -68,13 +66,13 @@ SocketImpl::SocketImpl(int domain,int type) throw(IOException):
     _hasTimeout(false),_timeout(),_pktInfo(false)
 {
     if ((_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
+        throw IOException("Socket","open",errno);
     getLocalAddr();
-    _remoteaddr = _localaddr->clone();	// not connected yet
+    _remoteaddr = _localaddr->clone();  // not connected yet
 }
 
 SocketImpl::SocketImpl(int fda, const SocketAddress& raddr)
-	throw(IOException) :
+    throw(IOException) :
     _sockdomain(raddr.getFamily()),// AF_* are equal to PF_* in sys/socket.h
     _socktype(SOCK_STREAM),
     _localaddr(0),
@@ -137,64 +135,62 @@ int SocketImpl::getTimeout() const
 void SocketImpl::close() throw(IOException) 
 {
 
-#ifdef DEBUG
-    cerr << "closing, local=" << getLocalSocketAddress().toString()
-	 << " remote=" << getRemoteSocketAddress().toString() << endl;
-#endif
+    VLOG(("closing, local=") << getLocalSocketAddress().toString()
+         << " remote=" << getRemoteSocketAddress().toString());
     int fd = _fd;
     _fd = -1;
     if (fd >= 0 && ::close(fd) < 0) 
-    	throw IOException("Socket","close",errno);
+        throw IOException("Socket","close",errno);
 }
 
 void SocketImpl::connect(const std::string& host, int port)
-	throw(UnknownHostException,IOException)
+    throw(UnknownHostException,IOException)
 {
     Inet4Address addr = Inet4Address::getByName(host);
     connect(addr,port);
 }
 
 void SocketImpl::connect(const Inet4Address& addr,int port)
-	throw(IOException)
+    throw(IOException)
 {
     Inet4SocketAddress sockaddr(addr,port);
     connect(sockaddr);
 }
 
 void SocketImpl::connect(const SocketAddress& addr)
-	throw(IOException)
+    throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
+        throw IOException("Socket","open",errno);
     // works for both AF_UNIX, AF_INET
     if (::connect(_fd,addr.getConstSockAddrPtr(),addr.getSockAddrLen()) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(addr.toAddressString(),"connect",ierr);
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(addr.toAddressString(),"connect",ierr);
     }
     // For unbound INET sockets the local address isn't set until a connect,
     // so we do it now.
     // For UNIX sockets a getsockname() after a connect doesn't give
     // any local address info, so getLocalAddr doesn't do much.
-    getLocalAddr();	
+    getLocalAddr();
     getRemoteAddr();
 }
 
 
 void SocketImpl::bind(int port) throw(IOException)
 {
-    Inet4Address addr;	// default
+    Inet4Address addr;  // default
     bind(addr,port);
 }
 
 void SocketImpl::bind(const Inet4Address& addr,int port)
-	throw(IOException)
+    throw(IOException)
 {
     Inet4SocketAddress sockaddr(addr,port);
     bind(sockaddr);
 }
 
 void SocketImpl::bind(const SocketAddress& sockaddr)
-	throw(IOException)
+    throw(IOException)
 {
     // The range of dynamic ports on IPV4 is supposed to be is 49152 to 65536, according to RFC6335.
     // http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml
@@ -220,18 +216,20 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
             sockaddr.toAddressString().c_str()));
 #endif
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
+        throw IOException("Socket","open",errno);
     int rval = _reuseaddr ? 1 : 0;        /* flag for setsocketopt */
     if (::setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR,
-    	(void *)&rval, sizeof(rval)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(sockaddr.toAddressString(),"setsockopt SO_REUSEADDR",ierr);
+                     (void *)&rval, sizeof(rval)) < 0)
+    {
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(sockaddr.toAddressString(),"setsockopt SO_REUSEADDR",ierr);
     }
 
     if (::bind(_fd,sockaddr.getConstSockAddrPtr(),
-    	sockaddr.getSockAddrLen()) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(sockaddr.toAddressString(),"bind",ierr);
+               sockaddr.getSockAddrLen()) < 0)
+    {
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(sockaddr.toAddressString(),"bind",ierr);
     }
 
     if (_socktype == SOCK_STREAM) listen();
@@ -243,17 +241,17 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
 void SocketImpl::listen() throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
+        throw IOException("Socket","open",errno);
     if (::listen(_fd,_backlog) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"listen",ierr);
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"listen",ierr);
     }
 }
 
 Socket* SocketImpl::accept() throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
-	throw IOException("Socket","open",errno);
+        throw IOException("Socket","open",errno);
 
     /* This accept follows this useful bit of wisdom from man 2 accept:
      * There may not always be a connection waiting after a SIGIO is
@@ -290,9 +288,9 @@ Socket* SocketImpl::accept() throw(IOException)
 
     switch (_sockdomain) {
     case AF_INET:
-	{
-	    struct sockaddr_in tmpaddr = sockaddr_in();
-	    socklen_t slen = sizeof(tmpaddr);
+        {
+            struct sockaddr_in tmpaddr = sockaddr_in();
+            socklen_t slen = sizeof(tmpaddr);
 
             // keep accepting until a valid connection
             // throw IOException of EINTR if a signal, such as SIGUSR1, is received
@@ -333,13 +331,13 @@ Socket* SocketImpl::accept() throw(IOException)
                 }
                 return new Socket(newfd,Inet4SocketAddress(&tmpaddr));
             }
-	}
-	break;
+        }
+        break;
     case AF_UNIX:
-	{
-	    struct sockaddr_un tmpaddr = sockaddr_un();
-	    socklen_t slen = sizeof(tmpaddr);
-	    int newfd;
+        {
+            struct sockaddr_un tmpaddr = sockaddr_un();
+            socklen_t slen = sizeof(tmpaddr);
+            int newfd;
 
 #ifdef HAVE_PPOLL
             if (::ppoll(&fds,1,NULL,&sigmask) < 0) {
@@ -381,12 +379,10 @@ Socket* SocketImpl::accept() throw(IOException)
              * getpeername after a connect gives address info, but getsockname doesn't.
              * getsockname does give address info after a bind.
              */
-#ifdef DEBUG
-            cerr << "AF_UNIX::accept, slen=" << slen << endl;
-#endif
+            VLOG(("AF_UNIX::accept, slen=") << slen);
             return new Socket(newfd,UnixSocketAddress(&tmpaddr));
-	}
-	break;
+        }
+        break;
     }
     return 0;
 }
@@ -395,23 +391,21 @@ void SocketImpl::getLocalAddr() throw(IOException)
 {
     SocketAddress* newaddr;
     if (_sockdomain == AF_INET) {
-	struct sockaddr_in tmpaddr;
-	socklen_t slen = sizeof(tmpaddr);
-	if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
-	    throw IOException("Socket","getsockname",errno);
-	newaddr = new Inet4SocketAddress(&tmpaddr);
+        struct sockaddr_in tmpaddr;
+        socklen_t slen = sizeof(tmpaddr);
+        if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
+            throw IOException("Socket","getsockname",errno);
+        newaddr = new Inet4SocketAddress(&tmpaddr);
     }
     else {
-	struct sockaddr_un tmpaddr = sockaddr_un();
-	socklen_t slen = sizeof(tmpaddr);
-	if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
-	    throw IOException("Socket","getsockname",errno);
-	newaddr = new UnixSocketAddress(&tmpaddr);
-#ifdef DEBUG
-	cerr << "getsockname, slen=" << slen <<
-		" sizeof=" << sizeof(tmpaddr) <<
-		" addr=" << newaddr->toString() << endl;
-#endif
+        struct sockaddr_un tmpaddr = sockaddr_un();
+        socklen_t slen = sizeof(tmpaddr);
+        if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
+            throw IOException("Socket","getsockname",errno);
+        newaddr = new UnixSocketAddress(&tmpaddr);
+        VLOG(("getsockname, slen=") << slen
+             << " sizeof=" << sizeof(tmpaddr)
+             << " addr=" << newaddr->toString());
     }
     delete _localaddr;
     _localaddr = newaddr;
@@ -421,23 +415,21 @@ void SocketImpl::getRemoteAddr() throw(IOException)
 {
     SocketAddress* newaddr;
     if (_sockdomain == AF_INET) {
-	struct sockaddr_in tmpaddr;
-	socklen_t slen = sizeof(tmpaddr);
-	if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
-	    throw IOException("Socket","getpeername",errno);
-	newaddr = new Inet4SocketAddress(&tmpaddr);
+        struct sockaddr_in tmpaddr;
+        socklen_t slen = sizeof(tmpaddr);
+        if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
+            throw IOException("Socket","getpeername",errno);
+        newaddr = new Inet4SocketAddress(&tmpaddr);
     }
     else {
-	struct sockaddr_un tmpaddr = sockaddr_un();
-	socklen_t slen = sizeof(tmpaddr);
-	if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
-	    throw IOException("Socket","getpeername",errno);
-	newaddr = new UnixSocketAddress(&tmpaddr);
-#ifdef DEBUG
-	cerr << "getpeername, slen=" << slen <<
-		" sizeof=" << sizeof(tmpaddr) <<
-		" addr=" << newaddr->toString() << endl;
-#endif
+        struct sockaddr_un tmpaddr = sockaddr_un();
+        socklen_t slen = sizeof(tmpaddr);
+        if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
+            throw IOException("Socket","getpeername",errno);
+        newaddr = new UnixSocketAddress(&tmpaddr);
+        VLOG(("getpeername, slen=") << slen
+             << " sizeof=" << sizeof(tmpaddr)
+             << " addr=" << newaddr->toString());
     }
     delete _remoteaddr;
     _remoteaddr = newaddr;
@@ -447,30 +439,34 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
 {
     int flags;
     /* get current flags */
-    if ((flags = ::fcntl(_fd, F_GETFL, 0)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+    if ((flags = ::fcntl(_fd, F_GETFL, 0)) < 0)
+    {
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),
-		"fcntl(...,F_GETFL,...)",ierr);
+                          "fcntl(...,F_GETFL,...)",ierr);
     }
-    if (val) flags |= O_NONBLOCK;
-    else flags &= ~O_NONBLOCK;
+    if (val)
+        flags |= O_NONBLOCK;
+    else
+        flags &= ~O_NONBLOCK;
 
-    if (::fcntl(_fd, F_SETFL, flags) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+    if (::fcntl(_fd, F_SETFL, flags) < 0)
+    {
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),
-		"fcntl(...,F_SETFL,O_NONBLOCK)",ierr);
+                          "fcntl(...,F_SETFL,O_NONBLOCK)",ierr);
     }
     ILOG(("%s: setNonBlocking(%s)",_localaddr->toAddressString().c_str(),
-	(val ? "true" : "false")));
+          (val ? "true" : "false")));
 }
 
 bool SocketImpl::isNonBlocking() const throw(IOException)
 {
     int flags;
     if ((flags = ::fcntl(_fd, F_GETFL, 0)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),
-		"fcntl(...,F_GETFL,...)",ierr);
+                          "fcntl(...,F_GETFL,...)",ierr);
     }
     return (flags & O_NONBLOCK) != 0;
 }
@@ -491,7 +487,7 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
         fd_set fdset;
         FD_ZERO(&fdset);
         assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
-	FD_SET(_fd, &fdset);
+        FD_SET(_fd, &fdset);
 #endif
 
         // get the existing signal mask
@@ -505,12 +501,12 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
 #ifdef HAVE_PPOLL
         pres = ::ppoll(&fds,1,&_timeout,&sigmask);
         if (pres < 0)
-	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+            throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"receive");
 
         if (fds.revents & POLLERR)
-	    throw IOException(_localaddr->toAddressString(),"receive",errno);
+            throw IOException(_localaddr->toAddressString(),"receive",errno);
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
@@ -523,25 +519,26 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
             return;
         }
 #else
-	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
-	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+        if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+            throw IOException(_localaddr->toAddressString(),"pselect",errno);
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"receive");
 #endif
     }
     ssize_t res;
     socklen_t slen = packet.getSockAddrLen();
     if ((res = ::recvfrom(_fd,packet.getDataVoidPtr(), packet.getMaxLength(),0,
-    	packet.getSockAddrPtr(),&slen)) <= 0) {
-	if (res < 0) {
+                          packet.getSockAddrPtr(),&slen)) <= 0) {
+        if (res < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 packet.setLength(0);
                 return;
             }
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
-	}
-	else throw EOFException(_localaddr->toAddressString(), "receive");
+            int ierr = errno;  // Inet4SocketAddress::toString changes errno
+            throw IOException(_localaddr->toAddressString(),"receive",ierr);
+        }
+        else
+            throw EOFException(_localaddr->toAddressString(), "receive");
     }
     packet.setLength(res);
 }
@@ -562,7 +559,7 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
         fd_set fdset;
         FD_ZERO(&fdset);
         assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
-	FD_SET(_fd, &fdset);
+        FD_SET(_fd, &fdset);
 #endif
 
         // get the existing signal mask
@@ -576,12 +573,12 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
 #ifdef HAVE_PPOLL
         pres = ::ppoll(&fds,1,&_timeout,&sigmask);
         if (pres < 0)
-	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+            throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"receive");
 
         if (fds.revents & POLLERR)
-	    throw IOException(_localaddr->toAddressString(),"receive",errno);
+            throw IOException(_localaddr->toAddressString(),"receive",errno);
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
@@ -594,12 +591,12 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
             return;
         }
 #else
-	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0) {
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"pselect",ierr);
-	}
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+        if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0) {
+            int ierr = errno;  // Inet4SocketAddress::toString changes errno
+            throw IOException(_localaddr->toAddressString(),"pselect",ierr);
+        }
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"receive");
 #endif
     }
 
@@ -638,7 +635,7 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
             if (! prevPktInfo) setPktInfo(false);
             return;
         }
-        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),"receive",ierr);
     }
     packet.setLength(res);
@@ -685,7 +682,7 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
 }
 
 size_t SocketImpl::recv(void* buf, size_t len, int flags)
-	throw(IOException)
+    throw(IOException)
 {
     if (_hasTimeout) {
 #ifdef HAVE_PPOLL
@@ -700,7 +697,7 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
         fd_set fdset;
         FD_ZERO(&fdset);
         assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
-	FD_SET(_fd, &fdset);
+        FD_SET(_fd, &fdset);
 #endif
 
         // get the existing signal mask
@@ -714,12 +711,12 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
 #ifdef HAVE_PPOLL
         pres = ::ppoll(&fds,1,&_timeout,&sigmask);
         if (pres < 0)
-	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"recv");
+            throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"recv");
 
         if (fds.revents & POLLERR)
-	    throw IOException(_localaddr->toAddressString(),"recv",errno);
+            throw IOException(_localaddr->toAddressString(),"recv",errno);
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
@@ -731,26 +728,26 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
             return 0;
         }
 #else
-	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
-	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
-	if (pres == 0) 
-	    throw IOTimeoutException(_localaddr->toAddressString(),"recv");
+        if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+            throw IOException(_localaddr->toAddressString(),"pselect",errno);
+        if (pres == 0) 
+            throw IOTimeoutException(_localaddr->toAddressString(),"recv");
 #endif
     }
     ssize_t res;
     if ((res = ::recv(_fd,buf,len,flags)) <= 0) {
-	if (res < 0) {
+        if (res < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"recv",ierr);
-	}
-	else throw EOFException(_localaddr->toAddressString(), "recv");
+            int ierr = errno;  // Inet4SocketAddress::toString changes errno
+            throw IOException(_localaddr->toAddressString(),"recv",ierr);
+        }
+        else throw EOFException(_localaddr->toAddressString(), "recv");
     }
     return res;
 }
 
 size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
-	SocketAddress& from) throw(IOException)
+                            SocketAddress& from) throw(IOException)
 {
     if (_hasTimeout) {
 
@@ -766,7 +763,7 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
         fd_set fdset;
         FD_ZERO(&fdset);
         assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
-	FD_SET(_fd, &fdset);
+        FD_SET(_fd, &fdset);
 #endif
 
         // get the existing signal mask
@@ -780,12 +777,12 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
 #ifdef HAVE_PPOLL
         pres = ::ppoll(&fds,1,&_timeout,&sigmask);
         if (pres < 0)
-	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
-	if (pres == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
+            throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+        if (pres == 0)
+            throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
 
         if (fds.revents & POLLERR)
-	    throw IOException(_localaddr->toAddressString(),"recvfrom",errno);
+            throw IOException(_localaddr->toAddressString(),"recvfrom",errno);
 
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
@@ -797,22 +794,22 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
             return 0;
         }
 #else
-	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
-	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
-	if (pres == 0) 
-	    throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
+        if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+            throw IOException(_localaddr->toAddressString(),"pselect",errno);
+        if (pres == 0) 
+            throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
 #endif
     }
     ssize_t res;
     socklen_t slen = from.getSockAddrLen();
     if ((res = ::recvfrom(_fd,buf,len,flags,
-    	from.getSockAddrPtr(),&slen)) <= 0) {
-	if (res < 0) {
+                          from.getSockAddrPtr(),&slen)) <= 0) {
+        if (res < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(from.toAddressString(),"recvfrom",ierr);
-	}
-	else throw EOFException(from.toAddressString(), "recvfrom");
+            int ierr = errno;  // Inet4SocketAddress::toString changes errno
+            throw IOException(from.toAddressString(),"recvfrom",ierr);
+        }
+        else throw EOFException(from.toAddressString(), "recvfrom");
     }
     return res;
 }
@@ -821,61 +818,60 @@ void SocketImpl::send(const DatagramPacketBase& packet,int flags) throw(IOExcept
 {
     int res;
 
-#ifdef DEBUG
-    cerr << "sending packet, length=" << packet.getLength()
-	 << " slen=" << packet.getSockAddrLen() << endl;
-#endif
+    VLOG(("sending packet, length=") << packet.getLength()
+         << " slen=" << packet.getSockAddrLen()
+         << " to " << packet.getSocketAddress().toAddressString());
 
     res = ::sendto(_fd, packet.getConstDataVoidPtr(), packet.getLength(), flags,
-		   packet.getConstSockAddrPtr(), packet.getSockAddrLen());
+                   packet.getConstSockAddrPtr(), packet.getSockAddrLen());
     if (res < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(packet.getSocketAddress().toAddressString(),"send",ierr);
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(packet.getSocketAddress().toAddressString(),"send",ierr);
     }
 }
 
 size_t SocketImpl::send(const void* buf, size_t len, int flags)
-	throw(IOException)
+    throw(IOException)
 {
     ssize_t res;
     if ((res = ::send(_fd,buf,len,flags)) < 0) {
-	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+        int ierr = errno;  // Inet4SocketAddress::toString changes errno
+        throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
     return res;
 }
 
 size_t SocketImpl::send(const struct iovec* iov, int iovcnt, int flags)
-	throw(IOException)
+    throw(IOException)
 {
     ssize_t res;
     struct msghdr mhdr = msghdr();
     mhdr.msg_iov = const_cast<struct iovec*>(iov);
     mhdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
-	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+        int ierr = errno;  // Inet4SocketAddress::toString changes errno
+        throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
     return res;
 }
 
 size_t SocketImpl::sendto(const void* buf, size_t len, int flags,
-	const SocketAddress& to) throw(IOException)
+                          const SocketAddress& to) throw(IOException)
 {
     ssize_t res;
     if ((res = ::sendto(_fd,buf,len,flags,
-    	to.getConstSockAddrPtr(),to.getSockAddrLen())) < 0) {
-	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(to.toAddressString(), "sendto",ierr);
+                        to.getConstSockAddrPtr(),to.getSockAddrLen())) < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+        int ierr = errno;  // Inet4SocketAddress::toString changes errno
+        throw IOException(to.toAddressString(), "sendto",ierr);
     }
     return res;
 }
 
 size_t SocketImpl::sendto(const struct iovec* iov, int iovcnt, int flags,
-	const SocketAddress& to) throw(IOException)
+                          const SocketAddress& to) throw(IOException)
 {
     ssize_t res;
     struct msghdr mhdr = msghdr();
@@ -885,36 +881,36 @@ size_t SocketImpl::sendto(const struct iovec* iov, int iovcnt, int flags,
     mhdr.msg_iov = const_cast<struct iovec*>(iov);
     mhdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
-	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
     return res;
 }
 
 void SocketImpl::sendall(const void* buf, size_t len, int flags)
-	throw(IOException)
+    throw(IOException)
 {
     const char* cbuf = (const char*)buf;
     const char* eob = cbuf + len;
 
     while (cbuf < eob) {
-	ssize_t res;
-	if ((res = ::send(_fd,cbuf,len,flags)) < 0) {
-	    // if (errno == EAGAIN || errno == EWOULDBLOCK) sleep?
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_remoteaddr->toAddressString(),"send",ierr);
-	}
-	cbuf += res;
-	len -= res;
+        ssize_t res;
+        if ((res = ::send(_fd,cbuf,len,flags)) < 0) {
+            // if (errno == EAGAIN || errno == EWOULDBLOCK) sleep?
+            int ierr = errno;   // Inet4SocketAddress::toString changes errno
+            throw IOException(_remoteaddr->toAddressString(),"send",ierr);
+        }
+        cbuf += res;
+        len -= res;
     }
 }
 
 void SocketImpl::setReceiveBufferSize(int size) throw(IOException) {
     if (::setsockopt(_fd, SOL_SOCKET, SO_RCVBUF,
-    	(void *)&size, sizeof(size)) < 0)  {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt SO_RCVBUF",ierr);
+                     (void *)&size, sizeof(size)) < 0)  {
+        int ierr = errno;   // Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt SO_RCVBUF",ierr);
     }
 }
 
@@ -922,21 +918,19 @@ int SocketImpl::getReceiveBufferSize() throw(IOException) {
     int size;
     socklen_t reqsize = sizeof(int);
     if (::getsockopt(_fd, SOL_SOCKET, SO_RCVBUF,
-    	(void *)&size, &reqsize) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"getsockopt SO_RCVBUF",ierr);
+                     (void *)&size, &reqsize) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"getsockopt SO_RCVBUF",ierr);
     }
-#ifdef DEBUG
-    cerr << "SocketImpl::getReceiveBufferSize()=" << size << endl;
-#endif
+    VLOG(("SocketImpl::getReceiveBufferSize()=") << size);
     return size;
 }
 
 void SocketImpl::setSendBufferSize(int size) throw(IOException) {
     if (::setsockopt(_fd, SOL_SOCKET, SO_SNDBUF,
-    	(void *)&size, sizeof(size)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt SO_SNDBUF",ierr);
+                     (void *)&size, sizeof(size)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt SO_SNDBUF",ierr);
     }
 }
 
@@ -944,13 +938,11 @@ int SocketImpl::getSendBufferSize() throw(IOException) {
     int size;
     socklen_t reqsize = sizeof(int);
     if (::getsockopt(_fd, SOL_SOCKET, SO_SNDBUF,
-    	(void *)&size, &reqsize) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"getsockopt SO_SNDBUF",ierr);
+                     (void *)&size, &reqsize) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"getsockopt SO_SNDBUF",ierr);
     }
-#ifdef DEBUG
-    cerr << "SocketImpl::getSendBufferSize()=" << size << endl;
-#endif
+    VLOG(("SocketImpl::getSendBufferSize()=") << size);
     return size;
 }
 
@@ -961,7 +953,7 @@ void SocketImpl::setTcpNoDelay(bool val) throw(IOException)
     socklen_t len = sizeof(opt);
     if (opt) ILOG(("%s: setting TCP_NODELAY",_localaddr->toAddressString().c_str()));
     if (setsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,len) < 0) {
-        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
     }
 }
@@ -972,7 +964,7 @@ bool SocketImpl::getTcpNoDelay() throw(IOException)
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,&len) < 0) {
-        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
     }
     return opt != 0;
@@ -985,8 +977,8 @@ void SocketImpl::setKeepAlive(bool val) throw(IOException)
     socklen_t len = sizeof(opt);
     // man 7 socket
     if (setsockopt(_fd,SOL_SOCKET,SO_KEEPALIVE,(char *)&opt,len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt SO_KEEPALIVE",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt SO_KEEPALIVE",ierr);
     }
 }
 
@@ -996,8 +988,8 @@ bool SocketImpl::getKeepAlive() const throw(IOException)
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(_fd,SOL_SOCKET,SO_KEEPALIVE,(char *)&opt,&len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
     }
     return opt != 0;
 }
@@ -1020,8 +1012,9 @@ void SocketImpl::setKeepAliveIdleSecs(int val) throw(IOException)
 
     if (!getKeepAlive()) setKeepAlive(true);
     if (setsockopt(_fd,SOL_TCP,TCP_KEEPIDLE,(char *)&val,len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_KEEPIDLE",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt TCP_KEEPIDLE", ierr);
     }
 }
 
@@ -1031,8 +1024,9 @@ int SocketImpl::getKeepAliveIdleSecs() const throw(IOException)
     int val = 0;
     socklen_t len = sizeof(val);
     if (getsockopt(_fd,SOL_TCP,TCP_KEEPIDLE,(char *)&val,&len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_KEEPIDLE",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt TCP_KEEPIDLE", ierr);
     }
     return val;
 }
@@ -1041,9 +1035,10 @@ int SocketImpl::getInQueueSize() const throw(IOException)
 {
     if (getDomain() != AF_INET) return 0;
     int val = 0;
-    if (::ioctl(_fd,SIOCINQ,&val) < 0) {	// man 7 tcp
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"getInQueueSize: ioctl SIOCINQ",ierr);
+    if (::ioctl(_fd,SIOCINQ,&val) < 0) {// man 7 tcp
+        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getInQueueSize: ioctl SIOCINQ", ierr);
     }
     return val;
 }
@@ -1052,9 +1047,10 @@ int SocketImpl::getOutQueueSize() const throw(IOException)
 {
     if (getDomain() != AF_INET) return 0;
     int val = 0;
-    if (::ioctl(_fd,SIOCOUTQ,&val) < 0) {	// man 7 tcp
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"getOutQueueSize: ioctl SIOCOUTQ",ierr);
+    if (::ioctl(_fd,SIOCOUTQ,&val) < 0) {// man 7 tcp
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getOutQueueSize: ioctl SIOCOUTQ", ierr);
     }
     return val;
 }
@@ -1065,11 +1061,41 @@ void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
 {
     list<Inet4NetworkInterface> ifcs = getInterfaces();
     // join on all interfaces
+    int njoined = 0;
     for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
-        ii != ifcs.end(); ++ii) {
+         ii != ifcs.end(); ++ii)
+    {
         Inet4NetworkInterface ifc = *ii;
-        if (ifc.getFlags() & IFF_BROADCAST && ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
-            joinGroup(groupAddr,ifc);
+        if (ifc.getFlags() & IFF_BROADCAST &&
+            ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
+        {
+            // On systems with multi-homed interfaces like ISS, the bind to
+            // the aliased address will fail with EADDRINUSE.  So report
+            // those errors but continue to join on the other interfaces.
+            try {
+                joinGroup(groupAddr, ifc);
+                ++njoined;
+            }
+            catch (const IOException& ioe)
+            {
+                if (ioe.getErrno() == EADDRINUSE)
+                {
+                    ELOG(("continuing past address in use error: ")
+                         << ioe.toString());
+                }
+                else
+                {
+                    throw ioe;
+                }
+            }
+        }
+    }
+    // If none of the interfaces succeeded, then that's really a problem.
+    if (ifcs.size() > 0 && njoined == 0)
+    {
+        throw IOException(groupAddr.getHostAddress(),
+                          "joinGroup()",
+                          "multicast join failed on all interfaces");
     }
 }
 #else
@@ -1081,32 +1107,34 @@ void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
     mreq.imr_ifindex = 0;
 
     if (::setsockopt(_fd, SOL_IP, IP_ADD_MEMBERSHIP,
-    	(void *)&mreq, sizeof(mreq)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(groupAddr.getHostAddress(),
-	    "setsockopt IP_ADD_MEMBERSHIP",ierr);
+                     (void *)&mreq, sizeof(mreq)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(groupAddr.getHostAddress(),
+                          "setsockopt IP_ADD_MEMBERSHIP",ierr);
     }
 }
 
 #endif
 
-void SocketImpl::joinGroup(Inet4Address groupAddr,const Inet4NetworkInterface & iface) throw(IOException)
+void
+SocketImpl::
+joinGroup(Inet4Address groupAddr,
+          const Inet4NetworkInterface & iface) throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = groupAddr.getInAddr();
     mreq.imr_address = iface.getAddress().getInAddr();
     mreq.imr_ifindex = iface.getIndex();
-#ifdef DEBUG
-    cerr << "joining group, maddr=" << groupAddr.getHostAddress() <<
-        " iface=" << iface.getAddress().getHostAddress() << 
-        " index=" << iface.getIndex() << " iface name=" << iface.getName() << endl;
-#endif
+    VLOG(("joining group, maddr=") << groupAddr.getHostAddress()
+         << " iface=" << iface.getAddress().getHostAddress()
+         << " index=" << iface.getIndex()
+         << " iface name=" << iface.getName());
 
     if (::setsockopt(_fd, SOL_IP, IP_ADD_MEMBERSHIP,
-    	(void *)&mreq, sizeof(mreq)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(groupAddr.getHostAddress(),
-	    "setsockopt IP_ADD_MEMBERSHIP",ierr);
+                     (void *)&mreq, sizeof(mreq)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(groupAddr.getHostAddress(),
+                          "setsockopt IP_ADD_MEMBERSHIP",ierr);
     }
 }
 
@@ -1114,12 +1142,17 @@ void SocketImpl::leaveGroup(Inet4Address groupAddr) throw(IOException)
 {
     list<Inet4NetworkInterface> ifcs = getInterfaces();
     // leave on all interfaces
-    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin(); ii != ifcs.end(); ++ii)
+    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
+         ii != ifcs.end(); ++ii)
+    {
         leaveGroup(groupAddr,*ii);
+    }
 }
 
-void SocketImpl::leaveGroup(Inet4Address groupAddr,const Inet4NetworkInterface& iface)
-	throw(IOException)
+void
+SocketImpl::
+leaveGroup(Inet4Address groupAddr,const Inet4NetworkInterface& iface)
+    throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = groupAddr.getInAddr();
@@ -1127,30 +1160,32 @@ void SocketImpl::leaveGroup(Inet4Address groupAddr,const Inet4NetworkInterface& 
     mreq.imr_ifindex = iface.getIndex();
 
     if (::setsockopt(_fd, SOL_IP, IP_DROP_MEMBERSHIP,
-    	(void *)&mreq, sizeof(mreq)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(groupAddr.getHostAddress(),
-	    "setsockopt IP_DROP_MEMBERSHIP",ierr);
+                     (void *)&mreq, sizeof(mreq)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(groupAddr.getHostAddress(),
+                          "setsockopt IP_DROP_MEMBERSHIP",ierr);
     }
 }
 
-void SocketImpl::setInterface(Inet4Address maddr,const Inet4NetworkInterface& iface) throw(IOException)
+void
+SocketImpl::
+setInterface(Inet4Address maddr, const Inet4NetworkInterface& iface)
+    throw(IOException)
 {
     struct ip_mreqn mreq;
     mreq.imr_multiaddr = maddr.getInAddr();
     mreq.imr_address = iface.getAddress().getInAddr();
     mreq.imr_ifindex = iface.getIndex();
-#ifdef DEBUG
-    cerr << "setInterface, maddr=" << maddr.getHostAddress() <<
-        " iface=" << iface.getAddress().getHostAddress() << 
-        " index=" << iface.getIndex() << " iface name=" << iface.getName() << endl;
-#endif
+    VLOG(("setInterface, maddr=") << maddr.getHostAddress()
+         << " iface=" << iface.getAddress().getHostAddress()
+         << " index=" << iface.getIndex()
+         << " iface name=" << iface.getName());
 
     if (::setsockopt(_fd, SOL_IP, IP_MULTICAST_IF,
-    	(void *)&mreq, sizeof(mreq)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-		"setsockopt IP_MULTICAST_IF",ierr);
+                     (void *)&mreq, sizeof(mreq)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt IP_MULTICAST_IF",ierr);
     }
 }
 
@@ -1162,28 +1197,30 @@ void SocketImpl::setInterface(Inet4Address maddr) throw(IOException)
     mreq.imr_ifindex = 0;
 
     if (::setsockopt(_fd, SOL_IP, IP_MULTICAST_IF,
-    	(void *)&mreq, sizeof(mreq)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-		"setsockopt IP_MULTICAST_IF",ierr);
+                     (void *)&mreq, sizeof(mreq)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt IP_MULTICAST_IF",ierr);
     }
 }
 
 Inet4NetworkInterface SocketImpl::findInterface(const Inet4Address& iaddr) const
-	throw(IOException)
+    throw(IOException)
 {
     list<Inet4NetworkInterface> ifcs = getInterfaces();
     Inet4NetworkInterface mtch;
     int bits = 0;
-    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin(); ii != ifcs.end(); ++ii) {
+    for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
+         ii != ifcs.end(); ++ii)
+    {
         Inet4NetworkInterface iface = *ii;
         if (iaddr == Inet4Address(INADDR_ANY)) return iface;
         Inet4Address addr = ii->getAddress();
-	int ib;
+        int ib;
         if ((ib = iaddr.bitsMatch(addr)) > bits) {
-	    mtch = *ii;
-	    bits = ib;
-	}
+            mtch = *ii;
+            bits = ib;
+        }
     }
     return mtch;
 }
@@ -1193,23 +1230,20 @@ Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
     struct ip_mreqn mreq = ip_mreqn();
     socklen_t reqsize = sizeof(mreq);
     if (::getsockopt(_fd, SOL_IP, IP_MULTICAST_IF,(void *)&mreq, &reqsize) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-	    "getsockopt IP_MULTICAST_IF",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getsockopt IP_MULTICAST_IF",ierr);
     }
-#ifdef DEBUG
-    cerr << "reqsize=" << reqsize << endl;
-#endif
+    VLOG(("reqsize=") << reqsize);
     // If the returned size is 4, then the contents of imr_multiaddr appears
     // to be the local interface address.
     if (reqsize == 4) {
 
-#ifdef DEBUG
-        cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface index=" <<
-            mreq.imr_ifindex << 
-        " mcastaddr = " << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress() << 
-        " address = " << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress() <<  endl;
-#endif
+        VLOG(("Inet4NetworkInterface SocketImpl::getInterface(): iface index=")
+             << mreq.imr_ifindex << " mcastaddr = "
+             << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress()
+             << " address = "
+             << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress());
         Inet4Address addr(ntohl(mreq.imr_multiaddr.s_addr));
         list<Inet4NetworkInterface> ifaces = getInterfaces();
         list<Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
@@ -1217,14 +1251,14 @@ Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
             Inet4NetworkInterface iface = *ii;
             if (iface.getAddress() == addr) return iface;
         }
-        return Inet4NetworkInterface("",addr,Inet4Address(INADDR_ANY),Inet4Address(INADDR_BROADCAST),0,0,0);
+        return Inet4NetworkInterface("", addr, Inet4Address(INADDR_ANY),
+                                     Inet4Address(INADDR_BROADCAST), 0, 0, 0);
     }
-#ifdef DEBUG
-    cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface index=" <<
-        mreq.imr_ifindex << 
-        " mcastaddr = " << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress() << 
-        " address = " << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress() <<  endl;
-#endif
+    VLOG(("Inet4NetworkInterface SocketImpl::getInterface(): iface index=")
+         << mreq.imr_ifindex << " mcastaddr = "
+         << Inet4Address(ntohl(mreq.imr_multiaddr.s_addr)).getHostAddress()
+         << " address = "
+         << Inet4Address(ntohl(mreq.imr_address.s_addr)).getHostAddress());
 
     if (mreq.imr_ifindex == 0)
         return Inet4NetworkInterface();
@@ -1233,10 +1267,9 @@ Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
 
     ifreq.ifr_ifindex = mreq.imr_ifindex;
     if (ioctl(getFd(),SIOCGIFNAME,&ifreq) < 0)
-		throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
-#ifdef DEBUG
-    cerr << "Inet4NetworkInterface SocketImpl::getInterface(): iface name=" << ifreq.ifr_name << endl;
-#endif
+        throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
+    VLOG(("Inet4NetworkInterface SocketImpl::getInterface(): iface name=")
+         << ifreq.ifr_name);
 
     return getInterface(ifreq.ifr_name);
 }
@@ -1244,10 +1277,10 @@ Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
 void SocketImpl::setTimeToLive(int val) throw(IOException)
 {
     if (setsockopt(_fd, SOL_IP, IP_MULTICAST_TTL,
-    	(void *)&val, sizeof(val)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-	    "setsockopt IP_MULTICAST_TTL",ierr);
+                   (void *)&val, sizeof(val)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt IP_MULTICAST_TTL",ierr);
     }
 }
 
@@ -1256,10 +1289,10 @@ int SocketImpl::getTimeToLive() const throw(IOException)
     int val;
     socklen_t reqsize = sizeof(val);
     if (::getsockopt(_fd, SOL_IP, IP_MULTICAST_TTL,
-    	(void *)&val, &reqsize) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-		"getsockopt IP_MULTICAST_TTL",ierr);
+                     (void *)&val, &reqsize) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getsockopt IP_MULTICAST_TTL",ierr);
     }
     return val;
 }
@@ -1269,9 +1302,9 @@ void SocketImpl::setMulticastLoop(bool val) throw(IOException)
     int loop = (val ? 1 : 0);
     if (setsockopt(_fd, SOL_IP, IP_MULTICAST_LOOP,
         (void*)&loop,sizeof(loop)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-	    "setsockopt IP_MULTICAST_LOOP",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt IP_MULTICAST_LOOP",ierr);
     }
 }
 
@@ -1280,10 +1313,10 @@ bool SocketImpl::getMulticastLoop() const throw(IOException)
     int val;
     socklen_t reqsize = sizeof(val);
     if (::getsockopt(_fd, SOL_IP, IP_MULTICAST_LOOP,
-    	(void *)&val, &reqsize) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-		"getsockopt IP_MULTICAST_LOOP",ierr);
+                     (void *)&val, &reqsize) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getsockopt IP_MULTICAST_LOOP",ierr);
     }
     return val != 0;
 }
@@ -1292,10 +1325,10 @@ void SocketImpl::setBroadcastEnable(bool val) throw(IOException)
 {
     int bcast = val ? 1 : 0;
     if (::setsockopt(_fd, SOL_SOCKET, SO_BROADCAST,
-    	(void *)&bcast, sizeof(bcast)) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-	    "setsockopt SO_BROADCAST",ierr);
+                     (void *)&bcast, sizeof(bcast)) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt SO_BROADCAST",ierr);
     }
 }
 
@@ -1304,15 +1337,17 @@ bool SocketImpl::getBroadcastEnable() const throw(IOException)
     int bcast;
     socklen_t slen = sizeof(bcast);
     if (::getsockopt(_fd, SOL_SOCKET, SO_BROADCAST,
-    	(void *)&bcast, &slen) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),
-	    "getsockopt SO_BROADCAST",ierr);
+                     (void *)&bcast, &slen) < 0) {
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "getsockopt SO_BROADCAST",ierr);
     }
     return bcast != 0;
 }
 
-Inet4NetworkInterface SocketImpl::getInterface(const std::string& name) const throw(IOException)
+Inet4NetworkInterface
+SocketImpl::
+getInterface(const std::string& name) const throw(IOException)
 {
     struct ifreq ifreq;
     strncpy(ifreq.ifr_name,name.c_str(),IF_NAMESIZE);
@@ -1320,7 +1355,8 @@ Inet4NetworkInterface SocketImpl::getInterface(const std::string& name) const th
     // ioctls in /usr/include/bits/ioctls.h
     if (ioctl(getFd(),SIOCGIFADDR,&ifreq) < 0)
             throw IOException("Socket","ioctl(,SIOCGIFADDR,)",errno);
-    Inet4SocketAddress saddr = Inet4SocketAddress((const sockaddr_in*)&ifreq.ifr_addr);
+    Inet4SocketAddress saddr =
+        Inet4SocketAddress((const sockaddr_in*)&ifreq.ifr_addr);
     Inet4Address addr = saddr.getInet4Address();
 
     if (ioctl(getFd(),SIOCGIFBRDADDR,&ifreq) < 0)
@@ -1345,9 +1381,7 @@ Inet4NetworkInterface SocketImpl::getInterface(const std::string& name) const th
             throw IOException("Socket","ioctl(,SIOCGIFFLAGS,)",errno);
     short flags = ifreq.ifr_flags;
 
-#ifdef DEBUG
-    cerr << "addr="  << saddr.toString() << endl;
-#endif
+    VLOG(("addr=") << saddr.toString());
     return Inet4NetworkInterface(name,addr,baddr,maddr,mtu,index,flags);
 }
 
@@ -1379,22 +1413,18 @@ list<Inet4NetworkInterface> SocketImpl::getInterfaces() const throw(IOException)
     vector<char> ifcbuf;
     for (int bufsize=4096; ; bufsize += 1024) {
         ifcbuf.resize(bufsize);
-	ifcs.ifc_buf = &ifcbuf.front();
-	ifcs.ifc_len = bufsize;
-	if (ioctl(getFd(),SIOCGIFCONF,&ifcs) < 0)
-		throw IOException("Socket","ioctl(,SIOCGIFCONF,)",errno);
-	if (ifcs.ifc_len != bufsize) break;
-#ifdef DEBUG
-	cerr << "bufsize=" << bufsize << " is not enough" << endl;
-#endif
+        ifcs.ifc_buf = &ifcbuf.front();
+        ifcs.ifc_len = bufsize;
+        if (ioctl(getFd(),SIOCGIFCONF,&ifcs) < 0)
+            throw IOException("Socket","ioctl(,SIOCGIFCONF,)",errno);
+        if (ifcs.ifc_len != bufsize) break;
+        VLOG(("bufsize=") << bufsize << " is not enough");
     }
     assert((ifcs.ifc_len % sizeof(struct ifreq)) == 0);
     int ninterfaces = ifcs.ifc_len / sizeof(struct ifreq);
 
     for (int i = 0; i < ninterfaces; i++) {
-#ifdef DEBUG
-	cerr << "name="  << ifcs.ifc_req[i].ifr_name << endl;
-#endif
+        VLOG(("name=") << ifcs.ifc_req[i].ifr_name);
         Inet4NetworkInterface ifc = getInterface(ifcs.ifc_req[i].ifr_name);
         interfaces.push_back(ifc);
     }
@@ -1407,25 +1437,26 @@ void SocketImpl::setPktInfo(bool val) throw(IOException)
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
     if (::setsockopt(_fd, IPPROTO_IP,IP_PKTINFO,(char*)&opt,len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt IP_PKTINFO",ierr);
+        int ierr = errno;// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),
+                          "setsockopt IP_PKTINFO", ierr);
     }
     _pktInfo = val;
 }
 
 Socket::Socket(int domain) throw(IOException) :
-	_impl(domain,SOCK_STREAM)
+    _impl(domain,SOCK_STREAM)
 {
 }
 
 Socket::Socket(int fd, const SocketAddress& remoteaddr) throw(IOException) :
-	_impl(fd,remoteaddr)
+    _impl(fd,remoteaddr)
 {
 }
 
 Socket::Socket(const std::string& dest,int port)
-	throw(UnknownHostException,IOException) :
-	_impl(AF_INET,SOCK_STREAM)
+    throw(UnknownHostException,IOException) :
+    _impl(AF_INET,SOCK_STREAM)
 {
     // If an exception in the connect, close the file descriptor.
     // The destructor for _impl will be called on an exception.
@@ -1439,8 +1470,8 @@ Socket::Socket(const std::string& dest,int port)
 }
 
 Socket::Socket(const Inet4Address& addr,int port)
-	throw(IOException) :
-	_impl(AF_INET,SOCK_STREAM)
+    throw(IOException) :
+    _impl(AF_INET,SOCK_STREAM)
 {
     try {
         connect(addr,port);
@@ -1452,8 +1483,8 @@ Socket::Socket(const Inet4Address& addr,int port)
 }
 
 Socket::Socket(const SocketAddress& addr)
-	throw(IOException) :
-	_impl(addr.getFamily(),SOCK_STREAM)
+    throw(IOException) :
+    _impl(addr.getFamily(),SOCK_STREAM)
 {
     try {
         connect(addr);
@@ -1465,8 +1496,8 @@ Socket::Socket(const SocketAddress& addr)
 }
 
 ServerSocket::ServerSocket(int port,int backlog)
-	throw(IOException) :
-	_impl(AF_INET,SOCK_STREAM)
+    throw(IOException) :
+    _impl(AF_INET,SOCK_STREAM)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
@@ -1482,8 +1513,8 @@ ServerSocket::ServerSocket(int port,int backlog)
 }
 
 ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
-	throw(IOException) :
-	_impl(AF_INET,SOCK_STREAM)
+    throw(IOException) :
+    _impl(AF_INET,SOCK_STREAM)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
@@ -1499,8 +1530,8 @@ ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
 }
 
 ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
-	throw(IOException) :
-	_impl(addr.getFamily(),SOCK_STREAM)
+    throw(IOException) :
+    _impl(addr.getFamily(),SOCK_STREAM)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
@@ -1533,12 +1564,12 @@ void ServerSocket::close() throw(IOException)
 }
 
 DatagramSocket::DatagramSocket() throw(IOException) :
-	_impl(AF_INET,SOCK_DGRAM)
+    _impl(AF_INET,SOCK_DGRAM)
 {
 }
 
 DatagramSocket::DatagramSocket(int port) throw(IOException) :
-	_impl(AF_INET,SOCK_DGRAM)
+    _impl(AF_INET,SOCK_DGRAM)
 {
     try {
         _impl.bind(port);
@@ -1550,8 +1581,8 @@ DatagramSocket::DatagramSocket(int port) throw(IOException) :
 }
 
 DatagramSocket::DatagramSocket(const Inet4Address& addr,int port)
-	throw(IOException) :
-	_impl(AF_INET,SOCK_DGRAM)
+    throw(IOException) :
+    _impl(AF_INET,SOCK_DGRAM)
 {
     try {
         _impl.bind(addr,port);
@@ -1563,8 +1594,8 @@ DatagramSocket::DatagramSocket(const Inet4Address& addr,int port)
 }
 
 DatagramSocket::DatagramSocket(const SocketAddress& addr)
-	throw(IOException) :
-	_impl(addr.getFamily(),SOCK_DGRAM)
+    throw(IOException) :
+    _impl(addr.getFamily(),SOCK_DGRAM)
 {
     try {
         _impl.bind(addr);
@@ -1580,7 +1611,7 @@ vector<Socket*> Socket::createSocketPair(int type) throw(IOException)
 {
     int fds[2];
     if (::socketpair(AF_UNIX,type,0,fds) < 0) 
-    	throw IOException("socketpair","create",errno);
+        throw IOException("socketpair","create",errno);
     vector<Socket*> res;
     res.push_back(new Socket(fds[0],UnixSocketAddress("")));
     res.push_back(new Socket(fds[1],UnixSocketAddress("")));

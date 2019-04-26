@@ -109,7 +109,7 @@
 #include <linux/ioport.h>
 #include <linux/sched.h>    /* schedule() */
 #include <linux/io.h>		/* outb, inb */
-#include <asm/uaccess.h>	/* access_ok */
+#include <linux/uaccess.h>	/* access_ok */
 
 /* for testing UART registers */
 #include <linux/serial_reg.h>
@@ -751,9 +751,17 @@ static long emerald_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
                 err = !access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
+#else
+                err = !access_ok((void *)arg, _IOC_SIZE(cmd));
+#endif
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                err = !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
+#else
+                err = !access_ok((void *)arg, _IOC_SIZE(cmd));
+#endif
         if (err) return -EFAULT;
 
         switch(cmd) {

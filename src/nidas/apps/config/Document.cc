@@ -539,7 +539,7 @@ cerr << "entering Document::addSensor about to make call to "
 // gets XML tag name for the selected sensor
   const XMLCh * tagName = 0;
   XMLStringConverter xmlSensor("sensor");
-  if (sensorIdName == "Analog") {
+  if (sensorIdName == "ANALOG_NCAR"||sensorIdName =="ANALOG_DMMAT") {
     tagName = (const XMLCh *) xmlSensor;
     cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
   } else { // look for the sensor ID in the catalog
@@ -571,10 +571,13 @@ cerr << "entering Document::addSensor about to make call to "
   }
 
     // setup the new DOM element from user input
-  if (sensorIdName == "Analog") {
+  if (sensorIdName == "ANALOG_NCAR") {
     elem->setAttribute((const XMLCh*)XMLStringConverter("class"), 
                        (const XMLCh*)XMLStringConverter("raf.DSMAnalogSensor"));
-  } else {
+  } else if (sensorIdName == "ANALOG_DMMAT") {
+    elem->setAttribute((const XMLCh*)XMLStringConverter("class"), 
+                       (const XMLCh*)XMLStringConverter("DSC_A2DSensor"));
+  }else {
     elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), 
                        (const XMLCh*)XMLStringConverter(sensorIdName));
   }
@@ -588,8 +591,13 @@ cerr << "entering Document::addSensor about to make call to "
 
   // If we've got an analog sensor then we need to set up a calibration file,
   // a rate, a sample and variable for it
-  if (sensorIdName ==  "Analog") {
+  if (sensorIdName ==  "ANALOG_NCAR") {
     addA2DCalFile(elem, dsmNode, a2dSNFname);
+    addA2DRate(elem, dsmNode, a2dSNFname);
+    addSampAndVar(elem, dsmNode, a2dTempSfx);
+  }
+
+  if (sensorIdName ==  "ANALOG_DMMAT") {
     addA2DRate(elem, dsmNode, a2dSNFname);
     addSampAndVar(elem, dsmNode, a2dTempSfx);
   }

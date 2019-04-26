@@ -30,6 +30,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/TimetagAdjuster.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
@@ -69,8 +70,14 @@ CSAT3_Sonic::CSAT3_Sonic():
     _nanIfDiag(true),
     _consecutiveOpenFailures(0),
     _checkConfiguration(true),
-    _checkCounter(true)
+    _checkCounter(true),
+    _ttadjuster(0)
 {
+}
+
+CSAT3_Sonic::~CSAT3_Sonic()
+{
+    delete _ttadjuster;
 }
 
 bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
@@ -609,23 +616,28 @@ bool CSAT3_Sonic::process(const Sample* samp,
     const short* win = (const short*) dinptr;
 #endif
 
+    dsm_time_t timetag = samp->getTimeTag();
+
+    // Reduce latency jitter in time tags
+    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag);
+
     /*
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
 
     /* restart sample time shifting on a data gap */
-    if (_gapDtUsecs > 0 && (samp->getTimeTag() - _ttlast) > _gapDtUsecs) _nttsave = -2;
-    _ttlast = samp->getTimeTag();
+    if (_gapDtUsecs > 0 && (timetag - _ttlast) > _gapDtUsecs) _nttsave = -2;
+    _ttlast = timetag;
 
     if (_nttsave < 0)
-        _timetags[_nttsave++ + 2] = samp->getTimeTag();
+        _timetags[_nttsave++ + 2] = timetag;
     else {
         SampleT<float>* wsamp = getSample<float>(_windNumOut);
         wsamp->setTimeTag(_timetags[_nttsave]);
         wsamp->setId(_windSampleId);
 
-        _timetags[_nttsave] = samp->getTimeTag();
+        _timetags[_nttsave] = timetag;
         _nttsave = (_nttsave + 1) % 2;
 
         float* dout = wsamp->getDataPtr();
@@ -712,12 +724,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         transducerShadowCorrection(wsamp->getTimeTag(),dout);
 #endif
 
-        if (_unusualOrientation) {
-            float dn[3];
-            for (int i = 0; i < 3; i++)
-                dn[i] = _sx[i] * dout[_tx[i]];
-            memcpy(dout,dn,sizeof(dn));
-        }
+        applyOrientation(wsamp->getTimeTag(), dout);
 
         offsetsTiltAndRotate(wsamp->getTimeTag(), dout);
 
@@ -742,7 +749,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         const vector<Variable*>& vars = stag->getVariables();
         size_t nvars = vars.size();
         SampleT<float>* hsamp = getSample<float>(nvars);
-        hsamp->setTimeTag(samp->getTimeTag());
+        hsamp->setTimeTag(timetag);
         hsamp->setId(stag->getId());
 
         unsigned short counts = ((const unsigned short*) win)[i+5];
@@ -840,6 +847,10 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         if (_windSampleId == 0) {
             size_t nvars = stag->getVariables().size();
             _rate = (int)rint(stag->getRate());
+            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjustPeriod() > 0.0) 
+                _ttadjuster = new TimetagAdjuster(_rate,
+                        stag->getTimetagAdjustPeriod(),
+                        stag->getTimetagAdjustSampleGap());
             _gapDtUsecs = 5 * USECS_PER_SEC;
 
             _windSampleId = stag->getId();

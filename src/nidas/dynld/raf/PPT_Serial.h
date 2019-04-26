@@ -31,7 +31,7 @@
 #define PARITY_ERROR "#00CP!0.0000"
 #define BUFFER_ERROR "*9dP1!"
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
 
 #include <nidas/util/InvalidParameterException.h>
 
@@ -40,14 +40,14 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Honeywell PTT Pressure Transducer Serial Sensor.  
+ * Honeywell PTT Pressure Transducer Serial Sensor.
  * This would be able to use the generic SerialSensor class
- * except for the fact that negative pressures (differential) can 
- * have a space between the minus sign and the numeric value and 
+ * except for the fact that negative pressures (differential) can
+ * have a space between the minus sign and the numeric value and
  * sscanf doesn't have a form for that, and that we'd like
  * to get temperature at 1 Hz and Pressure at 100 Hz.
  */
-class PPT_Serial : public DSMSerialSensor
+class PPT_Serial : public SerialSensor
 {
 
 public:

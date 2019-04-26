@@ -53,7 +53,7 @@ CVIOutput::CVIOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
 	SampleOutputBase(ioc,rqstr),_ostr(),
         _variables(),_tt0(0),_tas(floatNAN)
 {
-    if (DerivedDataReader::getInstance()) 
+    if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
     setName("raf.CVIOutput: " + getIOChannel()->getName());
 }
@@ -65,14 +65,14 @@ CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),_ostr(),
         _variables(x._variables), _tt0(0),_tas(floatNAN)
 {
-    if (DerivedDataReader::getInstance()) 
+    if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
     setName("raf.CVIOutput: " + getIOChannel()->getName());
 }
 
 CVIOutput::~CVIOutput()
 {
-    if (DerivedDataReader::getInstance()) 
+    if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->removeClient(this);
 }
 
@@ -84,7 +84,7 @@ CVIOutput* CVIOutput::clone(IOChannel* ioc)
 
 void CVIOutput::setIOChannel(IOChannel* val)
 {
-    if (DerivedDataReader::getInstance()) 
+    if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
     SampleOutputBase::setIOChannel(val);
     setName("raf.CVIOutput: " + getIOChannel()->getName());
@@ -105,7 +105,7 @@ void CVIOutput::addRequestedSampleTag(SampleTag* tag)
 void CVIOutput::requestConnection(SampleConnectionRequester* requester) throw()
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
-    if (DerivedDataReader::getInstance()) 
+    if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
     SampleOutputBase::requestConnection(requester);
 }
@@ -142,7 +142,7 @@ bool CVIOutput::receive(const Sample* samp) throw()
 
 #ifdef FULL_TIME
     n_u::UTime ut(tt);
-    _ostr << 
+    _ostr <<
 	ut.format(true,"%Y %m %d %H:%M:%S.%3f ") << ' ';
 #endif
     _ostr << setprecision(7) << double((tt - _tt0) / USECS_PER_MSEC) / MSECS_PER_SEC;

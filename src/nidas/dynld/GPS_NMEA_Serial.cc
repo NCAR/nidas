@@ -36,6 +36,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogScheme;
 
 #if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
@@ -53,61 +54,77 @@ const int GPS_NMEA_Serial::HDT_SAMPLE_ID;
 
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
-GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
+GPS_NMEA_Serial::GPS_NMEA_Serial():SerialSensor(),
     _ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),
     _hdtNvars(0),_hdtId(0),
-    _badChecksums(0),_allowedSampleIds()
+    _badChecksums(0),
+    _badChecksumsCount(100),
+    _allowedSampleIds()
 {
     _allowedSampleIds[GGA_SAMPLE_ID] = "GGA";
     _allowedSampleIds[RMC_SAMPLE_ID] = "RMC";
     _allowedSampleIds[HDT_SAMPLE_ID] = "HDT";
+
+    // Allow the bad checksum reporting interval to be overridden.
+    _badChecksumsCount =
+        LogScheme::current().getParameterT("gps_nmea_bad_checksums_count",
+                                           _badChecksumsCount);
 }
 
-void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
+void GPS_NMEA_Serial::validate()
   throw(n_u::InvalidParameterException)
 {
-    switch(stag->getSampleId()) {
-    case GGA_SAMPLE_ID:
-        _ggaNvars = stag->getVariables().size();
-        if (_ggaNvars != 1 && _ggaNvars != 2 && _ggaNvars != 7 && _ggaNvars != 10) {
-            throw n_u::InvalidParameterException(getName(),
-                    "number of variables in GGA sample","must be either 1, 2, 7, or 10");
-        }
-        _ggaId = stag->getId();
-        break;
-    case RMC_SAMPLE_ID:
-        _rmcNvars = stag->getVariables().size();
-        if (_rmcNvars != 1 && _rmcNvars != 2 && _rmcNvars != 6 &&_rmcNvars != 8 && _rmcNvars != 12) {
-            throw n_u::InvalidParameterException(getName(),
-                    "number of variables in RMC sample","must be either 1,2,6,8, or 12");
-        }
-        _rmcId = stag->getId();
-        break;
-    case HDT_SAMPLE_ID:
-        _hdtNvars = stag->getVariables().size();
-        if (_hdtNvars != 1) {
-            throw n_u::InvalidParameterException(getName(),
-                    "number of variables in HDT sample","must be 1");
-        }
-        _hdtId = stag->getId();
-        break;
-    default:
-        if (_allowedSampleIds.find(stag->getSampleId()) == _allowedSampleIds.end()) {
-            ostringstream ost;
-            ost << "must be one of ";
-            for (map<int,string>::const_iterator si = _allowedSampleIds.begin();
-                    si != _allowedSampleIds.end(); ++si) {
-                int val = si->first;
-                const string& name = si->second;
-                if (si != _allowedSampleIds.begin()) ost << ", ";
-                ost << val << "(" << name << ")";
+
+    SerialSensor::validate();
+
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        switch(stag->getSampleId()) {
+        case GGA_SAMPLE_ID:
+            _ggaNvars = stag->getVariables().size();
+            if (_ggaNvars != 1 && _ggaNvars != 2 && _ggaNvars != 7 && _ggaNvars != 10) {
+                throw n_u::InvalidParameterException(getName(),
+                        "number of variables in GGA sample","must be either 1, 2, 7, or 10");
             }
-            throw n_u::InvalidParameterException(getName(),
-                    "sample id",ost.str());
+            _ggaId = stag->getId();
+            break;
+        case RMC_SAMPLE_ID:
+            _rmcNvars = stag->getVariables().size();
+            if (_rmcNvars != 1 && _rmcNvars != 2 && _rmcNvars != 6 &&_rmcNvars != 8 && _rmcNvars != 12) {
+                throw n_u::InvalidParameterException(getName(),
+                        "number of variables in RMC sample","must be either 1,2,6,8, or 12");
+            }
+            _rmcId = stag->getId();
+            break;
+        case HDT_SAMPLE_ID:
+            _hdtNvars = stag->getVariables().size();
+            if (_hdtNvars != 1) {
+                throw n_u::InvalidParameterException(getName(),
+                        "number of variables in HDT sample","must be 1");
+            }
+            _hdtId = stag->getId();
+            break;
+        default:
+            if (_allowedSampleIds.find(stag->getSampleId()) == _allowedSampleIds.end()) {
+                ostringstream ost;
+                ost << "must be one of ";
+                for (map<int,string>::const_iterator si = _allowedSampleIds.begin();
+                        si != _allowedSampleIds.end(); ++si) {
+                    int val = si->first;
+                    const string& name = si->second;
+                    if (si != _allowedSampleIds.begin()) ost << ", ";
+                    ost << val << "(" << name << ")";
+                }
+                throw n_u::InvalidParameterException(getName(),
+                        "sample id",ost.str());
+            }
+            break;
         }
-        break;
     }
-    DSMSerialSensor::addSampleTag(stag);
 }
 
 /**
@@ -540,12 +557,17 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
     if (slen < 7) return false;
 
-    if (!checksumOK(input,slen)) {
-        if (!(_badChecksums++ % 100) && _badChecksums > 1) WLOG(("%s: bad NMEA checksum at ",getName().c_str()) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << _badChecksums);
+    if (!checksumOK(input, slen))
+    {
+        if (!(_badChecksums++ % _badChecksumsCount))
+        {
+            WLOG(("")
+                 << getName() << ": bad NMEA checksum at "
+                 << n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f")
+                 << ", #bad=" << _badChecksums);
+        }
         return false;
     }
-
 
     // Ignore 'Talker IDs' (see http://gpsd.berlios.de/NMEA.txt for details)
     input += 3;

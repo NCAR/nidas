@@ -25,14 +25,9 @@
 */
 
 #include "VCSEL_Serial.h"
-#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
 
-#include <asm/ioctls.h>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -52,7 +47,7 @@ VCSEL_Serial::~VCSEL_Serial()
 
 void VCSEL_Serial::open(int flags) throw(n_u::IOException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
@@ -67,7 +62,7 @@ void VCSEL_Serial::close() throw(n_u::IOException)
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
-    DSMSerialSensor::close();
+    SerialSensor::close();
 }
 
 
@@ -96,7 +91,7 @@ void VCSEL_Serial::sendAmbientTemperature(float atx) throw(n_u::IOException)
 bool VCSEL_Serial::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    bool rc = DSMSerialSensor::process(samp, results);
+    bool rc = SerialSensor::process(samp, results);
 
     list<const Sample *>::const_iterator it = results.begin();
     for (; it != results.end(); ++it)
@@ -105,8 +100,8 @@ bool VCSEL_Serial::process(const Sample * samp,
 
         // housekeeping comes on-the-second but after the first 25Hz sample
         if ((nco_samp->getId() - getId()) == 1) {
-              _hz_counter = 1;
-              continue;
+            _hz_counter = 1;
+            continue;
         }
 
         int usec = nco_samp->getTimeTag() % USECS_PER_SEC;

@@ -16,15 +16,19 @@ sources = Split("""
     CVIProcessor.cc
     DSMAnalogSensor.cc
     DSMArincSensor.cc
-    LamsSensor.cc
-    LamsNetSensor.cc
     DSMMesaSensor.cc
+    Extract2D.cc
     GPS_HW_HG2021GB02.cc
     IRIGSensor.cc
     IRS_HW_HG2001GD.cc
     IRS_HW_YG1854.cc
     LSZ_HW_EB7032239.cc
+    LamsSensor.cc
+    LamsNetSensor.cc
+    PHIPS_UDP.cc
     PPT_Serial.cc
+    PIP_Image.cc
+    PIP_Serial.cc
     PSI9116_Sensor.cc
     SidsNetSensor.cc
     SppSerial.cc
@@ -35,10 +39,10 @@ sources = Split("""
     SyncRecordReader.cc
     SyncRecordSource.cc
     SyncServer.cc
-    Twins.cc
     TwoD_House.cc
     TwoD_USB.cc
     TwoD64_USB.cc
+    TwoD64_USB_v3.cc
     TwoD32_USB.cc
     UDPSocketSensor.cc
     UHSAS_Serial.cc
@@ -60,15 +64,19 @@ headers = Split("""
     CVIProcessor.h
     DSMAnalogSensor.h
     DSMArincSensor.h
-    LamsSensor.h
-    LamsNetSensor.h
     DSMMesaSensor.h
+    Extract2D.h
     GPS_HW_HG2021GB02.h
     IRIGSensor.h
     IRS_HW_HG2001GD.h
     IRS_HW_YG1854.h
+    PHIPS_UDP.h
     LSZ_HW_EB7032239.h
+    LamsSensor.h
+    LamsNetSensor.h
     PPT_Serial.h
+    PIP_Image.h
+    PIP_Serial.h
     PSI9116_Sensor.h
     SidsNetSensor.h
     SppSerial.h
@@ -80,10 +88,10 @@ headers = Split("""
     SyncRecordSource.h
     SyncRecordVariable.h
     SyncServer.h
-    Twins.h
     TwoD_House.h
     TwoD_USB.h
     TwoD64_USB.h
+    TwoD64_USB_v3.h
     TwoD32_USB.h
     UHSAS_Serial.h
     UDPSocketSensor.h
@@ -106,4 +114,4 @@ else:
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
 
-env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)
+env.Install('$ARCHPREFIX/include/nidas/dynld/raf', headers + archheaders)

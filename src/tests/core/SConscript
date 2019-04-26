@@ -6,13 +6,16 @@ env = env.Clone(tools = ['nidas', 'valgrind'])
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
-tests = env.Program('tcore', ["tcore.cc", "tutil.cc"])
+env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
+tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
+                              "tutil.cc", "tcalfile.cc"])
 # env.Depends(tests, libs)
 #
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
-runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
+env.NidasRuntimeENV()
+runtest = env.Command("xtest", tests,
+                      env.ChdirActions(["./$SOURCE.file"]))
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
@@ -39,6 +42,6 @@ def write_env(env, target, source):
                   (str(s.dir.get_abspath())))
     out.close()
 
-env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL"], write_env)
+env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_DYNLD", "$LIBNIDAS_UTIL"], write_env)
 
 

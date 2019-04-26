@@ -51,13 +51,12 @@ public:
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
-    void addSampleTag(SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+	throw();
 
     /**
      * Stop data streams, set valve position to PURGE.
@@ -79,7 +78,7 @@ public:
 protected:
 
     std::string sendCommand(const std::string& cmd,int readlen = 0)
-    	throw(nidas::util::IOException);
+	throw(nidas::util::IOException);
 
     int _msecPeriod;
 
@@ -91,7 +90,7 @@ protected:
     dsm_sample_id_t _sampleId;
 
     /**
-     * Conversion factor to apply to PSI data. 
+     * Conversion factor to apply to PSI data.
      * PSI9116 by default reports data in psi.
      * A factor 68.94757 will convert to millibars.
      */
@@ -101,7 +100,7 @@ protected:
 
     size_t _outOfSequence;
 
-    // Stuff to handle when output data samples are broken 
+    // Stuff to handle when output data samples are broken
     // over two input samples (as happened on ICE-T)
     union flip {
         unsigned int lval;

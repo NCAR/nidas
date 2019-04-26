@@ -474,6 +474,15 @@ public:
     size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout)
         throw(nidas::util::IOException);
 
+    /**
+     * Issue warning log message about a non-forward time tag
+     */
+    void warnNonIncrTimeTag(const DSMSensor *sensor,
+        dsm_time_t badtt, dsm_time_t cortt, unsigned int nbad);
+
+    void warnBackwardsStepTimeTag( const DSMSensor *sensor,
+            dsm_time_t badtt, unsigned int nbad);
+
 protected:
 
     /**
@@ -518,6 +527,10 @@ protected:
 
     dsm_time_t _tfirstchar;
 
+    dsm_time_t _lastBufferTime;
+
+    dsm_time_t _lastSampleTime;
+
     const unsigned int MAX_MESSAGE_STREAM_SAMPLE_SIZE;
 
     int _separatorCnt;
@@ -542,6 +555,26 @@ protected:
      * Number of bytes allocated in data portion of current output sample.
      */
     unsigned int _outSampLengthAlloc;
+
+    /**
+     * If the system time of a buffer read is earlier than the previous read.
+     * This should only happen due to a step change of the system clock.
+     */
+    bool _stepBackwards;
+
+    /**
+     * Number of time tags that were not monotonically increasing,
+     * due to backward step changes.
+     */
+    unsigned int _stepBackTimeTag;
+
+    /**
+     * Number of time tags that were not monotonically increasing,
+     * not because of backward step changes, but instead
+     * due to system buffering, where the receipt times of two buffers
+     * are closer together than should be possible at the given baud rate.
+     */
+    unsigned int _nonIncrTimeTag;
 
 };
 

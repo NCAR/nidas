@@ -36,6 +36,8 @@
 	<xsd:enumeration value="38400"/>
 	<xsd:enumeration value="57600"/>
 	<xsd:enumeration value="115200"/>
+	<xsd:enumeration value="230400"/>
+	<xsd:enumeration value="460800"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -192,6 +194,25 @@
     <xsd:attribute name="names" type="xsd:normalizedString" use="required"/>
 </xsd:complexType>
 
+<xsd:simpleType name="ttval">
+    <xsd:list itemType="xsd:token"/>
+</xsd:simpleType>
+
+<xsd:simpleType name="tttype">
+    <xsd:annotation>
+        <xsd:documentation>
+            Parameters for the time tag adjuster: the adjustment
+            period, and the number of sample delta-Ts to consider a
+            gap.  These are of the token type, so that they can
+            be a replacement variable of the form $TTGAP.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="ttval">
+        <xsd:maxLength value="2"/>
+        <xsd:minLength value="1"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="sample">
     <xsd:annotation>
         <xsd:documentation>
@@ -218,6 +239,7 @@
     <xsd:attribute name="station" type="xsd:nonNegativeInteger"/>
     <xsd:attribute name="enable" type="xsd:token"/>
     <xsd:attribute name="disable" type="xsd:token"/>
+    <xsd:attribute name="ttadjust" type="tttype"/>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">

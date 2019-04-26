@@ -1,0 +1,8 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: docker.io/ncar/nidas-ubuntu-base:latest
+    steps:
+      - checkout
+      - run: echo "A first hello"

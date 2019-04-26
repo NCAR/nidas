@@ -29,6 +29,8 @@
 
 #include "Wind3D.h"
 
+class TimetagAdjuster;
+
 namespace nidas { namespace dynld { namespace isff {
 
 /**
@@ -154,6 +156,14 @@ private:
      */
     float _maxShadowAngle;
 
+    nidas::core::TimetagAdjuster* _ttadjust;
+
+    // no copying
+    ATIK_Sonic(const ATIK_Sonic& x);
+
+    // no assignment
+    ATIK_Sonic& operator=(const ATIK_Sonic& x);
+    
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

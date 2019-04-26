@@ -27,17 +27,19 @@
 #ifndef NIDIS_DYNLD_IEEE_FLOAT_H
 #define NIDIS_DYNLD_IEEE_FLOAT_H
 
-#include "DSMSerialSensor.h"
+#include <nidas/core/SerialSensor.h>
 #include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld {
+
+using namespace nidas::core;
 
 /**
  * A class for unpacking binary IEEE float values from a record into samples.
  * Binary values can be big or little endian, specified by the "endian" string
  * parameter.
  */
-class IEEE_Float: public DSMSerialSensor
+class IEEE_Float: public SerialSensor
 {
 public:
 

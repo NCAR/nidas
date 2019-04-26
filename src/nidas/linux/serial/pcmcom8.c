@@ -44,7 +44,7 @@
 #include <linux/fcntl.h>    /* O_ACCMODE */
 #include <linux/ioport.h>
 #include <asm/io.h>		/* outb, inb */
-#include <asm/uaccess.h>	/* access_ok */
+#include <linux/uaccess.h>	/* access_ok */
 
 #include <linux/version.h>
 #include <linux/utsname.h>
@@ -92,6 +92,12 @@ MODULE_VERSION(REPO_REVISION);
 #else
 #define PCMCOM8_LOCK(x) down_interruptible(x)
 #define PCMCOM8_UNLOCK(x) up(x)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
 #endif
 
 /*
@@ -358,9 +364,9 @@ static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-            err = !access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
+            err = !portable_access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-            err =  !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
+            err = !portable_access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch(cmd) {

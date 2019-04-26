@@ -55,7 +55,8 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir,
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
 
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
-
+  
+  setupA2DSerNums(a2dCalDir+"/DMMAT/");
   setupA2DSerNums(a2dCalDir);
 
   setupPMSSerNums(pmsSpecsFile);
@@ -109,6 +110,12 @@ void AddSensorComboDialog::setupPMSSerNums(QString pmsSpecsFile)
   for (int i = 0; i<<num; i++) delete list[i];
 }
 
+/**
+ * Obtains cal files for both NCAR A2D Cards 
+ * Takes QString a2dCalDir
+ * Adds all a2dCalFiles to A2DSNBox 
+ * Returns nothing
+ * */
 void AddSensorComboDialog::setupA2DSerNums(QString a2dCalDir)
 {
 
@@ -151,13 +158,20 @@ void AddSensorComboDialog::setupA2DSerNums(QString a2dCalDir)
 
 void AddSensorComboDialog::dialogSetup(const QString & sensor)
 {
-  if (sensor == QString("Analog")) 
+  if (sensor == QString("ANALOG_NCAR")) 
   {
     A2DTempSuffixLabel->show();
     A2DTempSuffixText->show();
     A2DSNLabel->show();
     A2DSNBox->show();
-  } else {
+  }else if (sensor == QString("ANALOG_DMMAT")) 
+  {
+    A2DTempSuffixLabel->hide();
+    A2DTempSuffixText->hide();
+    A2DSNLabel->show();
+    A2DSNBox->show();
+  } else
+  {
     A2DTempSuffixLabel->hide();
     A2DTempSuffixText->hide();
     A2DSNLabel->hide();
@@ -182,7 +196,12 @@ void AddSensorComboDialog::dialogSetup(const QString & sensor)
 
 void AddSensorComboDialog::accept()
 {
-  if (SensorBox->currentText() == QString("Analog") &&
+
+
+  if (SensorBox->currentText() == QString("ANALOG_DMMAT") ){
+        cerr<<"DMMAT adding correctly in AddSensor ComboDialog::accept"<<endl;
+    }
+  if (SensorBox->currentText() == QString("ANALOG_NCAR") &&
       A2DTempSuffixText->text().isEmpty())
   {
     _errorMessage->setText("A2D Temp Suffix must be set when Analog Sensor is selected - Please enter a suffix");
@@ -276,6 +295,10 @@ void AddSensorComboDialog::accept()
   }
 }
 
+/**
+ * Dialog for a new sensor
+ * Takes QString sensor
+ * */
 void AddSensorComboDialog::newSensor(QString sensor)
 {
    std::string stdSensor = sensor.toStdString();
@@ -327,13 +350,20 @@ void AddSensorComboDialog::newSensor(QString sensor)
 
    cerr << "end of newSensor()\n";
 }
-
+/**
+ * SetDevice
+ * Takes int channel
+ * calls setText on fullDecive
+ *
+ * */
 void AddSensorComboDialog::setDevice(int channel)
 {
    QString sensor = SensorBox->currentText();
    std::cerr << "New device channel selected " << channel << std::endl;
    DeviceValidator * devVal = DeviceValidator::getInstance();
    std::string stdSensor = sensor.toStdString();
+cout<<"setDevice stdSensor:"<<stdSensor<<endl;
+
    std::string dev = devVal->getDevicePrefix(stdSensor);
    QString fullDevice = QString::fromStdString(dev) + QString::number(channel);
    DeviceText->setText(fullDevice);
@@ -344,10 +374,10 @@ void AddSensorComboDialog::existingSensor(SensorItem* sensorItem)
   // Set up the Sensor Name
   QString baseName = sensorItem->getBaseName();
   int index = SensorBox->findText(sensorItem->getBaseName());
+  cerr<<"AddSensorComboDialog index:"<<index<<" baseName:"<<baseName.toStdString()<<endl;
   if (index != -1) SensorBox->setCurrentIndex(index);
 cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "\n";
   SensorBox->setEnabled(false);
-
   // Set up the device name and channel/board box
   QString device = sensorItem->getDevice();
   std::string stdBaseName = baseName.toStdString();
@@ -371,36 +401,40 @@ cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "
   // Set up the Sensor ID box
   DSMSensor *sensor = sensorItem->getDSMSensor();
   IdText->insert(QString::number(sensor->getSensorId()));
+cerr<<"AddSensorItem IdText:"  << IdText<<"\n";
 
   // Set up the Suffix box
   SuffixText->insert(QString::fromStdString(sensor->getSuffix()));
 
   // Set up A2D Temp Suffix box and serial number/cal file box
-  if (baseName == "Analog") {
+  if (baseName == "ANALOG_NCAR"||baseName == "ANALOG_DMMAT") {
     A2DSensorItem* a2dSensorItem = dynamic_cast<A2DSensorItem*>(sensorItem);
-    A2DTempSuffixText->insert(a2dSensorItem->getA2DTempSuffix());
-
-    std::string a2dCalFn = a2dSensorItem->getCalFileName();
-    if (a2dCalFn.empty()) {
-      _errorMessage->setText(QString::fromStdString(
-                         "Warning - no current Serial Number for A2D card.\n")
-                     + QString::fromStdString(
-                         " Will default to first possible S/N.\n")
-                     + QString::fromStdString (
-                         "And it's associated calibration coeficients.\n"));
-      _errorMessage->exec();
-      A2DSNBox->setCurrentIndex(0);
-    } else {
-      int index = A2DSNBox->findText(QString::fromStdString(a2dCalFn));
-      if (index != -1) A2DSNBox->setCurrentIndex(index);
-      else {
-        _errorMessage->setText(QString::fromStdString(
-                           "Could not find A2D Serial number cal file: ") 
-                       + QString::fromStdString(a2dCalFn) 
-                       + QString::fromStdString (
-                         ".  Suggest you look in to that missing file."));
-        _errorMessage->exec();
-      }
+    if (baseName == "ANALOG_NCAR"){
+        A2DTempSuffixText->insert(a2dSensorItem->getA2DTempSuffix());
+        std::string a2dCalFn = a2dSensorItem->getCalFileName();
+    
+        if (a2dCalFn.empty()) {
+    cerr<<"AddSensorComboDialog4 setting edit text 5to" << baseName.toStdString() << "\n";
+          _errorMessage->setText(QString::fromStdString(
+                             "Warning - no current Serial Number for A2D card.\n")
+                         + QString::fromStdString(
+                             " Will default to first possible S/N.\n")
+                         + QString::fromStdString (
+                             "And it's associated calibration coeficients.\n"));
+          _errorMessage->exec();
+          A2DSNBox->setCurrentIndex(0);
+        } else {
+          int index = A2DSNBox->findText(QString::fromStdString(a2dCalFn));
+          if (index != -1) A2DSNBox->setCurrentIndex(index);
+          else {
+            _errorMessage->setText(QString::fromStdString(
+                               "Could not find A2D Serial number cal file: ") 
+                           + QString::fromStdString(a2dCalFn) 
+                           + QString::fromStdString (
+                             ".  Suggest you look in to that missing file."));
+            _errorMessage->exec();
+          }
+        }
     }
   }
 
@@ -458,7 +492,7 @@ cerr<<__func__<<"\n";
   IdText->clear();
   SuffixText->clear();
   A2DTempSuffixText->clear();
-
+std::cerr<< "in setup dialog:hello"<<endl;
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the SensorItem we are editing.
   NidasItem *item = NULL;
@@ -470,13 +504,16 @@ cerr<<__func__<<"\n";
       if (index.column() != 0) continue;
       if (!index.isValid()) continue; // XXX where/how to destroy the rootItem (Project)
       item = _model->getItem(index);
+        cerr<<"Item ="<<item<<endl;
     }
 
     SensorItem* sensorItem = dynamic_cast<SensorItem*>(item);
     if (!sensorItem)
       throw InternalProcessingException("Selection is not a Sensor.");
+cerr<<"should see this before existing sensor is called"<<endl;
 
     existingSensor(sensorItem);
+cerr<<"should probably not see this before existing sensor is called4"<<endl;
 
 
   } else {

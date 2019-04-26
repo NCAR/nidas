@@ -25,7 +25,7 @@
  ********************************************************************
 */
 /*
- * Simple filters for A2D data: boxcar averaging, and pickoff.
+ * Simple filters for A2D data: boxcar and time averaging, and pickoff.
  * Original author:	Gordon Maclean
 */
 
@@ -36,7 +36,7 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
-#include "short_filters.h"
+#include "short_filters_kernel.h"
 
 #ifndef REPO_REVISION
 #define REPO_REVISION "unknown"
@@ -50,7 +50,7 @@ MODULE_VERSION(REPO_REVISION);
 #define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
 
 /**
- * Data object for the implementation of a pickoff filter.
+ * Private data used by a pickoff filter.
  */
 struct pickoff_filter
 {
@@ -58,14 +58,7 @@ struct pickoff_filter
         int nvars;
         int* vindices;
         int count;
-        short id;
-};
-
-/** 
- * Configuration data needed for pickoff filter. Not much.
- */
-struct pickoff_filter_config
-{
+        short sampleIndex;
 };
 
 /**
@@ -81,18 +74,27 @@ static void* pickoff_init(void)
 }
 
 /**
- * Configure a pickoff filter. Pointer to config structure is not used.
+ * Configure a pickoff filter.
  */
-static int pickoff_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg, int nbcfg)
+static int pickoff_config(struct short_filter_data* fdata,
+        const void* cfg, int nbcfg)
 {
-        struct pickoff_filter* this = (struct pickoff_filter*) obj;
-        this->id = id;
-        this->nvars = nvars;
-        this->decimate = decimate;
+        struct pickoff_filter* this = (struct pickoff_filter*) fdata->filterObj;
+
+        if (fdata->inputRate % fdata->outputRate) {
+                KLOG_ERR("%s: pickoff filter, inputRate=%d is not a multiple of the rate=%d for sample %d\n",
+                    fdata->deviceName, fdata->inputRate, fdata->outputRate,
+                    fdata->sampleIndex);
+                return -EINVAL;
+        }
+
+        this->sampleIndex = fdata->sampleIndex;
+        this->nvars = fdata->nchans;
+        this->decimate = fdata->inputRate / fdata->outputRate;
         this->count = 0;
-        this->vindices = (int*) F_MALLOC(nvars * sizeof(int));
+        this->vindices = (int*) F_MALLOC(this->nvars * sizeof(int));
         if (!this->vindices) return -ENOMEM;
-        memcpy(this->vindices,vindices,nvars*sizeof(int));
+        memcpy(this->vindices,fdata->channels,this->nvars*sizeof(int));
         return 0;
 }
 
@@ -108,7 +110,7 @@ static int pickoff_filter(void* obj,dsm_sample_time_t tt, const short* in,
         if (this->count++ % this->decimate) return 0;
         this->count = 1;
         out->timetag = tt;
-	out->id = this->id;
+	out->id = this->sampleIndex;
         for (i = 0; i < this->nvars; i++)
             *op++ = in[this->vindices[i] * skip_factor];
         out->length = (op - &out->id) * sizeof(short);
@@ -126,18 +128,18 @@ static void pickoff_cleanup(void* obj)
 }
 
 /**
- * Data object for the implementation of a boxcar filter.
+ * Private data used by a boxcar filter.
  */
 struct boxcar_filter
 {
         int decimate;
         int nvars;
         int* vindices;
-        long* sums;
+        int32_t* sums;
         int npts;
         int count;
         dsm_sample_time_t tsave;
-        short id;
+        short sampleIndex;
 };
 
 /**
@@ -156,25 +158,33 @@ static void* boxcar_init(void)
 /**
  * Configure a boxcar filter.
  */
-static int boxcar_config(void* obj,short id, int nvars, const int* vindices,int decimate, const void* cfg,int nbcfg)
+static int boxcar_config(struct short_filter_data* fdata, const void* cfg, int nbcfg)
 {
-        struct boxcar_filter* this = (struct boxcar_filter*) obj;
+        struct boxcar_filter* this = (struct boxcar_filter*) fdata->filterObj;
         const struct boxcar_filter_config* bcfg =
             (const struct boxcar_filter_config*) cfg;
-        this->id = id;
-        this->nvars = nvars;
-        this->decimate = decimate;
+
+        if (fdata->inputRate % fdata->outputRate) {
+                KLOG_ERR("%s: boxcar filter, inputRate=%d is not a multiple of the rate=%d for sample %d\n",
+                    fdata->deviceName, fdata->inputRate, fdata->outputRate,
+                    fdata->sampleIndex);
+                return -EINVAL;
+        }
+
+        this->sampleIndex = fdata->sampleIndex;
+        this->nvars = fdata->nchans;
+        this->decimate = fdata->inputRate / fdata->outputRate;
         this->count = 0;
         if (nbcfg != sizeof(int)) return -EINVAL;
         this->npts = bcfg->npts;
-        this->vindices = (int*) F_MALLOC(nvars * sizeof(int));
+        this->vindices = (int*) F_MALLOC(this->nvars * sizeof(int));
         if (!this->vindices) return -ENOMEM;
-        memcpy(this->vindices,vindices,nvars*sizeof(int));
-        this->sums = (long*) F_MALLOC(nvars * sizeof(long));
+        memcpy(this->vindices,fdata->channels,this->nvars*sizeof(int));
+        this->sums = (int32_t*) F_MALLOC(this->nvars * sizeof(int32_t));
         if (!this->sums) return -ENOMEM;
-        memset(this->sums,0,nvars*sizeof(long));
-        KLOG_INFO("boxcar filter, id=%d, decimate=%d, npts=%d\n",
-            id,this->decimate,this->npts);
+        memset(this->sums,0, this->nvars*sizeof(int32_t));
+        KLOG_INFO("%s: boxcar filter, id=%d, decimate=%d, npts=%d\n",
+            fdata->deviceName, this->sampleIndex,this->decimate,this->npts);
         return 0;
 }
 
@@ -204,12 +214,28 @@ static int boxcar_filter(void* obj, dsm_sample_time_t tt,
                 if (this->count == 1) this->tsave = tt;
                 if (this->count == this->npts) {
                         short* op = out->data;
-                        out->timetag = this->tsave +
-                            (tt - this->tsave) / 2;     // middle time
-                        out->id = this->id;
+                        int tdiff = (tt - this->tsave);
+                        // midnight rollover
+                        if (tdiff < 0) {
+                                if (tdiff < -TMSECS_PER_SEC / 2)
+                                        tdiff += TMSECS_PER_SEC;
+                                else if (tdiff < -MSECS_PER_SEC / 2)
+                                        tdiff += MSECS_PER_SEC;
+                        }
+
+                        // middle time
+                        out->timetag = this->tsave + tdiff / 2;
+                        out->id = this->sampleIndex;
                         for (i = 0; i < this->nvars; i++) {
-                            *op++ = this->sums[i] / this->npts;
-                            this->sums[i] = 0;
+#ifdef DIV_ROUND_CLOSEST
+                                *op++ = DIV_ROUND_CLOSEST(this->sums[i], this->npts);
+#else
+                                if (this->sums[i] > 0)
+                                        *op++ = (this->sums[i] + this->npts / 2)/ this->npts;
+                                else
+                                        *op++ = (this->sums[i] - this->npts / 2)/ this->npts;
+#endif
+                                this->sums[i] = 0;
                         }
                         out->length = (op - &out->id) * sizeof(short);
                         if (this->count == this->decimate) this->count = 0;
@@ -238,6 +264,149 @@ static void boxcar_cleanup(void* obj)
 }
 
 /**
+ * Private data used by a timeavg filter.
+ */
+struct timeavg_filter
+{
+        int decimate;
+        int deltaTmsecs;
+        dsm_sample_time_t endTime;
+        unsigned int nout;
+        int nvars;
+        int* vindices;
+        int32_t* sums;
+        int nsum;
+        short sampleIndex;
+};
+
+/**
+ * Constructor for a time average filter.
+ */
+static void* timeavg_init(void)
+{
+
+        struct timeavg_filter* this =
+            (struct timeavg_filter*) F_MALLOC(sizeof(struct timeavg_filter));
+        if (!this) return this;
+        memset(this,0,sizeof(struct timeavg_filter));
+        this->endTime = INT_MIN;
+        return this;
+}
+
+/**
+ * Configure a time average filter.
+ */
+static int timeavg_config(struct short_filter_data* fdata,
+        const void* cfg,int nbcfg)
+{
+        struct timeavg_filter* this = (struct timeavg_filter*) fdata->filterObj;
+
+        const struct timeavg_filter_config* bcfg =
+            (const struct timeavg_filter_config*) cfg;
+
+        this->sampleIndex = fdata->sampleIndex;
+        this->nvars = fdata->nchans;
+        this->nout = 0;
+        if (nbcfg != sizeof(int)) return -EINVAL;
+
+        if (bcfg->rate % fdata->outputRate) {
+                KLOG_ERR("%s: timeavg rate=%d is not a multiple of the rate=%d for sample %d\n",
+                    fdata->deviceName, bcfg->rate, fdata->outputRate,
+                    this->sampleIndex);
+                return -EINVAL;
+        }
+
+
+        this->deltaTmsecs = TMSECS_PER_SEC / bcfg->rate;
+        this->decimate = bcfg->rate / fdata->outputRate;
+
+        this->vindices = (int*) F_MALLOC(fdata->nchans * sizeof(int));
+        if (!this->vindices) return -ENOMEM;
+        memcpy(this->vindices,fdata->channels,fdata->nchans*sizeof(int));
+        this->sums = (int32_t*) F_MALLOC(fdata->nchans * sizeof(int32_t));
+        if (!this->sums) return -ENOMEM;
+        memset(this->sums,0,fdata->nchans*sizeof(int32_t));
+        KLOG_INFO("%s: timeavg filter, id=%d, rate=%d, deltaTmsecs=%d, decimate=%d\n",
+                fdata->deviceName, this->sampleIndex, bcfg->rate,
+                this->deltaTmsecs,this->decimate);
+        return 0;
+}
+
+/**
+ * Time average filter method.
+ * Example:
+ *  input scan rate 1000/s.
+ *  time average rate 100/s
+ *  output rate 20/s
+ *  Time averager will average data over 0.01 seconds intervals
+ *  but then only 1 out of 5 of those averages will be output.
+ */
+static int timeavg_filter(void* obj, dsm_sample_time_t tt,
+    const short* in, int skip_factor, short_sample_t* out)
+{
+        struct timeavg_filter* this = (struct timeavg_filter*) obj;
+        int i, result = 0;
+        KLOG_DEBUG("timeavg filter, count=%d, nsum=%d,decimate=%d\n",
+            this->count,this->nsum, this->decimate);
+
+        if (tt >= TMSECS_PER_DAY) tt -= TMSECS_PER_DAY;
+        else if (tt < 0) tt += TMSECS_PER_DAY;
+
+        if (tt >= this->endTime) {
+                if (!(this->nout++ % this->decimate) && this->nsum > 0) {
+                        short* op = out->data;
+                        dsm_sample_time_t tout = this->endTime - this->deltaTmsecs / 2;
+                        // midnight rollover
+                        if (tout < 0) tout += TMSECS_PER_DAY;
+
+                        out->timetag = tout;
+                        out->id = this->sampleIndex;
+                        for (i = 0; i < this->nvars; i++) {
+                                /* DIV_ROUND_CLOSEST is not defined in kernel 2.6 */
+#ifdef DIV_ROUND_CLOSEST
+                                *op++ = DIV_ROUND_CLOSEST(this->sums[i], this->nsum);
+#else
+                                if (this->sums[i] > 0)
+                                        *op++ = (this->sums[i] + this->nsum / 2)/ this->nsum;
+                                else
+                                        *op++ = (this->sums[i] - this->nsum / 2)/ this->nsum;
+#endif
+                        }
+                        out->length = (op - &out->id) * sizeof(short);
+                        KLOG_DEBUG("timeavg filter return sample, count=%d, nsum=%d,decimate=%d\n",
+                                this->count,this->nsum, this->decimate);
+                        result = 1;
+                }
+                memset(this->sums,0, this->nvars*sizeof(int32_t));
+                this->nsum = 0;
+                this->endTime += this->deltaTmsecs;
+                if (this->endTime >= TMSECS_PER_DAY) this->endTime -= TMSECS_PER_DAY;
+
+                // roll forward
+                if (tt >= this->endTime)
+                        this->endTime = tt + this->deltaTmsecs - tt % this->deltaTmsecs;
+        }
+
+        for (i = 0; i < this->nvars; i++)
+            this->sums[i] += in[this->vindices[i] * skip_factor];
+        this->nsum++;
+        return result;
+}
+
+/**
+ * Destructor for a timeavg filter.
+ */
+static void timeavg_cleanup(void* obj)
+{
+        struct timeavg_filter* this = (struct timeavg_filter*) obj;
+        if (this) {
+                kfree(this->vindices);
+                kfree(this->sums);
+        }
+        kfree(this);
+}
+
+/**
  * Return structure of pointers to the methods for a given filter.
  * Pointers will be 0 if the filter is not supported.
  * This structure is passed back by value and does not need to
@@ -258,6 +427,12 @@ struct short_filter_methods get_short_filter_methods(enum nidas_short_filter whi
                 meths.config = boxcar_config;
                 meths.filter = boxcar_filter;
                 meths.cleanup = boxcar_cleanup;
+                break;
+        case NIDAS_FILTER_TIMEAVG:
+                meths.init = timeavg_init;
+                meths.config = timeavg_config;
+                meths.filter = timeavg_filter;
+                meths.cleanup = timeavg_cleanup;
                 break;
         default:
                 meths.init = 0;

@@ -44,13 +44,14 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/io.h>
 
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 #include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/filters/short_filters_kernel.h>
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED
@@ -61,6 +62,12 @@
 #define mutex_init(x)               init_MUTEX(x)
 #define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
 #define mutex_unlock(x)             up(x)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
 #endif
 
 /* ioport addresses of installed boards, 0=no board installed */
@@ -83,6 +90,9 @@ static int numirqs = 0;
  */
 static int types[MAX_DMMAT_BOARDS] = { DMM32DXAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
+
+static const char* BOARD_TYPE_STRS[] = {
+        "DMM16AT", "DMM32AT", "DMM32XAT", "DMM32DXAT"};
 
 /*
  * How is the D2A jumpered? Bipolar, unipolar, 5 or 10 volts.
@@ -349,11 +359,14 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
         KLOG_DEBUG("clock c1=%ld,outputRate=%d\n",c1,outputRate);
         c2 = 1;
 
-        // The minimum workable counter value for a 82C54 clock chip
-        // on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
-        // 0 is actually equivalent to 2^16
+        /*
+         * The minimum workable counter value for a 82C54 clock chip
+         * on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
+         * 0 is actually equivalent to 2^16
+         */
         while (c1 > 65535 || c2 == 1) {
             int i;
+            /* find a prime factor */
             for (i = 0; i < nprime; i++) {
                 if (!(c1 % primes[i])) break;
             }
@@ -361,7 +374,8 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
                     c2 *= primes[i];
                     c1 /= primes[i];
             }
-            else if (c1 * c2 <= inputRate) c1++; // fudge it
+            /* no prime factor, fudge it by one */
+            else if (c1 * c2 <= inputRate) c1++;
             else c1--;
         }
 
@@ -697,13 +711,13 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
 {
         int i;
         for (i = 0; i < a2d->nfilters; i++) {
-            struct a2d_filter_info* finfo = a2d->filters + i;
+            struct short_filter_info* finfo = a2d->filters + i;
             /* cleanup filter */
-            if (finfo->filterObj && finfo->fcleanup)
-                finfo->fcleanup(finfo->filterObj);
-            finfo->filterObj = 0;
+            if (finfo->data.filterObj && finfo->fcleanup)
+                finfo->fcleanup(finfo->data.filterObj);
+            finfo->data.filterObj = 0;
             finfo->fcleanup = 0;
-            kfree(finfo->channels);
+            kfree(finfo->data.channels);
         }
         kfree(a2d->filters);
         a2d->filters = 0;
@@ -766,9 +780,10 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
         int result = 0;
         int i;
         int nfilters;
-        struct a2d_filter_info* filters = 0;
-        struct a2d_filter_info* finfo = 0;
+        struct short_filter_info* filters = 0;
+        struct short_filter_info* finfo = 0;
         struct short_filter_methods methods;
+        struct short_filter_data *fdata = 0;
 
         if(atomic_read(&a2d->running)) {
                 KLOG_ERR("A2D's running. Can't configure\n");
@@ -778,26 +793,28 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
         if (a2d->mode == A2D_NORMAL) {
                 // grow filter info array by one
                 nfilters = a2d->nfilters + 1;
-                filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+                filters = kmalloc(nfilters * sizeof (struct short_filter_info),
                                        GFP_KERNEL);
                 if (!filters) return -ENOMEM;
                 // copy previous filter infos, and free the space
                 memcpy(filters,a2d->filters,
-                    a2d->nfilters * sizeof(struct a2d_filter_info));
+                    a2d->nfilters * sizeof(struct short_filter_info));
                 kfree(a2d->filters);
 
                 finfo = filters + a2d->nfilters;
                 a2d->filters = filters;
                 a2d->nfilters = nfilters;
 
-                memset(finfo, 0, sizeof(struct a2d_filter_info));
+                memset(finfo, 0, sizeof(struct short_filter_info));
+                fdata = &finfo->data;
+                fdata->deviceName = getA2DDeviceName(a2d);
 
-                if (!(finfo->channels =
+                if (!(fdata->channels =
                         kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
                         return -ENOMEM;
 
-                memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
-                finfo->nchans = cfg->nvars;
+                memcpy(fdata->channels,cfg->channels,cfg->nvars * sizeof(int));
+                fdata->nchans = cfg->nvars;
 
                 KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
                            getA2DDeviceName(a2d), cfg->sindex, a2d->nfilters);
@@ -816,13 +833,13 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                         return -EINVAL;
                 }
 
-                finfo->decimate = a2d->scanRate / cfg->rate;
-                finfo->filterType = cfg->filterType;
-                finfo->index = cfg->sindex;
+                fdata->inputRate = a2d->scanRate;
+                fdata->outputRate = cfg->rate;
+                fdata->sampleIndex = cfg->sindex;
 
-                KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-                           getA2DDeviceName(a2d), finfo->decimate, finfo->filterType,
-                           finfo->index);
+                KLOG_DEBUG("%s: filterType=%d,  outputRate=%d, sample index=%d\n",
+                       fdata->deviceName, cfg->filterType, fdata->outputRate,
+                       fdata->sampleIndex);
 
                 methods = get_short_filter_methods(cfg->filterType);
                 if (!methods.init) {
@@ -836,8 +853,8 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 finfo->fcleanup = methods.cleanup;
 
                 /* Create the filter object */
-                finfo->filterObj = finfo->finit();
-                if (!finfo->filterObj)
+                fdata->filterObj = finfo->finit();
+                if (!fdata->filterObj)
                         return -ENOMEM;
         }
 
@@ -881,14 +898,10 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 // subtract low channel from the filter channel numbers
                 // since we don't scan the channels below lowChan
                 for (i = 0; i < cfg->nvars; i++)
-                        finfo->channels[i] -= a2d->lowChan;
+                        fdata->channels[i] -= a2d->lowChan;
 
-                result = finfo->fconfig(finfo->filterObj, finfo->index,
-                                       finfo->nchans,
-                                       finfo->channels,
-                                       finfo->decimate,
-                                       cfg->filterData,
-                                       cfg->nFilterData);
+                result = finfo->fconfig(fdata,
+                        cfg->filterData, cfg->nFilterData);
                 if (result) KLOG_ERR("%s: error in filter config\n",getA2DDeviceName(a2d));
         }
         return result;
@@ -1271,6 +1284,12 @@ static void startA2D_MM16AT(struct DMMAT_A2D* a2d)
         struct DMMAT* brd = a2d->brd;
         unsigned char regval;
 
+        int fifoDeltaT_usecs =
+                a2d->scanDeltaT * USECS_PER_TMSEC *
+                a2d->fifoThreshold / a2d->nchanScanned;
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
+                10 * USECS_PER_SEC);
+
         if (a2d->mode != A2D_NORMAL) return;
 
         // reset fifo
@@ -1328,6 +1347,13 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
 #ifdef OUTPUT_CLOCK12_DOUT2
         unsigned char regval;
 #endif
+
+        int fifoDeltaT_usecs =
+                a2d->scanDeltaT * USECS_PER_TMSEC *
+                a2d->fifoThreshold / a2d->nchanScanned;
+        screen_timetag_init(&a2d->ttdata, fifoDeltaT_usecs,
+                10 * USECS_PER_SEC);
+
         if (brd->type != DMM32AT_BOARD) {
                 outb(0x04,brd->addr + 8);	// set page 4
                 outb(0x02,brd->addr + 14);	// abort any currently running autocal
@@ -1831,11 +1857,11 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
                             KLOG_WARNING("%s: missedSamples=%d\n",
                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
                         a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,
+                            a2d->filters[i].data.filterObj,tt,dp,1,
                             (short_sample_t*)&toss);
                 }
                 else if (a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,osamp)) {
+                            a2d->filters[i].data.filterObj,tt,dp,1,osamp)) {
 #ifdef __BIG_ENDIAN
                         // convert to little endian
                         int j;
@@ -1867,7 +1893,7 @@ static void dmmat_a2d_bottom_half(void* work)
 
         struct a2d_bh_data* tld = &a2d->bh_data;
 
-        dsm_sample_time_t tt0;
+        dsm_sample_time_t tt0orig, tt0;
 
         int saveChan = tld->saveSample.length / sizeof(short);
 
@@ -1902,7 +1928,17 @@ static void dmmat_a2d_bottom_half(void* work)
                 // the last channels of the previous scan
 
                 // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
+                tt0orig = insamp->timetag - dt;
+                tt0 = screen_timetag(&a2d->ttdata, tt0orig);
+                if (abs(tt0 - tt0orig) > TMSECS_PER_SEC / 4) {
+                        if (!(a2d->nLargeTimeAdj++ % 100)) {
+                                int tdiff = tt0 - tt0orig;
+                                KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
+                                        getA2DDeviceName(a2d),
+                                        tdiff / TMSECS_PER_SEC,
+                                        abs(tdiff) % TMSECS_PER_SEC);
+                        }
+                }
 
                 for (; dp < ep; ) {
                     int n = (ep - dp);
@@ -1945,7 +1981,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
         struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
         struct dsm_sample* insamp;
 
-        dsm_sample_time_t tt0;
+        dsm_sample_time_t tt0orig, tt0;
 
         KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
             getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
@@ -1963,7 +1999,19 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                 BUG_ON((nval % a2d->nchanScanned) != 0);
 
                 // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
+                // subtract scanning time from interrupt time
+                tt0orig = insamp->timetag - dt;
+
+                tt0 = screen_timetag(&a2d->ttdata, tt0orig);
+                if (abs(tt0 - tt0orig) > TMSECS_PER_SEC / 4) {
+                        if (!(a2d->nLargeTimeAdj++ % 100)) {
+                                int tdiff = tt0 - tt0orig;
+                                KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
+                                        getA2DDeviceName(a2d),
+                                        tdiff / TMSECS_PER_SEC,
+                                        abs(tdiff) % TMSECS_PER_SEC);
+                        }
+                }
 
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
@@ -2932,9 +2980,9 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numActualBoards) return -ENXIO;
@@ -3158,11 +3206,9 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numActualBoards) return -ENXIO;
@@ -3317,11 +3363,9 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         brd = board + ibrd;
@@ -3573,11 +3617,9 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                                _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                                _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         brd = board + ibrd;
@@ -3882,12 +3924,30 @@ static int init_a2d(struct DMMAT* brd)
         return result;
 }
 
+static void freeFilters(struct DMMAT_A2D* a2d) 
+{
+        int i;
+        for (i = 0; i < a2d->nfilters; i++) {
+                struct short_filter_info* finfo = a2d->filters + i;
+                /* cleanup filter */
+                if (finfo->data.filterObj && finfo->fcleanup)
+                    finfo->fcleanup(finfo->data.filterObj);
+                finfo->data.filterObj = 0;
+                finfo->fcleanup = 0;
+                if (finfo->data.channels)
+                        kfree(finfo->data.channels);
+                finfo->data.channels = 0;
+        }
+        kfree(a2d->filters);
+        a2d->filters = 0;
+        a2d->nfilters = 0;
+}
+
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
 static void cleanup_a2d(struct DMMAT* brd)
 {
         struct DMMAT_A2D* a2d = brd->a2d;
-        int i;
 
         if (!a2d) return;
 
@@ -3901,15 +3961,7 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         free_dsm_circ_buf(&a2d->fifo_samples);
 
-        if (a2d->filters) {
-                for (i = 0; i < a2d->nfilters; i++) {
-                        if (a2d->filters[i].channels)
-                                kfree(a2d->filters[i].channels);
-                        a2d->filters[i].channels = 0;
-                }
-                kfree(a2d->filters);
-                a2d->filters = 0;
-        }
+        if (a2d->filters) freeFilters(a2d);
 
         kfree(a2d);
         brd->a2d = 0;
@@ -3922,9 +3974,16 @@ static void cleanup_a2d(struct DMMAT* brd)
  * the read queue.  This timer function is called at the
  * rate requested by the user.
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void cntr_timer_fn(unsigned long arg)
 {
-        struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) arg;
+        struct timer_list* tlist = (struct timer_list*)arg;
+#else
+static void cntr_timer_fn(struct timer_list* tlist)
+{
+#endif
+        struct DMMAT_CNTR* cntr =
+                container_of(tlist, struct DMMAT_CNTR, timer);
         struct DMMAT* brd = cntr->brd;
 
         unsigned long flags;
@@ -4037,9 +4096,18 @@ static int __init init_cntr(struct DMMAT* brd)
 
         init_waitqueue_head(&cntr->read_queue);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
         init_timer(&cntr->timer);
         cntr->timer.function = cntr_timer_fn;
-        cntr->timer.data = (unsigned long)cntr;
+        cntr->timer.data = (unsigned long)&cntr->timer;
+#else
+        /*
+         * More recent timer API always passes a pointer to the timer_list
+         * structure to the callback, instead of an unsigned long data
+         * member.
+         */
+        timer_setup(&cntr->timer, cntr_timer_fn, 0);
+#endif
 
         /* After calling cdev_add the device is "live"
          * and ready for user operation.
@@ -4309,6 +4377,7 @@ static int __init dmd_mmat_init(void)
 {	
         int result = -EINVAL;
         int ib;
+        int numBoardTypes = sizeof(BOARD_TYPE_STRS) / sizeof(BOARD_TYPE_STRS[0]);
 
         board = 0;
 
@@ -4372,6 +4441,10 @@ static int __init dmd_mmat_init(void)
                 brd->addr = (unsigned long)brd->ioport + SYSTEM_ISA_IOPORT_BASE;
                 brd->addr16 = brd->addr + ISA_16BIT_ADDR_OFFSET;
 
+                if (types[ib] < 0 || types[ib] >= numBoardTypes) {
+                        KLOG_ERR("board type=%d is invalid\n", types[ib]);
+                        goto err;
+                }
                 brd->type = types[ib];
 
                 result = -EINVAL;
@@ -4400,7 +4473,7 @@ static int __init dmd_mmat_init(void)
                 outb(0x00,brd->addr + 8);	// set page 0
 
                 KLOG_INFO("board %d at address %#04x: FPGA revision: %d\n",
-                                ib,ioports[ib],(int)FPGArev);
+                        ib,ioports[ib],(int)FPGArev);
 
                 result = -EINVAL;
                 /* counter 1&2 */
@@ -4437,8 +4510,9 @@ static int __init dmd_mmat_init(void)
                 if (result) goto err;
                 brd->d2d->stop(brd->d2d);
 
-                KLOG_INFO("board %d, ioport=%#04x, irq=%d, type=%d\n",
-                                brd->num,ioports[ib],irqs[ib],brd->type);
+                KLOG_INFO("board %d, ioport=%#04x, irq=%d, type=%d (%s)\n",
+                        brd->num,ioports[ib],irqs[ib],brd->type,
+                        BOARD_TYPE_STRS[brd->type]);
         }
 
         KLOG_DEBUG("complete.\n");

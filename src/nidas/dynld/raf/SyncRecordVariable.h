@@ -40,7 +40,7 @@ class SyncRecordVariable : public Variable
 public:
     SyncRecordVariable(): offset(0),lagOffset(0) {}
     /**
-     * Get the index into the sync record of the 
+     * Get the index into the sync record of the
      * first value for this variable.
      */
     int getSyncRecOffset() const { return offset; }

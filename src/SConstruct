@@ -4,15 +4,15 @@
 import os, re
 import eol_scons
 
-# eol_scons.SetDebug(True)
+# eol_scons.debug.SetDebug("true")
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default','gitinfo'])
+env = Environment(tools=['default', 'gitinfo'])
 
-# Create the eol_scons global variables and the NIDAS variables from the same config file.
-gopts = eol_scons.GlobalVariables('nidas.conf')
-opts = Variables('nidas.conf')
+# Create the eol_scons global variables and the NIDAS variables from the
+# same config file.
+opts = eol_scons.GlobalVariables('nidas.conf')
 opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
@@ -20,8 +20,6 @@ opts.AddVariables(('PREFIX',
 opts.AddVariables(('OTHER_PREFIX',
                    'Optional prefix for other dependencies.',
                    None, None, eol_scons.PathToAbsolute))
-
-# opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
 # May want to change this so that only single vales in BUILDS are allowed.
 # Specifiying multiple BUILDS becomes problematic with the
@@ -32,12 +30,24 @@ opts.AddVariables(('OTHER_PREFIX',
 # related to the MakeSymLink method in SharedLibrary3Install,
 # even when just doing a clean.  Not sure how to fix it...
 # So if you get that error, resort to single BUILDS.
-opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install: host, arm, armbe, armel or armhf.',
+opts.Add('BUILDS', '\n'
+         '  Space-separated list of architectures to build and install:\n'
+         '  host, arm, armbe, armel or armhf.',
          'host')
 
-opts.Add('MACHS',
-         'Space-separated list of machine names for the architecture (viper, vulcan, titan, rpi2 or all), for building and installing machine-specific code, such as kernel modules.',
+opts.Add('NOVARIANT', '\n'
+         '  Name of a build to build in the source tree rather than as a\n'
+         '  variant build.  For example, if NOVARIANT is "host", then the\n'
+         '  host build output will be written alongside the source rather\n'
+         '  than in the "build" directory.  The value must match one of the\n'
+         '  elements in the BUILDS list, otherwise all the builds will be\n'
+         '  variant builds.',
+         None)
+
+opts.Add('MACHS', '\n'
+         '  Space-separated list of machine names for the architecture\n'
+         '  (viper, vulcan, titan, rpi2 or all), for building and installing\n'
+         '  machine-specific code, such as kernel modules.',
          'all')
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
@@ -51,18 +61,19 @@ opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.',
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
                       'Build linux modules when possible.', 'on'))
-opts.Add('REPO_TAG', 
-         'git tag of the source, in the form "vX.Y", when building outside of a git repository')
-opts.Add('PKG_CONFIG_PATH', 
-         'Path to pkg-config files, if you need other than the system default')
+opts.Add('REPO_TAG', '\n'
+         '  git tag of the source, in the form "vX.Y", when building\n'
+         '  outside of a git repository')
+opts.Add('PKG_CONFIG_PATH', '\n'
+         '  Path to pkg-config files, if you need other than the system default')
 
 # Generally can let this default to the values set below.
 # For x86_64 builds it defaults to 'lib64'. When building
 # a Debian package for x86_64 (amd64), the Makefile that calls
 # scons pre-sets it to lib/x86_64-linux-gnu to be similar with
 # the arm libs and be more Debian-multiarch-like.
-opts.Add('ARCHLIBDIR',
-         'Where to install NIDAS libraries relative to $PREFIX')
+opts.Add('ARCHLIBDIR', '\n'
+         '  Where to install NIDAS libraries relative to $PREFIX')
 
 opts.Add(BoolVariable('BUILD_RAF', 
                       'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
@@ -71,14 +82,16 @@ opts.Update(env)
 # Threads
 env.MergeFlags('-pthread')
 
-if env.has_key('PKG_CONFIG_PATH'):
+if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 BUILDS = Split(env['BUILDS'])
 MACHS = Split(env['MACHS'])
 
 if 'host' in BUILDS or 'x86' in BUILDS:
-    opts.Add('KERNELDIR', 'path to linux kernel source for build host, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
+    opts.Add('KERNELDIR', '\n'
+             '  path to linux kernel source for build host,\n'
+             '  (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:', '*')
 
 if 'arm' in BUILDS:
     opts.Add('KERNELDIR_viper_arm', 'path to linux kernel source for Viper:',
@@ -107,6 +120,19 @@ if 'armhf' in BUILDS:
 
 opts.Update(env)
 
+# NIDAS uses PREFIX as the root install prefix, but since it's a
+# Variable that SCons sets, that means it should only have one value
+# for the entire build rather than be modified for each variant build.
+# So the arch-specific prefix is stored in the ARCHPREFIX variable,
+# and it defaults to just PREFIX.  This way there can be an
+# arch-specific install location which gets built up from the main
+# PREFIX.
+#
+# Targets which should be installed in arch-specific locations should
+# use ARCHPREFIX, while targets which are not arch-specific can go
+# under PREFIX.  For native host builds, they will be the same.
+env['ARCHPREFIX'] = '$PREFIX'
+
 ##
 ##  Define compiler flags and paths for all builds.
 ##
@@ -124,11 +150,11 @@ opts.Update(env)
 #   ride the value of $CXXFLAGS.
 #
 # Warning: CXXFLAGS is before CCFLAGS in the compiler arguments:
-# print 'CXXCOM=' + str(env['CXXCOM'])
+# print('CXXCOM=' + str(env['CXXCOM']))
 # CXXCOM=$CXX -o $TARGET -c $CXXFLAGS $CCFLAGS $_CCCOMCOM $SOURCES
 #
 # compiler string for building shareable code:
-# print 'SHCXXCOM=' + str(env['SHCXXCOM'])
+# print('SHCXXCOM=' + str(env['SHCXXCOM']))
 # SHCXXCOM=$SHCXX -o $TARGET -c $SHCXXFLAGS $SHCCFLAGS $_CCCOMCOM $SOURCES
 #
 # Because of the ordering, it isn't possible to add a CXX-only option
@@ -137,24 +163,24 @@ opts.Update(env)
 # CCFLAGS='-Wall',  CXXFLAGS='-Wno-uninitialized', will result in
 # -Wno-uninitialized -Wall, not the other way around.
 
-# print 'CFLAGS=' + str(env['CFLAGS'])
-# print 'CCFLAGS=' + str(env['CCFLAGS'])
-# print 'SHCCFLAGS=' + str(env['SHCCFLAGS'])
-# print 'CXXFLAGS=' + str(env['CXXFLAGS'])
-# print 'SHCXXFLAGS=' + str(env['SHCXXFLAGS'])
+# print('CFLAGS=' + str(env['CFLAGS']))
+# print('CCFLAGS=' + str(env['CCFLAGS']))
+# print('SHCCFLAGS=' + str(env['SHCCFLAGS']))
+# print('CXXFLAGS=' + str(env['CXXFLAGS']))
+# print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
 env['CFLAGS'] = [ '-Wall','-O2' ]
-env['CXXFLAGS'] = [ '-Wall','-O2' ]
+env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated' ]
 
 env['CCFLAGS'] = [ ]
 
-if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
+if 'XMLDEBUG' in env and env['XMLDEBUG']:
     env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
 
-if env.has_key('DEBUG') and env['DEBUG']:
+if 'DEBUG' in env and env['DEBUG']:
     env.AppendUnique(CPPDEFINES = ['DEBUG'])
 
-if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
+if 'GDBDEBUG' in env and env['GDBDEBUG']:
     env.AppendUnique(CCFLAGS = ['-ggdb'])
 
 ##
@@ -169,8 +195,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 
 # Check for supported -fstack-protector options in compiler
 def CheckStackProtectorOptions(env):
-    stack_opts = ['-fstack-protector-strong', '-fstack-protector']
-    for opt in stack_opts:
+    def add_stack_option(env, opt):
         test_env = env.Clone()
         test_env.AppendUnique(CCFLAGS = [opt])
         conf = Configure(test_env)
@@ -179,13 +204,61 @@ def CheckStackProtectorOptions(env):
         conf.Finish()
         if ok:
             env.AppendUnique(CCFLAGS = [opt])
+        return ok
+    for opt in ['-fstack-protector-strong', '-fstack-protector']:
+        if add_stack_option(env, opt):
             break
+    add_stack_option(env, '-fstack-check')
+
+def SConscriptVariant(arch, archenv):
+    if arch != env.get('NOVARIANT'):
+        vdir = "build_" + arch
+        if arch == 'host' or arch == 'x86':
+            vdir = 'build'
+        SConscript('nidas/SConscript',
+                   variant_dir=vdir,
+                   duplicate=0, exports={'env':archenv})
+        Alias(arch, vdir)
+        Clean(vdir, vdir)
+        if arch == 'x86':
+            Alias('host', vdir)
+        elif arch == 'host':
+            Alias('x86', vdir)
+    else:
+        SConscript('nidas/SConscript', exports={'env':archenv})
+        Alias(arch, 'nidas')
+        if arch == 'host':
+            Alias('host', 'nidas')
+
+
+def getMachineTypes(arch, mspecs):
+    """
+    Return a list of machine types included by the given architecture
+    and machine specifiers.  For example, given architecture 'armel'
+    and machines ['all'], return ['titan', 'viper'].
+    """
+    machine_types = {
+        'arm': {'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']},
+        'armbe': {'all': ['vulcan'], 'vulcan':['vulcan']},
+        'armel' : {'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']},
+        'armhf' : {'all': ['rpi2'], 'rpi2': ['rpi2']}
+    }
+    amachs = machine_types.get(arch, {})
+    machs = []
+    for m in mspecs:
+        if m in amachs:
+            machs.extend(amachs[m])
+    machs = list(set(machs))    # unique-ify
+    return machs
 
 ##
 ##  Create the env for building to the host processor...
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
-    print "Setting up for host builds..."
+    hostarch = 'host'
+    if hostarch not in BUILDS:
+        hostarch = 'x86'
+    print("Setting up for host builds...")
     host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
         ARCH = '', MACHS=[''])
 
@@ -201,50 +274,20 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 
     host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
 
-    exports = {'env':host_env}
-
-    SConscript('nidas/SConscript',
-               variant_dir='build',
-               duplicate=0, exports=exports)
-
-    Alias('x86','build')
-    Alias('host','build')
-    Clean('build','build')
-
+    SConscriptVariant(hostarch, host_env)
     # Testing targets, built and run only on host
-    SConscript("tests/iterators/SConscript",exports=exports)
-    SConscript("tests/serial_sensor/SConscript",exports=exports)
-    SConscript("tests/tlogger/SConscript",exports=exports)
-    SConscript("tests/core/SConscript",exports=exports)
-    SConscript("tests/data_dump/SConscript",exports=exports)
-    SConscript("tests/tiostream/SConscript",exports=exports)
-    SConscript("tests/network/SConscript",exports=exports)
-    SConscript("tests/sync_server_dump/SConscript",exports=exports)
-    SConscript("tests/ck_xml/SConscript",exports=exports)
-    SConscript("tests/ck_calfile/SConscript",exports=exports)
-    SConscript("tests/UTime/SConscript",exports=exports)
-    SConscript("tests/sonic/SConscript",exports=exports)
-    SConscript("tests/prep/SConscript",exports=exports)
+    SConscript("tests/SConscript", exports={'env':host_env})
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian) on the arcom Viper and Titan.
 ##
 if 'arm' in BUILDS:
-    print "Setting up for arm build ..."
-
-    # supported machine types for arm
-    amachs = { 'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']}
-    # build list of machine types to build from MACHS="x y z" command line
-    machs = []
-    for m in MACHS:
-        if amachs.has_key(m):
-            machs.extend(amachs[m])
-    machs = list(set(machs))    # unique-ify
-
+    print("Setting up for arm build ...")
+    machs = getMachineTypes('arm', MACHS)
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'arm', ARCHLIBDIR='lib', MACHS=machs,
-        PREFIX=env['PREFIX'] + '/arm')
+        ARCHPREFIX='$PREFIX/arm')
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     CheckStackProtectorOptions(arm_env)
@@ -252,66 +295,39 @@ if 'arm' in BUILDS:
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
         arm_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if not arm_env.has_key('DEBUG') or not arm_env['DEBUG']:
+    if 'DEBUG' not in arm_env or not arm_env['DEBUG']:
         arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-
-    SConscript('nidas/SConscript',
-               variant_dir='build_arm',
-               duplicate=0, exports={'env':arm_env})
-    Alias('arm','build_arm')
-    Clean('build_arm','build_arm')
+    SConscriptVariant('arm', arm_env)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (big-endian) on the arcom Vulcan.
 ##
 if 'armbe' in BUILDS:
-    print "Setting up for armbe build ..."
-
-    # supported machine types for armbe
-    amachs = { 'all': ['vulcan'], 'vulcan':['vulcan']}
-    # build list of machine types to build from MACHS="x y z" command line
-    machs = []
-    for m in MACHS:
-        if amachs.has_key(m):
-            machs.extend(amachs[m])
-    machs = list(set(machs))    # unique-ify
-
+    print("Setting up for armbe build ...")
+    machs = getMachineTypes('armbe', MACHS)
     armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
-        PREFIX=env['PREFIX'] + '/armbe')
+        ARCHPREFIX='$PREFIX/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
         armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-    if not armbe_env.has_key('DEBUG') or not armbe_env['DEBUG']:
+    if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-    SConscript('nidas/SConscript',
-               variant_dir='build_armbe',
-               duplicate=0, exports={'env':armbe_env})
-    Alias('armbe','build_armbe')
-    Clean('build_armbe','build_armbe')
+    SConscriptVariant('armbe', armbe_env)
 
 if 'armel' in BUILDS:
-    print "Setting up for armel build ..."
-
-    # supported machine types for armel.
-    amachs = { 'all': ['titan', 'viper'], 'viper':['viper'], 'titan': ['titan']}
-    # build list of machine types to build from MACHS="x y z" command line
-    machs = []
-    for m in MACHS:
-        if amachs.has_key(m):
-            machs.extend(amachs[m])
-    machs = list(set(machs))    # unique-ify
-
+    print("Setting up for armel build ...")
+    machs = getMachineTypes('armel', MACHS)
     armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armel', MACHS=machs)
 
-    if not armel_env.has_key('ARCHLIBDIR'):
+    if 'ARCHLIBDIR' not in armel_env:
         armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
 
     CheckStackProtectorOptions(armel_env)
@@ -321,33 +337,19 @@ if 'armel' in BUILDS:
     armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
-    if not armel_env.has_key('DEBUG') or not armel_env['DEBUG']:
+    if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-
-    SConscript('nidas/SConscript',
-               variant_dir='build_armel',
-               duplicate=0, exports={'env':armel_env})
-    Alias('armel','build_armel')
-    Clean('build_armel','build_armel')
+    SConscriptVariant('armel', armel_env)
 
 if 'armhf' in BUILDS:
-    print "Setting up for armhf build ..."
-
-    # supported machine types for armhf.
-    amachs = { 'all': ['rpi2'], 'rpi2': ['rpi2'], }
-    # build list of machine types to build from MACHS="x y z" command line
-    machs = []
-    for m in MACHS:
-        if amachs.has_key(m):
-            machs.extend(amachs[m])
-    machs = list(set(machs))    # unique-ify
-
+    print("Setting up for armhf build ...")
+    machs = getMachineTypes('armhf', MACHS)
     armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary', 'xmlrpc'],
         ARCH = 'armhf', MACHS=machs)
 
-    if not armhf_env.has_key('ARCHLIBDIR'):
+    if 'ARCHLIBDIR' not in armhf_env:
         armhf_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabihf'
     CheckStackProtectorOptions(armhf_env)
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
@@ -356,16 +358,12 @@ if 'armhf' in BUILDS:
     armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
-    if not armhf_env.has_key('DEBUG') or not armhf_env['DEBUG']:
+    if 'DEBUG' not in armhf_env or not armhf_env['DEBUG']:
         armhf_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
 # armhf_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
-    SConscript('nidas/SConscript',
-               variant_dir='build_armhf',
-               duplicate=0, exports={'env':armhf_env})
-    Alias('armhf','build_armhf')
-    Clean('build_armhf','build_armhf')
+    SConscriptVariant('armhf', armhf_env)
 
 
 Default([BUILDS])
@@ -375,21 +373,39 @@ Alias('install',
       Alias('xml_install',
             env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
-dox = Command('#/../doc/doxygen/html/index.html',
+dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
-              'cd .. && doxygen $SOURCE')
+              'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
 Alias('dox', dox)
 AlwaysBuild(dox)
 
-opts.Update(env)
-gopts.Update(env)
-Help(opts.GenerateHelpText(env) + gopts.GenerateHelpText(env) + """
-targets (use -c to clean targets)
-(none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
-host    build libraries, executable programs and modules for host system.
-arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
-armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
-install build and install all modules, libraries, headers and executables.
--c install  clean targets from $PREFIX
-""")
+# Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
+# a target, and the other install targets this rule to create $PREFIX
+Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+
+# Use the eol_scons SetHelp() method to generate all the help text,
+# including the directory of aliases, but then append a custom summary of
+# nidas targets.
+env.SetHelp()
+nidas_help = """
+Main Targets (use -c to clean targets):
+
+ (none)     -- build libraries, executables and kernel modules for ARM, ARMBE, 
+               and native systems.
+ host       -- build libraries, executable programs and modules for host system.
+ arm        -- build libraries, executables and kernel modules for Eurotech Viper 
+               and Titan, running (obsolete) Arcom Embedded Linux
+ armbe      -- build libraries, executables and kernel modules for Eurotech Vulcan, 
+               running Arcom Embedded Linux
+ armel      -- build libraries, executables and kernel modules for Eurotech Viper 
+               and Titan, Debian 8
+ armhf      -- build libraries, executables and kernel modules for ARMv6/7 systems, 
+               such as R Pi2, running Raspian
+ install    -- build and install all modules, libraries, headers and executables.
+ -c install -- clean targets from $PREFIX
+
+Some targets will not exist if the corresponding architecture has not been
+specified in the BUILDS variable.
+"""
+env.AddHelp(nidas_help)
 

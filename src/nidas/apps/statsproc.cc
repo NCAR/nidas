@@ -65,14 +65,9 @@ public:
 
     int run() throw();
 
-    // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void*);
-
     static int main(int argc, char** argv) throw();
 
     int usage(const char* argv0);
-
-    int getLogLevel() const { return _logLevel; }
 
     bool getFillGaps() const { return _fillGaps; }
 
@@ -80,24 +75,30 @@ public:
 
     Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
 
-    StatisticsProcessor* getStatisticsProcessor(
-        Project& project,
-        const DSMConfig* & matchedDSM,
-        DSMServer* & matchedServer);
+    void
+    requireConfigsXML()
+    {
+        _configsXMLName = _app.getConfigsXML();
+        if (_configsXMLName.length() == 0)
+        {
+            throw n_u::InvalidParameterException
+                ("environment variables",
+                 "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT",
+                 "not found");
+        }
+    }
+
+    StatisticsProcessor*
+    getStatisticsProcessor(Project& project, const DSMConfig* & matchedDSM,
+                           DSMServer* & matchedServer);
 
 private:
 
-    string _argv0;
-
     string _xmlFileName;
-
-    list<string> _dataFileNames;
 
     string _dsmName;
 
     string _configName;
-
-    n_u::auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30000;
 
@@ -117,14 +118,6 @@ private:
 
     string _configsXMLName;
 
-    static const char* _rafXML;
-
-    static const char* _isffXML;
-
-    static const char* _isfsXML;
-
-    int _logLevel;
-
     bool _fillGaps;
 
     bool _doListOutputSamples;
@@ -134,65 +127,51 @@ private:
     string _datasetName;
 
     NidasApp _app;
+    NidasAppArg NiceValue;
+    NidasAppArg SorterLength;
+    NidasAppArg Period;
+    NidasAppArg DaemonMode;
 };
 
-/* static */
-const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
-
-/* static */
-const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-
-/* static */
-const char* StatsProcess::_isfsXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
 
 int main(int argc, char** argv)
 {
-    return StatsProcess::main(argc,argv);
+    return StatsProcess::main(argc, argv);
 }
 
-/* static */
-string _hostname = string();
-
-void getmyhostname()
-{
-    char myhostname[256];
-    size_t hlen = sizeof(myhostname);
-    if (::gethostname(myhostname,hlen-1) < 0) {
-        if (errno == ENAMETOOLONG) myhostname[hlen-1] = 0;
-        else {
-            perror("gethostname");
-            myhostname[0] = 0;
-        }
-    }
-    _hostname = myhostname;
-}
 
 /* static */
 int StatsProcess::main(int argc, char** argv) throw()
 {
     NidasApp::setupSignals();
 
-    getmyhostname();
-
     StatsProcess stats;
 
     int res;
     
-    // We want default log files of "level,message", so use modify the
-    // default scheme before parsing any log configs which might override
-    // it.
+    // We want default log files of "level,message", so modify the default
+    // scheme before parsing any log configs which might override it.
     n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
     ls.setShowFields("level,message");
     n_u::Logger::getInstance()->setScheme(ls);
 
-    if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
+    try {
+        res = stats.parseRunstring(argc,argv);
+    }
+    catch (NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        res = 1;
+    }
+    if (res)
+        return res;
 
     if (stats._daemonMode) {
-	// fork to background, send stdout/stderr to /dev/null
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("statsproc","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
+        // fork to background, send stdout/stderr to /dev/null
+        if (daemon(0,0) < 0) {
+            n_u::IOException e("statsproc","daemon",errno);
+            cerr << "Warning: " << e.toString() << endl;
+        }
         n_u::Logger::createInstance("statsproc",LOG_PID,LOG_LOCAL5);
     }
     else n_u::Logger::createInstance(&cerr);
@@ -203,16 +182,26 @@ int StatsProcess::main(int argc, char** argv) throw()
 }
 
 StatsProcess::StatsProcess():
-    _argv0(),_xmlFileName(),_dataFileNames(),_dsmName(),
-    _configName(),_sockAddr(),
+    _xmlFileName(),_dsmName(),
+    _configName(),
     _sorterLength(5.0),_daemonMode(false),
     _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
-    _logLevel(n_u::LOGGER_INFO),
     _fillGaps(false),_doListOutputSamples(false),
     _selectedOutputSampleIds(),_datasetName(),
-    _app("statsproc")
+    _app("statsproc"),
+    NiceValue("-n,--nice", "<nice>",
+              "Run at a lower priority (nice > 0)", "0"),
+    SorterLength("-s,--sorterlength", "<seconds>",
+                 "Input data sorter length in fractional seconds.", "5.0"),
+    Period("-p,--period", "<seconds>",
+           "Statistics period in seconds. If -S is used to specify a dataset,\n"
+           "then the period is read from \n"
+           "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml.\n"
+           "Otherwise it defaults to 300 seconds.", "300"),
+    DaemonMode("-z,--daemon", "",
+               "Run in daemon mode (in the background, log messages to syslog)")
 {
 }
 
@@ -251,68 +240,70 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     // For now we just want to add extended logging, consolidate the other
     // options later.
-    app.enableArguments(app.LogConfig | app.LogLevel | app.LogShow | app.LogFields | app.LogParam |
+    NidasAppArg SetDSM("--DSM", "",
+                       "Set the DSM environment variable to the host name,\n"
+                       "as if the StatisticsProcessor were running in the\n"
+                       "context of a single DSM.");
+    NidasAppArg DSMName("-d,--dsmname", "<dsmname>",
+                        "Look for a <fileset> belonging to the given dsm to "
+                        "determine input file names.");
+    app.enableArguments(app.loggingArgs() | app.Hostname |
+                        app.StartTime | app.EndTime | app.XmlHeaderFile |
+                        app.InputFiles | Period | SorterLength |
+                        NiceValue | DaemonMode | SetDSM | DSMName |
                         app.Version | app.Help);
+    app.StartTime.setFlags("-B,--start");
+    app.EndTime.setFlags("-E,--end");
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = true;
+    // statsproc does not have a true default input, but a partial socket
+    // input can be specified, without the port, in which case the default
+    // port will be used.
+    app.InputFiles.setDefaultInput("", DEFAULT_PORT);
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
+    ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
-        usage(argv[0]);
+        return usage(argv[0]);
+    }
+    _period = Period.asInt();
+    _sorterLength = SorterLength.asFloat();
+    _niceValue = NiceValue.asInt();
+    _daemonMode = DaemonMode.asBool();
+    _startTime = app.getStartTime();
+    _endTime = app.getEndTime();
+    _xmlFileName = app.xmlHeaderFile();
+    _dsmName = DSMName.getValue();
+    
+    if (_sorterLength < 0.0 || _sorterLength > 1800.0)
+    {
+        throw NidasAppException("Invalid sorter length: " +
+                                SorterLength.getValue());
+    }
+    if (_period < 0.0)
+    {
+        throw NidasAppException("Invalid period: " + Period.getValue());
     }
 
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char;     /* option character */
 
-    _argv0 = argv[0];
-
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:fn:o:Op:s:S:x:z")) != -1) {
-	switch (opt_char) {
-	case 'B':
-	    try {
-		_startTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-	case 'c':
-	    _configName = optarg;
-	    break;
-	case 'd':
-	    _dsmName = optarg;
-	    break;
-	case 'E':
-	    try {
-		_endTime = n_u::UTime::parse(true,optarg);
-	    }
-	    catch (const n_u::ParseException& pe) {
-	        cerr << pe.what() << endl;
-		return usage(argv[0]);
-	    }
-	    break;
-	case 'f':
-	    _fillGaps = true;
-	    break;
-	case 'n':
-	    {
-	        istringstream ist(optarg);
-		ist >> _niceValue;
-		if (ist.fail()) {
-                    cerr << "Invalid nice value: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-	    break;
-	case 'O':
-	    _doListOutputSamples = true;
-	    break;
-	case 'o':
+    while ((opt_char = getopt(argc, argv, "c:fo:OS:z")) != -1) {
+        switch (opt_char) {
+        case 'c':
+            _configName = optarg;
+            break;
+        case 'f':
+            _fillGaps = true;
+            break;
+        case 'O':
+            _doListOutputSamples = true;
+            break;
+        case 'o':
            {
                 string soptarg(optarg);
                 // parse integers or integer ranges separated by a commas
@@ -322,98 +313,73 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                     if (sopt.length() > 0) {
                         vector<unsigned int> ids = parseIds(sopt);
                         if (ids.size() == 0) return usage(argv[0]);
-                        _selectedOutputSampleIds.insert(_selectedOutputSampleIds.end(),
-                                ids.begin(),ids.end());
+                        _selectedOutputSampleIds.insert
+                            (_selectedOutputSampleIds.end(),
+                             ids.begin(),ids.end());
                     }
                     if (ic == string::npos) break;
                     soptarg = soptarg.substr(ic+1);
                 }
-#ifdef DEBUG
-                cerr << "_selectedOutputSampleIds=";
-                for (unsigned int i = 0; i < _selectedOutputSampleIds.size(); i++)
-                    cerr << _selectedOutputSampleIds[i] << ' ';
-                cerr << endl;
-#endif
+
+                static n_u::LogContext lp(LOG_DEBUG);
+                if (lp.active())
+                {
+                    n_u::LogMessage msg(&lp);
+                    msg << "_selectedOutputSampleIds=";
+                    for (unsigned int i = 0;
+                         i < _selectedOutputSampleIds.size(); i++)
+                        msg << _selectedOutputSampleIds[i] << ' ';
+                }
             }
-	    break;
-	case 'p':
-	    {
-	        istringstream ist(optarg);
-		ist >> _period;
-		if (ist.fail() || _period < 0) {
-                    cerr << "Invalid period: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-	    break;
-	case 's':
-	    {
-	        istringstream ist(optarg);
-		ist >> _sorterLength;
-		if (ist.fail() || _sorterLength < 0.0 || _sorterLength > 1800.0) {
-                    cerr << "Invalid sorter length: " << optarg << endl;
-                    return usage(argv[0]);
-		}
-	    }
-	    break;
-	case 'S':
-	    _datasetName = optarg;
-	    break;
-	case 'x':
-	    _xmlFileName = optarg;
-	    break;
-	case 'z':
-	    _daemonMode = true;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
-    }
-    for ( ; optind < argc; optind++) {
-        string url(argv[optind]);
-        if (url.length() > 5 && !url.compare(0,5,"sock:")) {
-            url = url.substr(5);
-	    string hostName = "127.0.0.1";
-            int port = DEFAULT_PORT;
-	    if (url.length() > 0) {
-		size_t ic = url.find(':');
-		hostName = url.substr(0,ic);
-		if (ic < string::npos) {
-		    istringstream ist(url.substr(ic+1));
-		    ist >> port;
-		    if (ist.fail()) {
-			cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-			return usage(argv[0]);
-		    }
-		}
-	    }
-            try {
-                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                _sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-            }
-            catch(const n_u::UnknownHostException& e) {
-                cerr << e.what() << endl;
-                return usage(argv[0]);
-            }
+            break;
+        case 'S':
+            _datasetName = optarg;
+            break;
+        case '?':
+            return usage(argv[0]);
         }
-	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
-	    url = url.substr(5);
-            _sockAddr.reset(new n_u::UnixSocketAddress(url));
-	}
-        else _dataFileNames.push_back(url);
     }
-    if (!_doListOutputSamples) {
+    app.parseInputs(left.unparsedArgs(optind));
+
+    if (!_doListOutputSamples)
+    {
         // must specify either:
         //  1. some data files to read, and optional begin and end times,
         //  2. a socket to connect to
         //  3. a time period and a $PROJECT environment variable
         //  3b a configuration name and a $PROJECT environment variable
-        if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
+        if (app.dataFileNames().size() == 0 && !app.socketAddress() &&
             _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
-                return usage(argv[0]);
+        {
+            return usage(argv[0]);
+        }
 
-        if (_startTime.toUsecs() != LONG_LONG_MIN && _endTime.toUsecs() == LONG_LONG_MAX)
-                 _endTime = _startTime + 7 * USECS_PER_DAY;
+        if (_startTime.toUsecs() != LONG_LONG_MIN &&
+            _endTime.toUsecs() == LONG_LONG_MAX)
+        {
+            _endTime = _startTime + 7 * USECS_PER_DAY;
+        }
+    }
+
+    // This is a kludge to help situations where we want to run statsproc
+    // on an individual DSM and generate output filenames or directories
+    // using the DSM variable.  As a SampleIOProcessor, a
+    // StatisticsProcessor can have a DSMConfig associated with it, in
+    // which case strings are expanded in that context.  However, I think
+    // think all the processors and output strings have been realized by
+    // the time the project config has been parsed, so it is too late then
+    // to set a DSMConfig.  We might be able to add a StatisticsProcessor
+    // inside every <dsm> element, and then even take advantage of the -d
+    // option to run that specific DSM's stats processor, but that means
+    // generating a stats xml file for every DSM, and each with a unique
+    // starting sample ID.
+    if (SetDSM.asBool())
+    {
+        std::string sdsm("DSM=");
+        sdsm += _app.getShortHostName();
+        char* dsm = new char[sdsm.length()+1];
+        strcpy(dsm, sdsm.c_str());
+        putenv(dsm);
     }
     return 0;
 }
@@ -421,67 +387,55 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 /* static */
 int StatsProcess::usage(const char* argv0)
 {
-    cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n nice]\n\
-    [-p period] [-s sorterLength] [-S dataSet_name] [-x xml_file] [-z] [input ...]\n\
-    -B \"yyyy mm dd HH:MM:SS\": begin time\n\
-    -E \"yyyy mm dd HH:MM:SS\": end time\n\
-    -c configName: (optional) name of configuration period to process, from configs.xml\n\
-    -d dsmname: look for a <fileset> belonging to the given dsm to determine input file names\n\
-    -f: Fill in time gaps with missing data. When reprocessing data you probably want to \n\
-        set this option.  If for some reason you were reprocessing separate time periods in\n\
-        one run, or if some of the archive files are missing, then you may not want statsproc\n\
-        to output missing data values to the netcdf files for the skipped time periods,\n\
-        and so then should omit -f.  If the netcdf files are being created in this run,\n\
-        then -f is unnecessary.\n\
-    -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
-    -O: list sample ids of StatisticsProcessor output samples\n\
-    -o [i] | [i-j] [,...]: select ids of output samples of StatisticsProcessor for processing\n\
-    -p period: statistics period in seconds. If -S is used to specify a dataset, then the period\n\
-       is read from $ISFS/projects/$PROJECT/ISFS/config/datasets.xml.\n\
-       Otherwise it defaults to " << DEFAULT_PERIOD << "\n\
-    -n nice: run at a lower priority (nice > 0)\n\
-    -S dataSet_name: set environment variables specifed for the dataset,\n\
-       as found in the xml file specifed by $NIDAS_DATASETS or \n\
-       $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
-    -s sorterLength: input data sorter length in fractional seconds\n\
-    -x xml_file: if not specified, the xml file name is determined by either reading\n\
-       the data file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n\
-    -z: run in daemon mode (in the background, log messages to syslog)\n\
-    input: data input (optional). One of the following:\n\
-        sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
-        unix:sockpath             unix socket name\n\
-        file[ file ...]           one or more archive file names separated by spaces\n\
-\n\
-If no inputs are specified, then the -B time option must be given, and\n" <<
-argv0 << " will read $ISFS/projects/$PROJECT/ISFS/config/configs.xml, to\n\
-find an xml configuration for the begin time, read it to find a\n\
-<fileset> archive for the dsm, and then open data files\n\
-matching the <fileset> path descriptor and time period.\n\
-\n" <<
-argv0 << " scans the xml file for a <processor> of class StatisticsProcessor\n\
-in order to determine what statistics to generate.\n\
-\n"
-         << "Standard nidas options:\n"
-         << _app.usage() << "\n"
-"Examples:\n" <<
-	argv0 << " -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
-	argv0 << " sock:dsmhost\n" <<
-	argv0 << " unix:/tmp/data_socket\n" <<
+    cerr <<
+        "Usage: " << argv0 << " [options] [-c configName] [-d dsmname] [-f]\n"
+        "    [-S dataSet_name] [input ...]\n"
+        "    -c configName: (optional) \n"
+        "         name of configuration period to process, from configs.xml\n"
+        "    -f: Fill in time gaps with missing data. When reprocessing data\n"
+        "        you probably want to set this option.  If for some reason \n"
+        "        you were reprocessing separate time periods in one run, \n"
+        "        or if some of the archive files are missing, then you may not\n"
+        "        want statsproc to output missing data values to the netcdf\n"
+        "        files for the skipped time periods, and so then should omit -f.\n"
+        "        If the netcdf files are being created in this run, then -f\n"
+        "        is unnecessary.\n"
+        "    -O: list sample ids of StatisticsProcessor output samples\n"
+        "    -o [i] | [i-j] [,...]:\n"
+        "        select ids of output samples of StatisticsProcessor for\n"
+        "        processing.\n"
+        "    -S dataSet_name:\n"
+        "        set environment variables specifed for the dataset, as found\n"
+        "        in the xml file specifed by $NIDAS_DATASETS or\n"
+        "        $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n"
+        "\n"
+        "If no inputs are specified, then the -B time option must be given,\n" <<
+        "and " << argv0 << " will read \n"
+        "$ISFS/projects/$PROJECT/ISFS/config/configs.xml, to find an xml\n"
+        "configuration for the begin time, read it to find a <fileset> archive,\n"
+        "and then open data files matching the <fileset> path\n"
+        "descriptor and time period.  Use the -d <dsmname> option to specify\n"
+        "a DSM in which to look for the <output>, otherwise a server entry is\n"
+        "searched for the fileset.\n" 
+        "\n"
+        "The default XML file name is determined by either reading the data\n"
+        "file header or from $ISFS/projects/$PROJECT/ISFS/config/configs.xml\n"
+        "\n" <<
+        argv0 << " scans the xml file for a <processor> of class\n"
+        "StatisticsProcessor in order to determine what statistics to generate.\n"
+        "\n"
+        "Standard nidas options:\n" << _app.usage() << "\n"
+        "Examples:\n" <<
+        argv0 << " --start \"2006 jun 10 00:00\" --end \"2006 jul 3 00:00\"\n" <<
+        argv0 << " sock:dsmhost\n" <<
+        argv0 << " unix:/tmp/data_socket\n" <<
         endl;
     return 1;
 }
 
-#ifdef PROJECT_IS_SINGLETON
-class AutoProject
-{
-public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
-};
-#endif
 
-Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLException)
+Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException,
+                                         XMLException)
 {
     string XMLName;
     const char* ndptr = getenv("NIDAS_DATASETS");
@@ -495,8 +449,10 @@ Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLExce
         const char* ie = ::getenv("ISFS");
         const char* ieo = ::getenv("ISFF");
         const char* pe = ::getenv("PROJECT");
-        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isfsDatasetsXML);
-        else if (ieo && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
+        if (ie && pe)
+            XMLName = n_u::Process::expandEnvVars(isfsDatasetsXML);
+        else if (ieo && pe)
+            XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
     }
 
     if (XMLName.length() == 0)
@@ -515,9 +471,11 @@ Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLExce
 
 int StatsProcess::run() throw()
 {
-    if (_niceValue > 0 && nice(_niceValue) < 0)  {
-    	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: nice(%d): %s",
-		_argv0.c_str(),_niceValue,strerror(errno));
+    if (_niceValue > 0 && nice(_niceValue) < 0)
+    {
+        WLOG(("") << _app.getProcessName()
+             << ": nice(" << _niceValue << "): "
+             << strerror(errno));
         return 1;
     }
 
@@ -531,75 +489,63 @@ int StatsProcess::run() throw()
 
         if (_xmlFileName.length() > 0) {
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc
+                (nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
         XMLImplementation::terminate();
 
-	if (_sockAddr.get()) {
-            if (_xmlFileName.length() == 0) {
-		const char* re = ::getenv("PROJ_DIR");
-		const char* pe = ::getenv("PROJECT");
-		const char* ae = ::getenv("AIRCRAFT");
-		const char* ie = ::getenv("ISFS");
-		const char* ieo = ::getenv("ISFF");
-		if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-		else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-		else if (ieo && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-		if (_configsXMLName.length() == 0)
-		    throw n_u::InvalidParameterException("environment variables",
-		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
-		ProjectConfigs configs;
-		configs.parseXML(_configsXMLName);
-		ILOG(("parsed:") <<  _configsXMLName);
-		// throws InvalidParameterException if no config for time
-		const ProjectConfig* cfg;
+        if (_app.socketAddress())
+        {
+            if (_xmlFileName.length() == 0)
+            {
+                requireConfigsXML();
+
+                ProjectConfigs configs;
+                configs.parseXML(_configsXMLName);
+                ILOG(("parsed:") <<  _configsXMLName);
+                // throws InvalidParameterException if no config for time
+                const ProjectConfig* cfg;
                 if (_configName.length() > 0)
                     cfg = configs.getConfig(_configName);
                 else
                     cfg = configs.getConfig(n_u::UTime());
-		cfg->initProject(project);
-		// cerr << "cfg=" <<  cfg->getName() << endl;
+                cfg->initProject(project);
+                // cerr << "cfg=" <<  cfg->getName() << endl;
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
-	    n_u::Socket* sock = 0;
-	    for (int i = 0; !sock && !_app.interrupted(); i++) {
+            n_u::Socket* sock = 0;
+            for (int i = 0; !sock && !_app.interrupted(); i++) {
                 try {
-                    sock = new n_u::Socket(*_sockAddr.get());
+                    sock = new n_u::Socket(*_app.socketAddress());
                 }
-                catch(const n_u::IOException& e) {
-                    if (i > 2)
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: retrying",e.what());
+                catch(const n_u::IOException& e)
+                {
+                    WLOG(("") << e.what() << ": retrying in 10 seconds");
                     sleep(10);
                 }
-	    }
+            }
+            if (_app.interrupted())
+            {
+                return 1;
+            }
             sock->setKeepAliveIdleSecs(60);
-	    iochan = new nidas::core::Socket(sock);
+            iochan = new nidas::core::Socket(sock);
             ILOG(("connected: ") <<  sock->getRemoteSocketAddress().toString());
         }
-	else {
+        else {
             nidas::core::FileSet* fset;
 
             // no file names listed in runstring
-	    if (_dataFileNames.size() == 0) {
+            if (_app.dataFileNames().size() == 0)
+            {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (_xmlFileName.length() == 0) {
-                    const char* re = ::getenv("PROJ_DIR");
-                    const char* pe = ::getenv("PROJECT");
-                    const char* ae = ::getenv("AIRCRAFT");
-                    const char* ie = ::getenv("ISFS");
-                    const char* ieo = ::getenv("ISFF");
-                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-                    else if (ieo && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-                    if (_configsXMLName.length() == 0)
-                        throw n_u::InvalidParameterException("environment variables",
-                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
-
+                if (_xmlFileName.length() == 0)
+                {
+                    requireConfigsXML();
                     ProjectConfigs configs;
                     configs.parseXML(_configsXMLName);
                     ILOG(("parsed:") <<  _configsXMLName);
@@ -612,19 +558,21 @@ int StatsProcess::run() throw()
                     cfg->initProject(project);
                     _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
 
-                    if (_startTime.toUsecs() == LONG_LONG_MIN) _startTime = cfg->getBeginTime();
-                    if (_endTime.toUsecs() == LONG_LONG_MAX) _endTime = cfg->getEndTime();
+                    if (_startTime.toUsecs() == LONG_LONG_MIN)
+                        _startTime = cfg->getBeginTime();
+                    if (_endTime.toUsecs() == LONG_LONG_MAX)
+                        _endTime = cfg->getEndTime();
                 }
 
                 list<nidas::core::FileSet*> fsets;
                 if (_dsmName.length() > 0) {
                     fsets = project.findSampleOutputStreamFileSets(_dsmName);
                     if (fsets.empty()) {
-                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        PLOG(("Cannot find a FileSet for dsm ") << _dsmName);
                         return 1;
                     }
                     if (fsets.size() > 1) {
-                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        PLOG(("Multple filesets found for dsm ") << _dsmName);
                         return 1;
                     }
                 }
@@ -644,39 +592,43 @@ int StatsProcess::run() throw()
                     return 1;
                 }
                 if (fsets.size() > 1) {
-                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    PLOG(("Multple filesets found for dsms. "
+                          "Pass a -d dsmname parameter to select one"));
                     return 1;
                 }
 
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
-                if (_startTime.toUsecs() != LONG_LONG_MIN) fset->setStartTime(_startTime);
-                if (_endTime.toUsecs() != LONG_LONG_MAX) fset->setEndTime(_endTime);
-	    }
-	    else {
-                fset = nidas::core::FileSet::getFileSet(_dataFileNames);
+                if (_startTime.toUsecs() != LONG_LONG_MIN)
+                    fset->setStartTime(_startTime);
+                if (_endTime.toUsecs() != LONG_LONG_MAX)
+                    fset->setEndTime(_endTime);
             }
-	    iochan = fset;
-	}
+            else
+            {
+                fset = nidas::core::FileSet::getFileSet(_app.dataFileNames());
+            }
+            iochan = fset;
+        }
 
         RawSampleInputStream sis(iochan);
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
-	pipeline.setRawSorterLength(1.0);
-	pipeline.setProcSorterLength(_sorterLength);
+        pipeline.setRawSorterLength(1.0);
+        pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(1 * 1000 * 1000);
         pipeline.setProcHeapMax(1 * 1000 * 1000);
 
         if (_xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
-	    DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
-		    "software=" << header.getSoftwareVersion() << '\n' <<
-		    "project=" << header.getProjectName() << '\n' <<
-		    "system=" << header.getSystemName() << '\n' <<
-		    "config=" << header.getConfigName() << '\n' <<
-		    "configversion=" << header.getConfigVersion());
+            DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
+                    "software=" << header.getSoftwareVersion() << '\n' <<
+                    "project=" << header.getProjectName() << '\n' <<
+                    "system=" << header.getSystemName() << '\n' <<
+                    "config=" << header.getConfigName() << '\n' <<
+                    "configversion=" << header.getConfigVersion());
 
             // parse the config file.
             _xmlFileName = header.getConfigName();
@@ -692,16 +644,10 @@ int StatsProcess::run() throw()
         DSMServer* server = 0;
 
         sproc = getStatisticsProcessor(project, dsm, server);
-
-	if (!sproc) {
-            if (_dsmName.length())
-                PLOG(("Cannot find a StatisticsProcessor for dsm \"%s\" or server \"%s\" with period=%d",
-                    _dsmName.c_str(),_hostname.c_str(),_period));
-            else
-                PLOG(("Cannot find a StatisticsProcessor for server \"%s\" with period=%d",
-                    _hostname.c_str(), _period));
-	    return 1;
-	}
+        if (!sproc)
+        {
+            return 1;
+        }
         if (dsm) {
             SensorIterator si = dsm->getSensorIterator();
             for (; si.hasNext(); ) {
@@ -736,9 +682,10 @@ int StatsProcess::run() throw()
 
         sproc->setFillGaps(getFillGaps());
 
-        if (_selectedOutputSampleIds.size() > 0) sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
+        if (_selectedOutputSampleIds.size() > 0)
+            sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
 
-	try {
+        try {
             if (_startTime.toUsecs() != LONG_LONG_MIN) {
                 ILOG(("Searching for time ") <<
                     _startTime.format(true,"%Y %m %d %H:%M:%S"));
@@ -754,10 +701,12 @@ int StatsProcess::run() throw()
             sproc->connect(&pipeline);
             // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
-            if (_sockAddr.get()) {
+            if (_app.socketAddress())
+            {
                 SampleOutputRequestThread::getInstance()->start();
             }
-            else {
+            else
+            {
                 const std::list<SampleOutput*>& outputs = sproc->getOutputs();
                 std::list<SampleOutput*>::const_iterator oi = outputs.begin();
                 for ( ; oi != outputs.end(); ++oi) {
@@ -766,22 +715,22 @@ int StatsProcess::run() throw()
                 }
             }
 
-	    for (;;) {
-		if (_app.interrupted()) break;
-		sis.readSamples();
-	    }
-	}
-	catch (n_u::EOFException& e) {
-	    ILOG(("EOF received"));
-	}
-	catch (n_u::IOException& e) {
+            for (;;) {
+                if (_app.interrupted()) break;
+                sis.readSamples();
+            }
+        }
+        catch (n_u::EOFException& e) {
+            ILOG(("EOF received"));
+        }
+        catch (n_u::IOException& e) {
             pipeline.disconnect(&sis);
-	    sis.close();
+            sis.close();
             pipeline.flush();
             pipeline.join();
-	    sproc->disconnect(&pipeline);
-	    throw e;
-	}
+            sproc->disconnect(&pipeline);
+            throw e;
+        }
         pipeline.disconnect(&sis);
         sis.close();
         pipeline.flush();
@@ -797,20 +746,22 @@ int StatsProcess::run() throw()
         PLOG(("%s",e.what()));
         SampleOutputRequestThread::destroyInstance();
         XMLImplementation::terminate();
-	return 1;
+        return 1;
     }
     SampleOutputRequestThread::destroyInstance();
     return 0;
 }
 
-StatisticsProcessor* StatsProcess::getStatisticsProcessor(
-        Project& project,
-        const DSMConfig* & matchedDSM,
-        DSMServer* & matchedServer)
+StatisticsProcessor*
+StatsProcess::
+getStatisticsProcessor(Project& project, const DSMConfig* & matchedDSM,
+                       DSMServer* & matchedServer)
 {
     StatisticsProcessor* sproc = 0;
 
     const DSMConfig* dsm = 0;
+    // If dsmName is set, then look in that specific DSM first for a
+    // matching StatisticsProcessor instance.
     if (_dsmName.length() > 0) {
         dsm = project.findDSM(_dsmName);
         if (dsm) {
@@ -820,9 +771,10 @@ StatisticsProcessor* StatsProcess::getStatisticsProcessor(
                 StatisticsProcessor* sp = 0;
                 sp = dynamic_cast<StatisticsProcessor*>(proc);
                 if (!sp) continue;
-                // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
-                // cerr << "period diff=" << (sp->getPeriod() - _period) <<
-                  //   " equality=" << (sp->getPeriod() == _period) << endl;
+                VLOG(("") << "sp period=" << sp->getPeriod()
+                     << " _period=" << _period
+                     << " period diff=" << (sp->getPeriod() - _period)
+                     << " equality=" << (sp->getPeriod() == _period));
                 if (fabs(sp->getPeriod()-_period) < 1.e-3) {
                     sproc = sp;
                     matchedDSM = dsm;
@@ -831,12 +783,13 @@ StatisticsProcessor* StatsProcess::getStatisticsProcessor(
             }
         }
     }
-    if (!sproc) {
+    if (!sproc)
+    {
         // Find a server with a StatisticsProcessor
         // If no match is found, the name up to the first
         // dot is tried. If still no match, returns
         // servers in the project with no associated name.
-        list<DSMServer*> servers = project.findServers(_hostname);
+        list<DSMServer*> servers = project.findServers(_app.getHostName());
 
         DSMServer* server;
         list<DSMServer*>::const_iterator svri = servers.begin();
@@ -859,6 +812,21 @@ StatisticsProcessor* StatsProcess::getStatisticsProcessor(
             }
         }
     }
+    if (!sproc)
+    {
+        if (_dsmName.length())
+        {
+            PLOG(("Cannot find a StatisticsProcessor for dsm '%s' "
+                  "or server '%s' with period=%d",
+                  _dsmName.c_str(), _app.getHostName().c_str(), _period));
+        }
+        else
+        {
+            PLOG(("Cannot find a StatisticsProcessor for server '%s' "
+                  "with period=%d",
+                  _app.getHostName().c_str(), _period));
+        }
+    }
     return sproc;
 }
 
@@ -873,18 +841,9 @@ int StatsProcess::listOutputSamples()
             n_u::auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
-        else {
-            const char* re = ::getenv("PROJ_DIR");
-            const char* pe = ::getenv("PROJECT");
-            const char* ae = ::getenv("AIRCRAFT");
-            const char* ie = ::getenv("ISFS");
-            const char* ieo = ::getenv("ISFF");
-            if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-            else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-            else if (ieo && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-            if (_configsXMLName.length() == 0)
-                throw n_u::InvalidParameterException("environment variables",
-                    "PROJ_DIR,AIRCRAFT,PROJECT or ISFS,PROJECT","not found");
+        else
+        {
+            requireConfigsXML();
             ProjectConfigs configs;
             configs.parseXML(_configsXMLName);
             ILOG(("parsed:") <<  _configsXMLName);
@@ -909,15 +868,10 @@ int StatsProcess::listOutputSamples()
         DSMServer* server = 0;
 
         sproc = getStatisticsProcessor(project, dsm, server);
-	if (!sproc) {
-            if (_dsmName.length() > 0)
-                PLOG(("Cannot find a StatisticsProcessor for dsm \"%s\" or server \"%s\" with period=%d",
-                    _dsmName.c_str(),_hostname.c_str(),_period));
-            else
-                PLOG(("Cannot find a StatisticsProcessor for server \"%s\" with period=%d",
-                    _hostname.c_str(), _period));
-	    return 1;
-	}
+        if (!sproc)
+        {
+            return 1;
+        }
 
         std::list<const SampleTag*> tags =  sproc->getRequestedSampleTags();
         std::list<const SampleTag*>::const_iterator ti = tags.begin();
@@ -941,7 +895,7 @@ int StatsProcess::listOutputSamples()
         // looking for a matching argument. Use PLOG(("%s",e.what())) instead.
         PLOG(("%s",e.what()));
         XMLImplementation::terminate();
-	return 1;
+        return 1;
     }
     return 0;
 }

@@ -33,6 +33,7 @@
 #include "Parameter.h"
 #include "SensorCatalog.h"
 #include "Looper.h"
+#include "Variable.h"
 
 #include "SamplePool.h"
 #include "CalFile.h"
@@ -356,8 +357,7 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
 
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
-    bool exhausted = false;
-    exhausted = readBuffer();
+    bool exhausted = readBuffer();
 
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -390,6 +390,49 @@ bool DSMSensor::receive(const Sample *samp) throw()
     _source.distribute(results);	// distribute does the freeReference
     return true;
 }
+
+
+void
+DSMSensor::
+trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed)
+{
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    int nd = 0;
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
+        {
+            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
+        }
+    }
+    // Trim the length of the sample to match the variables and lengths
+    // in the SampleTag.
+    outs->setDataLength(nd);
+}
+
+
+void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
+                                 float* results)
+{
+    if (!stag || !outs)
+        return;
+    float* fp = outs->getDataPtr();
+    const vector<Variable*>& vars = stag->getVariables();
+    for (unsigned int iv = 0; iv < vars.size(); iv++)
+    {
+        Variable* var = vars[iv];
+        float* start = fp;
+        fp = var->convert(outs->getTimeTag(), start, 0, results);
+        // Advance the results pointer as much as the values pointer.
+        if (results)
+        {
+            results += (fp - start);
+        }
+    }
+}
+
 
 #ifdef IMPLEMENT_PROCESS
 /**
@@ -785,6 +828,36 @@ void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
 	    getDSMConfig()->getName() + ": " + getName(),
 	    "id is zero","");
 }
+
+
+VariableIndex
+DSMSensor::
+findVariableIndex(const std::string& vprefix)
+{
+    unsigned int vlen = vprefix.length();
+    list<SampleTag*>& tags = getSampleTags();
+
+    list<SampleTag*>::const_iterator ti;
+    VariableIndex idx;
+
+    for (ti = tags.begin(); !idx && ti != tags.end(); ++ti)
+    {
+        SampleTag* tag = *ti;
+        const vector<Variable*>& vars = tag->getVariables();
+        vector<Variable*>::const_iterator vi = vars.begin();
+        for (unsigned int i = 0; vi != vars.end(); ++vi, ++i)
+        {
+            Variable* var = *vi;
+            if (var->getName().substr(0, vlen) == vprefix)
+            {
+                idx = VariableIndex(var, i);
+                break;
+            }
+        }
+    }
+    return idx;
+}
+
 
 xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool complete) const
     throw(xercesc::DOMException)

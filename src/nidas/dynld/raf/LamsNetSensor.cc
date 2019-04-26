@@ -23,22 +23,13 @@
  **
  ********************************************************************
 */
-/* 
+/*
  * LamsNetSensor
- * 
+ *
  */
 
 #include "LamsNetSensor.h"
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/UnixIODevice.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>
-
-#include <iostream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -129,7 +120,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     // allocate sample, spectra size plus one for sequence number
     SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE+1);
     outs->setTimeTag(saved->getTimeTag());
-    outs->setId(getId() + _beam + 1);  
+    outs->setId(getId() + _beam + 1);
 
     float *dout = outs->getDataPtr();
     int iout;

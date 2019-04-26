@@ -29,6 +29,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/AsciiSscanf.h>
+#include <nidas/core/TimetagAdjuster.h>
 
 #include <limits>
 
@@ -44,17 +45,21 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),
-    _irgaDiagIndex(-1),
-    _h2oIndex(-1),
-    _co2Index(-1),
+    _irgaDiag(),
+    _h2o(),
+    _co2(),
+    _Pirga(),
+    _Tirga(),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
-    _converter(0)
+    _converter(0),
+    _ttadjust(0)
 {
 }
 
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
+    delete _ttadjust;
 }
 
 void CSI_IRGA_Sonic::open(int flags)
@@ -104,6 +109,12 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
                 " must have one sample");
 
     const SampleTag* stag = tags.front();
+
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
+                stag->getTimetagAdjustPeriod(),
+                stag->getTimetagAdjustSampleGap());
+
     _numOut = stag->getVariables().size();
 
     _numParsed = _numOut;
@@ -120,17 +131,11 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
     if (_dirIndex >= 0) _numParsed--; // derived, not parsed
     if (_ldiagIndex >= 0) _numParsed--; // derived, not parsed
 
-    VariableIterator vi = stag->getVariableIterator();
-    for (int i = 0; vi.hasNext(); i++) {
-        const Variable* var = vi.next();
-        const string& vname = var->getName();
-        if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
-            _irgaDiagIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "h2o")
-            _h2oIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "co2")
-            _co2Index = i;
-    }
+    _irgaDiag = findVariableIndex("irgadiag");
+    _h2o = findVariableIndex("h2o");
+    _co2 = findVariableIndex("co2");
+    _Pirga = findVariableIndex("Pirga");
+    _Tirga = findVariableIndex("Tirga");
 
     if (_numParsed  < 5)
         throw n_u::InvalidParameterException(getName() +
@@ -190,7 +195,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int len = samp->getDataByteLength();
     const char* eob = buf + len;
     const char* bptr = eob;
-    dsm_time_t wsamptime = samp->getTimeTag() - _timeDelay;
+    dsm_time_t wsamptime;
 
     // Check that the calculated CRC signature agrees with the value in the data record.
     unsigned short sigval;  // signature value in data buffer
@@ -233,6 +238,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     vector<float> pvector(nbinvals);
 
     if (_binary) {
+
+        wsamptime = samp->getTimeTag();
+        if (_ttadjust)
+            wsamptime = _ttadjust->adjust(wsamptime);
+        wsamptime -= _timeDelay;
+
         bptr = buf;
         for (nvals = 0; bptr + sizeof(float) <= eob && nvals < 4; ) {
             pvector[nvals++] = _converter->floatValue(bptr);  // u,v,w,tc
@@ -292,6 +303,9 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         // result from base class parsing of ASCII
         psamp = parseResults.front();
 
+        // base class has adjusted time tag for latency jitter
+        wsamptime = psamp->getTimeTag() - _timeDelay;
+
         nvals = psamp->getDataLength();
         pdata = (const float*) psamp->getConstVoidDataPtr();
     }
@@ -326,22 +340,17 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     if (getDespike()) {
         bool spikes[4] = {false,false,false,false};
-        despike(samp->getTimeTag(),uvwtd,4,spikes);
+        despike(wsamptime, uvwtd,4,spikes);
     }
 
 #ifdef HAVE_LIBGSL
     // apply shadow correction before correcting for unusual orientation
-    transducerShadowCorrection(samp->getTimeTag(),uvwtd);
+    transducerShadowCorrection(wsamptime, uvwtd);
 #endif
 
-    if (_unusualOrientation) {
-        float dn[3];
-        for (int i = 0; i < 3; i++)
-            dn[i] = _sx[i] * uvwtd[_tx[i]];
-        memcpy(uvwtd,dn,sizeof(dn));
-    }
+    applyOrientation(wsamptime, uvwtd);
 
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
+    offsetsTiltAndRotate(wsamptime, uvwtd);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
@@ -371,15 +380,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         dout[_dirIndex] = dr;
     }
 
-    // screen h2o and co2 values when the IRGA diagnostic value is non-zero.
-    // If _irgaDiagIndex is -1, then we're not checking against it.
-    bool irgaOK = (_irgaDiagIndex < 0);
-    if (_irgaDiagIndex >= 0) irgaOK = (dout[_irgaDiagIndex] == 0.0);
-    if (!irgaOK) {
-        if (_h2oIndex >= 0) dout[_h2oIndex] = floatNAN;
-        if (_co2Index >= 0) dout[_co2Index] = floatNAN;
+    // screen h2o and co2 values when the IRGA diagnostic value is indexed
+    // and is non-zero.
+    unsigned int irgadiag = (unsigned int)_irgaDiag.get(dout, 0.0);
+    if (irgadiag != 0) {
+        _h2o.set(dout, floatNAN);
+        _co2.set(dout, floatNAN);
     }
-
+    // During startup the Pirga and Tirga values can be wonky, so flag them.
+    if (irgadiag & 0x4/*Sys Startup*/)
+    {
+        _Pirga.set(dout, floatNAN);
+        _Tirga.set(dout, floatNAN);
+    }
     if (psamp) psamp->freeReference();
 
     results.push_back(wsamp);

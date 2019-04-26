@@ -53,6 +53,8 @@ public:
     SampleScanner* buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
+    void validate() throw(nidas::util::InvalidParameterException);
+
     /**
      * Open the device connected to the sensor.
      */
@@ -65,12 +67,6 @@ public:
     void close() throw(nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
-
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
-
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
 
     int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
 

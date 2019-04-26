@@ -37,17 +37,25 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(TSI_CPC3772)
 
-void TSI_CPC3772::addSampleTag(SampleTag* stag)
-	throw(n_u::InvalidParameterException)
+void TSI_CPC3772::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::addSampleTag(stag);
-    if (getSampleTags().size() > 1)
-        throw n_u::InvalidParameterException(getName(),
-            "addSampleTag","does not support more than 1 sample tag");
+    SerialSensor::validate();
 
-    if (stag->getRate() > 0.0) {
-        _deltaTusecs = (int)rint(USECS_PER_SEC / stag->getRate());
-        _rate = (int)rint(stag->getRate());
+    const std::list<SampleTag*>& tags = getSampleTags();
+
+    if (tags.size() > 1)
+        throw n_u::InvalidParameterException(getName(),
+            "validate","does not support more than 1 sample tag");
+
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        if (stag->getRate() > 0.0) {
+            _deltaTusecs = (int)rint(USECS_PER_SEC / stag->getRate());
+            _rate = (int)rint(stag->getRate());
+        }
     }
 
 }

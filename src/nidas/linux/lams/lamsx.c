@@ -82,7 +82,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -106,6 +106,12 @@
 #define mutex_init(x)               init_MUTEX(x)
 #define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
 #define mutex_unlock(x)             up(x)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
 #endif
 
 static const char* driver_name = "lamsx";
@@ -690,9 +696,9 @@ static long lams_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numboards) return -ENXIO;

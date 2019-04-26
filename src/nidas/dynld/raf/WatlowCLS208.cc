@@ -23,9 +23,9 @@
  **
  ********************************************************************
 */
-/* 
+/*
  * Watlow
- * 
+ *
  */
 
 #include "WatlowCLS208.h"
@@ -55,7 +55,7 @@ namespace {
     }
 }
 
-Watlow::Watlow(): _numWarnings(0) 
+Watlow::Watlow(): _numWarnings(0)
 {
 
 // #define CALC_PROMPT_CRCS
@@ -78,22 +78,24 @@ Watlow::Watlow(): _numWarnings(0)
 
 uint16_t Watlow::CRC16(const unsigned char * input, int nbytes) throw()
 {
-    //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25    
+    //"CRC is started by first preloading a 16 bit register to all 1's"  Manual pg 25
     uint16_t checksum = 0xffff;
+
     while (nbytes--)
-    { 
+    {
         checksum ^= *input++;
         for (int j = 0; j < 8; j++)
         {
 	    uint16_t bit0 = checksum & 0x0001;
             checksum >>= 1; //shift bit right, add in 0 at left
-            if (bit0) 
+            if (bit0)
             {
 		//xor constant from http://docplayer.net/40721506-Cls200-mls300-and-cas200-communications-specification.html
                 checksum ^= 0xa001;
             }
         }
     }
+
     return checksum;
 }
 
@@ -173,7 +175,7 @@ bool Watlow::checkCRC(const unsigned char * input, int nbytes, int sampnum) thro
 
     if (!ok && !(_numWarnings++ % 1000))
         WLOG(("%s: Watlow warning #%u, bad CRC for sample %d, calculated=%s, received=%s",
-            getName().c_str(), _numWarnings, sampnum, 
+            getName().c_str(), _numWarnings, sampnum,
             formatCRC(calcCRC).c_str(), formatCRC(msgCRC).c_str()));
 
     return ok;
@@ -226,7 +228,7 @@ bool Watlow::process(const Sample* samp,list<const Sample*>& results) throw()
 
         // address field
 	if (*inp++ != 0x01) break;
-        
+
         // function field, 0x03=read holding register, 0x83 is exception
         unsigned char func = *inp++;
 

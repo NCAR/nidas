@@ -41,15 +41,28 @@ namespace n_u = nidas::util;
 #include <sstream>
 #include <iostream>
 
+
+namespace 
+{
+    const int POLY_MAX_NUM_COEFS = 6;
+}
+
 VariableConverter::VariableConverter():
-    _units(),_parameters(),_constParameters(), _variable(0)
+    _units(),
+    _parameters(),
+    _constParameters(),
+    _variable(0),
+    _calFile(0),
+    _handler(0)
 {}
 
 VariableConverter::VariableConverter(const VariableConverter& x):
     DOMable(),
     _units(x._units),
     _parameters(),_constParameters(),
-    _variable(x._variable)
+    _variable(x._variable),
+    _calFile(0),
+    _handler(0)
 {
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -58,6 +71,8 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	Parameter* newp = parm->clone();
 	addParameter(newp);
     }
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
+    // Handler is explicitly not copied.
 }
 
 
@@ -69,6 +84,7 @@ VariableConverter::
     {
         delete *pi;
     }
+    delete _calFile;
 }
 
 
@@ -86,6 +102,10 @@ VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
             addParameter(newp);
         }
     }
+    if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    // Handler is not copied, and since this is a "new" converter
+    // essentially, explicitly reset it.
+    _handler = 0;
     return *this;
 }
 
@@ -233,28 +253,92 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 		"unknown child element",elname);
     }
 }
-Linear::Linear():
-    _calTime(LONG_LONG_MIN),_slope(1.0),_intercept(0.0),_calFile(0)
+
+
+void VariableConverter::setCalFile(CalFile* val)
 {
+    _calFile = val;
 }
 
-Linear::Linear(const Linear& x):
-    VariableConverter(x),
-    _calTime(x._calTime),_slope(x._slope),_intercept(x._intercept),_calFile(0)
+
+void
+VariableConverter::
+abortCalFile(const std::string& what)
 {
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
+    WLOG(("") << _calFile->getCurrentFileName() << ": " << what);
+    reset();
+    delete _calFile;
+    _calFile = 0;
 }
 
-Linear& Linear::operator=(const Linear& rhs)
+
+void VariableConverter::readCalFile(dsm_time_t t) throw()
 {
-    if (&rhs != this) {
-        *(VariableConverter*)this = rhs;
-        _calTime = rhs._calTime;
-        _slope = rhs._slope;
-        _intercept = rhs._intercept;
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    if (!_calFile)
+    {
+        return;
     }
-    return *this;
+    /*
+     * The algorithm is the same for all subclasses of VariableConverter:
+     * read calfile records until the time of the next record succeeds the
+     * given time.  At that point, parse the record for coefficients or
+     * whatever kind of calibration values are needed.  Rather than require
+     * each kind of converter to implement this algorithm, the subclasses
+     * implement only the parsing of the record.  If the record cannot be
+     * parsed, then throw an exception and reset the converter back to a
+     * "null" or "invalid" calibration.  So the subclass-specific parts are
+     * the extraction of information from the record, and the reset to the
+     * "null" calibration.
+     */
+    int i = 0;
+    while (t >= _calFile->nextTime().toUsecs())
+    {
+        try {
+            n_u::UTime calTime;
+            _calFile->readCF(calTime, 0, 0);
+            // Wait until after readCF() in case file has not been opened
+            // yet, in which case the returned filename is empty.
+            if (++i == 1)
+            {
+                DLOG(("In ") << _calFile->getCurrentFileName()
+                     << ", looking for time "
+                     << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
+            }
+            // There is a new record to be handled, see if the handler
+            // wants it, and if not, pass it on to the parseFields()
+            // method.
+            if (!_handler || !_handler->handleCalFileRecord(_calFile))
+                parseFields(_calFile);
+        }
+        catch(const n_u::EOFException& e)
+        {
+            // Why don't we close the file here?
+        }
+        catch(const n_u::IOException& e)
+        {
+            abortCalFile(e.what());
+            break;
+        }
+        catch(const n_u::ParseException& e)
+        {
+            abortCalFile(e.what());
+            break;
+        }
+    }
+}
+
+
+void
+VariableConverter::
+setCalFileHandler(CalFileHandler* cfh)
+{
+    _handler = cfh;
+}
+
+
+Linear::Linear():
+    _slope(1.0),_intercept(0.0)
+{
 }
 
 Linear* Linear::clone() const
@@ -262,53 +346,32 @@ Linear* Linear::clone() const
     return new Linear(*this);
 }
 
-Linear::~Linear()
+void
+Linear::
+reset()
 {
-    delete _calFile;
+    setIntercept(floatNAN);
+    setSlope(floatNAN);
 }
 
-void Linear::setCalFile(CalFile* val)
+void
+Linear::
+parseFields(CalFile* cf)
 {
-    _calFile = val;
-}
+    float d[2];
+    int n = cf->getFields(0, 2, d);
 
-void Linear::readCalFile(dsm_time_t t) throw()
-{
-    if (_calFile) {
-        while(t >= _calFile->nextTime().toUsecs()) {
-            float d[2];
-            try {
-                n_u::UTime calTime;
-                int n = _calFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
-                _calTime = calTime.toUsecs();
-                if (n > 0) setIntercept(d[0]);
-                if (n > 1) setSlope(d[1]);
-            }
-            catch(const n_u::EOFException& e)
-            {
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setIntercept(floatNAN);
-                setSlope(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setIntercept(floatNAN);
-                setSlope(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-        }
-    }
+    // Originally this code only changed intercept or slope if it had been
+    // specifically set in the calfile record.  However, that seems to
+    // contradict the understanding that polynomial coefficients default to
+    // an identity function unless set, ie, all coefficients are zero
+    // except the slope is 1.  On the other hand, the readCF() API
+    // specifically says it returns nan for any coefficients not included
+    // in the record.  So what should slope be set to if not specified on
+    // the command line: nan, 1.0, or previous value?
+
+    if (n > 0) setIntercept(d[0]);
+    if (n > 1) setSlope(d[1]);
 }
 
 double Linear::convert(dsm_time_t t,double val)
@@ -399,43 +462,17 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
+
 Polynomial::Polynomial() :
-    _calTime(LONG_LONG_MIN),_coefs(),_calFile(0)
+    _coefs()
 {
     float tmpcoefs[] = { 0.0, 1.0 };
     setCoefficients(vector<float>(tmpcoefs,tmpcoefs+2));
 }
 
-/*
- * Copy constructor.
- */
-Polynomial::Polynomial(const Polynomial& x):
-	VariableConverter(x),
-	_calTime(x._calTime),_coefs(),_calFile(0)
-{
-    setCoefficients(x.getCoefficients());
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
-}
-
-Polynomial& Polynomial::operator=(const Polynomial& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*) this = rhs;
-        _calTime = rhs._calTime;
-        setCoefficients(rhs.getCoefficients());
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
-}
-
 Polynomial* Polynomial::clone() const
 {
     return new Polynomial(*this);
-}
-
-Polynomial::~Polynomial()
-{
-    delete _calFile;
 }
 
 void Polynomial::setCoefficients(const std::vector<float>& vals) 
@@ -450,60 +487,54 @@ void Polynomial::setCoefficients(const float* fp, unsigned int n)
     for (unsigned int i = 0; i < n; i++) _coefs[i] = fp[i];
 }
 
-void Polynomial::setCalFile(CalFile* val)
+
+void
+Polynomial::
+reset()
 {
-    _calFile = val;
+    float d[POLY_MAX_NUM_COEFS];
+    int n = 2;
+    for (int i = 0; i < n; i++) d[i] = floatNAN;
+    setCoefficients(d, n);
 }
 
-void Polynomial::readCalFile(dsm_time_t t) throw()
+
+void
+Polynomial::
+parseFields(CalFile* cf)
 {
-    if (_calFile) {
-        float d[MAX_NUM_COEFS];
-        int n = 0;
-        while(t >= _calFile->nextTime().toUsecs()) {
-            try {
-                n_u::UTime calTime;
-                n = _calFile->readCF(calTime, d,MAX_NUM_COEFS);
-                _calTime = calTime.toUsecs();
-                DLOG(("") << n << " coefficients read from cal file '"
-                     << _calFile->getCurrentFileName()
-                     << "' at time " << n_u::UTime(calTime).format(true, "%Y%m%d,%H:%M:%S")
-                     << " looking for time " << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
-                DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' next time: "
-                     << n_u::UTime(_calFile->nextTime()).format(true, "%Y%m%d,%H:%M:%S"));
-            }
-            catch(const n_u::EOFException& e) {
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                n = 2;
-                for (int i = 0; i < n; i++) d[i] = floatNAN;
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                n = 2;
-                for (int i = 0; i < n; i++) d[i] = floatNAN;
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-            if (n == MAX_NUM_COEFS)
-                n_u::Logger::getInstance()->log(LOG_WARNING,
-                    "%s: possible overrun of coefficients at line %d, max allowed=%d",
-                    _calFile->getCurrentFileName().c_str(),
-                    _calFile->getLineNumber(),MAX_NUM_COEFS);
-        }
-        if (n > 0) setCoefficients(d,n);
+    float d[POLY_MAX_NUM_COEFS];
+    int n = 0;
+
+    n_u::UTime calTime = cf->getCurrentTime();
+    n = cf->getFields(0, POLY_MAX_NUM_COEFS, d);
+    DLOG(("") << n << " coefficients read from cal file '"
+         << cf->getCurrentFileName()
+         << "' at time " << n_u::UTime(calTime).format(true, "%Y%m%d,%H:%M:%S"));
+    DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' next time: "
+         << n_u::UTime(cf->nextTime()).format(true, "%Y%m%d,%H:%M:%S"));
+
+    if (n == POLY_MAX_NUM_COEFS)
+    {
+        WLOG(("") << cf->getCurrentFileName()
+             << ": possible overrun of coefficients at line "
+             << cf->getLineNumber() << ", max allowed=" << POLY_MAX_NUM_COEFS);
     }
+    // Similar to the questions in Linear::parseFields(), what happens on a
+    // blank line?  Should that reset the coefficients to nans or to
+    // defaults?  Unlike Linear, at least the Polynomial conversion only
+    // uses as many coefficients as have been set.
+
+    // However, if none have been set, then should the number of
+    // coefficients be set to zero?  In that case, eval(x) returns zero and
+    // not nan or x.  Does that should right?  I suppose if the default is
+    // that all coefficients are zero, that makes sense.  But in fact the
+    // constructor sets the defaults to 0, 1, so eval(x) ==> x.
+
+    if (n > 0) setCoefficients(d, n);
 }
 
+   
 double Polynomial::convert(dsm_time_t t,double val)
 {
     readCalFile(t);

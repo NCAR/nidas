@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -453,6 +453,48 @@ const DSMConfig* Project::findDSM(const std::string& name) const
     WLOG(("dsm with name ") << name << "  not found in project configuration");
     return 0;
 }
+
+
+DSMConfig*
+Project::
+findDSMFromHostname(const std::string& hostname)
+{
+    // location of first dot of hostname, or if not found 
+    // the host string match will be done against entire hostname
+    string::size_type dot = hostname.find('.');
+
+    DSMConfig* dsmConfig = 0;
+    DSMConfig* dsm = 0;
+    int ndsms = 0;
+
+    const list<Site*>& sites = getSites();
+    list<Site*>::const_iterator si;
+    for (si = sites.begin(); !dsmConfig && si != sites.end(); ++si)
+    {
+        Site* site = *si;
+        const list<DSMConfig*>& dsms = site->getDSMConfigs();
+
+        list<DSMConfig*>::const_iterator di;
+        for (di = dsms.begin(); !dsmConfig && di != dsms.end(); ++di)
+        {
+            dsm = *di;
+            ndsms++;
+            if (dsm->getName() == hostname ||
+                dsm->getName() == hostname.substr(0, dot))
+            {
+                dsmConfig = dsm;
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "Project: found <dsm> for %s", hostname.c_str());
+                break;
+            }
+        }
+    }
+    if (ndsms == 1)
+        dsmConfig = dsm;
+    return dsmConfig;
+}
+
+
 
 list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
 {

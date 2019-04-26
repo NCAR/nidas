@@ -1,0 +1,46 @@
+FROM docker.io/debian:jessie
+LABEL organization="NCAR EOL"
+
+ARG user=builder
+ARG uid=1000
+ARG group=eol
+ARG gid=1000
+ARG hostarch=armel
+
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl sudo git ca-certificates build-essential fakeroot libncurses-dev bc dh-make
+
+
+# Get cross tools from emdebian
+RUN echo "deb http://emdebian.org/tools/debian/ jessie main" >> /etc/apt/sources.list.d/crosstools.list
+RUN curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
+
+# Add EOL repository for some local packages
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+RUN dpkg --add-architecture ${hostarch}
+
+RUN apt-get update
+
+RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
+
+RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
+
+# Local packages
+# hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
+# finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). Need to fix xmlrpc++ to add
+# a correct pkg-config file for cross building.
+RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
+
+# viper, titan headers
+RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
+
+RUN addgroup --gid $gid $group
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+
+RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+USER $user
+WORKDIR /home/$user
+

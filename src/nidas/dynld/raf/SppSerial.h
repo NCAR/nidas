@@ -57,7 +57,7 @@ inline unsigned short UnpackDMT_UShort(DMT_UShort dmtval)
     return val;
 }
 
-inline void PackDMT_UShort(DMT_UShort dmtval, unsigned short val) 
+inline void PackDMT_UShort(DMT_UShort dmtval, unsigned short val)
 {
     dmtval[0] = val & 0xff;
     dmtval[1] = (val >> 8) & 0xff;
@@ -79,12 +79,12 @@ typedef unsigned char DMT_ULong[4];
 
 inline unsigned long UnpackDMT_ULong(DMT_ULong dmtval)
 {
-    unsigned long val = dmtval[1] << 24 | dmtval[0] << 16 | 
+    unsigned long val = dmtval[1] << 24 | dmtval[0] << 16 |
         dmtval[3] << 8 | dmtval[2]; // DMT byte order is 2301
     return val;
 }
 
-inline void PackDMT_ULong(DMT_ULong dmtval, unsigned long val) 
+inline void PackDMT_ULong(DMT_ULong dmtval, unsigned long val)
 {
     dmtval[0] = (val >> 16) & 0xff; // 2
     dmtval[1] = (val >> 24) & 0xff; // 3
@@ -138,19 +138,20 @@ protected:
     /**
      * Append _packetLen bytes of data to _waitingData, and find the earliest
      * "good" record possible, where a good record:
-     * 
+     *
      *  1) is packetLen() bytes long
-     *  2) the last two bytes of the record are a valid 16-bit checksum 
-     *     for the rest of the record (_dataType == FixedLength), or the 
-     *	 last two bytes match the expected record terminator 
+     *  2) the last two bytes of the record are a valid 16-bit checksum
+     *     for the rest of the record (_dataType == FixedLength), or the
+     *	 last two bytes match the expected record terminator
      *     (_dataType == Delimited)
      *
-     * If a good record is found, the function returns true, data before the 
-     * good record are dropped, leaving the good record will be at the head of 
+     * If a good record is found, the function returns true, data before the
+     * good record are dropped, leaving the good record will be at the head of
      * _waitingData.  If no good record is found, the function returns false,
      * and the last (packetLen()-1) bytes of _waitingData are retained.
+     * Is virtual so PIP can override.
      */
-    int appendDataAndFindGood(const Sample* sample);
+    virtual int appendDataAndFindGood(const Sample* sample);
 
     /**
      * Apply a VariableConversion to an output value.

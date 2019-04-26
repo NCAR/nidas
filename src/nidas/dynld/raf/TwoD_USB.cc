@@ -43,8 +43,8 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-// 33 m/s mimics the spinning disk.
-const float TwoD_USB::DefaultTrueAirspeed = 33.0;
+// 23 m/s mimics the newer spinning disk. 33 for the older.
+const float TwoD_USB::DefaultTrueAirspeed = 23.0;
 
 const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
@@ -98,7 +98,7 @@ IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
 
 SampleScanner *TwoD_USB::buildSampleScanner()
     throw(n_u::InvalidParameterException)
-{   
+{
     return new DriverSampleScanner((4104 + 8) * 4);
 }
 
@@ -147,7 +147,7 @@ void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolutionMicron = (int)p->getNumericValue(0);
     _resolutionMeters = (float)_resolutionMicron * 1.0e-6;
-   
+
     p = getParameter("TAS_RATE");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
@@ -210,8 +210,9 @@ void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw
 }
 
 /*---------------------------------------------------------------------------*/
-int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
+int TwoD_USB::TASToTap2D(void * tap2d, float tas)
 {
+   Tap2D * t2d = (Tap2D*)tap2d;
     /* Default tas to spinning disk speed if we are not moving.  This
      * will probably bite us some day when they try to use a 2D probe on
      * ISF or ISFF....
@@ -242,8 +243,8 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
     }
     else {
     /*
-     * Desired frequency is too low.  Fill the struct to generate 
-     * the lowest possible frequency and return -EINVAL to let the 
+     * Desired frequency is too low.  Fill the struct to generate
+     * the lowest possible frequency and return -EINVAL to let the
      * caller know that the TAS is too low.
      */
         t2d->ntap = 0;
@@ -285,11 +286,11 @@ float TwoD_USB::Tap2DToTAS(const Tap2Dv1 * t2d) const
 void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 {
     Tap2D tx_tas;
-    if (TASToTap2D(&tx_tas, tas)) 
+    if (TASToTap2D(&tx_tas, tas))
 	n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: TASToTap2D reports bad airspeed=%f m/s",
 		getName().c_str(),tas);
-	
+
     ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
 }
 
@@ -456,6 +457,9 @@ void TwoD_USB::processParticleSlice(Particle& p, const unsigned char * data)
 /*---------------------------------------------------------------------------*/
 bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 {
+    if (p.dofReject)
+        return false;
+
     if (p.edgeTouch || p.height == 0 ||
         (p.height == 1 && p.width > 3)) // Stuck bit.
         return false;
@@ -468,6 +472,9 @@ bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 
 bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
 {
+    if (p.dofReject)
+        return false;
+
     if (p.height == 1 && p.width > 3) // Stuck bit.
         return false;
 

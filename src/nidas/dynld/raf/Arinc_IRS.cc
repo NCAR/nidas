@@ -62,7 +62,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
         ist >> _irs_thdg_corr;
         if ( ist.fail() )
           throw n_u::InvalidParameterException(getName(),
-	  	attr.getName(),attr.getValue());
+		attr.getName(),attr.getValue());
 #ifdef DEBUG
         err("_irs_thdg_corr = %f", _irs_thdg_corr);
 #endif
@@ -72,7 +72,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
         ist >> _irs_ptch_corr;
         if ( ist.fail() )
           throw n_u::InvalidParameterException(getName(),
-	  	attr.getName(),attr.getValue());
+		attr.getName(),attr.getValue());
 #ifdef DEBUG
         err("_irs_ptch_corr = %f", _irs_ptch_corr);
 #endif
@@ -82,7 +82,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
         ist >> _irs_roll_corr;
         if ( ist.fail() )
           throw n_u::InvalidParameterException(getName(),
-	  	attr.getName(),attr.getValue());
+		attr.getName(),attr.getValue());
 #ifdef DEBUG
         err("_irs_roll_corr = %f", _irs_roll_corr);
 #endif

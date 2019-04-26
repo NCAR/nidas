@@ -59,19 +59,19 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     //
     char* headPtr;
     char* chksumPtr;
-    
+
     InitCDP_blk init;
     headPtr = (char*)&init;
     chksumPtr = (char*)&(init.chksum);
     assert((chksumPtr - headPtr) == (_InitPacketSize - 2));
-    
+
     _nChannels = MAX_CHANNELS; // use a packet length containing all channels
     CDP_blk data;
     headPtr = (char*)&data;
     chksumPtr = (char*)&(data.chksum);
     assert((chksumPtr - headPtr) == (packetLen() - 2));
     _nChannels = 0; // back to zero until it gets set via configuration
-    
+
     //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.

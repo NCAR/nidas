@@ -33,10 +33,10 @@ if mach == 'viper' and env.has_key("LINUX_MODULES_INST_PATH") and \
         ])
 
 # Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $PREFIX/include
+# by user code. These must also be installed in $ARCHPREFIX/include
 headers = Split("""
     viper_dio.h
 """)
 
 if first_mach:
-    env.Install('$PREFIX/include/nidas/linux/viper',headers)
+    env.Install('$ARCHPREFIX/include/nidas/linux/viper',headers)

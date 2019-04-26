@@ -30,8 +30,6 @@
 #include <nidas/core/SampleOutput.h>
 #include <nidas/core/DerivedDataClient.h>
 
-#include <iostream>
-
 namespace nidas {
 
 namespace core {

@@ -1,0 +1,12 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "Europe/Lisbon"
+#
+# DateTime     		 offset	 gain
+2016 may  1 00:00:00 	 0.00	 1.00
+2017 may  1 00:00:00 	 100.00 # short line
+# all defaults
+2018 may  1 00:00:00 
+# NAs count as 'read' even though still returned as nan
+2019 may  1 00:00:00	 nan	NA	extra

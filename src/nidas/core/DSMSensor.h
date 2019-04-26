@@ -33,6 +33,7 @@
 #include "IODevice.h"
 #include "DOMable.h"
 #include "Dictionary.h"
+#include "VariableIndex.h"
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -1006,6 +1007,51 @@ protected:
     {
         _lag = (int) rint(val * USECS_PER_SEC);
     }
+
+    /**
+     * Perform variable conversions for the variables in @p stag whose
+     * values and sample time have been set in @p outs.  This method can be
+     * used by subclasses to apply any variable conversions associated with
+     * the variables in the given SampleTag, using a general algorithm
+     * which loops over each value in each variable.  The min/max value
+     * limits of a variable are applied also, so if a variable value is
+     * converted but lies outside the min/max range, the value is set to
+     * floatNAN.  Typically this can be the last step applied to the output
+     * sample of a sensor's process() method, and note that the sample time
+     * must already be set in the output sample @p outs, since that time
+     * will be used to look up conversions in calibration files.
+     *
+     * If @p results is non-null, then the converted values are written
+     * into @p results instead of overwriting the values in @p outs.  This
+     * is used when one variable's results may be used to filter other
+     * variables without replacing the one variable's results.  An example
+     * is the Ifan variable in the TRH WisardMote. @p results must point to
+     * enough memory to hold all of the values in @p outs, including for
+     * any Variables with multiple values (getLength() > 1).
+     *
+     * See Variable::convert().
+     **/
+    void
+    applyConversions(SampleTag* stag, SampleT<float>* outs, float* results=0);
+
+    /**
+     * Fill with floatNAN all the values past @p nparsed values in output
+     * sample @p outs, and trim the length of the sample to match the
+     * length of the variables in SampleTag @p stag.  process() methods
+     * which support partial scans of messages can use this to finalize an
+     * output sample according to the SampleTag that was matched with it
+     * and the number of values parsed.
+     **/
+    void
+    trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed);
+
+    /**
+     * Search all the sample tags for a variable whose name starts with the
+     * given prefix, and return it's index in the list of variables in the
+     * sample tag.  If no such variable is found, return -1.
+     **/
+    VariableIndex
+    findVariableIndex(const std::string& vprefix);
 
 private:
 

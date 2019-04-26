@@ -35,6 +35,7 @@ namespace nidas { namespace core {
 
 class AsciiSscanf;
 class Sample;
+class TimetagAdjuster;
 
 /**
  * Implementation of support for a sensor which generates 
@@ -280,6 +281,33 @@ protected:
 
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
 			   float* data_ptr);
+
+    /**
+     * Search through the AsciiSscanf instances attached to this sensor,
+     * looking for the next scanner which parses at least one variable from
+     * the given raw sample.  The search picks up after the last scanner
+     * which matched a sample.  The parsed values are added to a new
+     * Sample, and a pointer to the new Sample is returned.  If stag_out is
+     * non-null, it is set to the SampleTag pointer for the AsciiSscanf
+     * which matched.  If no scanners match this sample, then this returns
+     * null.  The returned Sample has a reference which must be freed by
+     * the caller or passed on.  Any unparsed variables in the returned
+     * sample are filled with NaN using trimUnparsed().  The time tag of
+     * the new Sample is set to the time of raw sample @p samp.  No other
+     * time tag adjustments or variable conversions are applied, that is up
+     * to the caller.
+     **/
+    SampleT<float>*
+    searchSampleScanners(const Sample* samp, SampleTag** stag_out=0) throw();
+
+    /**
+     * Apply TimetagAdjuster and lag adjustments to the timetag of the
+     * given sample.
+     **/
+    void
+    adjustTimeTag(SampleTag* stag, SampleT<float>* outs);
+
+    std::map<const SampleTag*, TimetagAdjuster*> _ttadjusters;
 
 private:
 

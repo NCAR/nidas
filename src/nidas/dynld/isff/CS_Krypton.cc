@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -38,54 +38,14 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 
 CS_Krypton::CS_Krypton():
     _Kw(-0.150),_V0(5000.0),_logV0(::log(_V0)),
-    _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw),
-    _calFile(0)
+    _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw)
 {
     setUnits("g/m^3");
-}
-
-CS_Krypton::CS_Krypton(const CS_Krypton& x):
-    VariableConverter(x),
-    _Kw(x._Kw),_V0(x._V0),_logV0(::log(_V0)),
-    _pathLength(x._pathLength), _bias(x._bias),
-    _pathLengthKw(_pathLength * _Kw),
-    _calFile(0)
-{
-    setUnits(x.getUnits());
-}
-
-CS_Krypton& CS_Krypton::operator=(const CS_Krypton& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*)this = rhs;
-        setKw(rhs.getKw());
-        setV0(rhs.getV0());
-        setPathLength(rhs.getPathLength());
-        setBias(rhs.getBias());
-
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
 }
 
 CS_Krypton* CS_Krypton::clone() const
 {
     return new CS_Krypton(*this);
-}
-
-CS_Krypton::~CS_Krypton()
-{
-    delete _calFile;
-}
-
-void CS_Krypton::setCalFile(CalFile* val)
-{
-    _calFile = val;
-}
-
-CalFile* CS_Krypton::getCalFile()
-{
-    return _calFile;
 }
 
 std::string CS_Krypton::toString() const
@@ -100,49 +60,30 @@ void CS_Krypton::fromString(const std::string&)
     	"CS_Krypton::fromString() not supported yet");
 }
 
-void CS_Krypton::readCalFile(dsm_time_t t) throw()
+
+void
+CS_Krypton::
+parseFields(CalFile* cf)
 {
-    if (_calFile) {
-        while(t >= _calFile->nextTime().toUsecs()) {
-            float d[5];
-            try {
-                n_u::UTime calTime;
-                int n = _calFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
-                if (n > 0) setKw(d[0]);
-                if (n > 1) setV0(d[1]);
-                if (n > 2) setPathLength(d[2]);
-                if (n > 3) setBias(d[3]);
-            }
-            catch(const n_u::EOFException& e)
-            {
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setKw(floatNAN);
-                setV0(floatNAN);
-                setPathLength(floatNAN);
-                setBias(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setKw(floatNAN);
-                setV0(floatNAN);
-                setBias(floatNAN);
-                setPathLength(floatNAN);
-                delete _calFile;
-                _calFile = 0;
-                break;
-            }
-        }
-    }
+    float d[5];
+    int n = cf->getFields(0, sizeof d/sizeof(d[0]), d);
+    if (n > 0) setKw(d[0]);
+    if (n > 1) setV0(d[1]);
+    if (n > 2) setPathLength(d[2]);
+    if (n > 3) setBias(d[3]);
 }
+
+
+void
+CS_Krypton::
+reset()
+{
+    setKw(floatNAN);
+    setV0(floatNAN);
+    setPathLength(floatNAN);
+    setBias(floatNAN);
+}
+
 
 double CS_Krypton::convert(dsm_time_t t,double volts)
 {

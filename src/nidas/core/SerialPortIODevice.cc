@@ -135,8 +135,9 @@ size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util:
     }
 
     if (_rts485) {
-        // sleep until we think the last bit has been transmitted,
-        ::usleep(len * _usecsperbyte);
+        // Sleep until we think the last bit has been transmitted.
+        // Add a fudge-factor of one quarter of a character.
+        ::usleep(len * _usecsperbyte + _usecsperbyte/4);
         if (_rts485 > 0) {
             // then clear RTS
             if (_fd >= 0 && ::ioctl(_fd, TIOCMBIC, &bits) < 0)

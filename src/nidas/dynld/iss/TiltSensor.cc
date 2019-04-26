@@ -27,21 +27,27 @@
 #include "TiltSensor.h"
 
 #include <sstream>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::dynld::iss;
 using namespace std;
-
-#include <nidas/util/Logger.h>
+using namespace nidas::core;
 
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
+using nidas::util::LogScheme;
+using nidas::util::InvalidParameterException;
 
 NIDAS_CREATOR_FUNCTION_NS(iss,TiltSensor)
 
 TiltSensor::TiltSensor() :
     checksumFailures(0),
+    checksumReportInterval(60),
     sampleId(0)
 {
+    checksumReportInterval =
+        LogScheme::current().getParameterT("_tilt_checksum_interval",
+                                           checksumReportInterval);
 }
 
 TiltSensor::~TiltSensor()
@@ -67,7 +73,7 @@ throw(InvalidParameterException)
              " unsupported number of variables. Must be: pitch,roll");
     }
 
-    DSMSerialSensor::addSampleTag(stag);
+    SerialSensor::addSampleTag(stag);
 }
 
 
@@ -182,9 +188,10 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     // Now verify the checksum.
     if (checksum != ud[5])
     {
-        if (checksumFailures++ % 60 == 0)
+        if (checksumFailures++ % checksumReportInterval == 0)
         {
-            PLOG(("Checksum failures: ") << checksumFailures);
+            PLOG(("") << getName()
+                 << ": checksum failures: " << checksumFailures);
         }
         return false;
     }
@@ -196,6 +203,8 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     float* values = outsamp->getDataPtr();
     values[0] = pitch;
     values[1] = roll;
+    list<SampleTag*> tags = getSampleTags();
+    applyConversions(tags.front(), outsamp);
     results.push_back(outsamp);
     return true;
 }
@@ -206,5 +215,5 @@ TiltSensor::
 fromDOMElement(const xercesc::DOMElement* node)
 throw(InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    SerialSensor::fromDOMElement(node);
 }

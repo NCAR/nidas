@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -111,7 +111,10 @@ CalFile::CalFile():
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),
+    _currentTime(LONG_LONG_MIN),
+    _currentFields(),
+    _includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),_sensor(0),_mutex()
 {
@@ -128,7 +131,10 @@ CalFile::CalFile(const CalFile& x): DOMable(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),
+    _currentTime(LONG_LONG_MIN),
+    _currentFields(),
+    _includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),
     _sensor(x._sensor),_mutex()
@@ -168,6 +174,18 @@ CalFile::~CalFile()
 
     delete [] _curline;
 }
+
+
+void
+CalFile::
+setTimeZone(const std::string& val)
+{
+    _timeZone = val;
+    _utcZone = _timeZone == "GMT" || _timeZone == "UTC";
+    VLOG(("") << _fileName << ": timezone=" << _timeZone
+         << ", utczone=" << _utcZone);
+}
+
 
 const string& CalFile::getFile() const
 {
@@ -241,11 +259,12 @@ void CalFile::setDateTimeFormat(const std::string& val)
     n_u::replaceCharsIn(_dateTimeFormat,"mm","%M");
     n_u::replaceCharsIn(_dateTimeFormat,"ss","%S");
     n_u::replaceCharsIn(_dateTimeFormat,"SSS","%3f");
+    VLOG(("") << _fileName << ": set datetime format '"
+         << _dateTimeFormat << "'");
 }
 
 void CalFile::open() throw(n_u::IOException)
 {
-
     if (_fin.is_open()) _fin.close();
 
     for (string::size_type ic = 0;;) {
@@ -269,8 +288,9 @@ void CalFile::open() throw(n_u::IOException)
     }
 
     _fin.open(_currentFileName.c_str());
-    if (_fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
-    n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",_currentFileName.c_str());
+    if (_fin.fail())
+        throw n_u::IOException(getPath() + ' ' + getFile(), "open", errno);
+    ILOG(("CalFile: ") << _currentFileName);
     _eofState = false;
     _curline[0] = '\0';
     _curpos = 0;
@@ -286,7 +306,27 @@ void CalFile::close() throw()
     }
     if (_fin.is_open()) _fin.close();
     _nline = 0;
+    // We specifically do not reset these here because the file might be
+    // closed after a call to readCF(), even though readCF() just read a
+    // valid record that has become the current record.
+    //    _currentTime = LONG_LONG_MIN;
+    //    _currentFields.clear();
 }
+
+
+const std::vector<std::string>&
+CalFile::
+getCurrentFields(nidas::util::UTime* time)
+{
+    if (_include)
+    {
+        return _include->getCurrentFields(time);
+    }
+    if (time)
+        *time = _currentTime;
+    return _currentFields;
+}
+
 
 /*
  * Search forward so that the next record to be read is the last one
@@ -347,7 +387,6 @@ n_u::UTime CalFile::search(const n_u::UTime& tsearch)
 n_u::UTime CalFile::parseTime()
     throw(n_u::ParseException)
 {
-
     n_u::UTime t((long long)0);
 
     string saveTZ;
@@ -372,166 +411,265 @@ n_u::UTime CalFile::parseTime()
     return t;
 }
 
-/*
- * Private method to read time from a CalFile.
- * On EOF, it will return a time very far in the future.
- */
 n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
 { 
     readLine();
-    if (eof()) {
-        // cerr << "readTime of " << getCurrentFileName() << " eof, closing" << endl;
+    if (eof())
+    {
         close();
         _nextTime = n_u::UTime(LONG_LONG_MAX);
     }
-    else _nextTime = parseTime();
+    else
+    {
+        _nextTime = parseTime();
+    }
     return _nextTime;
 }
+
 /*
  * Lock a mutex, then read numeric data from a CalFile into
  * a float [].
  */
-int CalFile::readCF(n_u::UTime& time, float* data, int ndata)
+int CalFile::readCF(n_u::UTime& time, float* data, int ndata,
+                    std::vector<std::string>* fields)
     throw(n_u::IOException,n_u::ParseException)
 {
     n_u::Autolock autolock(_mutex);
-    return readCFNoLock(time,data,ndata);
+    return readCFNoLock(time, data, ndata, fields);
 }
 
+
+int
+CalFile::
+parseInclude()
+{
+    // first field, check if it is an include line
+    int regstatus;
+    regmatch_t pmatch[2];
+    int nmatch = sizeof pmatch/ sizeof(regmatch_t);
+    string includeName;
+    {
+        n_u::Synchronized autoLock(_staticMutex);
+        if (!_reCompiled)
+            compileREs();
+        regstatus = ::regexec(&_includePreg, _curline + _curpos,
+                              nmatch, pmatch, 0);
+        if ((regstatus == 0) && pmatch[1].rm_so >= 0)
+        {
+            includeName = string(_curline + _curpos + pmatch[1].rm_so,
+                                 pmatch[1].rm_eo - pmatch[1].rm_so);
+        }
+        else if (regstatus != REG_NOMATCH)
+        {
+            char regerrbuf[64];
+            ::regerror(regstatus, &_includePreg, regerrbuf, sizeof regerrbuf);
+            throw n_u::ParseException("regexec include RE", string(regerrbuf));
+        }
+    }
+    /* found an "include" record */
+    if (regstatus == 0)
+    {
+        openInclude(includeName);
+        return 1;
+    }
+    return 0;
+}
+
+
+
+int CalFile::readCFInclude(n_u::UTime& time, float* data, int ndata,
+                           std::vector<std::string>* fields_out)
+{
+    if (! _include)
+    {
+        return -1;
+    }
+    n_u::UTime intime = _include->nextTime();
+
+    static n_u::LogContext inclog(LOG_VERBOSE);
+    if (inclog.active())
+    {
+        if (intime.toUsecs() == LONG_LONG_MAX)
+            inclog.log() << "include->nextTime" << "MAX"
+                         << ", timeAfterInclude="
+                         << _timeAfterInclude.format(true,"%F %T");
+        else
+            inclog.log() << "include->nextTime"
+                         << intime.format(true,"%F %T")
+                         << ", timeAfterInclude="
+                         << _timeAfterInclude.format(true,"%F %T");
+    }
+
+    if (intime < _timeAfterInclude)
+    {
+        // after the read, time should be the same as intime.
+        int n = _include->readCF(time, data, ndata, fields_out);
+
+        VLOG(("") << _fileName
+             << ": include->read, time=" << time.format(true,"%F %T")
+             << ", includeTime=" << _includeTime.format(true,"%F %T"));
+
+        if (time < _includeTime) time = _includeTime;
+
+        intime =  _include->nextTime();
+        if (intime > _timeAfterInclude)
+            _nextTime = _timeAfterInclude;
+        else
+            _nextTime = intime;
+        return n;
+    }
+
+    /* if the next time in include file is >= the time after the
+     * "include" record, then we're done with this include file */
+    _include->close();
+    delete _include;
+    _include = 0;
+    return -1;
+}
+
+
 /*
- * Private version of readCF which does not hold a mutex.
+ * Private version of readCF which does not hold a mutex.  When
  */
-int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
+int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
+                          std::vector<std::string>* fields_out)
     throw(n_u::IOException,n_u::ParseException)
 {
-    if (_include) {
+    // Make sure the "current record" looks invalid in case this throws an
+    // exception.
+    _currentFields.clear();
+    _currentTime = LONG_LONG_MIN;
 
-        n_u::UTime intime = _include->nextTime();
-
-#ifdef DEBUG
-        if (intime.toUsecs() == LONG_LONG_MAX)
-            cerr << "include->nextTime" << "MAX" <<
-                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
-        else
-            cerr << "include->nextTime" << intime.format(true,"%F %T") <<
-                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
-#endif
-
-        if (intime < _timeAfterInclude) {
-            // after the read, time should be the same as intime.
-            int n = _include->readCF(time, data, ndata);
-
-            // cerr << "include->read, time=" << time.format(true,"%F %T") <<
-            //     ", includeTime=" << _includeTime.format(true,"%F %T") << endl;
-
-            if (time < _includeTime) time = _includeTime;
-
-            intime =  _include->nextTime();
-            if (intime > _timeAfterInclude) _nextTime = _timeAfterInclude;
-            else _nextTime = intime;
-
+    if (_include)
+    {
+        int n = readCFInclude(time, data, ndata, fields_out);
+        if (n >= 0)
             return n;
-        }
-
-        /* if the next time in include file is >= the time after the
-         * "include" record, then we're done with this include file */
-        _include->close();
-        delete _include;
-        _include = 0;
     }
-    // cerr << "read of " << getCurrentFileName() << endl;
 
-    if (eof()) {
-        // cerr << "read of " << getCurrentFileName() << " eof" << endl;
+    if (eof())
+    {
         throw n_u::EOFException(getCurrentFileName(),"read");
     }
 
     /* first call to readCF() for this file */
-    if (_nextTime == LONG_LONG_MIN) {
-        // cerr << "first readTime of " << getCurrentFileName() << endl;
+    if (_nextTime == LONG_LONG_MIN)
+    {
         readTime();
-        // cerr << "did first readTime of " << getCurrentFileName() << endl;
     }
-
     time = _nextTime;
 
-    /* read the data fields, checking for an "include" */
+    // At this point we are on a calfile record line, just past the
+    // timestamp, so everything past this point is taken as a calibration
+    // field.  The original code parsed numbers first, so a field with
+    // "123.456#" would have been parsed as a coefficient followed by a
+    // comment, therefore it is not enough to first tokenize the record as
+    // space-separated strings.  Instead, first strip any comment
+    // characters and anything following.
 
-    istringstream sin(_curline + _curpos);
-
-    int id;
-    for (id = 0; !sin.eof() && id < ndata; id++) {
-        sin >> data[id];
-        if (sin.fail()) {
-            if (sin.eof()) break;
-            // conversion failure
-            if (id == 0) {
-                // first field, check if it is an include line
-                int regstatus;
-                regmatch_t pmatch[2];
-                int nmatch = sizeof pmatch/ sizeof(regmatch_t);
-                string includeName;
-                {
-                    n_u::Synchronized autoLock(_staticMutex);
-                    if (!_reCompiled) compileREs();
-                    if ((regstatus = ::regexec(&_includePreg,
-                        _curline + _curpos,nmatch,pmatch,0)) == 0 &&
-                            pmatch[1].rm_so >= 0) {
-                        includeName = string(_curline + _curpos + pmatch[1].rm_so,
-                                pmatch[1].rm_eo - pmatch[1].rm_so);
-                    }
-                    else if (regstatus != REG_NOMATCH) {
-                        char regerrbuf[64];
-                        ::regerror(regstatus,&_includePreg,regerrbuf,sizeof regerrbuf);
-                        throw n_u::ParseException("regexec include RE",string(regerrbuf));
-                    }
-                }
-                /* found an "include" record */
-                if (regstatus == 0) {
-                    openInclude(includeName);
-                    return readCFNoLock(time,data,ndata);
-                }
-            }
-            // at this point the read failed and it isn't an "include" line.
-            // Check if input field starts with "na", ignoring case, or with '#'.
-            sin.clear();
-
-            // setw(N) will read N-1 character fields, and add a NULL,
-            // so the character array can be declared to be N.
-            char possibleNaN[4];
-            sin >> setw(4) >> possibleNaN;
-            if (!sin.fail()) {
-                if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
-                    ::toupper(possibleNaN[1]) == 'A') {
-                        data[id] = floatNAN;
-                        continue;
-                }
-                else if (possibleNaN[0] == '#')
-                    break;
-            }
-            ostringstream ost;
-            ost << "invalid contents of field " << id << " in ";
-            throw n_u::ParseException(getCurrentFileName(),
-                ost.str() + '"' + (_curline + _curpos) + '"',getLineNumber());
-        }
-        if (::fabs(data[id]) > 1.e36) data[id] = floatNAN;
+    char* pound = strchr(_curline + _curpos, '#');
+    if (pound)
+        *pound = '\0';
+        
+    // Now check if this record is an include directive, and if so, recurse
+    // into the include file looking for the next cal record.
+    if (parseInclude())
+    {
+        return readCFNoLock(time, data, ndata, fields_out);
     }
-    for (int i = id; i < ndata; i++) data[i] = floatNAN;
 
+    /* Finally, this looks like a regular cal record line which can
+     * be parsed into fields. */
+    istringstream fin(_curline + _curpos);
+    std::string ifield;
+    std::vector<std::string> fields;
+
+    while (fin >> ifield)
+    {
+        fields.push_back(ifield);
+    }
+    _currentFields = fields;
+    _currentTime = _nextTime;
+
+    if (fields_out)
+        *fields_out = fields;
+
+    int id = getFields(0, ndata, data);
     readTime();
 
     return id;
 }
 
-/*
- * Read forward to next non-comment line in CalFile.
- * Place result in curline, and index of first non-space
- * character in curpos.  Set _eofState=true if that is the case.
- * Also scans for and parses special comment lines
- * looking like:
- *    # dateFormat = "xxxxx"
- *    # timeZone = "xxx"
- */
+
+int
+CalFile::
+getFields(int begin, int end, float* data,
+          const std::vector<std::string>* fields_in)
+{
+    if (!fields_in)
+        fields_in = &_currentFields;
+    const std::vector<std::string>& fields = *fields_in;
+    
+    // For as many data elements as need to be filled, try to parse a
+    // number out of the field.
+    int id = 0;
+    int ndata = end - begin;
+    for (int fi = begin; fi < end && fi < (int)fields.size(); ++fi, ++id)
+    {
+        const string& field = fields[fi];
+
+        // The field must either parse as a number or be equal to 'NA' or
+        // 'NAN' when converted to upper case.
+
+        istringstream sin(field);
+        sin >> data[id];
+        // The original code would have accepted a number followed by a
+        // non-number character, but then it should have failed trying to
+        // parse a number from what followed.  So just make sure the whole
+        // field was parsed into a number.
+        if (sin.fail() || !sin.eof())
+        {
+            string possibleNaN(field);
+            for (string::iterator ci = possibleNaN.begin();
+                 ci != possibleNaN.end(); ++ci)
+            {
+                *ci = ::toupper(*ci);
+            }
+            if (possibleNaN == "NAN" || possibleNaN == "NA")
+            {
+                data[id] = floatNAN;
+                continue;
+            }
+            ostringstream ost;
+            ost << "invalid contents of field " << fi+1 << " in "
+                <<  '"' << string(_curline + _curpos) << '"';
+            throw n_u::ParseException(getCurrentFileName(),
+                                      ost.str(), getLineNumber());
+        }
+        if (::fabs(data[id]) > 1.e36)
+            data[id] = floatNAN;
+    }
+    // If more data values were expected than we have fields, fill them
+    // with NaN.
+    if (id < ndata)
+    {
+        for (int i = id; i < ndata; i++)
+            data[i] = floatNAN;
+    }
+    return id;
+}
+
+
+float
+CalFile::
+getFloatField(int column, const std::vector<std::string>* fields)
+{
+    float data;
+    getFields(column, column+1, &data, fields);
+    return data;
+}
+
+
 void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 {
     if (!_fin.is_open()) open();
@@ -573,47 +711,57 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
         
         _nline++;
 
-        for (_curpos = 0; _curline[_curpos] && std::isspace(_curline[_curpos]); _curpos++);
+        _curpos = 0;
+        while (_curline[_curpos] && std::isspace(_curline[_curpos]))
+        {
+            _curpos++;
+        }
         if (!_curline[_curpos]) continue;		// all whitespace
 
         if (_curline[_curpos] != '#') break;	// actual data line, break
 
-        // comment line, look for # dateFormat or # timeZone
-        regmatch_t pmatch[2];
-        int nmatch = sizeof pmatch/ sizeof(regmatch_t);
-
-        {
-            n_u::Synchronized autoLock(_staticMutex);
-            if (!_reCompiled) compileREs();
-            int regstatus;
-            if ((regstatus = ::regexec(&_dateFormatPreg,_curline + _curpos,nmatch,
-                pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setDateTimeFormat(string(_curline + _curpos+pmatch[1].rm_so,
-                    pmatch[1].rm_eo - pmatch[1].rm_so));
-                continue;
-            }
-            else if (regstatus != REG_NOMATCH) {
-                char regerrbuf[64];
-                ::regerror(regstatus,&_dateFormatPreg,regerrbuf,sizeof regerrbuf);
-                throw n_u::ParseException("regexec dateFormat RE",string(regerrbuf));
-            }
-            // cerr << "dateTime regstatus=" << regstatus << endl;
-
-            if ((regstatus = ::regexec(&_timeZonePreg,_curline + _curpos,nmatch,
-                pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setTimeZone(string(_curline + _curpos+pmatch[1].rm_so,
-                    pmatch[1].rm_eo - pmatch[1].rm_so));
-            }
-            else if (regstatus != REG_NOMATCH) {
-                char regerrbuf[64];
-                ::regerror(regstatus,&_timeZonePreg,regerrbuf,sizeof regerrbuf);
-                throw n_u::ParseException("regexec TimeZone RE",string(regerrbuf));
-                continue;
-            }
-        }
-        // cerr << "timezone regstatus=" << regstatus << endl;
+        parseTimeComments();
     }
 }
+
+
+bool
+CalFile::
+parseTimeComments()
+{
+    // comment line, look for # dateFormat or # timeZone
+    regmatch_t pmatch[2];
+    int nmatch = sizeof pmatch/ sizeof(regmatch_t);
+
+    n_u::Synchronized autoLock(_staticMutex);
+    if (!_reCompiled) compileREs();
+    int regstatus;
+    if ((regstatus = ::regexec(&_dateFormatPreg,_curline + _curpos,nmatch,
+                               pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
+        setDateTimeFormat(string(_curline + _curpos+pmatch[1].rm_so,
+                                 pmatch[1].rm_eo - pmatch[1].rm_so));
+        return true;
+    }
+    else if (regstatus != REG_NOMATCH) {
+        char regerrbuf[64];
+        ::regerror(regstatus,&_dateFormatPreg,regerrbuf,sizeof regerrbuf);
+        throw n_u::ParseException("regexec dateFormat RE",string(regerrbuf));
+    }
+
+    if ((regstatus = ::regexec(&_timeZonePreg,_curline + _curpos,nmatch,
+                               pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
+        setTimeZone(string(_curline + _curpos+pmatch[1].rm_so,
+                           pmatch[1].rm_eo - pmatch[1].rm_so));
+        return true;
+    }
+    else if (regstatus != REG_NOMATCH) {
+        char regerrbuf[64];
+        ::regerror(regstatus,&_timeZonePreg,regerrbuf,sizeof regerrbuf);
+        throw n_u::ParseException("regexec TimeZone RE",string(regerrbuf));
+    }
+    return false;
+}
+
 
 /*
  * Open an include file, and set the current position with search()
@@ -640,13 +788,14 @@ void CalFile::openInclude(const string& name)
     _timeFromInclude = _include->search(_includeTime);
 
 }
+
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     // const string& elname = xnode.getNodeName();
     if(node->hasAttributes()) {
-	// get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -654,12 +803,13 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "path") setPath(aval);
-	    else if (aname == "file") setFile(aval);
+            if (aname == "path") setPath(aval);
+            else if (aname == "file") setFile(aval);
             else if (aname == "name") setName(aval);
-	    else throw n_u::InvalidParameterException(xnode.getNodeName(),
-			"unrecognized attribute", aname);
-	}
+            else throw n_u::InvalidParameterException(xnode.getNodeName(),
+                                                      "unrecognized attribute",
+                                                      aname);
+        }
     }
 }
 

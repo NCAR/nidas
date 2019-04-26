@@ -25,14 +25,8 @@
 */
 
 #include "VCSEL2_Serial.h"
-#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
-
-#include <asm/ioctls.h>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -52,7 +46,7 @@ VCSEL2_Serial::~VCSEL2_Serial()
 
 void VCSEL2_Serial::open(int flags) throw(n_u::IOException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
@@ -67,7 +61,7 @@ void VCSEL2_Serial::close() throw(n_u::IOException)
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
-    DSMSerialSensor::close();
+    SerialSensor::close();
 }
 
 

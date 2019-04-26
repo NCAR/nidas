@@ -30,6 +30,8 @@
 #include "Wind3D.h"
 #include "CS_Krypton.h"
 
+class TimetagAdjuster;
+
 namespace nidas { namespace dynld { namespace isff {
 
 /**
@@ -45,6 +47,8 @@ class CSAT3_Sonic: public Wind3D
 public:
 
     CSAT3_Sonic();
+
+    ~CSAT3_Sonic();
 
     /**
      * Open the serial port connected to this sonic. open() 
@@ -229,6 +233,8 @@ private:
      *  if the counter is other than the last counter + 1, mod 64.
      */
     bool _checkCounter;
+
+    nidas::core::TimetagAdjuster* _ttadjuster;
 
     /**
      * No copying.

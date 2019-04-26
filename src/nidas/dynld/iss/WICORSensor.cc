@@ -237,33 +237,8 @@ bool
             return false; // no sample
         }
 
-        const vector<Variable*>& vars = stag->getVariables();
-        int nd = 0;
-        // Not all variables may have parsed correctly, but at least one
-        // parsed, and any not parsed will have been assigned NaN, so all
-        // values will go into the sample.
-        for (unsigned int iv = 0; iv < vars.size(); iv++)
-        {
-            Variable* var = vars[iv];
-            for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
-            {
-                if (*fp == var->getMissingValue())
-                {
-                    *fp = floatNAN;
-                }
-                else if (*fp < var->getMinValue() || *fp > var->getMaxValue())
-                {
-                    *fp = floatNAN;
-                }
-                else if (getApplyVariableConversions())
-                {
-                    VariableConverter* conv = var->getConverter();
-                    if (conv)
-                        *fp = conv->convert(samp->getTimeTag(), *fp);
-                }
-            }
-        }
-        outs->setDataLength(nd);
+        trimUnparsed(stag, outs, nparsed);
+        applyConversions(stag, outs);
         results.push_back(outs);
         return true;
     }

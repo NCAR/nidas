@@ -32,6 +32,7 @@
 #define NIDAS_DYNLD_ISFF_NETCDFRPCOUTPUT_H
 
 #include <nidas/core/SampleOutput.h>
+#include <nidas/util/UTime.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -84,11 +85,22 @@ public:
 
     /**
      * Send a data record to the RPC server.
-    */
+     */
     bool receive(const Sample*) throw ();
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * The NetcdfRPCOutput can have a time window which clips the samples
+     * outside the window.  Only samples at or after @p startTime and
+     * before @p endTime will be passed along.  One or both of start and
+     * end time can be zero, in which case only the non-zero times are used
+     * to clip samples.
+     **/
+    void
+    setTimeClippingWindow(const nidas::util::UTime& startTime,
+                          const nidas::util::UTime& endTime);
 
 protected:
 
@@ -110,6 +122,13 @@ protected:
 private:
 
     NetcdfRPCChannel* _ncChannel;
+
+    /**
+     * Clipping time window.  Samples outside the given time window will
+     * not pass.
+     **/
+    dsm_time_t _startTime;
+    dsm_time_t _endTime;
 
     /**
      * No copy.

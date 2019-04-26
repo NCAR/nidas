@@ -49,7 +49,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     _epollfd(-1), _events(0), _nevents(0),
 #elif POLLING_METHOD == POLL_PSELECT
-    _rfdset(),_efdset,_nselect(0),_fds(0),
+    _rfdset(),_efdset(),_nselect(0),_fds(0),
     _polled(0), _nfds(0),_nAllocFds(0), _timeout(),
 #elif POLLING_METHOD == POLL_POLL
     _fds(0),
@@ -67,7 +67,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 {
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
-    assert(EPOLLIN == N_POLLIN || EPOLLERR == N_POLLERR || EPOLLHUP == N_POLLHUP);
+    assert(EPOLLIN == N_POLLIN && EPOLLERR == N_POLLERR && EPOLLHUP == N_POLLHUP);
 
 #ifdef EPOLLRDHUP
     assert(EPOLLRDHUP == N_POLLRDHUP);
@@ -223,25 +223,15 @@ void SensorHandler::incrementFullBufferReads(const DSMSensor* sensor)
                     _fullBufferReads[sensor]));
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool exhausted = false;
-#endif
     if (events & N_POLLIN) {
         try {
-#if POLLING_METHOD == POLL_EPOLL_ET
             exhausted = _sensor->readSamples();
             if (!exhausted)
                 _handler->incrementFullBufferReads(_sensor);
-#else
-            _sensor->readSamples();
-#endif
             _nTimeoutChecks = 0;
         }
         catch(n_u::IOException & ioe) {
@@ -254,11 +244,7 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
                 _handler->scheduleReopen(this);
             else
                 _handler->scheduleClose(this);
-#if POLLING_METHOD == POLL_EPOLL_ET
             return true;
-#else
-            return;
-#endif
         }
     }
     if (events & (N_POLLERR | N_POLLRDHUP | N_POLLHUP))
@@ -273,13 +259,9 @@ SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
             _handler->scheduleReopen(this); // Try to reopen
         else
             _handler->scheduleClose(this);    // report error but don't reopen
-#if POLLING_METHOD == POLL_EPOLL_ET
         exhausted = true;
-#endif
     }
-#if POLLING_METHOD == POLL_EPOLL_ET
     return exhausted;
-#endif
 }
 
 bool SensorHandler::PolledDSMSensor::checkTimeout()
@@ -395,16 +377,10 @@ void SensorHandler::NotifyPipe::close() throw(n_u::IOException)
     if (fd1 >= 0) ::close(fd1);
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool exhausted = false;
-#endif
     if (events & N_POLLIN) {
         char buf[4];
         ssize_t l = read(_fds[0], buf, sizeof(buf));
@@ -417,17 +393,13 @@ SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
                 PLOG(("%s",e.what()));
             }
         }
-#if POLLING_METHOD == POLL_EPOLL_ET
         exhausted = (size_t)l < sizeof(buf);
-#endif
     }
 
     if (events & (N_POLLERR | N_POLLHUP | N_POLLRDHUP))
         PLOG(("%s", "SensorHandler::NotifyPipe epoll exception"));
 
-#if POLLING_METHOD == POLL_EPOLL_ET
     return exhausted;
-#endif
 }
 
 void SensorHandler::NotifyPipe::notify() throw()
@@ -592,7 +564,9 @@ int SensorHandler::run() throw(n_u::Exception)
 
 #elif POLLING_METHOD == POLL_PSELECT
 
-        int nfd = ::pselect(_nselect,&_rfdset,NULL,&_efdset,
+        fd_set rfdset = _rfdset;
+        fd_set efdset = _efdset;
+        int nfd = ::pselect(_nselect,&rfdset,NULL,&efdset,
                 (_sensorCheckIntervalMsecs > 0 ? &_timeout : NULL),&sigmask);
 
         if (nfd <= 0) {      // select error, including receipt of signal, or timeout
@@ -602,46 +576,26 @@ int SensorHandler::run() throw(n_u::Exception)
                 PLOG(("%s",e.what()));
                 break;
             }
-            // poll timeout
-            rtime = n_u::getSystemTime();
-            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
-                checkTimeouts(rtime);
-            if (rtime > _sensorStatsTime) calcStatistics(rtime);
-            continue;
+            // poll timeout, nfd==0
         }
         rtime = n_u::getSystemTime();
 
         unsigned int ifd;
         for (ifd = 0; nfd > 0 && ifd < _nfds; ifd++) {
             int fd = _fds[ifd];
-            // It's not required, but we're calling handlePollEvents()
-            // just once for each active Polled object
-            if (FD_ISSET(fd,&_rfdset)) {
-                uint32_t events = N_POLLIN;
+            uint32_t events = 0;
+            if (FD_ISSET(fd,&rfdset)) {
+                events |= N_POLLIN;
                 nfd--;
-                if (FD_ISSET(fd,&_efdset)) {
-                    events |= N_POLLERR;
-                    nfd--;
-                }
-                else FD_SET(fd,&_efdset);
-
+            }
+            if (FD_ISSET(fd,&efdset)) {
+                events |= N_POLLERR;
+                nfd--;
+            }
+            if (events) {
                 Polled* pp = _polled[ifd];
                 pp->handlePollEvents(events);
             }
-            else {
-                FD_SET(fd,&_rfdset);
-                if (FD_ISSET(fd,&_efdset)) {
-                    Polled* pp = _polled[ifd];
-                    pp->handlePollEvents(N_POLLERR);
-                    nfd--;
-                }
-                else FD_SET(fd,&_efdset);
-            }
-        }
-        for ( ; ifd < _nfds; ifd++) {
-            int fd = _fds[ifd];
-            FD_SET(fd,&_rfdset);
-            FD_SET(fd,&_efdset);
         }
 #elif POLLING_METHOD == POLL_POLL
 
@@ -659,12 +613,7 @@ int SensorHandler::run() throw(n_u::Exception)
                 PLOG(("%s",e.what()));
                 break;
             }
-            // poll timeout
-            rtime = n_u::getSystemTime();
-            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
-                checkTimeouts(rtime);
-            if (rtime > _sensorStatsTime) calcStatistics(rtime);
-            continue;
+            // poll timeout, nfd==0
         }
 
         rtime = n_u::getSystemTime();

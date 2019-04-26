@@ -33,7 +33,8 @@ const char * DeviceValidator::_DeviceDefinitionStruct::_InterfaceLabels[] = { "C
 DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 
 {"", "", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},
-{"Analog", "/dev/ncar_a2d", 0, 2, DeviceValidator::_DeviceDefinition::ANALOG},
+{"ANALOG_NCAR", "/dev/ncar_a2d", 0, 2, DeviceValidator::_DeviceDefinition::ANALOG},
+{"ANALOG_DMMAT", "/dev/dmmat_a2d0", 0, 2, DeviceValidator::_DeviceDefinition::ANALOG},
 {"ACDFO3", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"ADC-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"AMS", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
@@ -59,6 +60,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"HARP", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"HARP_ACTINIC_FLUX", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"HARP_IRRADIANCE", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
+{"HGM232", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"HoneywellPPT", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"HOX1", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"HOX2", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
