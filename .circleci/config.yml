@@ -12,7 +12,7 @@ jobs:
           name: NIDAS Build of Master Branch for Host
           command: |
             cd src
-            scons LINUX_MODULES=no BUILDS=armhf
+            scons LINUX_MODULES=no BUILDS=host
   build-autoconfig-armhf:
     docker:
       - image: docker.io/ncar/nidas:latest
