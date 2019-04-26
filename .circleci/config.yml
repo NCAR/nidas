@@ -25,4 +25,4 @@ jobs:
           command: | 
             pwd
             cd nidas/src
-          scons LINUX_MODULES=no BUILDS=armhf
+            scons LINUX_MODULES=no BUILDS=armhf
