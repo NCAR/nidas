@@ -10,7 +10,7 @@ jobs:
       - checkout
       - run:
         name: NIDAS Build of Master Branch for Host
-        command: | 
+        command: |
           ls
   build-autoconfig-armhf:
     docker:
