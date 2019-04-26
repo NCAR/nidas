@@ -44,6 +44,8 @@
 
 #include <cmath>
 
+#include "sample_type_traits.h"
+
 namespace nidas { namespace core {
 
 /**
@@ -96,90 +98,6 @@ typedef unsigned int dsm_sample_id_t;
  * one must use -march=i686 for them to work on 32 bit x86.
  */
 // #define USE_ATOMIC_REF_COUNT
-
-/**
- * maxValue is an overloaded function returning the
- * maximum value of its integer argument.
- */
-inline unsigned int maxValue(unsigned short)
-{
-    return USHRT_MAX;
-}
-
-inline unsigned int maxValue(short)
-{
-    return SHRT_MAX;
-}
-
-inline unsigned int maxValue(int)
-{
-    return INT_MAX;
-}
-
-inline unsigned int maxValue(unsigned int)
-{
-    return UINT_MAX;
-}
-
-typedef enum sampleType {
-	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
-	INT32_ST, UINT32_ST, FLOAT_ST, DOUBLE_ST,
-	INT64_ST, UNKNOWN_ST } sampleType;
-
-/**
- * Overloaded function to return a enumerated value
- * corresponding to the type pointed to by the argument.
- */
-inline sampleType getSampleType(char*)
-{
-    return CHAR_ST;
-}
-
-inline sampleType getSampleType(unsigned char*)
-{
-    return UCHAR_ST;
-}
-
-inline sampleType getSampleType(unsigned short*)
-{
-    return USHORT_ST;
-}
-
-inline sampleType getSampleType(short*)
-{
-    return SHORT_ST;
-}
-
-inline sampleType getSampleType(unsigned int*)
-{
-    return UINT32_ST;
-}
-
-inline sampleType getSampleType(int*)
-{
-    return INT32_ST;
-}
-
-inline sampleType getSampleType(float*)
-{
-    return FLOAT_ST;
-}
-
-inline sampleType getSampleType(double*)
-{
-    return DOUBLE_ST;
-}
-
-inline sampleType getSampleType(long long*)
-{
-    return INT64_ST;
-}
-
-inline sampleType getSampleType(void*)
-{
-    return UNKNOWN_ST;
-}
-
 
 /**
  * The header fields of a Sample: a time_tag, a data length field,
@@ -340,8 +258,7 @@ public:
     /**
      * Set the number of elements in data portion of sample.
      */
-    virtual void setDataLength(unsigned int val)
-    	throw(SampleLengthException) = 0;
+    virtual void setDataLength(unsigned int val) = 0;
  
     /**
      * Get the number of elements in data portion of sample.
@@ -404,12 +321,12 @@ public:
     /**
      * Allocate a number of bytes of data.
      */
-    virtual void allocateData(unsigned int val) throw(SampleLengthException) = 0;
+    virtual void allocateData(unsigned int val) = 0;
 
     /**
      * Re-allocate a number of bytes of data, saving old contents.
      */
-    virtual void reallocateData(unsigned int val) throw(SampleLengthException) = 0;
+    virtual void reallocateData(unsigned int val) = 0;
 
     /**
      * Increment the reference count for this sample.
@@ -496,7 +413,8 @@ public:
     // Sample(sample_type_traits<DataT>::sample_type_enum)
 
     SampleT() : 
-        Sample(getSampleType(_data)), _data(0),_allocLen(0)
+        Sample(sample_type_traits<DataT>::sample_type_enum),
+        _data(0),_allocLen(0)
     {}
 
     ~SampleT() { delete [] _data; }
@@ -515,7 +433,7 @@ public:
      * Set the number of elements of type DataT in data.
      * @param val: number of elements.
      */
-    void setDataLength(unsigned int val) throw(SampleLengthException)
+    void setDataLength(unsigned int val)
     {
 	if (val > getAllocLength())
 	    throw SampleLengthException(
@@ -576,7 +494,7 @@ public:
      * Allocate data.  
      * @param val: number of DataT's to allocated.
      */
-    void allocateData(unsigned int val) throw(SampleLengthException) {
+    void allocateData(unsigned int val) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::allocateData:",val,getMaxDataLength());
@@ -592,7 +510,7 @@ public:
      * Re-allocate data, space, keeping contents.
      * @param val: number of DataT's to allocated.
      */
-    void reallocateData(unsigned int val) throw(SampleLengthException) {
+    void reallocateData(unsigned int val) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::reallocateData:",val,getMaxDataLength());
@@ -699,7 +617,7 @@ namespace nidas { namespace core {
  * A convenience function for getting a typed sample from a pool.
  */
 template <class T>
-SampleT<T>* getSample(unsigned int len) throw(SampleLengthException)
+SampleT<T>* getSample(unsigned int len)
 {
     SampleT<T>* samp =
     	SamplePool<SampleT<T> >::getInstance()->getSample(len);

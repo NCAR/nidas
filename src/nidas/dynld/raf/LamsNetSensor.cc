@@ -23,9 +23,9 @@
  **
  ********************************************************************
 */
-/* 
+/*
  * LamsNetSensor
- * 
+ *
  */
 
 #include "LamsNetSensor.h"
@@ -120,7 +120,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     // allocate sample, spectra size plus one for sequence number
     SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE+1);
     outs->setTimeTag(saved->getTimeTag());
-    outs->setId(getId() + _beam + 1);  
+    outs->setId(getId() + _beam + 1);
 
     float *dout = outs->getDataPtr();
     int iout;

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include "VCSEL_Serial.h"
+#include "A2D_Serial.h"
 
 #include <nidas/util/Logger.h>
 
@@ -34,61 +34,25 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION_NS(raf,VCSEL_Serial)
+NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
-VCSEL_Serial::VCSEL_Serial() : _atxRate(1), _hz_counter(0)
+A2D_Serial::A2D_Serial() : _hz_counter(0)
 {
 }
 
-VCSEL_Serial::~VCSEL_Serial()
+A2D_Serial::~A2D_Serial()
 {
 }
 
 
-void VCSEL_Serial::open(int flags) throw(n_u::IOException)
+void A2D_Serial::open(int flags) throw(n_u::IOException)
 {
     SerialSensor::open(flags);
 
-    if (DerivedDataReader::getInstance())
-        DerivedDataReader::getInstance()->addClient(this);
-    else
-        n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-		getName().c_str(),
-		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 }
 
 
-void VCSEL_Serial::close() throw(n_u::IOException)
-{
-    if (DerivedDataReader::getInstance())
-	    DerivedDataReader::getInstance()->removeClient(this);
-    SerialSensor::close();
-}
-
-
-void VCSEL_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
-{
-    // std::cerr << "atx " << s->getAmbientTemperature() << std::endl;
-    if (!::isnan(s->getAmbientTemperature())) {
-	try {
-	    sendAmbientTemperature(s->getAmbientTemperature());
-	}
-	catch(const n_u::IOException & e)
-	{
-	    n_u::Logger::getInstance()->log(LOG_WARNING, "%s", e.what());
-	}
-    }
-}
-
-
-void VCSEL_Serial::sendAmbientTemperature(float atx) throw(n_u::IOException)
-{
-    char tmp[128];
-    sprintf(tmp, "%d\n", (int)(atx * 100));
-    write(tmp, strlen(tmp));
-}
-
-bool VCSEL_Serial::process(const Sample * samp,
+bool A2D_Serial::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
     bool rc = SerialSensor::process(samp, results);

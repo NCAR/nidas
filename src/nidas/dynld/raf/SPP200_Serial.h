@@ -47,7 +47,7 @@ public:
   void sendInitString() throw(nidas::util::IOException);
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+	throw();
 
 
   // Packet to initialize probe with.

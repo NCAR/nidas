@@ -87,6 +87,12 @@ public:
         warntime = w;
     }
 
+    void
+    setShowDeltaT(bool show)
+    {
+        showdeltat = show;
+    }
+
 private:
 
     SampleMatcher _samples;
@@ -98,6 +104,7 @@ private:
     const n_u::EndianConverter* fromLittle;
 
     float warntime;
+    bool showdeltat;
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
@@ -110,13 +117,16 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
     _samples(matcher),
     format(fmt), ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
-    warntime(0.0)
+    warntime(0.0),
+    showdeltat(true)
 {
 }
 
 void DumpClient::printHeader()
 {
-    cout << "|--- date time --------|  deltaT";
+    cout << "|--- date time --------|";
+    if (showdeltat)
+        cout << "  deltaT";
     if (!_samples.exclusiveMatch())
     {
         cout << "   id   ";
@@ -172,7 +182,10 @@ bool DumpClient::receive(const Sample* samp) throw()
     leader << setprecision(4) << setfill(' ');
     if (prev_tt != 0) {
         double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
-        leader << setw(7) << tdiff << ' ';
+        if (showdeltat)
+        {
+            leader << setw(7) << tdiff << ' ';
+        }
         if ((warntime < 0 && tdiff < warntime) ||
             (warntime > 0 && tdiff > warntime))
         {
@@ -180,7 +193,7 @@ bool DumpClient::receive(const Sample* samp) throw()
                  << tdiff << " seconds." << endl;
         }
     }
-    else
+    else if (showdeltat)
     {
         leader << setw(7) << 0 << ' ';
     }
@@ -373,6 +386,7 @@ private:
 
     NidasApp app;
     NidasAppArg WarnTime;
+    NidasAppArg NoDeltaT;
 };
 
 
@@ -384,7 +398,9 @@ DataDump::DataDump():
     WarnTime("-w,--warntime", "<seconds>",
              "Warn when sample time succeeds the previous more than <seconds>.\n"
              "If <seconds> is negative, then warn when the succeeding time skips\n"
-             "backwards.\n", "0")
+             "backwards.\n", "0"),
+    NoDeltaT("--nodeltat", "",
+             "Do not include the time delta between samples in the output.")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -397,7 +413,7 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | app.Version | WarnTime);
+                        app.Help | app.Version | WarnTime | NoDeltaT);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -603,6 +619,7 @@ int DataDump::run() throw()
 
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
+        dumper.setShowDeltaT(!NoDeltaT.asBool());
 
 	if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.

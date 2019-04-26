@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2009, Copyright University Corporation for Atmospheric Research
+ ** 2008, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -24,12 +24,8 @@
  ********************************************************************
 */
 
-#ifndef _nidas_dynld_raf_ppt_serial_h_
-#define _nidas_dynld_raf_ppt_serial_h_
-
-#define PROMPT_PREFIX "*00"
-#define PARITY_ERROR "#00CP!0.0000"
-#define BUFFER_ERROR "*9dP1!"
+#ifndef _nidas_dynld_raf_a2d_serial_h_
+#define _nidas_dynld_raf_a2d_serial_h_
 
 #include <nidas/core/SerialSensor.h>
 
@@ -40,38 +36,35 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Honeywell PTT Pressure Transducer Serial Sensor.
- * This would be able to use the generic SerialSensor class
- * except for the fact that negative pressures (differential) can
- * have a space between the minus sign and the numeric value and
- * sscanf doesn't have a form for that, and that we'd like
- * to get temperature at 1 Hz and Pressure at 100 Hz.
+ * A2D Serial Sensor.  This would be able to use the generic SerialSensor class
+ * except for the need to manfacture time-stamps.  Data is sampled in the A2D
+ * at exact intervals, but serial time-stamping is mediocre.  We want no time-lagging
+ * downstream that might affect spectral characteristics.
  */
-class PPT_Serial : public SerialSensor
+class A2D_Serial : public SerialSensor
 {
 
 public:
-    PPT_Serial();
-    ~PPT_Serial();
+    A2D_Serial();
+    ~A2D_Serial();
 
     /**
      * open the sensor and perform any intialization to the driver.
      */
     void open(int flags) throw(nidas::util::IOException);
 
-    void close() throw(nidas::util::IOException);
-
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
 
 protected:
-
-private:
-    int _numPromptsBack;
-    int _numParityErr;
-    int _numBuffErr;
+    /**
+     * 25Hz sample index counter.  We manufacture time for this instrument since we
+     * know that the data is actually exactly spaced by 40 milliseconds.
+     */
+    int _hz_counter;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
+
 #endif

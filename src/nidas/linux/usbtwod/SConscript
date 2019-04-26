@@ -34,12 +34,12 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
         ])
 
 # Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $PREFIX/include
+# by user code. These must also be installed in $ARCHPREFIX/include
 headers = Split("""
     usbtwod.h
 """)
 
 if first_mach:
-    env.Install('$PREFIX/include/nidas/linux/usbtwod',headers)
+    env.Install('$ARCHPREFIX/include/nidas/linux/usbtwod',headers)
 # env.Program('test/twod', 'test/twod.c')
 

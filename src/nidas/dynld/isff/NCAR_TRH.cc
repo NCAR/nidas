@@ -71,7 +71,7 @@ NCAR_TRH::~NCAR_TRH()
 
 void NCAR_TRH::convertNext(const VariableIndex& vi)
 {
-    if (vi)
+    if (vi.valid())
     {
         vector<VariableIndex>::iterator it;
         it = find(_compute_order.begin(), _compute_order.end(), vi);
@@ -99,7 +99,7 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     _t = findVariableIndex("T");
     _ifan = findVariableIndex("Ifan");
 
-    if (_ifan)
+    if (_ifan.valid())
     {
         Variable* ifan = _ifan.variable();
         _minIfan = ifan->getMinValue();
@@ -116,13 +116,13 @@ void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
     // variable's converter is applied as usual.
 
     VariableConverter* vc;
-    if (_t && (vc = _t.variable()->getConverter()))
+    if (_t.valid() && (vc = _t.variable()->getConverter()))
     {
         DLOG(("sensor ") << getName()
              << ": installing CalFile handler for raw T");
         vc->setCalFileHandler(this->_raw_t_handler);
     }
-    if (_rh && (vc = _rh.variable()->getConverter()))
+    if (_rh.valid() && (vc = _rh.variable()->getConverter()))
     {
         DLOG(("sensor ") << getName()
              << ": installing CalFile handler for raw RH");
@@ -220,20 +220,8 @@ handleRawT(CalFile* cf)
     // coefficients, otherwise rest the raw coefficients and pass the
     // handling on the converter.
     const std::vector<std::string>& fields = cf->getCurrentFields();
-    bool raw = false;
-    if (fields.size() == 3 && fields[0] != "raw")
-    {
-        WLOG(("") << cf->getCurrentFileName()
-             << "[" << cf->getLineNumber() << "]: "
-             << "3 fields specified but first field is not 'raw', "
-             << "still assuming a raw T calibration.");
-        raw = true;
-    }
+
     if (fields.size() > 0 && fields[0] == "raw")
-    {
-        raw = true;
-    }
-    if (raw)
     {
         // To compute T from raw, we need the raw T, so make sure it's
         // available.
@@ -266,20 +254,8 @@ NCAR_TRH::
 handleRawRH(CalFile* cf)
 {
     const std::vector<std::string>& fields = cf->getCurrentFields();
-    bool raw = false;
-    if (fields.size() == 5 && fields[0] != "raw")
-    {
-        WLOG(("") << cf->getCurrentFileName()
-             << "[" << cf->getLineNumber() << "]: "
-             << "5 fields specified but first field is not 'raw', "
-             << "still assuming a raw RH calibration.");
-        raw = true;
-    }
+
     if (fields.size() > 0 && fields[0] == "raw")
-    {
-        raw = true;
-    }
-    if (raw)
     {
         if (!_rhraw)
         {
@@ -344,13 +320,13 @@ convertVariable(SampleT<float>* outs, Variable* var, float* fp)
     if (vc)
         vc->readCalFile(outs->getTimeTag());
     float* values = outs->getDataPtr();
-    if (_t && _t.variable() == var && !_Ta.empty())
+    if (_t.valid() && _t.variable() == var && !_Ta.empty())
     {
         float Traw = values[_traw.index()];
         float T = tempFromRaw(Traw);
         *fp = T;
     }
-    else if (_rh && _rh.variable() == var && !_Ha.empty())
+    else if (_rh.valid() && _rh.variable() == var && !_Ha.empty())
     {
         float RHraw = values[_rhraw.index()];
         float T = values[_t.index()];
@@ -404,7 +380,7 @@ ifanFilter(std::list<const Sample*>& results)
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
 
-    if (_ifan)
+    if (_ifan.valid())
     {
         float ifan = csamp->getDataValue(_ifan.index());
 

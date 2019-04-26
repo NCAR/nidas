@@ -98,7 +98,7 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     // the default output.
     ss->addSampleClient(this);
     ss->setStopSignal(new SyncReaderStop(this));
-    
+
     // SyncServer::init() adds this SyncRecordReader as a SampleClient of
     // the SyncRecordGenerator, at which point a sync header sample will be
     // distributed for us to read in our init() method.
@@ -234,7 +234,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     string section = "variables";
     header >> tmpstr;
     if (header.eof() || tmpstr != "variables") {
-    	headException = new SyncRecHeaderException("variables {",
+	headException = new SyncRecHeaderException("variables {",
 	    tmpstr);
 	return;
     }
@@ -242,7 +242,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     tmpstr.clear();
     header >> tmpstr;
     if (header.eof() || tmpstr != "{") {
-    	headException = new SyncRecHeaderException("variables {",
+	headException = new SyncRecHeaderException("variables {",
 	    string("variables ") + tmpstr);
 	return;
     }
@@ -280,7 +280,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	// screen bad variable types here
 	if (vtypestr.length() != 1) {
 	    headException = new SyncRecHeaderException(
-	    	string("unexpected variable type: ") + vtypestr);
+		string("unexpected variable type: ") + vtypestr);
 	    return;
 	}
 
@@ -300,7 +300,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    break;
 	default:
 	    headException = new SyncRecHeaderException(
-	    	string("unexpected variable type: ") + vtypestr);
+		string("unexpected variable type: ") + vtypestr);
 	    return;
 	}
 
@@ -393,7 +393,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
         // final char should be a semicolon
 	if (nextchar != ';') {
 	    headException =
-	    	new SyncRecHeaderException(";",string(nextchar,1));
+		new SyncRecHeaderException(";",string(nextchar,1));
 	    return;
 	}
 
@@ -415,7 +415,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
             poly->setCalFile(cfile);
             var->setConverter(poly);
         }
-	
+
 	vmap[vname] = var;
 	newvars.push_back(var);
     }
@@ -426,7 +426,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     tmpstr.clear();
     header >> tmpstr;
     if (header.eof() || tmpstr != "rates") {
-    	headException = new SyncRecHeaderException("rates {",
+	headException = new SyncRecHeaderException("rates {",
 	    tmpstr);
 	return;
     }
@@ -434,7 +434,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     tmpstr.clear();
     header >> tmpstr;
     if (header.eof() || tmpstr != "{") {
-    	headException = new SyncRecHeaderException("rates {",
+	headException = new SyncRecHeaderException("rates {",
 	    string("rates ") + tmpstr);
         return;
     }
@@ -505,7 +505,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
         SyncRecordVariable* var = vi->second;
 	if (var) {
 	    headException = new SyncRecHeaderException(
-	    	string("variable ") + var->getName() +
+		string("variable ") + var->getName() +
 		" not found in a rate group");
             if (_debug)
 	        cerr << headException->what() << endl;
@@ -518,13 +518,13 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     // make the variableMap for quick lookup.
     for (vli = variables.begin(); vli != variables.end(); ++vli) {
 	const SyncRecordVariable* varp = *vli;
-    	variableMap[varp->getName()] = varp;
+	variableMap[varp->getName()] = varp;
     }
 
     numDataValues = offset;
     return;
 
-eof: 
+eof:
     headException = new SyncRecHeaderException(section,"end of header");
     return;
 }
@@ -565,7 +565,7 @@ void SyncRecordReader::readKeyedQuotedValues(istringstream& header)
     }
 }
 
-size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len) 
+size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
     throw(n_u::IOException)
 {
     for (;;) {
@@ -606,7 +606,7 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
             if (samp->getId() == SYNC_RECORD_ID)
             {
                 assert(samp->getType() == DOUBLE_ST);
-                if (len > samp->getDataLength()) 
+                if (len > samp->getDataLength())
                     len = samp->getDataLength();
                 *tt = samp->getTimeTag();
                 memcpy(dest, samp->getConstVoidDataPtr(), len*sizeof(double));
@@ -629,7 +629,7 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
 }
 
 
-const list<const SyncRecordVariable*> 
+const list<const SyncRecordVariable*>
 SyncRecordReader::
 getVariables() throw(n_u::Exception)
 {
@@ -638,7 +638,7 @@ getVariables() throw(n_u::Exception)
 }
 
 
-const SyncRecordVariable* 
+const SyncRecordVariable*
 SyncRecordReader::
 getVariable(const std::string& name) const
 {
@@ -729,7 +729,7 @@ int
 SyncRecordReader::
 getLagOffset(const nidas::core::Variable* var) throw (SyncRecHeaderException)
 
-{ 
+{
 #ifdef notdef
     // If we have a SyncServer reference, use it to get the sync record lag
     // for this variable directly from the SyncRecordSource.  The idea is
@@ -764,7 +764,7 @@ getSyncRecOffset(const nidas::core::Variable* var)
     if (!sv)
     {
         std::ostringstream msg;
-        msg << "no such variable " << var->getName() 
+        msg << "no such variable " << var->getName()
             << " in getSyncRecOffset()";
         throw SyncRecHeaderException(msg.str());
     }

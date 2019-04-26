@@ -106,6 +106,29 @@ public:
         return _index;
     }
 
+    /**
+     * Return the data value at this variable's index into @p fdata.  If
+     * this variable does not have a valid index, then return @p dflt.
+     */
+    float
+    get(float* fdata, float dflt)
+    {
+        if (_index >= 0)
+            return fdata[_index];
+        return dflt;
+    }
+
+    /**
+     * Set @p value at this variable's index into @p fdata.  If this
+     * variable does not have a valid index, then nothing is changed.
+     */
+    void
+    set(float* fdata, float value)
+    {
+        if (_index >= 0)
+            fdata[_index] = value;
+    }
+
     bool
     operator!() const
     {
@@ -114,11 +137,6 @@ public:
 
     bool
     valid() const
-    {
-        return _index >= 0 && _variable;
-    }
-
-    /*explicit*/ operator bool() const
     {
         return _index >= 0 && _variable;
     }

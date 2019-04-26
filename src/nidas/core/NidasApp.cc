@@ -281,10 +281,13 @@ NidasAppArg::
 usage(const std::string& indent)
 {
   std::ostringstream oss;
-  oss << indent << getUsageFlags();
+  string flags = getUsageFlags();
+  oss << indent << flags;
   if (!_syntax.empty())
   {
-    oss << " " << _syntax;
+    if (!flags.empty())
+      oss << " ";
+    oss << _syntax;
     if (!_default.empty())
       oss << " [default: " << _default << "]";
   }
@@ -558,6 +561,18 @@ startArgs(const ArgVector& args)
 {
   _argv = args;
   _argi = 0;
+}
+
+
+void
+NidasApp::
+startArgs(int argc, const char* const argv[]) throw (NidasAppException)
+{
+  if (_argv0.empty())
+  {
+    setProcessName(argv[0]);
+  }
+  startArgs(ArgVector(argv+1, argv+argc));
 }
 
 
@@ -995,7 +1010,8 @@ updateUsage()
   {
     oss << "  path [...]          file names\n";
   }
-  oss << "Default inputURL is \"sock:localhost\"\n";
+  if (default_input.length())
+    oss << "Default inputURL is \"" << default_input << "\"\n";
   setUsageString(oss.str());
 }
 
@@ -1254,11 +1270,12 @@ std::string
 NidasApp::
 getConfigsXML()
 {
-  std::string _configsXMLName;
+  std::string configsXMLName;
   const char* cfg = getenv("NIDAS_CONFIGS");
   if (cfg)
   {
-    _configsXMLName = cfg;
+    // Should this be expanded for environment variables?
+    configsXMLName = cfg;
   }
   else
   {
@@ -1269,24 +1286,58 @@ getConfigsXML()
     const char* ieo = getenv("ISFF");
 
     if (re && pe && ae)
-      _configsXMLName = n_u::Process::expandEnvVars(RAFXML);
+      configsXMLName = n_u::Process::expandEnvVars(RAFXML);
     else if (ie && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
+      configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
     else if (ieo && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
+      configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
   }
-#ifdef notdef
-  if (_configsXMLName.length() == 0)
+  if (configsXMLName.empty())
   {
-    cerr <<
-      "Environment variables not set correctly to find XML "
-      "file of project configurations." << endl;
-    cerr << "Cannot find " << RAFXML << endl << "or " << ISFSXML << endl;
-    return usage(argv[0]);
+    std::ostringstream msg;
+    msg <<
+      "Cannot derive path to XML project configurations.\n" <<
+      "Missing environment variables for "
+      " " << RAFXML << "\n and " << ISFSXML << "\n";
+    throw n_u::InvalidParameterException(msg.str());
   }
-#endif
-  return _configsXMLName;
+  return configsXMLName;
 }
+
+
+namespace
+{
+  const char* ISFSDATASETSXML = "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
+  const char* ISFFDATASETSXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+}
+
+
+Dataset
+NidasApp::
+getDataset(const std::string& datasetname)
+  throw(n_u::InvalidParameterException, XMLException)
+{
+    string XMLName;
+
+    const char* ie = ::getenv("ISFS");
+    const char* ieo = ::getenv("ISFF");
+    const char* pe = ::getenv("PROJECT");
+    if (ie && pe)
+      XMLName = n_u::Process::expandEnvVars(ISFSDATASETSXML);
+    else if (ieo && pe)
+      XMLName = n_u::Process::expandEnvVars(ISFFDATASETSXML);
+    if (XMLName.length() == 0)
+      throw n_u::InvalidParameterException("environment variables",
+                                           "ISFS,PROJECT","not found");
+
+    Datasets datasets;
+    datasets.parseXML(XMLName);
+
+    Dataset dataset = datasets.getDataset(datasetname);
+    dataset.putenv();
+    return dataset;
+}
+
 
 
 std::string

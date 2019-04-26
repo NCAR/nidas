@@ -10,6 +10,7 @@
 
 #include "SampleTag.h"
 #include "SampleMatcher.h"
+#include "Datasets.h"
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
 #include <nidas/util/auto_ptr.h>
@@ -322,6 +323,7 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * - nidsmerge
  * - sensor_extract
  * - statsproc (uses -B and -E for time range)
+ * - prep (uses -B and -E for time range)
  * - data_nc
  * - dsm (esp logging)
  * - dsm_server (esp logging)
@@ -704,6 +706,14 @@ public:
     startArgs(const ArgVector& args);
 
     /**
+     * Convenience method to convert the (argc, argv) run string to a list
+     * of arguments to pass to startArgs().  Also, if the process name has
+     * not been set with setProcessName(), then set it to argv[0].
+     **/
+    void
+    startArgs(int argc, const char* const argv[]) throw (NidasAppException);
+
+    /**
      * Parse the next recognized argument from the list set in
      * startArgs().  If it is one of the standard arguments which are
      * members of NidasApp, then handle the argument also.  Either way,
@@ -868,8 +878,35 @@ public:
         return _xmlFileName;
     }
 
+    /**
+     * Derive the path to the XML file which lists project configs.  This uses
+     * standard paths parameterized by environment variables, and accepts the
+     * first path whose environment variables are set in the environment:
+     *
+     *  - "$NIDAS_CONFIGS"
+     *  - "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml"
+     *  - "$ISFS/projects/$PROJECT/ISFS/config/configs.xml"
+     *  - "$ISFF/projects/$PROJECT/ISFF/config/configs.xml"
+     *
+     * If none of the above paths can be derived because of missing
+     * environment variables, then throw InvalidParameterException.
+     **/
     std::string
     getConfigsXML();
+
+    /**
+     * Derive a path to an XML datasets file according to the current
+     * environment settings, searching these paths in order:
+     *
+     *  - "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"
+     *  - "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml"
+     *
+     * Parse the derived file and return from it the Dataset with the given
+     * name.  Throws an exception if the Dataset cannt be loaded.
+     **/
+    nidas::core::Dataset
+    getDataset(const std::string& datasetname)
+        throw(nidas::util::InvalidParameterException, XMLException);
 
     nidas::util::UTime
     getStartTime()

@@ -42,6 +42,7 @@
 
 #include <linux/circ_buf.h>
 #include <linux/time.h>
+#include <linux/version.h>
 
 /**
  * General utility functions and macros for NIDAS drivers.
@@ -220,10 +221,17 @@ extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
  */
 inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
         struct timeval tv;
         do_gettimeofday(&tv);
         return (tv.tv_sec % 86400) * MSECS_PER_SEC +
                 tv.tv_usec / USECS_PER_MSEC;
+#else
+        struct timespec64 tv;
+        ktime_get_real_ts64(&tv);
+        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
+                tv.tv_nsec / NSECS_PER_MSEC;
+#endif
 }
 
 
@@ -232,10 +240,17 @@ inline dsm_sample_time_t getSystemTimeMsecs(void)
  */
 inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
         struct timeval tv;
         do_gettimeofday(&tv);
         return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
                 tv.tv_usec / USECS_PER_TMSEC;
+#else
+        struct timespec64 tv;
+        ktime_get_real_ts64(&tv);
+        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
+                tv.tv_nsec / 1000 / USECS_PER_TMSEC;
+#endif
 }
 
 struct sample_read_state

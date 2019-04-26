@@ -43,7 +43,7 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
         ])
 
 # Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $PREFIX/include
+# by user code. These must also be installed in $ARCHPREFIX/include
 headers = Split("""
     emerald.h
     dmd_mmat.h
@@ -52,4 +52,4 @@ headers = Split("""
 """)
 
 if first_mach:
-    env.Install('$PREFIX/include/nidas/linux/diamond',headers)
+    env.Install('$ARCHPREFIX/include/nidas/linux/diamond',headers)

@@ -5,6 +5,7 @@
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/Project.h>
+#include <nidas/util/Process.h>
 #include <nidas/dynld/isff/NCAR_TRH.h>
 #include <nidas/util/auto_ptr.h>
 #include <nidas/util/UTime.h>
@@ -58,6 +59,7 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
     // and setting up raw conversions.
     std::list<const Sample*> results;
     BOOST_CHECK(trh->process(sample, results));
+    BOOST_REQUIRE_EQUAL(results.size(), 1);
 
     // 2017 apr 20 17:50:33 raw -40.69662       0.04097045      -3.429248e-07
     // Make sure the TRH got the coefficients.
@@ -93,8 +95,10 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
     // Test that we can reset raw conversions through the cal file.
     tt = UTime(true, 2017, 4, 21, 8, 15, 0).toUsecs();
     sample->setTimeTag(tt);
+    results.front()->freeReference();
     results.clear();
     BOOST_CHECK(trh->process(sample, results));
+    BOOST_REQUIRE_EQUAL(results.size(), 1);
 
     ha = trh->getRawRHCoefficients();
     ta = trh->getRawTempCoefficients();
@@ -127,5 +131,16 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
     ta = trh->getRawTempCoefficients();
     BOOST_CHECK_EQUAL(ha.size(), 0);
     BOOST_CHECK_EQUAL(ta.size(), 0);
+
+    results.front()->freeReference();
+    results.clear();
+
+    doc.reset();
+    XMLImplementation::terminate();
+    sample->freeReference();
+    Project::destroyInstance();
+    SamplePool<float>::deleteInstance();
+    SamplePool<char>::deleteInstance();
+    nidas::util::Process::clearEnv();
 }
 

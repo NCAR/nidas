@@ -38,7 +38,7 @@ using namespace nidas::core;
  * are converted to USB by a converter box.  These probes have the
  * standard 32 diodes.
  */
-class TwoD32_USB : public TwoD_USB 
+class TwoD32_USB : public TwoD_USB
 {
 public:
     TwoD32_USB();

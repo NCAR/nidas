@@ -86,45 +86,40 @@ conf.CheckFunc("ppoll")
 
 conf.CheckFunc("epoll_pwait")
 
-try:
-    if pc.CheckConfig(env, 'pkg-config nc_server'):
-        conf.env.MergeFlags('!pkg-config --cflags --libs nc_server')
+# It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
+# accordingly, or maybe the path to pkg-config needs to be set, such as
+# /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
+# this I've found is in scripts/build_nidas.sh.  Maybe that kind of
+# customization should be in the scons arm*cross tools.
+pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
+if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
+        'nc_server_rpc', 'nc_server_rpc.h','C++',
+        'xdr_connection(0,0);'):
+    # append nc_server library to build environment
+    # I don't grok all the issues related to using RPATH. Debian
+    # advises against it in most, but not all situations. We'll
+    # enable it here and see what happens...
+    env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
+    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
+                     RPATH=conf.env['LIBPATH'])
 
-    if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
-            'nc_server_rpc', 'nc_server_rpc.h','C++',
-            'xdr_connection(0,0);'):
-# append nc_server library to build environment
-# I don't grok all the issues related to using RPATH. Debian
-# advises against it in most, but not all situations. We'll
-# enable it here and see what happens...
-        env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
-            RPATH=conf.env['LIBPATH'])
-except OSError:
-    pass
-
-try:
-    if pc.CheckConfig(env, 'pkg-config gsl'):
-        conf.env.MergeFlags('!pkg-config --libs gsl')
-
-    if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
-            'gsl', 'gsl/gsl_linalg.h','C',
-            'gsl_linalg_LU_solve(0,0,0,0);'):
-# append gsl library to build environment
-        env.AppendUnique(LIBS=conf.env['LIBS'],
-                LIBPATH=(conf.env['LIBPATH'] if conf.env.has_key('LIBPATH') else None))
-except OSError:
-    pass
+pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
+if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
+        'gsl', 'gsl/gsl_linalg.h','C',
+        'gsl_linalg_LU_solve(0,0,0,0);'):
+    # append gsl library to build environment
+    env.AppendUnique(LIBS=conf.env['LIBS'], LIBPATH=conf.env.get('LIBPATH',[]))
 
 tmp_env = conf.Finish()
 
-env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
+env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 
 # Update Revision.h from git describe
 info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
 info2 = env.GitInfo("include/nidas/linux/Revision.h", "#/nidas/linux")
 
-env.Install('$PREFIX/include/nidas',info1)
-env.Install('$PREFIX/include/nidas/linux',info2)
+env.Install('$ARCHPREFIX/include/nidas',info1)
+env.Install('$ARCHPREFIX/include/nidas/linux',info2)
 
 # When duplicate=0, the variant_dir of this SConscript, 
 # ("build","build_arm" or "build_armbe") is not duplicated using
@@ -150,11 +145,11 @@ for dir in subdirs:
 Alias('lib', subdirs[0:3])
 Clean('lib', subdirs[0:3])
 
-env.Alias('install', ['$PREFIX/include', '$PREFIX/$ARCHLIBDIR'])
+env.Alias('install', ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR'])
 
-# Don't want to do a Clean of $PREFIX here, in case there is
-# other stuff there from other packages: we won't own $PREFIX.
-# We can nuke $PREFIX/include/nidas, but don't do a global
-# Clean of $PREFIX/bin and lib.  Also we don't assume we
-# own $PREFIX/modules.
-env.Clean('install','$PREFIX/include/nidas')
+# Don't want to do a Clean of $ARCHPREFIX here, in case there is
+# other stuff there from other packages: we won't own $ARCHPREFIX.
+# We can nuke $ARCHPREFIX/include/nidas, but don't do a global
+# Clean of $ARCHPREFIX/bin and lib.  Also we don't assume we
+# own $ARCHPREFIX/modules.
+env.Clean('install','$ARCHPREFIX/include/nidas')

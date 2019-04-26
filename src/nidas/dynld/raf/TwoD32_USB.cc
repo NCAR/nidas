@@ -134,7 +134,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
                     _overLoadSliceCount++;
                     overld = (bigEndian->int32Value(cp) & 0x0000ffff) / 2000;
 #ifdef DEBUG
-                    cerr << "overload value at word " << (cp - sod)/wordSize << 
+                    cerr << "overload value at word " << (cp - sod)/wordSize <<
                         " is " << overld << endl;
 #endif
                     tBarElapsedTime += overld;

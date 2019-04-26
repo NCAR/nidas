@@ -101,7 +101,7 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 {
     TwoD64_USB::validate();
- 
+
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
 
@@ -111,7 +111,7 @@ void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
             _nHskp = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
             if (_nHskp != 10) {
                 throw n_u::InvalidParameterException(getName(),
-                "unexpected number of variables", " in processSOR sample"); 
+                "unexpected number of variables", " in processSOR sample");
             }
         }
     }
@@ -123,34 +123,42 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     const char * input = (const char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
 
-    if (slen < 4 || memcmp(input, "SOR,", 4)){
+    if (slen < 5 || memcmp(input, "SOR,", 4)){
         cout<<"Twod64v3 processSOR returning false. slen = "<<slen<<endl;
         return false;
     }
+
+    char in_str[slen+1];
     char sep = ',';
     SampleT<float>* outs = getSample<float>(_nHskp);
     float * dout = outs->getDataPtr();
     float data=floatNAN;
     int iout = 0;
- 
+
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-    for (size_t ifield = 0; ifield < _nHskp; ifield++) {
-        if (input == NULL)break;
-	const char * cp = ::strchr(input,sep);  
-        cp++; 
+
+    memcpy(in_str, input, slen);
+    in_str[slen] = 0;
+    input = in_str;
+
+    for (size_t ifield = 0; ifield < _nHskp; ifield++)
+    {
+	const char * cp = ::strchr(input, sep);
+
         //First input will be the second char to skip "SOR,"
         if (ifield != 0)
-        { 
+        {
             if (sscanf(input, "%f", &data) == 1) {
                 dout[iout++] = double(data);
             } else
                 dout[iout++] = double(NAN);
         }
-        input=cp;
+        if (cp == 0) break;
+        input = cp + 1;
     }
     list<SampleTag*> tags = getSampleTags();
-    applyConversions(tags.front() ,outs);
+    applyConversions(tags.front(), outs);
     results.push_back(outs);
     return true;
 }

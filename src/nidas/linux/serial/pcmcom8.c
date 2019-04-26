@@ -94,6 +94,12 @@ MODULE_VERSION(REPO_REVISION);
 #define PCMCOM8_UNLOCK(x) up(x)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
+#endif
+
 /*
  * return 0 if config is not OK.
  * This isn't a strong test, since 0x3f8 is the maximum value
@@ -358,9 +364,9 @@ static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-            err = !access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
+            err = !portable_access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-            err =  !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
+            err = !portable_access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch(cmd) {
