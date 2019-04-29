@@ -3,9 +3,6 @@ jobs:
   build-host:
     docker:
       - image: docker.io/ncar/nidas-ubuntu-base:latest
-    branches:
-      only:
-        - master
     steps:
       - checkout
       - run:
@@ -16,9 +13,6 @@ jobs:
   build-rpi-armhf:
     docker:
       - image: docker.io/ncar/nidas:latest
-    branches:
-      only:
-        - auto-config
     steps:
       - checkout
       - run:
@@ -28,7 +22,9 @@ jobs:
             scons LINUX_MODULES=no BUILDS=armhf
 workflows:
   version: 2
-  build_all:
+  autoconfig:
     jobs:
-        build-host
-        build-rpi-armhf
+      - build-rpi-armhf
+  host:
+    jobs:
+      - build-host
