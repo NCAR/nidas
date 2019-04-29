@@ -1,4 +1,4 @@
-version: 2.1
+version: 2
 jobs:
   build-host:
     docker:
@@ -13,7 +13,7 @@ jobs:
           command: |
             cd src
             scons LINUX_MODULES=no BUILDS=host
-  build-rpi-armhf:
+  build:
     docker:
       - image: docker.io/ncar/nidas:latest
     branches:
@@ -26,9 +26,3 @@ jobs:
           command: | 
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
-workflows:
-  version: 2
-  build_all:
-    jobs:
-        build-host
-        build-rpi-armhf
