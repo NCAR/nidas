@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  build-host:
     docker:
       - image: docker.io/ncar/nidas-ubuntu-base:latest
     branches:
@@ -13,7 +13,7 @@ jobs:
           command: |
             cd src
             scons LINUX_MODULES=no BUILDS=host
-  build-autoconfig-armhf:
+  build:
     docker:
       - image: docker.io/ncar/nidas:latest
     branches:
