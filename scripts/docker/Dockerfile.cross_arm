@@ -1,46 +1,82 @@
-FROM docker.io/debian:jessie
+ARG hostarch=armel
+
+FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
 ARG user=builder
 ARG uid=1000
 ARG group=eol
 ARG gid=1000
-ARG hostarch=armel
 
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl sudo git ca-certificates build-essential fakeroot libncurses-dev bc dh-make
+# FROM line above "consumes" hostarch arg, unless we re-declare it header
+# But don't re-assign it!!!
+ARG hostarch
 
+RUN echo "hostarch == $hostarch"
+
+RUN sudo dpkg --add-architecture ${hostarch}
+
+# Rip out jessie updates repos as they no longer exist. 
+# See https://www.lucas-nussbaum.net/blog/?p=947
+# These ops require an explicit root user
+USER root
+RUN sed -i "/updates/d" /etc/apt/sources.list
+
+# Also, backports has moved to archive, so fix that
+RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
+RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
+
+# Used for some build stuff in container
+#ENV CROSS_ARCH $hostarch
+#RUN echo "CROSS_ARCH == $CROSS_ARCH"
+
+RUN apt-get -y update
+RUN apt-get -y --only-upgrade install eol-scons
+
+# add boost-regex/filesystem
+RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
+
+# add libi2c-dev as original docker image didn't have correct one
+# don't need an ${hostarch} variant, as all the functions are in-line
+# in a single header.
+RUN apt-get -y install libi2c-dev
+
+# install ftdi and depends libusb-1.0
+RUN apt-get -y install wget
+RUN apt-get -y install cmake
+RUN apt-get -y install libusb-1.0:${hostarch}
+
+ENV CROSS_ARCH=$hostarch
+
+USER $user
+WORKDIR /home/$user
+
+# Everything commented out below should already be in the image in the FROM line above
+#RUN apt-get update
+#RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl sudo git ca-certificates build-essential fakeroot libncurses-dev bc dh-make
 
 # Get cross tools from emdebian
-RUN echo "deb http://emdebian.org/tools/debian/ jessie main" >> /etc/apt/sources.list.d/crosstools.list
-RUN curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
+#RUN echo "deb http://emdebian.org/tools/debian/ jessie main" >> /etc/apt/sources.list.d/crosstools.list
+#RUN curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
 
 # Add EOL repository for some local packages
-RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
-RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
+#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
-RUN dpkg --add-architecture ${hostarch}
+#RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
 
-RUN apt-get update
-
-RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
-
-RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
+#RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
 
 # Local packages
 # hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
 # finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). Need to fix xmlrpc++ to add
 # a correct pkg-config file for cross building.
-RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
+#RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
 
 # viper, titan headers
-RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
+#RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
 
-RUN addgroup --gid $gid $group
-RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+#RUN addgroup --gid $gid $group
+#RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
-RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
-
-USER $user
-WORKDIR /home/$user
-
+#RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
