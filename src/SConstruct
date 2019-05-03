@@ -335,9 +335,8 @@ if 'armel' in BUILDS:
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
-# add these when/if this platform moves to AutoConfig
-#            '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', 
+            '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
