@@ -10,10 +10,10 @@ fi
 
 case $1 in
     armel | viper | titan)
-        image=ncar/debian-armel-cross:jessie
+        image=ncar/nidas-build-debian-armel:jessie_v1
         ;;
     armhf | rpi2)
-        image=ncar/nidas:debian-jessie-build-armhf-cross
+        image=ncar/nidas-build-debian-armhf:jessie_v1
         ;;
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael

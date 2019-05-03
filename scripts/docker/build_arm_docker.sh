@@ -10,25 +10,41 @@ set -e
 
 # You must do a "docker login $dockuser" before doing
 # the docker push
-dockuser=maclean
+dockuser=ncar
 
 group=eol
 gid=1342
+version=1
+tag=jessie_v$version
 
-image=debian-armel-cross:jessie 
-arch=armel
-docker build -t $image \
-    --build-arg=group=$group --build-arg=gid=$gid \
-    --build-arg=hostarch=$arch \
+hostarch=armel
+image=nidas-build-debian-$hostarch
+echo "arch is $arch"
+echo "image is $image"
+echo "tagged image is $dockuser/$image:$tag"
+docker build --no-cache -t $image \
+    --build-arg group=$group \
+    --build-arg gid=$gid \
+    --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
-docker tag  $image $dockuser/$image
-docker push $dockuser/$image
+# Only tag and push if the build worked
+if [[ "$?" -eq 0 ]] ; then
+    docker tag  $image $dockuser/$image:$tag
+    docker push $dockuser/$image:$tag
+fi
 
-image=debian-armhf-cross:jessie 
-arch=armhf
-docker build -t $image \
-    --build-arg=group=$group --build-arg=gid=$gid \
-    --build-arg=hostarch=$arch \
+hostarch=armhf
+image=nidas-build-debian-$hostarch
+echo "arch is $hostarch"
+echo "image is $image"
+echo "tagged image is $dockuser/$image:$tag"
+docker build --no-cache -t $image \
+    --build-arg group=$group \
+    --build-arg gid=$gid \
+    --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
-docker tag  $image $dockuser/$image
-docker push $dockuser/$image
+# Only tag and push if the build worked
+if [[ "$?" -eq 0 ]] ; then
+    docker tag  $image $dockuser/$image:$tag
+    docker push $dockuser/$image:$tag
+fi
