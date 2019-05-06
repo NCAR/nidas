@@ -123,8 +123,6 @@ if conf.CheckLib('bluetooth'):
     conf.env.AppendUnique(LIBS = 'bluetooth')
 if conf.CheckLib('usb-1.0'):
     conf.env.AppendUnique(LIBS = 'usb-1.0')
-if conf.CheckLib('ftdi1'):
-    conf.env.AppendUnique(LIBS = 'ftdi1')
 if conf.CheckLib('boost_regex'):
     conf.env.AppendUnique(LIBS = 'boost_regex')
 if conf.CheckLib('boost_system'):

@@ -155,7 +155,7 @@ if has_i2c:
 
 env.NidasUtilProgram('utime.cc')
 
-cic = env.Program('csat3_irga_config.cc', LIBS=['nidas_util', 'nidas'])
+cic = env.Program('csat3_irga_config.cc', LIBS=['nidas_util', 'nidas', 'ftdi1'])
 env.Install('$PREFIX/bin', cic)
 env.Alias('csat3_irga_config', cic)
 
