@@ -51,6 +51,11 @@ ENV CROSS_ARCH=$hostarch
 USER $user
 WORKDIR /home/$user
 
+RUN mkdir -p libftdi
+COPY ./build-libftdi-pkg.sh libftdi
+COPY ./crosstoolchain-$hostarch.cmake libftdi
+RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
+
 # Everything commented out below should already be in the image in the FROM line above
 #RUN apt-get update
 #RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl sudo git ca-certificates build-essential fakeroot libncurses-dev bc dh-make
