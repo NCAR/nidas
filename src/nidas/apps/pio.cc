@@ -42,7 +42,7 @@
 #include <vector>
 #include <unistd.h>
 #include <libusb-1.0/libusb.h>
-#include <libftdi1/ftdi.h>
+#include "ftdi.h"
 #include "nidas/core/NidasApp.h"
 #include "nidas/util/SensorPowerCtrl.h"
 #include "nidas/util/DSMPowerCtrl.h"
