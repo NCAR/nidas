@@ -341,13 +341,8 @@ if 'armel' in BUILDS:
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', 
-            libftdi_cross_include_flag, '-I/usr/include/libusb-1.0'])
-    libftdi_link_flag = '-L' + libftdi_cross_base + '/build-armel/src/'
-    #print("libftdi link flag: " + libftdi_link_flag)
-    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now', 
-                                        libftdi_link_flag])
-    armel_env.AppendUnique(LIBS = 'ftdi1')
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
         armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
@@ -367,13 +362,8 @@ if 'armhf' in BUILDS:
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++',
-            libftdi_cross_include_flag, '-I/usr/include/libusb-1.0'])
-    libftdi_link_flag = '-L' + libftdi_cross_base + '/build-armhf/src/'
-    #print("libftdi link flag: " + libftdi_link_flag)
-    armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now', 
-                                        libftdi_link_flag])
-    armhf_env.AppendUnique(LIBS = 'ftdi1')
+    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+    armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armhf_env or not armhf_env['DEBUG']:
         armhf_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
