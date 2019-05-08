@@ -41,7 +41,7 @@ jobs:
             cd nidas/scripts
             pwd
             ls -alg
-            ./build_dpkg.sh -s -i armhf
+            ./build_dpkg.sh -s armhf
 
   deploy-armhf-master:
   
@@ -77,7 +77,7 @@ jobs:
             cd nidas/scripts
             pwd
             ls -alg
-            ./build_dpkg.sh -s -i armhf
+            ./build_dpkg.sh -s armhf
 
   deploy-armel-master:
   
@@ -108,7 +108,7 @@ jobs:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
             cd nidas/scripts
-            build_dpkg.sh -s -i armhf
+            build_dpkg.sh -s armhf
 
   deploy-armhf-autoconfig:
 
@@ -139,7 +139,7 @@ jobs:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
             cd nidas/scripts
-            build_dpkg.sh -s -i armel
+            build_dpkg.sh -s armel
     
   deploy-armel-autoconfig:
 
