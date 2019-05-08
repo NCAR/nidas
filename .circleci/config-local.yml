@@ -31,7 +31,7 @@ jobs:
           cd nidas/scripts
           pwd
           ls -alg
-          ./build_dpkg.sh -c -s -i armhf
+          ./build_dpkg.sh -s -i armhf
   build-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -63,7 +63,7 @@ jobs:
           cd nidas/scripts
           pwd
           ls -alg
-          ./build_dpkg.sh -c -s -i armhf
+          ./build_dpkg.sh -s -i armhf
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -90,7 +90,7 @@ jobs:
         name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
         command: |
           cd nidas/scripts
-          build_dpkg.sh -c -s -i armhf
+          build_dpkg.sh -s -i armhf
   build-armel-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -117,7 +117,7 @@ jobs:
         name: NIDAS Package Build of AutoConfig Branch for PC104/armel
         command: |
           cd nidas/scripts
-          build_dpkg.sh -c -s -i armel
+          build_dpkg.sh -s -i armel
 workflows:
   version: 2
   master-armhf:
@@ -221,7 +221,7 @@ workflows:
 #             cd nidas/scripts
 #             pwd
 #             ls -alg
-#             ./build_dpkg.sh -c -s -i armhf
+#             ./build_dpkg.sh -s -i armhf
 # 
 #   deploy-armhf-master:
 #   
@@ -257,7 +257,7 @@ workflows:
 #             cd nidas/scripts
 #             pwd
 #             ls -alg
-#             ./build_dpkg.sh -c -s -i armhf
+#             ./build_dpkg.sh -s -i armhf
 # 
 #   deploy-armel-master:
 #   
@@ -288,7 +288,7 @@ workflows:
 #           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
 #           command: | 
 #             cd nidas/scripts
-#             build_dpkg.sh -c -s -i armhf
+#             build_dpkg.sh -s -i armhf
 # 
 #   deploy-armhf-autoconfig:
 # 
@@ -319,7 +319,7 @@ workflows:
 #           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
 #           command: | 
 #             cd nidas/scripts
-#             build_dpkg.sh -c -s -i armel
+#             build_dpkg.sh -s -i armel
 #     
 #   deploy-armel-autoconfig:
 # 
