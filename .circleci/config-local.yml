@@ -15,7 +15,7 @@ jobs:
           pwd
           scons LINUX_MODULES=no BUILDS=armhf
     - persist_to_workspace:
-        root: project
+        root: .
         paths:
         - nidas
   package-armhf-master:
@@ -23,7 +23,7 @@ jobs:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
     - attach_workspace:
-        at: project
+        at: .
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
@@ -46,7 +46,7 @@ jobs:
           pwd
           scons LINUX_MODULES=no BUILDS=armel
     - persist_to_workspace:
-        root: project
+        root: .
         paths:
         - nidas
   package-armel-master:
@@ -54,7 +54,7 @@ jobs:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
     steps:
     - attach_workspace:
-        at: project
+        at: .
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
@@ -197,7 +197,7 @@ workflows:
 #             pwd
 #             scons LINUX_MODULES=no BUILDS=armhf
 #       - persist_to_workspace:
-#           root: project
+#           root: .
 #           # Must be relative path from root
 #           paths:
 #             - nidas
@@ -207,7 +207,7 @@ workflows:
 #     steps:
 #       - attach_workspace:
 #           # Must be absolute path or relative path from working_directory
-#           at: project
+#           at: .
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
@@ -232,7 +232,7 @@ workflows:
 #             pwd
 #             scons LINUX_MODULES=no BUILDS=armel
 #       - persist_to_workspace:
-#           root: project
+#           root: .
 #           # Must be relative path from root
 #           paths:
 #             - nidas
@@ -242,7 +242,7 @@ workflows:
 #     steps:
 #       - attach_workspace:
 #           # Must be absolute path or relative path from working_directory
-#           at: project
+#           at: .
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
