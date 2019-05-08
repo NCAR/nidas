@@ -14,17 +14,23 @@ jobs:
           cd nidas/src
           pwd
           scons LINUX_MODULES=no BUILDS=armhf
+    - persist_to_workspace:
+        root: project
+        paths:
+        - nidas
   package-armhf-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
+    - attach_workspace:
+        at: project
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
           pwd
           ls -alg
           cd nidas/src/scripts
-          build-dpkg.sh
+          build-dpkg.sh -c -s -i armhf
   build-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -39,17 +45,23 @@ jobs:
           cd nidas/src
           pwd
           scons LINUX_MODULES=no BUILDS=armel
+    - persist_to_workspace:
+        root: project
+        paths:
+        - nidas
   package-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
     steps:
+    - attach_workspace:
+        at: project
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
           pwd
           ls -alg
           cd nidas/src/scripts
-          build-dpkg.sh
+          build-dpkg.sh -c -s -i armel
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -74,7 +86,7 @@ jobs:
           pwd
           ls -alg
           cd src/scripts
-          build-dpkg.sh
+          build-dpkg.sh -c -s -i armhf
   build-armel-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -99,7 +111,7 @@ jobs:
           pwd
           ls -alg
           cd nidas/src/scripts
-          build-dpkg.sh
+          build-dpkg.sh -c -s -i armel
 workflows:
   version: 2
   master-armhf:
@@ -184,17 +196,26 @@ workflows:
 #             cd nidas/src
 #             pwd
 #             scons LINUX_MODULES=no BUILDS=armhf
+#       - persist_to_workspace:
+#           root: project
+#           # Must be relative path from root
+#           paths:
+#             - nidas
 # 
 #   package-armhf-master:
 #     executor: armhf-executor
 #     steps:
+#       - attach_workspace:
+#           # Must be absolute path or relative path from working_directory
+#           at: project
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
 #             pwd
 #             ls -alg
 #             cd nidas/src/scripts
-#             build-dpkg.sh
+#             build-dpkg.sh -c -s -i armhf
+# 
 #   deploy-armhf-master:
 #   
 #   build-armel-master:
@@ -210,17 +231,26 @@ workflows:
 #             cd nidas/src
 #             pwd
 #             scons LINUX_MODULES=no BUILDS=armel
+#       - persist_to_workspace:
+#           root: project
+#           # Must be relative path from root
+#           paths:
+#             - nidas
 # 
 #   package-armel-master:
 #     executor: armel-executor
 #     steps:
+#       - attach_workspace:
+#           # Must be absolute path or relative path from working_directory
+#           at: project
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
 #             pwd
 #             ls -alg
 #             cd nidas/src/scripts
-#             build-dpkg.sh
+#             build-dpkg.sh -c -s -i armel
+# 
 #   deploy-armel-master:
 #   
 #   build-armhf-autoconfig:
@@ -246,7 +276,7 @@ workflows:
 #             pwd
 #             ls -alg
 #             cd src/scripts
-#             build-dpkg.sh
+#             build-dpkg.sh -c -s -i armhf
 # 
 #   deploy-armhf-autoconfig:
 # 
@@ -273,7 +303,7 @@ workflows:
 #             pwd
 #             ls -alg
 #             cd nidas/src/scripts
-#             build-dpkg.sh
+#             build-dpkg.sh -c -s -i armel
 #     
 #   deploy-armel-autoconfig:
 # 

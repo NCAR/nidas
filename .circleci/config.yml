@@ -22,17 +22,26 @@ jobs:
             cd nidas/src
             pwd
             scons LINUX_MODULES=no BUILDS=armhf
+      - persist_to_workspace:
+          root: project
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armhf-master:
     executor: armhf-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: project
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
             pwd
             ls -alg
             cd nidas/src/scripts
-            build-dpkg.sh
+            build-dpkg.sh -c -s -i armhf
+
   deploy-armhf-master:
   
   build-armel-master:
@@ -48,17 +57,26 @@ jobs:
             cd nidas/src
             pwd
             scons LINUX_MODULES=no BUILDS=armel
+      - persist_to_workspace:
+          root: project
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armel-master:
     executor: armel-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: project
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
             pwd
             ls -alg
             cd nidas/src/scripts
-            build-dpkg.sh
+            build-dpkg.sh -c -s -i armel
+
   deploy-armel-master:
   
   build-armhf-autoconfig:
@@ -84,7 +102,7 @@ jobs:
             pwd
             ls -alg
             cd src/scripts
-            build-dpkg.sh
+            build-dpkg.sh -c -s -i armhf
 
   deploy-armhf-autoconfig:
 
@@ -111,7 +129,7 @@ jobs:
             pwd
             ls -alg
             cd nidas/src/scripts
-            build-dpkg.sh
+            build-dpkg.sh -c -s -i armel
     
   deploy-armel-autoconfig:
 
