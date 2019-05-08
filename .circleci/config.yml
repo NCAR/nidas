@@ -12,7 +12,9 @@ jobs:
   build-armhf-master:
     executor: armhf-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
       - run:
           name: NIDAS Build of Master Branch for RPi/armhf
           command: |
@@ -33,7 +35,9 @@ jobs:
   build-armel-master:
     executor: armel-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
       - run:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
@@ -54,11 +58,12 @@ jobs:
   build-armhf-autoconfig:
     executor: armhf-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
-            git checkout auto-config
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
@@ -77,11 +82,12 @@ jobs:
   build-armel-autoconfig:
     executor: armel-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
-            git checkout auto-config
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armel

@@ -4,7 +4,10 @@ jobs:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
-    - checkout
+    - run:
+        name: Clone GitHub repository
+        command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas
+          -depth=1
     - run:
         name: NIDAS Build of Master Branch for RPi/armhf
         command: |
@@ -16,7 +19,7 @@ jobs:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
     - run:
-        name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+        name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
           cd src/scripts
           build-dpkg.sh
@@ -24,7 +27,10 @@ jobs:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
     steps:
-    - checkout
+    - run:
+        name: Clone GitHub repository
+        command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas
+          -depth=1
     - run:
         name: NIDAS Build of Master Branch for PC104/armel
         command: |
@@ -36,7 +42,7 @@ jobs:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
     steps:
     - run:
-        name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+        name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
           cd src/scripts
           build-dpkg.sh
@@ -44,7 +50,10 @@ jobs:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
-    - checkout
+    - run:
+        name: Clone GitHub repository
+        command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas
+          -depth=1
     - run:
         name: NIDAS Build of AutoConfig Branch for RPi/armhf
         command: |
@@ -64,7 +73,10 @@ jobs:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
     steps:
-    - checkout
+    - run:
+        name: Clone GitHub repository
+        command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas
+          -depth=1
     - run:
         name: NIDAS Build of AutoConfig Branch for PC104/armel
         command: |
@@ -94,6 +106,8 @@ workflows:
           branches:
             only:
             - master
+        requires:
+        - build-armhf-master
   master-armel:
     jobs:
     - build-armel-master:
@@ -106,6 +120,8 @@ workflows:
           branches:
             only:
             - master
+        requires:
+        - build-armel-master
   autoconfig-armhf:
     jobs:
     - build-armhf-autoconfig:
@@ -118,6 +134,8 @@ workflows:
           branches:
             only:
             - auto-config
+        requires:
+        - build-armhf-autoconfig
   autoconfig-armel:
     jobs:
     - build-armel-autoconfig:
@@ -130,6 +148,8 @@ workflows:
           branches:
             only:
             - auto-config
+        requires:
+        - build-armel-autoconfig
 
 # Original config.yml file:
 # version: 2.1
@@ -146,7 +166,9 @@ workflows:
 #   build-armhf-master:
 #     executor: armhf-executor
 #     steps:
-#       - checkout
+#       - run:
+#           name: Clone GitHub repository
+#           command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
 #       - run:
 #           name: NIDAS Build of Master Branch for RPi/armhf
 #           command: |
@@ -158,7 +180,7 @@ workflows:
 #     executor: armhf-executor
 #     steps:
 #       - run:
-#           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+#           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
 #             cd src/scripts
 #             build-dpkg.sh
@@ -167,7 +189,9 @@ workflows:
 #   build-armel-master:
 #     executor: armel-executor
 #     steps:
-#       - checkout
+#       - run:
+#           name: Clone GitHub repository
+#           command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
 #       - run:
 #           name: NIDAS Build of Master Branch for PC104/armel
 #           command: |
@@ -179,7 +203,7 @@ workflows:
 #     executor: armel-executor
 #     steps:
 #       - run:
-#           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+#           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
 #             cd src/scripts
 #             build-dpkg.sh
@@ -188,7 +212,9 @@ workflows:
 #   build-armhf-autoconfig:
 #     executor: armhf-executor
 #     steps:
-#       - checkout
+#       - run:
+#           name: Clone GitHub repository
+#           command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
 #       - run:
 #           name: NIDAS Build of AutoConfig Branch for RPi/armhf
 #           command: | 
@@ -210,7 +236,9 @@ workflows:
 #   build-armel-autoconfig:
 #     executor: armel-executor
 #     steps:
-#       - checkout
+#       - run:
+#           name: Clone GitHub repository
+#           command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
 #       - run:
 #           name: NIDAS Build of AutoConfig Branch for PC104/armel
 #           command: | 
@@ -239,6 +267,8 @@ workflows:
 #               only: 
 #                 - master
 #       - package-armhf-master:
+#           requires:
+#             - build-armhf-master
 #           filters:
 #             branches:
 #               only: 
@@ -252,6 +282,8 @@ workflows:
 #               only: 
 #                 - master
 #       - package-armel-master:
+#           requires:
+#             - build-armel-master
 #           filters:
 #             branches:
 #               only: 
@@ -265,6 +297,8 @@ workflows:
 #               only: 
 #                 - auto-config
 #       - package-armhf-autoconfig:
+#           requires:
+#             - build-armhf-autoconfig
 #           filters:
 #             branches:
 #               only: 
@@ -278,6 +312,8 @@ workflows:
 #               only: 
 #                 - auto-config
 #       - package-armel-autoconfig:
+#           requires:
+#             - build-armel-autoconfig
 #           filters:
 #             branches:
 #               only: 
