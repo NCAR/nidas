@@ -58,6 +58,7 @@ jobs:
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
+            git checkout auto-config
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
@@ -80,6 +81,7 @@ jobs:
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
+            git checkout auto-config
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armel
