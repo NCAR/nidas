@@ -10,9 +10,7 @@ jobs:
     - run:
         name: NIDAS Build of Master Branch for RPi/armhf
         command: |
-          pwd
           cd nidas/src
-          pwd
           scons LINUX_MODULES=no BUILDS=armhf
     - persist_to_workspace:
         root: .
@@ -27,10 +25,8 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
-          pwd
-          ls -alg
           cd nidas/scripts
-          build-dpkg.sh -c -s -i armhf
+          build_dpkg.sh -c -s -i armhf
   build-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -41,9 +37,7 @@ jobs:
     - run:
         name: NIDAS Build of Master Branch for PC104/armel
         command: |
-          pwd
           cd nidas/src
-          pwd
           scons LINUX_MODULES=no BUILDS=armel
     - persist_to_workspace:
         root: .
@@ -58,10 +52,8 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
-          pwd
-          ls -alg
           cd nidas/scripts
-          build-dpkg.sh -c -s -i armel
+          build_dpkg.sh -c -s -i armel
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -72,9 +64,7 @@ jobs:
     - run:
         name: NIDAS Build of AutoConfig Branch for RPi/armhf
         command: |
-          pwd
           cd nidas/src
-          pwd
           scons LINUX_MODULES=no BUILDS=armhf
     - persist_to_workspace:
         root: .
@@ -89,10 +79,8 @@ jobs:
     - run:
         name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
         command: |
-          pwd
-          ls -alg
           cd nidas/scripts
-          build-dpkg.sh -c -s -i armhf
+          build_dpkg.sh -c -s -i armhf
   build-armel-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -103,9 +91,7 @@ jobs:
     - run:
         name: NIDAS Build of AutoConfig Branch for PC104/armel
         command: |
-          pwd
           cd nidas/src
-          pwd
           scons LINUX_MODULES=no BUILDS=armel
     - persist_to_workspace:
         root: .
@@ -120,10 +106,8 @@ jobs:
     - run:
         name: NIDAS Package Build of AutoConfig Branch for PC104/armel
         command: |
-          pwd
-          ls -alg
           cd nidas/scripts
-          build-dpkg.sh -c -s -i armel
+          build_dpkg.sh -c -s -i armel
 workflows:
   version: 2
   master-armhf:
@@ -204,9 +188,7 @@ workflows:
 #       - run:
 #           name: NIDAS Build of Master Branch for RPi/armhf
 #           command: |
-#             pwd
 #             cd nidas/src
-#             pwd
 #             scons LINUX_MODULES=no BUILDS=armhf
 #       - persist_to_workspace:
 #           root: .
@@ -223,10 +205,8 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
-#             pwd
-#             ls -alg
 #             cd nidas/scripts
-#             build-dpkg.sh -c -s -i armhf
+#             build_dpkg.sh -c -s -i armhf
 # 
 #   deploy-armhf-master:
 #   
@@ -239,9 +219,7 @@ workflows:
 #       - run:
 #           name: NIDAS Build of Master Branch for PC104/armel
 #           command: |
-#             pwd
 #             cd nidas/src
-#             pwd
 #             scons LINUX_MODULES=no BUILDS=armel
 #       - persist_to_workspace:
 #           root: .
@@ -258,10 +236,8 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
-#             pwd
-#             ls -alg
 #             cd nidas/scripts
-#             build-dpkg.sh -c -s -i armel
+#             build_dpkg.sh -c -s -i armel
 # 
 #   deploy-armel-master:
 #   
@@ -274,9 +250,7 @@ workflows:
 #       - run:
 #           name: NIDAS Build of AutoConfig Branch for RPi/armhf
 #           command: | 
-#             pwd
 #             cd nidas/src
-#             pwd
 #             scons LINUX_MODULES=no BUILDS=armhf
 #       - persist_to_workspace:
 #           root: .
@@ -293,10 +267,8 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
 #           command: | 
-#             pwd
-#             ls -alg
 #             cd nidas/scripts
-#             build-dpkg.sh -c -s -i armhf
+#             build_dpkg.sh -c -s -i armhf
 # 
 #   deploy-armhf-autoconfig:
 # 
@@ -309,9 +281,7 @@ workflows:
 #       - run:
 #           name: NIDAS Build of AutoConfig Branch for PC104/armel
 #           command: | 
-#             pwd
 #             cd nidas/src
-#             pwd
 #             scons LINUX_MODULES=no BUILDS=armel
 #       - persist_to_workspace:
 #           root: .
@@ -328,10 +298,8 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
 #           command: | 
-#             pwd
-#             ls -alg
 #             cd nidas/scripts
-#             build-dpkg.sh -c -s -i armel
+#             build_dpkg.sh -c -s -i armel
 #     
 #   deploy-armel-autoconfig:
 # 
