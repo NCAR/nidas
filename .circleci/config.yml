@@ -24,7 +24,7 @@ jobs:
     executor: armhf-executor
     steps:
       - run:
-          name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+          name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
             cd src/scripts
             build-dpkg.sh
@@ -45,7 +45,7 @@ jobs:
     executor: armel-executor
     steps:
       - run:
-          name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+          name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
             cd src/scripts
             build-dpkg.sh
@@ -105,6 +105,8 @@ workflows:
               only: 
                 - master
       - package-armhf-master:
+          requires:
+            - build-armhf-master
           filters:
             branches:
               only: 
@@ -118,6 +120,8 @@ workflows:
               only: 
                 - master
       - package-armel-master:
+          requires:
+            - build-armel-master
           filters:
             branches:
               only: 
@@ -131,6 +135,8 @@ workflows:
               only: 
                 - auto-config
       - package-armhf-autoconfig:
+          requires:
+            - build-armhf-autoconfig
           filters:
             branches:
               only: 
@@ -144,6 +150,8 @@ workflows:
               only: 
                 - auto-config
       - package-armel-autoconfig:
+          requires:
+            - build-armel-autoconfig
           filters:
             branches:
               only: 
