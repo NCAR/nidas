@@ -18,6 +18,8 @@ jobs:
       - run:
           name: NIDAS Build of Master Branch for RPi/armhf
           command: |
+            pwd
+            cd nidas
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
@@ -28,6 +30,8 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
+            pwd
+            cd nidas
             cd src/scripts
             build-dpkg.sh
   deploy-armhf-master:
@@ -41,6 +45,8 @@ jobs:
       - run:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
+            pwd
+            cd nidas
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armel
@@ -51,6 +57,8 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
+            pwd
+            cd nidas
             cd src/scripts
             build-dpkg.sh
   deploy-armel-master:
@@ -64,6 +72,8 @@ jobs:
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
+            pwd
+            cd nidas
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
@@ -88,6 +98,8 @@ jobs:
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
+            pwd
+            cd nidas
             git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armel
@@ -98,6 +110,8 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
+            pwd
+            cd nidas
             cd src/scripts
             build-dpkg.sh
     
