@@ -19,9 +19,8 @@ jobs:
           name: NIDAS Build of Master Branch for RPi/armhf
           command: |
             pwd
-            cd nidas
-            git branch
-            cd src
+            cd nidas/src
+            pwd
             scons LINUX_MODULES=no BUILDS=armhf
 
   package-armhf-master:
@@ -31,8 +30,8 @@ jobs:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
             pwd
-            cd nidas
-            cd src/scripts
+            ls -alg
+            cd nidas/src/scripts
             build-dpkg.sh
   deploy-armhf-master:
   
@@ -46,9 +45,8 @@ jobs:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
             pwd
-            cd nidas
-            git branch
-            cd src
+            cd nidas/src
+            pwd
             scons LINUX_MODULES=no BUILDS=armel
 
   package-armel-master:
@@ -58,8 +56,8 @@ jobs:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
             pwd
-            cd nidas
-            cd src/scripts
+            ls -alg
+            cd nidas/src/scripts
             build-dpkg.sh
   deploy-armel-master:
   
@@ -73,9 +71,8 @@ jobs:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
             pwd
-            cd nidas
-            git branch
-            cd src
+            cd nidas/src
+            pwd
             scons LINUX_MODULES=no BUILDS=armhf
 
   package-armhf-autoconfig:
@@ -84,6 +81,8 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
+            pwd
+            ls -alg
             cd src/scripts
             build-dpkg.sh
 
@@ -99,9 +98,8 @@ jobs:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
             pwd
-            cd nidas
-            git branch
-            cd src
+            cd nidas/src
+            pwd
             scons LINUX_MODULES=no BUILDS=armel
 
   package-armel-autoconfig:
@@ -111,8 +109,8 @@ jobs:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
             pwd
-            cd nidas
-            cd src/scripts
+            ls -alg
+            cd nidas/src/scripts
             build-dpkg.sh
     
   deploy-armel-autoconfig:
