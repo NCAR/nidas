@@ -131,9 +131,10 @@ if conf.CheckLib('boost_filesystem'):
     conf.env.AppendUnique(LIBS = 'boost_filesystem')
 env = conf.Finish()
 
+libftdi_spec = File('/home/builder/libftdi/libftdi1-1.4/build-' + arch + '/src/libftdi1.a')
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util' , objects,
-    LIBS= ['pthread'] + env['LIBS'])
+    LIBS= ['pthread'] + env['LIBS'] + [libftdi_spec])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS_UTIL' + arch: lib[0]})
