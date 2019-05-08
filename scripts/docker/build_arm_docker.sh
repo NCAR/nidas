@@ -17,12 +17,20 @@ gid=1342
 version=1
 tag=jessie_v$version
 
+cacheFlag="--no-cache"
+if [[ "$1" == "--use-cache"  ]] ; then
+    cacheFlag=""
+    echo "Using docker cache for build"
+else
+    echo "NOT using docker cache for build"
+fi
+
 hostarch=armel
 image=nidas-build-debian-$hostarch
-echo "arch is $arch"
+echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
-docker build --no-cache -t $image \
+docker build $cacheFlag -t $image \
     --build-arg group=$group \
     --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
@@ -38,7 +46,7 @@ image=nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
-docker build --no-cache -t $image \
+docker build $cacheFlag -t $image \
     --build-arg group=$group \
     --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
