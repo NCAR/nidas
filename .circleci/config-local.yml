@@ -25,8 +25,13 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
+          pwd
+          ls -alg
+          ls -alg nidas
           cd nidas/scripts
-          build_dpkg.sh -c -s -i armhf
+          pwd
+          ls -alg
+          ./build_dpkg.sh -c -s -i armhf
   build-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -52,8 +57,13 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
+          pwd
+          ls -alg
+          ls -alg nidas
           cd nidas/scripts
-          build_dpkg.sh -c -s -i armel
+          pwd
+          ls -alg
+          ./build_dpkg.sh -c -s -i armhf
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -205,8 +215,13 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
+#             pwd
+#             ls -alg
+#             ls -alg nidas
 #             cd nidas/scripts
-#             build_dpkg.sh -c -s -i armhf
+#             pwd
+#             ls -alg
+#             ./build_dpkg.sh -c -s -i armhf
 # 
 #   deploy-armhf-master:
 #   
@@ -236,8 +251,13 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
+#             pwd
+#             ls -alg
+#             ls -alg nidas
 #             cd nidas/scripts
-#             build_dpkg.sh -c -s -i armel
+#             pwd
+#             ls -alg
+#             ./build_dpkg.sh -c -s -i armhf
 # 
 #   deploy-armel-master:
 #   
