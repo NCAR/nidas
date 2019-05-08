@@ -1,0 +1,284 @@
+version: 2
+jobs:
+  build-armhf-master:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+    steps:
+    - checkout
+    - run:
+        name: NIDAS Build of Master Branch for RPi/armhf
+        command: |
+          git branch
+          cd src
+          scons LINUX_MODULES=no BUILDS=armhf
+  package-armhf-master:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+    steps:
+    - run:
+        name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+        command: |
+          cd src/scripts
+          build-dpkg.sh
+  build-armel-master:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
+    steps:
+    - checkout
+    - run:
+        name: NIDAS Build of Master Branch for PC104/armel
+        command: |
+          git branch
+          cd src
+          scons LINUX_MODULES=no BUILDS=armel
+  package-armel-master:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
+    steps:
+    - run:
+        name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+        command: |
+          cd src/scripts
+          build-dpkg.sh
+  build-armhf-autoconfig:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+    steps:
+    - checkout
+    - run:
+        name: NIDAS Build of AutoConfig Branch for RPi/armhf
+        command: |
+          git branch
+          cd src
+          scons LINUX_MODULES=no BUILDS=armhf
+  package-armhf-autoconfig:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+    steps:
+    - run:
+        name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+        command: |
+          cd src/scripts
+          build-dpkg.sh
+  build-armel-autoconfig:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
+    steps:
+    - checkout
+    - run:
+        name: NIDAS Build of AutoConfig Branch for PC104/armel
+        command: |
+          git branch
+          cd src
+          scons LINUX_MODULES=no BUILDS=armel
+  package-armel-autoconfig:
+    docker:
+    - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+    steps:
+    - run:
+        name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+        command: |
+          cd src/scripts
+          build-dpkg.sh
+workflows:
+  version: 2
+  master-armhf:
+    jobs:
+    - build-armhf-master:
+        filters:
+          branches:
+            only:
+            - master
+    - package-armhf-master:
+        filters:
+          branches:
+            only:
+            - master
+  master-armel:
+    jobs:
+    - build-armel-master:
+        filters:
+          branches:
+            only:
+            - master
+    - package-armel-master:
+        filters:
+          branches:
+            only:
+            - master
+  autoconfig-armhf:
+    jobs:
+    - build-armhf-autoconfig:
+        filters:
+          branches:
+            only:
+            - auto-config
+    - package-armhf-autoconfig:
+        filters:
+          branches:
+            only:
+            - auto-config
+  autoconfig-armel:
+    jobs:
+    - build-armel-autoconfig:
+        filters:
+          branches:
+            only:
+            - auto-config
+    - package-armel-autoconfig:
+        filters:
+          branches:
+            only:
+            - auto-config
+
+# Original config.yml file:
+# version: 2.1
+# executors:
+#   armhf-executor:
+#     docker:
+#       - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+# 
+#   armel-executor:
+#     docker:
+#       - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
+#  
+# jobs:
+#   build-armhf-master:
+#     executor: armhf-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: NIDAS Build of Master Branch for RPi/armhf
+#           command: |
+#             git branch
+#             cd src
+#             scons LINUX_MODULES=no BUILDS=armhf
+# 
+#   package-armhf-master:
+#     executor: armhf-executor
+#     steps:
+#       - run:
+#           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+#           command: | 
+#             cd src/scripts
+#             build-dpkg.sh
+#   deploy-armhf-master:
+#   
+#   build-armel-master:
+#     executor: armel-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: NIDAS Build of Master Branch for PC104/armel
+#           command: |
+#             git branch
+#             cd src
+#             scons LINUX_MODULES=no BUILDS=armel
+# 
+#   package-armel-master:
+#     executor: armel-executor
+#     steps:
+#       - run:
+#           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+#           command: | 
+#             cd src/scripts
+#             build-dpkg.sh
+#   deploy-armel-master:
+#   
+#   build-armhf-autoconfig:
+#     executor: armhf-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: NIDAS Build of AutoConfig Branch for RPi/armhf
+#           command: | 
+#             git branch
+#             cd src
+#             scons LINUX_MODULES=no BUILDS=armhf
+# 
+#   package-armhf-autoconfig:
+#     executor: armhf-executor
+#     steps:
+#       - run:
+#           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+#           command: | 
+#             cd src/scripts
+#             build-dpkg.sh
+# 
+#   deploy-armhf-autoconfig:
+# 
+#   build-armel-autoconfig:
+#     executor: armel-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: NIDAS Build of AutoConfig Branch for PC104/armel
+#           command: | 
+#             git branch
+#             cd src
+#             scons LINUX_MODULES=no BUILDS=armel
+# 
+#   package-armel-autoconfig:
+#     executor: armhf-executor
+#     steps:
+#       - run:
+#           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+#           command: | 
+#             cd src/scripts
+#             build-dpkg.sh
+#     
+#   deploy-armel-autoconfig:
+# 
+# workflows:
+#   version: 2
+#   master-armhf:
+#     jobs:
+#       - build-armhf-master:
+#           filters:
+#             branches:
+#               only: 
+#                 - master
+#       - package-armhf-master:
+#           filters:
+#             branches:
+#               only: 
+#                 - master
+#       
+#   master-armel:
+#     jobs:
+#       - build-armel-master:
+#           filters:
+#             branches:
+#               only: 
+#                 - master
+#       - package-armel-master:
+#           filters:
+#             branches:
+#               only: 
+#                 - master
+# 
+#   autoconfig-armhf:
+#     jobs:
+#       - build-armhf-autoconfig:
+#           filters:
+#             branches:
+#               only: 
+#                 - auto-config
+#       - package-armhf-autoconfig:
+#           filters:
+#             branches:
+#               only: 
+#                 - auto-config
+#       
+#   autoconfig-armel:
+#     jobs:
+#       - build-armel-autoconfig:
+#           filters:
+#             branches:
+#               only: 
+#                 - auto-config
+#       - package-armel-autoconfig:
+#           filters:
+#             branches:
+#               only: 
+#                 - auto-config

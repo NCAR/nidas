@@ -1,30 +1,150 @@
-version: 2
+version: 2.1
+executors:
+  armhf-executor:
+    docker:
+      - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
+
+  armel-executor:
+    docker:
+      - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
+ 
 jobs:
-  build-host:
-    docker:
-      - image: docker.io/ncar/nidas-ubuntu-base:latest
+  build-armhf-master:
+    executor: armhf-executor
     steps:
       - checkout
       - run:
-          name: NIDAS Build of Master Branch for Host
+          name: NIDAS Build of Master Branch for RPi/armhf
           command: |
-            cd src
-            scons LINUX_MODULES=no BUILDS=host
-  build-rpi-armhf:
-    docker:
-      - image: docker.io/ncar/nidas:latest
-    steps:
-      - checkout
-      - run:
-          name: NIDAS Build of AutoConfig Branch for RPi DSM
-          command: | 
+            git branch
             cd src
             scons LINUX_MODULES=no BUILDS=armhf
+
+  package-armhf-master:
+    executor: armhf-executor
+    steps:
+      - run:
+          name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+          command: | 
+            cd src/scripts
+            build-dpkg.sh
+  deploy-armhf-master:
+  
+  build-armel-master:
+    executor: armel-executor
+    steps:
+      - checkout
+      - run:
+          name: NIDAS Build of Master Branch for PC104/armel
+          command: |
+            git branch
+            cd src
+            scons LINUX_MODULES=no BUILDS=armel
+
+  package-armel-master:
+    executor: armel-executor
+    steps:
+      - run:
+          name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+          command: | 
+            cd src/scripts
+            build-dpkg.sh
+  deploy-armel-master:
+  
+  build-armhf-autoconfig:
+    executor: armhf-executor
+    steps:
+      - checkout
+      - run:
+          name: NIDAS Build of AutoConfig Branch for RPi/armhf
+          command: | 
+            git branch
+            cd src
+            scons LINUX_MODULES=no BUILDS=armhf
+
+  package-armhf-autoconfig:
+    executor: armhf-executor
+    steps:
+      - run:
+          name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
+          command: | 
+            cd src/scripts
+            build-dpkg.sh
+
+  deploy-armhf-autoconfig:
+
+  build-armel-autoconfig:
+    executor: armel-executor
+    steps:
+      - checkout
+      - run:
+          name: NIDAS Build of AutoConfig Branch for PC104/armel
+          command: | 
+            git branch
+            cd src
+            scons LINUX_MODULES=no BUILDS=armel
+
+  package-armel-autoconfig:
+    executor: armhf-executor
+    steps:
+      - run:
+          name: NIDAS Package Build of AutoConfig Branch for PC104/armel
+          command: | 
+            cd src/scripts
+            build-dpkg.sh
+    
+  deploy-armel-autoconfig:
+
 workflows:
   version: 2
-  autoconfig:
+  master-armhf:
     jobs:
-      - build-rpi-armhf
-  host:
+      - build-armhf-master:
+          filters:
+            branches:
+              only: 
+                - master
+      - package-armhf-master:
+          filters:
+            branches:
+              only: 
+                - master
+      
+  master-armel:
     jobs:
-      - build-host
+      - build-armel-master:
+          filters:
+            branches:
+              only: 
+                - master
+      - package-armel-master:
+          filters:
+            branches:
+              only: 
+                - master
+
+  autoconfig-armhf:
+    jobs:
+      - build-armhf-autoconfig:
+          filters:
+            branches:
+              only: 
+                - auto-config
+      - package-armhf-autoconfig:
+          filters:
+            branches:
+              only: 
+                - auto-config
+      
+  autoconfig-armel:
+    jobs:
+      - build-armel-autoconfig:
+          filters:
+            branches:
+              only: 
+                - auto-config
+      - package-armel-autoconfig:
+          filters:
+            branches:
+              only: 
+                - auto-config
