@@ -14,7 +14,7 @@ jobs:
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch --depth=1 https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of Master Branch for RPi/armhf
           command: |
@@ -37,7 +37,7 @@ jobs:
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch --depth=1 https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
@@ -60,7 +60,7 @@ jobs:
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch --depth=1 https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
@@ -84,7 +84,7 @@ jobs:
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} -single-branch https://github.com/ncareol/nidas -depth=1
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch --depth=1 https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
