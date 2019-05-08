@@ -29,7 +29,6 @@
 
 #include <algorithm>
 #include <sstream>
-#include <libusb.h>
 #include <limits>
 
 namespace n_u = nidas::util;
