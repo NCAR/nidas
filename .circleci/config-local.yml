@@ -25,12 +25,10 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
-          cd /
-          find . -name arm-linux-gnueabihf-g* -print
           cd nidas/scripts
           pwd
           ls -alg
-          ./build_dpkg.sh -s armhf
+          ./build_dpkg.sh armhf
   build-armel-master:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -56,12 +54,10 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
-          cd /
-          find . -name arm-linux-gnueabihf-g* -print
           cd nidas/scripts
           pwd
           ls -alg
-          ./build_dpkg.sh -s armhf
+          ./build_dpkg.sh armhf
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -88,7 +84,7 @@ jobs:
         name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
         command: |
           cd nidas/scripts
-          build_dpkg.sh -s armhf
+          build_dpkg.sh armhf
   build-armel-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
@@ -115,7 +111,7 @@ jobs:
         name: NIDAS Package Build of AutoConfig Branch for PC104/armel
         command: |
           cd nidas/scripts
-          build_dpkg.sh -s armel
+          build_dpkg.sh armel
 workflows:
   version: 2
   master-armhf:
@@ -213,12 +209,10 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
-#             cd /
-#             find . -name arm-linux-gnueabihf-g* -print
 #             cd nidas/scripts
 #             pwd
 #             ls -alg
-#             ./build_dpkg.sh -s armhf
+#             ./build_dpkg.sh armhf
 # 
 #   deploy-armhf-master:
 #   
@@ -248,12 +242,10 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
-#             cd /
-#             find . -name arm-linux-gnueabihf-g* -print
 #             cd nidas/scripts
 #             pwd
 #             ls -alg
-#             ./build_dpkg.sh -s armhf
+#             ./build_dpkg.sh armhf
 # 
 #   deploy-armel-master:
 #   
@@ -284,7 +276,7 @@ workflows:
 #           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
 #           command: | 
 #             cd nidas/scripts
-#             build_dpkg.sh -s armhf
+#             build_dpkg.sh armhf
 # 
 #   deploy-armhf-autoconfig:
 # 
@@ -315,7 +307,7 @@ workflows:
 #           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
 #           command: | 
 #             cd nidas/scripts
-#             build_dpkg.sh -s armel
+#             build_dpkg.sh armel
 #     
 #   deploy-armel-autoconfig:
 # 
