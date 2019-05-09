@@ -35,9 +35,8 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
-            pwd
-            ls -alg
-            ls -alg nidas
+            cd /
+            find . -name arm-linux-gnueabihf-g?? -print
             cd nidas/scripts
             pwd
             ls -alg
@@ -71,9 +70,8 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
-            pwd
-            ls -alg
-            ls -alg nidas
+            cd /
+            find . -name arm-linux-gnueabihf-g?? -print
             cd nidas/scripts
             pwd
             ls -alg
