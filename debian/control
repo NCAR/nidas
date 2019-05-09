@@ -55,12 +55,12 @@ Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Intel 64
 
-Package: nidas-modules-rpi2
-Architecture: armhf
-Depends: ${misc:Depends}
-Provides: nidas-modules
-Description: NIDAS Linux kernel modules
- NIDAS kernel modules, built for RaspberryPi 2
+# Package: nidas-modules-rpi2
+# Architecture: armhf
+# Depends: ${misc:Depends}
+# Provides: nidas-modules
+# Description: NIDAS Linux kernel modules
+#  NIDAS kernel modules, built for RaspberryPi 2
 
 Package: nidas-daq
 Architecture: all
