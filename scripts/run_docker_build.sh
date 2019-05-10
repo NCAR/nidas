@@ -10,10 +10,10 @@ fi
 
 case $1 in
     armel | viper | titan)
-        image=ncar/debian-armel-cross:jessie
+        image=ncar/nidas-build-debian-armel:jessie_v1
         ;;
     armhf | rpi2)
-        image=maclean/debian-armhf-cross:jessie
+        image=ncar/nidas-build-debian-armhf:jessie_v1
         ;;
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael
@@ -44,5 +44,6 @@ set -x
 exec docker run --rm --user `id -u`:$group \
     --volume $PWD:/home/builder/nidas:rw,Z \
     --volume /opt/nidas:/opt/nidas:rw,Z \
+    --network=host \
     -i -t $image /bin/bash
 
