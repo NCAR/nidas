@@ -12,88 +12,128 @@ jobs:
   build-armhf-master:
     executor: armhf-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of Master Branch for RPi/armhf
           command: |
-            git branch
-            cd src
+            cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
+      - persist_to_workspace:
+          root: .
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armhf-master:
     executor: armhf-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
-            cd src/scripts
-            build-dpkg.sh
+            cd nidas/scripts
+            pwd
+            ls -alg
+            ./build_dpkg.sh armhf
+
   deploy-armhf-master:
   
   build-armel-master:
     executor: armel-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
-            git branch
-            cd src
+            cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
+      - persist_to_workspace:
+          root: .
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armel-master:
     executor: armel-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
-            cd src/scripts
-            build-dpkg.sh
+            cd nidas/scripts
+            pwd
+            ls -alg
+            ./build_dpkg.sh armel
+
   deploy-armel-master:
   
   build-armhf-autoconfig:
     executor: armhf-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
-            git checkout auto-config
-            git branch
-            cd src
+            cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
+      - persist_to_workspace:
+          root: .
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armhf-autoconfig:
     executor: armhf-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
-            cd src/scripts
-            build-dpkg.sh
+            cd nidas/scripts
+            build_dpkg.sh armhf
 
   deploy-armhf-autoconfig:
 
   build-armel-autoconfig:
     executor: armel-executor
     steps:
-      - checkout
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
-            git checkout auto-config
-            git branch
-            cd src
+            cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
+      - persist_to_workspace:
+          root: .
+          # Must be relative path from root
+          paths:
+            - nidas
 
   package-armel-autoconfig:
     executor: armhf-executor
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
-            cd src/scripts
-            build-dpkg.sh
+            cd nidas/scripts
+            build_dpkg.sh armel
     
   deploy-armel-autoconfig:
 
