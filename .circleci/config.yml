@@ -105,7 +105,11 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
+            pwd
+            ls -alg
             cd nidas/scripts
+            pwd
+            ls -alg
             build_dpkg.sh armhf
 
   deploy-armhf-autoconfig:
@@ -136,7 +140,11 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
+            pwd
+            ls -alg
             cd nidas/scripts
+            pwd
+            ls -alg
             build_dpkg.sh armel
     
   deploy-armel-autoconfig:
