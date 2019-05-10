@@ -57,7 +57,7 @@ const unsigned char TwoD64_USB::_blankString[] =
 
 
 TwoD64_USB::TwoD64_USB():
-     _probeClockRate(12),                   //Default for v2 is 12 MHZ
+     _probeClockRate(12.0),                   //Default for v2 is 12 MHZ
      _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
      _dofMask(0x01),
      _blankLine(false),
