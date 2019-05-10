@@ -71,7 +71,7 @@ jobs:
             cd nidas/scripts
             pwd
             ls -alg
-            ./build_dpkg.sh armhf
+            ./build_dpkg.sh armel
 
   deploy-armel-master:
   
