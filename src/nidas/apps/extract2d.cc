@@ -121,7 +121,7 @@ int ExtractFast2D::main(int argc, char** argv) throw()
     ExtractFast2D extract;
 
     int res;
-    
+
     if ((res = extract.parseRunstring(argc, argv)) != 0)
         return res;
 
@@ -211,7 +211,7 @@ int ExtractFast2D::run() throw()
 
                     if ((*dsm_it)->getCatalogName().size() == 0)
                     {
-                        cout << " Sensor " << (*dsm_it)->getName() << 
+                        cout << " Sensor " << (*dsm_it)->getName() <<
                            " is not in catalog, unable to recognize 2DC vs. 2DP, ignoring.\n" <<
                            " Fix by moving this entry from the DSM area up to the sensor catalog.\n";
                         continue;
@@ -229,6 +229,19 @@ int ExtractFast2D::run() throw()
 
                     parm = p->sensor->getParameter("SerialNumber");
                     p->serialNumber = parm->getStringValue(0);
+
+                    if ((*dsm_it)->getCatalogName().find("_v2") != std::string::npos)
+                    {
+                        p->clockFreq = 33.333;  // 33 Mhz clock for the second version
+                        p->waveLength = 660;// New laser is 660 
+                    }
+
+                    parm = p->sensor->getParameter("ClockFrequency");
+                    if (parm != 0) p->clockFreq = (size_t)parm->getNumericValue(0);
+
+                    parm = p->sensor->getParameter("LaserWaveLength");
+                    if (parm != 0) p->waveLength = (float)parm->getNumericValue(0);
+
 
                     if ((*dsm_it)->getCatalogName().compare(0, 7, "Fast2DP") == 0)
                     {
@@ -262,6 +275,8 @@ int ExtractFast2D::run() throw()
                                 << " type=\"" << (*dsm_it)->getCatalogName() << "\""
                                 << " resolution=\"" << p->resolution << "\""
                                 << " nDiodes=\"" << p->nDiodes << "\""
+                                << " clockFreq=\"" << p->clockFreq << "\""
+                                << " laserWaveLength=\"" << p->waveLength << "\""
                                 << " serialnumber=\"" << p->serialNumber << "\""
                                 << " suffix=\"" << (*dsm_it)->getSuffix() << "\"/>\n";
                     }
