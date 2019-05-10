@@ -57,7 +57,7 @@ const unsigned char TwoD64_USB::_blankString[] =
 
 
 TwoD64_USB::TwoD64_USB():
-     _probeClockRate(12),                   //Default for v2 is 12 MHZ
+     _probeClockRate(12.0),                   //Default for v2 is 12 MHZ
      _timeWordMask(0x000000ffffffffffLL),   //Default for v2 is 40 bits
      _dofMask(0x01),
      _blankLine(false),
@@ -265,10 +265,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     saveBuffer(cp,eod);
                     return !results.empty();
                 }
-                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
-                    // match to overload string
+                if (cp[1] == _overldString[1]) {  // is an overLoad slice
 
-                    // time words are from a 12MHz clock
                     long long thisTimeWord =
                         (bigEndian->int64Value(cp) & _timeWordMask ) / _probeClockRate;
 

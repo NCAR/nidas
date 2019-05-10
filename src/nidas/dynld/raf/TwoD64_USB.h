@@ -82,9 +82,9 @@ protected:
 	std::list < const Sample * >&results, int stype) throw();
 
     /* probe clock rate 12 MHz for v2
-     * v3 is 33 MHz
+     * v3 is 33.333 MHz
      */
-    unsigned int _probeClockRate;
+    float _probeClockRate;
 
     unsigned long long _timeWordMask;
 
