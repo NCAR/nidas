@@ -100,7 +100,7 @@ jobs:
             scons LINUX_MODULES=no BUILDS=armel
 
   package-armel-autoconfig:
-    executor: armhf-executor
+    executor: armel-executor
     steps:
       - run:
           name: Clone GitHub repository
