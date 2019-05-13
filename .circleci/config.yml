@@ -20,18 +20,13 @@ jobs:
           command: |
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
-      - persist_to_workspace:
-          root: .
-          # Must be relative path from root
-          paths:
-            - nidas
 
   package-armhf-master:
     executor: armhf-executor
     steps:
-      - attach_workspace:
-          # Must be absolute path or relative path from working_directory
-          at: .
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
@@ -51,18 +46,13 @@ jobs:
           command: |
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
-      - persist_to_workspace:
-          root: .
-          # Must be relative path from root
-          paths:
-            - nidas
 
   package-armel-master:
     executor: armel-executor
     steps:
-      - attach_workspace:
-          # Must be absolute path or relative path from working_directory
-          at: .
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
@@ -82,18 +72,13 @@ jobs:
           command: | 
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
-      - persist_to_workspace:
-          root: .
-          # Must be relative path from root
-          paths:
-            - nidas
 
   package-armhf-autoconfig:
     executor: armhf-executor
     steps:
-      - attach_workspace:
-          # Must be absolute path or relative path from working_directory
-          at: .
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
@@ -113,18 +98,13 @@ jobs:
           command: | 
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
-      - persist_to_workspace:
-          root: .
-          # Must be relative path from root
-          paths:
-            - nidas
 
   package-armel-autoconfig:
     executor: armhf-executor
     steps:
-      - attach_workspace:
-          # Must be absolute path or relative path from working_directory
-          at: .
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
