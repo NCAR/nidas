@@ -1,0 +1,18 @@
+{
+   <static initialization>
+   Memcheck:Leak
+   ...
+   obj:/lib/x86_64-linux-gnu/ld*
+}
+{
+   <Nidas createInstance>
+   Memcheck:Leak
+   ...
+   fun:*nidas*createInstance*
+}
+{
+   <Nidas getInstance>
+   Memcheck:Leak
+   ...
+   fun:*nidas*getInstance*
+}

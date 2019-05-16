@@ -19,7 +19,8 @@ Alias('test', runtest)
 env.ValgrindLog('memcheck', 
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
-                            "${VALGRIND_PATH} --leak-check=full"
-                            " --gen-suppressions=all ./${SOURCE.file}"
-                            " >& ${TARGET.abspath}"))
+                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all"
+                            " --gen-suppressions=all --log-file=${TARGET.abspath}"
+                            " --suppressions=vg.memcheck.supp -v"
+                            " ./${SOURCE.file} 2>&1 ${TARGET.abspath}"))
 
