@@ -201,6 +201,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
     char status = '?';
     int gpsmsod = -1;   // milliseconds of day, from HHMMSS NMEA field
     _ttgps = 0;
+    int nchar;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -209,7 +210,14 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:	// HHMMSS, optional output variable seconds of day
-            if (sscanf(input,"%2d%2d%2d%lf",&hour,&minute,&second,&msec) >= 3 && msec < 1.0) {
+            if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) == 3) {
+                if (nchar == 6) sscanf(input+6,"%lf",&msec);
+                if (nchar != 6 || (input[nchar] != ',' && input[nchar] != '.') ||
+                        hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+                        second < 0 || second > 60 || msec < 0.0 || msec > 1.0) {
+                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                    return tt;
+                }
                 // milliseconds of day from GPS
                 gpsmsod = (hour * 3600 + minute * 60 + second) * MSECS_PER_SEC +
                     (int)rintf(msec * MSECS_PER_SEC);
@@ -270,7 +278,13 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             }
             break;
         case 8:	// date DDMMYY
-            if (sscanf(input,"%2d%2d%2d",&day,&month,&year) == 3) {
+            if (sscanf(input,"%2d%2d%2d%n",&day,&month,&year,&nchar) == 3) {
+                if (nchar != 6 || input[nchar] != ',' || day < 1 || day > 31 ||
+                        month < 1 || month > 12) {
+                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                    return tt;
+                }
+
                 if (status == 'A' && gpsmsod >= 0)
                     _ttgps = n_u::UTime(true,year,month,day,0,0,0).toUsecs() +
                         (long long)gpsmsod * USECS_PER_MSEC;
@@ -376,6 +390,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
     int iout = 0;
     int qual = 0;
     _ttgps = 0;
+    int nchar;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -384,7 +399,15 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:		// HHMMSS
-            if (sscanf(input,"%2d%2d%2d%lf",&hour,&minute,&second,&msec) >= 3 && msec < 1.0) {
+            if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) == 3) {
+                if (nchar == 6) sscanf(input+6,"%lf",&msec);
+                if (nchar != 6 || (input[nchar] != ',' && input[nchar] != '.') ||
+                        hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+                        second < 0 || second > 60 || msec < 0.0 || msec > 1.0) {
+                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                    return tt;
+                }
+
                 // milliseconds of day from GPS
                 int gpsmsod = (hour * 3600 + minute * 60 + second) * MSECS_PER_SEC +
                     (int)rintf(msec * MSECS_PER_SEC);
@@ -537,7 +560,7 @@ bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
     eor--;  // first digit of checksum
     char* cp;
     char cksum = ::strtol(eor,&cp,16);
-    if (cp == eor) return false;    // invalid checksum field
+    if (cp != eor + 2) return false;    // invalid checksum field length
 
     char calcsum = 0;
     for ( ; rec < eor-1; ) calcsum ^= *rec++;
