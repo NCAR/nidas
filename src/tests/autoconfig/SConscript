@@ -5,7 +5,7 @@ env = env.Clone(tools = ['nidas', 'valgrind'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex', 'boost_system'])
+env.Append(LIBS = ['boost_unit_test_framework'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
 tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc"])
 # env.Depends(tests, libs)
@@ -22,18 +22,19 @@ env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             ". ./libs.sh && "
-                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all "
-                            "--gen-suppressions=all --log-file=${TARGET.abspath} "
-                            "./${SOURCE.file} --log_level=message"))
+                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all"
+                            " --gen-suppressions=all --suppressions=vg.memcheck.supp"
+                            " ./${SOURCE.file} --log_level=message"
+                            " >& ${TARGET.abspath}"))
 
 env.ValgrindLog('threadcheck', 
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             ". ./libs.sh && "
-                            "${VALGRIND_PATH} --tool=helgrind "
-                            "--gen-suppressions=all --log-file=${TARGET.abspath} "
-                            "--suppressions=vg.threadcheck.supp "
-                            "./${SOURCE.file} --log_level=message"))
+                            "${VALGRIND_PATH} --tool=helgrind"
+                            " --gen-suppressions=all --suppressions=vg.threadcheck.supp"
+                            " ./${SOURCE.file} --log_level=message"
+                            " >& ${TARGET.abspath}"))
 
 def write_env(env, target, source):
     "Write a sh file with env settings which can be sourced to run tests."
@@ -43,6 +44,6 @@ def write_env(env, target, source):
                   (str(s.dir.get_abspath())))
     out.close()
 
-env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL"], write_env)
+env.Command('libs.sh', ["$LIBNIDAS", "$LIBNIDAS_UTIL", "$LIBNIDAS_DYNLD"], write_env)
 
 
