@@ -177,7 +177,7 @@ public:
      * btspp:           BluetoothRFCommSocketIODevice
      * 
      * If UnixIODevice type is returned, then check 
-     * /dev/ttyUSB:     SerialPortIODevice
+     * /dev/ttyDSM:     SerialPortIODevice
      *
      * If a SerialPortIODevice is created, the Termios of this SerialSensor is
      * copied to the device, which will then be applied when the device is opened.
