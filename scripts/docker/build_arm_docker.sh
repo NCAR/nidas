@@ -18,7 +18,7 @@ version=1
 tag=jessie_v$version
 
 cacheFlag="--no-cache"
-if [[ "$1" == "--use-cache"  ]] ; then
+if [[ "$1" == "--use-cache" ]] || [[ "$1" == "cache" ]] ; then
     cacheFlag=""
     echo "Using docker cache for build"
 else
