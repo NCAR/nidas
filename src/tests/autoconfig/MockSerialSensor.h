@@ -83,6 +83,7 @@ public:
     void printPortConfig(bool flush=true){SerialSensor::printPortConfig(flush);}
 
     bool getAutoConfigSupport() {return supportsAutoConfig(); }
+    void initAutoconfig() {initAutoConfig();}
     AUTOCONFIG_STATE getAutoConfigState() {return SerialSensor::getAutoConfigState(); }
     AUTOCONFIG_STATE getSerialConfigState() {return SerialSensor::getSerialConfigState(); }
     AUTOCONFIG_STATE getScienceConfigState() {return SerialSensor::getScienceConfigState(); }
