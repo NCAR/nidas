@@ -1,18 +1,21 @@
 #!/bin/bash
 
-# Start a Docker container to do cross-building of NIDAS for various
-# non-x86_64, non-redhat systems.
+# Build libftdi in 
 
 if [ $# -lt 1 ]; then
-    echo "usage: ${0##*/} [ armel | armhf | armbe | viper=armel | titan=armel | rpi2=armhf ]"
+    echo "usage: ${0##*/} [ host | armel | armhf | viper=armel | titan=armel | rpi2=armhf ]"
     exit 1
 fi
 
-# Check build container arch match. NOTE: $CROSS_ARCH comes in from the docker container.
+# Check build container arch match. 
 echo "arch arg is: $1"
 
-if [[ ! " armel armhf " =~ " $1 " ]]; then 
-    echo "Build host cross compile arch is not armel or armhf..."
+if [[ " host " =~ " $1 " ]]; then 
+    export cmakeTargetArch=""
+elif [[ " armel armhf " =~ " $1 " ]]; then 
+    cmakeTargetArch="-DCMAKE_TOOLCHAIN_FILE=../../crosstoolchain-$1.cmake"
+else
+    echo "Build target compile arch is not host, armel or armhf..."
     exit 2
 fi
 
@@ -53,10 +56,14 @@ if [[ "$?" == 0 ]] ; then
     # always a clean build...
     rm -rf $buildDir
     mkdir -p $buildDir && cd $buildDir
-    cmake -DCMAKE_TOOLCHAIN_FILE=/home/builder/libftdi/crosstoolchain-$CROSS_ARCH.cmake -DCMAKE_INSTALL_PREFIX="/usr" ../
+    cmake $cmakeTargetArch -DCMAKE_INSTALL_PREFIX="/usr" ../
 
     # at this point we just need the static lib, not the package
     make
+    if [[ " host " =~ " $1 " ]]; then 
+        # host needs the include file
+        sudo make install
+    fi
     #make package
     #mv libftdi1-$VERSION.deb libftdi1-$VERSION-$CROSS_ARCH.deb
 else
