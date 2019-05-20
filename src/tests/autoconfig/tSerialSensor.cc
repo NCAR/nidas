@@ -4,6 +4,14 @@
 //#define BOOST_TEST_MODULE SerialSensorAutoConfig
 #include <boost/test/unit_test.hpp>
 
+// handle older boost libs...
+#ifndef BOOST_TEST
+    #define BOOST_TEST( P ) BOOST_CHECK( P )
+#endif
+#ifndef BOOT_TEST_REQUIRE
+    #define BOOST_TEST_REQUIRE( P ) BOOST_REQUIRE( P )
+#endif
+
 using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
@@ -84,7 +92,7 @@ struct Fixture {
 bool init_unit_test()
 {
     autoConfigUnitTest = true;
-    int fd = nidas::util::SerialPort::createPtyLink("/tmp/dev/ttyDSM0");
+    int fd = nidas::util::SerialPort::createPtyLink("/tmp/ttyDSM0");
     if (fd < 0) {
         std::cerr << "Failed to create a Pty for use in autoconfig unit tests." << std::endl;
         return false;
@@ -114,7 +122,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     BOOST_TEST_MESSAGE("    Testing SerialSensor Default Constructor...");
     SerialSensor ss;
 
-    BOOST_TEST(ss.getName().c_str() == "unknown:");
+    BOOST_TEST(ss.getName() == std::string("unknown:"));
     BOOST_TEST(ss.getAutoConfigState() == AUTOCONFIG_UNSUPPORTED);
     BOOST_TEST(ss.getSerialConfigState() == AUTOCONFIG_UNSUPPORTED);
     BOOST_TEST(ss.getScienceConfigState() == AUTOCONFIG_UNSUPPORTED);
@@ -131,7 +139,12 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_ctors)
     MockSerialSensor mss;
 
     BOOST_TEST(mss.getAutoConfigSupport() == true);
-    BOOST_TEST(mss.getName().c_str() == "unknown:");
+    BOOST_TEST(mss.getName() == std::string("unknown:"));
+    BOOST_TEST(mss.getAutoConfigState() == AUTOCONFIG_UNSUPPORTED);
+    BOOST_TEST(mss.getSerialConfigState() == AUTOCONFIG_UNSUPPORTED);
+    BOOST_TEST(mss.getScienceConfigState() == AUTOCONFIG_UNSUPPORTED);
+    mss.setAutoConfigSupported();
+    mss.initAutoconfig();
     BOOST_TEST(mss.getAutoConfigState() == WAITING_IDLE);
     BOOST_TEST(mss.getSerialConfigState() == WAITING_IDLE);
     BOOST_TEST(mss.getScienceConfigState() == WAITING_IDLE);
@@ -156,7 +169,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
 
     MockSerialSensor mss;
 
-    mss.setDeviceName("/tmp/dev/ttyDSM0");
+    mss.setDeviceName("/tmp/ttyDSM0");
     mss.open(O_RDWR);
     BOOST_TEST(mss.getDefaultPortConfig() == defaultPortConfig);
 
@@ -165,14 +178,14 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_findWorkingSerialPortConfig)
     defaultPortConfig = deviceOperatingPortConfig;
 
     MockSerialSensor mss2;
-    mss2.setDeviceName("/tmp/dev/ttyDSM0");
+    mss2.setDeviceName("/tmp/ttyDSM0");
     mss2.open(O_RDWR);
     BOOST_TEST(mss2.getDefaultPortConfig() == deviceOperatingPortConfig);
 
     BOOST_TEST_MESSAGE("    Sensor operating config not in allowed port configs.");
     BOOST_TEST_MESSAGE("        causes sweepCommParameters() to be invoked.");
     MockSerialSensor mss3;
-    mss3.setDeviceName("/tmp/dev/ttyDSM0");
+    mss3.setDeviceName("/tmp/ttyDSM0");
     deviceOperatingPortConfig.termios.setBaudRate(115200);
     mss3.open(O_RDWR);
     BOOST_TEST(mss3.getPortConfig() != deviceOperatingPortConfig);
@@ -218,7 +231,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
         BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
         BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
-        BOOST_TEST(pSerialSensor->getInitString() == "DSMSensorTestInitString");
+        BOOST_TEST(pSerialSensor->getInitString() == std::string("DSMSensorTestInitString"));
     }
 
     {
@@ -246,7 +259,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
         BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
         BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
-        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor0TestInitString");
+        BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor0TestInitString"));
     }
 
     {
@@ -274,7 +287,7 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
         BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
         BOOST_TEST(desiredPortConfig.termios.getStopBits() ==1);
-        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor1TestInitString");
+        BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor1TestInitString"));
     }
 
     {
@@ -297,12 +310,12 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         pMockSerialSensor->init();
         // Don't open/close because the pty being for mock can't handle termios details
         PortConfig desiredPortConfig = pMockSerialSensor->getDesiredPortConfig();
-        BOOST_TEST(desiredPortConfig != pMockSerialSensor->getDefaultPortConfig());
+        BOOST_TEST(desiredPortConfig == pMockSerialSensor->getDefaultPortConfig());
         BOOST_TEST(desiredPortConfig.termios.getBaudRate() == 19200);
-        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::ODD);
-        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 8);
-        BOOST_TEST(desiredPortConfig.termios.getStopBits() == 2);
-        BOOST_TEST(pMockSerialSensor->getInitString() == "MockSensor2TestInitString");
+        BOOST_TEST(desiredPortConfig.termios.getParity() == Termios::EVEN);
+        BOOST_TEST(desiredPortConfig.termios.getDataBits() == 7);
+        BOOST_TEST(desiredPortConfig.termios.getStopBits() == 1);
+        BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor2TestInitString"));
     }
 }
 

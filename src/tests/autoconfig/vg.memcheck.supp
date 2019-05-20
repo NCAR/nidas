@@ -1,0 +1,19 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   obj:/lib/x86_64-linux-gnu/ld-*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util8FtdiGpioILNS0_12FTDI_DEVICESE1EL14ftdi_interface1EE11getFtdiGpioESsSs
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util6Logger14createInstanceEPSo
+}
+
