@@ -1936,7 +1936,7 @@ static void dmmat_a2d_bottom_half(void* work)
                                 KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
                                         getA2DDeviceName(a2d),
                                         tdiff / TMSECS_PER_SEC,
-                                        abs(tdiff) % TMSECS_PER_SEC);
+                                        (int) abs(tdiff) % TMSECS_PER_SEC);
                         }
                 }
 
@@ -2009,7 +2009,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                                 KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
                                         getA2DDeviceName(a2d),
                                         tdiff / TMSECS_PER_SEC,
-                                        abs(tdiff) % TMSECS_PER_SEC);
+                                        (int) abs(tdiff) % TMSECS_PER_SEC);
                         }
                 }
 
