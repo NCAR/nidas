@@ -108,9 +108,13 @@ public:
     ~SerialXcvrCtrl();
     static bool xcvrCtrlSupported(const n_u::GPIO_PORT_DEFS port)
     {
-        n_u::FtdiHwIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
-        DLOG(("SerialXcvrCtrl::xcvrCtrlSupported(): ") << (pFtdiDevice->ifaceFound() ? "true" : "false"));
-        return pFtdiDevice->ifaceFound();
+        if (port != n_u::ILLEGAL_PORT) {
+            n_u::FtdiHwIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
+            DLOG(("SerialXcvrCtrl::xcvrCtrlSupported(): ") << (pFtdiDevice->ifaceFound() ? "true" : "false"));
+            return pFtdiDevice->ifaceFound();
+        }
+        
+        return false;
     }
     // This sets the class state to be used by applyXcvrConfig();
     void setXcvrConfig(const PORT_TYPES portType, const TERM term);
