@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm process, sampling serial sensors, via pseudo-terminals
 
@@ -12,21 +12,21 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
+    echo $PATH | fgrep -q build/apps || PATH=../../../build/apps:$PATH
 
-    llp=../../../build_x86/build_util:../../../build_x86/build_core:../../../build_x86/build_dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+    llp=../../../build/util:../../../build/core:../../../build/dynld
+    echo $LD_LIBRARY_PATH | fgrep -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     # echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build_x86; then
-        echo "dsm program not found on build_x86 directory. PATH=$PATH"
+    if ! which dsm | fgrep -q build; then
+        echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build_x86") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build_x86 directory"
+    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build") == 0) exit 1}'; then
+        echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
 fi

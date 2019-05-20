@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm and dsm_server process, sampling serial sensors, via pseudo-terminals
 
@@ -12,21 +12,21 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../../build_x86/build_apps:$PATH
+    echo $PATH | fgrep -q build/apps || PATH=../../../build/apps:$PATH
 
-    llp=../../../build_x86/build_util:../../../build_x86/build_core:../../../build_x86/build_dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+    llp=../../../build/util:../../../build/core:../../../build/dynld
+    echo $LD_LIBRARY_PATH | fgrep -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     # echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build_x86; then
-        echo "dsm program not found on build_x86 directory. PATH=$PATH"
+    if ! which dsm | fgrep -q build; then
+        echo "dsm program not found on build directory. PATH=$PATH"
         exit 1
     fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build_x86") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build_x86 directory"
+    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build") == 0) exit 1}'; then
+        echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
 fi
@@ -97,16 +97,16 @@ pkill -TERM sensor_sim
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
 pids=()
-sensor_sim -F data/test.dat -e "\n" -r 1 -t tmp/test0 &
+sensor_sim -F data/test.dat -e "\n" -r 1 -t tmp/ttyDSM0 &
 pids=(${pids[*]} $!)
-sensor_sim -F data/test.dat -e "\n" -r 1 -t tmp/test1 &
+sensor_sim -F data/test.dat -e "\n" -r 1 -t tmp/ttyDSM1 &
 pids=(${pids[*]} $!)
 
 # number of simulated sensors
 nsensors=${#pids[*]}
 
 # ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
-valgrind dsm_server -d config/test_server.xml > tmp/dsm_server.log 2>&1 &
+valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
