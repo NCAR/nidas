@@ -10,6 +10,9 @@ import eol_scons
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
 env = Environment(tools=['default', 'gitinfo'])
 
+# Don't rely on host environment to warp /bin/sh to /bin/bash
+env['SHELL']='/bin/bash'
+
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
 opts = eol_scons.GlobalVariables('nidas.conf')
