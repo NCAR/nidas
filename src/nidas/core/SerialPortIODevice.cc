@@ -32,6 +32,7 @@
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Exception.h>
 #include <nidas/util/SensorPowerCtrl.h>
+#include <nidas/util/ptytools.h>
 
 #include <cmath>
 #include <sys/ioctl.h>
@@ -297,28 +298,37 @@ bool SerialPortIODevice::getBlocking()
 int SerialPortIODevice::getModemStatus()
 {
     int modem=0;
-    if (::ioctl(_fd, TIOCMGET, &modem) < 0)
-        throw IOException(getName(),"ioctl TIOCMGET",errno);
+
+    if (!isapty(getName())) {
+        if (::ioctl(_fd, TIOCMGET, &modem) < 0)
+            throw IOException(getName(),"ioctl TIOCMGET",errno);
+    }
     return modem;
 }
 
 void SerialPortIODevice::setModemStatus(int val)
 {
-    if (::ioctl(_fd, TIOCMSET, &val) < 0)
-        throw IOException(getName(),"ioctl TIOCMSET",errno);
+    if (!isapty(getName())) {
+        if (::ioctl(_fd, TIOCMSET, &val) < 0)
+            throw IOException(getName(),"ioctl TIOCMSET",errno);
+    }
 }
 
 void SerialPortIODevice::clearModemBits(int bits)
 {
-    if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
-        throw IOException(getName(),"ioctl TIOCMBIC",errno);
+    if (!isapty(getName())) {
+        if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
+            throw IOException(getName(),"ioctl TIOCMBIC",errno);
+    }
 }
 
 void
 SerialPortIODevice::setModemBits(int bits)
 {
-    if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
-        throw IOException(getName(),"ioctl TIOCMBIS",errno);
+    if (!isapty(getName())) {
+        if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
+            throw IOException(getName(),"ioctl TIOCMBIS",errno);
+    }
 }
 
 bool SerialPortIODevice::getCarrierDetect()
