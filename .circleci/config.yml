@@ -236,9 +236,9 @@ workflows:
               only: 
                 - auto-config
       - package-armel-autoconfig:
-          requires:
+          # requires:
           #   - test-armel-autoconfig
-          # filters:
+          filters:
             branches:
               only: 
                 - auto-config
