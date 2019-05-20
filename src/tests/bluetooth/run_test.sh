@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # test script for bluetooth. This is not an integrated scons test
 # since one must install the necessary bluetooth hardware on a

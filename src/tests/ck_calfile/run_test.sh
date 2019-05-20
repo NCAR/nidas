@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script which runs ck_calfile on some sample cal files and compares
 # results against previous runs

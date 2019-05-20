@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # If the first runstring argument is "-i", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
