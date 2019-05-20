@@ -28,7 +28,6 @@
 #include "SerialXcvrCtrl.h"
 
 #include <algorithm>
-#include <sstream>
 #include <limits>
 
 namespace n_u = nidas::util;
@@ -225,7 +224,8 @@ PORT_TYPES SerialXcvrCtrl::bits2PortType(const unsigned char bits)
 n_u::GPIO_PORT_DEFS SerialXcvrCtrl::devName2PortDef(std::string devName)
 {
     unsigned int portID = std::numeric_limits<uint32_t>::max();
-    std::string ttyBase = "/dev/tty";
+    // assume that all DSM ports are tty[DSM|USB][0-7]
+    std::string ttyBase = "tty";
     std::size_t foundAt = devName.find(ttyBase);
     if (foundAt != std::string::npos) {
         const char* nameStr = devName.c_str();
