@@ -44,17 +44,33 @@ RUN apt-get -y install libi2c-dev
 # install ftdi and depends libusb-1.0
 RUN apt-get -y install wget
 RUN apt-get -y install cmake
-RUN apt-get -y install libusb-1.0:${hostarch}
+RUN apt-get -y install libusb-1.0:${hostarch} libusb-1.0-0-dev
+
+# will also be building for x86_64 host for unit testing, so add these libs
+# NOTE: re-adding libxerces for $hostarch as adding for host takes it out
+RUN apt-get -y install libusb-1.0 libxerces-c3.1
+RUN apt-get -y install libxerces-c-dev:${hostarch}
+# for some reason the plain xerces-c lib isn't linked to the actual one, so do it here.
+RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libxerces-c-3.1.so /usr/lib/x86_64-linux-gnu/libxerces-c.so 
+
+RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev libboost-filesystem1.55-dev libboost-test1.55-dev
+RUN apt-get -y install libcap-dev libbz2-dev valgrind socat libbluetooth3 net-tools
+# for some reason the plain bluetooth lib isn't linked to the actual one, so do it here.
+RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libbluetooth.so.3 /usr/lib/x86_64-linux-gnu/libbluetooth.so 
 
 ENV CROSS_ARCH=$hostarch
 
 USER $user
 WORKDIR /home/$user
 
+# build a position independent code version of libftdi so that it can be embedded in 
+# libnidas_util.so.
+#
+# build libftdi for both $hostarch and x86_64 host so that container can be used for unit tests.
 RUN mkdir -p libftdi
 COPY ./build-libftdi-pkg.sh libftdi
 COPY ./crosstoolchain-$hostarch.cmake libftdi
-RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
+RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch && ./build-libftdi-pkg.sh host
 
 # Everything commented out below should already be in the image in the FROM line above
 #RUN apt-get update
