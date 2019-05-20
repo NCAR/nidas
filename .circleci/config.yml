@@ -210,7 +210,7 @@ workflows:
             branches:
               only: 
                 - auto-config
-      - test-armhf-auto-config:
+      - test-armhf-autoconfig:
           filters:
             branches:
               only: 
@@ -230,7 +230,7 @@ workflows:
             branches:
               only: 
                 - auto-config
-      - test-armhf-auto-config:
+      - test-armel-autoconfig:
           filters:
             branches:
               only: 
