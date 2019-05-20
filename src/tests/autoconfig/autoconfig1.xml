@@ -34,7 +34,7 @@
             id="1">
             <serialSensor 
                 IDREF="MockSerialSensor_AUTO_1" 
-                devicename="/tmp/ttyUSB0" 
+                devicename="/tmp/ttyDSM0" 
                 height="2m" 
                 id="20" />
         </dsm>

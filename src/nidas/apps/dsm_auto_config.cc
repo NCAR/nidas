@@ -74,7 +74,7 @@ public:
 };
 
 
-NidasAppArg Device("-d,--device", "i.e. /dev/ttyUSBx",
+NidasAppArg Device("-d,--device", "i.e. /dev/ttyDSMx",
         "Serial device to use when running autoconfig on a sensor.\n"
         "Only specify this if -x/--xml is not used", "");
 

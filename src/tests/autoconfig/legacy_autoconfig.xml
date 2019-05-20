@@ -34,7 +34,7 @@
             id="1">
             <serialSensor 
                 IDREF="LegacySerialSensor" 
-                devicename="/tmp/ttyUSB0" 
+                devicename="/tmp/ttyDSM0" 
                 height="2m" 
                 id="20" />
         </dsm>

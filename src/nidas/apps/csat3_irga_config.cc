@@ -119,7 +119,7 @@ std::map<std::string, std::string> createRateMap()
 int usage(const char* argv0)
 {
     std::cerr << "\
-Usage: " << argv0 << "-d /dev/ttyUSB[0-n]" << std::endl << std::endl
+Usage: " << argv0 << "-d /dev/ttyDSM[0-n]" << std::endl << std::endl
          << explanatoryText << std::endl << std::endl
          << app.usage();
 

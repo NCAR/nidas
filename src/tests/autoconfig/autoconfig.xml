@@ -34,27 +34,27 @@
             id="1">
             <!-- serialSensor 
                 IDREF="PTB210_AUTO_1" 
-                devicename="/dev/ttyUSB0" 
+                devicename="/dev/ttyDSM0" 
                 height="2m" 
                 id="20" / -->
             <!-- serialSensor 
                 IDREF="PTB210_AUTO_2"
-                devicename="/dev/ttyUSB0" 
+                devicename="/dev/ttyDSM0" 
                 height="100m" 
                 id="100" / -->
             <!-- serialSensor 
                 IDREF="PTB220_AUTO_1"
-                devicename="/dev/ttyUSB1" 
+                devicename="/dev/ttyDSM1" 
                 height="50m" 
                 id="200" / -->
             <!-- serialSensor 
                 IDREF="GILL2D_AUTO_1" 
-                devicename="/dev/ttyUSB5" 
+                devicename="/dev/ttyDSM5" 
                 height="50m" 
                 id="500" / -->
             <serialSensor 
                 IDREF="CSAT3" 
-                devicename="/dev/ttyUSB5" 
+                devicename="/dev/ttyDSM5" 
                 height="200m" 
                 id="600" />
         </dsm>
