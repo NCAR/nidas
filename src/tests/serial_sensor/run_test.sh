@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm process, sampling serial sensors, via pseudo-terminals
 
@@ -75,9 +75,9 @@ kill_sims() {
 
 
 find_udp_port() {
-    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local -a inuse=$((`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`))
     local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
-    for (( port = $port1; ; port--)); do
+    for (( port=$port1; ; port--)); do
         echo ${inuse[*]} | fgrep -q $port || break
     done
     echo $port
