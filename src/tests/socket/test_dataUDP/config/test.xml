@@ -35,10 +35,10 @@
 	<dsm rserialPort="30002" name="localhost" id="10" derivedData="sock::30011">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
-		devicename="tmp/test0" id="10" suffix=".t1">
+		devicename="tmp/ttyDSM0" id="10" suffix=".t1">
 		<sample id="1"
 		    scanfFormat="%f %f">
-		    <variable name="test1" units="wacka-a-mole" plotrange="0 10"/>
+		    <variable name="ttyDSM1" units="wacka-a-mole" plotrange="0 10"/>
 		    <variable name="test2" units="wacka-a-mole" plotrange="-10 10"/>
 		</sample>
 		<message separator="\n" position="end" length="3"/>
@@ -46,7 +46,7 @@
 
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
-		devicename="tmp/test1" id="20" suffix=".t2">
+		devicename="tmp/ttyDSM1" id="20" suffix=".t2">
 		<sample id="1"
 		    scanfFormat="\e%f %f">
 		    <variable name="test1" units="wacka-a-mole" plotrange="-20 20"/>
