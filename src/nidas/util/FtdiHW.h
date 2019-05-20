@@ -201,38 +201,40 @@ template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string productStr)
 : _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundIface(false)
 {
-    if (!_pContext) {
-        throw IOException("FtdiGpio<DEVICE, IFACE>::FtdiGpio()", ": Failed to allocate ftdi_context object.");
-    }
+    if (_pContext) {
+        DLOG(("FtdiGpio<%s, %s>(): set interface...",
+            device2Str(DEVICE), iface2Str(IFACE)));
+        if (setInterface(IFACE)) {
+            DLOG(("FtdiGpio<%s, %s>(): successfully set the interface: ",
+                device2Str(DEVICE), iface2Str(IFACE)));
 
-    DLOG(("FtdiGpio<%s, %s>(): set interface...",
-          device2Str(DEVICE), iface2Str(IFACE)));
-    if (setInterface(IFACE)) {
-        DLOG(("FtdiGpio<%s, %s>(): successfully set the interface: ",
-              device2Str(DEVICE), iface2Str(IFACE)));
-
-        open();
-        if (isOpen()) {
-            DLOG(("FtdiGpio<%s, %s>(): set bitbang mode",
-                  device2Str(DEVICE), iface2Str(IFACE)));
-            if (setMode(0xFF, BITMODE_BITBANG)) {
-                DLOG(("FtdiGpio<%s, %s>(): Successfully set mode to bitbang",
-                      device2Str(DEVICE), iface2Str(IFACE)));
+            open();
+            if (isOpen()) {
+                DLOG(("FtdiGpio<%s, %s>(): set bitbang mode",
+                    device2Str(DEVICE), iface2Str(IFACE)));
+                if (setMode(0xFF, BITMODE_BITBANG)) {
+                    DLOG(("FtdiGpio<%s, %s>(): Successfully set mode to bitbang",
+                        device2Str(DEVICE), iface2Str(IFACE)));
+                }
+                else {
+                    DLOG(("FtdiGpio<%s, %s>(): failed to set mode to bitbang: ",
+                        device2Str(DEVICE), iface2Str(IFACE)) << error_string());
+                }
+                close();
             }
             else {
-                DLOG(("FtdiGpio<%s, %s>(): failed to set mode to bitbang: ",
-                      device2Str(DEVICE), iface2Str(IFACE)) << error_string());
+                DLOG(("FtdiGpio<%s, %s>(): failed to open the FTDI device.",
+                    device2Str(DEVICE), iface2Str(IFACE)));
             }
-            close();
         }
         else {
-            DLOG(("FtdiGpio<%s, %s>(): failed to open the FTDI device.",
-                  device2Str(DEVICE), iface2Str(IFACE)));
+            DLOG(("FtdiGpio<%s, %s>(): Failed to set the interface: ",
+                device2Str(DEVICE), iface2Str(IFACE)) << error_string());
         }
     }
     else {
-        DLOG(("FtdiGpio<%s, %s>(): Failed to set the interface: ",
-              device2Str(DEVICE), iface2Str(IFACE)) << error_string());
+            DLOG(("FtdiGpio<%s, %s>(): Failed to set the libftdi context: ",
+                device2Str(DEVICE), iface2Str(IFACE)) << error_string());
     }
 }
 
@@ -240,16 +242,22 @@ template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
 {
     DLOG(("Destroying FtdiGpio<%s, %s>...", device2Str(DEVICE), iface2Str(IFACE)));
-//    close();
-    ftdi_usb_close(_pContext);
-    ftdi_free(_pContext);
-    _pContext = 0;
+    if (_pContext) {
+        ftdi_usb_close(_pContext);
+        ftdi_free(_pContext);
+        _pContext = 0;
+    }
 }
 
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::open()
 {
+    if (!_pContext) {
+        DLOG(("FtdiGpio<%s, %s>::open(): No context, returning w/o opening...",
+              device2Str(DEVICE), iface2Str(IFACE)));
+        return;
+    }
     if (!isOpen()) {
         VLOG(("FtdiGpio<%s, %s>::open(): Attempting to open FTDI device...",
               device2Str(DEVICE), iface2Str(IFACE)) << "product: " << _productStr);

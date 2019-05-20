@@ -157,7 +157,7 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
                 }
             }
             else {
-                DLOG(("SysfsGpio::SysfsGpio(): Can't access /proc/cpuinfo..."));
+                DLOG(("SysfsGpio::SysfsGpio(): Raspberry Pi not detected..."));
             }
         }
         else {
