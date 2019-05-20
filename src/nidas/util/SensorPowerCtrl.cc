@@ -81,6 +81,7 @@ SensorPowerCtrl::SensorPowerCtrl(GPIO_PORT_DEFS port)
 SensorPowerCtrl::~SensorPowerCtrl()
 {
     DLOG(("SensorPowerCtrl::~SensorPowerCtrl(): destructing..."));
+    delete _pPwrCtrl;
 }
 
 void SensorPowerCtrl::enablePwrCtrl(bool enable)
@@ -154,12 +155,14 @@ bool SensorPowerCtrl::pwrIsOn()
 
 void SensorPowerCtrl::print()
 {
-    _pPwrCtrl->print();
+    if (_pPwrCtrl) {
+        _pPwrCtrl->print();
+    }
 }
 
 bool SensorPowerCtrl::ifaceAvailable()
 {
-    return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : true;
+    return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : false;
 }
 
 void SensorPowerCtrl::updatePowerState()
