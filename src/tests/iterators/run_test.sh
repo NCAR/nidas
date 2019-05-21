@@ -56,6 +56,7 @@ if [ $stat -eq 0 -a $errs -eq 0 ]; then
     exit 0
 else
     echo "iterator test failed"
+    cat tmp/iter.log
     exit 1
 fi
 
