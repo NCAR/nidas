@@ -11,6 +11,7 @@ executors:
 jobs:
   build-armhf-master:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -23,6 +24,7 @@ jobs:
 
   test-armhf-master:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -35,6 +37,7 @@ jobs:
 
   package-armhf-master:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -49,6 +52,7 @@ jobs:
   
   build-armel-master:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -61,6 +65,7 @@ jobs:
 
   test-armel-master:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -73,6 +78,7 @@ jobs:
 
   package-armel-master:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -87,6 +93,7 @@ jobs:
   
   build-armhf-autoconfig:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -99,6 +106,7 @@ jobs:
 
   test-armhf-autoconfig:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -111,6 +119,7 @@ jobs:
 
   package-armhf-autoconfig:
     executor: armhf-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -125,6 +134,7 @@ jobs:
 
   build-armel-autoconfig:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -137,6 +147,7 @@ jobs:
 
   test-armel-autoconfig:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -149,6 +160,7 @@ jobs:
 
   package-armel-autoconfig:
     executor: armel-executor
+    working_directory: ~
     steps:
       - run:
           name: Clone GitHub repository
@@ -176,8 +188,8 @@ workflows:
               only: 
                 - master
       - package-armhf-master:
-          requires:
-            - test-armhf-master
+          # requires:
+          #   - test-armhf-master
           filters:
             branches:
               only: 
@@ -216,8 +228,8 @@ workflows:
               only: 
                 - auto-config
       - package-armhf-autoconfig:
-        #  requires:
-        #    - test-armhf-autoconfig
+         requires:
+           - test-armhf-autoconfig
           filters:
             branches:
               only: 
