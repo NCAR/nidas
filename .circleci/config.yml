@@ -21,6 +21,18 @@ jobs:
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
 
+  test-armhf-master:
+    executor: armhf-executor
+    steps:
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+      - run:
+          name: NIDAS Native Build and Test of Master Branch
+          command: |
+            cd nidas/src
+            scons LINUX_MODULES=no tests
+
   package-armhf-master:
     executor: armhf-executor
     steps:
@@ -46,6 +58,18 @@ jobs:
           command: |
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
+
+  test-armel-master:
+    executor: armel-executor
+    steps:
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+      - run:
+          name: NIDAS Native Build and Test of Master Branch
+          command: |
+            cd nidas/src
+            scons LINUX_MODULES=no tests
 
   package-armel-master:
     executor: armel-executor
@@ -73,6 +97,18 @@ jobs:
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armhf
 
+  test-armhf-autoconfig:
+    executor: armhf-executor
+    steps:
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+      - run:
+          name: NIDAS Native Build and Test of Autoconfig Branch
+          command: |
+            cd nidas/src
+            scons LINUX_MODULES=no tests
+
   package-armhf-autoconfig:
     executor: armhf-executor
     steps:
@@ -99,6 +135,18 @@ jobs:
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=armel
 
+  test-armel-autoconfig:
+    executor: armel-executor
+    steps:
+      - run:
+          name: Clone GitHub repository
+          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+      - run:
+          name: NIDAS Native Build and Test of Autoconfig Branch
+          command: |
+            cd nidas/src
+            scons LINUX_MODULES=no tests
+
   package-armel-autoconfig:
     executor: armel-executor
     steps:
@@ -117,14 +165,19 @@ workflows:
   version: 2
   master-armhf:
     jobs:
-      - build-armhf-master:
+      # - build-armhf-master:
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - master
+      - test-armhf-master:
           filters:
             branches:
               only: 
                 - master
       - package-armhf-master:
           requires:
-            - build-armhf-master
+            - test-armhf-master
           filters:
             branches:
               only: 
@@ -132,14 +185,19 @@ workflows:
       
   master-armel:
     jobs:
-      - build-armel-master:
+      # - build-armel-master:
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - master
+      - test-armel-master:
           filters:
             branches:
               only: 
                 - master
       - package-armel-master:
-          requires:
-            - build-armel-master
+        #  requires:
+        #    - test-armel-master
           filters:
             branches:
               only: 
@@ -147,14 +205,19 @@ workflows:
 
   autoconfig-armhf:
     jobs:
-      - build-armhf-autoconfig:
+      # - build-armhf-autoconfig:
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - auto-config
+      - test-armhf-autoconfig:
           filters:
             branches:
               only: 
                 - auto-config
       - package-armhf-autoconfig:
-          requires:
-            - build-armhf-autoconfig
+        #  requires:
+        #    - test-armhf-autoconfig
           filters:
             branches:
               only: 
@@ -162,14 +225,19 @@ workflows:
       
   autoconfig-armel:
     jobs:
-      - build-armel-autoconfig:
+      # - build-armel-autoconfig:
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - auto-config
+      - test-armel-autoconfig:
           filters:
             branches:
               only: 
                 - auto-config
       - package-armel-autoconfig:
-          requires:
-            - build-armel-autoconfig
+          # requires:
+          #   - test-armel-autoconfig
           filters:
             branches:
               only: 
