@@ -135,7 +135,7 @@ if conf.CheckLib('boost_filesystem'):
 env = conf.Finish()
 
 # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-libftdiRelPath = File('#../../libftdi/libftdi1-1.4/build-' + targetArch + '/src/libftdi1.a')
+libftdiRelPath = File('#../../../libftdi/libftdi1-1.4/build-' + targetArch + '/src/libftdi1.a')
 
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util' , objects,
