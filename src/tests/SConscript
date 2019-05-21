@@ -4,11 +4,11 @@
 #serial_sensor
 #core
 #sonic
+#tlogger
 
 dirs = Split("""
 autoconfig
 iterators
-tlogger
 data_dump
 tiostream
 network
