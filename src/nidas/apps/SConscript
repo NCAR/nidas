@@ -64,9 +64,12 @@ arinc_out
 ck_aout
 ck_calfile
 ck_xml
+csat3_irga_config
 data_dump
 data_stats
 dmd_mmat_test
+dsm_auto_config
+dsm_port_config
 dsm_server
 dsm
 extract2d
@@ -77,10 +80,12 @@ merge_verify
 nidas_udp_relay
 nidsmerge
 n_hdr_util
+pio
 proj_configs
 rserial
 sensor_extract
 sensor_sim
+serstress
 sing
 statsproc
 status_listener
@@ -154,26 +159,6 @@ if has_i2c:
     env.NidasUtilProgram('ublox.cc')
 
 env.NidasUtilProgram('utime.cc')
-
-cic = env.Program('csat3_irga_config.cc', LIBS=['nidas_util', 'nidas'])
-env.Install('$PREFIX/bin', cic)
-env.Alias('csat3_irga_config', cic)
-
-dpc = env.Program('dsm_port_config.cc', LIBS=['nidas_util', 'nidas'])
-env.Install('$PREFIX/bin', dpc)
-env.Alias('dsm_port_config', dpc)
-
-dac = env.Program('dsm_auto_config.cc', LIBS=['xerces-c', 'nidas_dynld', 'nidas_util', 'nidas'])
-env.Install('$PREFIX/bin', dac)
-env.Alias('dsm_auto_config', dac)
-
-ss = env.Program('serstress.cc', LIBS=['nidas_util', 'nidas'])
-env.Install('$PREFIX/bin', ss)
-env.Alias('serstress', ss)
-
-pio = env.Program('pio.cc', LIBS=['nidas_util', 'nidas'])
-env.Install('$PREFIX/bin', pio)
-env.Alias('pio', pio)
 
 if 'viper' in machs:
     # controls DIO pins on a Viper
