@@ -33,6 +33,7 @@ jobs:
           name: NIDAS Native Build and Test of Master Branch
           command: |
             cd nidas/src
+            scons LINUX_MODULES=no
             scons LINUX_MODULES=no tests
 
   package-armhf-master:
@@ -74,6 +75,7 @@ jobs:
           name: NIDAS Native Build and Test of Master Branch
           command: |
             cd nidas/src
+            scons LINUX_MODULES=no
             scons LINUX_MODULES=no tests
 
   package-armel-master:
@@ -118,6 +120,7 @@ jobs:
           name: NIDAS Native Build and Test of Autoconfig Branch
           command: |
             cd nidas/src
+            scons LINUX_MODULES=no
             scons LINUX_MODULES=no tests
 
   package-armhf-autoconfig:
@@ -162,6 +165,7 @@ jobs:
           name: NIDAS Native Build and Test of Autoconfig Branch
           command: |
             cd nidas/src
+            scons LINUX_MODULES=no
             scons LINUX_MODULES=no tests
 
   package-armel-autoconfig:
