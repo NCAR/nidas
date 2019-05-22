@@ -152,6 +152,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
+      - run:
           name: Debug user permissions
           command: whoami && groups `whoami` && echo $PWD && ls -alg
       - run:
