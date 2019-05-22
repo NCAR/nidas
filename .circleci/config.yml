@@ -106,7 +106,7 @@ jobs:
 
   test-armhf-autoconfig:
     executor: armhf-executor
-    working_directory: ~
+    working_directory: .
     steps:
       - run:
           name: Clone GitHub repository
