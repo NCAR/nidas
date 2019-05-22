@@ -63,6 +63,8 @@ ENV CROSS_ARCH=$hostarch
 USER $user
 WORKDIR /home/$user
 
+RUN find . -name nidas -delete
+
 # build a position independent code version of libftdi so that it can be embedded in 
 # libnidas_util.so.
 #
