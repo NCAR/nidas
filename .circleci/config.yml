@@ -109,7 +109,7 @@ jobs:
     working_directory: .
     steps:
       # Debug
-      - run whoami && groups `whoami` && echo $PWD && ls -alg && 
+      - run whoami && groups `whoami` && echo $PWD && ls -alg
       - run:
           name: Clone GitHub repository
           command: echo $PWD && ls -alg && git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
@@ -152,7 +152,7 @@ jobs:
     working_directory: .
     steps:
       # Debug
-      - run whoami && groups `whoami` && echo $PWD && ls -alg && 
+      - run whoami && groups `whoami` && echo $PWD && ls -alg
       - run:
           name: Clone GitHub repository
           command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
