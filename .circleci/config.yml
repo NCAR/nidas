@@ -108,8 +108,9 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      # Debug
-      - run whoami && groups `whoami` && echo $PWD && ls -alg
+      - run:
+          name: Debug user permissions
+          command: whoami && groups `whoami` && echo $PWD && ls -alg
       - run:
           name: Clone GitHub repository
           command: echo $PWD && ls -alg && git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
@@ -151,8 +152,8 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      # Debug
-      - run whoami && groups `whoami` && echo $PWD && ls -alg
+          name: Debug user permissions
+          command: whoami && groups `whoami` && echo $PWD && ls -alg
       - run:
           name: Clone GitHub repository
           command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
