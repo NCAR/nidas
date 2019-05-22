@@ -5,6 +5,7 @@
 #core
 #sonic
 #tlogger
+#sync_server_dump
 
 dirs = Split("""
 autoconfig
@@ -12,7 +13,6 @@ iterators
 data_dump
 tiostream
 network
-sync_server_dump
 ck_xml
 ck_calfile
 UTime
