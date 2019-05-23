@@ -50,7 +50,7 @@ commands:
           name: NIDAS Package Build for arch parameter
           command: | 
             pushd nidas/scripts
-            ./build_dpkg.sh armhf
+            ./build_dpkg.sh  << parameters.arch >>
             popd
             ls -alg
             mkdir pkgs && cp *.deb pkgs
