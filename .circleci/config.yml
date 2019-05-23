@@ -112,7 +112,7 @@ jobs:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
             pushd nidas/scripts
-            ./build_dpkg.sh armhf
+            ./build_dpkg.sh armel
             popd
             mkdir pkgs && cp *.deb pkgs
       - persist_to_workspace:
@@ -248,7 +248,7 @@ jobs:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
             pushd nidas/scripts
-            ./build_dpkg.sh armhf
+            ./build_dpkg.sh armel
             popd
             mkdir pkgs && cp *.deb pkgs
       - persist_to_workspace:
@@ -371,8 +371,8 @@ workflows:
               only: 
                 - auto-config
       - package-armel-autoconfig:
-          # requires:
-          #   - test-armel-autoconfig
+          requires:
+            - test-armel-autoconfig
           filters:
             branches:
               only: 
