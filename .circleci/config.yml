@@ -24,19 +24,36 @@ commands:
         default: "host"
     steps:
       - run:
-          name: Build NIDAS for arch
+          name: Build NIDAS for << parameters.arch >>
           command: |
             cd nidas/src
             scons LINUX_MODULES=no BUILDS=<< parameters.arch >>
+
   test:
     description: "Native Build of nidas then test"
     steps:
       - build
       - run:
-          name: NIDAS Native Build and Test of Master Branch
+          name: NIDAS Native Build and Unit Test
           command: |
             cd nidas/src
             scons LINUX_MODULES=no tests
+
+  build-pkgs:
+    description: "Build packages associated arch: armhf, armel"
+    parameters:
+      arch:
+        type: string
+        default: "armhf"
+    steps:
+      - run:
+          name: NIDAS Package Build for arch parameter
+          command: | 
+            pushd nidas/scripts
+            ./build_dpkg.sh armhf
+            popd
+            mkdir pkgs && cp *.deb pkgs
+
   deploy-pkgs:
     description: "Deploy packages to packagecloud.io"
     steps:
@@ -44,7 +61,6 @@ commands:
           name: Upload all packages to debian:jessie packagecloud.io
           command: |
              package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-*_arm*.deb
-
 
 jobs:
   build-armhf-master:
@@ -67,13 +83,8 @@ jobs:
     working_directory: .
     steps:
       - clone-source
-      - run:
-          name: NIDAS Package Build of Master Branch for RPi/armhf
-          command: | 
-            pushd nidas/scripts
-            ./build_dpkg.sh armhf
-            popd
-            mkdir pkgs && cp *.deb pkgs
+      - build-pkgs:
+          arch:armhf
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -107,13 +118,8 @@ jobs:
     working_directory: .
     steps:
       - clone-source
-      - run:
-          name: NIDAS Package Build of Master Branch for PC104/armel
-          command: | 
-            pushd nidas/scripts
-            ./build_dpkg.sh armel
-            popd
-            mkdir pkgs && cp *.deb pkgs
+      - build-pkgs:
+          arch:armel
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -148,13 +154,8 @@ jobs:
     working_directory: .
     steps:
       - clone-source
-      - run:
-          name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
-          command: | 
-            pushd nidas/scripts
-            ./build_dpkg.sh armhf
-            popd
-            mkdir pkgs && cp *.deb pkgs
+      - build-pkgs:
+          arch:armhf
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -189,13 +190,8 @@ jobs:
     working_directory: .
     steps:
       - clone-source
-      - run:
-          name: NIDAS Package Build of AutoConfig Branch for PC104/armel
-          command: | 
-            pushd nidas/scripts
-            ./build_dpkg.sh armel
-            popd
-            mkdir pkgs && cp *.deb pkgs
+      - build-pkgs:
+          arch:armel
       - persist_to_workspace:
           root: .
           paths: pkgs
