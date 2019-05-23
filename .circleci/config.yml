@@ -35,6 +35,7 @@ commands:
       - run:
           name: NIDAS Native Build and Test of Master Branch
           command: |
+            cd nidas/src
             scons LINUX_MODULES=no tests
 
 jobs:
