@@ -46,10 +46,33 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
-            cd nidas/scripts
+            pushd nidas/scripts
             ./build_dpkg.sh armhf
+            popd
+            mkdir pkgs && cp *.deb pkgs
+      - persist_to_workspace:
+          root: .
+          paths: pkgs
 
   deploy-armhf-master:
+    executor: armhf-executor
+    working_directory: .
+    environment:
+      PACKAGECLOUD_TOKEN: 06ddd11da1ae900dccd755ce1acd48ee6ab9f62e2d930318
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install packagecloud CLI
+          command: gem install package_cloud
+      - deploy:
+          name: Upload RPi2 armhf package to debian:armhf packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armhf.deb
+      - deploy:
+          name: Upload armhf package to debian:armhf packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armhf.deb
   
   build-armel-master:
     executor: armel-executor
@@ -88,10 +111,33 @@ jobs:
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
-            cd nidas/scripts
-            ./build_dpkg.sh armel
+            pushd nidas/scripts
+            ./build_dpkg.sh armhf
+            popd
+            mkdir pkgs && cp *.deb pkgs
+      - persist_to_workspace:
+          root: .
+          paths: pkgs
 
   deploy-armel-master:
+    executor: armel-executor
+    working_directory: .
+    environment:
+      PACKAGECLOUD_TOKEN: 06ddd11da1ae900dccd755ce1acd48ee6ab9f62e2d930318
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install packagecloud CLI
+          command: gem install package_cloud
+      - deploy:
+          name: Upload PC104 armel package to debian:armel packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armel.deb
+      - deploy:
+          name: Upload nidas armel package to debian:armel packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armel.deb
   
   build-armhf-autoconfig:
     executor: armhf-executor
@@ -133,10 +179,33 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
-            cd nidas/scripts
+            pushd nidas/scripts
             ./build_dpkg.sh armhf
+            popd
+            mkdir pkgs && cp *.deb pkgs
+      - persist_to_workspace:
+          root: .
+          paths: pkgs
 
   deploy-armhf-autoconfig:
+    executor: armhf-executor
+    environment:
+      PACKAGECLOUD_TOKEN: 06ddd11da1ae900dccd755ce1acd48ee6ab9f62e2d930318
+    working_directory: .
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install packagecloud CLI
+          command: gem install package_cloud
+      - deploy:
+          name: Upload RPi2 armhf package to debian:armhf packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armhf.deb
+      - deploy:
+          name: Upload armhf package to debian:armhf packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armhf.deb
 
   build-armel-autoconfig:
     executor: armel-executor
@@ -178,10 +247,33 @@ jobs:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
-            cd nidas/scripts
-            ./build_dpkg.sh armel
+            pushd nidas/scripts
+            ./build_dpkg.sh armhf
+            popd
+            mkdir pkgs && cp *.deb pkgs
+      - persist_to_workspace:
+          root: .
+          paths: pkgs
     
   deploy-armel-autoconfig:
+    executor: armel-executor
+    working_directory: .
+    environment:
+      PACKAGECLOUD_TOKEN: 06ddd11da1ae900dccd755ce1acd48ee6ab9f62e2d930318
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install packagecloud CLI
+          command: gem install package_cloud
+      - deploy:
+          name: Upload PC104 armel package to debian:armel packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armel.deb
+      - deploy:
+          name: Upload nidas armel package to debian:armel packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armel.deb
 
 workflows:
   version: 2
@@ -200,6 +292,13 @@ workflows:
       # - package-armhf-master:
       #     # requires:
       #     #   - test-armhf-master
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - master
+      # - deploy-armhf-master:
+      #     # requires:
+      #     #   - package-armhf-master
       #     filters:
       #       branches:
       #         only: 
@@ -224,6 +323,13 @@ workflows:
       #       branches:
       #         only: 
       #           - master
+      # - deploy-armel-master:
+      #     # requires:
+      #     #   - package-armel-master
+      #     filters:
+      #       branches:
+      #         only: 
+      #           - master
 
   autoconfig-armhf:
     jobs:
@@ -237,13 +343,20 @@ workflows:
             branches:
               only: 
                 - auto-config
-      # - package-armhf-autoconfig:
-      #    requires:
-      #      - test-armhf-autoconfig
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - auto-config
+      - package-armhf-autoconfig:
+         requires:
+           - test-armhf-autoconfig
+          filters:
+            branches:
+              only: 
+                - auto-config
+      - deploy-armhf-autoconfig:
+          requires:
+            - package-armhf-master
+          filters:
+            branches:
+              only: 
+                - master
       
   autoconfig-armel:
     jobs:
@@ -257,10 +370,17 @@ workflows:
             branches:
               only: 
                 - auto-config
-      # - package-armel-autoconfig:
-      #     # requires:
-      #     #   - test-armel-autoconfig
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - auto-config
+      - package-armel-autoconfig:
+          # requires:
+          #   - test-armel-autoconfig
+          filters:
+            branches:
+              only: 
+                - auto-config
+      - deploy-armel-autoconfig:
+          requires:
+            - package-armel-autoconfig
+          filters:
+            branches:
+              only: 
+                - master
