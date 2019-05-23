@@ -356,7 +356,7 @@ workflows:
           filters:
             branches:
               only: 
-                - master
+                - auto-config
       
   autoconfig-armel:
     jobs:
@@ -383,4 +383,4 @@ workflows:
           filters:
             branches:
               only: 
-                - master
+                - auto-config
