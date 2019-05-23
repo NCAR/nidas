@@ -68,11 +68,11 @@ jobs:
       - deploy:
           name: Upload RPi2 armhf package to debian:armhf packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armhf.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armhf.deb
       - deploy:
           name: Upload armhf package to debian:armhf packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armhf.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armhf.deb
   
   build-armel-master:
     executor: armel-executor
@@ -133,11 +133,11 @@ jobs:
       - deploy:
           name: Upload PC104 armel package to debian:armel packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armel.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armel.deb
       - deploy:
           name: Upload nidas armel package to debian:armel packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armel.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armel.deb
   
   build-armhf-autoconfig:
     executor: armhf-executor
@@ -201,11 +201,11 @@ jobs:
       - deploy:
           name: Upload RPi2 armhf package to debian:armhf packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armhf.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armhf.deb
       - deploy:
           name: Upload armhf package to debian:armhf packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armhf.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armhf.deb
 
   build-armel-autoconfig:
     executor: armel-executor
@@ -269,11 +269,11 @@ jobs:
       - deploy:
           name: Upload PC104 armel package to debian:armel packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas-rpi2_*_armel.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armel.deb
       - deploy:
           name: Upload nidas armel package to debian:armel packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./nidas_*_armel.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armel.deb
 
 workflows:
   version: 2
