@@ -27,7 +27,7 @@ commands:
           name: Build NIDAS for arch
           command: |
             cd nidas/src
-            scons LINUX_MODULES=no BUILDS=parameters.arch
+            scons LINUX_MODULES=no BUILDS=<< parameters.arch >>
   test:
     description: "Native Build of nidas then test"
     steps:
