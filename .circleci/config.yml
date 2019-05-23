@@ -84,7 +84,7 @@ jobs:
     steps:
       - clone-source
       - build-pkgs:
-          arch:armhf
+          arch: armhf
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -119,7 +119,7 @@ jobs:
     steps:
       - clone-source
       - build-pkgs:
-          arch:armel
+          arch: armel
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -140,7 +140,7 @@ jobs:
     steps:
       - clone-source
       - build:
-          arch:armhf
+          arch: armhf
 
   test-armhf-autoconfig:
     executor: armhf-executor
@@ -155,7 +155,7 @@ jobs:
     steps:
       - clone-source
       - build-pkgs:
-          arch:armhf
+          arch: armhf
       - persist_to_workspace:
           root: .
           paths: pkgs
@@ -176,7 +176,7 @@ jobs:
     steps:
       - clone-source
       - build:
-          arch:armel
+          arch: armel
 
   test-armel-autoconfig:
     executor: armel-executor
@@ -191,7 +191,7 @@ jobs:
     steps:
       - clone-source
       - build-pkgs:
-          arch:armel
+          arch: armel
       - persist_to_workspace:
           root: .
           paths: pkgs
