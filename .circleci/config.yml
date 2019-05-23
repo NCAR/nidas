@@ -62,9 +62,6 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Install packagecloud CLI
-          command: sudo gem install package_cloud
       - deploy:
           name: Upload RPi2 armhf package to debian:armhf packagecloud.io
           command: |
@@ -127,9 +124,6 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Install packagecloud CLI
-          command: sudo gem install package_cloud
       - deploy:
           name: Upload PC104 armel package to debian:armel packagecloud.io
           command: |
@@ -195,9 +189,6 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Install packagecloud CLI
-          command: sudo gem install package_cloud
       - deploy:
           name: Upload RPi2 armhf package to debian:armhf packagecloud.io
           command: |
@@ -263,9 +254,6 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Install packagecloud CLI
-          command: sudo gem install package_cloud
       - deploy:
           name: Upload PC104 armel package to debian:armel packagecloud.io
           command: |
