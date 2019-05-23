@@ -52,7 +52,9 @@ commands:
             pushd nidas/scripts
             ./build_dpkg.sh armhf
             popd
+            ls -alg
             mkdir pkgs && cp *.deb pkgs
+            ls -alg pkgs
 
   deploy-pkgs:
     description: "Deploy packages to packagecloud.io"
