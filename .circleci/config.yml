@@ -46,8 +46,7 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Package Build of Master Branch for RPi/armhf
           command: | 
@@ -80,8 +79,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Build of Master Branch for PC104/armel
           command: |
@@ -92,8 +90,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Native Build and Test of Master Branch
           command: |
@@ -105,8 +102,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Package Build of Master Branch for PC104/armel
           command: | 
@@ -139,8 +135,7 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Build of AutoConfig Branch for RPi/armhf
           command: | 
@@ -151,8 +146,7 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Native Build and Test of Autoconfig Branch
           command: |
@@ -164,8 +158,7 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
           command: | 
@@ -198,9 +191,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+      - clone-source:
       - run:
           name: NIDAS Build of AutoConfig Branch for PC104/armel
           command: | 
@@ -211,8 +202,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Native Build and Test of Autoconfig Branch
           command: |
@@ -224,8 +214,7 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - run:
-          command: clone-source
+      - clone-source:
       - run:
           name: NIDAS Package Build of AutoConfig Branch for PC104/armel
           command: | 
