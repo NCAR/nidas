@@ -344,15 +344,15 @@ workflows:
               only: 
                 - auto-config
       - package-armhf-autoconfig:
-         requires:
-           - test-armhf-autoconfig
+          requires:
+            - test-armhf-autoconfig
           filters:
             branches:
               only: 
                 - auto-config
       - deploy-armhf-autoconfig:
           requires:
-            - package-armhf-master
+            - package-armhf-autoconfig
           filters:
             branches:
               only: 
