@@ -37,6 +37,14 @@ commands:
           command: |
             cd nidas/src
             scons LINUX_MODULES=no tests
+  deploy-pkgs:
+    description: "Deploy packages to packagecloud.io"
+    steps:
+      - deploy:
+          name: Upload all packages to debian:jessie packagecloud.io
+          command: |
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-*_arm*.deb
+
 
 jobs:
   build-armhf-master:
@@ -78,14 +86,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - deploy:
-          name: Upload RPi2 armhf package to debian:armhf packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armhf.deb
-      - deploy:
-          name: Upload armhf package to debian:armhf packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armhf.deb
+      - deploy-pkgs
   
   build-armel-master:
     executor: armel-executor
@@ -125,14 +126,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - deploy:
-          name: Upload PC104 armel package to debian:armel packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armel.deb
-      - deploy:
-          name: Upload nidas armel package to debian:armel packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armel.deb
+      - deploy-pkgs
   
   build-armhf-autoconfig:
     executor: armhf-executor
@@ -173,14 +167,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - deploy:
-          name: Upload RPi2 armhf package to debian:armhf packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armhf.deb
-      - deploy:
-          name: Upload armhf package to debian:armhf packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armhf.deb
+      - deploy-pkgs
 
   build-armel-autoconfig:
     executor: armel-executor
@@ -195,7 +182,7 @@ jobs:
     working_directory: .
     steps:
       - clone-source
-      - test
+      - test 
 
   package-armel-autoconfig:
     executor: armel-executor
@@ -221,14 +208,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - deploy:
-          name: Upload PC104 armel package to debian:armel packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-rpi2_*_armel.deb
-      - deploy:
-          name: Upload nidas armel package to debian:armel packagecloud.io
-          command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas_*_armel.deb
+      - deploy-pkgs
 
 workflows:
   version: 2
