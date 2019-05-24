@@ -62,7 +62,7 @@ commands:
       - deploy:
           name: Upload all packages to debian:jessie packagecloud.io
           command: |
-             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas-*_arm*.deb
+             package_cloud push ncareol/isfs/raspbian/jessie ./pkgs/nidas*_arm??.deb
 
 jobs:
   build-armhf-master:
