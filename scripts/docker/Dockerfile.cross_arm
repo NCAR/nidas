@@ -58,6 +58,11 @@ RUN apt-get -y install libcap-dev libbz2-dev valgrind socat libbluetooth3 net-to
 # for some reason the plain bluetooth lib isn't linked to the actual one, so do it here.
 RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libbluetooth.so.3 /usr/lib/x86_64-linux-gnu/libbluetooth.so 
 
+# Need Ruby to install packagecloud crossbuild
+RUN apt-get -y --no-install-recommends install ruby ruby-dev
+
+RUN sudo gem install package_cloud
+
 ENV CROSS_ARCH=$hostarch
 
 USER $user
