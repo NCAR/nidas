@@ -58,6 +58,8 @@
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
+#include <nidas/core/NidasApp.h>
 
 #include <linux/i2c-dev.h>
 #include <linux/tty.h>
@@ -70,6 +72,10 @@
 #include <signal.h>
 
 using namespace std;
+using nidas::core::NidasApp;
+using nidas::core::NidasAppArg;
+using nidas::core::ArgVector;
+using nidas::core::NidasAppException;
 
 namespace n_u = nidas::util;
 
@@ -226,7 +232,7 @@ public:
 
     void setFIFOPriority(int val);
 
-    static int usage(const char* argv0);
+    int usage();
 
 private:
     string progname;
@@ -251,11 +257,29 @@ private:
 
     int _maxwfd;
 
+    NidasApp _app;
+    NidasAppArg Priority;
+    NidasAppArg Foreground;
+    NidasAppArg KeepMSB;
+    NidasAppArg BlockingWrites;
 };
 
-TeeI2C::TeeI2C():progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
+TeeI2C::TeeI2C():
+    progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
     _ptynames(), _ptyfds(),
-    asDaemon(true),priority(-1),_signalMask(), _writefdset(), _maxwfd(0)
+    asDaemon(true),priority(-1),_signalMask(), _writefdset(), _maxwfd(0),
+    _app(""),
+    Priority("-p,--priority", "priority",
+             "Set FIFO priority: 0-99, where 0 is low and 99 is highest.\n"
+             "If process lacks sufficient permissions,\n"
+             "a warning will be logged but program will continue."),
+    Foreground("-f,--foreground", "", "Run foreground, not as background daemon"),
+    KeepMSB("-k,--keepmsb", "",
+            "By default the most-significant bit is cleared, to work\n"
+            "around bugs on some Pi/Ublox.  Set this to leave the bit unchanged."),
+    BlockingWrites("-b,--blocking", "",
+                   "Use blocking writes instead of skipping writes to ptys which\n"
+                   "are not immediately writable.")
 {
 }
 
@@ -289,54 +313,56 @@ static void sigAction(int sig, siginfo_t* siginfo, void*)
 
 int TeeI2C::parseRunstring(int argc, char** argv)
 {
-    progname = argv[0];
-    int iarg = 1;
+    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+                         Priority | Foreground | KeepMSB | BlockingWrites);
 
-    for ( ; iarg < argc; iarg++) {
-        string arg = argv[iarg];
-        if (arg == "-f") asDaemon = false;  // don't put in background
-        else if (arg == "-p") {
-            if (++iarg == argc) return usage(argv[0]);
-            {
-                istringstream ist(argv[iarg]);
-                ist >> priority;
-                if (ist.fail()) return usage(argv[0]);
-            }
+    ArgVector args = _app.parseArgs(argc, argv);
+
+    if (_app.helpRequested())
+        return usage();
+
+    asDaemon = !Foreground.asBool();
+    if (Priority.specified())
+    {
+        priority = Priority.asInt();
+        if (priority < 0 || priority > 99)
+        {
+            throw NidasAppException("Priority must be 0-99");
         }
-        else if (arg[0] == '-') return usage(argv[0]);
+    }
+
+    for (int iarg = 0; iarg < args.size(); iarg++) {
+        string arg = args[iarg];
+        if (arg[0] == '-') return usage();
         else {
             if (_i2cname.length() == 0)
-                _i2cname = argv[iarg];
+                _i2cname = args[iarg];
             else if (_i2caddr == 0)
-                _i2caddr = strtol(argv[iarg], NULL, 0);
+                _i2caddr = strtol(args[iarg].c_str(), NULL, 0);
             else
                 // user will only read from this pty
-                _ptynames.push_back(argv[iarg]);
+                _ptynames.push_back(args[iarg]);
         }
     }
 
-    if (_i2cname.length() == 0) return usage(argv[0]);
+    if (_i2cname.length() == 0) return usage();
     if (_i2caddr < 3 || _i2caddr > 255) {
         cerr << "i2caddr out of range" << endl;
-        return usage(argv[0]);
+        return usage();
     }
-    if (_ptynames.empty()) return usage(argv[0]);
-
+    if (_ptynames.empty()) return usage();
 
     return 0;
 }
 
-int TeeI2C::usage(const char* argv0)
+int TeeI2C::usage()
 {
     cerr << "\
-Usage: " << argv0 << "[-f] i2cdev i2caddr ptyname ... \n\
-  -f: foreground. Don't run as background daemon\n\
-  -p priority: set FIFO priority: 0-99, where 0 is low and 99 is highest.\n\
-               If process lacks sufficient permissions,\n\
-               a warning will be logged but " << argv0 << " will continue\n\
-  i2cdev: name of I2C bus to open, e.g. /dev/i2c-1\n\
-  i2caddr: address of I2C device, usually in hex: e.g. 0x42\n\
-  ptyname: name of one or more read-only pseudo-terminals" << endl;
+Usage: " << _app.getName() << "[-f] [-p priority] i2cdev i2caddr ptyname ...\n"
+         << _app.usage() << 
+"  i2cdev: name of I2C bus to open, e.g. /dev/i2c-1\n"
+"  i2caddr: address of I2C device, usually in hex: e.g. 0x42\n"
+"  ptyname: name of one or more read-only pseudo-terminals" << endl;
     return 1;
 }
 
@@ -360,11 +386,10 @@ int TeeI2C::run() throw()
     int result = 0;
 
     try {
-        nidas::util::Logger* logger = 0;
-        n_u::LogConfig lc;
-        n_u::LogScheme logscheme("tee_i2c");
-        lc.level = 6;
-
+        // NidasApp creates a log scheme and configures it, so use it.
+        n_u::Logger* logger = n_u::Logger::getInstance();
+        n_u::LogScheme logscheme = logger->getScheme();
+    
         if (asDaemon) {
             if (daemon(0,0) < 0)
                 throw n_u::IOException(progname, "daemon", errno);
@@ -374,7 +399,6 @@ int TeeI2C::run() throw()
         else
             logger = n_u::Logger::createInstance(&std::cerr);
 
-        logscheme.addConfig(lc);
         logger->setScheme(logscheme);
 
         if (priority >= 0) setFIFOPriority(priority);
@@ -520,9 +544,14 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
     unsigned char i2cbuf[8192];
+    // Unless KeepMSB is set, clear the high bit before writing to ptys.
+    unsigned int mask = 0x7f;
+    unsigned int msbfound = 0;
+    if (KeepMSB.asBool())
+        mask = 0xff;
     for ( ; ; ) {
         int len;
-        for (len = 0; len < (signed) sizeof(i2cbuf); len++) {
+        for (len = 0; len < (signed)sizeof(i2cbuf)-1; len++) {
 #ifdef READ_BYTE_DATA
             int db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
 #else
@@ -535,35 +564,64 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
             if (db < 0) break;
 #endif
             if (db == '\xff') break;
-            i2cbuf[len] = (db & 0xff);
+            if (db > 0xff)
+            {
+                ++msbfound;
+                VLOG(("i2c returned %u bytes > 0xff: %0x '%c' '%c'",
+                      msbfound, db, (db >> 8) & 0x7f, db & 0x7f));
+                if (msbfound % 100 == 1)
+                {
+                    NLOG(("%d bytes > 0xff from i2c so far", msbfound));
+                }
+            }
+            i2cbuf[len] = (db & mask);
         }
+        // XXX what should happen if 0xff never found?  Do we really want
+        // to dump 8192 bytes of unterminated i2c data to the ptys?
         // cerr << "len=" << len << endl;
         if (len == 0) break;
-        writeptys(i2cbuf,len);
+        i2cbuf[len] = '\0';
+        VLOG(("writing ") << len << " bytes to ptys: "
+             << n_u::addBackslashSequences(string(i2cbuf, i2cbuf+len)));
+        writeptys(i2cbuf, len);
     }
 }
 
 void TeeI2C::writeptys(const unsigned char* buf, int len)
     throw(n_u::IOException)
 {
-    int nwfd;
+    int nwfd = 0;
     fd_set wfds = _writefdset;
-
+    bool blockwrites = BlockingWrites.asBool();
     struct timespec writeTimeout = {0,NSECS_PER_SEC / 10};
 
     /*
      * Only write to the ptys that are ready, so that
      * one laggard doesn't block everybody.
      * TODO: should we use NON_BLOCK writes?
+     *
+     * Or use a select loop in a separate thread which buffers data
+     * for each pty and writes when it is writable?
      */
-    if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
+    if (blockwrites) {
+        nwfd = _ptyfds.size();
+    }
+    else if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
         throw n_u::IOException("ptys","pselect",errno);
-    for (unsigned int i = 0; nwfd > 0 && i < _ptyfds.size(); i++)  {
+    for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
         if (FD_ISSET(_ptyfds[i],&wfds)) {
-            // cerr << _ptyfds[i] << " is writable, len=" << len << endl;
-            nwfd--;
-            ssize_t lw = ::write(_ptyfds[i],buf, len);
+            if (blockwrites)
+                VLOG(("pty ") << _ptyfds[i] << " blocking write of "
+                     << len << " bytes.");
+            else
+                VLOG(("pty ") << _ptyfds[i] << " is writable, len=" << len);
+            ssize_t lw = ::write(_ptyfds[i], buf, len);
             if (lw < 0) throw n_u::IOException(_ptynames[i],"write",errno);
+        }
+        else
+        {
+            NLOG(("pty ") << _ptyfds[i] << " NOT writable, dropping "
+                 << len << " bytes.");
         }
     }
 }
@@ -572,7 +630,15 @@ int main(int argc, char** argv)
 {
     TeeI2C tee;
     int res;
-    if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
+    try {
+        if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
+    }
+    catch (const NidasAppException &appx)
+    {
+        cerr << appx.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
     return tee.run();
 }
 
