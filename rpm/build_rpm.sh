@@ -101,7 +101,13 @@ EOD
     # converts it to the output of git describe, and appends it to "*" line.
     # Truncate subject line at 60 characters 
     # git convention is that the subject line is supposed to be 50 or shorter
-    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local ${sincetag}.. | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | awk --re-interval -f $awkcom | cat rpm/${dopkg}.spec - > $tmpspec
+    # Delete the date lines for a few commits with bad timestamps, else rpmbuild
+    # aborts because the change log is not chronological.
+    git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local $excludes ${sincetag}.. | \
+	sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
+	awk --re-interval -f $awkcom | \
+	sed -e '/g8ea1e5f2/d' -e '/ga1e79ab9/d' -e '/g45a0f80e/d' -e '/g51f09462/d' | \
+	cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
         # If $JLOCAL/include/raf or /opt/local/include/raf exists then
