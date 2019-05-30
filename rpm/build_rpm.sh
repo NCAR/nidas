@@ -106,7 +106,7 @@ EOD
     git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local $excludes ${sincetag}.. | \
 	sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
 	awk --re-interval -f $awkcom | \
-	sed -e '/g8ea1e5f2/d' -e '/ga1e79ab9/d' -e '/g45a0f80e/d' -e '/g51f09462/d' | \
+	sed -e '/g8ea1e5f/d' -e '/ga1e79ab/d' -e '/g45a0f80/d' -e '/g51f0946/d' | \
 	cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
