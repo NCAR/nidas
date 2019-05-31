@@ -617,6 +617,8 @@ void TeeI2C::writeptys(const unsigned char* buf, int len)
                 VLOG(("pty ") << _ptyfds[i] << " is writable, len=" << len);
             ssize_t lw = ::write(_ptyfds[i], buf, len);
             if (lw < 0) throw n_u::IOException(_ptynames[i],"write",errno);
+            if (lw != len) WLOG(("")  << _ptynames[i] <<
+                " wrote " << lw << " out of " << len << " bytes");
         }
         else
         {
