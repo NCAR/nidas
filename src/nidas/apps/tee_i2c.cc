@@ -81,6 +81,10 @@ namespace n_u = nidas::util;
 
 bool interrupted = false;
 
+// Whether to read the length values in registers 0xfd, 0xfe
+// before reading the message stream in 0xff.
+#define READ_LEN_REGS
+
 /**
  * UBX configure packets.
  */
@@ -331,7 +335,7 @@ int TeeI2C::parseRunstring(int argc, char** argv)
         }
     }
 
-    for (int iarg = 0; iarg < args.size(); iarg++) {
+    for (int iarg = 0; iarg < (signed)args.size(); iarg++) {
         string arg = args[iarg];
         if (arg[0] == '-') return usage();
         else {
@@ -465,6 +469,8 @@ int TeeI2C::run() throw()
             usleep(USECS_PER_SEC / 10);
 
             i2c_byte_reads();
+
+            // block reads still don't work
             // i2c_block_reads();
         }
     }
@@ -478,67 +484,72 @@ int TeeI2C::run() throw()
 void TeeI2C::i2c_block_reads() throw(n_u::IOException)
 {
     unsigned char i2cbuf[I2C_SMBUS_I2C_BLOCK_MAX + 2];
+    int lena = (signed)sizeof(i2cbuf)-1;
 
-#ifdef READ_LEN_BYTES
-
-    // Registers 0xfd and 0xfe don't seem to work as documented
-    // for a ublox NEO 5Q. They contain '$' 'G', the first
-    // two bytes in the NMEA stream.
-    // Calling i2c_smbus_read_block_data on a ublox on a RPi2
-    // locks up the system.
+#ifdef READ_LEN_REGS
 
     // address 0xfd, number of bytes available, high byte
     int hb = i2c_smbus_read_byte_data(_i2cfd, 0xfd);
     if (hb < 0)
+#ifdef EXIT_ON_IOERRORS
         throw n_u::IOException(_i2cname,"read",errno);
-    if (hb == '\xff') return;
-    // address 0xfe, number of bytes available, low byte
-    int lb = i2c_smbus_read_byte_data(_i2cfd, 0xfe);
-    if (lb < 0)
-        throw n_u::IOException(_i2cname,"read",errno);
-    if (lb == '\xff') return;
-    int len = (hb & 0xff) << 8 | (lb & 0xff);
-
-    // cerr << "len=" << len << endl;
 #else
-    int len = 512;  // arbitrary
+        return;
 #endif
 
-    for ( ; len > 0; ) {
+    // next address 0xfe, number of bytes available, low byte
+    int lb = i2c_smbus_read_byte(_i2cfd);
+    if (lb < 0)
+#ifdef EXIT_ON_IOERRORS
+        throw n_u::IOException(_i2cname,"read",errno);
+#else
+        return;
+#endif
+
+    lena = (hb & 0xff) << 8 | (lb & 0xff);
+
+    if (lena == 0) return;
+
+    // screen bad values
+    if (lena < 0) lena = (signed)sizeof(i2cbuf)-1;
+    else lena = std::min(lena, (signed)sizeof(i2cbuf)-1);
+
+    // cerr << "lena=" << lena << endl;
+#endif
 
 // #define READ_BLOCK_DATA
 #ifdef READ_BLOCK_DATA
-        // This locks up the Pi.
-        // address 0xff, data stream
-        i2cbuf[0] = 32;
-        int l = i2c_smbus_read_block_data(_i2cfd, 0xff, i2cbuf);
-        if (l < 0)
-            throw n_u::IOException(_i2cname,"read_block",errno);
-        cerr << "block_reads, l=" << l << ", buf[0]=" << (int)i2cbuf[0] << endl;
+    // This locks up the Pi.
+    // address 0xff, data stream
+    i2cbuf[0] = 32;
+    int l = i2c_smbus_read_block_data(_i2cfd, 0xff, i2cbuf);
+    if (l < 0)
+        throw n_u::IOException(_i2cname,"read_block",errno);
+    cerr << "block_reads, l=" << l << ", buf[0]=" << (int)i2cbuf[0] << endl;
 
-        // if (l == 0) break;
+    // if (l == 0) break;
 #else
-        // address 0xff, data stream
+    // address 0xff, data stream
 #ifdef OLD_I2C_API
-        int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff, i2cbuf);
+    int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff, i2cbuf);
 #else
-        int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff,
-                sizeof(i2cbuf), i2cbuf);
+    int l = i2c_smbus_read_i2c_block_data(_i2cfd, 0xff, lena, i2cbuf);
 #endif
-        if (l < 0)
-            throw n_u::IOException(_i2cname,"read_block",errno);
-        if (l == 0) break;
+    if (l < 0)
+#ifdef EXIT_ON_IOERRORS
+        throw n_u::IOException(_i2cname,"read_block",errno);
+#else
+        return;
 #endif
 
-        if (l > (signed) sizeof(i2cbuf)) l = (signed) sizeof(i2cbuf);
+    if (l == 0) return;
+#endif
 
-        int l2;
-        for (l2 = 0; l2 < l && i2cbuf[l2] != 0xff; l2++);
-        cerr << "block_reads, l=" << l << ", l2=" << l2 << endl;
-        cerr << "buf= \"" << string((const char*)i2cbuf,l2) << "\"" << endl;
-        writeptys(i2cbuf,l2);
-        len -= l2;
-    }
+    int l2;
+    for (l2 = 0; l2 < l && i2cbuf[l2] != 0xff; l2++);
+    cerr << "block_reads, l=" << l << ", l2=" << l2 << endl;
+    cerr << "buf= \"" << string((const char*)i2cbuf,l2) << "\"" << endl;
+    writeptys(i2cbuf,l2);
 }
 
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
@@ -547,39 +558,89 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
     // Unless KeepMSB is set, clear the high bit before writing to ptys.
     unsigned int mask = 0x7f;
     unsigned int msbfound = 0;
+
     if (KeepMSB.asBool())
         mask = 0xff;
-    for ( ; ; ) {
-        int len;
-        for (len = 0; len < (signed)sizeof(i2cbuf)-1; len++) {
-#ifdef READ_BYTE_DATA
-            int db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
+
+    int lena = (signed)sizeof(i2cbuf)-1;
+
+#ifdef READ_LEN_REGS
+    // registers 0xfd, 0xfe are the (big-endian) number of bytes
+    // in the ublox buffer.  After selecting register 0xfd,
+    // it is auto-incremented on a read, and once it reaches
+    // 0xff (the buffer), remains there.
+
+    // number of bytes available, high byte
+    int hb = i2c_smbus_read_byte_data(_i2cfd, 0xfd);
+
+    // These reads are subject to
+    // IOException: /dev/i2c-1: read: Remote I/O
+    // IOException: /dev/i2c-1: read: Input/output error
+    // Unless EXIT_ON_ERRORS is defined, just keep going,
+    // without throwing, logging the error or exiting, 
+
+    if (hb < 0)
+#ifdef EXIT_ON_IOERRORS
+        throw n_u::IOException(_i2cname,"read",errno);
 #else
-            int db = i2c_smbus_read_byte(_i2cfd);
+        return;
 #endif
-#ifdef GIVE_UP
-            if (db < 0) 
-                throw n_u::IOException(_i2cname,"read_byte",errno);
+
+    // ublox buffer is 4kB, high len byte can't be 0xff.
+    // perhaps 0xff is an indication of no data available.
+    if (hb == 0xff) return;
+
+    // next address 0xfe, number of bytes available, low byte
+    int lb = i2c_smbus_read_byte(_i2cfd);
+    if (lb < 0)
+#ifdef EXIT_ON_IOERRORS
+        throw n_u::IOException(_i2cname,"read",errno);
 #else
-            if (db < 0) break;
+        return;
 #endif
-            if (db == '\xff') break;
-            if (db > 0xff)
+
+    lena = (hb & 0xff) << 8 | (lb & 0xff);
+
+    if (lena == 0) return;
+    // screen bad values
+    if (lena < 0) lena = (signed)sizeof(i2cbuf)-1;
+    else lena = std::min(lena, (signed)sizeof(i2cbuf)-1);
+#endif
+
+    int len;
+    for (len = 0; len < lena; len++) {
+
+        int db;
+#ifndef READ_LEN_REGS
+        if (len == 0)
+            db = i2c_smbus_read_byte_data(_i2cfd, 0xff);
+        else
+#endif
+            db = i2c_smbus_read_byte(_i2cfd);
+
+#ifdef EXIT_ON_IOERRORS
+        if (db < 0) 
+            throw n_u::IOException(_i2cname,"read_byte",errno);
+#else
+        if (db < 0) break;
+#endif
+        if (db == 0xff) break;
+        if (db > 0xff)
+        {
+            ++msbfound;
+            VLOG(("i2c returned %u bytes > 0xff: %0x '%c' '%c'",
+                  msbfound, db, (db >> 8) & 0x7f, db & 0x7f));
+            if (msbfound % 100 == 1)
             {
-                ++msbfound;
-                VLOG(("i2c returned %u bytes > 0xff: %0x '%c' '%c'",
-                      msbfound, db, (db >> 8) & 0x7f, db & 0x7f));
-                if (msbfound % 100 == 1)
-                {
-                    NLOG(("%d bytes > 0xff from i2c so far", msbfound));
-                }
+                NLOG(("%d bytes > 0xff from i2c so far", msbfound));
             }
-            i2cbuf[len] = (db & mask);
         }
-        // XXX what should happen if 0xff never found?  Do we really want
-        // to dump 8192 bytes of unterminated i2c data to the ptys?
-        // cerr << "len=" << len << endl;
-        if (len == 0) break;
+        i2cbuf[len] = (db & mask);
+    }
+    // XXX what should happen if 0xff never found?  Do we really want
+    // to dump 8192 bytes of unterminated i2c data to the ptys?
+    // cerr << "len=" << len << endl;
+    if (len > 0) {
         i2cbuf[len] = '\0';
         VLOG(("writing ") << len << " bytes to ptys: "
              << n_u::addBackslashSequences(string(i2cbuf, i2cbuf+len)));
