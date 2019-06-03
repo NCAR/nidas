@@ -28,14 +28,46 @@
 #define NIDAS_DYNLD_ISFF_NCAR_TRH_H
 
 #include <vector>
+#include <boost/regex.hpp>
+#include <string>
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/VariableConverter.h>
+
+using namespace nidas::core;
 
 namespace nidas { namespace dynld { namespace isff {
 
 class HandleRawT;
 class HandleRawRH;
+
+/* 
+ *  AutoConfig: TRH Commands
+ */
+enum TRH_SENSOR_COMMANDS  
+{
+    NULL_CMD,
+    SENSOR_RESET_CMD,
+    SENSOR_TOGGLE_CAL_OUTPUT_CMD,
+    SENSOR_TOGGLE_RAW_OUTPUT_CMD,
+    SENSOR_CAL_MODE_OUTPUT_CMD,
+    SENSOR_EEPROM_MENU_CMD,
+    SENSOR_EEPROM_RATE_CMD,
+    SENSOR_EEPROM_EXIT_CMD,
+    NUM_SENSOR_CMDS,
+    // This is a "meta" command to use in _desiredScienceParameters
+    // since this operation needs two commands to complete
+    SENSOR_SET_OUTPUT_MODE_CMD
+};
+
+enum TRH_OUTPUT_MODE_STATE
+{
+    NEITHER,
+    CAL_ONLY,
+    RAW_ONLY,
+    BOTH
+};
+
 
 /**
  * Sensor class for the NCAR hygrothermometer, built at EOL.
@@ -99,11 +131,29 @@ public:
     std::vector<float>
     getRawRHCoefficients();
 
+protected:
+    /*
+     *  AutoConfig - Virtual overrides of SerialSensor methods.
+     */
+    virtual void fromDOMElement(const xercesc::DOMElement* node)
+                    throw(nidas::util::InvalidParameterException);
+    virtual bool checkResponse();
+    virtual void sendScienceParameters();
+    virtual CFG_MODE_STATUS enterConfigMode();
+
+    /*
+     *  AutoConfig - TRH-specific methods.
+     */
+    void sendSensorCmd(int cmd, SensorCmdArg arg=SensorCmdArg(), bool resetNow=false);
+    bool sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg=SensorCmdArg());
+    bool checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg);
+    void initCustomMetadata();
+    bool captureResetMetaData(const char* buf);
+
 private:
 
-    void
-    convertVariable(nidas::core::SampleT<float>* outs,
-                    nidas::core::Variable* var, float* fp);
+    void convertVariable(nidas::core::SampleT<float>* outs,
+                         nidas::core::Variable* var, float* fp);
 
     bool handleRawRH(nidas::core::CalFile* cf);
     bool handleRawT(nidas::core::CalFile* cf);
@@ -152,6 +202,21 @@ private:
     std::vector<VariableIndex> _compute_order;
     
     void convertNext(const VariableIndex& vi);
+
+    /*
+     * Autoconfig 
+     */
+    SensorCmdData* _desiredScienceParameters;
+    TRH_OUTPUT_MODE_STATE _outputModeState;
+ 
+    TRH_OUTPUT_MODE_STATE checkOutputModeState();
+    void setOutputMode(const TRH_OUTPUT_MODE_STATE newState);
+    std::string outputMode2Str(const TRH_OUTPUT_MODE_STATE state);
+    void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
+    bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
+                                 const boost::regex& matchStr, int matchGroup, 
+                                 const char* buf);
+    bool handleEepromExit(const char* buf, const int bufSize);
 
     // no copying
     NCAR_TRH(const NCAR_TRH& x);
