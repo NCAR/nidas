@@ -141,13 +141,14 @@ NCAR_TRH::NCAR_TRH():
     setSerialNumber("See custom metadata");
     setCalDate("See custom metadata");
     initCustomMetadata();
+    setAutoConfigSupported();
 }
 
 NCAR_TRH::~NCAR_TRH()
 {
     delete _raw_t_handler;
     delete _raw_rh_handler;
-    delete _desiredScienceParameters;
+    delete [] _desiredScienceParameters;
 }
 
 

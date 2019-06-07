@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
             pSerialSensor->printPowerState();
 
             NLOG(("Setting sensor to support AutoConfig..."));
-            pSerialSensor->setAutoConfigSupported();
+            pSerialSensor->setAutoConfigEnabled();
 
             NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
             pSerialSensor->open(O_RDWR);

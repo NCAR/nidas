@@ -216,6 +216,7 @@ PTB210::PTB210()
     }
 
     initCustomMetaData();
+    setAutoConfigSupported();
 }
 
 PTB210::~PTB210()

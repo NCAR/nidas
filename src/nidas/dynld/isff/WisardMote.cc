@@ -109,6 +109,7 @@ WisardMote::WisardMote() :
 
     initAutoCfg();
     initCustomMetaData();
+    setAutoConfigSupported();
 }
 
 WisardMote::~WisardMote()

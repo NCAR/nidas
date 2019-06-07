@@ -204,6 +204,7 @@ GILL2D::GILL2D()
     }
 
     initCustomMetadata();
+    setAutoConfigSupported();
 }
 
 GILL2D::~GILL2D()

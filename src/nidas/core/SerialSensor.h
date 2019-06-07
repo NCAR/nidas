@@ -270,6 +270,9 @@ public:
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
     AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
     void setAutoConfigSupported() { _autoConfigSupported = true; }
+    bool supportsAutoConfig() { return _autoConfigSupported; }
+    void setAutoConfigEnabled() { _autoConfigEnabled = true; }
+    bool getAutoConfigEnabled() { return _autoConfigEnabled; }
 
 protected:
 
@@ -332,7 +335,6 @@ protected:
     virtual void exitConfigMode() {}
     CFG_MODE_STATUS getConfigMode() {return _configMode;}
     void setConfigMode(CFG_MODE_STATUS newCfgMode) {_configMode = newCfgMode;}
-    bool supportsAutoConfig() { return _autoConfigSupported; }
 
     virtual bool checkResponse() { return true; }
     virtual bool installDesiredSensorConfig(const PortConfig& /*rDesiredConfig*/) { return true; };
@@ -346,7 +348,11 @@ protected:
     void initAutoConfig();
     void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
 
+    // Autoconfig subclasses calls supportsAutoConfig() to set this to true
     bool _autoConfigSupported;
+    // This class sets this attribute to true if it encounters an 
+    // autoconfig XML tag.
+    bool _autoConfigEnabled;
 
     /*******************************************************
      * Aggregate serial port configuration

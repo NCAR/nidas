@@ -197,6 +197,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     }
 
     initCustomMetaData();
+    setAutoConfigSupported();
 }
 
 CSAT3_Sonic::~CSAT3_Sonic()
@@ -483,21 +484,21 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inv
     // Handle common autoconfig attributes first...
     fromDOMElementAutoConfig(node);
 
-    xercesc::DOMNode* child;
-    for (child = node->getFirstChild(); child != 0;
-        child=child->getNextSibling())
-    {
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
-            continue;
-        XDOMElement xchild((xercesc::DOMElement*) child);
-        const string& elname = xchild.getNodeName();
-
-        if (elname == "autoconfig") {
-            DLOG(("Found the <autoconfig /> tag..."));
-
-            /*
-             *  Nothing to do at this time...
-             */
+/*
+ *  Nothing to do at this time...
+ */
+//    xercesc::DOMNode* child;
+//    for (child = node->getFirstChild(); child != 0;
+//        child=child->getNextSibling())
+//    {
+//        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+//            continue;
+//        XDOMElement xchild((xercesc::DOMElement*) child);
+//        const string& elname = xchild.getNodeName();
+//
+//        if (elname == "autoconfig") {
+//            DLOG(("Found the <autoconfig /> tag..."));
+//
 //            // get all the attributes of the node
 //            xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
 //            int nSize = pAttributes->getLength();
@@ -518,19 +519,19 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inv
 //                if (aname == "units") {
 //                }
 //            }
-        }
-        else if (elname == "message");
-        else if (elname == "prompt");
-        else if (elname == "sample");
-        else if (elname == "parameter");
-        else if (elname == "calfile");
-        else
-            throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(), "unknown element",
-                    elname);
-    }
+//        }
+//        else if (elname == "message");
+//        else if (elname == "prompt");
+//        else if (elname == "sample");
+//        else if (elname == "parameter");
+//        else if (elname == "calfile");
+//        else
+//            throw n_u::InvalidParameterException(
+//                    string("SerialSensor:") + getName(), "unknown element",
+//                    elname);
+//    //}
 
-    DLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
+    NLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
 }
 
 void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterException)
@@ -582,6 +583,9 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	 * Code originally set the message parameters to those already held by the base class. However,
 	 * the AutoConfig code sets those values to that expected when entering terminal mode, which is 0 + '>'.
 	 * So use the defaultMessageConfig instead to enter data mode.
+     * 
+     * HUH? TODO - shouldn't the requested parameters take precedence? Save those off before AutoConfig
+     *             restore here?
 	 */
 	try {
 		setMessageParameters(defaultMessageConfig);
@@ -1098,7 +1102,6 @@ bool CSAT3_Sonic::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
         checkSerPortSettings(true);
         serPortFlush(O_RDWR);
     }
-
 
     SerialPortIODevice* pIODevice = reinterpret_cast<SerialPortIODevice*>(getIODevice());
     PortConfig workingPortConfig = pIODevice->getPortConfig();

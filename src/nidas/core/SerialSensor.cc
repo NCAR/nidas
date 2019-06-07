@@ -49,8 +49,8 @@ using namespace nidas::core;
 using namespace nidas::util;
 
 SerialSensor::SerialSensor():
-    _autoConfigSupported(false), _desiredPortConfig(), _portTypeList(), _baudRateList(),
-    _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
+    _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(), _portTypeList(), 
+    _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
     _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(n_u::POWER_OFF),
     _defaultPortConfig(),_serialDevice(0), _prompters(), _prompting(false)
@@ -65,11 +65,11 @@ SerialSensor::SerialSensor():
 }
 
 SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState):
-        _autoConfigSupported(false), _desiredPortConfig(rInitPortConfig), _portTypeList(), _baudRateList(),
-        _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
-        _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
-        _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(initPowerState),
-        _defaultPortConfig(rInitPortConfig),_serialDevice(0), _prompters(), _prompting(false)
+    _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(rInitPortConfig), 
+    _portTypeList(), _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
+    _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
+    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(initPowerState),
+    _defaultPortConfig(rInitPortConfig),_serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR);
     _desiredPortConfig.termios.setRaw(true);
@@ -173,7 +173,7 @@ void SerialSensor::open(int flags)
 void SerialSensor::sendInitString() throw(nidas::util::IOException)
 {
     NLOG(("%s:%s: Putting sensor into measurement mode", getName().c_str(), getClassName().c_str()));
-    if (supportsAutoConfig()) {
+    if (getAutoConfigEnabled()) {
         exitConfigMode();
     }
 
@@ -420,97 +420,99 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
         const string& elname = xchild.getNodeName();
         if (elname == "autoconfig") {
             DLOG(("SerialSensor::fromDOMElementAutoconfig(): autoconfig tag found."));
-            setAutoConfigSupported();
+            if (supportsAutoConfig()) {
+                setAutoConfigEnabled();
 
-            // get all the attributes of the node
-            xercesc::DOMNamedNodeMap* pAttributes = child->getAttributes();
-            int nSize = pAttributes->getLength();
-            for (int i = 0; i < nSize; ++i) {
-                XDOMAttr attr((xercesc::DOMAttr*) (pAttributes->item(i)));
-                // get attribute name
-                const std::string& aname = attr.getName();
-                const std::string& aval = attr.getValue();
-                // xform everything to uppercase - this shouldn't affect numbers
-                string upperAval = aval;
-                std::transform(upperAval.begin(), upperAval.end(),
-                        upperAval.begin(), ::toupper);
-                DLOG(("SerialSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
-                if (aname == "porttype") {
-                    if (upperAval == "RS232")
-                        _desiredPortConfig.xcvrConfig.portType = RS232;
-                    else if (upperAval == "RS422")
-                        _desiredPortConfig.xcvrConfig.portType = RS422;
-                    else if (upperAval == "RS485_HALF")
-                        _desiredPortConfig.xcvrConfig.portType = RS485_HALF;
-                    else if (upperAval == "RS485_FULL")
-                        _desiredPortConfig.xcvrConfig.portType = RS485_FULL;
-                    else
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "termination") {
-                    if (upperAval == "NO_TERM" || upperAval == "NO"
-                            || upperAval == "FALSE")
-                        _desiredPortConfig.xcvrConfig.termination = NO_TERM;
-                    else if (upperAval == "TERM_120_OHM" || upperAval == "YES"
-                            || upperAval == "TRUE")
-                        _desiredPortConfig.xcvrConfig.termination =
-                                TERM_120_OHM;
-                    else
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "baud") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail()
-                            || !_desiredPortConfig.termios.setBaudRate(val))
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "parity") {
-                    if (upperAval == "ODD")
-                        _desiredPortConfig.termios.setParity(n_u::Termios::ODD);
-                    else if (upperAval == "EVEN")
-                        _desiredPortConfig.termios.setParity(
-                                n_u::Termios::EVEN);
-                    else if (upperAval == "NONE")
-                        _desiredPortConfig.termios.setParity(
-                                n_u::Termios::NONE);
-                    else
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-                }
-                else if (aname == "databits") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || val < 5 || val > 8)
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-
-                    _desiredPortConfig.termios.setDataBits(val);
-                }
-                else if (aname == "stopbits") {
-                    istringstream ist(aval);
-                    int val;
-                    ist >> val;
-                    if (ist.fail() || val < 1 || val > 2)
-                        throw n_u::InvalidParameterException(
-                                string("PTB210:") + getName(), aname, aval);
-
-                    _desiredPortConfig.termios.setStopBits(val);
-                }
-                else if (aname == "rts485") {
-                    if (upperAval == "TRUE" || aval == "1") {
-                        _desiredPortConfig.rts485 = 1;
+                // get all the attributes of the node
+                xercesc::DOMNamedNodeMap* pAttributes = child->getAttributes();
+                int nSize = pAttributes->getLength();
+                for (int i = 0; i < nSize; ++i) {
+                    XDOMAttr attr((xercesc::DOMAttr*) (pAttributes->item(i)));
+                    // get attribute name
+                    const std::string& aname = attr.getName();
+                    const std::string& aval = attr.getValue();
+                    // xform everything to uppercase - this shouldn't affect numbers
+                    string upperAval = aval;
+                    std::transform(upperAval.begin(), upperAval.end(),
+                            upperAval.begin(), ::toupper);
+                    DLOG(("SerialSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
+                    if (aname == "porttype") {
+                        if (upperAval == "RS232")
+                            _desiredPortConfig.xcvrConfig.portType = RS232;
+                        else if (upperAval == "RS422")
+                            _desiredPortConfig.xcvrConfig.portType = RS422;
+                        else if (upperAval == "RS485_HALF")
+                            _desiredPortConfig.xcvrConfig.portType = RS485_HALF;
+                        else if (upperAval == "RS485_FULL")
+                            _desiredPortConfig.xcvrConfig.portType = RS485_FULL;
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
                     }
-                    else if (upperAval == "TRUE" || aval == "0") {
-                        _desiredPortConfig.rts485 = 0;
+                    else if (aname == "termination") {
+                        if (upperAval == "NO_TERM" || upperAval == "NO"
+                                || upperAval == "FALSE")
+                            _desiredPortConfig.xcvrConfig.termination = NO_TERM;
+                        else if (upperAval == "TERM_120_OHM" || upperAval == "YES"
+                                || upperAval == "TRUE")
+                            _desiredPortConfig.xcvrConfig.termination =
+                                    TERM_120_OHM;
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
                     }
-                    else if (aval == "-1") {
-                        _desiredPortConfig.rts485 = -1;
+                    else if (aname == "baud") {
+                        istringstream ist(aval);
+                        int val;
+                        ist >> val;
+                        if (ist.fail()
+                                || !_desiredPortConfig.termios.setBaudRate(val))
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
+                    }
+                    else if (aname == "parity") {
+                        if (upperAval == "ODD")
+                            _desiredPortConfig.termios.setParity(n_u::Termios::ODD);
+                        else if (upperAval == "EVEN")
+                            _desiredPortConfig.termios.setParity(
+                                    n_u::Termios::EVEN);
+                        else if (upperAval == "NONE")
+                            _desiredPortConfig.termios.setParity(
+                                    n_u::Termios::NONE);
+                        else
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
+                    }
+                    else if (aname == "databits") {
+                        istringstream ist(aval);
+                        int val;
+                        ist >> val;
+                        if (ist.fail() || val < 5 || val > 8)
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
+
+                        _desiredPortConfig.termios.setDataBits(val);
+                    }
+                    else if (aname == "stopbits") {
+                        istringstream ist(aval);
+                        int val;
+                        ist >> val;
+                        if (ist.fail() || val < 1 || val > 2)
+                            throw n_u::InvalidParameterException(
+                                    string("PTB210:") + getName(), aname, aval);
+
+                        _desiredPortConfig.termios.setStopBits(val);
+                    }
+                    else if (aname == "rts485") {
+                        if (upperAval == "TRUE" || aval == "1") {
+                            _desiredPortConfig.rts485 = 1;
+                        }
+                        else if (upperAval == "TRUE" || aval == "0") {
+                            _desiredPortConfig.rts485 = 0;
+                        }
+                        else if (aval == "-1") {
+                            _desiredPortConfig.rts485 = -1;
+                        }
                     }
                 }
             }
@@ -531,9 +533,11 @@ void SerialSensor::fromDOMElement(
 	const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    VLOG(("SerialSensor::fromDOMElement(): entry..."));
+    NLOG(("SerialSensor::fromDOMElement(): entry..."));
 
     CharacterSensor::fromDOMElement(node);
+
+    DLOG(("SuperClass::fromDOMElement() methods done..."));
 
     if(node->hasAttributes()) {
         // get all the attributes of the node
@@ -611,14 +615,14 @@ void SerialSensor::fromDOMElement(
             else if (aname == "timeout");
             else if (aname == "readonly");
             else if (aname == "station");
-                else if (aname == "xml:base" || aname == "xmlns") {}
+            else if (aname == "xml:base" || aname == "xmlns") {}
             else throw n_u::InvalidParameterException(
-            string("SerialSensor:") + getName(),
-            "unknown attribute",aname);
+                    string("SerialSensor:") + getName(),
+                    "unknown attribute",aname);
         }
     }
 
-    VLOG(("SerialSensor::fromDOMElement(): exit..."));
+    NLOG(("SerialSensor::fromDOMElement(): exit..."));
 }
 
 /**
@@ -638,7 +642,7 @@ void SerialSensor::initAutoConfig()
 void SerialSensor::doAutoConfig()
 {
 	// find out if we're a legacy subclass or a new autoconfig subclass
-	if (supportsAutoConfig()) {
+	if (getAutoConfigEnabled()) {
 	    setSensorState(SENSOR_CONFIGURING);
 		_autoConfigState = AUTOCONFIG_STARTED;
 		// Must be a new autoconfig subclass...
