@@ -53,7 +53,7 @@ esac
 
 rsync -azrvhe ssh --progress /opt/nidas/bin  root@$ip:/opt/nidas
 # put the libs in the arch-specific directory. In this case, it's the RPi w/the hardware float coproc.
-ssh root@ip mkdir -p /opt/nidas/lib/$archlib 
+ssh root@$ip mkdir -p /opt/nidas/lib/$archlib 
 rsync -azrvhe ssh --progress /opt/nidas/lib/*  root@$ip:/opt/nidas/lib/$archlib
 rsync -azrvhe ssh --progress /opt/nidas/firmware  root@$ip:/opt/nidas
 rsync -azrvhe ssh --progress /opt/nidas/include  root@$ip:/opt/nidas
