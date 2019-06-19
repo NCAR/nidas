@@ -99,7 +99,8 @@ Description: Meta-package for installation of NIDAS onto a Eurotech Viper
 
 Package: nidas-rpi2
 Architecture: armhf
-Depends:  nidas, nidas-modules-rpi2, network-manager
+# Depends:  nidas, nidas-modules-rpi2, network-manager
+Depends:  nidas, network-manager
 Description: Meta-package for installation of NIDAS onto a Raspberry Pi2
  Metapackage with sufficient dependencies to run NIDAS on a Raspberry Pi2
 
