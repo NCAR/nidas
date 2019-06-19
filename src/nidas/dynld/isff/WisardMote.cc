@@ -2107,7 +2107,7 @@ void WisardMote::initScienceParams()
     updateScienceParameter(VMON_LOW_CMD, SensorCmdArg(VMON_LOW_DEFAULT));
     updateScienceParameter(VMON_RESTART_CMD, SensorCmdArg(VMON_HIGH_DEFAULT));
     updateScienceParameter(VMON_SLEEP_CMD, SensorCmdArg(VMON_SLEEP_TIME_DEFAULT));
-    updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(0));
+    updateScienceParameter(VMON_ENABLE_CMD, SensorCmdArg(VMON_ENABLE_DEFAULT));
 
     // NOTE: These following parameters actually get put into a separate attribute
     // called _epilogScienceParameter. These parameters are installed at the exit of

@@ -638,7 +638,8 @@ private:
     static const int MSG_STORE_FLUSHRATE_MAX = INT16_MAX;
 
     // NOTE: The v2.7 Mote command reference shows these values in mVs.
-    //       However,
+    // 
+    static const int VMON_ENABLE_DEFAULT=0;
     static const int VMON_LOW_MIN = 0;
     static const int VMON_LOW_DEFAULT = 1190;
     static const int VMON_LOW_MAX = INT16_MAX;
