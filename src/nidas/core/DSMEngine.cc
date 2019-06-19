@@ -76,8 +76,12 @@ namespace {
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
+/* 
+ *  Force _disableAutoconfig true for master branch since it is not yet merged with 
+ *  autoconfig branch.
+ */
 DSMEngine::DSMEngine():
-    _externalControl(false),_disableAutoconfig(false),_runState(DSM_RUNNING),
+    _externalControl(false),_disableAutoconfig(true),_runState(DSM_RUNNING),
     _command(DSM_RUN),_syslogit(true),_configFile(),_configSockAddr(),
     _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
@@ -212,8 +216,11 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
         return 1;
     }
     _externalControl = ExternalControl.asBool();
-    _disableAutoconfig = DisableAutoConfig.asBool();
 
+    /*
+     * Don't check this until master branch is merged with autoconfig branch
+    _disableAutoconfig = DisableAutoConfig.asBool();
+    */
     
     if (args.size() == 1)
     {
