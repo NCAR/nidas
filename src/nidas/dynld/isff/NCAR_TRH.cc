@@ -521,76 +521,73 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
  *  AutoConfig: TRH mode/data detection
  * 
  *  Typical reset response:
+ * =====================================
  *   Sensor ID29   I2C ADD: 10   data rate: 1 (secs)  fan(0) max current: 80 (ma)
- *
  * Calibration Dates: T - 030317, RH - 032117
- *
  * resolution: 12 bits      1 sec MOTE: off
- * 
  * calibration coefficients:
- * 
  * Ta0 = -1.709815E+1
- * 
  * Ta1 =  2.899750E-2
- * 
  * Ta2 = -2.330196E-7
- * 
  * Ha0 =  6.774113E-1
- * 
  * Ha1 =  6.018195E-1
- * 
  * Ha2 = -4.784788E-4
- * 
  * Ha3 =  4.768972E-2
- * 
  * Ha4 =  1.067404E-3
- * 
  * Fa0 =  3.222650E-1
+ * ===================================
  * 
+ *  NOTE: If fan is not present, then fan([0-9]+) simply becomes fan and Fa0 line is missing
+ *        Also, Calibration Dates line may or may not be missing. 
+ * 
+ *        These anomalies are accounted for in the regex and by adjusting the desired value index
+ *        when collecting metadata
  */
 
 static boost::regex EEPROM_MENU_ENTERED_RESP("[[:space:]]+input command format: cmd \\[value\\] \\[\\[value\\] \\[value\\] ...\\]");
 static boost::regex EEPROM_MENU_EXIT_RESP("Exit EEPROM LOADER - reset will take place");
 static boost::regex SENSOR_RESET_METADATA(
-    "[[:space:]]+Sensor ID([0-9]+)   I2C ADD: ([0-9]+)   data rate: ([0-9]+) \\(secs\\)  fan\\(([0-9]+)\\) max current: ([0-9]+) \\(ma\\)"
-    "[[:space:]]+Calibration Dates: T - ([0-9]+), RH - ([0-9]+)"
+    "[[:space:]]+Sensor ID([0-9]+)   I2C ADD: ([0-9]+)   data rate: ([0-9]+) \\(secs\\)  fan(\\(([0-9]+)\\)){0,1} max current: ([0-9]+) \\(ma\\)"
+    "([[:space:]]+Calibration Dates: T - ([0-9]+), RH - ([0-9]+))*"
     "[[:space:]]+resolution: ([0-9]+) bits[[:blank:]]+1 sec MOTE: (off|on)" 
     "[[:space:]]+calibration coefficients:"
-    "[[:space:]]+Ta0 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ta1 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ta2 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha0 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha1 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha2 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha3 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+\\.[0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ta0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ta1 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ta2 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ha0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ha1 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ha2 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ha3 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
+    "([[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+))*"
 );
-static boost::regex CAL_OUTPUT_ONLY_ENABLED("^TRH[0-9+] [0-9+]\\.[0-9+] [0-9+]\\.[0-9+] [0-9+] [0-9+]$");
-static boost::regex RAW_OUTPUT_ONLY_ENABLED("^TRH[0-9+] [0-9+] [0-9+] [0-9+]$");
-static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^TRH[0-9+] [0-9+]\\.[0-9+] [0-9+]\\.[0-9+] [0-9+] [0-9+] [0-9+] [0-9+] [0-9+]$");
-static boost::regex NEITHER_OUTPUT_ENABLED("^TRH[0-9+][[:blank:]]+$");
+static boost::regex CAL_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+$");
+static boost::regex RAW_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+ [0-9]+ [0-9]+$");
+static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+ [0-9]+ [0-9]+ [0-9]+$");
+static boost::regex NEITHER_OUTPUT_ENABLED("^TRH[0-9]+[[:blank:]]*$");
 static const int SENSOR_ID_IDX = 1;
 static const int I2C_ADD_IDX   = 2;
 static const int DATA_RATE_IDX = 3;
-static const int IFAN_IDX = 4;
-static const int IFAN_MAX_IDX = 5;
-static const int TEMP_CAL_DATE_IDX = 6;
-static const int REL_HUM_CAL_DATE_IDX = 7;
-static const int ADC_RESOLUTION_IDX = 8;
-static const int MOTE_1_SEC_IDX = 9;
-static const int TCAL_COEFF_0_IDX = 10;
-static const int TCAL_COEFF_1_IDX = 11;
-static const int TCAL_COEFF_2_IDX = 12;
-static const int HCAL_COEFF_0_IDX = 13;
-static const int HCAL_COEFF_1_IDX = 14;
-static const int HCAL_COEFF_2_IDX = 15;
-static const int HCAL_COEFF_3_IDX = 16;
-static const int HCAL_COEFF_4_IDX = 17;
-static const int FCAL_COEFF_0_IDX = 18;
+static const int FAN_CURRENT_AVAILABLE = 4;
+static const int IFAN_IDX = 5;
+static const int IFAN_MAX_IDX = 6;
+static const int CAL_DATA_AVAILABLE = 7;
+static const int TEMP_CAL_DATE_IDX = 8;
+static const int REL_HUM_CAL_DATE_IDX = 9;
+static const int ADC_RESOLUTION_IDX = 10;
+static const int MOTE_1_SEC_IDX = 11;
+static const int TCAL_COEFF_0_IDX = 12;
+static const int TCAL_COEFF_1_IDX = 13;
+static const int TCAL_COEFF_2_IDX = 14;
+static const int HCAL_COEFF_0_IDX = 15;
+static const int HCAL_COEFF_1_IDX = 16;
+static const int HCAL_COEFF_2_IDX = 17;
+static const int HCAL_COEFF_3_IDX = 18;
+static const int HCAL_COEFF_4_IDX = 19;
+static const int FCAL_COEFF_0_IDX = 20;
 
 static boost::regex DATA_RATE_ACCEPTED_RESPONSE("WRITE: add:12 = ([0-9]{1,2})");
-static boost::regex EEPROM_MENU_EXIT_RESP_RESPONSE("[:space:]+Exit EEPROM LOADER - reset will take place");
+static boost::regex EEPROM_MENU_EXIT_RESP_RESPONSE("[[:space:]]+Exit EEPROM LOADER - reset will take place");
 
 bool 
 NCAR_TRH::
@@ -612,13 +609,16 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
         // these commands all take an argument...
     	// these take integers...
 		case SENSOR_EEPROM_RATE_CMD:
-            argStr << " " << arg.intArg;
+            argStr << " " << arg.intArg << std::endl;
             break;
 
-        // these do not...
+        // these do not take arguments...
+		case SENSOR_EEPROM_EXIT_CMD:
+            argStr << std::endl;
+            break;
+
 		case SENSOR_RESET_CMD:
 		case SENSOR_EEPROM_MENU_CMD:
-		case SENSOR_EEPROM_EXIT_CMD:
 		case SENSOR_CAL_MODE_OUTPUT_CMD:
 		case SENSOR_TOGGLE_CAL_OUTPUT_CMD:
 		case SENSOR_TOGGLE_RAW_OUTPUT_CMD:
@@ -627,8 +627,7 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
     }
 
     DLOG(("NCAR_TRH::sendSensorCmd(): argStr: ") << argStr.str());
-    // Append command string w/argStr, which may be blank, except for the return char
-    argStr << "\n";
+    // Append command string w/argStr, which may be blank, except for the return char, if any
     snsrCmd.append(argStr.str());
     DLOG(("NCAR_TRH::sendSensorCmd(): snsrCmd: ") << snsrCmd);
 
@@ -641,15 +640,15 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
 /*
  *  Metadata 
  */
-static const string SENSOR_ID_DESC("Sensr ID: ");
-static const string I2C_ADDR_DESC("I2C Addr: ");
-static const string DATA_RATE_DESC("Data Rate: ");
-static const string IFAN_DESC("Ifan: ");
-static const string IFAN_MAX_DESC("Ifan(max): ");
-static const string TEMP_CAL_DATE_DESC("Temp Cal Date: ");
-static const string REL_HUM_CAL_DATE_DESC("Rel. Hum. Cal Date: ");
-static const string ADC_RES_DESC("ADC Resolution: ");
-static const string MOTE_1_SEC_DESC("1 Sec Mote: ");
+static const string SENSOR_ID_DESC("Sensr ID");
+static const string I2C_ADDR_DESC("I2C Addr");
+static const string DATA_RATE_DESC("Data Rate");
+static const string IFAN_DESC("Ifan");
+static const string IFAN_MAX_DESC("Ifan(max)");
+static const string TEMP_CAL_DATE_DESC("Temp Cal Date");
+static const string REL_HUM_CAL_DATE_DESC("Rel. Hum. Cal Date");
+static const string ADC_RES_DESC("ADC Resolution");
+static const string MOTE_1_SEC_DESC("1 Sec Mote");
 static const string TA0_COEFF_DESC("Ta0");
 static const string TA1_COEFF_DESC("Ta1");
 static const string TA2_COEFF_DESC("Ta2");
@@ -688,7 +687,8 @@ bool
 NCAR_TRH::
 captureResetMetaData(const char* buf)
 {
-    DLOG(("NCAR_TRH::captureResetMetaData(): matching: ") << SENSOR_RESET_METADATA);
+    DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA);
+    DLOG(("NCAR_TRH::captureResetMetaData(): matching:") << std::string(buf));
     boost::cmatch results;
     bool regexFound = boost::regex_search(buf, results, SENSOR_RESET_METADATA);
     if (regexFound && results[0].matched) {
@@ -712,6 +712,7 @@ captureResetMetaData(const char* buf)
             updateMetaDataItem(MetaDataItem(IFAN_MAX_DESC, results.str(IFAN_MAX_IDX)));
         }
     
+        // yes, so collect the data
         if (results[TEMP_CAL_DATE_IDX].matched) {
             updateMetaDataItem(MetaDataItem(TEMP_CAL_DATE_DESC, results.str(TEMP_CAL_DATE_IDX)));
         }
@@ -719,7 +720,6 @@ captureResetMetaData(const char* buf)
         if (results[REL_HUM_CAL_DATE_IDX].matched) {
             updateMetaDataItem(MetaDataItem(REL_HUM_CAL_DATE_DESC, results.str(REL_HUM_CAL_DATE_IDX)));
         }
-    
         if (results[ADC_RESOLUTION_IDX].matched) {
             updateMetaDataItem(MetaDataItem(ADC_RES_DESC, results.str(ADC_RESOLUTION_IDX)));
         }
@@ -779,11 +779,18 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 	bool checkMatch = true;
     static const int BUF_SIZE = 2048;
     int selectTimeout = 4000;
-    bool checkForUnprintables = false;
+    bool checkForUnprintables = true;
     int retryTimeoutFactor = 5;
-    if (cmd == SENSOR_RESET_CMD) {
-        checkForUnprintables = true;
+    if (cmd == SENSOR_RESET_CMD 
+        || cmd == SENSOR_EEPROM_EXIT_CMD 
+        || cmd == SENSOR_EEPROM_MENU_CMD) {
+        checkForUnprintables = false;
         selectTimeout = 5000;
+    }
+
+    if (cmd == SENSOR_EEPROM_EXIT_CMD) {
+        // DLOG(("NCAR_TRH::checkCmdRepsonse(): sleeping 1 to wait for entire message to be delivered"));
+        // sleep(1);
     }
 
     char respBuf[BUF_SIZE];
@@ -814,11 +821,11 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
                 compareMatch = 1;
                 break;
             case SENSOR_RESET_CMD:
-			    responseOK = captureResetMetaData(buf);
+			    responseOK = captureResetMetaData(buf+1);
 			    checkMatch = false;
                 break;
             case SENSOR_EEPROM_EXIT_CMD:
-			    responseOK = handleEepromExit(buf, BUF_SIZE);
+			    responseOK = handleEepromExit(buf+1, BUF_SIZE);
 			    checkMatch = false;
                 break;
 
@@ -872,7 +879,7 @@ _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg,
                 }
             }
             else {
-                DLOG(("NCAR_TRH::checkCmdResponse(): Didn't find matches to argument as expected."));
+                DLOG(("NCAR_TRH::_checkCmdResponse(): Didn't find matches to argument as expected."));
             }
         }
         else {
@@ -880,7 +887,7 @@ _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg,
         }
     }
     else {
-        DLOG(("NCAR_TRH::checkCmdResponse(): Didn't find overall match to string as expected."));
+        DLOG(("NCAR_TRH::_checkCmdResponse(): Didn't find overall match to string as expected."));
     }
 
     string cmdStr = cmdTable[cmd];
@@ -888,20 +895,20 @@ _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg,
     cmdStr[idx] = 0;
 
     if (arg.argIsNull) {
-            DLOG(("NCAR_TRH::checkCmdResponse(): Results of checking command w/NULL argument"));
+            DLOG(("NCAR_TRH::_checkCmdResponse(): Results of checking command w/NULL argument"));
             DLOG(("Overall match: ") << resultsStr);
-            DLOG(("NCAR_TRH::checkCmdResponse(): cmd: %s %s", cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED")));
+            DLOG(("NCAR_TRH::_checkCmdResponse(): cmd: %s %s", cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED")));
         } else if (arg.argIsString) {
-            DLOG(("NCAR_TRH::checkCmdResponse(): Results of checking command w/string argument"));
+            DLOG(("NCAR_TRH::_checkCmdResponse(): Results of checking command w/string argument"));
             DLOG(("Overall match: ") << resultsStr);
-            DLOG(("NCAR_TRH::checkCmdResponse(): cmd: %s: %s. expected: %s => saw: %s", 
+            DLOG(("NCAR_TRH::_checkCmdResponse(): cmd: %s: %s. expected: %s => saw: %s", 
                   cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED"), arg.strArg.c_str(), 
                   valStr.c_str()));
         }
         else {
-            DLOG(("NCAR_TRH::checkCmdResponse(): Results of checking command w/integer argument"));
+            DLOG(("NCAR_TRH::_checkCmdResponse(): Results of checking command w/integer argument"));
             DLOG(("Overall match: ") << resultsStr);
-            DLOG(("NCAR_TRH::checkCmdResponse(): cmd: %s: %s. expected: %i => saw: %s", 
+            DLOG(("NCAR_TRH::_checkCmdResponse(): cmd: %s: %s. expected: %i => saw: %s", 
                   cmdStr.c_str(), (responseOK ? "SUCCEEDED" : "FAILED"), arg.intArg, valStr.c_str()));
     }
 
@@ -950,13 +957,18 @@ NCAR_TRH::
 handleEepromExit(const char* buf, const int /* bufSize */)
 {
     bool success = false;
-    DLOG(("NCAR_TRH::captureResetMetaData(): matching: ") << EEPROM_MENU_EXIT_RESP_RESPONSE);
+    DLOG(("NCAR_TRH::handleEepromExit(): regex: ") << EEPROM_MENU_EXIT_RESP_RESPONSE);
+    DLOG(("NCAR_TRH::handleEepromExit(): matching: ") << std::string(buf));
     boost::cmatch results;
     bool regexFound = boost::regex_search(buf, results, EEPROM_MENU_EXIT_RESP_RESPONSE);
     if (regexFound && results[0].matched) {
         DLOG(("NCAR_TRH::handleEepromExit(): Found expected EEPROM menu exit message indicating TRH reset imminent...\n"
               "                              Now get reset metadata"));
+        sleep(1);
         success = checkCmdResponse(SENSOR_RESET_CMD, SensorCmdArg());
+    }
+    else {
+        DLOG(("NCAR_TRH::handleEepromExit(): Expected EEPROM menu exit message not found!!"));
     }
 
     return success;
@@ -1030,7 +1042,7 @@ checkOutputModeState()
                                      // as there could be up to 120  
                                      // seconds before 2 lines are captured.
     bool checkForUnprintables = false;
-    int retryTimeoutFactor = 5;
+    int retryTimeoutFactor = 10;
 
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
@@ -1042,28 +1054,35 @@ checkOutputModeState()
 
     if (numCharsRead > 0) {
         char* buf = respBuf;
-        DLOG(("NCAR_TRH::enterConfigMode(): Number of chars read - %i", numCharsRead));
-        DLOG(("NCAR_TRH::enterConfigMode(): chars read - %s", buf));
+        DLOG(("NCAR_TRH::checkOutputModeState(): Number of chars read - %i", numCharsRead));
+        DLOG(("NCAR_TRH::checkOutputModeState(): chars read - %s", buf));
 
         boost::cmatch results;
         bool regexFound = regex_search(buf, results, CAL_AND_RAW_OUTPUT_ENABLED);
         if (regexFound && results[0].matched) {
+            DLOG(("NCAR_TRH::checkOutputModeState(): CAL and RAW output mode is enabled"));
             status = BOTH;
         }
         else {
             regexFound = regex_search(buf, results, CAL_OUTPUT_ONLY_ENABLED);
             if (regexFound && results[0].matched) {
+            DLOG(("NCAR_TRH::checkOutputModeState(): CAL output mode only is enabled"));
                 status = CAL_ONLY;
             }
             else {
-                regexFound = regex_search(buf, results, CAL_OUTPUT_ONLY_ENABLED);
+                regexFound = regex_search(buf, results, RAW_OUTPUT_ONLY_ENABLED);
                 if (regexFound && results[0].matched) {
+                    DLOG(("NCAR_TRH::checkOutputModeState(): RAW output mode only is enabled"));
                     status = RAW_ONLY;
                 }
                 else {
                     regexFound = regex_search(buf, results, NEITHER_OUTPUT_ENABLED);
                     if (regexFound && results[0].matched) {
+                        DLOG(("NCAR_TRH::checkOutputModeState(): Neither CAL nor RAW output mode is enabled"));
                         status = NEITHER;
+                    }
+                    else {
+                        DLOG(("NCAR_TRH::checkOutputModeState(): No regex search succeeded."));
                     }
                 }
             }
