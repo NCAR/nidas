@@ -1059,7 +1059,7 @@ int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout,
     bool readJunk = charsReadStatus & 0x80000000;
     DLOG(("SerialSensor::readEntireResponse(): readJunk: %s", (readJunk ? "true" : "false")));
     int numCharsRead = charsReadStatus & ~0xC0000000;
-    DLOG(("SerialSensor::readResponse(): numCharsRead: %i", numCharsRead));
+    DLOG(("SerialSensor::readEntireResponse(): numCharsRead: %i", numCharsRead));
     int totalCharsRead = numCharsRead;
     bool selectError = charsReadStatus & 0x40000000;
     if (selectError) {
