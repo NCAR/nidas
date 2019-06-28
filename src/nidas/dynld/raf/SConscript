@@ -6,6 +6,7 @@ arch = env['ARCH']  # empty string for native builds
 
 sources = Split("""
     A2DBoardTempSensor.cc
+    A2D_Serial.cc
     ADC_HW_EB7022597.cc
     Aircraft.cc
     Arinc_IRS.cc
@@ -54,6 +55,7 @@ sources = Split("""
 
 headers = Split("""
     A2DBoardTempSensor.h
+    A2D_Serial.h
     ADC_HW_EB7022597.h
     Aircraft.h
     Arinc_IRS.h
