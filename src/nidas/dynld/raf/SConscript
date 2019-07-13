@@ -10,6 +10,7 @@ sources = Split("""
     ADC_HW_EB7022597.cc
     Aircraft.cc
     Arinc_IRS.cc
+    ARINC_UDP.cc
     BCPD_Serial.cc
     CDP_Serial.cc
     CVI_LV_Input.cc
@@ -59,6 +60,7 @@ headers = Split("""
     ADC_HW_EB7022597.h
     Aircraft.h
     Arinc_IRS.h
+    ARINC_UDP.h
     BCPD_Serial.h
     CDP_Serial.h
     CVI_LV_Input.h
