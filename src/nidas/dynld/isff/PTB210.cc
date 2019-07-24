@@ -57,8 +57,8 @@ const char* PTB210::SENSOR_SINGLE_SAMP_CMD_STR = ".P\r";
 const char* PTB210::SENSOR_START_CONT_SAMP_CMD_STR = ".BP\r";
 const char* PTB210::SENSOR_STOP_CONT_SAMP_CMD_STR = "\r\r";
 const char* PTB210::SENSOR_SAMP_UNIT_CMD_STR = ".UNIT.\r";
-const char* PTB210::SENSOR_EXC_UNIT_CMD_STR = ".FORM.0";
-const char* PTB210::SENSOR_INC_UNIT_CMD_STR = ".FORM.1";
+const char* PTB210::SENSOR_EXC_UNIT_CMD_STR = ".FORM.0\r";
+const char* PTB210::SENSOR_INC_UNIT_CMD_STR = ".FORM.1\r";
 const char* PTB210::SENSOR_CORRECTION_ON_CMD_STR = ".MPCON\r";
 const char* PTB210::SENSOR_CORRECTION_OFF_CMD_STR = ".MPCOFF\r";
 const char* PTB210::SENSOR_TERM_ON_CMD_STR = ".RON\r";
@@ -478,6 +478,8 @@ void PTB210::sendScienceParameters() {
     }
     sendSensorCmd(SENSOR_RESET_CMD);
     usleep(SENSOR_RESET_WAIT_TIME);
+    sendSensorCmd(SENSOR_RESET_CMD);
+    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB210::checkScienceParameters() {
@@ -731,7 +733,7 @@ void PTB210::sendSensorCmd(int cmd, n_c::SensorCmdArg arg, bool resetNow)
     // give it some time between chars - i.e. ~80 words/min rate
     DLOG(("Sending command: "));
     DLOG((snsrCmd.c_str()));
-    writePause((const void*)snsrCmd.c_str(), snsrCmd.length());
+    writePause((const void*)snsrCmd.c_str(), snsrCmd.length(), USECS_PER_MSEC*120);
 
     // Check whether the client wants to send a reset command for those that require it to take effect
     switch (cmd) {
