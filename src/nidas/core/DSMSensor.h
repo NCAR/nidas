@@ -47,6 +47,7 @@
 #include <string>
 #include <list>
 #include <fcntl.h>
+#include <unistd.h>
 
 using namespace nidas::util;
 
@@ -811,14 +812,11 @@ public:
     virtual size_t writePause(const void *buf, size_t len, int pause=CHAR_WRITE_DELAY)
         throw(nidas::util::IOException)
     {
-        int secs = pause / USECS_PER_SEC;
-        int usecs = pause % USECS_PER_SEC;
-        struct timespec writeWait = {secs, usecs};
         unsigned int i=0;
         const char* pChar = (const char*)buf;
         for (; i<len; ++i) {
             write(&(pChar[i]), 1);
-            nanosleep(&writeWait, 0);
+            usleep(pause);
         }
         DLOG(("write() sent ") << i);
 
