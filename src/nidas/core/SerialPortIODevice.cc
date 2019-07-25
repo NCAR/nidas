@@ -126,7 +126,11 @@ void SerialPortIODevice::checkXcvrCtrlAvailable(const std::string& name)
 
         else {
             // names are the same, so don't do it again...
-            VLOG(("Seems like the names are the same, so don't instantiate it again..."));
+            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): Seems like the names are the same, so don't instantiate it again..."));
+            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): But make sure the port is captured correctly..."));
+            XcvrConfig xcvrConfig = _pXcvrCtrl->getXcvrConfig();
+            xcvrConfig.port = SerialXcvrCtrl::devName2PortDef(name);
+            _pXcvrCtrl->setXcvrConfig(xcvrConfig);
             return;
         }
     }
