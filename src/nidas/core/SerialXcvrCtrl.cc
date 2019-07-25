@@ -225,11 +225,11 @@ n_u::GPIO_PORT_DEFS SerialXcvrCtrl::devName2PortDef(std::string devName)
 {
     unsigned int portID = std::numeric_limits<uint32_t>::max();
     // assume that all DSM ports are tty[DSM|USB][0-7]
-    std::string ttyBase = "tty";
-    std::size_t foundAt = devName.find(ttyBase);
+    std::string ttyEndChars = "MB";
+    std::size_t foundAt = devName.find_last_of(ttyEndChars);
     if (foundAt != std::string::npos) {
-        const char* nameStr = devName.c_str();
-        const char* portChar = &nameStr[ttyBase.length()+3];
+        std::string portChar = devName.substr(foundAt+1, 1);
+        VLOG(("SerialXcvrCtrl::devName2PortDef(): Found port char, ") << portChar << ", in " << devName);
         std::istringstream portStream(portChar);
 
         try {
