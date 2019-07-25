@@ -478,8 +478,6 @@ void PTB210::sendScienceParameters() {
     }
     sendSensorCmd(SENSOR_RESET_CMD);
     usleep(SENSOR_RESET_WAIT_TIME);
-    sendSensorCmd(SENSOR_RESET_CMD);
-    usleep(SENSOR_RESET_WAIT_TIME);
 }
 
 bool PTB210::checkScienceParameters() {
