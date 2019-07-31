@@ -108,8 +108,8 @@ void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
         if(stag->getSampleId()==1) {
-            _nvars = stag->getVariables().size();
-            if (_nvars != 9) {
+            _nHskp= stag->getVariables().size();
+            if (_nHskp!= 9) {
                 throw n_u::InvalidParameterException(getName(),
                 "unexpected number of variables", " in processSOR sample");
             }
@@ -138,7 +138,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
     const char * cp = ::strchr(input,sep);
-    for (size_t ifield = 0; ifield < _nvars && cp; ifield++){
+    for (size_t ifield = 0; ifield < _nHskp && cp; ifield++){
         input = cp + 1;
 	cp = ::strchr(input, sep);
 
