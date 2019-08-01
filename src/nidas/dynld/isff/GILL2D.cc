@@ -142,21 +142,45 @@ const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
  * For non-heated models, H is also not settable.
  *
  * A0 B3 C1 E1 F1 G0000 H1 J1 K1 L1 M2 NA O1 P1 T1 U1 V1 X1 Y1 Z1
+ * A2 B3 C1 E1 F1 G0000 J1 K1 L2 M2 NA O2 P6 T1 U1 V1 X1 Y1 Z1
  *
  */
 
 
 // regular expression strings, contexts, compilation
 static const regex GILL2D_RESPONSE_REGEX_STR("[[:space:]]+"
-											 "A([[:digit:]]) B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
-		                                     "G[[:digit:]]{4} H[[:digit:]] J[[:digit:]] K[[:digit:]] L[[:digit:]] "
+											 "A[[:digit:]] B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
+		                                     "G[[:digit:]]{4} (H[[:digit:]] )?J[[:digit:]] K[[:digit:]] L[[:digit:]] "
 		                                     "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] T[[:digit:]] "
 		                                     "U[[:digit:]] V[[:digit:]] X[[:digit:]] Y[[:digit:]] Z[[:digit:]]");
 static const regex GILL2D_COMPARE_REGEX_STR("[[:space:]]+"
 											"A([[:digit:]]) B([[:digit:]]) C([[:digit:]]) E([[:digit:]]) F([[:digit:]]) "
-		                                    "G([[:digit:]]{4}) H([[:digit:]]) J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
+		                                    "G([[:digit:]]{4}) (H([[:digit:]]) )?J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
 		                                    "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) T([[:digit:]]) "
 		                                    "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) Y([[:digit:]]) Z([[:digit:]])");
+
+static const int A_VAL_CAPTURE_IDX = 1;
+static const int B_VAL_CAPTURE_IDX = A_VAL_CAPTURE_IDX+1;
+static const int C_VAL_CAPTURE_IDX = B_VAL_CAPTURE_IDX+1;
+static const int E_VAL_CAPTURE_IDX = C_VAL_CAPTURE_IDX+1;
+static const int F_VAL_CAPTURE_IDX = E_VAL_CAPTURE_IDX+1;
+static const int G_VAL_CAPTURE_IDX = F_VAL_CAPTURE_IDX+1;
+static const int H_FIELD_CAPTURE_IDX = G_VAL_CAPTURE_IDX+1;
+static const int H_VAL_CAPTURE_IDX = H_FIELD_CAPTURE_IDX+1;
+static const int J_VAL_CAPTURE_IDX = H_VAL_CAPTURE_IDX+1;
+static const int K_VAL_CAPTURE_IDX = J_VAL_CAPTURE_IDX+1;
+static const int L_VAL_CAPTURE_IDX = K_VAL_CAPTURE_IDX+1;
+static const int M_VAL_CAPTURE_IDX = L_VAL_CAPTURE_IDX+1;
+static const int N_VAL_CAPTURE_IDX = M_VAL_CAPTURE_IDX+1;
+static const int O_VAL_CAPTURE_IDX = N_VAL_CAPTURE_IDX+1;
+static const int P_VAL_CAPTURE_IDX = O_VAL_CAPTURE_IDX+1;
+static const int T_VAL_CAPTURE_IDX = P_VAL_CAPTURE_IDX+1;
+static const int U_VAL_CAPTURE_IDX = T_VAL_CAPTURE_IDX+1;
+static const int V_VAL_CAPTURE_IDX = U_VAL_CAPTURE_IDX+1;
+static const int X_VAL_CAPTURE_IDX = V_VAL_CAPTURE_IDX+1;
+static const int Y_VAL_CAPTURE_IDX = X_VAL_CAPTURE_IDX+1;
+static const int Z_VAL_CAPTURE_IDX = Y_VAL_CAPTURE_IDX+1;
+
 static const regex GILL2D_CONFIG_MODE_REGEX_STR("[[:space:]]+CONFIGURATION MODE");
 static const regex GILL2D_SERNO_REGEX_STR("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
 static const regex GILL2D_FW_VER_REGEX_STR("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
@@ -565,76 +589,76 @@ bool GILL2D::checkScienceParameters()
         }
 
         else {
-            if (results[1].matched) {
-                VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(1));
-                scienceParametersOK = compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(1).c_str());
-                updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(1)));
+            if (results[A_VAL_CAPTURE_IDX].matched) {
+                VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(A_VAL_CAPTURE_IDX));
+                scienceParametersOK = compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(A_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(A_VAL_CAPTURE_IDX)));
             }
 
-			if (scienceParametersOK && results[6].matched) {
-				VLOG(("Checking sample averaging time(G) with argument: ") << results.str(6));
-				scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(6).c_str());
-				updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(6)));
+			if (scienceParametersOK && results[G_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking sample averaging time(G) with argument: ") << results.str(G_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(G_VAL_CAPTURE_IDX).c_str());
+				updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(G_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[7].matched) {
-				VLOG(("Checking heater status(H) with argument: ") << results.str(7));
-				scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, results.str(7).c_str());
-                updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(7)));
+			if (scienceParametersOK && results[H_FIELD_CAPTURE_IDX].matched) {
+				VLOG(("Checking heater status(H) with argument: ") << results.str(H_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, results.str(H_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(H_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[9].matched) {
-				VLOG(("Checking NMEA string(K) with argument: ") << results.str(9));
-				scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(9).c_str());
-                updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(9)));
+			if (scienceParametersOK && results[K_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking NMEA string(K) with argument: ") << results.str(K_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(K_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(K_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[10].matched) {
-				VLOG(("Checking message termination(L) with argument: ") << results.str(10));
-				scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(10).c_str());
-                updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(10)));
+			if (scienceParametersOK && results[L_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking message termination(L) with argument: ") << results.str(L_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(L_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(L_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[11].matched) {
-				VLOG(("Checking message stream format(M) with argument: ") << results.str(11));
-				scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(11).c_str());
-                updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(11)));
+			if (scienceParametersOK && results[M_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking message stream format(M) with argument: ") << results.str(M_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(M_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(M_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[12].matched) {
-				VLOG(("Checking node address(N) with argument: ") << results.str(12));
-				scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(12).c_str());
-                updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(12)));
+			if (scienceParametersOK && results[N_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking node address(N) with argument: ") << results.str(N_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(N_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(N_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[13].matched) {
-				VLOG(("Checking output field format(O) with argument: ") << results.str(13));
-				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(13).c_str());
-                updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(13)));
+			if (scienceParametersOK && results[O_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking output field format(O) with argument: ") << results.str(O_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(O_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(O_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[14].matched) {
-				VLOG(("Checking output rate(P) with argument: ") << results.str(14));
-				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, results.str(14).c_str());
-                updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, results.str(14)));
+			if (scienceParametersOK && results[P_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking output rate(P) with argument: ") << results.str(P_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, results.str(P_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, results.str(P_VAL_CAPTURE_IDX)));
 		}
 
-			if (scienceParametersOK && results[16].matched) {
-				VLOG(("Checking wind speed units(U) with argument: ") << results.str(16));
-				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(16).c_str());
-                updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(16)));
+			if (scienceParametersOK && results[U_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking wind speed units(U) with argument: ") << results.str(U_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(U_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(U_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[17].matched) {
-				VLOG(("Checking vertical output pad(V) with argument: ") << results.str(17));
-				scienceParametersOK = compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(17).c_str());
-                updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(17)));
+			if (scienceParametersOK && results[V_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking vertical output pad(V) with argument: ") << results.str(V_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(V_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(V_VAL_CAPTURE_IDX)));
 			}
 
-			if (scienceParametersOK && results[18].matched) {
-				VLOG(("Checking sensor alignment(X) with argument: ") << results.str(18));
-				scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(18).c_str());
-                updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(18)));
+			if (scienceParametersOK && results[X_VAL_CAPTURE_IDX].matched) {
+				VLOG(("Checking sensor alignment(X) with argument: ") << results.str(X_VAL_CAPTURE_IDX));
+				scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(X_VAL_CAPTURE_IDX).c_str());
+                updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(X_VAL_CAPTURE_IDX)));
 			}
 		}
     }
