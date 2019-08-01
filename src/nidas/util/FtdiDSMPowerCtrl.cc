@@ -31,7 +31,7 @@ namespace nidas { namespace util {
 const std::string FtdiDSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
     std::string powerStr("");
-    if (powerCfg & pwrGpio2bits(getPwrIface())) {
+    if (powerCfg & _pwrBit) {
         powerStr.append(STR_POWER_ON);
     }
     else {
@@ -44,7 +44,7 @@ const std::string FtdiDSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 POWER_STATE FtdiDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
     POWER_STATE retval = POWER_OFF;
-    if (powerCfg & pwrGpio2bits(getPwrIface())) {
+    if (powerCfg & _pwrBit) {
         retval = POWER_ON;
     }
 
@@ -53,7 +53,7 @@ POWER_STATE FtdiDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(GPIO_PORT_DEFS gpio)
-: FtdiDSMPowerGPIO(), PowerCtrlAbs(), _iface(gpio)
+: FtdiDSMPowerGPIO(), PowerCtrlAbs(), _pwrPort(gpio), _pwrBit(pwrGpio2bits(gpio))
 {
     updatePowerState();
 }
@@ -61,11 +61,10 @@ FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(GPIO_PORT_DEFS gpio)
 void FtdiDSMPowerCtrl::pwrOn()
 {
     if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(pwrGpio2bits(getPwrIface()), pwrGpio2bits(getPwrIface()));
+        setBit(_pwrBit);
     }
     else {
-        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrIface())
+        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrPort())
         																  << " is not enabled");
     }
     updatePowerState();
@@ -74,11 +73,10 @@ void FtdiDSMPowerCtrl::pwrOn()
 void FtdiDSMPowerCtrl::pwrOff()
 {
     if (pwrCtrlEnabled()) {
-        Sync sync(this);
-        write(0, pwrGpio2bits(getPwrIface()));
+        resetBit(_pwrBit);
     }
     else {
-        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrIface())
+        ILOG(("FtdiDSMPowerCtrl::FtdiDSMPowerCtrl(): Power control for device: ") << gpio2Str(getPwrPort())
         																  << " is not enabled");
     }
     updatePowerState();
@@ -86,7 +84,6 @@ void FtdiDSMPowerCtrl::pwrOff()
 
 void FtdiDSMPowerCtrl::updatePowerState()
 {
-    Sync sync(this);
     setPowerState(rawPowerToState(read()));
     DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
 }

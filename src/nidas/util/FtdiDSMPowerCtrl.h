@@ -78,13 +78,13 @@ public:
     virtual void pwrOff();
     virtual void print()
     {
-        std::cout << gpio2Str(getPwrIface()) << " ";
+        std::cout << gpio2Str(getPwrPort()) << " ";
         PowerCtrlAbs::print();
     }
 
     bool ifaceAvailable() {return FtdiDSMPowerGPIO::ifaceFound(); }
 
-    GPIO_PORT_DEFS getPwrIface() {return _iface;}
+    GPIO_PORT_DEFS getPwrPort() {return _pwrPort;}
 
     std::string getPowerStateStr() {
         return rawPowerToStr(read());
@@ -97,7 +97,8 @@ public:
     POWER_STATE rawPowerToState(unsigned char powerCfg);
 
 private:
-    GPIO_PORT_DEFS _iface;
+    GPIO_PORT_DEFS _pwrPort;
+    const unsigned char _pwrBit;
 };
 
 }} //namespace nidas { namespace util {

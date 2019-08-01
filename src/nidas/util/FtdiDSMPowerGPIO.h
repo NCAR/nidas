@@ -39,51 +39,14 @@ namespace nidas { namespace util {
 class FtdiDSMPowerGPIO : public GpioIF
 {
 public:
-    /*
-     *  Because multiple specializations may exist on a single FTDI device interface
-     *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
-     *
-     *  Specializations of FtdiDSMPowerGPIO should use the Sync class to protect their operations on
-     *  the interface which they are concerned.
-     */
-    class Sync : public Synchronized
-    {
-    public:
-        // TODO: When the reworked FTDI USB Serial Interface board comes out then the FTDI interface used
-        //       for DSM power control will be INTERFACE_C
-        Sync(FtdiDSMPowerGPIO* me) : Synchronized(_ifaceACondVar), _me(me)
-        {
-            DLOG(("Synced on interface A"));
-        }
-        ~Sync()
-        {
-            DLOG(("Sync released on interface A"));
-            _me = 0;
-        }
-    private:
-        static Cond _ifaceACondVar;
-        FtdiDSMPowerGPIO* _me;
-
-
-        // no copying
-        Sync(const Sync& rRight);
-        Sync& operator=(const Sync& rRight);
-        Sync& operator=(Sync& rRight);
-    };
-
     FtdiDSMPowerGPIO()
     : _pFtdiDevice(0), _shadow(0)
     {
         try {
-            // See TODO above
-            _pFtdiDevice = getFtdiDevice(FTDI_I2C, INTERFACE_A);
+            _pFtdiDevice = getFtdiDevice(FTDI_I2C, INTERFACE_C);
         }
         catch (InvalidParameterException& e) {
             _pFtdiDevice = 0;
-        }
-
-        if (ifaceFound()) {
-            _pFtdiDevice->setMode(0xFF, BITMODE_BITBANG);
         }
     }
 
@@ -103,54 +66,65 @@ public:
         return retval;
     }
 
-    virtual void write(unsigned char bits)
+    unsigned char readBit(unsigned char bit) 
     {
-        if (ifaceFound()) {
-            _pFtdiDevice->write(bits);
-        }
+        return read() & bit;
     }
 
-    virtual void write(unsigned char bits, unsigned char mask)
+    virtual void write(unsigned char bits)
+    {
+        _pFtdiDevice->write(bits);
+    }
+
+    void setBit(unsigned char bit)
     {
         unsigned char rawBits = _shadow;
         if (ifaceFound()) {
             rawBits = _pFtdiDevice->read();
             DLOG(("FtdiDSMPowerGPIO::write(): Raw bits: 0x%0x", rawBits));
-            rawBits &= ~mask;
-            rawBits |= bits;
+            rawBits |= bit;
             DLOG(("FtdiDSMPowerGPIO::write(): New bits: 0x%0x", rawBits));
             write(rawBits);
             _shadow = rawBits;
         }
         else {
-            rawBits &= ~mask;
-            rawBits |= bits;
+            rawBits |= bit;
+            _shadow = rawBits;
+        }
+    }
+
+    void resetBit(unsigned char bit)
+    {
+        unsigned char rawBits = _shadow;
+        if (ifaceFound()) {
+            rawBits = _pFtdiDevice->read();
+            DLOG(("FtdiDSMPowerGPIO::write(): Raw bits: 0x%0x", rawBits));
+            rawBits &= ~bit;
+            DLOG(("FtdiDSMPowerGPIO::write(): New bits: 0x%0x", rawBits));
+            write(rawBits);
+            _shadow = rawBits;
+        }
+        else {
+            rawBits &= ~bit;
             _shadow = rawBits;
         }
     }
 
     ftdi_interface getInterface()
     {
-        ftdi_interface retval = INTERFACE_A;
-        if (_pFtdiDevice) {
-            retval =_pFtdiDevice->getInterface();
-        }
-        return retval;
+        return _pFtdiDevice->getInterface();
     }
 
     bool ifaceFound()
     {
-        bool retval = false;
-        if (_pFtdiDevice) {
-            retval = _pFtdiDevice->ifaceFound();
-        }
-        return retval;
+        return _pFtdiDevice->ifaceFound();
     }
 
 private:
+    // Does the work of actually opening, reading, writing and closing device
     FtdiHwIF* _pFtdiDevice;
 
-    // only used for testing
+    // only used for testing when there is no actual device.
     unsigned char _shadow;
 
     /*
