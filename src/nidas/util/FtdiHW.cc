@@ -90,5 +90,4 @@ const char* iface2Str(ftdi_interface iface)
     return ifaceIllegalStr;
 }
 
-
 }} // namespace nidas { namespace util {

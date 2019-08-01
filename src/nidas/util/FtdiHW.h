@@ -103,6 +103,52 @@ template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 class FtdiGpio : public FtdiHwIF
 {
 public:
+    /*
+     *  Because multiple specializations may exist on a single FTDI device interface
+     *  (Xcvr control and power control, for instance), Sync is used to control access 
+     *  to the FTDI interface one thread at a time.
+     *
+     *  Specializations of FtdiGpio should use the Sync class to protect their operations on
+     *  the interface on which they are acting. However, care must be taken to not instantiate 
+     *  Sync on a method which calls an FtdiGpio method which already instantiates Sync. This 
+     *  may result in a deadlock. If there are cases where a specialization must synchronize, 
+     *  but also must call an FtdiGpio method which is synchronized, then the leaf method must 
+     *  ensure that the Sync object it employs is destroyed prior to invoking the FtidGpio  
+     *  synchronized method. Typically, this is done by putting the code which must be 
+     *  synchronized inside a block which is closed prior to calling the FtdiGpio synchronized 
+     *  method.
+     * 
+     *  SpecialFtdiGpio::method() 
+     *  {
+     *     {
+     *         Sync(this);
+     *            :
+     *         // do more stuff
+     *            :
+     *     }
+     *     FtdiGpio::write(...);
+     *  }
+     */
+    class Sync : public Synchronized
+    {
+    public:
+        Sync() : Synchronized(_ifaceCondVar)
+        {
+            DLOG(("Synced on interface ") << iface2Str(IFACE));
+        }
+        ~Sync()
+        {
+            DLOG(("Sync released on interface ") << iface2Str(IFACE));
+        }
+    private:
+        static Cond _ifaceCondVar;
+
+        // no copying
+        Sync(const Sync& rRight);
+        Sync& operator=(const Sync& rRight);
+        Sync& operator=(Sync& rRight);
+    };
+
     // static singleton getter
     static FtdiGpio<DEVICE, IFACE>* getFtdiGpio(const std::string manufStr = "UCAR", const std::string productStr = "GPIO");
 
@@ -160,6 +206,7 @@ private:
     std::string _manufStr;
     std::string _productStr;
     bool _foundIface;
+    int _pinDirection;
 
     /*
      *  FtdiGpio<DEVICE, IFACE> constructor/destructor.
@@ -177,9 +224,11 @@ private:
     FtdiGpio& operator=(FtdiGpio& rRight);
 };
 
+template<FTDI_DEVICES DEVICE, ftdi_interface IFACE> Cond FtdiGpio<DEVICE, IFACE>::Sync::_ifaceCondVar;
+
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>* FtdiGpio<DEVICE, IFACE>::getFtdiGpio(const std::string manufStr, const std::string productStr)
-{
+{   Sync();
     if (!_pFtdiDevice) {
         DLOG(("Constructing FtdiGpio<%s, %s> singleton",
               device2Str(DEVICE), iface2Str(IFACE)));
@@ -195,12 +244,12 @@ void FtdiGpio<DEVICE, IFACE>::deleteFtdiGpio()
     delete _pFtdiDevice;
 }
 
-
-
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string productStr)
-: _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundIface(false)
+: _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundIface(false),
+  _pinDirection(0xFF)
 {
+    Sync();
     if (_pContext) {
         DLOG(("FtdiGpio<%s, %s>(): set interface...",
             device2Str(DEVICE), iface2Str(IFACE)));
@@ -212,7 +261,31 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
             if (isOpen()) {
                 DLOG(("FtdiGpio<%s, %s>(): set bitbang mode",
                     device2Str(DEVICE), iface2Str(IFACE)));
-                if (setMode(0xFF, BITMODE_BITBANG)) {
+                if (DEVICE == FTDI_I2C) {
+                    switch (IFACE) {
+                        case INTERFACE_A:
+                        case INTERFACE_B:
+                            // expect these to have mpsse ports in top nibble
+                            // outputs on the bottom nibble
+                            _pinDirection = 0x0F;
+                            break;
+                        case INTERFACE_C:
+                            // switches come in on bits 3 & 4, LED indicators 
+                            // on bits 0 and 1, GPIO on the top nibble for power 
+                            // ctrl
+                            _pinDirection = 0xFC;
+                            break;
+                        case INTERFACE_D:
+                            // Used for UBLOX serial port
+                            break;
+                        default:
+                            throw InvalidParameterException("Nidas::util::", std::string("FtdiGpio<") + std::string(device2Str(DEVICE)) 
+                                                                             + std::string(", UNKNOWN>::FtdiGpio()"), 
+                                                            "Invalid parameter for FTDI interface");
+                            break;
+                    }
+                }
+                if (setMode(_pinDirection, BITMODE_BITBANG)) {
                     DLOG(("FtdiGpio<%s, %s>(): Successfully set mode to bitbang",
                         device2Str(DEVICE), iface2Str(IFACE)));
                 }
@@ -241,6 +314,7 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
 {
+    Sync();
     DLOG(("Destroying FtdiGpio<%s, %s>...", device2Str(DEVICE), iface2Str(IFACE)));
     if (_pContext) {
         ftdi_usb_close(_pContext);
@@ -248,7 +322,6 @@ FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
         _pContext = 0;
     }
 }
-
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::open()
@@ -308,6 +381,7 @@ void FtdiGpio<DEVICE, IFACE>::close()
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 unsigned char FtdiGpio<DEVICE, IFACE>::read()
 {
+    Sync();
     unsigned char pins = 0;
     if (ifaceFound()) {
         open();
@@ -338,6 +412,7 @@ unsigned char FtdiGpio<DEVICE, IFACE>::read()
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::write(unsigned char pins)
 {
+    Sync();
     if (ifaceFound()) {
         open();
         if (ftdi_write_data(_pContext, &pins, 1) < 0) {
@@ -459,8 +534,6 @@ inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
     }
     return pFtdiDevice;
 }
-
-
 
 }} //namespace nidas { namespace util {
 
