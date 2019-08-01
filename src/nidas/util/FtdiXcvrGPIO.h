@@ -68,91 +68,27 @@ const unsigned char XCVR_BITS_TERM =      0b00000100;
 const unsigned char SENSOR_BITS_POWER =     0b00001000;
 
 /*
- *  Class XcvrGPIO provides the means to access the FTDI FT4232H device
+ *  Class FtdiXcvrGPIO provides the means to access the FTDI FT4232H device
  *  which is designated for serial transceiver and power control. If a FT4232H
  *  device is not found, then a simple shadow register will be used for testing
  *  purposes only.
  */
-class XcvrGPIO : public GpioIF
+class FtdiXcvrGPIO : public GpioIF
 {
 public:
-    /*
-     *  Because multiple specializations may exist on a single FTDI device interface
-     *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
-     *
-     *  Specializations of XcvrGPIO should use the Sync class to protect their operations on
-     *  the interface which they are concerned.
-     */
-    class Sync : public Synchronized
-    {
-    public:
-        Sync(XcvrGPIO* me) : Synchronized(Sync::selectIfaceLock(port2iface(me->getPort()))), _me(me)
-        {
-            ftdi_interface iface = port2iface(me->getPort());
-            DLOG(("Synced on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
-                                            iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
-        }
-        ~Sync()
-        {
-            ftdi_interface iface = port2iface(_me->getPort());
-            DLOG(("Sync released on interface %c", iface == INTERFACE_A ? 'A' : iface == INTERFACE_B ? 'B' :
-                                                    iface == INTERFACE_C ? 'C' : iface == INTERFACE_D ? 'D' : '?'));
-            _me = 0;
-        }
-    private:
-        static Cond _ifaceACondVar;
-        static Cond _ifaceBCondVar;
-        static Cond _ifaceCCondVar;
-        static Cond _ifaceDCondVar;
-        XcvrGPIO* _me;
-
-        static Cond& selectIfaceLock(ftdi_interface iface)
-        {
-            Cond* pCond = 0;
-            switch (iface) {
-            case INTERFACE_A:
-                pCond = &_ifaceACondVar;
-                break;
-            case INTERFACE_B:
-                pCond = &_ifaceBCondVar;
-                break;
-            case INTERFACE_C:
-                pCond = &_ifaceCCondVar;
-                break;
-            case INTERFACE_D:
-                pCond = &_ifaceDCondVar;
-                break;
-            default:
-                throw InvalidParameterException("Sync::selectIfaceMutex(): Unknown FTDI interface value");
-            }
-
-            return *pCond;
-        }
-
-        // no copying
-        Sync(const Sync& rRight);
-        Sync& operator=(const Sync& rRight);
-        Sync& operator=(Sync& rRight);
-    };
-
-    XcvrGPIO(GPIO_PORT_DEFS port)
+    FtdiXcvrGPIO(GPIO_PORT_DEFS port)
     : _pFtdiDevice(0), _port(port), _shadow(0)
     {
-        try {
-            _pFtdiDevice = getFtdiDevice(FTDI_GPIO, port2iface(port));
-        }
-        catch (InvalidParameterException& e) {
-            _pFtdiDevice = 0;
-        }
+        _pFtdiDevice = getFtdiDevice(FTDI_GPIO, port2iface(port));
 
         if (ifaceFound()) {
             _pFtdiDevice->setMode(0xFF, BITMODE_BITBANG);
         }
     }
 
-    virtual ~XcvrGPIO()
+    virtual ~FtdiXcvrGPIO()
     {
-        DLOG(("XcvrGPIO::~XcvrGPIO(): destructing..."));
+        DLOG(("FtdiXcvrGPIO::~FtdiXcvrGPIO(): destructing..."));
         // don't delete _pFtdiDevice, because someone else may be using it
         _pFtdiDevice = 0;
     }
@@ -161,20 +97,12 @@ public:
 
     bool ifaceFound()
     {
-        bool retval = false;
-        if (_pFtdiDevice) {
-            retval = _pFtdiDevice->ifaceFound();
-        }
-        return retval;
+        return _pFtdiDevice->ifaceFound();
     }
 
     ftdi_interface getInterface()
     {
-        ftdi_interface retval = port2iface(_port);
-        if (_pFtdiDevice) {
-            retval =_pFtdiDevice->getInterface();
-        }
-        return retval;
+        return _pFtdiDevice->getInterface();
     }
 
     virtual void write(unsigned char bits)
@@ -187,10 +115,10 @@ public:
         unsigned char rawBits = _shadow;
         if (ifaceFound()) {
             rawBits = _pFtdiDevice->read();
-            DLOG(("XcvrGPIO::write(): Raw bits: 0x%0x", rawBits));
+            DLOG(("FtdiXcvrGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits &= ~adjustBitPosition(mask);
             rawBits |= adjustBitPosition(bits);
-            DLOG(("XcvrGPIO::write(): New bits: 0x%0x", rawBits));
+            DLOG(("FtdiXcvrGPIO::write(): New bits: 0x%0x", rawBits));
             write(rawBits);
         }
         else {
@@ -205,7 +133,7 @@ public:
         unsigned char retval = adjustBitPosition(_shadow, true);
         if (ifaceFound()) {
             retval = adjustBitPosition(_pFtdiDevice->read(), true);
-            DLOG(("XcvrGPIO::read(): Actually read the device and the value is: 0x%02x", retval));
+            DLOG(("FtdiXcvrGPIO::read(): Actually read the device and the value is: 0x%02x", retval));
         }
         return retval;
     }
@@ -234,9 +162,9 @@ private:
      *  No copying
      */
 
-    XcvrGPIO(const XcvrGPIO&);
-    XcvrGPIO& operator=(XcvrGPIO&);
-    const XcvrGPIO& operator=(const XcvrGPIO&);
+    FtdiXcvrGPIO(const FtdiXcvrGPIO&);
+    FtdiXcvrGPIO& operator=(FtdiXcvrGPIO&);
+    const FtdiXcvrGPIO& operator=(const FtdiXcvrGPIO&);
 };
 
 }} //namespace nidas { namespace util {
