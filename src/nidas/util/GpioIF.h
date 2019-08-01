@@ -47,7 +47,8 @@ namespace nidas { namespace util {
 enum GPIO_PORT_DEFS {ILLEGAL_PORT=-1,
                      SER_PORT0=0, SER_PORT1, SER_PORT2, SER_PORT3,
                      SER_PORT4, SER_PORT5, SER_PORT6, SER_PORT7,
-                     PWR_28V, PWR_AUX, PWR_BANK1, PWR_BANK2, PWR_BTCON};
+                     PWR_28V, PWR_AUX, PWR_BANK1, PWR_BANK2, PWR_BTCON,
+                     DEFAULT_SW, WIFI_SW};
 // At present there are only 7 available ports on a DSM
 const GPIO_PORT_DEFS MAX_SER_PORT = SER_PORT7;
 
@@ -65,6 +66,8 @@ static const char* GPIO_STR_AUX =       "GPIO_PWR_AUX";
 static const char* GPIO_STR_BANK1 =     "GPIO_PWR_BANK1";
 static const char* GPIO_STR_BANK2 =     "GPIO_PWR_BANK2";
 static const char* GPIO_STR_BTCON =     "GPIO_PWR_BTCON";
+static const char* GPIO_STR_DEFAULT_SW4 = "GPIO_DEFAULT_SW4";
+static const char* GPIO_STR_WIFI_SW3 =    "GPIO_WIFI_SW3";
 
 inline std::string gpio2Str(GPIO_PORT_DEFS gpio) {
     std::string retval;
@@ -108,6 +111,12 @@ inline std::string gpio2Str(GPIO_PORT_DEFS gpio) {
         break;
     case PWR_BTCON:
         retval.append(GPIO_STR_BTCON);
+        break;
+    case DEFAULT_SW:
+        retval.append(GPIO_STR_DEFAULT_SW4);
+        break;
+    case WIFI_SW:
+        retval.append(GPIO_STR_WIFI_SW3);
         break;
     case ILLEGAL_PORT:
     default:

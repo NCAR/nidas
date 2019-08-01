@@ -46,6 +46,7 @@
 #include "nidas/core/NidasApp.h"
 #include "nidas/util/SensorPowerCtrl.h"
 #include "nidas/util/DSMPowerCtrl.h"
+#include "nidas/util/DSMSwitchCtrl.h"
 #include "nidas/util/util.h"
 
 using namespace nidas::core;
@@ -61,14 +62,16 @@ DeviceArgMapType deviceArgMap;
 
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2",
+NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2|btcon|default_sw|wifi_sw",
         		 "DSM devices for which power setting is managed - \n"
 		         "     0-7         - Sensors 0-7 port power \n"
                  "     28V         - 28 volt power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
                  "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
                  "     bank2|BANK2 - bank2 12V power port\n"
-                 "     btcon|BTCON - bluetooth console hat board on Rpi",
+                 "     btcon|BTCON - bluetooth console hat board on Rpi"
+                 "     default_sw  - detects default switch, SW4 on FTDI USB Serial Board"
+                 "     wifi_sw  -    detects wifi switch, SW3 on FTDI USB Serial Board",
                  "");
 NidasAppArg Map("-m,--map", "",
 			      "Output the devices for which power can be controlled and exit", "");
@@ -158,6 +161,8 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BTCON"), PWR_BTCON));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("DEF_SW"), DEFAULT_SW));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("WIFI_SW"), WIFI_SW));
 
     if (parseRunString(argc, argv))
         exit(1);
@@ -180,10 +185,20 @@ int main(int argc, char* argv[]) {
     if (Device.specified()) {
         std::string deviceArgStr(Device.getValue());
         std::transform(deviceArgStr.begin(), deviceArgStr.end(), deviceArgStr.begin(), ::toupper);
-        deviceArg = deviceArgMap[deviceArgStr];
-        if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, PWR_BTCON))) {
-            std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
-            return 2;
+        if (deviceArgMap.find(deviceArgStr) != deviceArgMap.end()) {
+            deviceArg = deviceArgMap[deviceArgStr];
+            DLOG(("deviceArg == %d", deviceArg));
+            DLOG(("Found %s in deviceArgMap...", gpio2Str(deviceArg).c_str()));
+            if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, WIFI_SW))) {
+                std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
+                usage(argv[0]);
+                return 2;
+            }
+        }
+        else {
+            std::cerr << deviceArgStr << " is not a valid device type!" << std::endl;
+            usage(argv[0]);
+            return 6;
         }
     }
 
@@ -195,55 +210,81 @@ int main(int argc, char* argv[]) {
     }
 
     PowerCtrlIf* pPwrCtrl = 0;
+    DSMSwitchCtrl* pSwCtrl = 0;
     if (deviceArg < PWR_28V) {
         DLOG(("Instantiating SensorPowerCtrl object..."));
         pPwrCtrl = new SensorPowerCtrl(deviceArg);
     }
-    else {
+    else if (deviceArg < PWR_28V) {
         DLOG(("Instantiating DSMPowerCtrl object..."));
         pPwrCtrl = new DSMPowerCtrl(deviceArg);
     }
 
-    if (!pPwrCtrl) {
-        std::cerr << "pio: failed to instantiate power control object for: " << gpio2Str(deviceArg);
+    else {
+        DLOG(("Instantiating DSMSwitchCtrl object..."));
+        pSwCtrl = new DSMSwitchCtrl(deviceArg);
+    }
+
+    if (pPwrCtrl) {
+        PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
+
+        // print out the existing power state of the device
+        std::cout << std::endl << "Current Device Power State"
+                << std::endl << "========================"
+                << std::endl;
+        rPwrCtrl.print();
+
+        // just display power state if -p X is not provided
+        if (!Power.specified()) {
+            return 0;
+        }
+
+        else {
+            std::string pwrStr(Power.getValue());
+            DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
+            std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
+            POWER_STATE power = strToPowerState(pwrStr);
+            DLOG(("Transformed Power State Value: ") << powerStateToStr(power));
+            if (power != ILLEGAL_POWER) {
+                rPwrCtrl.enablePwrCtrl(true);
+                power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
+            }
+            else
+            {
+                std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
+                usage(argv[0]);
+                return 5;
+            }
+        }
+
+        // print out the new power state
+        std::cout << std::endl << "New Power State"
+                << std::endl << "===================="
+                << std::endl;
+        rPwrCtrl.print();
+    }
+    else if (pSwCtrl) {
+        std::cout << "Waiiting for " << gpio2Str(deviceArg) << " switch to be pressed..." << std::endl;
+        // Wait for the switch to be pressed...
+        bool switchPressed = pSwCtrl->switchIsPressed();
+        for (int i=0; !switchPressed && i<60; ++i) {
+            usleep(USECS_PER_SEC/2);
+            switchPressed = pSwCtrl->switchIsPressed();
+        }
+
+        if (!switchPressed) {
+            std::cout << "Did not detect a switch pressed..." << std::endl;
+            return 7;
+        }
+
+        pSwCtrl->ledOn();
+        usleep(USECS_PER_SEC * 10);
+        pSwCtrl->ledOff();
+    }
+    else {
+        std::cerr << "pio: failed to instantiate either power or switch control object for: " << gpio2Str(deviceArg);
         return -1;
     }
-    PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
-
-    // print out the existing power state of the device
-    std::cout << std::endl << "Current Device Power State"
-              << std::endl << "========================"
-              << std::endl;
-    rPwrCtrl.print();
-
-    // just display power state if -p X is not provided
-    if (!Power.specified()) {
-        return 0;
-    }
-
-    else {
-        std::string pwrStr(Power.getValue());
-        DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
-        std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-        POWER_STATE power = strToPowerState(pwrStr);
-        DLOG(("Transformed Power State Value: ") << powerStateToStr(power));
-        if (power != ILLEGAL_POWER) {
-            rPwrCtrl.enablePwrCtrl(true);
-            power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
-        }
-        else
-        {
-            std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
-            usage(argv[0]);
-            return 5;
-        }
-    }
-
-    // print out the new power state
-    std::cout << std::endl << "New Power State"
-              << std::endl << "===================="
-              << std::endl;
-    rPwrCtrl.print();
 
     // all good, return 0
     return 0;

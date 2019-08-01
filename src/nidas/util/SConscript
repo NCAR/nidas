@@ -27,6 +27,7 @@ headers = [ Split("""
     Bzip2FileSet.h
     DatagramPacket.h
     DSMPowerCtrl.h
+    DSMSwitchCtrl.h
     EndianConverter.h
     EOFException.h
     Exception.h
@@ -49,6 +50,7 @@ headers = [ Split("""
     FtdiDSMPowerCtrl.h
     FtdiDSMPowerGPIO.h
     FtdiSensorPowerCtrl.h
+    FtdiSwitchGPIO.h
     Process.h
     ptytools.h
     SensorPowerCtrl.h
@@ -67,7 +69,7 @@ headers = [ Split("""
     UnknownHostException.h
     UTime.h
     util.h
-    XcvrGPIO.h
+    FtdiXcvrGPIO.h
     """)
 ]
 # print(["headers="] + [str(h) for h in headers])
@@ -84,7 +86,6 @@ sources = [ Split("""
     FileSet.cc
     FtdiHW.cc
     FtdiDSMPowerCtrl.cc
-    FtdiDSMPowerGPIO.cc
     FtdiSensorPowerCtrl.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
@@ -107,7 +108,6 @@ sources = [ Split("""
     UnixSocketAddress.cc
     UTime.cc
     util.cc
-    XcvrGPIO.cc
     """)
 ]
 # print(["sources="] + [str(h) for h in sources])
