@@ -94,10 +94,10 @@ class SysfsGpio : public GpioIF
 {
 public:
     /*
-     *  Because multiple specializations may exist on a single FTDI device interface
-     *  (Xcvr control and power control, for instance), Sync selects one mutex per interface.
+     *  Because multiple specializations may exist on a single SysfsGpio interface
+     *  Sync selects one mutex per interface.
      *
-     *  Specializations of XcvrGPIO should use the Sync class to protect their operations on
+     *  Specializations of SysfsGpio should use the Sync class to protect their operations on
      *  the interface which they are concerned.
      */
     class Sync : public Synchronized
