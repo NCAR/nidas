@@ -26,7 +26,7 @@
 #ifndef NIDAS_UTIL_FTDISERIALPOWERCTRL_H
 #define NIDAS_UTIL_FTDISERIALPOWERCTRL_H
 
-#include "XcvrGPIO.h"
+#include "FtdiXcvrGPIO.h"
 #include "PowerCtrlAbs.h"
 
 namespace nidas { namespace util {
@@ -34,7 +34,7 @@ namespace nidas { namespace util {
 /*
  *  This class specializes PowerCtrlIF by providing a manual means to enable/disable power control
  */
-class FtdiSensorPowerCtrl : public XcvrGPIO, public PowerCtrlAbs
+class FtdiSensorPowerCtrl : public FtdiXcvrGPIO, public PowerCtrlAbs
 {
 public:
     FtdiSensorPowerCtrl(GPIO_PORT_DEFS port);
@@ -51,7 +51,7 @@ public:
         PowerCtrlAbs::print();
     }
 
-    bool ifaceAvailable() {return XcvrGPIO::ifaceFound();}
+    bool ifaceAvailable() {return FtdiXcvrGPIO::ifaceFound();}
 
     std::string getPowerStateStr() {
         unsigned char rawPwr = read();

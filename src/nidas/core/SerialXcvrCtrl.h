@@ -29,7 +29,7 @@
 #include <ftdi.h>
 #include <sstream>
 
-#include "nidas/util/XcvrGPIO.h"
+#include "nidas/util/FtdiXcvrGPIO.h"
 #include "nidas/util/util.h"
 
 namespace n_u = nidas::util;
@@ -215,7 +215,7 @@ private:
     // Aggregation of xcvr port knobs to twiddle
     XcvrConfig _xcvrConfig;
     // This is the FTDI object which controls the SP339 xcvr bitbanging on a specific interface.
-    n_u::XcvrGPIO* _pXcvrGPIO;
+    n_u::FtdiXcvrGPIO* _pXcvrGPIO;
 
     // never use copy constructors, operator=
     SerialXcvrCtrl(const SerialXcvrCtrl& rRight);

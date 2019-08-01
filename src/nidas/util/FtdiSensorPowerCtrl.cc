@@ -55,7 +55,7 @@ POWER_STATE FtdiSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 
 
 FtdiSensorPowerCtrl::FtdiSensorPowerCtrl(GPIO_PORT_DEFS port)
-: XcvrGPIO(port), PowerCtrlAbs(), _port(port)
+: FtdiXcvrGPIO(port), PowerCtrlAbs(), _port(port)
 {
     updatePowerState();
 }
@@ -63,7 +63,6 @@ FtdiSensorPowerCtrl::FtdiSensorPowerCtrl(GPIO_PORT_DEFS port)
 void FtdiSensorPowerCtrl::pwrOn()
 {
     if (pwrCtrlEnabled()) {
-        Sync sync(this);
         write(SENSOR_BITS_POWER, SENSOR_BITS_POWER);
     }
     else {
@@ -75,7 +74,6 @@ void FtdiSensorPowerCtrl::pwrOn()
 void FtdiSensorPowerCtrl::pwrOff()
 {
     if (pwrCtrlEnabled()) {
-        Sync sync(this);
         write(0, SENSOR_BITS_POWER);
     }
     else {
@@ -86,7 +84,6 @@ void FtdiSensorPowerCtrl::pwrOff()
 
 void FtdiSensorPowerCtrl::updatePowerState()
 {
-    Sync sync(this);
     setPowerState(rawPowerToState(read()));
     DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
 }

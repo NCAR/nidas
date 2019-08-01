@@ -60,7 +60,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const XcvrConfig& rObj)
 
 
 SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId)
-: _xcvrConfig(portId, RS232, NO_TERM), _pXcvrGPIO(new XcvrGPIO(portId))
+: _xcvrConfig(portId, RS232, NO_TERM), _pXcvrGPIO(new FtdiXcvrGPIO(portId))
 {
     if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
@@ -77,7 +77,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId)
 SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId, 
                                const PORT_TYPES portType, 
                                const TERM termination)
-: _xcvrConfig(portId, portType, termination), _pXcvrGPIO(new XcvrGPIO(portId))
+: _xcvrConfig(portId, portType, termination), _pXcvrGPIO(new FtdiXcvrGPIO(portId))
 {
     if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
@@ -92,7 +92,7 @@ SerialXcvrCtrl::SerialXcvrCtrl(const GPIO_PORT_DEFS portId,
 }
 
 SerialXcvrCtrl::SerialXcvrCtrl(const XcvrConfig initXcvrConfig)
-: _xcvrConfig(initXcvrConfig), _pXcvrGPIO(new XcvrGPIO(initXcvrConfig.port))
+: _xcvrConfig(initXcvrConfig), _pXcvrGPIO(new FtdiXcvrGPIO(initXcvrConfig.port))
 {
     if (_pXcvrGPIO) {
         DLOG(("SerialXcvrCtrl(): SeriaPortGPIO object constructed and device found..."));
@@ -124,11 +124,11 @@ void SerialXcvrCtrl::setXcvrConfig(const XcvrConfig& newXcvrConfig)
     if (newXcvrConfig.port != _xcvrConfig.port) {
         DLOG(("Current port: ") << _xcvrConfig.port << " - New port: " << newXcvrConfig.port);
         _xcvrConfig.port = newXcvrConfig.port;
-        DLOG(("Pointing XcvrGPIO object to new port"));
+        DLOG(("Pointing FtdiXcvrGPIO object to new port"));
         if (_pXcvrGPIO) {
             delete _pXcvrGPIO;
             _pXcvrGPIO = 0;
-            _pXcvrGPIO = new XcvrGPIO(_xcvrConfig.port);
+            _pXcvrGPIO = new FtdiXcvrGPIO(_xcvrConfig.port);
         }
     }
 
@@ -159,7 +159,6 @@ void SerialXcvrCtrl::applyXcvrConfig()
 
     DLOG(("Writing xcvr config to FT4232H"));
     // Call FTDI API to set the desired port types
-    XcvrGPIO::Sync sync(_pXcvrGPIO);
     _pXcvrGPIO->write(desiredConfig, XCVR_BITS_PORT_TYPE|XCVR_BITS_TERM);
 
     if ((_pXcvrGPIO->read() & ~SENSOR_BITS_POWER) != desiredConfig) {

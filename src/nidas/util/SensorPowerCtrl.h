@@ -26,7 +26,7 @@
 #ifndef NIDAS_UTIL_SERIALPOWERCTRL_H
 #define NIDAS_UTIL_SERIALPOWERCTRL_H
 
-#include "XcvrGPIO.h"
+#include "FtdiXcvrGPIO.h"
 #include "SysfsGpio.h"
 #include "PowerCtrlIf.h"
 
