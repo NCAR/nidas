@@ -50,22 +50,30 @@ struct SensorCmdArg
 {
 	std::string strArg;
 	int intArg;
+    char charArg;
 	bool argIsString;
+    bool argIsChar;
 	bool argIsNull;
 
-	SensorCmdArg() : strArg(""), intArg(0), argIsString(false), argIsNull(true) {}
-	explicit SensorCmdArg(const int iarg) : strArg(""), intArg(iarg), argIsString(false), argIsNull(false) {}
-	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), argIsString(true), argIsNull(false) {}
-	explicit SensorCmdArg(const char* carg)  : strArg(carg), intArg(0), argIsString(true), argIsNull(false) {}
+	SensorCmdArg() : strArg(""), intArg(0), charArg(0), argIsString(false), argIsChar(false), argIsNull(true) {}
+	explicit SensorCmdArg(const int iarg) : strArg(""), intArg(iarg), charArg(0), argIsString(false), argIsChar(false), argIsNull(false) {}
+	explicit SensorCmdArg(const char carg) : strArg(""), intArg(0), charArg(carg), argIsString(false), argIsChar(true), argIsNull(false) {}
+	explicit SensorCmdArg(const std::string sarg) : strArg(sarg), intArg(0), charArg(0), argIsString(true), argIsChar(false), argIsNull(false) {}
+	explicit SensorCmdArg(const char* cstrarg)  : strArg(cstrarg), intArg(0), charArg(0), argIsString(true), argIsChar(false), argIsNull(false) {}
 
-	SensorCmdArg(const SensorCmdArg& rRight)
-		: strArg(rRight.strArg), intArg(rRight.intArg), argIsString(rRight.argIsString), argIsNull(rRight.argIsNull) {}
+	SensorCmdArg(const SensorCmdArg& rRight) : strArg(), intArg(), charArg(), argIsString(), argIsChar(), argIsNull() 
+    {
+        *this = rRight;
+    }
+
 	SensorCmdArg& operator=(const SensorCmdArg& rRight)
 	{
 		if (this != &rRight) {
 			strArg = rRight.strArg;
 			intArg = rRight.intArg;
+            charArg = rRight.charArg;
 			argIsString = rRight.argIsString;
+            argIsChar = rRight.argIsChar;
 			argIsNull = rRight.argIsNull;
 		}
 
@@ -73,7 +81,8 @@ struct SensorCmdArg
 	}
 	bool operator==(const SensorCmdArg& rRight)
 	{
-		return (strArg == rRight.strArg && intArg == rRight.intArg && argIsString == rRight.argIsString);
+		return (strArg == rRight.strArg && intArg == rRight.intArg && charArg == rRight.charArg 
+                && argIsString == rRight.argIsString && argIsChar == rRight.argIsChar);
 	}
 	bool operator!=(const SensorCmdArg& rRight) {return !(*this == rRight);}
 };
