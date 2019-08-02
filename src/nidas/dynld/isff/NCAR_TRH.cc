@@ -561,9 +561,17 @@ static boost::regex SENSOR_RESET_METADATA(
     "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
     "([[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+))*"
 );
-static boost::regex CAL_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+$");
+
+// Typical TRH output
+//
+// TRH w/fan
+// TRH70 23.35 50.87 0 0 1578 94 0
+// 
+// Bare TRH module
+// TRH116 23.27 50.47 1584 96 0
+static boost::regex CAL_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
 static boost::regex RAW_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+ [0-9]+ [0-9]+$");
-static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+ [0-9]+ [0-9]+ [0-9]+$");
+static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+ [0-9]+ [0-9]+ [0-9]+ [0-9]+ [0-9]+$");
 static boost::regex NEITHER_OUTPUT_ENABLED("^TRH[0-9]+[[:blank:]]*$");
 static const int SENSOR_ID_IDX = 1;
 static const int I2C_ADD_IDX   = 2;
