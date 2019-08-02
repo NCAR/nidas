@@ -278,7 +278,7 @@ protected:
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
     void initCustomMetadata();
-    void transformEmbeddedNulls(std::string& respStr);
+    void transformEmbeddedNulls(std::string& respStr, bool allowStxEtx=false);
 
 private:
     // default serial parameters for the GIL 2D Wind Observer

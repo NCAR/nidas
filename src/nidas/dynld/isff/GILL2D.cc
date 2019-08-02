@@ -701,13 +701,15 @@ n_c::SensorCmdData GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
 // TODO: Gotta clear out the string NULLs when Gill responds to command:
 // K1
 // K\0+\r*K1\r
-void GILL2D::transformEmbeddedNulls(std::string& respStr)
+//
+// TODO: This looks like a usefull generic utility?
+void GILL2D::transformEmbeddedNulls(std::string& respStr, bool allowStxEtx)
 {
     DLOG(("GILL2D::transformEmbeddedNulls(): respStr before: ") << respStr);
     for (std::size_t i=0; i<respStr.length(); ++i) {
         char& rC = respStr[i];
         DLOG(("GILL2D::transformEmbeddedNulls(): rC: 0X%02X", rC));
-        if (isNonPrintable(rC, false)) {
+        if (isNonPrintable(rC, allowStxEtx)) {
             DLOG(("GILL2D::transformEmbeddedNulls(): non-printable, replacing with <space>"));
             rC = ' ';
         }
@@ -826,32 +828,42 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
 
     // Most GIL commands take character args starting at '1'.
     // Some do not, so if a value < 0 is passed in, skip this part.
-    if (arg.intArg >= 0) {
+    if (!(arg.argIsChar || arg.argIsNull) && arg.intArg >= 0) {
         if (cmd == SENSOR_AVG_PERIOD_CMD) {
             // requires at least 4 numeric characters, 0 padded.
             char buf[5];
             snprintf(buf, 5, "%04d", arg.intArg);
             argStr << std::string(buf, 5);
         }
-    	// TODO ???What???
-    	else if (arg.intArg >= 1) {
-    		if (cmd == SENSOR_CONFIG_MODE_CMD) {
-				argStr << arg.intArg;
-			}
-			else {
-				argStr << arg.intArg;
-			}
+    	else {
+            argStr << arg.intArg;
     	}
 
         DLOG(("Attempting to insert: ") << arg.intArg);
         int insertIdx = snsrCmd.find_last_of('\r');
-        DLOG(("Found \\r at position: ") << insertIdx);
-        snsrCmd.insert(insertIdx, argStr.str());
-        // add the \r at the beginning to help some GILL states get unstuck...
-        // For instance, when changing serial port settings while in configuration mode,
-        // a carriage return is necessary before it will respond to commands.
-        snsrCmd.insert(0, "\r\n");
+        if (insertIdx == -1) {
+            DLOG(("GILL2d::sendSensorCmd(): Sensor command which takes an int should have a return char"));
+        }
+        else {
+            DLOG(("Found \\r at position: ") << insertIdx);
+            snsrCmd.insert(insertIdx, argStr.str());
+        }
     }
+    else if (cmd == SENSOR_CONFIG_MODE_CMD && arg.argIsChar) {
+        // There is one command (*) which takes a character when in polled mode, 
+        // and it doesn't have a \r terminator, so just append it.
+        DLOG(("Attempting to insert: ") << arg.charArg);
+        argStr << arg.charArg;
+        snsrCmd.append(argStr.str());
+    }
+    else if (!(cmd == SENSOR_QRY_ID_CMD && arg.argIsNull)) {
+        DLOG(("GILL2d::sendSensorCmd(): Wrong type of SensorCmdArg"));
+    }
+
+    // add the \r at the beginning to help some GILL states get unstuck...
+    // For instance, when changing serial port settings while in configuration mode,
+    // a carriage return is necessary before it will respond to commands.
+    snsrCmd.insert(0, "\r\n");
 
     // Write the command - assume the port is already open
     // The  seems to not be able to keep up with a burst of data, so
@@ -881,20 +893,33 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
             int numCharsRead = readEntireResponse(cmdRespBuf, BUF_SIZE-1, MSECS_PER_SEC);
             if (numCharsRead > 0) {
                 std::string respStr(cmdRespBuf, numCharsRead);
-                transformEmbeddedNulls(respStr);
-                std::ostringstream oss;
-                oss << "Sent: " << snsrCmd << std::endl << "   Received: " << respStr;
-                DLOG((oss.str().c_str()));
                 if (cmd == SENSOR_QRY_ID_CMD) {
+                    transformEmbeddedNulls(respStr, true);
                     std::size_t stxPos = respStr.find_first_of('\x02');
                     std::size_t etxPos = respStr.find_first_of('\x03', stxPos);
                     if (stxPos != string::npos && etxPos != string::npos) {
                         if ((etxPos - stxPos) == 2) {
                             // we can probably believe that we have captured the unit address response
                             _unitId = respStr[stxPos+1];
+                            if (!RANGE_CHECK_INC('A', _unitId, 'Z')) {
+                                DLOG(("GILL2D::checkConfigMode(): address response is not in range A-Z."));
+                            }
+                        }
+                        else {
+                            DLOG(("GILL2D::checkConfigMode(): stx and etx are not separated by exactly one char."));
                         }
                     }
+                    else {
+                        DLOG(("GILL2D::checkConfigMode(): stx or etx are not found in address request response."));
+                    }
                 }
+                else {
+                    transformEmbeddedNulls(respStr);
+                }
+
+                std::ostringstream oss;
+                oss << "Sent: " << snsrCmd << "--> Received: " << respStr;
+                DLOG((oss.str().c_str()));
             }
         }
     }
@@ -1019,7 +1044,7 @@ bool GILL2D::checkConfigMode(bool continuous)
     else {
         if (!_unitId) {
             DLOG(("Attempting to get unit ID"));
-            sendSensorCmd(SENSOR_QRY_ID_CMD, n_c::SensorCmdArg(-1));
+            sendSensorCmd(SENSOR_QRY_ID_CMD, n_c::SensorCmdArg());
         }
 
         if (_unitId) {
