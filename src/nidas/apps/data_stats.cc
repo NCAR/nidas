@@ -271,7 +271,12 @@ public:
     {
         _reportdata = data;
     }
-
+    //cmb JSON additions
+    void writeToJson(std::vector<string>& keyValuePairs,
+                     const char* filename);
+    void addToJson(std::vector<string>& keyValuePairs,
+                   SampleCounter& ss);
+    
 private:
 
     typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
@@ -558,15 +563,18 @@ void CounterClient::printResults(std::ostream& outs)
          << setw(dtlog10[0] + dtlog10[1]) << " minMaxDT(sec)"
          << setw(lenpow[0] + lenpow[1]) << " minMaxLen"
          << endl;
-
+    
+    //CHRIS ADDed
+    std::vector<string> counterAsStrings;
+    
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
         if (ss.nsamps == 0 && !_reportall)
             continue;
 
-	string t1str;
-	string t2str;
+    	    string t1str;
+	        string t2str;
         if (ss.nsamps > 0)
         {
             time_t ut = ss.t1s / USECS_PER_SEC;
@@ -614,9 +622,13 @@ void CounterClient::printResults(std::ostream& outs)
              << setw(lenpow[1]) << check_valid(ss.maxlens, (ss.nsamps > 0))
              << endl;
 
-        if (_reportdata)
+        if (_reportdata){
             printData(outs, ss);
+            //adding call to json output method**
+            addToJson(counterAsStrings, ss);
+        }
     }
+    writeToJson(counterAsStrings, "data_stats.json");
 }
 
 
@@ -670,9 +682,73 @@ printData(std::ostream& outs, SampleCounter& ss)
             outs << "(*" << ss.nnans[i] << " NaN*)";
         }
     }
+    
     outs << endl;
+
 }
 
+//cmb added bottom 3 functions 
+void CounterClient::writeToJson(std::vector<string>& keyValuePairs, const char* filename){
+    std::vector<string>::iterator it;
+    std::ofstream jSon;
+    jSon.open(filename);
+
+    jSon << "{" << endl;
+    for(it = keyValuePairs.begin();it != keyValuePairs.end() - 1; it++){
+        jSon << *it << "," << endl;
+    }
+    jSon << *it << endl;
+    jSon << "}" << endl;
+    jSon.close();
+}
+
+void CounterClient::addToJson(std::vector<string>& keyValuePairs, SampleCounter& ss){
+    std::string theString;
+
+    if (ss.sums.size() == 0)
+    {
+        return;
+    }
+    size_t nwidth = 8;
+    size_t maxname = 0;
+    for (unsigned int i = 0; i < ss.varnames.size(); ++i)
+    {
+        maxname = std::max(maxname, ss.varnames[i].length());
+    }
+    int nfields = std::max((size_t)2, 80 / (maxname+2+nwidth));
+
+    for (unsigned int i = 0; i < ss.sums.size(); ++i)
+    {
+        std::stringstream stream;
+        if (i > 0 && i % nfields == 0)
+        {
+            stream << endl;
+        }
+        string varname;
+        if (i < ss.varnames.size())
+        {
+            varname = ss.varnames[i];
+        }
+        stream << "\"" << varname << "\": ";
+        int nvalues = ss.nsamps - ss.nnans[i];
+        if (nvalues == 0)
+        {
+            stream << "\"";
+            stream << string(nwidth, '*');
+        }
+        else
+        {
+            stream << "\"" << ss.sums[i]/nvalues;
+        }
+        if (nvalues && ss.nnans[i] > 0)
+        {
+            //stream << "(*" << ss.nnans[i] << " NaN*)";
+        }
+        stream << "\"";
+        theString = stream.str();
+        keyValuePairs.push_back(theString);
+    }
+}
 
 
 class DataStats
