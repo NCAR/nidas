@@ -170,9 +170,9 @@ static const regex PTB210_NUM_SMPLS_AVG_REGEX_STR("^AVERAGING[[:blank:]]+:[[:bla
                                                   regex_constants::extended);
 static const regex PTB210_PRESS_UNIT_REGEX_STR("^PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})$",
                                                regex_constants::extended);
-static const regex PTB210_PRESS_MINMAX_REGEX_STR("^Pressure Min...Max:[[:blank:]]+([[:digit:]]{1,5})[[:blank:]]+([[:digit:]]{1,5})$",
+static const regex PTB210_PRESS_MINMAX_REGEX_STR("^Pressure Min...Max:[[:blank:]]+([[:digit:]]+[[:blank:]]+[[:digit:]]+)$",
                                                  regex_constants::extended);
-static const regex PTB210_CURR_MODE_REGEX_STR("^([^ \r\n\t]+)[[:blank:]]CURRENT MODE",
+static const regex PTB210_CURR_MODE_REGEX_STR("^([A-Z]+)[[:blank:]]CURRENT MODE",
                                               regex_constants::extended);
 static const regex PTB210_RS485_RES_REGEX_STR("^RS485 RESISTOR (ON|OFF)$",
                                               regex_constants::extended);
@@ -564,18 +564,39 @@ bool PTB210::checkScienceParameters() {
             }
         }
 
-        // // check for termination???
-        // if (scienceParametersOK) {
-        //     if ((regexStatus = regexec(&measRate, respBuf, nmatch, matches, 0)) == 0 && matches[2].rm_so >= 0) {
-        //         string argStr = std::string(&(respBuf[matches[2].rm_so]), (matches[2].rm_eo - matches[2].rm_so));
-        //         scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, argStr.c_str());
-        //     }
-        //     else {
-        //         char regerrbuf[64];
-        //         ::regerror(regexStatus, &measRate, regerrbuf, sizeof regerrbuf);
-        //         throw n_u::ParseException("regexec measurement rate RE", string(regerrbuf));
-        //     }
-        // }
+        // update some non-critical metadata
+        // Check for min/max pressure
+        regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_MINMAX_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            VLOG(("Collecing min/max pressures for metadata: ") << results.str(1));
+            updateMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find min/max pressure RE")
+                    << PTB210_PRESS_MINMAX_REGEX_STR.str());
+        }
+
+        // Check for current mode
+        regexFound = regex_search(respStr.c_str(), results, PTB210_CURR_MODE_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            VLOG(("Collecing sensor current mode for metadata: ") << results.str(1));
+            updateMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find current mode RE")
+                    << PTB210_CURR_MODE_REGEX_STR.str());
+        }
+
+        // check for RS422 line termination enabled
+        regexFound = regex_search(respStr.c_str(), results, PTB210_RS485_RES_REGEX_STR);
+        if (regexFound && results[0].matched && results[1].matched) {
+            VLOG(("Collecing sensor RS422 line termination for metadata: ") << results.str(1));
+            updateMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, results.str(1)));
+        }
+        else {
+            DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find RS422 termination RE")
+                    << PTB210_RS485_RES_REGEX_STR.str());
+        }
     }
 
     return scienceParametersOK;
