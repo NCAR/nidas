@@ -28,15 +28,16 @@
 #include "TCPSocketIODevice.h"
 #include "UDPSocketIODevice.h"
 
-#ifdef HAVE_BLUETOOTH_RFCOMM_H
-#include "BluetoothRFCommSocketIODevice.h"
-#endif
-
 #include "Looper.h"
 #include "Prompt.h"
 
 #include <nidas/util/PowerCtrlIf.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/SPoll.h>
+
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
+#include "BluetoothRFCommSocketIODevice.h"
+#endif
 
 #include <cmath>
 #include <iostream>
@@ -986,64 +987,71 @@ bool SerialSensor::testDefaultPortConfig()
 int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPrintable,
                                bool backOffTimeout, int retryTimeoutFactor)
 {
-    fd_set fdset;
-    FD_ZERO(&fdset);
-    FD_SET(getReadFd(), &fdset);
+    SPoll poller(msecTimeout);
+    poller.addPollee(getReadFd(), 0);
 
-    struct timeval tmpto = { msecTimeout / MSECS_PER_SEC,
-                            (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC
-                           };
-    struct timeval to = tmpto;
-
-    VLOG(("SerialSensor::readResponse(): timeout sec: %i, usec: %i", tmpto.tv_sec, tmpto.tv_usec));
+    VLOG(("SerialSensor::readResponse(): timeout msec: %i", msecTimeout));
 
     int res = 0;
 
     if (msecTimeout >= MSECS_PER_SEC) {
         VLOG(("SerialSensor::readResponse(): Waiting on select just once as timeout >= 1s"));
-        res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+        try {
+            res = poller.poll();
+        } catch (IOTimeoutException e) {
+            DLOG(("Select timeout error on: ") << getDeviceName() << e.what());
+            return res;
+        } catch (IOException e) {
+            DLOG(("General select error on: ") << getDeviceName() << e.what());
+            return (std::size_t)0x40000000;
+        }
     }
     else {
         // allow for some slop in data coming in...
         VLOG(("SerialSensor::readResponse(): Waiting on select a few times to allow for slowdowns"));
         for (int i=0; res <= 0 && i < 4; ++i) {
-            tmpto = to;
-            VLOG(("SerialSensor::readResponse(): select loop: i: %i; to.sec: %i; to.usec: %i"
-                                                            , i, tmpto.tv_sec, tmpto.tv_usec));
-            res = ::select(getReadFd()+1,&fdset,0,0,&tmpto);
+            int tmpto = msecTimeout;
+            VLOG(("SerialSensor::readResponse(): select loop: i: %i; msec timeout: %i", i, tmpto));
+            try {
+                res = poller.poll();
+            } catch (IOTimeoutException e) {
+                // DLOG(("Select timeout error on: ") << getDeviceName() << e.what());
+                // return res;
+            } catch (IOException e) {
+                // DLOG(("General select error on: ") << getDeviceName() << e.what());
+                // return res;
+            }
             VLOG(("SerialSensor::readResponse(): select loop: res: %i; ", res));
 
             if (res <= 0 && backOffTimeout) {
                 VLOG(("SerialSensor::readResponse(): select loop backing off: i: %i; ", i));
-                to.tv_usec *= retryTimeoutFactor;
-                if (to.tv_usec >= 1000000) {
-                    to.tv_sec = to.tv_usec / USECS_PER_SEC;
-                    to.tv_usec %= USECS_PER_SEC;
-                }
-                FD_ZERO(&fdset);
-                FD_SET(getReadFd(), &fdset);
+                tmpto *= retryTimeoutFactor;
+                poller.changeTimeout(tmpto);
             }
         }
-    }
 
-    if (res < 0) {
-        DLOG(("General select error on: ") << getDeviceName() << ": error: " << errno);
-        return (std::size_t)0x40000000;
-    }
+        if (res < 0) {
+            return (std::size_t)0x40000000;
+        }
 
-    if (res == 0) {
-        DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
-        return 0;
+        if (res == 0) {
+            DLOG(("Select timeout on: ") << getDeviceName() << ": " << msecTimeout << " msec");
+            return 0;
+        }
     }
 
     VLOG(("SerialSensor::readResponse(): Select successful, reading..."));
     // no select timeout or error, so get the goodies out of the buffer...
-    std::size_t numChars = read((void*)buf, (unsigned long)len);
-    if (numChars && checkPrintable) {
-        if (containsNonPrintable((const char*)buf, numChars)) {
+    std::size_t numChars = ::read(getReadFd(), (char*)buf, (unsigned long)len);
+    if (numChars) {
+        if (checkPrintable && containsNonPrintable((const char*)buf, numChars)) {
             // not so big assumption here that numChars never gets to 0x80000000
             numChars |= 0x80000000;
         }
+    }
+    else {
+        Exception e(std::string(""), errno);
+        DLOG(("SerialSensor::readResponse(): read error: %s", e.what()));
     }
 
     return numChars;

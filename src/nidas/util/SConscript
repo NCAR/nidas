@@ -41,6 +41,8 @@ headers = [ Split("""
     InvalidParameterException.h
     IOException.h
     IOTimeoutException.h
+    IoPollerIf.h
+    IoPollerAbs.h
     Logger.h
     McSocket.h
     MutexCount.h
@@ -51,8 +53,10 @@ headers = [ Split("""
     FtdiDSMPowerGPIO.h
     FtdiSensorPowerCtrl.h
     FtdiSwitchGPIO.h
+    PPoll.h
     Process.h
     ptytools.h
+    SPoll.h
     SensorPowerCtrl.h
     SerialOptions.h
     SerialPort.h
@@ -92,9 +96,11 @@ sources = [ Split("""
     Inet4SocketAddress.cc
     Logger.cc
     McSocket.cc
+    PPoll.cc
     PowerCtrlAbs.cc
     Process.cc
     ptytools.cc
+    SPoll.cc
     SensorPowerCtrl.cc
     SerialOptions.cc
     SerialPort.cc
