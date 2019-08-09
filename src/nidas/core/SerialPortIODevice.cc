@@ -62,7 +62,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 
 SerialPortIODevice::SerialPortIODevice():
     UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
-    _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(true)
+    _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
@@ -71,12 +71,12 @@ SerialPortIODevice::SerialPortIODevice():
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
     UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
     _workingPortConfig.termios.setRawTimeout(0);
-    getBlocking();
+    checkXcvrCtrlAvailable(getName());
 }
 
 SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
@@ -91,7 +91,7 @@ SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
     UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(true)
+    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
