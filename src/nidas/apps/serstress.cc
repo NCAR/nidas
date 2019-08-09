@@ -894,7 +894,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
     myShortName = myDevice;
     if (myShortName.substr(0,8) == "/dev/tty")  myShortName = myShortName.substr(8);
 
-    myPort.setBlocking(true);
+    myPort.setBlocking(false);
 
     try { 
         myPort.open(O_RDWR | O_NOCTTY | O_NONBLOCK); 

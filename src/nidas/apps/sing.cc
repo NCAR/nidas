@@ -789,7 +789,7 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     tio.setRaw(true);
     tio.setRawLength(1);
     tio.setRawTimeout(0);
-    port.setBlocking(true);
+    port.setBlocking(false);
     port.open(O_RDWR | O_NOCTTY | O_NONBLOCK);
 
     // port.setTermioConfig();
