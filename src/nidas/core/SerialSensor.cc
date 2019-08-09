@@ -1041,7 +1041,9 @@ int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPr
     }
 
     VLOG(("SerialSensor::readResponse(): Select successful, reading..."));
-    // no select timeout or error, so get the goodies out of the buffer...
+    // no select timeout or error, so call read() syscall directly.
+    // we also know that there is only one file descriptor, so we don't need 
+    // to invoke getNextPolleeEvents()
     std::size_t numChars = ::read(getReadFd(), (char*)buf, (unsigned long)len);
     if (numChars) {
         if (checkPrintable && containsNonPrintable((const char*)buf, numChars)) {
