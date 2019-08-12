@@ -65,7 +65,8 @@ enum TRH_OUTPUT_MODE_STATE
     NEITHER,
     CAL_ONLY,
     RAW_ONLY,
-    BOTH
+    BOTH,
+    ILLEGAL,
 };
 
 
@@ -139,6 +140,7 @@ protected:
                     throw(nidas::util::InvalidParameterException);
     virtual bool checkResponse();
     virtual void sendScienceParameters();
+    virtual bool checkScienceParameters() {return _scienceParametersOk;};
     virtual CFG_MODE_STATUS enterConfigMode();
 
     /*
@@ -208,9 +210,10 @@ private:
      */
     SensorCmdData* _desiredScienceParameters;
     TRH_OUTPUT_MODE_STATE _outputModeState;
+    bool _scienceParametersOk;
  
     TRH_OUTPUT_MODE_STATE checkOutputModeState();
-    void setOutputMode(const TRH_OUTPUT_MODE_STATE newState);
+    bool setOutputMode(const TRH_OUTPUT_MODE_STATE newState);
     std::string outputMode2Str(const TRH_OUTPUT_MODE_STATE state);
     void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
     bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 

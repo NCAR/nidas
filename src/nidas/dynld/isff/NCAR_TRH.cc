@@ -107,7 +107,8 @@ NCAR_TRH::NCAR_TRH():
     _raw_rh_handler(0),
     _compute_order(),
     _desiredScienceParameters(0),
-    _outputModeState(BOTH)
+    _outputModeState(ILLEGAL),
+    _scienceParametersOk(false)
 {
     _raw_t_handler = makeCalFileHandler
         (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
@@ -569,10 +570,10 @@ static boost::regex SENSOR_RESET_METADATA(
 // 
 // Bare TRH module
 // TRH116 23.27 50.47 1584 96 0
-static boost::regex CAL_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
-static boost::regex RAW_OUTPUT_ONLY_ENABLED("^TRH[0-9]+ [0-9]+ [0-9]+ [0-9]+$");
-static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^TRH[0-9]+ [0-9]+[.][0-9]+ [0-9]+[.][0-9]+ [0-9]+ [0-9]+ [0-9]+ [0-9]+ [0-9]+$");
-static boost::regex NEITHER_OUTPUT_ENABLED("^TRH[0-9]+[[:blank:]]*$");
+static boost::regex CAL_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
+static boost::regex RAW_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+ [0-9]+ [0-9]+$");
+static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1} [0-9]+ [0-9]+ [0-9]+$");
+static boost::regex NEITHER_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]*$");
 static const int SENSOR_ID_IDX = 1;
 static const int I2C_ADD_IDX   = 2;
 static const int DATA_RATE_IDX = 3;
@@ -935,6 +936,7 @@ void
 NCAR_TRH::
 sendScienceParameters() {
     bool desiredIsDefault = true;
+    _scienceParametersOk = true;
 
     DLOG(("Check for whether the desired science parameters are the same as the default"));
     for (int i=0; i< NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
@@ -949,13 +951,18 @@ sendScienceParameters() {
     else NLOG(("Base class modified the default science parameters for this TRH"));
 
     DLOG(("Sending science parameters"));
-    for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
+    for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS && _scienceParametersOk; ++j) {
         if (_desiredScienceParameters[j].cmd == SENSOR_SET_OUTPUT_MODE_CMD) {
-            setOutputMode(static_cast<TRH_OUTPUT_MODE_STATE>(_desiredScienceParameters[j].arg.intArg));
+            // altho we did this in checking for config mode, something in the science parameters
+            // resets this to BOTH. So we have to double check.
+            (void)checkOutputModeState();
+            _scienceParametersOk = _scienceParametersOk 
+                                   && setOutputMode(static_cast<TRH_OUTPUT_MODE_STATE>(_desiredScienceParameters[j].arg.intArg));
         }
         else {
-            sendAndCheckSensorCmd(static_cast<TRH_SENSOR_COMMANDS>(_desiredScienceParameters[j].cmd), 
-                                  _desiredScienceParameters[j].arg);
+            _scienceParametersOk = _scienceParametersOk 
+                                   && sendAndCheckSensorCmd(static_cast<TRH_SENSOR_COMMANDS>(_desiredScienceParameters[j].cmd), 
+                                                            _desiredScienceParameters[j].arg);
         }
     }
 }
@@ -982,7 +989,7 @@ handleEepromExit(const char* buf, const int /* bufSize */)
     return success;
 }
 
-void 
+bool 
 NCAR_TRH::
 setOutputMode(const TRH_OUTPUT_MODE_STATE desiredState)
 {
@@ -1027,22 +1034,41 @@ setOutputMode(const TRH_OUTPUT_MODE_STATE desiredState)
             break;
 
         case NEITHER:
+            if (_outputModeState != NEITHER) {
+                if (_outputModeState == CAL_ONLY) {
+                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
+                }
+                else if (_outputModeState == RAW_ONLY) {
+                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
+                }
+                else {
+                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
+                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
+                }
+            }
+            break;
+
         default:
             DLOG(("NCAR_TRH::setOutputMode(): Illegal output mode: ") << desiredState);
             break;
     }
 
+    sleep(2); // wait for it to take effect.
+
     checkOutputModeState();
     if (_outputModeState != desiredState) {
         DLOG(("NCAR_TRH::setOutputMode(): Failed to set output mode to: ") << outputMode2Str(desiredState));
+       return false;
     }
+
+    return true;
 }
 
 TRH_OUTPUT_MODE_STATE 
 NCAR_TRH::
 checkOutputModeState()
 {
-    TRH_OUTPUT_MODE_STATE status = NEITHER;
+    TRH_OUTPUT_MODE_STATE status = ILLEGAL;
 
     // Hijacking this method to capture the current output mode
     static const int BUF_SIZE = 100; // > 2x output line length
@@ -1106,7 +1132,7 @@ CFG_MODE_STATUS
 NCAR_TRH::
 enterConfigMode()
 {
-    return checkOutputModeState() != NEITHER ? ENTERED : NOT_ENTERED;
+    return checkOutputModeState() != ILLEGAL ? ENTERED : NOT_ENTERED;
 }
 
 void 
@@ -1202,7 +1228,8 @@ outputMode2Str(const TRH_OUTPUT_MODE_STATE state)
         "NEITHER",
         "CAL_ONLY",
         "RAW_ONLY",
-        "BOTH"
+        "BOTH",
+        "ILLEGAL",
     };
 
     return string(modeStrTable[state]);
