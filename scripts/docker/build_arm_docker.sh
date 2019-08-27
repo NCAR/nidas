@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Build a docker image of Debian Jessie for doing C/C++ debian builds for
 # various targets, such as armel and armhf (RPi).
@@ -15,7 +15,7 @@ dockuser=ncar
 group=eol
 gid=1342
 version=1
-tag=jessie_v$version
+tag=buster_v$version
 
 cacheFlag="--no-cache"
 if [[ "$1" == "--use-cache" ]] || [[ "$1" == "cache" ]] ; then
@@ -34,9 +34,10 @@ docker build $cacheFlag -t $image \
     --build-arg group=$group \
     --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
-    -f Dockerfile.cross_arm .
+    -f Dockerfile.buster_cross_arm .
 # Only tag and push if the build worked
-if [[ "$?" -eq 0 ]] ; then
+if [[ "$?" -eq 0 ]] ; 
+then
     docker tag  $image $dockuser/$image:$tag
     docker push $dockuser/$image:$tag
 fi
@@ -50,9 +51,10 @@ docker build $cacheFlag -t $image \
     --build-arg group=$group \
     --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
-    -f Dockerfile.cross_arm .
+    -f Dockerfile.buster_cross_arm .
 # Only tag and push if the build worked
-if [[ "$?" -eq 0 ]] ; then
+if [[ "$?" -eq 0 ]] ; 
+then
     docker tag  $image $dockuser/$image:$tag
     docker push $dockuser/$image:$tag
 fi

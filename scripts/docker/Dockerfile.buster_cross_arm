@@ -1,0 +1,116 @@
+ARG hostarch=armel
+
+FROM docker.io/debian:buster
+LABEL organization="NCAR EOL"
+
+ARG user=builder
+ARG uid=1000
+ARG group=eol
+ARG gid=1000
+
+# FROM line above "consumes" hostarch arg, unless we re-declare it here
+# But don't re-assign it!!!
+ARG hostarch
+
+RUN echo "hostarch == $hostarch"
+
+RUN dpkg --add-architecture ${hostarch}
+
+# need to refresh the apt DB before doing anything else on the bare debian stretch container
+RUN apt-get -y update
+RUN apt-get install -y --no-install-recommends gnupg wget cmake apt-utils sudo \
+    vim nano curl git ca-certificates build-essential fakeroot libncurses-dev bc dh-make \
+    quilt rsync
+RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch} \
+    flex libfl-dev gawk devscripts pkg-config 
+RUN apt-get install -y --no-install-recommends scons libbz2-dev:${hostarch} \
+    libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
+    libnetcdf-dev:${hostarch}
+# libgsl0ldbl is now in libgsl0-dev??
+#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
+
+# Add the eol repo first
+# But need to allow apt to use ftp, since Buster doesn't allow it by default
+RUN touch /etc/apt/apt.conf
+RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
+RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
+RUN cat /etc/apt/apt.conf
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | sudo apt-key add -
+
+# Rip out jessie updates repos as they no longer exist. 
+# See https://www.lucas-nussbaum.net/blog/?p=947
+# These ops require an explicit root user
+#USER root
+#RUN sed -i "/updates/d" /etc/apt/sources.list
+
+# Also, backports has moved to archive, so fix that -- PEO still true for stretch??
+#RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
+#RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
+
+RUN apt-get -y update
+
+RUN apt-get -y install eol-scons
+
+# add boost-regex/[system && filesystem]
+RUN apt-get -y --no-install-recommends install libboost-system-dev:amd64 libboost-filesystem-dev:amd64
+RUN apt-get -y --no-install-recommends install libboost-system-dev:${hostarch} libboost-filesystem-dev:${hostarch}
+
+# add libi2c-dev as original docker image didn't have correct one
+# don't need an ${hostarch} variant, as all the functions are in-line
+# in a single header.
+RUN apt-get -y install libi2c-dev
+
+# get and install ftdi 1.4 and depends libusb-1.0
+RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
+RUN apt-get -y remove libftdi1=0.20-4
+
+# will also be building for x86_64 host for unit testing, so add these libs
+# NOTE: re-adding libxerces for $hostarch as adding for host takes it out
+RUN apt-get -y install libxerces-c-dev
+RUN apt-get -y install libxerces-c-dev:${hostarch}
+
+# for some reason the plain xerces-c lib isn't linked to the actual one, so do it here.
+#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libxerces-c-3.1.so /usr/lib/x86_64-linux-gnu/libxerces-c.so 
+
+RUN apt-get -y install valgrind net-tools
+
+# for some reason the plain bluetooth lib isn't linked to the actual one, so do it here.
+#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libbluetooth.so.3 /usr/lib/x86_64-linux-gnu/libbluetooth.so 
+
+# Need Ruby to install packagecloud crossbuild
+#RUN apt-get -y --no-install-recommends install ruby ruby-dev
+#RUN sudo gem install package_cloud
+
+ENV CROSS_ARCH=$hostarch
+
+#RUN useradd -ms /bin/bash $user
+RUN addgroup --gid $gid $group
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+USER $user
+WORKDIR /home/$user
+
+RUN find . -name nidas -delete
+
+# Local packages
+RUN mkdir -p libftdi
+COPY ./build-libftdi-pkg.sh libftdi
+COPY ./crosstoolchain-$hostarch.cmake libftdi
+RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
+
+# hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
+# finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). 
+# Must build xmlrpc++ because C++-11 has changed the abi!!!
+RUN git clone https://github.com/NCAR/xmlrpcpp.git \
+    && cd xmlrpcpp \
+    && sed 's/-k/#-k/g' build_dpkg_std.sh \
+    && ./build_dpkg_std.sh ./amd64 amd64 \
+    && ./build_dpkg_std.sh ./${hostarch} ${hostarch}
+RUN cd xmlrpcpp/amd64 && ls -alg && sudo dpkg -i xmlrpc++_0.7-3_amd64.deb xmlrpc++-dev_0.7-3_amd64.deb
+RUN cd xmlrpcpp/${hostarch} && sudo dpkg -i xmlrpc++_0.7-3_${hostarch}.deb xmlrpc++-dev_0.7-3_${hostarch}.deb
+
+
+# viper, titan headers
+#RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
