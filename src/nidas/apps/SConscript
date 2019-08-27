@@ -100,6 +100,7 @@ env['PREFIX'] = env.subst('$ARCHPREFIX')
 
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc'))
+    env.AppendUnique(LIBS = 'ftdi1')
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)

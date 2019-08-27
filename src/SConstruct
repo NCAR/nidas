@@ -304,12 +304,6 @@ if 'arm' in BUILDS:
     SConscriptVariant('arm', arm_env)
 
 ##
-## libftdi cross build on the containers which do the builds below
-##
-libftdi_cross_base = '/home/builder/libftdi/libftdi1-1.4'
-libftdi_cross_include_flag = '-I' + libftdi_cross_base + '/src'
-
-##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (big-endian) on the arcom Vulcan.
 ##
@@ -321,7 +315,7 @@ if 'armbe' in BUILDS:
         ARCHPREFIX='$PREFIX/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-    armbe_env.AppendUnique(CXXFLAGS = [libftdi_cross_include_flag, '-I/usr/include/libusb-1.0'])
+    armbe_env.AppendUnique(CXXFLAGS = ['-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
@@ -344,7 +338,7 @@ if 'armel' in BUILDS:
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
@@ -365,7 +359,7 @@ if 'armhf' in BUILDS:
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+    armhf_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
     armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armhf_env or not armhf_env['DEBUG']:
