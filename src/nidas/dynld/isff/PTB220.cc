@@ -30,12 +30,11 @@
 
 #include <sstream>
 #include <limits>
-#include <boost/regex.hpp>
+#include <regex>
 
 using namespace nidas::core;
 using namespace nidas::util;
 using namespace std;
-using namespace boost;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
 
@@ -237,28 +236,44 @@ static regex PTB220_RESPONSE_REGEX(
         "Temperature unit.+[[:space:]]"
         "Averaging time.+[[:space:]]");
 
-static regex PTB220_MODEL_REGEX_STR("^Software version[[:blank:]]+([[:alnum:]]+) / [[:digit:]].[[:digit:]]{1,2}$");
-static regex PTB220_VER_REGEX_STR("^Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})$");
-static regex PTB220_SERIAL_NUMBER_REGEX_STR("^Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)$");
-static regex PTB220_CONFIG_REGEX_STR("^Configuration[[:blank:]]+([[:digit:]])$");
-static regex PTB220_LINEAR_CORR_REGEX_STR("^Linear adjustments[[:blank:]]+(ON|OFF){1}$");
-static regex PTB220_MULTI_PT_CORR_REGEX_STR("^Multipoint adjustments[[:blank:]]+(ON|OFF)$");
-static regex PTB220_CAL_DATE_REGEX_STR("^Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})$");
-static regex PTB220_SERIAL_CFG_REGEX_STR("^Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
-										 "(N|E|O){1}[[:blank:]]+(7|8){1}[[:blank:]]+(1|2){1}[[:blank:]]+"
-										 "([[:upper:]])$");
-static regex PTB220_ECHO_REGEX_STR("^Echo[[:blank:]]+(ON|OFF){1}$");
-static regex PTB220_SENDING_MODE_REGEX_STR("^Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*$");
-static regex PTB220_PULSE_MODE_REGEX_STR("^Pulse mode[[:blank:]]+(OFF){1}.*$");
-static regex PTB220_MEAS_MODE_REGEX_STR("^Measurement mode[[:blank:]]+(NORMAL|FAST){1}$");
-static regex PTB220_ADDRESS_REGEX_STR("^Address[[:blank:]]+([[:digit:]]{1,3})$");
-static regex PTB220_OUTPUT_INTERVAL_REGEX_STR("^Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})$");
-static regex PTB220_OUTPUT_FMT_REGEX_STR("^Output format[[:blank:]]+([[:alnum:]\"#.])+$");
-static regex PTB220_ERR_OUT_FMT_REGEX_STR("^Error output format[[:blank:]]+([[:alnum:]\"#.])*$");
-static regex PTB220_USR_OUT_FMT_REGEX_STR("^SCOM format[[:blank:]]+([[:alnum:]\"#.])*$");
-static regex PTB220_PRESS_UNIT_REGEX_STR("^Pressure unit[[:blank:]]+([[:alnum:]]{2,5})$");
-static regex PTB220_TEMP_UNIT_REGEX_STR("^Temperature unit[[:blank:]]+\'(C|F){1}$");
-static regex PTB220_AVG_TIME_REGEX_STR("^Averaging time[[:blank:]]+([[:digit:]]{1,3}.[[:digit:]]) s$");
+static regex PTB220_MODEL_REGEX("^Software version[[:blank:]]+([[:alnum:]]+) / [[:digit:]].[[:digit:]]{1,2}$");
+static regex PTB220_VER_REGEX("^Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})$");
+static regex PTB220_SERIAL_NUMBER_REGEX("^Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)$");
+static const string PTB220_CONFIG_REGEX_SPEC("^Configuration[[:blank:]]+([[:digit:]])$");
+static regex PTB220_CONFIG_REGEX(PTB220_CONFIG_REGEX_SPEC);
+static const string PTB220_LINEAR_CORR_REGEX_SPEC("^Linear adjustments[[:blank:]]+(ON|OFF){1}$");
+static regex PTB220_LINEAR_CORR_REGEX(PTB220_LINEAR_CORR_REGEX_SPEC);
+static const string PTB220_MULTI_PT_CORR_REGEX_SPEC("^Multipoint adjustments[[:blank:]]+(ON|OFF)$");
+static regex PTB220_MULTI_PT_CORR_REGEX(PTB220_MULTI_PT_CORR_REGEX_SPEC);
+static regex PTB220_CAL_DATE_REGEX("^Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})$");
+static const string PTB220_SERIAL_CFG_REGEX_SPEC("^Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
+										         "(N|E|O){1}[[:blank:]]+(7|8){1}[[:blank:]]+(1|2){1}[[:blank:]]+"
+										         "([[:upper:]])$");
+static regex PTB220_SERIAL_CFG_REGEX(PTB220_SERIAL_CFG_REGEX_SPEC);
+static const string PTB220_ECHO_REGEX_SPEC("^Echo[[:blank:]]+(ON|OFF){1}$");
+static regex PTB220_ECHO_REGEX(PTB220_ECHO_REGEX_SPEC);
+static const string PTB220_SENDING_MODE_REGEX_SPEC("^Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*$");
+static regex PTB220_SENDING_MODE_REGEX(PTB220_SENDING_MODE_REGEX_SPEC);
+static const string PTB220_PULSE_MODE_REGEX_SPEC("^Pulse mode[[:blank:]]+(OFF){1}.*$");
+static regex PTB220_PULSE_MODE_REGEX(PTB220_PULSE_MODE_REGEX_SPEC);
+static const string PTB220_MEAS_MODE_REGEX_SPEC("^Measurement mode[[:blank:]]+(NORMAL|FAST){1}$");
+static regex PTB220_MEAS_MODE_REGEX(PTB220_MEAS_MODE_REGEX_SPEC);
+static const string PTB220_ADDRESS_REGEX_SPEC("^Address[[:blank:]]+([[:digit:]]{1,3})$");
+static regex PTB220_ADDRESS_REGEX(PTB220_ADDRESS_REGEX_SPEC);
+static const string PTB220_OUTPUT_INTERVAL_REGEX_SPEC("^Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})$");
+static regex PTB220_OUTPUT_INTERVAL_REGEX(PTB220_OUTPUT_INTERVAL_REGEX_SPEC);
+static const string PTB220_OUTPUT_FMT_REGEX_SPEC("^Output format[[:blank:]]+([[:alnum:]\"#.])+$");
+static regex PTB220_OUTPUT_FMT_REGEX(PTB220_OUTPUT_FMT_REGEX_SPEC);
+static const string PTB220_ERR_OUT_FMT_REGEX_SPEC("^Error output format[[:blank:]]+([[:alnum:]\"#.])*$");
+static regex PTB220_ERR_OUT_FMT_REGEX(PTB220_ERR_OUT_FMT_REGEX_SPEC);
+static const string PTB220_USR_OUT_FMT_REGEX_SPEC("^SCOM format[[:blank:]]+([[:alnum:]\"#.])*$");
+static regex PTB220_USR_OUT_FMT_REGEX(PTB220_USR_OUT_FMT_REGEX_SPEC);
+static const string PTB220_PRESS_UNIT_REGEX_SPEC("^Pressure unit[[:blank:]]+([[:alnum:]]{2,5})$");
+static regex PTB220_PRESS_UNIT_REGEX(PTB220_PRESS_UNIT_REGEX_SPEC);
+static const string PTB220_TEMP_UNIT_REGEX_SPEC("^Temperature unit[[:blank:]]+\'(C|F){1}$");
+static regex PTB220_TEMP_UNIT_REGEX(PTB220_TEMP_UNIT_REGEX_SPEC);
+static const string PTB220_AVG_TIME_REGEX_SPEC("^Averaging time[[:blank:]]+([[:digit:]]{1,3}.[[:digit:]]) s$");
+static regex PTB220_AVG_TIME_REGEX(PTB220_AVG_TIME_REGEX_SPEC);
 
 static const std::string PTB220_XDUCER_CFG_CFG_DESC("Configuration");
 static const std::string PTB220_LINEAR_CORR_CFG_DESC("Linear adjustments");
@@ -541,7 +556,7 @@ bool PTB220::checkScienceParameters()
         cmatch results;
 
         // check for sample averaging
-        bool regexFound = regex_search(respStr.c_str(), results, PTB220_AVG_TIME_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, PTB220_AVG_TIME_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             string argStr = results.str(1);
             DLOG(("Checking sample averaging with argument: ") << argStr);
@@ -553,12 +568,12 @@ bool PTB220::checkScienceParameters()
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find average time regex: ")
-                  << PTB220_AVG_TIME_REGEX_STR.str());
+                  << PTB220_AVG_TIME_REGEX_SPEC);
         }
 
         // check for output interval
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_INTERVAL_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_INTERVAL_REGEX);
             if (regexFound && results[0].matched && results[1].matched && results[2].matched) {
                 string argStr = results.str(1);
                 DLOG(("Checking output interval with argument: ") << argStr);
@@ -579,13 +594,13 @@ bool PTB220::checkScienceParameters()
             }
             else {
                 DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output interval regex: ")
-                      << PTB220_OUTPUT_INTERVAL_REGEX_STR.str());
+                      << PTB220_OUTPUT_INTERVAL_REGEX_SPEC);
             }
         }
 
         // check for pressure units
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB220_PRESS_UNIT_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB220_PRESS_UNIT_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 string argStr = results.str(1);
                 DLOG(("Checking output interval with argument: ") << argStr);
@@ -597,13 +612,13 @@ bool PTB220::checkScienceParameters()
             }
             else {
                 DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pressure units regex: ")
-                      << PTB220_PRESS_UNIT_REGEX_STR.str());
+                      << PTB220_PRESS_UNIT_REGEX_SPEC);
             }
         }
 
         // check for temperature units
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB220_TEMP_UNIT_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB220_TEMP_UNIT_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 string argStr = results.str(1);
                 DLOG(("Checking output interval with argument: ") << argStr);
@@ -615,13 +630,13 @@ bool PTB220::checkScienceParameters()
             }
             else {
                 DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find temperature units regex: ")
-                      << PTB220_TEMP_UNIT_REGEX_STR.str());
+                      << PTB220_TEMP_UNIT_REGEX_SPEC);
             }
         }
 
         // check for multi-point correction
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB220_MULTI_PT_CORR_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB220_MULTI_PT_CORR_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 string argStr = results.str(1);
                 DLOG(("Checking multipoint correction enabled with argument: ") << argStr);
@@ -633,110 +648,110 @@ bool PTB220::checkScienceParameters()
             }
             else {
                 DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find multipoint correction regex: ")
-                      << PTB220_MULTI_PT_CORR_REGEX_STR.str());
+                      << PTB220_MULTI_PT_CORR_REGEX_SPEC);
             }
         }
 
         /*
          *  These items we just keep track of - no checking necessary at this point.
          */
-        regexFound = regex_search(respStr.c_str(), results, PTB220_CONFIG_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_CONFIG_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_XDUCER_CFG_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find transducer config regex: ")
-                  << PTB220_CONFIG_REGEX_STR.str());
+                  << PTB220_CONFIG_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_LINEAR_CORR_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_LINEAR_CORR_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_LINEAR_CORR_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find linear correction cfg regex: ")
-                  << PTB220_LINEAR_CORR_REGEX_STR.str());
+                  << PTB220_LINEAR_CORR_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_CFG_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_CFG_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_SERIAL_PARAM_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find serial port cfg regex: ")
-                  << PTB220_SERIAL_CFG_REGEX_STR.str());
+                  << PTB220_SERIAL_CFG_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_ECHO_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ECHO_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_SERIAL_ECHO_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find echo chars cfg regex: ")
-                  << PTB220_ECHO_REGEX_STR.str());
+                  << PTB220_ECHO_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_SENDING_MODE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SENDING_MODE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_SENDING_MODE_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find send mode cfg regex: ")
-                  << PTB220_SENDING_MODE_REGEX_STR.str());
+                  << PTB220_SENDING_MODE_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_PULSE_MODE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_PULSE_MODE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_PULSE_MODE_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find pulse mode cfg regex: ")
-                  << PTB220_PULSE_MODE_REGEX_STR.str());
+                  << PTB220_PULSE_MODE_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_MEAS_MODE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_MEAS_MODE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_MEAS_MODE_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find measurement mode cfg regex: ")
-                  << PTB220_MEAS_MODE_REGEX_STR.str());
+                  << PTB220_MEAS_MODE_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_ADDRESS_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ADDRESS_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_ADDRESS_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find unit address cfg regex: ")
-                  << PTB220_ADDRESS_REGEX_STR.str());
+                  << PTB220_ADDRESS_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_FMT_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_OUTPUT_FMT_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_OUTPUT_FMT_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find output format cfg regex: ")
-                  << PTB220_OUTPUT_FMT_REGEX_STR.str());
+                  << PTB220_OUTPUT_FMT_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_ERR_OUT_FMT_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_ERR_OUT_FMT_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_ERR_OUTPUT_FMT_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find error output format cfg regex: ")
-                  << PTB220_ERR_OUT_FMT_REGEX_STR.str());
+                  << PTB220_ERR_OUT_FMT_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_USR_OUT_FMT_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_USR_OUT_FMT_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             updateMetaDataItem(MetaDataItem(PTB220_USR_SEND_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB220::checkScienceParameters() - regex_search() failed to find user output format cfg regex: ")
-                  << PTB220_USR_OUT_FMT_REGEX_STR.str());
+                  << PTB220_USR_OUT_FMT_REGEX_SPEC);
         }
     }
     else {
@@ -1007,22 +1022,22 @@ void PTB220::updateMetaData()
         DLOG((respStr.c_str()));
 
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, PTB220_MODEL_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, PTB220_MODEL_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setModel(results.str(1));
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_NUMBER_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_SERIAL_NUMBER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setSerialNumber(results.str(1));
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_VER_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_VER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setFwVersion(results.str(1));
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB220_CAL_DATE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setCalDate(results.str(1));
         }

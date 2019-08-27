@@ -40,11 +40,10 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <boost/regex.hpp>
+#include <regex>
 
 using namespace nidas::dynld::isff;
 using namespace std;
-using namespace boost;
 
 namespace n_u = nidas::util;
 namespace n_c = nidas::core;

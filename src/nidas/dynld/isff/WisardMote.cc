@@ -36,8 +36,6 @@
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/IOException.h>
 
-#include <boost/regex.hpp>
-
 #include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +46,6 @@ using namespace nidas::dynld::isff;
 using namespace nidas::core;
 using namespace nidas::util;
 using namespace std;
-using namespace boost;
 
 #define MSECS_PER_HALF_DAY 43200000
 
@@ -1842,42 +1839,42 @@ const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
 
 // Data output after reset
-static const regex MODEL_ID_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
-static const regex RESET_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
-static const regex VERSION_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[[:digit:]]+)");
-static const regex CPU_CLK_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ ([[:alnum:]]+)");
-static const regex TIMING_SRC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ [[:alnum:]]+ '(.*)'");
-static const regex BUILD_DATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
-static const regex RTCC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
+static const regex MODEL_ID_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
+static const regex RESET_SRC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
+static const regex VERSION_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[[:digit:]]+)");
+static const regex CPU_CLK_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ ([[:alnum:]]+)");
+static const regex TIMING_SRC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ [[:alnum:]]+ '(.*)'");
+static const regex BUILD_DATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
+static const regex RTCC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
 
-static const regex TEMP_SENSOR_INIT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
-static const regex SENSOR_SERNUMS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:[[:blank:]]+(.*)(?:\x01\x02|[[:space:]]+)");
+static const regex TEMP_SENSOR_INIT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
+static const regex SENSOR_SERNUMS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:[[:blank:]]+(.*)(?:\x01\x02|[[:space:]]+)");
 
 // Data Rates
-static const regex DATA_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex PWR_SMPRATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sp(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex SERNUM_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sn(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex DATA_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex PWR_SMPRATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sp(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex SERNUM_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sn(?:=[[:digit:]])*'=([[:digit:]]+)");
 
 // operating modes
-static const regex NODEID_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'id(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex MSG_FMT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'mp'*=([[:digit:]])'*");
-static const regex OUT_PORT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'pp'*=([[:digit:]])'*");
-static const regex SENSORS_ON_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
+static const regex NODEID_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'id(?:=[[:digit:]])*'=([[:digit:]]+)");
+static const regex MSG_FMT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'mp'*=([[:digit:]])'*");
+static const regex OUT_PORT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'pp'*=([[:digit:]])'*");
+static const regex SENSORS_ON_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
 
 // local file
-static const regex MSG_STORE_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' (opened)");
-static const regex MSG_STORE_DISABLE_REGEX_STR("(ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
-static const regex MSG_FLUSH_RATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex MSG_STORE_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' (opened)");
+static const regex MSG_STORE_DISABLE_REGEX("(ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
+static const regex MSG_FLUSH_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 // battery monitor
-static const regex VMON_ENABLE_REGEX_STR("(?:(?:ID)*(?:(?:[[:digit:]]+)*:)*(?:\x01\x02|[[:blank:]]+)*)*'vm'Toggling (?:0|1) to (1|0)");
-static const regex VMON_LOW_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_RESTART_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_SLEEP_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_ENABLE_REGEX("(?:(?:ID)*(?:(?:[[:digit:]]+)*:)*(?:\x01\x02|[[:blank:]]+)*)*'vm'Toggling (?:0|1) to (1|0)");
+static const regex VMON_LOW_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_RESTART_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex VMON_SLEEP_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 
 // calibrations
-static const regex ADC_CALS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
+static const regex ADC_CALS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
                                       "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
                                           "(Vin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
                                           "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
@@ -1887,12 +1884,12 @@ static const regex ADC_CALS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[
                                       "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
                                           "(Iin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
                                           "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+");
-static const regex VBG_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vbg(?:=[[:digit:]]+\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
-static const regex IIG_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'iig(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
-static const regex I3G_CAL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'i3g(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static const regex VBG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vbg(?:=[[:digit:]]+\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static const regex IIG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'iig(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static const regex I3G_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'i3g(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
 
 // eeprom
-static const regex EECFG_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
+static const regex EECFG_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
                                        "EE=(Set) id([[:digit:]]+),pp=(sio|xb),md0,mp([0-2]),dr([[:digit:]]{1,5})s skips:sp([[:digit:]]{1,5}),"
                                        "sn([[:digit:]]{1,5}) fsr([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
                                    "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
@@ -1903,20 +1900,20 @@ static const regex EECFG_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:d
                                    "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
                                        "gps: gr=([[:digit:]]{1,5})s,gfr=([[:digit:]]{1,5})s,gnl=([[:digit:]]{1,5}),gto=([[:digit:]]{1,5})s,gmf=(0|1)"
                                        "(?:\x03\x04)*");
-static const regex EEUPDATE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Update: ([[:alpha:]]+)");
-static const regex EEINIT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Initialize: ([[:alpha:]]+)");
-static const regex EELOAD_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([[:alpha:]]+), nc=([[:digit:]]+)");
+static const regex EEUPDATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Update: ([[:alpha:]]+)");
+static const regex EEINIT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Initialize: ([[:alpha:]]+)");
+static const regex EELOAD_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([[:alpha:]]+), nc=([[:digit:]]+)");
 
 // GPS
-static const regex GPS_ENABLE_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)GPS Power(ON|OFF) (?=Timeout=|CloseTimer).*(?:Open|Close)INT[[:digit:]]");
-static const regex GPS_SYNC_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKTMOUT_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gto(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKFAIL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gfr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_NLOCKS_CNFRM_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gnl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_SENDALL_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gmf'Toggling [[:digit:]] to ([[:digit:]])");
+static const regex GPS_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)GPS Power(ON|OFF) (?=Timeout=|CloseTimer).*(?:Open|Close)INT[[:digit:]]");
+static const regex GPS_SYNC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_LCKTMOUT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gto(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_LCKFAIL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gfr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_NLOCKS_CNFRM_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gnl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static const regex GPS_SENDALL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gmf'Toggling [[:digit:]] to ([[:digit:]])");
 
 // Misc
-static const regex LIST_COMMANDS_REGEX_STR("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
+static const regex LIST_COMMANDS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
                                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'adcals' 'eecfg' 'eeinit' 'eeupdate' 'vm' 'vh' 'vl' 'vs' 'vbg' 'i3g'[[:space:]]+"
                                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'iig' 'sensorsON' 'sensorsOFF' 'gpsON' 'gpsOFF' 'gr' 'gnl' 'gto' 'gfr'[[:space:]]+"
                                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'gmf' 'scani2c' 'reset' 'reboot' '?'[[:space:]]*");
@@ -2181,7 +2178,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> iArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2197,7 +2194,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> iArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2213,7 +2210,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> iArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2229,7 +2226,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2245,7 +2242,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2261,7 +2258,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2277,7 +2274,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> iArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2310,7 +2307,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2337,7 +2334,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2353,7 +2350,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2369,7 +2366,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2385,7 +2382,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> fArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2401,7 +2398,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> fArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2417,7 +2414,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> fArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2433,7 +2430,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
                         avalXformer.str(upperAval);
                         try {
                             avalXformer >> iArg;
-                        } catch (std::exception e) {
+                        } catch (std::exception& e) {
                             throw n_u::InvalidParameterException(
                                 string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
                         }
@@ -2460,7 +2457,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2476,7 +2473,7 @@ void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inva
 	                	avalXformer.str(upperAval);
 	                	try {
 	                		avalXformer >> iArg;
-	                	} catch (std::exception e) {
+	                	} catch (std::exception& e) {
 							throw n_u::InvalidParameterException(
 								string("WisareMote::fromDOMElement(): ") + getName(), aname, upperAval + " " + e.what());
 	                	}
@@ -2711,47 +2708,47 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
 		switch (cmd) {
 		    // Data Rates
             case DATA_RATE_CMD:
-                matchStr = DATA_RATE_REGEX_STR;
+                matchStr = DATA_RATE_REGEX;
                 compareMatch = 1;
                 break;
             case PWR_SAMP_RATE_CMD:
-                matchStr = PWR_SMPRATE_REGEX_STR;
+                matchStr = PWR_SMPRATE_REGEX;
                 compareMatch = 1;
                 break;
             case SERNUM_RATE_CMD:
-                matchStr = SERNUM_RATE_REGEX_STR;
+                matchStr = SERNUM_RATE_REGEX;
                 compareMatch = 1;
                 break;
 
             // operating modes
             case NODE_ID_CMD:
-                matchStr = NODEID_REGEX_STR;
+                matchStr = NODEID_REGEX;
                 compareMatch = 1;
                 break;
             case MSG_FMT_CMD:
-                matchStr = MSG_FMT_REGEX_STR;
+                matchStr = MSG_FMT_REGEX;
                 compareMatch = 1;
                 break;
             case OUT_PORT_CMD:
-                matchStr = OUT_PORT_REGEX_STR;
+                matchStr = OUT_PORT_REGEX;
                 compareMatch = 1;
                 break;
             case SENSORS_ON_CMD:
-                matchStr = SENSORS_ON_REGEX_STR;
+                matchStr = SENSORS_ON_REGEX;
                 compareMatch = 1;
                 break;
 
             // local file store
             case MSG_STORE_CMD:
                 if (arg.argIsString && arg.strArg == "ON") {
-                    matchStr = MSG_STORE_ENABLE_REGEX_STR;
+                    matchStr = MSG_STORE_ENABLE_REGEX;
                 }
                 else {
-                    matchStr = MSG_STORE_DISABLE_REGEX_STR;
+                    matchStr = MSG_STORE_DISABLE_REGEX;
                 }
                 break;
             case MSG_STORE_FLUSHRATE_CMD:
-                matchStr = MSG_FLUSH_RATE_REGEX_STR;
+                matchStr = MSG_FLUSH_RATE_REGEX;
                 compareMatch = 1;
                 break;
 
@@ -2759,41 +2756,41 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
             case VMON_ENABLE_CMD:
                 // May need to check this twice, since it's a toggle w/no ability to check first
                 compareMatch = 1;
-                responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
+                responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX, compareMatch, buf);
                 if (!responseOK) {
                     DLOG(("WisardMote::checkCmdResponse(): VM is a toggle, so may need to do it twice."));
                     sendSensorCmd(cmd, arg);
-                    responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX_STR, compareMatch, buf);
+                    responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX, compareMatch, buf);
                 }
                 checkMatch = false;
                 break;
             case VMON_LOW_CMD:
-                matchStr = VMON_LOW_REGEX_STR;
+                matchStr = VMON_LOW_REGEX;
                 compareMatch = 1;
                 break;
             case VMON_RESTART_CMD:
-                matchStr = VMON_RESTART_REGEX_STR;
+                matchStr = VMON_RESTART_REGEX;
                 compareMatch = 1;
                 break;
             case VMON_SLEEP_CMD:
-                matchStr = VMON_SLEEP_REGEX_STR;
+                matchStr = VMON_SLEEP_REGEX;
                 compareMatch = 1;
                 break;
 
             // calibrations
             case ADCALS_CMD:
-                matchStr = ADC_CALS_REGEX_STR;
+                matchStr = ADC_CALS_REGEX;
                 break;
             case VBG_CAL_CMD:
-                matchStr = VBG_CAL_REGEX_STR;
+                matchStr = VBG_CAL_REGEX;
                 compareMatch = 1;
                 break;
             case IIG_CAL_CMD:
-                matchStr = IIG_CAL_REGEX_STR;
+                matchStr = IIG_CAL_REGEX;
                 compareMatch = 1;
                 break;
             case I3G_CAL_CMD:
-                matchStr = I3G_CAL_REGEX_STR;
+                matchStr = I3G_CAL_REGEX;
                 compareMatch = 1;
                 break;
 
@@ -2804,48 +2801,48 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                 break;
 
             case EE_UPDATE_CMD:
-                matchStr = EEUPDATE_REGEX_STR;
+                matchStr = EEUPDATE_REGEX;
                 compareMatch = 1;
                 break;
 
             case EE_INIT_CMD:
-                matchStr = EEINIT_REGEX_STR;
+                matchStr = EEINIT_REGEX;
                 compareMatch = 1;
                 break;
 
             case EE_LOAD_CMD:
-                matchStr = EELOAD_REGEX_STR;
+                matchStr = EELOAD_REGEX;
                 compareMatch = 1;
                 break;
 
             // GPS
             case GPS_ENABLE_CMD:
-                matchStr = GPS_ENABLE_REGEX_STR;
+                matchStr = GPS_ENABLE_REGEX;
                 compareMatch = 1;
                 break;
             case GPS_SYNC_RATE_CMD:
-                matchStr = GPS_SYNC_REGEX_STR;
+                matchStr = GPS_SYNC_REGEX;
                 compareMatch = 1;
                 break;
             case GPS_LCKTMOUT_CMD:
-                matchStr = GPS_LCKTMOUT_REGEX_STR;
+                matchStr = GPS_LCKTMOUT_REGEX;
                 compareMatch = 1;
                 break;
             case GPS_LCKFAIL_RETRY_CMD:
-                matchStr = GPS_LCKFAIL_REGEX_STR;
+                matchStr = GPS_LCKFAIL_REGEX;
                 compareMatch = 1;
                 break;
             case GPS_NLOCKS_CNFRM_CMD:
-                matchStr = GPS_NLOCKS_CNFRM_REGEX_STR;
+                matchStr = GPS_NLOCKS_CNFRM_REGEX;
                 compareMatch = 1;
                 break;
             case GPS_SENDALL_MSGS_CMD:
-                matchStr = GPS_SENDALL_REGEX_STR;
+                matchStr = GPS_SENDALL_REGEX;
                 compareMatch = 1;
                 break;
             // List, reset, reboot, misc
 		    case LIST_CMD:
-		        matchStr = LIST_COMMANDS_REGEX_STR;
+		        matchStr = LIST_COMMANDS_REGEX;
 		        break;
 			case RESET_CMD:
 			    responseOK = captureResetMetaData(buf);
@@ -2872,7 +2869,7 @@ bool WisardMote::_checkSensorCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg, const 
     // string composed of the primary match
     string resultsStr = "";
 
-    DLOG(("WisardMote::_checkSensorCmdResponse(): matching: ") << matchStr);
+//    DLOG(("WisardMote::_checkSensorCmdResponse(): matching: ") << matchStr);
     cmatch results;
     bool regexFound = regex_search(buf, results, matchStr);
     if (regexFound && results[0].matched) {
@@ -2967,7 +2964,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
     DLOG(("WisardMote::captureResetMetaData(): checking reset response data."));
 
     cmatch results;
-    bool regexFound = regex_search(buf, results, MODEL_ID_REGEX_STR);
+    bool regexFound = regex_search(buf, results, MODEL_ID_REGEX);
     bool matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -2976,7 +2973,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the model ID string as expected."));
     }
 
-    regexFound = regex_search(buf, results, RESET_SRC_REGEX_STR);
+    regexFound = regex_search(buf, results, RESET_SRC_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -2986,7 +2983,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the reset source string as expected."));
     }
 
-    regexFound = regex_search(buf, results, VERSION_REGEX_STR);
+    regexFound = regex_search(buf, results, VERSION_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound) {
@@ -3002,7 +2999,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find overall match to the version string as expected."));
     }
 
-    regexFound = regex_search(buf, results, CPU_CLK_REGEX_STR);
+    regexFound = regex_search(buf, results, CPU_CLK_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3012,7 +3009,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the CPU speed string as expected."));
     }
 
-    regexFound = regex_search(buf, results, TIMING_SRC_REGEX_STR);
+    regexFound = regex_search(buf, results, TIMING_SRC_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3022,7 +3019,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the timing source string as expected."));
     }
 
-    regexFound = regex_search(buf, results, BUILD_DATE_REGEX_STR);
+    regexFound = regex_search(buf, results, BUILD_DATE_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3032,7 +3029,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the build date string as expected."));
     }
 
-    regexFound = regex_search(buf, results, RTCC_REGEX_STR);
+    regexFound = regex_search(buf, results, RTCC_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3042,7 +3039,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the RTCC config string as expected."));
     }
 
-    regexFound = regex_search(buf, results, ADC_CALS_REGEX_STR);
+    regexFound = regex_search(buf, results, ADC_CALS_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound) {
@@ -3069,7 +3066,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the ADC channel cal string as expected."));
     }
 
-    regexFound = regex_search(buf, results, TEMP_SENSOR_INIT_REGEX_STR);
+    regexFound = regex_search(buf, results, TEMP_SENSOR_INIT_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3079,7 +3076,7 @@ bool WisardMote::captureResetMetaData(const char* buf)
         DLOG(("WisardMote::captureResetMetaData(): Didn't find matches to the temperature sensor config string as expected."));
     }
 
-    regexFound = regex_search(buf, results, SENSOR_SERNUMS_REGEX_STR);
+    regexFound = regex_search(buf, results, SENSOR_SERNUMS_REGEX);
     matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (matchFound && results[1].matched) {
@@ -3097,7 +3094,7 @@ bool WisardMote::captureCfgData(const char* buf)
     bool responseOK = false;
 
     cmatch results;
-    bool regexFound = regex_search(buf, results, EECFG_REGEX_STR);
+    bool regexFound = regex_search(buf, results, EECFG_REGEX);
     bool matchFound = regexFound && results[0].matched;
     responseOK &= matchFound;
     if (!matchFound) {

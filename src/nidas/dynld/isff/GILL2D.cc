@@ -33,14 +33,13 @@
 #include <sstream>
 #include <iomanip>
 #include <limits>
-#include <boost/regex.hpp>
+#include <regex>
 #include <time.h>
 #include <string.h>
 #include <sys/select.h>
 
 using namespace nidas::core;
 using namespace std;
-using namespace boost;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,GILL2D)
 
@@ -148,16 +147,16 @@ const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 
 
 // regular expression strings, contexts, compilation
-static const regex GILL2D_RESPONSE_REGEX_STR("[[:space:]]+"
-											 "A[[:digit:]] B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
-		                                     "G[[:digit:]]{4} (H[[:digit:]] )?J[[:digit:]] K[[:digit:]] L[[:digit:]] "
-		                                     "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] T[[:digit:]] "
-		                                     "U[[:digit:]] V[[:digit:]] X[[:digit:]] Y[[:digit:]] Z[[:digit:]]");
-static const regex GILL2D_COMPARE_REGEX_STR("[[:space:]]+"
-											"A([[:digit:]]) B([[:digit:]]) C([[:digit:]]) E([[:digit:]]) F([[:digit:]]) "
-		                                    "G([[:digit:]]{4}) (H([[:digit:]]) )?J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
-		                                    "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) T([[:digit:]]) "
-		                                    "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) Y([[:digit:]]) Z([[:digit:]])");
+static const regex GILL2D_RESPONSE_REGEX("[[:space:]]+"
+										 "A[[:digit:]] B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
+		                                 "G[[:digit:]]{4} (H[[:digit:]] )?J[[:digit:]] K[[:digit:]] L[[:digit:]] "
+		                                 "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] T[[:digit:]] "
+		                                 "U[[:digit:]] V[[:digit:]] X[[:digit:]] Y[[:digit:]] Z[[:digit:]]");
+static const regex GILL2D_COMPARE_REGEX("[[:space:]]+"
+										"A([[:digit:]]) B([[:digit:]]) C([[:digit:]]) E([[:digit:]]) F([[:digit:]]) "
+		                                "G([[:digit:]]{4}) (H([[:digit:]]) )?J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
+		                                "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) T([[:digit:]]) "
+		                                "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) Y([[:digit:]]) Z([[:digit:]])");
 
 static const int A_VAL_CAPTURE_IDX = 1;
 static const int B_VAL_CAPTURE_IDX = A_VAL_CAPTURE_IDX+1;
@@ -181,9 +180,9 @@ static const int X_VAL_CAPTURE_IDX = V_VAL_CAPTURE_IDX+1;
 static const int Y_VAL_CAPTURE_IDX = X_VAL_CAPTURE_IDX+1;
 static const int Z_VAL_CAPTURE_IDX = Y_VAL_CAPTURE_IDX+1;
 
-static const regex GILL2D_CONFIG_MODE_REGEX_STR("[[:space:]]+CONFIGURATION MODE");
-static const regex GILL2D_SERNO_REGEX_STR("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
-static const regex GILL2D_FW_VER_REGEX_STR("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
+static const regex GILL2D_CONFIG_MODE_REGEX("[[:space:]]+CONFIGURATION MODE");
+static const regex GILL2D_SERNO_REGEX("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
+static const regex GILL2D_FW_VER_REGEX("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
 
 static const std::string AVERAGING_CFG_DESC("Avg secs");
 static const std::string SOS_TEMP_CFG_DESC("SpdOfSnd/Temp Rprt");
@@ -581,7 +580,7 @@ bool GILL2D::checkScienceParameters()
 
         VLOG(("GILL2D::checkScienceParameters() - Check the individual parameters available to us"));
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_COMPARE_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_COMPARE_REGEX);
         bool responseOK = regexFound && results[0].matched;
         if (!responseOK) {
             DLOG(("GILL2D::checkScienceParameters(): regex failed"));
@@ -788,10 +787,10 @@ bool GILL2D::checkResponse()
         // This is where the response is checked for signature elements
         VLOG(("GILL2D::checkResponse() - Check the general format of the config mode response"));
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_RESPONSE_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_RESPONSE_REGEX);
         retVal = regexFound && results[0].matched;
         if (!retVal) {
-            DLOG(("GILL2D::checkResponse(): regex_search(GILL2D_RESPONSE_REGEX_STR) failed"));
+            DLOG(("GILL2D::checkResponse(): regex_search(GILL2D_RESPONSE_REGEX) failed"));
         }
         else {
             // Check for Speed of Sound and Temperature measurement capability
@@ -831,9 +830,9 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
     if (!(arg.argIsChar || arg.argIsNull) && arg.intArg >= 0) {
         if (cmd == SENSOR_AVG_PERIOD_CMD) {
             // requires at least 4 numeric characters, 0 padded.
-            char buf[5];
-            snprintf(buf, 5, "%04d", arg.intArg);
-            argStr << std::string(buf, 5);
+            char buf[9];
+            snprintf(buf, 9, "%hhd", arg.intArg);
+            argStr << std::string(buf, 9);
         }
     	else {
             argStr << arg.intArg;
@@ -1073,7 +1072,7 @@ bool GILL2D::checkConfigMode(bool continuous)
         // This is where the response is checked for signature elements
         VLOG(("GILL2D::checkConfigMode() - Check the general format of the config mode response"));
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_CONFIG_MODE_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, GILL2D_CONFIG_MODE_REGEX);
         retVal = regexFound && results[0].matched;
         if (!retVal) {
             DLOG(("GILL2D::checkConfigMode(): Didn't find matches to the model ID string as expected."));
@@ -1146,8 +1145,8 @@ void GILL2D::updateMetaData()
 
         DLOG(("GILL2D::updateMetaData(): Serial number response: ") << respStr);
 
-        regexFound = regex_search(respStr.c_str(), results, GILL2D_SERNO_REGEX_STR);
-        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_SERNO_REGEX_STR) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
+        regexFound = regex_search(respStr.c_str(), results, GILL2D_SERNO_REGEX);
+        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_SERNO_REGEX) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
         matchFound = regexFound && results[0].matched && results[1].matched;
         if (matchFound) {
             std::string serNoStr;
@@ -1168,8 +1167,8 @@ void GILL2D::updateMetaData()
         DLOG(("GILL2D::updateMetaData(): FW version response: ") << respStr);
         transformEmbeddedNulls(respStr);
 
-        regexFound = regex_search(respStr.c_str(), results, GILL2D_FW_VER_REGEX_STR);
-        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_FW_VER_REGEX_STR) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
+        regexFound = regex_search(respStr.c_str(), results, GILL2D_FW_VER_REGEX);
+        DLOG(("GILL2D::updateMetaData(): regex_search(GILL2D_FW_VER_REGEX) ") << (regexFound ? "Did " : "Did NOT ") << "succeed!");
         matchFound = regexFound && results[0].matched && results[1].matched;
         if (matchFound) {
             std::string fwVerStr;

@@ -87,13 +87,13 @@
 #include <limits>
 #include <list>
 
-#include <boost/regex.hpp>
+#include <regex>
 
+using namespace std;
 
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
-using namespace boost;
 
 /*
  * AutoConfig enums, etc

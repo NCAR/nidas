@@ -30,11 +30,10 @@
 
 #include <sstream>
 #include <limits>
-#include <boost/regex.hpp>
+#include <regex>
 
 using namespace nidas::core;
 using namespace std;
-using namespace boost;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
 
@@ -154,28 +153,28 @@ static const regex PTB210_RESPONSE_REGEX(
         "[[:alpha:]]+ CURRENT MODE[[:space:]]+"
         "RS485 RESISTOR (OFF|ON)[[:space:]]+");
 
-static const regex PTB210_MODEL_REGEX_STR("^([[:alnum:]]+)[[:blank:]]Ver.*$",
+static const regex PTB210_MODEL_REGEX("^([[:alnum:]]+)[[:blank:]]Ver.*$",
                                           regex_constants::extended);
-static const regex PTB210_VER_REGEX_STR("^PTB210 (Ver[[:blank:]][[:digit:]]\\.[[:digit:]])$",
+static const regex PTB210_VER_REGEX("^PTB210 (Ver[[:blank:]][[:digit:]]\\.[[:digit:]])$",
                                         regex_constants::extended);
-static const regex PTB210_CAL_DATE_REGEX_STR("^CAL DATE[[:blank:]]+:([[:digit:]]{4}(-[[:digit:]]{2}){2})$",
-                                             regex_constants::extended);
-static const regex PTB210_SERIAL_NUMBER_REGEX_STR("^SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)$",
+static const string PTB210_CAL_DATE_REGEX_SPEC("^CAL DATE[[:blank:]]+:([[:digit:]]{4}(-[[:digit:]]{2}){2})$");
+static const regex PTB210_CAL_DATE_REGEX(PTB210_CAL_DATE_REGEX_SPEC, regex_constants::extended);
+static const regex PTB210_SERIAL_NUMBER_REGEX("^SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)$",
                                                   regex_constants::extended);
-static const regex PTB210_MULTI_PT_CORR_REGEX_STR("^MULTIPOINT CORR:(ON|OFF)$",
-                                                  regex_constants::extended);
-static const regex PTB210_MEAS_PER_MIN_REGEX_STR("^MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})$",
-                                                 regex_constants::extended);
-static const regex PTB210_NUM_SMPLS_AVG_REGEX_STR("^AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3}).*$",
-                                                  regex_constants::extended);
-static const regex PTB210_PRESS_UNIT_REGEX_STR("^PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})$",
-                                               regex_constants::extended);
-static const regex PTB210_PRESS_MINMAX_REGEX_STR("^Pressure Min...Max:[[:blank:]]+([[:digit:]]+[[:blank:]]+[[:digit:]]+)$",
-                                                 regex_constants::extended);
-static const regex PTB210_CURR_MODE_REGEX_STR("^([A-Z]+)[[:blank:]]CURRENT MODE",
-                                              regex_constants::extended);
-static const regex PTB210_RS485_RES_REGEX_STR("^RS485 RESISTOR (ON|OFF)$",
-                                              regex_constants::extended);
+static const string PTB210_MULTI_PT_CORR_REGEX_SPEC("^MULTIPOINT CORR:(ON|OFF)$");
+static const regex PTB210_MULTI_PT_CORR_REGEX(PTB210_MULTI_PT_CORR_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_MEAS_PER_MIN_REGEX_SPEC("^MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})$");
+static const regex PTB210_MEAS_PER_MIN_REGEX(PTB210_MEAS_PER_MIN_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_NUM_SMPLS_AVG_REGEX_SPEC("^AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3}).*$");
+static const regex PTB210_NUM_SMPLS_AVG_REGEX(PTB210_NUM_SMPLS_AVG_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_PRESS_UNIT_REGEX__SPEC("^PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})$");
+static const regex PTB210_PRESS_UNIT_REGEX(PTB210_PRESS_UNIT_REGEX__SPEC, regex_constants::extended);
+static const string PTB210_PRESS_MINMAX_REGEX_SPEC("^Pressure Min...Max:[[:blank:]]+([[:digit:]]+[[:blank:]]+[[:digit:]]+)$");
+static const regex PTB210_PRESS_MINMAX_REGEX(PTB210_PRESS_MINMAX_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_CURR_MODE_REGEX_SPEC("^([A-Z]+)[[:blank:]]CURRENT MODE");
+static const regex PTB210_CURR_MODE_REGEX(PTB210_CURR_MODE_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_RS485_RES_REGEX_SPEC("^RS485 RESISTOR (ON|OFF)$");
+static const regex PTB210_RS485_RES_REGEX(PTB210_RS485_RES_REGEX_SPEC, regex_constants::extended);
 
 static const std::string PTB210_ID_CODE_CFG_DESC("ID CODE");
 static const std::string PTB210_MULTI_PT_CORR_CFG_DESC("MULTIPOINT CORR");
@@ -507,7 +506,7 @@ bool PTB210::checkScienceParameters() {
         cmatch results;
 
         // check for sample averaging
-        bool regexFound = regex_search(respStr.c_str(), results, PTB210_NUM_SMPLS_AVG_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, PTB210_NUM_SMPLS_AVG_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Checking sample averaging with argument: ") << results.str(1));
             scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, results.str(1).c_str());
@@ -518,12 +517,12 @@ bool PTB210::checkScienceParameters() {
             DLOG(("results[0].matched: ") << (results[0].matched ? "true" : "false"));
             DLOG(("results[1].matched: ") << (results[1].matched ? "true" : "false"));
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find average samples RE ")
-                 << PTB210_NUM_SMPLS_AVG_REGEX_STR.str());
+                 << PTB210_NUM_SMPLS_AVG_REGEX_SPEC);
         }    
 
         // check for measurement rate
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB210_MEAS_PER_MIN_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB210_MEAS_PER_MIN_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 VLOG(("Checking measurement rate with argument: ") << results.str(1));
                 scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, results.str(1).c_str());
@@ -531,13 +530,13 @@ bool PTB210::checkScienceParameters() {
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find measurement rate RE")
-                      << PTB210_MEAS_PER_MIN_REGEX_STR.str());
+                      << PTB210_MEAS_PER_MIN_REGEX_SPEC);
             }
         }
 
         // check for pressure units
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_UNIT_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_UNIT_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 VLOG(("Checking pressure units with argument: ") << results.str(1));
                 scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, results.str(1).c_str());
@@ -545,13 +544,13 @@ bool PTB210::checkScienceParameters() {
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find pressure unit RE")
-                      << PTB210_PRESS_UNIT_REGEX_STR.str());
+                      << PTB210_PRESS_UNIT_REGEX__SPEC);
             }
         }
 
         // check for multi-point correction
         if (scienceParametersOK) {
-            regexFound = regex_search(respStr.c_str(), results, PTB210_MULTI_PT_CORR_REGEX_STR);
+            regexFound = regex_search(respStr.c_str(), results, PTB210_MULTI_PT_CORR_REGEX);
             if (regexFound && results[0].matched && results[1].matched) {
                 VLOG(("Checking multi-point correction with argument: ") << results.str(1));
                 scienceParametersOK = (results.str(1) == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, results.str(1).c_str())
@@ -560,42 +559,42 @@ bool PTB210::checkScienceParameters() {
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find multi-point correction RE")
-                      << PTB210_MULTI_PT_CORR_REGEX_STR.str());
+                      << PTB210_MULTI_PT_CORR_REGEX_SPEC);
             }
         }
 
         // update some non-critical metadata
         // Check for min/max pressure
-        regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_MINMAX_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_MINMAX_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing min/max pressures for metadata: ") << results.str(1));
             updateMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find min/max pressure RE")
-                    << PTB210_PRESS_MINMAX_REGEX_STR.str());
+                    << PTB210_PRESS_MINMAX_REGEX_SPEC);
         }
 
         // Check for current mode
-        regexFound = regex_search(respStr.c_str(), results, PTB210_CURR_MODE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_CURR_MODE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing sensor current mode for metadata: ") << results.str(1));
             updateMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find current mode RE")
-                    << PTB210_CURR_MODE_REGEX_STR.str());
+                    << PTB210_CURR_MODE_REGEX_SPEC);
         }
 
         // check for RS422 line termination enabled
-        regexFound = regex_search(respStr.c_str(), results, PTB210_RS485_RES_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_RS485_RES_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing sensor RS422 line termination for metadata: ") << results.str(1));
             updateMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, results.str(1)));
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find RS422 termination RE")
-                    << PTB210_RS485_RES_REGEX_STR.str());
+                    << PTB210_RS485_RES_REGEX_SPEC);
         }
     }
 
@@ -844,17 +843,17 @@ void PTB210::updateMetaData()
         DLOG((respStr.c_str()));
 
         cmatch results;
-        bool regexFound = regex_search(respStr.c_str(), results, PTB210_MODEL_REGEX_STR);
+        bool regexFound = regex_search(respStr.c_str(), results, PTB210_MODEL_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setModel(results.str(1));
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB210_VER_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_VER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setFwVersion(results.str(1));
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB210_CAL_DATE_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_CAL_DATE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setCalDate(results.str(1));
         }
@@ -862,10 +861,10 @@ void PTB210::updateMetaData()
             DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
             DLOG(("results[0].matched: ") << (results[0].matched ? "true" : "false"));
             DLOG(("results[1].matched: ") << (results[1].matched ? "true" : "false"));
-            DLOG(("PTB210::updateMetaData(): Failed to find regex: ") << PTB210_CAL_DATE_REGEX_STR.str());
+            DLOG(("PTB210::updateMetaData(): Failed to find regex: ") << PTB210_CAL_DATE_REGEX_SPEC);
         }
 
-        regexFound = regex_search(respStr.c_str(), results, PTB210_SERIAL_NUMBER_REGEX_STR);
+        regexFound = regex_search(respStr.c_str(), results, PTB210_SERIAL_NUMBER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             setSerialNumber(results.str(1));
         }

@@ -545,9 +545,9 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
  *        when collecting metadata
  */
 
-static boost::regex EEPROM_MENU_ENTERED_RESP("[[:space:]]+input command format: cmd \\[value\\] \\[\\[value\\] \\[value\\] ...\\]");
-static boost::regex EEPROM_MENU_EXIT_RESP("Exit EEPROM LOADER - reset will take place");
-static boost::regex SENSOR_RESET_METADATA(
+static regex EEPROM_MENU_ENTERED_RESP("[[:space:]]+input command format: cmd \\[value\\] \\[\\[value\\] \\[value\\] ...\\]");
+static regex EEPROM_MENU_EXIT_RESP("Exit EEPROM LOADER - reset will take place");
+static string SENSOR_RESET_METADATA_REGEX_SPEC(
     "[[:space:]]+Sensor ID([0-9]+)   I2C ADD: ([0-9]+)   data rate: ([0-9]+) \\(secs\\)  fan(\\(([0-9]+)\\)){0,1} max current: ([0-9]+) \\(ma\\)"
     "([[:space:]]+Calibration Dates: T - ([0-9]+), RH - ([0-9]+))*"
     "[[:space:]]+resolution: ([0-9]+) bits[[:blank:]]+1 sec MOTE: (off|on)" 
@@ -562,6 +562,7 @@ static boost::regex SENSOR_RESET_METADATA(
     "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
     "([[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+))*"
 );
+static regex SENSOR_RESET_METADATA(SENSOR_RESET_METADATA_REGEX_SPEC);
 
 // Typical TRH output
 //
@@ -570,10 +571,10 @@ static boost::regex SENSOR_RESET_METADATA(
 // 
 // Bare TRH module
 // TRH116 23.27 50.47 1584 96 0
-static boost::regex CAL_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
-static boost::regex RAW_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+ [0-9]+ [0-9]+$");
-static boost::regex CAL_AND_RAW_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1} [0-9]+ [0-9]+ [0-9]+$");
-static boost::regex NEITHER_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]*$");
+static regex CAL_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
+static regex RAW_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+ [0-9]+ [0-9]+$");
+static regex CAL_AND_RAW_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1} [0-9]+ [0-9]+ [0-9]+$");
+static regex NEITHER_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]*$");
 static const int SENSOR_ID_IDX = 1;
 static const int I2C_ADD_IDX   = 2;
 static const int DATA_RATE_IDX = 3;
@@ -595,8 +596,8 @@ static const int HCAL_COEFF_3_IDX = 18;
 static const int HCAL_COEFF_4_IDX = 19;
 static const int FCAL_COEFF_0_IDX = 20;
 
-static boost::regex DATA_RATE_ACCEPTED_RESPONSE("WRITE: add:12 = ([0-9]{1,2})");
-static boost::regex EEPROM_MENU_EXIT_RESP_RESPONSE("[[:space:]]+Exit EEPROM LOADER - reset will take place");
+static regex DATA_RATE_ACCEPTED_RESPONSE("WRITE: add:12 = ([0-9]{1,2})");
+static regex EEPROM_MENU_EXIT_RESP_RESPONSE("[[:space:]]+Exit EEPROM LOADER - reset will take place");
 
 bool 
 NCAR_TRH::
@@ -696,10 +697,10 @@ bool
 NCAR_TRH::
 captureResetMetaData(const char* buf)
 {
-    DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA);
+    DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
     DLOG(("NCAR_TRH::captureResetMetaData(): matching:") << std::string(buf));
-    boost::cmatch results;
-    bool regexFound = boost::regex_search(buf, results, SENSOR_RESET_METADATA);
+    cmatch results;
+    bool regexFound = regex_search(buf, results, SENSOR_RESET_METADATA);
     if (regexFound && results[0].matched) {
         if (results[SENSOR_ID_IDX].matched) {
             updateMetaDataItem(MetaDataItem(SENSOR_ID_DESC, results.str(SENSOR_ID_IDX)));
@@ -807,7 +808,7 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
     int numCharsRead = readEntireResponse(respBuf, BUF_SIZE-1, selectTimeout,
                                           checkForUnprintables, retryTimeoutFactor);
     // regular expression specific to the cmd
-    boost::regex matchStr;
+    regex matchStr;
     // sub match to compare against
     int compareMatch = 0;
     // string composed of the sub match chars
@@ -858,7 +859,7 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 bool 
 NCAR_TRH::
 _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
-                        const boost::regex& matchStr, int matchGroup, 
+                        const regex& matchStr, int matchGroup, 
                         const char* buf)
 {
     bool responseOK = false;
@@ -869,8 +870,8 @@ _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg,
     // string composed of the primary match
     string resultsStr = "";
 
-    DLOG(("NCAR_TRH::_checkSensorCmdResponse(): matching: ") << matchStr);
-    boost::cmatch results;
+//    DLOG(("NCAR_TRH::_checkSensorCmdResponse(): matching: ") << matchStr);
+    cmatch results;
     bool regexFound = regex_search(buf, results, matchStr);
     if (regexFound && results[0].matched) {
         resultsStr = results.str(0);
@@ -972,10 +973,10 @@ NCAR_TRH::
 handleEepromExit(const char* buf, const int /* bufSize */)
 {
     bool success = false;
-    DLOG(("NCAR_TRH::handleEepromExit(): regex: ") << EEPROM_MENU_EXIT_RESP_RESPONSE);
+//    DLOG(("NCAR_TRH::handleEepromExit(): regex: ") << EEPROM_MENU_EXIT_RESP_RESPONSE);
     DLOG(("NCAR_TRH::handleEepromExit(): matching: ") << std::string(buf));
-    boost::cmatch results;
-    bool regexFound = boost::regex_search(buf, results, EEPROM_MENU_EXIT_RESP_RESPONSE);
+    cmatch results;
+    bool regexFound = regex_search(buf, results, EEPROM_MENU_EXIT_RESP_RESPONSE);
     if (regexFound && results[0].matched) {
         DLOG(("NCAR_TRH::handleEepromExit(): Found expected EEPROM menu exit message indicating TRH reset imminent...\n"
               "                              Now get reset metadata"));
@@ -1091,7 +1092,7 @@ checkOutputModeState()
         DLOG(("NCAR_TRH::checkOutputModeState(): Number of chars read - %i", numCharsRead));
         DLOG(("NCAR_TRH::checkOutputModeState(): chars read - %s", buf));
 
-        boost::cmatch results;
+        cmatch results;
         bool regexFound = regex_search(buf, results, CAL_AND_RAW_OUTPUT_ENABLED);
         if (regexFound && results[0].matched) {
             DLOG(("NCAR_TRH::checkOutputModeState(): CAL and RAW output mode is enabled"));

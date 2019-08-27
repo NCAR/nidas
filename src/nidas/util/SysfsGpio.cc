@@ -26,7 +26,7 @@
 
 #include <string>
 
-#include <boost/regex.hpp>
+#include <regex>
 #include <boost/filesystem.hpp>
 #include <string>
 #include <fcntl.h>
@@ -41,12 +41,13 @@
 #include "InvalidParameterException.h"
 #include "util.h"
 
+using namespace std;
 namespace bf = boost::filesystem;
 
 namespace nidas { namespace util {
 
 static const std::string PROCFS_CPUINFO = "/proc/cpuinfo";
-static const boost::regex RPI2_DETECTOR("^Hardware[[:blank:]]+:[[:blank:]]+BCM");
+static const regex RPI2_DETECTOR("^Hardware[[:blank:]]+:[[:blank:]]+BCM");
 static const std::ostringstream SYSFS_GPIO_ROOT_PATH("/sys/class/gpio");
 static const int RPI_GPIO_MIN = 2;
 static const int RPI_GPIO_MAX = 27;
@@ -81,8 +82,8 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
 
             // check for Rpi...
             DLOG(("SysfsGpio::SysfsGpio(): Checking for Raspberry Pi system..."));
-            boost::cmatch results;
-            bool isRaspberryPi = boost::regex_search(cpuInfoBuf.c_str(), results, RPI2_DETECTOR);
+            cmatch results;
+            bool isRaspberryPi = regex_search(cpuInfoBuf.c_str(), results, RPI2_DETECTOR);
 
             if (isRaspberryPi) {
                 DLOG(("SysfsGpio::SysfsGpio(): Found Raspberry Pi system, checking to see if GPIO is already exported."));

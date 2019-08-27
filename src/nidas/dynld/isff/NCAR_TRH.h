@@ -28,13 +28,14 @@
 #define NIDAS_DYNLD_ISFF_NCAR_TRH_H
 
 #include <vector>
-#include <boost/regex.hpp>
+#include <regex>
 #include <string>
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/VariableConverter.h>
 
 using namespace nidas::core;
+using namespace std;
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -217,7 +218,7 @@ private:
     std::string outputMode2Str(const TRH_OUTPUT_MODE_STATE state);
     void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
     bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
-                                 const boost::regex& matchStr, int matchGroup, 
+                                 const regex& matchStr, int matchGroup, 
                                  const char* buf);
     bool handleEepromExit(const char* buf, const int bufSize);
 
