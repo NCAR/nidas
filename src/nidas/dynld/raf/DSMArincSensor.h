@@ -121,6 +121,9 @@ public:
     bool process(const Sample*, std::list<const Sample*>& result)
         throw();
 
+    virtual bool processAlta(const dsm_time_t, unsigned char *, int, std::list<const Sample*> &result)
+        throw();
+
     /** Display some status information gathered by the driver. */
     void printStatus(std::ostream& ostr) throw();
 
@@ -142,8 +145,14 @@ public:
 
 
 protected:
+    /// The Alta Enet device has the 8 bit label swapped.  Decode it.
+    uint32_t decodeAltaLabel(uint32_t);
+
     /// A list of which samples are processed.
     int _processed[NLABELS];
+    int _labelCnt[NLABELS];
+
+    bool _altaEnetDevice;
 
 private:
 

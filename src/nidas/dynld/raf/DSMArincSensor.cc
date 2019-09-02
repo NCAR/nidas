@@ -26,6 +26,7 @@
 
 #include <nidas/linux/arinc/arinc.h>
 #include "DSMArincSensor.h"
+#include "UDPArincSensor.h"
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/Variable.h>
@@ -45,10 +46,18 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _speed(AR_HIGH), _parity(AR_ODD),_converters()
+    _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters()
 {
+    if (getDeviceName().find("Alta:") == 0) {
+        _altaEnetDevice = true;
+//  if strlen < 6 then not long enough.  How has Gordon been validating that there is a port #?
+    }
+
     for (unsigned int label = 0; label < NLABELS; label++)
+    {
         _processed[label] = false;
+        _labelCnt[label] = 0;
+    }
 }
 
 DSMArincSensor::~DSMArincSensor() {
@@ -69,6 +78,10 @@ throw(n_u::InvalidParameterException)
 void DSMArincSensor::open(int flags)
     throw(n_u::IOException, n_u::InvalidParameterException)
 {
+    // If Alta device then open/scanning handled by UDPArincSensor
+    if (_altaEnetDevice)
+        return;
+
 
     DSMSensor::open(flags);
 
@@ -140,6 +153,22 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
             }
         }
     }
+
+
+    // If we are the Alta:Enet device, then locate UDPArincSensor and register ourselves.
+    if (getDeviceName().find("Alta:") == 0 && getDeviceName().length() > 5)
+    {
+        const std::list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
+        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
+            DSMSensor* snsr = *si;
+            if (snsr->getClassName().compare("raf.UDPArincSensor") == 0) {
+                std::string tmp = getDeviceName().substr(5, std::string::npos);
+                int channel = atoi(tmp.c_str());
+                dynamic_cast<UDPArincSensor *>(snsr)->registerArincSensor(channel, this);
+                DLOG(( "Registering DSMArincSensor with UDPArincSensor, channel=%d.", channel ));
+            }
+        }
+    }
 }
 
 /**
@@ -154,8 +183,7 @@ throw()
     int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
 
     // absolute time at 00:00 GMT of day.
-    dsm_time_t t0day = samp->getTimeTag() -
-        (samp->getTimeTag() % USECS_PER_DAY);
+    dsm_time_t t0day = samp->getTimeTag() - (samp->getTimeTag() % USECS_PER_DAY);
     dsm_time_t tt;
 
     // milliseconds since 00:00 UTC
@@ -251,6 +279,111 @@ throw()
     return true;
 }
 
+
+bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results) throw()
+{
+    const txp *pSamp = (const txp*) input;
+
+    dsm_time_t t0day = timeTag - (timeTag % USECS_PER_DAY);
+    dsm_time_t tt;
+
+    // milliseconds since 00:00 UTC
+    int tmodMsec = (timeTag % USECS_PER_DAY) / USECS_PER_MSEC;
+
+    for (int i = 0; i < nfields; i++) {
+
+        //     if (i == nfields-1)
+        //       ILOG(("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
+        //             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned int)0xffffff00) ));
+
+//        unsigned short label = pSamp[i].data & 0xff;
+        uint32_t data = pSamp[i].data;
+        unsigned short label = decodeAltaLabel(data & 0xff);
+_labelCnt[label]++;
+ILOG(("%3d/%3d %08x %04o", i, nfields, data, label ));
+
+        // Even if the user doesn't want to see a value (_processed[label] == false),
+        // we still want to process it.
+        // For example on the Honeywell GPS, latitude and longitude have separate labels
+        // for the coarse and fine values. When the label for the fine latitude
+        // is found, a derived total latitude is generated from the sum of the coarse and fine
+        // values. In this case we want to process the coarse latitude label, but
+        // that value is not passed as a sample.
+        sampleType stype = FLOAT_ST;
+        double d = processLabel(data, &stype);
+
+        if (!_processed[label]) continue;
+
+        // pSamp[i].time is the number of milliseconds since midnight
+        // for the individual label. Use it to create a correct
+        // time tag for the label, which is in units of microseconds.
+
+        // On startup the initial pSamp[i].time values can be bad for the first
+        // second (e.g. PREDICT tf04). Check the difference between the sample
+        // time and pSamp[i].time
+        int td = pSamp[i].time - tmodMsec;
+
+        if (::abs(td) < MSECS_PER_SEC) {
+            tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
+
+            // correct for problems around midnight rollover
+            if (::llabs(tt - timeTag) > USECS_PER_HALF_DAY) {
+                if (tt > timeTag) tt -= USECS_PER_DAY;
+                else tt += USECS_PER_DAY;
+            }
+        }
+        else {
+            tt = timeTag;
+#ifdef DEBUG
+            WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
+                        n_u::UTime(timeTag).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
+#endif
+        }
+
+        // sample id is sum of sensor id and label
+        dsm_sample_id_t id = getId() + label;
+
+        // if there is a VariableConverter defined for this sample, apply it.
+        if (_converters.find(id) != _converters.end())
+            d = _converters[id]->convert(tt,d);
+
+        Sample* outs = 0;
+
+        switch (stype) {
+        case DOUBLE_ST:
+            {
+                SampleT<double>* outd = getSample<double>(1);
+                outd->getDataPtr()[0] = d;
+                outs = outd;
+            }
+            break;
+        case UINT32_ST:
+            {
+                SampleT<uint32_t>* outi = getSample<uint32_t>(1);
+                outi->getDataPtr()[0] = (uint32_t) d;
+                outs = outi;
+            }
+            break;
+        case FLOAT_ST:
+        default:
+            {
+                SampleT<float>* outf = getSample<float>(1);
+                outf->getDataPtr()[0] = (float) d;
+                outs = outf;
+            }
+            break;
+        }
+
+        // set the sample id to sum of sensor id and label
+        outs->setId(id);
+        outs->setTimeTag(tt);
+        results.push_back(outs);
+    }
+
+    return true;
+}
+
+
 void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
@@ -317,3 +450,22 @@ throw(n_u::InvalidParameterException)
         }
     }
 }
+
+/* -------------------------------------------------------------------- */
+uint32_t DSMArincSensor::decodeAltaLabel(uint32_t data)
+{
+  uint32_t RXPlabel = data & 0x000000FF;
+  uint32_t tempLabel = 0;
+
+  tempLabel |= (RXPlabel & 1) << 7;
+  tempLabel |= (RXPlabel & 2) << 5;
+  tempLabel |= (RXPlabel & 4) << 3;
+  tempLabel |= (RXPlabel & 8) << 1;
+  tempLabel |= (RXPlabel & 16) >> 1;
+  tempLabel |= (RXPlabel & 32) >> 3;
+  tempLabel |= (RXPlabel & 64) >> 5;
+  tempLabel |= (RXPlabel & 128) >> 7;
+
+  return tempLabel;
+}
+
