@@ -296,11 +296,10 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
         //       ILOG(("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
         //             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned int)0xffffff00) ));
 
-//        unsigned short label = pSamp[i].data & 0xff;
         uint32_t data = pSamp[i].data;
         unsigned short label = decodeAltaLabel(data & 0xff);
+        data = (data & 0xffffff00) + label;
 _labelCnt[label]++;
-ILOG(("%3d/%3d %08x %04o", i, nfields, data, label ));
 
         // Even if the user doesn't want to see a value (_processed[label] == false),
         // we still want to process it.
@@ -334,6 +333,12 @@ ILOG(("%3d/%3d %08x %04o", i, nfields, data, label ));
         }
         else {
             tt = timeTag;
+
+        ILOG(("%3d/%3d %s %s %04o %08x %f",
+            i, nfields,
+            n_u::UTime(timeTag).format(true,"%H%M%S.%4f").c_str(),
+            n_u::UTime(tt).format(true,"%H%M%S.%4f").c_str(),
+            label, data, d ));
 #ifdef DEBUG
             WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
                         n_u::UTime(timeTag).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
