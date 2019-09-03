@@ -164,7 +164,7 @@ public:
     /**
      * Fetch the name of the catalog entry for this sensor.
      */
-    virtual const std::string& getCatalogName() const 
+    virtual const std::string& getCatalogName() const
     {
         return _catalogName;
     }
@@ -903,6 +903,13 @@ public:
         return _sampleTags;
     }
 
+
+    bool allowOpen()
+    {
+        return _openable;
+    }
+
+
 protected:
 
     /**
@@ -1052,6 +1059,18 @@ protected:
      **/
     VariableIndex
     findVariableIndex(const std::string& vprefix);
+
+    /**
+     * Whether this sensor is allowed to be opened.  Most cases the answer is
+     * yes/true.  But certain sensors should not be opened due to implementation.
+     * e.g. DSMArincSensor when used in conjunction with the UDPArincSensor for
+     * then Alta ENET appliance.
+     *
+     * The fallout from setting this to false is that the sensor will not be
+     * added to SensorHandler.
+     */
+    bool _openable;
+
 
 private:
 

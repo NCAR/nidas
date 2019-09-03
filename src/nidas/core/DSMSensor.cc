@@ -54,6 +54,7 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
+    _openable(true),
     _devname(),
     _dictionary(this),
     _iodev(0),_defaultMode(O_RDONLY),

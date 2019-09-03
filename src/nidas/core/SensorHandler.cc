@@ -737,10 +737,15 @@ int SensorHandler::join() throw(nidas::util::Exception)
  */
 void SensorHandler::addSensor(DSMSensor * sensor)
 {
-    _pollingMutex.lock();
-    _allSensors.push_back(sensor);
-    _pollingMutex.unlock();
-    _opener.openSensor(sensor);
+    if (sensor->allowOpen())
+    {
+        _pollingMutex.lock();
+        _allSensors.push_back(sensor);
+        _pollingMutex.unlock();
+        _opener.openSensor(sensor);
+    }
+    else
+        ILOG(( "addSensor: Not adding %s to SensorHandler\n", sensor->getDeviceName().c_str() ));
 }
 
 /*
