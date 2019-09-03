@@ -360,7 +360,7 @@ public:
      * which are invoked after fromDOMElement.
      */
     virtual void addSampleTag(SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Remove val from the list of SampleTags, and delete it.
@@ -505,7 +505,7 @@ public:
      * @param val Latency, in seconds.
      */
     virtual void setLatency(float val)
-    	throw(nidas::util::InvalidParameterException)
+        throw(nidas::util::InvalidParameterException)
     {
         _latency = val;
     }
@@ -583,7 +583,7 @@ public:
      * Must be implemented by derived classes.
      */
     virtual SampleScanner* buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException) = 0;
+        throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * Set the SampleScanner for this sensor. DSMSensor then
@@ -604,7 +604,7 @@ public:
      * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
      */
     virtual void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
      * Initialize the DSMSensor. This method is called on a
@@ -646,7 +646,7 @@ public:
      * without a file descriptor argument, and with an IOException.
      */
     virtual size_t read(void *buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len);
     }
@@ -655,7 +655,7 @@ public:
      * Read from the device with a timeout.
      */
     virtual size_t read(void *buf, size_t len,int msecTimeout)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len,msecTimeout);
     }
@@ -665,7 +665,7 @@ public:
      * without a file descriptor argument, and with an IOException.
      */
     virtual size_t write(const void *buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->write(buf,len);
     }
@@ -676,7 +676,7 @@ public:
      * this is a value from a header file for the device.
      */
     virtual void ioctl(int request, void* buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         _iodev->ioctl(request,buf,len);
     }
@@ -698,7 +698,7 @@ public:
      * to extract all samples out of that buffer.
      */
     virtual bool readSamples()
-    	throw(nidas::util::IOException);
+        throw(nidas::util::IOException);
 
     /**
      * Extract the next sample from the buffer. Returns a
@@ -728,7 +728,7 @@ public:
      * of process() simply puts the input Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw() = 0;
+        throw() = 0;
 
     void printStatusHeader(std::ostream& ostr) throw();
     virtual void printStatus(std::ostream&) throw();
@@ -783,18 +783,18 @@ public:
      */
     static const std::string getClassName(const xercesc::DOMElement* node,
         const Project* project)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMParent(xercesc::DOMElement* parent,bool complete) const
+                throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMElement(xercesc::DOMElement* node,bool complete) const
+                throw(xercesc::DOMException);
 
     /**
      * Set the type name of this sensor, e.g.:
@@ -847,7 +847,7 @@ public:
         _applyVariableConversions = val;
     }
 
-    virtual int getDriverTimeTagUsecs() const 
+    virtual int getDriverTimeTagUsecs() const
     {
         return _driverTimeTagUsecs;
     }
@@ -898,7 +898,7 @@ public:
      * SampleTags, so this method returns a list of non-constant
      * SampleTags.
      */
-    virtual const std::list<SampleTag*>& getNonConstSampleTags() 
+    virtual const std::list<SampleTag*>& getNonConstSampleTags()
     {
         return _sampleTags;
     }
@@ -919,7 +919,7 @@ protected:
      * Read into my SampleScanner's buffer.
      */
     bool readBuffer(int msecTimeout)
-       throw(nidas::util::IOException) 
+       throw(nidas::util::IOException)
     {
         bool exhausted;
         _scanner->readBuffer(this,exhausted, msecTimeout);
@@ -1060,7 +1060,7 @@ private:
      * SampleSource::addSampleTag(const SampleTag* val).
      */
     void addSampleTag(const SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * DSMSensor does not provide public support for
@@ -1114,7 +1114,7 @@ private:
     /**
      * Concatenation of sensor suffix, and the height or depth string
      */
-    std::string _fullSuffix;    
+    std::string _fullSuffix;
 
     std::string _location;
 
