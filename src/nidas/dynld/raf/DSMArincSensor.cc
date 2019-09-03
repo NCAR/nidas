@@ -48,11 +48,6 @@ namespace n_u = nidas::util;
 DSMArincSensor::DSMArincSensor() :
     _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters()
 {
-    if (getDeviceName().find("Alta:") == 0) {
-        _altaEnetDevice = true;
-//  if strlen < 6 then not long enough.  How has Gordon been validating that there is a port #?
-    }
-
     for (unsigned int label = 0; label < NLABELS; label++)
     {
         _processed[label] = false;
@@ -156,7 +151,7 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 
 
     // If we are the Alta:Enet device, then locate UDPArincSensor and register ourselves.
-    if (getDeviceName().find("Alta:") == 0 && getDeviceName().length() > 5)
+    if (_altaEnetDevice && getDeviceName().length() > 5)
     {
         const std::list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
         for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
@@ -284,6 +279,7 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
 {
     const txp *pSamp = (const txp*) input;
 
+    // absolute time at 00:00 GMT of day.
     dsm_time_t t0day = timeTag - (timeTag % USECS_PER_DAY);
     dsm_time_t tt;
 
@@ -321,7 +317,7 @@ _labelCnt[label]++;
         // second (e.g. PREDICT tf04). Check the difference between the sample
         // time and pSamp[i].time
         int td = pSamp[i].time - tmodMsec;
-
+DLOG(("td=%d = %d - %d", td, pSamp[i].time, tmodMsec));
         if (::abs(td) < MSECS_PER_SEC) {
             tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
 
@@ -339,7 +335,7 @@ _labelCnt[label]++;
 #endif
         }
 
-        ILOG(("%3d/%3d %s %s %04o %08x %f",
+        DLOG(("%3d/%3d %s %s %04o %08x %f",
             i, nfields,
             n_u::UTime(timeTag).format(true,"%H%M%S.%4f").c_str(),
             n_u::UTime(tt).format(true,"%H%M%S.%4f").c_str(),
@@ -423,6 +419,12 @@ throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
     XDOMElement xnode(node);
+
+    if (getDeviceName().find("Alta:") == 0) {
+        _altaEnetDevice = true;
+        _openable = false;          // Do not add to SensorHandler
+//  if strlen < 6 then not long enough.  How has Gordon been validating that there is a port #?
+    }
 
     // parse attributes...
     if(node->hasAttributes()) {
