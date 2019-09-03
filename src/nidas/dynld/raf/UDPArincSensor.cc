@@ -76,10 +76,9 @@ bool UDPArincSensor::process(const Sample * samp,
     int payloadSize = bigEndian->uint32Value(hSamp->payloadSize);
     int nFields = (payloadSize - 16) / sizeof(rxp);
     unsigned long long PE = bigEndian->uint32Value(hSamp->PEtimeHigh);
-    PE = ((PE << 32) | bigEndian->uint32Value(hSamp->PEtimeLow)) / 50;
+    PE = ((PE << 32) | bigEndian->uint32Value(hSamp->PEtimeLow)) / 50;  // microseconds
 
-    uint32_t startTime = decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow);
-    startTime += (PE / 1000); // msec
+    uint32_t startTime = decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000;
 
     DLOG(( "nFields=%3u status=0x%08x seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
                 bigEndian->uint32Value(hSamp->status),
@@ -103,7 +102,8 @@ bool UDPArincSensor::process(const Sample * samp,
             txp packet;
 //            packet.control = bigEndian->uint32Value(pSamp[i].control);
 //            packet.timeHigh = bigEndian->uint32Value(pSamp[i].timeHigh);
-            packet.time = startTime + (decodeTIMER(pSamp[i]) / 1000);   // milliseconds since midnight...
+            packet.time = startTime + ((decodeTIMER(pSamp[i]) - PE) / 1000);   // milliseconds since midnight...
+//DLOG((" UAS: %lu = %lu + (%llu - %llu) %llu", packet.time, startTime, decodeTIMER(pSamp[i]), PE, ((decodeTIMER(pSamp[i]) - PE) / 1000) ));
             packet.data = bigEndian->uint32Value(pSamp[i].data);
             memcpy(&outData[channel][nOutFields[channel]++ * sizeof(txp)], &packet, sizeof(txp));
         }
@@ -168,6 +168,6 @@ unsigned long long UDPArincSensor::decodeTIMER(const rxp& samp)
   prevTime = ttime;
 #endif
 
-  return ttime;
+  return ttime; // return microseconds
 }
 
