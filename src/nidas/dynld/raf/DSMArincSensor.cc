@@ -333,17 +333,17 @@ _labelCnt[label]++;
         }
         else {
             tt = timeTag;
+#ifdef DEBUG
+            WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
+                        n_u::UTime(timeTag).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
+#endif
+        }
 
         ILOG(("%3d/%3d %s %s %04o %08x %f",
             i, nfields,
             n_u::UTime(timeTag).format(true,"%H%M%S.%4f").c_str(),
             n_u::UTime(tt).format(true,"%H%M%S.%4f").c_str(),
             label, data, d ));
-#ifdef DEBUG
-            WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
-                        n_u::UTime(timeTag).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
-#endif
-        }
 
         // sample id is sum of sensor id and label
         dsm_sample_id_t id = getId() + label;
