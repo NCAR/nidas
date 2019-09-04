@@ -359,7 +359,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
             *dout++ = _recordsPerSecond;
 
         if (_nextraValues > 2)
-            *dout++ = _totalPixelsShadowed;
+            *dout++ = (float)_totalPixelsShadowed * pow(1.0e-3 * _resolutionMicron, 2.0);
 
         results.push_back(outs);
     }
@@ -497,13 +497,11 @@ void TwoD_USB::countParticle(const Particle& p, float /* resolutionUsec */)
     static n_u::LogContext sdlog(LOG_VERBOSE, "slice_debug");
     static n_u::LogMessage sdmsg(&sdlog);
 
-    // Decide if particle acceptance is part of this...and move lower if so.
-    _totalPixelsShadowed += p.area;
-
     // 1D
     if (acceptThisParticle1D(p))
     {
         _size_dist_1D[p.height]++;
+        _totalPixelsShadowed += p.area;
     }
     else
     {
