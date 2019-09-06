@@ -41,6 +41,7 @@ const n_u::EndianConverter * UDPArincSensor::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
+
 UDPArincSensor::UDPArincSensor() : _arincSensors()
 {
 }
@@ -78,7 +79,7 @@ bool UDPArincSensor::process(const Sample * samp,
     unsigned long long PE = bigEndian->uint32Value(hSamp->PEtimeHigh);
     PE = ((PE << 32) | bigEndian->uint32Value(hSamp->PEtimeLow)) / 50;  // microseconds
 
-    uint32_t startTime = decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000;
+    uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
     DLOG(( "nFields=%3u status=0x%08x seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
                 bigEndian->uint32Value(hSamp->status),
@@ -119,24 +120,6 @@ bool UDPArincSensor::process(const Sample * samp,
     }
 
     return true;
-}
-
-/* -------------------------------------------------------------------- */
-uint32_t UDPArincSensor::decodeLABEL(uint32_t data)
-{
-  uint32_t RXPlabel = data & 0x000000FF;
-  uint32_t tempLabel = 0;
-
-  tempLabel |= (RXPlabel & 1) << 7;
-  tempLabel |= (RXPlabel & 2) << 5;
-  tempLabel |= (RXPlabel & 4) << 3;
-  tempLabel |= (RXPlabel & 8) << 1;
-  tempLabel |= (RXPlabel & 16) >> 1;
-  tempLabel |= (RXPlabel & 32) >> 3;
-  tempLabel |= (RXPlabel & 64) >> 5;
-  tempLabel |= (RXPlabel & 128) >> 7;
-
-  return tempLabel;
 }
 
 /* -------------------------------------------------------------------- */
