@@ -145,9 +145,6 @@ public:
 
 
 protected:
-    /// The Alta Enet device has the 8 bit label swapped.  Decode it.
-    uint32_t decodeAltaLabel(uint32_t);
-
     /// A list of which samples are processed.
     int _processed[NLABELS];
     int _labelCnt[NLABELS];
