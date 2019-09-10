@@ -42,7 +42,7 @@ const n_u::EndianConverter * UDPArincSensor::bigEndian =
                                        EC_BIG_ENDIAN);
 
 
-UDPArincSensor::UDPArincSensor() : _arincSensors()
+UDPArincSensor::UDPArincSensor() : _badStatusCnt(0), _arincSensors()
 {
 }
 
@@ -62,12 +62,13 @@ bool UDPArincSensor::process(const Sample * samp,
 
     if (bigEndian->uint32Value(hSamp->alta) != 0x414c5441)
     {
-      DLOG(("bad magic cookie %d, status = %u\n", bigEndian->uint32Value(hSamp->alta)));
+      DLOG(("bad magic cookie 0x%08x, should be 0x414c5441\n", bigEndian->uint32Value(hSamp->alta)));
       return false;
     }
 
     if (bigEndian->uint32Value(hSamp->mode) != 1 || (bigEndian->uint32Value(hSamp->status) & 0xFFFF) != 0)
     {
+      _badStatusCnt++;
       DLOG(("bad packet received mode = %d, status = %u\n",
         bigEndian->uint32Value(hSamp->mode), bigEndian->uint32Value(hSamp->status) & 0xffff));
       return false;
@@ -81,8 +82,7 @@ bool UDPArincSensor::process(const Sample * samp,
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
-    DLOG(( "nFields=%3u status=0x%08x seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
-                bigEndian->uint32Value(hSamp->status),
+    DLOG(( "nFields=%3u seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
                 bigEndian->uint32Value(hSamp->seqNum),
                 payloadSize, PE,
                 bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));

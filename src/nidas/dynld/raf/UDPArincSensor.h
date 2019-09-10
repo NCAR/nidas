@@ -69,6 +69,8 @@ protected:
     // Data ships Big Endian.
     static const nidas::util::EndianConverter * bigEndian;
 
+    unsigned int    _badStatusCnt;
+
 
 private:
     // Decoded IRIG time for a given APMP packet.
