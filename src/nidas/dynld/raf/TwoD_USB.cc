@@ -359,7 +359,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
             *dout++ = _recordsPerSecond;
 
         if (_nextraValues > 2)
-            *dout++ = (float)_totalPixelsShadowed * pow(1.0e-3 * _resolutionMicron, 2.0);
+            *dout++ = (float)_totalPixelsShadowed * std::pow(1.0e-3 * _resolutionMicron, 2.0);
 
         results.push_back(outs);
     }
