@@ -145,13 +145,23 @@ receive(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
     VLOG(("counting sample ") << nsamps << " for id "
          << NidasApp::getApplicationInstance()->formatId(sampid));
-    if (sampid != id)
+    if (sampid != id && nsamps == 0)
     {
         ILOG(("assigning received sample ID ")
              << NidasApp::getApplicationInstance()->formatId(sampid)
              << " in place of "
              << NidasApp::getApplicationInstance()->formatId(id));
         id = sampid;
+    }
+    else if (sampid != id)
+    {
+        // Worst case this would cause a message for every sample, but it
+        // is rare enough to not be worth improving.
+        ELOG(("sample ID ")
+             << NidasApp::getApplicationInstance()->formatId(sampid)
+             << "is being included in statistics for "
+             << "samples with different ID: "
+             << NidasApp::getApplicationInstance()->formatId(id));
     }
     dsm_time_t sampt = samp->getTimeTag();
     if (nsamps == 0)
@@ -227,7 +237,15 @@ class CounterClient: public SampleClient
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app);
+    /**
+     * CounterClient creates a SampleCounter for all the sample tags in the
+     * given sensors, if any.  Set @p singlemote to expect only one mote
+     * for each sensor type.  When a wisard sensor returns multiple sample
+     * tags with different mote IDs, samples will only be expected from one
+     * of those tags.
+     **/
+    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
+                  bool singlemote);
 
     virtual ~CounterClient() {}
 
@@ -260,7 +278,10 @@ private:
 
     /**
      * Find the SampleCounter for the given sample ID.  Wisard samples get
-     * mapped to one sensor type, so we look for all of them.
+     * mapped to one sensor type, so we look for all of them.  Also, if
+     * singlemote is enabled, search for wisard tags across all mote IDs
+     * also, so only one mote ID will be mapped for each wisard sensor
+     * type.
      **/
     sample_map_t::iterator
     findStats(dsm_sample_id_t sampid)
@@ -276,7 +297,17 @@ private:
                  << " to match " << _app.formatId(sampid));
             while (sid < endid && it == _samples.end())
             {
-                it = _samples.find(sid++);
+                it = _samples.find(sid);
+                unsigned int moteid = 0;
+                while (_singlemote && it == _samples.end() && ++moteid <= 4)
+                {
+                    dsm_sample_id_t mid;
+                    mid = (sid ^ (sid & 0xf00)) + (moteid * 0x100);
+                    VLOG(("searching for alternate mote ID: ")
+                         << _app.formatId(mid));
+                    it = _samples.find(mid);
+                }
+                ++sid;
             }
         }
         else
@@ -291,6 +322,8 @@ private:
     bool _reportall;
 
     bool _reportdata;
+
+    bool _singlemote;
 
     NidasApp& _app;
 };
@@ -308,10 +341,12 @@ resetResults()
 
 
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
+                             bool singlemote):
     _samples(),
     _reportall(false),
     _reportdata(false),
+    _singlemote(singlemote),
     _app(app)
 {
     bool processed = app.processData();
@@ -367,7 +402,19 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
                 // "sensor types" assigned to a sample.  The actual sample
                 // IDs are not known until samples are received.  So that's
                 // the point at which we can correct the ID so it is
-                // accurate in the reports.
+                // accurate in the reports.  Likewise for mote IDs, since
+                // samples for the same sensor type may have multiple
+                // possible mote IDs to account for different mote IDs at
+                // different DSMs.
+                //
+                // I suppose the other way to avoid redundant tags is to
+                // compare the actual variable names, since those at least
+                // should be unique.  The sample tags should be complete as
+                // long as there is at least one sample tag for each
+                // variable name.  That does not help for raw mode when no
+                // project config is available, but it still might be a
+                // more accurate and cleaner approach when there is a
+                // project configuration.  Future implementation perhaps.
                 dsm_sample_id_t sid = stag->getId();
                 if (! matcher.match(sid))
                 {
@@ -661,6 +708,8 @@ private:
 
     // Show averaged data or raw messages for each report.
     NidasAppArg ShowData;
+
+    NidasAppArg SingleMote;
 };
 
 
@@ -697,7 +746,12 @@ DataStats::DataStats():
     ShowData("-D,--data", "",
              "Print data for each sensor, either the last received message\n"
              "for raw samples, or data values averaged over the recording\n"
-             "period for processed samples.")
+             "period for processed samples."),
+    SingleMote("--onemote", "",
+               "Expect each wisard sensor type to come from a single mote,\n"
+               "so mote IDs are not differentiated in sample tags for the same\n"
+               "type of sensor.  If there are two motes on a DSM, then any\n"
+               "sensor duplication will report a warning, including Vmote.")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -705,7 +759,8 @@ DataStats::DataStats():
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles |
-                        app.Help | Period | Count | AllSamples | ShowData);
+                        app.Help | Period | Count |
+                        AllSamples | ShowData | SingleMote);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -909,7 +964,7 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors, app);
+        CounterClient counter(allsensors, app, SingleMote.asBool());
         counter.reportAll(AllSamples.asBool());
         counter.reportData(ShowData.asBool());
 
