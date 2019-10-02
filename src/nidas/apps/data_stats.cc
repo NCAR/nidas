@@ -245,7 +245,7 @@ public:
      * of those tags.
      **/
     CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
-                  bool singlemote);
+                  bool singlemote, bool fullnames);
 
     virtual ~CounterClient() {}
 
@@ -320,10 +320,9 @@ private:
     sample_map_t _samples;
 
     bool _reportall;
-
     bool _reportdata;
-
     bool _singlemote;
+    bool _fullnames;
 
     NidasApp& _app;
 };
@@ -342,11 +341,12 @@ resetResults()
 
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
-                             bool singlemote):
+                             bool singlemote, bool fullnames):
     _samples(),
     _reportall(false),
     _reportdata(false),
     _singlemote(singlemote),
+    _fullnames(fullnames),
     _app(app)
 {
     bool processed = app.processData();
@@ -379,12 +379,23 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
 	SampleTagIterator ti = sensor->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    if (stag->getVariables().size() > 0)
+            const std::vector<const Variable*>& variables = stag->getVariables();
+	    if (variables.size() > 0)
             {
-		string varname = stag->getVariables().front()->getName();
-		if (stag->getVariables().size() > 1)
+		string varname = variables.front()->getName();
+                for (unsigned int i = 1;
+                     _fullnames && i < variables.size(); ++i)
+                {
+                    varname += "," + variables[i]->getName();
+                }
+		if (!_fullnames && variables.size() > 1)
                 {
                     varname += ",...";
+                }
+                // Include device name in the full variable names
+                if (_fullnames)
+                {
+                    varname = "[" + sname + "] " + varname;
                 }
                 // As a special case for wisard sensors, mask the last two
                 // bits of the IDs so all "sensor types" aka I2C addresses
@@ -532,6 +543,12 @@ void CounterClient::printResults(std::ostream& outs)
         }
     }
         
+    // Truncate maxnamelen when fullnames is in effect.
+    if (_fullnames)
+    {
+        maxnamelen = 0;
+    }
+
     struct tm tm;
     char tstr[64];
     outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "")
@@ -571,9 +588,14 @@ void CounterClient::printResults(std::ostream& outs)
             t2str = string((size_t)18, '*');
         }
 
-        outs << left << setw(maxnamelen) << ss.name
-             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
+        // Put long variable names on a header line before statistics.
+        if (_fullnames)
+        {
+            outs << left << ss.name << endl;
+        }
 
+        outs << left << setw(maxnamelen) << (maxnamelen ? ss.name : "")
+             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
 
@@ -710,6 +732,7 @@ private:
     NidasAppArg ShowData;
 
     NidasAppArg SingleMote;
+    NidasAppArg Fullnames;
 };
 
 
@@ -751,7 +774,10 @@ DataStats::DataStats():
                "Expect each wisard sensor type to come from a single mote,\n"
                "so mote IDs are not differentiated in sample tags for the same\n"
                "type of sensor.  If there are two motes on a DSM, then any\n"
-               "sensor duplication will report a warning, including Vmote.")
+               "sensor duplication will report a warning, including Vmote."),
+    Fullnames("-F,--fullnames", "",
+              "Report all the variable names and the device name for each\n"
+              "for each sensor.")
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -760,7 +786,7 @@ DataStats::DataStats():
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles |
                         app.Help | Period | Count |
-                        AllSamples | ShowData | SingleMote);
+                        AllSamples | ShowData | SingleMote | Fullnames);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -964,7 +990,8 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors, app, SingleMote.asBool());
+        CounterClient counter(allsensors, app, SingleMote.asBool(),
+                              Fullnames.asBool());
         counter.reportAll(AllSamples.asBool());
         counter.reportData(ShowData.asBool());
 
