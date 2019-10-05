@@ -68,6 +68,7 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/util.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/util/GPS.h>
 
 #include <linux/i2c-dev.h>
 #include <linux/tty.h>
@@ -107,11 +108,19 @@ public:
 
     void i2c_block_reads() throw(n_u::IOException);
 
-    void writeptys(const unsigned char* buf, int len) throw(n_u::IOException);
+    void writePtys(const unsigned char* buf, int len) throw(n_u::IOException);
 
     void setFIFOPriority(int val);
 
     int usage();
+
+    /**
+     * Check NMEA message for good checksum, date and time fields.
+     * If OK, write to pseudoterminals.
+     */
+    void writePtysGPS(const char* input, int len, const fd_set& wfds);
+
+    bool checkGPSDateTime(const char* input);
 
 private:
     string progname;
@@ -123,6 +132,14 @@ private:
     int _i2cfd;
 
     vector<string> _ptynames;
+
+    vector<bool> _filterGPS;
+
+    bool _doFilterGPS;
+
+    char _filterBuffer[4096];
+
+    char* _fbhead, *_fbtail, *_fbend;
 
     vector<int> _ptyfds;
 
@@ -141,11 +158,19 @@ private:
     NidasAppArg Foreground;
     NidasAppArg KeepMSB;
     NidasAppArg BlockingWrites;
+
+    // No copying, assignment
+    TeeI2C(const TeeI2C&);
+    TeeI2C& operator=(const TeeI2C&);
+
 };
 
 TeeI2C::TeeI2C():
     progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
-    _ptynames(), _ptyfds(),
+    _ptynames(), _filterGPS(), _doFilterGPS(false),
+    _fbhead(_filterBuffer), _fbtail(_fbhead),
+    _fbend(_fbhead + sizeof(_filterBuffer)),
+    _ptyfds(),
     asDaemon(true),priority(-1),_signalMask(), _writefdset(), _maxwfd(0),
     _app(""),
     Priority("-p,--priority", "priority",
@@ -212,17 +237,25 @@ int TeeI2C::parseRunstring(int argc, char** argv)
         }
     }
 
+    bool filterGPS = false;
     for (int iarg = 0; iarg < (signed)args.size(); iarg++) {
         string arg = args[iarg];
-        if (arg[0] == '-') return usage();
+        if (arg == "-G") {
+            filterGPS = true;
+            _doFilterGPS = true;
+        }
+        else if (arg[0] == '-') return usage();
         else {
             if (_i2cname.length() == 0)
-                _i2cname = args[iarg];
+                _i2cname = arg;
             else if (_i2caddr == 0)
-                _i2caddr = strtol(args[iarg].c_str(), NULL, 0);
-            else
+                _i2caddr = strtol(arg.c_str(), NULL, 0);
+            else {
                 // user will only read from this pty
-                _ptynames.push_back(args[iarg]);
+                _ptynames.push_back(arg);
+                _filterGPS.push_back(filterGPS);
+                filterGPS = false;
+            }
         }
     }
 
@@ -239,11 +272,13 @@ int TeeI2C::parseRunstring(int argc, char** argv)
 int TeeI2C::usage()
 {
     cerr << "\
-Usage: " << _app.getName() << "[-f] [-p priority] i2cdev i2caddr ptyname ...\n"
+Usage: " << _app.getName() << "[-f] [-p priority] i2cdev i2caddr [-G] ptyname [-G] ptyname ...\n"
          << _app.usage() << 
 "  i2cdev: name of I2C bus to open, e.g. /dev/i2c-1\n"
 "  i2caddr: address of I2C device, usually in hex: e.g. 0x42\n"
-"  ptyname: name of one or more read-only pseudo-terminals" << endl;
+"  -G: filter output to following pty for good GPS checksums and date,time fields\n"
+"  ptyname: name of one or more read-only pseudo-terminals"
+	<< endl;
     return 1;
 }
 
@@ -348,7 +383,7 @@ int TeeI2C::run() throw()
 
 void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
 {
-    unsigned char i2cbuf[8192];
+    unsigned char i2cbuf[4096];
     // Unless KeepMSB is set, clear the high bit before writing to ptys.
     unsigned int mask = 0x7f;
     unsigned int msbfound = 0;
@@ -427,13 +462,13 @@ void TeeI2C::i2c_byte_reads() throw(n_u::IOException)
         i2cbuf[len] = (db & mask);
     }
     // XXX what should happen if 0xff never found?  Do we really want
-    // to dump 8192 bytes of unterminated i2c data to the ptys?
+    // to dump 4096 bytes of unterminated i2c data to the ptys?
     // cerr << "len=" << len << endl;
     if (len > 0) {
         i2cbuf[len] = '\0';
         VLOG(("writing ") << len << " bytes to ptys: "
              << n_u::addBackslashSequences(string(i2cbuf, i2cbuf+len)));
-        writeptys(i2cbuf, len);
+        writePtys(i2cbuf, len);
     }
 }
 
@@ -505,9 +540,154 @@ void TeeI2C::i2c_block_reads() throw(n_u::IOException)
     for (l2 = 0; l2 < l && i2cbuf[l2] != 0xff; l2++);
     cerr << "block_reads, l=" << l << ", l2=" << l2 << endl;
     cerr << "buf= \"" << string((const char*)i2cbuf,l2) << "\"" << endl;
-    writeptys(i2cbuf,l2);
+    writePtys(i2cbuf,l2);
 }
-void TeeI2C::writeptys(const unsigned char* buf, int len)
+
+void TeeI2C::writePtysGPS(const char* buf, int len, const fd_set& wfds)
+{
+    /*
+     * Check NMEA messages for good checksums and date,time fields.
+     * If OK, write to those pty fds that are writeable.
+     * This is complicated by the fact that the contents of buf
+     * are not necessarily a single NMEA message.
+     */
+	
+    // internal buffer: 4096
+    // if internal buf pointer + len exceeds buflen, shift buffer
+    // what if still an overflow situation:
+    //      very large len
+    //          unlikely, do a bit (e.g. 256 chars?) at a time?
+    //          do a while len > 0
+    //      lack of \r\n in data
+    //          discard
+    // append buf to internal buffer
+    // while
+    //     look for leading $
+    //          if not found, discard entire internal buffer, return
+    //     look for trailing \r or \n, maybe *?
+    //          if not found, return
+    //     check checksum
+    //     check date and time fields
+    //      if OK write out to all filtered ptys in fdset
+    //      increment pointer in internal buf
+    //
+    //
+
+    while (len > 0) {
+        int len2 = std::min(len, (int) sizeof(_filterBuffer) / 4);
+
+        // require room for one extra character so we can NULL terminate
+        if (_fbtail + len2 + 1 > _fbend) {
+            size_t n = _fbtail - _fbhead;
+            if (n > sizeof(_filterBuffer) / 2) {
+                // _filterBuffer is more than half full.
+                // Look for last '$', if found, and shifting contents will
+                // make room for current buf, then move down, else discard
+                // all saved characters.
+                const char* dp = (const char*) ::memrchr(_fbhead, '$', n);
+                ssize_t discard = 0;
+                if (dp) discard = dp - _fbhead;
+                if (discard < len2) {
+                    _fbhead = _fbtail = _filterBuffer;
+                }
+                else {
+                    n = _fbtail - dp;
+                    ::memmove(_filterBuffer, dp, n);
+                    _fbhead = _filterBuffer;
+                    _fbtail = _fbhead + n;
+                }
+            }
+            else {
+                ::memmove(_filterBuffer, _fbhead, n);
+                _fbhead = _filterBuffer;
+                _fbtail = _fbhead + n;
+            }
+        }
+        // using less-than rather than less-or-equal since we add NULL
+        assert(_fbtail + len2 < _fbend);
+        ::memcpy(_fbtail, buf, len2);
+        _fbtail += len2;
+        // NULL terminate since we're going to use sscanf.
+        // Note it isn't necessarily NULL terminated right after
+        // the '\n'.  The NULL may be in the middle of the next message.
+        *_fbtail = 0;
+        len -= len2;
+        buf += len2;
+
+        // check all GPS records in buffer
+        for (;;) {
+            if (_fbhead == _fbtail) break;
+            size_t n = _fbtail - _fbhead;
+            char* p1 = _fbhead;
+            // look for '$'
+            if (*p1 != '$') p1 = (char*)::memchr(_fbhead, '$', n);
+            if (!p1) {
+                _fbhead = _fbtail = _filterBuffer;
+                break;
+            }
+            // look for '\n'
+            char* p2 = (char*)::memchr(p1, '\n', _fbtail - p1);
+            if (!p2) break;
+            p2++;
+            _fbhead = p2;
+
+            if (!nidas::util::NMEAchecksumOK(p1, p2-p1)) {
+                continue;
+            }
+            if (!checkGPSDateTime(p1)) {
+                continue;
+            }
+            for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
+                if (_filterGPS[i] && FD_ISSET(_ptyfds[i],&wfds)) {
+                    ssize_t lw = ::write(_ptyfds[i], p1, p2 - p1);
+                    if (lw < 0) throw n_u::IOException(_ptynames[i],"write",errno);
+                }
+            }
+        }
+    }
+}
+
+bool TeeI2C::checkGPSDateTime(const char* input) 
+{
+
+    // since we use sscanf on input, it must be NULL terminated.
+    // Therefore can also use strcmp instead of memcmp.
+    bool RMC =  !::strcmp(input,"$GPRMC,");
+
+    if (RMC || !::strcmp(input, "$GPGGA,")) {
+	input += 7;
+	int hour, minute, second, nchar;
+        if (sscanf(input,"%2d%2d%2d%n", &hour, &minute, &second, &nchar) != 3)
+	    return false;
+	int ncfsec = 0;
+	if (nchar == 6 && input[6] == '.') {
+            double fsec;
+	    sscanf(input+6,"%lf%n",&fsec,&ncfsec);
+	}
+	if (nchar != 6 || input[6 + ncfsec] != ',' ||
+	    hour < 0 || hour > 23 ||
+	    minute < 0 || minute > 59 ||
+	    second < 0 || second > 60) return false;
+        input += nchar + ncfsec + 1;
+        if (RMC) {  // skip 7 commas, check RMC date field
+            int day, month, year;
+            for (int i = 0; i < 7; i++) {
+                const char* cp = (const char*)::strchr(input, ',');
+                if (!cp) return false;
+                input = cp + 1;
+            }
+            if (sscanf(input,"%2d%2d%2d%n",&day,&month,&year,&nchar) != 3) 
+                return false;
+            if (nchar != 6 || input[6] != ',' ||
+                day < 1 || day > 31 ||
+                month < 1 || month > 12 ||
+                year < 2019 || year > 2030) return false;
+        }
+    }
+    return true;
+}
+
+void TeeI2C::writePtys(const unsigned char* buf, int len)
     throw(n_u::IOException)
 {
     int nwfd = 0;
@@ -516,20 +696,22 @@ void TeeI2C::writeptys(const unsigned char* buf, int len)
     struct timespec writeTimeout = {0,NSECS_PER_SEC / 10};
 
     /*
-     * Only write to the ptys that are ready, so that
-     * one laggard doesn't block everybody.
-     * TODO: should we use NON_BLOCK writes?
-     *
-     * Or use a select loop in a separate thread which buffers data
-     * for each pty and writes when it is writable?
+     * Either do non-blocking writes, or only write to
+     * the ptys that are ready, so that one laggard,
+     * such as a pseudo-terminal that isn't being read,
+     * doesn't block everybody.
      */
     if (blockwrites) {
         nwfd = _ptyfds.size();
     }
     else if ((nwfd = ::pselect(_maxwfd,0,&wfds,0,&writeTimeout, &_signalMask)) < 0)
         throw n_u::IOException("ptys","pselect",errno);
+
+    if (_doFilterGPS) writePtysGPS((const char*)buf, len, wfds);
+
     for (unsigned int i = 0; i < _ptyfds.size(); i++)  {
         if (FD_ISSET(_ptyfds[i],&wfds)) {
+            if (_filterGPS[i]) continue;
             if (blockwrites)
                 VLOG(("pty ") << _ptyfds[i] << " blocking write of "
                      << len << " bytes.");
