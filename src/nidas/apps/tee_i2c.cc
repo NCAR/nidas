@@ -552,35 +552,18 @@ void TeeI2C::writePtysGPS(const char* buf, int len, const fd_set& wfds)
      * are not necessarily a single NMEA message.
      */
 	
-    // internal buffer: 4096
-    // if internal buf pointer + len exceeds buflen, shift buffer
-    // what if still an overflow situation:
-    //      very large len
-    //          unlikely, do a bit (e.g. 256 chars?) at a time?
-    //          do a while len > 0
-    //      lack of \r\n in data
-    //          discard
-    // append buf to internal buffer
-    // while
-    //     look for leading $
-    //          if not found, discard entire internal buffer, return
-    //     look for trailing \r or \n, maybe *?
-    //          if not found, return
-    //     check checksum
-    //     check date and time fields
-    //      if OK write out to all filtered ptys in fdset
-    //      increment pointer in internal buf
-    //
-    //
-
     while (len > 0) {
+
+        // If input message is quite long (likely corrupt),
+        // only handle a portion at a time.
         int len2 = std::min(len, (int) sizeof(_filterBuffer) / 4);
 
         // require room for one extra character so we can NULL terminate
         if (_fbtail + len2 + 1 > _fbend) {
             size_t n = _fbtail - _fbhead;
             if (n > sizeof(_filterBuffer) / 2) {
-                // _filterBuffer is more than half full.
+                // _filterBuffer is more than half full, probably due to 
+                // corrupt messages, missing '$' and '\n' characters.
                 // Look for last '$', if found, and shifting contents will
                 // make room for current buf, then move down, else discard
                 // all saved characters.
@@ -617,16 +600,15 @@ void TeeI2C::writePtysGPS(const char* buf, int len, const fd_set& wfds)
         // check all GPS records in buffer
         for (;;) {
             if (_fbhead == _fbtail) break;
-            size_t n = _fbtail - _fbhead;
             char* p1 = _fbhead;
             // look for '$'
-            if (*p1 != '$') p1 = (char*)::memchr(_fbhead, '$', n);
+            if (*p1 != '$') p1 = (char*)::strchr(_fbhead, '$');
             if (!p1) {
                 _fbhead = _fbtail = _filterBuffer;
                 break;
             }
             // look for '\n'
-            char* p2 = (char*)::memchr(p1, '\n', _fbtail - p1);
+            char* p2 = (char*)::strchr(p1, '\n');
             if (!p2) break;
             p2++;
             _fbhead = p2;
