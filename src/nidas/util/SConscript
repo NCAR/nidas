@@ -27,6 +27,7 @@ headers = [ Split("""
     EOFException.h
     Exception.h
     FileSet.h
+    GPS.h
     Inet4Address.h
     Inet4NetworkInterface.h
     Inet4PacketInfo.h
@@ -65,6 +66,7 @@ sources = [ Split("""
     EndianConverter.cc
     Exception.cc
     FileSet.cc
+    GPS.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc

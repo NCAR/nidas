@@ -26,6 +26,7 @@
 
 #include "GPS_NMEA_Serial.h"
 #include <nidas/core/PhysConstants.h>
+#include <nidas/util/GPS.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
@@ -541,7 +542,6 @@ dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int,
         return _ttgps;
 }
 
-
 bool
 GPS_NMEA_Serial::
 findChecksum(char& checksum, const char* rec, int len)
@@ -605,7 +605,6 @@ bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
     return findChecksum(cksum, rec, len) && cksum == calcChecksum(rec, len);
 }
 
-
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
   throw()
 {
@@ -618,7 +617,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
     if (slen < 7) return false;
 
-    if (!checksumOK(input, slen))
+    if (!n_u::NMEAchecksumOK(input, slen))
     {
         if (!(_badChecksums++ % _badChecksumsCount))
         {
