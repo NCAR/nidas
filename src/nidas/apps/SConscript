@@ -58,6 +58,15 @@ else:
     arch = ''
     machs = []
 
+# nidas tool includes xmlrpc tool, but we're linking
+# that in statically now, so pull out xmlrpc for arm cross builds
+targetArch = env['ARCH']
+if targetArch == "armhf" or targetArch == "armel":
+    #print("env['TOOLS'] = " + str(env['TOOLS']))
+    env['TOOLS'].remove('xmlrpc')
+    env['LIBS'].remove('xmlrpcpp')
+    #print("env['TOOLS'] = " + str(env['TOOLS']))
+
 programs = Split("""
 arl-ingest
 arinc_out
@@ -100,7 +109,6 @@ env['PREFIX'] = env.subst('$ARCHPREFIX')
 
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc'))
-    env.AppendUnique(LIBS = 'ftdi1')
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
@@ -158,6 +166,18 @@ env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
     env.NidasUtilProgram('tee_i2c.cc')
     env.NidasUtilProgram('ublox.cc')
+
+ubenv = env.Clone()
+UBSRCS = ['ubloxbin.cc']
+ubconf = ubenv.Configure()
+if ubconf.CheckLib('boost_system'):
+    ubenv.AppendUnique(LIBS = ['boost_system'])
+if ubconf.CheckLib('boost_asio'):
+    ubenv.AppendUnique(LIBS = ['boost_asio'])
+if ubconf.CheckLib('boost_thread'):
+    ubenv.AppendUnique(LIBS = ['boost_thread'])
+ubenv = ubconf.Finish()
+env.Alias('ubloxbin', ubenv.NidasProgram(UBSRCS))
 
 env.NidasUtilProgram('utime.cc')
 
