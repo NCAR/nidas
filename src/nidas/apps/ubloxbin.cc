@@ -35,6 +35,7 @@
 #include <nidas/core/NidasApp.h>
 
 using namespace nidas::core;
+using namespace nidas::util;
 
 #include <iostream>
 #include <boost/asio.hpp>
@@ -282,10 +283,15 @@ public:
     Session(boost::asio::io_service& io, const std::string& dev)
       : m_serial(io), m_device(dev), m_inputBuf(), m_inData(), 
         m_frame(), waitingAckMsg(false), sentMsgId((MsgId)0), msgAcked(false),
-        enabledMsgs()
+        enabledMsgs(), checkEnabledMsgs(false), ackCheck(false)
     {}
 
     ~Session() = default;
+
+    bool getCheckEnabledMsgs() {return checkEnabledMsgs;}
+    void setCheckEnabledMsgs(bool check = true) {checkEnabledMsgs = check;}
+    bool getAckCheck() {return ackCheck;}
+    void setAckCheck(bool check = true) {ackCheck = check;}
 
     bool start()
     {
@@ -325,45 +331,54 @@ public:
         bool validTime = validField.getBitValue(OutValidFieldMask::BitIdx_validTime);
         bool resolvedTime = validField.getBitValue(OutValidFieldMask::BitIdx_fullyResolved);
 
-        std::cout << "PVT: fix=" << fix << 
-            "; lat=" << comms::units::getDegrees<double>(msg.field_lat()) <<
-            "; lon=" << comms::units::getDegrees<double>(msg.field_lon()) <<
-            "; alt=" << comms::units::getMeters<double>(msg.field_height()) <<
-            "; UTC date: " << date << 
-            (validDate ? " valid" : " invalid") << " date" <<
-            (validTime ? " valid" : " invalid") << " time" <<
-            (resolvedTime ? " fully resolved" : " not fully resolved") << " time" <<
-            std::endl;
+        if (LOG_LEVEL == LOGGER_DEBUG) {
+            std::cout << "PVT: fix=" << fix << 
+                "; lat=" << comms::units::getDegrees<double>(msg.field_lat()) <<
+                "; lon=" << comms::units::getDegrees<double>(msg.field_lon()) <<
+                "; alt=" << comms::units::getMeters<double>(msg.field_height()) <<
+                "; UTC date: " << date << 
+                (validDate ? " valid" : " invalid") << " date" <<
+                (validTime ? " valid" : " invalid") << " time" <<
+                (resolvedTime ? " fully resolved" : " not fully resolved") << " time" <<
+                std::endl;
+        }
 
-        enabledMsgs[msg.doName()]++; 
+        std::string msgName(msg.doName());
+        if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
+            enabledMsgs[msgName]++;
+        }
     }
 
     void handle(InAckAck& msg)
     {
-        int ackMsgId = msg.field_msgId().value();
-        char buf[32];
-        memset(buf, 0, 32);
-        sprintf(buf, "0x%04X", ackMsgId);
-        std::string ackMsgIdStr(buf, strlen(buf));
-        std::cout << "AckAck caught for " << ackMsgIdStr << std::endl;
-        if (ackMsgId == sentMsgId) {
-            waitingAckMsg = false;
-            msgAcked = true;
-            sentMsgId = ublox::MsgId_AckAck;
+        if (getAckCheck()) {
+            int ackMsgId = msg.field_msgId().value();
+            char buf[32];
+            memset(buf, 0, 32);
+            sprintf(buf, "0x%04X", ackMsgId);
+            std::string ackMsgIdStr(buf, strlen(buf));
+            DLOG(("AckAck caught for ") << ackMsgIdStr);
+            if (ackMsgId == sentMsgId) {
+                waitingAckMsg = false;
+                msgAcked = true;
+                sentMsgId = ublox::MsgId_AckAck;
+            }
         }
     }
 
     void handle(InAckNak& msg)
     {
-        int nakMsgId = msg.field_msgId().value();
-        char buf[32];
-        memset(buf, 0, 32);
-        sprintf(buf, "0x%04X", nakMsgId);
-        std::string nakMsgIdStr(buf, strlen(buf));
-        std::cout << "AckNak caught for " << nakMsgIdStr << std::endl;
-        if (nakMsgId == sentMsgId) {
-            waitingAckMsg = false;
-            sentMsgId = ublox::MsgId_AckNak;
+        if (getAckCheck()) {
+            int nakMsgId = msg.field_msgId().value();
+            char buf[32];
+            memset(buf, 0, 32);
+            sprintf(buf, "0x%04X", nakMsgId);
+            std::string nakMsgIdStr(buf, strlen(buf));
+            DLOG(("AckNak caught for ") << nakMsgIdStr);
+            if (nakMsgId == sentMsgId) {
+                waitingAckMsg = false;
+                sentMsgId = ublox::MsgId_AckNak;
+            }
         }
     }
 
@@ -371,14 +386,8 @@ public:
     {
         // ignore all other incoming
         static_cast<void>(&msg);
-        std::cout << "Ignoring message ID: " << std::endl;
     }
 
-    void readTimerHandler()
-    {
-        performRead();
-    }
-    
     void performRead()
     {
         m_serial.async_read_some(
@@ -413,15 +422,41 @@ public:
         enableDefaultMessages();
     }
 
-    bool checkEnabledMsgs()
+    bool msgEnabled(const std::string& name) const
     {
-        bool done = true;
-        using MsgItem = std::pair<std::string, int>;
-        for (MsgItem msg : enabledMsgs) {
-            done &= (msg.second > 1);
-        }
+        return (enabledMsgs.find(name) != enabledMsgs.end());
+    }
 
-        return done;
+    bool testEnabledMsgs()
+    {
+        if (getCheckEnabledMsgs()) {
+            DLOG(("Session::testEnabledMsgs(): enabled"));
+            bool done = true;
+            using MsgItem = std::pair<std::string, int>;
+            for (MsgItem msg : enabledMsgs) {
+                DLOG(("Session::testEnabledMsgs(): msg: ") << msg.first << " - received: " << msg.second);
+                done &= (msg.second > 1);
+            }
+
+            DLOG(("Session::testEnabledMsgs(): ") << (done ? "done" : "not done." ));
+            return done;
+        }
+        else {
+            DLOG(("Session::testEnabledMsgs(): disabled"));
+            return false;
+        }
+    }
+
+    void printEnabledMsgs()
+    {
+        std::cout << std::endl 
+                  << "Enabled Messages" << std::endl 
+                  << "================" << std::endl;
+        using MsgItem = std::pair<std::string, int>;
+        for (MsgItem enabledMsg : enabledMsgs) {
+            std::cout << enabledMsg.first << " - received: " << enabledMsg.second << std::endl;
+        }
+        std::cout << std::endl;
     }
 
 private:
@@ -458,33 +493,6 @@ private:
         static_cast<void>(es);
         assert(es == comms::ErrorStatus::Success); // do not expect any error
 
-        while (!buf.empty()) {
-            boost::system::error_code ec;
-            auto count = m_serial.write_some(boost::asio::buffer(buf), ec);
-
-            if (ec) {
-                std::cerr << "ERROR: write failed with message: " << ec.message() << std::endl;
-                m_serial.get_io_service().stop();
-                return;
-            }
-
-            buf.erase(buf.begin(), buf.begin() + count);
-        }
-    }
-
-    void sendMessageWithAckCheck(const OutMessage& msg)
-    {
-        OutBuffer buf;
-        buf.reserve(m_frame.length(msg)); // Reserve enough space
-        auto iter = std::back_inserter(buf);
-        auto es = m_frame.write(msg, iter, buf.max_size());
-        if (es == comms::ErrorStatus::UpdateRequired) {
-            auto* updateIter = &buf[0];
-            es = m_frame.update(updateIter, buf.size());
-        }
-        static_cast<void>(es);
-        assert(es == comms::ErrorStatus::Success); // do not expect any error
-
         // set the ID of the message to be ack/nak'd
         ackMsgInit(msg.getId());
         for (int i=0; i<3 && !msgAcked; ++i) {
@@ -502,32 +510,37 @@ private:
                 buf.erase(buf.begin(), buf.begin() + count);
             }
 
-            boost::asio::io_service readSvc;
-            boost::asio::steady_timer readClock(readSvc);
-            std::chrono::microseconds expireTime(USECS_PER_SEC/10);
-            readClock.expires_from_now(expireTime);
-            readClock.wait();
-            performRead();
+            if (getAckCheck()) {
+                boost::asio::io_service readSvc;
+                boost::asio::steady_timer readClock(readSvc);
+                std::chrono::microseconds expireTime(USECS_PER_SEC/10);
+                readClock.expires_from_now(expireTime);
+                readClock.wait();
+                performRead();
 
-            int msgId = msg.getId();
-            char buf[32];
-            memset(buf, 0, 32);
-            sprintf(buf, "0x%04X", msgId);
-            std::string msgIdStr(buf, strlen(buf));
-            if (waitingAckMsg) {
-                ackMsgInit(msg.getId());
-                std::cerr << "Info: failed to receive any ACK/NAK message for try " << i << " for msgId " << msgIdStr << std::endl;
-            }
-            else if (!msgAcked) {
-                std::cerr << "Info: Received a NAK for try " << i << " of " << msgIdStr << std::endl;
+                int msgId = msg.getId();
+                char buf[32];
+                memset(buf, 0, 32);
+                sprintf(buf, "0x%04X", msgId);
+                std::string msgIdStr(buf, strlen(buf));
+                if (waitingAckMsg) {
+                    ackMsgInit(msg.getId());
+                    ILOG(("Info: failed to receive any ACK/NAK message for try ") << i << " for msgId " << msgIdStr);
+                }
+                else if (!msgAcked) {
+                    ILOG(("Info: Received a NAK for try ") << i << " of " << msgIdStr);
+                }
+                else {
+                    ILOG(("Info: Received an ACK for try ") << i << " of " << msgIdStr);
+                }
+
+                if (waitingAckMsg || !msgAcked) {
+                    ILOG(("Error: Failed to receive ACK message after three tries..."));
+                }
             }
             else {
-                std::cerr << "Info: Received an ACK for try " << i << " of " << msgIdStr << std::endl;
+                break;
             }
-        }
-
-        if (waitingAckMsg || !msgAcked) {
-            std::cerr << "Error: Failed to receive ACK message after three tries..." << std::endl;
         }
     }
 
@@ -540,10 +553,10 @@ private:
 
 void disableAllMessages()
 {
-    std::cout << "disableAllMessages:" << std::endl;
+    DLOG(("disableAllMessages:"));
 
     // iterate over a list of all NMEA message IDs
-    std::cout << " disabling NMEA Messages..." << std::endl;
+    DLOG((" disabling NMEA Messages..."));
     using OutCfgMsgCurrent = ublox::message::CfgMsgCurrent<OutMessage>;
     OutCfgMsgCurrent msg;
     msg.field_rate().value() = 0;
@@ -552,27 +565,27 @@ void disableAllMessages()
         memset(buf, 0, 32);
         sprintf(buf, "0x%04X", msgId);
         std::string msgIdStr(buf, strlen(buf));
-        std::cout << "Disabling NMEA message ID: " << msgIdStr << std::endl;
+        DLOG(("Disabling NMEA message ID: ") << msgIdStr);
         msg.field_msgId().value() = static_cast<ublox::MsgId>(msgId);
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 
     // iterate over a list of all UBX message IDs
-    std::cout << " disabling UBX Messages..." << std::endl;
+    DLOG((" disabling UBX Messages..."));
     for (ublox::MsgId msgId : All_UBX_IDs) {
         char buf[32];
         memset(buf, 0, 32);
         sprintf(buf, "0x%04X", msgId);
         std::string msgIdStr(buf, strlen(buf));
-        std::cout << "Disabling UBX message ID: " << msgIdStr << std::endl;
+        DLOG(("Disabling UBX message ID: ") << msgIdStr);
         msg.field_msgId().value() = msgId;
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 }
 
     void configureUbxIO()
     {
-        std::cout << "Info: Configuring UBX I/O..." << std::endl;
+        DLOG(("Info: Configuring UBX I/O..."));
         using OutCfgPrtUart = ublox::message::CfgPrtUart<OutMessage>;
 
         OutCfgPrtUart msg;
@@ -587,12 +600,12 @@ void disableAllMessages()
         inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inUbx, true);
         inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inNmea, false);
 
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 
     void configureUbxRTCUpdate()
     {
-        std::cout << "Info: Configuring UBX RTC Update..." << std::endl;
+        DLOG(("Info: Configuring UBX RTC Update..."));
         using OutCfgPm = ublox::message::CfgPm<OutMessage>;
 
         OutCfgPm msg;
@@ -602,12 +615,12 @@ void disableAllMessages()
         outRTCFlags.setBitValue(OutRTCFlags::BitIdx_updateRTC, true);
         outRTCFlags.setBitValue(OutRTCFlags::BitIdx_updateEPH, true);
 
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 
     void configureUbxPowerMode()
     {
-        std::cout << "Info: Configuring UBX Power Mode..." << std::endl;
+        DLOG(("Info: Configuring UBX Power Mode..."));
         using OutCfgRxm = ublox::message::CfgRxm<OutMessage>;
 
         OutCfgRxm msg;
@@ -616,12 +629,12 @@ void disableAllMessages()
         using OutLpModeValType = typename std::decay<decltype(outLpMode)>::type;
         outLpMode = OutLpModeValType::Continuous;
 
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 
     void configureUbxNavMode()
     {
-        std::cout << "Info: Configuring UBX NAV Mode..." << std::endl;
+        DLOG(("Info: Configuring UBX NAV Mode..."));
         using OutCfgNav5 = ublox::message::CfgNav5<OutMessage>;
         OutCfgNav5 msg;
         auto& outDynamicModel = msg.field_dynModel().value();
@@ -630,19 +643,19 @@ void disableAllMessages()
         // using OutDynamicModelType = typename ublox::message::CfgNav5FieldsCommon::DynModelVal;
         outDynamicModel = OutDynamicModelType::Stationary;
 
-        sendMessageWithAckCheck(msg);
+        sendMessage(msg);
     }
 
     void enableDefaultMessages()
     {
-        std::cout << "Info: Enabling NAV PVT Message..." << std::endl;
+        DLOG(("Info: Enabling NAV PVT Message..."));
         using OutCfgMsgCurrent = ublox::message::CfgMsgCurrent<OutMessage>;
         OutCfgMsgCurrent msg;
         
         msg.field_rate().value() = 1; // 1/sec
         msg.field_msgId().value() = ublox::MsgId_NavPvt;
-        sendMessageWithAckCheck(msg);
-        std::pair<std::string, int> NavPvt(msg.doName(), 0);
+        sendMessage(msg);
+        std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
         enabledMsgs.insert(NavPvt);
     }
 
@@ -655,14 +668,19 @@ void disableAllMessages()
     MsgId sentMsgId;
     bool msgAcked;
     std::map<std::string, int> enabledMsgs;
+    bool checkEnabledMsgs;
+    bool ackCheck;
 };
 
-NidasAppArg Enable("-E,--enable-msg", "-E UBX-NAV-LLV",
+NidasAppArg AckCheck("-a,--ack-check", "",
+        "Enable Ack/Nak checking when sending messages to the u-blox receiver.", "");
+NidasAppArg Enable("NOT IMPLEMENTED -E,--enable-msg", "-E UBX-NAV-LLV",
         "Enable a specific u-blox binary message.", "");
-NidasAppArg Disable("-D,--disable-msg", "-D UBX-NAV-LLV",
+NidasAppArg Disable("NOT IMPLEMENTED -D,--disable-msg", "-D UBX-NAV-LLV",
         "Disable a specific u-blox binary message.", "");
-NidasAppArg Break("-b,--break", "", 
-        "Collect enough data to ascertain that the u-blox GPS receiver is operational, and then exit.", "-b");
+NidasAppArg NoBreak("-n,--no-break", "", 
+        "Disables the feature to collect enough data to ascertain that the u-blox GPS receiver is operational, "
+        "and then exit. This option .", "");
 NidasAppArg Device("-d,--device", "i.e. /dev/ttygps?",
         "Serial device to which a u-blox GPS receiver is connected, and which this program uses.", "/dev/gps0");
 NidasApp app("ubloxbin");
@@ -676,6 +694,7 @@ int usage(const char* argv0)
 << "   * Configures all UBX messages to use the onboard UART. " << std::endl
 << "   * Configures the Real Time Clock to be updated when the receiver has a fix. " << std::endl
 << "   * Configures the receiver to always run - i.e. never enter power saving mode. " << std::endl
+<< "   * Collects sufficient enabled receiver messages to determine it is configured correctly and exits. " << std::endl
 << std::endl
 << "As described below, there is a command line option to specify the serial port, " << std::endl
 << "command line options to enable/disable UBX messages, and a command line option to " << std::endl
@@ -692,7 +711,7 @@ int usage(const char* argv0)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(Device | Enable | Disable | Break | app.Help | app.loggingArgs());
+    app.enableArguments(AckCheck | Device | Enable | Disable | NoBreak | app.Help | app.loggingArgs());
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -730,20 +749,33 @@ int main(int argc, char** argv)
             return usage(argv[0]);
         }
 
+        if (AckCheck.specified()) {
+            DLOG(("ubloxbin: AckCheck is specified."));
+            session.setAckCheck();            
+        }
+
         // We start up the asio io_service in a thread so that we can check for Ack/Nak 
         // after sending each configuration message.
         boost::thread run_thread([&] { io.run(); });
 
         session.configureUbx();
 
+        session.printEnabledMsgs();
+
+        // Wait for configuration to finish before checking for correct
+        // operation
+        if (!NoBreak.specified()) {
+            session.setCheckEnabledMsgs();
+        }
+
         boost::asio::io_service readSvc;
         boost::asio::steady_timer readClock(readSvc);
         boost::asio::signal_set readSignals(readSvc, SIGINT, SIGTERM);
-        while (1) {
+        while (true) {
             readClock.expires_from_now(std::chrono::seconds(1));
             readClock.wait();
             session.performRead();
-            if (Break.specified() && session.checkEnabledMsgs()) 
+            if (!NoBreak.specified() && session.testEnabledMsgs()) 
                 break;
         }
     }
