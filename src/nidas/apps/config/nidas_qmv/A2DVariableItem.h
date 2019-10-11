@@ -41,7 +41,7 @@ class A2DVariableItem : public NidasItem
 {
 
 public:
-    A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, 
+    A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row,
                     NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~A2DVariableItem();
@@ -52,7 +52,7 @@ public:
     std::string getVarNamePfx();
     std::string getVarNameSfx();
 
-    const QVariant & childLabel(int column) const 
+    const QVariant & childLabel(int column) const
                       { return NidasItem::_Name_Label; }
     int childColumnCount() const {return 1;}
 
@@ -71,7 +71,7 @@ public:
     int getA2DChannel() { return _variable->getA2dChannel(); }
     int getGain();
     int getBipolar();
-    QString getLongName() 
+    QString getLongName()
             { return QString::fromStdString(_variable->getLongName()); }
     float getRate() { return _sampleTag->getRate(); }
     std::vector<std::string> getCalibrationInfo();
@@ -86,7 +86,7 @@ protected:
     xercesc::DOMNode *findVariableDOMNode(QString name);
     Variable * _variable;
     SampleTag * _sampleTag;
-   
+
 
 private:
     xercesc::DOMNode * _sampleDOMNode;
