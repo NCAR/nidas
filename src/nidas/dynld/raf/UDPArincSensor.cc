@@ -48,8 +48,23 @@ UDPArincSensor::UDPArincSensor() : _badStatusCnt(0), _arincSensors()
 
 UDPArincSensor::~UDPArincSensor()
 {
+    /*
+     * Since these sensors do not get added to _allSensors in SensorHandler
+     * remove them here.  This could be generalized in SensorHandler for sensors
+     * that are not opened.
+     */
+    std::map<int, DSMArincSensor*>::iterator it;
+    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
+        delete it->second;
 }
 
+
+void UDPArincSensor::open(int flags)
+        throw(n_u::IOException,n_u::InvalidParameterException)
+{
+  UDPSocketSensor::open(flags);
+
+}
 
 bool UDPArincSensor::process(const Sample * samp,
                            list < const Sample * >&results) throw()
