@@ -377,6 +377,12 @@ private:
     nidas::core::Sample* _samp;
 
     /**
+     * Save previous sample to compare with current, e.g. to find where
+     * samples switch from bad to good or vice versa.
+     */
+    nidas::core::Sample* _prevSamp;
+
+    /**
      * How many bytes left to read from the stream into the data
      * portion of samp.
      */
@@ -388,6 +394,19 @@ private:
     char* _dptr;
 
     size_t _badSamples;
+
+    size_t _goodSamples;
+
+    /**
+     * Number of good samples in a row.
+     */
+
+    size_t _goodBlock;
+
+    /*
+     * File position of first bad sample in a block.
+     */
+    size_t _badBlockStart;
 
     nidas::core::SampleInputHeader _inputHeader;
 

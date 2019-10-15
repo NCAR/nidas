@@ -53,8 +53,9 @@ SampleInputStream::SampleInputStream(bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
+    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
+    _badSamples(0),_goodSamples(0),_goodBlock(0),
+    _badBlockStart(0),_inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -70,8 +71,9 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
+    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
+    _badSamples(0),_goodSamples(0),_goodBlock(0),
+    _badBlockStart(),_inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -92,8 +94,9 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _expectHeader(x._expectHeader),
     _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
+    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
+    _badSamples(0),_goodSamples(0),_goodBlock(0),
+    _badBlockStart(0),_inputHeader(),
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
@@ -216,6 +219,12 @@ void SampleInputStream::init() throw()
 
 void SampleInputStream::close() throw(n_u::IOException)
 {
+    n_u::Logger::getInstance()->log(LOG_WARNING, 
+                                    "%s: Total %zd bad samples found.", 
+                                    getName().c_str(), _badSamples);
+    n_u::Logger::getInstance()->log(LOG_WARNING, 
+                                    "%s: Total %zd good samples found.", 
+                                    getName().c_str(), _goodSamples);
     delete _iostream;
     _iostream = 0;
     _iochan->close();
@@ -415,6 +424,7 @@ Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
         }
 
         Sample* out = _samp;
+        _prevSamp = _samp;
         _samp = 0;
         // next read is the header
         _headerToRead = _sheader.getSizeOf();
@@ -429,6 +439,9 @@ SampleInputStream::
 sampleFromHeader() throw()
 {
     Sample* samp = 0;
+    struct tm tm;
+    char tstr[64];
+    time_t t;
 
     // screen bad headers.
     if ((_raw && _sheader.getType() != CHAR_ST) ||
@@ -448,14 +461,35 @@ sampleFromHeader() throw()
     }
 
     if (!samp) {
-        if (!(_badSamples++ % 1000))
+        /*if (!(_badSamples++ % 1000))
             logBadSampleHeader(getName(),_badSamples,
                                _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                               _raw,_sheader);
+                               _raw,_sheader);*/
+        if(_prevSamp){ // first bad sample
+            t = _prevSamp->getTimeTag() / USECS_PER_SEC;
+            gmtime_r(&t, &tm);
+            strftime(tstr, sizeof(tstr), "%Y %m %d %H:%M:%S", &tm);
+            n_u::Logger::getInstance()->log(LOG_WARNING, "Number of good samples in block: %zd, total number good samples: %zd", _goodBlock, _goodSamples);
+            n_u::Logger::getInstance()->log(LOG_WARNING, "Last good sample: %s, of length %zd", tstr, _prevSamp->getDataByteLength());
+            _prevSamp = 0;
+            _badBlockStart = _iostream->getNumInputBytes()-_sheader.getSizeOf();
+            _goodBlock = 0;
+        }
         // bad header. Shift left by one byte, read next byte.
         memmove(&_sheader,((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
         _headerToRead = 1;
         _hptr--;
+    } else { // good sample
+        _goodSamples++;
+        _goodBlock++;
+        if (!_prevSamp) {// first good sample;
+            t = _sheader.getTimeTag() / USECS_PER_SEC;
+            gmtime_r(&t, &tm);
+            strftime(tstr, sizeof(tstr), "%Y %m %d %H:%M:%S", &tm);
+            size_t fpos = _iostream->getNumInputBytes()-_sheader.getSizeOf();
+            n_u::Logger::getInstance()->log(LOG_WARNING, "Bad block from %zd to %zd (size %zd)", _badBlockStart, fpos, fpos-_badBlockStart);
+            n_u::Logger::getInstance()->log(LOG_WARNING, "First good sample: %s, of length: %zd", tstr, _sheader.getDataByteLength());
+        }
     }
     return samp;
 }
@@ -504,9 +538,9 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
                 _sheader.getTimeTag() > _maxSampleTime))) {
-                if (!(_badSamples++ % 1000))
+            /*if (!(_badSamples++ % 1000))
                     logBadSampleHeader(getName(),_badSamples,
-                            _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
+                    _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);*/
                 // bad header. Shift left by one byte, read next byte.
                 memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
                 _headerToRead = 1;
