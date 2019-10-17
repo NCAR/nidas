@@ -169,15 +169,21 @@ if has_i2c:
 
 ubenv = env.Clone()
 UBSRCS = ['ubloxbin.cc']
-ubconf = ubenv.Configure()
-if ubconf.CheckLib('boost_system'):
-    ubenv.AppendUnique(LIBS = ['boost_system'])
-if ubconf.CheckLib('boost_asio'):
-    ubenv.AppendUnique(LIBS = ['boost_asio'])
-if ubconf.CheckLib('boost_thread'):
-    ubenv.AppendUnique(LIBS = ['boost_thread'])
-ubenv = ubconf.Finish()
-env.Alias('ubloxbin', ubenv.NidasProgram(UBSRCS))
+ubconf = ubenv.Configure(custom_tests=custom_tests)
+if not ubconf.CheckCpp11():
+    print("No C++11 support, ubloxbin will not be built.")
+else:
+    print("C++11 found, building ubloxbin.")
+    ubenv.AppendUnique(CXXFLAGS='-std=c++11')
+    ubenv.Append(CXXFLAGS='-Wno-effc++')
+    if ubconf.CheckLib('boost_system'):
+        ubenv.AppendUnique(LIBS = ['boost_system'])
+    if ubconf.CheckLib('boost_asio'):
+        ubenv.AppendUnique(LIBS = ['boost_asio'])
+    if ubconf.CheckLib('boost_thread'):
+        ubenv.AppendUnique(LIBS = ['boost_thread'])
+    ubenv = ubconf.Finish()
+    env.Alias('ubloxbin', ubenv.NidasProgram(UBSRCS))
 
 env.NidasUtilProgram('utime.cc')
 
