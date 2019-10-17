@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEMP=`getopt --long -o "hi:a:" "$@"`
+TEMP=`getopt --long -o "hfi:a:" "$@"`
 eval set -- "$TEMP"
 
 function showHelp()
@@ -15,9 +15,12 @@ function showHelp()
     exit 0
 }
 
+force=0
+
 while true ; do
     case "$1" in 
         -i )
+            #echo "IP = $2"
             ip=$2
             shift 2
         ;;
@@ -25,8 +28,13 @@ while true ; do
             showHelp
         ;;
         -a )
+            #echo "arch = $2"
             arch=$2
             shift 2
+        ;;
+        -f )
+            force=1
+            shift 1
         ;;
         * )
             break
@@ -51,11 +59,20 @@ case "$arch" in
     ;;
 esac
 
-rsync -azrvhe ssh --progress /opt/nidas/bin  root@$ip:/opt/nidas
+opts="-azrvhe"
+if [[ $force == 1 ]] ; then
+ opts="$opts + I"
+ echo $opts
+fi
+
+#echo "IP = $ip"
+#echo "arch = $archlib"
+
+rsync $opts ssh --progress /opt/nidas/bin  root@$ip:/opt/nidas
 # put the libs in the arch-specific directory. In this case, it's the RPi w/the hardware float coproc.
 ssh root@$ip mkdir -p /opt/nidas/lib/$archlib 
-rsync -azrvhe ssh --progress /opt/nidas/lib/*  root@$ip:/opt/nidas/lib/$archlib
-rsync -azrvhe ssh --progress /opt/nidas/firmware  root@$ip:/opt/nidas
-rsync -azrvhe ssh --progress /opt/nidas/include  root@$ip:/opt/nidas
-rsync -azrvhe ssh --progress /opt/nidas/share  root@$ip:/opt/nidas
+rsync $opts ssh --progress /opt/nidas/lib/*  root@$ip:/opt/nidas/lib/$archlib
+rsync $opts ssh --progress /opt/nidas/firmware  root@$ip:/opt/nidas
+rsync $opts ssh --progress /opt/nidas/include  root@$ip:/opt/nidas
+rsync $opts ssh --progress /opt/nidas/share  root@$ip:/opt/nidas
 
