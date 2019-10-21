@@ -156,6 +156,13 @@ public:
     static void deleteFtdiGpio();
 
     /*
+     *  Initializes ftdi_context object using default values, 
+     *  except for the kernel module auto detach feature, which may
+     *  be specified or not.
+     */
+    virtual bool init(bool autoDetach=true);
+
+    /*
      *  Helper method to return the device found status
      */
     virtual bool ifaceFound();
@@ -251,57 +258,66 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
 {
     Sync();
     if (_pContext) {
-        DLOG(("FtdiGpio<%s, %s>(): set interface...",
+        DLOG(("FtdiGpio<%s, %s>(): init context...",
             device2Str(DEVICE), iface2Str(IFACE)));
-        if (setInterface(IFACE)) {
-            DLOG(("FtdiGpio<%s, %s>(): successfully set the interface: ",
+        if (init()) {
+            DLOG(("FtdiGpio<%s, %s>(): set interface...",
                 device2Str(DEVICE), iface2Str(IFACE)));
-
-            open();
-            if (isOpen()) {
-                DLOG(("FtdiGpio<%s, %s>(): set bitbang mode",
+            if (setInterface(IFACE)) {
+                DLOG(("FtdiGpio<%s, %s>(): successfully set the interface: ",
                     device2Str(DEVICE), iface2Str(IFACE)));
-                if (DEVICE == FTDI_I2C) {
-                    switch (IFACE) {
-                        case INTERFACE_A:
-                        case INTERFACE_B:
-                            // expect these to have mpsse ports in top nibble
-                            // outputs on the bottom nibble
-                            _pinDirection = 0x0F;
-                            break;
-                        case INTERFACE_C:
-                            // switches come in on bits 3 & 4, LED indicators 
-                            // on bits 0 and 1, GPIO on the top nibble for power 
-                            // ctrl
-                            _pinDirection = 0xFC;
-                            break;
-                        case INTERFACE_D:
-                            // Used for UBLOX serial port
-                            break;
-                        default:
-                            throw InvalidParameterException("Nidas::util::", std::string("FtdiGpio<") + std::string(device2Str(DEVICE)) 
-                                                                             + std::string(", UNKNOWN>::FtdiGpio()"), 
-                                                            "Invalid parameter for FTDI interface");
-                            break;
-                    }
-                }
-                if (setMode(_pinDirection, BITMODE_BITBANG)) {
-                    DLOG(("FtdiGpio<%s, %s>(): Successfully set mode to bitbang",
+
+                open();
+                if (isOpen()) {
+                    DLOG(("FtdiGpio<%s, %s>(): set bitbang mode",
                         device2Str(DEVICE), iface2Str(IFACE)));
+                    if (DEVICE == FTDI_I2C) {
+                        switch (IFACE) {
+                            case INTERFACE_A:
+                                // expect this to have an mpsse port in bottom nibble
+                                // for I2C
+                                break;
+                            case INTERFACE_B:
+                                // Used for UBLOX serial port
+                                break;
+                            case INTERFACE_C:
+                                // incoming GPIO for switch inputs come in on bits 6 & 7
+                                // outgoing GPIO for LED indicators on bits 4 and 5, 
+                                // outgoing GPIO for power board control on bits 0-3
+                                _pinDirection = 0xCF;
+                                break;
+                            case INTERFACE_D:
+                                _pinDirection = 0xFF;
+                                break;
+                            default:
+                                throw InvalidParameterException("Nidas::util::", std::string("FtdiGpio<") + std::string(device2Str(DEVICE)) 
+                                                                                + std::string(", UNKNOWN>::FtdiGpio()"), 
+                                                                "Invalid parameter for FTDI interface");
+                                break;
+                        }
+                    }
+                    if (setMode(_pinDirection, BITMODE_BITBANG)) {
+                        DLOG(("FtdiGpio<%s, %s>(): Successfully set mode to bitbang with pin direction 0x%0X",
+                            device2Str(DEVICE), iface2Str(IFACE), _pinDirection));
+                    }
+                    else {
+                        DLOG(("FtdiGpio<%s, %s>(): failed to set mode to bitbang: ",
+                            device2Str(DEVICE), iface2Str(IFACE)) << error_string());
+                    }
+                    close();
                 }
                 else {
-                    DLOG(("FtdiGpio<%s, %s>(): failed to set mode to bitbang: ",
-                        device2Str(DEVICE), iface2Str(IFACE)) << error_string());
+                    DLOG(("FtdiGpio<%s, %s>(): failed to open the FTDI device.",
+                        device2Str(DEVICE), iface2Str(IFACE)));
                 }
-                close();
             }
             else {
-                DLOG(("FtdiGpio<%s, %s>(): failed to open the FTDI device.",
-                    device2Str(DEVICE), iface2Str(IFACE)));
+                DLOG(("FtdiGpio<%s, %s>(): Failed to set the interface: ",
+                    device2Str(DEVICE), iface2Str(IFACE)) << error_string());
             }
         }
         else {
-            DLOG(("FtdiGpio<%s, %s>(): Failed to set the interface: ",
+            DLOG(("FtdiGpio<%s, %s>(): Failed to initialize the context: ",
                 device2Str(DEVICE), iface2Str(IFACE)) << error_string());
         }
     }
@@ -321,6 +337,19 @@ FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
         ftdi_free(_pContext);
         _pContext = 0;
     }
+}
+
+template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
+bool FtdiGpio<DEVICE, IFACE>::init(bool autoDetach)
+{
+    bool retval = !ftdi_init(_pContext);
+    if (retval) {
+        _pContext->module_detach_mode = autoDetach ? AUTO_DETACH_SIO_MODULE : DONT_DETACH_SIO_MODULE;
+        DLOG(("FtdiGpio<%s, %s>::init(): %s auto-detaching sio module...",
+              device2Str(DEVICE), iface2Str(IFACE), autoDetach ? "" : "not" ));
+    }
+
+    return retval;
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
@@ -480,12 +509,12 @@ inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
     case FTDI_I2C:
 		switch (iface) {
 		case INTERFACE_A:
-			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_A> singleton..."));
-			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_A>::getFtdiGpio("UCAR", "I2C");
+			DLOG(("getFtdiDevice(): FtdiGpio<FTDI_I2C, INTERFACE_A> is reserved for I2C ops..."));
+			throw InvalidParameterException("FtdiHW", "getFtdiDevice()", "Illegal ftdi_interface value!!");
 			break;
 		case INTERFACE_B:
-			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_B> singleton..."));
-			pFtdiDevice = FtdiGpio<FTDI_I2C, INTERFACE_B>::getFtdiGpio("UCAR", "I2C");
+			DLOG(("getFtdiDevice(): FtdiGpio<FTDI_I2C, INTERFACE_B> is reserved for GPS SIO ops..."));
+			throw InvalidParameterException("FtdiHW", "getFtdiDevice()", "Illegal ftdi_interface value!!");
 			break;
 		case INTERFACE_C:
 			DLOG(("getFtdiDevice(): getting FtdiGpio<FTDI_I2C, INTERFACE_C> singleton..."));
