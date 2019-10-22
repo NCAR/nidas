@@ -271,6 +271,7 @@ public:
     {
         _reportdata = data;
     }
+
     //cmb JSON additions
     void writeToJson(std::vector<string>& keyValuePairs,
                      const char* filename);
@@ -573,8 +574,8 @@ void CounterClient::printResults(std::ostream& outs)
         if (ss.nsamps == 0 && !_reportall)
             continue;
 
-    	    string t1str;
-	        string t2str;
+        string t1str;
+        string t2str;
         if (ss.nsamps > 0)
         {
             time_t ut = ss.t1s / USECS_PER_SEC;
@@ -687,22 +688,30 @@ printData(std::ostream& outs, SampleCounter& ss)
 
 }
 
-//cmb added bottom 3 functions 
-void CounterClient::writeToJson(std::vector<string>& keyValuePairs, const char* filename){
-    std::vector<string>::iterator it;
-    std::ofstream jSon;
-    jSon.open(filename);
 
-    jSon << "{" << endl;
-    for(it = keyValuePairs.begin();it != keyValuePairs.end() - 1; it++){
-        jSon << *it << "," << endl;
+void
+CounterClient::
+writeToJson(std::vector<string>& keyValuePairs, const char* filename)
+{
+    std::vector<string>::iterator it;
+    std::ofstream json;
+    json.open(filename);
+
+    json << "{" << endl;
+    for (it = keyValuePairs.begin(); it != keyValuePairs.end() - 1; it++)
+    {
+        json << *it << "," << endl;
     }
-    jSon << *it << endl;
-    jSon << "}" << endl;
-    jSon.close();
+    json << *it << endl;
+    json << "}" << endl;
+    json.close();
 }
 
-void CounterClient::addToJson(std::vector<string>& keyValuePairs, SampleCounter& ss){
+
+void
+CounterClient::
+addToJson(std::vector<string>& keyValuePairs, SampleCounter& ss)
+{
     std::string theString;
 
     if (ss.sums.size() == 0)
