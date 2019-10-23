@@ -29,6 +29,9 @@
 
 #include <nidas/util/Logger.h>
 
+#include <csignal>
+#include <unistd.h>
+#include <sys/wait.h>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -42,12 +45,13 @@ const n_u::EndianConverter * UDPArincSensor::bigEndian =
                                        EC_BIG_ENDIAN);
 
 
-UDPArincSensor::UDPArincSensor() : _badStatusCnt(0), _arincSensors()
+UDPArincSensor::UDPArincSensor() : _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
 {
 }
 
 UDPArincSensor::~UDPArincSensor()
 {
+    close();
     /*
      * Since these sensors do not get added to _allSensors in SensorHandler
      * remove them here.  This could be generalized in SensorHandler for sensors
@@ -62,8 +66,32 @@ UDPArincSensor::~UDPArincSensor()
 void UDPArincSensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
-  UDPSocketSensor::open(flags);
+    UDPSocketSensor::open(flags);
 
+    _ctrl_pid = fork();
+
+    if (_ctrl_pid == -1)
+    {
+        ELOG(("UDPArincSensor: error forking errorno = %d", errno));
+    }
+    else
+    if (_ctrl_pid == 0)
+    {
+        execlp("arinc_ctrl", "arinc_ctrl", "-i", "192.168.84.17", (char *)0);
+    }
+}
+
+void UDPArincSensor::close()
+        throw(n_u::IOException)
+{
+    UDPSocketSensor::close();
+
+    if (_ctrl_pid > 0)
+    {
+        int rc = kill(_ctrl_pid, SIGTERM);
+        wait(&rc);
+    }
+    _ctrl_pid = 0;
 }
 
 bool UDPArincSensor::process(const Sample * samp,

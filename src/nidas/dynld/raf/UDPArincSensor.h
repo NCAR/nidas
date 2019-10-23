@@ -52,6 +52,11 @@ public:
     UDPArincSensor();
     virtual ~UDPArincSensor();
 
+    virtual void open(int flags) throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
+
+    virtual void close() throw(nidas::util::IOException);
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
@@ -73,6 +78,9 @@ protected:
 
 
 private:
+    //  PID for process that intializes and controls ENET unit.
+    pid_t _ctrl_pid;
+
     // Decoded IRIG time for a given APMP packet.
     char irigHHMMSS[32];
 
