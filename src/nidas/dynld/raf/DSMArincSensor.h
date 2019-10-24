@@ -143,8 +143,15 @@ public:
         return USECS_PER_MSEC;
     }
 
+    unsigned int Speed()    { return _speed; }
+
 
 protected:
+    /**
+     * If this is the Alta UDP setup, then register with that sensor.
+     */
+    void registerWithUDPArincSensor();
+
     /// A list of which samples are processed.
     int _processed[NLABELS];
     int _labelCnt[NLABELS];

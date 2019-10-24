@@ -173,8 +173,10 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
             }
         }
     }
+}
 
-
+void DSMArincSensor::registerWithUDPArincSensor()
+{
     // If we are the Alta:Enet device, then locate UDPArincSensor and register ourselves.
     if (_altaEnetDevice && getDeviceName().length() > 5)
     {
@@ -481,4 +483,5 @@ throw(n_u::InvalidParameterException)
             }
         }
     }
+    registerWithUDPArincSensor();
 }
