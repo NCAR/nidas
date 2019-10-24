@@ -143,6 +143,8 @@ public:
         return USECS_PER_MSEC;
     }
 
+    unsigned int Speed()    { return _speed; }
+
 
 protected:
     /// A list of which samples are processed.
