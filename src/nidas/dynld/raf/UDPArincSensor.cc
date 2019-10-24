@@ -62,6 +62,17 @@ UDPArincSensor::~UDPArincSensor()
         delete it->second;
 }
 
+void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
+{
+    UDPSocketSensor::validate();
+
+    const Parameter *p;
+    p = getParameter("ip"); // device IP address.
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "IP", "not found");
+    _ipAddr = p->getStringValue(0);
+
+}
 
 void UDPArincSensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
@@ -77,7 +88,16 @@ void UDPArincSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        execlp("arinc_ctrl", "arinc_ctrl", "-i", "192.168.84.17", (char *)0);
+        char *args[20];
+        int argc = 0;
+        args[argc++] = (char *)"arinc_ctrl";
+        if (_ipAddr.length() > 0) {
+            args[argc++] = (char *)"-i";
+            args[argc++] = (char *)_ipAddr.c_str();
+        }
+
+        args[argc] = (char *)0;
+        execvp(args[0], args);
     }
 }
 

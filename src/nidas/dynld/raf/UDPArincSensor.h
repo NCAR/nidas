@@ -52,6 +52,8 @@ public:
     UDPArincSensor();
     virtual ~UDPArincSensor();
 
+    virtual void validate() throw(nidas::util::InvalidParameterException);
+
     virtual void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
@@ -76,6 +78,7 @@ protected:
 
     unsigned int    _badStatusCnt;
 
+    std::string _ipAddr;
 
 private:
     //  PID for process that intializes and controls ENET unit.
