@@ -83,7 +83,7 @@ void UDPArincSensor::open(int flags)
 
     if (_ctrl_pid == -1)
     {
-        ELOG(("UDPArincSensor: error forking errorno = %d", errno));
+        ELOG(("UDPArincSensor: error forking errno = %d", errno));
     }
     else
     if (_ctrl_pid == 0)
@@ -94,6 +94,15 @@ void UDPArincSensor::open(int flags)
         if (_ipAddr.length() > 0) {
             args[argc++] = (char *)"-i";
             args[argc++] = (char *)_ipAddr.c_str();
+        }
+
+        std::map<int, DSMArincSensor*>::iterator it;
+        for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it) {
+            args[argc++] = (char *)"-s";
+            std::stringstream sp;
+            sp << it->first << "," << (it->second)->Speed();
+            args[argc] = new char[sp.str().size()+1];
+            strcpy(args[argc++], sp.str().c_str());
         }
 
         args[argc] = (char *)0;
