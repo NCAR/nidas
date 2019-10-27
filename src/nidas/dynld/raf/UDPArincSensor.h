@@ -39,6 +39,7 @@ using namespace nidas::core;
 
 class DSMArincSensor;
 
+
 /**
  * ARINC over UDP, data received from the Alta ARINC to Ethernet appliance.
  * ADC, GPS, IRS ARINC sensor will register themselves with this class.
@@ -78,7 +79,7 @@ protected:
 
     unsigned int    _badStatusCnt;
 
-    std::string _ipAddr;
+    std::string     _ipAddr;
 
 private:
     //  PID for process that intializes and controls ENET unit.

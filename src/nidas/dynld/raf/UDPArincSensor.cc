@@ -90,16 +90,25 @@ void UDPArincSensor::open(int flags)
     {
         char *args[20];
         int argc = 0;
+
         args[argc++] = (char *)"arinc_ctrl";
         if (_ipAddr.length() > 0) {
             args[argc++] = (char *)"-i";
             args[argc++] = (char *)_ipAddr.c_str();
         }
 
+        std::string port;
+        std::string dev = getDeviceName();
+        size_t pos = dev.find("::");
+        if (pos != std::string::npos) {
+            args[argc++] = (char *)"-p";
+            args[argc++] = &((char *)dev.c_str())[pos];
+        }
+
         std::map<int, DSMArincSensor*>::iterator it;
         for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it) {
-            args[argc++] = (char *)"-s";
             std::stringstream sp;
+            args[argc++] = (char *)"-s";
             sp << it->first << "," << (it->second)->Speed();
             args[argc] = new char[sp.str().size()+1];
             strcpy(args[argc++], sp.str().c_str());
