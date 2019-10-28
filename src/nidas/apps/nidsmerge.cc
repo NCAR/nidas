@@ -33,9 +33,9 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/util/Logger.h>
 
 #include <unistd.h>
-#include <getopt.h>
 
 #include <csignal>
 #include <climits>
@@ -108,37 +108,18 @@ int main(int argc, char** argv)
 /* static */
 int NidsMerge::usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " [-x config] -i input ...  [-i input ... ] ..." << endl;
-    cerr << "    [-s start_time] [-e end_time]" << endl;
-    cerr << endl;
-    cerr << "    -o output [-l output_file_length] [-r read_ahead_secs]" << endl;
-    cerr << "    -c config: Legacy flag for -x." << endl;
-    cerr << "    -x config: Update the configuration name in the output header. Legacy -c" << endl;
-    cerr << "         example: -x $ISFF/projects/AHATS/ISFF/config/ahats.xml" << endl;
-    cerr << "    -f : filter sample timetags. If a sample timetag does not fall" << endl;
-    cerr << "         between start and end time, assume sample header is corrupt" << endl;
-    cerr << "         and scan ahead for a good header. Use only on corrupt data files." << endl;
-    cerr << "    -i input ...: one or more input file name or file name formats" << endl;
-    cerr << "    -d dsm ...: one or more DSM IDs to require input data tagged with. If this"  << endl;
-    cerr << "         option is ommited (default), then any input data will be passed"  << endl;
-    cerr << "         blindly to the output.  If any dsms are defined here, only input"  << endl;
-    cerr << "         samples with same DSM IDs given here will be passed to the output." << endl;
-    cerr << "    -s start_time" << endl;
-    cerr << "    -e end_time: time period to merge" << endl;
-    cerr << "    -o output: output file name or file name format" << endl;
-    cerr << "    -l output_file_length: length of output files, in seconds" << endl;
-    cerr << "    -r read_ahead_secs: how much time to read ahead and sort the input samples" << endl;
-    cerr << "         before outputting the sorted, merged samples" << endl;
-    cerr << "\nStandard nidas options:" << endl;
-    cerr << _app.usage() << endl;
-    cerr << endl;
-    cerr << "Example (from ISFF/TREX): \n" << argv0 << endl;
-    cerr << "   -i /data1/isff_%Y%m%d_%H%M%S.dat " << endl;
-    cerr << "    -i /data2/central_%Y%m%d_%H%M%S.dat" << endl;
-    cerr << "    -i /data2/south_%Y%m%d_%H%M%S.dat" << endl;
-    cerr << "    -i /data2/west_%Y%m%d_%H%M%S.dat" << endl;
-    cerr << "    -o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10" << endl;
-    cerr << "    -s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"" << endl;
+    cerr <<
+    "Usage: " << argv0 << " [options] {-i input [...]} \n"
+    "\n"
+    "Options:\n"
+              << _app.usage() <<
+    "Example (from ISFF/TREX): \n\n" << argv0 <<
+    "   -i /data1/isff_%Y%m%d_%H%M%S.dat \n"
+    "    -i /data2/central_%Y%m%d_%H%M%S.dat\n"
+    "    -i /data2/south_%Y%m%d_%H%M%S.dat\n"
+    "    -i /data2/west_%Y%m%d_%H%M%S.dat\n"
+    "    -o /data3/isff_%Y%m%d_%H%M%S.dat -l 14400 -r 10\n"
+    "    -s \"2006 Apr 1 00:00\" -e \"2006 Apr 10 00:00\"\n";
     return 1;
 }
 
@@ -149,10 +130,10 @@ int NidsMerge::main(int argc, char** argv) throw()
 
     NidsMerge merge;
 
-    int res;
-    
-    if ((res = merge.parseRunstring(argc,argv)) != 0) return res;
+    int res = merge.parseRunstring(argc, argv);
 
+    if (res != 0)
+        return res;
     return merge.run();
 }
 
@@ -174,79 +155,161 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     // each input file set, and multiple files can be added to an input
     // file set by passing multiple filenames after each -i.
     NidasApp& app = _app;
+
+    NidasAppArg FilterTimes
+        ("-f,--filter", "",
+         "Filter sample timetags. If a sample timetag does not fall\n"
+         "between start and end time, assume the sample header is corrupt\n"
+         "and scan ahead for a good header. Use only on corrupt data files.");
+    NidasAppArg InputFileSet
+        ("-i", "<filespec> [...]",
+         "Create a file set from all <filespec> up until the next option.\n"
+         "The file specifier is either filename pattern with time\n"
+         "specifier fields like %Y%m%d_%H%M, or it is one or more\n"
+         "filenames which will be read as a consecutive stream.");
+    NidasAppArg ReadAhead
+        ("-r,--readahead", "seconds",
+         "How much time to read ahead and sort the input samples\n"
+         "before outputting the sorted, merged samples.", "30");
+    NidasAppArg ConfigName
+        ("-c,--config", "configname",
+         "Set the config name for the output header.\n"
+         "This is different than the standard -x option which names\n"
+         "the configuration to read.  nidsmerge does not read\n"
+         "the XML configuration file, but it can set a new path\n"
+         "in the output header which other nidas utilities can use.\n"
+         "Example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n"
+         "Any environment variable expansions should be single-quoted\n"
+         "if they should not be replaced by the shell.");
+    NidasAppArg OutputFileLength
+        ("-l,--length", "seconds",
+         "Set length of output files in seconds.  This option is deprecated\n"
+         "since it conflicts with the standard -l option for logging.\n"
+         "Instead, use the @<seconds> output file name suffix to specify\n"
+         "the output file length. The @ specifier takes precedence.\n"
+         "Output file length is required, there is no default.");
+    NidasAppArg DSMid
+        ("-d,--dsm", "id",
+         "DSM id to accept from the input data. By default,\n"
+         "all input samples are passed to the merge.  If any DSM IDs are\n"
+         "specified with -d, then only input samples from those DSMs\n"
+         "will be included in the merge. Multiple -d options are allowed.\n");
+
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
                         app.Version | app.OutputFiles |
+                        FilterTimes | InputFileSet | ReadAhead |
+                        ConfigName | OutputFileLength | DSMid |
                         app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
     // -l conflicts with output file length.
     app.LogConfig.acceptShortFlag(false);
 
-    ArgVector args = app.parseArgs(argc, argv);
-    if (app.helpRequested())
-    {
-        usage(argv[0]);
-    }
-
-    NidasAppArgv left(argv[0], args);
-    int opt_char;     /* option character */
-
-    while ((opt_char = getopt(left.argc, left.argv, "-c:x:fil:r:d:")) != -1) {
-    switch (opt_char) {
-    case 'x':
-    case 'c':
-        configName = optarg;
-        break;
-    case 'f':
-        _filterTimes = true;
-        break;
-    case 'i':
+    bool requiretimes = false;
+    try {
+        app.startArgs(argc, argv);
+        std::ostringstream xmsg;
+        NidasAppArg* arg;
+        while ((arg = app.parseNext()))
         {
-        list<string> fileNames;
-        while(optind < argc && argv[optind][0] != '-') {
-            fileNames.push_back(argv[optind++]);
+            if (arg == &OutputFileLength)
+                outputFileLength = OutputFileLength.asInt();
+            else if (arg == &app.OutputFiles)
+            {
+                // Use the length suffix if given with the output,
+                // otherwise revert to the last length option.
+                if (app.outputFileLength() == 0 && OutputFileLength.specified())
+                    outputFileLength = OutputFileLength.asInt();
+                else
+                    outputFileLength = app.outputFileLength();
+            }
+            else if (arg == &DSMid)
+                allowed_dsms.push_back(DSMid.asInt());
+            else if (arg == &InputFileSet)
+            {
+                // First argument has already been retrieved.
+                list<string> fileNames;
+                string filespec = InputFileSet.getValue();
+                bool timespecs = false;
+                // Collect any additional filenames in the file set up
+                // until the next option specified.
+                do {
+                    if (filespec.find('%') != string::npos)
+                        timespecs = true;
+                    fileNames.push_back(filespec);
+                } while (app.nextArg(filespec));
+
+                if (timespecs && fileNames.size() != 1)
+                {
+                    xmsg << "Only one filespec allowed in a file set "
+                         << "with time specifiers : " << *fileNames.begin()
+                         << " ... " << *fileNames.rbegin();
+                    throw NidasAppException(xmsg.str());
+                }
+                requiretimes |= timespecs;
+                inputFileNames.push_back(fileNames);
+            }
         }
-        inputFileNames.push_back(fileNames);
-        }
-        break;
-    case 'l':
-        outputFileLength = atoi(optarg);
-        break;
-    case 'r':
-        readAheadUsecs = atoi(optarg) * (long long)USECS_PER_SEC;
-        break;
-    case 'd':
-        cout << "Allowing Data with ID=" << optarg << endl;
-        allowed_dsms.push_back(atoi(optarg));
-        break;
-    case '?':
-        return usage(argv[0]);
-    }
-    }
-    outputFileName = app.outputFileName();
-    if (outputFileLength == 0)
-    {
-        outputFileLength = app.outputFileLength();
-    }
-    startTime = app.getStartTime();
-    endTime = app.getEndTime();
-    if (inputFileNames.size() == 0) return usage(argv[0]);
-    for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
-        const list<string>& inputFiles = inputFileNames[ii];
-        list<string>::const_iterator fi = inputFiles.begin();
-        if (inputFiles.size() == 1 && fi->find('%') != string::npos &&
-            (startTime.toUsecs() == LONG_LONG_MIN ||
-             endTime.toUsecs() == LONG_LONG_MAX)) {
-            cerr << "ERROR: start and end times not set, and file name has a % descriptor" << endl;
+        _filterTimes = FilterTimes.asBool();
+        readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
+        configName = ConfigName.getValue();
+        if (app.helpRequested())
+        {
             return usage(argv[0]);
         }
+        startTime = app.getStartTime();
+        endTime = app.getEndTime();
+        outputFileName = app.outputFileName();
+        if (outputFileName.length() == 0)
+        {
+            xmsg << "Output file name is required.";
+            throw NidasAppException(xmsg.str());
+        }
+        if (outputFileLength == 0)
+        {
+            xmsg << "Output file length is required.";
+            throw NidasAppException(xmsg.str());
+        }
+        if (requiretimes && (startTime.toUsecs() == LONG_LONG_MIN ||
+                             endTime.toUsecs() == LONG_LONG_MAX))
+        {
+            xmsg << "Start and end times must be set when a fileset uses "
+                 << "a % time specifier.";
+            throw NidasAppException(xmsg.str());
+        }
+    }
+    catch (NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        std::cerr << "Use -h to see usage info." << std::endl;
+        return 1;
     }
 
-    //setup DSM IDs if provided
-
+    static nidas::util::LogContext configlog(LOG_DEBUG);
+    if (configlog.active())
+    {
+        nidas::util::LogMessage msg(&configlog);
+        msg << "nidsmerge options:\n"
+            << "filterTimes: " << _filterTimes << "\n"
+            << "readahead: " << readAheadUsecs/USECS_PER_SEC << "\n"
+            << "configname: " << configName << "\n"
+            << "start: " << startTime.format(true,"%Y %b %d %H:%M:%S") << "\n"
+            << "  end: " << endTime.format(true,"%Y %b %d %H:%M:%S") << "\n"
+            << "output: " << outputFileName << "\n"
+            << "output length: " << outputFileLength << "\n";
+        for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
+            msg << "input fileset:";
+            const list<string>& inputFiles = inputFileNames[ii];
+            list<string>::const_iterator fi = inputFiles.begin();
+            for ( ; fi != inputFiles.end(); ++fi)
+                msg << " " << *fi;
+            msg << "\n";
+        }
+    }
     return 0;
 }
+
 
 void NidsMerge::sendHeader(dsm_time_t,SampleOutput* out)
     throw(n_u::IOException)
@@ -268,10 +331,11 @@ void NidsMerge::printHeader()
 }
 
 /**
-    receiveAllowedDsm writes the passed sample to the passed stream if the DSM id of the sample
-    is in allowed_dsms.  If allowed_dsms is empty, the sample is written to the stream.  Returns
-    whatever stream.receive(sample) returns if the sample's DSM is in the correct range, otherwise
-    false, 
+    receiveAllowedDsm writes the passed sample to the passed stream if the
+    DSM id of the sample is in allowed_dsms.  If allowed_dsms is empty, the
+    sample is written to the stream.  Returns whatever
+    stream.receive(sample) returns if the sample's DSM is in the correct
+    range, otherwise false,
 */
 bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample)
 {
@@ -280,7 +344,8 @@ bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sam
         return stream.receive(sample);
     }
     unsigned int want = sample->getDSMId();
-    for (list<unsigned int>::const_iterator i = allowed_dsms.begin(); i !=  allowed_dsms.end(); i++)
+    for (list<unsigned int>::const_iterator i = allowed_dsms.begin();
+         i !=  allowed_dsms.end(); i++)
     {
         if (*i == want) 
             return stream.receive(sample);
