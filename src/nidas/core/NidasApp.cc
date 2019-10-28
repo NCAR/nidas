@@ -336,10 +336,10 @@ NidasApp(const std::string& name) :
   ("-p,--process", "", "Enable processed samples."),
   StartTime
   ("-s,--start", "<start-time>",
-   "Skip samples until start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "Start samples at start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   EndTime
   ("-e,--end", "<end-time>",
-   "Skip samples after end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
   ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
    "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
@@ -573,6 +573,21 @@ startArgs(int argc, const char* const argv[]) throw (NidasAppException)
     setProcessName(argv[0]);
   }
   startArgs(ArgVector(argv+1, argv+argc));
+}
+
+
+bool
+NidasApp::
+nextArg(std::string& arg)
+{
+  bool found = false;
+  if (_argi < (int)_argv.size() && _argv[_argi].find('-') != 0)
+  {
+    found = true;
+    arg = _argv[_argi];
+    _argv.erase(_argv.begin() + _argi, _argv.begin() + _argi + 1);
+  }
+  return found;
 }
 
 
@@ -821,8 +836,13 @@ parseOutput(const std::string& optarg) throw (NidasAppException)
     {
       throw NidasAppException("invalid length specifier: " + optarg);
     }
-    _outputFileLength = length;
   }
+  // If no output length suffix was specified, then the output length is
+  // reset to zero.  This way the current settings match with the most
+  // recent output option on the command line, rather than possibly
+  // "inheriting" an output length specified with a different output file
+  // name.
+  _outputFileLength = length;
   _outputFileName = output;
 }
 

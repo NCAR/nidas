@@ -734,6 +734,19 @@ public:
     NidasAppArg*
     parseNext() throw (NidasAppException);
 
+    /**
+     * If the next argument to be parsed does not start with '-', then copy
+     * it into @p arg and remove it from the arguments.  Callers can use
+     * this to consume multiple arguments for a single option flag.
+     * Returns true when the argument exists and has been copied into @p
+     * arg, otherwise returns false and @p arg is unchanged.  The returned
+     * argument will not be seen by parseNext(), and it will not be
+     * returned by unparsedArgs().
+     **/
+    bool
+    nextArg(std::string& arg);
+
+
     ArgVector
     unparsedArgs();
 
