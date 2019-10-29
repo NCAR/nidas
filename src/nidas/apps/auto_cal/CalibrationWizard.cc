@@ -33,9 +33,10 @@
 
 #include <QCursor>
 
+CalibrationWizard *CalibrationWizard::_instance;
 
 CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
-    : QWizard(parent, Qt::Window), calibrator(calib)
+    : QWizard(parent, Qt::Window), acc(acc), calibrator(calib)
 {
     setOption(QWizard::NoBackButtonOnStartPage, true);
     setOption(QWizard::NoBackButtonOnLastPage,  true);
@@ -83,6 +84,7 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 
     _snSignal = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
     connect(_snSignal, SIGNAL(activated(int)), this, SLOT(handleSignal()));
+    _instance = this;
 }
 
 CalibrationWizard::~CalibrationWizard()
@@ -94,14 +96,18 @@ CalibrationWizard::~CalibrationWizard()
 }
 
 
-/* static */
-void CalibrationWizard::sigAction(int sig, siginfo_t* siginfo, void* vptr)
+// signal handler cleanup work.
+void CalibrationWizard::cleanup(int sig, siginfo_t* siginfo, void* vptr)
 {
     cout <<
         "received signal " << strsignal(sig) << '(' << sig << ')' <<
         ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
         ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
         ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+
+
+    // Clear any residual auto-cal
+    acc->SetNextCalVoltage(DONE);
 
     char a = 1;
 
