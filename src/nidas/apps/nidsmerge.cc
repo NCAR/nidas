@@ -397,11 +397,9 @@ int NidsMerge::run() throw()
                 fset = nidas::core::FileSet::getFileSet(inputFiles);
             }
 
-#ifdef DEBUG
-            cerr << "getName=" << fset->getName() << endl;
-            cerr << "start time=" << startTime.format(true,"%c") << endl;
-            cerr << "end time=" << endTime.format(true,"%c") << endl;
-#endif
+            DLOG(("getName=") << fset->getName());
+            DLOG(("start time=") << startTime.format(true, "%c"));
+            DLOG(("end time=") << endTime.format(true, "%c"));
 
             // SampleInputStream owns the iochan ptr.
             SampleInputStream* input = new SampleInputStream(fset);
