@@ -71,7 +71,7 @@ public:
 protected:
     // Methods to decode pieces of the APMP and RXP packets.
     unsigned long decodeIRIG(unsigned char *);
-    unsigned long long decodeTIMER(const rxp&);
+    long long decodeTIMER(const rxp&);
     int bcd_to_decimal(unsigned char x) { return x - 6 * (x >> 4); }
 
     // Data ships Big Endian.

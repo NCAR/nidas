@@ -102,7 +102,7 @@ void UDPArincSensor::open(int flags)
         size_t pos = dev.find("::");
         if (pos != std::string::npos) {
             args[argc++] = (char *)"-p";
-            args[argc++] = &((char *)dev.c_str())[pos];
+            args[argc++] = &((char *)dev.c_str())[pos+2];
         }
 
         std::map<int, DSMArincSensor*>::iterator it;
@@ -158,7 +158,7 @@ bool UDPArincSensor::process(const Sample * samp,
 
     int payloadSize = bigEndian->uint32Value(hSamp->payloadSize);
     int nFields = (payloadSize - 16) / sizeof(rxp);
-    unsigned long long PE = bigEndian->uint32Value(hSamp->PEtimeHigh);
+    long long PE = bigEndian->uint32Value(hSamp->PEtimeHigh);
     PE = ((PE << 32) | bigEndian->uint32Value(hSamp->PEtimeLow)) / 50;  // microseconds
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
@@ -217,16 +217,16 @@ unsigned long UDPArincSensor::decodeIRIG(unsigned char *irig_bcd)
 }
 
 /* -------------------------------------------------------------------- */
-unsigned long long UDPArincSensor::decodeTIMER(const rxp& samp)
+long long UDPArincSensor::decodeTIMER(const rxp& samp)
 {
-  unsigned long long ttime;
+  long long ttime;
 
   /* Make 64-bit 20nsec/50Mhz Clock Ticks to 64-bit uSecs */
   ttime = bigEndian->uint32Value(samp.timeHigh);
   ttime = ((ttime << 32) | bigEndian->uint32Value(samp.timeLow)) / 50;
 
 #ifdef DEBUG
-  static unsigned long long prevTime = 0;
+  static long long prevTime = 0;
   printf("  rxp irig %llu usec, dT=%lld\n", ttime, ttime - prevTime);
   printf("           %llu msec, %llu sec\n", (ttime/1000), (ttime/1000000));
   prevTime = ttime;
