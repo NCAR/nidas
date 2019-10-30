@@ -504,7 +504,7 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
 }
 
 
-// This is a re-entrant function that avances to the next calibration voltage level.
+// This is a re-entrant function that advances to the next calibration voltage level.
 // It iterates across the levels, dsmNames, devNames, and Channels.
 //
 enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
