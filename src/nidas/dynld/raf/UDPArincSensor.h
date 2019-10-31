@@ -77,7 +77,10 @@ protected:
     // Data ships Big Endian.
     static const nidas::util::EndianConverter * bigEndian;
 
+//@{
+    unsigned int    _prevAPMPseqNum, _badAPMPseqCnt;
     unsigned int    _badStatusCnt;
+//@}
 
     std::string     _ipAddr;
 

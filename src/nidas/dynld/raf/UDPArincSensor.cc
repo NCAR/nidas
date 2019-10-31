@@ -45,7 +45,8 @@ const n_u::EndianConverter * UDPArincSensor::bigEndian =
                                        EC_BIG_ENDIAN);
 
 
-UDPArincSensor::UDPArincSensor() : _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
+UDPArincSensor::UDPArincSensor() :
+    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
 {
 }
 
@@ -60,6 +61,9 @@ UDPArincSensor::~UDPArincSensor()
     std::map<int, DSMArincSensor*>::iterator it;
     for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
         delete it->second;
+
+    if (_badAPMPseqCnt > 1) // always one for first count.
+        cerr << getName() << ": Number of APMP sequence count errors = " << _badAPMPseqCnt << std::endl;
 }
 
 void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
@@ -158,16 +162,19 @@ bool UDPArincSensor::process(const Sample * samp,
 
     int payloadSize = bigEndian->uint32Value(hSamp->payloadSize);
     int nFields = (payloadSize - 16) / sizeof(rxp);
+    uint32_t seqNum = bigEndian->uint32Value(hSamp->seqNum);
     long long PE = bigEndian->uint32Value(hSamp->PEtimeHigh);
     PE = ((PE << 32) | bigEndian->uint32Value(hSamp->PEtimeLow)) / 50;  // microseconds
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
     DLOG(( "nFields=%3u seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
-                bigEndian->uint32Value(hSamp->seqNum),
-                payloadSize, PE,
+                seqNum, payloadSize, PE,
                 bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
 
+    if (seqNum != _prevAPMPseqNum+1)
+        _badAPMPseqCnt++;
+    _prevAPMPseqNum = seqNum;
 
     int nOutFields[8];          // Four possible devices.
     unsigned char *outData[8];  // Four possible devices.
