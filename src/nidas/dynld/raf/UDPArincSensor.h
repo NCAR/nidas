@@ -79,10 +79,14 @@ protected:
 
 //@{
     unsigned int    _prevAPMPseqNum, _badAPMPseqCnt;
+    unsigned int    _prevRXPseqNum[8], _badRXPseqCnt[8];
     unsigned int    _badStatusCnt;
 //@}
 
     std::string     _ipAddr;
+
+    static const int MAX_CHANNELS;
+
 
 private:
     //  PID for process that intializes and controls ENET unit.

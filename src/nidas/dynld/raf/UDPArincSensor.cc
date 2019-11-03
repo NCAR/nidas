@@ -44,10 +44,14 @@ const n_u::EndianConverter * UDPArincSensor::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
+const int UDPArincSensor::MAX_CHANNELS = 8;
+
 
 UDPArincSensor::UDPArincSensor() :
     _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
 {
+    for (int i = 0; i < MAX_CHANNELS; ++i)
+        _prevRXPseqNum[i] = _badRXPseqCnt[i] = 0;
 }
 
 UDPArincSensor::~UDPArincSensor()
@@ -59,11 +63,16 @@ UDPArincSensor::~UDPArincSensor()
      * that are not opened.
      */
     std::map<int, DSMArincSensor*>::iterator it;
-    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
-        delete it->second;
+//    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
+//        delete it->second;
 
-    if (_badAPMPseqCnt > 1) // always one for first count.
-        cerr << getName() << ": Number of APMP sequence count errors = " << _badAPMPseqCnt << std::endl;
+    if (_badAPMPseqCnt > 1) // always one for start up.
+        cerr << getClassName() << ": Number of APMP sequence count errors = " << _badAPMPseqCnt-1 << std::endl;
+
+    for (int i = 0; i < MAX_CHANNELS; ++i)
+        if (_badRXPseqCnt[i] > 1) // always one for start up.
+            cerr << getClassName() << ": Number of RXP sequence count errors for channel "
+                 << i << " = " << _badRXPseqCnt[i]-1 << std::endl;
 }
 
 void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
@@ -176,31 +185,41 @@ bool UDPArincSensor::process(const Sample * samp,
         _badAPMPseqCnt++;
     _prevAPMPseqNum = seqNum;
 
-    int nOutFields[8];          // Four possible devices.
-    unsigned char *outData[8];  // Four possible devices.
-    for (int i = 0; i < 8; i++) {
+    int nOutFields[MAX_CHANNELS];
+    unsigned char *outData[MAX_CHANNELS];
+    for (int i = 0; i < MAX_CHANNELS; i++) {
         nOutFields[i] = 0;
         outData[i] = new unsigned char [payloadSize]; // oversized...
     }
 
     const rxp *pSamp = (const rxp *) (input + sizeof(APMP_hdr));
-    for (int i = 0; i < nFields; i++) {
-        int channel = (bigEndian->uint32Value(pSamp[i].control) & 0x0F000000) >> 24;
-        if (channel < 8)
+    for (int i = 0; i < nFields; i++)
+    {
+        unsigned int channel = pSamp[i].control & 0x0000000F;    // extract without byte swapping
+        if (channel < MAX_CHANNELS)
         {
             txp packet;
-//            packet.control = bigEndian->uint32Value(pSamp[i].control);
-//            packet.timeHigh = bigEndian->uint32Value(pSamp[i].timeHigh);
+
             packet.time = startTime + ((decodeTIMER(pSamp[i]) - PE) / 1000);   // milliseconds since midnight...
 //DLOG((" UAS: %lu = %lu + (%llu - %llu) %llu", packet.time, startTime, decodeTIMER(pSamp[i]), PE, ((decodeTIMER(pSamp[i]) - PE) / 1000) ));
             packet.data = bigEndian->uint32Value(pSamp[i].data);
             memcpy(&outData[channel][nOutFields[channel]++ * sizeof(txp)], &packet, sizeof(txp));
+
+            seqNum = (pSamp[i].control & 0x0000FF00) >> 8;  // extract without byte swapping
+            if (seqNum % 256 != (_prevRXPseqNum[channel]+1) % 256)
+            {
+                _badRXPseqCnt[channel]++;
+                WLOG(( "RXP out of seq, channel = %d, APMP seq # = %d, RXP# in APMP = %d/%d, data = %u, prevSeq = %d, thisSeq = %d",
+                       channel, _prevAPMPseqNum, i, nFields, (packet.data & 0x000000ff),
+                       _prevRXPseqNum[channel], seqNum ));
+            }
+            _prevRXPseqNum[channel] = seqNum;
         }
         else
             ELOG(( "%s: received channel number %d, outside 0-3, ignoring.", getName().c_str(), channel ));
     }
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < MAX_CHANNELS; i++) {
         if (nOutFields[i] > 0)
             _arincSensors[i]->processAlta(tt, outData[i], nOutFields[i], results);
 
