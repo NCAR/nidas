@@ -151,6 +151,14 @@ bool UDPArincSensor::process(const Sample * samp,
     const unsigned char *input = (const unsigned char *)samp->getConstVoidDataPtr();
     const APMP_hdr *hSamp = (const APMP_hdr *)input;
 
+    if (strncmp((const char *)input, (const char *)"STATUS", 6) == 0)
+    {
+        UDPSocketSensor::process(samp, results);
+
+        if (results.empty()) return false;
+        return true;
+    }
+
     // absolute time at 00:00 GMT of day.
     dsm_time_t tt = samp->getTimeTag();
 
