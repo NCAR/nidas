@@ -781,7 +781,7 @@ DataStats::DataStats():
 {
     app.setApplicationInstance();
     app.setupSignals();
-    app.enableArguments(app.XmlHeaderFile | app.LogConfig |
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles |
