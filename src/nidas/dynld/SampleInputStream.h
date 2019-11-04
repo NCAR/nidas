@@ -52,6 +52,100 @@ class IOStream;
 namespace dynld {
 
 /**
+ * Keep track of statistics for a contiguous block of good or bad samples
+ * in a stream.
+ **/
+struct BlockStats {
+
+    typedef nidas::core::dsm_time_t dsm_time_t;
+
+    /**
+     * Initialize a block as good or bad and give it an offset.  Blocks
+     * default to being good but empty.
+     **/
+    BlockStats(bool goodblock=true, size_t startblock=0);
+
+    /**
+     * On a good sample, reset this block to a good block if not already,
+     * and update the last good sample and the size of the block.  Call
+     * this method on each good sample so that when a bad header appears,
+     * all the stats in this block are already correct.
+     **/
+    void
+    addGoodSample(nidas::core::Sample* samp, long long offset);
+
+    /**
+     * An alternative to calling startBadBlock()/endBadBlock(), it adds
+     * nbadbytes to a bad block, resetting the block from good to bad if
+     * necessary.  It is analogous to the addGoodSample() method.  Use
+     * startBadBlock() and endBadBlock() to avoid calling addGoodSample()
+     * on every single bad byte.  When a bad block is started from a good
+     * block, it copies the end_time from the good block into the
+     * start_time of the new bad block.
+     **/
+    void
+    addBadSample(long long offset, unsigned int nbadbytes);
+
+    /**
+     * Start a bad block.  The size (nbytes) will not be correct until
+     * endBadBlock() is called.
+     **/
+    void
+    startBadBlock(long long offset);
+
+    /**
+     * Mark the end of a bad block by assigning the end_time and setting
+     * nbytes according to the current offset.  If the block ends without a
+     * good sample, then pass @p samp as NULL, in which case the end_time
+     * will remain at the default of LONG_LONG_MAX.
+     **/
+    void
+    endBadBlock(nidas::core::Sample* samp, long long offset);
+
+    inline size_t
+    blockEnd() const
+    {
+        return block_start + nbytes;
+    }
+
+    /**
+     * Sample times bounding this block.  For good blocks, these are the
+     * sample times for the first and last samples in the block.  For bad
+     * blocks, they are the sample times of the last good sample before the
+     * block and the first good sample after the block.  If unset,
+     * start_time is LONG_LONG_MIN and end_time is LONG_LONG_MAX.
+     **/
+    dsm_time_t start_time;
+    dsm_time_t end_time;
+
+    /**
+     * True if this is a block of good samples.
+     **/
+    bool good;
+
+    /**
+     * Number of good samples in a row.  Zero in a bad block.
+     */
+    size_t nsamples;
+
+    /*
+     * File position of start of this block.
+     */
+    size_t block_start;
+
+    /**
+     * Size in bytes of this block.  Starts out empty at zero.
+     **/
+    size_t nbytes;
+
+    /**
+     * Size of the last good sample in a good sample block. It is zero in a
+     * bad block.
+     **/
+    unsigned int last_good_sample_size;
+};
+
+/**
  * An implementation of a SampleInput.
  *
  * The readSamples method converts raw bytes from the iochannel
@@ -277,7 +371,10 @@ public:
 
     void close() throw(nidas::util::IOException);
 
-    void newFile() throw(nidas::util::IOException);
+    // Near as I can tell this is not defined anywhere nor called anywhere,
+    // so why it's declared here I cannot say...
+    //
+    // void newFile() throw(nidas::util::IOException);
 
     void setFilterBadSamples(bool val)
     {
@@ -377,12 +474,6 @@ private:
     nidas::core::Sample* _samp;
 
     /**
-     * Save previous sample to compare with current, e.g. to find where
-     * samples switch from bad to good or vice versa.
-     */
-    nidas::core::Sample* _prevSamp;
-
-    /**
      * How many bytes left to read from the stream into the data
      * portion of samp.
      */
@@ -393,20 +484,22 @@ private:
      */
     char* _dptr;
 
-    size_t _badSamples;
-
-    size_t _goodSamples;
 
     /**
-     * Number of good samples in a row.
-     */
+     * Information about the current block of samples, good or bad.
+     **/
+    BlockStats _block;
 
-    size_t _goodBlock;
+    /**
+     * Number of bad samples in the stream so far, which is to say number
+     * of bytes checked which did not contain a reasonable sample header.
+     **/
+    size_t _badSamples;
 
-    /*
-     * File position of first bad sample in a block.
-     */
-    size_t _badBlockStart;
+    /**
+     * Number of good samples in the stream so far.
+     **/
+    size_t _goodSamples;
 
     nidas::core::SampleInputHeader _inputHeader;
 

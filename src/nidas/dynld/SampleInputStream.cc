@@ -43,8 +43,135 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogScheme;
+using nidas::util::UTime;
 
 NIDAS_CREATOR_FUNCTION(SampleInputStream)
+
+inline std::string
+ftime(dsm_time_t tt)
+{
+    return UTime(tt).format(true, "%Y-%m-%d,%H:%M:%S");
+}
+
+BlockStats::
+BlockStats(bool goodblock, size_t startblock):
+    start_time(LONG_LONG_MIN),
+    end_time(LONG_LONG_MAX),
+    good(goodblock),
+    nsamples(0),
+    block_start(startblock),
+    nbytes(0),
+    last_good_sample_size(0)
+{}
+
+void
+BlockStats::
+addGoodSample(Sample* samp, long long offset)
+{
+    // Reset a bad or empty block on a good sample.
+    if (!good || !nbytes)
+    {
+        *this = BlockStats(true, offset);
+        start_time = samp->getTimeTag();
+        ILOG(("setting good block start to ") << ftime(start_time));
+    }
+    end_time = samp->getTimeTag();
+    ++nsamples;
+    last_good_sample_size = samp->getDataByteLength();
+    nbytes += samp->getHeaderLength() + last_good_sample_size;
+}
+
+
+void
+BlockStats::
+addBadSample(long long offset, unsigned int nbadbytes)
+{
+    // Reset a good block on a bad sample, but use the end time from
+    // the previous block as the start time of this block.
+    if (good || !nbytes)
+    {
+        startBadBlock(offset);
+    }
+    nbytes += nbadbytes - 1;
+}
+
+
+void
+BlockStats::
+startBadBlock(long long offset)
+{
+    dsm_time_t lastgood = end_time;
+    *this = BlockStats(false, offset);
+    start_time = lastgood;
+    // The block is not empty and has at least one bad byte, but
+    // the actual size will not be known until endBadBlock() is called.
+    nbytes = 1;
+}
+
+
+void
+BlockStats::
+endBadBlock(Sample* samp, long long offset)
+{
+    if (samp)
+        end_time = samp->getTimeTag();
+    // The block is not empty and has at least one bad byte, but
+    // the actual size will not be known until endBadBlock() is called.
+    nbytes = offset - block_start;
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const BlockStats& bs)
+{
+    std::ostringstream buf;
+
+    buf << (bs.good ? ".Good" : "..Bad") << " block from ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.block_start
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.block_start << ")";
+    buf << " to ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.blockEnd()
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.blockEnd() << ")";
+    buf << ", size ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.nbytes
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.nbytes << ")";
+    buf << std::dec << std::setw(8) << std::setfill(' ');
+    if (bs.good)
+    {
+        buf << "; number of good samples in block: "
+            << bs.nsamples;
+        buf << ", from "
+            << ftime(bs.start_time) << " to " << ftime(bs.end_time)
+            << ", last length: " << bs.last_good_sample_size;
+    }
+    else
+    {
+        if (bs.start_time != LONG_LONG_MIN)
+            buf << "; last good sample before block: "
+                << ftime(bs.start_time) << "; ";
+        else
+            buf << "no good sample before block; ";
+        if (bs.end_time != LONG_LONG_MAX)
+            buf << "first good sample after block: "
+                << ftime(bs.end_time);
+        else
+            buf << "no good sample after block.";
+    }
+    out << buf.str();
+    return out;
+}
+
+namespace nidas {
+    namespace util {
+        // Put stream operator for BlockStats in scope where it can be
+        // resolved by logging templates in nidas::util.
+        using ::operator<<;
+    }
+}
 
 /*
  * Constructor
@@ -53,9 +180,9 @@ SampleInputStream::SampleInputStream(bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_goodSamples(0),_goodBlock(0),
-    _badBlockStart(0),_inputHeader(),
+    _samp(0),_dataToRead(0),_dptr(0),
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -71,9 +198,9 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_goodSamples(0),_goodBlock(0),
-    _badBlockStart(),_inputHeader(),
+    _samp(0),_dataToRead(0),_dptr(0),
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -94,9 +221,9 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _expectHeader(x._expectHeader),
     _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_prevSamp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_goodSamples(0),_goodBlock(0),
-    _badBlockStart(0),_inputHeader(),
+    _samp(0),_dataToRead(0),_dptr(0),
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
@@ -116,9 +243,9 @@ SampleInputStream* SampleInputStream::clone(IOChannel* iochannel)
 
 SampleInputStream::~SampleInputStream()
 {
+    close();
     if (_samp)
         _samp->freeReference();
-    delete _iostream;
     delete _iochan;
 }
 
@@ -219,15 +346,33 @@ void SampleInputStream::init() throw()
 
 void SampleInputStream::close() throw(n_u::IOException)
 {
-    n_u::Logger::getInstance()->log(LOG_WARNING, 
-                                    "%s: Total %zd bad samples found.", 
-                                    getName().c_str(), _badSamples);
-    n_u::Logger::getInstance()->log(LOG_WARNING, 
-                                    "%s: Total %zd good samples found.", 
-                                    getName().c_str(), _goodSamples);
-    delete _iostream;
-    _iostream = 0;
-    _iochan->close();
+    if (_iostream)
+    {
+        // Finish tallying up the last block.  It would make more sense to
+        // compute good and bad blocks per-file, for input streams like
+        // FileSets with multiple files.  However, the API for keeping
+        // track of when files change makes that difficult.  Likewise, it
+        // seems better to close the latest block when EOF is first
+        // detected in the stream, but since that exception can be thrown
+        // from so many places, this seems the next best option.  So
+        // callers which want to log stats on all blocks have to call
+        // close() manually first.
+        if (_block.nbytes)
+        {
+            long long offset = _iostream->getNumInputBytes();
+            if (!_block.good)
+            {
+                _block.endBadBlock(0, offset);
+            }
+            WLOG(("") << _block);
+        }
+        WLOG(("") << getName() << ": Total " << _badSamples << " bad samples.");
+        WLOG(("") << getName() << ": Total " << _goodSamples << " good samples.");
+        delete _iostream;
+        _iostream = 0;
+    }
+    if (_iochan)
+        _iochan->close();
 }
 
 const DSMConfig* SampleInputStream::getDSMConfig() const
@@ -267,19 +412,23 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 }
 
 namespace {
-    void logBadSampleHeader(const string& name,size_t nbad,long long pos,bool raw, const SampleHeader& header)
+    void logBadSampleHeader(const string& name, size_t nbad,
+                            long long pos, bool raw,
+                            const SampleHeader& header)
     {
         if (raw && header.getType() != CHAR_ST) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: raw sample not of type char(%d): #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                name.c_str(),CHAR_ST,nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
-                (int)header.getType(),header.getDataByteLength());
+            WLOG(("%s: raw sample not of type char(%d): "
+                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+                  name.c_str(), CHAR_ST, nbad, pos,
+                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+                  (int)header.getType(), header.getDataByteLength()));
         }
         else {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: bad sample header: #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                name.c_str(),nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
-                (int)header.getType(),header.getDataByteLength());
+            WLOG(("%s: bad sample header: "
+                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+                  name.c_str(), nbad, pos,
+                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+                  (int)header.getType(), header.getDataByteLength()));
         }
     }
 }
@@ -409,11 +558,8 @@ Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
                 continue;
             }
 
-            _dataToRead = _sheader.getDataByteLength();
+            _dataToRead = _samp->getDataByteLength();
             _dptr = (char*) _samp->getVoidDataPtr();
-
-            _samp->setTimeTag(_sheader.getTimeTag());
-            _samp->setId(_sheader.getId());
         }
 
         if (!readSampleData(keepreading))
@@ -424,7 +570,6 @@ Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
         }
 
         Sample* out = _samp;
-        _prevSamp = _samp;
         _samp = 0;
         // next read is the header
         _headerToRead = _sheader.getSizeOf();
@@ -438,58 +583,77 @@ Sample*
 SampleInputStream::
 sampleFromHeader() throw()
 {
+    // Set to zero to disable logging of individual bad samples.
+    static unsigned int log_count =
+        LogScheme::current().getParameterT
+        ("sample_input_stream_bad_sample_log_count", 1000);
     Sample* samp = 0;
-    struct tm tm;
-    char tstr[64];
-    time_t t;
+
+    // Mark the offset of this sample.
+    long long offset = _iostream->getNumInputBytes() - _sheader.getSizeOf();
+
+    if (_filterBadSamples)
+    {
+        // If filtering enabled but no max time set, use now plus 1 day.
+        if (_maxSampleTime == LONG_LONG_MAX)
+            _maxSampleTime = UTime().toUsecs() + 24*USECS_PER_HOUR;
+        // Likewise if no min time set, use within 5 years of max time.
+        if (_minSampleTime == LONG_LONG_MIN)
+            _minSampleTime = _maxSampleTime - 5*365*USECS_PER_DAY;
+    }
 
     // screen bad headers.
     if ((_raw && _sheader.getType() != CHAR_ST) ||
         (_filterBadSamples &&
          (_sheader.getType() >= UNKNOWN_ST ||
+          GET_DSM_ID(_sheader.getId()) == 0 ||
           GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
           _sheader.getDataByteLength() > _maxSampleLength ||
           _sheader.getDataByteLength() == 0 ||
           _sheader.getTimeTag() < _minSampleTime ||
-          _sheader.getTimeTag() > _maxSampleTime))) {
+          _sheader.getTimeTag() > _maxSampleTime)))
+    {
         samp = 0;
     }
-    // getSample can return NULL if type or length are bad
-    else {
+    else
+    {
+        // getSample can return NULL if type or length are bad
         samp = nidas::core::getSample((sampleType)_sheader.getType(),
                                       _sheader.getDataByteLength());
     }
 
     if (!samp) {
-        /*if (!(_badSamples++ % 1000))
-            logBadSampleHeader(getName(),_badSamples,
-                               _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                               _raw,_sheader);*/
-        if(_prevSamp){ // first bad sample
-            t = _prevSamp->getTimeTag() / USECS_PER_SEC;
-            gmtime_r(&t, &tm);
-            strftime(tstr, sizeof(tstr), "%Y %m %d %H:%M:%S", &tm);
-            n_u::Logger::getInstance()->log(LOG_WARNING, "Number of good samples in block: %zd, total number good samples: %zd", _goodBlock, _goodSamples);
-            n_u::Logger::getInstance()->log(LOG_WARNING, "Last good sample: %s, of length %zd", tstr, _prevSamp->getDataByteLength());
-            _prevSamp = 0;
-            _badBlockStart = _iostream->getNumInputBytes()-_sheader.getSizeOf();
-            _goodBlock = 0;
+        // At least by logging some of the bad samples by default, it's
+        // more likely someone notices the input stream has bad samples.
+        ++_badSamples;
+        if (log_count && !((_badSamples-1) % log_count))
+        {
+            logBadSampleHeader(getName(), _badSamples, offset, _raw, _sheader);
+        }
+        if (_block.good && _block.nbytes)
+        {
+            // Log the good block which preceded the start of this bad
+            // block.
+            WLOG(("") << _block);
+            _block.startBadBlock(offset);
         }
         // bad header. Shift left by one byte, read next byte.
-        memmove(&_sheader,((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
+        memmove(&_sheader, ((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
         _headerToRead = 1;
         _hptr--;
-    } else { // good sample
+    } else {
+        // Good sample, fill it in.  The data length was set by getSample()
+        // above, so only the timestamp and id are left.
         _goodSamples++;
-        _goodBlock++;
-        if (!_prevSamp) {// first good sample;
-            t = _sheader.getTimeTag() / USECS_PER_SEC;
-            gmtime_r(&t, &tm);
-            strftime(tstr, sizeof(tstr), "%Y %m %d %H:%M:%S", &tm);
-            size_t fpos = _iostream->getNumInputBytes()-_sheader.getSizeOf();
-            n_u::Logger::getInstance()->log(LOG_WARNING, "Bad block from %zd to %zd (size %zd)", _badBlockStart, fpos, fpos-_badBlockStart);
-            n_u::Logger::getInstance()->log(LOG_WARNING, "First good sample: %s, of length: %zd", tstr, _sheader.getDataByteLength());
+        samp->setTimeTag(_sheader.getTimeTag());
+        samp->setId(_sheader.getId());
+        if (!_block.good && _block.nbytes)
+        {
+            _block.endBadBlock(samp, offset);
+            // First good sample after a bad block, so log the bad block.
+            WLOG(("") << _block);
         }
+        _block.addGoodSample(samp, offset);
     }
     return samp;
 }
@@ -507,7 +671,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 /*
  * Search for a sample with timetag >= tt.
  */
-void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
+void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
 {
     size_t len;
     if (_samp) _samp->freeReference();
@@ -549,7 +713,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
             }
 
             _dataToRead = _sheader.getDataByteLength();
-            // cerr << "time=" << n_u::UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
+            // cerr << "time=" << UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
             if (_sheader.getTimeTag() >= tt.toUsecs()) {
                 // getSample can return NULL if type or length are bad
                 _samp = nidas::core::getSample((sampleType)_sheader.getType(),
@@ -656,4 +820,3 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
                 "SampleInputStream::fromDOMElement",
 		"input", "must have one child element");
 }
-                                                           
