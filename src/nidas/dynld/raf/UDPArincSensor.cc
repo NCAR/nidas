@@ -159,19 +159,18 @@ bool UDPArincSensor::process(const Sample * samp,
         return true;
     }
 
-    // absolute time at 00:00 GMT of day.
     dsm_time_t tt = samp->getTimeTag();
 
     if (bigEndian->uint32Value(hSamp->alta) != 0x414c5441)
     {
-      DLOG(("bad magic cookie 0x%08x, should be 0x414c5441\n", bigEndian->uint32Value(hSamp->alta)));
+      WLOG(("bad magic cookie 0x%08x, should be 0x414c5441\n", bigEndian->uint32Value(hSamp->alta)));
       return false;
     }
 
     if (bigEndian->uint32Value(hSamp->mode) != 1 || (bigEndian->uint32Value(hSamp->status) & 0xFFFF) != 0)
     {
       _badStatusCnt++;
-      DLOG(("bad packet received mode = %d, status = %u\n",
+      WLOG(("bad packet received mode = %d, status = %u\n",
         bigEndian->uint32Value(hSamp->mode), bigEndian->uint32Value(hSamp->status) & 0xffff));
       return false;
     }
@@ -185,7 +184,7 @@ bool UDPArincSensor::process(const Sample * samp,
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
-    DLOG(( "nFields=%3u seqNum=%u, pSize=%u - PE %llu IRIG julianDay=%x %s", nFields,
+    DLOG(( "APMP: nFields=%3u seqNum=%u, pSize=%u - PE %lld IRIG julianDay=%x %s", nFields,
                 seqNum, payloadSize, PE,
                 bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
 
@@ -209,7 +208,7 @@ bool UDPArincSensor::process(const Sample * samp,
             txp packet;
 
             packet.time = startTime + ((decodeTIMER(pSamp[i]) - PE) / 1000);   // milliseconds since midnight...
-//DLOG((" UAS: %lu = %lu + (%llu - %llu) %llu", packet.time, startTime, decodeTIMER(pSamp[i]), PE, ((decodeTIMER(pSamp[i]) - PE) / 1000) ));
+//DLOG((" UAS: %lu = %lu + (%lld - %lld) %lld", packet.time, startTime, decodeTIMER(pSamp[i]), PE, ((decodeTIMER(pSamp[i]) - PE) / 1000) ));
             packet.data = bigEndian->uint32Value(pSamp[i].data);
             memcpy(&outData[channel][nOutFields[channel]++ * sizeof(txp)], &packet, sizeof(txp));
 
