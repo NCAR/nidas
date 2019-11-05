@@ -577,6 +577,7 @@ int NidsMerge::run() throw()
         outStream.close();
         for (unsigned int ii = 0; ii < inputs.size(); ii++) {
             SampleInputStream* input = inputs[ii];
+            input->close();
             delete input;
         }
     }
