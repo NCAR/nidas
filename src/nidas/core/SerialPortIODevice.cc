@@ -230,7 +230,7 @@ int SerialPortIODevice::getUsecsPerByte() const
         case n_u::Termios::NONE:
             break;
         }
-        usecs = (bits * USECS_PER_SEC + _workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
+        usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate()) / _workingPortConfig.termios.getBaudRate();
     }
     return usecs;
 }
@@ -545,14 +545,23 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
 
 int SerialPortIODevice::read(char *buf, int len, int timeout) throw(nidas::util::IOException)
 {
-    if ((len = UnixIODevice::read(buf,len,timeout)) < 0)
+    int charsRead = 0;
+    if (timeout == 0) {
+        DLOG(("SerialPortIODevice::read(): timeout is 0, read directly."));
+        if ((charsRead = UnixIODevice::read(buf,len)) < 0)
+            throw IOException(getName(),"read",errno);
+    }
+    else if ((charsRead = UnixIODevice::read(buf,len,timeout)) < 0) {
+        DLOG(("SerialPortIODevice::read(): timeout > 0, read with poll."));
         throw IOException(getName(),"read",errno);
+    }
+    DLOG(("SerialPortIODevice::read(): read ") << charsRead << "chars.");
     // set the state for buffered read methods
-    _state = (len == 0) ? TIMEOUT_OR_EOF : OK;
+    _state = (charsRead == 0) ? TIMEOUT_OR_EOF : OK;
 #ifdef DEBUG
     cerr << "SerialPortIODevice::read len=" << len << endl;
 #endif
-    return len;
+    return charsRead;
 }
 
 /**
