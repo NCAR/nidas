@@ -34,10 +34,8 @@
 namespace nidas { namespace util {
 
 /**
- * Interface for objects with a file descriptor, providing
- * a virtual method to be called when system calls such
- * as select, poll, or epoll indicate an event is pending
- * on the file descriptor.
+ * Implementation class for objects polled with epoll to indicate 
+ * an event is pending on one of many file descriptors being watched.
  */
 class EPoll : public IoPollerAbs {
 public:
