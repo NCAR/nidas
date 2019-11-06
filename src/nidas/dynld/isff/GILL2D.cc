@@ -147,16 +147,20 @@ const int GILL2D::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 
 
 // regular expression strings, contexts, compilation
-static const regex GILL2D_RESPONSE_REGEX("[[:space:]]+"
+static const string GILL2D_RESPONSE_REGEX_SPEC(
+                                         "[[:space:]]+"
 										 "A[[:digit:]] B[[:digit:]] C[[:digit:]] E[[:digit:]] F[[:digit:]] "
 		                                 "G[[:digit:]]{4} (H[[:digit:]] )?J[[:digit:]] K[[:digit:]] L[[:digit:]] "
 		                                 "M[[:digit:]] N[[:upper:]] O[[:digit:]] P[[:digit:]] T[[:digit:]] "
 		                                 "U[[:digit:]] V[[:digit:]] X[[:digit:]] Y[[:digit:]] Z[[:digit:]]");
-static const regex GILL2D_COMPARE_REGEX("[[:space:]]+"
+static const regex GILL2D_RESPONSE_REGEX(GILL2D_RESPONSE_REGEX_SPEC, std::regex_constants::extended);
+static const string GILL2D_COMPARE_REGEX_SPEC(
+                                        "[[:space:]]+"
 										"A([[:digit:]]) B([[:digit:]]) C([[:digit:]]) E([[:digit:]]) F([[:digit:]]) "
 		                                "G([[:digit:]]{4}) (H([[:digit:]]) )?J([[:digit:]]) K([[:digit:]]) L([[:digit:]]) "
 		                                "M([[:digit:]]) N([[:upper:]]) O([[:digit:]]) P([[:digit:]]) T([[:digit:]]) "
 		                                "U([[:digit:]]) V([[:digit:]]) X([[:digit:]]) Y([[:digit:]]) Z([[:digit:]])");
+static const regex GILL2D_COMPARE_REGEX(GILL2D_COMPARE_REGEX_SPEC, std::regex_constants::extended);
 
 static const int A_VAL_CAPTURE_IDX = 1;
 static const int B_VAL_CAPTURE_IDX = A_VAL_CAPTURE_IDX+1;
@@ -180,9 +184,12 @@ static const int X_VAL_CAPTURE_IDX = V_VAL_CAPTURE_IDX+1;
 static const int Y_VAL_CAPTURE_IDX = X_VAL_CAPTURE_IDX+1;
 static const int Z_VAL_CAPTURE_IDX = Y_VAL_CAPTURE_IDX+1;
 
-static const regex GILL2D_CONFIG_MODE_REGEX("[[:space:]]+CONFIGURATION MODE");
-static const regex GILL2D_SERNO_REGEX("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
-static const regex GILL2D_FW_VER_REGEX("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
+static const string GILL2D_CONFIG_MODE_SPEC("[[:space:]]+CONFIGURATION MODE");
+static const regex GILL2D_CONFIG_MODE_REGEX(GILL2D_CONFIG_MODE_SPEC, std::regex_constants::extended);
+static const string GILL2D_SERNO_SPEC("D1[[:space:]]+([[:alnum:]]+)[[:space:]]+D1");
+static const regex GILL2D_SERNO_REGEX(GILL2D_SERNO_SPEC, std::regex_constants::extended);
+static const string GILL2D_FW_VER_SPEC("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
+static const regex GILL2D_FW_VER_REGEX(GILL2D_FW_VER_SPEC, std::regex_constants::extended);
 
 static const std::string AVERAGING_CFG_DESC("Avg secs");
 static const std::string SOS_TEMP_CFG_DESC("SpdOfSnd/Temp Rprt");
@@ -841,7 +848,7 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
         DLOG(("Attempting to insert: ") << arg.intArg);
         int insertIdx = snsrCmd.find_last_of('\r');
         if (insertIdx == -1) {
-            DLOG(("GILL2d::sendSensorCmd(): Sensor command which takes an int should have a return char"));
+            DLOG(("GILL2D::sendSensorCmd(): Sensor command which takes an int should have a return char"));
         }
         else {
             DLOG(("Found \\r at position: ") << insertIdx);
@@ -856,7 +863,7 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
         snsrCmd.append(argStr.str());
     }
     else if (!(cmd == SENSOR_QRY_ID_CMD && arg.argIsNull)) {
-        DLOG(("GILL2d::sendSensorCmd(): Wrong type of SensorCmdArg"));
+        DLOG(("GILL2D::sendSensorCmd(): Wrong type of SensorCmdArg"));
     }
 
     // add the \r at the beginning to help some GILL states get unstuck...
@@ -901,15 +908,15 @@ void GILL2D::sendSensorCmd(int cmd, n_c::SensorCmdArg arg)
                             // we can probably believe that we have captured the unit address response
                             _unitId = respStr[stxPos+1];
                             if (!RANGE_CHECK_INC('A', _unitId, 'Z')) {
-                                DLOG(("GILL2D::checkConfigMode(): address response is not in range A-Z."));
+                                DLOG(("GILL2D::sendSensorCmd(): address response is not in range A-Z."));
                             }
                         }
                         else {
-                            DLOG(("GILL2D::checkConfigMode(): stx and etx are not separated by exactly one char."));
+                            DLOG(("GILL2D::sendSensorCmd(): stx and etx are not separated by exactly one char."));
                         }
                     }
                     else {
-                        DLOG(("GILL2D::checkConfigMode(): stx or etx are not found in address request response."));
+                        DLOG(("GILL2D::sendSensorCmd(): stx or etx are not found in address request response."));
                     }
                 }
                 else {
@@ -1037,21 +1044,21 @@ bool GILL2D::checkConfigMode(bool continuous)
 
     // Just getting into config mode elicits a usable response...
     if (continuous) {
-        DLOG(("Sending GILL command to enter configuration mode in continuous operation..."));
+        DLOG(("GILL2D::checkConfigMode(): Sending GILL command to enter configuration mode in continuous operation..."));
         sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(-1));
     }
     else {
         if (!_unitId) {
-            DLOG(("Attempting to get unit ID"));
+            DLOG(("GILL2D::checkConfigMode(): Attempting to get unit ID"));
             sendSensorCmd(SENSOR_QRY_ID_CMD, n_c::SensorCmdArg());
         }
 
         if (_unitId) {
-            DLOG(("Sending polled mode command to enter config mode"));
+            DLOG(("GILL2D::checkConfigMode(): Sending polled mode command to enter config mode"));
             sendSensorCmd(SENSOR_CONFIG_MODE_CMD, n_c::SensorCmdArg(_unitId));
         }
         else
-            DLOG(("Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));
+            DLOG(("GILL2D::checkConfigMode(): Didn't get the unit ID. Must not be in polled mode, or bad serial port config."));
     }
 
     memset(respBuf, 0, BUF_SIZE);
@@ -1080,7 +1087,7 @@ bool GILL2D::checkConfigMode(bool continuous)
     }
 
     else {
-        DLOG(("Didn't get any chars from serial port or got garbage"));
+        DLOG(("GILL2D::checkConfigMode(): Didn't get any chars from serial port or got garbage"));
     }
 
     return retVal;
