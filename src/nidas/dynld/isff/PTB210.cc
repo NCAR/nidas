@@ -140,7 +140,7 @@ const int PTB210::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 // regular expression strings, contexts
 // NOTE: the regular expressions need to search a buffer w/multiple lines separated by \r\n
 
-static const regex PTB210_RESPONSE_REGEX(
+static const string PTB210_RESPONSE_REGEX_SPEC(
         "PTB210 Ver [[:digit:]].[[:digit:]]+[[:space:]]+"
         "CAL DATE[[:blank:]]+:[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}[[:space:]]+"
         "ID CODE[[:blank:]]+:[[:digit:]]+[[:space:]]+"
@@ -152,28 +152,29 @@ static const regex PTB210_RESPONSE_REGEX(
         "Pressure Min...Max:[[:blank:]]+[[:digit:]]+[[:blank:]]+[[:digit:]]+[[:space:]]+"
         "[[:alpha:]]+ CURRENT MODE[[:space:]]+"
         "RS485 RESISTOR (OFF|ON)[[:space:]]+");
+static const regex PTB210_RESPONSE_REGEX(PTB210_RESPONSE_REGEX_SPEC, std::regex_constants::extended);
 
-static const regex PTB210_MODEL_REGEX("^([[:alnum:]]+)[[:blank:]]Ver.*$",
-                                          regex_constants::extended);
-static const regex PTB210_VER_REGEX("^PTB210 (Ver[[:blank:]][[:digit:]]\\.[[:digit:]])$",
-                                        regex_constants::extended);
-static const string PTB210_CAL_DATE_REGEX_SPEC("^CAL DATE[[:blank:]]+:([[:digit:]]{4}(-[[:digit:]]{2}){2})$");
-static const regex PTB210_CAL_DATE_REGEX(PTB210_CAL_DATE_REGEX_SPEC, regex_constants::extended);
-static const regex PTB210_SERIAL_NUMBER_REGEX("^SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)$",
-                                                  regex_constants::extended);
-static const string PTB210_MULTI_PT_CORR_REGEX_SPEC("^MULTIPOINT CORR:(ON|OFF)$");
+static const string PTB210_MODEL_REGEX_SPEC("([[:alnum:]]+)[[:blank:]]Ver.*");
+static const regex PTB210_MODEL_REGEX(PTB210_MODEL_REGEX_SPEC, std::regex_constants::extended);
+static const string PTB210_VER_REGEX_SPEC("PTB210 (Ver[[:blank:]][[:digit:]]\\.[[:digit:]])");
+static const regex PTB210_VER_REGEX(PTB210_VER_REGEX_SPEC, std::regex_constants::extended);
+static const string PTB210_CAL_DATE_REGEX_SPEC("CAL DATE[[:blank:]]+:([[:digit:]]{4}(-[[:digit:]]{2}){2})");
+static const regex PTB210_CAL_DATE_REGEX(PTB210_CAL_DATE_REGEX_SPEC, std::regex_constants::extended);
+static const string PTB210_SERIAL_NUMBER_REGEX_SPEC("SERIAL NUMBER[[:blank:]]+:([[:upper:]][[:digit:]]+)");
+static const regex PTB210_SERIAL_NUMBER_REGEX(PTB210_SERIAL_NUMBER_REGEX_SPEC, regex_constants::extended);
+static const string PTB210_MULTI_PT_CORR_REGEX_SPEC("MULTIPOINT CORR:(ON|OFF)");
 static const regex PTB210_MULTI_PT_CORR_REGEX(PTB210_MULTI_PT_CORR_REGEX_SPEC, regex_constants::extended);
-static const string PTB210_MEAS_PER_MIN_REGEX_SPEC("^MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})$");
+static const string PTB210_MEAS_PER_MIN_REGEX_SPEC("MEAS PER MINUTE:[[:blank:]]+([[:digit:]]{1,4})");
 static const regex PTB210_MEAS_PER_MIN_REGEX(PTB210_MEAS_PER_MIN_REGEX_SPEC, regex_constants::extended);
-static const string PTB210_NUM_SMPLS_AVG_REGEX_SPEC("^AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3}).*$");
+static const string PTB210_NUM_SMPLS_AVG_REGEX_SPEC("AVERAGING[[:blank:]]+:[[:blank:]]+([[:digit:]]{1,3}).*");
 static const regex PTB210_NUM_SMPLS_AVG_REGEX(PTB210_NUM_SMPLS_AVG_REGEX_SPEC, regex_constants::extended);
-static const string PTB210_PRESS_UNIT_REGEX__SPEC("^PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})$");
+static const string PTB210_PRESS_UNIT_REGEX__SPEC("PRESSURE UNIT[[:blank:]]+:[[:blank:]]+([[:alnum:]]{2,5})");
 static const regex PTB210_PRESS_UNIT_REGEX(PTB210_PRESS_UNIT_REGEX__SPEC, regex_constants::extended);
-static const string PTB210_PRESS_MINMAX_REGEX_SPEC("^Pressure Min...Max:[[:blank:]]+([[:digit:]]+[[:blank:]]+[[:digit:]]+)$");
+static const string PTB210_PRESS_MINMAX_REGEX_SPEC("Pressure Min...Max:[[:blank:]]+([[:digit:]]+[[:blank:]]+[[:digit:]]+)");
 static const regex PTB210_PRESS_MINMAX_REGEX(PTB210_PRESS_MINMAX_REGEX_SPEC, regex_constants::extended);
-static const string PTB210_CURR_MODE_REGEX_SPEC("^([A-Z]+)[[:blank:]]CURRENT MODE");
+static const string PTB210_CURR_MODE_REGEX_SPEC("([A-Z]+)[[:blank:]]CURRENT MODE");
 static const regex PTB210_CURR_MODE_REGEX(PTB210_CURR_MODE_REGEX_SPEC, regex_constants::extended);
-static const string PTB210_RS485_RES_REGEX_SPEC("^RS485 RESISTOR (ON|OFF)$");
+static const string PTB210_RS485_RES_REGEX_SPEC("RS485 RESISTOR (ON|OFF)");
 static const regex PTB210_RS485_RES_REGEX(PTB210_RS485_RES_REGEX_SPEC, regex_constants::extended);
 
 static const std::string PTB210_ID_CODE_CFG_DESC("ID CODE");
