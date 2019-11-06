@@ -1,22 +1,18 @@
 #!/bin/sh
 
-# Start a Docker container to do cross-building of NIDAS for various
-# non-x86_64, non-redhat systems.
+# Start a Docker container to do cross-building of NIDAS for armhf on jessie or buster build containers
 
 if [ $# -lt 1 ]; then
-    echo "usage: ${0##*/} [ armel | armhf | armbe | viper=armel | titan=armel | rpi2=armhf | vulcan=armbe ]"
+    echo "usage: ${0##*/} [ jessie | buster ]"
     exit 1
 fi
 
 case $1 in
-    armel | viper | titan)
-        image=ncar/nidas-build-debian-armel:buster_v1
+    jessie)
+        image=ncar/nidas-build-debian-armhf:jessie_v1
         ;;
-    armhf | rpi2)
+    buster)
         image=ncar/nidas-build-debian-armhf:buster_v1
-        ;;
-    armbe | vulcan)
-        image=maclean/fedora25-armbe-cross:ael
         ;;
 esac
 
