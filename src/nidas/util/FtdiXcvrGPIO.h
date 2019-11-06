@@ -65,7 +65,7 @@ inline enum ftdi_interface port2iface(GPIO_PORT_DEFS port)
 
 const unsigned char XCVR_BITS_PORT_TYPE = 0b00000011;
 const unsigned char XCVR_BITS_TERM =      0b00000100;
-const unsigned char SENSOR_BITS_POWER =     0b00001000;
+const unsigned char SENSOR_BITS_POWER =   0b00001000;
 
 /*
  *  Class FtdiXcvrGPIO provides the means to access the FTDI FT4232H device
