@@ -52,10 +52,8 @@ elif [[ "$grepResults" == 2 ]] ; then
 fi
 
 echo "Only want to build the DEB pkg..."
+echo "Find RPM and take it out..."
 sed -i 's/DEB;RPM/DEB/' CMakeLists.txt
-#echo "Find RPM and take it out???"
-#grep DEB CMakeLists.txt
-
 
 if [[ "$?" == 0 ]] ; then
 
@@ -64,12 +62,6 @@ if [[ "$?" == 0 ]] ; then
     mkdir -p $buildDir && cd $buildDir
     cmake $cmakeTargetArch -DCMAKE_INSTALL_PREFIX="/usr" ../
 
-    # at this point we just need the static lib, not the package
-    #make
-    #if [[ " host " =~ " $1 " ]]; then 
-    #    # host needs the include file
-    #    sudo make install
-    #fi
     make package
     mv libftdi1-$VERSION.deb libftdi1-$VERSION-$CROSS_ARCH.deb
     sudo dpkg -i libftdi1-$VERSION-$CROSS_ARCH.deb
