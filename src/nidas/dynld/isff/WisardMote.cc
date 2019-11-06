@@ -1839,84 +1839,102 @@ const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
 
 // Data output after reset
-static const regex MODEL_ID_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
-static const regex RESET_SRC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
-static const regex VERSION_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[[:digit:]]+)");
-static const regex CPU_CLK_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ ([[:alnum:]]+)");
-static const regex TIMING_SRC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ [[:alnum:]]+ '(.*)'");
-static const regex BUILD_DATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
-static const regex RTCC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
+static string MODEL_ID_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
+static regex MODEL_ID_REGEX(MODEL_ID_REGEX_SPEC);
+static string RESET_SRC_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Wisard.* ResetSource = ((?:[[:alpha:]]+[[:blank:]]*)+)");
+static regex RESET_SRC_REGEX(RESET_SRC_REGEX_SPEC);
+static string VERSION_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (V[[:digit:]]+.[[:digit:]]+)");
+static regex VERSION_REGEX(VERSION_REGEX_SPEC);
+static string CPU_CLK_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ ([[:alnum:]]+)");
+static regex CPU_CLK_REGEX(CPU_CLK_REGEX_SPEC);
+static string TIMING_SRC_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} V[[:digit:]]+.[[:digit:]]+ [[:alnum:]]+ '(.*)'");
+static regex TIMING_SRC_REGEX(TIMING_SRC_REGEX_SPEC);
+static string BUILD_DATE_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} BUILD: ([[:alnum:]]+)");
+static regex BUILD_DATE_REGEX(BUILD_DATE_REGEX_SPEC);
+static string RTCC_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} Use ([[:alnum:]=]+)");
+static regex RTCC_REGEX(RTCC_REGEX_SPEC);
 
-static const regex TEMP_SENSOR_INIT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
-static const regex SENSOR_SERNUMS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:[[:blank:]]+(.*)(?:\x01\x02|[[:space:]]+)");
+static string TEMP_SENSOR_INIT_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+(Initialize MCP9800, ResolutionBitMask =[[:digit:]]MCP9800 CfgReg=0x[[:digit:]]{2})");
+static regex TEMP_SENSOR_INIT_REGEX(TEMP_SENSOR_INIT_REGEX_SPEC);
+static string SENSOR_SERNUMS_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+Serial-Numbers:[[:blank:]]+(.*)(?:\x01\x02|[[:space:]]+)");
+static regex SENSOR_SERNUMS_REGEX(SENSOR_SERNUMS_REGEX_SPEC);
 
 // Data Rates
-static const regex DATA_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex PWR_SMPRATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sp(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex SERNUM_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sn(?:=[[:digit:]])*'=([[:digit:]]+)");
+static string DATA_RATE_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'dr(?:=[[:digit:]])*'=([[:digit:]]+)");
+static regex DATA_RATE_REGEX(DATA_RATE_REGEX_SPEC);
+static string PWR_SMPRATE_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sp(?:=[[:digit:]])*'=([[:digit:]]+)");
+static regex PWR_SMPRATE_REGEX(PWR_SMPRATE_REGEX_SPEC);
+static string SERNUM_RATE_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sn(?:=[[:digit:]])*'=([[:digit:]]+)");
+static regex SERNUM_RATE_REGEX(SERNUM_RATE_REGEX_SPEC);
 
 // operating modes
-static const regex NODEID_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'id(?:=[[:digit:]])*'=([[:digit:]]+)");
-static const regex MSG_FMT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'mp'*=([[:digit:]])'*");
-static const regex OUT_PORT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'pp'*=([[:digit:]])'*");
-static const regex SENSORS_ON_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
+static string NODEID_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'id(?:=[[:digit:]])*'=([[:digit:]]+)");
+static regex NODEID_REGEX(NODEID_REGEX_SPEC);
+static string MSG_FMT_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'mp'*=([[:digit:]])'*");
+static regex MSG_FMT_REGEX(MSG_FMT_REGEX_SPEC);
+static string OUT_PORT_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'pp'*=([[:digit:]])'*");
+static regex OUT_PORT_REGEX(OUT_PORT_REGEX_SPEC);
+static string SENSORS_ON_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'sensors(ON|OFF)'");
+static regex SENSORS_ON_REGEX(SENSORS_ON_REGEX_SPEC);
+
+//TODO - Pick up here w/REGEX mods.
 
 // local file
-static const regex MSG_STORE_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' (opened)");
-static const regex MSG_STORE_DISABLE_REGEX("(ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
-static const regex MSG_FLUSH_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex MSG_STORE_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'[[:digit:]]+ID\\.[[:digit:]]{3}' (opened)");
+static regex MSG_STORE_DISABLE_REGEX("(ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsOFF')|(ID[[:digit:]]+: Closing msdFile '[[:digit:]]+ID\\.[[:digit:]]{3}')");
+static regex MSG_FLUSH_RATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'fsr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 // battery monitor
-static const regex VMON_ENABLE_REGEX("(?:(?:ID)*(?:(?:[[:digit:]]+)*:)*(?:\x01\x02|[[:blank:]]+)*)*'vm'Toggling (?:0|1) to (1|0)");
-static const regex VMON_LOW_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_RESTART_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex VMON_SLEEP_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex VMON_ENABLE_REGEX("(?:(?:ID)*(?:(?:[[:digit:]]+)*:)*(?:\x01\x02|[[:blank:]]+)*)*'vm'Toggling (?:0|1) to (1|0)");
+static regex VMON_LOW_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex VMON_RESTART_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vh(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex VMON_SLEEP_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vs(?:=[[:digit:]]+)*'=([[:digit:]]+)");
 
 
 // calibrations
-static const regex ADC_CALS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
-                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
-                                          "(Vin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
-                                          "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
-                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
-                                          "(I3 i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
-                                          "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
-                                      "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
-                                          "(Iin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
-                                          "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+");
-static const regex VBG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vbg(?:=[[:digit:]]+\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
-static const regex IIG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'iig(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
-static const regex I3G_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'i3g(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static regex ADC_CALS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} ADChannels:[[:space:]]+"
+                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
+                            "(Vin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
+                            "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
+                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
+                            "(I3 i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
+                            "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+"
+                            "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2}[[:blank:]]+"
+                            "(Iin i2c:[[:digit:]]{2}, ChMask=0x[[:digit:]]{4}, FSmask=0x[[:digit:]]{3},mV=[[:digit:]]{4}, "
+                            "Gain/Offset=[[:digit:]]+.[[:digit:]]+/[[:digit:]]+.[[:digit:]]+)[[:space:]]+");
+static regex VBG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'vbg(?:=[[:digit:]]+\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static regex IIG_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'iig(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
+static regex I3G_CAL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'i3g(?:=[[:digit:]]*\\.[[:digit:]]+)*'=([[:digit:]]+\\.[[:digit:]]+)");
 
 // eeprom
-static const regex EECFG_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
-                                       "EE=(Set) id([[:digit:]]+),pp=(sio|xb),md0,mp([0-2]),dr([[:digit:]]{1,5})s skips:sp([[:digit:]]{1,5}),"
-                                       "sn([[:digit:]]{1,5}) fsr([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
-                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
-                                       "batt: vm=(0|1),vl=([[:digit:]]{1,5}),vh=([[:digit:]]{1,5}),vs=([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
-                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
-                                       "cals: vb=([[:digit:]]+\\.[[:digit:]]+) i3=([[:digit:]]+\\.[[:digit:]]+) iIn=([[:digit:]]+\\.[[:digit:]]+)"
-                                       "(?:\x03\x04)*[[:space:]]+"
-                                   "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
-                                       "gps: gr=([[:digit:]]{1,5})s,gfr=([[:digit:]]{1,5})s,gnl=([[:digit:]]{1,5}),gto=([[:digit:]]{1,5})s,gmf=(0|1)"
-                                       "(?:\x03\x04)*");
-static const regex EEUPDATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Update: ([[:alpha:]]+)");
-static const regex EEINIT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Initialize: ([[:alpha:]]+)");
-static const regex EELOAD_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([[:alpha:]]+), nc=([[:digit:]]+)");
+static regex EECFG_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
+                         "EE=(Set) id([[:digit:]]+),pp=(sio|xb),md0,mp([0-2]),dr([[:digit:]]{1,5})s skips:sp([[:digit:]]{1,5}),"
+                         "sn([[:digit:]]{1,5}) fsr([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
+                         "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
+                         "batt: vm=(0|1),vl=([[:digit:]]{1,5}),vh=([[:digit:]]{1,5}),vs=([[:digit:]]{1,5})s(?:\x03\x04)*[[:space:]]+"
+                         "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
+                         "cals: vb=([[:digit:]]+\\.[[:digit:]]+) i3=([[:digit:]]+\\.[[:digit:]]+) iIn=([[:digit:]]+\\.[[:digit:]]+)"
+                         "(?:\x03\x04)*[[:space:]]+"
+                         "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} "
+                         "gps: gr=([[:digit:]]{1,5})s,gfr=([[:digit:]]{1,5})s,gnl=([[:digit:]]{1,5}),gto=([[:digit:]]{1,5})s,gmf=(0|1)"
+                         "(?:\x03\x04)*");
+static regex EEUPDATE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Update: ([[:alpha:]]+)");
+static regex EEINIT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)EE Cfg Initialize: ([[:alpha:]]+)");
+static regex EELOAD_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} EE Cfg Load: ([[:alpha:]]+), nc=([[:digit:]]+)");
 
 // GPS
-static const regex GPS_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)GPS Power(ON|OFF) (?=Timeout=|CloseTimer).*(?:Open|Close)INT[[:digit:]]");
-static const regex GPS_SYNC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKTMOUT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gto(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_LCKFAIL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gfr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_NLOCKS_CNFRM_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gnl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
-static const regex GPS_SENDALL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gmf'Toggling [[:digit:]] to ([[:digit:]])");
+static regex GPS_ENABLE_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)GPS Power(ON|OFF) (?=Timeout=|CloseTimer).*(?:Open|Close)INT[[:digit:]]");
+static regex GPS_SYNC_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex GPS_LCKTMOUT_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gto(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex GPS_LCKFAIL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gfr(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex GPS_NLOCKS_CNFRM_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gnl(?:=[[:digit:]]+)*'=([[:digit:]]+)");
+static regex GPS_SENDALL_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)'gmf'Toggling [[:digit:]] to ([[:digit:]])");
 
 // Misc
-static const regex LIST_COMMANDS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
-                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'adcals' 'eecfg' 'eeinit' 'eeupdate' 'vm' 'vh' 'vl' 'vs' 'vbg' 'i3g'[[:space:]]+"
-                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'iig' 'sensorsON' 'sensorsOFF' 'gpsON' 'gpsOFF' 'gr' 'gnl' 'gto' 'gfr'[[:space:]]+"
-                                           "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'gmf' 'scani2c' 'reset' 'reboot' '?'[[:space:]]*");
+static regex LIST_COMMANDS_REGEX("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'btradio' 'pp' 'mp' 'id' 'dr' 'sp' 'sn' 'fsON' 'fsOFF' 'fsDIR' 'fsr'[[:space:]]+"
+                                 "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'adcals' 'eecfg' 'eeinit' 'eeupdate' 'vm' 'vh' 'vl' 'vs' 'vbg' 'i3g'[[:space:]]+"
+                                 "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'iig' 'sensorsON' 'sensorsOFF' 'gpsON' 'gpsOFF' 'gr' 'gnl' 'gto' 'gfr'[[:space:]]+"
+                                 "ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)Cmds: 'gmf' 'scani2c' 'reset' 'reboot' '?'[[:space:]]*");
 
 
 void WisardMote::initCmdTable()
@@ -3230,7 +3248,7 @@ bool WisardMote::captureCfgData(const char* buf)
         DLOG(("WisardMote::captureCfgData(): Didn't find a match to the ."));
     }
 
-    DLOG(("Sensor Config:\n") << getSensorConfigMetaData());
+    // DLOG(("Sensor Config:\n") << getSensorConfigMetaData());
 
     return responseOK;
 }
