@@ -41,20 +41,50 @@ RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.ke
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
 # These ops require an explicit root user
-#USER root
+USER root
 #RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that -- PEO still true for stretch??
-#RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
+RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 #RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
 
 RUN apt-get -y update
 
 RUN apt-get -y install eol-scons
 
-# add boost-regex/[system && filesystem]
-RUN apt-get -y --no-install-recommends install libboost-system-dev:amd64 libboost-filesystem-dev:amd64
-RUN apt-get -y --no-install-recommends install libboost-system-dev:${hostarch} libboost-filesystem-dev:${hostarch}
+# add boost-system,filesystem,asio, thread
+RUN apt-get -y install libboost-all-dev:amd64
+RUN apt-get -y install libboost-dev:${hostarch} \
+                       libboost-tools-dev:${hostarch} \
+                       libboost-atomic-dev:${hostarch} \
+                       libboost-chrono-dev:${hostarch} \
+                       libboost-container-dev:${hostarch} \
+                       libboost-context-dev:${hostarch} \
+                       libboost-coroutine-dev:${hostarch} \
+                       libboost-date-time-dev:${hostarch} \
+                       libboost-exception-dev:${hostarch} \
+                       libboost-fiber-dev:${hostarch} \
+                       libboost-filesystem-dev:${hostarch} \
+                       libboost-graph-dev:${hostarch} \
+                       libboost-iostreams-dev:${hostarch} \
+                       libboost-locale-dev:${hostarch} \
+                       libboost-log-dev:${hostarch} \
+                       libboost-math-dev:${hostarch} \
+                       libboost-program-options-dev:${hostarch} \
+                       libboost-random-dev:${hostarch} \
+                       libboost-regex-dev:${hostarch} \
+                       libboost-serialization-dev:${hostarch} \
+                       libboost-signals-dev:${hostarch} \
+                       libboost-stacktrace-dev:${hostarch} \
+                       libboost-system-dev:${hostarch} \
+                       libboost-test-dev:${hostarch} \
+                       libboost-thread-dev:${hostarch} \
+                       libboost-timer-dev:${hostarch} \
+                       libboost-type-erasure-dev:${hostarch} \
+                       libboost-wave-dev:${hostarch}
+
+# Add libxml2 for the ublox build below.
+RUN apt-get -y install libxml2-dev
 
 # add libi2c-dev as original docker image didn't have correct one
 # don't need an ${hostarch} variant, as all the functions are in-line
@@ -100,17 +130,10 @@ COPY ./build-libftdi-pkg.sh libftdi
 COPY ./crosstoolchain-$hostarch.cmake libftdi
 RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
 
-# hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
-# finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). 
-# Must build xmlrpc++ because C++-11 has changed the abi!!!
-RUN git clone https://github.com/NCAR/xmlrpcpp.git \
-    && cd xmlrpcpp \
-    && sed 's/-k/#-k/g' build_dpkg_std.sh \
-    && ./build_dpkg_std.sh ./amd64 amd64 \
-    && ./build_dpkg_std.sh ./${hostarch} ${hostarch}
-RUN cd xmlrpcpp/amd64 && ls -alg && sudo dpkg -i xmlrpc++_0.7-3_amd64.deb xmlrpc++-dev_0.7-3_amd64.deb
-RUN cd xmlrpcpp/${hostarch} && sudo dpkg -i xmlrpc++_0.7-3_${hostarch}.deb xmlrpc++-dev_0.7-3_${hostarch}.deb
+RUN mkdir -p ublox
+COPY ./build-ublox.sh ublox
+RUN cd ublox && sudo ./build-ublox.sh
 
-
-# viper, titan headers
-#RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && sudo ./build-xmlrpc.sh ${hostarch}
