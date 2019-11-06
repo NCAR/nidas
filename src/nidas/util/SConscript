@@ -136,23 +136,15 @@ if conf.CheckLib('boost_system'):
     conf.env.AppendUnique(LIBS = 'boost_system')
 if conf.CheckLib('boost_filesystem'):
     conf.env.AppendUnique(LIBS = 'boost_filesystem')
-if conf.CheckLibWithHeader('ftdi1', 'libftdi1/ftdi.h', 'C'):
-    conf.env.AppendUnique(LIBS = 'ftdi1')
 env = conf.Finish()
 
-# host and cross builds should have libftdi1 already installed and checked above
-if "ftdi1" in env['LIBS']:
-    #print("Found ftdi1 in LIBS: %s", env['LIBS'])
-    libftdiRelPath = ""
-else:
-    # otherwise embedded builds need to create a path to the local libftdi1 lib
-    # which is built for the appropriate arch.
-    # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-    libftdiRelPath = File('#../../libftdi/libftdi1-1.4/build-' + targetArch + '/src/libftdi1.a')
+# force link libftdi.a
+# prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
+libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch + '/src/libftdi1.a')
 
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util' , objects,
-                         LIBS= ['pthread'] + [libftdiRelPath] + env['LIBS'])
+                         LIBS= ['pthread'] + [libftdi] + env['LIBS'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS_UTIL' + arch: lib[0]})
