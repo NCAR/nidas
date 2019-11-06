@@ -357,6 +357,23 @@ protected:
     void initAutoConfig();
     void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
 
+    /*********************************************************
+     * Utility function to drain the rest of a response from 
+     * a sensor. This is useful for when the entire response 
+     * isn't needed, but would get in the way of subsequent 
+     * sensor operations.
+     ********************************************************/
+    void drainResponse()
+    {
+        const int drainTimeout = 5;
+        const bool checkJunk = true;
+        const int BUF_SIZE = 100;
+        char buf[BUF_SIZE];
+        for (int i=0; 
+             i < 10 && readEntireResponse(buf, BUF_SIZE, drainTimeout, checkJunk);
+             ++i);
+    }
+
     // Autoconfig subclasses calls supportsAutoConfig() to set this to true
     bool _autoConfigSupported;
     // This class sets this attribute to true if it encounters an 
