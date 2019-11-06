@@ -230,7 +230,7 @@ int SerialPortIODevice::getUsecsPerByte() const
         case n_u::Termios::NONE:
             break;
         }
-        usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate()) / _workingPortConfig.termios.getBaudRate();
+        usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
     }
     return usecs;
 }
