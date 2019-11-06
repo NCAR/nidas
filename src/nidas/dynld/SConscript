@@ -9,6 +9,8 @@ Import('env')
 env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
 targetArch = arch
+if targetArch == "":
+    targetArch="host"
 
 # nidas tool includes xmlrpc tool, but we're linking
 # that in statically now, so pull out xmlrpc for arm cross builds
@@ -121,9 +123,13 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 env.Append (LIBNIDAS_DYNLD_SOURCES = 
             [ env.File(f) for f in sources + archsources ])
 
-# force link xmlrpc.a
-# prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
+if targetArch == 'host':
+    static_xmlrpcpp = ''
+    
+else:
+    # force link xmlrpc.a
+    # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
+    static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
 
 # build libnidas_dynld.so
 lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
