@@ -42,6 +42,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/util/SPoll.h>
 #include <nidas/core/SerialXcvrCtrl.h>
 
 #include <vector>
@@ -87,6 +88,7 @@ static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
 static n_c::PORT_TYPES portType = n_c::LOOPBACK;
+static n_c::PORT_TYPES skipped_portType = n_c::RS485_HALF;
 static n_c::SerialPortIODevice port;
 static string shortName;
 static n_c::SerialPortIODevice echoPort;
@@ -520,24 +522,15 @@ int Receiver::run() throw(n_u::IOException)
     n_c::SerialPortIODevice& myPort = _sender ? port : echoPort;
     string& myDevice = _sender ? device : echoDevice;
 
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(myPort.getFd(),&readfds);
-    int nfds = myPort.getFd() + 1;
-    struct timeval timeout;
-//    n_u::Termios tio = myPort.getTermios();
+    SPoll poller(_timeoutSecs*MSECS_PER_SEC);
+    poller.addPollee(myPort.getFd(), 0);
 
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
     ILOG(("Current ") << (_sender ? "Sender" : "Echo") << " modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
 
     for ( ; isInterrupted() || !interrupted; ) {
-        timeout.tv_sec = _timeoutSecs;
-        timeout.tv_usec = 0;
-        fd_set fds = readfds;
-
         // wait for data
-        int nfd = select(nfds,&fds,0,0,(_timeoutSecs > 0 ? &timeout : 0));
-
+        int nfd = poller.poll();
         if (nfd < 0) {
             if (errno == EINTR) return RUN_EXCEPTION;
             throw n_u::IOException(myDevice,"select",errno);
@@ -547,12 +540,15 @@ int Receiver::run() throw(n_u::IOException)
                 " seconds" << endl;
             return RUN_EXCEPTION;
         }
+        ILOG(("Poll event on: ") << (_sender ? "Sender " : "Echo ") << "Receiver");
         int len = _eob - _wptr;
         assert(len > 0);
-        int l = myPort.read(_wptr,len);
-        if (l == 0) break;
-        if (verbose) cout << "rcvd " << l << ":" <<
-            n_u::addBackslashSequences(string(_wptr,l)) << endl;
+        int l = ::read(myPort.getFd(), _wptr, len);
+        if (l == 0) {
+            ILOG(("No data found on ") << (_sender ? "Sender " : "Echo ") << "Receiver");
+            break;
+        }
+        ILOG(("Received data on: ") << (_sender ? "Sender " : "Echo ") << "Receiver");
         _wptr += l;
         if (scanBuffer()) break;
     }
@@ -573,7 +569,10 @@ int Receiver::scanBuffer()
     for (;;) {
         bool goodPacket = false;
         if (_scanHeaderNext) {        // read header
-            if (_wptr - _rptr < START_OF_DATA) break;   // not enough data
+            if (_wptr - _rptr < START_OF_DATA) {
+                ILOG(("") << (_sender ? "Sender " : "Echo ") << "Receiver: not enuf data, wait for next read...");
+                break;   // not enough data
+            }
             if (sscanf(_rptr,"%u %d %d",&_Npack,&_msec,&_dsize) == 3 &&
                 _dsize < MAX_DATA_LENGTH) {
 #ifdef DEBUG
@@ -619,6 +618,9 @@ int Receiver::scanBuffer()
                 incrc == crc) {
                 // cerr << "good: Nlast=" << _Nlast << " _dsize=" << _dsize << endl;
                 goodPacket = true;
+                ILOG(("") << (_sender ? "Sender " : "Echo ") << "Receiver found good packet");
+                if (verbose && _sender) cout << "rcvd " << plen << ":" <<
+                    n_u::addBackslashSequences(string(_rptr,plen)) << endl;
                 // cerr << "Nlast=" << _Nlast << " _last10[]=" <<
                   //   _last10[_Nlast % 10] << " ngood10=" << _ngood10 << endl;
                     
@@ -639,6 +641,7 @@ int Receiver::scanBuffer()
 
                 // TODO: buffer this depending on output rate
                 if (!_sender) {
+                    ILOG(("Echoing data to Sender Receiver..."));
                      myPort.write(_rptr,plen);     // echo back
                 }
                 _dsizeTrusted = _dsize;
@@ -648,6 +651,7 @@ int Receiver::scanBuffer()
             _scanHeaderNext = true;
         }
         if (!goodPacket) {
+            ILOG(("") << (_sender ? "Sender " : "Echo ") << "Receiver found bad packet");
             ++_totalBad;
             // bad packet, look for ETX to try to make some sense of this junk
             for ( ; _rptr < _wptr && *_rptr++ != ETX; );
@@ -663,7 +667,10 @@ int Receiver::scanBuffer()
             _sender->setRS485HalfSend();
         }
 
-        if (_Npack == EOF_NPACK) return 1;
+        if (_Npack == EOF_NPACK) {
+            ILOG(("") << (_sender ? "Sender " : "Echo ") << "Receiver found last packet");
+            return 1;
+        }
     }
     unsigned int l = _wptr - _rptr;  // unscanned characters in buffer
     if (l > 0) memmove(_buf,_rptr,l);
@@ -783,7 +790,8 @@ Usage: " << argv0 << " [-d [1-3]] [-h] [-m [mode]] [-n N] [-o ttyopts] [-p] [-r 
     -t timeout: receive timeout in seconds. Default=-1 and serstress calculates an appropriate timeout for the rate and\n\
         packet size. timeout=0 waits forever. timeout > 0 waits for timeout seconds before giving up.\n\
     -v: verbose, display sent and received data packets to stderr\n\
-    device: name of serial port to open, e.g. /dev/ttyS5\n\n\
+    -x: serial port mode to exclude. Default is RS485_HALF, unless it is specified in -m.\n\
+    device: name of serial port to open, e.g. /dev/ttyDSM5\n\n\
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
     Note that the port is always opened in raw mode, overriding what\n\
     the user specifies in ttyopts\n\n\
@@ -794,8 +802,10 @@ Example of testing a serial link starting at 115200 baud with modem control\n\
     with a null-modem cable:\n\n\
     " << argv0 << " -b 115200 -o n81mhr -s 2012 /dev/ttyDSM1 /dev/ttyDSM0\n\n\
 Example of testing a serial link at 9600 baud without modem control\n\
-    or hardware flow control. 36 byte packets be sent 10 times per second:\n\
-    " << argv0 << " -b 9600 -m RS232 -o n81lnr -r 10 /dev/ttyDSM0 /dev/ttyDSM1\n"
+    or hardware flow control. 36 byte packets be sent 10 times per second:\n\n\
+    " << argv0 << " -b 9600 -m RS232 -o n81lnr -r 10 /dev/ttyDSM0 /dev/ttyDSM1\n\n\
+Example of testing only RS485_HALF\n\n\
+    " << argv0 << " -b 9600 -m RS485_HALF -o n81lnr -r 10 /dev/ttyDSM6 /dev/ttyDSM5"
 << endl;
 
     return 1;
@@ -811,7 +821,7 @@ int parseRunstring(int argc, char** argv)
         usage(argv[0]);
         exit(1);
     }
-    while ((opt_char = getopt(argc, argv, "b:d:hm:n:o:pr:s:t:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:d:hm:n:o:pr:s:t:vx")) != -1) {
         switch (opt_char) {
         case 'b':
         {
@@ -842,6 +852,10 @@ int parseRunstring(int argc, char** argv)
         case 'm': 
             portType = n_c::SerialXcvrCtrl::strToPortType(optarg);
             cout << "serstress: cmd line parsing: \'m\': " << n_c::SerialXcvrCtrl::portTypeToStr(portType) << endl;
+            if (portType == n_c::RS485_HALF) {
+                // don't skip the default skipped port type
+                skipped_portType = n_c::LOOPBACK;
+            }
             break;
         case 'n':
             nPacketsOut = atoi(optarg);
@@ -863,6 +877,13 @@ int parseRunstring(int argc, char** argv)
             break;
         case 'v':
             verbose = true;
+            break;
+        case 'x':
+            skipped_portType = n_c::SerialXcvrCtrl::strToPortType(optarg);
+            if (skipped_portType == n_c::LOOPBACK) {
+                cout << "-x option specifies unknown port type to skip." << endl << endl;
+                return usage(argv[0]);
+            }
             break;
         case '?':
             return usage(argv[0]);
@@ -899,7 +920,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
     try { 
         myPort.open(O_RDWR | O_NOCTTY | O_NONBLOCK); 
     }
-    catch (n_u::IOException e)    {
+    catch (n_u::IOException& e)    {
         throw n_u::Exception(std::string("serstress: port open error: " + myPort.getName() + e.what()));
     }
 
@@ -1054,7 +1075,7 @@ int main(int argc, char**argv)
     cout         << "**        SerStress Test Start        **" << endl;
     cout         << "****************************************" << endl;
 
-    n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422}; // leave this off for now, since HW doesn't support it, n_c::RS485_HALF};
+    n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF};
 
     int status = 0;
     int calcRecvrTimeout = -1;
@@ -1115,20 +1136,30 @@ int main(int argc, char**argv)
     // save a virgin copy and prepend the baud rate later.
     string tempTermiosOpts = termioOpts;
 
-    // if portType != LOOPBACK, then user supplied a portType, so use it and loop forever-ish...
+    // if portType != LOOPBACK and portType != RS485_HALF, then use it and loop forever-ish...
     // otherwise just loop through the port types list
     int looptest = sizeof(portTypeList)/sizeof(portTypeList[0]);
-    if (portType != n_c::LOOPBACK) {
+    if (portType != n_c::LOOPBACK && portType != n_c::RS485_HALF) {
         looptest = INT_MAX;
     }
+    if (portType == n_c::RS485_HALF) {
+        looptest = 1;
+    }
+
 
     DLOG(("portType == ") << n_c::SerialXcvrCtrl::portTypeToStr(portType) << ", looptest == " << looptest);
 
     for (int i=0; i<looptest; ++i) {
         n_c::PORT_TYPES nextPortType = portType;
         // change port type only if it wasn't specified on the command line
-        if (looptest != INT_MAX) {
+        if (looptest != INT_MAX && nextPortType != n_c::RS485_HALF) {
             nextPortType = portTypeList[i];
+
+            // primarily used to check for RS485_HALF as this isn't curren't supported in 
+            // the hardware.
+            if (nextPortType == skipped_portType) {
+                continue;
+            }
             DLOG(("Changing the port type because it wasn't specified on the command line: ") << nextPortType);
         }
 
@@ -1179,6 +1210,7 @@ int main(int argc, char**argv)
 
             Receiver echoRcvr(calcRecvrTimeout, 0);
             try {
+                ILOG(("Starting Echo Recvr..."));
                 echoRcvr.start();
             }
             catch(const n_u::IOException &e) {
@@ -1187,10 +1219,12 @@ int main(int argc, char**argv)
             }
 
             n_u::auto_ptr<Sender> sender(new Sender(ascii,dataSize));
+            ILOG(("Starting Sender..."));
             sender->start();
 
             Receiver sendRcvr(calcRecvrTimeout, sender.get());
             try {
+                ILOG(("Starting Send Recvr"));
                 sendRcvr.start();
             }
             catch(const n_u::IOException &e) {
@@ -1201,7 +1235,6 @@ int main(int argc, char**argv)
             while (sender->isRunning())
                 sleep(1);
 
-            // ILOG(("Cleaning up threads..."));
             cout << "Cleaning up threads..." << endl;
 
             if (sender.get()) {
@@ -1216,33 +1249,38 @@ int main(int argc, char**argv)
             }
             ILOG(("Sender thread exited..."));
 
-            if (sendRcvr.isRunning() && !sendRcvr.isJoined()) {
-                try {
-                    sendRcvr.join();
-                }
-                catch(const n_u::Exception &e) {
-                    cout << "Error: " << e.what() << endl;
-                    status = 1;
-                }
+            while (echoRcvr.isRunning())
+            {
+                sleep(1);
             }
 
-            while(sendRcvr.isRunning()) ;
-
-            ILOG(("Sender Receive thread exited..."));
-
-            if (echoRcvr.isRunning() && !echoRcvr.isJoined()) {
-                try {
-                    echoRcvr.join();
-                }
-                catch(const n_u::Exception &e) {
-                    cout << "Error: " << e.what() << endl;
-                    status = 1;
-                }
+            try {
+                echoRcvr.join();
+            }
+            catch(const n_u::Exception &e) {
+                std::cout << "Error: " << e.what() << endl;
+                status = 1;
             }
 
-            while(echoRcvr.isRunning()) ;
+            // while(echoRcvr.isRunning()) ;
 
             ILOG(("Echo Receive thread exited..."));
+
+            while (sendRcvr.isRunning()) {
+                sleep(1);
+            }
+
+            try {
+                sendRcvr.join();
+            }
+            catch(const n_u::Exception &e) {
+                std::cout << "Error: " << e.what() << endl;
+                status = 1;
+            }
+
+            // while(sendRcvr.isRunning()) ;
+
+            ILOG(("Sender Receive thread exited..."));
 
             interrupted = 0;
 
