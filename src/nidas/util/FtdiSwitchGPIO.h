@@ -83,9 +83,9 @@ public:
         unsigned char rawBits = _shadow;
         if (ifaceFound()) {
             rawBits = _pFtdiDevice->read();
-            DLOG(("FtdiDSMPowerGPIO::write(): Raw bits: 0x%0x", rawBits));
+            DLOG(("FtdiSwitchGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits |= bit;
-            DLOG(("FtdiDSMPowerGPIO::write(): New bits: 0x%0x", rawBits));
+            DLOG(("FtdiSwitchGPIO::write(): New bits: 0x%0x", rawBits));
             write(rawBits);
             _shadow = rawBits;
         }
@@ -100,16 +100,16 @@ public:
         unsigned char rawBits = _shadow;
         if (ifaceFound()) {
             rawBits = _pFtdiDevice->read();
-            DLOG(("FtdiDSMPowerGPIO::write(): Raw bits: 0x%0x", rawBits));
+            DLOG(("FtdiSwitchGPIO::write(): Raw bits: 0x%0x", rawBits));
             rawBits &= ~bit;
-            DLOG(("FtdiDSMPowerGPIO::write(): New bits: 0x%0x", rawBits));
+            DLOG(("FtdiSwitchGPIO::write(): New bits: 0x%0x", rawBits));
             write(rawBits);
-            _shadow = rawBits;
         }
         else {
             rawBits &= ~bit;
-            _shadow = rawBits;
         }
+
+        _shadow = rawBits;
     }
 
     ftdi_interface getInterface()
