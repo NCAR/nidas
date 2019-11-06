@@ -285,7 +285,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
-                                      '-fno-elide-type', '-fdiagnostics-show-template-tree', 
+                                      '-fno-elide-constructors', 
                                       '-I/usr/include/libftdi1', 
                                       '-I/usr/include/libusb-1.0', 
                                       '-Inidas/util'])
@@ -365,7 +365,7 @@ libftdi_cross_include_flag = '-I' + libftdi_cross_base + '/src'
 #            '-Wformat', '-Werror=format-security',
 #            '-D_FORTIFY_SOURCE=2'])
 #    armel_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
-#                                       '-fno-elide-type', '-fdiagnostics-show-template-tree', 
+#                                       '-fno-elide-constructors',  
 #                                       libftdi_cross_include_flag, '-I/usr/local/include'])
 #    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 #
@@ -388,7 +388,7 @@ if 'armhf' in BUILDS:
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     armhf_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
-                                       '-fno-elide-type', '-fdiagnostics-show-template-tree', 
+                                       '-fno-elide-constructors', '-fdiagnostics-show-template-tree', 
                                        libftdi_cross_include_flag, '-I/usr/local/include'])
     armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
