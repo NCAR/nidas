@@ -66,8 +66,8 @@ static const char* GPIO_STR_AUX =       "GPIO_PWR_AUX";
 static const char* GPIO_STR_BANK1 =     "GPIO_PWR_BANK1";
 static const char* GPIO_STR_BANK2 =     "GPIO_PWR_BANK2";
 static const char* GPIO_STR_BTCON =     "GPIO_PWR_BTCON";
-static const char* GPIO_STR_DEFAULT_SW4 = "GPIO_DEFAULT_SW4";
-static const char* GPIO_STR_WIFI_SW3 =    "GPIO_WIFI_SW3";
+static const char* GPIO_STR_DEFAULT_SW1 = "GPIO_DEFAULT_SW1";
+static const char* GPIO_STR_WIFI_SW2 =    "GPIO_WIFI_SW2";
 
 inline std::string gpio2Str(GPIO_PORT_DEFS gpio) {
     std::string retval;
@@ -113,10 +113,10 @@ inline std::string gpio2Str(GPIO_PORT_DEFS gpio) {
         retval.append(GPIO_STR_BTCON);
         break;
     case DEFAULT_SW:
-        retval.append(GPIO_STR_DEFAULT_SW4);
+        retval.append(GPIO_STR_DEFAULT_SW1);
         break;
     case WIFI_SW:
-        retval.append(GPIO_STR_WIFI_SW3);
+        retval.append(GPIO_STR_WIFI_SW2);
         break;
     case ILLEGAL_PORT:
     default:
