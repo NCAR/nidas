@@ -357,17 +357,18 @@ void SampleInputStream::close() throw(n_u::IOException)
         // from so many places, this seems the next best option.  So
         // callers which want to log stats on all blocks have to call
         // close() manually first.
+        long long offset = _iostream->getNumInputBytes();
         if (_block.nbytes)
         {
-            long long offset = _iostream->getNumInputBytes();
             if (!_block.good)
             {
                 _block.endBadBlock(0, offset);
             }
             WLOG(("") << _block);
         }
-        WLOG(("") << getName() << ": Total " << _badSamples << " bad samples.");
-        WLOG(("") << getName() << ": Total " << _goodSamples << " good samples.");
+        WLOG(("") << getName() << ": Total " << _badSamples << " bad bytes.");
+        WLOG(("") << getName() << ": Total " << _goodSamples
+             << " good samples (" << (offset - _badSamples) << " bytes)");
         delete _iostream;
         _iostream = 0;
     }
