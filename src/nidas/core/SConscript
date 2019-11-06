@@ -249,9 +249,13 @@ if env.get('ENABLE_VALGRIND'):
 else:
     sampleobj = env.SharedObject('Sample.cc')
 
-# force link xmlrpc.a
-# prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
+if targetArch == 'host':
+    static_xmlrpcpp = ''
+    
+else:
+    # force link xmlrpc.a
+    # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
+    static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
 
 ##
 ##  Build the libnidas library. Search other needed libraries.
