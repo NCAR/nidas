@@ -40,7 +40,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <unistd.h>
+#include <time.h>
 #include <libusb-1.0/libusb.h>
 #include "ftdi.h"
 #include "nidas/core/NidasApp.h"
@@ -68,10 +68,10 @@ NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2|btcon|defa
                  "     28V         - 28 volt power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
                  "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
-                 "     bank2|BANK2 - bank2 12V power port\n"
-                 "     btcon|BTCON - bluetooth console hat board on Rpi"
-                 "     default_sw  - detects default switch, SW4 on FTDI USB Serial Board"
-                 "     wifi_sw  -    detects wifi switch, SW3 on FTDI USB Serial Board",
+                 "     bank2|BANK2 - bank2 12V power port - resets the RPi\n"
+                 "     btcon|BTCON - bluetooth console hat board on Rpi\n"
+                 "     def_sw      - detects default switch, SW1 on FTDI USB Serial Board\n"
+                 "     wifi_sw  -    detects wifi switch, SW2 on FTDI USB Serial Board\n",
                  "");
 NidasAppArg Map("-m,--map", "",
 			      "Output the devices for which power can be controlled and exit", "");
@@ -86,7 +86,7 @@ NidasAppArg Power("-p,--power", "<on>",
 int usage(const char* argv0)
 {
     std::cerr
-<< argv0 << "is a utility to control the power of various DSM devices." << std::endl
+<< argv0 << " is a utility to control the power of various DSM devices." << std::endl
 << "It detects the presence of the FTDI USB Serial Interface board and used it if " << std::endl
 << "it is available. Otherwise, it attempts to use the Rpi GPIO script to do the same " << std::endl
 << "function. If the utility is not executed on a Rpi device, it will exit with an error." << std::endl
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
         DLOG(("Instantiating SensorPowerCtrl object..."));
         pPwrCtrl = new SensorPowerCtrl(deviceArg);
     }
-    else if (deviceArg < PWR_28V) {
+    else if (deviceArg < DEFAULT_SW) {
         DLOG(("Instantiating DSMPowerCtrl object..."));
         pPwrCtrl = new DSMPowerCtrl(deviceArg);
     }
@@ -264,22 +264,67 @@ int main(int argc, char* argv[]) {
         rPwrCtrl.print();
     }
     else if (pSwCtrl) {
+        timespec decayStart, decayStop, pressWaitStart, pressWaitNow;
         std::cout << "Waiiting for " << gpio2Str(deviceArg) << " switch to be pressed..." << std::endl;
+        int waiting = 0;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &pressWaitStart);
         // Wait for the switch to be pressed...
         bool switchPressed = pSwCtrl->switchIsPressed();
-        for (int i=0; !switchPressed && i<60; ++i) {
-            usleep(USECS_PER_SEC/2);
+        while (!switchPressed) {
             switchPressed = pSwCtrl->switchIsPressed();
+            // continously get start of decay until switch is pressed
+            // for better accuracy.
+            clock_gettime(CLOCK_MONOTONIC_RAW, &decayStart);
+
+            clock_gettime(CLOCK_MONOTONIC_RAW, &pressWaitNow);
+            // we only need approx time for waiting...
+            int currently_waiting = pressWaitNow.tv_sec - pressWaitStart.tv_sec;
+            if ( currently_waiting > waiting) {
+                waiting = currently_waiting;
+                std::cout << "\rWaiting " << waiting << " seconds for switch press..." << std::flush;
+            }
+
+            if (waiting >= 60) {
+                std::cout << std::endl;
+                break;
+            }
         }
 
         if (!switchPressed) {
             std::cout << "Did not detect a switch pressed..." << std::endl;
             return 7;
         }
+        else {
+            std::cout << std::endl << "Detected " << gpio2Str(deviceArg) << " switch pressed..." << std::endl;
+        }
 
         pSwCtrl->ledOn();
-        usleep(USECS_PER_SEC * 10);
+        int decaySecs = 0;
+        int decayMSecs = 0;
+        bool switchIsPressed = false;
+        do {
+            switchIsPressed = pSwCtrl->switchIsPressed();
+            timespec requestedSleep = {0, NSECS_PER_MSEC*10};
+            nanosleep(&requestedSleep, 0);
+
+            clock_gettime(CLOCK_MONOTONIC_RAW, &decayStop);
+            decaySecs = decayStop.tv_sec - decayStart.tv_sec;
+            int nsec = decayStop.tv_nsec - decayStart.tv_nsec;
+            if (nsec < 0) {
+                decaySecs--;
+                nsec += NSECS_PER_SEC;
+            }
+            decayMSecs = nsec/NSECS_PER_MSEC;
+        } while (switchIsPressed && decaySecs < 10);
         pSwCtrl->ledOff();
+
+        if (pSwCtrl->switchIsPressed()) {
+            std::cout << "Switch RC decay time > 10 Sec" << std::endl;
+        }
+        else {
+            std::cout << "Switch RC decay time: " 
+                      << decaySecs << "." << decayMSecs << " Sec" << std::endl;
+        }
     }
     else {
         std::cerr << "pio: failed to instantiate either power or switch control object for: " << gpio2Str(deviceArg);
