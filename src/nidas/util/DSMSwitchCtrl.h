@@ -30,10 +30,39 @@
 
 namespace nidas { namespace util {
 
-static const unsigned char DEFAULT_SW_BIT = 0x01;
-static const unsigned char WIFI_SW_BIT = 0x02;
-static const unsigned char DEFAULT_LED_BIT = 0x03;
-static const unsigned char WIFI_LED_BIT = 0x04;
+static const unsigned char WIFI_SW_BIT =     0b00010000;
+static const unsigned char DEFAULT_SW_BIT =  0b00100000;
+static const unsigned char WIFI_LED_BIT =    0b01000000;
+static const unsigned char DEFAULT_LED_BIT = 0b10000000;
+
+static const std::string WIFI_SW_BIT_STR("WIFI_SW_BIT");
+static const std::string DEFAULT_SW_BIT_STR("DEFAULT_SW_BIT");
+static const std::string WIFI_LED_BIT_STR("WIFI_LED_BIT");
+static const std::string DEFAULT_LED_BIT_STR("DEFAULT_LED_BIT");
+
+const std::string bit2str(unsigned char bit) 
+{
+    std::string retval;
+    switch (bit) {
+        case WIFI_SW_BIT:
+            retval = WIFI_SW_BIT_STR;
+            break;
+        case DEFAULT_SW_BIT:
+            retval = DEFAULT_SW_BIT_STR;
+            break;
+        case WIFI_LED_BIT:
+            retval = WIFI_LED_BIT_STR;
+            break;
+        case DEFAULT_LED_BIT:
+            retval = DEFAULT_LED_BIT_STR;
+            break;
+        default:
+            throw InvalidParameterException(std::string("bit2str() : Illegal value for bit parameter."));
+            break;
+    }
+
+    return retval;
+}
 
 /*
  *  This class specializes PowerCtrlIF in order to provide a facade for to enabling/disabling power control
@@ -61,6 +90,11 @@ public:
                                                 "Should be either DEFAULT_SW or WIFI_SW");
                 break;
         }
+        DLOG(("DSMSwitchCtrl::DSMSwitchCtrl(): Switch bit: ") << bit2str(_switchBit)
+                                                              << " : " << _switchBit 
+                                                              << "; LED bit: " 
+                                                              << bit2str(_ledBit)
+                                                              << " : " << _ledBit);
     }
 
     virtual ~DSMSwitchCtrl()
@@ -71,11 +105,13 @@ public:
     void ledOn()
     {
         setBit(_ledBit);
+        DLOG(("DSMSwitchCtrl::ledOn(): turned on LED bit: ") << bit2str(_ledBit) << " : " << (long)_ledBit);
     }
 
     void ledOff()
     {
         resetBit(_ledBit);
+        DLOG(("DSMSwitchCtrl::ledOff(): turned off LED bit: ") << bit2str(_ledBit) << " : " << (long)_ledBit);
     }
 
     void print()
@@ -84,12 +120,37 @@ public:
 
     bool switchIsPressed()
     {
-        return readBit(_switchBit);
+        bool swPressed = (readBit(_switchBit) != 0);
+        unsigned char raw = readBit(_switchBit);
+        char rawBuf[5] = {0,0,0,0,0};
+        sprintf(rawBuf, "0x%0X", raw);
+        std::string rawStr(rawBuf);
+        char bitBuf[5] = {0,0,0,0,0};
+        sprintf(bitBuf, "0X%0X", _switchBit);
+        std::string bitStr(bitBuf);
+        DLOG(("DSMSwitchCtrl::switchIsPressed(): ") << "raw: " << rawStr 
+                                                    << "; logical: " << bit2str(_switchBit) 
+                                                    << " : " << bitStr << " : is " 
+                                                    << (swPressed ? "ON" : "OFF"));
+        return (swPressed);
     }
 
     bool ledIsOn()
     {
-        return readBit(_ledBit);
+        bool ledOn = (readBit(_ledBit) != 0);
+        unsigned char raw = readBit(_ledBit);
+        char rawBuf[5] = {0,0,0,0,0};
+        sprintf(rawBuf, "0x%0X", raw);
+        std::string rawStr(rawBuf);
+        char bitBuf[5] = {0,0,0,0,0};
+        sprintf(bitBuf, "0X%0X", _switchBit);
+        std::string bitStr(bitBuf);
+        DLOG(("DSMSwitchCtrl::ledIsOn(): ") << "raw: " << rawStr 
+                                            << "; logical: " 
+                                            << bit2str(_ledBit) 
+                                            << " : " << bitStr << " : is " 
+                                            << (ledOn ? "ON" : "OFF"));
+        return ledOn;
     }
 
 private:
