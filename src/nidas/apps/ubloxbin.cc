@@ -110,15 +110,15 @@ ublox::MsgId All_UBX_IDs[] =
     ublox::MsgId_NavPosllh,
     ublox::MsgId_NavStatus,
     ublox::MsgId_NavDop,
-    ublox::MsgId_NavAtt,
+    // ublox::MsgId_NavAtt,
     ublox::MsgId_NavSol,
     ublox::MsgId_NavPvt,
     ublox::MsgId_NavOdo,
-    ublox::MsgId_NavResetodo,
+    // ublox::MsgId_NavResetodo,
     ublox::MsgId_NavVelecef,
     ublox::MsgId_NavVelned,
-    ublox::MsgId_NavHpposecef,
-    ublox::MsgId_NavHpposllh,
+    // ublox::MsgId_NavHpposecef,
+    // ublox::MsgId_NavHpposllh,
     ublox::MsgId_NavTimegps,
     ublox::MsgId_NavTimeutc,
     ublox::MsgId_NavClock,
@@ -132,28 +132,28 @@ ublox::MsgId All_UBX_IDs[] =
     ublox::MsgId_NavOrb,
     ublox::MsgId_NavSat,
     ublox::MsgId_NavGeofence,
-    ublox::MsgId_NavSvin,
-    ublox::MsgId_NavRelposned,
-    ublox::MsgId_NavEkfstatus,
+    // ublox::MsgId_NavSvin,
+    // ublox::MsgId_NavRelposned,
+    // ublox::MsgId_NavEkfstatus,
     ublox::MsgId_NavAopstatus,
     ublox::MsgId_NavEoe,
-    ublox::MsgId_RxmRaw,
-    ublox::MsgId_RxmSfrb,
+    // ublox::MsgId_RxmRaw,
+    // ublox::MsgId_RxmSfrb,
     ublox::MsgId_RxmSfrbx,
     ublox::MsgId_RxmMeasx,
     ublox::MsgId_RxmRawx,
     ublox::MsgId_RxmSvsi,
-    ublox::MsgId_RxmAlm,
-    ublox::MsgId_RxmEph,
-    ublox::MsgId_RxmRtcm,
-    ublox::MsgId_RxmPmreq,
+    // ublox::MsgId_RxmAlm,
+    // ublox::MsgId_RxmEph,
+    // ublox::MsgId_RxmRtcm,
+    // ublox::MsgId_RxmPmreq,
     ublox::MsgId_RxmRlm,
     ublox::MsgId_RxmImes,
-    ublox::MsgId_InfError,
-    ublox::MsgId_InfWarning,
-    ublox::MsgId_InfNotice,
-    ublox::MsgId_InfTest,
-    ublox::MsgId_InfDebug,
+    // ublox::MsgId_InfError,
+    // ublox::MsgId_InfWarning,
+    // ublox::MsgId_InfNotice,
+    // ublox::MsgId_InfTest,
+    // ublox::MsgId_InfDebug,
     // ublox::MsgId_AckNak,
     // ublox::MsgId_AckAck,
     // ublox::MsgId_CfgPrt,
@@ -197,65 +197,67 @@ ublox::MsgId All_UBX_IDs[] =
     // ublox::MsgId_CfgFixseed,
     // ublox::MsgId_CfgDynseed,
     // ublox::MsgId_CfgPms,
-    ublox::MsgId_UpdSos,
+    // ublox::MsgId_UpdSos,
     // ublox::MsgId_MonGnss,
     ublox::MsgId_MonIo,
-    ublox::MsgId_MonVer,
+    // ublox::MsgId_MonVer,
     ublox::MsgId_MonHw,
     ublox::MsgId_MonHw2,
     ublox::MsgId_MonIo,
     ublox::MsgId_MonMsgpp,
     // ublox::MsgId_MonPatch,
     ublox::MsgId_MonRxbuf,
-    ublox::MsgId_MonSmgr,
+    // ublox::MsgId_MonSmgr,
     ublox::MsgId_MonTxbuf,
     ublox::MsgId_MonRxr,
     ublox::MsgId_AidAlm,
-    ublox::MsgId_AidAlp,
+    // ublox::MsgId_AidAlp,
     // ublox::MsgId_AidAlpsrv,
     ublox::MsgId_AidAop,
-    ublox::MsgId_AidData,
+    // ublox::MsgId_AidData,
     // ublox::MsgId_AidEph,
-    ublox::MsgId_AidHui,
+    // ublox::MsgId_AidHui,
     // ublox::MsgId_AidIni,
     // ublox::MsgId_AidReq,
-    ublox::MsgId_TimDosc,
-    ublox::MsgId_TimFchg,
+    // ublox::MsgId_TimDosc,
+    // ublox::MsgId_TimFchg,
     // ublox::MsgId_TimHoc,
-    ublox::MsgId_TimSmeas,
+    // ublox::MsgId_TimSmeas,
     ublox::MsgId_TimSvin,
     ublox::MsgId_TimTm2,
     // ublox::MsgId_TimTos,
     ublox::MsgId_TimTp,
-    ublox::MsgId_TimVcocal,
-    ublox::MsgId_TimVrfy,
-    ublox::MsgId_EsfIns,
-    ublox::MsgId_EsfMeas,
-    ublox::MsgId_EsfRaw,
-    ublox::MsgId_EsfStatus,
-    ublox::MsgId_MgaGps,
-    ublox::MsgId_MgaGal,
-    ublox::MsgId_MgaBds,
-    ublox::MsgId_MgaQzss,
-    ublox::MsgId_MgaGlo,
-    ublox::MsgId_MgaAno,
-    ublox::MsgId_MgaFlash,
-    ublox::MsgId_MgaIni,
-    ublox::MsgId_MgaAck,
-    ublox::MsgId_MgaDbd,
+    // ublox::MsgId_TimVcocal,
+    // ublox::MsgId_TimVrfy,
+    // ublox::MsgId_EsfIns,
+    // ublox::MsgId_EsfMeas,
+    // ublox::MsgId_EsfRaw,
+    // ublox::MsgId_EsfStatus,
+    // ublox::MsgId_MgaGps,
+    // ublox::MsgId_MgaGal,
+    // ublox::MsgId_MgaBds,
+    // ublox::MsgId_MgaQzss,
+    // ublox::MsgId_MgaGlo,
+    // ublox::MsgId_MgaAno,
+    // ublox::MsgId_MgaFlash,
+    // ublox::MsgId_MgaIni,
+    // ublox::MsgId_MgaAck,
+    // ublox::MsgId_MgaDbd,
     // ublox::MsgId_LogErase,
     // ublox::MsgId_LogString,
     // ublox::MsgId_LogCreate,
     // ublox::MsgId_LogInfo,
     // ublox::MsgId_LogRetrieve,
-    ublox::MsgId_LogRetrievepos,
-    ublox::MsgId_LogRetrievestring,
-    ublox::MsgId_LogFindtime,
+    // ublox::MsgId_LogRetrievepos,
+    // ublox::MsgId_LogRetrievestring,
+    // ublox::MsgId_LogFindtime,
     // ublox::MsgId_LogRetrieveposextra,
-    ublox::MsgId_SecSign,
-    ublox::MsgId_SecUniqid,
-    ublox::MsgId_HnrPvt,
+    // ublox::MsgId_SecSign,
+    // ublox::MsgId_SecUniqid,
+    // ublox::MsgId_HnrPvt,
 };
+
+static bool spyOnCapturedInput = false;
 
 class Session 
 {
@@ -395,7 +397,7 @@ public:
         }
     }
 
-    void handle(InMessage& msg)
+    void handle(InMessage& /*msg*/)
     {
         // ignore all other incoming
         DLOG(("Session::handle(\"InMessage&\"): caught unhandled message"));
@@ -420,9 +422,24 @@ public:
 
                 if (bytesCount) {
                     VLOG(("Session::performRead(): caught ") << bytesCount << " bytes...");
+
+                    if (spyOnCapturedInput) {
+                        VLOG(("Session::performRead(): spying on captured data..."));
+                        std::string hexStr;
+                        auto inputIter = m_inputBuf.begin();
+                        auto inputEndIter = inputIter + bytesCount;
+                        while (inputIter++ != inputEndIter) {
+                            char hexchar[10] = {0,0,0,0,0,0,0,0,0,0};
+                            snprintf(hexchar, 9, "0x%02X ", *inputIter);
+                            hexStr.append(hexchar, 5);
+                        }
+                        VLOG(("Session::performRead(): input buf: ") << hexStr);
+                    }
+
                     auto dataBegIter = m_inputBuf.begin();
                     auto dataEndIter = dataBegIter + bytesCount;
                     m_inData.insert(m_inData.end(), dataBegIter, dataEndIter);
+
                     processInputData();
                     performRead();
                 }
@@ -431,11 +448,12 @@ public:
 
     void configureUbx()
     {
-        // resetUbx();
-        // disableAllMessages();
+        disableAllMessages();  // seems all UBX messages are disabled by default, too.
         configureUbxProtocol();
-        configureUbxRTCUpdate();
+        // spyOnCapturedInput = true;
         configureUbxPowerMode();
+        configureUbxRTCUpdate();
+        // spyOnCapturedInput = false;
         configureUbxNavMode();
         enableDefaultMessages();
     }
@@ -452,11 +470,11 @@ public:
             bool done = true;
             using MsgItem = std::pair<std::string, int>;
             for (MsgItem msg : enabledMsgs) {
-                DLOG(("Session::testEnabledMsgs(): msg: ") << msg.first << " - received: " << msg.second);
+                ILOG(("Session::testEnabledMsgs(): msg: ") << msg.first << " - received: " << msg.second);
                 done &= (msg.second > 1);
             }
 
-            DLOG(("Session::testEnabledMsgs(): ") << (done ? "done" : "not done." ));
+            ILOG(("Session::testEnabledMsgs(): ") << (done ? "done" : "not done." ));
             return done;
         }
         else {
@@ -502,11 +520,11 @@ private:
     {
         boost::asio::io_service readSvc;
         boost::asio::steady_timer readClock(readSvc);
-        std::chrono::microseconds expireTime(USECS_PER_SEC/10);
+        std::chrono::microseconds expireTime(USECS_PER_SEC/100);
 
         if (respondsWithAck(msg)) {
             // wait a second...
-            for(int i=0; getAckCheck() && i<4 && waitingAckMsg; ++i) {
+            for(int i=0; getAckCheck() && i<40 && waitingAckMsg; ++i) {
                 readClock.expires_from_now(expireTime);
                 readClock.wait();
                 performRead();
@@ -604,22 +622,6 @@ private:
         return responds;
     }
 
-    void resetUbx(int restartType = 0x0001) // warm start by default
-    {
-        DLOG((" resetting u-blox..."));
-        using RestartMsg = ublox::message::CfgRst<OutMessage>;
-        RestartMsg msg;
-        auto& outRestartMaskField = msg.field_navBbrMask();
-
-        // using RestartMaskField = typename std::decay<decltype(outRestartMaskField)>::type;
-        outRestartMaskField.value() = restartType;
-        auto outRestartModeField = msg.field_resetMode();
-        outRestartModeField.value() = ublox::message::CfgRstFieldsCommon::ResetModeVal::Hardware;
-
-        // wait for it to come back
-        sleep(10);
-    }
-
     void disableAllMessages()
     {
         DLOG(("disableAllMessages:"));
@@ -651,7 +653,7 @@ private:
             sprintf(buf, "0x%04X", msgId);
             std::string msgIdStr(buf, strlen(buf));
             std::string msgNameStr;
-            DLOG(("Disabling UBX message ID: ") << msgIdStr);
+            ILOG(("Session::disableAllMessages(): Disabling UBX message ID: ") << msgIdStr);
             msg.field_msgId().value() = msgId;
             sendMessage(msg);
         }
@@ -703,30 +705,48 @@ private:
     void configureUbxRTCUpdate()
     {
         DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX to update RTC and ephemeris data occasionally..."));
-        using OutCfgPm = ublox::message::CfgPm<OutMessage>;
-        OutCfgPm msg;
+        using OutCfgPm2 = ublox::message::CfgPm2<OutMessage>;
+        OutCfgPm2 msg;
 
-        auto& outRTCFlags = msg.field_flags().field_bitsHigh();
-        DLOG(("Session::configureUbxRTCUpdate(): default high bits: ") << outRTCFlags.value());
-        using OutRTCFlags = typename std::decay<decltype(outRTCFlags)>::type;
-        outRTCFlags.setBitValue(OutRTCFlags::BitIdx_updateRTC, true);
-        outRTCFlags.setBitValue(OutRTCFlags::BitIdx_updateEPH, true);
-        outRTCFlags.setBitValue(OutRTCFlags::BitIdx_WaitTimeFix, false);
-        DLOG(("Session::configureUbxRTCUpdate(): commanded high bits: ") << outRTCFlags.value());
+        DLOG(("Session::configureUbxRTCUpdate(): default mode: ") << (int)msg.field_flags().field_mode().value());
+        msg.field_flags().field_mode().value() = ublox::field::CfgPm2FlagsMembersCommon::ModeVal::Cyclic;
+        DLOG(("Session::configureUbxRTCUpdate(): commanded mode: ") << (int)msg.field_flags().field_mode().value());
 
-        auto& outMidFlags = msg.field_flags().field_bitsMid();
-        DLOG(("Session::configureUbxRTCUpdate(): default mid bits: ") << outMidFlags.value());
-        using OutMidFlags = typename std::decay<decltype(outMidFlags)>::type;
-        outMidFlags.setBitValue(OutMidFlags::BitIdx_extintBackup, false);
-        outMidFlags.setBitValue(OutMidFlags::BitIdx_extintSelect, false);
-        outMidFlags.setBitValue(OutMidFlags::BitIdx_extintWake, false);
-        DLOG(("Session::configureUbxRTCUpdate(): commanded mid bits: ") << outMidFlags.value());
+        DLOG(("Session::configureUbxRTCUpdate(): default message version: ") << (int)msg.field_version().value());
+        msg.field_version().value() = 1;
+        DLOG(("Session::configureUbxRTCUpdate(): commanded message version: ") << (int)msg.field_version().value());
+
+        DLOG(("Session::configureUbxRTCUpdate(): default max startup duration: ") << (int)msg.field_maxStartupStateDur().value());
+        msg.field_maxStartupStateDur().value() = 0; // ublox figures it out
+        DLOG(("Session::configureUbxRTCUpdate(): commanded max startup duration: ") << (int)msg.field_maxStartupStateDur().value());
+        
+
+        DLOG(("Session::configureUbxRTCUpdate(): default update period: ") << msg.field_updatePeriod().value());
+        msg.field_updatePeriod().value() = 1000; // update nav 1000 mS = 1/sec
+        DLOG(("Session::configureUbxRTCUpdate(): commanded update period: ") << msg.field_updatePeriod().value());
+
+        DLOG(("Session::configureUbxRTCUpdate(): default search period: ") << msg.field_searchPeriod().value());
+        msg.field_searchPeriod().value() = 10; // seconds on
+        DLOG(("Session::configureUbxRTCUpdate(): commanded search period: ") << msg.field_searchPeriod().value());
 
         DLOG(("Session::configureUbxRTCUpdate(): default grid offset: ") << msg.field_gridOffset().value());
-        DLOG(("Session::configureUbxRTCUpdate(): default min acq time: ") << msg.field_minAcqTime().value());
+        DLOG(("Session::configureUbxRTCUpdate(): default min acq timeout: ") << msg.field_minAcqTime().value());
         DLOG(("Session::configureUbxRTCUpdate(): default on time: ") << msg.field_onTime().value());
-        DLOG(("Session::configureUbxRTCUpdate(): default search period: ") << msg.field_searchPeriod().value());
-        DLOG(("Session::configureUbxRTCUpdate(): default update period: ") << msg.field_updatePeriod().value());
+        
+        auto& outPM2LowFlags = msg.field_flags().field_bitsLow();
+        DLOG(("Session::configureUbxRTCUpdate(): default low bits: ") << outPM2LowFlags.value());
+        outPM2LowFlags.setBitValue_extintBackup(false);
+        outPM2LowFlags.setBitValue_extintSel(false);
+        outPM2LowFlags.setBitValue_extintWake(false);
+        DLOG(("Session::configureUbxRTCUpdate(): commanded low bits: ") << outPM2LowFlags.value());
+
+        auto& outPM2MidFlags = msg.field_flags().field_bitsMid();
+        DLOG(("Session::configureUbxRTCUpdate(): default mid bits: ") << outPM2MidFlags.value());
+        outPM2MidFlags.setBitValue_updateRTC(true);
+        outPM2MidFlags.setBitValue_updateEPH(true);
+        outPM2MidFlags.setBitValue_waitTimeFix(false);
+        outPM2MidFlags.setBitValue_doNotEnterOff(true);
+        DLOG(("Session::configureUbxRTCUpdate(): commanded mid bits: ") << outPM2MidFlags.value());
 
         sendMessage(msg);
     }
@@ -902,6 +922,9 @@ int main(int argc, char** argv)
             if (!NoBreak.specified() && session.testEnabledMsgs()) 
                 break;
         }
+
+        io.stop();
+        run_thread.join();
     }
     catch (const std::exception& e) {
         std::cerr << "ERROR: Unexpected exception: " << e.what() << std::endl;
