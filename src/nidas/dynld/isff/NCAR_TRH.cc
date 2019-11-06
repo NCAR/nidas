@@ -498,7 +498,7 @@ ifanFilter(std::list<const Sample*>& results)
  *  AutoConfig: TRH Commands
  */
 
-static const char* SENSOR_RESET_CMD_STR = "\x12"; // ctrl-u
+static const char* SENSOR_RESET_CMD_STR = "\x12"; // ctrl-r
 static const char* SENSOR_TOGGLE_CAL_OUTPUT_CMD_STR = "Oc"; // calibrated output message
 static const char* SENSOR_TOGGLE_RAW_OUTPUT_CMD_STR = "Or"; // raw output message
 static const char* SENSOR_ENTER_CAL_MODE_CMD_STR = "Ob";    // cal output messages
@@ -545,8 +545,11 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
  *        when collecting metadata
  */
 
-static regex EEPROM_MENU_ENTERED_RESP("[[:space:]]+input command format: cmd \\[value\\] \\[\\[value\\] \\[value\\] ...\\]");
-static regex EEPROM_MENU_EXIT_RESP("Exit EEPROM LOADER - reset will take place");
+                                           //input command format: cmd [value] [[value] [value] ...]
+static string EEPROM_MENU_ENTERED_RESP_SPEC("input command format: cmd \\[value] \\[\\[value] \\[value] [.]{3}]");
+static regex EEPROM_MENU_ENTERED_RESP(EEPROM_MENU_ENTERED_RESP_SPEC, std::regex_constants::extended);
+static string EEPROM_MENU_EXIT_RESP_SPEC("Exit EEPROM LOADER - reset will take place");
+static regex EEPROM_MENU_EXIT_RESP(EEPROM_MENU_EXIT_RESP_SPEC, std::regex_constants::extended);
 static string SENSOR_RESET_METADATA_REGEX_SPEC(
     "[[:space:]]+Sensor ID([0-9]+)   I2C ADD: ([0-9]+)   data rate: ([0-9]+) \\(secs\\)  fan(\\(([0-9]+)\\)){0,1} max current: ([0-9]+) \\(ma\\)"
     "([[:space:]]+Calibration Dates: T - ([0-9]+), RH - ([0-9]+))*"
@@ -562,7 +565,7 @@ static string SENSOR_RESET_METADATA_REGEX_SPEC(
     "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
     "([[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+))*"
 );
-static regex SENSOR_RESET_METADATA(SENSOR_RESET_METADATA_REGEX_SPEC);
+static regex SENSOR_RESET_METADATA(SENSOR_RESET_METADATA_REGEX_SPEC, std::regex_constants::extended);
 
 // Typical TRH output
 //
@@ -571,10 +574,14 @@ static regex SENSOR_RESET_METADATA(SENSOR_RESET_METADATA_REGEX_SPEC);
 // 
 // Bare TRH module
 // TRH116 23.27 50.47 1584 96 0
-static regex CAL_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1}$");
-static regex RAW_OUTPUT_ONLY_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+ [0-9]+ [0-9]+$");
-static regex CAL_AND_RAW_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+ [0-9]+[.][0-9]+( [0-9]+ [0-9]+){0,1} [0-9]+ [0-9]+ [0-9]+$");
-static regex NEITHER_OUTPUT_ENABLED("^.*TRH[0-9]+[[:blank:]]*$");
+static string CAL_OUTPUT_ONLY_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+([[:blank:]]+[0-9]+[[:blank:]]+[0-9]+){0,1}");
+static regex CAL_OUTPUT_ONLY_ENABLED(CAL_OUTPUT_ONLY_ENABLED_SPEC, std::regex_constants::extended);
+static string RAW_OUTPUT_ONLY_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
+static regex RAW_OUTPUT_ONLY_ENABLED(RAW_OUTPUT_ONLY_ENABLED_SPEC, std::regex_constants::extended);
+static string CAL_AND_RAW_OUTPUT_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+([[:blank:]]+[0-9]+[[:blank:]]+[0-9]+){0,1}[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
+static regex CAL_AND_RAW_OUTPUT_ENABLED(CAL_AND_RAW_OUTPUT_ENABLED_SPEC, std::regex_constants::extended);
+static string NEITHER_OUTPUT_ENABLED_SPEC("TRH[0-9]+[[:blank:]]*");
+static regex NEITHER_OUTPUT_ENABLED(NEITHER_OUTPUT_ENABLED_SPEC, std::regex_constants::extended);
 static const int SENSOR_ID_IDX = 1;
 static const int I2C_ADD_IDX   = 2;
 static const int DATA_RATE_IDX = 3;
@@ -596,8 +603,20 @@ static const int HCAL_COEFF_3_IDX = 18;
 static const int HCAL_COEFF_4_IDX = 19;
 static const int FCAL_COEFF_0_IDX = 20;
 
-static regex DATA_RATE_ACCEPTED_RESPONSE("WRITE: add:12 = ([0-9]{1,2})");
-static regex EEPROM_MENU_EXIT_RESP_RESPONSE("[[:space:]]+Exit EEPROM LOADER - reset will take place");
+static string DATA_RATE_ACCEPTED_RESPONSE_SPEC("WRITE: add:12 = ([0-9]{1,2})");
+static regex DATA_RATE_ACCEPTED_RESPONSE(DATA_RATE_ACCEPTED_RESPONSE_SPEC, std::regex_constants::extended);
+static string EEPROM_MENU_EXIT_RESP_RESPONSE_SPEC("[[:space:]]+Exit EEPROM LOADER - reset will take place");
+static regex EEPROM_MENU_EXIT_RESP_RESPONSE(EEPROM_MENU_EXIT_RESP_RESPONSE_SPEC, std::regex_constants::extended);
+
+void cleanupEmbeddedNulls(char* buf, int buflen)
+{
+    DLOG(("NCAR_TRH::checkCmdRepsonse(): Changing embedded nulls to spaces..."));
+    for (int i=0; i < buflen; ++i) {
+        if ((int)buf[i] == 0) {
+            buf[i] = ' ';
+        }
+    }
+}
 
 bool 
 NCAR_TRH::
@@ -697,7 +716,7 @@ bool
 NCAR_TRH::
 captureResetMetaData(const char* buf)
 {
-    DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
+    // TODO DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
     DLOG(("NCAR_TRH::captureResetMetaData(): matching:") << std::string(buf));
     cmatch results;
     bool regexFound = regex_search(buf, results, SENSOR_RESET_METADATA);
@@ -787,25 +806,35 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 {
 	bool responseOK = false;
 	bool checkMatch = true;
-    static const int BUF_SIZE = 2048;
-    int selectTimeout = 4000;
+    int BUF_SIZE = 1000;
+    int selectTimeout = 4;
     bool checkForUnprintables = true;
-    int retryTimeoutFactor = 5;
-    if (cmd == SENSOR_RESET_CMD 
-        || cmd == SENSOR_EEPROM_EXIT_CMD 
-        || cmd == SENSOR_EEPROM_MENU_CMD) {
-        checkForUnprintables = false;
-        selectTimeout = 5000;
+    int retryTimeoutFactor = 3;
+
+    switch (cmd) {
+        case SENSOR_RESET_CMD:
+            checkForUnprintables = false;
+            BUF_SIZE = 355;
+            break;
+        case SENSOR_EEPROM_EXIT_CMD:
+            checkForUnprintables = false;
+            BUF_SIZE = 60;
+            break;
+
+        case SENSOR_EEPROM_MENU_CMD:
+            checkForUnprintables = false;
+            BUF_SIZE = 120;
+            retryTimeoutFactor = 10;
+            break;
+
+        default:
+            break;
     }
 
-    if (cmd == SENSOR_EEPROM_EXIT_CMD) {
-        // DLOG(("NCAR_TRH::checkCmdRepsonse(): sleeping 1 to wait for entire message to be delivered"));
-        // sleep(1);
-    }
-
-    char respBuf[BUF_SIZE];
-    memset(respBuf, 0, BUF_SIZE);
-    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE-1, selectTimeout,
+    auto_ptr<char> respBuf(new char[BUF_SIZE]);
+    char* buf = respBuf.get();
+    memset(buf, 0, BUF_SIZE);
+    int numCharsRead = readEntireResponse(buf, BUF_SIZE-1, selectTimeout,
                                           checkForUnprintables, retryTimeoutFactor);
     // regular expression specific to the cmd
     regex matchStr;
@@ -817,7 +846,8 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
     string resultsStr = "";
 
     if (numCharsRead > 0) {
-        char* buf = respBuf;
+        cleanupEmbeddedNulls(buf, BUF_SIZE);
+        
         DLOG(("NCAR_TRH::checkCmdRepsonse(): Number of chars read - %i", numCharsRead));
         DLOG(("NCAR_TRH::checkCmdRepsonse(): chars read - %s", buf));
 
@@ -850,8 +880,12 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 		}
 
 		if (checkMatch) {
-		    responseOK = _checkSensorCmdResponse(cmd, arg, matchStr, compareMatch, respBuf);
+		    responseOK = _checkSensorCmdResponse(cmd, arg, matchStr, compareMatch, buf);
 		}
+
+        if (cmd != SENSOR_RESET_CMD && cmd != SENSOR_EEPROM_EXIT_CMD) {
+            drainResponse();
+        }
     }
 	return responseOK;
 }
@@ -989,7 +1023,6 @@ handleEepromExit(const char* buf, const int /* bufSize */)
 
     return success;
 }
-
 bool 
 NCAR_TRH::
 setOutputMode(const TRH_OUTPUT_MODE_STATE desiredState)
@@ -1072,12 +1105,10 @@ checkOutputModeState()
     TRH_OUTPUT_MODE_STATE status = ILLEGAL;
 
     // Hijacking this method to capture the current output mode
-    static const int BUF_SIZE = 100; // > 2x output line length
-    int selectTimeout = 2000;        // TODO: need to guess better here, 
-                                     // as there could be up to 120  
-                                     // seconds before 2 lines are captured.
+    static const int BUF_SIZE = 75; // > 2x output line length
+    int selectTimeout = 2000;
     bool checkForUnprintables = false;
-    int retryTimeoutFactor = 10;
+    int retryTimeoutFactor = 5;
 
     char respBuf[BUF_SIZE];
     memset(respBuf, 0, BUF_SIZE);
@@ -1088,6 +1119,7 @@ checkOutputModeState()
     string resultsStr = "";
 
     if (numCharsRead > 0) {
+        cleanupEmbeddedNulls(respBuf, BUF_SIZE);
         char* buf = respBuf;
         DLOG(("NCAR_TRH::checkOutputModeState(): Number of chars read - %i", numCharsRead));
         DLOG(("NCAR_TRH::checkOutputModeState(): chars read - %s", buf));
