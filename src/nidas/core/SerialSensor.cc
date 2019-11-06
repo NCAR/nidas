@@ -685,7 +685,7 @@ void SerialSensor::doAutoConfig()
                 _autoConfigState =
                         _serialState == COMM_PARAMETER_CFG_SUCCESSFUL ?
                                         AUTOCONFIG_SUCCESSFUL : AUTOCONFIG_UNSUCCESSFUL;
-                setSensorState(COMM_PARAMETER_CFG_SUCCESSFUL ?
+                setSensorState(_autoConfigState == AUTOCONFIG_SUCCESSFUL ?
                                SENSOR_CONFIGURE_SUCCEEDED : SENSOR_CONFIGURE_FAILED);
             }
             else {
@@ -998,10 +998,10 @@ int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPr
         VLOG(("SerialSensor::readResponse(): Waiting on select just once as timeout >= 1s"));
         try {
             res = poller.poll();
-        } catch (IOTimeoutException e) {
+        } catch (IOTimeoutException& e) {
             DLOG(("Select timeout error on: ") << getDeviceName() << e.what());
             return res;
-        } catch (IOException e) {
+        } catch (IOException& e) {
             DLOG(("General select error on: ") << getDeviceName() << e.what());
             return (std::size_t)0x40000000;
         }
@@ -1009,15 +1009,15 @@ int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPr
     else {
         // allow for some slop in data coming in...
         VLOG(("SerialSensor::readResponse(): Waiting on select a few times to allow for slowdowns"));
+        int tmpto = msecTimeout;
         for (int i=0; res <= 0 && i < 4; ++i) {
-            int tmpto = msecTimeout;
             VLOG(("SerialSensor::readResponse(): select loop: i: %i; msec timeout: %i", i, tmpto));
             try {
                 res = poller.poll();
-            } catch (IOTimeoutException e) {
+            } catch (IOTimeoutException& e) {
                 // DLOG(("Select timeout error on: ") << getDeviceName() << e.what());
                 // return res;
-            } catch (IOException e) {
+            } catch (IOException& e) {
                 // DLOG(("General select error on: ") << getDeviceName() << e.what());
                 // return res;
             }
@@ -1088,7 +1088,7 @@ int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout,
 
     int i=0;
     for (; (!readJunk && numCharsRead && bufRemaining > 0); ++i) {
-        charsReadStatus = readResponse(&cbuf[bufIdx], bufRemaining, 5*getUsecsPerByte()/USECS_PER_MSEC,
+        charsReadStatus = readResponse(&cbuf[bufIdx], bufRemaining, std::max(1, 5*getUsecsPerByte()/USECS_PER_MSEC),
                                        checkPrintable, true, retryTimeoutFactor);
         readJunk = charsReadStatus & 0x80000000;
         numCharsRead = charsReadStatus & ~0x80000000;
@@ -1123,7 +1123,7 @@ int SerialSensor::readEntireResponse(void *buf, int len, int msecTimeout,
         int drainedChars = 0;
         do {
             numCharsRead = readResponse(&cbuf[bufIdx], bufRemaining,
-                                        2*getUsecsPerByte()/USECS_PER_MSEC, false);
+                                        std::max(1, 2*getUsecsPerByte()/USECS_PER_MSEC), false);
             drainedChars += numCharsRead;
             bufIdx += numCharsRead;
             bufRemaining -= numCharsRead;
