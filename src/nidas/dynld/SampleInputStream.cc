@@ -183,7 +183,10 @@ SampleInputStream::SampleInputStream(bool raw):
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(false),_maxDsmId(1024),
+    _filterBadSamples(false),
+    _minDsmId(1),
+    _maxDsmId(1024),
+    _minSampleLength(1),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
@@ -201,7 +204,10 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(false),_maxDsmId(1024),
+    _filterBadSamples(false),
+    _minDsmId(1),
+    _maxDsmId(1024),
+    _minSampleLength(1),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
@@ -224,8 +230,12 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
-    _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
+    _filterBadSamples(x._filterBadSamples),
+    _minDsmId(x._minDsmId),
+    _maxDsmId(x._maxDsmId),
+    _minSampleLength(x._minSampleLength),
+    _maxSampleLength(x._maxSampleLength),
+    _minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
     _original(&x),_raw(x._raw)
 {
@@ -540,7 +550,8 @@ Sample* SampleInputStream::nextSample() throw()
  * complete sample available.  Otherwise keep reading until a full sample
  * is read.
  */
-Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
+Sample* SampleInputStream::
+nextSample(bool keepreading, dsm_time_t search_time) throw(n_u::IOException)
 {
     for (;;) {
         if (_headerToRead > 0) {
@@ -561,6 +572,20 @@ Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
 
             _dataToRead = _samp->getDataByteLength();
             _dptr = (char*) _samp->getVoidDataPtr();
+        }
+
+        if (search_time != LONG_LONG_MIN)
+        {
+            if (_samp->getTimeTag() >= search_time)
+            {
+                // A sample with the right time has been found, stop here
+                // before reading the sample data.
+                return 0;
+            }
+            // We don't want this sample, free it and keep going.
+            _samp->freeReference();
+            _samp = 0;
+            continue;
         }
 
         if (!readSampleData(keepreading))
@@ -598,19 +623,19 @@ sampleFromHeader() throw()
         // If filtering enabled but no max time set, use now plus 1 day.
         if (_maxSampleTime == LONG_LONG_MAX)
             _maxSampleTime = UTime().toUsecs() + 24*USECS_PER_HOUR;
-        // Likewise if no min time set, use within 5 years of max time.
+        // Likewise if no min time set, use within 20 years of max time.
         if (_minSampleTime == LONG_LONG_MIN)
-            _minSampleTime = _maxSampleTime - 5*365*USECS_PER_DAY;
+            _minSampleTime = _maxSampleTime - 20*365*USECS_PER_DAY;
     }
 
     // screen bad headers.
     if ((_raw && _sheader.getType() != CHAR_ST) ||
         (_filterBadSamples &&
          (_sheader.getType() >= UNKNOWN_ST ||
-          GET_DSM_ID(_sheader.getId()) == 0 ||
+          GET_DSM_ID(_sheader.getId()) < _minDsmId ||
           GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
+          _sheader.getDataByteLength() < _minSampleLength ||
           _sheader.getDataByteLength() > _maxSampleLength ||
-          _sheader.getDataByteLength() == 0 ||
           _sheader.getTimeTag() < _minSampleTime ||
           _sheader.getTimeTag() > _maxSampleTime)))
     {
@@ -674,81 +699,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
  */
 void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
 {
-    size_t len;
-    if (_samp) _samp->freeReference();
-    _samp = 0;
-    for (;;) {
-        if (_headerToRead > 0) {
-            while (_headerToRead > 0) {
-		len = _iostream->read(_hptr,_headerToRead);
-                _headerToRead -= len;
-                _hptr += len;
-                // new file
-                if (_expectHeader && _iostream->isNewInput()) {
-                    _iostream->backup(len);
-                    readInputHeader();
-                }
-            }
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-            _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
-            _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
-            _sheader.setRawId(bswap_32(_sheader.getRawId()));
-#endif
-	    if ((_raw && _sheader.getType() != CHAR_ST) ||
-                (_filterBadSamples &&
-                (_sheader.getType() >= UNKNOWN_ST ||
-                    GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
-                _sheader.getDataByteLength() > _maxSampleLength ||
-                _sheader.getDataByteLength() == 0 ||
-                _sheader.getTimeTag() < _minSampleTime ||
-                _sheader.getTimeTag() > _maxSampleTime))) {
-            /*if (!(_badSamples++ % 1000))
-                    logBadSampleHeader(getName(),_badSamples,
-                    _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);*/
-                // bad header. Shift left by one byte, read next byte.
-                memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
-                _headerToRead = 1;
-                _hptr--;
-                continue;
-            }
-
-            _dataToRead = _sheader.getDataByteLength();
-            // cerr << "time=" << UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
-            if (_sheader.getTimeTag() >= tt.toUsecs()) {
-                // getSample can return NULL if type or length are bad
-                _samp = nidas::core::getSample((sampleType)_sheader.getType(),
-                    _sheader.getDataByteLength());
-                if (!_samp) {
-                    if (!(_badSamples++ % 1000))
-                        logBadSampleHeader(getName(),_badSamples,
-                                _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
-                    // bad header. Shift left by one byte, read next byte.
-                    memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
-                    _headerToRead = 1;
-                    _hptr--;
-                    _dataToRead = 0;
-                    continue;
-                }
-                _samp->setTimeTag(_sheader.getTimeTag());
-                _samp->setId(_sheader.getId());
-                _dptr = (char*) _samp->getVoidDataPtr();
-                return;
-            }
-        }
-        while (_dataToRead > 0) {
-            len = _iostream->skip(_dataToRead);
-            // new file
-            if (_expectHeader && _iostream->isNewInput()) {
-                _iostream->backup(len);
-                readInputHeader();
-                break;
-            }
-            _dataToRead -= len;
-        }
-	_headerToRead = _sheader.getSizeOf();
-	_hptr = (char*)&_sheader;
-    }
+    nextSample(true, tt.toUsecs());
 }
 
 /*

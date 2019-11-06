@@ -169,6 +169,8 @@ struct BlockStats {
 class SampleInputStream: public nidas::core::SampleInput
 {
 public:
+    typedef nidas::core::dsm_time_t dsm_time_t;
+
     /**
      * Constructor.
      * @param raw Whether the input samples are raw.
@@ -371,38 +373,84 @@ public:
 
     void close() throw(nidas::util::IOException);
 
-    // Near as I can tell this is not defined anywhere nor called anywhere,
-    // so why it's declared here I cannot say...
-    //
-    // void newFile() throw(nidas::util::IOException);
-
+    /**
+     * Enable filtering of bad samples.  A sample is invalid if the sample
+     * type is out of range, or if the DSM ID, sample length, or sample
+     * time fall out their specified valid ranges.  Other methods change
+     * the valid ranges.  As a convenience, calling any of the methods to
+     * change the range filters automatically enables filtering, same as
+     * calling setFilterBadSamples() directly.  Once filtering is enabled
+     * by any of those methods, it can only be disabled by calling
+     * setFilterBadSamples(false).  It is a mistake to use these methods to
+     * skip otherwise valid samples.  When sample is invalid, the
+     * SampleInputStream loses sync with the sample stream and begins
+     * looking for another valid sample one byte at a time, possibly
+     * discovering a sample which meets the valid criteria but was not an
+     * actual sample.
+     **/
     void setFilterBadSamples(bool val)
     {
         _filterBadSamples = val;
     }
 
+    /**
+     * The default minimum DSM ID for a valid sample is 1.
+     * See setFilterBadSamples().
+     **/
+    void setMinDsmId(int val)
+    {
+        _minDsmId = val;
+        setFilterBadSamples(true);
+    }
+
+    /**
+     * The default maximum DSM ID for a valid sample is 1024.
+     * See setFilterBadSamples().
+     **/
     void setMaxDsmId(int val)
     {
         _maxDsmId = val;
-        setFilterBadSamples(val < 1024);
+        setFilterBadSamples(true);
     }
 
+    /**
+     * The default minimum sample length is 1.
+     * See setFilterBadSamples().
+     **/
+    void setMinSampleLength(unsigned int val)
+    {
+        _minSampleLength = val;
+        setFilterBadSamples(true);
+    }
+
+    /**
+     * The default maximum sample length is UINT_MAX.
+     * See setFilterBadSamples().
+     **/
     void setMaxSampleLength(unsigned int val)
     {
         _maxSampleLength = val;
-        setFilterBadSamples(val < UINT_MAX);
+        setFilterBadSamples(true);
     }
 
+    /**
+     * By default, there is no minimum sample time for a valid sample.
+     * See setFilterBadSamples().
+     **/
     void setMinSampleTime(const nidas::util::UTime& val)
     {
         _minSampleTime = val.toUsecs();
-        setFilterBadSamples(val.toUsecs() > LONG_LONG_MIN);
+        setFilterBadSamples(true);
     }
 
+    /**
+     * By default, there is no maximum sample time for a valid sample.
+     * See setFilterBadSamples().
+     **/
     void setMaxSampleTime(const nidas::util::UTime& val)
     {
         _maxSampleTime = val.toUsecs();
-        setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
+        setFilterBadSamples(true);
     }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -435,9 +483,12 @@ private:
 
     /**
      * Unpack the next sample from the InputStream buffer or by reading
-     * more data if @p keepreading is true.
+     * more data if @p keepreading is true.  If @p search_time is set, then
+     * reading stops after the first sample header found whose time tag is
+     * after @p search_time, as described in the search() method.
      **/
-    nidas::core::Sample* nextSample(bool keepreading) 
+    nidas::core::Sample* nextSample(bool keepreading,
+                                    dsm_time_t search_time=LONG_LONG_MIN)
         throw(nidas::util::IOException);
 
     bool readSampleHeader(bool keepreading) throw(nidas::util::IOException);
@@ -505,13 +556,14 @@ private:
 
     bool _filterBadSamples;
 
+    unsigned int _minDsmId;
     unsigned int _maxDsmId;
 
+    size_t _minSampleLength;
     size_t _maxSampleLength;
 
-    nidas::core::dsm_time_t _minSampleTime;
-
-    nidas::core::dsm_time_t _maxSampleTime;
+    dsm_time_t _minSampleTime;
+    dsm_time_t _maxSampleTime;
 
     SampleInputStream* _original;
 
