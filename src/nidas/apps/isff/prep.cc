@@ -150,11 +150,12 @@ public:
 
     int usage();
 
-    map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
-                                                         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
+    map<double, vector<const Variable*> >
+    matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
+                   set<DSMSensor*>& activeSensors)
+        throw (n_u::InvalidParameterException);
 
     // default initialization values, which are displayed in usage() method.
-    static const int defaultLogLevel = n_u::LOGGER_INFO;
     static const int defaultNCInterval = 1;
     static const int defaultNCLength = 86400;
     static const float defaultNCFillValue;
@@ -199,8 +200,6 @@ private:
 
     int _asciiPrecision;
 
-    int _logLevel;
-
     string _ncserver;
 
     string _ncdir;
@@ -236,7 +235,7 @@ DataPrep::DataPrep():
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
     _middleTimeTags(true),_dosOut(false),_doHeader(true),
     _clipping(false),
-    _asciiPrecision(5),_logLevel(defaultLogLevel),
+    _asciiPrecision(5),
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
@@ -673,11 +672,6 @@ int DataPrep::main(int argc, char** argv)
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
 
-    n_u::LogConfig lc;
-    lc.level = dump._logLevel;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme("prep").addConfig (lc));
-
     return dump.run();
 }
 
@@ -792,8 +786,7 @@ int DataPrep::run() throw()
                 }
                 catch(const n_u::IOException& e) {
                     if (i > 2)
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: retrying",e.what());
+                        WLOG(("%s: retrying", e.what()));
                     sleep(10);
                 }
             }
@@ -834,11 +827,11 @@ int DataPrep::run() throw()
                 if (_dsmName.length() > 0) {
                     fsets = project.findSampleOutputStreamFileSets(_dsmName);
                     if (fsets.empty()) {
-                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        PLOG(("Cannot find a FileSet for dsm ") << _dsmName);
                         return 1;
                     }
                     if (fsets.size() > 1) {
-                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        PLOG(("Multple filesets found for dsm ") << _dsmName);
                         return 1;
                     }
                 }
@@ -858,7 +851,8 @@ int DataPrep::run() throw()
                     return 1;
                 }
                 if (fsets.size() > 1) {
-                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    PLOG(("Multple filesets found for dsms. "
+                          "Pass a -d dsmname parameter to select one"));
                     return 1;
                 }
 
