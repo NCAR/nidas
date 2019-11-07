@@ -307,12 +307,20 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_long_args)
   {
     NidasApp app("test");
     app.enableArguments(app.LogConfig);
-    const char* argv[] = { "--logconfig", "debug" };
+    const char* argv[] = { "--log", "debug" };
     args = array_vector(argv);
     app.resetLogging();
     args = app.parseArgs(args);
     BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
     BOOST_CHECK_EQUAL(args.empty(), true);
+  }
+  {
+    // Make sure deprecated options still accepted but not in usage.
+    NidasApp app("test");
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("-l"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--log"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), true);
   }
   {
     NidasApp app("test");
@@ -506,9 +514,9 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_argflags)
 {
   NidasApp app("test");
 
-  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "-l,--logconfig,--loglevel");
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "-l,--log");
   app.LogConfig.acceptShortFlag(false);
-  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "--logconfig,--loglevel");
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "--log");
 
   BOOST_CHECK_EQUAL(app.Help.getUsageFlags(), "-h,--help");
   app.Help.acceptShortFlag(false);

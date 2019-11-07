@@ -71,15 +71,15 @@ public:
      * describes the argument, something which can be printed as part of an
      * application's usage information.
      *
-     * Example:
+     * This is an example for the @p flags specifier, showing multiple
+     * forms that are accepted for an argument.  The -l is obviously the
+     * short form, and it will not be accepted if acceptShortFlag() is not
+     * true.  The others are long forms, each equivalent to the other.
+     * Deprecated options can be surrounded by brackets.  If an option is
+     * deprecated, it will still be accepted on the command-line, but it
+     * will not be shown in the usage.
      *
-     * This specifier shows the three forms that are accepted for an
-     * argument.  The -l is obviously the short form, and it will not be
-     * accepted if acceptShortFlag() is not true.  The other two are long
-     * forms, each equivalent to the other.  If an option is deprecated,
-     * that can be noted in the usage.  The default is "info".
-     *
-     * -l,--loglevel,--logconfig <logconfig> [info]
+     * -l,--log[,--loglevel,--logconfig]
      * 
      * If an argument takes only a flag and no additional parameter, then
      * the syntax must be empty.
@@ -170,9 +170,8 @@ public:
 
     /**
      * Return the command-line flag which this argument consumed.  For
-     * example, if an argument which has multiple flags -l, --loglevel, and
-     * --logconfig matches --loglevel, then getFlag() will return
-     * --loglevel.
+     * example, if an argument with multiple flags is matched, then
+     * getFlag() returns the flag that matched the argument.
      **/
     const std::string&
     getFlag();
@@ -408,11 +407,11 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * output file name pattern?  Is there a reasonable default filename
  * pattern if the output is simply @<interval>?
  *
- * ### --logconfig <config>, -l <config> ###
+ * ### --log <config>, -l <config> ###
  *
- * The older option --loglevel, and the short version -l for the
- * applications which accept it, are an alias for the newer --logconfig
- * option.
+ * The older --loglevel and --logconfig are obsolete.  The short version
+ * -l, for the applications which accept it, is an alias for the newer
+ * --log option.
  *
  * The log config string is a comma-separated list of LogConfig fields,
  * where the field names are level, tag, file, function, file, and line.
@@ -421,8 +420,8 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * are combined into a single LogConfig and added to the current scheme.
  *
  * If a field does not have an equal sign and is not 'enable' or 'disable',
- * then it is interpreted as just a log level, compatible with what the
- * --loglevel,-l option supported.
+ * then it is interpreted as just a log level, compatible with what the -l
+ * option has always supported.
  *
  * _loglevel_ can be a number or the name of a log level:
  *

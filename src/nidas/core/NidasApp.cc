@@ -236,13 +236,18 @@ bool
 NidasAppArg::
 accept(const std::string& flag)
 {
+  // Ignore brackets in the flags indicating deprecated flags.
   size_t start = 0;
-  while (start < _flags.length())
+  string flags = _flags;
+  string::size_type bracket = string::npos;
+  while ((bracket = flags.find_first_of("[]")) != string::npos)
+    flags.erase(bracket, 1);
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
-    if (_flags.substr(start, comma-start) == flag &&
+      comma = flags.length();
+    if (flags.substr(start, comma-start) == flag &&
 	(flag.length() > 2 || _enableShortFlag))
     {
       return true;
@@ -257,22 +262,29 @@ std::string
 NidasAppArg::
 getUsageFlags()
 {
-  std::string flags;
+  // Extract the accepted flags for usage info.  This excludes short flags
+  // if disabled and deprecated flags surrounded by brackets.
+  std::string flags = _flags;
+  string::size_type left = _flags.find('[');
+  string::size_type right = _flags.find(']');
+  if (left != string::npos && right != string::npos)
+    flags.erase(left, right);
   size_t start = 0;
-  while (start < _flags.length())
+  std::string uflags;
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
+      comma = flags.length();
     if (comma - start > 2 || _enableShortFlag)
     {
-      if (flags.length())
-	flags += ",";
-      flags += _flags.substr(start, comma-start);
+      if (uflags.length())
+	uflags += ",";
+      uflags += flags.substr(start, comma-start);
     }
     start = comma+1;
   }
-  return flags;
+  return uflags;
 }
   
 
@@ -315,13 +327,14 @@ NidasApp(const std::string& name) :
    "As log points are created, show information for each one that can\n"
    "be used to enable log messages from that log point."),
   LogConfig
-  ("-l,--logconfig,--loglevel", "<logconfig>",
+  ("-l,--log[,--logconfig,--loglevel]", "<logconfig>",
    "Add a log config to the log scheme.  The log config settings are\n"
-   "specified as a comma-separated list of fields, using syntax \n"
+   "specified as a comma-separated list of fields, using syntax\n"
    "<field>=<value>, where fields are tag, file, function, line, enable,\n"
    "and disable.\n"
    "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.",
+   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.\n"
+   "--logconfig and --loglevel are accepted but deprecated.",
    "info"),
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
