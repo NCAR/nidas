@@ -551,9 +551,15 @@ Sample* SampleInputStream::nextSample() throw()
  * is read.
  */
 Sample* SampleInputStream::
-nextSample(bool keepreading, dsm_time_t search_time) throw(n_u::IOException)
+nextSample(bool keepreading, bool searching, dsm_time_t search_time)
+    throw(n_u::IOException)
 {
-    for (;;) {
+    Sample* out = 0;
+    while (!out) {
+
+        // See if a header needs to be read first.  As soon as the header
+        // is read _headerToRead will be zero, and a Sample can be
+        // created from the header.
         if (_headerToRead > 0) {
 
             if (! readSampleHeader(keepreading))
@@ -574,34 +580,42 @@ nextSample(bool keepreading, dsm_time_t search_time) throw(n_u::IOException)
             _dptr = (char*) _samp->getVoidDataPtr();
         }
 
-        if (search_time != LONG_LONG_MIN)
+        // We have a good sample in _samp, see if the time is right.
+        if (searching && _samp->getTimeTag() >= search_time)
         {
-            if (_samp->getTimeTag() >= search_time)
-            {
-                // A sample with the right time has been found, stop here
-                // before reading the sample data.
-                return 0;
-            }
-            // We don't want this sample, free it and keep going.
-            _samp->freeReference();
-            _samp = 0;
-            continue;
+            DLOG(("searching for sample time >= ")
+                 << UTime(search_time).format(true)
+                 << ", found sample at time: "
+                 << UTime(_samp->getTimeTag()).format(true));
+            // A sample with the right time has been found, stop here
+            // before reading the sample data.
+            return 0;
+            // We don't want this sample, but drop down to read the data
+            // before skipping it.
         }
 
-        if (!readSampleData(keepreading))
+        if (_samp && !readSampleData(keepreading))
         {
             if (!keepreading)
                 return 0;
+            // Continue until we finish reading the data.
             continue;
         }
 
-        Sample* out = _samp;
+        // If still searching for a sample, free this one and keep going.
+        if (searching)
+        {
+            _samp->freeReference();
+            _samp = 0;
+        }
+
+        out = _samp;
         _samp = 0;
-        // next read is the header
+        // next read is the next header
         _headerToRead = _sheader.getSizeOf();
         _hptr = (char*)&_sheader;
-        return out;
     }
+    return out;
 }
 
 
@@ -699,7 +713,8 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
  */
 void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
 {
-    nextSample(true, tt.toUsecs());
+    DLOG(("searching for sample time >= ") << tt.format(true));
+    nextSample(true, true, tt.toUsecs());
 }
 
 /*

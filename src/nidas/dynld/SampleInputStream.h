@@ -483,11 +483,12 @@ private:
 
     /**
      * Unpack the next sample from the InputStream buffer or by reading
-     * more data if @p keepreading is true.  If @p search_time is set, then
+     * more data if @p keepreading is true.  If @p searching is set, then
      * reading stops after the first sample header found whose time tag is
      * after @p search_time, as described in the search() method.
      **/
     nidas::core::Sample* nextSample(bool keepreading,
+                                    bool searching=false,
                                     dsm_time_t search_time=LONG_LONG_MIN)
         throw(nidas::util::IOException);
 
