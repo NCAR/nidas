@@ -64,16 +64,6 @@ namespace
     return num;
   }
 
-  std::string
-  xarg(const ArgVector& args, int i)
-  {
-    if (i < (int)args.size())
-    {
-      return args[i];
-    }
-    throw NidasAppException("expected argument for option " + args[i-1]);
-  }
-
 }
 
 
@@ -221,7 +211,7 @@ parse(const ArgVector& argv, int* argi)
   {
     if (_syntax.length())
     {
-      _value = xarg(argv, ++i);
+      _value = expectArg(argv, ++i);
     }
     _arg = flag;
     result = true;

@@ -183,13 +183,7 @@ SampleInputStream::SampleInputStream(bool raw):
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(false),
-    _minDsmId(1),
-    _maxDsmId(1024),
-    _minSampleLength(1),
-    _maxSampleLength(UINT_MAX),
-    _minSampleTime(LONG_LONG_MIN),
-    _maxSampleTime(LONG_LONG_MAX),
+    _bsf(),
     _original(this),_raw(raw)
 {
 }
@@ -204,13 +198,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(false),
-    _minDsmId(1),
-    _maxDsmId(1024),
-    _minSampleLength(1),
-    _maxSampleLength(UINT_MAX),
-    _minSampleTime(LONG_LONG_MIN),
-    _maxSampleTime(LONG_LONG_MAX),
+    _bsf(),
     _original(this),_raw(raw)
 {
     setIOChannel(iochannel);
@@ -230,13 +218,7 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _samp(0),_dataToRead(0),_dptr(0),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
-    _filterBadSamples(x._filterBadSamples),
-    _minDsmId(x._minDsmId),
-    _maxDsmId(x._maxDsmId),
-    _minSampleLength(x._minSampleLength),
-    _maxSampleLength(x._maxSampleLength),
-    _minSampleTime(x._minSampleTime),
-    _maxSampleTime(x._maxSampleTime),
+    _bsf(x._bsf),
     _original(&x),_raw(x._raw)
 {
     setIOChannel(iochannel);
@@ -632,26 +614,15 @@ sampleFromHeader() throw()
     // Mark the offset of this sample.
     long long offset = _iostream->getNumInputBytes() - _sheader.getSizeOf();
 
-    if (_filterBadSamples)
-    {
-        // If filtering enabled but no max time set, use now plus 1 day.
-        if (_maxSampleTime == LONG_LONG_MAX)
-            _maxSampleTime = UTime().toUsecs() + 24*USECS_PER_HOUR;
-        // Likewise if no min time set, use within 20 years of max time.
-        if (_minSampleTime == LONG_LONG_MIN)
-            _minSampleTime = _maxSampleTime - 20*365*USECS_PER_DAY;
-    }
-
-    // screen bad headers.
+    // Screen bad headers.
+    //
+    // @todo: I'm not sure why non-character samples get filtered in raw
+    // mode, since maybe they are still valid samples but just the wrong
+    // type.  And if they do somehow indicate a bad sample, then why
+    // shouldn't filtering have to be turned on to catch them, like all the
+    // other validity checks?
     if ((_raw && _sheader.getType() != CHAR_ST) ||
-        (_filterBadSamples &&
-         (_sheader.getType() >= UNKNOWN_ST ||
-          GET_DSM_ID(_sheader.getId()) < _minDsmId ||
-          GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
-          _sheader.getDataByteLength() < _minSampleLength ||
-          _sheader.getDataByteLength() > _maxSampleLength ||
-          _sheader.getTimeTag() < _minSampleTime ||
-          _sheader.getTimeTag() > _maxSampleTime)))
+        _bsf.invalidSampleHeader(_sheader))
     {
         samp = 0;
     }

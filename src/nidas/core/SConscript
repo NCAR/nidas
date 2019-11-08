@@ -15,6 +15,7 @@ arch = env['ARCH']  # empty string for native builds
 headers = Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
+    BadSampleFilter.h
     BluetoothRFCommSocketIODevice.h
     Bzip2FileSet.h
     CalFile.h
@@ -130,6 +131,7 @@ headers = Split("""
 
 sources = Split("""
     AdaptiveDespiker.cc
+    BadSampleFilter.cc
     BluetoothRFCommSocketIODevice.cc
     Bzip2FileSet.cc
     CalFile.cc

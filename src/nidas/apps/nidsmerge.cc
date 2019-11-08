@@ -33,6 +33,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/BadSampleFilter.h>
 #include <nidas/util/Logger.h>
 
 #include <unistd.h>
@@ -93,11 +94,11 @@ private:
 
     string configName;
 
-    bool _filterTimes;
-
     list<unsigned int> allowed_dsms; /* DSMs to require.  If empty*/
 
     NidasApp _app;
+
+    BadSampleFilterArg FilterArg;
 };
 
 int main(int argc, char** argv)
@@ -142,8 +143,9 @@ NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
     endTime(LONG_LONG_MAX), outputFileLength(0),header(),
-    configName(),_filterTimes(false), allowed_dsms(),
-    _app("nidsmerge")
+    configName(), allowed_dsms(),
+    _app("nidsmerge"),
+    FilterArg()
 {
 }
 
@@ -156,11 +158,6 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     // file set by passing multiple filenames after each -i.
     NidasApp& app = _app;
 
-    NidasAppArg FilterTimes
-        ("-f,--filter", "",
-         "Filter sample timetags. If a sample timetag does not fall\n"
-         "between start and end time, assume the sample header is corrupt\n"
-         "and scan ahead for a good header. Use only on corrupt data files.");
     NidasAppArg InputFileSet
         ("-i", "<filespec> [...]",
          "Create a file set from all <filespec> up until the next option.\n"
@@ -198,7 +195,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
                         app.Version | app.OutputFiles |
-                        FilterTimes | InputFileSet | ReadAhead |
+                        FilterArg |
+                        InputFileSet | ReadAhead |
                         ConfigName | OutputFileLength | DSMid |
                         app.Help);
     app.InputFiles.allowFiles = true;
@@ -251,7 +249,6 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                 inputFileNames.push_back(fileNames);
             }
         }
-        _filterTimes = FilterTimes.asBool();
         readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
         configName = ConfigName.getValue();
         if (app.helpRequested())
@@ -291,7 +288,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     {
         nidas::util::LogMessage msg(&configlog);
         msg << "nidsmerge options:\n"
-            << "filterTimes: " << _filterTimes << "\n"
+            << "filterTimes: " << FilterArg.asBool() << "\n"
             << "readahead: " << readAheadUsecs/USECS_PER_SEC << "\n"
             << "configname: " << configName << "\n"
             << "start: " << startTime.format(true,"%Y %b %d %H:%M:%S") << "\n"
@@ -406,11 +403,16 @@ int NidsMerge::run() throw()
             inputs.push_back(input);
             input->setMaxSampleLength(32768);
 
-            if (_filterTimes) {
+            if (FilterArg.asBool()) {
                 n_u::UTime filter1(startTime - USECS_PER_DAY);
                 n_u::UTime filter2(endTime + USECS_PER_DAY);
-                input->setMinSampleTime(filter1);
-                input->setMaxSampleTime(filter2);
+                // These are only defaults if nothing is set by
+                // command-line.
+
+                BadSampleFilter& bsf = FilterArg.getFilter();
+                bsf.setMinSampleTime(filter1, false);
+                bsf.setMaxSampleTime(filter2, false);
+                input->setBadSampleFilter(bsf);
             }
 
             lastTimes.push_back(LONG_LONG_MIN);
@@ -471,17 +473,6 @@ int NidsMerge::run() throw()
                 SampleInputStream* input = inputs[ii];
                 size_t nread = 0;
                 size_t nunique = 0;
-
-#ifdef ADDITIONAL_TIME_FILTERS
-                /* this won't really work, since the next sample from input
-                 * may legitimately be a day or more ahead as the result
-                 * of a typical data gap, or late start of a system.
-                 */
-                n_u::UTime filter1(tcur - USECS_PER_HOUR * 3);
-                n_u::UTime filter2(tcur + readAheadUsecs + USECS_PER_HOUR * 3);
-                input->setMinSampleTime(filter1);
-                input->setMaxSampleTime(filter2);
-#endif
 
                 try {
                     dsm_time_t lastTime = lastTimes[ii];

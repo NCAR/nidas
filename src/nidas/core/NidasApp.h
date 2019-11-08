@@ -19,6 +19,8 @@
 #include <list>
 #include <set>
 
+
+
 namespace nidas { namespace core {
 
 class Project;
@@ -51,6 +53,15 @@ typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
  **/
 typedef std::vector<std::string> ArgVector;
 
+inline std::string
+expectArg(const ArgVector& args, int i)
+{
+    if (i < (int)args.size())
+    {
+        return args[i];
+    }
+    throw NidasAppException("expected argument for option " + args[i-1]);
+}
 
 /**
  * A NidasAppArg is command-line argument which can be handled by NidasApp.
@@ -204,9 +215,11 @@ public:
      * true.  Otherwise return false.  The vector is not modified, but if
      * argi is nonzero, then it is used as the starting index into argv,
      * and it is advanced according to the number of elements of argv
-     * consumed by this argument.
+     * consumed by this argument.  This method is virtual so subclasses can
+     * implement customized parsing, such as optionally consuming more than
+     * one argument following a flag.
      **/
-    bool
+    virtual bool
     parse(const ArgVector& argv, int* argi = 0);
 
     /**
@@ -229,13 +242,7 @@ public:
     std::string
     getUsageFlags();
 
-private:
-
-    // Prevent the public NidasAppArg members of NidasApp from being
-    // replaced with other arguments.
-    NidasAppArg&
-    operator=(const NidasAppArg&);
-    NidasAppArg(const NidasAppArg&);
+protected:
 
     std::string _flags;
     std::string _syntax;
@@ -244,6 +251,14 @@ private:
     std::string _arg;
     std::string _value;
     bool _enableShortFlag;
+
+private:
+
+    // Prevent the public NidasAppArg members of NidasApp from being
+    // replaced with other arguments.
+    NidasAppArg&
+    operator=(const NidasAppArg&);
+    NidasAppArg(const NidasAppArg&);
 
     friend class NidasApp;
 };
@@ -379,6 +394,14 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 </tr>
 <tr>
 <td>-d</td><td>Run in debug mode instead of as a background daemon.</td><td></td>
+</tr>
+<tr>
+<td>-f</td><td>Filter bad samples according to default filter rules.</td><td></td>
+</tr>
+<tr>
+<td>--filter rules</td>
+<td>Specify rules for filtering bad samples, using a key=value syntax.</td>
+<td>--filter maxdsm=1024,mindsm=1,maxlen=32768,minlen=1</td>
 </tr>
 </table>
  *

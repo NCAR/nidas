@@ -33,7 +33,9 @@
 #include <nidas/core/SampleStats.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/UTime.h>
+#include <nidas/core/BadSampleFilter.h>
 
 namespace nidas {
 
@@ -374,83 +376,67 @@ public:
     void close() throw(nidas::util::IOException);
 
     /**
-     * Enable filtering of bad samples.  A sample is invalid if the sample
-     * type is out of range, or if the DSM ID, sample length, or sample
-     * time fall out their specified valid ranges.  Other methods change
-     * the valid ranges.  As a convenience, calling any of the methods to
-     * change the range filters automatically enables filtering, same as
-     * calling setFilterBadSamples() directly.  Once filtering is enabled
-     * by any of those methods, it can only be disabled by calling
-     * setFilterBadSamples(false).  It is a mistake to use these methods to
-     * skip otherwise valid samples.  When sample is invalid, the
-     * SampleInputStream loses sync with the sample stream and begins
-     * looking for another valid sample one byte at a time, possibly
-     * discovering a sample which meets the valid criteria but was not an
-     * actual sample.
+     * Replace the bad sample filter rules for this stream with @p bsf.
+     **/
+    void setBadSampleFilter(const nidas::core::BadSampleFilter& bsf)
+    {
+        _bsf = bsf;
+    }
+
+    /**
+     * See BadSampleFilter.
      **/
     void setFilterBadSamples(bool val)
     {
-        _filterBadSamples = val;
+        _bsf.setFilterBadSamples(val);
     }
 
     /**
-     * The default minimum DSM ID for a valid sample is 1.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMinDsmId(int val)
     {
-        _minDsmId = val;
-        setFilterBadSamples(true);
+        _bsf.setMinDsmId(val);
     }
 
     /**
-     * The default maximum DSM ID for a valid sample is 1024.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMaxDsmId(int val)
     {
-        _maxDsmId = val;
-        setFilterBadSamples(true);
+        _bsf.setMaxDsmId(val);
     }
 
     /**
-     * The default minimum sample length is 1.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMinSampleLength(unsigned int val)
     {
-        _minSampleLength = val;
-        setFilterBadSamples(true);
+        _bsf.setMinSampleLength(val);
     }
 
     /**
-     * The default maximum sample length is UINT_MAX.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMaxSampleLength(unsigned int val)
     {
-        _maxSampleLength = val;
-        setFilterBadSamples(true);
+        _bsf.setMaxSampleLength(val);
     }
 
     /**
-     * By default, there is no minimum sample time for a valid sample.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMinSampleTime(const nidas::util::UTime& val)
     {
-        _minSampleTime = val.toUsecs();
-        setFilterBadSamples(true);
+        _bsf.setMinSampleTime(val);
     }
 
     /**
-     * By default, there is no maximum sample time for a valid sample.
-     * See setFilterBadSamples().
+     * See BadSampleFilter.
      **/
     void setMaxSampleTime(const nidas::util::UTime& val)
     {
-        _maxSampleTime = val.toUsecs();
-        setFilterBadSamples(true);
+        _bsf.setMaxSampleTime(val);
     }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -555,16 +541,7 @@ private:
 
     nidas::core::SampleInputHeader _inputHeader;
 
-    bool _filterBadSamples;
-
-    unsigned int _minDsmId;
-    unsigned int _maxDsmId;
-
-    size_t _minSampleLength;
-    size_t _maxSampleLength;
-
-    dsm_time_t _minSampleTime;
-    dsm_time_t _maxSampleTime;
+    nidas::core::BadSampleFilter _bsf;
 
     SampleInputStream* _original;
 
