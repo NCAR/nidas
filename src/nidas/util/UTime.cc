@@ -27,6 +27,7 @@
 #include "UTime.h"
 #include "Process.h"
 #include "auto_ptr.h"
+#include "Logger.h"
 
 #include <sys/time.h>
 #include <cstdio>
@@ -176,76 +177,125 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
 }
 
 /* static */
-UTime UTime::parse(bool utc,const std::string& str,int *ncharp) throw(ParseException)
+UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
+    throw(ParseException)
 {
     char cmon[32];
     int year,mon,day,hour,min;
     double dsec = 0.;
     int nchar = 0;
+    UTime ut(0L);
+    bool done = false;
 
     year = 70;
     mon = day = 1;
     hour = min = 0;
 
-    if (str.length() == 0 || str == "now") return UTime();
+    if (str.length() == 0 || str == "now")
+    {
+        return UTime();
+    }
+
+    // We have to make sure we check from most specific to least specific.
+    // scanf("%d %d %d") will parse "YYYY-mm-dd", and the month and days
+    // will be negative.
+    if (ut.checkParse(utc, str, "%Y-%m-%dT%H:%M:%S.%f", ncharp))
+    {
+        return ut;
+    }
+
+    if (ut.checkParse(utc, str, "%Y-%m-%d %H:%M:%S.%f", ncharp))
+    {
+        return ut;
+    }
+
+    if (ut.checkParse(utc, str, "%Y%m%d%H%M%S.%f", ncharp))
+    {
+        return ut;
+    }
 
     // 97 Feb 1 11:22:33.4
-    else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %d:%d:%lf%n",
-	&year,cmon,&day,&hour,&min,&dsec,&nchar) >= 6) {
-	mon = month(cmon);
+    if (!done && sscanf(str.c_str(),
+                        "%d %31[A-Za-z] %d %d:%d:%lf%n",
+                        &year,cmon,&day,&hour,&min,&dsec,&nchar) >= 6)
+    {
+        mon = month(cmon);
+        done = true;
     }
 
     // 97 Feb 1 11:22
-    else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %d:%d%n",&year,cmon,&day,&hour,&min,&nchar) >= 5) {
-	mon = month(cmon);
+    if (!done && sscanf(str.c_str(),
+                        "%d %31[A-Za-z] %d %d:%d%n",
+                        &year,cmon,&day,&hour,&min,&nchar) >= 5)
+    {
+        mon = month(cmon);
+        done = true;
     }
 
     // 97 Feb 1 112233.4
-    else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d %lf%n",&year,cmon,&day,&dsec,&nchar) >= 4) {
-	mon = month(cmon);
-	hour = (int) dsec / 10000;
-	dsec -= hour * 10000;
-	min = (int) dsec / 100;
-	dsec -= min * 100;
+    if (!done && sscanf(str.c_str(),
+                        "%d %31[A-Za-z] %d %lf%n",
+                        &year,cmon,&day,&dsec,&nchar) >= 4)
+    {
+        mon = month(cmon);
+        hour = (int) dsec / 10000;
+        dsec -= hour * 10000;
+        min = (int) dsec / 100;
+        dsec -= min * 100;
+        done = true;
     }
 
     // 97 Feb 1
-    else if (sscanf(str.c_str(),
-    	"%d %31[A-Za-z] %d%n",&year,cmon,&day,&nchar) >= 3) {
-	mon = month(cmon);
+    if (!done && sscanf(str.c_str(),
+                        "%d %31[A-Za-z] %d%n",&year,cmon,&day,&nchar) >= 3)
+    {
+        mon = month(cmon);
+        done = true;
     }
 
     // 97 2 1 11:22:33.4
-    else if (sscanf(str.c_str(),"%d %d %d %d:%d:%lf%n",
-    	&year,&mon,&day,&hour,&min,&dsec,&nchar) >= 6);
+    if (!done && sscanf(str.c_str(),"%d %d %d %d:%d:%lf%n",
+                        &year,&mon,&day,&hour,&min,&dsec,&nchar) >= 6)
+    {
+        done = true;
+    }
 
     // 97 2 1 11:22
-    else if (sscanf(str.c_str(),"%d %d %d %d:%d%n",
-    	&year,&mon,&day,&hour,&min,&nchar) >= 5);
+    if (!done && sscanf(str.c_str(),"%d %d %d %d:%d%n",
+                        &year,&mon,&day,&hour,&min,&nchar) >= 5)
+    {
+        done = true;
+    }
 
     // 97 2 1 112233.4
-    else if (sscanf(str.c_str(),
-    	"%d %d %d %lf%n",&year,&mon,&day,&dsec,&nchar) >= 4) {
-	hour = (int) dsec / 10000;
-	dsec -= hour * 10000;
-	min = (int) dsec / 100;
-	dsec -= min * 100;
+    if (!done && sscanf(str.c_str(),
+                        "%d %d %d %lf%n",&year,&mon,&day,&dsec,&nchar) >= 4)
+    {
+        hour = (int) dsec / 10000;
+        dsec -= hour * 10000;
+        min = (int) dsec / 100;
+        dsec -= min * 100;
+        done = true;
     }
 
     // 97 2 1
-    else if (sscanf(str.c_str(),
-    	"%d %d %d%n",&year,&mon,&day,&nchar) >= 3) {
+    if (!done && sscanf(str.c_str(),
+                        "%d %d %d%n",&year,&mon,&day,&nchar) >= 3)
+    {
+        done = true;
     }
 
     // seconds since 1970
-    else if (sscanf(str.c_str(),"%lf%n",&dsec,&nchar)) {
-	return UTime((long long)trunc(dsec) * USECS_PER_SEC +
-	    (long long)rint(fmod(dsec,1.0) * USECS_PER_SEC));
+    if (!done && sscanf(str.c_str(),"%lf%n",&dsec,&nchar))
+    {
+        return UTime((long long)trunc(dsec) * USECS_PER_SEC +
+                     (long long)rint(fmod(dsec,1.0) * USECS_PER_SEC));
     }
-    else throw ParseException(str,"year month day hour:min:sec");
+
+    if (!done)
+    {
+        throw ParseException(str,"year month day hour:min:sec");
+    }
 
     if (ncharp) *ncharp = nchar;
 
@@ -263,8 +313,21 @@ void UTime::set(bool utc,const std::string& str,const std::string& format,int* n
 }
 
 /* static */
-UTime UTime::parse(bool utc,const std::string& str, const std::string& fmt,int *ncharp)
+UTime UTime::parse(bool utc, const std::string& str, const std::string& fmt,
+                   int *ncharp)
 	throw(ParseException)
+{
+    // Try parsing, and throw an exception if it fails.
+    UTime ut(0L);
+    ut.checkParse(utc, str, fmt, ncharp, true);
+    return ut;
+}
+
+
+bool
+UTime::
+checkParse(bool utc, const std::string& str, const std::string& fmt,
+           int *ncharp, bool throwx)
 {
     struct tm tms = ::tm();
     tms.tm_isdst = (utc ? 0 : -1);
@@ -285,45 +348,63 @@ UTime UTime::parse(bool utc,const std::string& str, const std::string& fmt,int *
 
     for (i0 = 0;  (i1 = fmt.find('%',i0)) != string::npos; i0 = i1 ) {
 
-	newfmt.append(fmt.substr(i0,i1-i0));	// append up to %
+        newfmt.append(fmt.substr(i0,i1-i0));	// append up to %
 
-	// cerr << "i0=" << i0 << " i1=" << i1 << endl;
+        // cerr << "i0=" << i0 << " i1=" << i1 << endl;
 
-	i1++;	// points to one past the % sign
-	if (flen > i1) {
-	    string sfmt;
-	    if (fmt[i1] == 'f') {
-	        sfmt = "%3d%n";
-		i1++;
-	    }
-	    else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
-		sfmt = string("%") + fmt[i1] + "d%n";
-		i1 += 2;
-	    }
-	    else {
+        i1++;	// points to one past the % sign
+        if (flen > i1) {
+            string sfmt;
+            if (fmt[i1] == 'f') {
+                sfmt = "%3d%n";
+                i1++;
+            }
+            else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
+                sfmt = string("%") + fmt[i1] + "d%n";
+                i1 += 2;
+            }
+            else {
                 // with %s, strptime fills out the struct tm in local time
                 if (fmt[i1] == 's') utc = false;
-		newfmt.push_back('%');
-		continue;
-	    }
-	    cp2 = strptime(cptr,newfmt.c_str(),&tms);
-	    if (!cp2) throw ParseException(str,fmt);
+                newfmt.push_back('%');
+                continue;
+            }
+            cp2 = strptime(cptr,newfmt.c_str(),&tms);
+            if (!cp2) {
+                VLOG(("failed to parse %s", cptr) << " with format " << newfmt);
+                if (throwx)
+                    throw ParseException(str, fmt);
+                return false;
+            }
+            VLOG(("parsed %s", cptr) << " with format " << newfmt);
             ncharParsed += cp2 - cptr;
-	    cptr = cp2;
-	    int nchar = 0;
-	    if (sscanf(cptr,sfmt.c_str(),&usecs,&nchar) < 1)
-		throw ParseException(str,fmt);
-	    for (int i = nchar; i < 6; i++) usecs *= 10;
-	    cptr += nchar;
+            cptr = cp2;
+            int nchar = 0;
+            if (sscanf(cptr,sfmt.c_str(),&usecs,&nchar) < 1)
+            {
+                VLOG(("failed to parse %s", cptr) << " with format " << sfmt);
+                if (throwx)
+                    throw ParseException(str, fmt);
+                return false;
+            }
+            VLOG(("parsed %s", cptr) << " with format " << sfmt
+                 << ", got " << usecs);
+            for (int i = nchar; i < 6; i++) usecs *= 10;
+            cptr += nchar;
             ncharParsed += nchar;
-	    newfmt.clear();
-	}
+            newfmt.clear();
+        }
     }
     if (i0 < flen) newfmt.append(fmt.substr(i0));
     // cerr << "fmt=" << fmt << " newfmt=" << newfmt << endl;
     if (newfmt.length() > 0) {
     	cp2 = strptime(cptr,newfmt.c_str(),&tms);
-	if (!cp2) throw ParseException(str,fmt);
+        if (!cp2)
+        {
+            if (throwx)
+                throw ParseException(str,fmt);
+            return false;
+        }
         ncharParsed += cp2 - cptr;
     }
 
@@ -331,7 +412,8 @@ UTime UTime::parse(bool utc,const std::string& str, const std::string& fmt,int *
 
     if (ncharp) *ncharp = ncharParsed;
 
-    return UTime(utc,&tms) + (long long)usecs;
+    *this = UTime(utc,&tms) + (long long)usecs;
+    return true;
 }
 
 
