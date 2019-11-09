@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(test_calfile_normal_read)
 void
 write_nonewline_calfile(const std::string& path)
 {
-  std::ofstream of(path);
+  std::ofstream of(path.c_str(), std::ios_base::binary);
   of << "# Used by CalFile parser\n"
      << "# dateFormat = \"%Y %b %d %H:%M:%S\"\n"
      << "# timeZone = \"Europe/Lisbon\"\n"
