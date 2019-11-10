@@ -406,12 +406,15 @@ int NidsMerge::run() throw()
             if (FilterArg.asBool()) {
                 n_u::UTime filter1(startTime - USECS_PER_DAY);
                 n_u::UTime filter2(endTime + USECS_PER_DAY);
-                // These are only defaults if nothing is set by
-                // command-line.
 
+                // Set the start and end times as filter times only if
+                // filter times were not set on the command line.
+                BadSampleFilter bsfdef;
                 BadSampleFilter& bsf = FilterArg.getFilter();
-                bsf.setMinSampleTime(filter1, false);
-                bsf.setMaxSampleTime(filter2, false);
+                if (bsf.minSampleTime() == bsfdef.minSampleTime())
+                    bsf.setMinSampleTime(filter1);
+                if (bsf.maxSampleTime() == bsfdef.maxSampleTime())
+                    bsf.setMaxSampleTime(filter2);
                 input->setBadSampleFilter(bsf);
             }
 
