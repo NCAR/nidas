@@ -11,7 +11,6 @@ using nidas::core::NidasAppException;
 using std::string;
 using std::mem_fun;
 using std::bind1st;
-using std::placeholders::_1;
 
 BadSampleFilter::
 BadSampleFilter() :
@@ -126,13 +125,27 @@ namespace {
     template <typename T, typename F>
     inline bool
     check_rule(const string& name, const string& key,
-               const string& value, F f)
+               const string& value, const F& f)
     {
         if (key == name)
         {
             T setting;
             convert(value, setting);
             f(setting);
+            return true;
+        }
+        return false;
+    }
+
+    inline bool
+    check_time_rule(const string& name, const string& key,
+                    const string& value, BadSampleFilter* target, void (BadSampleFilter::*f)(const UTime&))
+    {
+        if (key == name)
+        {
+            UTime setting;
+            convert(value, setting);
+            (target->*f)(setting);
             return true;
         }
         return false;
@@ -192,12 +205,10 @@ setRules(const string& fields)
             !check_rule<unsigned int>
             ("maxlen", field, value,
              bind1st(mem_fun(&BadSampleFilter::setMaxSampleLength), this)) &&
-            !check_rule<UTime>
-            ("mintime", field, value,
-             bind(&BadSampleFilter::setMinSampleTime, this, _1)) &&
-            !check_rule<UTime>
-             ("maxtime", field, value,
-              bind(&BadSampleFilter::setMaxSampleTime, this, _1)) &&
+            !check_time_rule
+            ("mintime", field, value, this, &BadSampleFilter::setMinSampleTime) &&
+            !check_time_rule
+            ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) &&
             !check_rule<bool>
             ("on", field, value,
              bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) &&
