@@ -39,3 +39,40 @@ BOOST_AUTO_TEST_CASE(test_bad_sample_filter)
   BOOST_CHECK_EQUAL(bsf.maxSampleTime(), UTime(true, 2019, 10, 15, 2, 4, 6.1));
 }
 
+BOOST_AUTO_TEST_CASE(test_bad_sample_rule_fail)
+{
+  BadSampleFilter bsf;
+
+  // Allowed but does nothing.
+  bsf.setRules("");
+  BOOST_CHECK_EQUAL(bsf, BadSampleFilter());
+  
+  BOOST_CHECK_THROW(bsf.setRules("x"), NidasAppException);
+  BOOST_CHECK_THROW(bsf.setRules("mintime=x"), NidasAppException);
+  BOOST_CHECK_THROW(bsf.setRules("minlen=-1"), NidasAppException);
+  BOOST_CHECK_THROW(bsf.setRules("mindsm=-1"), NidasAppException);
+
+  // Nothing above should change anything.
+  BOOST_CHECK_EQUAL(bsf, BadSampleFilter());
+}
+
+
+BOOST_AUTO_TEST_CASE(test_bad_sample_stream)
+{
+  BadSampleFilter bsf;
+  bsf.setRules("maxlen=4096");
+
+  std::ostringstream buf;
+  buf << bsf;
+  BOOST_CHECK_EQUAL(buf.str(), "on,mindsm=1,maxdsm=1024,minlen=1,maxlen=4096");
+
+  bsf.setRules("mintime=2019-07-04 12:34:56.1");
+  bsf.setRules("maxtime=2019-10-15 02:04:06.1");
+
+  std::ostringstream buf2;
+  buf2 << bsf;
+  BOOST_CHECK_EQUAL(buf2.str(), "on,mindsm=1,maxdsm=1024,minlen=1,maxlen=4096,"
+		    "mintime=2019-07-04T12:34:56.100,"
+		    "maxtime=2019-10-15T02:04:06.100");
+}
+

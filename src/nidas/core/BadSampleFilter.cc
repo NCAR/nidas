@@ -91,7 +91,7 @@ namespace {
             dest = false;
         else
         {
-            throw NidasAppException("must be on or off" + text);
+            throw NidasAppException("must be on or off: " + text);
         }
     }
         
@@ -103,7 +103,10 @@ namespace {
         errno = 0;
         char* endptr;
         num = strtoul(text.c_str(), &endptr, 0);
-        if (text.empty() || errno != 0 || *endptr != '\0')
+        // We specifically prohibit negative numbers, since strtoul will
+        // happily parse negatives and convert to unsigned.
+        if (text.empty() || errno != 0 || *endptr != '\0' ||
+            text.find('-') != string::npos)
         {
             throw NidasAppException("failed to parse: " + text);
         }
@@ -139,7 +142,9 @@ namespace {
 
     inline bool
     check_time_rule(const string& name, const string& key,
-                    const string& value, BadSampleFilter* target, void (BadSampleFilter::*f)(const UTime&))
+                    const string& value,
+                    BadSampleFilter* target,
+                    void (BadSampleFilter::*f)(const UTime&))
     {
         if (key == name)
         {
@@ -150,6 +155,57 @@ namespace {
         }
         return false;
     }
+}
+
+
+void
+BadSampleFilter::
+setRule(const std::string& rule)
+{
+    if (rule.empty())
+        return;
+
+    string::size_type equal = rule.find('=');
+    string field = rule;
+    string value;
+    if (rule == "on" || rule == "off")
+    {
+        value = rule;
+    }
+    else if (equal != string::npos)
+    {
+        field = rule.substr(0, equal);
+        ++equal;
+        value = rule.substr(equal, rule.length()-equal);
+    }
+    if (!value.empty() &&
+        (check_rule<unsigned int>
+         ("mindsm", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setMinDsmId), this)) ||
+         check_rule<unsigned int>
+         ("maxdsm", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setMaxDsmId), this)) ||
+         check_rule<unsigned int>
+         ("minlen", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setMinSampleLength), this)) ||
+         check_rule<unsigned int>
+         ("maxlen", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setMaxSampleLength), this)) ||
+         check_time_rule
+         ("mintime", field, value, this, &BadSampleFilter::setMinSampleTime) ||
+         check_time_rule
+         ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) ||
+         check_rule<bool>
+         ("on", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) ||
+         check_rule<bool>
+         ("off", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this))))
+    {
+        return;
+    }
+    throw NidasAppException("Filter rule must be on, off, or "
+                            "<field>=<value>.  Could not parse: " + rule);
 }
 
 
@@ -173,53 +229,46 @@ setRules(const string& fields)
             comma = fields.length();
 
         string field = fields.substr(at, comma-at);
+        setRule(field);
         at = comma+1;
-
-        string::size_type equal = field.find('=');
-        string value;
-        if (field == "on" || field == "off")
-        {
-            value = field;
-        }
-        else if (equal == string::npos)
-        {
-            throw NidasAppException("filter rule must be <field>=<value>: " +
-                                    field);
-        }
-        else
-        {
-            ++equal;
-            value = field.substr(equal, field.length()-equal);
-            field = field.substr(0, equal-1);
-        }
-
-        if (!check_rule<unsigned int>
-            ("mindsm", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setMinDsmId), this)) &&
-            !check_rule<unsigned int>
-            ("maxdsm", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setMaxDsmId), this)) &&
-            !check_rule<unsigned int>
-            ("minlen", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setMinSampleLength), this)) &&
-            !check_rule<unsigned int>
-            ("maxlen", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setMaxSampleLength), this)) &&
-            !check_time_rule
-            ("mintime", field, value, this, &BadSampleFilter::setMinSampleTime) &&
-            !check_time_rule
-            ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) &&
-            !check_rule<bool>
-            ("on", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) &&
-            !check_rule<bool>
-            ("off", field, value,
-             bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)))
-        {
-            throw NidasAppException("unrecognized filter rule: " + field);
-        }
     }
 }
+
+
+bool
+BadSampleFilter::
+operator==(const BadSampleFilter& right) const
+{
+    return _filterBadSamples == right._filterBadSamples &&
+        _minDsmId == right._minDsmId &&
+        _maxDsmId == right._maxDsmId &&
+        _minSampleLength == right._minSampleLength &&
+        _maxSampleLength == right._maxSampleLength &&
+        _minSampleTime == right._minSampleTime &&
+        _maxSampleTime == right._maxSampleTime;
+}
+
+
+namespace nidas { namespace core {
+
+std::ostream&
+operator<<(std::ostream& out, const BadSampleFilter& bsf)
+{
+    out << (bsf.filterBadSamples() ? "on" : "off") << ","
+        << "mindsm=" << bsf.minDsmId() << ","
+        << "maxdsm=" << bsf.maxDsmId() << ","
+        << "minlen=" << bsf.minSampleLength() << ","
+        << "maxlen=" << bsf.maxSampleLength();
+    if (bsf.minSampleTime().toUsecs() != LONG_LONG_MIN)
+        out << "," << "mintime="
+            << bsf.minSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
+    if (bsf.maxSampleTime().toUsecs() != LONG_LONG_MAX)
+        out << "," << "maxtime="
+            << bsf.maxSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
+    return out;
+}
+
+} }
 
 
 BadSampleFilterArg::

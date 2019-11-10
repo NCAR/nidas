@@ -8,9 +8,11 @@
 #ifndef NIDAS_CORE_BADSAMPLEFILTER_H
 #define NIDAS_CORE_BADSAMPLEFILTER_H
 
+#include <iosfwd>
+
 #include "SampleTag.h"
 #include <nidas/util/UTime.h>
-#include <nidas/core/NidasApp.h>
+#include "NidasApp.h"
 
 namespace nidas { namespace core {
 
@@ -43,7 +45,7 @@ public:
      **/
     void setFilterBadSamples(bool val);
 
-    bool filterBadSamples()
+    bool filterBadSamples() const
     {
         return _filterBadSamples;
     }
@@ -54,7 +56,7 @@ public:
      **/
     void setMinDsmId(unsigned int val);
 
-    unsigned int minDsmId()
+    unsigned int minDsmId() const
     {
         return _minDsmId;
     }
@@ -65,7 +67,7 @@ public:
      **/
     void setMaxDsmId(unsigned int val);
 
-    unsigned int maxDsmId()
+    unsigned int maxDsmId() const
     {
         return _maxDsmId;
     }
@@ -76,7 +78,7 @@ public:
      **/
     void setMinSampleLength(unsigned int val);
 
-    unsigned int minSampleLength()
+    unsigned int minSampleLength() const
     {
         return _minSampleLength;
     }
@@ -87,7 +89,7 @@ public:
      **/
     void setMaxSampleLength(unsigned int val);
 
-    unsigned int maxSampleLength()
+    unsigned int maxSampleLength() const
     {
         return _maxSampleLength;
     }
@@ -98,7 +100,7 @@ public:
      **/
     void setMinSampleTime(const nidas::util::UTime& val);
 
-    UTime minSampleTime()
+    UTime minSampleTime() const
     {
         return _minSampleTime;
     }
@@ -109,7 +111,7 @@ public:
      **/
     void setMaxSampleTime(const nidas::util::UTime& val);
 
-    UTime maxSampleTime()
+    UTime maxSampleTime() const
     {
         return _maxSampleTime;
     }
@@ -141,8 +143,21 @@ public:
     bool
     invalidSampleHeader(const SampleHeader& sheader);
 
+    bool
+    operator==(const BadSampleFilter& right) const;
+
 private:
     
+    /**
+     * Set a single filter setting as a string in the form 'on', 'off', or
+     * <field>=<value>.  See setRules().  Like setRules(), throw
+     * NidasAppException if the rule cannot be parsed.  This is an internal
+     * implementation method.  Anything valid for setRule() can be passed
+     * to setRules() instead.
+     **/
+    void
+    setRule(const std::string& rule);
+
     bool _filterBadSamples;
 
     unsigned int _minDsmId;
@@ -154,6 +169,14 @@ private:
     dsm_time_t _minSampleTime;
     dsm_time_t _maxSampleTime;
 };
+
+
+/**
+ * Stream the current rules for BadSampleFilter @p bsf to @p out.
+ **/
+std::ostream&
+operator<<(std::ostream& out, const BadSampleFilter& bsf);
+
 
 
 inline bool
