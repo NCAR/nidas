@@ -117,13 +117,31 @@ public:
     }
 
     /**
+     * Set to true to allow the NIDAS header to be skipped if it cannot be
+     * found at the start of a file or sample stream.  Setting this does
+     * not change whether bad samples are filtered.
+     **/
+    void setSkipNidasHeader(bool enable);
+
+    bool
+    skipNidasHeader() const
+    {
+        return _skipNidasHeader;
+    }
+
+    /**
      * Parse the filter rule string and throw NidasAppException if it does
      * not parse.  An empty rule changes nothing.
      *
      * Rules are a comma-separated list of key=value settings using these
-     * keys: maxdsm,mindsm,maxtime,mintime,maxlen,minlen,on,off.  Any of
-     * the keys may be specified in any order.  Once enabled, these are the
-     * defaults: maxdsm=1024,mindsm=1,maxlen=32768,minlen=1.
+     * keys:
+     *
+     * maxdsm,mindsm,maxtime,mintime,maxlen,minlen,on,off,skipnidasheader
+     *
+     * Any of the keys may be specified in any order.  Once enabled, these
+     * are the defaults:
+     *
+     * maxdsm=1024,mindsm=1,maxlen=32768,minlen=1,skipnidasheader=off
      *
      * Times are specified in any format that UTime can parse by default,
      * such as ISO time, YYYY-mm-ddTHH:MM:SS.fff, or condensed time
@@ -168,6 +186,8 @@ private:
 
     dsm_time_t _minSampleTime;
     dsm_time_t _maxSampleTime;
+
+    bool _skipNidasHeader;
 };
 
 

@@ -20,7 +20,8 @@ BadSampleFilter() :
     _minSampleLength(1),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
-    _maxSampleTime(LONG_LONG_MAX)
+    _maxSampleTime(LONG_LONG_MAX),
+    _skipNidasHeader(false)
 {
 }
 
@@ -77,6 +78,13 @@ setMaxSampleTime(const UTime& val)
 {
     _maxSampleTime = val.toUsecs();
     setFilterBadSamples(true);
+}
+
+void
+BadSampleFilter::
+setSkipNidasHeader(bool enable)
+{
+    _skipNidasHeader = enable;
 }
 
 
@@ -196,6 +204,9 @@ setRule(const std::string& rule)
          check_time_rule
          ("maxtime", field, value, this, &BadSampleFilter::setMaxSampleTime) ||
          check_rule<bool>
+         ("skipnidasheader", field, value,
+          bind1st(mem_fun(&BadSampleFilter::setSkipNidasHeader), this)) ||
+         check_rule<bool>
          ("on", field, value,
           bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this)) ||
          check_rule<bool>
@@ -245,7 +256,8 @@ operator==(const BadSampleFilter& right) const
         _minSampleLength == right._minSampleLength &&
         _maxSampleLength == right._maxSampleLength &&
         _minSampleTime == right._minSampleTime &&
-        _maxSampleTime == right._maxSampleTime;
+        _maxSampleTime == right._maxSampleTime &&
+        _skipNidasHeader == right._skipNidasHeader;
 }
 
 
@@ -255,6 +267,8 @@ std::ostream&
 operator<<(std::ostream& out, const BadSampleFilter& bsf)
 {
     out << (bsf.filterBadSamples() ? "on" : "off") << ","
+        << "skipnidasheader="
+        << (bsf.skipNidasHeader() ? "on" : "off") << ","
         << "mindsm=" << bsf.minDsmId() << ","
         << "maxdsm=" << bsf.maxDsmId() << ","
         << "minlen=" << bsf.minSampleLength() << ","
