@@ -118,8 +118,9 @@ public:
 
     /**
      * Set to true to allow the NIDAS header to be skipped if it cannot be
-     * found at the start of a file or sample stream.  Setting this does
-     * not change whether bad samples are filtered.
+     * found at the start of a file or sample stream.  This does not also
+     * enable bad sample filtering, since it is reasonable to try to skip a
+     * missing header in a file which otherwise contains good samples.
      **/
     void setSkipNidasHeader(bool enable);
 
@@ -225,6 +226,10 @@ invalidSampleHeader(const SampleHeader& sheader)
 }
 
 
+/**
+ * BadSampleFilterArg is a NidasAppArg for configuring a BadSampleFilter
+ * with filter rules pased to the --filter option.
+ **/
 class BadSampleFilterArg : public nidas::core::NidasAppArg
 {
 public:

@@ -375,13 +375,11 @@ const DSMConfig* SampleInputStream::getDSMConfig() const
 
 void SampleInputStream::readInputHeader() throw(n_u::IOException)
 {
-    if (_samp) _samp->freeReference();
-    _samp = 0;
-    _headerToRead = _sheader.getSizeOf();
-    _hptr = (char*)&_sheader;
-    _dataToRead = 0;
-    _inputHeader.read(_iostream);
-    _inputHeaderParsed = true;
+    while (!_inputHeaderParsed)
+    {
+        _iostream->read();
+        parseInputHeader();
+    }
 }
 
 bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
@@ -399,7 +397,20 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
         _inputHeaderParsed = _inputHeader.parse(_iostream);
     }
     catch(const n_u::ParseException& e) {
-        throw n_u::IOException(getName(),"read header",e.what());
+        // SampleInputHeader::parse() will throw an exception if the header
+        // is read but does not parse, ie, because the magic string is not
+        // found.  Skip the header and consider it parsed if that is enabled.
+        if (!_bsf.skipNidasHeader())
+        {
+            throw n_u::IOException(getName(),"read header",e.what());
+        }
+        ELOG(("skipping header: ") << e.what());
+        _inputHeaderParsed = true;
+        // I don't think we know whether this will back up to the beginning
+        // of the file or not, it only backups up to the beginning of the
+        // buffer.
+        _iostream->backup();
+        ELOG(("backed up iostream to offset ") << _iostream->getNumInputBytes());
     }
     return _inputHeaderParsed;
 }

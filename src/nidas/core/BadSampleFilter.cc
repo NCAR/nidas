@@ -296,12 +296,12 @@ BadSampleFilterArg() :
    "    dsmid must be greater than 0 and <= 1024\n"
    "    timetag must be within the last 20 years of tomorrow\n"
    "  Some programs use the start and end time to narrow the valid timetag range.\n"
-   "--filter <rules>\n",
+   "--filter <rules>\n"
    "  Enable sample filtering and modify the valid ranges according to <rules>.\n"
    "  Rules are a comma-separated list of key=value settings using these keys:\n"
-   "    maxdsm,mindsm,maxtime,mintime,maxlen,minlen\n"
+   "    skipnidasheader,maxdsm,mindsm,maxtime,mintime,maxlen,minlen\n"
    "  Any of the keys may be specified in any order.  Here is the default rule:\n"
-   "    maxdsm=1024,mindsm=1,maxlen=32768,minlen=1\n"
+   "    skipnidasheader=off,maxdsm=1024,mindsm=1,maxlen=32768,minlen=1\n"
    "If any sample fails any criteria, assume the sample header is corrupt\n"
    "and scan ahead for a good header.  Use only on corrupt data files."),
     _bsf()

@@ -415,8 +415,11 @@ int NidsMerge::run() throw()
                     bsf.setMinSampleTime(filter1);
                 if (bsf.maxSampleTime() == bsfdef.maxSampleTime())
                     bsf.setMaxSampleTime(filter2);
-                input->setBadSampleFilter(bsf);
             }
+            // Set the input stream filter in case other options were set
+            // from the command-line that do not filter samples, like
+            // skipping nidas input headers.
+            input->setBadSampleFilter(FilterArg.getFilter());
 
             lastTimes.push_back(LONG_LONG_MIN);
 
