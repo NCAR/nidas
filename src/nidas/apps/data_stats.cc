@@ -38,6 +38,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/BadSampleFilter.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
@@ -733,6 +734,7 @@ private:
 
     NidasAppArg SingleMote;
     NidasAppArg Fullnames;
+    BadSampleFilterArg FilterArg;
 };
 
 
@@ -777,14 +779,15 @@ DataStats::DataStats():
                "sensor duplication will report a warning, including Vmote."),
     Fullnames("-F,--fullnames", "",
               "Report all the variable names and the device name for each\n"
-              "for each sensor.")
+              "for each sensor."),
+    FilterArg()
 {
     app.setApplicationInstance();
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
-                        app.Version | app.InputFiles |
+                        app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Count |
                         AllSamples | ShowData | SingleMote | Fullnames);
     app.InputFiles.allowFiles = true;
@@ -954,8 +957,8 @@ int DataStats::run() throw()
 	}
 
 	SampleInputStream sis(iochan, app.processData());
-        sis.setMaxSampleLength(32768);
-	// sis.init();
+        sis.setBadSampleFilter(FilterArg.getFilter());
+        DLOG(("filter setting: ") << FilterArg.getFilter());
 
         if (_period > 0 && _realtime)
         {

@@ -49,6 +49,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+using nidas::util::UTime;
+
 class NidsMerge: public HeaderSource
 {
 public:
@@ -73,8 +75,8 @@ public:
 
 private:
 
-    bool receiveAllowedDsm(SampleOutputStream &, const Sample *); //Write sample if allowed
-
+    // Write sample if allowed
+    bool receiveAllowedDsm(SampleOutputStream &, const Sample *);
 
     vector<list<string> > inputFileNames;
 
@@ -84,9 +86,9 @@ private:
 
     long long readAheadUsecs;
 
-    n_u::UTime startTime;
+    UTime startTime;
  
-    n_u::UTime endTime;
+    UTime endTime;
 
     int outputFileLength;
 
@@ -99,6 +101,7 @@ private:
     NidasApp _app;
 
     BadSampleFilterArg FilterArg;
+    NidasAppArg KeepOpening;
 };
 
 int main(int argc, char** argv)
@@ -145,7 +148,10 @@ NidsMerge::NidsMerge():
     endTime(LONG_LONG_MAX), outputFileLength(0),header(),
     configName(), allowed_dsms(),
     _app("nidsmerge"),
-    FilterArg()
+    FilterArg(),
+    KeepOpening
+    ("--keep-opening", "",
+     "Open the next file when an error occurs instead of stopping.")
 {
 }
 
@@ -194,9 +200,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
-                        app.Version | app.OutputFiles |
-                        FilterArg |
-                        InputFileSet | ReadAhead |
+                        app.Version | app.OutputFiles | KeepOpening |
+                        FilterArg | InputFileSet | ReadAhead |
                         ConfigName | OutputFileLength | DSMid |
                         app.Help);
     app.InputFiles.allowFiles = true;
@@ -288,7 +293,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     {
         nidas::util::LogMessage msg(&configlog);
         msg << "nidsmerge options:\n"
-            << "filterTimes: " << FilterArg.asBool() << "\n"
+            << "filter: " << FilterArg.getFilter() << "\n"
             << "readahead: " << readAheadUsecs/USECS_PER_SEC << "\n"
             << "configname: " << configName << "\n"
             << "start: " << startTime.format(true,"%Y %b %d %H:%M:%S") << "\n"
@@ -393,6 +398,7 @@ int NidsMerge::run() throw()
             {
                 fset = nidas::core::FileSet::getFileSet(inputFiles);
             }
+            fset->setKeepOpening(KeepOpening.asBool());
 
             DLOG(("getName=") << fset->getName());
             DLOG(("start time=") << startTime.format(true, "%c"));
@@ -401,25 +407,13 @@ int NidsMerge::run() throw()
             // SampleInputStream owns the iochan ptr.
             SampleInputStream* input = new SampleInputStream(fset);
             inputs.push_back(input);
-            input->setMaxSampleLength(32768);
 
-            if (FilterArg.asBool()) {
-                n_u::UTime filter1(startTime - USECS_PER_DAY);
-                n_u::UTime filter2(endTime + USECS_PER_DAY);
-
-                // Set the start and end times as filter times only if
-                // filter times were not set on the command line.
-                BadSampleFilter bsfdef;
-                BadSampleFilter& bsf = FilterArg.getFilter();
-                if (bsf.minSampleTime() == bsfdef.minSampleTime())
-                    bsf.setMinSampleTime(filter1);
-                if (bsf.maxSampleTime() == bsfdef.maxSampleTime())
-                    bsf.setMaxSampleTime(filter2);
-            }
             // Set the input stream filter in case other options were set
             // from the command-line that do not filter samples, like
             // skipping nidas input headers.
-            input->setBadSampleFilter(FilterArg.getFilter());
+            BadSampleFilter& bsf = FilterArg.getFilter();
+            bsf.setDefaultTimeRange(startTime, endTime);
+            input->setBadSampleFilter(bsf);
 
             lastTimes.push_back(LONG_LONG_MIN);
 
@@ -534,7 +528,7 @@ int NidsMerge::run() throw()
             if (rsi != rsb) sorter.erase(rsb,rsi);
             size_t after = sorter.size();
 
-            cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+            cout << UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
             for (unsigned int ii = 0; ii < inputs.size(); ii++) {
                 cout << ' ' << setw(7) << samplesRead[ii];
                 cout << ' ' << setw(7) << samplesUnique[ii];
@@ -562,7 +556,7 @@ int NidsMerge::run() throw()
             if (rsi != rsb) sorter.erase(rsb,rsi);
             size_t after = sorter.size();
 
-            cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+            cout << UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
             for (unsigned int ii = 0; ii < inputs.size(); ii++) {
                 cout << ' ' << setw(7) << samplesRead[ii];
                 cout << ' ' << setw(7) << samplesUnique[ii];
