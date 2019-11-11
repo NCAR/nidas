@@ -84,7 +84,7 @@ public:
     }
 
     /**
-     * The default maximum sample length is UINT_MAX.
+     * The default maximum sample length is 32768.
      * See setFilterBadSamples().
      **/
     void setMaxSampleLength(unsigned int val);
@@ -129,6 +129,13 @@ public:
     {
         return _skipNidasHeader;
     }
+
+    /**
+     * Set start and end times as the filter times only if current filter
+     * times are unset, and do not change whether the filter is enabled.
+     **/
+    void
+    setDefaultTimeRange(const UTime& start, const UTime& end);
 
     /**
      * Parse the filter rule string and throw NidasAppException if it does

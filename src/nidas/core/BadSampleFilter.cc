@@ -18,7 +18,7 @@ BadSampleFilter() :
     _minDsmId(1),
     _maxDsmId(1024),
     _minSampleLength(1),
-    _maxSampleLength(UINT_MAX),
+    _maxSampleLength(32768),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
     _skipNidasHeader(false)
@@ -85,6 +85,23 @@ BadSampleFilter::
 setSkipNidasHeader(bool enable)
 {
     _skipNidasHeader = enable;
+}
+
+
+void
+BadSampleFilter::
+setDefaultTimeRange(const UTime& start, const UTime& end)
+{
+    // Set the start and end times as filter times only if unset,
+    // and do not change whether the filter is enabled.
+    if (_minSampleTime == LONG_LONG_MIN && start != UTime(LONG_LONG_MIN))
+    {
+        _minSampleTime = start.toUsecs() - USECS_PER_DAY;
+    }
+    if (_maxSampleTime == LONG_LONG_MAX && end != UTime(LONG_LONG_MAX))
+    {
+        _maxSampleTime = end.toUsecs() + USECS_PER_DAY;
+    }
 }
 
 
