@@ -123,38 +123,61 @@ void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOExcep
 
 void Bzip2FileSet::openNextFile() throw(IOException)
 {
-    FileSet::openNextFile();
-    if (getFd() == 0) _fp = stdin;  // read from stdin
-    else if ((_fp = ::fdopen(getFd(),"r")) == NULL) {
-        int ierr = errno;
-        closeFile();
-        throw IOException(getCurrentName(),"fdopen",ierr);
-    }
-
-    int bzerror;
-    // _small: if 1 the bzip library will try to decompress using
-    // less memory at the expense of speed.
-    // unused, nUnused: left over bytes to uncompress
-    _bzfp = BZ2_bzReadOpen(&bzerror,_fp,0,_small,NULL,0);
-    if (!_bzfp) {
-        switch(bzerror) {
-        case BZ_OK:
-            assert(_bzfp);      // strange situation: bzfp==NULL, and bzerror==BZ_OK
-            break;
-        case BZ_CONFIG_ERROR:
-            closeFile();
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen: bad installation of libbzip2",EIO);
-        case BZ_PARAM_ERROR:
-            closeFile();
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen: bad value for parameters",EINVAL);
-        case BZ_IO_ERROR:
-            closeFile();
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen",errno);
-        case BZ_MEM_ERROR:
-            closeFile();
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen",ENOMEM);
+    do {
+        FileSet::openNextFile();
+        if (getFd() == 0)
+        {
+            _fp = stdin;  // read from stdin
         }
-    }
+        else if ((_fp = ::fdopen(getFd(),"r")) == NULL)
+        {
+            // Not sure what could be wrong here, so don't bother with
+            // continuing even if keep-going is enabled.
+            int ierr = errno;
+            closeFile();
+            throw IOException(getCurrentName(),"fdopen",ierr);
+        }
+
+        int bzerror;
+        int errnum = 0;
+        string errmsg;
+
+        // _small: if 1 the bzip library will try to decompress using
+        // less memory at the expense of speed.
+        // unused, nUnused: left over bytes to uncompress
+        _bzfp = BZ2_bzReadOpen(&bzerror, _fp, 0, _small, NULL, 0);
+        if (!_bzfp) {
+            switch(bzerror) {
+            case BZ_OK:
+                // strange situation: bzfp==NULL, and bzerror==BZ_OK
+                assert(_bzfp);
+                break;
+            case BZ_CONFIG_ERROR:
+                errnum = EIO;
+                errmsg = "BZ2_bzReadOpen: bad installation of libbzip2";
+                break;
+            case BZ_PARAM_ERROR:
+                errnum = EINVAL;
+                errmsg = "BZ2_bzReadOpen: bad value for parameters";
+                break;
+            case BZ_IO_ERROR:
+                errnum = errno;
+                errmsg = "BZ2_bzReadOpen";
+                break;
+            case BZ_MEM_ERROR:
+                errnum = ENOMEM;
+                errmsg = "BZ2_bzReadOpen";
+                break;
+            }
+            closeFile();
+            IOException ioe(getCurrentName(), errmsg, errnum);
+            if (!_keepopening)
+            {
+                throw ioe;
+            }
+            ELOG(("") << ioe.what() << "; keep going to next file...");
+        }
+    } while (!_bzfp);
     _openedForWriting = false;
 }
 
@@ -207,30 +230,47 @@ size_t Bzip2FileSet::read(void* buf, size_t count) throw(IOException)
     _newFile = false;
     if (getFd() < 0) openNextFile();		// throws EOFException
 
-    int bzerror;
-    int res = BZ2_bzRead(&bzerror,_bzfp,buf,count);
-    switch(bzerror) {
-    case BZ_OK:
-        break;
-    case BZ_STREAM_END:
-        closeFile();	// next read will open next file
-        break;
-    case BZ_PARAM_ERROR:
-        throw IOException(getCurrentName(),"BZ2_bzRead","bad parameters");
-    case BZ_SEQUENCE_ERROR:
-        throw IOException(getCurrentName(),"BZ2_bzRead","file opened for writing");
-    case BZ_IO_ERROR:
-        throw IOException(getCurrentName(),"BZ2_bzRead",errno);
-    case BZ_UNEXPECTED_EOF:
-        WLOG(("%s: ",getCurrentName().c_str()) << ": BZ2_bzRead: unexpected EOF while uncompressing");
-        closeFile();	// next read will open next file
+    int res = 0;
+    try {
+        int bzerror;
+        res = BZ2_bzRead(&bzerror, _bzfp, buf, count);
+        switch(bzerror) {
+        case BZ_OK:
+            break;
+        case BZ_STREAM_END:
+            closeFile();	// next read will open next file
+            break;
+        case BZ_PARAM_ERROR:
+            throw IOException(getCurrentName(), "BZ2_bzRead",
+                              "bad parameters");
+        case BZ_SEQUENCE_ERROR:
+            throw IOException(getCurrentName(), "BZ2_bzRead",
+                              "file opened for writing");
+        case BZ_IO_ERROR:
+            throw IOException(getCurrentName(), "BZ2_bzRead", errno);
+        case BZ_UNEXPECTED_EOF:
+            WLOG(("") << getCurrentName()
+                 << ": BZ2_bzRead: unexpected EOF while uncompressing");
+            closeFile();	// next read will open next file
+            res = 0;
+            break;
+        case BZ_DATA_ERROR:
+        case BZ_DATA_ERROR_MAGIC:
+            throw IOException(getCurrentName(), "BZ2_bzRead",
+                              "bad compressed data");
+        case BZ_MEM_ERROR:
+            throw IOException(getCurrentName(), "BZ2_bzRead",
+                              "insufficient memory");
+        }
+    }
+    catch (const IOException& ioe)
+    {
+        if (!_keepopening)
+            throw ioe;
+        // next read will open next file
+        closeFile();
         res = 0;
-        break;
-    case BZ_DATA_ERROR:
-    case BZ_DATA_ERROR_MAGIC:
-        throw IOException(getCurrentName(),"BZ2_bzRead","bad compressed data");
-    case BZ_MEM_ERROR:
-        throw IOException(getCurrentName(),"BZ2_bzRead","insufficient memory");
+        ELOG(("") << ioe.what() << "; keep going to next file...");
     }
     return res;
 }
