@@ -199,19 +199,21 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     // We have to make sure we check from most specific to least specific.
     // scanf("%d %d %d") will parse "YYYY-mm-dd", and the month and days
     // will be negative.
-    if (ut.checkParse(utc, str, "%Y-%m-%dT%H:%M:%S.%f", ncharp))
-    {
-        return ut;
-    }
+    static const char* formats[] =
+        { "%Y-%m-%dT%H:%M:%S.%f",
+          "%Y-%m-%d %H:%M:%S.%f",
+          "%Y-%m-%dT%H:%M:%S",
+          "%Y-%m-%d %H:%M:%S",
+          "%Y-%m-%dT%H:%M",
+          "%Y-%m-%d %H:%M",
+          "%Y-%m-%d", 0 };
 
-    if (ut.checkParse(utc, str, "%Y-%m-%d %H:%M:%S.%f", ncharp))
+    for (const char** fi = formats; *fi; ++fi)
     {
-        return ut;
-    }
-
-    if (ut.checkParse(utc, str, "%Y%m%d%H%M%S.%f", ncharp))
-    {
-        return ut;
+        if (ut.checkParse(utc, str, *fi, ncharp))
+        {
+            return ut;
+        }
     }
 
     // 97 Feb 1 11:22:33.4

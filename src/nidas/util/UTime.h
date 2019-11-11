@@ -160,9 +160,8 @@ public:
      * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
      * [CC]YY [cmon|mon] day
      * s.f
-     * YYYY-mm-ddTHH:MM:SS[.f]              ISO format
-     * YYYY-mm-dd HH:MM:SS[.f]              ISO format with space separator
-     * YYYYmmddHHMMSS[.f]                   Condensed format
+     * YYYY-mm-dd[THH:MM[:SS[.f]]]          ISO format
+     * YYYY-mm-dd[ HH:MM[:SS[.f]]]          ISO format with space separator
      *
      * "cmon" is a character month or abbreviation.
      * "mon" is a numeric month (1-12).

@@ -49,7 +49,7 @@ using nidas::util::LogScheme;
 using namespace nidas::util;
 using namespace std;
 
-int main(int argc, char** argv)
+int main(int, char** argv)
 {
     Logger::createInstance(&cerr)->setScheme
         (LogScheme().addConfig(LogConfig("debug")));
@@ -282,10 +282,15 @@ int main(int argc, char** argv)
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
-    cases.push_back(make_pair("20191107161055.001",
-                              UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.124000",
                               UTime(true, 2019, 11, 7, 16, 10, 55.124)));
+    // Make sure shortened forms handled correctly too.
+    cases.push_back(make_pair("2019-11-07 16:10:55",
+                              UTime(true, 2019, 11, 7, 16, 10, 55)));
+    cases.push_back(make_pair("2019-11-07 16:10",
+                              UTime(true, 2019, 11, 7, 16, 10, 0)));
+    cases.push_back(make_pair("2019-11-07",
+                              UTime(true, 2019, 11, 7, 0, 0, 0)));
 
     for (cases_t::iterator cit = cases.begin(); cit != cases.end(); ++cit)
     {
