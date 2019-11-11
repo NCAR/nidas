@@ -616,10 +616,12 @@ Sample*
 SampleInputStream::
 sampleFromHeader() throw()
 {
-    // Set to zero to disable logging of individual bad samples.
+    // Default to zero to disable logging of individual bad samples.
+    // Logging blocks could be overwhelming too, but seems more likely to
+    // be useful.
     static unsigned int log_count =
         LogScheme::current().getParameterT
-        ("sample_input_stream_bad_sample_log_count", 1000);
+        ("sample_input_stream_bad_sample_log_count", 0);
     Sample* samp = 0;
 
     // Mark the offset of this sample.
