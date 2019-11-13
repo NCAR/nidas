@@ -64,16 +64,6 @@ namespace
     return num;
   }
 
-  std::string
-  xarg(const ArgVector& args, int i)
-  {
-    if (i < (int)args.size())
-    {
-      return args[i];
-    }
-    throw NidasAppException("expected argument for option " + args[i-1]);
-  }
-
 }
 
 
@@ -149,7 +139,21 @@ bool
 NidasAppArg::
 asBool()
 {
-  return specified();
+  std::string value = getValue();
+  bool result = false;
+
+  if (value == "yes" || value == "on" || value == "true")
+  {
+    result = true;
+  }
+  else if (value != "" && value != "no" && value != "off" && value != "false")
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " must be one of these: "
+        << "on,off,yes,no,true,false";
+    throw NidasAppException(msg.str());
+  }
+  return result;
 }
 
 
@@ -219,9 +223,9 @@ parse(const ArgVector& argv, int* argi)
   std::string flag = argv[i];
   if (accept(flag))
   {
-    if (_syntax.length())
+    if (!single())
     {
-      _value = xarg(argv, ++i);
+      _value = expectArg(argv, ++i);
     }
     _arg = flag;
     result = true;
@@ -234,18 +238,47 @@ parse(const ArgVector& argv, int* argi)
 
 bool
 NidasAppArg::
-accept(const std::string& flag)
+single()
 {
+  return _syntax.length() == 0;
+}
+
+
+bool
+NidasAppArg::
+accept(const std::string& arg)
+{
+  // Ignore brackets in the flags indicating deprecated flags.
   size_t start = 0;
-  while (start < _flags.length())
+  string flags = _flags;
+  string::size_type bracket = string::npos;
+  while ((bracket = flags.find_first_of("[]")) != string::npos)
+    flags.erase(bracket, 1);
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
-    if (_flags.substr(start, comma-start) == flag &&
-	(flag.length() > 2 || _enableShortFlag))
+      comma = flags.length();
+    string flag = flags.substr(start, comma-start);
+    if (flag == arg && (flag.length() > 2 || _enableShortFlag))
     {
+      if (single())
+      {
+        // Specifying this form of a single boolean flag sets it to true,
+        // no matter what.
+        _value = "true";
+      }
       return true;
+    }
+    // The negative form is only checked if there is a non-empty default.
+    if (single() && _default.length() && flag.substr(0, 2) == "--")
+    {
+      string negflag = "--no-" + flag.substr(2);
+      if (flag.length() > 2 && arg == negflag)
+      {
+        // The negative flag sets the value to false.
+        _value = "false";
+      }
     }
     start = comma+1;
   }
@@ -257,22 +290,32 @@ std::string
 NidasAppArg::
 getUsageFlags()
 {
-  std::string flags;
+  // Extract the accepted flags for usage info.  This excludes short flags
+  // if disabled and deprecated flags surrounded by brackets.
+  std::string flags = _flags;
+  string::size_type left = _flags.find('[');
+  string::size_type right = _flags.find(']');
+  if (left != string::npos && right != string::npos)
+    flags.erase(left, right);
   size_t start = 0;
-  while (start < _flags.length())
+  std::string uflags;
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
+      comma = flags.length();
     if (comma - start > 2 || _enableShortFlag)
     {
-      if (flags.length())
-	flags += ",";
-      flags += _flags.substr(start, comma-start);
+      if (uflags.length())
+	uflags += ",";
+      string flag = flags.substr(start, comma-start);
+      if (single() && _default.length() && flag.substr(0, 2) == "--")
+        flag = "--[no-]" + flag.substr(2);
+      uflags += flag;
     }
     start = comma+1;
   }
-  return flags;
+  return uflags;
 }
   
 
@@ -288,9 +331,9 @@ usage(const std::string& indent)
     if (!flags.empty())
       oss << " ";
     oss << _syntax;
-    if (!_default.empty())
-      oss << " [default: " << _default << "]";
   }
+  if (!_default.empty())
+    oss << " [default: " << _default << "]";
   oss << "\n";
 
   std::istringstream iss(_usage);
@@ -315,13 +358,14 @@ NidasApp(const std::string& name) :
    "As log points are created, show information for each one that can\n"
    "be used to enable log messages from that log point."),
   LogConfig
-  ("-l,--logconfig,--loglevel", "<logconfig>",
+  ("-l,--log[,--logconfig,--loglevel]", "<logconfig>",
    "Add a log config to the log scheme.  The log config settings are\n"
-   "specified as a comma-separated list of fields, using syntax \n"
+   "specified as a comma-separated list of fields, using syntax\n"
    "<field>=<value>, where fields are tag, file, function, line, enable,\n"
    "and disable.\n"
    "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.",
+   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.\n"
+   "--logconfig and --loglevel are accepted but deprecated.",
    "info"),
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
@@ -336,10 +380,10 @@ NidasApp(const std::string& name) :
   ("-p,--process", "", "Enable processed samples."),
   StartTime
   ("-s,--start", "<start-time>",
-   "Skip samples until start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "Start samples at start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   EndTime
   ("-e,--end", "<end-time>",
-   "Skip samples after end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
   ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
    "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
@@ -573,6 +617,21 @@ startArgs(int argc, const char* const argv[]) throw (NidasAppException)
     setProcessName(argv[0]);
   }
   startArgs(ArgVector(argv+1, argv+argc));
+}
+
+
+bool
+NidasApp::
+nextArg(std::string& arg)
+{
+  bool found = false;
+  if (_argi < (int)_argv.size() && _argv[_argi].find('-') != 0)
+  {
+    found = true;
+    arg = _argv[_argi];
+    _argv.erase(_argv.begin() + _argi, _argv.begin() + _argi + 1);
+  }
+  return found;
 }
 
 
@@ -821,8 +880,13 @@ parseOutput(const std::string& optarg) throw (NidasAppException)
     {
       throw NidasAppException("invalid length specifier: " + optarg);
     }
-    _outputFileLength = length;
   }
+  // If no output length suffix was specified, then the output length is
+  // reset to zero.  This way the current settings match with the most
+  // recent output option on the command line, rather than possibly
+  // "inheriting" an output length specified with a different output file
+  // name.
+  _outputFileLength = length;
   _outputFileName = output;
 }
 

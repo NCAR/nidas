@@ -246,6 +246,22 @@ public:
         return _lastErrno;
     }
 
+    /**
+     * Set whether the FileSet should keep going to the next file when
+     * an error happens opening a file.
+     **/
+    void
+    setKeepOpening(bool keepopening)
+    {
+        _keepopening = keepopening;
+    }
+
+    bool
+    keepOpening()
+    {
+        return _keepopening;
+    }
+
 protected:
 
     std::string formatName(const UTime& t1);
@@ -264,7 +280,12 @@ protected:
 
     int _fd;
 
+    bool _keepopening;
+
 private:
+
+    void initialize();
+
     std::string _dir;
 
     std::string _filename;
