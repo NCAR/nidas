@@ -299,6 +299,12 @@ public:
     static void setEnvVar(const std::string& name,const std::string& value);
 
     /**
+     * Remove any environment settings made by setEnvVar and release any
+     * memory allocated to put those settings in the environment.
+     **/
+    static void clearEnv();
+
+    /**
      * Return the virtual memory size in bytes of the current process, as read
      * from the /proc/pid/stat file. Do man proc for info.
      */

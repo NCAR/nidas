@@ -221,7 +221,16 @@ static short roundUpRate(short rate)
 #ifdef USE_IRIG_CALLBACK
 static void arinc_timesync(void *junk)
 #else
+/*
+ * When called as a kernel timer callback, the argument is an unsigned long
+ * before 4.15, and after that it is a pointer to timer_list.  In either
+ * case, the callback does not use the argument.
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void arinc_timesync(unsigned long junk)
+#else
+static void arinc_timesync(struct timer_list* _tlist)
+#endif        
 #endif
 {
 //      KLOG_INFO("%6d, %6d\n", GET_MSEC_CLOCK, ar_get_timercntl(BOARD_NUM));
@@ -252,17 +261,28 @@ static void arinc_timesync(unsigned long junk)
 #ifdef USE_IRIG_CALLBACK
 static void arinc_sweep(void* arg)
 #else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void arinc_sweep(unsigned long arg)
+#else
+static void arinc_sweep(struct timer_list* tlist)
+#endif
 #endif
 {
-
 #ifdef USE_IRIG_CALLBACK
         int chn = (long) arg;
+        struct arinc_dev *dev = &chn_info[chn];
 #else
-        int chn = arg - 1;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+        struct timer_list* tlist = (struct timer_list*)arg;
+#endif
+        /* Get the particular arinc_dev which contains the timer_list, and
+         * then subtract the base of the chn_info array to get the channel
+         * number.
+         */
+        struct arinc_dev* dev = container_of(tlist, struct arinc_dev, sweeper);
+        int chn = dev - &(chn_info[0]);
 #endif
         short err;
-        struct arinc_dev *dev = &chn_info[chn];
         int nData;
         struct dsm_sample *sample;
         tt_data_t *data;
@@ -481,9 +501,17 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         // Verify read or write access to the user arg, if necessary
         if (_IOC_DIR(cmd) & _IOC_READ)
-                ret = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                ret =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else ret = 0;
         if (ret) return -EFAULT;
 
@@ -630,9 +658,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         dev->deviceName,dev->status.lps, pollRate);
 #else
                 dev->sweep_jiffies = HZ / pollRate;
-                dev->sweeper.function = arinc_sweep;
                 dev->sweeper.expires = jiffies + dev->sweep_jiffies;
-                dev->sweeper.data = chn + 1;
                 add_timer(&dev->sweeper);
                 KLOG_INFO("%s: %d labels/sec, polled via kernel timer at rate %d Hz, jiffies=%d\n",
                         dev->deviceName,dev->status.lps,
@@ -770,9 +796,15 @@ static int arinc_release(struct inode *inode, struct file *filp)
         dev->sweepCallback = 0;
         flush_irig_callbacks();
 #else
+#if 0
+        /* It is not necessary to check if a timer is active before
+         * deleting it, so this use of the .data member was superfluous.
+         */
         if (dev->sweeper.data > 0)
                 del_timer_sync(&dev->sweeper);
         dev->sweeper.data = 0;
+#endif
+        del_timer_sync(&dev->sweeper);
 #endif
 
         spin_lock_bh(&board.lock);
@@ -838,9 +870,16 @@ static void arinc_cleanup(void)
                                 flush_irig_callbacks();
                 dev->sweepCallback = 0;
 #else
+#if 0
+                /* It is not necessary to check if a timer is active before
+                 * deleting it, so this use of the .data member was
+                 * superfluous.
+                 */
                 if (dev->sweeper.data > 0)
                     del_timer_sync(&dev->sweeper);
                 dev->sweeper.data = 0;
+#endif
+                del_timer_sync(&dev->sweeper);
 #endif
                 if (dev->samples.buf)
                         free_dsm_circ_buf(&dev->samples);
@@ -853,9 +892,7 @@ static void arinc_cleanup(void)
                 unregister_irig_callback(board.timeSyncCallback);
         board.timeSyncCallback = 0;
 #else
-        if (board.syncer.data > 0)
-                del_timer_sync(&board.syncer);
-        board.syncer.data = 0;
+        del_timer_sync(&board.syncer);
 #endif
 
         // remove devices
@@ -1075,18 +1112,29 @@ static int __init arinc_init(void)
         if (!board.timeSyncCallback) goto fail;
 #else
         ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
-        init_timer(&board.syncer);
 
-        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+        init_timer(&board.syncer);
         board.syncer.function = arinc_timesync;
+        /*
+         * Earlier code used syncer.data to indicate if the timer is
+         * active, but that is not necessary since it is ok to delete a
+         * timer which is not active.  Since .data is not available in the
+         * timer API as of kernel 4.15, switch to the equivalent usage for
+         * 4.15, which is to pass a pointer to the struct timer_list as the
+         * callback argument.
+         */
+        board.syncer.data = (unsigned long)&board.syncer;
+#else
+        timer_setup(&board.syncer, arinc_timesync, 0);
+#endif
+        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
 
         /* schedule arinc_timesync to run at the even second */
         /* milliseconds after the second */
         msecs = getSystemTimeMsecs() % MSECS_PER_SEC;
 
         board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        /* set data to 1, just to indicate this timer is active */
-        board.syncer.data = 1;
         add_timer(&board.syncer);
 #endif
 
@@ -1110,7 +1158,13 @@ static int __init arinc_init(void)
                 sprintf(dev->deviceName, "/dev/arinc%d", chn);
 
 #ifndef USE_IRIG_CALLBACK
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->sweeper);
+                dev->sweeper.function = arinc_sweep;
+                dev->sweeper.data = (unsigned long)&dev->sweeper;
+#else
+                timer_setup(&dev->sweeper, arinc_sweep, 0);
+#endif
 #endif
 
         }

@@ -29,6 +29,39 @@ BOOST_AUTO_TEST_CASE(test_calfile_normal_read)
   BOOST_CHECK_EQUAL(data[1], 1.0);
 }
 
+
+void
+write_nonewline_calfile(const std::string& path)
+{
+  std::ofstream of(path.c_str(), std::ios_base::binary);
+  of << "# Used by CalFile parser\n"
+     << "# dateFormat = \"%Y %b %d %H:%M:%S\"\n"
+     << "# timeZone = \"Europe/Lisbon\"\n"
+     << "2016 may  1 00:00:00 	 0.00	 1.00";
+  of.close();
+}
+
+
+BOOST_AUTO_TEST_CASE(test_calfile_read_nonewline)
+{
+  write_nonewline_calfile("T_2m_nonewline.dat");
+
+  CalFile cfile;
+  cfile.setPath(".");
+  cfile.setFile("T_2m_nonewline.dat");
+
+  UTime when(LONG_LONG_MIN);
+  int n;
+  float data[2];
+  int ndata = sizeof(data)/sizeof(data[0]);
+
+  n = cfile.readCF(when, data, ndata);
+  BOOST_REQUIRE_EQUAL(n, 2);
+  BOOST_CHECK_EQUAL(data[0], 0.0);
+  BOOST_CHECK_EQUAL(data[1], 1.0);
+}
+
+
 BOOST_AUTO_TEST_CASE(test_trh_raw_calfile)
 {
   CalFile cfile;

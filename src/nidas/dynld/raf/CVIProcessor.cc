@@ -149,7 +149,7 @@ void CVIProcessor::connect(SampleSource* source)
 
 #ifdef DEBUG
         if (sensor) cerr << "CVIProcessor::connect sensor=" <<
-            sensor->getName() << " (" << GET_DSM_ID(sensorId) << ',' << 
+            sensor->getName() << " (" << GET_DSM_ID(sensorId) << ',' <<
             GET_SHORT_ID(sensorId) << ')' << endl;
         else cerr << "CVIProcessor no sensor" << endl;
 #endif
@@ -177,7 +177,7 @@ void CVIProcessor::disconnect(SampleSource* source) throw()
     _aout.close();
     _dout.close();
 }
- 
+
 void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)
     throw(n_u::IOException)
 {
@@ -216,7 +216,7 @@ void CVIProcessor::connect(SampleOutput* output) throw()
     _connectedOutputs.insert(output);
     _connectionMutex.unlock();
 }
- 
+
 void CVIProcessor::disconnect(SampleOutput* output) throw()
 {
     _averager.removeSampleClient(output);

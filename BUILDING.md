@@ -12,7 +12,7 @@ You will need the eol_scons addon in order to manually build.  You can add it vi
 ```sh
     mkdir -p ~/.scons/
     pushd ~/.scons
-    git clone https://github.com/ncareol/eol_scons site_scons
+    git clone https://github.com/ncar/eol_scons site_scons
     popd
 ```
 
@@ -35,7 +35,7 @@ You will need the eol_scons addon in order to build properly.  You can add it vi
 ```sh
     mkdir -p ~/.scons/
     pushd ~/.scons
-    git clone https://github.com/ncareol/eol_scons site_scons
+    git clone https://github.com/ncar/eol_scons site_scons
     popd
 ```
 

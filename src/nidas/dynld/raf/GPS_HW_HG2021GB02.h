@@ -46,7 +46,7 @@ public:
      * No arg constructor.  Typically the device name and other
      * attributes must be set before the sensor device is opened.
      */
-    GPS_HW_HG2021GB02() : 
+    GPS_HW_HG2021GB02() :
         Pseudo_Range_sign(floatNAN),
         SV_Position_X_sign(floatNAN),
         SV_Position_Y_sign(floatNAN),

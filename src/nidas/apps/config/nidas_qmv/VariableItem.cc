@@ -34,7 +34,7 @@ using namespace xercesc;
 using namespace std;
 
 
-VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
+VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
 {
     _variable = variable;
     _varConverter = variable->getConverter();
@@ -46,7 +46,7 @@ VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, Ni
     else {
        _calFile = NULL;
        _calFileName = std::string();
-    }     
+    }
     _gotCalDate = _gotCalVals = false;
     _calDate = _calVals = "";
     _sampleTag = sampleTag;
@@ -107,7 +107,7 @@ QString VariableItem::name()
     return QString::fromStdString(_variable->getName());
 }
 
-// Nidas name will include sensor suffix - if we just want the name as 
+// Nidas name will include sensor suffix - if we just want the name as
 // defined in XML we must get rid of that suffix.
 std::string VariableItem::getBaseName()
 {
@@ -129,9 +129,9 @@ std::cerr<<"VariableItem::getBaseName()\n";
   return baseName;
 }
 
-// Return a vector of strings which are the calibration coefficients starting 
-// w/offset, then least significant polinomial coef, next least, etc.  The 
-// last item is the units string.    Borrows liberally from 
+// Return a vector of strings which are the calibration coefficients starting
+// w/offset, then least significant polinomial coef, next least, etc.  The
+// last item is the units string.    Borrows liberally from
 // VariableConverter::fromString methods.
 std::vector<std::string> VariableItem::getCalibrationInfo()
 {
@@ -148,12 +148,12 @@ std::cerr<<__func__<<"\n";
   std::string which;
   ist >> which;
 std::cerr<<"in getCalinfo: which ="<<which<<"\n";
-  if (ist.eof() || ist.fail() || 
-     (which != "linear" && which != "poly" && 
+  if (ist.eof() || ist.fail() ||
+     (which != "linear" && which != "poly" &&
      (!strncmp(which.c_str(),"coefs",5)==0) && which != "ERROR:")) {
     std::cerr << "Somthing not right with conversion string from variable" <<
                  " converter\n";
-    return noCalInfo; 
+    return noCalInfo;
   }
 
   if (which == "ERROR:") {
@@ -175,14 +175,14 @@ std::cerr<<"in getCalinfo: which ="<<which<<"\n";
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in linear conversion string from ";
         std::cerr << "variable converter\n";
-        return noCalInfo;  
+        return noCalInfo;
       }
       std::string slope, intercept, units;
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
         std::cerr << "Could not find linear slope/intercept in conversion string";
-        return noCalInfo; 
+        return noCalInfo;
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -196,7 +196,7 @@ std::cerr<<"in getCalinfo: which ="<<which<<"\n";
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
         std::cerr << "Could not find linear slope/intercept in conversion string";
-        return noCalInfo; 
+        return noCalInfo;
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -216,7 +216,7 @@ std::cerr<<"in getCalinfo: which ="<<which<<"\n";
 
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in poly conversion string from variable converter\n";
-        return noCalInfo;  
+        return noCalInfo;
       }
       if (!strncmp(cp,"coefs",5)) {
           for(;;) {
@@ -230,7 +230,7 @@ std::cerr<<"in getCalinfo: which ="<<which<<"\n";
         std::cerr << "Could not find poly coefs in conversion string";
         return noCalInfo;
       }
-  
+
       ist.str(str);
       ist.getline(cstr,sizeof(cstr),'=');
       for (cp = cstr; *cp == ' '; cp++);

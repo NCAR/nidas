@@ -64,6 +64,12 @@
 #define mutex_unlock(x)             up(x)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
+#endif
+
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 
@@ -1930,7 +1936,7 @@ static void dmmat_a2d_bottom_half(void* work)
                                 KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
                                         getA2DDeviceName(a2d),
                                         tdiff / TMSECS_PER_SEC,
-                                        abs(tdiff) % TMSECS_PER_SEC);
+                                        (int) abs(tdiff) % TMSECS_PER_SEC);
                         }
                 }
 
@@ -2003,7 +2009,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                                 KLOG_WARNING("%s: time tags shifted later by %d.%04d seconds\n",
                                         getA2DDeviceName(a2d),
                                         tdiff / TMSECS_PER_SEC,
-                                        abs(tdiff) % TMSECS_PER_SEC);
+                                        (int) abs(tdiff) % TMSECS_PER_SEC);
                         }
                 }
 
@@ -2974,9 +2980,9 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numActualBoards) return -ENXIO;
@@ -3200,11 +3206,9 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         if (ibrd >= numActualBoards) return -ENXIO;
@@ -3359,11 +3363,9 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         brd = board + ibrd;
@@ -3615,11 +3617,9 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                                _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                                _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         brd = board + ibrd;

@@ -92,7 +92,6 @@ bool PHIPS_UDP::process(const Sample * samp,
         if (cp) cp++;
         *dout++ = scanValue(cp);    // Trigger
 
-    
         // however there are 32 channels in the raw data, some will be
         // summed, and some not used.
         int channels[32];

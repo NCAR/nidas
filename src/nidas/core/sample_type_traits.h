@@ -1,3 +1,39 @@
+#ifndef NIDAS_CORE_SAMPLE_TRAITS
+#define NIDAS_CORE_SAMPLE_TRAITS
+
+namespace nidas { namespace core {
+
+/**
+ * maxValue is an overloaded function returning the
+ * maximum value of its integer argument.
+ */
+inline unsigned int maxValue(unsigned short)
+{
+    return USHRT_MAX;
+}
+
+inline unsigned int maxValue(short)
+{
+    return SHRT_MAX;
+}
+
+inline unsigned int maxValue(int)
+{
+    return INT_MAX;
+}
+
+inline unsigned int maxValue(unsigned int)
+{
+    return UINT_MAX;
+}
+
+typedef enum sampleType {
+	CHAR_ST, UCHAR_ST, SHORT_ST, USHORT_ST,
+	INT32_ST, UINT32_ST, FLOAT_ST, DOUBLE_ST,
+	INT64_ST, UNKNOWN_ST } sampleType;
+
+
+
 template <typename T>
 struct sample_type_traits_base
 {
@@ -78,3 +114,6 @@ inline sampleType getSampleType(T*)
 }
 
 
+}} //namespace nidas::core
+
+#endif // NIDAS_CORE_SAMPLE_TRAITS

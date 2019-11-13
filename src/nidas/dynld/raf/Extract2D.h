@@ -65,9 +65,10 @@ class Probe
 public:
   Probe() :
       sensor(0), resolution(0), resolutionM(0.0), id(0), serialNumber(),
-      hasOverloadCount(0), nDiodes(64), recordCount(0), rejectRecordCount(0),
-      rejectTooFewParticleCount(0), rejectTooFewDiodesCount(0),
-      diodeCount(), particleCount(), totalParticles(0), inDOF(0)
+      clockFreq(12.0), waveLength(658), hasOverloadCount(0), nDiodes(64),
+      recordCount(0), rejectRecordCount(0), rejectTooFewParticleCount(0),
+      rejectTooFewDiodesCount(0), diodeCount(), particleCount(),
+      totalParticles(0), inDOF(0)
     {
     memset(diodeCount, 0, sizeof(diodeCount));
     memset(particleCount, 0, sizeof(particleCount));
@@ -77,10 +78,12 @@ public:
   DSMSensor * sensor;
 
   // Output info.
-  size_t resolution;
-  float resolutionM;
+  size_t resolution;	// in micron
+  float resolutionM;	// in meters
   short id;
   string serialNumber;
+  float clockFreq;	// in Mhz
+  int waveLength;	// laser wave length in nanometers
 
   // File info.
   size_t hasOverloadCount;

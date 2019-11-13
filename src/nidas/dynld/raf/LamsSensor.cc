@@ -23,10 +23,9 @@
  **
  ********************************************************************
 */
-/* 
-  LamsSensor
- 
-*/
+/*
+ * LamsSensor
+ */
 
 
 #include "LamsSensor.h"
@@ -65,8 +64,7 @@ SampleScanner* LamsSensor::buildSampleScanner()
     setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
-  
-  	
+
 void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
@@ -113,7 +111,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
         // allocate sample
         SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE * 2);
         outs->setTimeTag(samp->getTimeTag());
-        outs->setId(getId() + 1);  
+        outs->setId(getId() + 1);
 
         // extract data from a lamsPort structure
         float * dout = outs->getDataPtr();
@@ -124,7 +122,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
 
         for (iout = 0; iout < LAMS_SPECTRA_SIZE; iout++)
           *dout++ = (float)*iPeak++;
-      
+
         results.push_back(outs);
     }
     else {
@@ -139,7 +137,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             // allocate sample
             SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE);
             outs->setTimeTag(samp->getTimeTag());
-            outs->setId(getId() + 1 + type);  
+            outs->setId(getId() + 1 + type);
 
             // extract data from a lamsPort structure
             float * dout = outs->getDataPtr();
@@ -160,7 +158,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             // allocate sample
             SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE);
             outs->setTimeTag(samp->getTimeTag());
-            outs->setId(getId() + 1 + type);  
+            outs->setId(getId() + 1 + type);
 
             // extract data from a lamsPort structure
             float * dout = outs->getDataPtr();
@@ -169,13 +167,13 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             for (iout = 0; iout < std::min(LAMS_SPECTRA_SIZE,nval); iout++)
               *dout++ = (float)*iPeak++;
             for ( ; iout < LAMS_SPECTRA_SIZE; iout++) *dout++ = floatNAN;
-      
+
             results.push_back(outs);
         }
     }
 
     return true;
-} 
+}
 
 void LamsSensor::open(int flags) throw(n_u::IOException,
     n_u::InvalidParameterException)

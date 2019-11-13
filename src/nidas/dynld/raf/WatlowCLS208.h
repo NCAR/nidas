@@ -38,23 +38,32 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * Sensor class supporting the NCAR/ACOM Watlow CLS208 Intrument.
+ * Sensor class supporting the NCAR/ACOM Watlow CLS208 Instrument.
  */
 class Watlow : public SerialSensor
 {
 public:
+
+    Watlow();
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
 protected:
 
-    bool crcCheck(unsigned char * input, int messageLength, int start)
-         throw();
+    uint16_t CRC16(const unsigned char * input, int nbytes) throw();
+
+    uint16_t CRC16_faster(const unsigned char * input, int nbytes) throw();
+
+    bool checkCRC(const unsigned char * input, int nbytes, int msgnum) throw();
 
 private:
 
     static const nidas::util::EndianConverter * _fromBig;
+
+    static const nidas::util::EndianConverter * _fromLittle;
+
+    unsigned int _numWarnings;
 
 };
 

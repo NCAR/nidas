@@ -51,7 +51,7 @@ using nidas::util::endlog;
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
 TwoD64_USB_v3::TwoD64_USB_v3():_nHskp(0)
 {
-     _probeClockRate=33;                    //Default for v3 is 33 MHZ
+     _probeClockRate=33.3333333;        //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits
      _dofMask=0x10;
 }
@@ -101,17 +101,17 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
 void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 {
     TwoD64_USB::validate();
- 
+
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
 
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
-        if (stag->getSampleId() == 1) {
-            _nHskp = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
-            if (_nHskp != 10) {
+        if(stag->getSampleId()==1) {
+            _nHskp= stag->getVariables().size();
+            if (_nHskp!= 9) {
                 throw n_u::InvalidParameterException(getName(),
-                "unexpected number of variables", " in processSOR sample"); 
+                "unexpected number of variables", " in processSOR sample");
             }
         }
     }
@@ -123,34 +123,32 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     const char * input = (const char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
 
-    if (slen < 4 || memcmp(input, "SOR,", 4)){
+    if (slen < 5 || memcmp(input, "SOR,", 4)){
         cout<<"Twod64v3 processSOR returning false. slen = "<<slen<<endl;
         return false;
     }
+
+    char in_str[slen+1];
     char sep = ',';
     SampleT<float>* outs = getSample<float>(_nHskp);
     float * dout = outs->getDataPtr();
     float data=floatNAN;
     int iout = 0;
- 
+
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-    for (size_t ifield = 0; ifield < _nHskp; ifield++) {
-        if (input == NULL)break;
-	const char * cp = ::strchr(input,sep);  
-        cp++; 
-        //First input will be the second char to skip "SOR,"
-        if (ifield != 0)
-        { 
-            if (sscanf(input, "%f", &data) == 1) {
-                dout[iout++] = double(data);
-            } else
-                dout[iout++] = double(NAN);
-        }
-        input=cp;
+    const char * cp = ::strchr(input,sep);
+    for (size_t ifield = 0; ifield < _nHskp && cp; ifield++){
+        input = cp + 1;
+	cp = ::strchr(input, sep);
+
+        if (sscanf(input, "%f", &data) == 1){
+            dout[iout++] = double(data);
+        } else
+            dout[iout++] = double(NAN);
     }
     list<SampleTag*> tags = getSampleTags();
-    applyConversions(tags.front() ,outs);
+    applyConversions(tags.front(), outs);
     results.push_back(outs);
     return true;
 }

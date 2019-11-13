@@ -649,6 +649,34 @@ void Process::setEnvVar(const string& name, const string& value)
     _environment[name] = newval;
 }
 
+void Process::clearEnv()
+{
+    Autolock autolock(_envLock);
+
+    map<string,char*>::const_iterator ei;
+    for (ei = _environment.begin(); ei != _environment.end(); ++ei)
+    {
+        ::unsetenv(ei->first.c_str());
+        delete[] ei->second;
+    }
+    _environment.erase(_environment.begin(), _environment.end());
+}
+
+namespace {
+    struct EnvFinisher {
+        ~EnvFinisher()
+        {
+            // This works to release memory allocated for environment
+            // variables when the process is exiting, but apparently it's
+            // not enough to keep valgrind from thinking there's a leak.
+            // In that case, it works to call clearEnv() directly before
+            // the process exits.
+            Process::clearEnv();
+        }
+    } _GlobalEnvFinisher;
+}
+
+
 /* static */
 unsigned long Process::getVMemSize()
 {

@@ -41,9 +41,9 @@ class SensorItem : public NidasItem
 {
 
 public:
-    SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, 
+    SensorItem(DSMSensor *sensor, int row, NidasModel *theModel,
                NidasItem *parent = 0) ;
-    SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel, 
+    SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel,
                NidasItem *parent = 0) ;
 
     ~SensorItem();
@@ -57,13 +57,14 @@ public:
 
     std::string devicename() { return this->_sensor->getDeviceName(); }
 
-    const QVariant & childLabel(int column) const { 
+    const QVariant & childLabel(int column) const {
           if (column == 0) return NidasItem::_Variable_Label;
           if (column == 1) return NidasItem::_Rate_Label;
           if (column == 2) return NidasItem::_CalCoef_Label;
           if (column == 3) return NidasItem::_CalCoefSrc_Label;
           if (column == 4) return NidasItem::_CalDate_Label;
           if (column == 5) return NidasItem::_Sample_Label;
+          return NidasItem::_Unknown_Label;
     }
 
     int childColumnCount() const {return 6;}
@@ -80,7 +81,7 @@ public:
     QString getDevice() { return QString::fromStdString(_sensor->getDeviceName()); }
 
 // at some point this should be protected.
-//protected:  
+//protected:
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const { return _sensor; }
     //xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
@@ -91,7 +92,7 @@ public:
 
 protected:
     QString viewName();
-    xercesc::DOMNode *findDOMNode(); 
+    xercesc::DOMNode *findDOMNode();
     DSMSensor * _sensor;
 
 private:

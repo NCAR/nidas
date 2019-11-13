@@ -51,7 +51,7 @@ public:
   ~TwoD_House();
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+	throw();
 
 
 protected:

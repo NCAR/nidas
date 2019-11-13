@@ -101,9 +101,9 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
   pmsSNElmt->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter(pmsSN));
 
-  // If we have a RESOLUTION node lets get rid of it and then recreate 
+  // If we have a RESOLUTION node lets get rid of it and then recreate
   // it if we have a RESOLUTION defined.
-  if (pmsResltnNode) 
+  if (pmsResltnNode)
     try {
       this->getDOMNode()->removeChild(pmsResltnNode);
     } catch (DOMException &e) {
@@ -116,7 +116,7 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
     const XMLCh * paramTagName = 0;
     XMLStringConverter xmlSamp("parameter");
     paramTagName = (const XMLCh *) xmlSamp;
-  
+
     // Create a new DOM element for the param element.
     xercesc::DOMElement* paramElem = 0;
     try {
@@ -130,13 +130,13 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
     }
 
     // set up the rate parameter node attributes
-    paramElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("name"),
                               (const XMLCh*)XMLStringConverter("RESOLUTION"));
     paramElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
                               (const XMLCh*)XMLStringConverter("int"));
-    paramElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                               (const XMLCh*)XMLStringConverter(pmsResltn));
-  
+
     this->getDOMNode()->appendChild(paramElem);
   }
 
@@ -147,7 +147,7 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
 std::string PMSSensorItem::getSerialNumberString()
 {
   const Parameter * parm = _sensor->getParameter("SerialNumber");
-  if (parm) 
+  if (parm)
     return parm->getStringValue(0);
 
   return std::string();

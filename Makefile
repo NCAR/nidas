@@ -87,6 +87,8 @@ MODDIR := $(DESTDIR)/lib/modules
 
 SCONSMODDIR := $(DESTDIR)$(PREFIX)/modules
 
+LINUX_MODULES := on
+
 ifeq ($(DEB_HOST_GNU_TYPE),x86_64-linux-gnu)
     TITAN_KERN :=
     VIPER_KERN :=
@@ -96,6 +98,10 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabi)
     VIPER_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*viper*" -type d | sed "s/.*linux-headers-//")
 else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
     RPI2_KERN := $(shell find /usr/src -maxdepth 1 -name "linux-headers-*" -type d | tail -n 1 | sed "s/.*linux-headers-//")
+    ifeq ($(RPI2_KERN),)
+       # We don't really need linux modules on Pi, so do not try to build them if headers not installed.
+        LINUX_MODULES := off
+    endif
 endif
 
 # Where to find pkg-configs of other software
@@ -116,6 +122,7 @@ build:
 		REPO_TAG=$(REPO_TAG) \
 		PREFIX=$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
+		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 
 $(LDCONF):
@@ -127,6 +134,7 @@ scons_install:
 		REPO_TAG=$(REPO_TAG) \
 		PREFIX=$(DESTDIR)$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
+		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install
 
 $(SCONSPKGCONFIG): scons_install

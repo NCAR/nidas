@@ -62,7 +62,7 @@ headers = Split("""
 """)
 
 if first_mach:
-    env.Install('$PREFIX/include/nidas/linux/arinc',headers)
+    env.Install('$ARCHPREFIX/include/nidas/linux/arinc',headers)
 
 modules = ['arinc.ko']
 condor = next(x for x in arinc_files if re.match('Condor',x))

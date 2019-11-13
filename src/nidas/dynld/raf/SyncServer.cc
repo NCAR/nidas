@@ -56,7 +56,7 @@ const float SyncServer::SORTER_LENGTH_SECS = 5.0;
 
 SyncServer::SyncServer():
     Thread("SyncServer"),
-    _pipeline(), _syncGen(), 
+    _pipeline(), _syncGen(),
     _inputStream(0), _outputStream(0),
     _xmlFileName(), _dataFileNames(),
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
@@ -182,7 +182,7 @@ signalStop()
         DLOG(("triggering stop signal..."));
         _stop_signal->stop();
     }
-}    
+}
 
 
 void
@@ -286,7 +286,7 @@ init() throw(n_u::Exception)
     _pipeline.setRealTime(false);
     _pipeline.setRawSorterLength(_rawSorterLengthSecs);
     _pipeline.setProcSorterLength(_sorterLengthSecs);
-	
+
     // Even though the time length of the raw sorter is typically
     // much smaller than the length of the processed sample sorter,
     // (currently 1 second vs 900 seconds) its heap size needs to be
@@ -318,7 +318,7 @@ init() throw(n_u::Exception)
     // instead.
     if (! _sampleClient)
     {
-        nidas::core::ServerSocket* servSock = 
+        nidas::core::ServerSocket* servSock =
             new nidas::core::ServerSocket(*_address.get());
         IOChannel* ioc = servSock->connect();
         if (ioc != servSock) {
