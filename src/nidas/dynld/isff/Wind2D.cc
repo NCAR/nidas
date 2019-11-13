@@ -289,9 +289,6 @@ bool Wind2D::process(const Sample* samp,
     // time is adjusted, since the calibrations are keyed by time.
     applyConversions(stag, outs);
 
-
-
-
     return true;
 }
 
@@ -320,7 +317,13 @@ void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
 	    throw n_u::InvalidParameterException(getName(),
 		"parameter", string("bad length for ") + paramSet[i].name);
 	// invoke setXXX member function
-        if (! _orienter.handleParameter(param, getName()))
+        if (_orienter.handleParameter(param, getName()))
+        {
+	    throw n_u::InvalidParameterException(getName(),
+		"parameter", string("Wind2D sensors do not yet support"
+                                    " orientation changes: ") + paramSet[i].name);
+        }
+        else
         {
             (this->*paramSet[i].setFunc)(param->getStringValue(0));
         }
