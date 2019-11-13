@@ -237,46 +237,46 @@ static string PTB220_RESPONSE_REGEX_SPEC(
         "Averaging time.+[[:space:]]");
 static regex PTB220_RESPONSE_REGEX(PTB220_RESPONSE_REGEX_SPEC, std::regex_constants::extended);
 
-static string PTB220_MODEL_REGEX_SPEC("^Software version[[:blank:]]+([[:alnum:]]+) / [[:digit:]].[[:digit:]]{1,2}$");
+static string PTB220_MODEL_REGEX_SPEC("Software version[[:blank:]]+([[:alnum:]]+) / [[:digit:]].[[:digit:]]{1,2}");
 static regex PTB220_MODEL_REGEX(PTB220_MODEL_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_VER_REGEX_SPEC("^Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})$");
+static string PTB220_VER_REGEX_SPEC("Software version[[:blank:]]+PTB220 / ([[:digit:]].[[:digit:]]{1,2})");
 static regex PTB220_VER_REGEX(PTB220_VER_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_SERIAL_NUMBER_REGEX_SPEC("^Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)$");
+static string PTB220_SERIAL_NUMBER_REGEX_SPEC("Serial number[[:blank:]]+([[:upper:]][[:digit:]]+)");
 static regex PTB220_SERIAL_NUMBER_REGEX(PTB220_SERIAL_NUMBER_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_CONFIG_REGEX_SPEC("^Configuration[[:blank:]]+([[:digit:]])$");
+static string PTB220_CONFIG_REGEX_SPEC("Configuration[[:blank:]]+([[:digit:]])");
 static regex PTB220_CONFIG_REGEX(PTB220_CONFIG_REGEX_SPEC);
-static string PTB220_LINEAR_CORR_REGEX_SPEC("^Linear adjustments[[:blank:]]+(ON|OFF){1}$");
+static string PTB220_LINEAR_CORR_REGEX_SPEC("Linear adjustments[[:blank:]]+(ON|OFF){1}");
 static regex PTB220_LINEAR_CORR_REGEX(PTB220_LINEAR_CORR_REGEX_SPEC);
-static string PTB220_MULTI_PT_CORR_REGEX_SPEC("^Multipoint adjustments[[:blank:]]+(ON|OFF)$");
+static string PTB220_MULTI_PT_CORR_REGEX_SPEC("Multipoint adjustments[[:blank:]]+(ON|OFF)");
 static regex PTB220_MULTI_PT_CORR_REGEX(PTB220_MULTI_PT_CORR_REGEX_SPEC, std::regex_constants::extended);
-static regex PTB220_CAL_DATE_REGEX("^Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})$");
-static string PTB220_SERIAL_CFG_REGEX_SPEC("^Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
+static regex PTB220_CAL_DATE_REGEX("Calibration date[[:blank:]]+([?[:digit:]]{4}(-[?[:digit:]]{2}){2})");
+static string PTB220_SERIAL_CFG_REGEX_SPEC("Baud Parity Data Stop Dpx[[:blank:]]+([[:digit:]]{4,5})[[:blank:]]+"
 										         "(N|E|O){1}[[:blank:]]+(7|8){1}[[:blank:]]+(1|2){1}[[:blank:]]+"
-										         "([[:upper:]])$");
+										         "([[:upper:]])");
 static regex PTB220_SERIAL_CFG_REGEX(PTB220_SERIAL_CFG_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_ECHO_REGEX_SPEC("^Echo[[:blank:]]+(ON|OFF){1}$");
+static string PTB220_ECHO_REGEX_SPEC("Echo[[:blank:]]+(ON|OFF){1}");
 static regex PTB220_ECHO_REGEX(PTB220_ECHO_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_SENDING_MODE_REGEX_SPEC("^Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*$");
+static string PTB220_SENDING_MODE_REGEX_SPEC("Sending mode[[:blank:]]+(RUN|POLL){1}( / OPEN)*");
 static regex PTB220_SENDING_MODE_REGEX(PTB220_SENDING_MODE_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_PULSE_MODE_REGEX_SPEC("^Pulse mode[[:blank:]]+(OFF){1}.*$");
+static string PTB220_PULSE_MODE_REGEX_SPEC("Pulse mode[[:blank:]]+(OFF){1}.*");
 static regex PTB220_PULSE_MODE_REGEX(PTB220_PULSE_MODE_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_MEAS_MODE_REGEX_SPEC("^Measurement mode[[:blank:]]+(NORMAL|FAST){1}$");
+static string PTB220_MEAS_MODE_REGEX_SPEC("Measurement mode[[:blank:]]+(NORMAL|FAST){1}");
 static regex PTB220_MEAS_MODE_REGEX(PTB220_MEAS_MODE_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_ADDRESS_REGEX_SPEC("^Address[[:blank:]]+([[:digit:]]{1,3})$");
+static string PTB220_ADDRESS_REGEX_SPEC("Address[[:blank:]]+([[:digit:]]{1,3})");
 static regex PTB220_ADDRESS_REGEX(PTB220_ADDRESS_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_OUTPUT_INTERVAL_REGEX_SPEC("^Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})$");
+static string PTB220_OUTPUT_INTERVAL_REGEX_SPEC("Output interval[[:blank:]]+([[:digit:]]{1,3}) ((s|min|hr){1})");
 static regex PTB220_OUTPUT_INTERVAL_REGEX(PTB220_OUTPUT_INTERVAL_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_OUTPUT_FMT_REGEX_SPEC("^Output format[[:blank:]]+([[:alnum:]\"#.])+$");
+static string PTB220_OUTPUT_FMT_REGEX_SPEC("Output format[[:blank:]]+([[:alnum:]\"#.])+");
 static regex PTB220_OUTPUT_FMT_REGEX(PTB220_OUTPUT_FMT_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_ERR_OUT_FMT_REGEX_SPEC("^Error output format[[:blank:]]+([[:alnum:]\"#.])*$");
+static string PTB220_ERR_OUT_FMT_REGEX_SPEC("Error output format[[:blank:]]+([[:alnum:]\"#.])*");
 static regex PTB220_ERR_OUT_FMT_REGEX(PTB220_ERR_OUT_FMT_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_USR_OUT_FMT_REGEX_SPEC("^SCOM format[[:blank:]]+([[:alnum:]\"#.])*$");
+static string PTB220_USR_OUT_FMT_REGEX_SPEC("SCOM format[[:blank:]]+([[:alnum:]\"#.])*");
 static regex PTB220_USR_OUT_FMT_REGEX(PTB220_USR_OUT_FMT_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_PRESS_UNIT_REGEX_SPEC("^Pressure unit[[:blank:]]+([[:alnum:]]{2,5})$");
+static string PTB220_PRESS_UNIT_REGEX_SPEC("Pressure unit[[:blank:]]+([[:alnum:]]{2,5})");
 static regex PTB220_PRESS_UNIT_REGEX(PTB220_PRESS_UNIT_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_TEMP_UNIT_REGEX_SPEC("^Temperature unit[[:blank:]]+'(C|F){1}$");
+static string PTB220_TEMP_UNIT_REGEX_SPEC("Temperature unit[[:blank:]]+'(C|F){1}");
 static regex PTB220_TEMP_UNIT_REGEX(PTB220_TEMP_UNIT_REGEX_SPEC, std::regex_constants::extended);
-static string PTB220_AVG_TIME_REGEX_SPEC("^Averaging time[[:blank:]]+([[:digit:]]{1,3}.[[:digit:]]) s$");
+static string PTB220_AVG_TIME_REGEX_SPEC("Averaging time[[:blank:]]+([[:digit:]]{1,3}.[[:digit:]]) s");
 static regex PTB220_AVG_TIME_REGEX(PTB220_AVG_TIME_REGEX_SPEC, std::regex_constants::extended);
 
 static const std::string PTB220_XDUCER_CFG_CFG_DESC("Configuration");
