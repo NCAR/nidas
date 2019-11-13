@@ -78,22 +78,31 @@ public:
      * Construct a NidasAppArg from a list of accepted short and long
      * flags, the syntax for any arguments to the flag, a usage string, and
      * a default value.  @p flags is a comma-separated list of the
-     * command-line flags recognized this argument.  The usage string
+     * command-line flags recognized by this argument.  The usage string
      * describes the argument, something which can be printed as part of an
      * application's usage information.
      *
-     * This is an example for the @p flags specifier, showing multiple
-     * forms that are accepted for an argument.  The -l is obviously the
-     * short form, and it will not be accepted if acceptShortFlag() is not
-     * true.  The others are long forms, each equivalent to the other.
-     * Deprecated options can be surrounded by brackets.  If an option is
-     * deprecated, it will still be accepted on the command-line, but it
-     * will not be shown in the usage.
+     * The @p flags specifier can include multiple flags that are accepted
+     * for an argument, separated by commas.  In the example below, -l is
+     * obviously the short form, and it will not be accepted if
+     * acceptShortFlag() is not true.  The others are long forms, each
+     * equivalent to the other.  Deprecated options can be surrounded by
+     * brackets.  If an option is deprecated, it will still be accepted on
+     * the command-line, but it will not be shown in the usage. (Probably
+     * it should be documented as deprecated in the usage string.)
      *
      * -l,--log[,--loglevel,--logconfig]
      * 
-     * If an argument takes only a flag and no additional parameter, then
-     * the syntax must be empty.
+     * If an argument is only a flag and no additional parameter, then the
+     * syntax must be empty, and the default value is assumed to be boolean
+     * false.  When the flag is parsed in the arguments, then the value
+     * will be true.  If a default boolean value is specified for a flag
+     * with no parameters, then as a special case for long arguments, a
+     * long form can be prefixed with --no- to set the value to false.
+     * Thus a boolean option can be given an explicit default value by
+     * passing "true" or "false" as the default value, and then it can be
+     * set to "true" with the normal flag and set to "false" using the --no
+     * form.
      *
      * Typically an application's arguments are instantiated as part of the
      * application's class, so they have the same lifetime as the
@@ -101,7 +110,7 @@ public:
      * information.  See NidasApp::enableArguments().
      *
      * When the application's arguments are parsed, then this argument 
-     * is updated with the flag and value
+     * is updated with the exact flag and value that set it.
      **/
     NidasAppArg(const std::string& flags,
                 const std::string& syntax = "",
@@ -251,6 +260,15 @@ protected:
     std::string _arg;
     std::string _value;
     bool _enableShortFlag;
+
+    /**
+     * Return true for arguments which are only a single argument.  They
+     * are a single command-line flag with no following value, and
+     * typically implying a boolean value.  This is equivalent to not
+     * specifying a syntax when the argument is created.
+     **/
+    bool
+    single();
 
 private:
 

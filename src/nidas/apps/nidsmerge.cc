@@ -151,7 +151,8 @@ NidsMerge::NidsMerge():
     FilterArg(),
     KeepOpening
     ("--keep-opening", "",
-     "Open the next file when an error occurs instead of stopping.")
+     "Open the next file when an error occurs instead of stopping.",
+     "true")
 {
 }
 

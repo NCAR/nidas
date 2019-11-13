@@ -139,7 +139,21 @@ bool
 NidasAppArg::
 asBool()
 {
-  return specified();
+  std::string value = getValue();
+  bool result = false;
+
+  if (value == "yes" || value == "on" || value == "true")
+  {
+    result = true;
+  }
+  else if (value != "" && value != "no" && value != "off" && value != "false")
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " must be one of these: "
+        << "on,off,yes,no,true,false";
+    throw NidasAppException(msg.str());
+  }
+  return result;
 }
 
 
@@ -209,7 +223,7 @@ parse(const ArgVector& argv, int* argi)
   std::string flag = argv[i];
   if (accept(flag))
   {
-    if (_syntax.length())
+    if (!single())
     {
       _value = expectArg(argv, ++i);
     }
@@ -224,7 +238,15 @@ parse(const ArgVector& argv, int* argi)
 
 bool
 NidasAppArg::
-accept(const std::string& flag)
+single()
+{
+  return _syntax.length() == 0;
+}
+
+
+bool
+NidasAppArg::
+accept(const std::string& arg)
 {
   // Ignore brackets in the flags indicating deprecated flags.
   size_t start = 0;
@@ -237,10 +259,26 @@ accept(const std::string& flag)
     size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
       comma = flags.length();
-    if (flags.substr(start, comma-start) == flag &&
-	(flag.length() > 2 || _enableShortFlag))
+    string flag = flags.substr(start, comma-start);
+    if (flag == arg && (flag.length() > 2 || _enableShortFlag))
     {
+      if (single())
+      {
+        // Specifying this form of a single boolean flag sets it to true,
+        // no matter what.
+        _value = "true";
+      }
       return true;
+    }
+    // The negative form is only checked if there is a non-empty default.
+    if (single() && _default.length() && flag.substr(0, 2) == "--")
+    {
+      string negflag = "--no-" + flag.substr(2);
+      if (flag.length() > 2 && arg == negflag)
+      {
+        // The negative flag sets the value to false.
+        _value = "false";
+      }
     }
     start = comma+1;
   }
@@ -270,7 +308,10 @@ getUsageFlags()
     {
       if (uflags.length())
 	uflags += ",";
-      uflags += flags.substr(start, comma-start);
+      string flag = flags.substr(start, comma-start);
+      if (single() && _default.length() && flag.substr(0, 2) == "--")
+        flag = "--[no-]" + flag.substr(2);
+      uflags += flag;
     }
     start = comma+1;
   }
@@ -290,9 +331,9 @@ usage(const std::string& indent)
     if (!flags.empty())
       oss << " ";
     oss << _syntax;
-    if (!_default.empty())
-      oss << " [default: " << _default << "]";
   }
+  if (!_default.empty())
+    oss << " [default: " << _default << "]";
   oss << "\n";
 
   std::istringstream iss(_usage);
