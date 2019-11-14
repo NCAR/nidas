@@ -209,10 +209,14 @@ BOOST_AUTO_TEST_CASE(test_xml_parse)
   sid = SET_DSM_ID(sid, 105);
   DSMSensor* sensor = project->findSensor(sid);
 
-  // 200 has the timetable which is on after April 1.
+  // 200 has the timetable which is on after April 1, and off right before.
   TimetableTime ttime("2017-05-04,00:00:00");
   UTime when = ttime.getStartTime();
   BOOST_CHECK_EQUAL(when, UTime::parse(true, "2017 05 04 00:00:00"));
+  BOOST_CHECK_EQUAL(sensor->getTimetableTag(when), "on");
+  when = UTime::parse(true, "2017-04-01") - UTMinutes(30);
+  BOOST_CHECK_EQUAL(sensor->getTimetableTag(when), "off");
+  when = when - UTMinutes(60);
   BOOST_CHECK_EQUAL(sensor->getTimetableTag(when), "on");
   
   // 20 has no timetable.

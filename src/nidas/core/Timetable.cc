@@ -371,6 +371,14 @@ Timetable():
 }
 
 
+void
+Timetable::
+addPeriod(const TimetablePeriod& period)
+{
+    _periods.push_back(period);
+}
+
+
 TimetablePeriod
 Timetable::
 lookupPeriod(const nidas::util::UTime& when)
@@ -469,6 +477,6 @@ fromDOMElement(const xercesc::DOMElement* node)
             }
         }
         
-        TimetablePeriod tperiod(tag, start, duration);
+        addPeriod(TimetablePeriod(tag, start, duration));
     }
 }
