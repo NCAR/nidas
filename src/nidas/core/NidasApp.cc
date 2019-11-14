@@ -366,6 +366,51 @@ usage(const std::string& indent)
 
 
 
+namespace
+{
+  const char* RAFXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+  const char* ISFFXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+  const char* ISFSXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
+}
+
+std::string
+NidasApp::
+getConfigsXML()
+{
+  std::string configsXMLName;
+  const char* cfg = getenv("NIDAS_CONFIGS");
+  if (cfg)
+  {
+    // Should this be expanded for environment variables?
+    configsXMLName = cfg;
+  }
+  else
+  {
+    const char* re = getenv("PROJ_DIR");
+    const char* pe = getenv("PROJECT");
+    const char* ae = getenv("AIRCRAFT");
+    const char* ie = getenv("ISFS");
+    const char* ieo = getenv("ISFF");
+
+    if (re && pe && ae)
+      configsXMLName = n_u::Process::expandEnvVars(RAFXML);
+    else if (ie && pe)
+      configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
+    else if (ieo && pe)
+      configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
+  }
+  if (configsXMLName.empty())
+  {
+    std::ostringstream msg;
+    msg << "Cannot derive path to XML project configurations.\n"
+        << "Missing environment variables for $NIDAS_CONFIGS,\n"
+        << RAFXML << ",\nand " << ISFSXML << "\n";
+    throw NidasAppException(msg.str());
+  }
+  return configsXMLName;
+}
+
+
 NidasApp::
 NidasApp(const std::string& name) :
   XmlHeaderFile
@@ -450,6 +495,7 @@ NidasApp(const std::string& name) :
    "switching to daemon mode and running in the background.  Log messages\n"
    "are written to standard error instead of syslog.  Any logging\n"
    "configuration on the command line will replace the default debug scheme."),
+  ConfigsArg("-c,--configs"),
   _appname(name),
   _argv0(),
   _processData(false),
@@ -474,7 +520,17 @@ NidasApp(const std::string& name) :
   _hasException(false),
   _exception("")
 {
-  enableArguments(LogShow | LogFields);
+  // Build configs usage here from the settings above.
+  std::ostringstream configsmsg;
+  configsmsg <<
+    "Read the configs XML file to find the project configuration.\n"
+    "These locations are checked for the XML file, depending upon\n"
+    "which environment variables are set:\n"
+    "   $NIDAS_CONFIGS\n"
+    "   " << RAFXML << "\n"
+    "   " << ISFSXML << "\n"
+    "   " << ISFFXML << "\n";
+  ConfigsArg.setUsageString(configsmsg.str());
 
   // We want to setup a "default" LogScheme which will be overridden if any
   // other log configs are explicitly added through this NidasApp.  So
@@ -1069,7 +1125,7 @@ NidasApp::
 loggingArgs()
 {
   nidas_app_arglist_t args = 
-    LogShow | LogConfig | LogFields | LogParam;
+    LogConfig | LogShow | LogFields | LogParam;
   return args;
 }
 
@@ -1386,52 +1442,6 @@ parseUsername(const std::string& username)
 
 namespace
 {
-  const char* RAFXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
-  const char* ISFFXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-  const char* ISFSXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
-}
-
-std::string
-NidasApp::
-getConfigsXML()
-{
-  std::string configsXMLName;
-  const char* cfg = getenv("NIDAS_CONFIGS");
-  if (cfg)
-  {
-    // Should this be expanded for environment variables?
-    configsXMLName = cfg;
-  }
-  else
-  {
-    const char* re = getenv("PROJ_DIR");
-    const char* pe = getenv("PROJECT");
-    const char* ae = getenv("AIRCRAFT");
-    const char* ie = getenv("ISFS");
-    const char* ieo = getenv("ISFF");
-
-    if (re && pe && ae)
-      configsXMLName = n_u::Process::expandEnvVars(RAFXML);
-    else if (ie && pe)
-      configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
-    else if (ieo && pe)
-      configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
-  }
-  if (configsXMLName.empty())
-  {
-    std::ostringstream msg;
-    msg <<
-      "Cannot derive path to XML project configurations.\n" <<
-      "Missing environment variables for "
-      " " << RAFXML << "\n and " << ISFSXML << "\n";
-    throw n_u::InvalidParameterException(msg.str());
-  }
-  return configsXMLName;
-}
-
-
-namespace
-{
   const char* ISFSDATASETSXML = "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
   const char* ISFFDATASETSXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 }
@@ -1442,25 +1452,47 @@ NidasApp::
 getDataset(const std::string& datasetname)
   throw(n_u::InvalidParameterException, XMLException)
 {
-    string XMLName;
+  string XMLName;
+  const char* ndptr = getenv("NIDAS_DATASETS");
 
+  if (ndptr)
+  {
+    XMLName = string(ndptr);
+    ILOG(("") << "Using dataset XML path from NIDAS_DATASETS: " << XMLName);
+  }
+  else
+  {
     const char* ie = ::getenv("ISFS");
     const char* ieo = ::getenv("ISFF");
     const char* pe = ::getenv("PROJECT");
     if (ie && pe)
+    {
       XMLName = n_u::Process::expandEnvVars(ISFSDATASETSXML);
+      ILOG(("") << "Using dataset XML path from ISFS: " << XMLName);
+    }
     else if (ieo && pe)
+    {
       XMLName = n_u::Process::expandEnvVars(ISFFDATASETSXML);
-    if (XMLName.length() == 0)
-      throw n_u::InvalidParameterException("environment variables",
-                                           "ISFS,PROJECT","not found");
+      ILOG(("") << "Using dataset XML path from ISFF: " << XMLName);
+    }
+  }
+  if (XMLName.length() == 0)
+  {
+    std::ostringstream msg;
+    msg << "Datasets XML path could not be derived from one of these paths:\n"
+        << " $NIDAS_DATASETS\n"
+        << " " << ISFSDATASETSXML << "\n"
+        << " " << ISFFDATASETSXML << "\n";
+    WLOG(("") << msg.str());
+    throw NidasAppException(msg.str());
+  }
 
-    Datasets datasets;
-    datasets.parseXML(XMLName);
+  Datasets datasets;
+  datasets.parseXML(XMLName);
 
-    Dataset dataset = datasets.getDataset(datasetname);
-    dataset.putenv();
-    return dataset;
+  Dataset dataset = datasets.getDataset(datasetname);
+  dataset.putenv();
+  return dataset;
 }
 
 

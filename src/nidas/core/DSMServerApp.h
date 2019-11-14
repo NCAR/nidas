@@ -90,7 +90,7 @@ public:
      */
     const std::string& getXMLFileName() { return _xmlFileName; }
 
-    Dataset getDataset() throw(nidas::util::InvalidParameterException, XMLException);
+    Dataset getDataset();
 
 private:
 
@@ -128,12 +128,6 @@ private:
      */
     std::string _configsXMLName;
 
-    std::string _rafXML;
-
-    std::string _isffXML;
-
-    std::string _isfsXML;
-
     enum runState _runState;
 
     /** This thread provides XML-based Remote Procedure calls */
@@ -152,6 +146,10 @@ private:
     std::string _datasetName;
 
     NidasApp _app;
+
+    NidasAppArg ExternalControl;
+    NidasAppArg OptionalProcessing;
+    NidasAppArg DatasetName;
 
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);

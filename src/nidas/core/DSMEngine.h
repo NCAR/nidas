@@ -261,6 +261,9 @@ private:
 
     NidasApp _app;
 
+    NidasAppArg ExternalControl;
+    NidasAppArg DisableAutoConfig;
+
     /** No copy */
     DSMEngine(const DSMEngine&);
 
