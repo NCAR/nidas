@@ -17,7 +17,6 @@
 
 #include <string>
 #include <list>
-#include <set>
 
 
 
@@ -42,7 +41,7 @@ class NidasApp;
 class NidasAppArg;
 
 /**
- * Sets of arguments can be manipulated together by putting them into this
+ * Lists of arguments can be manipulated together by putting them into this
  * container type.  The container can be generated using operator|().
  **/
 typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
@@ -111,14 +110,37 @@ public:
      *
      * When the application's arguments are parsed, then this argument 
      * is updated with the exact flag and value that set it.
+     *
+     * Arguments can be marked as required, which allows unset required
+     * arguments to be detected by NidasApp::checkRequiredArguments().  See
+     * setRequired().
      **/
     NidasAppArg(const std::string& flags,
                 const std::string& syntax = "",
                 const std::string& usage = "",
-                const std::string& default_ = "");
+                const std::string& default_ = "",
+                bool required = false);
 
     virtual
     ~NidasAppArg();
+
+    /**
+     * Set whether this argument is required.  A required argument must be
+     * supplied on the command line even if it has a default value.  If an
+     * argument is not required because it has a default value, then an
+     * application should not set that argument to be required.
+     *
+     * Defaults to true, but the client may disable this option by setting
+     * the argument to false.
+     **/
+    void
+    setRequired(bool isRequired=true);
+
+    /**
+     * Return whether this argument is required. See setRequired().
+     **/
+    bool
+    isRequired();
 
     /**
      * Set whether short flags are enabled or not.  Pass @p enable as false
@@ -260,6 +282,7 @@ protected:
     std::string _arg;
     std::string _value;
     bool _enableShortFlag;
+    bool _required;
 
     /**
      * Return true for arguments which are only a single argument.  They
@@ -334,6 +357,11 @@ private:
 };
 
 
+/**
+ * Combine two arglists into a single arglist without any duplicates.
+ * Order is preserved, with all arguments in the the second arglist
+ * succeeding the args in the first arglist.
+ **/
 nidas_app_arglist_t
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 
@@ -702,14 +730,29 @@ public:
     enableArguments(const nidas_app_arglist_t& arglist);
 
     /**
+     * Add arguments to this NidasApp same as enableArguments() but also
+     * set them as required.  See NidasAppArg::setRequired().  An
+     * application can conveniently check whether required arguments have
+     * been set by calling checkRequiredArguments() when all arguments have
+     * been parsed.
+     **/
+    void
+    requireArguments(const nidas_app_arglist_t& arglist);
+
+    /**
+     * Verify that all NidasAppArg arguments required by this NidasApp have
+     * been specified, otherwise throw NidasAppException.
+     **/
+    void
+    checkRequiredArguments();
+
+    /**
      * Return the list of arguments which are supported by this NidasApp,
-     * in other words, the arguments enabled by enableArguments().
+     * in other words, the arguments enabled by enableArguments() or
+     * requireArguments().
      **/
     nidas_app_arglist_t
-    getArguments()
-    {
-        return nidas_app_arglist_t(_app_arguments.begin(), _app_arguments.end());
-    }
+    getArguments();
 
     /**
      * Call acceptShortFlag(false) on the given list of NidasApp instances,
@@ -801,6 +844,13 @@ public:
      * value returned by NidasAppArg::getValue().  Returns the remaining
      * unparsed arguments, same as would be returned by
      * unparsedArgs().
+     *
+     * This method deliberately does not call checkRequiredArguments(),
+     * since arguments like --help need to be handled by the caller even
+     * when required arguments are legitimately missing from the argument
+     * list.  Instead, applications with required arguments should
+     * explicitly call checkRequiredArguments() after all required
+     * arguments should have been parsed.
      *
      * The argument vector should not contain the process name.  So this is
      * a convenient way to call it from main():
@@ -1268,7 +1318,7 @@ private:
 
     bool _deleteProject;
 
-    std::set<NidasAppArg*> _app_arguments;
+    nidas_app_arglist_t _app_arguments;
 
     ArgVector _argv;
     int _argi;

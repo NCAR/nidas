@@ -71,20 +71,38 @@ NidasAppArg::
 NidasAppArg(const std::string& flags,
 	    const std::string& syntax,
 	    const std::string& usage,
-	    const std::string& default_) :
+	    const std::string& default_,
+            bool required) :
   _flags(flags),
   _syntax(syntax),
   _usage(usage),
   _default(default_),
   _arg(),
   _value(),
-  _enableShortFlag(true)
+  _enableShortFlag(true),
+  _required(required)
 {}
 
 
 NidasAppArg::
 ~NidasAppArg()
 {}
+
+
+void
+NidasAppArg::
+setRequired(const bool isRequired)
+{
+  _required = isRequired;
+}
+
+
+bool
+NidasAppArg::
+isRequired()
+{
+  return _required;
+}
 
 
 bool
@@ -549,11 +567,47 @@ void
 NidasApp::
 enableArguments(const nidas_app_arglist_t& arglist)
 {
+  _app_arguments = _app_arguments | arglist;
+}
+
+
+void
+NidasApp::
+requireArguments(const nidas_app_arglist_t& arglist)
+{
+  // All required arguments are implicitly enabled.
+  enableArguments(arglist);
   nidas_app_arglist_t::const_iterator it;
-  for (it = arglist.begin(); it != arglist.end(); ++it)
-  {
-    _app_arguments.insert(*it);
+  for (it = arglist.begin(); it != arglist.end(); ++it) {
+    (*it)->setRequired();
   }
+}
+
+
+void
+NidasApp::
+checkRequiredArguments()
+{
+  nidas_app_arglist_t args = getArguments();
+  nidas_app_arglist_t::const_iterator it = args.begin();
+  for (it = args.begin(); it != args.end(); ++it)
+  {
+    if ((*it)->isRequired() && !((*it)->specified()))
+    {
+      std::ostringstream msg;
+      msg << "Missing required argument: " << (*it)->getUsageFlags();
+      DLOG(("") << msg.str());
+      throw NidasAppException(msg.str());
+    }
+  }
+}
+
+
+nidas_app_arglist_t
+NidasApp::
+getArguments()
+{
+  return nidas_app_arglist_t(_app_arguments.begin(), _app_arguments.end());
 }
 
 
@@ -642,7 +696,7 @@ parseNext() throw (NidasAppException)
   NidasAppArg* arg = 0;
   while (!arg && _argi < (int)_argv.size())
   {
-    std::set<NidasAppArg*>::iterator it;
+    nidas_app_arglist_t::iterator it;
     int i = _argi;
     for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
     {
@@ -1024,8 +1078,15 @@ nidas_app_arglist_t
 nidas::core::
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
 {
-    std::copy(arglist2.begin(), arglist2.end(), std::back_inserter(arglist1));
-    return arglist1;
+  nidas_app_arglist_t::iterator it;
+  nidas_app_arglist_t::iterator lookup;
+  for (it = arglist2.begin(); it != arglist2.end(); ++it)
+  {
+    lookup = std::find(arglist1.begin(), arglist1.end(), *it);
+    if (lookup == arglist1.end())
+      arglist1.push_back(*it);
+  }
+  return arglist1;
 }
 
 
@@ -1036,7 +1097,7 @@ usage(const std::string& indent)
   // Iterate through the list this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
-  std::set<NidasAppArg*>::iterator it;
+  nidas_app_arglist_t::iterator it;
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);

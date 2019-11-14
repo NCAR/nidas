@@ -535,6 +535,66 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_nidas_app_requireargs)
+{
+  NidasApp app("test");
+  ILOG(("Testing missing required args"));
+
+  app.requireArguments(app.XmlHeaderFile | app.StartTime | app.EndTime);
+  app.enableArguments(app.ProcessData | app.Help | app.Hostname);
+
+  // Required arguments are implicitly enabled.
+  nidas_app_arglist_t appargs = app.getArguments();
+  nidas_app_arglist_t::const_iterator it = appargs.begin();
+  for (it = appargs.begin(); it != appargs.end(); ++it)
+  {
+    DLOG(("") << (*it)->getUsageFlags());
+  }
+  BOOST_CHECK_EQUAL(app.getArguments().size(), 8);
+  BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.XmlHeaderFile) !=
+	      appargs.end());
+  BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.Help) != appargs.end());
+  BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.EndTime) !=
+	      appargs.end());
+  BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.Hostname) !=
+	      appargs.end());
+
+  // And the required ones are required...
+  BOOST_CHECK_EQUAL(app.XmlHeaderFile.isRequired(), true);
+  BOOST_CHECK_EQUAL(app.StartTime.isRequired(), true);
+  BOOST_CHECK_EQUAL(app.EndTime.isRequired(), true);
+  BOOST_CHECK_EQUAL(app.Help.isRequired(), false);
+  BOOST_CHECK_EQUAL(app.Hostname.isRequired(), false);
+  BOOST_CHECK_EQUAL(app.ProcessData.isRequired(), false);
+
+  ArgVector args = strm_vector<std::string>() << "-h" << "-p";
+  app.parseArgs(args);
+  // An app would check for help before failing on missing arguments.
+  BOOST_CHECK_EQUAL(app.helpRequested(), true);
+  // But a further check for required arguments should throw.
+  BOOST_CHECK_THROW(app.checkRequiredArguments(), NidasAppException);
+
+  NidasApp app2("test2");
+  ILOG(("Testing no missing required args"));
+
+  app2.requireArguments(app2.XmlHeaderFile);
+  app2.enableArguments(app2.ProcessData | app2.Help | app2.Hostname);
+
+  ArgVector args2 = strm_vector<std::string>() << "-x" << "/tmp/some.xml"
+					       << "-h" << "-p";
+  BOOST_CHECK_NO_THROW(app2.parseArgs(args2));
+
+  NidasApp app3("test3");
+  ILOG(("Testing no required args specified"));
+
+  app3.enableArguments(app3.XmlHeaderFile | app3.ProcessData |
+		       app3.Help | app3.Hostname);
+
+  ArgVector args3;
+  BOOST_CHECK_NO_THROW(app2.parseArgs(args3));
+}
+
+
 BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
 {
   // Make sure incomplete arguments throw exceptions.
