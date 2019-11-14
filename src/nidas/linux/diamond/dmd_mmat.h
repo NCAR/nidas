@@ -23,7 +23,7 @@
  **
  ********************************************************************
 */
-/* a2d_driver.h
+/*
 
    Driver for Diamond Systems Corp MM AT series of Analog IO boards
 
@@ -34,7 +34,6 @@
 #ifndef NIDAS_DIAMOND_DMD_MMAT_H
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
-// #include <nidas/linux/filters/short_filters.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/a2d.h>
 
@@ -85,7 +84,6 @@ struct DMMAT_A2D_Status
  * to the driver.
  */
 #define DMM32DXAT_BOARD	3
-
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
@@ -604,7 +602,7 @@ struct DMMAT_A2D
         /**
          * the filters the user has requested.
          */
-        struct a2d_filter_info* filters;
+        struct short_filter_info* filters;
 
         /**
          * input channels requested in waveform mode
@@ -638,6 +636,13 @@ struct DMMAT_A2D
          * of the latency limit.
          */
         unsigned long lastWakeup;
+
+        struct screen_timetag_data ttdata;
+
+        /**
+         * How many messages about large time adjustments have been logged.
+         */
+        unsigned int nLargeTimeAdj;
 
 };
 

@@ -25,14 +25,8 @@
 */
 
 #include "PPT_Serial.h"
-#include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
-
-#include <asm/ioctls.h>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -41,7 +35,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,PPT_Serial)
 
-PPT_Serial::PPT_Serial():DSMSerialSensor(), _numPromptsBack(0), _numParityErr(0), _numBuffErr(0) 
+PPT_Serial::PPT_Serial(): SerialSensor(), _numPromptsBack(0), _numParityErr(0), _numBuffErr(0)
 {
 }
 
@@ -52,7 +46,7 @@ PPT_Serial::~PPT_Serial()
 
 void PPT_Serial::open(int flags) throw(n_u::IOException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 }
 
 
@@ -64,7 +58,7 @@ void PPT_Serial::close() throw(n_u::IOException)
 			                _numPromptsBack);
 
     }
-    DSMSerialSensor::close();
+    SerialSensor::close();
 }
 
 
@@ -76,13 +70,13 @@ bool PPT_Serial::process(const Sample * samp,
 
     SampleT<char>* nsamp = getSample<char>(nc);
 
-/**  Check on Bad return values and notify:
-     * - Sometimes we see the prompt returned to the process method.  IF so 
-         just track it rather than letting it pass along.
-  */
+    /* Check on Bad return values and notify:
+     * - Sometimes we see the prompt returned to the process method.  If so
+     *   just track it rather than letting it pass along.
+     */
     if (strncmp((const char*) samp->getConstVoidDataPtr(), PROMPT_PREFIX, strlen(PROMPT_PREFIX)) == 0) {
         if ((_numPromptsBack++ % 100) == 0 || _numPromptsBack < 10) {
-            WLOG(("%s: Encountered prompt returned by the sensor - number: %d", 
+            WLOG(("%s: Encountered prompt returned by the sensor - number: %d",
                   getName().c_str(), _numPromptsBack));
             nsamp->freeReference();
 	    return false;
@@ -92,7 +86,7 @@ bool PPT_Serial::process(const Sample * samp,
     // Temperature over/under error or EEPROMP parity error
     if (strncmp((const char*) samp->getConstVoidDataPtr(), PARITY_ERROR, strlen(PARITY_ERROR)) == 0) {
         if ((_numParityErr++ % 100) == 0 || _numParityErr < 10) {
-            WLOG(("%s: Encountered either Temperature over/under or EEPROMP parity error #: %d", 
+            WLOG(("%s: Encountered either Temperature over/under or EEPROMP parity error #: %d",
                   getName().c_str(), _numParityErr));
             nsamp->freeReference();
             return false;
@@ -122,7 +116,7 @@ bool PPT_Serial::process(const Sample * samp,
     }
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
-    bool rc = DSMSerialSensor::process(nsamp, results);
+    bool rc = SerialSensor::process(nsamp, results);
     nsamp->freeReference();
 
     return rc;

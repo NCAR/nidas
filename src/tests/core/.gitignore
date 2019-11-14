@@ -1,1 +1,5 @@
 /tcore
+/libs.sh
+T_2m_nonewline.dat
+vg.memcheck.log
+vg.threadcheck.log

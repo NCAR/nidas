@@ -45,22 +45,7 @@ public:
 
     CS_Krypton();
 
-    CS_Krypton(const CS_Krypton&);
-
-    CS_Krypton& operator=(const CS_Krypton&);
-
-    ~CS_Krypton();
-
     CS_Krypton* clone() const;
-
-    void setCalFile(CalFile* val);
-
-    CalFile* getCalFile();
-
-    const CalFile* getCalFile() const
-    {
-        return _calFile;
-    }
 
     /**
      * @param val Kw parameter from sensor calibration.
@@ -117,7 +102,7 @@ public:
         return _bias;
     }
 
-    void readCalFile(dsm_time_t t) throw();
+    void reset();
 
     /**
      * Convert a voltage to water vapor density in g/m^3.
@@ -132,6 +117,10 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
+protected:
+
+    void parseFields(CalFile* cf);
+
 private:
 
     float _Kw;
@@ -145,8 +134,6 @@ private:
     float _bias;
 
     float _pathLengthKw;
-
-    CalFile* _calFile;
 
 };
 

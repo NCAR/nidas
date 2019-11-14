@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -68,8 +68,10 @@ IOChannel* McSocket::connect()
     n_u::Socket* sock;
     n_u::Inet4PacketInfoX pktinfo;
 
-    if (isRequester()) sock = _mcsocket.connect(pktinfo);
-    else sock = _mcsocket.accept(pktinfo);
+    if (isRequester())
+        sock = _mcsocket.connect(pktinfo);
+    else
+        sock = _mcsocket.accept(pktinfo);
 
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(isNonBlocking());
@@ -136,9 +138,16 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "address") saddr = n_u::Process::expandEnvVars(aval);
-	    else if (aname == "port") sport = n_u::Process::expandEnvVars(aval);
-	    else if (aname == "requestType") {
+	    if (aname == "address")
+            {
+                saddr = n_u::Process::expandEnvVars(aval);
+            }
+	    else if (aname == "port")
+            {
+                sport = n_u::Process::expandEnvVars(aval);
+            }
+	    else if (aname == "requestType")
+            {
 		int i;
 	        istringstream ist(aval);
 		ist >> i;
@@ -147,7 +156,8 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 			    getName(),aname,aval);
 		setRequestType((enum McSocketRequest)i);
 	    }
-	    else if (aname == "type") {
+	    else if (aname == "type")
+            {
 		if (aval == "mcaccept") {
 		    multicast = true;
 		    setRequester(false);
@@ -164,10 +174,13 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 		    multicast = false;
 		    setRequester(true);
 		}
-		else throw n_u::InvalidParameterException(
-			getName(),"type",aval);
+		else
+                {
+                    throw n_u::InvalidParameterException(getName(),"type",aval);
+                }
 	    }
-	    else if (aname == "block") {
+	    else if (aname == "block")
+            {
 		std::istringstream ist(aval);
 		ist >> boolalpha;
 		bool val;
@@ -177,14 +190,18 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 			    "socket","block",aval);
 		setNonBlocking(!val);
 	    }
-	    else if (aname == "maxIdle") {
+	    else if (aname == "maxIdle")
+            {
 		istringstream ist(aval);
 		ist >> _keepAliveIdleSecs;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
 	    }
-	    else throw n_u::InvalidParameterException(
-	    	string("unrecognized socket attribute: ") + aname);
+	    else
+            {
+                throw n_u::InvalidParameterException
+                    (string("unrecognized socket attribute: ") + aname);
+            }
 	}
     }
 
@@ -207,8 +224,10 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
     }
 
     int port = 0;
-    if (sport.length() > 0) port = atoi(sport.c_str());
-    else port = NIDAS_SVC_REQUEST_PORT_UDP;
+    if (sport.length() > 0)
+        port = atoi(sport.c_str());
+    else
+        port = NIDAS_SVC_REQUEST_PORT_UDP;
 
     setInet4McastSocketAddress(n_u::Inet4SocketAddress(iaddr,port));
 }

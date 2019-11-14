@@ -105,7 +105,7 @@ void SyncRecordGenerator::connect(SampleSource* source) throw()
 
     _syncRecSource.connect(source);
 }
- 
+
 void SyncRecordGenerator::disconnect(SampleSource* source) throw()
 {
     n_u::Autolock alock(_connectionMutex);
@@ -113,7 +113,7 @@ void SyncRecordGenerator::disconnect(SampleSource* source) throw()
     _syncRecSource.flush();
     _connectedSources.erase(source);
 }
- 
+
 void SyncRecordGenerator::connect(SampleOutput* output) throw()
 {
 

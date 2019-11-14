@@ -34,7 +34,7 @@
 using namespace xercesc;
 
 
-A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
+A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
 {
     _variable = variable;
     _gotCalDate = _gotCalVals = false;
@@ -107,9 +107,9 @@ QString A2DVariableItem::dataField(int column)
   // So refresh them every time.
   if (column == 4) {
     QString calString, noCalString="";
-    VariableConverter *varConverter = _variable->getConverter(); 
-    if (varConverter) {  
-       CalFile * calFile = varConverter->getCalFile();  
+    VariableConverter *varConverter = _variable->getConverter();
+    if (varConverter) {
+       CalFile * calFile = varConverter->getCalFile();
        if (calFile) {
           std::string calFileName = calFile->getFile();
           if (!_gotCalVals) {
@@ -153,7 +153,7 @@ QString A2DVariableItem::dataField(int column)
   // re-initialization of the variable converter and calibration file
   // So refresh them every time.
   if (column == 5) {
-    VariableConverter * varConverter = _variable->getConverter(); 
+    VariableConverter * varConverter = _variable->getConverter();
     if (varConverter) {
       CalFile * calFile = varConverter->getCalFile();
       if (calFile) {
@@ -166,7 +166,7 @@ QString A2DVariableItem::dataField(int column)
         return QString("N/A");
   }
   if (column == 6) {
-    VariableConverter * varConverter = _variable->getConverter(); 
+    VariableConverter * varConverter = _variable->getConverter();
     if (varConverter) {
       CalFile * calFile = varConverter->getCalFile();
       if (calFile) {
@@ -254,9 +254,9 @@ int A2DVariableItem::getBipolar()
   return (a2dSensor->getBipolar(_variable->getA2dChannel()));
 }
 
-// Return a vector of strings which are the calibration coefficients starting 
-// w/offset, then least significant polinomial coef, next least, etc.  The 
-// last item is the units string.    Borrows liberally from 
+// Return a vector of strings which are the calibration coefficients starting
+// w/offset, then least significant polinomial coef, next least, etc.  The
+// last item is the units string.    Borrows liberally from
 // VariableConverter::fromString methods.
 std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 {
@@ -264,7 +264,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
   std::vector<std::string> calInfo, noCalInfo;
   noCalInfo.push_back(std::string("No Calibrations Found"));
   std::string calStr, str;
-  VariableConverter * varConverter = _variable->getConverter(); 
+  VariableConverter * varConverter = _variable->getConverter();
   if (!varConverter) return noCalInfo;  // there is no conversion string
   calStr = varConverter->toString();
   CalFile * calFile = varConverter->getCalFile();
@@ -274,9 +274,9 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
   std::string which;
   ist >> which;
   if (ist.eof() || ist.fail() || (which != "linear" && which != "poly")) {
-    std::cerr << "Somthing not right with conversion string from " 
+    std::cerr << "Somthing not right with conversion string from "
               << "variable converter\n";
-    return noCalInfo; 
+    return noCalInfo;
   }
 
   char cstr[256];
@@ -289,9 +289,9 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 
       ist >> str;
       if (ist.eof() || ist.fail())  {
-        std::cerr << "Error in linear conversion string from " 
+        std::cerr << "Error in linear conversion string from "
                   << "variable converter\n";
-        return noCalInfo;  
+        return noCalInfo;
       }
       std::string slope, intercept, units;
       if (!strcmp(cp,"slope")) slope = str;
@@ -299,7 +299,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       else {
         std::cerr << "Could not find linear slope/intercept in "
                   << "conversion string";
-        return noCalInfo; 
+        return noCalInfo;
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -315,7 +315,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       else {
         std::cerr << "Could not find linear slope/intercept in "
                   << "conversion string\n";
-        return noCalInfo; 
+        return noCalInfo;
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -336,7 +336,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in poly conversion string from "
                   << "variable converter\n";
-        return noCalInfo;  
+        return noCalInfo;
       }
       if (!strcmp(cp,"coefs")) {
           for(;;) {
@@ -350,7 +350,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
         std::cerr << "Error: Could not find poly coefs in conversion string\n";
         return noCalInfo;
       }
-  
+
       ist.str(str);
       ist.getline(cstr,sizeof(cstr),'=');
       for (cp = cstr; *cp == ' '; cp++);
@@ -363,14 +363,14 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       return calInfo;
 
     } else return noCalInfo;  // Should never happen given earlier testing.
-  
+
 }
 
 // getName() then break it up myself
-std::string A2DVariableItem::getVarNamePfx() 
-{ 
+std::string A2DVariableItem::getVarNamePfx()
+{
   std::string varName;
-  varName = _variable->getName(); 
+  varName = _variable->getName();
   unsigned underLoc = varName.find("_");
   if (underLoc != (unsigned)std::string::npos)
     varName.erase(varName.begin()+underLoc, varName.end());
@@ -378,10 +378,10 @@ std::string A2DVariableItem::getVarNamePfx()
   return varName;
 }
 
-std::string A2DVariableItem::getVarNameSfx() 
-{ 
+std::string A2DVariableItem::getVarNameSfx()
+{
   std::string varName;
-  varName = _variable->getName(); 
+  varName = _variable->getName();
   unsigned underLoc = varName.find("_");
   if (underLoc != (unsigned)std::string::npos)
     varName.erase(varName.begin(), varName.begin()+underLoc+1);
@@ -393,7 +393,7 @@ std::string A2DVariableItem::getVarNameSfx()
 DOMNode* A2DVariableItem::findVariableDOMNode(QString name)
 {
   DOMNode * sampleNode = getSampleDOMNode();
-std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = " 
+std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = "
          << sampleNode << "\n";
 
 if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item\n";
@@ -401,7 +401,7 @@ if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item\n";
   DOMNodeList * variableNodes = sampleNode->getChildNodes();
   if (variableNodes == 0) {
     std::cerr << "getChildNodes returns 0 \n";
-    throw InternalProcessingException("A2DVariableItem::findVariableDOMNode - getChildNodes return 0!");     
+    throw InternalProcessingException("A2DVariableItem::findVariableDOMNode - getChildNodes return 0!");
   }
 
   DOMNode * variableNode = 0;
@@ -412,7 +412,7 @@ std::cerr<< "found: "<<variableNodes->getLength()<<" variable nodes\n";
   for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
   {
      DOMNode * variableChild = variableNodes->item(i);
-     if (((std::string)XMLStringConverter(variableChild->getNodeName())).find("variable") 
+     if (((std::string)XMLStringConverter(variableChild->getNodeName())).find("variable")
             == std::string::npos ) continue;
 
      XDOMElement xnode((DOMElement *)variableNodes->item(i));
@@ -427,14 +427,14 @@ std::cerr<< "found: "<<variableNodes->getLength()<<" variable nodes\n";
   return(variableNode);
 }
 
-// Change the variable's name element from one name to a new name  
+// Change the variable's name element from one name to a new name
 // the old name needs to be used rather than the Nidas variable name as it may
 // already have been changed prior to this call.
 void A2DVariableItem::setDOMName(QString fromName, std::string toName)
 {
-std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString() 
+std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString()
           << ", "<< toName << ")\n";
-  if (this->findVariableDOMNode(fromName)->getNodeType() 
+  if (this->findVariableDOMNode(fromName)->getNodeType()
       != xercesc::DOMNode::ELEMENT_NODE)
     throw InternalProcessingException(
                "A2DVariableItem::setDOMName - node is not an Element node.");
@@ -455,4 +455,3 @@ std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString()
                            (const XMLCh*)XMLStringConverter(toName));
 
 }
-

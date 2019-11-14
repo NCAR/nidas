@@ -60,15 +60,22 @@ public:
      * processed data to match when the raw data was sampled, rather
      * than the time the sample was received from LabView.
      */
-    bool process(const Sample * samp,list < const Sample * >&results) throw();
+    bool process(const Sample *samp,
+                 std::list<const Sample*> &results) throw();
 
 private:
+
+    float CVTdiff(float f);
 
     /**
      * Time at 00:00:00 UTC of day
      */
     dsm_time_t _tt0;
 
+    /**
+     * Store previous CV time diff.  For repair of SOCRATES flights 3-7.
+     */
+    float prevCVTdiff;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

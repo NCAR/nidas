@@ -29,6 +29,7 @@
 
 #include "ConnectionRequester.h"
 #include "XMLException.h"
+#include "NidasApp.h"
 #include <nidas/util/Inet4SocketAddress.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -81,7 +82,7 @@ public:
     /**
      * Initialize various process parameters, uid, etc.
      */
-    int initProcess(const char* argv0);
+    int initProcess();
 
     /** main loop */
     int run() throw();
@@ -98,7 +99,7 @@ public:
     /**
      * Print runstring usage to stderr.
      */
-    void usage(const char* argv0);
+    void usage();
 
     /** Starts the main loop (for the XMLRPC call). */
     void start();
@@ -121,21 +122,6 @@ public:
     const DSMConfig* getDSMConfig() const { return _dsmConfig; }
 
     const SensorHandler* getSensorHandler() const { return _selector; }
-
-    std::string getUserName()
-    { 
-        return _username;
-    }
-
-    uid_t getUserID()
-    {
-        return _userid;
-    }
-
-    uid_t getGroupID()
-    {
-        return _groupid;
-    }
 
     /**
      * Sensors register with the DSMEngineIntf XmlRpcThread if they have a
@@ -218,8 +204,14 @@ private:
      */
     void disconnect(SampleInput*) throw() { assert(false); }
 
-    bool _externalControl;
+    /**
+     *  Scan the DOM and pull out any <autoconfig> tags, as well as change the 
+     *  autoconfig classes back to DSMSerialSensor, or isff.PropVane as needed.
+     */
+    void removeAutoConfigObjects(xercesc::DOMNode* node, bool bumpRecursion=false);
 
+    bool _externalControl;
+    bool _disableAutoconfig;
     enum run_states { DSM_RUNNING, DSM_ERROR, DSM_STOPPED } _runState;
 
     enum command _command;
@@ -259,21 +251,15 @@ private:
      */
     std::set<SampleOutput*> _outputSet;
 
-    nidas::util::Mutex            _outputMutex;
-
-    std::string _username;
-
-    std::string _hostname;
-
-    uid_t _userid;
-
-    gid_t _groupid;
+    nidas::util::Mutex _outputMutex;
 
     int _logLevel;
 
     sigset_t _signalMask;
 
     pthread_t _myThreadId;
+
+    NidasApp _app;
 
     /** No copy */
     DSMEngine(const DSMEngine&);

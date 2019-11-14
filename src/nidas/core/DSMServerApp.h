@@ -29,6 +29,7 @@
 
 #include "Datasets.h"
 #include "XMLException.h"
+#include "NidasApp.h"
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -58,7 +59,7 @@ public:
 
     void initLogger();
 
-    int initProcess(const char* argv0);
+    int initProcess();
 
     int run() throw();
 
@@ -67,7 +68,7 @@ public:
     /**
      * Send usage message to cerr.
      */
-    int usage(const char* argv0);
+    int usage();
 
     /**
      * Invoke a XMLCachingParser to parse the XML and initialize the Project.
@@ -88,21 +89,6 @@ public:
      * What is the XML configuration file name.
      */
     const std::string& getXMLFileName() { return _xmlFileName; }
-
-    std::string getUserName()
-    { 
-        return _username;
-    }
-
-    uid_t getUserID()
-    {
-        return _userid;
-    }
-
-    uid_t getGroupID()
-    {
-        return _groupid;
-    }
 
     Dataset getDataset() throw(nidas::util::InvalidParameterException, XMLException);
 
@@ -150,20 +136,12 @@ private:
 
     enum runState _runState;
 
-    std::string _username;
-
-    uid_t _userid;
-
-    gid_t _groupid;
-
     /** This thread provides XML-based Remote Procedure calls */
     DSMServerIntf* _xmlrpcThread;
 
     DSMServerStat* _statusThread;
 
     bool _externalControl;
-
-    int _logLevel;
 
     bool _optionalProcessing;
 
@@ -172,6 +150,8 @@ private:
     pthread_t _myThreadId;
 
     std::string _datasetName;
+
+    NidasApp _app;
 
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);

@@ -236,33 +236,26 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         Variable* var = vars[ivar];
         int ichan = sinfo.channels[ivar];
 
-        for (unsigned int ival = 0; sp < spend && ival < var->getLength(); ival++,fp++) {
+        for (unsigned int ival = 0; sp < spend && ival < var->getLength();
+             ival++, fp++)
+        {
             short sval = *sp++;
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
-
-            float val = _convIntercepts[ichan] +
-                _convSlopes[ichan] * sval;
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(osamp->getTimeTag(),val);
-            }
-            /* Screen values outside of min,max after the conversion */
-            if (val < var->getMinValue() || val > var->getMaxValue()) 
-                val = floatNAN;
-            *fp = val;
+            *fp = _convIntercepts[ichan] + _convSlopes[ichan] * sval;
         }
     }
 
     for ( ; fp < fpend; ) *fp++ = floatNAN;
+    applyConversions(stag, osamp);
     results.push_back(osamp);
 
     return true;
 }
 
-void A2DSensor::addSampleTag(SampleTag* tag)
+void A2DSensor::validate()
         throw(n_u::InvalidParameterException)
 {
     /*
@@ -325,194 +318,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
      If only one sample is configured, the driver does not add
      an id to the samples (backward compatibility)
      */
-    DSMSensor::addSampleTag(tag);
-
-    initParameters();
-
-    float frate = tag->getRate();
-    if (fmodf(frate,1.0) != 0.0) {
-	ostringstream ost;
-	ost << frate;
-        throw n_u::InvalidParameterException(getName(),
-		"rate must be an integer",ost.str());
-    }
-
-    int rate = (int)frate;
-    if (getScanRate() < rate) setScanRate(rate);
-    int boxcarNpts = 1;
-    bool temperature = false;
-
-    enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
-    const std::list<const Parameter*>& params = tag->getParameters();
-    list<const Parameter*>::const_iterator pi;
-    for (pi = params.begin(); pi != params.end(); ++pi) {
-        const Parameter* param = *pi;
-        const string& pname = param->getName();
-        if (pname == "filter") {
-                if (param->getType() != Parameter::STRING_PARAM ||
-                    param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"sample",
-                        "filter parameter is not a string");
-                string fname = param->getStringValue(0);
-                if (fname == "boxcar") filterType = NIDAS_FILTER_BOXCAR;
-                else if (fname == "pickoff") filterType = NIDAS_FILTER_PICKOFF;
-                else throw n_u::InvalidParameterException(getName(),"sample",
-                        fname + " filter is not supported");
-        }
-        else if (pname == "numpoints") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"sample",
-                        "bad numpoints parameter");
-                boxcarNpts = (int)param->getNumericValue(0);
-        }
-        else if (pname == "temperature") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),"sample",
-                        "bad temperature parameter");
-                temperature = (int)param->getNumericValue(0);
-        }
-    }
-    if (temperature) return;
-
-    if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0)
-        throw n_u::InvalidParameterException(getName(),"numpoints",
-            "numpoints parameter must be > 0 with boxcar filter");
-
-    int sindex = _sampleInfos.size();       // sample index, 0,1,...
-
-    const vector<Variable*>& vars = tag->getVariables();
-    int nvars = vars.size();
-
-    A2DSampleInfo sinfo(nvars);
-    sinfo.stag = tag;
-
-    A2DSampleConfig* scfg;
-
-    switch (filterType) {
-    case NIDAS_FILTER_BOXCAR:
-        scfg = new A2DBoxcarConfig(boxcarNpts);
-        break;
-    default:
-        scfg = new A2DSampleConfig();
-        break;
-    }
-    nidas_a2d_sample_config& ncfg = scfg->cfg();
-
-    ncfg.sindex = sindex;
-    ncfg.nvars = nvars;
-    ncfg.rate = rate;
-    ncfg.filterType = filterType;
-
-    int nvalues = 0;
-    for (int iv = 0; iv < nvars; iv++) {
-        Variable* var = vars[iv];
-
-        float fgain = 0.0;
-        int bipolar = -1;   // unknown
-
-        int ichan = _prevChan + 1;
-        float corSlope = 1.0;
-        float corIntercept = 0.0;
-        bool rawCounts = false;
-
-        nvalues += var->getLength();
-
-        const std::list<const Parameter*>& vparams = var->getParameters();
-        list<const Parameter*>::const_iterator pi;
-        for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
-            const Parameter* param = *pi;
-            const string& pname = param->getName();
-            if (pname == "gain") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                        pname,"no value");
-
-                fgain = param->getNumericValue(0);
-            }
-            else if (pname == "bipolar") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                        pname,"no value");
-                bipolar = param->getNumericValue(0) != 0;
-            }
-            else if (pname == "channel") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),pname,"no value");
-                ichan = (int)param->getNumericValue(0);
-            }
-            else if (pname == "corSlope") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                        pname,"no value");
-                corSlope = param->getNumericValue(0);
-            }
-            else if (pname == "corIntercept") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                        pname,"no value");
-                corIntercept = param->getNumericValue(0);
-            }
-            else if (pname == "rawCounts") {
-                if (param->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                        pname,"no value");
-                rawCounts = param->getNumericValue(0);
-            }
-        }
-        if (ichan < 0 || ichan >= getMaxNumChannels()) {
-            ostringstream ost;
-            ost << "value=" << ichan << " is outside the range 0:" <<
-                (getMaxNumChannels() - 1);
-            throw n_u::InvalidParameterException(getName(),
-                    "channel",ost.str());
-        }
-
-        if (fgain == 0.0) fgain = getGain(ichan);
-        if (fmodf(fgain,1.0) != 0.0) {
-            ostringstream ost;
-            ost << "channel " << ichan << " gain=" << fgain << " but must be an integer";
-            throw n_u::InvalidParameterException(getName(),
-                    "gain",ost.str());
-        }
-        int gain = (int)fgain;
-        if (gain == 0) {
-            ostringstream ost;
-            ost << "channel " << ichan << " gain not specified";
-            throw n_u::InvalidParameterException(getName(),
-                    "gain",ost.str());
-        }
-        if (bipolar < 0) bipolar = getBipolar(ichan);
-        if (bipolar < 0) {
-            ostringstream ost;
-            ost << "channel " << ichan << " polarity not specified";
-            throw n_u::InvalidParameterException(getName(),
-                    "bipolar",ost.str());
-        }
-
-        // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
-        setA2DParameters(ichan,gain,bipolar);
-        setConversionCorrection(ichan,corIntercept,corSlope);
-
-        var->setA2dChannel(ichan);
-        sinfo.channels[iv] = ichan;
-
-        ncfg.channels[iv] = ichan;
-        ncfg.gain[iv] = gain;
-        ncfg.bipolar[iv] = bipolar;
-        _prevChan = ichan;
-    }
-    sinfo.nvalues = nvalues;
-
-    _sampleInfos.push_back(sinfo);
-    _sampleCfgs.push_back(scfg);
-}
-
-void A2DSensor::fromDOMElement(
-	const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
-{
-
-    DSMSensor::fromDOMElement(node);
+    DSMSensor::validate();
 
     const std::list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -531,6 +337,224 @@ void A2DSensor::fromDOMElement(
                         "bad latency  parameter");
                 setLatency((int)param->getNumericValue(0));
         }
+    }
+
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* tag = *ti;
+
+        float frate = tag->getRate();
+        if (fmodf(frate,1.0) != 0.0) {
+            ostringstream ost;
+            ost << frate;
+            throw n_u::InvalidParameterException(getName(),
+                    "rate must be an integer",ost.str());
+        }
+
+        int rate = (int)frate;
+        if (getScanRate() < rate) setScanRate(rate);
+        int boxcarNpts = 1;
+        bool temperature = false;
+
+        // Default time average rate is the sample rate.
+        // User can choose a time average rate that is a multiple
+        // of the sample rate, in which case the results of the 
+        // time averaging are subsampled by a pickoff of 1 out of
+        // every N time averages, where N = timeavgRate / sample rate.
+        int timeavgRate = tag->getRate();
+
+        enum nidas_short_filter filterType = NIDAS_FILTER_PICKOFF;
+        const std::list<const Parameter*>& params = tag->getParameters();
+        list<const Parameter*>::const_iterator pi;
+        for (pi = params.begin(); pi != params.end(); ++pi) {
+            const Parameter* param = *pi;
+            const string& pname = param->getName();
+            if (pname == "filter") {
+                    if (param->getType() != Parameter::STRING_PARAM ||
+                        param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "filter parameter is not a string");
+                    string fname = param->getStringValue(0);
+                    if (fname == "boxcar") filterType = NIDAS_FILTER_BOXCAR;
+                    else if (fname == "pickoff") filterType = NIDAS_FILTER_PICKOFF;
+                    else if (fname == "timeavg") filterType = NIDAS_FILTER_TIMEAVG;
+                    else throw n_u::InvalidParameterException(getName(),"sample",
+                            fname + " filter is not supported");
+            }
+            else if (pname == "numpoints") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "bad numpoints parameter");
+                    boxcarNpts = (int)param->getNumericValue(0);
+            }
+            else if (pname == "rate") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "bad rate parameter");
+                    timeavgRate = (int)param->getNumericValue(0);
+            }
+            else if (pname == "temperature") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "bad temperature parameter");
+                    temperature = (int)param->getNumericValue(0);
+            }
+        }
+        if (temperature) continue;
+
+        if (filterType == NIDAS_FILTER_BOXCAR && boxcarNpts <= 0) {
+            throw n_u::InvalidParameterException(getName(),"numpoints",
+                "numpoints parameter must be > 0 with boxcar filter");
+
+        }
+        if (filterType == NIDAS_FILTER_TIMEAVG) {
+            ostringstream ost;
+            if (timeavgRate <= 0) {
+                ost << timeavgRate << " Hz must be > 0";
+                throw n_u::InvalidParameterException(getName(), 
+                    "timeavg rate", ost.str());
+            }
+            if (fmod((double) timeavgRate, tag->getRate()) != 0.0) {
+                ost << timeavgRate <<
+                    " Hz must be a multiple of the sample rate=" <<
+                    tag->getRate() << " Hz";
+                throw n_u::InvalidParameterException(getName(),
+                    "timeavg rate", ost.str());
+            }
+        }
+
+        int sindex = _sampleInfos.size();       // sample index, 0,1,...
+
+        const vector<Variable*>& vars = tag->getVariables();
+        int nvars = vars.size();
+
+        A2DSampleInfo sinfo(nvars);
+        sinfo.stag = tag;
+
+        A2DSampleConfig* scfg;
+
+        switch (filterType) {
+        case NIDAS_FILTER_TIMEAVG:
+            scfg = new A2DTimeAvgConfig(timeavgRate);
+            break;
+        case NIDAS_FILTER_BOXCAR:
+            scfg = new A2DBoxcarConfig(boxcarNpts);
+            break;
+        default:
+            scfg = new A2DSampleConfig();
+            break;
+        }
+        nidas_a2d_sample_config& ncfg = scfg->cfg();
+
+        ncfg.sindex = sindex;
+        ncfg.nvars = nvars;
+        ncfg.rate = rate;
+        ncfg.filterType = filterType;
+
+        int nvalues = 0;
+        for (int iv = 0; iv < nvars; iv++) {
+            Variable* var = vars[iv];
+
+            float fgain = 0.0;
+            int bipolar = -1;   // unknown
+
+            int ichan = _prevChan + 1;
+            float corSlope = 1.0;
+            float corIntercept = 0.0;
+            bool rawCounts = false;
+
+            nvalues += var->getLength();
+
+            const std::list<const Parameter*>& vparams = var->getParameters();
+            list<const Parameter*>::const_iterator pi;
+            for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
+                const Parameter* param = *pi;
+                const string& pname = param->getName();
+                if (pname == "gain") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+
+                    fgain = param->getNumericValue(0);
+                }
+                else if (pname == "bipolar") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+                    bipolar = param->getNumericValue(0) != 0;
+                }
+                else if (pname == "channel") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),pname,"no value");
+                    ichan = (int)param->getNumericValue(0);
+                }
+                else if (pname == "corSlope") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+                    corSlope = param->getNumericValue(0);
+                }
+                else if (pname == "corIntercept") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+                    corIntercept = param->getNumericValue(0);
+                }
+                else if (pname == "rawCounts") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+                    rawCounts = param->getNumericValue(0);
+                }
+            }
+            if (ichan < 0 || ichan >= getMaxNumChannels()) {
+                ostringstream ost;
+                ost << "value=" << ichan << " is outside the range 0:" <<
+                    (getMaxNumChannels() - 1);
+                throw n_u::InvalidParameterException(getName(),
+                        "channel",ost.str());
+            }
+
+            if (fgain == 0.0) fgain = getGain(ichan);
+            if (fmodf(fgain,1.0) != 0.0) {
+                ostringstream ost;
+                ost << "channel " << ichan << " gain=" << fgain << " but must be an integer";
+                throw n_u::InvalidParameterException(getName(),
+                        "gain",ost.str());
+            }
+            int gain = (int)fgain;
+            if (gain == 0) {
+                ostringstream ost;
+                ost << "channel " << ichan << " gain not specified";
+                throw n_u::InvalidParameterException(getName(),
+                        "gain",ost.str());
+            }
+            if (bipolar < 0) bipolar = getBipolar(ichan);
+            if (bipolar < 0) {
+                ostringstream ost;
+                ost << "channel " << ichan << " polarity not specified";
+                throw n_u::InvalidParameterException(getName(),
+                        "bipolar",ost.str());
+            }
+
+            // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
+            setA2DParameters(ichan,gain,bipolar);
+            setConversionCorrection(ichan,corIntercept,corSlope);
+
+            var->setA2dChannel(ichan);
+            sinfo.channels[iv] = ichan;
+
+            ncfg.channels[iv] = ichan;
+            ncfg.gain[iv] = gain;
+            ncfg.bipolar[iv] = bipolar;
+            _prevChan = ichan;
+        }
+        sinfo.nvalues = nvalues;
+
+        _sampleInfos.push_back(sinfo);
+        _sampleCfgs.push_back(scfg);
     }
 }
 

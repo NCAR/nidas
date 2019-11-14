@@ -27,24 +27,25 @@
 #ifndef NIDIS_DYNLD_TSI_CPC3772_H
 #define NIDIS_DYNLD_TSI_CPC3772_H
 
-#include "DSMSerialSensor.h"
+#include <nidas/core/SerialSensor.h>
 
 namespace nidas { namespace dynld {
+
+    using namespace nidas::core;
 
 /**
  * Support for a TSI CPC3772 particle counter.
  */
-class TSI_CPC3772: public DSMSerialSensor
+class TSI_CPC3772: public SerialSensor
 {
 public:
 
     TSI_CPC3772():
-        DSMSerialSensor(),_deltaTusecs(USECS_PER_SEC/10),_rate(0)
+        SerialSensor(),_deltaTusecs(USECS_PER_SEC/10),_rate(0)
     {
     }
 
-    void addSampleTag(SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * The CPC3772 puts out a 1 Hz sample of 10 values, which

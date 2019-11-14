@@ -24,6 +24,8 @@
  ********************************************************************
 */
 
+#include <nidas/Config.h>
+
 #include "DSMEngine.h"
 #include "Project.h"
 #include "Site.h"
@@ -51,15 +53,15 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
-#include <pwd.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
 
 #include <unistd.h>  // for getopt(), optind, optarg
 
-#ifdef HAVE_SYS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H
+#include <sys/capability.h>
 #include <sys/prctl.h>
-#endif 
+#endif
 
 using namespace nidas::core;
 using namespace std;
@@ -74,14 +76,18 @@ namespace {
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
+/*
+ *  Force _disableAutoconfig true for master branch since it is not yet merged with
+ *  autoconfig branch.
+ */
 DSMEngine::DSMEngine():
-    _externalControl(false),_runState(DSM_RUNNING),_command(DSM_RUN),
-    _syslogit(true),_configFile(),_configSockAddr(),
+    _externalControl(false),_disableAutoconfig(true),_runState(DSM_RUNNING),
+    _command(DSM_RUN),_syslogit(true),_configFile(),_configSockAddr(),
     _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _outputSet(),_outputMutex(),
-    _username(),_hostname(),_userid(0),_groupid(0),
-    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self())
+    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self()),
+    _app("dsm")
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -105,7 +111,7 @@ DSMEngine::~DSMEngine()
 }
 
 namespace {
-    void getPageFaults(long& minor,long& major, long& nswap) 
+    void getPageFaults(long& minor,long& major, long& nswap)
     {
         struct rusage r;
         getrusage(RUSAGE_SELF,&r);
@@ -137,7 +143,7 @@ int DSMEngine::main(int argc, char** argv) throw()
     // So, in general, don't start any threads before this.
     engine.initLogger();
 
-    if ((res = engine.initProcess(argv[0])) != 0) return res;
+    if ((res = engine.initProcess()) != 0) return res;
 
     long minflts,majflts,nswap;
     getPageFaults(minflts,majflts,nswap);
@@ -188,55 +194,37 @@ int DSMEngine::main(int argc, char** argv) throw()
 
 int DSMEngine::parseRunstring(int argc, char** argv) throw()
 {
-    int opt_char;            /* option character */
+    NidasAppArg ExternalControl
+        ("-r,--remote", "",
+         "Start XML RPC thread to enable to remote commands.");
+    NidasAppArg DisableAutoConfig
+        ("-n,--no-autoconfig", "",
+         "Disable autoconfig by removing all "
+         "<autoconfig> tags from the DOM \n"
+         "before invoking fromDOMElement()"
+         "and setting xml class names back \n"
+         "to DSMSerialSensor or other original value");
 
-    while ((opt_char = getopt(argc, argv, "dl:ru:h:v")) != -1) {
-	switch (opt_char) {
-	case 'd':
-	    _syslogit = false;
-            _logLevel = n_u::LOGGER_DEBUG;
-	    break;
-	case 'l':
-            _logLevel = atoi(optarg);
-	    break;
-	case 'r':
-	    _externalControl = true;
-	    break;
-	case 'u':
-            {
-                struct passwd pwdbuf;
-                struct passwd *result;
-                long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
-                if (nb < 0) nb = 4096;
-                vector<char> strbuf(nb);
-                int res;
-                if ((res = getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result)) != 0) {
-                    cerr << "getpwnam_r: " << n_u::Exception::errnoToString(res) << endl;
-                    return 1;
-                }
-                else if (result == 0) {
-                    cerr << "Unknown user: " << optarg << endl;
-                    return 1;
-                }
-                _username = optarg;
-                _userid = pwdbuf.pw_uid;
-                _groupid = pwdbuf.pw_gid;
-            }
-	    break;
-    case 'h':
-        _hostname = optarg;
-        break;
-	case 'v':
-	    cout << Version::getSoftwareVersion() << endl;
-	    return 1;
-	    break;
-	case '?':
-	    usage(argv[0]);
-	    return 1;
-	}
+    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+                         _app.Username | _app.Hostname | _app.DebugDaemon |
+                         ExternalControl | DisableAutoConfig);
+
+    ArgVector args = _app.parseArgs(argc, argv);
+    if (_app.helpRequested())
+    {
+        usage();
+        return 1;
     }
-    if (optind == argc - 1) {
-        string url = string(argv[optind++]);
+    _externalControl = ExternalControl.asBool();
+
+    /*
+     * Don't check this until master branch is merged with autoconfig branch
+    _disableAutoconfig = DisableAutoConfig.asBool();
+    */
+
+    if (args.size() == 1)
+    {
+        string url = string(args[0]);
         string type = "file";
         string::size_type ic = url.find(':');
         if (ic != string::npos) type = url.substr(0,ic);
@@ -251,7 +239,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 		ist >> port;
 		if (ist.fail()) {
 		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    usage(argv[0]);
+		    usage();
 		    return 1;
 		}
 	    }
@@ -262,150 +250,56 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
-		usage(argv[0]);
+		usage();
 		return 1;
-	    }	
+	    }
 	}
         else if (type == "file") _configFile = url;
         else {
             cerr << "unknown url: " << url << endl;
-            usage(argv[0]);
+            usage();
             return 1;
         }
     }
-
-    if (optind != argc) {
-	usage(argv[0]);
+    else if (args.size() > 1)
+    {
+	usage();
 	return 1;
     }
     return 0;
 }
 
-void DSMEngine::usage(const char* argv0) 
+void DSMEngine::usage()
 {
-    cerr << "\
-Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
-  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
-      Otherwise run in the background, cd to /, and log messages to syslog\n\
-      Specify a -l option after -d to change the log level from debug\n\
-  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-     The default level if no -d option is " << defaultLogLevel << "\n\
-  -r: rpc, start XML RPC thread to respond to external commands\n\
-  -u user: switch user id to given user after setting required capabilities\n\
-  -h host: Specify the hostname of the dsm config.\n\
-  -v: display software version number and exit\n\
-  config: either the name of a local DSM configuration XML file to be read,\n\
-      or a socket address in the form \"sock:addr:port\".\n\
-The default config is \"sock:" <<
-	NIDAS_MULTICAST_ADDR << ":" << NIDAS_SVC_REQUEST_PORT_UDP << "\"" << endl;
+    cerr <<
+        "Usage: " << _app.getName() << " [options] [config]\n"
+        "\n"
+        "config:\n"
+        "  The name of a local DSM configuration XML file\n"
+        "  to be read, or a socket address in the form \"sock:addr:port\".\n"
+        "  The default config is "
+        "\"sock:" <<
+        NIDAS_MULTICAST_ADDR << ":" <<
+        NIDAS_SVC_REQUEST_PORT_UDP << "\"" << endl;
+    cerr << "\nOptions:\n";
+    cerr << _app.usage();
 }
 
 void DSMEngine::initLogger()
 {
-    nidas::util::Logger* logger = 0;
-    n_u::LogConfig lc;
-    n_u::LogScheme logscheme("dsm");
-    lc.level = _logLevel;
-    if (_syslogit) {
-	// fork to background
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("DSMEngine","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
-	logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
-        logscheme.setShowFields("level,message");
-    }
-    else
-    {
-	logger = n_u::Logger::createInstance(&std::cerr);
-    }
-    logscheme.addConfig(lc);
-    logger->setScheme(logscheme);
+    _app.setupDaemon();
 }
 
-int DSMEngine::initProcess(const char* argv0)
+int DSMEngine::initProcess()
 {
+    _app.setupProcess();
 
-#ifdef HAVE_SYS_CAPABILITY_H 
-    /* man 7 capabilities:
-     * If a thread that has a 0 value for one or more of its user IDs wants to
-     * prevent its permitted capability set being cleared when it  resets  all
-     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
-     * PR_SET_KEEPCAPS operation.
-     *
-     * If we are started as uid=0 from sudo, and then setuid(x) below
-     * we want to keep our permitted capabilities.
-     */
-    try {
-	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
-	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
-    }
-#endif
-
-    gid_t gid = getGroupID();
-    if (gid != 0 && getegid() != gid) {
-        DLOG(("doing setgid(%d)",gid));
-        if (setgid(gid) < 0)
-            WLOG(("%s: cannot change group id to %d: %m",argv0,gid));
-    }
-
-    uid_t uid = getUserID();
-    if (uid != 0 && geteuid() != uid) {
-        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
-        if (setuid(uid) < 0)
-            WLOG(("%s: cannot change userid to %d (%s): %m", argv0,
-                uid,getUserName().c_str()));
-    }
-
-#ifdef CAP_SYS_NICE
-    try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
-    }
-#endif
-
-    // Open and check the pid file after the above daemon() call.
-    try {
-        string pidname = "/tmp/run/nidas";
-        mode_t mask = ::umask(0);
-        n_u::FileSet::createDirectory(pidname,01777);
-
-        pidname += "/dsm.pid";
-        pid_t pid = n_u::Process::checkPidFile(pidname);
-        ::umask(mask);
-
-        if (pid > 0) {
-            PLOG(("%s: pid=%d is already running",argv0,pid));
-            return 1;
-        }
-    }
-    catch(const n_u::IOException& e) {
-        PLOG(("%s: %s",argv0,e.what()));
+    if (_app.checkPidFile() != 0)
+    {
         return 1;
     }
+    _app.lockMemory();
 
-#ifdef DO_MLOCKALL
-    try {
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Cannot add CAP_IPC_LOCK capability, memory locking is not possible",argv0,e.what()));
-    }
-    ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
-    if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
-        n_u::IOException e(argv0,"mlockall",errno);
-        WLOG(("%s",e.what()));
-    }
-#endif
     return 0;
 }
 
@@ -452,7 +346,7 @@ int DSMEngine::run() throw()
             _command = DSM_RUN;
         }
 
-        
+
         if (_command == DSM_RESTART) _command = DSM_RUN;
         if (_command != DSM_RUN) continue;
 
@@ -708,7 +602,7 @@ void DSMEngine::waitForSignal(int timeoutSecs)
     if (sig < 0) {
         if (errno == EAGAIN) return;    // timeout
         // if errno == EINTR, then the wait was interrupted by a signal other
-        // than those that are unblocked here in _signalMask. This 
+        // than those that are unblocked here in _signalMask. This
         // must have been an unblocked and non-ignored signal.
         if (errno == EINTR) PLOG(("DSMEngine::waitForSignal(): unexpected signal"));
         else PLOG(("DSMEngine::waitForSignal(): ") << n_u::Exception::errnoToString(errno));
@@ -764,56 +658,146 @@ void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* s
     if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
 }
 
+void DSMEngine::removeAutoConfigObjects(xercesc::DOMNode* node, bool bumpRecursion)
+{
+    static int recursionLevel = 0;
+    xercesc::DOMNode* pChild;
+    xercesc::DOMElement* pElementNode = dynamic_cast<xercesc::DOMElement*>(node);
+
+    if (bumpRecursion) {
+        // should get here for any invocation within this method
+        ++recursionLevel;
+    }
+    else {
+        // should only happen on first invocation from outside this method
+        if (pElementNode) {
+            XDOMElement xnode(pElementNode);
+            if (xnode.getNodeName() != "project") {
+                throw n_u::InvalidParameterException(
+                    "DSMEngine::removeAutoConfigObjects(): ","starting xml node name not \"project\"",
+                        xnode.getNodeName());
+            }
+            else {
+                ILOG(("DSMEngine::removeAutoConfigObjects(): Getting off on the right foot. First tag: ")
+                        << xnode.getNodeName());
+            }
+        }
+        else {
+            throw n_u::InvalidParameterException(
+                "DSMEngine::removeAutoConfigObjects(): ","starting xml node not element tag",
+                    XMLStringConverter(node->getNodeName()));
+        }
+    }
+
+    VLOG(("DSMEngine::removeAutoConfigObjects(): recursion depth is: ") << recursionLevel);
+
+    std::string classValue;
+    int numElementChildren = 0;
+    pChild = node->getFirstChild();
+    if (!pChild) {
+        VLOG(("DSMEngine::removeAutoConfigObjects(): Root node has no children. All done. Get outta here."));
+        --recursionLevel;
+        return;
+    }
+
+    for (pChild = node->getFirstChild(); pChild != 0;
+         pChild = pChild->getNextSibling(), ++numElementChildren) {
+        VLOG(("DSMEngine::removeAutoConfigObjects(): checking element child #") << numElementChildren+1);
+
+        // nothing interesting to do if not a <serialSensor> element
+        if (pChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
+            // except check its child elements
+            VLOG(("DSMEngine::removeAutoConfigObjects(): Node is not an element tag, so recurse down..."));
+            removeAutoConfigObjects(pChild, true);
+            continue;
+        }
+
+        XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pChild));
+        if (xChild.getNodeName() != std::string("serialSensor")) {
+            VLOG(("DSMEngine::removeAutoConfigObjects(): Element node is not named serialSensor, so recurse down..."));
+            removeAutoConfigObjects(pChild, true);
+            continue;
+        }
+        else {
+            VLOG(("DSMEngine::removeAutoConfigObjects(): found element named: ") << xChild.getNodeName());
+        }
+
+        // landed on a <serialSensor> tag, so if the sensor class is one of the
+        // values called out below, warp it back to DSMSerialSensor.
+        VLOG(("DSMEngine::removeAutoConfigObjects(): Looking for class values that need to be reset..."));
+        std::string classValue = xChild.getAttributeValue("class");
+        if (classValue.length()) {
+            if (classValue == "isff.PTB210" || classValue == "isff.PTB220" ) {
+                ILOG(("DSMEngine::removeAutoConfigObjects(): Resetting ") << classValue << " to DSMSerialSensor");
+                // Change the class to instantiate to non-autoconfig
+                xChild.setAttributeValue("class", "DSMSerialSensor");
+            }
+            else if (classValue == "isff.GILL2D") {
+                xChild.setAttributeValue("class", "isff.PropVane");
+                ILOG(("DSMEngine::removeAutoConfigObjects(): resetting class value to isff.PropVane for: ") << classValue);
+            }
+            else {
+                VLOG(("DSMEngine::removeAutoConfigObjects(): Skipping class value: ") << classValue);
+            }
+        }
+        else {
+            VLOG(("DSMEngine::removeAutoConfigObjects(): No attributes named \"class\" to check in this serial sensor..."));
+        }
+
+        VLOG(("DSMEngine::removeAutoConfigObjects(): Also check element for an <autoconfig> tag to remove"));
+        xercesc::DOMNode* pSensorChild = pChild->getFirstChild();
+        if (!pSensorChild) {
+            VLOG(("DSMEngine::removeAutoConfigObjects(): serialSensor element has no sub-children."));
+            continue;
+        }
+
+        int numSubElementChild = 0;
+        for (; pSensorChild != 0;
+               pSensorChild = pSensorChild->getNextSibling(), ++numSubElementChild) {
+            VLOG(("DSMEngine::removeAutoConfigObjects(): Checking subElement child #") << numSubElementChild+1);
+            if (pSensorChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
+                removeAutoConfigObjects(pSensorChild, true);
+                continue;
+            }
+
+            XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pSensorChild));
+            if (xChild.getNodeName() != "autoconfig") {
+                removeAutoConfigObjects(pSensorChild, true);
+                continue;
+            }
+
+            pChild->removeChild(pSensorChild);
+            ILOG(("DSMEngine::removeAutoConfigObjects(): removed <autoconfig> tag from: ") << classValue);
+            break; // should only be one <autoconfig> tag
+        }
+    }
+    VLOG(("DSMEngine::removeAutoConfigObjects(): Done checking at recursion level: ") << recursionLevel);
+    --recursionLevel;
+}
+
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	throw(n_u::InvalidParameterException)
 {
     _project = new Project();
 
-    _project->fromDOMElement(projectDoc->getDocumentElement());
+    if (_disableAutoconfig) {
+        ILOG(("DSMEngine::initialize(): _disableAutoconfig is true. Pull all the <autoconfig> tags out of DOM"));
+        xercesc::DOMNode* node = projectDoc->getDocumentElement();
+        removeAutoConfigObjects(node);
+    }
+
+     _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
     if (_configFile.length() > 0)
 	_project->setConfigName(_configFile);
 
-    if (_hostname.empty())
-    {
-        char hostnamechr[256];
-        gethostname(hostnamechr,sizeof(hostnamechr));
-        _hostname = hostnamechr;
-    }
-
-    // location of first dot of hostname, or if not found 
-    // the host string match will be done against entire hostname
-    string::size_type dot = _hostname.find('.');
-
-    _dsmConfig = 0;
-    DSMConfig* dsm = 0;
-    int ndsms = 0;
-
-    const list<Site*>& sites = _project->getSites();
-    list<Site*>::const_iterator si;
-    for (si = sites.begin(); !_dsmConfig && si != sites.end(); ++si) {
-        Site* site = *si;
-        const list<DSMConfig*>& dsms = site->getDSMConfigs();
-
-        list<DSMConfig*>::const_iterator di;
-        for (di = dsms.begin(); !_dsmConfig && di != dsms.end(); ++di) {
-            dsm = *di;
-            ndsms++;
-            if (dsm->getName() == _hostname ||
-                dsm->getName() == _hostname.substr(0,dot)) {
-                _dsmConfig = dsm;
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "DSMEngine: found <dsm> for %s",
-                    _hostname.c_str());
-                break;
-            }
-        }
-    }
-    if (ndsms == 1) _dsmConfig = dsm;
-
+    std::string hostname = _app.getHostName();
+    _dsmConfig = _project->findDSMFromHostname(hostname);
     if (!_dsmConfig)
-    	throw n_u::InvalidParameterException("dsm","no match for hostname",
-		_hostname);
+    {
+        throw n_u::InvalidParameterException("dsm","no match for hostname",
+                                             hostname);
+    }
 }
 
 void DSMEngine::openSensors() throw(n_u::IOException)
@@ -897,7 +881,7 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
     catch (const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "DSMEngine: error closing %s: %s",
-	    	output->getName().c_str(),ioe.what());
+                output->getName().c_str(),ioe.what());
     }
 
     SampleOutput* orig = output->getOriginal();

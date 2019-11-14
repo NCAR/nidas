@@ -30,10 +30,6 @@
 #include <nidas/linux/ncar_a2d.h>
 #include <nidas/linux/irigclock.h>
 
-#include <vector>
-#include <map>
-#include <set>
-
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
@@ -95,8 +91,7 @@ public:
     bool process(const Sample*,std::list<const Sample*>& result)
         throw();
 
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Get the current temperature. Sends a ioctl to the driver module.
@@ -109,7 +104,7 @@ public:
      */
     void readCalFile(dsm_time_t tt) throw();
 
-    int getInt32TimeTagUsecs() const 
+    int getInt32TimeTagUsecs() const
     {
         return USECS_PER_MSEC;
     }
@@ -137,7 +132,7 @@ protected:
      *		coeficients than nexpect.
      */
     int readFilterFile(const std::string& name,unsigned short* coefs,
-    	int nexpect);
+	int nexpect);
 
     /**
      * The output delta t, 1/rate, in microseconds.
@@ -222,7 +217,7 @@ protected:
 //@}
 
 private:
-    
+
     /** No copying. */
     DSMAnalogSensor(const DSMAnalogSensor&);
 

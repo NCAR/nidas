@@ -203,24 +203,6 @@ namespace nidas { namespace util {
 #define	LOG_VERBOSE LOG_CONTEXT(LOGGER_VERBOSE)
 
 /**
- * Provide Synchronized functionality without exposing the Logger mutex member.
- * Of course the mutex is still not completely private since anyone can use
- * the LogLock.
- *
- * This turned out to be not a good idea and is now obsolete.  It should
- * eventually be removed.  The global Logger lock should only be locked
- * where global Logger state needs to be protected.  If things like a
- * LogContext need to be guarded, they should be guarded with their own
- * lock instances, as described in the LOGGER_LOGPOINT() macro.
- **/
-class LogLock
-{
-public:
-    LogLock();
-    virtual ~LogLock();
-};
-
-/**
  * This macro creates a static LogContext instance that is not in
  * thread-local storage and therefore is not thread-safe.  The active flag
  * will be written from any thread which changes the log configuration, and
@@ -782,12 +764,41 @@ public:
         setParameter(const std::string& name, const std::string& value);
 
         /**
-         * Return the value of the parameter.  If the parameter has not
-         * been set, then return the default.
+         * Return the string value of the parameter with name @p name.  If
+         * the parameter has not been set in this LogScheme, then return
+         * the default value @p dvalue.  See getParameterT() to retrieve
+         * the string value as a particular type.
          **/
         std::string
         getParameter(const std::string& name, const std::string& dvalue="");
 
+        /**
+         * Lookup a parameter with name @p name in a LogScheme and convert
+         * the value to the type of the @p dvalue parameter.  If the
+         * parameter has not been set in this LogScheme or cannot be
+         * converted, then return @p dvalue.
+         *
+         * Below is an example of using a log parameter to throttle the
+         * frequency of a log message.  The first section retrieves the value,
+         * the second logs the message.
+         *
+         * @code
+         * _discardWarningCount = 1000;
+         * _discardWarningCount =
+         * LogScheme::current().getParameterT("_discard_warning_count",
+         *                                    _discardWarningCount);
+         * @endcode
+         *
+         * Then use the parameter value like so:
+         *
+         * @code
+         * if (!(_discardedSamples++ % _discardWarningCount))
+         *     WLOG(("%d samples discarded... ", _discardedSamples));
+         * @endcode
+         *
+         * See the NidasApp class 'logparam' option to set a LogScheme
+         * parameter on the command-line.
+         **/
         template <typename T>
         T
         getParameterT(const std::string& name, const T& dvalue = T());
@@ -1085,13 +1096,16 @@ public:
 #endif
 
         /**
-         * Send a log message for the given LogContext @p lc.  No check is
-         * done for whether the context is active or not, the message is
-         * just immediately sent to the current log output, formatted
-         * according to the context.  For syslog output, the message and
-         * severity level are passed.  For all other output, the message
-         * includes the current time and the log context info, such as
-         * filename, line number, function name, and thread name.
+         * Send a log message for the given LogContext @p lc.  The Logger
+         * double-checks that the LogContext is active, to guard against
+         * (or allow) code which logs messages that are not guarded by a
+         * test of lc.active().  If active, the message is just immediately
+         * sent to the current log output, formatted according to the
+         * context.  For syslog output, the message and severity level are
+         * passed, but VERBOSE messages are never passed to syslog.  For
+         * all other output, the message includes the current time and the
+         * log context info, such as filename, line number, function name,
+         * and thread name.
          **/
         void
         msg(const LogContext& lc, const std::string& msg);
@@ -1181,7 +1195,6 @@ public:
         void
         msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
 
-        friend class nidas::util::LogLock;
         friend class nidas::util::LogContext;
         friend class nidas::util::LogScheme;
 
@@ -1206,18 +1219,6 @@ public:
     log() const
     {
         return LogMessage(this);
-    }
-
-    inline
-    LogLock::LogLock() 
-    {
-        nidas::util::Logger::mutex.lock();
-    }
-
-    inline
-    LogLock::~LogLock() 
-    {
-        nidas::util::Logger::mutex.unlock();
     }
 
     template <typename T>

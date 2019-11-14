@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -38,6 +38,8 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 
 StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
                                        const SampleTag* stag,
@@ -78,6 +80,7 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     case STATS_MAXIMUM:
     case STATS_MEAN:
     case STATS_VAR:
+    case STATS_SUM:
         _crossTerms = false;
 	break;
     case STATS_COV:
@@ -163,6 +166,7 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
     if (type == "minimum" || type == "min")		stype = STATS_MINIMUM;
     else if (type == "maximum" || type == "max") 	stype = STATS_MAXIMUM;
     else if (type == "mean")				stype = STATS_MEAN;
+    else if (type == "sum")				stype = STATS_SUM;
     else if (type == "variance" || type == "var") 	stype = STATS_VAR;
     else if (type == "covariance")			stype = STATS_COV;
     else if (type == "flux")				stype = STATS_FLUX;
@@ -747,18 +751,28 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
 	    _n4mom = nv;
 	    break;
 	}
-
-        if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable();
-	    _outSample.addVariable(v);
-	}
-        Variable& var = _outSample.getVariable(_nOutVar);
-	var.setName(name);
-	var.setLongName(longname);
-	var.setUnits(units);
-        _nOutVar++;
+        addVariable(name, longname, units);
     }
 }
+
+
+void
+StatisticsCruncher::
+addVariable(const std::string& name,
+            const std::string& longname,
+            const std::string& units)
+{
+    if (_outSample.getVariables().size() <= _nOutVar) {
+        Variable* v = new Variable();
+        _outSample.addVariable(v);
+    }
+    Variable& var = _outSample.getVariable(_nOutVar);
+    var.setName(name);
+    var.setLongName(longname);
+    var.setUnits(units);
+    _nOutVar++;
+}
+
 
 void StatisticsCruncher::setupWindDir()
     throw(n_u::InvalidParameterException)
@@ -1107,6 +1121,12 @@ void StatisticsCruncher::createCombinations()
     _ncov = _ntri = _n1mom = _n2mom = _n3mom = _n4mom = 0;
 
     switch(_statsType) {
+    case STATS_SUM:
+        // Assume that the variable is a measure of amount over a range of
+        // time, ie, rain accumulation, so that it makes sense to sum it
+        // over the stats period, and the resulting measurement has the
+        // same name and units.  Fall through and setup same as for MEAN,
+        // but the result will not be divided by N.
     case STATS_MEAN:
 	setupMoments(_ninvars,1);
 	break;
@@ -1173,27 +1193,29 @@ void StatisticsCruncher::createCombinations()
 	break;
     }
     _ntot = _n1mom + _n2mom + _ncov + _ntri + _n3mom + _n4mom;
-#ifdef DEBUG
-    cerr << "ntot=" << _ntot << " outsamp vars=" <<
-    	_outSample.getVariables().size() << endl;
-    cerr << "n1mom=" << _n1mom << " n2mom=" << _n2mom <<
-        " ncov=" << _ncov << " ntri=" << _ntri <<
-        " n3mom=" << _n3mom << " n4mom=" << _n4mom << endl;
-#endif
+    VLOG(("") << "ntot=" << _ntot << " outsamp vars="
+         << _outSample.getVariables().size() << "\n"
+         << "n1mom=" << _n1mom << " n2mom=" << _n2mom
+         << " ncov=" << _ncov << " ntri=" << _ntri
+         << " n3mom=" << _n3mom << " n4mom=" << _n4mom);
     assert(_ntot == _outSample.getVariables().size());
     assert(_nOutVar == _ntot);
 
-#ifdef DEBUG
-    cerr << "createCombinations: ";
-    VariableIterator vi = _outSample.getVariableIterator();
-    for ( ; vi.hasNext(); ) {
-	const Variable* var = vi.next();
-        cerr << var->getName() << '(' << var->getStation() << ") ";
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active())
+    {
+        LogMessage msg;
+        msg << "createCombinations: ";
+        VariableIterator vi = _outSample.getVariableIterator();
+        for ( ; vi.hasNext(); ) {
+            const Variable* var = vi.next();
+            cerr << var->getName() << '(' << var->getStation() << ") ";
+        }
     }
-    cerr << endl;
-#endif
     for (unsigned int i = 0; i < _outSample.getVariables().size(); i++)
+    {
         _outSample.getVariable(i).setStation(_station);
+    }
 }
 
 void StatisticsCruncher::initStats()
@@ -1297,7 +1319,6 @@ void StatisticsCruncher::zeroStats()
 
 bool StatisticsCruncher::receive(const Sample* samp) throw()
 {
-
     assert(samp->getType() == FLOAT_ST || samp->getType() == DOUBLE_ST);
 
     dsm_sample_id_t id = samp->getId();
@@ -1345,13 +1366,17 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	}
     }
 
-#ifdef DEBUG
-    n_u::UTime ut(tt);
-    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << " id=" << samp->getDSMId() << ',' << samp->getSpSId() << ' ';
-    for (i = 0; (signed) i < nvsamp; i++)
-	cerr << samp->getDataValue(i) << ' ';
-    cerr << endl;
-#endif
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active())
+    {
+        LogMessage msg;
+        n_u::UTime ut(tt);
+        msg << ut.format(true,"%Y %m %d %H:%M:%S.%6f")
+            << " id=" << samp->getDSMId() << ','
+            << samp->getSpSId() << ' ';
+        for (unsigned int i = 0; i < nvsamp; i++)
+            msg << samp->getDataValue(i) << ' ';
+    }
 
     if (_crossTerms && nonNANs < _ninvars) return false;
 
@@ -1377,6 +1402,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
 	}
 	return true;
     case STATS_MEAN:
+    case STATS_SUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
 	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
@@ -1615,6 +1641,19 @@ void StatisticsCruncher::computeStats()
 	    else outData[l++] = floatNAN;
 	}
 	break;
+    case STATS_SUM:
+	for (i=0; i < _ninvars; i++) {
+            // If there were no good samples in this period, then call the
+            // sum a missing value.  Reporting a sum of 0 could imply the
+            // sensor was working but reporting zero amounts.  So
+            // distinguish between actual 0 amounts and no reports, and let
+            // users decide how to interpret a sum with a missing value.
+	    if (_nSamples[i] > 0)
+                outData[l++] = _xSum[i];
+	    else
+                outData[l++] = floatNAN;
+	}
+	break;
     case STATS_WINDDIR:
         if (_nSamples[0] > 0) {
             double u = _xSum[0] / _nSamples[0];
@@ -1744,13 +1783,16 @@ void StatisticsCruncher::computeStats()
 
     if (_numpoints) outData[l++] = (float) nSamp;
 
-#ifdef DEBUG
-    cerr << "Covariance Sample: " <<
-    	n_u::UTime(_tout-_periodUsecs/2).format(true,"%Y %m %d %H:%M:%S") << ' ';
-    for (i = 0; i < _ntot; i++) cerr << outData[i] << ' ';
-    cerr << '\n';
-#endif
-
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active())
+    {
+        LogMessage msg;
+        msg << "Covariance Sample: "
+            << n_u::UTime(_tout-_periodUsecs/2).format(true,"%Y %m %d %H:%M:%S")
+            << ' ';
+        for (i = 0; i < _ntot; i++)
+            msg << outData[i] << ' ';
+    }
     zeroStats();
 
     _source.distribute(osamp);

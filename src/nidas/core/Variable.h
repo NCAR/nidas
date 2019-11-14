@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -163,8 +163,8 @@ public:
     void setPrefix(const std::string& val)
     {
         _prefix = val;
-	_name = _prefix + _suffix + _siteSuffix;
-	_nameWithoutSite = _prefix + _suffix;
+        _name = _prefix + _suffix + _siteSuffix;
+        _nameWithoutSite = _prefix + _suffix;
     }
 
     const std::string& getPrefix() const { return _prefix; }
@@ -181,8 +181,8 @@ public:
     void setSuffix(const std::string& val)
     {
         _suffix = val;
-	_name = _prefix + _suffix + _siteSuffix;
-	_nameWithoutSite = _prefix + _suffix;
+        _name = _prefix + _suffix + _siteSuffix;
+        _nameWithoutSite = _prefix + _suffix;
     }
 
     /**
@@ -197,11 +197,11 @@ public:
      */
     void setName(const std::string& val)
     {
-	_suffix.clear();
-	_siteSuffix.clear();
-	_prefix = val;
+        _suffix.clear();
+        _siteSuffix.clear();
+        _prefix = val;
         _name = _prefix;
-	_nameWithoutSite = _prefix;
+        _nameWithoutSite = _prefix;
     }
 
     const std::string& getName() const { return _name; }
@@ -243,14 +243,75 @@ public:
      * Set the VariableConverter for this Variable.
      * Variable will own the pointer and will delete it.
      */
-    void setConverter(VariableConverter* val) {
-	delete _converter;
-    	_converter = val;
+    void setConverter(VariableConverter* val)
+    {
+        delete _converter;
+        _converter = val;
     }
 
     const VariableConverter* getConverter() const { return _converter; }
 
     VariableConverter* getConverter() { return _converter; }
+
+    /**
+     * Apply the conversions for this Variable to the floats pointed to by
+     * @p values, putting the results in @p results, up to @p nvalues.  Any
+     * calibrations are looked up using time @p ttag.  The min/max value
+     * limits of a variable are applied also, so if a variable value is
+     * converted but lies outside the min/max range, the value is set to
+     * floatNAN.  
+     *
+     * If @p nvalues is null, then multiple values will be converted up to
+     * the length of the Variable, otherwise only the number given in @p
+     * nvalues.  If @p results is null, then the converted values will be
+     * written back into the array pointed to by @p values.  Both @p values
+     * and @p results must point to enough memory to hold @p nvalues
+     * floats.  Typically the results of the conversions are written over
+     * the values passed in, and @p values points into the memory in a
+     * DSMSensor output sample.  However, if a sensor needs custom handling
+     * of the results, then the inputs and outputs can be kept separate.
+     * For example, The TRH Wisard sensor can keep the Ifan value as it was
+     * but convert T and RH to floatNAN if the Ifan result is NAN, meaning
+     * Ifan was bad or out of range.  It is safe to pass @p results equal
+     * to @p values, the effect is the same as calling convert() with @p
+     * results=null.
+     *
+     * Usually this conversion is the last step applied to the output
+     * sample of a sensor's process() method, and this method is called
+     * from the DSMSensor::applyConversions() method.
+     *
+     * If this Variable has a Site (getSite() returns non-null) and the
+     * Site's getApplyVariableConversions() returns false, then no
+     * conversions are applied, not even the min/max limit
+     * filter. Otherwise the conversions are applied.
+     *
+     * Originally, the getApplyVariableConversions() was called on
+     * DSMSensor, usually inside a sensor subclass process() method.
+     * However, that value is usually copied from the Site's applyCals
+     * attribute.  So the value of the flag should be the same for both
+     * Site and DSMSensor, unless there are some uses out there which
+     * change the DSMSensor's value, such as in the sensor subclass itself.
+     * However, if a Sensor does not want to apply conversions, then it can
+     * just avoid calling any conversion methods.
+     *
+     * The original code limit filtered values whether conversion was
+     * applied or not, and there was some inconsistency in the domain of
+     * the min/max values: Did they apply to values before or after
+     * conversion?  The convention will be that min/max are in the
+     * converted space, so now no filtering happens based on min/max if
+     * conversions not applied first.  It also makes sense that disabling
+     * conversions, presumably to see the more raw values, implies not
+     * limit filtering any values either.  In practice this change should
+     * have little effect, since the 'applyCals' Site attribute is rarely
+     * enabled.
+     *
+     * The return value points just past the last element in @p values to
+     * be converted.  Note that @p results is not passed by reference,
+     * therefore if non-null it must be advanced after the call to
+     * convert().
+     **/
+    float*
+    convert(dsm_time_t ttag, float* values, int nvalues=0, float* results=0);
 
     /**
      * Add a parameter to this Variable. Variable
@@ -260,7 +321,7 @@ public:
     void addParameter(Parameter* val)
     {
         _parameters.push_back(val);
-	_constParameters.push_back(val);
+        _constParameters.push_back(val);
     }
 
     /**
@@ -340,15 +401,15 @@ public:
     bool isDynamic() const { return _dynamic; }
 
     void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent,bool complete) const
+        throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node,bool complete) const
+        throw(xercesc::DOMException);
 
 private:
 
@@ -405,6 +466,6 @@ private:
 
 };
 
-}}	// namespace nidas namespace core
+}} // namespace nidas namespace core
 
 #endif

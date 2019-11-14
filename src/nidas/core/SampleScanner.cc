@@ -28,6 +28,7 @@
 #include "DSMSensor.h"
 #include "Project.h"
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
@@ -301,10 +302,13 @@ MessageStreamScanner::MessageStreamScanner(int bufsize):
     SampleScanner(bufsize),
     _nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
     _tfirstchar(LONG_LONG_MIN),
+    _lastBufferTime(LONG_LONG_MIN),
+    _lastSampleTime(LONG_LONG_MIN),
     MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
     _separatorCnt(0),_bomtt(LONG_LONG_MIN),
     _sampleOverflows(0),_sampleLengthAlloc(0),
-    _nullTerminate(false),_nsmallSamples(0),_outSampLengthAlloc(0)
+    _nullTerminate(false),_nsmallSamples(0),_outSampLengthAlloc(0),
+    _stepBackwards(false), _stepBackTimeTag(0), _nonIncrTimeTag(0)
 {
 }
 
@@ -410,24 +414,56 @@ Sample* MessageStreamScanner::requestBiggerSample(unsigned int nc)
 size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     throw(n_u::IOException)
 {
-    // grab the current time, since we assign timetags.
-    _tfirstchar = n_u::getSystemTime();
+    // grab the current time. This is a best estimate of the receipt
+    // time of the last character in the buffer.
+    dsm_time_t tlastchar = n_u::getSystemTime();
     size_t rlen = SampleScanner::readBuffer(sensor,exhausted);
+
     // cerr << "readBuffer, rlen=" << rlen << endl;
-    _tfirstchar -= rlen * getUsecsPerByte();
+    _tfirstchar = tlastchar - rlen * getUsecsPerByte();
+
+    // looks like a backwards step change of system clock
+    _stepBackwards = tlastchar < _lastBufferTime;
+    _lastBufferTime = tlastchar;
     return rlen;
 }
 
 size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted, int msecTimeout)
     throw(n_u::IOException)
 {
-    // grab the current time, since we assign timetags.
-    _tfirstchar = n_u::getSystemTime();
+    // grab the current time. This is a best estimate of the receipt
+    // time of the last character in the buffer.
+    dsm_time_t tlastchar = n_u::getSystemTime();
     size_t rlen = SampleScanner::readBuffer(sensor,exhausted, msecTimeout);
-    // cerr << "readBuffer, rlen=" << rlen << endl;
-    _tfirstchar -= rlen * getUsecsPerByte();
+
+    _tfirstchar = tlastchar - rlen * getUsecsPerByte();
+
+    // looks like a backwards step change of system clock
+    _stepBackwards = tlastchar < _lastBufferTime;
+    _lastBufferTime = tlastchar;
     return rlen;
 }
+
+void MessageStreamScanner::warnNonIncrTimeTag(
+    const DSMSensor *sensor,
+    dsm_time_t badtt, dsm_time_t cortt, unsigned int nbad)
+{
+    WLOG(("%s (%u,%u): non-forward time (%u so far): %s, corrected ahead by %f sec",
+        sensor->getName().c_str(),
+        sensor->getDSMId(), sensor->getSensorId(), nbad,
+        n_u::UTime(badtt).format(true,"%Y %b %d %H:%M:%S.%3f").c_str(),
+        (cortt - badtt) / (double)USECS_PER_SEC));
+}
+
+void MessageStreamScanner::warnBackwardsStepTimeTag(
+    const DSMSensor *sensor, dsm_time_t badtt, unsigned int nbad)
+{
+    WLOG(("%s (%u,%u): non-forward time, due to backwards step-change (%u so far): %s, no correction applied",
+        sensor->getName().c_str(),
+        sensor->getDSMId(), sensor->getSensorId(), nbad,
+        n_u::UTime(badtt).format(true,"%Y %b %d %H:%M:%S.%3f").c_str()));
+}
+
 Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
 {
     Sample* result = 0;
@@ -439,7 +475,22 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
         if (_buftail == _bufhead) return 0;
 	_osamp = getSample<char>(_sampleLengthAlloc);
         _osamp->setId(sensor->getId());
-        _osamp->setTimeTag(_tfirstchar + _buftail * getUsecsPerByte());
+        dsm_time_t ttag = _tfirstchar + _buftail * getUsecsPerByte();
+
+        if (ttag <= _lastSampleTime) {
+            if (_stepBackwards) {
+                if (!(_stepBackTimeTag++ % 100))
+                    warnBackwardsStepTimeTag(sensor,ttag,_stepBackTimeTag);
+            }
+            else {
+                if (!(_nonIncrTimeTag++ % 100))
+                    warnNonIncrTimeTag(sensor,ttag,
+                        _lastSampleTime + 1, _nonIncrTimeTag);
+                ttag = _lastSampleTime + 1;
+            }
+        }
+        _lastSampleTime = ttag;
+        _osamp->setTimeTag(ttag);
 	_outSampDataPtr = (char*) _osamp->getVoidDataPtr();
         _outSampLengthAlloc = _osamp->getAllocByteLength();
 	_outSampRead = 0;
@@ -567,7 +618,22 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
 	_outSampDataPtr = (char*) _osamp->getVoidDataPtr();
         _outSampLengthAlloc = _osamp->getAllocByteLength();
         // set default timetag in case we never find a BOM again.
-        _osamp->setTimeTag(_tfirstchar + _buftail * getUsecsPerByte());
+        dsm_time_t ttag = _tfirstchar + _buftail * getUsecsPerByte();
+
+        if (ttag <= _lastSampleTime) {
+            if (_stepBackwards) {
+                if (!(_stepBackTimeTag++ % 100))
+                    warnBackwardsStepTimeTag(sensor,ttag,_stepBackTimeTag);
+            }
+            else {
+                if (!(_nonIncrTimeTag++ % 100))
+                    warnNonIncrTimeTag(sensor,ttag,
+                        _lastSampleTime + 1, _nonIncrTimeTag);
+                ttag = _lastSampleTime + 1;
+            }
+        }
+        _lastSampleTime = ttag;
+        _osamp->setTimeTag(ttag);
 	_outSampRead = 0;
 	_separatorCnt = 0;
     }
@@ -650,7 +716,22 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
                     _outSampDataPtr = (char*) _osamp->getVoidDataPtr();
                     _outSampLengthAlloc = _osamp->getAllocByteLength();
                 }
+
+                if (_bomtt <= _lastSampleTime) {
+                    if (_stepBackwards) {
+                        if (!(_stepBackTimeTag++ % 100))
+                            warnBackwardsStepTimeTag(sensor, _bomtt, _stepBackTimeTag);
+                    }
+                    else {
+                        if (!(_nonIncrTimeTag++ % 100))
+                            warnNonIncrTimeTag(sensor, _bomtt,
+                                _lastSampleTime + 1, _nonIncrTimeTag);
+                        _bomtt = _lastSampleTime + 1;
+                    }
+                }
+                _lastSampleTime = _bomtt;
                 _osamp->setTimeTag(_bomtt);
+
                 // copy separator to beginning of next sample
                 ::memcpy(_outSampDataPtr,_separator,_separatorCnt);
                 _outSampRead = _separatorCnt;
@@ -744,8 +825,25 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
 	_separatorCnt = 0;
     }
 
-    if (_outSampRead == 0)
-        _osamp->setTimeTag(_tfirstchar + _buftail * getUsecsPerByte());
+
+    if (_outSampRead == 0) {
+        dsm_time_t ttag = _tfirstchar + _buftail * getUsecsPerByte();
+
+        if (ttag <= _lastSampleTime) {
+            if (_stepBackwards) {
+                if (!(_stepBackTimeTag++ % 100))
+                    warnBackwardsStepTimeTag(sensor,ttag,_stepBackTimeTag);
+            }
+            else {
+                if (!(_nonIncrTimeTag++ % 100))
+                    warnNonIncrTimeTag(sensor,ttag,
+                        _lastSampleTime + 1, _nonIncrTimeTag);
+                ttag = _lastSampleTime + 1;
+            }
+        }
+        _lastSampleTime = ttag;
+        _osamp->setTimeTag(ttag);
+    }
 
     int nc = getMessageLength() - _outSampRead;
     // cerr << "MessageStreamScanner::nextSampleByLength , nc=" << nc << endl;
@@ -797,29 +895,47 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     _packetLengths.clear();
     _packetTimes.clear();
 
+    size_t len = sensor->getBytesAvailable();
+    if (len > BUFSIZE) {
+        exhstd = false;
+        n_u::Logger* logger = n_u::Logger::getInstance();
+        logger->log(LOG_WARNING,"%s: huge packet received, %d bytes, will be truncated to %d",
+            sensor->getName().c_str(),len,BUFSIZE);
+    }
+
     for (;;) {
-        size_t len = sensor->getBytesAvailable();
-        if (len == 0) break;    // exhausted = true, no data left
-        if (len + _bufhead > BUFSIZE) {
-            if (len > BUFSIZE) {
-                if (_bufhead > 0) break;    // read big fella next time
-                n_u::Logger* logger = n_u::Logger::getInstance();
-                logger->log(LOG_WARNING,"%s: huge packet received, %d bytes, will be truncated to %d",
-                    sensor->getName().c_str(),len,BUFSIZE);
-                len = BUFSIZE;
-            }
-            else {
-                exhstd = false;
-                break;
-            }
-        }
 
         dsm_time_t tpacket = n_u::getSystemTime();
-        size_t rlen = sensor->read(_buffer+_bufhead,len);
+
+        size_t rlen;
+        try {
+            rlen = sensor->read(_buffer+_bufhead, BUFSIZE - _bufhead);
+        }
+        catch (const n_u::EOFException& e) {
+            // nidas::util::Socket will return EOFException
+            // on a zero-length read. In this case it is
+            // likely just a zero-length packet.
+            rlen = 0;
+        }
         addNumBytesToStats(rlen);
         _bufhead += rlen;
         _packetLengths.push_back(rlen);
         _packetTimes.push_back(tpacket);
+
+        // size of next packet
+        len = sensor->getBytesAvailable();
+
+        // if len is 0, then either:
+        //  no datagrams remaining to be read,
+        //  or the next datagram has a length of 0.
+        // If the latter, then the next read will consume it.
+        if (len == 0) break;
+
+        // no room in buffer for next packet, read next time
+        if (len + _bufhead > BUFSIZE) {
+            exhstd = false;
+            break;
+        }
     }
     exhausted = exhstd;
     return _bufhead;

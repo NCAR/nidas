@@ -69,14 +69,14 @@ public:
      */
     int getWriteFd() const {
 	if (_socket) return _socket->getFd();
-    	return -1;
+	return -1;
     }
 
     /**
     * open the socket.
     */
     void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
     * Read from the sensor.
@@ -107,7 +107,7 @@ public:
     /**
     * Write to the sensor.
     */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
+    size_t write(const void *buf, size_t len) throw(nidas::util::IOException)
     {
         return _socket->send(buf,len);
     }
@@ -146,7 +146,7 @@ private:
     /**
      * The type of the destination address, AF_INET or AF_UNIX.
      */
-    int _addrtype;	
+    int _addrtype;
 
     /**
      * Path name of AF_UNIX socket.

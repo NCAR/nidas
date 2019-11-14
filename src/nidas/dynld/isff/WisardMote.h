@@ -73,7 +73,8 @@
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
 
-#include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/SerialSensor.h>
+#include <nidas/core/Sample.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -88,6 +89,8 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
+using namespace nidas::core;
+
 struct VarInfo
 {
     const char *name;
@@ -99,10 +102,13 @@ struct VarInfo
 /**
  * WST_IMPLIED: create sample tags for these sensor types, even if they
  *          aren't found in the XML.
- * WST_IGNORED: if a sample of this sensor type is received, don't process it.
+ * WST_IGNORED: if a raw sample of this sensor type is found, don't 
+ *      generate a processed sample.
+ * WST_NOWARN: if a raw sample of this sensor type is found, generate
+ *      a processed sample, but don't log a warning.
  * WST_NORMAL: otherwise.
  */
-enum WISARD_SAMPLE_TYPE { WST_NORMAL, WST_IMPLIED, WST_IGNORED };
+enum WISARD_SAMPLE_TYPE { WST_NORMAL, WST_IMPLIED, WST_IGNORED, WST_NOWARN };
 
 struct SampInfo
 {
@@ -116,15 +122,15 @@ struct SampInfo
     enum WISARD_SAMPLE_TYPE type;
 };
 
-class WisardMote:public DSMSerialSensor
+class WisardMote:public SerialSensor
 {
 public:
     WisardMote();
 
     virtual ~ WisardMote();
 
-    bool process(const Sample * insamp,
-            list < const Sample * >&results) throw();
+    bool process(const Sample* insamp,
+                 std::list<const Sample*>& results) throw();
 
     void validate() throw (nidas::util::InvalidParameterException);
 
@@ -167,12 +173,13 @@ private:
     void addImpliedSampleTags(const std::vector<int>& motes);
 
     /**
-     * Samples received from a mote id that is not expected will
-     * be assigned an id with a mote field of 0. This method
-     * adds sample tags for all sensor types in the big
-     * _samps array, with a mote id of 0.
+     * Create sets of WST_IGNORED and WST_NOWARN sensors,
+     * by looping over _samps, and checking the type field.
+     * Samples for IGNORED sensors are not generated.
+     * If a NOWARN sample is encountered it is generated, but
+     * no warning is logged.
      */
-    void addMote0SampleTags();
+    void checkLessUsedSensors(void);
 
     /**
      * Private method to add tags of processed samples to this WisardMote.
@@ -216,8 +223,7 @@ private:
      * After unpacking data from the Wisard block, pass it through
      * the usual Variable conversions and optional limit checks.
      */
-    void convert(SampleTag* stag, SampleT<float>* osamp,
-            bool limitcheck=true);
+    void convert(SampleTag* stag, SampleT<float>* osamp, float* results=0);
 
     const char* unpackPicTime(const char *, const char *,
             unsigned int, const struct MessageHeader*,
@@ -335,7 +341,7 @@ private:
     /**
      * Mapping between sensor type and function which parses the data.
      */
-    static std::map<int, pair<unpack_t,unsigned int> > _unpackMap;
+    static std::map<int, std::pair<unpack_t,unsigned int> > _unpackMap;
 
     static std::map<int, std::string> _typeNames;
 
@@ -376,6 +382,8 @@ private:
     std::map <int, std::map<int, unsigned int> > _noSampleTags;
 
     std::set<int> _ignoredSensorTypes;
+
+    std::set<int> _nowarnSensorTypes;
 
     static const unsigned int NTSOILS = 4;
 

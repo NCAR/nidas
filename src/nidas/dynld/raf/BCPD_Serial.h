@@ -29,8 +29,6 @@
 
 #include "SppSerial.h"
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**
@@ -85,7 +83,7 @@ public:
      *	170		6	Timer response header
      *	176		*	PbP Data (12 bytes pere PBP particle)
      *	*               2080    Raw PbP Data
-     *	*        	2	2-byte checksum
+     *	*               2	2-byte checksum
      * (Total data size without checksum 34 + 4*nchan bytes)
      *
      * The struct below is set up similar to the above, but because of

@@ -44,7 +44,7 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/poll.h>
 #include <linux/timer.h>
@@ -68,9 +68,10 @@
  * 32 bit probes have 2 endpoints and are full speed
  */
 /* Define these values to match your devices */
-#define NCAR_VENDOR_ID         0x2D2D
-#define USB2D_64_PRODUCT_ID    0x2D00
-#define USB2D_32_PRODUCT_ID    0x2D01
+#define NCAR_VENDOR_ID            0x2D2D
+#define USB2D_64_PRODUCT_ID       0x2D00
+#define USB2D_32_PRODUCT_ID       0x2D01
+#define USB2D_64_V3_PRODUCT_ID    0x2D03
 
 /* These are the default Cyprus EZ FX & FX2 ID's */
 //#define NCAR_VENDOR_ID         0x0547
@@ -80,6 +81,7 @@
 /* table of devices that work with this driver */
 static struct usb_device_id twod_table[] = {
         {USB_DEVICE(NCAR_VENDOR_ID, USB2D_64_PRODUCT_ID)},
+        {USB_DEVICE(NCAR_VENDOR_ID, USB2D_64_V3_PRODUCT_ID)},
         {USB_DEVICE(NCAR_VENDOR_ID, USB2D_32_PRODUCT_ID)},
         {}                      /* Terminating entry */
 };
@@ -268,8 +270,10 @@ static int write_tas(struct usb_twod *dev)
         if ((urb = GET_TAIL(dev->tas_urb_q,TAS_URB_QUEUE_SIZE))) {
                 spin_lock(&dev->taslock);
                 memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
-		dev->tasValue.cntr++;
-		dev->tasValue.cntr %= 10;
+                if (dev->ptype != TWOD_64_V3) {
+                        dev->tasValue.cntr++;
+                        dev->tasValue.cntr %= 10;
+                }
                 spin_unlock(&dev->taslock);
 
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -306,23 +310,32 @@ static int write_tas(struct usb_twod *dev)
                         KLOG_WARNING("%s: no urbs available for TAS write, lostTASs=%d\n",
                              dev->dev_name, dev->stats.lostTASs);
         }
+//        KLOG_INFO("writing tas for %s: tas=%d\n", dev->dev_name, retval);
         return retval;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void send_tas_timer_func(unsigned long arg)
 {
+        struct timer_list* tlist = (struct timer_list*)arg;
+#else
+static void send_tas_timer_func(struct timer_list* tlist)
+{
+#endif
         // Note that this runs in software interrupt context.
-        struct usb_twod *dev = (struct usb_twod *) arg;
+        struct usb_twod *dev = container_of(tlist, struct usb_twod, sendTASTimer);
+
         write_tas(dev);
-        dev->sendTASTimer.expires += dev->sendTASJiffies;
-        add_timer(&dev->sendTASTimer);  // reschedule
+        // reschedule
+        mod_timer(&dev->sendTASTimer,
+                dev->sendTASTimer.expires + dev->sendTASJiffies);
 }
 
 static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 {
-
         if (rate > 0) {
                 /* how many jiffies we are into the second */
+//
                 unsigned int jif = 
                         (getSystemTimeTMsecs() % TMSECS_PER_SEC) * HZ / TMSECS_PER_SEC;
 
@@ -330,20 +343,19 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 if (dev->sendTASJiffies <= 0)
                         dev->sendTASJiffies = 1;
 		KLOG_INFO("%s: SOR rate=%d,jiffies=%d\n",dev->dev_name,rate,dev->sendTASJiffies);
-                dev->sendTASTimer.function = send_tas_timer_func;
                 /*
                  * The calls to send_tas_timer_func will be on
                  * an integral sendTASJiffies interval.
                  */
                 dev->sendTASTimer.expires = jiffies + 2 * dev->sendTASJiffies -
                         (jif % dev->sendTASJiffies);
-                dev->sendTASTimer.data = (unsigned long) dev;
                 add_timer(&dev->sendTASTimer);
         } else {
                 if (dev->sendTASJiffies > 0)
-                        del_timer(&dev->sendTASTimer);
+                        del_timer_sync(&dev->sendTASTimer);
                 dev->sendTASJiffies = 0;
         }
+
         return 0;
 }
 
@@ -416,9 +428,15 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 
 
 /* -------------------------------------------------------------------- */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void urb_throttle_func(unsigned long arg)
 {
-        struct usb_twod *dev = (struct usb_twod *) arg;
+        struct timer_list *tlist = (struct timer_list*)arg;
+#else
+static void urb_throttle_func(struct timer_list* tlist)
+{
+#endif
+        struct usb_twod *dev = container_of(tlist, struct usb_twod, urbThrottle);
         int retval,i;
         struct urb *urb;
 // #define DEBUG
@@ -457,8 +475,8 @@ static void urb_throttle_func(unsigned long arg)
                         INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
         }
-        dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
-        add_timer(&dev->urbThrottle);   // reschedule myself
+        // reschedule myself
+        mod_timer(&dev->urbThrottle, jiffies + dev->throttleJiffies);
 }
 
 /* -------------------------------------------------------------------- */
@@ -602,11 +620,18 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 osamp->length = sizeof(osamp->stype) +
 				sizeof(osamp->data) +
 				urb->actual_length;
-                osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
+                if (dev->ptype == TWOD_64_V3){
+                        osamp->stype = cpu_to_be32(TWOD_IMGv3_TYPE);
+                } else if (dev->ptype == TWOD_64){
+                        osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
+                }
+
                 /*
                  * stuff the current TAS value in the data.
                  * It is little-endian, since it was converted
-                 * before being sent to the probe.
+                 * before being sent to the probe. For 64_v3
+                 * tas will be tas*10. Currently all three tas
+                 * varients are the same size.
                  */
                 spin_lock(&dev->taslock);
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
@@ -703,6 +728,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
          * See: /usr/share/doc/kernel-doc-x.y.z/Documentation/usb/error-codes.txt 
          * in section "Error codes returned by in urb->status".
          */
+        //KLOG_INFO("urb status: %s\n",urb->status);
         switch (urb->status) {
         case 0:
                 dev->consecTimeouts = 0;
@@ -772,7 +798,6 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 dev->errorStatus = urb->status;
                 return;
         }
-
         dev->stats.numSORs++;
 
         /*
@@ -796,7 +821,11 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->timetag = getSystemTimeTMsecs();
                 osamp->length = sizeof(osamp->stype) +
 				urb->actual_length;
-                osamp->stype = cpu_to_be32(TWOD_SOR_TYPE);
+                if (dev->ptype == TWOD_64_V3){
+                        osamp->stype = cpu_to_be32(TWOD_SORv3_TYPE);
+                } else if (dev->ptype == TWOD_64){
+                        osamp->stype = cpu_to_be32(TWOD_SOR_TYPE);
+                }
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
 			sizeof(osamp->length) +
 			sizeof(osamp->stype);
@@ -843,6 +872,9 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
         }
 
         urb->transfer_flags = 0;
+        KLOG_INFO("%s: transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
+                dev->dev_name, urb->transfer_buffer_length,
+                urb->number_of_packets, urb->actual_length);
 
         usb_fill_bulk_urb(urb, dev->udev,
                           usb_rcvbulkpipe(dev->udev,
@@ -975,7 +1007,13 @@ static int twod_open(struct inode *inode, struct file *file)
 
 
         if (throttleRate > 0) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->urbThrottle);
+                dev->urbThrottle.function = urb_throttle_func;
+                dev->urbThrottle.data = (unsigned long)&dev->urbThrottle;
+#else
+                timer_setup(&dev->urbThrottle, urb_throttle_func, 0);
+#endif
 
                 /*
                  * to reduce the overhead of throttling, schedule the
@@ -999,9 +1037,7 @@ static int twod_open(struct inode *inode, struct file *file)
                         dev->throttleJiffies = dev->nurbPerTimer * HZ / throttleRate;
                 }
 
-                dev->urbThrottle.function = urb_throttle_func;
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
-                dev->urbThrottle.data = (unsigned long) dev;
                 add_timer(&dev->urbThrottle);
         }
 
@@ -1030,12 +1066,17 @@ static int twod_open(struct inode *inode, struct file *file)
         for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
                 INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
         init_timer(&dev->sendTASTimer);
-
+        dev->sendTASTimer.function = send_tas_timer_func;
+        dev->sendTASTimer.data = (unsigned long)&dev->sendTASTimer;
+#else
+        timer_setup(&dev->sendTASTimer, send_tas_timer_func, 0);
+#endif
         /* save our object in the file's private structure */
         file->private_data = dev;
 
-        KLOG_INFO("%s: now opened, throttleRate=%d\n", dev->dev_name,
+        KLOG_INFO("%s: nowo opened sucessfully, throttleRate=%d\n", dev->dev_name,
              throttleRate);
         if (throttleRate > 0)
 	    KLOG_INFO("%s: throttleJiffies=%d, nurb=%d\n", dev->dev_name,
@@ -1138,6 +1179,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         struct twod_urb_sample *sample;
         size_t bytesLeft;
         char* dataPtr;
+	//KLOG_INFO("%s reading \n",dev->dev_name);
 
         /*
          * We're not locking anything here to make sure dev still exists.
@@ -1177,10 +1219,12 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                         switch (be32_to_cpu(sample->stype)) {
                         case TWOD_IMG_TYPE:
                         case TWOD_IMGv2_TYPE:
+                        case TWOD_IMGv3_TYPE:
                                 retval = usb_twod_submit_img_urb(dev,
                                         sample->urb);
                                 break;
                         case TWOD_SOR_TYPE:
+                        case TWOD_SORv3_TYPE:
                                 retval = usb_twod_submit_sor_urb(dev,
                                         sample->urb);
                                 break;
@@ -1199,7 +1243,6 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                  * image or SOR samples.
                  */
                 n = sample->pre_urb_len;
-
                 /* if not enough room to copy initial portion,
 		 * then we're done */
                 if (count < n) break;
@@ -1228,28 +1271,39 @@ static long twod_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         switch (cmd) {
         case USB2D_SET_TAS:
                 {
-                    Tap2D tasValue;
-                    if (copy_from_user
-                        ((char *) &tasValue, (const void __user *) arg,
-                         sizeof (tasValue)) != 0) retval = -EFAULT;
-                    else {
-                            retval = 0;
-                            spin_lock_bh(&dev->taslock);
-                            dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
-                            dev->tasValue.div10 = tasValue.div10;
-                            dev->tasValue.cntr = 0;
-                            spin_unlock_bh(&dev->taslock);
+                Tap2D tasValue;
+                if (copy_from_user
+                      ((char *) &tasValue, (const void __user *) arg,
+                      sizeof (tasValue)) != 0)
+                    retval = -EFAULT;
+                else {
+                    retval = 0;
+                    spin_lock_bh(&dev->taslock);
+                    if (dev->ptype == TWOD_64_V3) {
+                        unsigned short *dp = (unsigned short *)&dev->tasValue;
+                        unsigned short *sp = (unsigned short *)&tasValue;
+                        dp[0] = cpu_to_le16(sp[0]);
+                        dp[1] = cpu_to_le16(sp[1]);
                     }
+                    else
+                    {
+                        dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
+                        dev->tasValue.div10 = tasValue.div10;
+                        dev->tasValue.cntr = 0;
+                    }
+                    spin_unlock_bh(&dev->taslock);
+                  }
                 }
                 break;
         case USB2D_SET_SOR_RATE:
                 {
-                        int sor_rate;
-                        if (copy_from_user
-                            ((char *) &sor_rate, (const void __user *) arg,
-                             sizeof (int)) != 0) retval = -EFAULT;
-                        else retval = twod_set_sor_rate(dev, sor_rate);
-			KLOG_DEBUG("%s: SET_SOR_RATE, rate=%d\n",dev->dev_name, sor_rate);
+                int sor_rate;
+                if (copy_from_user
+                   ((char *) &sor_rate, (const void __user *) arg,
+                        sizeof (int)) != 0) retval = -EFAULT;
+                else retval = twod_set_sor_rate(dev, sor_rate);
+//changed from debug to info
+                KLOG_INFO("%s: SET_SOR_RATE, rate=%d\n",dev->dev_name, sor_rate);
                 }
                 break;
        case USB2D_GET_STATUS:      /* user get of status struct */
@@ -1333,7 +1387,12 @@ static int twod_probe(struct usb_interface *interface,
         /* use the first sor-in and tas-out endpoints */
         /* use the second img_in endpoint */
         iface_desc = interface->cur_altsetting;
-        dev->ptype = TWOD_64;
+        dev->ptype = TWOD_64; 
+
+        if (id->idProduct ==USB2D_64_V3_PRODUCT_ID)
+        {
+                dev->ptype = TWOD_64_V3;
+        }
 
         /*
          * The 32 bit 2DP not longer exists. It was converted to 64 bit.
@@ -1350,7 +1409,7 @@ static int twod_probe(struct usb_interface *interface,
                 psize = le16_to_cpu(endpoint->wMaxPacketSize);
 		dir = endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK;
 		type = endpoint-> bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
-                KLOG_INFO("endpoint %d, dir=%s,type=%s,wMaxPackeSize=%d\n",
+                KLOG_INFO("endpoint %d, dir=%s,type=%s,wMaxPackeSize=%d\n\n",
                           i, ((dir == USB_DIR_IN) ? "IN" : "OUT"),
                           ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
 				psize);
@@ -1359,6 +1418,7 @@ static int twod_probe(struct usb_interface *interface,
                 if (!dev->img_in_endpointAddr && dir == USB_DIR_IN &&
                            type == USB_ENDPOINT_XFER_BULK) {
 			switch(dev->ptype) {
+                        case TWOD_64_V3:
 			case TWOD_64:
 				/* we found a big bulk in endpoint on the USB2D_N0 64bit, use it for images */
 				if (psize >= 512)
@@ -1371,8 +1431,12 @@ static int twod_probe(struct usb_interface *interface,
                 } else if (!dev->sor_in_endpointAddr &&
 			dir == USB_DIR_IN &&
 			type == USB_ENDPOINT_XFER_BULK &&
-			psize < 512 && psize >= TWOD_SOR_BUFF_SIZE) {
-                        /* we found a small bulk in endpoint, use it for the SOR */
+			psize < 512 && psize >= 4) {
+                        /*TWOD_SOR_BUFF_SIZE changed from 4 to 128 to accomidate houskeeping
+                         * packet in v3. psize may have to be greater than the lesser of the two
+                         * buffer sizes. Given that the houskeeping packet is of a variable size
+                         * and TWOD_SOR_BUFF_SIZE is the max, min should be 4.
+                         * We found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
                 } else if (!dev->tas_out_endpointAddr &&
@@ -1391,7 +1455,7 @@ static int twod_probe(struct usb_interface *interface,
                 goto error;
         }
 
-        if (dev->ptype == TWOD_64 && !dev->sor_in_endpointAddr) {
+        if ((dev->ptype == TWOD_64|| dev->ptype ==TWOD_64_V3) && !dev->sor_in_endpointAddr) {
                 KLOG_ERR("Could not find sor-in endpoint for 64 bit probe\n");
                 retval = -ENOENT;
                 goto error;
@@ -1404,6 +1468,7 @@ static int twod_probe(struct usb_interface *interface,
          * Then create device name for log messages.
          */
         switch(dev->ptype) {
+                case TWOD_64_V3:
        	  	case TWOD_64:
             		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
@@ -1444,6 +1509,7 @@ static void twod_disconnect(struct usb_interface *interface)
 
         /* give back our minor */
 	switch(dev->ptype) {
+	case TWOD_64_V3:
 	case TWOD_64:
 		usb_deregister_dev(interface, &usbtwod_64);
 		break;
@@ -1464,6 +1530,7 @@ static void twod_disconnect(struct usb_interface *interface)
         KLOG_INFO("%s: disconnected\n", dev->dev_name);
         kref_put(&dev->kref, twod_dev_delete);
 }
+
 
 
 /* -------------------------------------------------------------------- */
@@ -1498,8 +1565,7 @@ static int __init usb_twod_init(void)
                 return -EINVAL;
         }
         if (SAMPLE_QUEUE_SIZE < IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT + 1) {
-                KLOG_ERR(
-                        "SAMPLE_QUEUE_SIZE=%d should be greater than IMG_URBS_IN_FLIGHT(%d) + SOR_URBS_IN_FLIGHT(%d)\n",
+                KLOG_ERR("SAMPLE_QUEUE_SIZE=%d should be greater than IMG_URBS_IN_FLIGHT(%d) + SOR_URBS_IN_FLIGHT(%d)\n",
                              SAMPLE_QUEUE_SIZE,IMG_URBS_IN_FLIGHT,SOR_URBS_IN_FLIGHT);
                 return -EINVAL;
         }
@@ -1508,6 +1574,8 @@ static int __init usb_twod_init(void)
         result = usb_register(&twod_driver);
         if (result)
                 KLOG_ERR("usbtwod_register failed. Error number %d\n", result);
+
+        KLOG_INFO("usbtwod_register sucess");
 
         return result;
 }

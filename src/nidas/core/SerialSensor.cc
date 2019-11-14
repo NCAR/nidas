@@ -356,7 +356,9 @@ void SerialSensor::Prompter::setPrompt(const string& val)
     delete [] _prompt;
     _promptLen = val.length();
     _prompt = new char[_promptLen+1];
-    strcpy(_prompt,val.c_str());
+    // Use memcpy, not strcpy since the prompt may contain
+    // null chars.
+    memcpy(_prompt,val.c_str(),_promptLen);
 }
 
 void SerialSensor::Prompter::setPromptPeriodMsec(const int val)

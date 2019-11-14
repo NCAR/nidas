@@ -81,7 +81,7 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     unsigned short sum = 0;
     // Compute the checksum of a series of chars
     // Sum the byte count and data bytes;
-    for (int j = 0; j < len; j++) 
+    for (int j = 0; j < len; j++)
         sum += (unsigned short)pkt[j];
     return sum;
 }
@@ -90,32 +90,35 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 {
     // _sampleRate = (int)rint(getPromptRate());
 
-    const Parameter *p;
+    if (_probeName.compare("PIP"))  // If not the PIP probe.
+    {
+        const Parameter *p;
 
-    /* Parameters common to CDP_Serial, SPP*00_Serial */
-    p = getParameter("NCHANNELS");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        /* Parameters common to CDP_Serial, SPP*00_Serial */
+        p = getParameter("NCHANNELS");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "NCHANNELS", "not found");
-    _nChannels = (int)p->getNumericValue(0);
+        _nChannels = (int)p->getNumericValue(0);
 
-    p = getParameter("RANGE");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        p = getParameter("RANGE");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "RANGE", "not found");
-    _range = (unsigned short)p->getNumericValue(0);
+        _range = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
+        p = getParameter("THRESHOLD");
+        if (!p) throw n_u::InvalidParameterException(getName(),
           "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
+        _triggerThreshold = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("CHAN_THRESH");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
-    if (p->getLength() != _nChannels)
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
-                "not NCHANNELS long ");
-    for (int i = 0; i < p->getLength(); ++i)
-        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
+        p = getParameter("CHAN_THRESH");
+        if (!p)
+            throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
+        if (p->getLength() != _nChannels)
+            throw n_u::InvalidParameterException(getName(), "CHAN_THRESH",
+                    "not NCHANNELS long ");
+        for (int i = 0; i < p->getLength(); ++i)
+            _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
+    }
 
     /* Check requested variables */
     list<SampleTag*>& tags = getSampleTags();
@@ -145,12 +148,12 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 
 #ifdef ZERO_BIN_HACK
     /*
-     * We'll be adding a bogus zeroth bin to the data to match historical 
+     * We'll be adding a bogus zeroth bin to the data to match historical
      * behavior. Remove all traces of this after the netCDF file refactor.
      */
     if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT +1) {
         ostringstream ost;
-        ost << "total length of variables should be " << 
+        ost << "total length of variables should be " <<
             (_nChannels + _nHskp + (int)_outputDeltaT + 1) << " rather than " << _noutValues << ".\n";
         throw n_u::InvalidParameterException(getName(), "sample",
                 ost.str());
@@ -158,7 +161,7 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 #else
     if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT) {
         ostringstream ost;
-        ost << "total length of variables should be " << 
+        ost << "total length of variables should be " <<
             (_nChannels + _nHskp + (int) _outputDeltaT) << " rather than " << _noutValues << ".\n";
         throw n_u::InvalidParameterException(getName(), "sample",
                 ost.str());
@@ -179,7 +182,7 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
 throw(n_u::IOException)
-{   
+{
     std::string eType("SppSerial init-ack");
 
     try {
@@ -224,7 +227,7 @@ throw(n_u::IOException)
         dp += l;
     }
 
-    // 
+    //
     // see if we got the expected response
     //
     if (response != 0x0606)
@@ -242,21 +245,21 @@ throw(n_u::IOException)
 
 int SppSerial::appendDataAndFindGood(const Sample* samp)
 {
-    if ((signed)samp->getDataByteLength() != packetLen()) 
+    if ((signed)samp->getDataByteLength() != packetLen())
         return false;
 
     /*
      * Add the sample to our waiting data buffer
      */
     assert(_nWaitingData <= packetLen());
-    ::memcpy(_waitingData + _nWaitingData, samp->getConstVoidDataPtr(), 
+    ::memcpy(_waitingData + _nWaitingData, samp->getConstVoidDataPtr(),
             packetLen());
     _nWaitingData += packetLen();
 
     /*
      * Hunt in the waiting data until we find a packetLen() sized stretch
      * where the last two bytes are a good checksum for the rest or match
-     * the expected record delimiter.  Most of the time, we should find it 
+     * the expected record delimiter.  Most of the time, we should find it
      * on the first pass through the loop.
      */
     bool foundRecord = 0;
@@ -264,13 +267,13 @@ int SppSerial::appendDataAndFindGood(const Sample* samp)
         unsigned char *input = _waitingData + offset;
         DMT_UShort packetCheckSum;
         ::memcpy(&packetCheckSum, input + packetLen() - 2, 2);
-        switch (_dataType) 
+        switch (_dataType)
         {
         case Delimited:
             foundRecord = (UnpackDMT_UShort(packetCheckSum) == _recDelimiter);
             break;
         case FixedLength:
-            foundRecord = (computeCheckSum(input, packetLen() - 2) == 
+            foundRecord = (computeCheckSum(input, packetLen() - 2) ==
                     UnpackDMT_UShort(packetCheckSum));
             break;
         }

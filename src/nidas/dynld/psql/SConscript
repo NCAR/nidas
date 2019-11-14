@@ -23,15 +23,15 @@ if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
     myenv = conf.Finish()
 
     if has_psql:
-        print "PSQL shared library enabled."
+        print("PSQL shared library enabled.")
         sources = Split("""PSQLChannel.cc PSQLSampleOutput.cc""")
         headers = Split("""PSQLChannel.h PSQLSampleOutput.h""")
         so = myenv.SharedLibrary("nidas_dynld_psql", sources)
-        myenv.Install('$PREFIX/lib', so)
+        myenv.Install('$ARCHPREFIX/lib', so)
 
         env.Clean('install',[
-            ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in so)
+            ('$ARCHPREFIX/lib/' + os.path.basename(File(l).path) for l in so)
         ])
 
-        myenv.Install('$PREFIX/include/nidas/dynld/psql', headers)
+        myenv.Install('$ARCHPREFIX/include/nidas/dynld/psql', headers)
 

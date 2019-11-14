@@ -223,7 +223,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 	if (n != 1) {
 	    if ((n = getc(fp)) != '#') {
 		fclose(fp);
-	    	throw n_u::IOException(name,"fscanf",
+		throw n_u::IOException(name,"fscanf",
 			string("bad input character: \'") +
 			string((char)n,1) + "\'");
 	    }
@@ -293,7 +293,7 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      * 2. Then either a 2(bipolar) or 4(unipolar) volt offset is removed.
      * 3. Then the voltage is inverted.
      * 4. Converted to counts
-     * 
+     *
      * Example: -10:10 V input, gain=1,bipolar=true
      *	Gf=gain*10=10,  F=0.2,  offset=2
      *    Here are the values after the above steps:
@@ -303,11 +303,11 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
      * back to user space, so for purposes here, it is as if
      * the A2D converts -4:0 volts to -32767:32767 counts
      *
-     * For bipolar=T 
+     * For bipolar=T
      *	cnts = ((V * gain * 0.2) - 2) * 65536 / 4 + 32767 =
      *		V * gain * 0.05 * 65536 + 0
      *	So:   V = cnts * 20 / 65536 / gain
-     * For bipolar=F 
+     * For bipolar=F
      *	cnts = ((V * gain * 0.2) - 4) * 65536 / 4 + 32767 =
      *		V * gain * 0.05 * 65536 - 32767
      *	So:   V = (cnts + 32767) * 20 / 65536 / gain
@@ -413,7 +413,7 @@ bool DSMAnalogSensor::processTemperature(const Sample* insamp, list<const Sample
     if (insamp->getDataByteLength() / sizeof(short) != 2) return false;
 
     const signed short* sp = (const signed short*)
-    	insamp->getConstVoidDataPtr();
+	insamp->getConstVoidDataPtr();
     if (*sp++ != NCAR_A2D_TEMPERATURE_INDEX) return false;
 
     // cerr << "temperature=" << *sp << ", " << *sp * DEGC_PER_CNT << endl;
@@ -523,8 +523,20 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
                 val = getIntercept(ichan) + getSlope(ichan) * sval;
             }
 
+            // XXX @todo XXX
+            //
+            // I think this code could be replaced with a call to
+            // applyConversions() right before osamp is pushed onto the
+            // results, but just in case timing is tight I'll leave it
+            // here.  The only extra overhead would be for the function
+            // call (unless it were inlined) and the check against
+            // var->getMissingValue().
+            //
+            // ...I already replaced similar code in A2DSensor, so maybe
+            // it's silly not to do it here too.
+            //
             Variable* var = vars[ival];
-	    if (getApplyVariableConversions()) {
+            if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();
                 if (conv) val = conv->convert(osamp->getTimeTag(),val);
             }
@@ -618,21 +630,27 @@ float DSMAnalogSensor::voltageActual(float voltageMeasured)
 }
 
 
-void DSMAnalogSensor::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
+void DSMAnalogSensor::validate() throw(n_u::InvalidParameterException)
 {
-    A2DSensor::addSampleTag(tag);
+    A2DSensor::validate();
 
-    const Parameter* tparm = tag->getParameter("temperature");
-    if (tparm && tparm->getLength() == 1) {
-        _temperatureTag = tag;
-        _temperatureRate = irigClockRateToEnum((int)tag->getRate());
-        if (_temperatureRate == IRIG_NUM_RATES) {
-            ostringstream ost;
-            ost << tag->getRate();
-            throw n_u::InvalidParameterException(getName(),"temperature sample rate",ost.str());
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* tag = *ti;
+
+        const Parameter* tparm = tag->getParameter("temperature");
+        if (tparm && tparm->getLength() == 1) {
+            _temperatureTag = tag;
+            _temperatureRate = irigClockRateToEnum((int)tag->getRate());
+            if (_temperatureRate == IRIG_NUM_RATES) {
+                ostringstream ost;
+                ost << tag->getRate();
+                throw n_u::InvalidParameterException(getName(),"temperature sample rate",ost.str());
+            }
+            return;
         }
-        return;
     }
     _deltatUsec = (int)rint(USECS_PER_SEC / getScanRate());
 }

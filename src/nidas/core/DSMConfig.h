@@ -229,12 +229,12 @@ public:
 	throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMParent(xercesc::DOMElement* parent,bool complete) const
+                throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMElement(xercesc::DOMElement* node,bool complete) const
+                throw(xercesc::DOMException);
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
@@ -312,7 +312,7 @@ private:
     const Site* _site;
 
     std::string _name;
-    
+
     std::string _suffix;
 
     std::string _location;
@@ -357,7 +357,7 @@ private:
      * TCP socket port that DSMEngine listens on for remote serial
      * connections.  0=don't listen.
      */
-    unsigned short _remoteSerialSocketPort;	
+    unsigned short _remoteSerialSocketPort;
 
     float _rawSorterLength;
 

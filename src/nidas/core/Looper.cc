@@ -131,10 +131,21 @@ void Looper::setupClientMaps()
 	assert((offset % sleepval) == 0);
 	_clientMods[clnt] = offset / sleepval;
 
-        _clients.push_back(clnt);
+        // add client to list so that fastest clients are called
+        // first, in the order that they registered.
+        list<LooperClient*>::iterator cli = _clients.begin();
+        for ( ; cli != _clients.end(); ++cli) {
+            if (_clientPeriods[*cli] > per) break;
+        }
+        _clients.insert(cli, clnt);
     }
+
+    assert(_clients.size() == _clientPeriods.size());
+    assert(_clients.size() == _clientOffsets.size());
+
     _sleepMsec = sleepval;
     ILOG(("Looper, sleepMsec=%d",_sleepMsec));
+
 
     if (!isRunning()) start();
 }
@@ -157,16 +168,19 @@ int Looper::run() throw(n_u::Exception)
 	list<LooperClient*> clnts(_clients.begin(),_clients.end());
 	_clientMutex.unlock();
 
-	list<LooperClient*>::const_iterator ci = _clients.begin();
-	for ( ; ci != _clients.end(); ++ci) {
+        // If more than one client are to be called on this
+        // wakeup, fastest clients are called first, and if
+        // more than one at the same rate, in the order that they
+        // registered with Looper.
+	list<LooperClient*>::const_iterator ci = clnts.begin();
+	for ( ; ci != clnts.end(); ++ci) {
 	    LooperClient* clnt = *ci;
 
             _clientMutex.lock();
             unsigned int cdiv = _clientDivs[clnt];
             unsigned int cmod = _clientMods[clnt];
             _clientMutex.unlock();
-
-            DLOG(("cntr=%u, cdiv=%u cmod=%u\n",
+            VLOG(("cntr=%u, cdiv=%u cmod=%u\n",
                     cntr, cdiv, cmod));
             if (cdiv > 0 && (cntr % cdiv) == cmod) clnt->looperNotify();
 	}

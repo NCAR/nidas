@@ -77,9 +77,7 @@ SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
 
 SampleOutputStream::~SampleOutputStream()
 {
-#ifdef DEBUG
-    cerr << "~SampleOutputStream(), this=" << this << endl;
-#endif
+    VLOG(("~SampleOutputStream(), this=") << this);
     delete _iostream;
 }
 
@@ -91,9 +89,7 @@ SampleOutputStream* SampleOutputStream::clone(IOChannel* ioc)
 
 void SampleOutputStream::close() throw(n_u::IOException)
 {
-#ifdef DEBUG
-    cerr << "SampleOutputStream::close" << endl;
-#endif
+    VLOG(("SampleOutputStream::close"));
     delete _iostream;
     _iostream = 0;
     SampleOutputBase::close();
@@ -126,9 +122,7 @@ SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()
 
 void SampleOutputStream::flush() throw()
 {
-#ifdef DEBUG
-    cerr << "SampleOutputStream::flush, name=" << getName() << endl;
-#endif
+    VLOG(("SampleOutputStream::flush, name=") << getName());
     try {
 	if (_iostream) _iostream->flush();
     }
@@ -136,53 +130,47 @@ void SampleOutputStream::flush() throw()
         // Don't log an EPIPE error on flush(). It has very likely been
         // logged when writing samples in the receive(const Sample*) method.
         if (ioe.getErrno() != EPIPE)
-            n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: %s",getName().c_str(),ioe.what());
+            ELOG(("%s: %s", getName().c_str(), ioe.what()));
     }
 }
 
 bool SampleOutputStream::receive(const Sample *samp) throw()
 {
-#ifdef DEBUG
-    cerr << "SampleOutputStream::receive sample id=" <<
-        samp->getDSMId() << ',' << samp->getSpSId() << endl;
-#endif
+    VLOG(("SampleOutputStream::receive sample id=")
+         << samp->getDSMId() << ',' << samp->getSpSId());
 
     dsm_time_t tsamp = samp->getTimeTag();
     bool streamFlush = false;
 
     try {
-	if (tsamp >= getNextFileTime()) {
+        if (tsamp >= getNextFileTime()) {
             if (_iostream) _iostream->flush();
-	    createNextFile(tsamp);
-	}
+            createNextFile(tsamp);
+        }
         if ((tsamp - _lastFlushTT) > _maxUsecs) {
             _lastFlushTT = tsamp;
             streamFlush = true;
         }
 
-	bool success = write(samp,streamFlush) > 0;
-	if (!success) {
-	    if (!(incrementDiscardedSamples() % 1000)) 
-		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %zd samples discarded due to output jambs\n",
-		    getName().c_str(),getNumDiscardedSamples());
-	}
+        bool success = write(samp,streamFlush) > 0;
+        if (!success) {
+            if (!(incrementDiscardedSamples() % 1000)) 
+                WLOG(("%s: %zd samples discarded due to output jambs",
+                      getName().c_str(), getNumDiscardedSamples()));
+        }
     }
     catch(const n_u::IOException& ioe) {
-        // broken pipe is the typical result of a client closing its end of the socket.
-        // Just report a notice, not an error.
+        // broken pipe is the typical result of a client closing its end of
+        // the socket.  Just report a notice, not an error.
         if (ioe.getErrno() == EPIPE)
-            n_u::Logger::getInstance()->log(LOG_NOTICE,
-                "%s: %s, disconnecting",getName().c_str(),ioe.what());
+            NLOG(("%s: %s, disconnecting", getName().c_str(), ioe.what()));
         else
-            n_u::Logger::getInstance()->log(LOG_ERR,
-                "%s: %s, disconnecting",getName().c_str(),ioe.what());
+            ELOG(("%s: %s, disconnecting", getName().c_str(), ioe.what()));
         // this disconnect will schedule this object to be deleted
         // in another thread, so don't do anything after the
         // disconnect except return;
-	disconnect();
-	return false;
+        disconnect();
+        return false;
     }
     return true;
 }
@@ -197,9 +185,7 @@ size_t SampleOutputStream::write(const void* buf, size_t len, bool flush)
 size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u::IOException)
 {
     if (!_iostream) return 0;
-#ifdef DEBUG
     static int nsamps = 0;
-#endif
     struct iovec iov[2];
 
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -219,10 +205,11 @@ size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u
     iov[1].iov_base = const_cast<void*>(samp->getConstVoidDataPtr());
     iov[1].iov_len = samp->getDataByteLength();
 
-    // cerr << "iostream->write" << endl;
-#ifdef DEBUG
-    if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
-#endif
+    static n_u::LogContext lp(LOG_VERBOSE);
+    if (lp.active() && !(nsamps++ % 100))
+    {
+        lp.log() << "wrote " << nsamps << " samples";
+    }
     size_t l = _iostream->write(iov,2,streamFlush);
     return l;
 }

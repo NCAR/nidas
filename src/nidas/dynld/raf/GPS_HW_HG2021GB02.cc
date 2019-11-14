@@ -190,7 +190,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
     case 0150:  // BCD - Universal Time Code         (hr:mn:sc)
         // 32|31 30|29|28 27 26 25 24|23 22 21 20 19 18|17 16 15 14 13 12|11|10  9| 8  7  6  5  4  3  2  1
         // --+-----+--+--------------+-----------------+-----------------+--+-----+-----------------------
-        // P | SSM |0 |     hours    |     minutes     |     seconds     |1 | SDI |      8-bit label      
+        // P | SSM |0 |     hours    |     minutes     |     seconds     |1 | SDI |      8-bit label
         if ((data & SSM) != SSM) break;
         return ((data & (0x1f<<23)) >> 23) * 60 * 60 +
             ((data & (0x3f<<17)) >> 17) * 60 +
@@ -200,7 +200,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
     case 0163:  // BCD - Altr Wpt ETA                (hr:mn)
         // 32|31 30|29|28 27 26 25 24|23 22 21 20 19 18|17|16|15 14|13|12|11|10  9| 8  7  6  5  4  3  2  1
         // --+-----+--+--------------+-----------------+--+--+-----+--+--+--+-----+-----------------------
-        // P | SSM |0 |     hours    |     minutes     |d?|er| fms |rb|ia|bc| SDI |      8-bit label      
+        // P | SSM |0 |     hours    |     minutes     |d?|er| fms |rb|ia|bc| SDI |      8-bit label
         if ((data & SSM) != SSM) break;
         if (data & (1<<17)) break;  // set if GNSSU has not determined times.
         return ((data & (0x1f<<23)) >> 23) * 60 * 60 +
@@ -227,7 +227,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
         break;
         // 32|31 30|29 28|27 26 25 24|23|22 21 20 19|18 17 16 15|14 13 12 11|10  9| 8  7  6  5  4  3  2  1
         // --+-----+-----+-----------+--+-----------+-----------+-----------+-----+-----------------------
-        // P | SSM | 10d |   1 day   |10|   1 mon   |  10 years |   1 year  | SDI |      8-bit label      
+        // P | SSM | 10d |   1 day   |10|   1 mon   |  10 years |   1 year  | SDI |      8-bit label
         // #include <ctime>
         //     if ((data & SSM) != SSM) break;
         //     struct tm tm;
@@ -244,7 +244,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
     case 0347:  // BNR - Altr Wpt HIL                (nm)
         // 32|31 30|29|28 27 26 25 24 23 22 21 20 19 18|17|16|15 14|13 12 11|10  9| 8  7  6  5  4  3  2  1
         // --+-----+--+--------------------------------+--+--+-----+--------+-----+-----------------------
-        // P | SSM |0 |        integrity limit         |pr|sq| fms |  ISC   | SDI |      8-bit label      
+        // P | SSM |0 |        integrity limit         |pr|sq| fms |  ISC   | SDI |      8-bit label
         if ((data & SSM) != 0)      break; // Normal Operation
         if ((data & 0x00001c00) == 0) break; // Integrity Sequence Number
         return (data<<4>>21) * 7.8125e-3; // no sign

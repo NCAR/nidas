@@ -72,8 +72,8 @@ addCriteria(const std::string& ctext)
     return true;
   }
   bool include = true;
-  int dsmid1,dsmid2;
-  int snsid1,snsid2;
+  int dsmid1, dsmid2;
+  int snsid1, snsid2;
   string soptarg(ctext);
   if (soptarg.empty())
     return false;

@@ -27,8 +27,10 @@
 #ifndef NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 
-#include "SonicAnemometer.h"
+#include "Wind3D.h"
 #include "CS_Krypton.h"
+
+class TimetagAdjuster;
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -40,11 +42,13 @@ namespace nidas { namespace dynld { namespace isff {
  * of the sonic and inserts additional 2-byte A2D counts in the
  * CSAT3 sample.
  */
-class CSAT3_Sonic: public SonicAnemometer
+class CSAT3_Sonic: public Wind3D
 {
 public:
 
     CSAT3_Sonic();
+
+    ~CSAT3_Sonic();
 
     /**
      * Open the serial port connected to this sonic. open() 
@@ -229,6 +233,8 @@ private:
      *  if the counter is other than the last counter + 1, mod 64.
      */
     bool _checkCounter;
+
+    nidas::core::TimetagAdjuster* _ttadjuster;
 
     /**
      * No copying.

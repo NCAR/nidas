@@ -104,7 +104,7 @@ SyncRecordSource::~SyncRecordSource()
 
 void
 SyncRecordSource::
-selectVariablesFromSensor(DSMSensor* sensor, 
+selectVariablesFromSensor(DSMSensor* sensor,
                           std::list<const Variable*>& variables)
 {
     list<SampleTag*> tags = sensor->getSampleTags();
@@ -133,7 +133,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
         // check if this sample id has already been seen (shouldn't happen)
         if (gi != idmap.end()) {
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"Sample id %d,%d is not unique",
+		"Sample id %d,%d is not unique",
                     GET_DSM_ID(sampleId),GET_SPS_ID(sampleId));
             continue;
         }
@@ -154,7 +154,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
 
 void
 SyncRecordSource::
-selectVariablesFromProject(Project* project, 
+selectVariablesFromProject(Project* project,
                            std::list<const Variable*>& variables)
 {
     // Traverse the project sensors and samples selecting the variables
@@ -461,7 +461,7 @@ SyncRecordSource::sendSyncRecord()
 {
     if (_syncRecord[_current]) {
         static nidas::util::LogContext lp(LOG_DEBUG);
-        if (lp.active()) 
+        if (lp.active())
         {
             dsm_time_t tt = _syncRecord[_current]->getTimeTag();
             lp.log(nidas::util::LogMessage().format("distribute syncRecord, ")
@@ -489,7 +489,7 @@ void SyncRecordSource::allocateRecord(int isync, dsm_time_t timetag)
     _syncTime[isync] = syncTime;
 
     static nidas::util::LogContext lp(LOG_DEBUG);
-    if (lp.active()) 
+    if (lp.active())
     {
         lp.log(nidas::util::LogMessage().format("")
                << "SyncRecordSource::allocateRecord: timetag="
@@ -568,7 +568,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     static int warn_times_interval =
         LogScheme::current().getParameterT("sync_warn_times_interval",
                                            1000);
-    
+
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
@@ -590,7 +590,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     }
 
     // Screen bad times.
-    // 
+    //
     // It looks like this code identifies problem samples when they precede
     // the current syncTime or when they jump forward in time more than two
     // seconds.  However, the _syncTime is always adjusted to line up with
@@ -638,7 +638,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     triggertime += _halfMaxUsecsPerSample;
     if (tt >= triggertime) {
         static nidas::util::LogContext lp(LOG_DEBUG);
-        if (lp.active()) 
+        if (lp.active())
         {
             n_u::LogMessage msg;
             msg << "prior to SyncRecordSource::advanceRecord: tt="
@@ -784,7 +784,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
             << ", varOffset[0]=" << varOffset[0]
             << ", varLen[0]=" << varLen[0] << endlog;
     }
-	
+
     switch (samp->getType()) {
 
     case UINT32_ST:
@@ -803,9 +803,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
                                          timeIndex);
 	break;
     default:
-	if (!(_unknownSampleType++ % 1000)) 
+	if (!(_unknownSampleType++ % 1000))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"sample id %d is not a float or double type",sampleId);
+		"sample id %d is not a float or double type",sampleId);
 
         break;
     }

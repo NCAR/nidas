@@ -142,7 +142,6 @@ Looper* SensorSimulator::getLooper()
 void SensorSimulator::looperNotify() throw()
 {
     if (_interrupted) {
-        getLooper();
         _looper->removeClient(this);
         _looper->interrupt();
         return;
@@ -282,8 +281,8 @@ public:
 	    // reopen flag so we don't keep attempting it.
 	    try {
 		_infile.clear();
-		_infile.exceptions(ios::failbit);
-		_infile.open (_path.c_str());
+		_infile.exceptions(ios::failbit | ios::badbit);
+		_infile.open(_path.c_str());
 		_infile.exceptions(std::ios::goodbit);
 		_in = &_infile;
 		_reopen = true;
@@ -291,7 +290,7 @@ public:
 	    catch (const std::exception& failure)
 	    {
 		_reopen = false;
-		throw n_u::Exception(failure.what());
+		throw n_u::IOException(_path,"open",errno);
 	    }
 	}
 	if (_verbose)
@@ -464,9 +463,11 @@ void Csat3Sim::run() throw(n_u::Exception)
 
         int res = ::select(nfds,&rtfds,0,0,&tval);
         if (res < 0) throw n_u::IOException(_port->getName(),"select",errno);
-        if (res == 0 && running && datamode) {
-            if (_cntr == _nmessages) break;
-            sendMessage();
+        if (res == 0) {
+            if (running && datamode) {
+                if (_cntr == _nmessages) break;
+                sendMessage();
+            }
         }
         else if (FD_ISSET(_port->getFd(),&rtfds)) {
             res--;
@@ -483,6 +484,8 @@ void Csat3Sim::run() throw(n_u::Exception)
                 case 'D':
                     datamode = true;
                     nquest = 0;
+                    break;
+                case 'P':
                     break;
                 case 'T':
                     datamode = false;

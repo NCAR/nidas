@@ -32,6 +32,7 @@
 
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
+using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
@@ -45,7 +46,7 @@ MOSMote::MOSMote():_tsyncPeriodSecs(3600),_ncallBack(0),_mosSyncher(this)
 void MOSMote::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-    DSMSerialSensor::open(flags);
+    SerialSensor::open(flags);
 
     const Parameter* tsyncParam = getParameter("tsyncSecs");
     if (tsyncParam && tsyncParam->getType() == Parameter::INT_PARAM &&
@@ -62,7 +63,7 @@ void MOSMote::open(int flags)
 void MOSMote::close() throw(nidas::util::IOException)
 {
     if (_tsyncPeriodSecs > 0) getLooper()->removeClient(&_mosSyncher);
-    DSMSerialSensor::close();
+    SerialSensor::close();
 }
 
 bool MOSMote::process(const Sample* samp,
@@ -90,7 +91,7 @@ bool MOSMote::process(const Sample* samp,
     *op++ = '\0';   // trailing null
     nsamp->setDataLength(op - (char*)nsamp->getDataPtr());
 
-    bool res = DSMSerialSensor::process(nsamp,results);
+    bool res = SerialSensor::process(nsamp,results);
     nsamp->freeReference();
     return res;
 }

@@ -1,4 +1,4 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
 /* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
@@ -24,6 +24,8 @@
  ********************************************************************
 */
 
+#include <nidas/Config.h>
+
 #include "DSMServerApp.h"
 #include "DSMServer.h"
 #include "DSMServerIntf.h"
@@ -43,9 +45,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>  // MAXHOSTNAMELEN
-#include <pwd.h>
-
-#include <nidas/Config.h>
 
 #ifdef HAVE_SYS_CAPABILITY_H 
 #include <sys/capability.h>
@@ -57,10 +56,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-namespace {
-    int defaultLogLevel = n_u::LOGGER_INFO;
-};
-
 /* static */
 DSMServerApp* DSMServerApp::_instance = 0;
 
@@ -71,14 +66,17 @@ DSMServerApp::DSMServerApp():
     _isffXML("$ISFF/projects/$PROJECT/ISFF/config/configs.xml"),
     _isfsXML("$ISFS/projects/$PROJECT/ISFS/config/configs.xml"),
     _runState(RUN),
-    _username(),_userid(0),_groupid(0),
     _xmlrpcThread(0),_statusThread(0),
-    _externalControl(false),_logLevel(defaultLogLevel),
-    _optionalProcessing(false),_signalMask(),_myThreadId(::pthread_self()),
-    _datasetName()
+    _externalControl(false),
+    _optionalProcessing(false),
+    _signalMask(),
+    _myThreadId(::pthread_self()),
+    _datasetName(),
+    _app("dsm_server")
 {
     setupSignals();
 }
+
 DSMServerApp::~DSMServerApp()
 {
     SampleOutputRequestThread::destroyInstance();
@@ -87,8 +85,31 @@ DSMServerApp::~DSMServerApp()
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
 {
+    NidasAppArg ExternalControl("-r,--remote", "",
+                                "Enable XML-RPC server for remote control.");
+    NidasAppArg OptionalProcessing("-o,--optional", ""
+                                   "Run processors marked as optional in XML.");
+    NidasAppArg DatasetName
+        ("-S,--dataset", "<datasetname>",
+         "Set environment variables specifed for the dataset\n"
+         "as found in the xml file specifed by $NIDAS_DATASETS or \n"
+         "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml");
+
+    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+                         _app.Username | _app.Hostname | _app.DebugDaemon |
+                         ExternalControl | OptionalProcessing | DatasetName);
+    ArgVector args = _app.parseArgs(argc, argv);
+    if (_app.helpRequested())
+    {
+        usage();
+        return 1;
+    }
+    _externalControl = ExternalControl.asBool();
+    _optionalProcessing = OptionalProcessing.asBool();
+    _datasetName = DatasetName.getValue();
+
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdl:orS:u:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdl:orS:u:h:v")) != -1) {
         switch (opt_char) {
         case 'c':
 	    {
@@ -108,53 +129,12 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                     cerr <<
                         "Environment variables not set correctly to find XML file of project configurations." << endl;
                     cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
-                    return usage(argv[0]);
+                    return usage();
                 }
 	    }
 	    break;
-        case 'd':
-            _debug = true;
-            _logLevel = n_u::LOGGER_DEBUG;
-            break;
-	case 'l':
-            _logLevel = atoi(optarg);
-	    break;
-        case 'o':
-            _optionalProcessing = true;
-            break;
-        case 'r':
-            _externalControl = true;
-            break;
-	case 'S':
-	    _datasetName = optarg;
-	    break;
-	case 'u':
-            {
-                struct passwd pwdbuf;
-                struct passwd *result;
-                long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
-                if (nb < 0) nb = 4096;
-                int res;
-                vector<char> strbuf(nb);
-                if ((res = getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result)) != 0) {
-                    cerr << "getpwnam_r: " << n_u::Exception::errnoToString(res) << endl;
-                    return 1;
-                }
-                else if (result == 0) {
-                    cerr << "Unknown user: " << optarg << endl;
-                    return 1;
-                }
-                _username = optarg;
-                _userid = pwdbuf.pw_uid;
-                _groupid = pwdbuf.pw_gid;
-            }
-	    break;
-	case 'v':
-	    cout << Version::getSoftwareVersion() << endl;
-	    return 1;
-	    break;
         case '?':
-            return usage(argv[0]);
+            return usage();
         }
     }
     if (optind == argc - 1) _xmlFileName = string(argv[optind++]);
@@ -164,39 +144,39 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
 	    cerr <<
 		"Error: XML config file not found in runstring or $NIDAS_CONFIG" <<
 	    endl;
-            return usage(argv[0]);
+            return usage();
         }
     	_xmlFileName = cfg;
     }
     return 0;
 }
 
-int DSMServerApp::usage(const char* argv0)
+int DSMServerApp::usage()
 {
-    const char* cfg;
-    cerr << "\
-Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-S dataSet_name] [-u username] [-v] [config]\n\
-  -c: read configs XML file to find current project configuration, either\n\t" << 
-    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isfsXML << "\n\
-  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
-      Otherwise run in the background, cd to /, and log messages to syslog\n\
-      Specify a -l option after -d to change the log level from debug\n\
-  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-     The default level if no -d option is " << defaultLogLevel << "\n\
-  -o: run processors marked as optional in XML\n\
-  -r: rpc, start XML RPC thread to respond to external commands\n\
-  -S dataSet_name: set environment variables specifed for the dataset\n\
-     as found in the xml file specifed by $NIDAS_DATASETS or \n\
-     $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n\
-  -u username: after startup, switch userid to username\n\
-  -v: display software version number and exit\n\
-  config: (optional) name of DSM configuration file.\n\
-    This parameter is not used if you specify the -c option\n\
-    default: $NIDAS_CONFIG=\"" <<
-	  	((cfg = getenv("NIDAS_CONFIG")) ? cfg : "<not set>") << "\"\n\
-    Note: use an absolute path to this file if you run in the background without -d." << endl;
+    const char* cfg = getenv("NIDAS_CONFIG");
+    cerr <<
+        "Usage: " << _app.getProcessName() << " [options] [-c] [config]\n"
+        "  -c:\n"
+        "    read configs XML file to find current project configuration,\n"
+        "    either\n" << 
+        "      $NIDAS_CONFIGS\n"
+        "    or\n"
+        "      " << _rafXML << "\n"
+        "    or\n"
+        "      " << _isfsXML << "\n"
+        "\n"
+        "  config:\n"
+        "    (optional) name of DSM configuration file.\n"
+        "    This parameter is not used if you specify the -c option\n"
+        "    default: $NIDAS_CONFIG=\"" << (cfg ? cfg : "<not set>") << "\"\n"
+        "    Note: use an absolute path to this file if you run in the\n"
+        "    background without -d."
+        "\n" << endl;
+    cerr << "Options:\n";
+    cerr << _app.usage() << endl;
     return 1;
 }
+
 /* static */
 int DSMServerApp::main(int argc, char** argv) throw()
 {
@@ -207,7 +187,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     app.initLogger();
 
-    if ((res = app.initProcess(argv[0])) != 0) return res;
+    if ((res = app.initProcess()) != 0) return res;
 
     _instance = &app;
 
@@ -241,108 +221,14 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
 void DSMServerApp::initLogger()
 {
-    n_u::LogConfig lc;
-    n_u::LogScheme logscheme("dsm_server");
-    n_u::Logger* logger = 0;
-    lc.level = _logLevel;
-    if (_debug) logger = n_u::Logger::createInstance(&std::cerr);
-    else {
-	// fork to background, chdir to /,
-        // send stdout/stderr to /dev/null
-	if (daemon(0,0) < 0) {
-	    n_u::IOException e("DSMServer","daemon",errno);
-	    cerr << "Warning: " << e.toString() << endl;
-	}
-        logger = n_u::Logger::createInstance(
-                "dsm_server",LOG_PID,LOG_LOCAL5);
-        logscheme.setShowFields("level,message");
-    }
-    logscheme.addConfig(lc);
-    logger->setScheme(logscheme);
+    _app.setupDaemon();
 }
 
-int DSMServerApp::initProcess(const char* argv0)
+int DSMServerApp::initProcess()
 {
+    _app.setupProcess();
 
-#ifdef HAVE_SYS_CAPABILITY_H 
-    /* man 7 capabilities:
-     * If a thread that has a 0 value for one or more of its user IDs wants to
-     * prevent its permitted capability set being cleared when it  resets  all
-     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
-     * PR_SET_KEEPCAPS operation.
-     *
-     * If we are started as uid=0 from sudo, and then setuid(x) below
-     * we want to keep our permitted capabilities.
-     */
-    try {
-	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
-	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
-    }
-#endif
-
-    gid_t gid = getGroupID();
-    if (gid != 0 && getegid() != gid) {
-        DLOG(("doing setgid(%d)",gid));
-        if (setgid(gid) < 0)
-            WLOG(("%s: cannot change group id to %d: %m",argv0,gid));
-    }
-
-    uid_t uid = getUserID();
-    if (uid != 0 && geteuid() != uid) {
-        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
-        if (setuid(uid) < 0)
-            WLOG(("%s: cannot change userid to %d (%s): %m", argv0,
-                uid,getUserName().c_str()));
-    }
-
-#ifdef CAP_SYS_NICE
-    try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s",argv0,e.what()));
-    }
-    if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
-        WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv0));
-
-    try {
-        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s",argv0,e.what()));
-    }
-#endif
-
-    // Open and check the pid file after the above setuid() and daemon() calls.
-    if (!_debug) {
-        try {
-            string pidname = "/tmp/run/nidas";
-            mode_t mask = ::umask(0);
-            n_u::FileSet::createDirectory(pidname,01777);
-
-            pidname += "/dsm_server.pid";
-            pid_t pid = n_u::Process::checkPidFile(pidname);
-            ::umask(mask);
-
-            if (pid > 0) {
-                PLOG(("%s: pid=%d is already running",argv0,pid));
-                return 1;
-            }
-        }
-        catch(const n_u::IOException& e) {
-            PLOG(("%s: %s",argv0,e.what()));
-            return 1;
-        }
-    }
-
-    return 0;
+    return _app.checkPidFile();
 }
 
 int DSMServerApp::run() throw()
@@ -362,23 +248,23 @@ int DSMServerApp::run() throw()
 
         Project project;
 
-	try {
+        try {
 
             /* If a dataset name has been passed, parse it and
              * set its environment variables from the datasets.xml file.
              */
             if (_datasetName.length() > 0) project.setDataset(getDataset());
 
-	    if (_configsXMLName.length() > 0) {
-		ProjectConfigs configs;
-		configs.parseXML(_configsXMLName);
-		// throws InvalidParameterException if no config for time
-		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+            if (_configsXMLName.length() > 0) {
+                ProjectConfigs configs;
+                configs.parseXML(_configsXMLName);
+                // throws InvalidParameterException if no config for time
+                const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
                 cfg->initProject(project);
-		_xmlFileName = cfg->getXMLName();
-	    }
-	    else parseXMLConfigFile(_xmlFileName,project);
-	}
+                _xmlFileName = cfg->getXMLName();
+            }
+            else parseXMLConfigFile(_xmlFileName,project);
+        }
 	catch (const nidas::core::XMLException& e) {
 	    PLOG(("%s",e.what()));
 	    _runState = ERROR;
@@ -400,11 +286,9 @@ int DSMServerApp::run() throw()
 	DSMServer* server = 0;
 
 	try {
-	    char hostname[MAXHOSTNAMELEN];
-	    gethostname(hostname,sizeof(hostname));
+            std::string hostname = _app.getHostName();
 
-	    list<DSMServer*> servers =
-	    	project.findServers(hostname);
+	    list<DSMServer*> servers = project.findServers(hostname);
 
 	    if (servers.empty())
 	    	throw n_u::InvalidParameterException("project","server",

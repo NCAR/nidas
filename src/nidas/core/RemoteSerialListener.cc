@@ -78,7 +78,7 @@ RemoteSerialListener::~RemoteSerialListener()
 void RemoteSerialListener::close() throw (n_u::IOException)
 {
     if (_socket.getFd() >= 0) {
-#if POLLING_METHOD == POLL_EPOLL_ET
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_socket.getFd(),NULL) < 0) {
             n_u::IOException e("RemoteSerialListener","EPOLL_CTL_DEL",errno);
             _socket.close();
@@ -89,25 +89,14 @@ void RemoteSerialListener::close() throw (n_u::IOException)
     }
 }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
 bool
-#else
-void
-#endif
 RemoteSerialListener::handlePollEvents(uint32_t events) throw()
 {
-#if POLLING_METHOD == POLL_EPOLL_ET
-    bool exhausted = false;
-#endif
-
     if (events & N_POLLIN) {
         try {
             n_u::Socket* newsock = _socket.accept();
             RemoteSerialConnection *rsconn = new RemoteSerialConnection(newsock,_handler);
             _handler->scheduleAdd(rsconn);
-#if POLLING_METHOD == POLL_EPOLL_ET
-            exhausted = true;
-#endif
         }
         catch(const n_u::IOException & ioe) {
             PLOG(("RemoteSerialListener accept: %s", ioe.what()));
@@ -120,8 +109,6 @@ RemoteSerialListener::handlePollEvents(uint32_t events) throw()
         PLOG(("RemoteSerialListener: POLLERR or POLLHUP"));
     }
 
-#if POLLING_METHOD == POLL_EPOLL_ET
-    return exhausted;
-#endif
+    return true;
 }
 

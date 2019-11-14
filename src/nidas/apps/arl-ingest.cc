@@ -29,7 +29,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/Version.h>
 #include <nidas/core/DSMConfig.h>
- #include <nidas/core/DSMSensor.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -137,7 +137,7 @@ int ARLIngest::main(int argc, char** argv) throw() {
 /* static */
 int ARLIngest::usage(const char* argv0) {
     cerr << argv0 << " - A tool to convert raw ARL Sonic Data data records to the NIDAS data format" << endl << endl;
-    cerr << "Usage: " << argv0 << "-x <xml> -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
+    cerr << "Usage: " << argv0 << " [options] -d <dsm> -e <height> -o <output> <list of input files>\n" << endl;
     cerr << endl;
     cerr << endl;
     cerr << "Standard nidas options:" << endl << _app.usage();
@@ -157,36 +157,42 @@ int ARLIngest::usage(const char* argv0) {
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     NidasApp& app = _app;
-    app.enableArguments(app.XmlHeaderFile | app.OutputFiles | app.Version | app.Help);
+    app.enableArguments(app.XmlHeaderFile | app.OutputFiles |
+                        app.loggingArgs() |
+                        app.Version | app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
 
-    vector<string> args(argv, argv+argc);
-    app.parseArguments(args);
-    if (app.helpRequested()) {
+    ArgVector args = app.parseArgs(argc, argv);
+    if (app.helpRequested())
+    {
         usage(argv[0]);
     }
 
     string dsmName, height;
     extern char *optarg; //set by getopt
     extern int   optind; //"
-    NidasAppArgv left(args);
+    NidasAppArgv left(argv[0], args);
     argc = left.argc;
     argv = left.argv;
     int opt_char; /* option character */
     while ((opt_char = getopt(left.argc, left.argv, "d:e:")) != -1) {
         switch (opt_char) {
-        case 'd': dsmName = string(optarg); break;
-        case 'e': height = string(optarg); break;
+        case 'd':
+            dsmName = string(optarg);
+            break;
+        case 'e':
+            height = string(optarg);
+            break;
         case '?':
-        default:
+            usage(argv[0]);
             break;
         }
     }
-
-    if (optind < argc)
-        while (optind < argc)
-        	inputFileNames.push_back(argv[optind++]);
+    while (optind < argc)
+    {
+        inputFileNames.push_back(argv[optind++]);
+    }
 
     outputFileName = app.outputFileName();
     outputFileLength = app.outputFileLength();

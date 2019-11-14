@@ -35,6 +35,7 @@
 #include "Variable.h"
 #include "Parameter.h"
 #include "UnixIODevice.h"
+#include "TimetagAdjuster.h"
 
 #include <nidas/util/Logger.h>
 
@@ -48,6 +49,7 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 CharacterSensor::CharacterSensor():
+    _ttadjusters(),
     _messageSeparator(),
     _separatorAtEOM(true),
     _messageLength(0),
@@ -71,6 +73,10 @@ CharacterSensor::~CharacterSensor() {
         AsciiSscanf* sscanf = *si;
 	delete sscanf;
     }
+
+    for (map<const SampleTag*, TimetagAdjuster*>::const_iterator tti =
+            _ttadjusters.begin();
+    	tti != _ttadjusters.end(); ++tti) delete tti->second;
 }
 
 void CharacterSensor::setMessageParameters(unsigned int len, const std::string& sep, bool eom)
@@ -152,6 +158,7 @@ bool CharacterSensor::doesAsciiSscanfs()
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
+
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
@@ -178,6 +185,12 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	    _sscanfers.push_back(sscanf);
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
+
+        if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0) {
+            _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
+                tag->getTimetagAdjustPeriod(),
+                tag->getTimetagAdjustSampleGap());
+        }
     }
 	
     if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
@@ -342,22 +355,27 @@ scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data_ptr)
 }
 
 
-bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
-	throw()
+
+SampleT<float>*
+CharacterSensor::
+searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
 {
     // Note: sscanfers can be empty here, if a CharacterSensor was configured
     // with no samples, and hence no scanf strings.  For example,
     // a differential GPS, where nidas is supposed to take the
     // data for later use, but doesn't (currently) parse it.
-    if (_sscanfers.empty()) return false;
-
+    if (_sscanfers.empty())
+    {
+        return 0;
+    }
     assert(samp->getType() == CHAR_ST);
 
     const char* inputstr = (const char*)samp->getConstVoidDataPtr();
     int slen = samp->getDataByteLength();
 
     // if sample is not null terminated, create a new null-terminated sample
-    if (inputstr[slen-1] != '\0') {
+    if (inputstr[slen-1] != '\0')
+    {
         SampleT<char>* newsamp = getSample<char>(slen+1);
         newsamp->setTimeTag(samp->getTimeTag());
         newsamp->setId(samp->getId());
@@ -365,89 +383,103 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         ::memcpy(newstr,inputstr,slen);
         newstr[slen] = '\0';
 
-        bool res =  CharacterSensor::process(newsamp,results);
+        SampleT<float>* res = searchSampleScanners(newsamp, stag_out);
         newsamp->freeReference();
         return res;
     }
 
     SampleT<float>* outs = getSample<float>(_maxScanfFields);
-
+    // Output sample always defaults to time of raw sample.
+    outs->setTimeTag(samp->getTimeTag());
+                 
     SampleTag* stag = 0;
     int nparsed = 0;
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
     list<AsciiSscanf*>::const_iterator checkdone = _nextSscanfer;
-    for ( ; ; ntry++) {
-	sscanf = *_nextSscanfer;
-	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
-	if (++_nextSscanfer == _sscanfers.end()) 
-	    _nextSscanfer = _sscanfers.begin();
-	if (nparsed > 0) {
-	    stag = sscanf->getSampleTag();
-	    outs->setId(stag->getId());
-	    if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
-	    break;
-	}
+    for ( ; ; ntry++)
+    {
+        sscanf = *_nextSscanfer;
+        nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
+        if (++_nextSscanfer == _sscanfers.end()) 
+            _nextSscanfer = _sscanfers.begin();
+        if (nparsed > 0) {
+            stag = sscanf->getSampleTag();
+            outs->setId(stag->getId());
+            if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
+            break;
+        }
         if (_nextSscanfer == checkdone) break;
     }
     static n_u::LogContext lp(LOG_DEBUG);
 
     if (lp.active() && nparsed != sscanf->getNumberOfFields())
     {
-	n_u::LogMessage msg;
-	msg << (nparsed > 0 ? "partial" : "failed")
-	    << " scanf; tried " << (ntry+(nparsed>0))
-	    << "/" << _sscanfers.size() << " formats.\n";
-	msg << "input:'" << inputstr << "'\n"
-	    << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
-	    << "\n";
-	msg << "; nparsed=" << nparsed
-	    << "; scanfFailures=" << _scanfFailures
-	    << "; scanfPartials=" << _scanfPartials;
-	lp.log(msg);
-    }	
+        n_u::LogMessage msg;
+        msg << (nparsed > 0 ? "partial" : "failed")
+            << " scanf; tried " << (ntry+(nparsed>0))
+            << "/" << _sscanfers.size() << " formats.\n";
+        msg << "input:'" << inputstr << "'\n"
+            << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
+            << "\n";
+        msg << "; nparsed=" << nparsed
+            << "; scanfFailures=" << _scanfFailures
+            << "; scanfPartials=" << _scanfPartials;
+        lp.log(msg);
+    }   
 
-    if (!nparsed) {
-	_scanfFailures++;
-	outs->freeReference();	// remember!
-	return false;		// no sample
+    if (!nparsed)
+    {
+        _scanfFailures++;
+        outs->freeReference();  // remember!
+        return 0;               // no sample
     }
 
-    float* fp = outs->getDataPtr();
-    const vector<Variable*>& vars = stag->getVariables();
-    int nd = 0;
-    for (unsigned int iv = 0; iv < vars.size(); iv++) {
-        Variable* var = vars[iv];
-        for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++) {
-            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
-            else {
-                float val = *fp;
-                /* check for missing value before conversion. This
-                 * is for sensors that put out something like -9999
-                 * for a missing value, which should be checked before
-                 * any conversion, and for which an exact equals check
-                 * should work.  Doing a equals check on a numeric after a
-                 * conversion is problematic.
-                 */
-                if (val == var->getMissingValue()) val = floatNAN;
-                else {
-                    if (getApplyVariableConversions()) {
-                        VariableConverter* conv = var->getConverter();
-                        if (conv) val = conv->convert(samp->getTimeTag(),val);
-                    }
+    // Fill and trim for unparsed values.
+    trimUnparsed(stag, outs, nparsed);
+    if (stag_out)
+        *stag_out = stag;
+    return outs;
+}
 
-                    /* Screen values outside of min,max after the conversion */
-                    if (val < var->getMinValue() || val > var->getMaxValue()) 
-                        val = floatNAN;
-                }
-                *fp = val;
-            }
-        }
+
+bool
+CharacterSensor::
+process(const Sample* samp, list<const Sample*>& results) throw()
+{
+    // Try to scan the variables of a sample tag from the raw sensor
+    // message.
+    SampleTag* stag = 0;
+    SampleT<float>* outs = searchSampleScanners(samp, &stag);
+    if (!outs)
+    {
+        return false;
     }
-    // correct for the sampling lag.
-    outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
-    outs->setDataLength(nd);
+
+    // Apply any time tag adjustments.
+    adjustTimeTag(stag, outs);
+
+    // Apply any variable conversions.  Note this has to happen after the
+    // time is adjusted, since the calibrations are keyed by time.
+    applyConversions(stag, outs);
+
     results.push_back(outs);
     return true;
+}
+
+
+
+void
+CharacterSensor::
+adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
+{                                 
+    // If requested, reduce latency jitter in the time tags.
+    // Then correct for a known sampling or sensor response lag.
+    outs->setTimeTag(outs->getTimeTag() - getLagUsecs());
+    TimetagAdjuster* ttadj = _ttadjusters[stag];
+    if (ttadj)
+    {
+        outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
+    }
 }
 

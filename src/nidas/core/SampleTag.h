@@ -309,6 +309,14 @@ public:
      */
     unsigned int getDataIndex(const Variable* var) const;
 
+    float getTimetagAdjustPeriod() const { return _ttAdjustPeriod; }
+
+    void setTimetagAdjustPeriod(float val) { _ttAdjustPeriod = val; }
+
+    float getTimetagAdjustSampleGap() const { return _ttAdjustSampleGap; }
+
+    void setTimetagAdjustSampleGap(float val) { _ttAdjustSampleGap = val; }
+
     VariableIterator getVariableIterator() const;
 
     void fromDOMElement(const xercesc::DOMElement*)
@@ -383,6 +391,16 @@ private:
     std::list<const Parameter*> _constParameters;
 
     bool _enabled;
+
+    /**
+     * How often to apply time tag adjustments.
+     */
+    float _ttAdjustPeriod;
+
+    /**
+     * How many sample sample delta-Ts are considered a data gap.
+     */
+    float _ttAdjustSampleGap;
 
 };
 

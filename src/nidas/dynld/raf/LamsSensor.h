@@ -31,9 +31,6 @@
 #ifndef NIDAS_DYNLD_RAF_LAMSSENSOR_H
 #define NIDAS_DYNLD_RAF_LAMSSENSOR_H
 
-#include <iostream>
-#include <iomanip>
-
 #include <nidas/linux/lams/lamsx.h>
 
 #include <nidas/core/DSMSensor.h>
@@ -45,7 +42,7 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
- 
+
 /**
  * Sensor class supporting the NCAR/EOL Laser Air Motion Sensor (LAMS)
  * via a DSM.  This is the original LAMS implementation.
@@ -66,11 +63,11 @@ public:
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
-	
+
   IODevice* buildIODevice() throw(n_u::IOException);
-  	
+
   SampleScanner* buildSampleScanner() throw(n_u::InvalidParameterException);
-  
+
   /**
    * Open the device connected to the sensor.
    */
@@ -82,7 +79,7 @@ public:
 private:
 
   int nAVG;
-  
+
   int nPEAK;
 
   float TAS_level;

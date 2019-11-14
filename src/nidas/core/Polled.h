@@ -36,9 +36,36 @@
 #define POLL_POLL       3       /* poll/ppoll */
 
 /**
- * Select a POLLING_METHOD
+ * Select a POLLING_METHOD. Also see discussion in SensorHandler.
+ *
+ * The EPOLL methods are the most efficient, since the OS can cache
+ * the file descriptors of interest. They are not passed on each poll.
+ * The system is only notified when they change.
+ *
+ * POLL_EPOLL_ET (edge-triggered) may also be a bit more efficient
+ * than POLL_EPOLL_LT (level-triggered), but there is one
+ * circumstance where it doesn't work in NIDAS.
+ *
+ * Edge-triggering will only return a EPOLLIN event on a
+ * transition from no-data-available to data-available, so on
+ * an EPOLLIN, one must read all data available from a descriptor,
+ * using non-blocking IO, in order for an EPOLLIN event to occur again.
+ *
+ * Read methods in NIDAS return a length of 0 on EAGAIN/EWOULDBLOCK,
+ * rather than an exception. So when using edge-triggering, one
+ * must do non-blocking reads on a descriptor until a return of 0.
+ * However with UDP sockets, incoming packets can have an actual
+ * length of 0 (we saw this on a NovAtel GPS), and so a read return
+ * of zero doesn't necesarily indicate there is no data left to read.
+ * Due to this bug, on receipt of a zero-length UDP packet using
+ * edge-triggering, NIDAS will cease to get EPOLLIN events on that socket.
+ *
+ * Fixing this would require changing NIDAS reads to return
+ * an exception, or perhaps -1, on EAGAIN/EWOULDBLOCK. The possible
+ * gains of edge-triggering do not seem to be worth it, so we'll
+ * use level-triggering.
  */
-#define POLLING_METHOD POLL_EPOLL_ET
+#define POLLING_METHOD POLL_EPOLL_LT
 
 #include <sys/poll.h>
 
@@ -85,7 +112,6 @@ public:
 
     virtual int getFd() const = 0;
 
-#if POLLING_METHOD == POLL_EPOLL_ET
     /**
      * @return: true: read consumed all available data, false otherwise.
      * This return value is required for edge-triggered polling
@@ -93,9 +119,6 @@ public:
      * a file descriptor until all available data is read.
      */
     virtual bool handlePollEvents(uint32_t events) throw() = 0;
-#else
-    virtual void handlePollEvents(uint32_t events) throw() = 0;
-#endif
 };
 
 }}	// namespace nidas namespace core

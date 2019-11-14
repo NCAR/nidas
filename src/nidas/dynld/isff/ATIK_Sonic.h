@@ -27,14 +27,16 @@
 #ifndef NIDAS_DYNLD_ISFF_ATIK_SONIC_H
 #define NIDAS_DYNLD_ISFF_ATIK_SONIC_H
 
-#include "SonicAnemometer.h"
+#include "Wind3D.h"
+
+class TimetagAdjuster;
 
 namespace nidas { namespace dynld { namespace isff {
 
 /**
  * A class for making sense of data from an ATIK 3D sonic anemometer.
  */
-class ATIK_Sonic: public SonicAnemometer
+class ATIK_Sonic: public Wind3D
 {
 public:
 
@@ -154,6 +156,14 @@ private:
      */
     float _maxShadowAngle;
 
+    nidas::core::TimetagAdjuster* _ttadjust;
+
+    // no copying
+    ATIK_Sonic(const ATIK_Sonic& x);
+
+    // no assignment
+    ATIK_Sonic& operator=(const ATIK_Sonic& x);
+    
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

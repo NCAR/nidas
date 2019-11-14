@@ -49,6 +49,43 @@ array_vector( const char* (&data)[N] )
   return std::vector<std::string>(data, data+N);
 }
 
+template<typename T>
+std::vector<T>
+make_vector_t(const T& a1=T(),
+	      const T& a2=T(),
+	      const T& a3=T(),
+	      const T& a4=T(),
+	      const T& a5=T())
+{
+  std::vector<T> args;
+  if (a1 != T())
+    args.push_back(a1);
+  if (a2 != T())
+    args.push_back(a2);
+  if (a3 != T())
+    args.push_back(a3);
+  if (a4 != T())
+    args.push_back(a4);
+  if (a5 != T())
+    args.push_back(a5);
+  return args;
+}
+
+std::vector<std::string>
+make_vector(const std::string& a1="", const std::string& a2="",
+	    const std::string& a3="", const std::string& a4="",
+	    const std::string& a5="")
+{
+  return make_vector_t<std::string>(a1, a2, a3, a4, a5);
+}
+
+template< typename V >
+typename V::iterator
+vfind(V& v, typename V::value_type target)
+{
+  return std::find(v.begin(), v.end(), target);
+}
+
 
 BOOST_AUTO_TEST_CASE(test_sample_match_all)
 {
@@ -277,7 +314,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
   BOOST_CHECK_EQUAL(app.getName(), "test");
 
   app.enableArguments(app.XmlHeaderFile);
-  app.enableArguments(app.LogLevel | app.ProcessData);
+  app.enableArguments(app.LogConfig | app.ProcessData);
 
   const char* argv[] = { "-x", "xmlfile", "-p", "-l", "debug" };
   //int argc = sizeof(argv)/sizeof(argv[0]);
@@ -285,17 +322,72 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
   std::vector<std::string> args = array_vector(argv);
 
   BOOST_CHECK_EQUAL(app.processData(), false);
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
   BOOST_CHECK_EQUAL(args.empty(), true);
   BOOST_CHECK_EQUAL(app.processData(), true);
 }
 
+// Make sure long log args are accepted.
+BOOST_AUTO_TEST_CASE(test_nidas_app_long_args)
+{
+  std::vector<std::string> args;
+  {
+    NidasApp app("test");
+    app.enableArguments(app.LogConfig);
+    const char* argv[] = { "--log", "debug" };
+    args = array_vector(argv);
+    app.resetLogging();
+    args = app.parseArgs(args);
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+    BOOST_CHECK_EQUAL(args.empty(), true);
+  }
+  {
+    // Make sure deprecated options still accepted but not in usage.
+    NidasApp app("test");
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("-l"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--log"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--logconfig"), true);
+    BOOST_CHECK_EQUAL(app.LogConfig.accept("--loglevel"), true);
+  }
+  {
+    NidasApp app("test");
+    app.enableArguments(app.LogConfig);
+    const char* argv[] = { "--loglevel", "debug" };
+    args = array_vector(argv);
+    app.resetLogging();
+    args = app.parseArgs(args);
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+    BOOST_CHECK_EQUAL(args.empty(), true);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_neg_args)
+{
+  NidasAppArg Long("--long", "", "Go long.", "false");
+  BOOST_CHECK_EQUAL(Long.getUsageFlags(), "--[no-]long");
+  BOOST_CHECK_EQUAL(Long.asBool(), false);
+  Long.parse(make_vector("--no-long"));
+  BOOST_CHECK_EQUAL(Long.asBool(), false);
+  BOOST_CHECK_EQUAL(Long.asBool(), false);
+  Long.parse(make_vector("--long"));
+  BOOST_CHECK_EQUAL(Long.asBool(), true);
+
+  // Test default of true.
+  NidasAppArg Short("--short", "", "Go short.", "true");
+  BOOST_CHECK_EQUAL(Short.asBool(), true);
+  Short.parse(make_vector("--short"));
+  BOOST_CHECK_EQUAL(Short.asBool(), true);
+  Short.parse(make_vector("--no-short"));
+  BOOST_CHECK_EQUAL(Short.asBool(), false);
+}
+
+
 template <typename T, typename C = std::vector<T> >
-class make_vector {
+class strm_vector {
 public:
-  typedef make_vector<T, C> proxy_type;
+  typedef strm_vector<T, C> proxy_type;
 
   proxy_type& 
   operator<< (const T& value)
@@ -324,8 +416,8 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
   int argc = sizeof(argv)/sizeof(argv[0]);
   std::vector<std::string> args(argv, argv+argc);
 
-  app.enableArguments(app.XmlHeaderFile | app.LogLevel);
-  app.parseArguments(args);
+  app.enableArguments(app.XmlHeaderFile | app.LogConfig);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
@@ -337,7 +429,7 @@ namespace
 {
   int iflag = 0;
 
-  void setflag()
+  void setflag(int)
   {
     iflag = 9;
   }
@@ -370,37 +462,44 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   app.InputFiles.allowFiles = true;
   app.InputFiles.allowSockets = true;
   app.InputFiles.setDefaultInput("sock:localhost", 30000);
-  app.StartTime.setDeprecatedFlag("-B");
-  app.EndTime.setDeprecatedFlag("-E");
+  app.StartTime.addFlag("-B");
+  app.EndTime.addFlag("-E");
   app.enableArguments(app.XmlHeaderFile | app.ProcessData |
+		      app.InputFiles | app.StartTime | app.EndTime |
 		      app.InputFiles | app.StartTime | app.EndTime |
 		      app.SampleRanges | app.Help | app.Version);
 
-  BOOST_CHECK_EQUAL(app.InputFiles.enabled, true);
-  BOOST_CHECK_EQUAL(app.OutputFiles.enabled, false);
-  BOOST_CHECK_EQUAL(app.StartTime.enabled, true);
-  BOOST_CHECK_EQUAL(app.EndTime.enabled, true);
-  BOOST_CHECK_EQUAL(app.Help.enabled, true);
-  BOOST_CHECK_EQUAL(app.InputFiles.enabled, true);
-  BOOST_CHECK_EQUAL(app.SampleRanges.enabled, true);
-  BOOST_CHECK_EQUAL(app.Version.enabled, true);
+  nidas_app_arglist_t appargs = app.getArguments();
+  // LogShow and LogFields are always included.
+  BOOST_CHECK_EQUAL(appargs.size(), 10);
+
+  BOOST_CHECK(vfind(appargs, &app.InputFiles) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.OutputFiles) == appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.StartTime) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.EndTime) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.Help) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.InputFiles) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.SampleRanges) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.Version) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.LogShow) != appargs.end());
+  BOOST_CHECK(vfind(appargs, &app.LogFields) != appargs.end());
 
   BOOST_CHECK_EQUAL(app.InputFiles.allowFiles, true);
   BOOST_CHECK_EQUAL(app.InputFiles.allowSockets, true);
 
   // Parse a simple command line.
   std::vector<std::string> args;
-  args = make_vector<std::string>() << "-x" << "/tmp/header.xml";
-  app.parseArguments(args);
+  args = strm_vector<std::string>() << "-x" << "/tmp/header.xml";
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 0);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
 
   // Now try parsing a line with a valid but disabled option, so it should
   // not be consumed when parsed.
-  args = make_vector<std::string>()
+  args = strm_vector<std::string>()
     << "-l" << "debug" << "-x" << "/tmp/header2.xml";
 
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(args[0], "-l");
   BOOST_CHECK_EQUAL(args[1], "debug");
@@ -416,16 +515,20 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
   app.enableArguments(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
   app.requireLongFlag(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
   
+  BOOST_CHECK(app.ProcessData.accept("--process"));
+
   // Short flags should not be allowed.
-  std::vector<std::string> args = make_vector<std::string>()
+  std::vector<std::string> args = strm_vector<std::string>()
     << "-x" << "/tmp/header.xml";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
 
-  args = make_vector<std::string>()
+  args = strm_vector<std::string>()
     << "--xml" << "/tmp/header.xml" << "--process" << "--samples" << "1,1";
-  app.parseArguments(args);
+  args = app.parseArgs(args);
+  std::copy(args.begin(), args.end(),
+	    std::ostream_iterator<std::string>(std::cerr, "\n"));
   BOOST_CHECK_EQUAL(args.size(), 0);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
   BOOST_CHECK_EQUAL(app.processData(), true);
@@ -439,10 +542,38 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
 
   app.enableArguments(app.XmlHeaderFile);
   
-  std::vector<std::string> args = make_vector<std::string>() << "--xml";
-  BOOST_CHECK_THROW(app.parseArguments(args), NidasAppException);
+  std::vector<std::string> args = strm_vector<std::string>() << "--xml";
+  BOOST_CHECK_THROW(app.parseArgs(args), NidasAppException);
   BOOST_CHECK_EQUAL(args.size(), 1);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
+
+  args = strm_vector<std::string>() << "--unknown" << "first"
+				    << "--xml" << "xmlfile" << "last";
+  args = app.parseArgs(args);
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
+  BOOST_CHECK_EQUAL(args.size(), 3);
+  BOOST_CHECK_EQUAL(args[0], "--unknown");
+  BOOST_CHECK_EQUAL(args[1], "first");
+  BOOST_CHECK_EQUAL(args[2], "last");
+}
+
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_argflags)
+{
+  NidasApp app("test");
+
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "-l,--log");
+  app.LogConfig.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.LogConfig.getUsageFlags(), "--log");
+
+  BOOST_CHECK_EQUAL(app.Help.getUsageFlags(), "-h,--help");
+  app.Help.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.Help.getUsageFlags(), "--help");
+
+  BOOST_CHECK_EQUAL(app.LogShow.getUsageFlags(), "--logshow");
+  app.LogShow.acceptShortFlag(false);
+  BOOST_CHECK_EQUAL(app.LogShow.getUsageFlags(), "--logshow");
 }
 
 
@@ -459,3 +590,132 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_instance)
 }
 
 
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_process_name)
+{
+  const char* argv[] = { "/bin/test", "--period", "25", "--repeat" };
+  int argc = 4;
+
+  NidasApp app("test");
+  BOOST_CHECK_EQUAL(app.getName(), "test");
+  BOOST_CHECK_EQUAL(app.getProcessName(), "test");
+  ArgVector args = app.parseArgs(argc, argv);
+  BOOST_CHECK_EQUAL(app.getProcessName(), "/bin/test");
+  // no args should be consumed
+  BOOST_CHECK_EQUAL(args.size(), 3);
+  app.setProcessName("/usr/bin/test");
+  BOOST_CHECK_EQUAL(app.getProcessName(), "/usr/bin/test");
+}
+
+
+
+
+class MyApp
+{
+public:
+  MyApp() :
+    app("myapp"),
+    Repeat("--repeat", "", "Keep repeating."),
+    Period("--period", "period", "Reporting period in seconds.", "20"),
+    _repeat(false),
+    _period(0)
+  {
+  }
+
+public:
+
+  NidasApp app;
+  NidasAppArg Repeat;
+  NidasAppArg Period;
+
+  void
+  parseArguments(const ArgVector& args)
+  {
+    app.enableArguments(Repeat | Period | app.LogConfig | app.Help |
+			app.Version | app.XmlHeaderFile);
+    app.startArgs(args);
+    NidasAppArg* arg;
+    while ((arg = app.parseNext()))
+    {
+      if (arg == &Repeat)
+	_repeat = Repeat.asBool();
+      else if (arg == &Period)
+	_period = Period.asInt();
+    }
+  }
+
+  bool _repeat;
+  int _period;
+
+};
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_argv)
+{
+  // Test usage with a standard argv list.
+  const char* argv[] = { "/bin/myapp", "--period", "25", "--repeat" };
+  int argc = 4;
+
+  MyApp app;
+  
+  // Just make sure no arguments means no settings change.
+  app.parseArguments(ArgVector(argv+1, argv+1));
+  BOOST_CHECK_EQUAL(app._repeat, false);
+  BOOST_CHECK_EQUAL(app._period, 0);
+
+  app.parseArguments(ArgVector(argv+1, argv+argc));
+  BOOST_CHECK_EQUAL(app._repeat, true);
+  BOOST_CHECK_EQUAL(app._period, 25);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_custom_args)
+{
+  MyApp app;
+  
+  BOOST_CHECK_EQUAL(app._repeat, false);
+  BOOST_CHECK_EQUAL(app._period, 0);
+
+  // Check for default.
+  BOOST_CHECK_EQUAL(app.Period.asInt(), 20);
+
+  std::vector<std::string> args = strm_vector<std::string>()
+    << "--repeat" << "--period" << "10";
+
+  app.parseArguments(args);
+  BOOST_CHECK_EQUAL(app._repeat, true);
+  BOOST_CHECK_EQUAL(app._period, 10);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_parse_int)
+{
+  // Make sure int parsing fails.
+  MyApp app;
+  
+  std::vector<std::string> args = strm_vector<std::string>()
+    << "--period" << "10f";
+  app.Period.parse(args);
+  BOOST_CHECK_THROW(app.Period.asInt(), NidasAppException);
+
+  args = strm_vector<std::string>() << "--period" << "1.0";
+  app.Period.parse(args);
+  BOOST_CHECK_THROW(app.Period.asInt(), NidasAppException);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_parse_float)
+{
+  // Test float parsing.
+  MyApp app;
+  
+  std::vector<std::string> args = strm_vector<std::string>()
+    << "--period" << "1.25";
+
+  app.Period.parse(args);
+  BOOST_CHECK_EQUAL(app.Period.asFloat(), 1.25);
+
+  args = strm_vector<std::string>() << "--period" << "1.2x345";
+  app.Period.parse(args);
+  BOOST_CHECK_THROW(app.Period.asFloat(), NidasAppException);
+}

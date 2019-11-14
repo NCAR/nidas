@@ -33,6 +33,7 @@
 #include "IODevice.h"
 #include "DOMable.h"
 #include "Dictionary.h"
+#include "VariableIndex.h"
 
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOException.h>
@@ -165,7 +166,7 @@ public:
     /**
      * Fetch the name of the catalog entry for this sensor.
      */
-    virtual const std::string& getCatalogName() const 
+    virtual const std::string& getCatalogName() const
     {
         return _catalogName;
     }
@@ -361,7 +362,7 @@ public:
      * which are invoked after fromDOMElement.
      */
     virtual void addSampleTag(SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Remove val from the list of SampleTags, and delete it.
@@ -506,7 +507,7 @@ public:
      * @param val Latency, in seconds.
      */
     virtual void setLatency(float val)
-    	throw(nidas::util::InvalidParameterException)
+        throw(nidas::util::InvalidParameterException)
     {
         _latency = val;
     }
@@ -584,7 +585,7 @@ public:
      * Must be implemented by derived classes.
      */
     virtual SampleScanner* buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException) = 0;
+        throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * Set the SampleScanner for this sensor. DSMSensor then
@@ -605,7 +606,7 @@ public:
      * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
      */
     virtual void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
      * Initialize the DSMSensor. This method is called on a
@@ -647,7 +648,7 @@ public:
      * without a file descriptor argument, and with an IOException.
      */
     virtual size_t read(void *buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len);
     }
@@ -656,7 +657,7 @@ public:
      * Read from the device with a timeout.
      */
     virtual size_t read(void *buf, size_t len,int msecTimeout)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len,msecTimeout);
     }
@@ -666,7 +667,7 @@ public:
      * without a file descriptor argument, and with an IOException.
      */
     virtual size_t write(const void *buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         return _iodev->write(buf,len);
     }
@@ -677,7 +678,7 @@ public:
      * this is a value from a header file for the device.
      */
     virtual void ioctl(int request, void* buf, size_t len)
-    	throw(nidas::util::IOException)
+        throw(nidas::util::IOException)
     {
         _iodev->ioctl(request,buf,len);
     }
@@ -699,7 +700,7 @@ public:
      * to extract all samples out of that buffer.
      */
     virtual bool readSamples()
-    	throw(nidas::util::IOException);
+        throw(nidas::util::IOException);
 
     /**
      * Extract the next sample from the buffer. Returns a
@@ -729,7 +730,7 @@ public:
      * of process() simply puts the input Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw() = 0;
+        throw() = 0;
 
     void printStatusHeader(std::ostream& ostr) throw();
     virtual void printStatus(std::ostream&) throw();
@@ -784,18 +785,18 @@ public:
      */
     static const std::string getClassName(const xercesc::DOMElement* node,
         const Project* project)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMParent(xercesc::DOMElement* parent,bool complete) const
+                throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+        toDOMElement(xercesc::DOMElement* node,bool complete) const
+                throw(xercesc::DOMException);
 
     /**
      * Set the type name of this sensor, e.g.:
@@ -848,7 +849,7 @@ public:
         _applyVariableConversions = val;
     }
 
-    virtual int getDriverTimeTagUsecs() const 
+    virtual int getDriverTimeTagUsecs() const
     {
         return _driverTimeTagUsecs;
     }
@@ -899,7 +900,7 @@ public:
      * SampleTags, so this method returns a list of non-constant
      * SampleTags.
      */
-    virtual const std::list<SampleTag*>& getNonConstSampleTags() 
+    virtual const std::list<SampleTag*>& getNonConstSampleTags()
     {
         return _sampleTags;
     }
@@ -910,6 +911,11 @@ public:
      **/
     std::string
     getTimetableTag(const nidas::util::UTime& when);
+
+    bool allowOpen()
+    {
+        return _openable;
+    }
 
 protected:
 
@@ -927,7 +933,7 @@ protected:
      * Read into my SampleScanner's buffer.
      */
     bool readBuffer(int msecTimeout)
-       throw(nidas::util::IOException) 
+       throw(nidas::util::IOException)
     {
         bool exhausted;
         _scanner->readBuffer(this,exhausted, msecTimeout);
@@ -1016,6 +1022,63 @@ protected:
         _lag = (int) rint(val * USECS_PER_SEC);
     }
 
+    /**
+     * Perform variable conversions for the variables in @p stag whose
+     * values and sample time have been set in @p outs.  This method can be
+     * used by subclasses to apply any variable conversions associated with
+     * the variables in the given SampleTag, using a general algorithm
+     * which loops over each value in each variable.  The min/max value
+     * limits of a variable are applied also, so if a variable value is
+     * converted but lies outside the min/max range, the value is set to
+     * floatNAN.  Typically this can be the last step applied to the output
+     * sample of a sensor's process() method, and note that the sample time
+     * must already be set in the output sample @p outs, since that time
+     * will be used to look up conversions in calibration files.
+     *
+     * If @p results is non-null, then the converted values are written
+     * into @p results instead of overwriting the values in @p outs.  This
+     * is used when one variable's results may be used to filter other
+     * variables without replacing the one variable's results.  An example
+     * is the Ifan variable in the TRH WisardMote. @p results must point to
+     * enough memory to hold all of the values in @p outs, including for
+     * any Variables with multiple values (getLength() > 1).
+     *
+     * See Variable::convert().
+     **/
+    void
+    applyConversions(SampleTag* stag, SampleT<float>* outs, float* results=0);
+
+    /**
+     * Fill with floatNAN all the values past @p nparsed values in output
+     * sample @p outs, and trim the length of the sample to match the
+     * length of the variables in SampleTag @p stag.  process() methods
+     * which support partial scans of messages can use this to finalize an
+     * output sample according to the SampleTag that was matched with it
+     * and the number of values parsed.
+     **/
+    void
+    trimUnparsed(SampleTag* stag, SampleT<float>* outs, int nparsed);
+
+    /**
+     * Search all the sample tags for a variable whose name starts with the
+     * given prefix, and return it's index in the list of variables in the
+     * sample tag.  If no such variable is found, return -1.
+     **/
+    VariableIndex
+    findVariableIndex(const std::string& vprefix);
+
+    /**
+     * Whether this sensor is allowed to be opened.  Most cases the answer is
+     * yes/true.  But certain sensors should not be opened due to implementation.
+     * e.g. DSMArincSensor when used in conjunction with the UDPArincSensor for
+     * then Alta ENET appliance.
+     *
+     * The fallout from setting this to false is that the sensor will not be
+     * added to SensorHandler.
+     */
+    bool _openable;
+
+
 private:
 
     /**
@@ -1023,7 +1086,7 @@ private:
      * SampleSource::addSampleTag(const SampleTag* val).
      */
     void addSampleTag(const SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * DSMSensor does not provide public support for
@@ -1077,7 +1140,7 @@ private:
     /**
      * Concatenation of sensor suffix, and the height or depth string
      */
-    std::string _fullSuffix;    
+    std::string _fullSuffix;
 
     std::string _location;
 

@@ -23,7 +23,7 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
 
     modules = ['short_filters.ko']
-    env.Kmake(modules,['short_filters.c','short_filters.h','Makefile',revinfo])
+    env.Kmake(modules,['short_filters.c','short_filters_kernel.h','Makefile',revinfo])
 
     env.Install('$LINUX_MODULES_INST_PATH','short_filters.ko')
 
@@ -32,11 +32,11 @@ if env.has_key("LINUX_MODULES_INST_PATH") and \
         ])
 
 # Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $PREFIX/include
+# by user code. These must also be installed in $ARCHPREFIX/include
 headers = Split("""
-    short_filters.h
+    short_filters_kernel.h
 """)
 
 if first_mach:
-    env.Install('$PREFIX/include/nidas/linux/filters',headers)
+    env.Install('$ARCHPREFIX/include/nidas/linux/filters',headers)
 

@@ -37,22 +37,22 @@
 #include <nidas/util/ThreadSupport.h>
 
 #ifdef SYNC_RECORD_JSON_OUTPUT
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 #endif
 
 namespace nidas { namespace dynld { namespace raf {
 
-class SyncRecHeaderException: public nidas::util::Exception 
+class SyncRecHeaderException: public nidas::util::Exception
 {
 public:
     SyncRecHeaderException(const std::string& expect, const std::string& got):
-    	nidas::util::Exception("SyncRecHeaderException",
+	nidas::util::Exception("SyncRecHeaderException",
 		std::string("expected: \"") + expect +
 		"\", got: \"" + got + "\"")
     {
     }
     SyncRecHeaderException(const std::string& msg):
-    	nidas::util::Exception("SyncRecHeaderException",msg)
+	nidas::util::Exception("SyncRecHeaderException",msg)
     {
     }
 
@@ -60,7 +60,7 @@ public:
      * Copy constructor.
      */
     SyncRecHeaderException(const SyncRecHeaderException& x):
-    	nidas::util::Exception(x)
+	nidas::util::Exception(x)
     {
     }
 };
@@ -118,7 +118,7 @@ public:
      * Get the list of variables in a sync record.
      */
     const std::list<const SyncRecordVariable*> getVariables()
-    	throw(nidas::util::Exception);
+	throw(nidas::util::Exception);
 
     /**
      * Get a pointer to a SyncRecordVariable, searching by name.
@@ -163,7 +163,7 @@ public:
     endOfStream();
 
     int
-    getSyncRecOffset(const nidas::core::Variable* var) 
+    getSyncRecOffset(const nidas::core::Variable* var)
         throw (SyncRecHeaderException);
 
     int
@@ -198,9 +198,9 @@ private:
     bool _read_sync_server;
 
     std::string getQuotedString(std::istringstream& str);
-    
+
     void readKeyedQuotedValues(std::istringstream& header)
-    	throw(SyncRecHeaderException);
+	throw(SyncRecHeaderException);
 
     SyncRecHeaderException* headException;
 
@@ -274,7 +274,7 @@ std::string
 json_sync_record_header_as_string(Json::Value& root)
 {
   Json::Value& header = root["header"];
-  
+
   std::ostringstream oss;
   for (unsigned int i = 0; i < header.size(); ++i)
   {
@@ -291,7 +291,7 @@ write_sync_record_data_as_json(std::ostream& json,
                                size_t numValues)
 {
     Json::Value root;
-    root["time"] = tt;
+    root["time"] = Json::UInt64(tt);
     root["numValues"] = (int)numValues;
     // Unfortunately the JSON spec does not support NAN, and so
     // the data values are written as strings. NANs have a
@@ -308,7 +308,7 @@ write_sync_record_data_as_json(std::ostream& json,
     }
     root["data"] = data;
     json << root;
-}           
+}
 
 inline std::string
 double_to_string(double value)
@@ -347,12 +347,12 @@ write_sync_variable_as_json(const SyncRecordVariable* var,
     size_t lagoffset = var->getLagOffset();
     // int deltatUsec = (int)rint(USECS_PER_SEC / var->getSampleRate());
     dsm_time_t vtime = tt;
-    if (!isnan(rec[lagoffset]))
+    if (!std::isnan(rec[lagoffset]))
         vtime += (int) rec[lagoffset];
-    variable["time"] = vtime;
+    variable["time"] = Json::UInt64(vtime);
     variable["lagoffset"] = double_to_string(rec[lagoffset]);
     return variable;
-}           
+}
 
 inline
 void
@@ -361,7 +361,7 @@ write_sync_record_as_json(std::ostream& json, dsm_time_t tt,
                           std::vector<const SyncRecordVariable*>& vars)
 {
     Json::Value root;
-    root["time"] = tt;
+    root["time"] = Json::UInt64(tt);
     root["numValues"] = nvalues;
     Json::Value& data = root["data"];
     std::vector<const SyncRecordVariable*>::const_iterator it;

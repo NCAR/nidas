@@ -29,8 +29,6 @@
 
 #include "SppSerial.h"
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**
@@ -81,8 +79,8 @@ public:
      *	20		4	4-byte particles outside allowed transit time
      *	24		2	2-byte avg. transit
      *	26		2	2-byte how many times FIFO was full
-     *	28		2	2-byte reset flag (low-order bit is set iff 
-     *				probe CPU has reset and a new setup packet is 
+     *	28		2	2-byte reset flag (low-order bit is set iff
+     *				probe CPU has reset and a new setup packet is
      *				needed)
      *	30		4	4-byte ADC overflow count
      *	34		4*nchan	4-byte concentration (* nchan)

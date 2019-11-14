@@ -63,6 +63,12 @@ MODULE_DESCRIPTION("Mesa ISA driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(REPO_REVISION);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
+#endif
+
 static struct MESA_Board *boards = 0;
 
 /* number of Mesa boards in system (number of non-zero ioport values) */
@@ -103,7 +109,7 @@ static void read_counter(void *ptr)
                 read_address_offset = COUNT0_READ_OFFSET;
                 for (i = 0; i < brd->nCounters; i++) {
                         // read from the counter channel
-                        inw_16o(brd->addr + read_address_offset + ISA_16BIT_ADDR_OFFSET);
+                        inw_16o(brd->addr + read_address_offset);
                         read_address_offset = COUNT1_READ_OFFSET;
                 }
                 return;
@@ -631,9 +637,9 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                ret = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+                ret = !portable_access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                ret =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+                ret = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         else ret = 0;
         if (ret) return -EFAULT;
 

@@ -271,11 +271,13 @@ public:
 
     const std::string& getTimeZone() const { return _timeZone; }
 
-    void setTimeZone(const std::string& val)
-    {
-        _timeZone = val;
-        _utcZone = _timeZone == "GMT" || _timeZone == "UTC";
-    }
+    /**
+     * Set the timezone for the dates & times read from the file.  If a
+     * "timeZone" comment is found at the beginning of the file, this
+     * attribute will be set to that value.
+     */
+    void
+    setTimeZone(const std::string& val);
 
     const std::string& getDateTimeFormat() const
     {
@@ -299,19 +301,98 @@ public:
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /**
-     * Read the time and data from the current record.
-     * The return value may be less than ndata, in which case
-     * values in data after n will be filled with NANs.
-     * As part of this call, the next time in the file is also
-     * read, and its result is available with nextTime().
-     * This method uses a mutex so that multi-threaded calls
-     * should not result in crashes or unparseable data.
-     * However two threads reading the same CalFile will "steal"
-     * each other's data, meaning each thread won't read a full
-     * copy of the CalFile.
+     * Read the time and data from the current record, and return the
+     * number of values read.  The return value may be less than ndata, in
+     * which case values in data after n will be filled with NANs.  As part
+     * of this call, the next time in the file is also read, and its result
+     * is available with nextTime().  This method uses a mutex so that
+     * multi-threaded calls should not result in crashes or unparseable
+     * data.  However two threads reading the same CalFile will "steal"
+     * each other's data, meaning each thread won't read a full copy of the
+     * CalFile.
+     *
+     * If @p fields is not null, then it points to a string vector to which
+     * all the fields in the calfile record will be assigned.  So all the
+     * numeric fields parsed and stored in @p data will also be included in
+     * @p fields, followed by any fields past the last parsed numeric
+     * field.
+     *
+     * For example, given this calfile line:
+     *
+     * @code
+     * 2016 may 1 00:00:00 0.00 0.00 0.00 0.00 0 16.70 0.0 1.0 flipped
+     * @endcode
+     *
+     * Then 9 strings will be added to @p fields: "0.00", ..., "1.0",
+     * "flipped", but the returned value will still be 8, same as if fields
+     * had been null.  If a caller only wants string fields, then it can
+     * retrieve them like so:
+     *
+     * @code
+     * std::vector<std::string> fields;
+     * readCF(time, 0, 0, &fields);
+     * @endcode
+     *
+     * Cal files can have non-numeric columns interspersed with the numeric
+     * columns, in which case all the columns can be read into the @p
+     * fields vector, and then individual fields can be converted to
+     * numbers using getField() and getFields().
+     *
+     * After successfully reading a record with readCF(), the fields of the
+     * current record are also stashed in this CalFile and can be retrieved
+     * with getCurrentFields().  The fields are not valid except after
+     * calling readCF().
      */
-    int readCF(nidas::util::UTime& time, float* data, int ndata)
+    int readCF(nidas::util::UTime& time, float* data, int ndata,
+               std::vector<std::string>* fields=0)
         throw(nidas::util::IOException,nidas::util::ParseException);
+
+    /**
+     * Return the time and fields of the current record, the one last read
+     * with readCF().  If there is no current record, then the return
+     * vector will be empty and the time will be LONG_LONG_MIN.  If an
+     * include file is being read, then this returns the current fields of
+     * the included file.
+     **/
+    const std::vector<std::string>&
+    getCurrentFields(nidas::util::UTime* time = 0);
+
+    nidas::util::UTime
+    getCurrentTime()
+    {
+        return _currentTime;
+    }
+
+    /**
+     * Convert the field at index @p column in the fields vector to a
+     * number, and return the number.  Throws nidas::util::ParseException
+     * if the field cannot be converted to a number, and the message
+     * indicates which column caused the error.  Column is a 0-based index
+     * into fields.  If @p fields is null, then use the same fields as
+     * getCurrentFields() would return.
+     **/
+    float
+    getFloatField(int column, const std::vector<std::string>* fields = 0);
+
+    /**
+     * Parse a range of columns from the fields vector as numbers and store
+     * them in the array @p data.  @p begin is the index of the first field
+     * to parse, and @p end is one greater than the index of the last field
+     * to parse.  The first field is index 0.  If there are fewer fields
+     * than numbers, the remaining numbers are filled with nan.  So the
+     * data array must point to memory for at least (end - begin) numbers.
+     * The return value is the number of fields that were parsed, so it may
+     * be less than the number of data values filled in.
+     *
+     * Like getField(), throws nidas::util::ParseException if a field
+     * cannot be converted to a number.
+     *
+     * If @p fields is null, then use the same fields as
+     * getCurrentFields() would return.
+     **/
+    int
+    getFields(int begin, int end, float* data,
+              const std::vector<std::string>* fields = 0);
 
     /*
      * Return the value of the next time in the file.
@@ -340,23 +421,64 @@ protected:
 
     nidas::util::UTime parseTime() throw(nidas::util::ParseException);
 
+    /**
+     * Read forward to next non-comment line in CalFile.  Place result in
+     * _curline, and index of first non-space character in _curpos.  Set
+     * _eofState=true if that is the case.  Also parses special comment
+     * lines like below, using parseTimeComments():
+     *
+     *    # dateFormat = "xxxxx"
+     *    # timeZone = "xxx"
+     */
     void readLine() throw(nidas::util::IOException,nidas::util::ParseException);
+
+    /**
+     * Check the current line for special comments with timezone and
+     * datetime format settings.  Return true if such a comment was found
+     * and handled.  Throw ParseException if there is an error with the
+     * regular expression matching.
+     */
+    bool
+    parseTimeComments();
+
+    /**
+     * If the current calfile record line is an include directive, parse
+     * the include filename, open it, and return 1.  Otherwise return 0.
+     * It is up to the caller to recurse into the include file to read the
+     * next cal record.
+     */
+    int
+    parseInclude();
 
     void openInclude(const std::string& name)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
+    /**
+     * Internal version of readCF() which reads records from the current
+     * include file, if any.  Returns the result from readCF(), or else -1
+     * if the include file has been exhausted of records and closed.
+     **/
+    int
+    readCFInclude(nidas::util::UTime& time, float* data, int ndata,
+                  std::vector<std::string>* fields_out);
+
+
 private:
 
     /** 
-     * Read the time from the next record. If the EOF is found
-     * the returned time will be a huge value, far off in the
-     * mega-distant future. Does not return an EOFException
-     * on EOF.
+     * Read lines, parsing special comment lines and skipping other
+     * comments or blank lines, until a record line is found.  Then parse
+     * and return the time from that record. On EOF, the returned time will
+     * be a huge value, far off in the mega-distant future. Does not return
+     * an EOFException on EOF.  After parsing the time from a record,
+     * curline contains that record, and curpos points to the character
+     * after the datetime field.  Also sets _nextTime to the returned time.
      */
     nidas::util::UTime readTime()
         throw(nidas::util::IOException,nidas::util::ParseException);
 
-    int readCFNoLock(nidas::util::UTime& time, float* data, int ndata)
+    int readCFNoLock(nidas::util::UTime& time, float* data, int ndata,
+                     std::vector<std::string>* fields)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     std::string _name;
@@ -388,6 +510,9 @@ private:
     int _nline;
 
     nidas::util::UTime _nextTime;
+
+    nidas::util::UTime _currentTime;
+    std::vector<std::string> _currentFields;
 
     /**
      * Time stamp of include "file" record.

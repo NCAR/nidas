@@ -37,7 +37,7 @@
 #include <linux/poll.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>        /* access_ok */
+#include <linux/uaccess.h>        /* access_ok */
 
 #include "ir104.h"
 #include <nidas/linux/Revision.h>    // REPO_REVISION
@@ -73,6 +73,12 @@ MODULE_VERSION(REPO_REVISION);
 #define mutex_init(x)               init_MUTEX(x)
 #define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
 #define mutex_unlock(x)             up(x)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
 #endif
 
 static struct IR104* boards = 0;
@@ -218,11 +224,11 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, (void __user *)arg,
+                                          _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void __user *)arg,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, (void __user *)arg,
+                                          _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch (cmd) 

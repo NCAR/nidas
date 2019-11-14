@@ -83,11 +83,7 @@ public:
      * from socket, write to DSMSensor.
      * @return: read consumed all available data from the socket.
      */
-#if POLLING_METHOD == POLL_EPOLL_ET
     bool handlePollEvents(uint32_t events) throw();
-#else
-    void handlePollEvents(uint32_t events) throw();
-#endif
 
     /**
      * little utility for translating newlines to

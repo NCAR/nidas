@@ -62,7 +62,7 @@ DSMConfig::~DSMConfig()
 {
     // delete the sensors I own
     for (list<DSMSensor*>::const_iterator si = _ownedSensors.begin();
-    	si != _ownedSensors.end(); ++si) delete *si;
+        si != _ownedSensors.end(); ++si) delete *si;
 
     list<SampleOutput*>::const_iterator oi = getOutputs().begin();
     for ( ; oi != getOutputs().end(); ++oi) delete *oi;
@@ -111,22 +111,22 @@ void DSMConfig::removeSensor(DSMSensor* sensor)
 {
     DSMSensor * deleteableSensor = NULL;
     for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
-    	si != _ownedSensors.end(); ) {
-	if (sensor == *si) {
+        si != _ownedSensors.end(); ) {
+        if (sensor == *si) {
              deleteableSensor = *si;
              si = _ownedSensors.erase(si);
         }
-	else ++si;
+        else ++si;
     }
- 
+
     for (list<DSMSensor*>::iterator si = _allSensors.begin();
-    	si != _allSensors.end(); ) {
-	if (sensor == *si) {
+        si != _allSensors.end(); ) {
+        if (sensor == *si) {
             si = _allSensors.erase(si);
         }
-	else ++si;
+        else ++si;
     }
- 
+
     // Sensor was owned and has been removed from both lists, now delete it.
     if (deleteableSensor) delete deleteableSensor;
 }
@@ -152,7 +152,7 @@ void DSMConfig::openSensors(SensorHandler* selector)
     _ownedSensors.clear();
 }
 
-list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const 
+list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const
 {
     list<nidas::core::FileSet*> filesets;
     const list<SampleOutput*>& outputs = getOutputs();
@@ -171,12 +171,12 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
-    
+
     if (xnode.getNodeName() != "dsm")
 	    throw n_u::InvalidParameterException(
 		    "DSMConfig::fromDOMElement","xml node name",
-		    	xnode.getNodeName());
-		    
+			xnode.getNodeName());
+
     const Project* project = getProject();
     assert(project);
 
@@ -259,7 +259,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                                 throw n_u::InvalidParameterException("dsm",aname,e.what());
                             }
                         }
-                            
+
                         unsigned short port;
                         istringstream ist(aval.substr(colon+1));
                         ist >> port;
@@ -291,7 +291,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                             throw n_u::InvalidParameterException(
                                 string("dsm: ") + getName() + ": " + aname,straddr,e.what());
                         }
-                            
+
                         unsigned short port;
                         istringstream ist(aval.substr(colon+1));
                         ist >> port;
@@ -361,12 +361,13 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	if (elname == "sensor" ||
 	    elname == "serialSensor" ||
             elname == "arincSensor" ||
-            elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
-            elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
-            elname == "socketSensor") {
+            elname == "irigSensor" ||   // obsolete, no longer in nidas schema
+            elname == "lamsSensor" ||   // obsolete, no longer in nidas schema
+            elname == "socketSensor") { // obsolete, no longer in nidas schema
 
             if (elname == "irigSensor") WLOG(("%s: <irigSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
             else if (elname == "lamsSensor") WLOG(("%s: <lamsSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
+            else if (elname == "socketSensor") WLOG(("%s: <socketSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
 
             /*
              * This may not return a new DSMSensor, if there is a DSMCatalog,
@@ -485,7 +486,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
             if (snsr->getDeviceName() == devname) sensor = snsr ;
         }
     }
-    if (sensor && classattr.length() > 0 && sensor->getClassName() != classattr) 
+    if (sensor && classattr.length() > 0 && sensor->getClassName() != classattr)
             throw n_u::InvalidParameterException("sensor", sensor->getName(),
             string("conflicting class names: ") + sensor->getClassName() +
                 " " + classattr);
@@ -541,7 +542,7 @@ void DSMConfig::validateSensorAndSampleIds()
 
     const std::list<DSMSensor*>& sensors = getSensors();
     for (list<DSMSensor*>::const_iterator si = sensors.begin();
-    	si != sensors.end(); ++si) {
+        si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 
 	if (sensor->getId() == 0)
@@ -703,7 +704,7 @@ bool DSMConfig::MyDictionary::getTokenValue(const string& token,string& value) c
         value = ost.str();
         return true;
     }
-        
+
     if (token == "LOCATION") {
         value = _dsm->getLocation();
         return true;

@@ -29,6 +29,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/TimetagAdjuster.h>
 
 #include <byteswap.h>
 
@@ -43,31 +44,26 @@ NIDAS_CREATOR_FUNCTION_NS(isff,ATIK_Sonic)
 const float ATIK_Sonic::GAMMA_R = 403.242;
 
 ATIK_Sonic::ATIK_Sonic():
-    SonicAnemometer(),
+    Wind3D(),
     _numOut(0),
     _spikeIndex(-1),
     _cntsIndex(-1),
     _expectedCounts(0),
     _diagThreshold(0.1),
-    _maxShadowAngle(70.0 * M_PI / 180.0)
+    _maxShadowAngle(70.0 * M_PI / 180.0),
+    _ttadjust(0)
 {
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
-    }
 }
 
 ATIK_Sonic::~ATIK_Sonic()
 {
+    delete _ttadjust;
 }
 
 void ATIK_Sonic::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-    SonicAnemometer::parseParameters();
+    Wind3D::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -110,7 +106,7 @@ void ATIK_Sonic::checkSampleTags()
     throw(n_u::InvalidParameterException)
 {
 
-    SonicAnemometer::checkSampleTags();
+    Wind3D::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -120,6 +116,11 @@ void ATIK_Sonic::checkSampleTags()
 
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
+
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
+                stag->getTimetagAdjustPeriod(),
+                stag->getTimetagAdjustSampleGap());
     /*
      * nvars
      * 7	u,v,w,tc,diag,spd,dir
@@ -189,6 +190,29 @@ void ATIK_Sonic::removeShadowCorrection(dsm_time_t, float* ) throw()
     return;
 }
 
+
+namespace {
+    /**
+     * Fill in the uvwt array with the scaled fields from the sonic,
+     * filling in missing values for fields which were not parsed or which
+     * are out of range.
+     **/
+    template <typename T>
+    inline void
+    fillUVWT(float* uvwt, unsigned int nvals, T* pdata)
+    {
+        for (unsigned int i = 0; i < 4; i++) {
+            if (i < nvals && pdata[i] >= -9998.0 && pdata[i] <= 9998.0) {
+                uvwt[i] = pdata[i] / 100.0;
+            }
+            else {
+                uvwt[i] = floatNAN;
+            }
+        }
+    }
+}
+
+
 bool ATIK_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
@@ -197,6 +221,8 @@ bool ATIK_Sonic::process(const Sample* samp,
     float counts[3] = {0.0,0.0,0.0};
     float diag = 0.0;
 
+    dsm_time_t timetag;
+
     if (getScanfers().size() > 0) {
         std::list<const Sample*> parseResults;
         SerialSensor::process(samp,parseResults);
@@ -204,28 +230,18 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         // result from base class parsing of ASCII
         const Sample* psamp = parseResults.front();
+        timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
         const float* pdata = (const float*) psamp->getConstVoidDataPtr();
         const float* pend = pdata + nvals;
 
-        int i;
-        for (i = 0; i < 3; i++) {
-            int ix = _tx[i];
-            if (ix < (signed) nvals) {
-                float f = pdata[ix];
-                if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
-                else uvwt[i] = _sx[i] * f / 100.0;
-            }
-            else uvwt[i] = floatNAN;
-        }
-        // Sonic temperature, i=3
-        if (i < (signed) nvals) {
-            float f = pdata[i];
-            if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
-            else uvwt[i] = f / 100.0;
-        }
-        else uvwt[i] = floatNAN;
+        unsigned int i;
+
+        fillUVWT(uvwt, nvals, pdata);
+
+        // Now we have an array of uvw which can be oriented.
+        _orienter.applyOrientation(uvwt);
 
         pdata += 4;
         int miss_sum = 0;
@@ -252,31 +268,21 @@ bool ATIK_Sonic::process(const Sample* samp,
         unsigned int nvals = samp->getDataLength() / sizeof(short);
         const short* pdata = (const short*) samp->getConstVoidDataPtr();
 
-        int i;
-        for (i = 0; i < 3; i++) {
-            int ix = _tx[i];
-            if (ix < (signed) nvals) {
+        timetag = samp->getTimeTag();
+        if (_ttadjust)
+            timetag = _ttadjust->adjust(timetag);
+
+        // Binary values for uvwt may need to be swapped.
 #if __BYTE_ORDER == __BIG_ENDIAN
-                short f = bswap_16(pdata[ix]);
-#else
-                short f = pdata[ix];
-#endif
-                if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
-                else uvwt[i] = _sx[i] * (float) f / 100.0;
-            }
-            else uvwt[i] = floatNAN;
+        unsigned int i;
+        for (i = 0; i < 4 && i < nvals; i++) {
+            pdata[i] = bswap_16(pdata[i]);
         }
-        // Sonic temperature, i=3
-        if (i < (signed) nvals) {
-#if __BYTE_ORDER == __BIG_ENDIAN
-            short f = bswap_16(pdata[i]);
-#else
-            short f = pdata[i];
 #endif
-            if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
-            else uvwt[i] = (float) f / 100.0;
-        }
-        else uvwt[i] = floatNAN;
+        // Now we can fill in uvwt from pdata and apply orientation.
+        fillUVWT(uvwt, nvals, pdata);
+        _orienter.applyOrientation(uvwt);
+
         pdata += 4;
     }
 
@@ -287,7 +293,7 @@ bool ATIK_Sonic::process(const Sample* samp,
     double c2 = GAMMA_R * (uvwt[3] + KELVIN_AT_0C);
     c2 -= uv2;
 
-    removeShadowCorrection(samp->getTimeTag(), uvwt);
+    removeShadowCorrection(timetag, uvwt);
 
     /*
      * Three situations:
@@ -304,10 +310,10 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     bool spikes[4] = {false,false,false,false};
     if (getDespike() || _spikeIndex >= 0) {
-        despike(samp->getTimeTag(),uvwt,4,spikes);
+        despike(timetag,uvwt,4,spikes);
     }
 
-    transducerShadowCorrection(samp->getTimeTag(), uvwt);
+    transducerShadowCorrection(timetag, uvwt);
 
     /*
      * Recompute Tc with speed of sound corrected
@@ -318,11 +324,11 @@ bool ATIK_Sonic::process(const Sample* samp,
     c2 += uv2;
     uvwt[3] = c2 / GAMMA_R - KELVIN_AT_0C;
 
-    offsetsTiltAndRotate(samp->getTimeTag(),uvwt);
+    offsetsTiltAndRotate(timetag,uvwt);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
-    wsamp->setTimeTag(samp->getTimeTag());
+    wsamp->setTimeTag(timetag);
     wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();

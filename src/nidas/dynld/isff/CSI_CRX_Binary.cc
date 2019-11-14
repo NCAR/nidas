@@ -44,19 +44,20 @@ static const n_u::EndianConverter* fromBig =
 CSI_CRX_Binary::CSI_CRX_Binary():
     _numOut(0),
     _sampleId(0),
-    _badCRCs(0)
+    _badCRCs(0),
+    _ttadjust(0)
 {
 }
 
 CSI_CRX_Binary::~CSI_CRX_Binary()
 {
+    delete _ttadjust;
 }
 
 void CSI_CRX_Binary::validate()
     throw(n_u::InvalidParameterException)
 {
-
-    list<SampleTag*>& tags= getSampleTags();
+    std::list<SampleTag*>& tags = getSampleTags();
 
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName() +
@@ -65,7 +66,10 @@ void CSI_CRX_Binary::validate()
     const SampleTag* stag = tags.front();
     _numOut = stag->getVariables().size();
     _sampleId = stag->getId();
-
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
+                stag->getTimetagAdjustPeriod(),
+                stag->getTimetagAdjustSampleGap());
 }
 
 unsigned short CSI_CRX_Binary::signature(const unsigned char* buf, const unsigned char* eob)
@@ -106,6 +110,9 @@ bool CSI_CRX_Binary::process(const Sample* samp,
     const unsigned char* buf0 = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
 
+    dsm_time_t timetag = samp->getTimeTag();
+    if (_ttadjust)
+        timetag = _ttadjust->adjust(timetag);
 
 #ifdef CHECK_SIGNATURE
     if (len < 4) return false;  // at least the 2-byte signature and one word of data
@@ -125,7 +132,7 @@ bool CSI_CRX_Binary::process(const Sample* samp,
     // new sample
     SampleT<float>* psamp = getSample<float>(_numOut);
 
-    psamp->setTimeTag(samp->getTimeTag());
+    psamp->setTimeTag(timetag);
     psamp->setId(_sampleId);
 
     float* dout = psamp->getDataPtr();

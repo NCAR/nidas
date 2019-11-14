@@ -89,7 +89,7 @@
  * Otherwise kernel timers will be used, and an IRIG card and driver do not
  * need to be present.
  */
-#define USE_IRIG_CALLBACK
+//#define USE_IRIG_CALLBACK
 
 #ifdef USE_IRIG_CALLBACK
 #include <nidas/linux/irigclock.h>
@@ -221,7 +221,16 @@ static short roundUpRate(short rate)
 #ifdef USE_IRIG_CALLBACK
 static void arinc_timesync(void *junk)
 #else
+/*
+ * When called as a kernel timer callback, the argument is an unsigned long
+ * before 4.15, and after that it is a pointer to timer_list.  In either
+ * case, the callback does not use the argument.
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void arinc_timesync(unsigned long junk)
+#else
+static void arinc_timesync(struct timer_list* _tlist)
+#endif        
 #endif
 {
 //      KLOG_INFO("%6d, %6d\n", GET_MSEC_CLOCK, ar_get_timercntl(BOARD_NUM));
@@ -241,8 +250,8 @@ static void arinc_timesync(unsigned long junk)
 #ifndef USE_IRIG_CALLBACK
         /* schedule this function to run at the even second */
         msecs %= MSECS_PER_SEC; /* milliseconds after the second */
-        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        add_timer(&board.syncer);
+        mod_timer(&board.syncer,
+                jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC);
 #endif
 }
 /* -- IRIG CALLBACK ---------------------------------------------------
@@ -252,17 +261,28 @@ static void arinc_timesync(unsigned long junk)
 #ifdef USE_IRIG_CALLBACK
 static void arinc_sweep(void* arg)
 #else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void arinc_sweep(unsigned long arg)
+#else
+static void arinc_sweep(struct timer_list* tlist)
+#endif
 #endif
 {
-
 #ifdef USE_IRIG_CALLBACK
         int chn = (long) arg;
+        struct arinc_dev *dev = &chn_info[chn];
 #else
-        int chn = arg - 1;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+        struct timer_list* tlist = (struct timer_list*)arg;
+#endif
+        /* Get the particular arinc_dev which contains the timer_list, and
+         * then subtract the base of the chn_info array to get the channel
+         * number.
+         */
+        struct arinc_dev* dev = container_of(tlist, struct arinc_dev, sweeper);
+        int chn = dev - &(chn_info[0]);
 #endif
         short err;
-        struct arinc_dev *dev = &chn_info[chn];
         int nData;
         struct dsm_sample *sample;
         tt_data_t *data;
@@ -272,7 +292,7 @@ static void arinc_sweep(unsigned long arg)
                 dev->skippedSamples++;
                 KLOG_WARNING("%s: skippedSamples=%d\n",
                              dev->deviceName, dev->skippedSamples);
-                return;
+                goto resched;
         }               
 
         data = (tt_data_t*) sample->data;
@@ -303,12 +323,12 @@ static void arinc_sweep(unsigned long arg)
         // Can't sync to card.
         if (err == ARS_NOSYNC) {
                 dev->status.nosync++;
-                return;
+                goto resched;
         }
         // note possible buffer underflows 
         if (err == ARS_NODATA) {
                 dev->status.underflow++;
-		return;
+		goto resched;
         }
 
         // note the number of received labels per second 
@@ -326,9 +346,9 @@ static void arinc_sweep(unsigned long arg)
         INCREMENT_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 
+resched:
 #ifndef USE_IRIG_CALLBACK
-        dev->sweeper.expires += dev->sweep_jiffies;
-        add_timer(&dev->sweeper);
+        mod_timer(&dev->sweeper, dev->sweeper.expires + dev->sweep_jiffies);
 #endif
 }
 
@@ -481,9 +501,17 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         // Verify read or write access to the user arg, if necessary
         if (_IOC_DIR(cmd) & _IOC_READ)
-                ret = !access_ok(VERIFY_WRITE, userptr,_IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                ret =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+                ret = !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
+#else
+                ret = !access_ok(userptr, _IOC_SIZE(cmd));
+#endif
         else ret = 0;
         if (ret) return -EFAULT;
 
@@ -527,7 +555,9 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                 spin_unlock_bh(&board.lock);
 
-                KLOG_DEBUG("recv: %04o  rate: %2d Hz\n", arcfg.label, roundUpRate(arcfg.rate));
+                KLOG_DEBUG("%s: recv: %04o  rate: %2d Hz\n",
+                        dev->deviceName, arcfg.label, roundUpRate(arcfg.rate));
+
                 break;
 
         case ARINC_OPEN:
@@ -584,7 +614,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         return -EINVAL;
                 }
                 if (dev->status.lps == 0) {
-                        KLOG_ERR("sequence out of order: use ARINC_SET first\n");
+                        KLOG_ERR("%s: sequence out of order: use ARINC_SET first\n",
+                                dev->deviceName);
                         spin_unlock_bh(&board.lock);
                         return -EINVAL;
                 }
@@ -599,6 +630,10 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 		}
 		if (i == nRates) pollRate = pollRates[i-1];
+
+                /* improve latency, want to report at least
+                 * every 0.25 sec. */
+                if (pollRate < 4) pollRate = 4;
 		
 		dev->status.pollRate = pollRate;
                 dev->pollDtMsec = MSECS_PER_SEC / pollRate;
@@ -619,12 +654,15 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                  dev->deviceName);
                         return err;
                 }
+                KLOG_INFO("%s: %d labels/sec, polled via IRIG at rate: %d Hz\n",
+                        dev->deviceName,dev->status.lps, pollRate);
 #else
                 dev->sweep_jiffies = HZ / pollRate;
-                dev->sweeper.function = arinc_sweep;
                 dev->sweeper.expires = jiffies + dev->sweep_jiffies;
-                dev->sweeper.data = chn + 1;
                 add_timer(&dev->sweeper);
+                KLOG_INFO("%s: %d labels/sec, polled via kernel timer at rate %d Hz, jiffies=%d\n",
+                        dev->deviceName,dev->status.lps,
+                        pollRate, dev->sweep_jiffies);
 #endif
 
                 // launch the board 
@@ -639,7 +677,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case ARINC_BIT:
 
                 if (dev->status.lps) {
-                        KLOG_ERR("cannot run buit in test, already configured!\n");
+                        KLOG_ERR("%s: cannot run built in test, already configured!\n",
+                        dev->deviceName);
                         return -EALREADY;
                 }
                 // perform a series of Built In Tests on the card
@@ -665,8 +704,8 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 break;
 
         default:
-                KLOG_ERR("unrecognized ioctl %d (number %d, size %d)\n",
-                     cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
+                KLOG_ERR("%s: unrecognized ioctl %d (number %d, size %d)\n",
+                     dev->deviceName, cmd, _IOC_NR(cmd), _IOC_SIZE(cmd));
                 ret = -EINVAL;
                 break;
         }
@@ -757,9 +796,15 @@ static int arinc_release(struct inode *inode, struct file *filp)
         dev->sweepCallback = 0;
         flush_irig_callbacks();
 #else
+#if 0
+        /* It is not necessary to check if a timer is active before
+         * deleting it, so this use of the .data member was superfluous.
+         */
         if (dev->sweeper.data > 0)
                 del_timer_sync(&dev->sweeper);
         dev->sweeper.data = 0;
+#endif
+        del_timer_sync(&dev->sweeper);
 #endif
 
         spin_lock_bh(&board.lock);
@@ -825,9 +870,16 @@ static void arinc_cleanup(void)
                                 flush_irig_callbacks();
                 dev->sweepCallback = 0;
 #else
+#if 0
+                /* It is not necessary to check if a timer is active before
+                 * deleting it, so this use of the .data member was
+                 * superfluous.
+                 */
                 if (dev->sweeper.data > 0)
                     del_timer_sync(&dev->sweeper);
                 dev->sweeper.data = 0;
+#endif
+                del_timer_sync(&dev->sweeper);
 #endif
                 if (dev->samples.buf)
                         free_dsm_circ_buf(&dev->samples);
@@ -840,9 +892,7 @@ static void arinc_cleanup(void)
                 unregister_irig_callback(board.timeSyncCallback);
         board.timeSyncCallback = 0;
 #else
-        if (board.syncer.data > 0)
-                del_timer_sync(&board.syncer);
-        board.syncer.data = 0;
+        del_timer_sync(&board.syncer);
 #endif
 
         // remove devices
@@ -901,6 +951,7 @@ static int scan_ceiisa(void)
         unsigned int value;
         unsigned int indx;
 
+#ifdef DEBUG
         char *boardID[] = { "Standard CEI-220",
                 "Standard CEI-420",
                 "Custom CEI-220 6-Wire",
@@ -910,6 +961,8 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
+#endif
+
         value = ioread8(board.mapaddr + 0x808);
         value >>= 4;
         if (value != 0x0) {
@@ -1059,16 +1112,29 @@ static int __init arinc_init(void)
         if (!board.timeSyncCallback) goto fail;
 #else
         ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
-        init_timer(&board.syncer);
 
-        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+        init_timer(&board.syncer);
         board.syncer.function = arinc_timesync;
+        /*
+         * Earlier code used syncer.data to indicate if the timer is
+         * active, but that is not necessary since it is ok to delete a
+         * timer which is not active.  Since .data is not available in the
+         * timer API as of kernel 4.15, switch to the equivalent usage for
+         * 4.15, which is to pass a pointer to the struct timer_list as the
+         * callback argument.
+         */
+        board.syncer.data = (unsigned long)&board.syncer;
+#else
+        timer_setup(&board.syncer, arinc_timesync, 0);
+#endif
+        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
 
         /* schedule arinc_timesync to run at the even second */
-        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;   /* milliseconds after the second */
+        /* milliseconds after the second */
+        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;
 
         board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
-        board.syncer.data = 1;  /* set data to 1, just to indicate this timer is active */
         add_timer(&board.syncer);
 #endif
 
@@ -1092,7 +1158,13 @@ static int __init arinc_init(void)
                 sprintf(dev->deviceName, "/dev/arinc%d", chn);
 
 #ifndef USE_IRIG_CALLBACK
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->sweeper);
+                dev->sweeper.function = arinc_sweep;
+                dev->sweeper.data = (unsigned long)&dev->sweeper;
+#else
+                timer_setup(&dev->sweeper, arinc_sweep, 0);
+#endif
 #endif
 
         }

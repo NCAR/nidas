@@ -42,7 +42,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/io.h>
 
 #include "gpio_mm.h"
@@ -62,6 +62,12 @@
 #define mutex_init(x)               init_MUTEX(x)
 #define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
 #define mutex_unlock(x)             up(x)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
+#else
+#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
 #endif
 
 /* info string used in various places */
@@ -141,6 +147,18 @@ static int gcd(unsigned int a, unsigned int b)
         return gcd(b,a % b);
 }
 
+static void gpio_gettimeofday(struct timeval* tvp)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+        do_gettimeofday(tvp);
+#else
+        struct timespec64 tv;
+        ktime_get_real_ts64(&tv);
+        tvp->tv_sec = tv.tv_sec;
+        tvp->tv_usec = tv.tv_nsec / 1000;
+#endif
+}
+
 #ifdef DEBUG
 static void print_timeval(const char* msg,struct timeval* tvp)
 {
@@ -156,10 +174,11 @@ static void print_timeval(const char* msg,struct timeval* tvp)
 static void print_time_of_day(const char* msg)
 {
         struct timeval tv;
-        do_gettimeofday(&tv);
+        gpio_gettimeofday(&tv);
         print_timeval(msg,&tv);
 }
 #endif
+
 
 /*********** Board Utility Functions *******************/
 static void gpio_mm_set_master_mode(struct GPIO_MM* brd,int chip)
@@ -469,7 +488,7 @@ static void set_ticks(struct GPIO_MM_timer* timer,unsigned int usecs,
         /* determine initial amount of time to count so that
          * we are (somewhat) in sync with the system clock.
          */
-        do_gettimeofday(&tv);
+        gpio_gettimeofday(&tv);
         if (initial_ticsp) {
                 unsigned short initial_tics;
                 unsigned int initial_usecs;
@@ -1429,11 +1448,9 @@ static long gpio_mm_ioctl_fcntr(struct file *filp, unsigned int cmd, unsigned lo
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch (cmd)
@@ -1665,11 +1682,9 @@ static long gpio_mm_ioctl_event(struct file *filp, unsigned int cmd, unsigned lo
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                err = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch (cmd)
@@ -2037,7 +2052,7 @@ void test_callback(void* ptr)
         struct timeval tv;
         int hr,mn,sc;
         int diff = 0;
-        do_gettimeofday(&tv);
+        gpio_gettimeofday(&tv);
         if (cbd->tv.tv_usec > 0) {
             int sd = tv.tv_sec - cbd->tv.tv_sec;
             diff = tv.tv_usec - cbd->tv.tv_usec;

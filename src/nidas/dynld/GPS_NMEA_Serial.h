@@ -27,23 +27,24 @@
 #ifndef NIDIS_DYNLD_GPS_NMEA_SERIAL_H
 #define NIDIS_DYNLD_GPS_NMEA_SERIAL_H
 
-#include "DSMSerialSensor.h"
+#include <nidas/core/SerialSensor.h>
 
 namespace nidas { namespace dynld {
+
+    using namespace nidas::core;
 
 /**
  * A class for reading NMEA records from a GPS.  The process() method parses
  * GGA, RMC, and HDT NMEA messages and generates double precision floating
  * point samples.
  */
-class GPS_NMEA_Serial: public DSMSerialSensor
+class GPS_NMEA_Serial: public SerialSensor
 {
 public:
 
     GPS_NMEA_Serial();
 
-    void addSampleTag(SampleTag* stag)
-        throw(nidas::util::InvalidParameterException);
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Virtual method that is called to convert a raw sample containing
@@ -147,13 +148,14 @@ protected:
 #endif
 
     unsigned int _badChecksums;
-
+    unsigned int _badChecksumsCount;
+    
     /**
      * Derived classes should add their supported sample ids to the map,
      * along with a short descriptive name, so that addSampleTag() does
      * not throw an exception on an unrecognized id.
      */
-    map<int,std::string> _allowedSampleIds;
+    std::map<int,std::string> _allowedSampleIds;
 };
 
 }}	// namespace nidas namespace dynld

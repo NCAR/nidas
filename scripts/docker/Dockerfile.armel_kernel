@@ -1,0 +1,9 @@
+FROM debian-armel-cross:jessie
+LABEL organization="NCAR EOL"
+
+RUN sudo apt-get install -y --no-install-recommends build-essential
+
+RUN mkdir git
+
+RUN cd git; git clone --recursive https://github.com/ncareol/embedded-armel.git
+

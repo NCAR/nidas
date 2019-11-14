@@ -114,18 +114,15 @@ void MultipleUDPSockets::addClient(const ConnectionInfo& info)
 
         mcsaddr.setPort(getDataPort());
 
-        ILOG(("adding multicast client ") << remoteSAddr.toAddressString() <<
-            " to " << mcsaddr.toAddressString());
+        ILOG(("MultipleUDPSockets::addClient, multicast: ") << remoteSAddr.toAddressString() <<
+            " to " << mcsaddr.toAddressString() <<
+            " on iface " << ifaceAddr.getHostAddress());
 
         _socketMutex.lock();
 
         // check if we have a socket already serving this interface
         n_u::DatagramSocket* dsock = _multicastSockets[ifaceAddr];
         if (!dsock) {
-
-            ILOG(("adding multicast socket to ") << mcsaddr.toAddressString() << 
-                " on iface " << ifaceAddr.getHostAddress());
-
             n_u::MulticastSocket* msock = new n_u::MulticastSocket();
             msock->setMulticastLoop(true);
             dsock = msock;
@@ -149,6 +146,7 @@ void MultipleUDPSockets::addClient(const ConnectionInfo& info)
         _socketMutex.unlock();
     }
     else {
+        ILOG(("MultipleUDPSockets::addClient, unicast: ") << remoteSAddr.toAddressString());
         _socketMutex.lock();
 
         n_u::DatagramSocket* dsock = _unicastSockets[remoteSAddr];

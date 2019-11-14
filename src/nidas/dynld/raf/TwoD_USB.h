@@ -66,7 +66,7 @@ public:
     int getTASRate() const { return _tasRate; }
 
     void setTASRate(int val) { _tasRate = val; }
-    
+
     /**
      * The probe resolution in meters.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
@@ -74,7 +74,7 @@ public:
      * @returns The probe resolution in meters.
      */
     float getResolution() const { return _resolutionMeters; }
-     
+
     /**
      * The probe resolution in micrometers.  Probe resolution is also the diameter
      * of the each diode.  Typical values are 25 for the 2DC and 200
@@ -82,7 +82,7 @@ public:
      * @returns The probe resolution in micrometers.
      */
     unsigned int getResolutionMicron() const { return _resolutionMicron; }
-     
+
     /**
      * Number of diodes in the probe array.  This is also the bits-per-slice
      * value.  Traditional 2D probes have 32 diodes, the HVPS has 128 and
@@ -92,7 +92,7 @@ public:
     virtual int NumberOfDiodes() const = 0;
 
     /**
-     * Called by post-processing code 
+     * Called by post-processing code
      */
     void init() throw(nidas::util::InvalidParameterException);
 
@@ -108,7 +108,8 @@ public:
      * @param t2d the Tap2D to be filled
      * @param tas the true airspeed in m/s
      */
-    int TASToTap2D(Tap2D * t2d, float tas);
+   // virtual int TASToTap2D(Tap2D * t2d, float tas);
+    virtual int TASToTap2D(void * t2d, float tas);
 
     /**
      * Reverse the true airspeed encoding.  Used to extract TAS from
@@ -134,8 +135,8 @@ protected:
     class Particle
     {
     public:
-        Particle() : height(0), width(0), area(0), edgeTouch(0),liveTime(0) { } ;
-        void zero() { height = width = area = liveTime = 0; edgeTouch = 0; }
+        Particle() : height(0), width(0), area(0), edgeTouch(0), liveTime(0), dofReject(false) { } ;
+        void zero() { height = width = area = liveTime = 0; edgeTouch = 0; dofReject = false; }
 
         /// Max particle height, along diode array.
         unsigned int height;
@@ -156,6 +157,9 @@ protected:
 	 * array.  Basically width * tas-clock-pulses.
 	 */
         unsigned int liveTime;
+
+        /// Depth Of Field Reject? Last bit of sync word.
+        bool dofReject;
     } ;
 
     // Probe produces Big Endian.
@@ -201,7 +205,7 @@ protected:
     virtual bool acceptThisParticle1D(const Particle& p) const;
     virtual bool acceptThisParticle2D(const Particle& p) const;
 //@}
-    
+
 //@{
     /**
      * Send derived data and reset.  The process() method for image data is
@@ -220,7 +224,7 @@ protected:
 //@}
 
     /**
-     * How often to send the true air speed. 
+     * How often to send the true air speed.
      * Probes also send back the shadowOR when they receive
      * the true airspeed, so in general this is also the
      * receive rate of the shadowOR.
@@ -294,6 +298,9 @@ protected:
     unsigned int _suspectSlices;
     unsigned int _recordsPerSecond;
 //@}
+
+    /// total # of pixels shadoweded in the time period.   per second...
+    unsigned int _totalPixelsShadowed;
 
     /** Time from previous record.  Time belongs to end of record it came with,
      * or start of the next record.  Save it so we can use it as a start.
@@ -404,7 +411,6 @@ stream_histogram(T& out, V* sizedist, unsigned int nbins)
     }
 }
 
-            
-
 }}}                     // namespace nidas namespace dynld namespace raf
+
 #endif

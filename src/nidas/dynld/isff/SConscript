@@ -6,12 +6,6 @@ import eol_scons.parseconfig as pc
 Import('env')
 arch = env['ARCH']  # empty string for native builds
 
-try:
-    if pc.CheckConfig(env, 'pkg-config nc_server'):
-        env.MergeFlags('!pkg-config --cflags nc_server')
-except OSError:
-    pass
-
 sources = Split("""
     ATIK_Sonic.cc
     CSAT3_Sonic.cc
@@ -19,8 +13,10 @@ sources = Split("""
     CSI_CRX_Binary.cc
     CSI_IRGA_Sonic.cc
     CU_Coldwire.cc
+    DAUSensor.cc
     GroundStation.cc
     Licor7500.cc
+    metek.cc
     MOSMote.cc
     NCAR_TRH.cc
     NetcdfRPCChannel.cc
@@ -28,6 +24,11 @@ sources = Split("""
     PropVane.cc
     RebsLinear.cc
     SonicAnemometer.cc
+    Wind2D.cc
+    Wind3D.cc
+    WindOrienter.cc
+    WindRotator.cc
+    WindTilter.cc
     WisardMote.cc
 """)
 
@@ -38,8 +39,10 @@ headers = Split("""
     CSI_CRX_Binary.h
     CSI_IRGA_Sonic.h
     CU_Coldwire.h
+    DAUSensor.h
     GroundStation.h
     Licor7500.h
+    metek.h
     MOSMote.h
     NCAR_TRH.h
     NetcdfRPCChannel.h
@@ -47,10 +50,15 @@ headers = Split("""
     PropVane.h
     RebsLinear.h
     SonicAnemometer.h
+    Wind2D.h
+    Wind3D.h
+    WindOrienter.h
+    WindRotator.h
+    WindTilter.h
     WisardMote.h
 """)
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
-env.Install('$PREFIX/include/nidas/dynld/isff', headers)
+env.Install('$ARCHPREFIX/include/nidas/dynld/isff', headers)
 

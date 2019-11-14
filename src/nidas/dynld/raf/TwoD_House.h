@@ -29,8 +29,6 @@
 
 #include <nidas/dynld/DSMSerialSensor.h>
 
-#include <iostream>
-
 namespace nidas { namespace dynld { namespace raf {
 
 /**
@@ -53,7 +51,7 @@ public:
   ~TwoD_House();
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+	throw();
 
 
 protected:

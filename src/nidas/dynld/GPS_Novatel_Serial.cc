@@ -57,31 +57,37 @@ GPS_Novatel_Serial::GPS_Novatel_Serial() : GPS_NMEA_Serial(),
     _allowedSampleIds[BESTVEL_SAMPLE_ID] = "BESTVEL";
 }
 
-void GPS_Novatel_Serial::addSampleTag(SampleTag* stag)
-  throw(n_u::InvalidParameterException)
+void GPS_Novatel_Serial::validate() throw(n_u::InvalidParameterException)
 {
+    GPS_NMEA_Serial::validate();
 
-    switch(stag->getSampleId()) {
-    case BESTPOS_SAMPLE_ID:
-        _bestPosNvars = stag->getVariables().size();
-        if (_bestPosNvars != 10) {
-            throw n_u::InvalidParameterException(getName(),
-                    "number of variables in BESTPOS sample","must be 10");
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        switch(stag->getSampleId()) {
+        case BESTPOS_SAMPLE_ID:
+            _bestPosNvars = stag->getVariables().size();
+            if (_bestPosNvars != 10) {
+                throw n_u::InvalidParameterException(getName(),
+                        "number of variables in BESTPOS sample","must be 10");
+            }
+            _bestPosId = stag->getId();
+            break;
+        case BESTVEL_SAMPLE_ID:
+            _bestVelNvars = stag->getVariables().size();
+            if (_bestVelNvars != 5) {
+                throw n_u::InvalidParameterException(getName(),
+                        "number of variables in BESTVEL sample","must be 5");
+            }
+            _bestVelId = stag->getId();
+            break;
+        default:
+            break;
         }
-        _bestPosId = stag->getId();
-        break;
-    case BESTVEL_SAMPLE_ID:
-        _bestVelNvars = stag->getVariables().size();
-        if (_bestVelNvars != 5) {
-            throw n_u::InvalidParameterException(getName(),
-                    "number of variables in BESTVEL sample","must be 5");
-        }
-        _bestVelId = stag->getId();
-        break;
-    default:
-        break;
     }
-    GPS_NMEA_Serial::addSampleTag(stag);
 }
 
 dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int nvars,

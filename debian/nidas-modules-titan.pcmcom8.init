@@ -97,7 +97,6 @@ check_ports() {
         local result=0
         local -a ports=()
         local -a irqs=()
-        local -a birqs=()
         for (( brd = 0; brd < ${#boardevs[*]}; brd++ )); do
                 local brddev=${boardevs[$brd]}
                 local birq=-1
@@ -113,22 +112,26 @@ check_ports() {
                                 if [ $portval -ge 256 -a $portval -le 1016 ]; then
                                         # If a duplicate ioport address is found, report the error.
                                         if echo ${ports[*]} | fgrep -q $port; then
-                                                echo "Duplicate port=$port on $brddev"
-                                                result=1
-                                                break
+                                            echo "Duplicate port=$port on $brddev"
+                                            result=1
+                                            break
                                         fi
-                                        [ $birq -lt 0 ] && birq=$irq
-                                        if [ $birq -ne $irq ]; then
-                                                echo "irq=$irq on $brddev, port $port does not match board irq=$birq"
-                                                result=1
-                                                break
+                                        # Warn about shared interrupts across boards
+                                        # (but if there are repeated values in defirqs, this script
+                                        # doesn't do anything about it...)
+                                        if echo ${irqs[*]} | fgrep -q $irq; then
+                                            echo "Duplicate irq=$irq on $brddev, port $port"
+                                            result=1
+                                            break
                                         fi
-                                        # Also don't share interrupts across boards
-                                        if echo ${birqs[*]} | fgrep -q $birq; then
-                                                echo "Duplicate irq=$irq on $brddev, port $port"
-                                                result=1
-                                                break
+                                        # irq is set with jumper and resistor in board, so force it
+                                        # to the defaults.
+                                        if [ $irq -ne ${defirqs[$brd]} ]; then
+                                            echo "irq=$irq on $brddev, port $port does not match default irq=${defirqs[$brd]}"
+                                            result=1
+                                            break
                                         fi
+                                        irqs[$brd]=$irq
                                         ports=(${ports[*]} $port)
                                 else
                                     # bad port number
@@ -138,7 +141,6 @@ check_ports() {
                                 ;;
                         esac
                 done < <(set_pcmcom8 $brddev)
-                birqs[$brd]=$irq
         done
         return $result
 }

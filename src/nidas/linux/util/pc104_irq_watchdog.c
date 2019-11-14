@@ -131,8 +131,7 @@ static void pc104_irq_watchdog_timer_func(unsigned long arg)
         }
         spin_unlock_irqrestore(&pc104_irq_watchdog_spinlock,flags);
 
-        pc104_irq_watchdog_timer.expires = jiffies + HZ / 10;
-        add_timer(&pc104_irq_watchdog_timer);
+        mod_timer(&pc104_irq_watchdog_timer, jiffies + HZ / 10);
 }
 
 static void __exit pc104_irq_watchdog_cleanup(void)

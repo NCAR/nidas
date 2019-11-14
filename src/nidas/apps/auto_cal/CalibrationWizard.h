@@ -61,7 +61,7 @@ class AutoCalPage;
 
 /**
  * GUI logic for auto calibration tool.  Creates either AutoCalPage or TestA2DPage
- * based on user input. 
+ * based on user input.
  */
 class CalibrationWizard : public QWizard
 {
@@ -74,6 +74,10 @@ public:
 
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
+public slots:
+    // Qt signal handler.
+    void handleSignal();
+
 signals:
     void dialogClosed();
 
@@ -83,16 +87,18 @@ protected:
     void closeEvent(QCloseEvent *event);
 
 private:
+    AutoCalClient *acc;
+
     Calibrator *calibrator;
 
     // Unix signal handler.
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr)
+    { _instance->cleanup(sig, siginfo, vptr); }
 
-public slots:
-    // Qt signal handler.
-    void handleSignal();
+    void cleanup(int sig, siginfo_t* siginfo, void* vptr);
 
-private:
+    static CalibrationWizard *_instance;
+
     static int signalFd[2];
 
     SetupPage*   _SetupPage;

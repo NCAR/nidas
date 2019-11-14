@@ -34,6 +34,7 @@ NCAR A/D driver private header
 #define NCAR_A2D_PRIV_H
 
 #include <nidas/linux/ncar_a2d.h>       // shared stuff
+#include <nidas/linux/filters/short_filters_kernel.h>
 
 #include <linux/wait.h>
 #include <linux/device.h>
@@ -222,7 +223,7 @@ struct A2DBoard
 	int havePPS;
 
         int nfilters;           // how many different output filters
-        struct a2d_filter_info *filters;
+        struct short_filter_info *filters;
 
         struct irig_callback* a2dCallback;
 

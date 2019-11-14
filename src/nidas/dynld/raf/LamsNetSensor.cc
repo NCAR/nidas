@@ -23,22 +23,13 @@
  **
  ********************************************************************
 */
-/* 
+/*
  * LamsNetSensor
- * 
+ *
  */
 
 #include "LamsNetSensor.h"
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMEngine.h>
-#include <nidas/core/UnixIODevice.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
-#include <nidas/util/UTime.h>
-
-#include <iostream>
-#include <iomanip>
 
 using namespace std;
 using namespace nidas::dynld::raf;
@@ -103,7 +94,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
             _beam = 3;
         else
         {
-            WLOG(("LamsNetSensor: invalid beam identifier = %d.\n", ptr[0]));
+            WLOG(("%s: invalid beam identifier = %d.\n", getName().c_str(), ptr[0]));
             _beam = 0;
         }
 
@@ -111,7 +102,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
         {
             _saveSamps[_beam]->freeReference();
             if (!(_unmatchedSamples++ % 100))
-                WLOG(("LamsNetSensor: missing second half of record, #bad=%zd", _unmatchedSamples));
+                WLOG(("%s: missing second half of record, #bad=%zd", getName().c_str(), _unmatchedSamples));
         }
         _saveSamps[_beam] = samp;
         samp->holdReference();
@@ -122,14 +113,14 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     if ((saved = _saveSamps[_beam]) == 0)
     {
         if (!(_unmatchedSamples++ % 100))
-            WLOG(("LamsNetSensor: missing first half of record, #bad=%zd", _unmatchedSamples));
+            WLOG(("%s: missing first half of record, #bad=%zd", getName().c_str(), _unmatchedSamples));
         return false;
     }
 
     // allocate sample, spectra size plus one for sequence number
     SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE+1);
     outs->setTimeTag(saved->getTimeTag());
-    outs->setId(getId() + _beam + 1);  
+    outs->setId(getId() + _beam + 1);
 
     float *dout = outs->getDataPtr();
     int iout;
@@ -148,7 +139,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     if (_prevSeqNum[_beam] + 1 != seqNum)
     {
-        WLOG(("LamsNetSensor: missing data, beam %d; prev seq=%d, this seq=%d", _beam, _prevSeqNum[_beam], seqNum));
+        WLOG(("%s: missing data, beam %d; prev seq=%d, this seq=%d", getName().c_str(), _beam, _prevSeqNum[_beam], seqNum));
         _outOfSequenceSamples++;
     }
     _prevSeqNum[_beam] = seqNum;

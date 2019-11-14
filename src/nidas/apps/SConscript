@@ -1,56 +1,128 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+# This SConscript can be run two ways.  Normally it is part of a full build
+# of the NIDAS source tree, using variant dirs to build into different
+# paths for each machine architecture, and inheriting configuration
+# settings and paths from the top-level SConstruct.  The other way builds
+# the applications against an existing installation of NIDAS, by specifying
+# the installation path in the NIDAS_PATH variable on the scons
+# command-line and by running scons with this SConscript as the SConstruct
+# file.  So the standalone build command looks like this:
+#
+#   scons -f SConscript NIDAS_PATH=/opt/nidas
+#
+# The top few lines of this file setup the Environment accordingly, while
+# the rest of the file does not need to change.
+
+import os
+import eol_scons
 import eol_scons.parseconfig as pc
 
-##
-##  Import the build environment.
-##
-Import('env')
+def check_pkg_config(env, pkg):
+    found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
+    print("pkg-config found for %s: %s" % (pkg, ["no", "yes"][int(found)]))
+    return found
 
-env = env.Clone(tools = ['nidas'])
-arch = env['ARCH']  # empty string for native builds
-machs = env['MACHS']
+cpp11_source = """
+#include <string>  //for converting data to_string
+#include <future> //async function calls
 
-env.NidasProgram('arl-ingest.cc')
-env.NidasProgram('arinc_out.cc')
-env.NidasProgram('ck_aout.cc')
-env.NidasProgram('ck_calfile.cc')
-env.NidasProgram('ck_xml.cc')
-env.NidasProgram('data_dump.cc')
-env.NidasProgram('data_stats.cc')
-env.NidasProgram('dmd_mmat_test.cc')
-env.NidasProgram('dsm_server.cc')
-env.NidasProgram('dsm.cc')
-env.NidasProgram('extract2d.cc')
-env.NidasProgram('ir104.cc')
-env.NidasProgram('lidar_vel.cc')
-env.NidasProgram('merge_verify.cc')
-env.NidasProgram('nidas_udp_relay.cc')
-env.NidasProgram('nidsmerge.cc')
-env.NidasProgram('n_hdr_util.cc')
-env.NidasProgram('proj_configs.cc')
-env.NidasProgram('rserial.cc')
-env.NidasProgram('sensor_extract.cc')
-env.NidasProgram('sensor_sim.cc')
-env.NidasProgram('statsproc.cc')
-env.NidasProgram('status_listener.cc')
+int main(int argc, char** argv) {
+std::string one = std::to_string(1);
+return 0;
+}
+"""
+def CheckCpp11(context):
+    context.env.Append(CXXFLAGS='-std=c++11')
+    context.Message('Checking for C++11 support...')
+    result = context.TryCompile(cpp11_source, '.cc')
+    context.Result(result)
+    return result
+ 
+custom_tests = {'CheckCpp11':CheckCpp11}
+
+
+if not ARGUMENTS.get('NIDAS_PATH'):
+    ##
+    ##  Import the build environment.
+    ##
+    Import('env')
+    env = env.Clone(tools = ['nidas'])
+    arch = env['ARCH']  # empty string for native builds
+    machs = env['MACHS']
+else:
+    env = Environment(tools=['default', 'nidas'])
+    # We do this here because we don't get the setting from the top-level
+    # SConstruct.
+    pc.PassPkgConfigPath(env)
+    arch = ''
+    machs = []
+    # If this path exists, then probably we're building on a Pi and it
+    # needs to be on the path.
+    xlibs = env.subst("${NIDAS_PATH}/lib/arm-linux-gnueabihf")
+    if os.path.exists(xlibs):
+        env.Append(LIBPATH=xlibs)
+
+programs = Split("""
+arl-ingest
+arinc_out
+ck_aout
+ck_calfile
+ck_xml
+data_dump
+data_stats
+dmd_mmat_test
+dsm_server
+dsm
+extract2d
+extractDMT
+ir104
+lidar_vel
+merge_verify
+nidas_udp_relay
+nidsmerge
+n_hdr_util
+proj_configs
+rserial
+sensor_extract
+sensor_sim
+statsproc
+status_listener
+sync_server
+xml_dump
+isff/datasets
+""")
+
+# For all these targets, wherever PREFIX is used, it should use
+# ARCHPREFIX instead.
+env['PREFIX'] = env.subst('$ARCHPREFIX')
+
+for prog in programs:
+    env.Alias(prog, env.NidasProgram(prog+'.cc'))
+
+didbenv = env.Clone()
+dbconf = didbenv.Configure(custom_tests=custom_tests)
+if not dbconf.CheckCpp11():
+    print("No C++11 support, data_influxdb will not be built.")
+elif bool(not arch and
+          check_pkg_config(didbenv, 'jsoncpp') and
+          check_pkg_config(didbenv, 'libcurl')):
+    print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
+    didbenv.AppendUnique(CXXFLAGS='-std=c++11')
+    didbenv.Append(CXXFLAGS='-Wno-effc++')
+    didb = didbenv.NidasProgram('data_influxdb.cc')
+    didbenv.Alias('data_influxdb', didb)
+dbconf.Finish()
 
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
 sdconf = sdenv.Configure()
-# Explicitly disable protobuf build for now, since it isn't actually used
-# and yet it causes memcheck errors in the sync_dump test.
-if bool(False and
-        sdconf.CheckLibWithHeader('protobuf', 'google/protobuf/stubs/common.h',
-                                  'C++')):
-    sdenv.Tool('protoc')
-    sdenv['PROTOCPYTHONOUTDIR'] = None
-    sdenv.Append(CPPDEFINES="SUPPORT_PROTOBUF_OUTPUT")
-    SDSRCS += [sdenv.Protoc('syncrecord.proto')[1]]
-
-if sdconf.CheckLibWithHeader('jsoncpp', 'jsoncpp/json/json.h', 'C++'):
+if not arch and check_pkg_config(sdenv, 'jsoncpp'):
+    print("sync_dump will be built with json support")
     sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
+else:
+    print("sync_dump will be built without json support")
 
 # linux/i2c-dev.h contains only macros, no library needed.
 # It exists on RedHat systems, but does not contain
@@ -59,14 +131,16 @@ has_i2c = False
 if sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
         'i2c_smbus_read_byte_data(0,0);'):
     has_i2c = True
+    has_old_i2c = False
+# check if i2c API has 3(old) or 4(new) arguments in
+# i2c_smbus_read_i2c_block_data
+    if not sdconf.CheckLibWithHeader('','linux/i2c-dev.h','C',
+            'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
+        env.Append(CPPDEFINES="OLD_I2C_API")
 
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')
-sdenv.NidasProgram(SDSRCS)
-
-env.NidasProgram('sync_server.cc')
-env.NidasProgram('xml_dump.cc')
-env.NidasProgram('isff/datasets.cc')
+env.Alias('sync_dump', sdenv.NidasProgram(SDSRCS))
 
 ncenv = env.Clone()
 try:
@@ -81,8 +155,8 @@ ncenv.NidasProgram('isff/prep.cc')
 env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
-    env.NidasUtilProgram('tee_i2c.cc')
-    env.NidasUtilProgram('ublox.cc')
+    env.Alias('tee_i2c', env.NidasProgram('tee_i2c.cc'))
+    env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
 
 env.NidasUtilProgram('utime.cc')
 
@@ -102,6 +176,8 @@ if arch != '':
     env.NidasUtilProgram('garmin.cc')
 
 # build auto_cal and config
-SConscript("auto_cal/SConscript", exports=['env'])
-SConscript("config/SConscript", exports=['env'])
+if not env.has_key("BUILD_RAF") or env['BUILD_RAF']:
+    SConscript("auto_cal/SConscript", exports=['env'])
+    SConscript("config/SConscript", exports=['env'])
 
+env.Alias('install', ['$PREFIX/bin'])

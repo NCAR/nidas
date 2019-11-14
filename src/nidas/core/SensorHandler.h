@@ -69,10 +69,16 @@ namespace nidas { namespace core {
  * file descriptor.  The polling loop is implemented in
  * the Thread::run method of the SensorHandler.
  *
+ * This code has supported legacy systems which did not have the
+ * epoll() API, and used select/pselect or poll/ppoll instead.
+ * So, this code supports all the polling APIs, and one is
+ * selected using POLLING_METHOD. As of 2017 all known systems
+ * support epoll(), so the old select/poll code could be removed.
+ *
  * When an incoming socket connection is accepted on
  * RemoteSerialListener, a RemoteSerialConnection is
  * established, which first requests the name of a
- * DSMSensor on the connected socket. If that sensor 
+ * DSMSensor on the connected socket. If that sensor
  * is found then data are then passed back and forth
  * between the socket and the DSMSensor. This data path
  * is separate from the normal Sample data path.  It
@@ -178,17 +184,17 @@ public:
     void incrementFullBufferReads(const DSMSensor* sensor);
 
 
-    /** 
-     * Tell the SensorHandler that one or more sensor timeouts  have changed.
+    /**
+     * Tell the SensorHandler that one or more sensor timeouts have changed.
      */
-    void updateTimeouts() 
+    void updateTimeouts()
     {
         _pollingChanged = true;
     }
 
 private:
 
-    class PolledDSMSensor : public Polled 
+    class PolledDSMSensor : public Polled
     {
     public:
         PolledDSMSensor(DSMSensor* sensor,SensorHandler* handler)
@@ -202,11 +208,7 @@ private:
         /**
          * @return: true: read consumed all available data.
          */
-#if POLLING_METHOD == POLL_EPOLL_ET
         bool handlePollEvents(uint32_t events) throw();
-#else
-        void handlePollEvents(uint32_t events) throw();
-#endif
 
         DSMSensor* getDSMSensor() { return _sensor; }
 
@@ -234,7 +236,7 @@ private:
          * The SensorHandler will call this method of each opened
          * sensor at the interval specified previously in the call to
          * setupTimeouts(int), or perhaps somewhat less often, due
-         * to normal overhead. 
+         * to normal overhead.
          * If handlePollEvents(events) with an event mask of EPOLLEDIN
          * has not bee called since the last call to checkTimeout,
          * then increment _nTimeoutChecks.
@@ -244,7 +246,7 @@ private:
         bool checkTimeout();
 
         /**
-         * Remove this DSMSensor from those being polled, 
+         * Remove this DSMSensor from those being polled,
          * then call its close() method.
          */
         void close() throw(nidas::util::IOException);
@@ -288,11 +290,8 @@ private:
 
         ~NotifyPipe();
 
-#if POLLING_METHOD == POLL_EPOLL_ET
         bool handlePollEvents(uint32_t events) throw();
-#else
-        void handlePollEvents(uint32_t events) throw();
-#endif
+
         void close() throw(nidas::util::IOException);
 
         /**
@@ -342,16 +341,15 @@ private:
     void scheduleReopen(PolledDSMSensor*) throw();
 
     /**
-     * Internal private method to create a PolledDSMSensor from
-     * a DSMSensor and add it to the list of currently active
-     * sensors.
+     * Internal private method to add a remote serial
+     * connection to a sensor.
      */
     void add(RemoteSerialConnection *) throw();
 
     void remove(RemoteSerialConnection *) throw();
 
     /**
-     * Schedule this PolledDSMSensor to be closed
+     * Schedule this remote serial connection to be closed
      * when convenient.
      */
     void scheduleAdd(RemoteSerialConnection*) throw();
@@ -360,7 +358,7 @@ private:
 
     /**
      * Called when something has changed in our collection
-     * of sensors. Mainly this maintains the set of 
+     * of sensors. Mainly this maintains the set of
      * file descriptors used by the epoll() system functions.
      */
     void handlePollingChange();

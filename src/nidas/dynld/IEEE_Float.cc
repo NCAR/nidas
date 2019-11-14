@@ -40,7 +40,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(IEEE_Float)
 
-IEEE_Float::IEEE_Float(): DSMSerialSensor(),
+IEEE_Float::IEEE_Float(): SerialSensor(),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
     _converter(0),_sampleTag(0),_nvars(0)
 {
@@ -54,7 +54,7 @@ void IEEE_Float::init() throw(n_u::InvalidParameterException)
 
 void IEEE_Float::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::validate();
+    SerialSensor::validate();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -113,18 +113,7 @@ bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
     for ( ; iv < _nvars && dp + sizeof(float) <= deod; iv++) {
         Variable* var = vars[iv];
         float val = _converter->floatValue(dp);
-        if (val == var->getMissingValue()) val = floatNAN;
-        else {
-            if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) val = conv->convert(samp->getTimeTag(),val);
-            }
-
-            /* Screen values outside of min,max after the conversion */
-            if (val < var->getMinValue() || val > var->getMaxValue()) 
-                val = floatNAN;
-        }
-        *dout++ = val;
+        var->convert(outs->getTimeTag(), &val, 1, dout++);
         dp += sizeof(float);
     }
     for ( ; iv < _nvars; iv++) *dout++ = floatNAN;
