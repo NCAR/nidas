@@ -74,12 +74,7 @@ DSMServerApp::DSMServerApp():
     ExternalControl
     ("-r,--remote", "", "Enable XML-RPC server for remote control."),
     OptionalProcessing
-    ("-o,--optional", "", "Run processors marked as optional in XML."),
-    DatasetName
-    ("-S,--dataset", "<datasetname>",
-     "Set environment variables specifed for the dataset\n"
-     "as found in the xml file specifed by $NIDAS_DATASETS or\n"
-     "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml")
+    ("-o,--optional", "", "Run processors marked as optional in XML.")
 {
     setupSignals();
 }
@@ -94,7 +89,8 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.Help | _app.ConfigsArg |
                          _app.Username | _app.Hostname | _app.DebugDaemon |
-                         ExternalControl | OptionalProcessing | DatasetName |
+                         _app.DatasetName |
+                         ExternalControl | OptionalProcessing |
                          _app.loggingArgs() | _app.Version);
     ArgVector args = _app.parseArgs(argc, argv);
     if (_app.helpRequested())
@@ -104,7 +100,7 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
     }
     _externalControl = ExternalControl.asBool();
     _optionalProcessing = OptionalProcessing.asBool();
-    _datasetName = DatasetName.getValue();
+    _datasetName = _app.DatasetName.getValue();
 
     if (_app.ConfigsArg.asBool())
     {

@@ -639,6 +639,7 @@ public:
     NidasAppArg Hostname;
     NidasAppArg DebugDaemon;
     NidasAppArg ConfigsArg;
+    NidasAppArg DatasetName;
 
     /**
      * This is a convenience method to return all of the logging-related

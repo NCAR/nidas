@@ -496,6 +496,11 @@ NidasApp(const std::string& name) :
    "are written to standard error instead of syslog.  Any logging\n"
    "configuration on the command line will replace the default debug scheme."),
   ConfigsArg("-c,--configs"),
+  DatasetName
+  ("-S,--dataset", "<datasetname>",
+   "Set environment variables specifed for the dataset\n"
+   "as found in the xml file specifed by $NIDAS_DATASETS or\n"
+   "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"),
   _appname(name),
   _argv0(),
   _processData(false),

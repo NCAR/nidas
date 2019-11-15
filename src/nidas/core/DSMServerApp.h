@@ -149,7 +149,6 @@ private:
 
     NidasAppArg ExternalControl;
     NidasAppArg OptionalProcessing;
-    NidasAppArg DatasetName;
 
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);
