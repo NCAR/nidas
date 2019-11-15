@@ -144,7 +144,7 @@ std::string BAUD_RATE_CFG_DESC("Baud");
  */
 const float CSAT3_Sonic::GAMMA_R = 402.684;
 
-CSAT3_Sonic::CSAT3_Sonic():
+CSAT3_Sonic::CSAT3_Sonic(bool supportsAutoConfig):
     Wind3D(DEFAULT_PORT_CONFIG),
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
@@ -181,22 +181,24 @@ CSAT3_Sonic::CSAT3_Sonic():
     // letting the base class modify according to fromDOMElement()
     setMessageParameters(defaultMessageConfig);
 
-	// copy the serial comm parameters to the SerialSensor lists
-    // Let the base class know about PTB210 RS232 limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
+    if (supportsAutoConfig) {
+        // copy the serial comm parameters to the SerialSensor lists
+        // Let the base class know about PTB210 RS232 limitations
+        for (int i=0; i<NUM_PORT_TYPES; ++i) {
+            _portTypeList.push_back(SENSOR_PORT_TYPES[i]);
+        }
 
-    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-    	_baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
+        for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
+            _baudRateList.push_back(SENSOR_BAUDS[i]);
+        }
 
-    for (int i=0; i<NUM_WORD_SPECS; ++i) {
-    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
+        for (int i=0; i<NUM_WORD_SPECS; ++i) {
+            _serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
+        }
 
-    initCustomMetaData();
-    setAutoConfigSupported();
+        initCustomMetaData();
+        setAutoConfigSupported();
+    }
 }
 
 CSAT3_Sonic::~CSAT3_Sonic()
@@ -251,9 +253,6 @@ throw(n_u::IOException)
     std::string qryCmd("??\r");    // must send CR
     writePause(qryCmd.c_str(), qryCmd.length());
 
-    // sonic takes a while to respond to ??
-    string::size_type stidx = string::npos;
-
     const int BUF_SIZE = 600;
     char buf[BUF_SIZE];
     memset(buf, 0, BUF_SIZE);
@@ -277,6 +276,9 @@ throw(n_u::IOException)
 
     // rev 3 message, starts with ET=, contains serial number
     // rev 4 or 5 message, starts with serial number
+    // sonic takes a while to respond to ??
+    // string::size_type stidx = string::npos;
+
 //    if (stidx == string::npos) {
 //        string::size_type etidx = result.find("ET=");
         string::size_type snidx;

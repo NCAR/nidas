@@ -41,7 +41,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
-    CSAT3_Sonic(),
+    CSAT3_Sonic(false),
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),

@@ -60,7 +60,7 @@ class CSAT3_Sonic: public Wind3D
 {
 public:
 
-    CSAT3_Sonic();
+    CSAT3_Sonic(bool supportsAutoConfig=true);
 
     ~CSAT3_Sonic();
 
