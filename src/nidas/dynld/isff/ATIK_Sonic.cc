@@ -233,7 +233,8 @@ bool ATIK_Sonic::process(const Sample* samp,
         timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
-        const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+        const float* pdata;
+        pdata = static_cast<const float*>(psamp->getConstVoidDataPtr());
         const float* pend = pdata + nvals;
 
         unsigned int i;
@@ -266,19 +267,22 @@ bool ATIK_Sonic::process(const Sample* samp,
     else {
         // binary output into a char sample.
         unsigned int nvals = samp->getDataLength() / sizeof(short);
-        const short* pdata = (const short*) samp->getConstVoidDataPtr();
+        const short* pdata;
+        pdata = static_cast<const short*>(samp->getConstVoidDataPtr());
 
         timetag = samp->getTimeTag();
         if (_ttadjust)
             timetag = _ttadjust->adjust(timetag);
 
         // Binary values for uvwt may need to be swapped.
-#if __BYTE_ORDER == __BIG_ENDIAN
-        unsigned int i;
-        for (i = 0; i < 4 && i < nvals; i++) {
-            pdata[i] = bswap_16(pdata[i]);
+        if (__BYTE_ORDER == __BIG_ENDIAN)
+        {
+            unsigned int i;
+            short* ncdata = const_cast<short*>(pdata);
+            for (i = 0; i < 4 && i < nvals; i++) {
+                ncdata[i] = bswap_16(ncdata[i]);
+            }
         }
-#endif
         // Now we can fill in uvwt from pdata and apply orientation.
         fillUVWT(uvwt, nvals, pdata);
         _orienter.applyOrientation(uvwt);
