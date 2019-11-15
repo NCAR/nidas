@@ -157,6 +157,7 @@ int ARLIngest::usage(const char* argv0) {
 
 int ARLIngest::parseRunstring(int argc, char** argv) throw() {
     NidasApp& app = _app;
+    app.allowUnrecognized(true);
     app.enableArguments(app.XmlHeaderFile | app.OutputFiles |
                         app.loggingArgs() |
                         app.Version | app.Help);
