@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
 
   nidas_app_arglist_t appargs = app.getArguments();
   // LogShow and LogFields are always included.
-  BOOST_CHECK_EQUAL(appargs.size(), 10);
+  BOOST_CHECK_EQUAL(appargs.size(), 8);
 
   BOOST_CHECK(vfind(appargs, &app.InputFiles) != appargs.end());
   BOOST_CHECK(vfind(appargs, &app.OutputFiles) == appargs.end());
@@ -481,8 +481,6 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   BOOST_CHECK(vfind(appargs, &app.InputFiles) != appargs.end());
   BOOST_CHECK(vfind(appargs, &app.SampleRanges) != appargs.end());
   BOOST_CHECK(vfind(appargs, &app.Version) != appargs.end());
-  BOOST_CHECK(vfind(appargs, &app.LogShow) != appargs.end());
-  BOOST_CHECK(vfind(appargs, &app.LogFields) != appargs.end());
 
   BOOST_CHECK_EQUAL(app.InputFiles.allowFiles, true);
   BOOST_CHECK_EQUAL(app.InputFiles.allowSockets, true);
@@ -550,7 +548,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_requireargs)
   {
     DLOG(("") << (*it)->getUsageFlags());
   }
-  BOOST_CHECK_EQUAL(app.getArguments().size(), 8);
+  BOOST_CHECK_EQUAL(app.getArguments().size(), 6);
   BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.XmlHeaderFile) !=
 	      appargs.end());
   BOOST_CHECK(find(appargs.begin(), appargs.end(), &app.Help) != appargs.end());
