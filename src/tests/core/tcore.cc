@@ -416,6 +416,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
   int argc = sizeof(argv)/sizeof(argv[0]);
   std::vector<std::string> args(argv, argv+argc);
 
+  app.allowUnrecognized(true);
   app.enableArguments(app.XmlHeaderFile | app.LogConfig);
   args = app.parseArgs(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
@@ -497,6 +498,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   args = strm_vector<std::string>()
     << "-l" << "debug" << "-x" << "/tmp/header2.xml";
 
+  app.allowUnrecognized(true);
   args = app.parseArgs(args);
   BOOST_REQUIRE_EQUAL(args.size(), 2);
   BOOST_CHECK_EQUAL(args[0], "-l");
@@ -509,6 +511,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
 {
   // Make sure long arguments are accepted.
   NidasApp app("test");
+  app.allowUnrecognized(true);
 
   app.enableArguments(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
   app.requireLongFlag(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
@@ -598,6 +601,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
   // Make sure incomplete arguments throw exceptions.
   NidasApp app("test");
 
+  app.allowUnrecognized(true);
   app.enableArguments(app.XmlHeaderFile);
   
   std::vector<std::string> args = strm_vector<std::string>() << "--xml";
@@ -655,6 +659,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_process_name)
   int argc = 4;
 
   NidasApp app("test");
+  app.allowUnrecognized(true);
   BOOST_CHECK_EQUAL(app.getName(), "test");
   BOOST_CHECK_EQUAL(app.getProcessName(), "test");
   ArgVector args = app.parseArgs(argc, argv);
