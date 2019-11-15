@@ -340,7 +340,12 @@ protected:
      * In particular, supportsAutoConfig() must be overridden to return true,
      * otherwise, the other virtual methods will not get called at all.
      */
-    virtual CFG_MODE_STATUS enterConfigMode() { return ENTERED; }
+    virtual CFG_MODE_STATUS enterConfigMode() 
+    {
+        DLOG(("SerialSensor::enterConfigMode(): No device subclass has overridden enterConfigMode()")); 
+        return ENTERED; 
+    }
+
     virtual void exitConfigMode() {}
     CFG_MODE_STATUS getConfigMode() {return _configMode;}
     void setConfigMode(CFG_MODE_STATUS newCfgMode) {_configMode = newCfgMode;}

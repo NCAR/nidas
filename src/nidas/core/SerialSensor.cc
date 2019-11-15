@@ -708,7 +708,7 @@ void SerialSensor::doAutoConfig()
 		printDeviceMetaData();
 	}
 	else {
-	    DLOG(("Autoconfig is not enabled or is not supported."));
+	    NLOG(("Autoconfig is not enabled or is not supported."));
 	}
 }
 
@@ -717,9 +717,9 @@ bool SerialSensor::findWorkingSerialPortConfig()
     bool foundIt = false;
 
     // first see if the current configuration is working. If so, all done!
-    NLOG(("Testing initial config which may be custom ") << _desiredPortConfig);
+    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Testing initial config which may be custom ") << _desiredPortConfig);
 
-    NLOG(("Entering sensor config mode, if a subclass has overridden enterConfigMode()"));
+    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Entering sensor config mode()"));
     CFG_MODE_STATUS cfgMode = enterConfigMode();
 
     if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
@@ -731,19 +731,19 @@ bool SerialSensor::findWorkingSerialPortConfig()
             // initial config didn't work, so sweep through all parameters starting w/the default
             if (!isDefaultConfig(getPortConfig())) {
                 // it's a custom config, so test default first
-                NLOG(("Testing default config because SerialSensor applied a custom config which failed"));
+                NLOG(("SerialSensor::findWorkingSerialPortConfig(): Testing default config because SerialSensor applied a custom config which failed"));
                 if (!testDefaultPortConfig()) {
-                    NLOG(("Default PortConfig failed. Now testing all the other serial parameter configurations..."));
+                    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig failed. Now testing all the other serial parameter configurations..."));
                     foundIt = sweepCommParameters();
                 }
                 else {
                     // found it!! Tell someone!!
                     foundIt = true;
-                    NLOG(("Default PortConfig was successfull!!!") << getPortConfig());
+                    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig was successfull!!!") << getPortConfig());
                 }
             }
             else {
-                NLOG(("Default PortConfig was not changed and failed. Now testing all the other serial "
+                NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig was not changed and failed. Now testing all the other serial "
                       "parameter configurations..."));
                 foundIt = sweepCommParameters();
             }
@@ -751,10 +751,10 @@ bool SerialSensor::findWorkingSerialPortConfig()
         else {
             // Found it! Tell someone!
             if (!isDefaultConfig(getPortConfig())) {
-                NLOG(("SerialSensor customized the default PortConfig and it succeeded!!"));
+                NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor customized the default PortConfig and it succeeded!!"));
             }
             else {
-                NLOG(("SerialSensor did not customize the default PortConfig and it succeeded!!"));
+                NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor did not customize the default PortConfig and it succeeded!!"));
             }
 
             foundIt = true;
@@ -764,10 +764,10 @@ bool SerialSensor::findWorkingSerialPortConfig()
     else if (cfgMode == ENTERED_RESP_CHECKED) {
         // Found it! Tell someone!
         if (!isDefaultConfig(getPortConfig())) {
-            NLOG(("SerialSensor customized the default PortConfig and it succeeded!!"));
+            NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor customized the default PortConfig and it succeeded!!"));
         }
         else {
-            NLOG(("SerialSensor did not customize the default PortConfig and it succeeded!!"));
+            NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor did not customize the default PortConfig and it succeeded!!"));
         }
 
         foundIt = true;
@@ -775,7 +775,7 @@ bool SerialSensor::findWorkingSerialPortConfig()
     }
 
     else {
-        NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
+        NLOG(("SerialSensor::findWorkingSerialPortConfig(): %s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
               getName().c_str(),getClassName().c_str()));
         throw n_u::IOException(getName()+":"+getClassName(),
                                "SerialSensor::findWorkingPortConfig(): unknown response returned by enterConfigMode(): ",
