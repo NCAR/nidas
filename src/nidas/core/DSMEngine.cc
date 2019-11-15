@@ -209,7 +209,7 @@ int DSMEngine::main(int argc, char** argv) throw()
     return res;
 }
 
-int DSMEngine::parseRunstring(int argc, char** argv) throw()
+int DSMEngine::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.Help |
                          _app.Username | _app.Hostname | _app.DebugDaemon |

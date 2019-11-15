@@ -94,7 +94,7 @@ public:
      * then returns a error value of 1.
      * @return 0: OK, 1: failure.
      */
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
     /**
      * Print runstring usage to stderr.
