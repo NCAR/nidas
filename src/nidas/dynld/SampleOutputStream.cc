@@ -31,9 +31,7 @@
 
 #include <iostream>
 
-#if __BYTE_ORDER == __BIG_ENDIAN
 #include <byteswap.h>
-#endif
 
 using namespace nidas::dynld;
 using namespace nidas::core;
@@ -188,17 +186,20 @@ size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u
     static int nsamps = 0;
     struct iovec iov[2];
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-    SampleHeader header;
-    header.setTimeTag(bswap_64(samp->getTimeTag()));
-    header.setDataByteLength(bswap_32(samp->getDataByteLength()));
-    header.setRawId(bswap_32(samp->getRawId()));
-    iov[0].iov_base = &header;
-    iov[0].iov_len = SampleHeader::getSizeOf();
-#else
-    iov[0].iov_base = const_cast<void*>(samp->getHeaderPtr());
-    iov[0].iov_len = samp->getHeaderLength();
-#endif
+    if (__BYTE_ORDER == __BIG_ENDIAN)
+    {
+        SampleHeader header;
+        header.setTimeTag(bswap_64(samp->getTimeTag()));
+        header.setDataByteLength(bswap_32(samp->getDataByteLength()));
+        header.setRawId(bswap_32(samp->getRawId()));
+        iov[0].iov_base = &header;
+        iov[0].iov_len = SampleHeader::getSizeOf();
+    }
+    else
+    {
+        iov[0].iov_base = const_cast<void*>(samp->getHeaderPtr());
+        iov[0].iov_len = samp->getHeaderLength();
+    }
 
     assert(samp->getHeaderLength() == 16);
 

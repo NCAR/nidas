@@ -558,12 +558,12 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
             if (! readSampleHeader(keepreading))
                 return 0;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-            _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
-            _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
-            _sheader.setRawId(bswap_32(_sheader.getRawId()));
-#endif
-
+            if (__BYTE_ORDER == __BIG_ENDIAN)
+            {
+                _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
+                _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
+                _sheader.setRawId(bswap_32(_sheader.getRawId()));
+            }
             _samp = sampleFromHeader();
             if (!_samp) {
                 continue;

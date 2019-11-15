@@ -59,9 +59,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     _extraSampleTags(),
     _nttsave(-2),
     _counter(-1),
-#if __BYTE_ORDER == __BIG_ENDIAN
     _swapBuf(),
-#endif
     _rate(0),
     _oversample(false),
     _serialNumber(),_sonicLogFile(),
@@ -596,10 +594,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
     const char* dinptr = (const char*) samp->getConstVoidDataPtr();
     // check for correct termination bytes
-#ifdef DEBUG
-    cerr << "inlen=" << inlen << ' ' << hex << (int)dinptr[inlen-2] <<
-        ',' << (int)dinptr[inlen-1] << dec << endl;
-#endif
+    VLOG(("") << "inlen=" << inlen << ' ' << hex << (int)dinptr[inlen-2]
+         << ',' << (int)dinptr[inlen-1] << dec);
 
     // Sometimes a serializer is connected to a sonic, in which
     // case it generates records longer than 12 bytes.
@@ -608,13 +604,17 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
     if (inlen > _totalInLen) inlen = _totalInLen;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-    /* Swap bytes of input. Campbell output is little endian */
-    swab(dinptr,(char *)&_swapBuf.front(),inlen-2);     // dont' swap 0x55 0xaa
-    const short* win = &_swapBuf.front();
-#else
-    const short* win = (const short*) dinptr;
-#endif
+    const short* win;
+    if (__BYTE_ORDER == __BIG_ENDIAN)
+    {
+        /* Swap bytes of input. Campbell output is little endian */
+        swab(dinptr,(char *)&_swapBuf.front(),inlen-2);     // dont' swap 0x55 0xaa
+        win = &_swapBuf.front();
+    }
+    else
+    {
+        win = (const short*) dinptr;
+    }
 
     dsm_time_t timetag = samp->getTimeTag();
 
@@ -881,8 +881,7 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
             _totalInLen += 2;	// 2 bytes for each additional input
         }
     }
-#if __BYTE_ORDER == __BIG_ENDIAN
-    _swapBuf.resize(_totalInLen/2);
-#endif
+    if (__BYTE_ORDER == __BIG_ENDIAN)
+        _swapBuf.resize(_totalInLen/2);
 }
 
