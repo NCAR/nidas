@@ -297,7 +297,6 @@ protected:
     /*
      * AutoConfig helpers
      */
-    virtual bool supportsAutoConfig() { return true; }
     virtual CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual bool checkResponse();
