@@ -703,6 +703,22 @@ public:
     getApplicationInstance();
 
     /**
+     * Set whether unrecognized flags should throw an exception or not.  By
+     * default, NidasApp throws an exception when parsing an argument which
+     * starts with '-' but is not accepted by one of the enabled arguments.
+     * Pass true to this method to ignore those unrecognized flags and
+     * leave them in the unparsed arguments list.
+     **/
+    void
+    allowUnrecognized(bool allow);
+
+    /**
+     * Return whether unrecognized flags are allowed or not.
+     **/
+    bool
+    allowUnrecognized();
+
+    /**
      * Add the list of NidasAppArg pointers to the set of arguments
      * accepted by this NidasApp instance.  Since the arguments are
      * referenced by pointer, their lifetime should match the lifetime of
@@ -1326,6 +1342,8 @@ private:
 
     bool _hasException;
     nidas::util::Exception _exception;
+
+    bool _allowUnrecognized;
 };
 
 

@@ -423,6 +423,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
     // Use width 4 for decimal sample id format.
     app.setIdFormat(NidasApp::IdFormat().setDecimalWidth(4));
+    app.allowUnrecognized(true);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -464,7 +465,8 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::UNSIGNED_SHORT;
 	    break;
 	case '?':
-	    return usage(argv[0]);
+            std::cerr << "Use -h to see usage info.\n";
+	    return 1;
 	}
     }
     app.parseInputs(left.unparsedArgs(optind));

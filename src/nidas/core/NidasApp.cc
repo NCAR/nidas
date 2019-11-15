@@ -518,7 +518,8 @@ NidasApp(const std::string& name) :
   _argv(),
   _argi(0),
   _hasException(false),
-  _exception("")
+  _exception(""),
+  _allowUnrecognized(false)
 {
   // Build configs usage here from the settings above.
   std::ostringstream configsmsg;
@@ -764,6 +765,10 @@ parseNext() throw (NidasAppException)
 	_argv.erase(_argv.begin() + _argi, _argv.begin() + i + 1);
 	break;
       }
+    }
+    if (!arg && _argv[i].substr(0, 1) == "-" && !allowUnrecognized())
+    {
+      throw NidasAppException("Unrecognized argument: " + _argv[i]);
     }
     if (!arg)
     {
@@ -1264,6 +1269,23 @@ logLevel()
   // the default scheme or one set explicitly through this NidasApp.
   return logger->getScheme().logLevel();
 }
+
+
+void
+NidasApp::
+allowUnrecognized(bool allow)
+{
+  _allowUnrecognized = allow;
+}
+
+
+bool
+NidasApp::
+allowUnrecognized()
+{
+  return _allowUnrecognized;
+}
+
 
 void
 NidasApp::
