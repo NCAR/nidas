@@ -77,6 +77,7 @@ int parseRunstring(SyncServer& sync, ArgVector& args)
     n_u::Logger* logger = n_u::Logger::getInstance();
     logger->setScheme(logger->getScheme().setShowFields("message"));
 
+    app.allowUnrecognized(true);
     args = app.parseArgs(args);
 
     std::list<std::string> dataFileNames;
