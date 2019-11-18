@@ -186,9 +186,9 @@ size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u
     static int nsamps = 0;
     struct iovec iov[2];
 
+    SampleHeader header;
     if (__BYTE_ORDER == __BIG_ENDIAN)
     {
-        SampleHeader header;
         header.setTimeTag(bswap_64(samp->getTimeTag()));
         header.setDataByteLength(bswap_32(samp->getDataByteLength()));
         header.setRawId(bswap_32(samp->getRawId()));
