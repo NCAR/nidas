@@ -151,19 +151,39 @@ void Wind2D::validateSscanfs() throw(n_u::InvalidParameterException)
 bool Wind2D::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
-    // Duplicate SerialSensor::process(samp,results), except don't call
-    // applyConversions(), since we might first need to orient the sonic
-    // before applying any adjustments to wind direction.
+    // The idea here was to duplicate SerialSensor::process(samp,results),
+    // except don't call applyConversions(), since we might first need to
+    // orient the sonic before applying any adjustments to wind direction.
+    // However, delaying the call to applyConversions() until after the
+    // (u,v)<->(spd,dir) directions causes occasional spikes in the data, perhaps due to some memory error somewhere caused by
+    // a broken assumption about sample data makeup.
+    //
+    // If orientations of 2D sonics is ever implemented here, then this
+    // will need to be sorted out.  Probably the derivations need to be
+    // broken up, so that conversions are applied to the sampled pair
+    // before deriving the derived pair.  Or, perhaps applyConversions()
+    // needs to be careful not to convert variables which are actually
+    // derived.  Or maybe it would still be ok to insert the orientation
+    // call before applyConversions(), so long as applyConversions() comes
+    // before derivations.
+
+    // \/ \/ \/ \/ \/ \/ Copied from CharacterSensor::process()
     SampleTag* stag = 0;
     SampleT<float>* outs = searchSampleScanners(samp, &stag);
     if (!outs)
     {
         return false;
     }
-    results.push_back(outs);
 
     // Apply any time tag adjustments.
     adjustTimeTag(stag, outs);
+
+    // Apply any variable conversions.  Note this has to happen after the
+    // time is adjusted, since the calibrations are keyed by time.
+    applyConversions(stag, outs);
+
+    results.push_back(outs);
+    // /\ /\ /\ /\ /\ /\ Copied from CharacterSensor::process()
 
     // This appears to require that all four variables are always defined
     // in a sample tag, except I'm not sure why that's necessary.
@@ -284,10 +304,6 @@ bool Wind2D::process(const Sample* samp,
 
         results.front() = news;
     }
-
-    // Apply any variable conversions.  Note this has to happen after the
-    // time is adjusted, since the calibrations are keyed by time.
-    applyConversions(stag, outs);
 
     return true;
 }
