@@ -63,8 +63,8 @@ UDPArincSensor::~UDPArincSensor()
      * that are not opened.
      */
     std::map<int, DSMArincSensor*>::iterator it;
-//    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
-//        delete it->second;
+    for (it = _arincSensors.begin(); it != _arincSensors.end(); ++it)
+        delete it->second;
 
     if (_badAPMPseqCnt > 1) // always one for start up.
         cerr << getClassName() << ": Number of APMP sequence count errors = " << _badAPMPseqCnt-1 << std::endl;

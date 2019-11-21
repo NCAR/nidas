@@ -103,7 +103,8 @@ VariableIterator DSMConfig::getVariableIterator() const
 
 void DSMConfig::addSensor(DSMSensor* sensor)
 {
-    _ownedSensors.push_back(sensor);
+    if (sensor->allowOpen())
+        _ownedSensors.push_back(sensor);
     _allSensors.push_back(sensor);
 }
 
