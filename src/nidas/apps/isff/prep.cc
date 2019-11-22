@@ -50,6 +50,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/core/BadSampleFilter.h>
 
 #include <set>
 #include <map>
@@ -224,6 +225,7 @@ private:
 
     string _datasetName;
 
+    BadSampleFilterArg _FilterArg;
 };
 
 const float DataPrep::defaultNCFillValue = 1.e37;
@@ -240,7 +242,8 @@ DataPrep::DataPrep():
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
     _ncbatchperiod(defaultNCBatchPeriod),
-    _resamplers(),_dsmName(),_datasetName()
+    _resamplers(),_dsmName(),_datasetName(),
+    _FilterArg()
 {
 }
 
@@ -481,7 +484,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                          _app.InputFiles |
                          DatasetName | ConfigsName | DSMName |
                          DumpASCII | DumpBINARY | DOSOutput |
-                         NetcdfOutput | Clipping |
+                         NetcdfOutput | Clipping | _FilterArg |
                          SorterLength | Precision | NoHeader |
                          _app.loggingArgs() | _app.XmlHeaderFile |
                          _app.Version | _app.Help);
@@ -889,6 +892,10 @@ int DataPrep::run() throw()
         }
 
         RawSampleInputStream sis(iochan);
+        BadSampleFilter& bsf = _FilterArg.getFilter();
+        bsf.setDefaultTimeRange(_startTime, _endTime);
+        sis.setBadSampleFilter(bsf);
+
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);

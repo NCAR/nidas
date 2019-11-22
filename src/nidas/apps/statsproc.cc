@@ -133,6 +133,7 @@ private:
     NidasAppArg DaemonMode;
     NidasAppArg SetDSM;
     NidasAppArg DSMName;
+    BadSampleFilterArg FilterArg;
 };
 
 
@@ -212,7 +213,8 @@ StatsProcess::StatsProcess():
     DSMName
     ("-d,--dsmname", "<dsmname>",
      "Look for a <fileset> belonging to the given dsm to "
-     "determine input file names.")
+     "determine input file names."),
+    FilterArg()
 {
 }
 
@@ -254,6 +256,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
                         app.InputFiles | Period | SorterLength |
                         NiceValue | DaemonMode | SetDSM | DSMName |
+                        FilterArg |
                         app.loggingArgs() | app.Version | app.Help);
     app.StartTime.setFlags("-B,--start");
     app.EndTime.setFlags("-E,--end");
@@ -609,6 +612,10 @@ int StatsProcess::run() throw()
         }
 
         RawSampleInputStream sis(iochan);
+        BadSampleFilter& bsf = FilterArg.getFilter();
+        bsf.setDefaultTimeRange(_startTime, _endTime);
+        sis.setBadSampleFilter(bsf);
+
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);
