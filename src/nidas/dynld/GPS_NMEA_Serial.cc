@@ -210,7 +210,11 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:	// HHMMSS[.FF], optional output variable seconds of day
-            if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) == 3) {
+            {
+                if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) != 3) {
+                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                    return ttraw;
+                }
                 int ncfsec = 0;
                 if (nchar == 6 && input[6] == '.') {
                     sscanf(input+6,"%lf%n",&fsec,&ncfsec);
@@ -227,20 +231,11 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
                     (int)rintf(fsec * MSECS_PER_SEC);
                 if (nvars >= 12) dout[iout++] = gpsmsod / (double)MSECS_PER_SEC;
             }
-            else {
-                gpsmsod = -1;
-                if (nvars >= 12) dout[iout++] = doubleNAN;
-            }
             break;
         case 1:	// Receiver status, A=OK, V= warning, output variable stat
             status = *input;
             if (status == 'A') dout[iout++] = 1.0;
-            else if (*input == 'V') {
-                // if this is the second output variable then the first is
-                // the time difference. Set to NAN if no GPS lock.
-                if (iout == 1) dout[0] = doubleNAN;
-                dout[iout++] = 0.0;
-            }
+            else if (status == 'V') dout[iout++] = 0.0;
             else dout[iout++] = doubleNAN;	// var N status
             break;
         case 2:	// lat deg, lat min
@@ -282,37 +277,31 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             }
             break;
         case 8:	// date DDMMYY
-            if (sscanf(input,"%2d%2d%2d%n",&day,&month,&year,&nchar) == 3) {
-                if (nchar != 6 || input[6] != ',' ||
-                        day < 1 || day > 31 ||
-                        month < 1 || month > 12) {
-                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
-                    return ttraw;
-                }
-
-                if (status == 'A' && gpsmsod >= 0)
-                    _ttgps = n_u::UTime(true,year,month,day,0,0,0).toUsecs() +
-                        (long long)gpsmsod * USECS_PER_MSEC;
-                // output if requested
-                if (nvars >= 8) {
-                    dout[iout++] = (double)day;
-                    dout[iout++] = (double)month;
-                    dout[iout++] = (double)year;
-                }
-                // If user wants GPS reporting lag, ttraw - _ttgps
-                else if (nvars < 8 && nvars > 1) {
-                    if (_ttgps != 0)
-                        dout[iout++] = (ttraw - _ttgps) / (double)USECS_PER_SEC;
-                    else dout[iout++] = doubleNAN;
-                }
+            if (sscanf(input,"%2d%2d%2d%n",&day,&month,&year,&nchar) != 3) {
+                for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                return ttraw;
             }
-            else {
-                if (nvars >= 8) {
-                    dout[iout++] = doubleNAN;	// day
-                    dout[iout++] = doubleNAN;	// month
-                    dout[iout++] = doubleNAN;	// year
-                }
-                else if (nvars < 8 && nvars > 1) dout[iout++] = doubleNAN;   // GPS lag
+            if (nchar != 6 || input[6] != ',' ||
+                    day < 1 || day > 31 ||
+                    month < 1 || month > 12) {
+                for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                return ttraw;
+            }
+
+            if (status == 'A' && gpsmsod >= 0)
+                _ttgps = n_u::UTime(true,year,month,day,0,0,0).toUsecs() +
+                    (long long)gpsmsod * USECS_PER_MSEC;
+            // output if requested
+            if (nvars >= 8) {
+                dout[iout++] = (double)day;
+                dout[iout++] = (double)month;
+                dout[iout++] = (double)year;
+            }
+            // If user wants GPS reporting lag, ttraw - _ttgps
+            else if (nvars < 8 && nvars > 1) {
+                if (_ttgps != 0)
+                    dout[iout++] = (ttraw - _ttgps) / (double)USECS_PER_SEC;
+                else dout[iout++] = doubleNAN;
             }
             break;
         case 9:	// Magnetic variation
@@ -404,7 +393,11 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:		// HHMMSS[.FF]
-            if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) == 3) {
+            {
+                if (sscanf(input,"%2d%2d%2d%n",&hour,&minute,&second,&nchar) != 3) {
+                    for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
+                    return ttraw;
+                }
                 int ncfsec = 0;
                 if (nchar == 6 && input[6] == '.') {
                     sscanf(input+6,"%lf%n",&fsec,&ncfsec);
@@ -437,9 +430,6 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
                 _ttgps = t0day + (gpsmsod * (long long)USECS_PER_MSEC);
 
                 if (nvars > 7) dout[iout++] = gpsmsod / (double)MSECS_PER_SEC;
-            }
-            else {
-                if (nvars > 7) dout[iout++] = doubleNAN;
             }
             break;
         case 1:		// latitude
