@@ -7,11 +7,12 @@ env = env.Clone(tools = ['nidas'])
 env.Prepend(LIBS = env.NidasLibs())
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
+env.NidasRuntimeENV()
 
 tests = env.Program('ck_iterators', "ck_iterators.cc")
 
 # runtest = env.Command("ck_itrs",tests,["valgrind $SOURCE.abspath ${SOURCE.dir}/iterator_test.xml"])
-runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
+runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh -i"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('ck_itrs', runtest)

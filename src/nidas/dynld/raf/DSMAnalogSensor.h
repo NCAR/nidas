@@ -104,7 +104,7 @@ public:
      */
     void readCalFile(dsm_time_t tt) throw();
 
-    int getInt32TimeTagUsecs() const 
+    int getInt32TimeTagUsecs() const
     {
         return USECS_PER_MSEC;
     }
@@ -132,7 +132,7 @@ protected:
      *		coeficients than nexpect.
      */
     int readFilterFile(const std::string& name,unsigned short* coefs,
-    	int nexpect);
+	int nexpect);
 
     /**
      * The output delta t, 1/rate, in microseconds.
@@ -217,7 +217,7 @@ protected:
 //@}
 
 private:
-    
+
     /** No copying. */
     DSMAnalogSensor(const DSMAnalogSensor&);
 

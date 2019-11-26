@@ -311,7 +311,7 @@ void SensorHandler::PolledDSMSensor::setupTimeouts(int checkIntervalMsecs)
         _nTimeoutChecks *= (_lastCheckInterval / checkIntervalMsecs);
     else if (_lastCheckInterval > 0)
         _nTimeoutChecks /= (checkIntervalMsecs / _lastCheckInterval);
-    
+
     _lastCheckInterval = checkIntervalMsecs;
 }
 
@@ -505,7 +505,7 @@ int SensorHandler::run() throw(n_u::Exception)
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
 
-#if POLLING_METHOD == POLL_EPOLL_ET 
+#if POLLING_METHOD == POLL_EPOLL_ET
         // if there are leftover reads, set timeout to 0
         int pollTimeout = leftovers.empty() ? _sensorCheckIntervalMsecs : 0;
 #else
@@ -545,7 +545,7 @@ int SensorHandler::run() throw(n_u::Exception)
             pp->handlePollEvents(event->events);
 #endif
         }
-        
+
 #if POLLING_METHOD == POLL_EPOLL_ET
         // read the file descriptors with leftover data just once before polling
         // again, so that one descriptor can't bogart the attention of this thread.

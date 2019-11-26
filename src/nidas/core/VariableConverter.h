@@ -299,13 +299,6 @@ public:
 private:
 
     std::vector<float> _coefs;
-
-    /**
-     *  Maximum number of coefficients that can be read
-     *  from a CalFile.
-     */
-    static const int MAX_NUM_COEFS = 6;
-
 };
 
 /* static */

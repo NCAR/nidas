@@ -9,6 +9,7 @@ dsm = env.NidasApp('dsm')
 dsm_server = env.NidasApp('dsm_server')
 data_stats = env.NidasApp('data_stats')
 sensor_sim = env.NidasApp('sensor_sim')
+env.NidasRuntimeENV()
 
 # run_test.sh and run_test_2.sh conflict with each other. They use the same 
 # pseudo-terminals, and kill other dsm processes at startup.
@@ -16,8 +17,8 @@ sensor_sim = env.NidasApp('sensor_sim')
 # targets, "scons -j 2 test" is likely to run them simultaneously.
 #
 depends = ["run_test.sh","run_test_2.sh",  dsm, dsm_server, data_stats, sensor_sim]
-runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh && ./run_test_2.sh"])
-runtest2 = env.Command("xtest2", depends, ["cd $SOURCE.dir && ./run_test_2.sh"])
+runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i && ./run_test_2.sh -i"])
+runtest2 = env.Command("xtest2", depends, ["cd $SOURCE.dir && ./run_test_2.sh -i"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

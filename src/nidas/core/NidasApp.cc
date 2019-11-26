@@ -64,16 +64,6 @@ namespace
     return num;
   }
 
-  std::string
-  xarg(const ArgVector& args, int i)
-  {
-    if (i < (int)args.size())
-    {
-      return args[i];
-    }
-    throw NidasAppException("expected argument for option " + args[i-1]);
-  }
-
 }
 
 
@@ -81,20 +71,38 @@ NidasAppArg::
 NidasAppArg(const std::string& flags,
 	    const std::string& syntax,
 	    const std::string& usage,
-	    const std::string& default_) :
+	    const std::string& default_,
+            bool required) :
   _flags(flags),
   _syntax(syntax),
   _usage(usage),
   _default(default_),
   _arg(),
   _value(),
-  _enableShortFlag(true)
+  _enableShortFlag(true),
+  _required(required)
 {}
 
 
 NidasAppArg::
 ~NidasAppArg()
 {}
+
+
+void
+NidasAppArg::
+setRequired(const bool isRequired)
+{
+  _required = isRequired;
+}
+
+
+bool
+NidasAppArg::
+isRequired()
+{
+  return _required;
+}
 
 
 bool
@@ -149,7 +157,21 @@ bool
 NidasAppArg::
 asBool()
 {
-  return specified();
+  std::string value = getValue();
+  bool result = false;
+
+  if (value == "yes" || value == "on" || value == "true")
+  {
+    result = true;
+  }
+  else if (value != "" && value != "no" && value != "off" && value != "false")
+  {
+    std::ostringstream msg;
+    msg << "Value of " << _flags << " must be one of these: "
+        << "on,off,yes,no,true,false";
+    throw NidasAppException(msg.str());
+  }
+  return result;
 }
 
 
@@ -219,9 +241,9 @@ parse(const ArgVector& argv, int* argi)
   std::string flag = argv[i];
   if (accept(flag))
   {
-    if (_syntax.length())
+    if (!single())
     {
-      _value = xarg(argv, ++i);
+      _value = expectArg(argv, ++i);
     }
     _arg = flag;
     result = true;
@@ -234,18 +256,47 @@ parse(const ArgVector& argv, int* argi)
 
 bool
 NidasAppArg::
-accept(const std::string& flag)
+single()
 {
+  return _syntax.length() == 0;
+}
+
+
+bool
+NidasAppArg::
+accept(const std::string& arg)
+{
+  // Ignore brackets in the flags indicating deprecated flags.
   size_t start = 0;
-  while (start < _flags.length())
+  string flags = _flags;
+  string::size_type bracket = string::npos;
+  while ((bracket = flags.find_first_of("[]")) != string::npos)
+    flags.erase(bracket, 1);
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
-    if (_flags.substr(start, comma-start) == flag &&
-	(flag.length() > 2 || _enableShortFlag))
+      comma = flags.length();
+    string flag = flags.substr(start, comma-start);
+    if (flag == arg && (flag.length() > 2 || _enableShortFlag))
     {
+      if (single())
+      {
+        // Specifying this form of a single boolean flag sets it to true,
+        // no matter what.
+        _value = "true";
+      }
       return true;
+    }
+    // The negative form is only checked if there is a non-empty default.
+    if (single() && _default.length() && flag.substr(0, 2) == "--")
+    {
+      string negflag = "--no-" + flag.substr(2);
+      if (flag.length() > 2 && arg == negflag)
+      {
+        // The negative flag sets the value to false.
+        _value = "false";
+      }
     }
     start = comma+1;
   }
@@ -257,22 +308,32 @@ std::string
 NidasAppArg::
 getUsageFlags()
 {
-  std::string flags;
+  // Extract the accepted flags for usage info.  This excludes short flags
+  // if disabled and deprecated flags surrounded by brackets.
+  std::string flags = _flags;
+  string::size_type left = _flags.find('[');
+  string::size_type right = _flags.find(']');
+  if (left != string::npos && right != string::npos)
+    flags.erase(left, right);
   size_t start = 0;
-  while (start < _flags.length())
+  std::string uflags;
+  while (start < flags.length())
   {
-    size_t comma = _flags.find(',', start);
+    size_t comma = flags.find(',', start);
     if (comma == std::string::npos)
-      comma = _flags.length();
+      comma = flags.length();
     if (comma - start > 2 || _enableShortFlag)
     {
-      if (flags.length())
-	flags += ",";
-      flags += _flags.substr(start, comma-start);
+      if (uflags.length())
+	uflags += ",";
+      string flag = flags.substr(start, comma-start);
+      if (single() && _default.length() && flag.substr(0, 2) == "--")
+        flag = "--[no-]" + flag.substr(2);
+      uflags += flag;
     }
     start = comma+1;
   }
-  return flags;
+  return uflags;
 }
   
 
@@ -281,13 +342,16 @@ NidasAppArg::
 usage(const std::string& indent)
 {
   std::ostringstream oss;
-  oss << indent << getUsageFlags();
+  string flags = getUsageFlags();
+  oss << indent << flags;
   if (!_syntax.empty())
   {
-    oss << " " << _syntax;
-    if (!_default.empty())
-      oss << " [default: " << _default << "]";
+    if (!flags.empty())
+      oss << " ";
+    oss << _syntax;
   }
+  if (!_default.empty())
+    oss << " [default: " << _default << "]";
   oss << "\n";
 
   std::istringstream iss(_usage);
@@ -302,6 +366,51 @@ usage(const std::string& indent)
 
 
 
+namespace
+{
+  const char* RAFXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+  const char* ISFFXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+  const char* ISFSXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
+}
+
+std::string
+NidasApp::
+getConfigsXML()
+{
+  std::string configsXMLName;
+  const char* cfg = getenv("NIDAS_CONFIGS");
+  if (cfg)
+  {
+    // Should this be expanded for environment variables?
+    configsXMLName = cfg;
+  }
+  else
+  {
+    const char* re = getenv("PROJ_DIR");
+    const char* pe = getenv("PROJECT");
+    const char* ae = getenv("AIRCRAFT");
+    const char* ie = getenv("ISFS");
+    const char* ieo = getenv("ISFF");
+
+    if (re && pe && ae)
+      configsXMLName = n_u::Process::expandEnvVars(RAFXML);
+    else if (ie && pe)
+      configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
+    else if (ieo && pe)
+      configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
+  }
+  if (configsXMLName.empty())
+  {
+    std::ostringstream msg;
+    msg << "Cannot derive path to XML project configurations.\n"
+        << "Missing environment variables for $NIDAS_CONFIGS,\n"
+        << RAFXML << ",\nand " << ISFSXML << "\n";
+    throw NidasAppException(msg.str());
+  }
+  return configsXMLName;
+}
+
+
 NidasApp::
 NidasApp(const std::string& name) :
   XmlHeaderFile
@@ -312,13 +421,14 @@ NidasApp(const std::string& name) :
    "As log points are created, show information for each one that can\n"
    "be used to enable log messages from that log point."),
   LogConfig
-  ("-l,--logconfig,--loglevel", "<logconfig>",
+  ("-l,--log[,--logconfig,--loglevel]", "<logconfig>",
    "Add a log config to the log scheme.  The log config settings are\n"
-   "specified as a comma-separated list of fields, using syntax \n"
+   "specified as a comma-separated list of fields, using syntax\n"
    "<field>=<value>, where fields are tag, file, function, line, enable,\n"
    "and disable.\n"
    "The log level can be specified as either a number or string: \n"
-   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.",
+   "7=debug,6=info,5=notice,4=warning,3=error,2=critical.\n"
+   "--logconfig and --loglevel are accepted but deprecated.",
    "info"),
   LogFields
   ("--logfields", "{thread|function|file|level|time|message},...",
@@ -333,10 +443,10 @@ NidasApp(const std::string& name) :
   ("-p,--process", "", "Enable processed samples."),
   StartTime
   ("-s,--start", "<start-time>",
-   "Skip samples until start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "Start samples at start-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   EndTime
   ("-e,--end", "<end-time>",
-   "Skip samples after end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
+   "End samples at end-time, in the form 'YYYY {MMM|mm} dd HH:MM[:SS]'"),
   SampleRanges
   ("-i,--samples", "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}",
    "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
@@ -385,6 +495,12 @@ NidasApp(const std::string& name) :
    "switching to daemon mode and running in the background.  Log messages\n"
    "are written to standard error instead of syslog.  Any logging\n"
    "configuration on the command line will replace the default debug scheme."),
+  ConfigsArg("-c,--configs"),
+  DatasetName
+  ("-S,--dataset", "<datasetname>",
+   "Set environment variables specifed for the dataset\n"
+   "as found in the xml file specifed by $NIDAS_DATASETS or\n"
+   "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"),
   _appname(name),
   _argv0(),
   _processData(false),
@@ -407,9 +523,20 @@ NidasApp(const std::string& name) :
   _argv(),
   _argi(0),
   _hasException(false),
-  _exception("")
+  _exception(""),
+  _allowUnrecognized(false)
 {
-  enableArguments(LogShow | LogFields);
+  // Build configs usage here from the settings above.
+  std::ostringstream configsmsg;
+  configsmsg <<
+    "Read the configs XML file to find the project configuration.\n"
+    "These locations are checked for the XML file, depending upon\n"
+    "which environment variables are set:\n"
+    "   $NIDAS_CONFIGS\n"
+    "   " << RAFXML << "\n"
+    "   " << ISFSXML << "\n"
+    "   " << ISFFXML << "\n";
+  ConfigsArg.setUsageString(configsmsg.str());
 
   // We want to setup a "default" LogScheme which will be overridden if any
   // other log configs are explicitly added through this NidasApp.  So
@@ -502,11 +629,47 @@ void
 NidasApp::
 enableArguments(const nidas_app_arglist_t& arglist)
 {
+  _app_arguments = _app_arguments | arglist;
+}
+
+
+void
+NidasApp::
+requireArguments(const nidas_app_arglist_t& arglist)
+{
+  // All required arguments are implicitly enabled.
+  enableArguments(arglist);
   nidas_app_arglist_t::const_iterator it;
-  for (it = arglist.begin(); it != arglist.end(); ++it)
-  {
-    _app_arguments.insert(*it);
+  for (it = arglist.begin(); it != arglist.end(); ++it) {
+    (*it)->setRequired();
   }
+}
+
+
+void
+NidasApp::
+checkRequiredArguments()
+{
+  nidas_app_arglist_t args = getArguments();
+  nidas_app_arglist_t::const_iterator it = args.begin();
+  for (it = args.begin(); it != args.end(); ++it)
+  {
+    if ((*it)->isRequired() && !((*it)->specified()))
+    {
+      std::ostringstream msg;
+      msg << "Missing required argument: " << (*it)->getUsageFlags();
+      DLOG(("") << msg.str());
+      throw NidasAppException(msg.str());
+    }
+  }
+}
+
+
+nidas_app_arglist_t
+NidasApp::
+getArguments()
+{
+  return nidas_app_arglist_t(_app_arguments.begin(), _app_arguments.end());
 }
 
 
@@ -561,6 +724,33 @@ startArgs(const ArgVector& args)
 }
 
 
+void
+NidasApp::
+startArgs(int argc, const char* const argv[]) throw (NidasAppException)
+{
+  if (_argv0.empty())
+  {
+    setProcessName(argv[0]);
+  }
+  startArgs(ArgVector(argv+1, argv+argc));
+}
+
+
+bool
+NidasApp::
+nextArg(std::string& arg)
+{
+  bool found = false;
+  if (_argi < (int)_argv.size() && _argv[_argi].find('-') != 0)
+  {
+    found = true;
+    arg = _argv[_argi];
+    _argv.erase(_argv.begin() + _argi, _argv.begin() + _argi + 1);
+  }
+  return found;
+}
+
+
 NidasAppArg*
 NidasApp::
 parseNext() throw (NidasAppException)
@@ -568,7 +758,7 @@ parseNext() throw (NidasAppException)
   NidasAppArg* arg = 0;
   while (!arg && _argi < (int)_argv.size())
   {
-    std::set<NidasAppArg*>::iterator it;
+    nidas_app_arglist_t::iterator it;
     int i = _argi;
     for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
     {
@@ -580,6 +770,10 @@ parseNext() throw (NidasAppException)
 	_argv.erase(_argv.begin() + _argi, _argv.begin() + i + 1);
 	break;
       }
+    }
+    if (!arg && _argv[i].substr(0, 1) == "-" && !allowUnrecognized())
+    {
+      throw NidasAppException("Unrecognized argument: " + _argv[i]);
     }
     if (!arg)
     {
@@ -806,8 +1000,13 @@ parseOutput(const std::string& optarg) throw (NidasAppException)
     {
       throw NidasAppException("invalid length specifier: " + optarg);
     }
-    _outputFileLength = length;
   }
+  // If no output length suffix was specified, then the output length is
+  // reset to zero.  This way the current settings match with the most
+  // recent output option on the command line, rather than possibly
+  // "inheriting" an output length specified with a different output file
+  // name.
+  _outputFileLength = length;
   _outputFileName = output;
 }
 
@@ -936,7 +1135,7 @@ NidasApp::
 loggingArgs()
 {
   nidas_app_arglist_t args = 
-    LogShow | LogConfig | LogFields | LogParam;
+    LogConfig | LogShow | LogFields | LogParam;
   return args;
 }
 
@@ -945,8 +1144,15 @@ nidas_app_arglist_t
 nidas::core::
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2)
 {
-    std::copy(arglist2.begin(), arglist2.end(), std::back_inserter(arglist1));
-    return arglist1;
+  nidas_app_arglist_t::iterator it;
+  nidas_app_arglist_t::iterator lookup;
+  for (it = arglist2.begin(); it != arglist2.end(); ++it)
+  {
+    lookup = std::find(arglist1.begin(), arglist1.end(), *it);
+    if (lookup == arglist1.end())
+      arglist1.push_back(*it);
+  }
+  return arglist1;
 }
 
 
@@ -957,7 +1163,7 @@ usage(const std::string& indent)
   // Iterate through the list this application's arguments, dumping usage
   // info for each.
   std::ostringstream oss;
-  std::set<NidasAppArg*>::iterator it;
+  nidas_app_arglist_t::iterator it;
   for (it = _app_arguments.begin(); it != _app_arguments.end(); ++it)
   {
     NidasAppArg& arg = (**it);
@@ -995,7 +1201,8 @@ updateUsage()
   {
     oss << "  path [...]          file names\n";
   }
-  oss << "Default inputURL is \"sock:localhost\"\n";
+  if (default_input.length())
+    oss << "Default inputURL is \"" << default_input << "\"\n";
   setUsageString(oss.str());
 }
 
@@ -1067,6 +1274,23 @@ logLevel()
   // the default scheme or one set explicitly through this NidasApp.
   return logger->getScheme().logLevel();
 }
+
+
+void
+NidasApp::
+allowUnrecognized(bool allow)
+{
+  _allowUnrecognized = allow;
+}
+
+
+bool
+NidasApp::
+allowUnrecognized()
+{
+  return _allowUnrecognized;
+}
+
 
 void
 NidasApp::
@@ -1245,48 +1469,59 @@ parseUsername(const std::string& username)
 
 namespace
 {
-  const char* RAFXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
-  const char* ISFFXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-  const char* ISFSXML = "$ISFS/projects/$PROJECT/ISFS/config/configs.xml";
+  const char* ISFSDATASETSXML = "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
+  const char* ISFFDATASETSXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 }
 
-std::string
+
+Dataset
 NidasApp::
-getConfigsXML()
+getDataset(const std::string& datasetname)
+  throw(n_u::InvalidParameterException, XMLException)
 {
-  std::string _configsXMLName;
-  const char* cfg = getenv("NIDAS_CONFIGS");
-  if (cfg)
+  string XMLName;
+  const char* ndptr = getenv("NIDAS_DATASETS");
+
+  if (ndptr)
   {
-    _configsXMLName = cfg;
+    XMLName = string(ndptr);
+    ILOG(("") << "Using dataset XML path from NIDAS_DATASETS: " << XMLName);
   }
   else
   {
-    const char* re = getenv("PROJ_DIR");
-    const char* pe = getenv("PROJECT");
-    const char* ae = getenv("AIRCRAFT");
-    const char* ie = getenv("ISFS");
-    const char* ieo = getenv("ISFF");
-
-    if (re && pe && ae)
-      _configsXMLName = n_u::Process::expandEnvVars(RAFXML);
-    else if (ie && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFSXML);
+    const char* ie = ::getenv("ISFS");
+    const char* ieo = ::getenv("ISFF");
+    const char* pe = ::getenv("PROJECT");
+    if (ie && pe)
+    {
+      XMLName = n_u::Process::expandEnvVars(ISFSDATASETSXML);
+      ILOG(("") << "Using dataset XML path from ISFS: " << XMLName);
+    }
     else if (ieo && pe)
-      _configsXMLName = n_u::Process::expandEnvVars(ISFFXML);
+    {
+      XMLName = n_u::Process::expandEnvVars(ISFFDATASETSXML);
+      ILOG(("") << "Using dataset XML path from ISFF: " << XMLName);
+    }
   }
-#ifdef notdef
-  if (_configsXMLName.length() == 0)
+  if (XMLName.length() == 0)
   {
-    cerr <<
-      "Environment variables not set correctly to find XML "
-      "file of project configurations." << endl;
-    cerr << "Cannot find " << RAFXML << endl << "or " << ISFSXML << endl;
-    return usage(argv[0]);
+    std::ostringstream msg;
+    msg << "Datasets XML path could not be derived from one of these paths:\n"
+        << " $NIDAS_DATASETS\n"
+        << " " << ISFSDATASETSXML << "\n"
+        << " " << ISFFDATASETSXML << "\n";
+    WLOG(("") << msg.str());
+    throw NidasAppException(msg.str());
   }
-#endif
-  return _configsXMLName;
+
+  Datasets datasets;
+  datasets.parseXML(XMLName);
+
+  Dataset dataset = datasets.getDataset(datasetname);
+  dataset.putenv();
+  return dataset;
 }
+
 
 
 std::string

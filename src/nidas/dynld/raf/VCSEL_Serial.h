@@ -57,7 +57,7 @@ public:
     int getATXRate() const { return _atxRate; }
 
     void setATXRate(int val) { _atxRate = val; }
-    
+
     virtual void
     derivedDataNotify(const nidas::core:: DerivedDataReader * s)
         throw();

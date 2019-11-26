@@ -99,7 +99,7 @@ protected:
     xercesc::DOMNode *findVariableDOMNode(QString name);
     Variable * _variable;
     SampleTag * _sampleTag;
-   
+
 
 private:
     xercesc::DOMNode * _sampleDOMNode;

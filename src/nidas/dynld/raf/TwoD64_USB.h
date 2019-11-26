@@ -50,7 +50,7 @@ public:
      * Return bits-per-slice; same as the number of diodes in the probe.
      */
     virtual int NumberOfDiodes() const { return 64; }
-  
+
 protected:
 
     virtual void init_parameters()
@@ -82,10 +82,10 @@ protected:
 	std::list < const Sample * >&results, int stype) throw();
 
     /* probe clock rate 12 MHz for v2
-     * v3 is 33 MHz
+     * v3 is 33.333 MHz
      */
-    unsigned int _probeClockRate;
- 
+    float _probeClockRate;
+
     unsigned long long _timeWordMask;
 
     unsigned char _dofMask;

@@ -35,7 +35,7 @@
 //
 // 32|31 30|29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11|10  9| 8  7  6  5  4  3  2  1
 // --+-----+--------------------------------------------------------+-----+-----------------------
-// P | SSM |                                                        | SDI |      8-bit label      
+// P | SSM |                                                        | SDI |      8-bit label
 
 // bitmask for the Sign Status Matrix
 #define SSM 0x60000000
@@ -67,7 +67,7 @@ const float KTS_MS = 0.514791;
 const float FPM_MPS  = 0.00508;
 
 // radian to degree.
-const float RAD_DEG = 180.0 / 3.14159265358979; 
+const float RAD_DEG = 180.0 / 3.14159265358979;
 
 
 /**
@@ -121,6 +121,9 @@ public:
     bool process(const Sample*, std::list<const Sample*>& result)
         throw();
 
+    virtual bool processAlta(const dsm_time_t, unsigned char *, int, std::list<const Sample*> &result)
+        throw();
+
     /** Display some status information gathered by the driver. */
     void printStatus(std::ostream& ostr) throw();
 
@@ -135,15 +138,25 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
-    int getInt32TimeTagUsecs() const 
+    int getInt32TimeTagUsecs() const
     {
         return USECS_PER_MSEC;
     }
 
+    unsigned int Speed()    { return _speed; }
+
 
 protected:
+    /**
+     * If this is the Alta UDP setup, then register with that sensor.
+     */
+    void registerWithUDPArincSensor();
+
     /// A list of which samples are processed.
     int _processed[NLABELS];
+    int _labelCnt[NLABELS];
+
+    bool _altaEnetDevice;
 
 private:
 

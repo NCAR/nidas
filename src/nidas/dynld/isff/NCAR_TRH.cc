@@ -220,20 +220,8 @@ handleRawT(CalFile* cf)
     // coefficients, otherwise rest the raw coefficients and pass the
     // handling on the converter.
     const std::vector<std::string>& fields = cf->getCurrentFields();
-    bool raw = false;
-    if (fields.size() == 3 && fields[0] != "raw")
-    {
-        WLOG(("") << cf->getCurrentFileName()
-             << "[" << cf->getLineNumber() << "]: "
-             << "3 fields specified but first field is not 'raw', "
-             << "still assuming a raw T calibration.");
-        raw = true;
-    }
+
     if (fields.size() > 0 && fields[0] == "raw")
-    {
-        raw = true;
-    }
-    if (raw)
     {
         // To compute T from raw, we need the raw T, so make sure it's
         // available.
@@ -266,20 +254,8 @@ NCAR_TRH::
 handleRawRH(CalFile* cf)
 {
     const std::vector<std::string>& fields = cf->getCurrentFields();
-    bool raw = false;
-    if (fields.size() == 5 && fields[0] != "raw")
-    {
-        WLOG(("") << cf->getCurrentFileName()
-             << "[" << cf->getLineNumber() << "]: "
-             << "5 fields specified but first field is not 'raw', "
-             << "still assuming a raw RH calibration.");
-        raw = true;
-    }
+
     if (fields.size() > 0 && fields[0] == "raw")
-    {
-        raw = true;
-    }
-    if (raw)
     {
         if (!_rhraw)
         {

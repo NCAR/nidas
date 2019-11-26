@@ -57,7 +57,7 @@ namespace n_u = nidas::util;
 /* static */
 void Extract2D::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
 	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
@@ -80,7 +80,7 @@ void Extract2D::setupSignals()
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
+
     struct sigaction act;
     sigemptyset(&sigset);
     act.sa_mask = sigset;

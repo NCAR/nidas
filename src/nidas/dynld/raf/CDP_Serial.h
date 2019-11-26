@@ -81,7 +81,7 @@ public:
       DMT_ULong rejDOF;
       DMT_UShort QualBndwdth;
       DMT_UShort QualThrshld;
-      DMT_UShort AvgTransit;   
+      DMT_UShort AvgTransit;
       DMT_UShort SizerBndwdth;  // in 2012 documentation this is Sizer DT Bandwidth (unused)
       DMT_UShort SizerThrshld;  // in 2012 documentation this is Sizer Dynamic Threshold (unused)
       DMT_ULong ADCoverflow;

@@ -294,12 +294,21 @@ Cond::~Cond()
     }
 }
 
+namespace {
+    void
+    thread_mutex_unlock(void *ptr)
+    {
+        pthread_mutex_t* mtx = static_cast<pthread_mutex_t*>(ptr);
+        ::pthread_mutex_unlock(mtx);
+    }
+}
+
 void Cond::wait() throw(Exception)
 {
     int res;
     
     // On thread cancellation, make sure the mutex is left unlocked.
-    pthread_cleanup_push((void(*)(void*))::pthread_mutex_unlock,_mutex.ptr());
+    pthread_cleanup_push(thread_mutex_unlock, _mutex.ptr());
 
     if ((res = ::pthread_cond_wait (&_p_cond, _mutex.ptr())))
         throw Exception("Cond::wait",res);

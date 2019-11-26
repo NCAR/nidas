@@ -43,8 +43,8 @@ using namespace nidas::dynld::raf;
 
 namespace n_u = nidas::util;
 
-// 33 m/s mimics the spinning disk.
-const float TwoD_USB::DefaultTrueAirspeed = 33.0;
+// 23 m/s mimics the newer spinning disk. 33 for the older.
+const float TwoD_USB::DefaultTrueAirspeed = 23.0;
 
 const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
@@ -63,7 +63,7 @@ TwoD_USB::TwoD_USB() : _tasRate(1),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _tasOutOfRange(0),_misAligned(0),_suspectSlices(0),
-    _recordsPerSecond(0),
+    _recordsPerSecond(0), _totalPixelsShadowed(0),
     _prevTime(0),_histoEndTime(0),_twoDAreaRejectRatio(0.0),
     _particle(),
     _trueAirSpeed(floatNAN), _nextraValues(1),
@@ -98,7 +98,7 @@ IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
 
 SampleScanner *TwoD_USB::buildSampleScanner()
     throw(n_u::InvalidParameterException)
-{   
+{
     return new DriverSampleScanner((4104 + 8) * 4);
 }
 
@@ -147,7 +147,7 @@ void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName(), "RESOLUTION","not found");
     _resolutionMicron = (int)p->getNumericValue(0);
     _resolutionMeters = (float)_resolutionMicron * 1.0e-6;
-   
+
     p = getParameter("TAS_RATE");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_RATE","not found");
@@ -243,8 +243,8 @@ int TwoD_USB::TASToTap2D(void * tap2d, float tas)
     }
     else {
     /*
-     * Desired frequency is too low.  Fill the struct to generate 
-     * the lowest possible frequency and return -EINVAL to let the 
+     * Desired frequency is too low.  Fill the struct to generate
+     * the lowest possible frequency and return -EINVAL to let the
      * caller know that the TAS is too low.
      */
         t2d->ntap = 0;
@@ -286,11 +286,11 @@ float TwoD_USB::Tap2DToTAS(const Tap2Dv1 * t2d) const
 void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 {
     Tap2D tx_tas;
-    if (TASToTap2D(&tx_tas, tas)) 
+    if (TASToTap2D(&tx_tas, tas))
 	n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: TASToTap2D reports bad airspeed=%f m/s",
 		getName().c_str(),tas);
-	
+
     ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
 }
 
@@ -357,6 +357,9 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         if (_nextraValues > 1)
             *dout++ = _recordsPerSecond;
+
+        if (_nextraValues > 2)
+            *dout++ = (float)_totalPixelsShadowed * std::pow(1.0e-3 * _resolutionMicron, 2.0);
 
         results.push_back(outs);
     }
@@ -498,6 +501,7 @@ void TwoD_USB::countParticle(const Particle& p, float /* resolutionUsec */)
     if (acceptThisParticle1D(p))
     {
         _size_dist_1D[p.height]++;
+        _totalPixelsShadowed += p.area;
     }
     else
     {
@@ -540,6 +544,7 @@ void TwoD_USB::clearData()
 
     _dead_time = 0.0;
     _recordsPerSecond = 0;
+    _totalPixelsShadowed = 0;
 }
 
 void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)

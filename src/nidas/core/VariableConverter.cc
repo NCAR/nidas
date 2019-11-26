@@ -41,6 +41,12 @@ namespace n_u = nidas::util;
 #include <sstream>
 #include <iostream>
 
+
+namespace 
+{
+    const int POLY_MAX_NUM_COEFS = 6;
+}
+
 VariableConverter::VariableConverter():
     _units(),
     _parameters(),
@@ -486,7 +492,7 @@ void
 Polynomial::
 reset()
 {
-    float d[MAX_NUM_COEFS];
+    float d[POLY_MAX_NUM_COEFS];
     int n = 2;
     for (int i = 0; i < n; i++) d[i] = floatNAN;
     setCoefficients(d, n);
@@ -497,22 +503,22 @@ void
 Polynomial::
 parseFields(CalFile* cf)
 {
-    float d[MAX_NUM_COEFS];
+    float d[POLY_MAX_NUM_COEFS];
     int n = 0;
 
     n_u::UTime calTime = cf->getCurrentTime();
-    n = cf->getFields(0, MAX_NUM_COEFS, d);
+    n = cf->getFields(0, POLY_MAX_NUM_COEFS, d);
     DLOG(("") << n << " coefficients read from cal file '"
          << cf->getCurrentFileName()
          << "' at time " << n_u::UTime(calTime).format(true, "%Y%m%d,%H:%M:%S"));
     DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' next time: "
          << n_u::UTime(cf->nextTime()).format(true, "%Y%m%d,%H:%M:%S"));
 
-    if (n == MAX_NUM_COEFS)
+    if (n == POLY_MAX_NUM_COEFS)
     {
         WLOG(("") << cf->getCurrentFileName()
              << ": possible overrun of coefficients at line "
-             << cf->getLineNumber() << ", max allowed=" << MAX_NUM_COEFS);
+             << cf->getLineNumber() << ", max allowed=" << POLY_MAX_NUM_COEFS);
     }
     // Similar to the questions in Linear::parseFields(), what happens on a
     // blank line?  Should that reset the coefficients to nans or to

@@ -75,7 +75,7 @@ NidasItem * DSMItem::child(int i)
         if (j<i) continue; // skip old cached items (after it.next())
 //std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
         NidasItem *childItem;
-        if (sensor->getClassName() == "raf.DSMAnalogSensor") 
+        if (sensor->getClassName() == "raf.DSMAnalogSensor")
           childItem = new A2DSensorItem(dynamic_cast<DSMAnalogSensor*>(sensor), j, model, this);
         else if (sensor->getCatalogName() == "CDP" ||
                  sensor->getCatalogName() == "Fast2DC" ||
@@ -83,9 +83,9 @@ NidasItem * DSMItem::child(int i)
                  sensor->getCatalogName() == "S200" ||
                  sensor->getCatalogName() == "S300" ||
                  sensor->getCatalogName() == "TwoDP" ||
-                 sensor->getCatalogName() == "UHSAS") 
-          childItem = new PMSSensorItem(sensor, j, model, this);        
-        else 
+                 sensor->getCatalogName() == "UHSAS")
+          childItem = new PMSSensorItem(sensor, j, model, this);
+        else
           childItem = new SensorItem(sensor, j, model, this);
         childItems.append( childItem);
         }
@@ -99,7 +99,7 @@ NidasItem * DSMItem::child(int i)
 }
 
 /// find the DOM node which defines this DSM
-DOMNode *DSMItem::findDOMNode() 
+DOMNode *DSMItem::findDOMNode()
 {
   DSMConfig *dsmConfig = getDSMConfig();
   if (dsmConfig == NULL) return(0);
@@ -110,11 +110,11 @@ DOMNode *DSMItem::findDOMNode()
   // XXX also check "aircraft"
 
   DOMNode * SiteNode = 0;
-  for (XMLSize_t i = 0; i < SiteNodes->getLength(); i++) 
+  for (XMLSize_t i = 0; i < SiteNodes->getLength(); i++)
   {
      XDOMElement xnode((DOMElement *)SiteNodes->item(i));
      const string& sSiteName = xnode.getAttributeValue("name");
-     if (sSiteName == dsmConfig->getSite()->getName()) { 
+     if (sSiteName == dsmConfig->getSite()->getName()) {
        cerr<<"getSiteNode - Found SiteNode with name:" << sSiteName << endl;
        SiteNode = SiteNodes->item(i);
        break;
@@ -127,7 +127,7 @@ DOMNode *DSMItem::findDOMNode()
   DOMNode * DSMNode = 0;
   int dsmId = dsmConfig->getId();
 
-  for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
+  for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++)
   {
      DOMNode * siteChild = DSMNodes->item(i);
      if ((string)XMLStringConverter(siteChild->getNodeName()) != string("dsm")) continue;
@@ -160,7 +160,7 @@ QString DSMItem::dataField(int column)
 }
 
 const QVariant & DSMItem::childLabel(int column) const
-{ 
+{
   switch (column) {
     case 0:
       return NidasItem::_Sensor_Label;
@@ -174,7 +174,7 @@ const QVariant & DSMItem::childLabel(int column) const
       return NidasItem::_SN_Label;
     case 5:
       return NidasItem::_ID_Label;
-    default: 
+    default:
       return NidasItem::_Name_Label;
     }
 }
@@ -219,14 +219,14 @@ cerr << " deleting device " << deleteDevice << "\n";
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
 
-    // get the DOM node for this DSM
+  // get the DOM node for this DSM
   xercesc::DOMNode *dsmNode = this->getDOMNode();
   if (!dsmNode) {
     throw InternalProcessingException("null dsm DOM node");
   }
 
-    // delete all the matching sensor DOM nodes from this DSM's DOM node 
-    //   (schema allows overrides/multiples)
+  // delete all the matching sensor DOM nodes from this DSM's DOM node
+  //   (schema allows overrides/multiples)
   xercesc::DOMNode* child;
   xercesc::DOMNodeList* dsmChildren = dsmNode->getChildNodes();
   XMLSize_t numChildren, index;
@@ -240,7 +240,7 @@ cerr << " deleting device " << deleteDevice << "\n";
       const string& elname = xchild.getNodeName();
       if (elname == "sensor" ||
           elname == "serialSensor" ||
-          elname == "arincSensor" ||  
+          elname == "arincSensor" ||
           elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
           elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
           elname == "socketSensor")
@@ -249,7 +249,7 @@ cerr << " deleting device " << deleteDevice << "\n";
         const string & device = xchild.getAttributeValue("devicename");
         cerr << "found node with name " << elname  << " and device: " << device << endl;
 
-          if (device == deleteDevice) 
+          if (device == deleteDevice)
           {
              xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
              removableChld->release();

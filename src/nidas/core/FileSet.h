@@ -201,6 +201,22 @@ public:
     }
 
     /**
+     * Set whether the FileSet should keep going to the next file when
+     * an error happens opening a file.
+     **/
+    void
+    setKeepOpening(bool keepopening)
+    {
+        _fset->setKeepOpening(keepopening);
+    }
+
+    bool
+    keepOpening()
+    {
+        return _fset->keepOpening();
+    }
+
+    /**
      * Convienence function to return a pointer to a nidas::core::FileSet,
      * given a list of files. If one or more of the files have a .bz2 suffix,
      * the FileSet returned will be a nidas::core::Bzip2FileSet. Note that

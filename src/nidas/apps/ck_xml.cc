@@ -45,7 +45,6 @@
 #include <list>
 
 #include <unistd.h>
-#include <getopt.h>
 #include <stdlib.h>
 
 using namespace nidas::core;

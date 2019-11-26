@@ -53,19 +53,19 @@ SPP100_Serial::SPP100_Serial(): SppSerial("SPP100"),
     //
     char* headPtr;
     char* chksumPtr;
-    
+
     Init100_blk init;
     headPtr = (char*)&init;
     chksumPtr = (char*)&(init.chksum);
     assert((chksumPtr - headPtr) == (_InitPacketSize - 2));
-    
+
     _nChannels = MAX_CHANNELS; // use a packet length containing all channels
     DMT100_blk data;
     headPtr = (char*)&data;
     chksumPtr = (char*)&(data.chksum);
     assert((chksumPtr - headPtr) == (packetLen() - 2));
     _nChannels = 0; // back to zero until it gets set via configuration
-    
+
     //
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
@@ -91,22 +91,22 @@ void SPP100_Serial::validate() throw(n_u::InvalidParameterException)
     _avgTransitWeight = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("TRANSIT_REJ");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
+    if (!p) throw n_u::InvalidParameterException(getName(),
           "TRANSIT_REJ", "not found");
     _transitReject = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("DOF_REJ");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
+    if (!p) throw n_u::InvalidParameterException(getName(),
           "DOF_REJ", "not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("ATT_ACCEPT");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
+    if (!p) throw n_u::InvalidParameterException(getName(),
           "ATT_ACCEPT", "not found");
     _attAccept = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("CT_METHOD");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
+    if (!p) throw n_u::InvalidParameterException(getName(),
           "CT_METHOD", "not found");
     _ctMethod = (unsigned short)p->getNumericValue(0);
 }
@@ -132,8 +132,8 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
       PackDMT_UShort(setup_pkt.OPCthreshold[i], _opcThreshold[i]);
 
     // exclude chksum from the computation
-    PackDMT_UShort(setup_pkt.chksum, 
-		   computeCheckSum((unsigned char*)&setup_pkt, 
+    PackDMT_UShort(setup_pkt.chksum,
+		   computeCheckSum((unsigned char*)&setup_pkt,
 				   _InitPacketSize - 2));
     sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
 
@@ -181,9 +181,9 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) *
 	4.882812e-3,ivar++);
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) *
 	0.9765625,ivar++);
     *dout++ = convert(ttag,_range,ivar++);
     *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
@@ -193,7 +193,7 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
     *dout++ = 0.0;
-#endif    
+#endif
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 

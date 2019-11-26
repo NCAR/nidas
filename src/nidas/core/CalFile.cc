@@ -674,19 +674,26 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 {
     if (!_fin.is_open()) open();
 
-    if (eof()) {
-        // cerr << "readLine: " << getCurrentFileName() << " at eof" << endl;
-        return;
-    }
-
     for(;;) {
+
+        // eof() is used to indicate there is no line left to parse.  So
+        // set _eofState here instead of after the getline() below, because
+        // getline() may read a line that needs to be parsed but also reach
+        // eof.
+        if (eof() || _fin.eof())
+        {
+            _eofState = true;
+            VLOG(("readLine: ") << getCurrentFileName() << " at eof");
+            return;
+        }
+
         _curpos = 0;
         _curline[0] = 0;
 
         int rlen = _curlineLength;
 
         _fin.getline(_curline,rlen);
-        // cerr << "readLine: " << getCurrentFileName() << ": line=" << _curline << endl;
+        VLOG(("readLine: ") << getCurrentFileName() << ": line=" << _curline);
 
         // if _curline is not large enough for the current line, expand it
         while (_fin.fail() &&_fin.gcount() == rlen - 1) {
@@ -701,10 +708,6 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
             _fin.getline(tmpptr,rlen);
         }
 
-        if (_fin.eof()) {
-            _eofState = true;
-            break;
-        }
         // cerr << getCurrentFileName() << ": line=" << _curline << endl;
         if (_fin.bad()) 
             throw n_u::IOException(getCurrentFileName(),"read",errno);

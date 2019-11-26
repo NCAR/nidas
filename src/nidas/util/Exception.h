@@ -71,6 +71,14 @@ public:
     Exception(const Exception& e):
         std::exception(e),_what(e._what),_errno(e._errno) {}
 
+    Exception& operator=(const Exception& e)
+    {
+        std::exception::operator=(e);
+        _what = e._what;
+        _errno = e._errno;
+        return *this;
+    }
+
     virtual ~Exception() throw() {}
 
     virtual Exception* clone() const {

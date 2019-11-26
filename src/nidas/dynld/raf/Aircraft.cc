@@ -42,7 +42,7 @@ Aircraft::Aircraft()
      * Do we want DSMSensor::process methods at this site to apply
      * variable conversions? This can be changed with the
      * "applyCals" boolean parameter in the XML.  Let it default
-     * to false, the original behaviour, until things are settled 
+     * to false, the original behaviour, until things are settled
      * in this area.
      */
     _applyCals = false;
@@ -76,7 +76,7 @@ getAircraft(Project* project)
 {
     const std::list<Site*>& sites = project->getSites();
     std::list<Site*>::const_iterator si;
-  
+
     Aircraft* aircraft = 0;
     for (si = sites.begin(); !aircraft && si != sites.end(); ++si)
     {

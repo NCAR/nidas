@@ -46,7 +46,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf, A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    DSMSensor(), _sampleId(0), 
+    DSMSensor(), _sampleId(0),
     DEGC_PER_CNT(0.0625)
 {
 }
@@ -95,7 +95,7 @@ bool A2DBoardTempSensor::process(const Sample* insamp, list<const Sample*>& resu
 
     // pointer to 16 bit raw temperature
     const signed short* sp = (const signed short*)
-    	insamp->getConstVoidDataPtr();
+	insamp->getConstVoidDataPtr();
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());

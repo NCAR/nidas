@@ -57,12 +57,12 @@ SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
     //
     char* headPtr;
     char* chksumPtr;
-    
+
     Init200_blk init;
     headPtr = (char*)&init;
     chksumPtr = (char*)&(init.chksum);
     assert((chksumPtr - headPtr) == (_InitPacketSize - 2));
-    
+
     _nChannels = MAX_CHANNELS; // use a packet length containing all channels
     DMT200_blk data;
     headPtr = (char*)&data;
@@ -112,8 +112,8 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
         PackDMT_UShort(setup_pkt.OPCthreshold[i], _opcThreshold[i]);
 
     // exclude chksum from the computation
-    PackDMT_UShort(setup_pkt.chksum, 
-		   computeCheckSum((unsigned char*)&setup_pkt, 
+    PackDMT_UShort(setup_pkt.chksum,
+		   computeCheckSum((unsigned char*)&setup_pkt,
 				   _InitPacketSize - 2));
     sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
 
@@ -160,26 +160,26 @@ bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PHGB_INDX]) - 2048) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PHGB_INDX]) - 2048) *
 	4.882812e-3,ivar++);
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PMGB_INDX]) - 2048) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PMGB_INDX]) - 2048) *
 	4.882812e-3,ivar++);
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PLGB_INDX]) - 2048) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PLGB_INDX]) - 2048) *
 	4.882812e-3,ivar++);
-    *dout++ = 
+    *dout++ =
 	convert(ttag,_flowAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLW_INDX])),ivar++);
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PREF_INDX]) - 2048) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PREF_INDX]) - 2048) *
 	4.882812e-3,ivar++);
-    *dout++ = 
+    *dout++ =
 	convert(ttag,_flowsAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLWS_INDX])),ivar++);
-    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PTMP_INDX]) - 2328) * 
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PTMP_INDX]) - 2328) *
 	0.9765625,ivar++);
 
 
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
     *dout++ = 0.0;
-#endif    
+#endif
     for (int iout = 0; iout < _nChannels; ++iout)
 	*dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 

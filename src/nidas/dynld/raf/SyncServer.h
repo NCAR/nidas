@@ -121,7 +121,7 @@ public:
     setXMLFileName(const std::string& name)
     {
         _xmlFileName = name;
-    }        
+    }
 
     void
     resetAddress(nidas::util::SocketAddress* addr)

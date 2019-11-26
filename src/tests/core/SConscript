@@ -7,7 +7,8 @@ env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
-tests = env.Program('tcore', ["tcore.cc", "tutil.cc", "tcalfile.cc"])
+tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
+                              "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc"])
 # env.Depends(tests, libs)
 #
 
@@ -23,14 +24,14 @@ env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"
-                            " --gen-suppressions=all ${SOURCE.file}"
+                            " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
 env.ValgrindLog('threadcheck', 
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --tool=helgrind"
-                            " --gen-suppressions=all ${SOURCE.file}"
+                            " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
 def write_env(env, target, source):

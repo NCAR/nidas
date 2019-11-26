@@ -131,6 +131,9 @@ private:
     NidasAppArg SorterLength;
     NidasAppArg Period;
     NidasAppArg DaemonMode;
+    NidasAppArg SetDSM;
+    NidasAppArg DSMName;
+    BadSampleFilterArg FilterArg;
 };
 
 
@@ -201,7 +204,17 @@ StatsProcess::StatsProcess():
            "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml.\n"
            "Otherwise it defaults to 300 seconds.", "300"),
     DaemonMode("-z,--daemon", "",
-               "Run in daemon mode (in the background, log messages to syslog)")
+               "Run in daemon mode (in the background, log messages to syslog)"),
+    SetDSM
+    ("--DSM", "",
+     "Set the DSM environment variable to the host name,\n"
+     "as if the StatisticsProcessor were running in the\n"
+     "context of a single DSM."),
+    DSMName
+    ("-d,--dsmname", "<dsmname>",
+     "Look for a <fileset> belonging to the given dsm to "
+     "determine input file names."),
+    FilterArg()
 {
 }
 
@@ -238,20 +251,13 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 {
     NidasApp& app = _app;
 
-    // For now we just want to add extended logging, consolidate the other
-    // options later.
-    NidasAppArg SetDSM("--DSM", "",
-                       "Set the DSM environment variable to the host name,\n"
-                       "as if the StatisticsProcessor were running in the\n"
-                       "context of a single DSM.");
-    NidasAppArg DSMName("-d,--dsmname", "<dsmname>",
-                        "Look for a <fileset> belonging to the given dsm to "
-                        "determine input file names.");
-    app.enableArguments(app.loggingArgs() | app.Hostname |
+    app.allowUnrecognized(true);
+    app.enableArguments(app.DatasetName | app.Hostname |
                         app.StartTime | app.EndTime | app.XmlHeaderFile |
                         app.InputFiles | Period | SorterLength |
                         NiceValue | DaemonMode | SetDSM | DSMName |
-                        app.Version | app.Help);
+                        FilterArg |
+                        app.loggingArgs() | app.Version | app.Help);
     app.StartTime.setFlags("-B,--start");
     app.EndTime.setFlags("-E,--end");
     app.InputFiles.allowFiles = true;
@@ -292,7 +298,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     argv = left.argv;
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "c:fo:OS:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "c:fo:Oz")) != -1) {
         switch (opt_char) {
         case 'c':
             _configName = optarg;
@@ -331,9 +337,6 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                         msg << _selectedOutputSampleIds[i] << ' ';
                 }
             }
-            break;
-        case 'S':
-            _datasetName = optarg;
             break;
         case '?':
             return usage(argv[0]);
@@ -404,10 +407,6 @@ int StatsProcess::usage(const char* argv0)
         "    -o [i] | [i-j] [,...]:\n"
         "        select ids of output samples of StatisticsProcessor for\n"
         "        processing.\n"
-        "    -S dataSet_name:\n"
-        "        set environment variables specifed for the dataset, as found\n"
-        "        in the xml file specifed by $NIDAS_DATASETS or\n"
-        "        $ISFS/projects/$PROJECT/ISFS/config/datasets.xml\n"
         "\n"
         "If no inputs are specified, then the -B time option must be given,\n" <<
         "and " << argv0 << " will read \n"
@@ -613,6 +612,10 @@ int StatsProcess::run() throw()
         }
 
         RawSampleInputStream sis(iochan);
+        BadSampleFilter& bsf = FilterArg.getFilter();
+        bsf.setDefaultTimeRange(_startTime, _endTime);
+        sis.setBadSampleFilter(bsf);
+
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);

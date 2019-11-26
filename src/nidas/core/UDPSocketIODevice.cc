@@ -67,7 +67,7 @@ void UDPSocketIODevice::open(int flags)
         assert(i4saddr);
         multicast = i4saddr->getInet4Address().isMultiCastAddress();
     }
-    
+
     n_u::MulticastSocket* msock = 0;
     if (!_socket) {
         if (multicast) _socket = msock = new n_u::MulticastSocket();
