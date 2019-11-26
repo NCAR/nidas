@@ -577,6 +577,12 @@ public:
         {
         }
             
+        IdFormat(const IdFormat& right) :
+            _idFormat(right._idFormat),
+            _width(right._width)
+        {
+        }
+
         IdFormat&
         setDecimalWidth(int width)
         {

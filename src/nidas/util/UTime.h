@@ -121,6 +121,12 @@ public:
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
+    UTime(const UTime& u) :
+        _utime(u._utime),
+        _fmt(u._fmt),
+        _utc(u._utc)
+    { }
+
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
     /**
@@ -259,7 +265,7 @@ public:
             _utime = u._utime;
             _fmt = u._fmt;
         }
-	return *this;
+        return *this;
     }
 
     UTime& operator=(long long u) { _utime = u; return *this; }
