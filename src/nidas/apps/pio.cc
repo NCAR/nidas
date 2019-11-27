@@ -41,6 +41,8 @@
 #include <sstream>
 #include <vector>
 #include <time.h>
+#include <unistd.h>
+
 #include <libusb-1.0/libusb.h>
 #include "ftdi.h"
 #include "nidas/core/NidasApp.h"
@@ -148,6 +150,15 @@ void printAll()
 }
 
 int main(int argc, char* argv[]) {
+    // need to setuid to root so that this program can change 
+    // the non-serialport FTDI devices in bitbang mode.
+    // Of course, this requires that the program needs to have
+    // the cap_setuid capability.
+    int result = setresuid(0, 0, 0);
+    if (result) {
+        return result;
+    } 
+
     deviceArgMap.insert(DeviceArgMapPair(std::string("0"), SER_PORT0));
     deviceArgMap.insert(DeviceArgMapPair(std::string("1"), SER_PORT1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("2"), SER_PORT2));
