@@ -276,18 +276,43 @@ class Session
         >;
 
     using InNavPvt = ublox::message::NavPvt<InMessage>;
+    using InTimTp = ublox::message::TimTp<InMessage>;
     using InAckAck = ublox::message::AckAck<InMessage>;
     using InAckNak = ublox::message::AckNak<InMessage>;
     using MsgId = ublox::MsgId;
+
+    // MsgId a = MsgId::MsgId_TimTp;
+
+    using AllHandledInMessages =
+        std::tuple<
+            InNavPvt,
+            InAckNak,
+            InAckAck,
+            InTimTp
+        >;
+
+    using Frame = ublox::frame::UbloxFrame<InMessage, AllHandledInMessages>;
+
+    using SerialPort = boost::asio::serial_port;
+    using IoService = boost::asio::io_service;
 
 public:
     Session(boost::asio::io_service& io, const std::string& dev)
       : m_serial(io), m_device(dev), m_inputBuf(), m_inData(), 
         m_frame(), waitingAckMsg(false), sentMsgId((MsgId)0), msgAcked(false),
-        enabledMsgs(), checkEnabledMsgs(false), ackCheck(false)
+        enabledMsgs(), checkEnabledMsgs(false), ackCheck(false), m_detectedBaudRate(0)
     {}
 
-    ~Session() = default;
+    ~Session()
+    {
+        if (!m_serial.get_io_service().stopped()) {
+            m_serial.get_io_service().stop();
+        }
+
+        if (m_serial.is_open()) {
+            m_serial.close();
+        }
+    }
 
     bool getCheckEnabledMsgs() {return checkEnabledMsgs;}
     void setCheckEnabledMsgs(bool check = true) {checkEnabledMsgs = check;}
@@ -314,6 +339,7 @@ public:
         // Boost.ASIO, but until v1.12.0 (Boost 1.66) there was a bug which doesn't enable relevant
         // code. Fixed by commit: https://github.com/boostorg/asio/commit/619cea4356
         {
+                DLOG(("Session::start(): current BOOST version doesn't do low level serial port setup."));
                 int fd = m_serial.native_handle();
  
                 termios tio;
@@ -324,9 +350,12 @@ public:
  
                 // Commit settings
                 tcsetattr(fd, TCSANOW, &tio);
+
+                // also flush
+                tcflush(fd, TCIOFLUSH);
         }
  #endif
-           return true;
+        return true;
     }
 
     void handle(InNavPvt& msg)
@@ -357,6 +386,19 @@ public:
             << (validDate ? " valid" : " invalid") << " date" 
             << (validTime ? " valid" : " invalid") << " time" 
             << (resolvedTime ? " fully resolved" : " not fully resolved") << " time");
+
+        std::string msgName(msg.doName());
+        if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
+            enabledMsgs[msgName]++;
+        }
+    }
+
+    void handle(InTimTp& msg)
+    {
+        DLOG(("Session::handle(InTimTp&): Caught TimTp message..."));
+
+        // auto& refInfo = msg.field_refInfo().value();
+
 
         std::string msgName(msg.doName());
         if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
@@ -446,16 +488,88 @@ public:
             });
     }   
 
-    void configureUbx()
+    bool findBaudRate()
     {
-        disableAllMessages();  // seems all UBX messages are disabled by default, too.
-        configureUbxProtocol();
+        DLOG(("Session::findBaudRate(): find baud rate by trying to disable a message, and check for ACK"));
+        using OutCfgMsgCurrent = ublox::message::CfgMsgCurrent<OutMessage>;
+        DLOG(("Session::findBaudRate(): checking for response @ 9600 baud"));
+        OutCfgMsgCurrent msg;
+        msg.field_msgId().value() = ublox::MsgId_NavPvt;
+        msg.field_rate().value() = 0;
+        sendMessage(msg);
+        if (waitingAckMsg || !msgAcked) {
+            DLOG(("Session::findBaudRate(): No response @ 9600 baud, checking for response @ 115200 baud"));
+            m_serial.set_option(SerialPort::baud_rate(115200));
+            sendMessage(msg);
+            if (waitingAckMsg || !msgAcked) {
+                DLOG(("Session::findBaudRate(): No response @ 115200 baud - failed"));
+                return false;
+            }
+            else {
+                m_detectedBaudRate = 115200;
+            }
+        }
+        else {
+            m_detectedBaudRate = 9600;
+        }
+        return true;
+    }
+
+    bool configureUbx()
+    {
+        bool success = configureUbxProtocol(true); // use the detected baud rate
         // spyOnCapturedInput = true;
-        configureUbxPowerMode();
-        configureUbxRTCUpdate();
+        if (success)  {
+            success &= disableAllMessages();
+        }
+        else {
+            DLOG(("Session::configureUbx() - Could not disable all messages"));
+        }
+        if (success)  {
+            success &= configGnss();
+        }
+        else {
+            DLOG(("Session::configureUbx() - Could not configure UBX satellites used"));
+        }
+        if (success)  {
+            success &= configureUbxPowerMode();
+        }
+        else {
+            DLOG(("Session::configureUbx() - Could not configure UBX power mode"));
+        }
+        if (success)  {
+            success &= configureUbxRTCUpdate();
+        }
+        else {
+            ELOG(("Session::configureUbx() - Could not configure UBX RTC update"));
+        }
         // spyOnCapturedInput = false;
-        configureUbxNavMode();
-        enableDefaultMessages();
+        if (success)  {
+            success &= configureUbxNavMode();
+        }
+        else {
+            ELOG(("Session::configureUbx() - Could not configure UBX NAV mode"));
+        }
+        if (success)  {
+            success &= configurePPS();
+        }
+        else {
+            ELOG(("Session::configureUbx() - Could not configure PPS"));
+        }
+        if (success)  {
+            success &= enableDefaultMessages();
+        }
+        else {
+            ELOG(("Session::configureUbx() - Could not enable default messages"));
+        }
+        if (success)  {
+            success &= configureUbxProtocol(false); // force switch to 115200 baud
+        }
+        else {
+            ELOG(("Session::configureUbx() - Could not force switch to 115200 baud"));
+        }
+
+        return success;
     }
 
     bool msgEnabled(const std::string& name) const
@@ -497,17 +611,6 @@ public:
 
 private:
 
-    using AllHandledInMessages =
-        std::tuple<
-            InNavPvt,
-            InAckAck,
-            InAckNak
-        >;
-
-    using Frame = ublox::frame::UbloxFrame<InMessage, AllHandledInMessages>;
-
-    using SerialPort = boost::asio::serial_port;
-
     void processInputData()
     {
         if (!m_inData.empty()) {
@@ -516,26 +619,20 @@ private:
         }    
     }
 
-    void waitForResponse(ublox::MsgId msg)
+    void waitForResponse()
     {
         boost::asio::io_service readSvc;
         boost::asio::steady_timer readClock(readSvc);
         std::chrono::microseconds expireTime(USECS_PER_SEC/100);
 
-        if (respondsWithAck(msg)) {
-            // wait a second...
-            for(int i=0; getAckCheck() && i<40 && waitingAckMsg; ++i) {
-                readClock.expires_from_now(expireTime);
-                readClock.wait();
-                performRead();
-            }
-        }
-        else {
-            static_cast<void>(&msg);
+        for(int i=0; getAckCheck() && i<100 && waitingAckMsg; ++i) {
+            readClock.expires_from_now(expireTime);
+            readClock.wait();
+            performRead();
         }
     }
 
-    void sendMessage(const OutMessage& msg)
+    bool sendMessage(const OutMessage& msg)
     {
         ublox::MsgId msgId = msg.getId();
         OutBuffer buf;
@@ -550,7 +647,7 @@ private:
             static_cast<void>(es);
             assert(es == comms::ErrorStatus::Success); // do not expect any error
 
-            if (getAckCheck() && respondsWithAck(msgId)) {
+            if (getAckCheck()) {
                 ackMsgInit(msg.getId());
             }
 
@@ -562,16 +659,16 @@ private:
                 if (ec) {
                     std::cerr << "ERROR: write failed with message: " << ec.message() << std::endl;
                     m_serial.get_io_service().stop();
-                    return;
+                    return false;
                 }
 
                 buf.erase(buf.begin(), buf.begin() + count);
             }
 
             // always read even if just to empty the buffer...
-            waitForResponse(msgId);
+            waitForResponse();
 
-            if (getAckCheck() && respondsWithAck(msgId)) {
+            if (getAckCheck()) {
                 char buf[32];
                 memset(buf, 0, 32);
                 sprintf(buf, "0x%04X", msgId);
@@ -595,9 +692,12 @@ private:
             }
         }
 
-        if (getAckCheck() && respondsWithAck(msg.getId()) && (waitingAckMsg || !msgAcked)) {
+        if (getAckCheck() && (waitingAckMsg || !msgAcked)) {
             ILOG(("Error: Failed to receive ACK message after three tries..."));
+            return false;
         }
+
+        return true;
     }
 
     void ackMsgInit(MsgId msgId)
@@ -607,22 +707,7 @@ private:
         msgAcked = false;
     }
 
-    bool respondsWithAck(ublox::MsgId msgId)
-    {
-        bool responds = true;
-        switch(msgId) {
-            case ublox::MsgId_CfgAnt:
-                responds = false;
-                break;
-
-            default:
-                break;
-        }
-
-        return responds;
-    }
-
-    void disableAllMessages()
+    bool disableAllMessages()
     {
         DLOG(("disableAllMessages:"));
 
@@ -647,6 +732,7 @@ private:
 
         // iterate over a list of all UBX message IDs
         DLOG((" disabling UBX Messages..."));
+        bool allDisabled = false;
         for (ublox::MsgId msgId : All_UBX_IDs) {
             char buf[32];
             memset(buf, 0, 32);
@@ -655,11 +741,16 @@ private:
             std::string msgNameStr;
             ILOG(("Session::disableAllMessages(): Disabling UBX message ID: ") << msgIdStr);
             msg.field_msgId().value() = msgId;
-            sendMessage(msg);
+            allDisabled = sendMessage(msg);
+            if (!allDisabled) {
+                break;
+            }
         }
+
+        return allDisabled;
     }
 
-    void configureUbxProtocol()
+    bool configureUbxProtocol(bool useDetected)
     {
         DLOG(("Session::configureUbxProtocol(): Configuring In/Out Protocol to UBX only for UART..."));
         using OutCfgPrtUart = ublox::message::CfgPrtUart<OutMessage>;
@@ -669,9 +760,9 @@ private:
         DLOG(("Session::configureUbxProtocol(): default outProtoMaskField: ") << outProtoMaskField.value());
 
         using OutProtoMaskField = typename std::decay<decltype(outProtoMaskField)>::type;
-        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outUbx, true);
-        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outNmea, false);
-        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outRtcm3, false);
+        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outUbx, 1);
+        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outNmea, 0);
+        outProtoMaskField.setBitValue(OutProtoMaskField::BitIdx_outRtcm3, 0);
 
         DLOG(("Session::configureUbxProtocol(): commanded outProtoMaskField: ") << outProtoMaskField.value());
 
@@ -679,16 +770,21 @@ private:
         DLOG(("Session::configureUbxProtocol(): default inProtoMaskField: ") << inProtoMaskField.value());
 
         using InProtoMaskField = typename std::decay<decltype(inProtoMaskField)>::type;
-        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inUbx, true);
-        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inNmea, false);
-        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inRtcm, false);
-        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inRtcm3, false);
+        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inUbx, 1);
+        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inNmea, 0);
+        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inRtcm, 0);
+        inProtoMaskField.setBitValue(InProtoMaskField::BitIdx_inRtcm3, 0);
 
         DLOG(("Session::configureUbxProtocol(): commanded inProtoMaskField: ") << inProtoMaskField.value());
 
         auto& baud = msg.field_baudRate().value();
         DLOG(("Session::configureUbxProtocol(): default baud: ") << baud);
-        baud = 9600;
+        if (useDetected) {
+            baud = m_detectedBaudRate;
+        }
+        else {
+            baud = 115200;
+        }
         DLOG(("Session::configureUbxProtocol(): commanded baud: ") << baud);
 
         auto& txReadyField = msg.field_txReady().value();
@@ -699,10 +795,10 @@ private:
         DLOG(("Session::configureUbxProtocol(): commanded txReady enabled: ") 
               << std::string(txReadyEnabled.getBitValue_en() ? "ENABLED" : "DISABLED"));
 
-        sendMessage(msg);
+        return sendMessage(msg);
     }
 
-    void configureUbxRTCUpdate()
+    bool configureUbxRTCUpdate()
     {
         DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX to update RTC and ephemeris data occasionally..."));
         using OutCfgPm2 = ublox::message::CfgPm2<OutMessage>;
@@ -735,23 +831,23 @@ private:
         
         auto& outPM2LowFlags = msg.field_flags().field_bitsLow();
         DLOG(("Session::configureUbxRTCUpdate(): default low bits: ") << outPM2LowFlags.value());
-        outPM2LowFlags.setBitValue_extintBackup(false);
-        outPM2LowFlags.setBitValue_extintSel(false);
-        outPM2LowFlags.setBitValue_extintWake(false);
+        outPM2LowFlags.setBitValue_extintBackup(0);
+        outPM2LowFlags.setBitValue_extintSel(0);
+        outPM2LowFlags.setBitValue_extintWake(0);
         DLOG(("Session::configureUbxRTCUpdate(): commanded low bits: ") << outPM2LowFlags.value());
 
         auto& outPM2MidFlags = msg.field_flags().field_bitsMid();
         DLOG(("Session::configureUbxRTCUpdate(): default mid bits: ") << outPM2MidFlags.value());
-        outPM2MidFlags.setBitValue_updateRTC(true);
-        outPM2MidFlags.setBitValue_updateEPH(true);
-        outPM2MidFlags.setBitValue_waitTimeFix(false);
-        outPM2MidFlags.setBitValue_doNotEnterOff(true);
+        outPM2MidFlags.setBitValue_updateRTC(1);
+        outPM2MidFlags.setBitValue_updateEPH(1);
+        outPM2MidFlags.setBitValue_waitTimeFix(0);
+        outPM2MidFlags.setBitValue_doNotEnterOff(0);
         DLOG(("Session::configureUbxRTCUpdate(): commanded mid bits: ") << outPM2MidFlags.value());
 
-        sendMessage(msg);
+        return sendMessage(msg);
     }
 
-    void configureUbxPowerMode()
+    bool configureUbxPowerMode()
     {
         DLOG(("Session::enableDefaultMessages(): Configuring UBX Power Mode..."));
         using OutCfgRxm = ublox::message::CfgRxm<OutMessage>;
@@ -762,10 +858,10 @@ private:
         using OutLpModeValType = typename std::decay<decltype(outLpMode)>::type;
         outLpMode = OutLpModeValType::Continuous;
 
-        sendMessage(msg);
+        return sendMessage(msg);
     }
 
-    void configureUbxNavMode()
+    bool configureUbxNavMode()
     {
         DLOG(("Session::enableDefaultMessages(): Configuring UBX NAV Mode..."));
         using OutCfgNav5 = ublox::message::CfgNav5<OutMessage>;
@@ -780,10 +876,107 @@ private:
         using UtcStdType = typename std::decay<decltype(utcStd)>::type;
         utcStd = UtcStdType::GPS;
 
-        sendMessage(msg);
+        return sendMessage(msg);
     }
 
-    void enableDefaultMessages()
+    bool configGnss()
+    {
+        DLOG(("Session::configGnss(): Set up which GNSS sat systems are in use, and reserve channels for them."));
+        using OutCfgGnss = ublox::message::CfgGnss<OutMessage>;
+        OutCfgGnss cfgGnssMsg;
+
+        cfgGnssMsg.field_msgVer().value() = 0;
+        cfgGnssMsg.field_numTrkChUse().value() = 0xFF;
+        
+        cfgGnssMsg.field_numConfigBlocks().value() = 3;
+        auto& gnssCfgBlocks = cfgGnssMsg.field_list().value();
+        gnssCfgBlocks.resize(cfgGnssMsg.field_numConfigBlocks().value());
+
+        auto& cfgBlock0 = gnssCfgBlocks[0];
+        cfgBlock0.field_gnssId().value() = ublox::field::GnssIdVal::GPS;
+        auto& enable = cfgBlock0.field_flags().field_bitsLow();
+        enable.setBitValue_enable(1);
+        auto& sigCfg = cfgBlock0.field_flags().field_sigCfgMask().value();
+        sigCfg = 0x01;
+        cfgBlock0.field_maxTrkCh().value() = 16;
+        cfgBlock0.field_resTrkCh().value() = 8;
+
+        auto& cfgBlock1 = gnssCfgBlocks[1];
+        cfgBlock1.field_gnssId().value() = ublox::field::GnssIdVal::QZSS;
+        auto& enable1 = cfgBlock1.field_flags().field_bitsLow();
+        enable1.setBitValue_enable(1);
+        auto& sigCfg1 = cfgBlock1.field_flags().field_sigCfgMask().value();
+        sigCfg1 = 0x01;
+        cfgBlock1.field_maxTrkCh().value() = 3;
+        cfgBlock1.field_resTrkCh().value() = 0;
+
+        auto& cfgBlock2 = gnssCfgBlocks[2];
+        cfgBlock2.field_gnssId().value() = ublox::field::GnssIdVal::SBAS;
+        auto& enable2 = cfgBlock2.field_flags().field_bitsLow();
+        enable2.setBitValue_enable(0);
+        auto& sigCfg2 = cfgBlock2.field_flags().field_sigCfgMask().value();
+        sigCfg2 = 0x01;
+        cfgBlock2.field_maxTrkCh().value() = 4;
+        cfgBlock2.field_resTrkCh().value() = 0;
+
+        return sendMessage(cfgGnssMsg);
+    }
+
+    bool configurePPS()
+    {
+        bool ppsConfigured = false;
+
+        // first set up the measurement rate
+        DLOG(("Session::configurePPS(): Configuring UBX Measurement Rate..."));
+        using OutCfgRate = ublox::message::CfgRate<OutMessage>;
+        OutCfgRate cfgRatemsg;
+        auto& measRate = cfgRatemsg.field_measRate().value();
+        measRate = 1000; // 1000 mS = 1S ==> time between GNSS measurements
+        auto& navRate = cfgRatemsg.field_navRate().value();
+        navRate = 1; // 1 nav measurement per nav solution
+        auto& timeRef = cfgRatemsg.field_timeRef().value();
+        timeRef = ublox::message::CfgRateFieldsCommon::TimeRefVal::UTC;
+
+        ppsConfigured = sendMessage(cfgRatemsg);
+
+        // then set up the PPS signal output
+        DLOG(("Session::configurePPS(): Configuring UBX PPS Output..."));
+        using OutCfgTp5 = ublox::message::CfgTp5<OutMessage>;
+        OutCfgTp5 cfgTp5Msg;
+
+        auto& version = cfgTp5Msg.field_version().value();
+        version = 0;
+
+        auto& tpIdx = cfgTp5Msg.field_tpIdx().value();
+        tpIdx = ublox::field::CfgTp5TpIdxVal::TIMEPULSE;
+
+        auto& bits = cfgTp5Msg.field_flags().field_bits();
+        bits.setBitValue_active(1);
+        bits.setBitValue_lockGnssFreq(1);   // really true?
+        bits.setBitValue_isFreq(0);
+        bits.setBitValue_isLength(1);
+        bits.setBitValue_alignToTow(1);
+        bits.setBitValue_polarity(1);       // rising edge @ top of second
+        bits.setBitValue_lockedOtherSet(0);
+    
+        auto& timeGrid = cfgTp5Msg.field_flags().field_gridUtcGnss().value();
+        timeGrid = ublox::message::CfgTp5Fields<>::FlagsMembers::GridUtcGnssVal::UTC;
+
+        cfgTp5Msg.field_period().value().value() = 1000000; // 1 Sec == 1000000 uSec
+        // cfgTp5Msg.field_periodLock().value().value() = 1;   // Hz
+        cfgTp5Msg.field_ratio().value().value() = 100000;   // 100 mSec = 100000 uSec
+        // cfgTp5Msg.field_ratioLock().value().value() = 10;       // 10% duty
+        // cfgTp5Msg.field_pulseLen().value().value() = 10;    // 10% duty
+        // cfgTp5Msg.field_pulseLenLock().value().value() = 10;// 10% duty
+        cfgTp5Msg.field_antCableDelay().value() = 50;       // nsec
+        cfgTp5Msg.field_userConfigDelay().value() = 0;
+        // cfgTp5Msg.field_freq().value().value() = 0;
+        // cfgTp5Msg.field_freqLock().value().value() = 0;
+    
+        return (ppsConfigured && sendMessage(cfgTp5Msg));
+    }
+
+    bool enableDefaultMessages()
     {
         DLOG(("Session::enableDefaultMessages(): Enabling NAV PVT Message..."));
         using OutCfgMsg = ublox::message::CfgMsg<OutMessage>;
@@ -796,10 +989,24 @@ private:
         ifaceRateVector.resize((unsigned)ublox::field::CfgPrtPortIdVal::UART + 1);
         ifaceRateVector[(unsigned)ublox::field::CfgPrtPortIdVal::UART].value() = 1; // 1/nav solution delivered
         
-        sendMessage(msg);
+        bool defaultMsgsEnabled = sendMessage(msg);
 
-        std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
-        enabledMsgs.insert(NavPvt);
+        if (defaultMsgsEnabled) {
+            std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
+            enabledMsgs.insert(NavPvt);
+
+            DLOG(("Session::enableDefaultMessages(): Enabling TIM TP Message..."));
+            msg.field_msgId().value() = ublox::MsgId_TimTp;
+        }
+
+        defaultMsgsEnabled &= sendMessage(msg);
+
+        if (defaultMsgsEnabled) {
+            std::pair<std::string, int> TimTp(InTimTp().doName(), 0);
+            enabledMsgs.insert(TimTp);
+        }
+
+        return defaultMsgsEnabled;
     }
 
     SerialPort m_serial;
@@ -813,6 +1020,7 @@ private:
     std::map<std::string, int> enabledMsgs;
     bool checkEnabledMsgs;
     bool ackCheck;
+    int m_detectedBaudRate;
 };
 
 NidasAppArg AckCheck("-a,--ack-check", "",
@@ -867,64 +1075,126 @@ int parseRunString(int argc, char* argv[])
 
 int main(int argc, char** argv)
 {
+    // need to setuid to root so that this program can change 
+    // the non-serialport FTDI devices in bitbang mode.
+    // Of course, this requires that the program needs to have
+    // the cap_setuid capability.
+    int result = setresuid(0, 0, 0);
+    if (result) {
+        return result;
+    } 
+
     if (parseRunString(argc, argv) != 0) {
         return -1;
     }
 
     try {
-        boost::asio::io_service io;
+        bool success = false;
+        for (int tries=0; tries<3; ++tries) {
+            boost::asio::io_service io;
 
-        boost::asio::signal_set signals(io, SIGINT, SIGTERM);
-        signals.async_wait(
-            [&io](const boost::system::error_code& ec, int signum)
-            {
-                io.stop();
-                if (ec) {
-                    std::cerr << "ERROR: " << ec.message() << std::endl;
-                    return;
+            boost::asio::signal_set signals(io, SIGINT, SIGTERM);
+            signals.async_wait(
+                [&io](const boost::system::error_code& ec, int signum)
+                {
+                    io.stop();
+                    if (ec) {
+                        std::cerr << "ERROR: " << ec.message() << std::endl;
+                        return;
+                    }
+
+                    std::cerr << "Termination due to signal " << signum << std::endl;
+                });
+
+            Session session(io, Device.getValue());
+            if (!session.start()) {
+                return usage(argv[0]);
+            }
+
+            if (AckCheck.specified()) {
+                DLOG(("ubloxbin: AckCheck is specified."));
+                session.setAckCheck();            
+            }
+
+            boost::asio::io_service readSvc;
+            boost::asio::steady_timer readClock(readSvc);
+            boost::asio::signal_set readSignals(readSvc, SIGINT, SIGTERM);
+
+            // We start up the asio io_service in a thread so that we can check for Ack/Nak 
+            // after sending each configuration message.
+            boost::thread run_thread([&] { io.run(); });
+
+            if (!AckCheck.specified()) {
+                // temporarily turn it on...
+                session.setAckCheck();
+            }
+
+            // spyOnCapturedInput = true;
+            if (!session.findBaudRate()) {
+                return usage(argv[0]);
+            }
+            // spyOnCapturedInput = false;
+
+            if (!AckCheck.specified()) {
+                // turn it back off...
+                session.setAckCheck(false);
+            }
+
+            success = session.configureUbx();
+            if (!success) {
+                continue;
+            }
+
+            session.printEnabledMsgs();
+
+            // Wait for configuration to finish before checking for correct
+            // operation
+            if (!NoBreak.specified()) {
+                session.setCheckEnabledMsgs();
+            }
+
+            int numEnabledMsgTests = 0;
+            while (true) {
+                readClock.expires_from_now(std::chrono::seconds(1));
+                readClock.wait();
+                session.performRead();
+                if (!NoBreak.specified()) {
+                    if (session.getCheckEnabledMsgs()) {
+                        success = session.testEnabledMsgs();
+                        if (success) {
+                            break;
+                        }
+                        else {
+                            if (numEnabledMsgTests < 40) {
+                                ++numEnabledMsgTests;
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    } 
                 }
+            }
 
-                std::cerr << "Termination due to signal " << signum << std::endl;
-            });
+            io.stop();
+            run_thread.join();
 
-        Session session(io, Device.getValue());
-        if (!session.start()) {
-            return usage(argv[0]);
-        }
-
-        if (AckCheck.specified()) {
-            DLOG(("ubloxbin: AckCheck is specified."));
-            session.setAckCheck();            
-        }
-
-        boost::asio::io_service readSvc;
-        boost::asio::steady_timer readClock(readSvc);
-        boost::asio::signal_set readSignals(readSvc, SIGINT, SIGTERM);
-
-        // We start up the asio io_service in a thread so that we can check for Ack/Nak 
-        // after sending each configuration message.
-        boost::thread run_thread([&] { io.run(); });
-
-        session.configureUbx();
-
-        session.printEnabledMsgs();
-
-        // Wait for configuration to finish before checking for correct
-        // operation
-        if (!NoBreak.specified()) {
-            session.setCheckEnabledMsgs();
-        }
-
-        while (true) {
-            readClock.expires_from_now(std::chrono::seconds(1));
-            readClock.wait();
-            session.performRead();
-            if (!NoBreak.specified() && session.testEnabledMsgs()) 
+            if (tries < 3) {
+                if (!success && session.getCheckEnabledMsgs() && numEnabledMsgTests >= 40) {
+                    continue;
+                }
+                else {
+                    break;
+                }
+            }
+            else {
                 break;
+            } 
         }
 
-        io.stop();
-        run_thread.join();
+        if (!success) {
+            return -1;
+        }
     }
     catch (const std::exception& e) {
         std::cerr << "ERROR: Unexpected exception: " << e.what() << std::endl;
