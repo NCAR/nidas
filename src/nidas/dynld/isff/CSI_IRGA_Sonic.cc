@@ -40,8 +40,14 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
+// The default for IRGA is different from CSAT3.
+const PortConfig CSI_IRGA_Sonic::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
+												     DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
+											         DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+
+
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
-    CSAT3_Sonic(false),
+    CSAT3_Sonic(false, DEFAULT_PORT_CONFIG),
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),
