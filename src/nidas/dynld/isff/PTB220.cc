@@ -519,8 +519,8 @@ void PTB220::sendScienceParameters() {
         }
     }
 
-    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PB220"));
-    else NLOG(("Base class modified the default science parameters for this PB210"));
+    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this PTB220"));
+    else NLOG(("Base class modified the default science parameters for this PTB220"));
 
     DLOG(("Sending science parameters"));
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS; ++j) {
