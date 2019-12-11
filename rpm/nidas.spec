@@ -31,7 +31,15 @@ Group: Applications/Engineering
 Url: https://github.com/ncareol/nidas
 Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+
+BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons
+
+%if 0%{?rhel} < 8
+BuildRequires: scons qt-devel
+%else
+BuildRequires: python3-scons qt5-devel
+%endif
+
 Requires: yum-utils nidas-min
 Requires (post): policycoreutils-python
 Requires (postun): policycoreutils-python
@@ -119,7 +127,14 @@ Summary: Package for building NIDAS by hand
 # remove dist from release on noarch RPM
 Release: %{releasenum}
 Group: Applications/Engineering
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
+
+Requires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons rpm-build
+%if 0%{?rhel} < 8
+Requires: scons qt-devel
+%else
+Requires: python3-scons qt5-devel
+%endif
+
 Obsoletes: nidas-builduser <= 1.2-189
 BuildArch: noarch
 %description build
@@ -140,15 +155,30 @@ Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be
 %prep
 %setup -q -c
 
+
 %build
+
+%if 0%{?rhel} < 8
+scns=scons
+%else
+scns=scons-3
+%endif
+
 cd src
-scons -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
+$scns -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
  
+
 %install
 rm -rf $RPM_BUILD_ROOT
 
+%if 0%{?rhel} < 8
+scns=scons
+%else
+scns=scons-3
+%endif
+
 cd src
-scons -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
+$scns -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
