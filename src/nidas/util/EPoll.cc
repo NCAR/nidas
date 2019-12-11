@@ -43,7 +43,7 @@ int EPoll::poll()
     return nfdEvents;
 }
 
-void EPoll::addPollee(int fd, int events)
+void EPoll::addPollee(int /*fd*/, int /*events*/)
 {
     // struct pollfd pfd = {fd, (short int)events, 0};
     // _vFds.push_back(pfd);
@@ -56,7 +56,7 @@ void EPoll::addPollee(int fd, int events)
     // }
 }
 
-void EPoll::removePollee(int fd)
+void EPoll::removePollee(int /*fd*/)
 {
     // for (std::vector<struct pollfd>::iterator iter = _vFds.begin(); 
     //      iter != _vFds.end(); iter++) {
@@ -74,7 +74,7 @@ void EPoll::removePollee(int fd)
     // }
 }
 
-const event_data EPoll::getNextPolleeEvents(uint64_t curIdx)
+const event_data EPoll::getNextPolleeEvents(uint64_t /*curIdx*/)
 {
     event_data eventData;
     // for (int i=curIdx; i<_nfds; ++i) {

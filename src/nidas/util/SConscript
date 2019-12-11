@@ -30,6 +30,7 @@ headers = [ Split("""
     DSMSwitchCtrl.h
     EndianConverter.h
     EOFException.h
+    EPoll.h
     Exception.h
     FileSet.h
     FtdiHW.h
@@ -53,6 +54,7 @@ headers = [ Split("""
     FtdiDSMPowerGPIO.h
     FtdiSensorPowerCtrl.h
     FtdiSwitchGPIO.h
+    IoPoller.h
     PPoll.h
     Process.h
     ptytools.h
@@ -86,6 +88,7 @@ sources = [ Split("""
     Bzip2FileSet.cc
     DSMPowerCtrl.cc
     EndianConverter.cc
+    EPoll.cc
     Exception.cc
     FileSet.cc
     FtdiHW.cc
@@ -94,6 +97,7 @@ sources = [ Split("""
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
+    IoPoller.cc
     Logger.cc
     McSocket.cc
     PPoll.cc
