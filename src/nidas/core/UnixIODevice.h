@@ -104,10 +104,11 @@ public:
             sleep(1);
             throw nidas::util::IOException(getName(),"read",errno);
         }
-        if (result == 0) 
+        if (result == 0) {
             DLOG(("UnixIODevice::read(): low level read failed: result == 0"));
             sleep(1);
             throw nidas::util::EOFException(getName(),"read");
+        }
         return result;
     }
 
