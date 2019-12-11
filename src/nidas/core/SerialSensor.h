@@ -361,6 +361,8 @@ protected:
 
     void initAutoConfig();
     void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
+    void checkXcvrConfigAttribute(const XDOMAttr& rAttr);
+    void checkTermiosConfigAttribute(const XDOMAttr& rAttr);
 
     /*********************************************************
      * Utility function to drain the rest of a response from 

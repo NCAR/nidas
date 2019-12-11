@@ -53,10 +53,10 @@ SerialSensor::SerialSensor():
     _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(), _portTypeList(), 
     _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
-    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(n_u::POWER_OFF),
+    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(n_u::POWER_ON),
     _defaultPortConfig(),_serialDevice(0), _prompters(), _prompting(false)
 {
-    setDefaultMode(O_RDWR);
+    setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
     _desiredPortConfig.termios.setRaw(true);
     _desiredPortConfig.termios.setRawLength(1);
     _desiredPortConfig.termios.setRawTimeout(0);
@@ -72,7 +72,7 @@ SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPo
     _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(initPowerState),
     _defaultPortConfig(rInitPortConfig),_serialDevice(0), _prompters(), _prompting(false)
 {
-    setDefaultMode(O_RDWR);
+    setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
     _desiredPortConfig.termios.setRaw(true);
     _desiredPortConfig.termios.setRawLength(1);
     _desiredPortConfig.termios.setRawTimeout(0);
@@ -282,6 +282,11 @@ void SerialSensor::applyTermios() throw(nidas::util::IOException)
 
 void SerialSensor::applyPortConfig() 
 {
+    if (Logger::getInstance()->getScheme().logLevel() >= LOGGER_DEBUG) {
+        DLOG(("SerialSensor::applyPortConfig(): Initial power state."));
+        printPowerState();
+    }
+
     if (_serialDevice) {
         _serialDevice->applyPortConfig();
     }
@@ -290,6 +295,11 @@ void SerialSensor::applyPortConfig()
              << (", is trying to apply PortConfig too early, "
                  "or is newer type serial device such as USB or socket-oriented, "
                  " which has no need of a PortConfig."));
+    }
+
+    if (Logger::getInstance()->getScheme().logLevel() >= LOGGER_DEBUG) {
+        DLOG(("SerialSensor::applyPortConfig(): Current power state."));
+        printPowerState();
     }
 }
 
@@ -429,91 +439,13 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
                 int nSize = pAttributes->getLength();
                 for (int i = 0; i < nSize; ++i) {
                     XDOMAttr attr((xercesc::DOMAttr*) (pAttributes->item(i)));
-                    // get attribute name
-                    const std::string& aname = attr.getName();
-                    const std::string& aval = attr.getValue();
-                    // xform everything to uppercase - this shouldn't affect numbers
-                    string upperAval = aval;
-                    std::transform(upperAval.begin(), upperAval.end(),
-                            upperAval.begin(), ::toupper);
-                    DLOG(("SerialSensor:fromDOMElement(): attribute: ") << aname << " : " << upperAval);
-                    if (aname == "porttype") {
-                        if (upperAval == "RS232")
-                            _desiredPortConfig.xcvrConfig.portType = RS232;
-                        else if (upperAval == "RS422")
-                            _desiredPortConfig.xcvrConfig.portType = RS422;
-                        else if (upperAval == "RS485_HALF")
-                            _desiredPortConfig.xcvrConfig.portType = RS485_HALF;
-                        else if (upperAval == "RS485_FULL")
-                            _desiredPortConfig.xcvrConfig.portType = RS485_FULL;
-                        else
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
+                    std::string aname = attr.getName();
+                    if (aname == "porttype" || aname == "termination") {
+                        checkXcvrConfigAttribute(attr);
                     }
-                    else if (aname == "termination") {
-                        if (upperAval == "NO_TERM" || upperAval == "NO"
-                                || upperAval == "FALSE")
-                            _desiredPortConfig.xcvrConfig.termination = NO_TERM;
-                        else if (upperAval == "TERM_120_OHM" || upperAval == "YES"
-                                || upperAval == "TRUE")
-                            _desiredPortConfig.xcvrConfig.termination =
-                                    TERM_120_OHM;
-                        else
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
-                    }
-                    else if (aname == "baud") {
-                        istringstream ist(aval);
-                        int val;
-                        ist >> val;
-                        if (ist.fail()
-                                || !_desiredPortConfig.termios.setBaudRate(val))
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
-                    }
-                    else if (aname == "parity") {
-                        if (upperAval == "ODD")
-                            _desiredPortConfig.termios.setParity(n_u::Termios::ODD);
-                        else if (upperAval == "EVEN")
-                            _desiredPortConfig.termios.setParity(
-                                    n_u::Termios::EVEN);
-                        else if (upperAval == "NONE")
-                            _desiredPortConfig.termios.setParity(
-                                    n_u::Termios::NONE);
-                        else
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
-                    }
-                    else if (aname == "databits") {
-                        istringstream ist(aval);
-                        int val;
-                        ist >> val;
-                        if (ist.fail() || val < 5 || val > 8)
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
-
-                        _desiredPortConfig.termios.setDataBits(val);
-                    }
-                    else if (aname == "stopbits") {
-                        istringstream ist(aval);
-                        int val;
-                        ist >> val;
-                        if (ist.fail() || val < 1 || val > 2)
-                            throw n_u::InvalidParameterException(
-                                    string("PTB210:") + getName(), aname, aval);
-
-                        _desiredPortConfig.termios.setStopBits(val);
-                    }
-                    else if (aname == "rts485") {
-                        if (upperAval == "TRUE" || aval == "1") {
-                            _desiredPortConfig.rts485 = 1;
-                        }
-                        else if (upperAval == "TRUE" || aval == "0") {
-                            _desiredPortConfig.rts485 = 0;
-                        }
-                        else if (aval == "-1") {
-                            _desiredPortConfig.rts485 = -1;
-                        }
+                    else if (aname == "baud" || aname == "parity" 
+                             || aname == "databits" || aname == "stopbits") {
+                        checkTermiosConfigAttribute(attr);
                     }
                 }
             }
@@ -525,8 +457,122 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
         else if (elname == "calfile");
         else
             throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(), "unknown element",
-                    elname);
+                    getName(), "unknown element", elname);
+    }
+}
+
+/*
+ *  Handles common FTDI Autoconfig supported port config attributes.
+ */
+void SerialSensor::checkXcvrConfigAttribute(const XDOMAttr& rAttr)
+{
+    // get attribute name
+    const std::string& aname = rAttr.getName();
+    const std::string& aval = rAttr.getValue();
+    // xform everything to uppercase - this shouldn't affect numbers
+    string upperAval = aval;
+    std::transform(upperAval.begin(), upperAval.end(),
+            upperAval.begin(), ::toupper);
+    DLOG(("SerialSensor:checkXcvrConfigAttribute(): attribute: ") << aname << " : " << upperAval);
+    if (aname == "porttype") {
+        if (upperAval == "RS232")
+            _desiredPortConfig.xcvrConfig.portType = RS232;
+        else if (upperAval == "RS422")
+            _desiredPortConfig.xcvrConfig.portType = RS422;
+        else if (upperAval == "RS485_HALF")
+            _desiredPortConfig.xcvrConfig.portType = RS485_HALF;
+        else if (upperAval == "RS485_FULL")
+            _desiredPortConfig.xcvrConfig.portType = RS485_FULL;
+        else
+            throw n_u::InvalidParameterException(
+                    getName(), aname, aval);
+    }
+    else if (aname == "termination") {
+        if (upperAval == "NO_TERM" || upperAval == "NO"
+                || upperAval == "FALSE")
+            _desiredPortConfig.xcvrConfig.termination = NO_TERM;
+        else if (upperAval == "TERM_120_OHM" || upperAval == "YES"
+                || upperAval == "TRUE")
+            _desiredPortConfig.xcvrConfig.termination =
+                    TERM_120_OHM;
+        else
+            throw n_u::InvalidParameterException(
+                    getName(), aname, aval);
+    }
+    else if (aname == "rts485") {
+        if (upperAval == "TRUE" || aval == "1") {
+            _desiredPortConfig.rts485 = 1;
+        }
+        else if (upperAval == "FALSE" || aval == "0") {
+            _desiredPortConfig.rts485 = 0;
+        }
+        else if (aval == "-1") {
+            _desiredPortConfig.rts485 = -1;
+        }
+    }
+}
+
+/*
+ *  Handles common termios config attributes.
+ */
+void SerialSensor::checkTermiosConfigAttribute(const XDOMAttr& rAttr)
+{
+    // get attribute name
+    const std::string& aname = rAttr.getName();
+    const std::string& aval = rAttr.getValue();
+    // xform everything to uppercase - this shouldn't affect numbers
+    string upperAval = aval;
+    std::transform(upperAval.begin(), upperAval.end(),
+            upperAval.begin(), ::toupper);
+    DLOG(("SerialSensor:checkTermiosConfigAttribute(): attribute: ") << aname << " : " << upperAval);
+    if (aname == "baud") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail()
+            || !_desiredPortConfig.termios.setBaudRate(val)) {
+            throw n_u::InvalidParameterException(
+                getName(), aname, aval);
+        }
+    }
+    else if (aname == "parity") {
+        if (upperAval == "ODD") {
+            _desiredPortConfig.termios.setParity(n_u::Termios::ODD);
+        }
+        else if (upperAval == "EVEN") {
+            _desiredPortConfig.termios.setParity(
+                    n_u::Termios::EVEN);
+        }
+        else if (upperAval == "NONE") {
+            _desiredPortConfig.termios.setParity(
+                    n_u::Termios::NONE);
+        }
+        else {
+            throw n_u::InvalidParameterException(
+                    getName(), aname, aval);
+        }
+    }
+    else if (aname == "databits") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail() || val < 5 || val > 8) {
+            throw n_u::InvalidParameterException(
+                    getName(), aname, aval);
+        }
+
+        _desiredPortConfig.termios.setDataBits(val);
+    }
+    else if (aname == "stopbits") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail() || val < 1 || val > 2) {
+            throw n_u::InvalidParameterException(
+                    getName(), aname, aval);
+        }
+
+        _desiredPortConfig.termios.setStopBits(val);
     }
 }
 
@@ -548,64 +594,22 @@ void SerialSensor::fromDOMElement(
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
-            const std::string& aval = attr.getValue();
 
             if (aname == "ID")/*ignore*/;
             else if (aname == "IDREF");
             else if (aname == "class");
             else if (aname == "devicename");
             else if (aname == "id");
-            else if (aname == "baud") {
-                istringstream ist(aval);
-                int val;
-                ist >> val;
-                if (ist.fail() || !_desiredPortConfig.termios.setBaudRate(val))
-                    throw n_u::InvalidParameterException(
-                        string("SerialSensor:") + getName(), aname,aval);
+            else if (aname == "baud" || aname == "databits" 
+                     || aname == "parity" || aname == "stopbits") {
+                checkTermiosConfigAttribute(attr);
             }
-            else if (aname == "parity") {
-            if (aval == "odd") _desiredPortConfig.termios.setParity(n_u::Termios::ODD);
-            else if (aval == "even") _desiredPortConfig.termios.setParity(n_u::Termios::EVEN);
-            else if (aval == "none") _desiredPortConfig.termios.setParity(n_u::Termios::NONE);
-            else throw n_u::InvalidParameterException(
-                string("SerialSensor:") + getName(),
-                aname,aval);
-            }
-            else if (aname == "databits") {
-                istringstream ist(aval);
-                int val;
-                ist >> val;
-                if (ist.fail())
-                    throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(),
-                        aname, aval);
-                _desiredPortConfig.termios.setDataBits(val);
-            }
-            else if (aname == "stopbits") {
-                istringstream ist(aval);
-                int val;
-                ist >> val;
-                if (ist.fail())
-                    throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(),
-                        aname, aval);
-                _desiredPortConfig.termios.setStopBits(val);
-            }
-            else if (aname == "rts485") {
-                if (aval == "true" || aval == "1") {
-                    _desiredPortConfig.rts485 = 1;
-                }
-                else if (aval == "false" || aval == "0") {
-                    _desiredPortConfig.rts485 = 0;
-                }
-                else if (aval == "-1") {
-                    _desiredPortConfig.rts485 = -1;
-                }
-                else {
-                    throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(),
-                        aname, aval);
-                }
+            else if (aname == "porttype" || aname == "termination"
+                     || aname == "rts485") {
+                // We always check these, because we don't have an IoDevice
+                // built yet, which checks whether there is an FTDI board 
+                // capable of setting the port xcvr mode.
+                checkXcvrConfigAttribute(attr);
             }
             else if (aname == "nullterm");
             else if (aname == "init_string");
@@ -618,8 +622,7 @@ void SerialSensor::fromDOMElement(
             else if (aname == "station");
             else if (aname == "xml:base" || aname == "xmlns") {}
             else throw n_u::InvalidParameterException(
-                    string("SerialSensor:") + getName(),
-                    "unknown attribute",aname);
+                    getName(), "unknown attribute",aname);
         }
     }
 
@@ -709,6 +712,12 @@ void SerialSensor::doAutoConfig()
 	}
 	else {
 	    NLOG(("Autoconfig is not enabled or is not supported."));
+	    NLOG(("But we must still set the termios, xcvr config, turn it on, etc."));
+        DLOG(("If the board is an older FTDI board which doesn't support "));
+        DLOG(("AutoConfig xcvr control, then only termios is set."));
+	    DLOG(("SerialSensor constructor and fromDomElement() should have "));
+	    DLOG(("already specified the details."));
+        applyPortConfig();
 	}
 }
 
