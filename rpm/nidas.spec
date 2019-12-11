@@ -36,13 +36,15 @@ BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex
 
 %if 0%{?rhel} < 8
 BuildRequires: scons qt-devel
+Requires (post): policycoreutils-python
+Requires (postun): policycoreutils-python
 %else
 BuildRequires: python3-scons qt5-devel
+Requires (post): python3-policycoreutils
+Requires (postun): python3-policycoreutils
 %endif
 
 Requires: yum-utils nidas-min
-Requires (post): policycoreutils-python
-Requires (postun): policycoreutils-python
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
 # Allow this package to be relocatable to other places than /opt/nidas
