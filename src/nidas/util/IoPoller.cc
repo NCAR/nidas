@@ -32,13 +32,20 @@
 namespace nidas { namespace util {
 
 IoPoller::IoPoller() 
-    : IoPollerIf()
+    : IoPollerIf(), _pIoPollerImpl(0)
 {
-    #if defined(HAVE_EPOLL_PWAIT) && POLLING_METHOD == POLL_EPOLL
+    #if POLLING_METHOD == POLL_EPOLL
+        #error "EPoll is not yet implemented!!"
+        #if !defined(HAVE_EPOLL_PWAIT)
+            #error "Defined polling method is epoll, but system doesn't support it!"
+        #endif
     _pIoPollerImpl = new EPoll;
     assert(_pIoPollerImpl);
 
-    #elif defined(HAVE_PPOLL) && POLLING_METHOD == POLL_POLL
+    #elif POLLING_METHOD == POLL_POLL
+        #if !defined(HAVE_PPOLL)
+            #error "Defined polling method is ppoll, but system doesn't support it!"
+        #endif
     _pIoPollerImpl = new PPoll;
     assert(_pIoPollerImpl);
     
@@ -47,7 +54,7 @@ IoPoller::IoPoller()
     assert(_pIoPollerImpl);
     
     #else
-    #error "No available io device polling methods found!!"
+        #error "No available io device polling methods found!!"
     #endif
 }
 

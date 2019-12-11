@@ -92,21 +92,47 @@ public:
     virtual int poll() {assert(_pIoPollerImpl); return _pIoPollerImpl->poll();}
 
     // add/remove items to be included in the poll
-    virtual void addPollee(int fd, int events) {assert(_pIoPollerImpl); _pIoPollerImpl->addPollee(fd, events);}
-    virtual void removePollee(int fd) {assert(_pIoPollerImpl); _pIoPollerImpl->removePollee(fd);}
-
+    virtual void addPollee(int fd, int events) 
+    {
+        assert(_pIoPollerImpl); 
+        _pIoPollerImpl->addPollee(fd, events);
+    }
+    virtual void removePollee(int fd) 
+    {
+        assert(_pIoPollerImpl); 
+        _pIoPollerImpl->removePollee(fd);
+    }
     // adjust timeout
-    virtual void changeTimeout(int msecTimeout) {assert(_pIoPollerImpl); _pIoPollerImpl->changeTimeout(msecTimeout);}
-
+    virtual void changeTimeout(int msecTimeout) 
+    {
+        assert(_pIoPollerImpl); 
+        _pIoPollerImpl->changeTimeout(msecTimeout);
+    }
     // add/remove signals
-    virtual void addSignals(unsigned long how, unsigned long int signals) {assert(_pIoPollerImpl); _pIoPollerImpl->addSignals(how, signals);}
-    virtual void removeSignals(unsigned long int how, unsigned long int signals) {assert(_pIoPollerImpl); _pIoPollerImpl->removeSignals(how, signals);}
+    virtual void addSignals(unsigned long how, unsigned long int signals) 
+    {
+        assert(_pIoPollerImpl); 
+        _pIoPollerImpl->addSignals(how, signals);
+    }
+    virtual void removeSignals(unsigned long int how, unsigned long int signals) 
+    {
+        assert(_pIoPollerImpl); 
+        _pIoPollerImpl->removeSignals(how, signals);
+    }
 
     // Get the events from next pollee which has events pending
-    virtual const event_data getNextPolleeEvents(uint64_t curIdx) {assert(_pIoPollerImpl); _pIoPollerImpl->getNextPolleeEvents(currIdx);}
+    virtual const event_data getNextPolleeEvents(uint64_t curIdx) 
+    {
+        assert(_pIoPollerImpl); 
+        return _pIoPollerImpl->getNextPolleeEvents(curIdx);
+    }
 
 private:
     IoPollerIf* _pIoPollerImpl;
+
+    // no copying...
+    IoPoller(const IoPoller&);
+    IoPoller& operator=(const IoPoller&);
 };
 }}	// namespace nidas namespace util
 
