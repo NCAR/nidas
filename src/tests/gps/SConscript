@@ -11,7 +11,8 @@ tests = env.Program('tgps', ["tgps.cc"])
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file -r detailed -l all"]))
+                      env.ChdirActions(["./$SOURCE.file -r detailed -l all "
+                                        "--no_color_output"]))
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
@@ -20,13 +21,13 @@ env.ValgrindLog('memcheck',
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --leak-check=full"
-                            " --gen-suppressions=all ${SOURCE.file}"
+                            " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
 env.ValgrindLog('threadcheck', 
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
                             "${VALGRIND_PATH} --tool=helgrind"
-                            " --gen-suppressions=all ${SOURCE.file}"
+                            " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
 
