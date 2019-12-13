@@ -283,7 +283,8 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             }
             if (nchar != 6 || input[6] != ',' ||
                     day < 1 || day > 31 ||
-                    month < 1 || month > 12) {
+                    month < 1 || month > 12 ||
+                    year < 0 || year > 99) {
                 for (iout = 0 ; iout < nvars; iout++) dout[iout] = doubleNAN;
                 return ttraw;
             }
@@ -541,7 +542,10 @@ dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int,
         return _ttgps;
 }
 
-bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
+
+bool
+GPS_NMEA_Serial::
+findChecksum(char& checksum, const char* rec, int len)
 {
     if (len <= 0) return false;
 
@@ -561,11 +565,47 @@ bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
     char cksum = ::strtol(eor,&cp,16);
     if (cp != eor + 2) return false;    // invalid checksum field length
 
-    char calcsum = 0;
-    for ( ; rec < eor-1; ) calcsum ^= *rec++;
-
-    return cksum == calcsum;
+    checksum = cksum;
+    return true;
 }
+
+
+char
+GPS_NMEA_Serial::
+calcChecksum(const char* rec, int len)
+{
+    // We don't assume null-terminated here, so make sure we use length as
+    // the limit.
+    const char* eor = rec + len;
+
+    if (rec < eor && *rec == '$')
+        rec++;
+
+    char calcsum = 0;
+    for ( ; rec < eor && *rec != '*' && *rec; )
+        calcsum ^= *rec++;
+
+    return calcsum;
+}
+
+
+void
+GPS_NMEA_Serial::
+appendChecksum(char* rec, int len, int maxlen)
+{
+    char cksum = calcChecksum(rec, len);
+    if (len + 4 < maxlen)
+        sprintf(rec+len, "*%2X", cksum);
+}
+
+
+
+bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
+{
+    char cksum;
+    return findChecksum(cksum, rec, len) && cksum == calcChecksum(rec, len);
+}
+
 
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
   throw()
