@@ -204,6 +204,13 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
 
 void SerialPortIODevice::applyPortConfig()
 {
+    Logger& rLogger = *Logger::getInstance();
+    if (rLogger.getScheme().logLevel() >= LOGGER_DEBUG) {
+        DLOG(("SerialPortIODevice::applyPortConfig(): desired port config..."));
+        printPortConfig();
+        DLOG(("SerialPortIODevice::applyPortConfig(): current installed port config..."));
+        printPortConfig(true);
+    }
     applyTermios();
 
     // ignore if not controlled by FT4232H GPIO
@@ -215,6 +222,12 @@ void SerialPortIODevice::applyPortConfig()
     }
 
     setPortConfigApplied();
+
+    if (rLogger.getScheme().logLevel() >= LOGGER_DEBUG) {
+        DLOG(("SerialPortIODevice::applyPortConfig(): newly installed port config..."));
+        printPortConfig(true);
+    }
+
 }
 
 int SerialPortIODevice::getUsecsPerByte() const
@@ -549,10 +562,11 @@ int SerialPortIODevice::read(char *buf, int len, int timeout) throw(nidas::util:
     if (timeout == 0) {
         DLOG(("SerialPortIODevice::read(): timeout is 0, read directly."));
         if ((charsRead = UnixIODevice::read(buf,len)) < 0)
+            ELOG(("SerialPortIODevice::read(): no timeout read fail."));
             throw IOException(getName(),"read",errno);
     }
     else if ((charsRead = UnixIODevice::read(buf,len,timeout)) < 0) {
-        DLOG(("SerialPortIODevice::read(): timeout > 0, read with poll."));
+        ELOG(("SerialPortIODevice::read(): timeout > 0, read with poll fail."));
         throw IOException(getName(),"read",errno);
     }
     DLOG(("SerialPortIODevice::read(): read ") << charsRead << "chars.");
