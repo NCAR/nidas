@@ -276,16 +276,22 @@ class Session
         >;
 
     using InNavPvt = ublox::message::NavPvt<InMessage>;
-    using InTimTp = ublox::message::TimTp<InMessage>;
+    using InNavTimegps = ublox::message::NavTimegps<InMessage>;
+    using InNavSol = ublox::message::NavSol<InMessage>;
+    using InNavDop = ublox::message::NavDop<InMessage>;
     using InAckAck = ublox::message::AckAck<InMessage>;
     using InAckNak = ublox::message::AckNak<InMessage>;
+    using InTimTp = ublox::message::TimTp<InMessage>;
     using MsgId = ublox::MsgId;
 
     // MsgId a = MsgId::MsgId_TimTp;
 
     using AllHandledInMessages =
         std::tuple<
+            InNavDop,
+            InNavSol,
             InNavPvt,
+            InNavTimegps,
             InAckNak,
             InAckAck,
             InTimTp
@@ -299,8 +305,9 @@ class Session
 public:
     Session(boost::asio::io_service& io, const std::string& dev)
       : m_serial(io), m_device(dev), m_inputBuf(), m_inData(), 
-        m_frame(), waitingAckMsg(false), sentMsgId((MsgId)0), msgAcked(false),
-        enabledMsgs(), checkEnabledMsgs(false), ackCheck(false), m_detectedBaudRate(0)
+        m_frame(), m_waitingAckMsg(false), m_sentMsgId((MsgId)0), m_msgAcked(false),
+        m_enabledMsgs(), m_checkEnabledMsgs(false), m_ackCheck(false), 
+        m_detectedBaudRate(0), m_timeIsResolved(false), m_coldBootDetected(false)
     {}
 
     ~Session()
@@ -314,10 +321,14 @@ public:
         }
     }
 
-    bool getCheckEnabledMsgs() {return checkEnabledMsgs;}
-    void setCheckEnabledMsgs(bool check = true) {checkEnabledMsgs = check;}
-    bool getAckCheck() {return ackCheck;}
-    void setAckCheck(bool check = true) {ackCheck = check;}
+    bool getCheckEnabledMsgs() {return m_checkEnabledMsgs;}
+    void setCheckEnabledMsgs(const bool check = true) {m_checkEnabledMsgs = check;}
+    bool getAckCheck() {return m_ackCheck;}
+    void setAckCheck(const bool check = true) {m_ackCheck = check;}
+    bool timeIsResolved() {return m_timeIsResolved;}
+    void setTimeIsResolved(const bool resolved=true) {m_timeIsResolved = resolved;}
+    bool coldBootDetected() {return m_coldBootDetected;}
+    void setColdBootDetected(const bool coldBooting=true) {m_coldBootDetected = coldBooting;}
 
     bool start()
     {
@@ -376,7 +387,7 @@ public:
         using OutValidFieldMask = typename std::decay<decltype(validField)>::type;
         bool validDate = validField.getBitValue(OutValidFieldMask::BitIdx_validDate);
         bool validTime = validField.getBitValue(OutValidFieldMask::BitIdx_validTime);
-        bool resolvedTime = validField.getBitValue(OutValidFieldMask::BitIdx_fullyResolved);
+        setTimeIsResolved(validField.getBitValue(OutValidFieldMask::BitIdx_fullyResolved));
 
         DLOG(("NAV-PVT: fix=") << fix 
             << "; lat=" << comms::units::getDegrees<double>(msg.field_lat()) 
@@ -385,24 +396,98 @@ public:
             << "; UTC date: " << date 
             << (validDate ? " valid" : " invalid") << " date" 
             << (validTime ? " valid" : " invalid") << " time" 
-            << (resolvedTime ? " fully resolved" : " not fully resolved") << " time");
+            << (timeIsResolved() ? " fully resolved" : " not fully resolved") << " time");
 
         std::string msgName(msg.doName());
         if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
-            enabledMsgs[msgName]++;
+            if (!timeIsResolved() && m_enabledMsgs[msgName] == 0) {
+                setColdBootDetected();
+            }
+            m_enabledMsgs[msgName]++;
         }
     }
 
-    void handle(InTimTp& msg)
+    void handle(InNavSol& msg)
     {
-        DLOG(("Session::handle(InTimTp&): Caught TimTp message..."));
+        DLOG(("Session::handle(InNavSol&): Caught NavSol message..."));
+
+        std::string fix(ublox::field::GpsFixCommon::valueName(msg.field_gpsFix().value()));
+        if (msg.field_flags().getBitValue_GPSfixOK()) {
+            DLOG(("NAV-SOL: fix=") << fix 
+                << "; towValid=" << (msg.field_flags().getBitValue_TOWSET() ? "Y" : "N")
+                << "; tow=" << (comms::units::getMilliseconds<uint32_t>(msg.field_itow()) 
+                               + comms::units::getNanoseconds<int32_t>(msg.field_ftow()))
+                << "; wkValid=" << (msg.field_flags().getBitValue_WKNSET() ? "Y" : "N")
+                << "; wk=" << comms::units::getWeeks<int16_t>(msg.field_week())
+                << "; x=" << comms::units::getCentimeters<int32_t>(msg.field_ecefX()) 
+                << "; y=" << comms::units::getCentimeters<int32_t>(msg.field_ecefY()) 
+                << "; z=" << comms::units::getCentimeters<int32_t>(msg.field_ecefZ()) 
+                << "; pAcc=" << comms::units::getCentimeters<uint32_t>(msg.field_pAcc()) 
+                << "; pDop=" << msg.field_pDOP().value()/100.0
+                << "; xVel=" << comms::units::getCentimetersPerSecond<int32_t>(msg.field_ecefVX()) 
+                << "; yVel=" << comms::units::getCentimetersPerSecond<int32_t>(msg.field_ecefVY()) 
+                << "; zVel=" << comms::units::getCentimetersPerSecond<int32_t>(msg.field_ecefVZ()) 
+                << "; sAcc=" << comms::units::getCentimetersPerSecond<uint32_t>(msg.field_sAcc())
+                << "; nSats=" << msg.field_numSV().value()); 
+        }
+        else {
+            DLOG(("NAV-SOL: No GPS fix"));
+        }
+
+        std::string msgName(msg.doName());
+        if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
+            m_enabledMsgs[msgName]++;
+        }
+
+        DLOG(("Session::handle(InNavSol&): NavSol message handled..."));
+    }
+
+    void handle(InNavDop& msg)
+    {
+        DLOG(("Session::handle(InNavDop&): Caught NavDop message..."));
 
         // auto& refInfo = msg.field_refInfo().value();
 
 
         std::string msgName(msg.doName());
         if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
-            enabledMsgs[msgName]++;
+            m_enabledMsgs[msgName]++;
+        }
+    }
+
+    void handle(InNavTimegps& msg)
+    {
+        DLOG(("Session::handle(InNavTimegps&): Caught NavTimegps message..."));
+
+        // auto& refInfo = msg.field_refInfo().value();
+
+
+        std::string msgName(msg.doName());
+        if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
+            m_enabledMsgs[msgName]++;
+        }
+    }
+
+    void handle(InTimTp& msg)
+    {
+        DLOG(("Session::handle(InTimTp&): Caught TimTp message..."));
+        
+        using RaimVal = ublox::message::TimTpFieldsCommon::FlagsMembersCommon::RaimVal;
+        RaimVal raim = msg.field_flags().field_raim().value();
+
+        DLOG(("TIM-TP: ")
+            << "wk: " << comms::units::getWeeks<uint16_t>(msg.field_week())
+            << "; towMS: " << comms::units::getMilliseconds<uint32_t>(msg.field_towMS())
+            << "; towNS: " << comms::units::getNanoseconds<uint32_t>(msg.field_towSubMS())
+            << "; qErr: " << msg.field_qErr().value() << " pS"
+            << "; isUTC: " << (msg.field_flags().field_bits().getBitValue_utc() ? "Y" : "N")
+            << "; timebase: " << (msg.field_flags().field_bits().getBitValue_timeBase() ? "UTC" : "GNSS")
+            << "; raim: " << (raim == RaimVal::NotAvailable ? "no info" 
+                              : (raim < RaimVal::Active ? "not active" : "active")));
+
+        std::string msgName(msg.doName());
+        if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
+            m_enabledMsgs[msgName]++;
         }
     }
 
@@ -414,10 +499,10 @@ public:
         sprintf(buf, "0x%04X", ackMsgId);
         std::string ackMsgIdStr(buf, strlen(buf));
         if (getAckCheck()) {
-            if (ackMsgId == sentMsgId) {
-                waitingAckMsg = false;
-                msgAcked = true;
-                sentMsgId = ublox::MsgId_AckAck;
+            if (ackMsgId == m_sentMsgId) {
+                m_waitingAckMsg = false;
+                m_msgAcked = true;
+                m_sentMsgId = ublox::MsgId_AckAck;
             }
         }
         VLOG(("AckAck caught for ") << ackMsgIdStr);
@@ -432,9 +517,9 @@ public:
         std::string nakMsgIdStr(buf, strlen(buf));
         VLOG(("AckNak caught for ") << nakMsgIdStr);
         if (getAckCheck()) {
-            if (nakMsgId == sentMsgId) {
-                waitingAckMsg = false;
-                sentMsgId = ublox::MsgId_AckNak;
+            if (nakMsgId == m_sentMsgId) {
+                m_waitingAckMsg = false;
+                m_sentMsgId = ublox::MsgId_AckNak;
             }
         }
     }
@@ -497,11 +582,11 @@ public:
         msg.field_msgId().value() = ublox::MsgId_NavPvt;
         msg.field_rate().value() = 0;
         sendMessage(msg);
-        if (waitingAckMsg || !msgAcked) {
+        if (m_waitingAckMsg || !m_msgAcked) {
             DLOG(("Session::findBaudRate(): No response @ 9600 baud, checking for response @ 115200 baud"));
             m_serial.set_option(SerialPort::baud_rate(115200));
             sendMessage(msg);
-            if (waitingAckMsg || !msgAcked) {
+            if (m_waitingAckMsg || !m_msgAcked) {
                 DLOG(("Session::findBaudRate(): No response @ 115200 baud - failed"));
                 return false;
             }
@@ -574,7 +659,7 @@ public:
 
     bool msgEnabled(const std::string& name) const
     {
-        return (enabledMsgs.find(name) != enabledMsgs.end());
+        return (m_enabledMsgs.find(name) != m_enabledMsgs.end());
     }
 
     bool testEnabledMsgs()
@@ -583,7 +668,7 @@ public:
             DLOG(("Session::testEnabledMsgs(): enabled"));
             bool done = true;
             using MsgItem = std::pair<std::string, int>;
-            for (MsgItem msg : enabledMsgs) {
+            for (MsgItem msg : m_enabledMsgs) {
                 ILOG(("Session::testEnabledMsgs(): msg: ") << msg.first << " - received: " << msg.second);
                 done &= (msg.second > 1);
             }
@@ -603,7 +688,7 @@ public:
                   << "Enabled Messages" << std::endl 
                   << "================" << std::endl;
         using MsgItem = std::pair<std::string, int>;
-        for (MsgItem enabledMsg : enabledMsgs) {
+        for (MsgItem enabledMsg : m_enabledMsgs) {
             std::cout << enabledMsg.first << " - received: " << enabledMsg.second << std::endl;
         }
         std::cout << std::endl;
@@ -625,7 +710,7 @@ private:
         boost::asio::steady_timer readClock(readSvc);
         std::chrono::microseconds expireTime(USECS_PER_SEC/100);
 
-        for(int i=0; getAckCheck() && i<100 && waitingAckMsg; ++i) {
+        for(int i=0; getAckCheck() && i<100 && m_waitingAckMsg; ++i) {
             readClock.expires_from_now(expireTime);
             readClock.wait();
             performRead();
@@ -673,12 +758,12 @@ private:
                 memset(buf, 0, 32);
                 sprintf(buf, "0x%04X", msgId);
                 std::string msgIdStr(buf, strlen(buf));
-                if (waitingAckMsg) {
+                if (m_waitingAckMsg) {
                     ackMsgInit(msg.getId());
                     ILOG(("Failed to receive any ACK/NAK message for try ") << i << " for msgId " << msgIdStr);
                     continue;
                 }
-                else if (!msgAcked) {
+                else if (!m_msgAcked) {
                     ILOG(("Received a NAK for try ") << i << " of " << msgIdStr);
                     continue;
                 }
@@ -692,7 +777,7 @@ private:
             }
         }
 
-        if (getAckCheck() && (waitingAckMsg || !msgAcked)) {
+        if (getAckCheck() && (m_waitingAckMsg || !m_msgAcked)) {
             ILOG(("Error: Failed to receive ACK message after three tries..."));
             return false;
         }
@@ -702,9 +787,9 @@ private:
 
     void ackMsgInit(MsgId msgId)
     {
-        waitingAckMsg = true;
-        sentMsgId = msgId;
-        msgAcked = false;
+        m_waitingAckMsg = true;
+        m_sentMsgId = msgId;
+        m_msgAcked = false;
     }
 
     bool disableAllMessages()
@@ -801,16 +886,17 @@ private:
     bool configureUbxRTCUpdate()
     {
         DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX to update RTC and ephemeris data occasionally..."));
+        DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX tracking state machine to cyclic, w/no off period on fail..."));
         using OutCfgPm2 = ublox::message::CfgPm2<OutMessage>;
         OutCfgPm2 msg;
-
-        DLOG(("Session::configureUbxRTCUpdate(): default mode: ") << (int)msg.field_flags().field_mode().value());
-        msg.field_flags().field_mode().value() = ublox::field::CfgPm2FlagsMembersCommon::ModeVal::Cyclic;
-        DLOG(("Session::configureUbxRTCUpdate(): commanded mode: ") << (int)msg.field_flags().field_mode().value());
 
         DLOG(("Session::configureUbxRTCUpdate(): default message version: ") << (int)msg.field_version().value());
         msg.field_version().value() = 1;
         DLOG(("Session::configureUbxRTCUpdate(): commanded message version: ") << (int)msg.field_version().value());
+
+        DLOG(("Session::configureUbxRTCUpdate(): default mode: ") << (int)msg.field_flags().field_mode().value());
+        msg.field_flags().field_mode().value() = ublox::field::CfgPm2FlagsMembersCommon::ModeVal::Cyclic;
+        DLOG(("Session::configureUbxRTCUpdate(): commanded mode: ") << (int)msg.field_flags().field_mode().value());
 
         DLOG(("Session::configureUbxRTCUpdate(): default max startup duration: ") << (int)msg.field_maxStartupStateDur().value());
         msg.field_maxStartupStateDur().value() = 0; // ublox figures it out
@@ -822,7 +908,7 @@ private:
         DLOG(("Session::configureUbxRTCUpdate(): commanded update period: ") << msg.field_updatePeriod().value());
 
         DLOG(("Session::configureUbxRTCUpdate(): default search period: ") << msg.field_searchPeriod().value());
-        msg.field_searchPeriod().value() = 10; // seconds on
+        msg.field_searchPeriod().value() = 1000; // mSecs on = 1 seconds
         DLOG(("Session::configureUbxRTCUpdate(): commanded search period: ") << msg.field_searchPeriod().value());
 
         DLOG(("Session::configureUbxRTCUpdate(): default grid offset: ") << msg.field_gridOffset().value());
@@ -841,7 +927,7 @@ private:
         outPM2MidFlags.setBitValue_updateRTC(1);
         outPM2MidFlags.setBitValue_updateEPH(1);
         outPM2MidFlags.setBitValue_waitTimeFix(0);
-        outPM2MidFlags.setBitValue_doNotEnterOff(0);
+        outPM2MidFlags.setBitValue_doNotEnterOff(1);
         DLOG(("Session::configureUbxRTCUpdate(): commanded mid bits: ") << outPM2MidFlags.value());
 
         return sendMessage(msg);
@@ -993,7 +1079,7 @@ private:
 
         if (defaultMsgsEnabled) {
             std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
-            enabledMsgs.insert(NavPvt);
+            m_enabledMsgs.insert(NavPvt);
 
             DLOG(("Session::enableDefaultMessages(): Enabling TIM TP Message..."));
             msg.field_msgId().value() = ublox::MsgId_TimTp;
@@ -1003,7 +1089,37 @@ private:
 
         if (defaultMsgsEnabled) {
             std::pair<std::string, int> TimTp(InTimTp().doName(), 0);
-            enabledMsgs.insert(TimTp);
+            m_enabledMsgs.insert(TimTp);
+
+            DLOG(("Session::enableDefaultMessages(): Enabling NAV SOL Message..."));
+            msg.field_msgId().value() = ublox::MsgId_NavSol;
+        }
+
+        defaultMsgsEnabled &= sendMessage(msg);
+
+        if (defaultMsgsEnabled) {
+            std::pair<std::string, int> NavSol(InNavSol().doName(), 0);
+            m_enabledMsgs.insert(NavSol);
+
+            DLOG(("Session::enableDefaultMessages(): Enabling NAV DOP Message..."));
+            msg.field_msgId().value() = ublox::MsgId_NavDop;
+        }
+
+        defaultMsgsEnabled &= sendMessage(msg);
+
+        if (defaultMsgsEnabled) {
+            std::pair<std::string, int> NavDop(InNavDop().doName(), 0);
+            m_enabledMsgs.insert(NavDop);
+
+            DLOG(("Session::enableDefaultMessages(): Enabling NAV Timegps Message..."));
+            msg.field_msgId().value() = ublox::MsgId_NavTimegps;
+        }
+
+        defaultMsgsEnabled &= sendMessage(msg);
+
+        if (defaultMsgsEnabled) {
+            std::pair<std::string, int> NavTimegps(InNavTimegps().doName(), 0);
+            m_enabledMsgs.insert(NavTimegps);
         }
 
         return defaultMsgsEnabled;
@@ -1014,26 +1130,29 @@ private:
     boost::array<std::uint8_t, 512> m_inputBuf;
     std::vector<std::uint8_t> m_inData;
     Frame m_frame;
-    bool waitingAckMsg;
-    MsgId sentMsgId;
-    bool msgAcked;
-    std::map<std::string, int> enabledMsgs;
-    bool checkEnabledMsgs;
-    bool ackCheck;
+    bool m_waitingAckMsg;
+    MsgId m_sentMsgId;
+    bool m_msgAcked;
+    std::map<std::string, int> m_enabledMsgs;
+    bool m_checkEnabledMsgs;
+    bool m_ackCheck;
     int m_detectedBaudRate;
+    bool m_timeIsResolved;
+    bool m_coldBootDetected;
 };
 
-NidasAppArg AckCheck("-a,--ack-check", "",
-        "Enable Ack/Nak checking when sending messages to the u-blox receiver.", "");
 NidasAppArg Enable("NOT IMPLEMENTED -E,--enable-msg", "-E UBX-NAV-LLV",
         "Enable a specific u-blox binary message.", "");
 NidasAppArg Disable("NOT IMPLEMENTED -D,--disable-msg", "-D UBX-NAV-LLV",
         "Disable a specific u-blox binary message.", "");
 NidasAppArg NoBreak("-n,--no-break", "", 
-        "Disables the feature to collect enough data to ascertain that the u-blox GPS receiver is operational, "
-        "and then exit. This option .", "");
-NidasAppArg Device("-d,--device", "i.e. /dev/ttygps?",
-        "Serial device to which a u-blox GPS receiver is connected, and which this program uses.", "/dev/gps0");
+        "Disables the feature to collect enough data to ascertain that the u-blox GPS receiver \n"
+        "is operational and then exit. When this option is specified, ubloxbin continuously \n"
+        "waits for the enabled messages, but never exits until the user commands it. \n"
+        "This option is primarily used for testing.", "");
+NidasAppArg Device("-d,--device", "/dev/gps[0-9]",
+        "Device to which a u-blox GPS receiver is connected, and which this program uses.\n" 
+        "May differ from the example given.", "/dev/gps0");
 NidasApp app("ubloxbin");
 
 int usage(const char* argv0)
@@ -1041,20 +1160,23 @@ int usage(const char* argv0)
     std::cerr
 << argv0 << " is a utility to control the configuration of a u-blox NEO-M8Q GPS receiver." << std::endl
 << "By default it configures the NEO-M8Q GPS Receiver in the following manner: " << std::endl
-<< "   * Disables all NMEA and UBX messages and enables the UBX-NAV-PVT message. " << std::endl
+<< "   * Disables all NMEA and UBX messages and enables the UBX-NAV-PVT, UBX-NAV-SOL, " << std::endl
+<< "   * UBX-NAV-DOP, UBX-NAV-TIMEGPS, and UBX-TIM-TP messages. " << std::endl
 << "   * Configures all UBX messages to use the onboard UART. " << std::endl
 << "   * Configures the Real Time Clock to be updated when the receiver has a fix. " << std::endl
 << "   * Configures the receiver to always run - i.e. never enter power saving mode. " << std::endl
 << "   * Collects sufficient enabled receiver messages to determine it is configured correctly and exits. " << std::endl
 << std::endl
-<< "As described below, there is a command line option to specify the serial port, " << std::endl
-<< "command line options to enable/disable UBX messages, and a command line option to " << std::endl
-<< "enable a test to make sure the GPS is operational." << std::endl
+<< "As described below, there are command line options to " << std::endl
+<< "   * specify the gps device, often a serial port, " << std::endl
+<< "   * enable/disable UBX messages (not implemented)" << std::endl
+<< "   * continously read UBX messages w/o exiting." << std::endl
+<< "   * reboot the GPS prior to configuring it." << std::endl
 << std::endl
-<< "Usage: " << argv0 << " [-d <device ID> | -b | -D UBX-NAV-PVT | -E UBX-NAV-POLL | -l <log level>]" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -m -l <log level>" << std::endl << std::endl
+<< "Usage: " << argv0 << " [-d <device path> | -n | -r | -h | -D UBX-NAV-PVT | -E UBX-NAV-POLL | -l <log level>]" << std::endl
+<< "       " << argv0 << " -h" << std::endl
+<< "       " << argv0 << " -d <device path> -l <log level>" << std::endl
+<< "       " << argv0 << " -n -l <log level>" << std::endl << std::endl
 << app.usage();
 
     return 1;
@@ -1062,7 +1184,7 @@ int usage(const char* argv0)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(AckCheck | Device | Enable | Disable | NoBreak | app.Help | app.loggingArgs());
+    app.enableArguments(Device | Enable | Disable | NoBreak | app.Help | app.loggingArgs());
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -1111,11 +1233,6 @@ int main(int argc, char** argv)
                 return usage(argv[0]);
             }
 
-            if (AckCheck.specified()) {
-                DLOG(("ubloxbin: AckCheck is specified."));
-                session.setAckCheck();            
-            }
-
             boost::asio::io_service readSvc;
             boost::asio::steady_timer readClock(readSvc);
             boost::asio::signal_set readSignals(readSvc, SIGINT, SIGTERM);
@@ -1124,21 +1241,14 @@ int main(int argc, char** argv)
             // after sending each configuration message.
             boost::thread run_thread([&] { io.run(); });
 
-            if (!AckCheck.specified()) {
-                // temporarily turn it on...
-                session.setAckCheck();
-            }
+            // always check UBX response
+            session.setAckCheck();
 
             // spyOnCapturedInput = true;
             if (!session.findBaudRate()) {
                 return usage(argv[0]);
             }
             // spyOnCapturedInput = false;
-
-            if (!AckCheck.specified()) {
-                // turn it back off...
-                session.setAckCheck(false);
-            }
 
             success = session.configureUbx();
             if (!success) {
@@ -1154,7 +1264,9 @@ int main(int argc, char** argv)
             }
 
             int numEnabledMsgTests = 0;
-            while (true) {
+            bool skipTry = false;
+            ILOG(("ubloxbin: waiting for messages to arrive and be handled..."));
+            while (!skipTry) {
                 readClock.expires_from_now(std::chrono::seconds(1));
                 readClock.wait();
                 session.performRead();
@@ -1162,17 +1274,22 @@ int main(int argc, char** argv)
                     if (session.getCheckEnabledMsgs()) {
                         success = session.testEnabledMsgs();
                         if (success) {
+                            DLOG(("ubloxbin: have all the enabled msgs needed. breaking out..."));
                             break;
                         }
-                        else {
-                            if (numEnabledMsgTests < 40) {
-                                ++numEnabledMsgTests;
-                            }
-                            else {
-                                break;
-                            }
+                        else if (!session.timeIsResolved()) {
+                            DLOG(("ubloxbin: Time is not resolved and not enough messages reporting. Go around the while loop again..."));
+                            continue;
                         }
-                    } 
+                        else if (numEnabledMsgTests < 10) {
+                                ++numEnabledMsgTests;
+                            DLOG(("ubloxbin: Time is resolved, but we don't have all messages reporting. Increment test count:") << numEnabledMsgTests);
+                        }
+                        else if (!session.coldBootDetected()) {
+                            DLOG(("ubloxbin: Time is resolved, not cold booting, but we don't have all messages reporting. Time to start over..."));
+                            skipTry = true;
+                        }
+                    }
                 }
             }
 
@@ -1180,7 +1297,8 @@ int main(int argc, char** argv)
             run_thread.join();
 
             if (tries < 3) {
-                if (!success && session.getCheckEnabledMsgs() && numEnabledMsgTests >= 40) {
+                if (!success && session.getCheckEnabledMsgs() 
+                    && !session.coldBootDetected() && numEnabledMsgTests >= 10) {
                     continue;
                 }
                 else {
