@@ -2585,7 +2585,18 @@ void WisardMote::sendEpilogScienceParameters()
     for (size_t i=0; i<_epilogScienceParameters.size(); ++i) {
         // flush the serial port - read and write
         serPortFlush(O_RDWR);
-        responseOk = sendAndCheckSensorCmd(static_cast<MOTE_CMDS>(_epilogScienceParameters[i].cmd), _epilogScienceParameters[i].arg);
+        MOTE_CMDS cmd = static_cast<MOTE_CMDS>(_epilogScienceParameters[i].cmd);
+        if (cmd == EE_UPDATE_CMD) {
+            // send the eeupdate command w/o checking because the 
+            // messaging changes to binary, so checking by regex becomes
+            // almost impossible
+            sendSensorCmd(cmd);
+            responseOk = true;
+        }
+        else {
+            responseOk = sendAndCheckSensorCmd(cmd, _epilogScienceParameters[i].arg);
+        }
+
         _scienceParametersOk = (_scienceParametersOk && responseOk);
     }
 }
@@ -2776,9 +2787,14 @@ bool WisardMote::checkCmdResponse(MOTE_CMDS cmd, SensorCmdArg arg)
                 compareMatch = 1;
                 responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX, compareMatch, buf);
                 if (!responseOK) {
-                    DLOG(("WisardMote::checkCmdResponse(): VM is a toggle, so may need to do it twice."));
+                    DLOG(("WisardMote::checkCmdResponse(): VM is a toggle, so may need to do command it more than once."));
                     sendSensorCmd(cmd, arg);
                     responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX, compareMatch, buf);
+                    if (!responseOK) {
+                        DLOG(("WisardMote::checkCmdResponse(): VM is a toggle, so may need to command it more than once."));
+                        sendSensorCmd(cmd, arg);
+                        responseOK = _checkSensorCmdResponse(cmd, arg, VMON_ENABLE_REGEX, compareMatch, buf);
+                    }
                 }
                 checkMatch = false;
                 break;
