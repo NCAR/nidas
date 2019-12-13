@@ -43,6 +43,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,Wind2D)
 
 Wind2D::Wind2D():
+    nidas::core::SerialSensor(),
     _speedName("Spd"),_dirName("Dir"),_uName("U"),_vName("V"),
     _speedIndex(-1),_dirIndex(-1),_uIndex(-1),_vIndex(-1),
     _outlen(0),_wind_sample_id(0),
