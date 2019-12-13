@@ -285,11 +285,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
             for (unsigned int iv = 0; iv < nbinvals; ++iv)
             {
                 Variable* var = stag->getVariables()[iv];
-                VariableConverter* conv = var->getConverter();
-                if (conv)
-                {
-                    pvector[iv] = conv->convert(wsamptime, pvector[iv]);
-                }
+                var->convert(wsamptime, &pvector[iv], 1);
             }
         }
     }
