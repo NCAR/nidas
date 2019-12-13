@@ -31,7 +31,7 @@ Group: Applications/Engineering
 Url: https://github.com/ncareol/nidas
 Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+BuildRequires: gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -45,7 +45,7 @@ NCAR In-Situ Data Acquistion Software programs
 Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0, nidas-run <= 1.0
-Requires: xerces-c xmlrpc++
+Requires: xerces-c
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
 that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
@@ -117,7 +117,7 @@ Summary: Package for building NIDAS by hand
 # remove %{dist} from %{release} on noarch RPM
 Release: %{releasenum}
 Group: Applications/Engineering
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
+Requires: gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
 Obsoletes: nidas-builduser <= 1.2-189
 BuildArch: noarch
 %description build
