@@ -40,7 +40,7 @@ using nidas::util::LogScheme;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
-A2D_Serial::A2D_Serial() : _hz_counter(0), _sampleRate(0), _deltaT(0), _shortPacketCnt(0), _badCkSumCnt(0)
+A2D_Serial::A2D_Serial() : _havePPS(false), _sampleRate(0), _deltaT(0), _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
 }
 
@@ -73,33 +73,39 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
 bool A2D_Serial::checkCkSum(const Sample * samp)
 {
     bool rc = false;
-    const unsigned char * input = (unsigned char *) samp->getConstVoidDataPtr();
-    unsigned nbytes = samp->getDataByteLength();
+    const char * input = (char *) samp->getConstVoidDataPtr();
 
-    unsigned commaCnt = 0, pos = 0;
-    uint16_t cksum = 0;
-    for (pos = 0; pos < nbytes && commaCnt < 5; ++pos)
+    if (input[0] == 'H')    // Header packet has no checksum
+        return true;
+
+    int nbytes = samp->getDataByteLength();
+    char data[nbytes+1];
+    ::memcpy(data, input, nbytes);
+    data[nbytes] = 0;
+
+    char *pos = ::strrchr(data, ',');
+    if (pos == 0)
     {
-        if (input[pos] == ',') ++commaCnt;
-        if (commaCnt < 5) cksum += input[pos];
+        WLOG(("%s: short SerialAnalog packet at ",getName().c_str()) <<
+            n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << ++_shortPacketCnt);
+        return false;   // No comma's?  Can't be valid.
     }
 
-    if (commaCnt == 5)  // CheckSum is after the 5th comma, make sure we got there.
-    {
-        unsigned int ckSumSent;
-        sscanf((const char *)&input[pos], "%x", &ckSumSent);
-        cksum &= 0x00FF;
-        rc = (cksum == ckSumSent);
-        if (rc == false)
+    // Generate a checksum
+    uint16_t cksum = 0;
+    nbytes = pos - data; // sum through last comma
+    for (int i = 0; i < nbytes; ++i) cksum += data[i];
+    cksum &= 0x00FF;
+    ++pos; // move past comma
+
+    // Extract and compare with checksum sent.
+    unsigned int ckSumSent;
+    sscanf((const char *)pos, "%x", &ckSumSent);
+    rc = (cksum == ckSumSent);
+    if (rc == false)
             WLOG(("%s: bad SerialAnalog checksum at ", getName().c_str()) <<
                 n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") <<
                 ", #bad=" << ++_badCkSumCnt);
-    }
-    else
-    {
-        WLOG(("%s: short SerialAnalog packet at ",getName().c_str()) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << ++_shortPacketCnt);
-    }
 
     return rc;
 }
@@ -113,28 +119,50 @@ bool A2D_Serial::process(const Sample * samp,
     bool rc = SerialSensor::process(samp, results);
     if (results.empty()) return false;
 
-    size_t twentyPer = _sampleRate / 4;    // # of samples that makes 25%
     list<const Sample *>::const_iterator it = results.begin();
     for (; it != results.end(); ++it)
     {
         Sample * nco_samp = const_cast<Sample *>(*it);
-
+        float *values = (float *)nco_samp->getVoidDataPtr();
         // Skip housekeeping; sample id 1.
         if ((nco_samp->getId() - getId()) == 1) {
+            if (((int)values[2] & 0x03) < 2)
+                _havePPS = false;
+            else
+                _havePPS = true;
+
             continue;
         }
 
-        size_t usec = nco_samp->getTimeTag() % USECS_PER_SEC;
-        float *values = (float *)nco_samp->getVoidDataPtr();
-        _hz_counter = (int)values[0];
+        if (_havePPS == false)  // Use DSM timestamp if no PPS (i.e. do nothing).
+            continue;
 
-        // late samples whose timetag is in next sec are actually from previous second
-        if (_hz_counter > (_sampleRate-twentyPer) && usec < twentyPer * _deltaT) usec += USECS_PER_SEC;
 
-        // Reverse sitution if DSM clock is a bit slow
-        if (_hz_counter < twentyPer && usec > (_sampleRate-twentyPer) * _deltaT) usec -= USECS_PER_SEC;
+        // extract sample counter (e.g. 0 - 100 for 100hz data).
+        int hz_counter = (int)values[0];
 
-        dsm_time_t timeoffix = nco_samp->getTimeTag() - usec + (_hz_counter * _deltaT);
+        /* these two variables are microsecond offsets from the start of the second.
+         * - usec is the microseconds from the DSM timestamp.
+         * - offset is the manufactured usec we want to use.
+         * If everything is working correctly then the diff of these two should
+         * be a few milliseconds.  But chrony/ntp on the DSM could drift some
+         * or the DSM could be burdened with other work, then the diff might
+         * creep up into 10's of milliseconds.
+         */
+        int offset = hz_counter * _deltaT;
+        int usec = nco_samp->getTimeTag() % USECS_PER_SEC;
+
+
+        if (abs(usec - offset) > 900000) // 900 msec - adjust samples in wrong second
+        {
+            // late samples whose timetag is in next sec are actually from previous second
+            if (usec > 900000) offset += USECS_PER_SEC;
+
+            // Reverse sitution if analog clock is a bit slow
+            if (usec < 100000) offset -= USECS_PER_SEC;
+        }
+
+        dsm_time_t timeoffix = nco_samp->getTimeTag() - usec + offset;
         nco_samp->setTimeTag(timeoffix);
     }
 

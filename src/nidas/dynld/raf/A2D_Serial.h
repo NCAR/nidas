@@ -66,16 +66,16 @@ protected:
     bool checkCkSum(const Sample * samp);
 
     /**
-     * 25Hz sample index counter.  We manufacture time for this instrument since we
-     * know that the data is actually exactly spaced by 40 milliseconds.
+     * Is device receiving PPS.  We read it from header packet.
      */
-    size_t _hz_counter;
+    size_t _havePPS;
 
     size_t _sampleRate;
     size_t _deltaT;
 
     size_t _shortPacketCnt;
     size_t _badCkSumCnt;
+    size_t _largeTimeStampOffset;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf
