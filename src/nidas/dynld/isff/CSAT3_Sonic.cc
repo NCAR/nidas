@@ -477,7 +477,7 @@ const std::string& CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
-    NLOG(("CSAT3_Sonic::fromDOMElement(): Checking for sensor customizations in the DSM/Sensor Catalog XML..."));
+    DLOG(("CSAT3_Sonic::fromDOMElement(): Checking for sensor customizations in the DSM/Sensor Catalog XML..."));
 
     // Let the base classes have first shot at it.
     SerialSensor::fromDOMElement(node);
@@ -532,7 +532,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::Inv
 //                    elname);
 //    //}
 
-    NLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
+    DLOG(("CSAT3_Sonic::fromDOMElement() - exit"));
 }
 
 void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterException)

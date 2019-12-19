@@ -580,7 +580,7 @@ void SerialSensor::fromDOMElement(
 	const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    NLOG(("SerialSensor::fromDOMElement(): entry..."));
+    DLOG(("SerialSensor::fromDOMElement(): entry..."));
 
     CharacterSensor::fromDOMElement(node);
 
@@ -626,7 +626,7 @@ void SerialSensor::fromDOMElement(
         }
     }
 
-    NLOG(("SerialSensor::fromDOMElement(): exit..."));
+    DLOG(("SerialSensor::fromDOMElement(): exit..."));
 }
 
 /**
