@@ -445,8 +445,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
          "This option only applies to netcdf outputs.\n");
 
     NidasAppArg SorterLength("-s,--sortlen", "<seconds>",
-                             "input data sorter length in seconds (optional)",
-                             "1");
+                             "sorter length for processed samples in "
+                             "floating point seconds (optional)", "1.0");
     NidasAppArg Precision("-p,--precision", "ndigits",
                           "number of digits in ASCII output values", "5");
     NidasAppArg NoHeader("-H,--noheader", "",
@@ -573,7 +573,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     _doHeader = !NoHeader.asBool();
     _xmlFileName = _app.xmlHeaderFile();
     _clipping = Clipping.asBool();
-    _sorterLength = SorterLength.asInt();
+    _sorterLength = SorterLength.asFloat();
     if (_sorterLength < 0 || _sorterLength > 10000)
     {
         cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
