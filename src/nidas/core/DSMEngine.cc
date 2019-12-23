@@ -130,18 +130,9 @@ int DSMEngine::main(int argc, char** argv) throw()
 {
     DSMEngine engine;
 
-    int res;
+    int res = engine.parseRunstring(argc,argv);
 
-    // need to setuid to root so that this program can change 
-    // the non-serialport FTDI devices in bitbang mode.
-    // Of course, this requires that the program needs to have
-    // the cap_setuid capability.
-    res = setresuid(0, 0, 0);
-    if (res) {
-        return res;
-    } 
-
-    if ((res = engine.parseRunstring(argc,argv)) != 0) return res;
+    if (res != 0) return res;
 
     // If the user has not selected -d (debug), initLogger will fork
     // to the background, using daemon(). After the fork, threads other than this
