@@ -167,15 +167,6 @@ bool rtsIsSet(int fd)
 
 
 int main(int argc, char* argv[]) {
-    // need to setuid to root so that this program can change 
-    // the non-serialport FTDI devices in bitbang mode.
-    // Of course, this requires that the program needs to have
-    // the cap_setuid capability.
-    // int result = setresuid(0, 0, 0);
-    // if (result) {
-    //     return result;
-    // } 
-
     if (parseRunString(argc, argv))
         exit(1);
 

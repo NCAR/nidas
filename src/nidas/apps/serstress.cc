@@ -1075,16 +1075,6 @@ int main(int argc, char**argv)
     cout         << "**        SerStress Test Start        **" << endl;
     cout         << "****************************************" << endl;
 
-    // need to setuid to root so that this program can change 
-    // the non-serialport FTDI devices in bitbang mode.
-    // Of course, this requires that the program needs to have
-    // the cap_setuid capability.
-    // int result = setresuid(0, 0, 0);
-    // if (result) {
-    //     std::cerr << "Failed to setresuid(0,0,0)" << std::endl;
-    //     return result;
-    // } 
-
     n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF};
 
     int status = 0;
