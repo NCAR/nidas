@@ -1,0 +1,35 @@
+FROM docker.io/amd64/ubuntu:latest
+LABEL organization="NCAR EOL"
+
+ARG user=builder
+ARG uid=1000
+ARG group=eol
+ARG gid=1000
+
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
+    build-essential fakeroot libncurses-dev bc dh-make ca-certificates
+RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz
+
+# Add EOL repository for some local packages
+#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
+#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+RUN apt-get install -y --no-install-recommends flex gawk devscripts pkg-config \
+    libbz2-dev libgsl23 libgslcblas0 libgsl0-dev libcap-dev \
+    libxerces-c-dev libbluetooth-dev libnetcdf-dev
+
+# Local packages
+# RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev
+
+RUN apt-get install -y --no-install-recommends rsync quilt
+
+RUN addgroup --gid $gid $group
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+
+RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+USER $user
+WORKDIR /home/$user
+
+RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
