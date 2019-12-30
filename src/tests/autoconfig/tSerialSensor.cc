@@ -3,14 +3,15 @@
 //#define BOOST_AUTO_TEST_MAIN
 //#define BOOST_TEST_MODULE SerialSensorAutoConfig
 #include <boost/test/unit_test.hpp>
+#include <boost/test/tools/interface.hpp>
 
 // handle older boost libs...
-#ifndef BOOST_TEST
-    #define BOOST_TEST( P ) BOOST_CHECK( P )
-#endif
-#ifndef BOOT_TEST_REQUIRE
-    #define BOOST_TEST_REQUIRE( P ) BOOST_REQUIRE( P )
-#endif
+// #if !defined( BOOST_TEST )
+//     #define BOOST_TEST( P ) BOOST_CHECK( P )
+// #endif
+// #if !defined( BOOT_TEST_REQUIRE )
+//     #define BOOST_TEST_REQUIRE( P ) BOOST_REQUIRE( P )
+// #endif
 
 using boost::unit_test_framework::test_suite;
 

@@ -1,5 +1,5 @@
 
-#ifndef TEST_SERIAL_SENSOR_HPP
+#ifndef MOCK_SERIAL_SENSOR_HPP
 #define MOCK_SERIAL_SENSOR_HPP
 
 #include "SerialSensor.h"
@@ -146,4 +146,4 @@ protected:
 
 NIDAS_CREATOR_FUNCTION_NS(isff, MockSerialSensor)
 
-#endif //TEST_SERIAL_SENSOR_HPP
+#endif //MOCK_SERIAL_SENSOR_HPP

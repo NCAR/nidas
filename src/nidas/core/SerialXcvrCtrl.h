@@ -109,7 +109,7 @@ public:
     static bool xcvrCtrlSupported(const n_u::GPIO_PORT_DEFS port)
     {
         if (port != n_u::ILLEGAL_PORT) {
-            n_u::FtdiHwIF* pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
+            n_u::FtdiHwIfSharedPtr pFtdiDevice = n_u::getFtdiDevice(n_u::FTDI_GPIO, port2iface(port));
             DLOG(("SerialXcvrCtrl::xcvrCtrlSupported(): ") << (pFtdiDevice->ifaceFound() ? "true" : "false"));
             return pFtdiDevice->ifaceFound();
         }

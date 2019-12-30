@@ -46,15 +46,13 @@ public:
             _pFtdiDevice = getFtdiDevice(FTDI_I2C, INTERFACE_C);
         }
         catch (InvalidParameterException& e) {
-            _pFtdiDevice = 0;
+            DLOG(("FtdiDSMPowerGPIO::FtdiDSMPowerGPIO() - failed to obtain the FTDI device"));
         }
     }
 
     virtual ~FtdiDSMPowerGPIO()
     {
         DLOG(("FtdiDSMPowerGPIO::~FtdiDSMPowerGPIO(): destructing..."));
-        // don't delete _pFtdiDevice, because someone else may be using it
-        _pFtdiDevice = 0;
     }
 
     virtual unsigned char read()
@@ -122,7 +120,7 @@ public:
 
 private:
     // Does the work of actually opening, reading, writing and closing device
-    FtdiHwIF* _pFtdiDevice;
+    FtdiHwIfSharedPtr _pFtdiDevice;
 
     // only used for testing when there is no actual device.
     unsigned char _shadow;

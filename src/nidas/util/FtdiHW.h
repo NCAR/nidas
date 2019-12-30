@@ -27,6 +27,7 @@
 #define NIDAS_UTIL_FTDIHW_H
 
 #include <string>
+#include <memory>
 #include <libusb-1.0/libusb.h>
 #include <ftdi.h>
 
@@ -86,6 +87,9 @@ public:
     virtual std::string error_string() = 0;
 
 };
+
+using FtdiHwIfSharedPtr = std::shared_ptr<FtdiHwIF>;
+using FtdiHwIfWeakPtr = std::weak_ptr<FtdiHwIF>;
 
 
 /*
@@ -150,10 +154,20 @@ public:
     };
 
     // static singleton getter
-    static FtdiGpio<DEVICE, IFACE>* getFtdiGpio(const std::string manufStr = "UCAR", const std::string productStr = "GPIO");
+    static FtdiHwIfSharedPtr getFtdiGpio(const std::string manufStr = "UCAR", const std::string productStr = "GPIO");
 
     // static singleton destroyer
     static void deleteFtdiGpio();
+
+    /*
+     *  FtdiGpio<DEVICE, IFACE> constructor/destructor.
+     */
+    FtdiGpio(const std::string vendor, const std::string product);
+
+    /*
+     *  FtdiGpio<DEVICE, IFACE> destructor.
+     */
+    virtual ~FtdiGpio();
 
     /*
      *  Initializes ftdi_context object using default values, 
@@ -208,20 +222,12 @@ public:
     virtual void write(unsigned char pins);
 
 private:
-    static FtdiGpio<DEVICE, IFACE>* _pFtdiDevice;
+    static FtdiHwIfWeakPtr _pFtdiDevice;
     ftdi_context* _pContext;
     std::string _manufStr;
     std::string _productStr;
     bool _foundIface;
     int _pinDirection;
-
-    /*
-     *  FtdiGpio<DEVICE, IFACE> constructor/destructor.
-     *
-     *  Make private so that class can be a singleton.
-     */
-    FtdiGpio(const std::string vendor, const std::string product);
-    virtual ~FtdiGpio();
 
     /*
      *  No copying
@@ -234,21 +240,31 @@ private:
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE> Cond FtdiGpio<DEVICE, IFACE>::Sync::_ifaceCondVar;
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
-FtdiGpio<DEVICE, IFACE>* FtdiGpio<DEVICE, IFACE>::getFtdiGpio(const std::string manufStr, const std::string productStr)
-{   Sync();
-    if (!_pFtdiDevice) {
+FtdiHwIfSharedPtr FtdiGpio<DEVICE, IFACE>::getFtdiGpio(const std::string manufStr, const std::string productStr)
+{
+    FtdiHwIfSharedPtr observable;
+    {
+        Sync sync;
+        observable = _pFtdiDevice.lock();
+    }
+    if (!observable) {
         DLOG(("Constructing FtdiGpio<%s, %s> singleton",
               device2Str(DEVICE), iface2Str(IFACE)));
-        _pFtdiDevice = new FtdiGpio<DEVICE, IFACE>(manufStr, productStr);
+        auto shared = std::make_shared<FtdiGpio<DEVICE, IFACE> >(manufStr, productStr);
+        {
+            Sync sync;
+            _pFtdiDevice = shared;
+            observable = _pFtdiDevice.lock();
+        }
     }
 
-    return _pFtdiDevice;
+    return observable;
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::deleteFtdiGpio()
 {
-    delete _pFtdiDevice;
+    _pFtdiDevice.reset();
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
@@ -256,7 +272,7 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
 : _pContext(ftdi_new()), _manufStr(manufStr), _productStr(productStr), _foundIface(false),
   _pinDirection(0xFF)
 {
-    Sync();
+    Sync sync;
     if (_pContext) {
         DLOG(("FtdiGpio<%s, %s>(): init context...",
             device2Str(DEVICE), iface2Str(IFACE)));
@@ -330,13 +346,16 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 FtdiGpio<DEVICE, IFACE>::~FtdiGpio()
 {
-    Sync();
+    Sync sync;
     DLOG(("Destroying FtdiGpio<%s, %s>...", device2Str(DEVICE), iface2Str(IFACE)));
     if (_pContext) {
+        DLOG(("FtdiGpio<DEVICE, IFACE>::~FtdiGpio() -  closing/freeing USB context..."));
         ftdi_usb_close(_pContext);
         ftdi_free(_pContext);
         _pContext = 0;
     }
+
+    DLOG(("FtdiGpio<DEVICE, IFACE>::~FtdiGpio(): checking weak_ptr usage: ") << _pFtdiDevice.use_count());
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
@@ -410,7 +429,7 @@ void FtdiGpio<DEVICE, IFACE>::close()
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 unsigned char FtdiGpio<DEVICE, IFACE>::read()
 {
-    Sync();
+    Sync sync;
     unsigned char pins = 0;
     if (ifaceFound()) {
         open();
@@ -441,7 +460,7 @@ unsigned char FtdiGpio<DEVICE, IFACE>::read()
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
 void FtdiGpio<DEVICE, IFACE>::write(unsigned char pins)
 {
-    Sync();
+    Sync sync;
     if (ifaceFound()) {
         open();
         if (ftdi_write_data(_pContext, &pins, 1) < 0) {
@@ -497,13 +516,13 @@ std::string FtdiGpio<DEVICE, IFACE>::error_string()
 }
 
 template<FTDI_DEVICES DEVICE, ftdi_interface IFACE>
-FtdiGpio<DEVICE, IFACE>* FtdiGpio<DEVICE, IFACE>::_pFtdiDevice = 0;
+FtdiHwIfWeakPtr FtdiGpio<DEVICE, IFACE>::_pFtdiDevice;
 
 /*
  *  Helper method to get the right FtdiGpio<DEVICE, IFACE> singleton
  */
-inline FtdiHwIF* getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
-    FtdiHwIF* pFtdiDevice = 0;
+inline FtdiHwIfSharedPtr getFtdiDevice(FTDI_DEVICES device, ftdi_interface iface) {
+    FtdiHwIfSharedPtr pFtdiDevice(nullptr);
 
     switch (device) {
     case FTDI_I2C:

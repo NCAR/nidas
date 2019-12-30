@@ -89,8 +89,6 @@ public:
     virtual ~FtdiXcvrGPIO()
     {
         DLOG(("FtdiXcvrGPIO::~FtdiXcvrGPIO(): destructing..."));
-        // don't delete _pFtdiDevice, because someone else may be using it
-        _pFtdiDevice = 0;
     }
 
     GPIO_PORT_DEFS getPort() {return _port;}
@@ -152,7 +150,7 @@ protected:
     }
 
 private:
-    FtdiHwIF* _pFtdiDevice;
+    FtdiHwIfSharedPtr _pFtdiDevice;
     GPIO_PORT_DEFS _port;
 
     // only used for testing

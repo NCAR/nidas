@@ -54,8 +54,6 @@ public:
     virtual ~FtdiSwitchGPIO()
     {
         DLOG(("FtdiSwitchGPIO::~FtdiSwitchGPIO(): destructing..."));
-        // don't delete _pFtdiDevice, because someone else may be using it
-        _pFtdiDevice = 0;
     }
 
     virtual unsigned char read()
@@ -131,7 +129,7 @@ public:
     }
 
 private:
-    FtdiHwIF* _pFtdiDevice;
+    FtdiHwIfSharedPtr _pFtdiDevice;
 
     // only used for testing
     unsigned char _shadow;
