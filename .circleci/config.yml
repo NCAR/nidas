@@ -8,6 +8,10 @@ executors:
     docker:
       - image: docker.io/ncar/nidas-build-debian-armel:jessie_v1
 
+  buster-armhf-executor:
+    docker:
+      - image: docker.io/ncar/nidas-build-debian-armhf:buster_v1
+
 commands:
   clone-source:
     description: "Clone the source tree"
@@ -172,6 +176,42 @@ jobs:
           at: .
       - deploy-pkgs
 
+  build-armhf-buster:
+    executor: buster-armhf-executor
+    working_directory: .
+    steps:
+      - clone-source
+      - build:
+          arch: armhf
+
+  test-armhf-buster:
+    executor: buster-armhf-executor
+    working_directory: .
+    steps:
+      - clone-source
+      - test
+
+  package-armhf-buster:
+    executor: buster-armhf-executor
+    working_directory: .
+    steps:
+      - clone-source
+      - build-pkgs:
+          arch: armhf
+      - persist_to_workspace:
+          root: .
+          paths: pkgs
+
+  deploy-armhf-buster:
+    executor: buster-armhf-executor
+    environment:
+      PACKAGECLOUD_TOKEN: 06ddd11da1ae900dccd755ce1acd48ee6ab9f62e2d930318
+    working_directory: .
+    steps:
+      - attach_workspace:
+          at: .
+      - deploy-pkgs
+
   build-armel-autoconfig:
     executor: armel-executor
     working_directory: .
@@ -264,56 +304,84 @@ workflows:
       #         only: 
       #           - master
 
-  autoconfig-armhf:
-    jobs:
-      # - build-armhf-autoconfig:
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - auto-config
-      - test-armhf-autoconfig:
-          filters:
-            branches:
-              only: 
-                - auto-config
-      - package-armhf-autoconfig:
-          requires:
-            - test-armhf-autoconfig
-          filters:
-            branches:
-              only: 
-                - auto-config
-      - deploy-armhf-autoconfig:
-          requires:
-            - package-armhf-autoconfig
-          filters:
-            branches:
-              only: 
-                - auto-config
+#  autoconfig-armhf:
+#    jobs:
+#      # - build-armhf-autoconfig:
+#      #     filters:
+#      #       branches:
+#      #         only: 
+#      #           - auto-config
+#      - test-armhf-autoconfig:
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
+#      - package-armhf-autoconfig:
+#          requires:
+#            - test-armhf-autoconfig
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
+#      - deploy-armhf-autoconfig:
+#          requires:
+#            - package-armhf-autoconfig
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
       
-  autoconfig-armel:
+  buster-armhf:
     jobs:
-      # - build-armel-autoconfig:
+      # test job does the build. no need to do it twice
+      # - build-armhf-buster:
       #     filters:
       #       branches:
       #         only: 
-      #           - auto-config
-      - test-armel-autoconfig:
+      #           - buster
+      - test-armhf-buster:
           filters:
             branches:
               only: 
-                - auto-config
-      - package-armel-autoconfig:
+                - buster
+      - package-armhf-buster:
           requires:
-            - test-armel-autoconfig
+            - test-armhf-buster
           filters:
             branches:
               only: 
-                - auto-config
-      - deploy-armel-autoconfig:
+                - buster
+      - deploy-armhf-buster:
           requires:
-            - package-armel-autoconfig
+            - package-armhf-buster
           filters:
             branches:
               only: 
-                - auto-config
+                - buster
+      
+#  autoconfig-armel:
+#    jobs:
+#      # - build-armel-autoconfig:
+#      #     filters:
+#      #       branches:
+#      #         only: 
+#      #           - auto-config
+#      - test-armel-autoconfig:
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
+#      - package-armel-autoconfig:
+#          requires:
+#            - test-armel-autoconfig
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
+#      - deploy-armel-autoconfig:
+#          requires:
+#            - package-armel-autoconfig
+#          filters:
+#            branches:
+#              only: 
+#                - auto-config
