@@ -142,7 +142,7 @@ echo "Now running rsync ops..."
 
 rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/bin root@$target:/opt/nidas
 # put the libs in the arch-specific directory. In this case, its the RPi w/the hardware float coproc.
-ssh $tunnelPortArg root@$host mkdir -p /opt/nidas/lib/$archlib 
+ssh $tunnelPortArg root@$target mkdir -p /opt/nidas/lib/$archlib 
 rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/lib/*     root@$target:/opt/nidas/lib/$archlib
 rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/firmware  root@$target:/opt/nidas
 rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/include   root@$target:/opt/nidas
