@@ -39,7 +39,7 @@ BuildRequires: scons qt-devel
 Requires (post): policycoreutils-python
 Requires (postun): policycoreutils-python
 %else
-BuildRequires: python3-scons qt5-devel
+BuildRequires: python3-scons qt5-devel elfutils-libelf-devel
 Requires (post): python3-policycoreutils
 Requires (postun): python3-policycoreutils
 %endif
@@ -134,7 +134,7 @@ Requires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-
 %if 0%{?rhel} < 8
 Requires: scons qt-devel
 %else
-Requires: python3-scons qt5-devel
+Requires: python3-scons qt5-devel elfutils-libelf-devel
 %endif
 
 Obsoletes: nidas-builduser <= 1.2-189
