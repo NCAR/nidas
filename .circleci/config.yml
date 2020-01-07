@@ -275,32 +275,32 @@ jobs:
 
 workflows:
   version: 2
-  master-armhf:
-    jobs:
-      # - build-armhf-master:
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - master
-      - test-armhf-master:
-          filters:
-            branches:
-              only: 
-                - master
-      - package-armhf-master:
-          requires:
-            - test-armhf-master
-          filters:
-            branches:
-              only: 
-                - master
-      - deploy-armhf-master:
-          requires:
-            - package-armhf-master
-          filters:
-            branches:
-              only: 
-                - master
+  # master-armhf:
+  #   jobs:
+  #     # - build-armhf-master:
+  #     #     filters:
+  #     #       branches:
+  #     #         only: 
+  #     #           - master
+  #     - test-armhf-master:
+  #         filters:
+  #           branches:
+  #             only: 
+  #               - master
+  #     - package-armhf-master:
+  #         requires:
+  #           - test-armhf-master
+  #         filters:
+  #           branches:
+  #             only: 
+  #               - master
+  #     - deploy-armhf-master:
+  #         requires:
+  #           - package-armhf-master
+  #         filters:
+  #           branches:
+  #             only: 
+  #               - master
       
   # master-armel:
   #   jobs:
