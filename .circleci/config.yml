@@ -15,10 +15,15 @@ executors:
 commands:
   clone-source:
     description: "Clone the source tree"
+    parameters:
+      branch:
+        type: enum
+        enum: [master, autoconfig, buster]
+        default: buster
     steps:
       - run:
           name: Clone GitHub repository
-          command: git clone -b ${CIRCLE_BRANCH} --single-branch https://github.com/ncareol/nidas
+          command: git clone -b << parameters.branch >> --single-branch https://github.com/ncareol/nidas
   
   build:
     description: "Build nidas with arch parameter"
@@ -36,7 +41,7 @@ commands:
   test:
     description: "Native Build of nidas then test"
     steps:
-      - build
+#      - build
       - run:
           name: NIDAS Native Build and Unit Test
           command: |
@@ -48,7 +53,7 @@ commands:
     parameters:
       arch:
         type: string
-        default: "armhf"
+        default: armhf
     steps:
       - run:
           name: NIDAS Package Build for arch parameter
@@ -73,7 +78,8 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - build:
           arch: armhf
 
@@ -81,19 +87,22 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - test
 
   package-armhf-master:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - build-pkgs:
           arch: armhf
       - persist_to_workspace:
           root: .
-          paths: pkgs
+          paths: 
+            - pkgs
 
   deploy-armhf-master:
     executor: armhf-executor
@@ -109,26 +118,30 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - build
 
   test-armel-master:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - test
 
   package-armel-master:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: master
       - build-pkgs:
           arch: armel
       - persist_to_workspace:
           root: .
-          paths: pkgs
+          paths: 
+            - pkgs
 
   deploy-armel-master:
     executor: armel-executor
@@ -144,7 +157,8 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - build:
           arch: armhf
 
@@ -152,19 +166,22 @@ jobs:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - test
 
   package-armhf-autoconfig:
     executor: armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - build-pkgs:
           arch: armhf
       - persist_to_workspace:
           root: .
-          paths: pkgs
+          paths: 
+            - pkgs
 
   deploy-armhf-autoconfig:
     executor: armhf-executor
@@ -180,7 +197,8 @@ jobs:
     executor: buster-armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: buster
       - build:
           arch: armhf
 
@@ -188,19 +206,22 @@ jobs:
     executor: buster-armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: buster
       - test
 
   package-armhf-buster:
     executor: buster-armhf-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: buster
       - build-pkgs:
           arch: armhf
       - persist_to_workspace:
           root: .
-          paths: pkgs
+          paths: 
+            - pkgs
 
   deploy-armhf-buster:
     executor: buster-armhf-executor
@@ -216,7 +237,8 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - build:
           arch: armel
 
@@ -224,19 +246,22 @@ jobs:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - test 
 
   package-armel-autoconfig:
     executor: armel-executor
     working_directory: .
     steps:
-      - clone-source
+      - clone-source:
+          branch: autoconfig
       - build-pkgs:
           arch: armel
       - persist_to_workspace:
           root: .
-          paths: pkgs
+          paths: 
+            - pkgs
     
   deploy-armel-autoconfig:
     executor: armel-executor
@@ -250,32 +275,32 @@ jobs:
 
 workflows:
   version: 2
-  # master-armhf:
-  #   jobs:
-      # - build-armhf-master:
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - master
-      # - test-armhf-master:
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - master
-      # - package-armhf-master:
-      #     # requires:
-      #     #   - test-armhf-master
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - master
-      # - deploy-armhf-master:
-      #     # requires:
-      #     #   - package-armhf-master
-      #     filters:
-      #       branches:
-      #         only: 
-      #           - master
+  master-armhf:
+    jobs:
+      - build-armhf-master:
+          filters:
+            branches:
+              only: 
+                - master
+      - test-armhf-master:
+          filters:
+            branches:
+              only: 
+                - master
+      - package-armhf-master:
+          # requires:
+          #   - test-armhf-master
+          filters:
+            branches:
+              only: 
+                - master
+      - deploy-armhf-master:
+          # requires:
+          #   - package-armhf-master
+          filters:
+            branches:
+              only: 
+                - master
       
   # master-armel:
   #   jobs:
