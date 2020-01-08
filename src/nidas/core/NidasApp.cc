@@ -501,6 +501,14 @@ NidasApp(const std::string& name) :
    "Set environment variables specifed for the dataset\n"
    "as found in the xml file specifed by $NIDAS_DATASETS or\n"
    "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml"),
+  PidFile
+  ("--pid", "<pidfile>",
+   "Write the PID to <pidfile>, or exit if <pidfile> already exists.\n"
+   "The directory will be created if it does not exist.\n"
+   "The pid file is checked even with the --debug option, to prevent\n"
+   "interference with an already running nidas service. If it is\n"
+   "necessary to start multiple processes, then a unique pid file path\n"
+   "must be set with --pid."),
   _appname(name),
   _argv0(),
   _processData(false),
@@ -555,6 +563,7 @@ NidasApp(const std::string& name) :
   {
     logger->setScheme(scheme);
   }
+  PidFile.setDefault("/tmp/run/nidas/" + getName() + ".pid");
 }
 
 
@@ -1564,32 +1573,30 @@ int
 NidasApp::
 checkPidFile()
 {
-  // Open and check the pid file after the above setuid() and daemon() calls.
-  if (! DebugDaemon.asBool())
+  try
   {
-    try
-    {
-      string pidname = "/tmp/run/nidas";
-      mode_t mask = ::umask(0);
-      n_u::FileSet::createDirectory(pidname, 01777);
+    string pidname = PidFile.getValue();
+    if (pidname.empty())
+      throw NidasAppException("pidfile cannot be empty");
+    string piddir = n_u::FileSet::getDirPortion(pidname);
+    mode_t mask = ::umask(0);
+    if (piddir != ".")
+      n_u::FileSet::createDirectory(piddir, 01777);
 
-      pidname += "/";
-      pidname += getName() + ".pid";
-      pid_t pid = n_u::Process::checkPidFile(pidname);
-      ::umask(mask);
+    pid_t pid = n_u::Process::checkPidFile(pidname);
+    ::umask(mask);
 
-      if (pid > 0)
-      {
-	PLOG(("") << getProcessName() << ": pid=" << pid
-	     << " is already running");
-	return 1;
-      }
-    }
-    catch(const n_u::IOException& e)
+    if (pid > 0)
     {
-      PLOG(("") << getProcessName() << ": " << e.what());
+      PLOG(("") << getProcessName() << ": pid=" << pid
+           << " is already running");
       return 1;
     }
+  }
+  catch(const n_u::IOException& e)
+  {
+    PLOG(("") << getProcessName() << ": " << e.what());
+    return 1;
   }
   return 0;
 }

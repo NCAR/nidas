@@ -212,7 +212,8 @@ int DSMEngine::main(int argc, char** argv) throw()
 int DSMEngine::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.Help |
-                         _app.Username | _app.Hostname | _app.DebugDaemon |
+                         _app.Username | _app.Hostname |
+                         _app.DebugDaemon | _app.PidFile |
                          ExternalControl | DisableAutoConfig |
                          _app.loggingArgs() | _app.Version);
 

@@ -273,6 +273,18 @@ public:
     std::string
     getUsageFlags();
 
+    void
+    setDefault(const std::string& dvalue)
+    {
+        _default = dvalue;
+    }
+
+    std::string
+    getDefault()
+    {
+        return _default;
+    }
+
 protected:
 
     std::string _flags;
@@ -646,6 +658,12 @@ public:
     NidasAppArg DebugDaemon;
     NidasAppArg ConfigsArg;
     NidasAppArg DatasetName;
+
+    /**
+     * It is not enough to enable this arg in an app, the app must must
+     * call checkPidFile() as well.
+     **/
+    NidasAppArg PidFile;
 
     /**
      * This is a convenience method to return all of the logging-related
@@ -1295,10 +1313,18 @@ public:
     lockMemory();
 
     /**
-     * If DebugDaemon argument is true, then this method does nothing.
-     * Otherwise, create a pid file for this process and return 0.  If the
-     * pid file already exists, then return 1.  PID files are created in
-     * directory /tmp/run/nidas, which is itself created if necessary.
+     * Create a pid file for this process and return 0.  If the pid file
+     * already exists, then return 1.  The path to the PID file is set by
+     * the PidFile NidasAppArg, which defaults to
+     * /tmp/run/nidas/<appname>.pid.  The path can be changed on the
+     * command-line if the PidFile argument has been enabled.  The
+     * directory for the pid file is created if necessary.  Usually an app
+     * calls this method after the setupDaemon() and setupProcess() calls.
+     * This method checks for the pid file even if DebugDaemon is enabled.
+     * Otherwise it is possible to create multiple instances of a nidas
+     * service on a host which interfere with each other.  If it is
+     * necessary to start multiple processes, then the --pid argument must
+     * be used change the pid file path.
      **/
     int
     checkPidFile();
