@@ -63,6 +63,8 @@ public:
 
 
 protected:
+    void readConfig() throw(nidas::util::IOException);
+
     bool checkCkSum(const Sample * samp);
 
     /**

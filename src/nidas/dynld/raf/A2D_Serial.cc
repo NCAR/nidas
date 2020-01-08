@@ -51,7 +51,43 @@ A2D_Serial::~A2D_Serial()
 
 void A2D_Serial::open(int flags) throw(n_u::IOException)
 {
+    int nsamp = 0;
+    bool done = false;
+
     SerialSensor::open(flags);
+
+    readConfig();
+}
+
+void A2D_Serial::readConfig() throw(n_u::IOException)
+{
+    write("#PCFG\n", 6);        // request config.
+
+    // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
+    while (!done) {
+        try {
+            readBuffer(1 * MSECS_PER_SEC);
+
+            // process all samples in buffer
+            for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+
+                distributeRaw(samp);        // send it on to the clients
+
+                nsamp++;
+                const char* msg = (const char*) samp->getConstVoidDataPtr();
+                if (strstr(msg, "!EOC")) done = true;
+
+            }
+            if (nsamp > 50) {
+                WLOG(("%s: A2D_Serial open(): expected !EOC, not received",
+                            getName().c_str()));
+                done = true;
+            }
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            throw e;
+        }
+    }
 
 }
 
