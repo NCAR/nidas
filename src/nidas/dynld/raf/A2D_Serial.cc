@@ -51,9 +51,6 @@ A2D_Serial::~A2D_Serial()
 
 void A2D_Serial::open(int flags) throw(n_u::IOException)
 {
-    int nsamp = 0;
-    bool done = false;
-
     SerialSensor::open(flags);
 
     readConfig();
@@ -61,6 +58,9 @@ void A2D_Serial::open(int flags) throw(n_u::IOException)
 
 void A2D_Serial::readConfig() throw(n_u::IOException)
 {
+    int nsamp = 0;
+    bool done = false;
+
     write("#PCFG\n", 6);        // request config.
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
