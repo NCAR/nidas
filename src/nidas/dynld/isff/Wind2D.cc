@@ -266,7 +266,7 @@ bool Wind2D::process(const Sample* samp,
 
         float u = csamp->getDataValue(_uIndex);
         float v = csamp->getDataValue(_vIndex);
-        float dir = ::atan2(-u,-v) * 180.0 / M_PI;  // convert to degrees 
+        float dir = n_u::dirFromUV(u, v);
         float spd = ::sqrt(u*u + v*v);
         bool redoUV = false;
         if (_dirConverter) {

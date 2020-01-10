@@ -644,9 +644,7 @@ bool Wind3D::process(const Sample* samp,
         dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
     }
     if (_dirIndex >= 0) {
-        float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
-        if (dr < 0.0) dr += 360.;
-        dout[_dirIndex] = dr;
+        dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
     }
 
     results.push_back(wsamp);
