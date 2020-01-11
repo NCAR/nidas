@@ -111,7 +111,7 @@ bool A2D_Serial::checkCkSum(const Sample * samp)
     bool rc = false;
     const char * input = (char *) samp->getConstVoidDataPtr();
 
-    if (input[0] == 'H')    // Header packet has no checksum
+    if (input[0] != '#')    // Header packet has no checksum
         return true;
 
     int nbytes = samp->getDataByteLength();
@@ -122,6 +122,7 @@ bool A2D_Serial::checkCkSum(const Sample * samp)
     char *pos = ::strrchr(data, ',');
     if (pos == 0)
     {
+WLOG(("%d [%d %d]", nbytes, data[0], data[1]));
         WLOG(("%s: short SerialAnalog packet at ",getName().c_str()) <<
             n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << ++_shortPacketCnt);
         return false;   // No comma's?  Can't be valid.
