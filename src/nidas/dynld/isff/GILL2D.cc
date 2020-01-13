@@ -244,7 +244,7 @@ GILL2D::~GILL2D()
 
 void GILL2D::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)
 {
-    NLOG(("GILL2D - checking for sensor customizations in the DSM/Sensor Catalog XML..."));
+    DLOG(("GILL2D - checking for sensor customizations in the DSM/Sensor Catalog XML..."));
     DLOG(("GILL2D::fromDOMElement() - entry"));
     // let the base classes have first shot at it, since we only care about an autoconfig child element
     // however, any duplicate items in autoconfig will override any items in the base classes
