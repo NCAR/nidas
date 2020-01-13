@@ -78,8 +78,8 @@ opts.Add('PKG_CONFIG_PATH', '\n'
 opts.Add('ARCHLIBDIR', '\n'
          '  Where to install NIDAS libraries relative to $PREFIX')
 
-#opts.Add(BoolVariable('BUILD_RAF', 
-#                      'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
+opts.Add(BoolVariable('BUILD_RAF',
+                      'Build nidas/apps/auto_cal and nidas/apps/config.', 'off'))
 opts.Update(env)
 
 # Threads
