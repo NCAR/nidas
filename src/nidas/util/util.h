@@ -78,6 +78,12 @@ extern std::string replaceChars(const std::string& in,const std::string& pat, co
  */
 extern std::string svnStatus(const std::string& path) throw (IOException);
 
+/**
+ * Calculate wind direction in degrees from U and V wind components,
+ * or if U and V are both zero return NAN as wind direction is undefined.
+ */
+extern float dirFromUV(float u, float v);
+
 }}	// namespace nidas namespace core
 
 #endif

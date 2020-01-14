@@ -30,6 +30,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/util.h>
 
 #include <set>
 
@@ -1658,10 +1659,7 @@ void StatisticsCruncher::computeStats()
         if (_nSamples[0] > 0) {
             double u = _xSum[0] / _nSamples[0];
             double v = _xSum[1] / _nSamples[0];
-            // wind direction: atan2(-U,-V)
-            u = ::atan2(-u,-v) * 180.0 / M_PI;
-            if (u < 0.0) u += 360.0;
-            outData[l++] = u;
+            outData[l++] = n_u::dirFromUV(u, v);
 	}
         else {
             outData[l++] = floatNAN;
