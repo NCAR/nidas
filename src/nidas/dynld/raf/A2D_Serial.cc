@@ -122,7 +122,6 @@ bool A2D_Serial::checkCkSum(const Sample * samp)
     char *pos = ::strrchr(data, ',');
     if (pos == 0)
     {
-WLOG(("%d [%d %d]", nbytes, data[0], data[1]));
         WLOG(("%s: short SerialAnalog packet at ",getName().c_str()) <<
             n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << ++_shortPacketCnt);
         return false;   // No comma's?  Can't be valid.
@@ -175,7 +174,9 @@ bool A2D_Serial::process(const Sample * samp,
             continue;
 
 
-        // extract sample counter (e.g. 0 - 100 for 100hz data).
+        // extract sample counter (e.g. 0 - 99 for 100hz data).  At the moment
+        // it is required to parse the first value in the sample, this is the
+        // sample count in the second.
         int hz_counter = (int)values[0];
 
         /* these two variables are microsecond offsets from the start of the second.
