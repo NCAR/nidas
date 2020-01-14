@@ -121,9 +121,6 @@ sources = [ Split("""
     util.cc
     """)
 ]
-# print(["sources="] + [str(h) for h in sources])
-
-objects = env.SharedObject(sources)
 
 ##
 ##  Build the libnidas_util library.
@@ -137,17 +134,16 @@ if conf.CheckLib('bluetooth'):
     conf.env.AppendUnique(LIBS = 'bluetooth')
 env = conf.Finish()
 
-
 def libusb1(env):
     # There may be a way to check and set both header and library in the
     # environment using Configure(), but I haven't checked...
     cfenv = env.Clone()
-    cfenv['LIBS'] = []
+    cfenv.Replace(LIBS=[])
     conf = Configure(cfenv)
     conf.CheckLib('usb-1.0')
     cfenv = conf.Finish()
     # Fedora installs header into a subdirectory.
-    env.Append(LIBS=cfenv['LIBS'])
+    env.Append(LIBS=cfenv.get('LIBS', []))
     usbpath = env.Dir("/usr/include/libusb-1.0").abspath
     if os.path.exists(usbpath):
         env.Append(CPPPATH=[usbpath])
@@ -168,6 +164,8 @@ def libftdi(env):
 deps = [libusb1, libftdi, 'boost_system', 'boost_filesystem']
 env.Require(deps)
 env.Append(LIBS=['pthread'])
+
+objects = env.SharedObject(sources)
 
 # build libnidas_util.so
 lib = env.SharedLibrary3('nidas_util', objects)
