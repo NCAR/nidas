@@ -13,13 +13,17 @@ targetArch=arch
 if targetArch == "":
     targetArch="host"
 
-# nidas tool includes xmlrpc tool, but we're linking
-# that in statically now, so pull out xmlrpc for arm cross builds
-if targetArch == "armhf" or targetArch == "armel":
-    env['TOOLS'].remove('xmlrpc')
-    env['LIBS'].remove('xmlrpcpp')
-    print("env['LIBS'] = " + str(env['LIBS']))
-
+def nidas_xmlrpcpp(env):
+    # nidas tool includes xmlrpc tool, but we're linking
+    # that in statically now, so pull out xmlrpc for arm cross builds
+    arch = env['ARCH']
+    if arch in ["armhf", "armel"]:
+        if 'xmlrpcpp' in env['LIBS']:
+            env['LIBS'].remove('xmlrpcpp')
+        # Force link xmlrpc.a.
+        static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + arch +
+                               '/libxmlrpcpp.a')
+        env.Append(LIBS=[static_xmlrpcpp])
 
 ##
 ##  List of header files
@@ -249,19 +253,13 @@ if env.get('ENABLE_VALGRIND'):
 else:
     sampleobj = env.SharedObject('Sample.cc')
 
-if targetArch == 'host':
-    static_xmlrpcpp = ''
-    
-else:
-    # force link xmlrpc.a
-    # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-    static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
+env.Require(['nidasutil', nidas_xmlrpcpp])
 
 ##
 ##  Build the libnidas library. Search other needed libraries.
 ##
 lib = env.SharedLibrary3('nidas' , [sources, aobj, sampleobj],
-                         LIBS = env['LIBS'] + env.NidasUtilLibs() + [static_xmlrpcpp] + ['dl', 'xerces-c'])
+                         LIBS = env['LIBS'] + ['dl', 'xerces-c'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS' + arch: lib[0]})
@@ -270,9 +268,14 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes.extend(env.SharedLibrary3Install('$ARCHPREFIX',lib))
-nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core',headers))
+nodes.extend(env.SharedLibrary3Install('$ARCHPREFIX', lib))
+nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core', headers))
 
 Alias('install', nodes)
 Clean('install', nodes)
 
+def nidascore(env):
+    env.Append(LIBS=[lib[0]])
+    env.Require(['nidasutil', nidas_xmlrpcpp])
+
+Export('nidascore')

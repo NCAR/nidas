@@ -1,6 +1,7 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+import os
 
 ##
 ##  Import the build environment.
@@ -134,34 +135,56 @@ if conf.CheckLib('bz2'):
     conf.env.AppendUnique(LIBS = 'bz2')
 if conf.CheckLib('bluetooth'):
     conf.env.AppendUnique(LIBS = 'bluetooth')
-if conf.CheckLib('usb-1.0'):
-    conf.env.AppendUnique(LIBS = 'usb-1.0')
-if conf.CheckLib('boost_system'):
-    conf.env.AppendUnique(LIBS = 'boost_system')
-if conf.CheckLib('boost_filesystem'):
-    conf.env.AppendUnique(LIBS = 'boost_filesystem')
 env = conf.Finish()
 
-# force link libftdi.a
-# prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch + '/src/libftdi1.a')
+
+def libusb1(env):
+    # There may be a way to check and set both header and library in the
+    # environment using Configure(), but I haven't checked...
+    cfenv = env.Clone()
+    cfenv['LIBS'] = []
+    conf = Configure(cfenv)
+    conf.CheckLib('usb-1.0')
+    cfenv = conf.Finish()
+    # Fedora installs header into a subdirectory.
+    env.Append(LIBS=cfenv['LIBS'])
+    usbpath = env.Dir("/usr/include/libusb-1.0").abspath
+    if os.path.exists(usbpath):
+        env.Append(CPPPATH=[usbpath])
+
+def libftdi(env):
+    # Force link libftdi.a.  Prepend rel path w/# to escape the confines of
+    # scons root directory w/SConstruct.
+    libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch +
+                   '/src/libftdi1.a')
+    libftdi = "ftdi1"
+    env.Append(LIBS=[libftdi])
+    # On Fedora, libftdi-devel installs headers under /usr/include/libftdi1.
+    hdir = env.Dir("/usr/include/libftdi1").abspath
+    if os.path.exists(hdir):
+        env.Append(CPPPATH=[hdir])
+
+# Required to build nidas_util
+deps = [libusb1, libftdi, 'boost_system', 'boost_filesystem']
+env.Require(deps)
+env.Append(LIBS=['pthread'])
 
 # build libnidas_util.so
-lib = env.SharedLibrary3('nidas_util' , objects,
-                         LIBS= ['pthread'] + [libftdi] + env['LIBS'])
+lib = env.SharedLibrary3('nidas_util', objects)
+libnidas_util = lib[0]
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
 Export({'LIBNIDAS_UTIL' + arch: lib[0]})
 
-slib = env.StaticLibrary('nidas_util' , objects)
+slib = env.StaticLibrary('nidas_util', objects)
 
 ##
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR',slib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/util',headers)
+nodes += env.SharedLibrary3Install('$ARCHPREFIX', lib)
+nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR', slib)
+nodes += env.Install('$ARCHPREFIX/include/nidas/util', headers)
 
 # Build nidas.pc from the top level. It is done here since we know
 # ARCHLIBDIR and REPO_TAG
@@ -172,5 +195,13 @@ env.Command('nidas.pc', '#nidas.pc.in',
 
 Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig', 'nidas.pc'))
 
-Alias('install',nodes)
+Alias('install', nodes)
 env.Clean('install', nodes)
+
+def nidasutil(env):
+    "SCons tool to setup environment to build against libnidas_util."
+    env.Append(LIBS=libnidas_util)
+    env.Require(deps)
+    env.Append(LIBS=['pthread'])
+
+Export("nidasutil")

@@ -59,7 +59,12 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
+#ifdef I2C_HEADER_ONLY
 #include <linux/i2c-dev.h>
+#else
+#include <linux/i2c-dev.h>
+#include <i2c/smbus.h>
+#endif
 #include <linux/tty.h>
 
 #include <vector>

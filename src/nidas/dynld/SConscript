@@ -12,14 +12,6 @@ targetArch = arch
 if targetArch == "":
     targetArch="host"
 
-# nidas tool includes xmlrpc tool, but we're linking
-# that in statically now, so pull out xmlrpc for arm cross builds
-if targetArch == "armhf" or targetArch == "armel":
-    env['TOOLS'].remove('xmlrpc')
-    env['LIBS'].remove('xmlrpcpp')
-    print("env['LIBS'] = " + str(env['LIBS']))
-
-
 # -ggdb
 # -DXML_DEBUG
 # env.AppendUnique(CXXFLAGS = Split("""
@@ -123,27 +115,26 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 env.Append (LIBNIDAS_DYNLD_SOURCES = 
             [ env.File(f) for f in sources + archsources ])
 
-if targetArch == 'host':
-    static_xmlrpcpp = ''
-    
-else:
-    # force link xmlrpc.a
-    # prepend rel path w/# to escape the confines of scons root directory w/SConstruct.
-    static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + targetArch + '/libxmlrpcpp.a')
+env.Require('nidascore')
 
 # build libnidas_dynld.so
-lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
-                         LIBS=[static_xmlrpcpp] + ['xerces-c', 'nidas'] + env['LIBS'])
+lib = env.SharedLibrary3('nidas_dynld', env['LIBNIDAS_DYNLD_SOURCES'])
 
 # Export the locally built library 
 Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
+
+def nidasdynld(env):
+    env.Append(LIBS=[lib[0]])
+    env.Require('nidascore')
+
+Export('nidasdynld')
 
 ##
 ## Install targets for library and headers.
 ##
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/dynld',headers + archheaders)
+nodes += env.SharedLibrary3Install('$ARCHPREFIX', lib)
+nodes += env.Install('$ARCHPREFIX/include/nidas/dynld', headers + archheaders)
 
-Alias('install',nodes)
-Clean('install',nodes)
+Alias('install', nodes)
+Clean('install', nodes)

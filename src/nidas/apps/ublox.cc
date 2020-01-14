@@ -39,7 +39,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef I2C_HEADER_ONLY
 #include <linux/i2c-dev.h>
+#else
+#include <linux/i2c-dev.h>
+#include <i2c/smbus.h>
+#endif
 #include <cstdlib>
 #include <string.h>
 #include <stdint.h>
