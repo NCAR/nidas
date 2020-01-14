@@ -186,13 +186,16 @@ i2cenv.Replace(LIBS=env['LIBS']+i2cenv.get('LIBS'))
 #env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 if has_i2c:
-    env.Alias('tee_i2c', i2cenv.NidasUtilProgram('tee_i2c.cc'))
-    env.Alias('ublox', i2cenv.NidasUtilProgram('ublox.cc'))
+    env.Alias('tee_i2c', i2cenv.NidasUtilProgram('tee_i2c.cc', libs=[]))
+    env.Alias('ublox', i2cenv.NidasUtilProgram('ublox.cc', libs=[]))
 
 # ubloxbin requires boost_asio, but as far as I can tell boost_asio is a
 # header only library.
 ubenv = env.Clone()
-ubenv.Require(['boost_system', 'boost_thread'])
+ubenv.Require(['boost_system'])
+# boost_thread requires pthread, so someday boost_thread tool should be
+# fixed to add that.
+ubenv.Append(LIBS=['boost_thread', 'pthread'])
 env.Alias('ubloxbin', ubenv.NidasProgram(['ubloxbin.cc']))
 
 env.Alias('utime', env.NidasUtilProgram('utime.cc'))
