@@ -163,14 +163,6 @@ enum GILL2D_OUTPUT_FMT_ARGS
     NUM_OUTPUT_FMT_ARGS = FIXED_FIELD
 };
 
-enum GILL2D_OUTPUT_RATE_ARGS
-{
-    ONE_PER_SEC = 1,
-    TWO_PER_SEC,
-    FOUR_PER_SEC,
-    NUM_OUTPUT_RATE_ARGS = FOUR_PER_SEC
-};
-
 enum GILL2D_UNITS_ARGS
 {
     MPS = 1,
@@ -245,6 +237,49 @@ public:
 
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
     void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+
+    /**
+     * Gill WindObserver 65 sonics only support output rates of 1, 2, 4, 5,
+     * 8, and 10 Hertz.  Models 75 and 90 only support 1, 2, and 4, but
+     * this test does not distinguish between models.
+     **/
+    bool
+    validOutputRate(unsigned int rate);
+
+    /**
+     * Convert the rate as a string into an integer rate, in hertz, and
+     * throw InvalidParameterException if it is not a valid string or rate.
+     **/
+    unsigned int
+    outputRateFromString(const std::string& aval);
+
+    /**
+     * Set the desired output rate for this sensor, in Hz.  If the rate is
+     * invalid, throws InvalidParameterException.  See validOutputRate().
+     **/
+    void
+    setOutputRate(unsigned int rate);
+
+    /**
+     * Return the Gill command to set outputrate to the given rate in Hz.
+     **/
+    std::string
+    outputRateCommand(unsigned int rate);
+
+    /**
+     * Format the sensor command and its argument into the string that
+     * would be written to the Gill.
+     **/
+    std::string
+    formatSensorCmd(int cmd, nidas::core::SensorCmdArg arg);
+
+    /**
+     * Parse the response string from the configuration query command D3,
+     * and update all the metadata settings.  Return false if the string
+     * cannot be parsed.
+     **/
+    bool
+    parseConfigResponse(const std::string& respStr);
 
 protected:
     void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));

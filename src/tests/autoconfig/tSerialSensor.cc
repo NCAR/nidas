@@ -1,3 +1,4 @@
+// -*- mode: C++; c-basic-offset: 4 -*-
 
 #define BOOST_TEST_DYN_LINK
 //#define BOOST_AUTO_TEST_MAIN
@@ -69,13 +70,14 @@ void cleanup(int /*signal*/)
 struct Fixture {
     Fixture()
     {
-#if UNIT_TEST_DEBUG_LOG != 0
-        Logger* logger = Logger::getInstance();
-        LogScheme scheme = logger->getScheme("autoconfig_default");
-        LogConfig lc("level=verbose");
-        scheme.addConfig(lc);
-        logger->setScheme(scheme);
-#endif //UNIT_TEST_DEBUG_LOG != 0
+	if (UNIT_TEST_DEBUG_LOG)
+	{
+	    Logger* logger = Logger::getInstance();
+	    LogScheme scheme = logger->getScheme("autoconfig_default");
+	    LogConfig lc("level=verbose");
+	    scheme.addConfig(lc);
+	    logger->setScheme(scheme);
+	}
 
         // Needs to be set up same as SerialSensor::SerialSensor() ctors
         // in order for mocked checkResponse() to work.

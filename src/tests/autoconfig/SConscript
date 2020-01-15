@@ -1,13 +1,13 @@
 # -*- python -*-
 
 Import('env')
-env = env.Clone(tools = ['nidas', 'valgrind'])
+env = env.Clone(tools = ['nidas', 'valgrind', 'nidasdynld'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
-env.Append(LIBS = env.NidasLibs())
+# env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework'])
-env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
-tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc"])
+# env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
+tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc", "tgill.cc"])
 # env.Depends(tests, libs)
 #
 

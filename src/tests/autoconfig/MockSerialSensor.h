@@ -2,8 +2,8 @@
 #ifndef MOCK_SERIAL_SENSOR_HPP
 #define MOCK_SERIAL_SENSOR_HPP
 
-#include "SerialSensor.h"
-#include "../../nidas/util/SerialPort.h"
+#include "nidas/core/SerialSensor.h"
+#include "nidas/util/SerialPort.h"
 
 using namespace nidas::core;
 
