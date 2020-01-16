@@ -26,7 +26,10 @@
 
 #include "A2D_Serial.h"
 
+#include <nidas/core/CalFile.h>
 #include <nidas/util/UTime.h>
+#include <nidas/core/Variable.h>
+
 #include <nidas/util/Logger.h>
 
 
@@ -40,12 +43,25 @@ using nidas::util::LogScheme;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
-A2D_Serial::A2D_Serial() : _havePPS(false), _sampleRate(0), _deltaT(0), _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
+A2D_Serial::A2D_Serial() :
+    SerialSensor(),
+    _nVars(0), _sampleRate(0), _deltaT(0),
+    _calFile(0), _outputMode(Volts), _havePPS(false),
+    _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
+headerLines = 0;
+    for (int i = 0; i < getMaxNumChannels(); ++i)
+    {
+        _convSlopes[i] = 1.0;
+        _convIntercepts[i] = 0.0;
+        _gains[i] = 0;
+        _bipolars[i] = -1;
+    }
 }
 
 A2D_Serial::~A2D_Serial()
 {
+    cout << "Number of header lines = " << headerLines << endl;
 }
 
 
@@ -91,6 +107,25 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
 
 }
 
+void A2D_Serial::validate() throw(n_u::InvalidParameterException)
+{
+    SerialSensor::validate();
+
+    const std::list<SampleTag*>& tags = getSampleTags();
+    std::list<SampleTag*>::const_iterator ti = tags.begin();
+
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* stag = *ti;
+
+        if (stag->getSampleId() == 2) {
+            _nVars = stag->getVariables().size();
+        }
+    }
+
+
+// Read gains offset from XML.
+}
+
 void A2D_Serial::init() throw(n_u::InvalidParameterException)
 {
     CharacterSensor::init();
@@ -104,22 +139,19 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
 
     _sampleRate = stags.back()->getRate();
     _deltaT = (int)rint(USECS_PER_SEC / _sampleRate);
+
+    const map<string,CalFile*>& cfs = getCalFiles();
+    // Just use the first file. If, for some reason a second calibration
+    // is applied to this sensor, we must differentiate them by name.
+    // Note this calibration is separate from that applied to each variable.
+    if (!cfs.empty()) _calFile = cfs.begin()->second;
 }
 
-bool A2D_Serial::checkCkSum(const Sample * samp)
+bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 {
     bool rc = false;
-    const char * input = (char *) samp->getConstVoidDataPtr();
 
-    if (input[0] != '#')    // Header packet has no checksum
-        return true;
-
-    int nbytes = samp->getDataByteLength();
-    char data[nbytes+1];
-    ::memcpy(data, input, nbytes);
-    data[nbytes] = 0;
-
-    char *pos = ::strrchr(data, ',');
+    char *pos = ::strrchr((char *)data, ',');
     if (pos == 0)
     {
         WLOG(("%s: short SerialAnalog packet at ",getName().c_str()) <<
@@ -129,7 +161,7 @@ bool A2D_Serial::checkCkSum(const Sample * samp)
 
     // Generate a checksum
     uint16_t cksum = 0;
-    nbytes = pos - data; // sum through last comma
+    int nbytes = pos - data; // sum through last comma
     for (int i = 0; i < nbytes; ++i) cksum += data[i];
     cksum &= 0x00FF;
     ++pos; // move past comma
@@ -149,36 +181,55 @@ bool A2D_Serial::checkCkSum(const Sample * samp)
 bool A2D_Serial::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
-    if (checkCkSum(samp) == false) return false;
+    const char *cp = (const char*)samp->getConstVoidDataPtr();
 
-    // Decode the data with the standard ascii scanner.
-    bool rc = SerialSensor::process(samp, results);
-    if (results.empty()) return false;
-
-    list<const Sample *>::const_iterator it = results.begin();
-    for (; it != results.end(); ++it)
+    // Process non-data lines (i.e. process header).
+    if (cp[0] != '#')
     {
-        Sample * nco_samp = const_cast<Sample *>(*it);
-        float *values = (float *)nco_samp->getVoidDataPtr();
-        // Skip housekeeping; sample id 1.
-        if ((nco_samp->getId() - getId()) == 1) {
-            if (((int)values[2] & 0x03) < 2)
-                _havePPS = false;
-            else
-                _havePPS = true;
-
-            continue;
+        // Decode the data with the standard ascii scanner.
+        bool rc = SerialSensor::process(samp, results);
+        if (results.empty()) return false;
+++headerLines;
+        // Extract PPS/IRIG status from 'H' header values.
+        list<const Sample *>::const_iterator it = results.begin();
+        for (; it != results.end(); ++it)
+        {
+            Sample * nco_samp = const_cast<Sample *>(*it);
+            float *values = (float *)nco_samp->getVoidDataPtr();
+            // Skip housekeeping; sample id 1.
+            if ((nco_samp->getId() - getId()) == 1) {
+                if (((int)values[2] & 0x03) < 2)
+                    _havePPS = false;
+                else
+                    _havePPS = true;
+            }
         }
 
-        if (_havePPS == false)  // Use DSM timestamp if no PPS (i.e. do nothing).
-            continue;
+        return rc;
+    }
 
 
-        // extract sample counter (e.g. 0 - 99 for 100hz data).  At the moment
-        // it is required to parse the first value in the sample, this is the
-        // sample count in the second.
-        int hz_counter = (int)values[0];
+    /*
+     * Process data-lines.  We should have otherwise returned.
+     */
 
+    // copy off data and null-terminate.
+    int nbytes = samp->getDataByteLength();
+    char input[nbytes+1];
+    ::memcpy(input, cp, nbytes);
+    input[nbytes] = 0;
+
+    if (checkCkSum(samp, input) == false) return false;
+
+    SampleT<float>* outs = getSample<float>(_nVars);
+    outs->setTimeTag(samp->getTimeTag());
+    outs->setId(getId() + 2);
+
+    int hz_counter;
+    sscanf(input, "#%x,", &hz_counter);
+
+    if (_havePPS)  // Use DSM timestamp if no PPS (i.e. do nothing).
+    {
         /* these two variables are microsecond offsets from the start of the second.
          * - usec is the microseconds from the DSM timestamp.
          * - offset is the manufactured usec we want to use.
@@ -187,8 +238,8 @@ bool A2D_Serial::process(const Sample * samp,
          * or the DSM could be burdened with other work, then the diff might
          * creep up into 10's of milliseconds.
          */
-        int offset = hz_counter * _deltaT;
-        int usec = nco_samp->getTimeTag() % USECS_PER_SEC;
+        long offset = hz_counter * _deltaT;
+        long usec = samp->getTimeTag() % USECS_PER_SEC;
 
 
         if (abs(usec - offset) > 900000) // 900 msec - adjust samples in wrong second
@@ -200,9 +251,105 @@ bool A2D_Serial::process(const Sample * samp,
             if (usec < 100000) offset -= USECS_PER_SEC;
         }
 
-        dsm_time_t timeoffix = nco_samp->getTimeTag() - usec + offset;
-        nco_samp->setTimeTag(timeoffix);
+        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset;
+        outs->setTimeTag(timeoffix);
     }
 
-    return rc;
+
+
+    readCalFile(samp->getTimeTag());    // A2D Cals
+    float * dout = outs->getDataPtr();
+    int data;
+    const char *p = ::strchr(cp, ',');
+    for (int ival = 0; ival < _nVars && p; ival++)
+    {
+        cp = p + 1;
+        p = ::strchr(cp, ',');
+
+        if (sscanf(cp, "%x", &data) == 1)
+            dout[ival] = float(data);
+        else
+            dout[ival] = float(NAN);
+
+// Apply A2D cals here.
+    }
+
+    list<SampleTag*> tags = getSampleTags(); tags.pop_front();
+    applyConversions(tags.front(), outs);
+    results.push_back(outs);
+
+    return true;
 }
+
+
+void A2D_Serial::readCalFile(dsm_time_t tt) throw()
+{
+    if (!_calFile) return;
+
+    if (getOutputMode() == Counts)
+        return;
+
+    // Read CalFile  containing the following fields after the time
+    // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
+
+    while (tt >= _calFile->nextTime().toUsecs()) {
+        int nd = 2 + getMaxNumChannels() * 2;
+        float d[nd];
+        try {
+            n_u::UTime calTime;
+            int n = _calFile->readCF(calTime, d,nd);
+            if (n < 2) continue;
+            int cgain = (int)d[0];
+            int cbipolar = (int)d[1];
+            for (int i = 0;
+                i < std::min((n-2)/2,getMaxNumChannels()); i++) {
+                    int gain = getGain(i);
+                    int bipolar = getBipolar(i);
+                    if ((cgain < 0 || gain == cgain) &&
+                        (cbipolar < 0 || bipolar == cbipolar))
+                        setConversionCorrection(i,d[2+i*2],d[3+i*2]);
+            }
+        }
+        catch(const n_u::EOFException& e)
+        {
+        }
+        catch(const n_u::IOException& e)
+        {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _calFile = 0;
+            break;
+        }
+        catch(const n_u::ParseException& e)
+        {
+            n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                _calFile->getCurrentFileName().c_str(),e.what());
+            _calFile = 0;
+            break;
+        }
+    }
+}
+
+void A2D_Serial::setConversionCorrection(int ichan, float corIntercept,
+    float corSlope) throw(n_u::InvalidParameterException)
+{
+    if (getOutputMode() == Counts) {
+        corSlope = 1.0;
+        corIntercept = 0.0;
+    }
+    _convSlopes[ichan] = corSlope;
+    _convIntercepts[ichan] = corIntercept;
+}
+
+int A2D_Serial::getGain(int ichan) const
+{
+    if (ichan < 0 || ichan >= getMaxNumChannels()) return 0;
+    return _gains[ichan];
+}
+
+int A2D_Serial::getBipolar(int ichan) const
+{
+    if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
+    return _bipolars[ichan];
+}
+
