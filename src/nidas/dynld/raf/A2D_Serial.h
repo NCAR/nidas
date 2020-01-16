@@ -87,8 +87,8 @@ public:
      * Set the values for a linear correction.  An intercept of 0.
      * and a slope of 1. would result in no additional correction.
      */
-    virtual void setConversionCorrection(int ichan,float intercept,
-        float slope) throw(nidas::util::InvalidParameterException);
+    virtual void setConversionCorrection(int ichan, const float d[],
+        int n) throw(nidas::util::InvalidParameterException);
 
     void setOutputMode(OutputMode mode) { _outputMode = mode; }
 
@@ -141,26 +141,9 @@ protected:
      */
     size_t _havePPS;
 
-    /**
-     * Conversion factor for each channel when converting from A2D
-     * counts to voltage.
-     * The gain is accounted for in this conversion, so that
-     * the resultant voltage value is an estimate of the actual
-     * input voltage, before any A2D gain was applied.
-     */
-    float _convSlopes[NUM_A2D_CHANNELS];
-
-    /**
-     * Conversion offset for each A2D channel when converting from A2D
-     * counts to voltage.
-     * The polarity is accounted for in this conversion, so that
-     * the resultant voltage value should be the actual input voltage.
-     */
-    float _convIntercepts[NUM_A2D_CHANNELS];
-
     int _gains[NUM_A2D_CHANNELS];
-
     int _bipolars[NUM_A2D_CHANNELS];
+    std::vector<float> _polyCals[NUM_A2D_CHANNELS];
 
     size_t _shortPacketCnt;
     size_t _badCkSumCnt;

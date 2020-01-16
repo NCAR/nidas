@@ -46,16 +46,14 @@ NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 A2D_Serial::A2D_Serial() :
     SerialSensor(),
     _nVars(0), _sampleRate(0), _deltaT(0),
-    _calFile(0), _outputMode(Volts), _havePPS(false),
+    _calFile(0), _outputMode(Engineering), _havePPS(false),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
 headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
-        _convSlopes[i] = 1.0;
-        _convIntercepts[i] = 0.0;
-        _gains[i] = 0;
-        _bipolars[i] = -1;
+        _gains[i] = 0;          // 1 or 2 is all we support at this time.
+        _bipolars[i] = true;    // At this time that is all this device supports.
     }
 }
 
@@ -113,17 +111,87 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
-
+printf("--------------- Validate ----------------\n");
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
 
-        if (stag->getSampleId() == 2) {
-            _nVars = stag->getVariables().size();
+        // sample 1 is the header packet and is handled by the asciiScanfer
+        if (stag->getSampleId() < 2)
+            continue;
+
+
+        const std::list<const Parameter*>& params = stag->getParameters();
+        list<const Parameter*>::const_iterator pi;
+        for (pi = params.begin(); pi != params.end(); ++pi) {
+            const Parameter* param = *pi;
+            const string& pname = param->getName();
+            if (pname == "outputmode") {
+                    if (param->getType() != Parameter::STRING_PARAM ||
+                        param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),"sample",
+                            "output mode parameter is not a string");
+                    string fname = param->getStringValue(0);
+                    if (fname == "counts") _outputMode = Counts;
+                    else if (fname == "volts") _outputMode = Volts;
+                    else if (fname == "engineering") _outputMode = Engineering;
+                    else throw n_u::InvalidParameterException(getName(),"sample",
+                            fname + " output mode is not supported");
+            }
+        }
+
+        const vector<Variable*>& vars = stag->getVariables();
+        _nVars = stag->getVariables().size();
+
+        for (int iv = 0; iv < _nVars; iv++) {
+            Variable* var = vars[iv];
+
+            int ichan = iv;
+            int fgain = 0;
+            int bipolar = true;
+
+            const std::list<const Parameter*>& vparams = var->getParameters();
+            list<const Parameter*>::const_iterator pi;
+            for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
+                const Parameter* param = *pi;
+                const string& pname = param->getName();
+                if (pname == "gain") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+
+                    fgain = param->getNumericValue(0);
+                }
+                else if (pname == "bipolar") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),
+                            pname,"no value");
+                    bipolar = param->getNumericValue(0) != 0;
+                }
+/*
+                else if (pname == "channel") {
+                    if (param->getLength() != 1)
+                        throw n_u::InvalidParameterException(getName(),pname,"no value");
+                    ichan = (int)param->getNumericValue(0);
+                }
+*/
+            }
+
+            _gains[ichan] = fgain;
+            _bipolars[ichan] = bipolar;
+
+// @TODO Need to set gain/offset/cals if read in....
         }
     }
 
-
-// Read gains offset from XML.
+printf("OutputMode = %d\n", (int)_outputMode);
+for (int i = 0; i < _nVars; ++i)
+{
+  printf("gain=%d, offset=%d, cals=", _gains[i], _bipolars[i]);
+  for (int j = 0; j < _polyCals[i].size(); ++j)
+    printf("%f, ", _polyCals[i].at(j));
+  printf("\n");
+}
+printf("------------- End Validate --------------\n");
 }
 
 void A2D_Serial::init() throw(n_u::InvalidParameterException)
@@ -274,8 +342,10 @@ bool A2D_Serial::process(const Sample * samp,
 // Apply A2D cals here.
     }
 
-    list<SampleTag*> tags = getSampleTags(); tags.pop_front();
-    applyConversions(tags.front(), outs);
+    if (_outputMode == Engineering) {
+        list<SampleTag*> tags = getSampleTags(); tags.pop_front();
+        applyConversions(tags.front(), outs);
+    }
     results.push_back(outs);
 
     return true;
@@ -307,7 +377,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
                     int bipolar = getBipolar(i);
                     if ((cgain < 0 || gain == cgain) &&
                         (cbipolar < 0 || bipolar == cbipolar))
-                        setConversionCorrection(i,d[2+i*2],d[3+i*2]);
+                        setConversionCorrection(i, &d[2+i*4], 4);
             }
         }
         catch(const n_u::EOFException& e)
@@ -330,15 +400,26 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
     }
 }
 
-void A2D_Serial::setConversionCorrection(int ichan, float corIntercept,
-    float corSlope) throw(n_u::InvalidParameterException)
+void A2D_Serial::setConversionCorrection(int ichan, const float d[],
+    int n) throw(n_u::InvalidParameterException)
 {
+    _polyCals[ichan].clear();
     if (getOutputMode() == Counts) {
-        corSlope = 1.0;
-        corIntercept = 0.0;
+// I think we can just apply nothing if size() is zero...
+//        _polyCals[ichan].push_back(0.0);
+//        _polyCals[ichan].push_back(1.0);
+        return;
     }
-    _convSlopes[ichan] = corSlope;
-    _convIntercepts[ichan] = corIntercept;
+
+    // Strip off trailing zeroes.
+    for (int i = n-1; i > 0; --i)
+        if (d[i] == 0.0) --n;
+
+    if (n == 2 && d[0] == 0.0 && d[1] == 1.0)
+        return;
+
+    for (int i = 0; i < n; ++i)
+        _polyCals[ichan].push_back(d[i]);
 }
 
 int A2D_Serial::getGain(int ichan) const
