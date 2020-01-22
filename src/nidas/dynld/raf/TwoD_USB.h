@@ -299,6 +299,9 @@ protected:
     unsigned int _recordsPerSecond;
 //@}
 
+    /// total # of pixels shadoweded in the time period.   per second...
+    unsigned int _totalPixelsShadowed;
+
     /** Time from previous record.  Time belongs to end of record it came with,
      * or start of the next record.  Save it so we can use it as a start.
      */

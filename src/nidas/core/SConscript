@@ -31,6 +31,7 @@ def nidas_xmlrpcpp(env):
 headers = Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
+    BadSampleFilter.h
     BluetoothRFCommSocketIODevice.h
     Bzip2FileSet.h
     CalFile.h
@@ -147,6 +148,7 @@ headers = Split("""
 
 sources = Split("""
     AdaptiveDespiker.cc
+    BadSampleFilter.cc
     BluetoothRFCommSocketIODevice.cc
     Bzip2FileSet.cc
     CalFile.cc

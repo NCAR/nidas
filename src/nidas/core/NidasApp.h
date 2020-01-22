@@ -17,7 +17,8 @@
 
 #include <string>
 #include <list>
-#include <set>
+
+
 
 namespace nidas { namespace core {
 
@@ -40,7 +41,7 @@ class NidasApp;
 class NidasAppArg;
 
 /**
- * Sets of arguments can be manipulated together by putting them into this
+ * Lists of arguments can be manipulated together by putting them into this
  * container type.  The container can be generated using operator|().
  **/
 typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
@@ -51,6 +52,15 @@ typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
  **/
 typedef std::vector<std::string> ArgVector;
 
+inline std::string
+expectArg(const ArgVector& args, int i)
+{
+    if (i < (int)args.size())
+    {
+        return args[i];
+    }
+    throw NidasAppException("expected argument for option " + args[i-1]);
+}
 
 /**
  * A NidasAppArg is command-line argument which can be handled by NidasApp.
@@ -67,22 +77,31 @@ public:
      * Construct a NidasAppArg from a list of accepted short and long
      * flags, the syntax for any arguments to the flag, a usage string, and
      * a default value.  @p flags is a comma-separated list of the
-     * command-line flags recognized this argument.  The usage string
+     * command-line flags recognized by this argument.  The usage string
      * describes the argument, something which can be printed as part of an
      * application's usage information.
      *
-     * Example:
+     * The @p flags specifier can include multiple flags that are accepted
+     * for an argument, separated by commas.  In the example below, -l is
+     * obviously the short form, and it will not be accepted if
+     * acceptShortFlag() is not true.  The others are long forms, each
+     * equivalent to the other.  Deprecated options can be surrounded by
+     * brackets.  If an option is deprecated, it will still be accepted on
+     * the command-line, but it will not be shown in the usage. (Probably
+     * it should be documented as deprecated in the usage string.)
      *
-     * This specifier shows the three forms that are accepted for an
-     * argument.  The -l is obviously the short form, and it will not be
-     * accepted if acceptShortFlag() is not true.  The other two are long
-     * forms, each equivalent to the other.  If an option is deprecated,
-     * that can be noted in the usage.  The default is "info".
-     *
-     * -l,--loglevel,--logconfig <logconfig> [info]
+     * -l,--log[,--loglevel,--logconfig]
      * 
-     * If an argument takes only a flag and no additional parameter, then
-     * the syntax must be empty.
+     * If an argument is only a flag and no additional parameter, then the
+     * syntax must be empty, and the default value is assumed to be boolean
+     * false.  When the flag is parsed in the arguments, then the value
+     * will be true.  If a default boolean value is specified for a flag
+     * with no parameters, then as a special case for long arguments, a
+     * long form can be prefixed with --no- to set the value to false.
+     * Thus a boolean option can be given an explicit default value by
+     * passing "true" or "false" as the default value, and then it can be
+     * set to "true" with the normal flag and set to "false" using the --no
+     * form.
      *
      * Typically an application's arguments are instantiated as part of the
      * application's class, so they have the same lifetime as the
@@ -90,15 +109,38 @@ public:
      * information.  See NidasApp::enableArguments().
      *
      * When the application's arguments are parsed, then this argument 
-     * is updated with the flag and value
+     * is updated with the exact flag and value that set it.
+     *
+     * Arguments can be marked as required, which allows unset required
+     * arguments to be detected by NidasApp::checkRequiredArguments().  See
+     * setRequired().
      **/
     NidasAppArg(const std::string& flags,
                 const std::string& syntax = "",
                 const std::string& usage = "",
-                const std::string& default_ = "");
+                const std::string& default_ = "",
+                bool required = false);
 
     virtual
     ~NidasAppArg();
+
+    /**
+     * Set whether this argument is required.  A required argument must be
+     * supplied on the command line even if it has a default value.  If an
+     * argument is not required because it has a default value, then an
+     * application should not set that argument to be required.
+     *
+     * Defaults to true, but the client may disable this option by setting
+     * the argument to false.
+     **/
+    void
+    setRequired(bool isRequired=true);
+
+    /**
+     * Return whether this argument is required. See setRequired().
+     **/
+    bool
+    isRequired();
 
     /**
      * Set whether short flags are enabled or not.  Pass @p enable as false
@@ -170,9 +212,8 @@ public:
 
     /**
      * Return the command-line flag which this argument consumed.  For
-     * example, if an argument which has multiple flags -l, --loglevel, and
-     * --logconfig matches --loglevel, then getFlag() will return
-     * --loglevel.
+     * example, if an argument with multiple flags is matched, then
+     * getFlag() returns the flag that matched the argument.
      **/
     const std::string&
     getFlag();
@@ -205,9 +246,11 @@ public:
      * true.  Otherwise return false.  The vector is not modified, but if
      * argi is nonzero, then it is used as the starting index into argv,
      * and it is advanced according to the number of elements of argv
-     * consumed by this argument.
+     * consumed by this argument.  This method is virtual so subclasses can
+     * implement customized parsing, such as optionally consuming more than
+     * one argument following a flag.
      **/
-    bool
+    virtual bool
     parse(const ArgVector& argv, int* argi = 0);
 
     /**
@@ -230,13 +273,19 @@ public:
     std::string
     getUsageFlags();
 
-private:
+    void
+    setDefault(const std::string& dvalue)
+    {
+        _default = dvalue;
+    }
 
-    // Prevent the public NidasAppArg members of NidasApp from being
-    // replaced with other arguments.
-    NidasAppArg&
-    operator=(const NidasAppArg&);
-    NidasAppArg(const NidasAppArg&);
+    std::string
+    getDefault()
+    {
+        return _default;
+    }
+
+protected:
 
     std::string _flags;
     std::string _syntax;
@@ -245,6 +294,24 @@ private:
     std::string _arg;
     std::string _value;
     bool _enableShortFlag;
+    bool _required;
+
+    /**
+     * Return true for arguments which are only a single argument.  They
+     * are a single command-line flag with no following value, and
+     * typically implying a boolean value.  This is equivalent to not
+     * specifying a syntax when the argument is created.
+     **/
+    bool
+    single();
+
+private:
+
+    // Prevent the public NidasAppArg members of NidasApp from being
+    // replaced with other arguments.
+    NidasAppArg&
+    operator=(const NidasAppArg&);
+    NidasAppArg(const NidasAppArg&);
 
     friend class NidasApp;
 };
@@ -302,6 +369,11 @@ private:
 };
 
 
+/**
+ * Combine two arglists into a single arglist without any duplicates.
+ * Order is preserved, with all arguments in the the second arglist
+ * succeeding the args in the first arglist.
+ **/
 nidas_app_arglist_t
 operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 
@@ -381,6 +453,14 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 <tr>
 <td>-d</td><td>Run in debug mode instead of as a background daemon.</td><td></td>
 </tr>
+<tr>
+<td>-f</td><td>Filter bad samples according to default filter rules.</td><td></td>
+</tr>
+<tr>
+<td>--filter rules</td>
+<td>Specify rules for filtering bad samples, using a key=value syntax.</td>
+<td>--filter maxdsm=1024,mindsm=1,maxlen=32768,minlen=1</td>
+</tr>
 </table>
  *
  * Below are notes about the deprecated options and the standard options
@@ -408,11 +488,11 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * output file name pattern?  Is there a reasonable default filename
  * pattern if the output is simply @<interval>?
  *
- * ### --logconfig <config>, -l <config> ###
+ * ### --log <config>, -l <config> ###
  *
- * The older option --loglevel, and the short version -l for the
- * applications which accept it, are an alias for the newer --logconfig
- * option.
+ * The older --loglevel and --logconfig are obsolete.  The short version
+ * -l, for the applications which accept it, is an alias for the newer
+ * --log option.
  *
  * The log config string is a comma-separated list of LogConfig fields,
  * where the field names are level, tag, file, function, file, and line.
@@ -421,8 +501,8 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * are combined into a single LogConfig and added to the current scheme.
  *
  * If a field does not have an equal sign and is not 'enable' or 'disable',
- * then it is interpreted as just a log level, compatible with what the
- * --loglevel,-l option supported.
+ * then it is interpreted as just a log level, compatible with what the -l
+ * option has always supported.
  *
  * _loglevel_ can be a number or the name of a log level:
  *
@@ -509,6 +589,12 @@ public:
         {
         }
             
+        IdFormat(const IdFormat& right) :
+            _idFormat(right._idFormat),
+            _width(right._width)
+        {
+        }
+
         IdFormat&
         setDecimalWidth(int width)
         {
@@ -570,6 +656,14 @@ public:
     NidasAppArg Username;
     NidasAppArg Hostname;
     NidasAppArg DebugDaemon;
+    NidasAppArg ConfigsArg;
+    NidasAppArg DatasetName;
+
+    /**
+     * It is not enough to enable this arg in an app, the app must must
+     * call checkPidFile() as well.
+     **/
+    NidasAppArg PidFile;
 
     /**
      * This is a convenience method to return all of the logging-related
@@ -634,6 +728,22 @@ public:
     getApplicationInstance();
 
     /**
+     * Set whether unrecognized flags should throw an exception or not.  By
+     * default, NidasApp throws an exception when parsing an argument which
+     * starts with '-' but is not accepted by one of the enabled arguments.
+     * Pass true to this method to ignore those unrecognized flags and
+     * leave them in the unparsed arguments list.
+     **/
+    void
+    allowUnrecognized(bool allow);
+
+    /**
+     * Return whether unrecognized flags are allowed or not.
+     **/
+    bool
+    allowUnrecognized();
+
+    /**
      * Add the list of NidasAppArg pointers to the set of arguments
      * accepted by this NidasApp instance.  Since the arguments are
      * referenced by pointer, their lifetime should match the lifetime of
@@ -662,14 +772,29 @@ public:
     enableArguments(const nidas_app_arglist_t& arglist);
 
     /**
+     * Add arguments to this NidasApp same as enableArguments() but also
+     * set them as required.  See NidasAppArg::setRequired().  An
+     * application can conveniently check whether required arguments have
+     * been set by calling checkRequiredArguments() when all arguments have
+     * been parsed.
+     **/
+    void
+    requireArguments(const nidas_app_arglist_t& arglist);
+
+    /**
+     * Verify that all NidasAppArg arguments required by this NidasApp have
+     * been specified, otherwise throw NidasAppException.
+     **/
+    void
+    checkRequiredArguments();
+
+    /**
      * Return the list of arguments which are supported by this NidasApp,
-     * in other words, the arguments enabled by enableArguments().
+     * in other words, the arguments enabled by enableArguments() or
+     * requireArguments().
      **/
     nidas_app_arglist_t
-    getArguments()
-    {
-        return nidas_app_arglist_t(_app_arguments.begin(), _app_arguments.end());
-    }
+    getArguments();
 
     /**
      * Call acceptShortFlag(false) on the given list of NidasApp instances,
@@ -734,6 +859,19 @@ public:
     NidasAppArg*
     parseNext() throw (NidasAppException);
 
+    /**
+     * If the next argument to be parsed does not start with '-', then copy
+     * it into @p arg and remove it from the arguments.  Callers can use
+     * this to consume multiple arguments for a single option flag.
+     * Returns true when the argument exists and has been copied into @p
+     * arg, otherwise returns false and @p arg is unchanged.  The returned
+     * argument will not be seen by parseNext(), and it will not be
+     * returned by unparsedArgs().
+     **/
+    bool
+    nextArg(std::string& arg);
+
+
     ArgVector
     unparsedArgs();
 
@@ -748,6 +886,13 @@ public:
      * value returned by NidasAppArg::getValue().  Returns the remaining
      * unparsed arguments, same as would be returned by
      * unparsedArgs().
+     *
+     * This method deliberately does not call checkRequiredArguments(),
+     * since arguments like --help need to be handled by the caller even
+     * when required arguments are legitimately missing from the argument
+     * list.  Instead, applications with required arguments should
+     * explicitly call checkRequiredArguments() after all required
+     * arguments should have been parsed.
      *
      * The argument vector should not contain the process name.  So this is
      * a convenient way to call it from main():
@@ -1168,10 +1313,18 @@ public:
     lockMemory();
 
     /**
-     * If DebugDaemon argument is true, then this method does nothing.
-     * Otherwise, create a pid file for this process and return 0.  If the
-     * pid file already exists, then return 1.  PID files are created in
-     * directory /tmp/run/nidas, which is itself created if necessary.
+     * Create a pid file for this process and return 0.  If the pid file
+     * already exists, then return 1.  The path to the PID file is set by
+     * the PidFile NidasAppArg, which defaults to
+     * /tmp/run/nidas/<appname>.pid.  The path can be changed on the
+     * command-line if the PidFile argument has been enabled.  The
+     * directory for the pid file is created if necessary.  Usually an app
+     * calls this method after the setupDaemon() and setupProcess() calls.
+     * This method checks for the pid file even if DebugDaemon is enabled.
+     * Otherwise it is possible to create multiple instances of a nidas
+     * service on a host which interfere with each other.  If it is
+     * necessary to start multiple processes, then the --pid argument must
+     * be used change the pid file path.
      **/
     int
     checkPidFile();
@@ -1215,13 +1368,15 @@ private:
 
     bool _deleteProject;
 
-    std::set<NidasAppArg*> _app_arguments;
+    nidas_app_arglist_t _app_arguments;
 
     ArgVector _argv;
     int _argi;
 
     bool _hasException;
     nidas::util::Exception _exception;
+
+    bool _allowUnrecognized;
 };
 
 

@@ -33,9 +33,10 @@
 
 #include <QCursor>
 
+CalibrationWizard *CalibrationWizard::_instance;
 
 CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
-    : QWizard(parent, Qt::Window), calibrator(calib)
+    : QWizard(parent, Qt::Window), acc(acc), calibrator(calib)
 {
     setOption(QWizard::NoBackButtonOnStartPage, true);
     setOption(QWizard::NoBackButtonOnLastPage,  true);
@@ -67,14 +68,14 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     sigaddset(&sigset,SIGINT);
     sigaddset(&sigset,SIGTERM);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                  
-    struct sigaction act;                         
-    sigemptyset(&sigset);                         
-    act.sa_mask = sigset;                         
-    act.sa_flags = SA_SIGINFO;                    
-    act.sa_sigaction = CalibrationWizard::sigAction;       
-    sigaction(SIGHUP ,&act,(struct sigaction *)0); 
-    sigaction(SIGINT ,&act,(struct sigaction *)0); 
+
+    struct sigaction act;
+    sigemptyset(&sigset);
+    act.sa_mask = sigset;
+    act.sa_flags = SA_SIGINFO;
+    act.sa_sigaction = CalibrationWizard::sigAction;
+    sigaction(SIGHUP ,&act,(struct sigaction *)0);
+    sigaction(SIGINT ,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 
     // setup sockets to receive UNIX signals
@@ -83,6 +84,7 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 
     _snSignal = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
     connect(_snSignal, SIGNAL(activated(int)), this, SLOT(handleSignal()));
+    _instance = this;
 }
 
 CalibrationWizard::~CalibrationWizard()
@@ -94,14 +96,18 @@ CalibrationWizard::~CalibrationWizard()
 }
 
 
-/* static */
-void CalibrationWizard::sigAction(int sig, siginfo_t* siginfo, void* vptr)
+// signal handler cleanup work.
+void CalibrationWizard::cleanup(int sig, siginfo_t* siginfo, void* vptr)
 {
     cout <<
         "received signal " << strsignal(sig) << '(' << sig << ')' <<
         ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
         ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
         ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+
+
+    // Clear any residual auto-cal
+    acc->SetNextCalVoltage(DONE);
 
     char a = 1;
 
@@ -200,7 +206,7 @@ AutoCalPage::AutoCalPage(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
 
 
 void AutoCalPage::setVisible(bool visible)
-{   
+{
     QWizardPage::setVisible(visible);
 
     if (visible) {
@@ -213,7 +219,7 @@ void AutoCalPage::setVisible(bool visible)
         disconnect(wizard(), SIGNAL(customButtonClicked(int)),
                    this, SLOT(saveButtonClicked()));
     }
-}   
+}
 
 
 void AutoCalPage::saveButtonClicked()
@@ -274,7 +280,7 @@ void AutoCalPage::selectionChanged(const QItemSelection &selected, const QItemSe
     QModelIndex devIdx = index.sibling(index.row(), 2);
     devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
-    QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
+    QModelIndex dsmIdx = parent.sibling(parent.row(), 2);
     dsmId = treeModel->data(dsmIdx, Qt::DisplayRole).toInt();
 
     for (int chn = 0; chn < numA2DChannels; chn++) {
@@ -548,7 +554,7 @@ void TestA2DPage::selectionChanged(const QItemSelection &selected, const QItemSe
         QModelIndex devIdx = index.sibling(index.row(), 2);
         devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
-        QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
+        QModelIndex dsmIdx = parent.sibling(parent.row(), 2);
         dsmId = treeModel->data(dsmIdx, Qt::DisplayRole).toInt();
 
         if (parent == QModelIndex()) {

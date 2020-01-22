@@ -54,7 +54,7 @@ public:
      * See SocketIODevice::open() and SocketIODevice::parseAddress().
      */
     void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
      * The file descriptor used when reading from this SocketIODevice.
@@ -72,7 +72,7 @@ public:
         if (_socket) return _socket->getFd();
         return -1;
     }
-    
+
     /**
      * Read from the device.
      */
@@ -90,7 +90,7 @@ public:
     /**
      * Write to the device.
      */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
+    size_t write(const void *buf, size_t len) throw(nidas::util::IOException)
     {
         return _socket->send(buf,len);
     }

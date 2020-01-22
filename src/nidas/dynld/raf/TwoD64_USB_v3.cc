@@ -51,7 +51,7 @@ using nidas::util::endlog;
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoD64_USB_v3)
 TwoD64_USB_v3::TwoD64_USB_v3():_nHskp(0)
 {
-     _probeClockRate=33;                    //Default for v3 is 33 MHZ
+     _probeClockRate=33.3333333;        //Default for v3 is 33 MHZ
      _timeWordMask=0x000003ffffffffffLL;    //Default for v3 is 42 bits
      _dofMask=0x10;
 }
@@ -107,9 +107,9 @@ void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
 
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
-        if (stag->getSampleId() == 1) {
-            _nHskp = stag->getVariables().size()+1; //+1 because of the "SOR," tag we added
-            if (_nHskp != 10) {
+        if(stag->getSampleId()==1) {
+            _nHskp= stag->getVariables().size();
+            if (_nHskp!= 9) {
                 throw n_u::InvalidParameterException(getName(),
                 "unexpected number of variables", " in processSOR sample");
             }
@@ -137,25 +137,15 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-
-    memcpy(in_str, input, slen);
-    in_str[slen] = 0;
-    input = in_str;
-
-    for (size_t ifield = 0; ifield < _nHskp; ifield++)
-    {
-	const char * cp = ::strchr(input, sep);
-
-        //First input will be the second char to skip "SOR,"
-        if (ifield != 0)
-        {
-            if (sscanf(input, "%f", &data) == 1) {
-                dout[iout++] = double(data);
-            } else
-                dout[iout++] = double(NAN);
-        }
-        if (cp == 0) break;
+    const char * cp = ::strchr(input,sep);
+    for (size_t ifield = 0; ifield < _nHskp && cp; ifield++){
         input = cp + 1;
+	cp = ::strchr(input, sep);
+
+        if (sscanf(input, "%f", &data) == 1){
+            dout[iout++] = double(data);
+        } else
+            dout[iout++] = double(NAN);
     }
     list<SampleTag*> tags = getSampleTags();
     applyConversions(tags.front(), outs);

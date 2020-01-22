@@ -50,6 +50,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/core/BadSampleFilter.h>
 
 #include <set>
 #include <map>
@@ -150,11 +151,12 @@ public:
 
     int usage();
 
-    map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
-                                                         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
+    map<double, vector<const Variable*> >
+    matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
+                   set<DSMSensor*>& activeSensors)
+        throw (n_u::InvalidParameterException);
 
     // default initialization values, which are displayed in usage() method.
-    static const int defaultLogLevel = n_u::LOGGER_INFO;
     static const int defaultNCInterval = 1;
     static const int defaultNCLength = 86400;
     static const float defaultNCFillValue;
@@ -199,8 +201,6 @@ private:
 
     int _asciiPrecision;
 
-    int _logLevel;
-
     string _ncserver;
 
     string _ncdir;
@@ -225,6 +225,7 @@ private:
 
     string _datasetName;
 
+    BadSampleFilterArg _FilterArg;
 };
 
 const float DataPrep::defaultNCFillValue = 1.e37;
@@ -236,12 +237,13 @@ DataPrep::DataPrep():
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
     _middleTimeTags(true),_dosOut(false),_doHeader(true),
     _clipping(false),
-    _asciiPrecision(5),_logLevel(defaultLogLevel),
+    _asciiPrecision(5),
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
     _ncbatchperiod(defaultNCBatchPeriod),
-    _resamplers(),_dsmName(),_datasetName()
+    _resamplers(),_dsmName(),_datasetName(),
+    _FilterArg()
 {
 }
 
@@ -443,8 +445,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
          "This option only applies to netcdf outputs.\n");
 
     NidasAppArg SorterLength("-s,--sortlen", "<seconds>",
-                             "input data sorter length in seconds (optional)",
-                             "1");
+                             "sorter length for processed samples in "
+                             "floating point seconds (optional)", "1.0");
     NidasAppArg Precision("-p,--precision", "ndigits",
                           "number of digits in ASCII output values", "5");
     NidasAppArg NoHeader("-H,--noheader", "",
@@ -482,7 +484,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                          _app.InputFiles |
                          DatasetName | ConfigsName | DSMName |
                          DumpASCII | DumpBINARY | DOSOutput |
-                         NetcdfOutput | Clipping |
+                         NetcdfOutput | Clipping | _FilterArg |
                          SorterLength | Precision | NoHeader |
                          _app.loggingArgs() | _app.XmlHeaderFile |
                          _app.Version | _app.Help);
@@ -571,7 +573,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     _doHeader = !NoHeader.asBool();
     _xmlFileName = _app.xmlHeaderFile();
     _clipping = Clipping.asBool();
-    _sorterLength = SorterLength.asInt();
+    _sorterLength = SorterLength.asFloat();
     if (_sorterLength < 0 || _sorterLength > 10000)
     {
         cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
@@ -672,11 +674,6 @@ int DataPrep::main(int argc, char** argv)
     int res;
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
-
-    n_u::LogConfig lc;
-    lc.level = dump._logLevel;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme("prep").addConfig (lc));
 
     return dump.run();
 }
@@ -792,8 +789,7 @@ int DataPrep::run() throw()
                 }
                 catch(const n_u::IOException& e) {
                     if (i > 2)
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: retrying",e.what());
+                        WLOG(("%s: retrying", e.what()));
                     sleep(10);
                 }
             }
@@ -834,11 +830,11 @@ int DataPrep::run() throw()
                 if (_dsmName.length() > 0) {
                     fsets = project.findSampleOutputStreamFileSets(_dsmName);
                     if (fsets.empty()) {
-                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        PLOG(("Cannot find a FileSet for dsm ") << _dsmName);
                         return 1;
                     }
                     if (fsets.size() > 1) {
-                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        PLOG(("Multple filesets found for dsm ") << _dsmName);
                         return 1;
                     }
                 }
@@ -858,7 +854,8 @@ int DataPrep::run() throw()
                     return 1;
                 }
                 if (fsets.size() > 1) {
-                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    PLOG(("Multple filesets found for dsms. "
+                          "Pass a -d dsmname parameter to select one"));
                     return 1;
                 }
 
@@ -895,6 +892,10 @@ int DataPrep::run() throw()
         }
 
         RawSampleInputStream sis(iochan);
+        BadSampleFilter& bsf = _FilterArg.getFilter();
+        bsf.setDefaultTimeRange(_startTime, _endTime);
+        sis.setBadSampleFilter(bsf);
+
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);

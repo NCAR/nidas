@@ -92,7 +92,12 @@ extern std::string svnStatus(const std::string& path) throw (IOException);
 bool isNonPrintable(const char c, bool allowSTXETX);
 bool containsNonPrintable(char const * buf, std::size_t len, bool allowSTXETX=false);
 
+/**
+ * Calculate wind direction in degrees from U and V wind components,
+ * or if U and V are both zero return NAN as wind direction is undefined.
+ */
+extern float dirFromUV(float u, float v);
 
-}}	// namespace nidas namespace util
+}}	// namespace nidas namespace core
 
 #endif

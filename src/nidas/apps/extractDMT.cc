@@ -270,7 +270,6 @@ int ExtractDMT::run() throw()
                 }
             }
 
-            size_t Pcnt = 0, Ccnt = 0;
             for ( ; di.hasNext(); )
             {
                 const DSMConfig * dsm = di.next();

@@ -44,21 +44,21 @@
 using namespace nidas::core;
 
 
-class NidasItem 
+class NidasItem
 {
 
 public:
 
         /* !
-         * 
-         * subclasses must implement constructor getting children and adding 
+         *
+         * subclasses must implement constructor getting children and adding
          * them to child list as well as adding specific nidas object pointer to themselves
          * and adding their DOMNode pointer to themselves.
          */
 
 
         /*!
-         * 
+         *
          * subclasses must implement destructor, removing self from parent,
          * then deleting the nidasObject (as its intrinsic type),
          * but not releasing the possibly cached DOMNode (parent should do so in removeChild())
@@ -136,7 +136,7 @@ protected:
     int rowNumber;
 
         // the Qt Model that owns/"controls" the items
-    NidasModel *model; 
+    NidasModel *model;
 
     static const QVariant _Project_Label;
     static const QVariant _Site_Label;

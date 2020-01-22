@@ -36,9 +36,7 @@
 #include <nidas/core/SamplePipeline.h>
 #include <nidas/util/Logger.h>
 
-#if __BYTE_ORDER == __BIG_ENDIAN
 #include <byteswap.h>
-#endif
 
 using namespace nidas::dynld;
 using namespace nidas::core;
@@ -226,20 +224,24 @@ bool UDPSampleOutput::receive(const Sample* samp) throw()
 
     try {
 
+        SampleHeader header;
         struct iovec iov[2];
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-        SampleHeader header;
-        header.setTimeTag(bswap_64(samp->getTimeTag()));
-        header.setDataByteLength(bswap_32(samp->getDataByteLength()));
-        header.setRawId(bswap_32(samp->getRawId()));
-        iov[0].iov_base = &header;
-        iov[0].iov_len = SampleHeader::getSizeOf();
-        // TODO: must also endian flip the data. assert that it is a float sample
-#else
-        iov[0].iov_base = const_cast<void*>(samp->getHeaderPtr());
-        iov[0].iov_len = samp->getHeaderLength();
-#endif
+        if (__BYTE_ORDER == __BIG_ENDIAN)
+        {
+            header.setTimeTag(bswap_64(samp->getTimeTag()));
+            header.setDataByteLength(bswap_32(samp->getDataByteLength()));
+            header.setRawId(bswap_32(samp->getRawId()));
+            iov[0].iov_base = &header;
+            iov[0].iov_len = SampleHeader::getSizeOf();
+            // TODO: must also endian flip the data. assert that it is a
+            // float sample.
+        }
+        else
+        {
+            iov[0].iov_base = const_cast<void*>(samp->getHeaderPtr());
+            iov[0].iov_len = samp->getHeaderLength();
+        }
 
         iov[1].iov_base = const_cast<void*>(samp->getConstVoidDataPtr());
         iov[1].iov_len = samp->getDataByteLength();

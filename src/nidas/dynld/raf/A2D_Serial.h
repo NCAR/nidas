@@ -53,16 +53,31 @@ public:
      */
     void open(int flags) throw(nidas::util::IOException);
 
+    /**
+     * Setup whatever is necessary for process method to work.
+     */
+    void init() throw(nidas::util::InvalidParameterException);
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
 
 protected:
+    void readConfig() throw(nidas::util::IOException);
+
+    bool checkCkSum(const Sample * samp);
+
     /**
-     * 25Hz sample index counter.  We manufacture time for this instrument since we
-     * know that the data is actually exactly spaced by 40 milliseconds.
+     * Is device receiving PPS.  We read it from header packet.
      */
-    int _hz_counter;
+    size_t _havePPS;
+
+    size_t _sampleRate;
+    size_t _deltaT;
+
+    size_t _shortPacketCnt;
+    size_t _badCkSumCnt;
+    size_t _largeTimeStampOffset;
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

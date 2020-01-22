@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 8; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -88,7 +88,7 @@ void SensorOpener::interrupt()
 
     // This thread may be in the middle of an sensor->open(), which may
     // do a fair amount of initialization, including I/O.
-    // 
+    //
     // We block SIGUSR1 in this thread, so that it can be
     // caught by pselect/ppoll. If sensors do blocking reads
     // in their open method, they should use readBuffer() with
@@ -110,35 +110,48 @@ void SensorOpener::interrupt()
  */
 int SensorOpener::run() throw(n_u::Exception)
 {
-
     // If cancel() is used in the interrupt() method,
     // don't have _sensorCond locked when executing a cancelation
     // point, such as amInterupted(), or sleeps, or the sensor open.
 
     for (;;) {
-		_sensorCond.lock();
-		while (!isInterrupted() && (_sensors.size() + _problemSensors.size()) == 0) {
-			_sensorCond.wait();
-		}
+    _sensorCond.lock();
+    while (!isInterrupted() && (_sensors.size() + _problemSensors.size()) == 0) {
+            _sensorCond.wait();
+        }
 
-		if (isInterrupted()) break;
+    if (isInterrupted()) break;
 
-		DSMSensor* sensor = 0;
-		if (_sensors.size() > 0) {
-			sensor = _sensors.front();
-			_sensors.pop_front();
-		}
-		else {
-			// don't pound on the recalcitrant sensors too fast
+    DSMSensor* sensor = 0;
+    if (_sensors.size() > 0) {
+        sensor = _sensors.front();
+        _sensors.pop_front();
+    }
+    else {
+        // Don't pound on the recalcitrant sensors too fast.
+            //
+            // There was some implication in VERTEX that bluetooth devices
+            // (btspp:) could take more than 10 seconds to recover, so I
+            // considered hardcoding a longer delay here, like 30 seconds.
+            // However, that was never implemented, so this comment remains
+            // for future reference.  It might be nicer to use a back-off
+            // delay scheme, so the delay can start at 10 seconds for
+            // sensors which respond that quickly.  Another option is to
+            // use a longer delay only if sensor->getDeviceName() starts
+            // with "btspp:". Yet another option is to check for the
+            // "Operation now in progress" (EINPROGRESS) error in
+            // BluetoothRFCommSocketIODevice::open() from the connect()
+            // call, and at that point sleep for a longer time before
+            // trying again.
 
-			_sensorCond.unlock();
-			struct timespec sleepPeriod = {10,0};
-			nanosleep(&sleepPeriod,0);
-			_sensorCond.lock();
+        _sensorCond.unlock();
+        struct timespec sleepPeriod = {10,0};
+        nanosleep(&sleepPeriod,0);
+        _sensorCond.lock();
 
-			sensor = _problemSensors.front();
-			_problemSensors.pop_front();
-		}
+        sensor = _problemSensors.front();
+        _problemSensors.pop_front();
+    }
 
         if (isInterrupted()) break;
         _sensorCond.unlock();
@@ -186,23 +199,23 @@ int SensorOpener::run() throw(n_u::Exception)
             catch(const n_u::IOException& e) {
                 PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
             }
-	    _sensorCond.lock();
-	    _problemSensors.push_back(sensor);
-	    _sensorCond.unlock();
-	}
-	// On InvalidParameterException, report the error
-	// and don't try to open again.  Time will
-	// not likely fix an InvalidParameterException,
-	// it needs human interaction.
-	catch(const n_u::InvalidParameterException& e) {
-	    PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+        _sensorCond.lock();
+        _problemSensors.push_back(sensor);
+        _sensorCond.unlock();
+    }
+    // On InvalidParameterException, report the error
+    // and don't try to open again.  Time will
+    // not likely fix an InvalidParameterException,
+    // it needs human interaction.
+    catch(const n_u::InvalidParameterException& e) {
+        PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
             try {
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
                 PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
             }
-	}
+    }
     }
     _sensorCond.unlock();
     return RUN_OK;

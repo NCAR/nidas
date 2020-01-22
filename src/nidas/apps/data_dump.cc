@@ -44,6 +44,7 @@
 #include <nidas/util/auto_ptr.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/BadSampleFilter.h>
 
 #include <set>
 #include <map>
@@ -387,6 +388,7 @@ private:
     NidasApp app;
     NidasAppArg WarnTime;
     NidasAppArg NoDeltaT;
+    BadSampleFilterArg FilterArg;
 };
 
 
@@ -400,7 +402,8 @@ DataDump::DataDump():
              "If <seconds> is negative, then warn when the succeeding time skips\n"
              "backwards.\n", "0"),
     NoDeltaT("--nodeltat", "",
-             "Do not include the time delta between samples in the output.")
+             "Do not include the time delta between samples in the output."),
+    FilterArg()
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -413,13 +416,14 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | app.Version | WarnTime | NoDeltaT);
+                        app.Help | app.Version | WarnTime | NoDeltaT | FilterArg);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
     // Use width 4 for decimal sample id format.
     app.setIdFormat(NidasApp::IdFormat().setDecimalWidth(4));
+    app.allowUnrecognized(true);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -461,7 +465,8 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::UNSIGNED_SHORT;
 	    break;
 	case '?':
-	    return usage(argv[0]);
+            std::cerr << "Use -h to see usage info.\n";
+	    return 1;
 	}
     }
     app.parseInputs(left.unparsedArgs(optind));
@@ -569,8 +574,10 @@ int DataDump::run() throw()
         // If you want to process data, get the raw stream
 	SampleInputStream sis(iochan, app.processData());
 	// SampleStream now owns the iochan ptr.
-        sis.setMaxSampleLength(32768);
-	// sis.init();
+
+        BadSampleFilter& bsf = FilterArg.getFilter();
+        bsf.setDefaultTimeRange(app.getStartTime(), app.getEndTime());
+        sis.setBadSampleFilter(bsf);
 	sis.readInputHeader();
 	const SampleInputHeader& header = sis.getInputHeader();
 

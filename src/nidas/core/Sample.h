@@ -107,7 +107,7 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	_tt(0),_length(0),_tid((unsigned int)t << 26) {}
+	_tt(0),_length(0),_tid((unsigned int)t << 26) {}
 
     dsm_time_t getTimeTag() const { return _tt; }
 
@@ -144,7 +144,7 @@ public:
     void setSpSId(unsigned int val) { _tid = SET_SPS_ID(_tid,val); }
 
     /**
-     * Get the data type of this sample. The type can only be set in the 
+     * Get the data type of this sample. The type can only be set in the
      * constructor.
      */
     unsigned char getType() const { return GET_SAMPLE_TYPE(_tid); }
@@ -161,7 +161,7 @@ protected:
     /**
      * Time-tag in non-leap microseconds since Jan 1, 1970 00:00 GMT.
      */
-    dsm_time_t _tt; 
+    dsm_time_t _tt;
 
     /**
      * Length of data (# of bytes) in the sample - does not include
@@ -188,7 +188,7 @@ protected:
  */
 class Sample {
 public:
-  
+
     Sample(sampleType t = CHAR_ST) :
         _header(t),_refCount(1),_refLock()
     {
@@ -205,7 +205,7 @@ public:
     dsm_time_t getTimeTag() const { return _header.getTimeTag(); }
 
     /**
-     * Set the id portion of the sample header. The id 
+     * Set the id portion of the sample header. The id
      * typically identifies the data system and
      * sensor of origin of the sample.
      */
@@ -406,13 +406,13 @@ public:
     // That seems safer as long as that call only depends upon on the
     // operand type and not on its value, since its value is an
     // uninitialized pointer member.
-    // 
+    //
     // An alternative to calling a function at all is to use type traits
     // templates, such as defined in sample_traits.h:
     //
     // Sample(sample_type_traits<DataT>::sample_type_enum)
 
-    SampleT() : 
+    SampleT() :
         Sample(sample_type_traits<DataT>::sample_type_enum),
         _data(0),_allocLen(0)
     {}
@@ -437,7 +437,7 @@ public:
     {
 	if (val > getAllocLength())
 	    throw SampleLengthException(
-	    	"SampleT::setDataLength:",val,getAllocLength());
+		"SampleT::setDataLength:",val,getAllocLength());
 	_header.setDataByteLength(val * sizeof(DataT));
     }
 
@@ -446,7 +446,7 @@ public:
      */
     static unsigned int getMaxDataLength()
     {
-    	return SampleHeader::getMaxDataLength() / sizeof(DataT);
+	return SampleHeader::getMaxDataLength() / sizeof(DataT);
     }
 
     void* getVoidDataPtr() { return (void*) _data; }
@@ -459,7 +459,7 @@ public:
     /**
      * Implementation of virtual method.
      */
-    double getDataValue(unsigned int i) const 
+    double getDataValue(unsigned int i) const
     {
         return (double)_data[i];
     }
@@ -491,13 +491,13 @@ public:
     unsigned int getAllocByteLength() const { return _allocLen; }
 
     /**
-     * Allocate data.  
+     * Allocate data.
      * @param val: number of DataT's to allocated.
      */
     void allocateData(unsigned int val) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
-	    	"SampleT::allocateData:",val,getMaxDataLength());
+		"SampleT::allocateData:",val,getMaxDataLength());
 	if (_allocLen < val * sizeof(DataT)) {
 	  delete [] _data;
 	  _data = new DataT[val];
@@ -513,7 +513,7 @@ public:
     void reallocateData(unsigned int val) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
-	    	"SampleT::reallocateData:",val,getMaxDataLength());
+		"SampleT::reallocateData:",val,getMaxDataLength());
 	if (_allocLen < val * sizeof(DataT)) {
 	  DataT* newdata = new DataT[val];
       std::memcpy(newdata,_data,_allocLen);
@@ -542,12 +542,12 @@ public:
     *	samp.setTimeTag(99);
     *    ...
       }				// automatic variable destroyed
-    *    
+    *
     * Or the reference count capability can be used.  Here one
     * saves samples into a buffer, and then later
     * pops them off.
     *
-    *   void pushSample(const Sample* samp) 
+    *   void pushSample(const Sample* samp)
     *   {
     *     samp->holdReference();
     *     buffer.push_back(samp);
@@ -605,7 +605,7 @@ Sample* getSample(sampleType type, unsigned int len);
 }}	// namespace nidas namespace core
 
 // Here we define methods which use both the SampleT and SamplePool class.
-// We wait until now to include SamplePool.h since it needs to have 
+// We wait until now to include SamplePool.h since it needs to have
 // the SampleT class defined. We must exit the dsm namespace before
 // including SamplePool.h
 
@@ -620,7 +620,7 @@ template <class T>
 SampleT<T>* getSample(unsigned int len)
 {
     SampleT<T>* samp =
-    	SamplePool<SampleT<T> >::getInstance()->getSample(len);
+	SamplePool<SampleT<T> >::getInstance()->getSample(len);
     return samp;
 }
 

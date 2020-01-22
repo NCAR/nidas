@@ -328,50 +328,53 @@ libftdi_cross_base = '/home/builder/libftdi/libftdi1-1.4'
 libftdi_cross_include_flag = '-I' + libftdi_cross_base + '/src'
 
 ##
+## libftdi cross build on the containers which do the builds below
+##
+libftdi_cross_base = '/home/builder/libftdi/libftdi1-1.4'
+libftdi_cross_include_flag = '-I' + libftdi_cross_base + '/src'
+
+##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (big-endian) on the arcom Vulcan.
 ##
-#if 'armbe' in BUILDS:
-#    print("Setting up for armbe build ...")
-#    machs = getMachineTypes('armbe', MACHS)
-#    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
-#        ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
-#        ARCHPREFIX='$PREFIX/armbe')
-#
-#    armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-#    armbe_env.AppendUnique(CXXFLAGS = [libftdi_cross_include_flag, '-I/usr/include/libusb-1.0'])
-#    CheckStackProtectorOptions(armbe_env)
-#
-#    if re.search("^3",armbe_env['CXXVERSION']):
-#        armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
-#    if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
-#        armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-#
-#    SConscriptVariant('armbe', armbe_env)
-#
-#if 'armel' in BUILDS:
-#    print("Setting up for armel build ...")
-#    machs = getMachineTypes('armel', MACHS)
-#    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
-#        ARCH = 'armel', MACHS=machs)
-#    
-#    if 'ARCHLIBDIR' not in armel_env:
-#        armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
-#
-#    CheckStackProtectorOptions(armel_env)
-#    armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
-#            '-Wformat', '-Werror=format-security',
-#            '-D_FORTIFY_SOURCE=2'])
-#    armel_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
-#                                       '-fno-elide-constructors',  
-#                                       libftdi_cross_include_flag, '-I/usr/local/include'])
-#    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
-#
-#    if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
-#        armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-#
-#    armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
-#    SConscriptVariant('armel', armel_env)
+if 'armbe' in BUILDS:
+    print("Setting up for armbe build ...")
+    machs = getMachineTypes('armbe', MACHS)
+    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
+        ARCHPREFIX='$PREFIX/armbe')
+
+    armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    CheckStackProtectorOptions(armbe_env)
+
+    if re.search("^3",armbe_env['CXXVERSION']):
+        armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
+    if 'DEBUG' not in armbe_env or not armbe_env['DEBUG']:
+        armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+    SConscriptVariant('armbe', armbe_env)
+
+if 'armel' in BUILDS:
+    print("Setting up for armel build ...")
+    machs = getMachineTypes('armel', MACHS)
+    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
+        ARCH = 'armel', MACHS=machs)
+
+    if 'ARCHLIBDIR' not in armel_env:
+        armel_env['ARCHLIBDIR'] = 'lib/arm-linux-gnueabi'
+
+    CheckStackProtectorOptions(armel_env)
+    armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
+            '-Wformat', '-Werror=format-security',
+            '-D_FORTIFY_SOURCE=2'])
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+    armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
+
+    if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
+        armel_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+    armel_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    SConscriptVariant('armel', armel_env)
 
 if 'armhf' in BUILDS:
     print("Setting up for armhf build ...")

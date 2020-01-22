@@ -1350,7 +1350,7 @@ SocketImpl::
 getInterface(const std::string& name) const throw(IOException)
 {
     struct ifreq ifreq;
-    strncpy(ifreq.ifr_name,name.c_str(),IF_NAMESIZE);
+    strncpy(ifreq.ifr_name, name.c_str(), IF_NAMESIZE-1);
 
     // ioctls in /usr/include/bits/ioctls.h
     if (ioctl(getFd(),SIOCGIFADDR,&ifreq) < 0)

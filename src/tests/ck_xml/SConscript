@@ -4,11 +4,12 @@
 Import('env')
 env = env.Clone()
 env.Require('nidas')
+env.NidasRuntimeENV()
 
 ck_xml = env.NidasApp('ck_xml')
 
 depends = ["run_test.sh",ck_xml]
-runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

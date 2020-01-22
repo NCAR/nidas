@@ -33,7 +33,9 @@
 #include <nidas/core/SampleStats.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/UTime.h>
+#include <nidas/core/BadSampleFilter.h>
 
 namespace nidas {
 
@@ -50,6 +52,101 @@ class IOStream;
 }
 
 namespace dynld {
+
+/**
+ * Keep track of statistics for a contiguous block of good or bad samples
+ * in a stream.
+ **/
+struct BlockStats {
+
+    typedef nidas::core::dsm_time_t dsm_time_t;
+
+    /**
+     * Initialize a block as good or bad and give it an offset.  Blocks
+     * default to being good but empty.
+     **/
+    BlockStats(bool goodblock=true, size_t startblock=0);
+
+    /**
+     * On a good sample, reset this block to a good block if not already,
+     * and update the last good sample and the size of the block.  Call this
+     * method on each good sample so that when a bad header appears, all the
+     * stats in this block are already correct.  Return true if this is the
+     * start of a new good block.
+     **/
+    bool
+    addGoodSample(nidas::core::Sample* samp, long long offset);
+
+    /**
+     * An alternative to calling startBadBlock()/endBadBlock(), it adds
+     * nbadbytes to a bad block, resetting the block from good to bad if
+     * necessary.  It is analogous to the addGoodSample() method.  Use
+     * startBadBlock() and endBadBlock() to avoid calling addGoodSample()
+     * on every single bad byte.  When a bad block is started from a good
+     * block, it copies the end_time from the good block into the
+     * start_time of the new bad block.
+     **/
+    void
+    addBadSample(long long offset, unsigned int nbadbytes);
+
+    /**
+     * Start a bad block.  The size (nbytes) will not be correct until
+     * endBadBlock() is called.
+     **/
+    void
+    startBadBlock(long long offset);
+
+    /**
+     * Mark the end of a bad block by assigning the end_time and setting
+     * nbytes according to the current offset.  If the block ends without a
+     * good sample, then pass @p samp as NULL, in which case the end_time
+     * will remain at the default of LONG_LONG_MAX.
+     **/
+    void
+    endBadBlock(nidas::core::Sample* samp, long long offset);
+
+    inline size_t
+    blockEnd() const
+    {
+        return block_start + nbytes;
+    }
+
+    /**
+     * Sample times bounding this block.  For good blocks, these are the
+     * sample times for the first and last samples in the block.  For bad
+     * blocks, they are the sample times of the last good sample before the
+     * block and the first good sample after the block.  If unset,
+     * start_time is LONG_LONG_MIN and end_time is LONG_LONG_MAX.
+     **/
+    dsm_time_t start_time;
+    dsm_time_t end_time;
+
+    /**
+     * True if this is a block of good samples.
+     **/
+    bool good;
+
+    /**
+     * Number of good samples in a row.  Zero in a bad block.
+     */
+    size_t nsamples;
+
+    /*
+     * File position of start of this block.
+     */
+    size_t block_start;
+
+    /**
+     * Size in bytes of this block.  Starts out empty at zero.
+     **/
+    size_t nbytes;
+
+    /**
+     * Size of the last good sample in a good sample block. It is zero in a
+     * bad block.
+     **/
+    unsigned int last_good_sample_size;
+};
 
 /**
  * An implementation of a SampleInput.
@@ -75,6 +172,8 @@ namespace dynld {
 class SampleInputStream: public nidas::core::SampleInput
 {
 public:
+    typedef nidas::core::dsm_time_t dsm_time_t;
+
     /**
      * Constructor.
      * @param raw Whether the input samples are raw.
@@ -277,35 +376,68 @@ public:
 
     void close() throw(nidas::util::IOException);
 
-    void newFile() throw(nidas::util::IOException);
+    /**
+     * Replace the bad sample filter rules for this stream with @p bsf.
+     **/
+    void setBadSampleFilter(const nidas::core::BadSampleFilter& bsf)
+    {
+        _bsf = bsf;
+    }
 
+    /**
+     * See BadSampleFilter.
+     **/
     void setFilterBadSamples(bool val)
     {
-        _filterBadSamples = val;
+        _bsf.setFilterBadSamples(val);
     }
 
+    /**
+     * See BadSampleFilter.
+     **/
+    void setMinDsmId(int val)
+    {
+        _bsf.setMinDsmId(val);
+    }
+
+    /**
+     * See BadSampleFilter.
+     **/
     void setMaxDsmId(int val)
     {
-        _maxDsmId = val;
-        setFilterBadSamples(val < 1024);
+        _bsf.setMaxDsmId(val);
     }
 
+    /**
+     * See BadSampleFilter.
+     **/
+    void setMinSampleLength(unsigned int val)
+    {
+        _bsf.setMinSampleLength(val);
+    }
+
+    /**
+     * See BadSampleFilter.
+     **/
     void setMaxSampleLength(unsigned int val)
     {
-        _maxSampleLength = val;
-        setFilterBadSamples(val < UINT_MAX);
+        _bsf.setMaxSampleLength(val);
     }
 
+    /**
+     * See BadSampleFilter.
+     **/
     void setMinSampleTime(const nidas::util::UTime& val)
     {
-        _minSampleTime = val.toUsecs();
-        setFilterBadSamples(val.toUsecs() > LONG_LONG_MIN);
+        _bsf.setMinSampleTime(val);
     }
 
+    /**
+     * See BadSampleFilter.
+     **/
     void setMaxSampleTime(const nidas::util::UTime& val)
     {
-        _maxSampleTime = val.toUsecs();
-        setFilterBadSamples(val.toUsecs() < LONG_LONG_MAX);
+        _bsf.setMaxSampleTime(val);
     }
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -338,9 +470,13 @@ private:
 
     /**
      * Unpack the next sample from the InputStream buffer or by reading
-     * more data if @p keepreading is true.
+     * more data if @p keepreading is true.  If @p searching is set, then
+     * reading stops after the first sample header found whose time tag is
+     * after @p search_time, as described in the search() method.
      **/
-    nidas::core::Sample* nextSample(bool keepreading) 
+    nidas::core::Sample* nextSample(bool keepreading,
+                                    bool searching=false,
+                                    dsm_time_t search_time=LONG_LONG_MIN)
         throw(nidas::util::IOException);
 
     bool readSampleHeader(bool keepreading) throw(nidas::util::IOException);
@@ -387,19 +523,26 @@ private:
      */
     char* _dptr;
 
+
+    /**
+     * Information about the current block of samples, good or bad.
+     **/
+    BlockStats _block;
+
+    /**
+     * Number of bad samples in the stream so far, which is to say number
+     * of bytes checked which did not contain a reasonable sample header.
+     **/
     size_t _badSamples;
+
+    /**
+     * Number of good samples in the stream so far.
+     **/
+    size_t _goodSamples;
 
     nidas::core::SampleInputHeader _inputHeader;
 
-    bool _filterBadSamples;
-
-    unsigned int _maxDsmId;
-
-    size_t _maxSampleLength;
-
-    nidas::core::dsm_time_t _minSampleTime;
-
-    nidas::core::dsm_time_t _maxSampleTime;
+    nidas::core::BadSampleFilter _bsf;
 
     SampleInputStream* _original;
 

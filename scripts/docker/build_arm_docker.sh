@@ -27,22 +27,23 @@ fi
 
 # Ignoring armel because that's for Titans and Vipers, and we
 # do not expect to be using these DSMs in future ISFS projects.
-#
-#hostarch=armel
-#image=nidas-build-debian-$hostarch
-#echo "arch is $hostarch"
-#echo "image is $image"
-#echo "tagged image is $dockuser/$image:$tag"
-#docker build $cacheFlag -t $image \
-#    --build-arg group=$group \
-#    --build-arg gid=$gid \
-#    --build-arg hostarch=$hostarch \
-#    -f Dockerfile.buster_cross_arm .
-## Only tag and push if the build worked
-#if [[ "$?" -eq 0 ]] ; then
-#    docker tag  $image $dockuser/$image:$tag
-#    docker push $dockuser/$image:$tag
-#fi
+if false; then
+    hostarch=armel
+    image=nidas-build-debian-$hostarch
+    echo "arch is $hostarch"
+    echo "image is $image"
+    echo "tagged image is $dockuser/$image:$tag"
+    docker build $cacheFlag -t $image \
+        --build-arg group=$group \
+        --build-arg gid=$gid \
+        --build-arg hostarch=$hostarch \
+        -f Dockerfile.cross_arm .
+    # Only tag and push if the build worked
+    if [[ "$?" -eq 0 ]] ; then
+        docker tag  $image $dockuser/$image:$tag
+        docker push $dockuser/$image:$tag
+    fi
+fi
 
 hostarch=armhf
 image=nidas-build-debian-$hostarch

@@ -20,15 +20,14 @@ jobs:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
     steps:
-    - checkout
     - attach_workspace:
         at: .
     - run:
         name: NIDAS Package Build of Master Branch for RPi/armhf
         command: |
+          cd nidas/scripts
           pwd
           ls -alg
-          cd scripts
           ./build_dpkg.sh armhf
   build-armel-master:
     docker:
@@ -40,7 +39,7 @@ jobs:
     - run:
         name: NIDAS Build of Master Branch for PC104/armel
         command: |
-          cd src
+          cd nidas/src
           scons LINUX_MODULES=no BUILDS=armel
     - persist_to_workspace:
         root: .
@@ -55,8 +54,10 @@ jobs:
     - run:
         name: NIDAS Package Build of Master Branch for PC104/armel
         command: |
-          cd scripts
-          ./build_dpkg.sh armel
+          cd nidas/scripts
+          pwd
+          ls -alg
+          ./build_dpkg.sh armhf
   build-armhf-autoconfig:
     docker:
     - image: docker.io/ncar/nidas-build-debian-armhf:jessie_v1
@@ -67,7 +68,7 @@ jobs:
     - run:
         name: NIDAS Build of AutoConfig Branch for RPi/armhf
         command: |
-          cd src
+          cd nidas/src
           scons LINUX_MODULES=no BUILDS=armhf
     - persist_to_workspace:
         root: .
@@ -82,7 +83,7 @@ jobs:
     - run:
         name: NIDAS Package Build of AutoConfig Branch for RPi/armhf
         command: |
-          cd scripts
+          cd nidas/scripts
           build_dpkg.sh armhf
   build-armel-autoconfig:
     docker:
@@ -94,7 +95,7 @@ jobs:
     - run:
         name: NIDAS Build of AutoConfig Branch for PC104/armel
         command: |
-          cd src
+          cd nidas/src
           scons LINUX_MODULES=no BUILDS=armel
     - persist_to_workspace:
         root: .
@@ -109,7 +110,7 @@ jobs:
     - run:
         name: NIDAS Package Build of AutoConfig Branch for PC104/armel
         command: |
-          cd scripts
+          cd nidas/scripts
           build_dpkg.sh armel
 workflows:
   version: 2
@@ -208,8 +209,6 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for RPi/armhf
 #           command: | 
-#             ls -alg
-#             ls -alg nidas
 #             cd nidas/scripts
 #             pwd
 #             ls -alg
@@ -243,8 +242,6 @@ workflows:
 #       - run:
 #           name: NIDAS Package Build of Master Branch for PC104/armel
 #           command: | 
-#             cd /
-#             find . -name arm-linux-gnueabihf-g* -print
 #             cd nidas/scripts
 #             pwd
 #             ls -alg

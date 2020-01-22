@@ -61,10 +61,8 @@ DSMServerApp* DSMServerApp::_instance = 0;
 
 DSMServerApp::DSMServerApp():
     _debug(false),
-    _xmlFileName(), _configsXMLName(),
-    _rafXML("$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml"),
-    _isffXML("$ISFF/projects/$PROJECT/ISFF/config/configs.xml"),
-    _isfsXML("$ISFS/projects/$PROJECT/ISFS/config/configs.xml"),
+    _xmlFileName(),
+    _configsXMLName(),
     _runState(RUN),
     _xmlrpcThread(0),_statusThread(0),
     _externalControl(false),
@@ -72,7 +70,11 @@ DSMServerApp::DSMServerApp():
     _signalMask(),
     _myThreadId(::pthread_self()),
     _datasetName(),
-    _app("dsm_server")
+    _app("dsm_server"),
+    ExternalControl
+    ("-r,--remote", "", "Enable XML-RPC server for remote control."),
+    OptionalProcessing
+    ("-o,--optional", "", "Run processors marked as optional in XML.")
 {
     setupSignals();
 }
@@ -85,19 +87,11 @@ DSMServerApp::~DSMServerApp()
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
 {
-    NidasAppArg ExternalControl("-r,--remote", "",
-                                "Enable XML-RPC server for remote control.");
-    NidasAppArg OptionalProcessing("-o,--optional", ""
-                                   "Run processors marked as optional in XML.");
-    NidasAppArg DatasetName
-        ("-S,--dataset", "<datasetname>",
-         "Set environment variables specifed for the dataset\n"
-         "as found in the xml file specifed by $NIDAS_DATASETS or \n"
-         "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml");
-
-    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
+    _app.enableArguments(_app.Help | _app.ConfigsArg |
                          _app.Username | _app.Hostname | _app.DebugDaemon |
-                         ExternalControl | OptionalProcessing | DatasetName);
+                         _app.DatasetName |
+                         ExternalControl | OptionalProcessing |
+                         _app.loggingArgs() | _app.Version);
     ArgVector args = _app.parseArgs(argc, argv);
     if (_app.helpRequested())
     {
@@ -106,44 +100,30 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
     }
     _externalControl = ExternalControl.asBool();
     _optionalProcessing = OptionalProcessing.asBool();
-    _datasetName = DatasetName.getValue();
+    _datasetName = _app.DatasetName.getValue();
 
-    int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdl:orS:u:h:v")) != -1) {
-        switch (opt_char) {
-        case 'c':
-	    {
-                const char* cfg = getenv("NIDAS_CONFIGS");
-                if (cfg) _configsXMLName = cfg;
-                else {
-                    const char* re = getenv("PROJ_DIR");
-                    const char* pe = getenv("PROJECT");
-                    const char* ae = getenv("AIRCRAFT");
-                    const char* ie = getenv("ISFS");
-                    const char* ieo = getenv("ISFS");
-                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isfsXML);
-                    else if (ieo && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-                }
-                if (_configsXMLName.length() == 0) {
-                    cerr <<
-                        "Environment variables not set correctly to find XML file of project configurations." << endl;
-                    cerr << "Cannot find " << _rafXML << endl << "or " << _isfsXML << endl;
-                    return usage();
-                }
-	    }
-	    break;
-        case '?':
-            return usage();
-        }
+    if (_app.ConfigsArg.asBool())
+    {
+        // Throws NidasAppException if configs.xml path cannot be derived.
+        _configsXMLName = _app.getConfigsXML();
     }
-    if (optind == argc - 1) _xmlFileName = string(argv[optind++]);
-    else if (_configsXMLName.length() == 0) {
+
+    ArgVector unparsed = _app.unparsedArgs();
+
+    if (unparsed.size() > 1)
+    {
+        return usage();
+    }
+    if (unparsed.size() == 1)
+    {
+        _xmlFileName = unparsed[0];
+    }
+    else if (_configsXMLName.empty())
+    {
 	const char* cfg = getenv("NIDAS_CONFIG");
 	if (!cfg) {
-	    cerr <<
-		"Error: XML config file not found in runstring or $NIDAS_CONFIG" <<
-	    endl;
+	    cerr << "Error: XML config file not found in runstring "
+                 << "or $NIDAS_CONFIG, and --configs not specified.\n";
             return usage();
         }
     	_xmlFileName = cfg;
@@ -155,15 +135,7 @@ int DSMServerApp::usage()
 {
     const char* cfg = getenv("NIDAS_CONFIG");
     cerr <<
-        "Usage: " << _app.getProcessName() << " [options] [-c] [config]\n"
-        "  -c:\n"
-        "    read configs XML file to find current project configuration,\n"
-        "    either\n" << 
-        "      $NIDAS_CONFIGS\n"
-        "    or\n"
-        "      " << _rafXML << "\n"
-        "    or\n"
-        "      " << _isfsXML << "\n"
+        "Usage: " << _app.getProcessName() << " [options] [config]\n"
         "\n"
         "  config:\n"
         "    (optional) name of DSM configuration file.\n"
@@ -183,7 +155,16 @@ int DSMServerApp::main(int argc, char** argv) throw()
     DSMServerApp app;
 
     int res = 0;
-    if ((res = app.parseRunstring(argc,argv)) != 0) return res;
+    try {
+        if ((res = app.parseRunstring(argc, argv)) != 0)
+            return res;
+    }
+    catch (const NidasAppException& ex)
+    {
+        cerr << ex.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
 
     app.initLogger();
 
@@ -206,14 +187,10 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     _instance = 0;
 
-#ifdef DEBUG
-    cerr << "XMLCachingParser::destroyInstance()" << endl;
-#endif
+    DLOG(("") << "XMLCachingParser::destroyInstance()");
     XMLCachingParser::destroyInstance();
 
-#ifdef DEBUG
-    cerr << "XMLImplementation::terminate()" << endl;
-#endif
+    DLOG(("") << "XMLImplementation::terminate()");
     XMLImplementation::terminate();
 
     return res;
@@ -476,33 +453,8 @@ void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project
 }
 
 
-Dataset DSMServerApp::getDataset() throw(n_u::InvalidParameterException, XMLException)
+Dataset DSMServerApp::getDataset()
 {
-    string XMLName;
-    const char* ndptr = getenv("NIDAS_DATASETS");
-
-    if (ndptr) XMLName = string(ndptr);
-    else {
-        const char* isffDatasetsXML =
-            "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
-        const char* isfsDatasetsXML =
-            "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
-        const char* ie = ::getenv("ISFS");
-        const char* ieo = ::getenv("ISFF");
-        const char* pe = ::getenv("PROJECT");
-        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isfsDatasetsXML);
-        else if (ieo && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
-    }
-
-    if (XMLName.length() == 0)
-        throw n_u::InvalidParameterException("environment variables",
-            "NIDAS_DATASETS, ISFS, PROJECT","not found");
-    Datasets datasets;
-    datasets.parseXML(XMLName);
-
-    Dataset dataset = datasets.getDataset(_datasetName);
-    dataset.putenv();
-
-    return dataset;
+    return _app.getDataset(_datasetName);
 }
 

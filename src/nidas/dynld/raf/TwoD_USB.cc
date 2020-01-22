@@ -63,7 +63,7 @@ TwoD_USB::TwoD_USB() : _tasRate(1),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _tasOutOfRange(0),_misAligned(0),_suspectSlices(0),
-    _recordsPerSecond(0),
+    _recordsPerSecond(0), _totalPixelsShadowed(0),
     _prevTime(0),_histoEndTime(0),_twoDAreaRejectRatio(0.0),
     _particle(),
     _trueAirSpeed(floatNAN), _nextraValues(1),
@@ -358,6 +358,9 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         if (_nextraValues > 1)
             *dout++ = _recordsPerSecond;
 
+        if (_nextraValues > 2)
+            *dout++ = (float)_totalPixelsShadowed * std::pow(1.0e-3 * _resolutionMicron, 2.0);
+
         results.push_back(outs);
     }
 
@@ -498,6 +501,7 @@ void TwoD_USB::countParticle(const Particle& p, float /* resolutionUsec */)
     if (acceptThisParticle1D(p))
     {
         _size_dist_1D[p.height]++;
+        _totalPixelsShadowed += p.area;
     }
     else
     {
@@ -540,6 +544,7 @@ void TwoD_USB::clearData()
 
     _dead_time = 0.0;
     _recordsPerSecond = 0;
+    _totalPixelsShadowed = 0;
 }
 
 void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)
