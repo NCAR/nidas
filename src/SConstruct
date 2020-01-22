@@ -189,7 +189,7 @@ env['CFLAGS'] = [ '-Wall','-O2' ]
 #
 # I don't believe that NIDAS will have this problem since it is compiled as a whole. So the -Wno-psabi 
 # option is added to CXXFLAGS for everyone.
-env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated', '-Wno-psabi']
+env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated','-Wno-deprecated-copy', '-Wno-psabi']
 
 env['CCFLAGS'] = [ ]
 
@@ -286,8 +286,6 @@ if 'host' in BUILDS or 'x86' in BUILDS:
             '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
                                       '-fno-elide-constructors', 
-                                      '-I/usr/include/libftdi1', 
-                                      '-I/usr/include/libusb-1.0', 
                                       '-Inidas/util'])
     CheckStackProtectorOptions(host_env)
 
