@@ -85,7 +85,7 @@ Wind3D::Wind3D(nidas::core::PortConfig initPortConfig):
     _allBiasesNaN(false),
     _despike(false),
     _metek(false),
-    _rotator(),_tilter(),
+    _rotator(), _tilter(), _orienter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
     _sampleId(0),
@@ -93,7 +93,7 @@ Wind3D::Wind3D(nidas::core::PortConfig initPortConfig):
     _spdIndex(-1), _dirIndex(-1),
     _noutVals(0),
     _numParsed(0),
-    _oaCalFile(0), _unusualOrientation(false),
+    _oaCalFile(0),
 #ifdef HAVE_LIBGSL
     _atCalFile(0),
     _atMatrix(),
@@ -115,13 +115,6 @@ Wind3D::Wind3D(nidas::core::PortConfig initPortConfig):
         _ttlast[i] = 0;
     }
 
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
-    }
 }
 
 Wind3D::~Wind3D()
