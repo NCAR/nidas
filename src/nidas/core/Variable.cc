@@ -275,61 +275,60 @@ const Parameter* Variable::getParameter(const std::string& name) const
 void Variable::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
-    // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+        // get all the attributes of the node
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             const string& aname = attr.getName();
             string aval;
             if (_sampleTag && _sampleTag->getDSMSensor())
                 aval = _sampleTag->getDSMSensor()->expandString(attr.getValue());
             else
                 aval = Project::getInstance()->expandString(attr.getValue());
-	    // get attribute name
-	    if (aname == "name")
-	    	setPrefix(aval);
-	    else if (aname == "longname")
-	    	setLongName(aval);
-	    else if (aname == "units")
-		setUnits(aval);
-	    else if (aname == "length") {
-	        istringstream ist(aval);
-		unsigned int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	string("variable ") + getName(),aname,aval);
-		setLength(val);
-	    }
-	    else if (aname == "missingValue" ||
-                    aname == "minValue" ||
-                    aname == "maxValue") {
-	        istringstream ist(aval);
-		float val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	string("variable") + getName(),aname,aval);
+            // get attribute name
+            if (aname == "name")
+                setPrefix(aval);
+            else if (aname == "longname")
+                setLongName(aval);
+            else if (aname == "units")
+                setUnits(aval);
+            else if (aname == "length") {
+                istringstream ist(aval);
+                unsigned int val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        (string("variable ") + getName(),aname,aval);
+                setLength(val);
+            }
+            else if (aname == "missingValue" ||
+                     aname == "minValue" ||
+                     aname == "maxValue") {
+                istringstream ist(aval);
+                float val;
+                ist >> val;
+                if (ist.fail())
+                    throw n_u::InvalidParameterException
+                        (string("variable") + getName(),aname,aval);
                 string sname = aname.substr(0,3);
                 if (sname == "mis") setMissingValue(val);
                 else if (sname == "min") setMinValue(val);
                 else if (sname == "max") setMaxValue(val);
-	    }
-	    else if (aname == "count") {
+            }
+            else if (aname == "count") {
                 if (aval == "true")
                     setType(Variable::COUNTER);
             }
-	    else if (aname == "plotrange") {
+            else if (aname == "plotrange") {
                 // environment variables are expanded above.
                 std::istringstream ist(aval);
                 float prange[2] = { -10.0,10.0 };
                 // if plotrange value starts with '$' ignore error.
                 if (aval.length() < 1 || aval[0] != '$') {
-		    int i;
+                    int i;
                     for (i = 0; i < 2 ; i++) {
                         if (ist.eof()) break;
                         ist >> prange[i];
@@ -337,63 +336,66 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                     }
                     // Don't throw exception on poorly formatted plotranges
                     if (i < 2)  {
-                        n_u::InvalidParameterException e(string("variable ") + getName(),aname,aval);
+                        n_u::InvalidParameterException e(string("variable ") +
+                                                         getName(),aname,aval);
                         WLOG(("%s",e.what()));
                     }
                 }
                 setPlotRange(prange[0],prange[1]);
             }
-	    else if (aname == "dynamic") {
+            else if (aname == "dynamic") {
                 istringstream ist(aval);
-		bool val;
-		ist >> boolalpha >> val;
-		if (ist.fail()) {
-		    ist.clear();
-		    ist >> noboolalpha >> val;
-		    if (ist.fail())
-			throw n_u::InvalidParameterException(
-                            string("variable ") + getName(),aname,aval);
-		}
-		setDynamic(val);
-	    }
-	}
+                bool val;
+                ist >> boolalpha >> val;
+                if (ist.fail()) {
+                    ist.clear();
+                    ist >> noboolalpha >> val;
+                    if (ist.fail())
+                        throw n_u::InvalidParameterException
+                            (string("variable ") + getName(),aname,aval);
+                }
+                setDynamic(val);
+            }
+        }
     }
 
     int nconverters = 0;
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
-            child=child->getNextSibling())
+         child=child->getNextSibling())
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
-	if (elname == "parameter")  {
+        if (elname == "parameter")  {
             const Dictionary* dict = 0;
             if (getSampleTag() && getSampleTag()->getDSMSensor())
                 dict = &getSampleTag()->getDSMSensor()->getDictionary();
-	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child,dict);
-	    addParameter(parameter);
-	}
-	else if (elname == "linear" || elname == "poly" ||
-            elname == "converter") {
-	    if (nconverters > 0)
-	    	throw n_u::InvalidParameterException(getName(),
-		    "only one child converter allowed, <linear>, <poly> etc",
-		    	elname);
-	    VariableConverter* cvtr =
-	    	VariableConverter::createVariableConverter(xchild);
-	    if (!cvtr) throw n_u::InvalidParameterException(getName(),
-		    "unsupported child element",elname);
+            Parameter* parameter =
+                Parameter::createParameter((xercesc::DOMElement*)child,dict);
+            addParameter(parameter);
+        }
+        else if (elname == "linear" || elname == "poly" ||
+                 elname == "converter") {
+            if (nconverters > 0)
+                throw n_u::InvalidParameterException
+                    (getName(),
+                     "only one child converter allowed, <linear>, <poly> etc",
+                     elname);
+            VariableConverter* cvtr =
+                VariableConverter::createVariableConverter(xchild);
+            if (!cvtr) throw n_u::InvalidParameterException
+                           (getName(), "unsupported child element", elname);
             cvtr->setVariable(this);
             cvtr->setUnits(getUnits());
-	    cvtr->fromDOMElement((xercesc::DOMElement*)child);
-	    setConverter(cvtr);
-	    nconverters++;
-	}
-        else throw n_u::InvalidParameterException(string("variable ") + getName(),
-                "unsupported child element",elname);
+            cvtr->fromDOMElement((xercesc::DOMElement*)child);
+            setConverter(cvtr);
+            nconverters++;
+        }
+        else throw n_u::InvalidParameterException
+                 (string("variable ") + getName(),
+                  "unsupported child element", elname);
     }
 }
 

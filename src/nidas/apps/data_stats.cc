@@ -38,6 +38,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/BadSampleFilter.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
@@ -51,7 +52,6 @@
 #include <sys/stat.h>
 
 #include <unistd.h>
-#include <getopt.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -145,13 +145,23 @@ receive(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
     VLOG(("counting sample ") << nsamps << " for id "
          << NidasApp::getApplicationInstance()->formatId(sampid));
-    if (sampid != id)
+    if (sampid != id && nsamps == 0)
     {
         ILOG(("assigning received sample ID ")
              << NidasApp::getApplicationInstance()->formatId(sampid)
              << " in place of "
              << NidasApp::getApplicationInstance()->formatId(id));
         id = sampid;
+    }
+    else if (sampid != id)
+    {
+        // Worst case this would cause a message for every sample, but it
+        // is rare enough to not be worth improving.
+        ELOG(("sample ID ")
+             << NidasApp::getApplicationInstance()->formatId(sampid)
+             << "is being included in statistics for "
+             << "samples with different ID: "
+             << NidasApp::getApplicationInstance()->formatId(id));
     }
     dsm_time_t sampt = samp->getTimeTag();
     if (nsamps == 0)
@@ -227,7 +237,15 @@ class CounterClient: public SampleClient
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app);
+    /**
+     * CounterClient creates a SampleCounter for all the sample tags in the
+     * given sensors, if any.  Set @p singlemote to expect only one mote
+     * for each sensor type.  When a wisard sensor returns multiple sample
+     * tags with different mote IDs, samples will only be expected from one
+     * of those tags.
+     **/
+    CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
+                  bool singlemote, bool fullnames);
 
     virtual ~CounterClient() {}
 
@@ -260,7 +278,10 @@ private:
 
     /**
      * Find the SampleCounter for the given sample ID.  Wisard samples get
-     * mapped to one sensor type, so we look for all of them.
+     * mapped to one sensor type, so we look for all of them.  Also, if
+     * singlemote is enabled, search for wisard tags across all mote IDs
+     * also, so only one mote ID will be mapped for each wisard sensor
+     * type.
      **/
     sample_map_t::iterator
     findStats(dsm_sample_id_t sampid)
@@ -276,7 +297,17 @@ private:
                  << " to match " << _app.formatId(sampid));
             while (sid < endid && it == _samples.end())
             {
-                it = _samples.find(sid++);
+                it = _samples.find(sid);
+                unsigned int moteid = 0;
+                while (_singlemote && it == _samples.end() && ++moteid <= 4)
+                {
+                    dsm_sample_id_t mid;
+                    mid = (sid ^ (sid & 0xf00)) + (moteid * 0x100);
+                    VLOG(("searching for alternate mote ID: ")
+                         << _app.formatId(mid));
+                    it = _samples.find(mid);
+                }
+                ++sid;
             }
         }
         else
@@ -289,8 +320,9 @@ private:
     sample_map_t _samples;
 
     bool _reportall;
-
     bool _reportdata;
+    bool _singlemote;
+    bool _fullnames;
 
     NidasApp& _app;
 };
@@ -308,10 +340,13 @@ resetResults()
 
 
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
+                             bool singlemote, bool fullnames):
     _samples(),
     _reportall(false),
     _reportdata(false),
+    _singlemote(singlemote),
+    _fullnames(fullnames),
     _app(app)
 {
     bool processed = app.processData();
@@ -344,12 +379,23 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
 	SampleTagIterator ti = sensor->getSampleTagIterator();
 	for ( ; ti.hasNext(); ) {
 	    const SampleTag* stag = ti.next();
-	    if (stag->getVariables().size() > 0)
+            const std::vector<const Variable*>& variables = stag->getVariables();
+	    if (variables.size() > 0)
             {
-		string varname = stag->getVariables().front()->getName();
-		if (stag->getVariables().size() > 1)
+		string varname = variables.front()->getName();
+                for (unsigned int i = 1;
+                     _fullnames && i < variables.size(); ++i)
+                {
+                    varname += "," + variables[i]->getName();
+                }
+		if (!_fullnames && variables.size() > 1)
                 {
                     varname += ",...";
+                }
+                // Include device name in the full variable names
+                if (_fullnames)
+                {
+                    varname = "[" + sname + "] " + varname;
                 }
                 // As a special case for wisard sensors, mask the last two
                 // bits of the IDs so all "sensor types" aka I2C addresses
@@ -367,7 +413,19 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app):
                 // "sensor types" assigned to a sample.  The actual sample
                 // IDs are not known until samples are received.  So that's
                 // the point at which we can correct the ID so it is
-                // accurate in the reports.
+                // accurate in the reports.  Likewise for mote IDs, since
+                // samples for the same sensor type may have multiple
+                // possible mote IDs to account for different mote IDs at
+                // different DSMs.
+                //
+                // I suppose the other way to avoid redundant tags is to
+                // compare the actual variable names, since those at least
+                // should be unique.  The sample tags should be complete as
+                // long as there is at least one sample tag for each
+                // variable name.  That does not help for raw mode when no
+                // project config is available, but it still might be a
+                // more accurate and cleaner approach when there is a
+                // project configuration.  Future implementation perhaps.
                 dsm_sample_id_t sid = stag->getId();
                 if (! matcher.match(sid))
                 {
@@ -485,6 +543,12 @@ void CounterClient::printResults(std::ostream& outs)
         }
     }
         
+    // Truncate maxnamelen when fullnames is in effect.
+    if (_fullnames)
+    {
+        maxnamelen = 0;
+    }
+
     struct tm tm;
     char tstr[64];
     outs << left << setw(maxnamelen) << (maxnamelen > 0 ? "sensor" : "")
@@ -524,9 +588,14 @@ void CounterClient::printResults(std::ostream& outs)
             t2str = string((size_t)18, '*');
         }
 
-        outs << left << setw(maxnamelen) << ss.name
-             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
+        // Put long variable names on a header line before statistics.
+        if (_fullnames)
+        {
+            outs << left << ss.name << endl;
+        }
 
+        outs << left << setw(maxnamelen) << (maxnamelen ? ss.name : "")
+             << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
 
@@ -661,6 +730,10 @@ private:
 
     // Show averaged data or raw messages for each report.
     NidasAppArg ShowData;
+
+    NidasAppArg SingleMote;
+    NidasAppArg Fullnames;
+    BadSampleFilterArg FilterArg;
 };
 
 
@@ -697,15 +770,25 @@ DataStats::DataStats():
     ShowData("-D,--data", "",
              "Print data for each sensor, either the last received message\n"
              "for raw samples, or data values averaged over the recording\n"
-             "period for processed samples.")
+             "period for processed samples."),
+    SingleMote("--onemote", "",
+               "Expect each wisard sensor type to come from a single mote,\n"
+               "so mote IDs are not differentiated in sample tags for the same\n"
+               "type of sensor.  If there are two motes on a DSM, then any\n"
+               "sensor duplication will report a warning, including Vmote."),
+    Fullnames("-F,--fullnames", "",
+              "Report all the variable names and the device name for each\n"
+              "for each sensor."),
+    FilterArg()
 {
     app.setApplicationInstance();
     app.setupSignals();
-    app.enableArguments(app.XmlHeaderFile | app.LogConfig |
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
                         app.SampleRanges | app.FormatHexId |
                         app.FormatSampleId | app.ProcessData |
-                        app.Version | app.InputFiles |
-                        app.Help | Period | Count | AllSamples | ShowData);
+                        app.Version | app.InputFiles | FilterArg |
+                        app.Help | Period | Count |
+                        AllSamples | ShowData | SingleMote | Fullnames);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -873,8 +956,8 @@ int DataStats::run() throw()
 	}
 
 	SampleInputStream sis(iochan, app.processData());
-        sis.setMaxSampleLength(32768);
-	// sis.init();
+        sis.setBadSampleFilter(FilterArg.getFilter());
+        DLOG(("filter setting: ") << FilterArg.getFilter());
 
         if (_period > 0 && _realtime)
         {
@@ -909,7 +992,8 @@ int DataStats::run() throw()
         XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors, app);
+        CounterClient counter(allsensors, app, SingleMote.asBool(),
+                              Fullnames.asBool());
         counter.reportAll(AllSamples.asBool());
         counter.reportData(ShowData.asBool());
 

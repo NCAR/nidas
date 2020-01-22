@@ -60,7 +60,34 @@ public:
      * Calculate the checksum of the NMEA message and return a logical
      * indicating whether it is equal to the checksum at the end of the message.
      */
-    static bool checksumOK(const char* rec,int len);
+    static bool
+    checksumOK(const char* rec,int len);
+
+    /**
+     * Given a NMEA message in @p rec of length @p len, look for the
+     * checksum and convert it to a byte value.  If found, set @p checksum
+     * and return true.  Otherwise return false without changing @p
+     * checksum.
+     **/
+    static bool
+    findChecksum(char& checksum, const char* rec, int len);
+
+    /**
+     * Given a NMEA message in @p rec of length @p len, calculate the
+     * checksum of the message and return it.  This only calculates the
+     * checksum up to '*' or the end of the message, in case the message
+     * already contains a checksum.
+     **/
+    static char
+    calcChecksum(const char* rec, int len);
+
+    /**
+     * Calculate the checksum for the given message and append it in the
+     * form "*%2X", but only if the length would not exceed maxlen,
+     * including the null terminator.
+     **/
+    static void
+    appendChecksum(char* rec, int len, int maxlen);
 
     /**
      * Override SerialSensor::buildSampleScanner() and
@@ -74,8 +101,6 @@ public:
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
 
-protected:
-
     dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
         throw();
 
@@ -84,6 +109,8 @@ protected:
 
     dsm_time_t parseHDT(const char* input,double *dout,int nvars,dsm_time_t tt)
         throw();
+
+protected:
 
     /**
      * Timetag set by parseGGA and parseRMC, used by parseHDT.

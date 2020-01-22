@@ -28,6 +28,7 @@
 #define NIDAS_DYNLD_ISFF_WIND2D_H
 
 #include <nidas/core/SerialSensor.h>
+#include "WindOrienter.h"
 
 namespace nidas {
 
@@ -144,6 +145,10 @@ private:
      * U,V are re-computed from the direction and corrected speed.
      */
     nidas::core::VariableConverter* _speedConverter;
+
+    typedef nidas::dynld::isff::WindOrienter WindOrienter;
+
+    WindOrienter _orienter;
 
     // no copying
     Wind2D(const Wind2D& x);

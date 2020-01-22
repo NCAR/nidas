@@ -18,7 +18,8 @@ ck_calfile
 UTime
 prep
 dausensor
-trh""")
+trh
+gps""")
 
 Import('env')
 SConscript(dirs=dirs, exports='env')

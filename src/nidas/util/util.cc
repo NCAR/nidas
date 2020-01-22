@@ -30,6 +30,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <math.h>
 
 using namespace std;
 
@@ -256,4 +257,13 @@ bool nidas::util::containsNonPrintable(char const * buf, std::size_t len, bool a
     }
 
     return retval;
+}
+
+float nidas::util::dirFromUV(float u, float v){
+    float dir = nanf("");
+    if (!(u==0 && v==0)){
+        dir = atan2f(-u, -v) * 180.0 / M_PI;
+        if (dir < 0.0) dir += 360.0;
+    }
+    return dir;
 }

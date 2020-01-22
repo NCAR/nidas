@@ -14,6 +14,15 @@ case $1 in
     buster)
         image=ncar/nidas-build-debian-armhf:buster_v1
         ;;
+    armel | viper | titan)
+        image=ncar/nidas-build-debian-armel:jessie_v1
+        ;;
+    armhf | rpi2)
+        image=ncar/nidas-build-debian-armhf:jessie_v1
+        ;;
+    armbe | vulcan)
+        image=maclean/fedora25-armbe-cross:ael
+        ;;
 esac
 
 # The nidas tree is the parent of the directory containing this script.

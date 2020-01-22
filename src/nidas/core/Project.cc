@@ -77,7 +77,7 @@ Project::Project():
     _servers(),_lookupLock(),_dsmById(),_sensorMapLock(),
     _sensorById(),_siteByStationNumber(),_siteByName(),
     _usedIds(),_maxSiteNumber(0),_minSiteNumber(0),
-    _parameters(),_dataset()
+    _parameters(),_dataset(),_disableAutoconfig(true)
 {
 #ifdef ACCESS_AS_SINGLETON
     _instance = this;
@@ -711,9 +711,147 @@ LogSchemeFromDOMElement(const xercesc::DOMElement* node)
 }
 
 
+void Project::removeAutoConfig(xercesc::DOMNode* node, bool bumpRecursion)
+{
+    static int recursionLevel = 0;
+    xercesc::DOMNode* pChild;
+    xercesc::DOMElement* pElementNode = dynamic_cast<xercesc::DOMElement*>(node);
+
+    if (bumpRecursion) {
+        // should get here for any invocation within this method
+        ++recursionLevel;
+    }
+    else {
+        // should only happen on first invocation from outside this method
+        if (pElementNode) {
+            XDOMElement xnode(pElementNode);
+            if (xnode.getNodeName() != "project") {
+                throw n_u::InvalidParameterException(
+                    "removeAutoConfig(): ","starting xml node name not \"project\"",
+                        xnode.getNodeName());
+            }
+            else {
+                ILOG(("removeAutoConfig(): Getting off on the right foot. First tag: ")
+                        << xnode.getNodeName());
+            }
+        }
+        else {
+            throw n_u::InvalidParameterException(
+                "removeAutoConfig(): ","starting xml node not element tag",
+                    XMLStringConverter(node->getNodeName()));
+        }
+    }
+
+    VLOG(("removeAutoConfig(): recursion depth is: ") << recursionLevel);
+
+    std::string classValue;
+    int numElementChildren = 0;
+    pChild = node->getFirstChild();
+    if (!pChild) {
+        VLOG(("removeAutoConfig(): Root node has no children. All done. Get outta here."));
+        --recursionLevel;
+        return;
+    }
+
+    for (pChild = node->getFirstChild(); pChild != 0;
+         pChild = pChild->getNextSibling(), ++numElementChildren) {
+        VLOG(("removeAutoConfig(): checking element child #") << numElementChildren+1);
+
+        // nothing interesting to do if not a <serialSensor> element
+        if (pChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
+            // except check its child elements
+            VLOG(("removeAutoConfig(): Node is not an element tag, so recurse down..."));
+            removeAutoConfig(pChild, true);
+            continue;
+        }
+
+        XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pChild));
+        if (xChild.getNodeName() != std::string("serialSensor")) {
+            VLOG(("removeAutoConfig(): Element node is not named serialSensor, so recurse down..."));
+            removeAutoConfig(pChild, true);
+            continue;
+        }
+        else {
+            VLOG(("removeAutoConfig(): found element named: ") << xChild.getNodeName());
+        }
+
+        std::string classValue = xChild.getAttributeValue("class");
+
+        // Remove porttype attributes, since those are autoconfig only.
+        xercesc::DOMElement* sselement =
+            const_cast<xercesc::DOMElement*>(xChild.getElement());
+        XMLStringConverter porttype("porttype");
+        if (sselement && sselement->getAttributeNode(porttype))
+        {
+            sselement->removeAttribute(porttype);
+            ILOG(("removeAutoConfig(): removed porttype from ") << classValue);
+        }
+
+        // landed on a <serialSensor> tag, so if the sensor class is one of the
+        // values called out below, warp it back to DSMSerialSensor.
+        VLOG(("removeAutoConfig(): Looking for class values that need to be reset..."));
+        if (classValue.length()) {
+            if (classValue == "isff.PTB210" || classValue == "isff.PTB220" ) {
+                ILOG(("removeAutoConfig(): Resetting ") << classValue << " to DSMSerialSensor");
+                // Change the class to instantiate to non-autoconfig
+                xChild.setAttributeValue("class", "DSMSerialSensor");
+            }
+            else if (classValue == "isff.GILL2D") {
+                xChild.setAttributeValue("class", "isff.PropVane");
+                ILOG(("removeAutoConfig(): resetting class value to isff.PropVane for: ") << classValue);
+            }
+            else {
+                VLOG(("removeAutoConfig(): Skipping class value: ") << classValue);
+            }
+        }
+        else {
+            VLOG(("removeAutoConfig(): No attributes named \"class\" to check in this serial sensor..."));
+        }
+
+        VLOG(("removeAutoConfig(): Also check element for an <autoconfig> tag to remove"));
+        xercesc::DOMNode* pSensorChild = pChild->getFirstChild();
+        if (!pSensorChild) {
+            VLOG(("removeAutoConfig(): serialSensor element has no sub-children."));
+            continue;
+        }
+
+        int numSubElementChild = 0;
+        for (; pSensorChild != 0;
+               pSensorChild = pSensorChild->getNextSibling(), ++numSubElementChild) {
+            VLOG(("removeAutoConfig(): Checking subElement child #") << numSubElementChild+1);
+            if (pSensorChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
+                removeAutoConfig(pSensorChild, true);
+                continue;
+            }
+
+            XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pSensorChild));
+            if (xChild.getNodeName() != "autoconfig") {
+                removeAutoConfig(pSensorChild, true);
+                continue;
+            }
+
+            pChild->removeChild(pSensorChild);
+            ILOG(("removeAutoConfig(): removed <autoconfig> tag from: ") << classValue);
+            break; // should only be one <autoconfig> tag
+        }
+    }
+    VLOG(("removeAutoConfig(): Done checking at recursion level: ") << recursionLevel);
+    --recursionLevel;
+}
+
+
+
 void Project::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
 {
+    if (_disableAutoconfig) {
+        ILOG(("Project::fromDOMElement(): _disableAutoconfig is true. "
+              "Pull all the <autoconfig> tags out of DOM"));
+        // Rather than change the DOMable API to accept non-const nodes
+        // everywhere, for now just cast it away.
+        removeAutoConfig(const_cast<xercesc::DOMElement*>(node));
+    }
+
     XDOMElement xnode(node);
 #ifdef XML_DEBUG
     cerr << "element name=" << xnode.getNodeName() << endl;

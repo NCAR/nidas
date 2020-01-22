@@ -24,7 +24,6 @@
  ********************************************************************
 */
 
-#include "Wind3D.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/CalFile.h>
@@ -32,6 +31,9 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
+
+#include "Wind3D.h"
+#include "metek.h"
 
 #include <sstream>
 
@@ -47,7 +49,7 @@ Wind3D::Wind3D():
     _allBiasesNaN(false),
     _despike(false),
     _metek(false),
-    _rotator(),_tilter(),
+    _rotator(), _tilter(), _orienter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
     _sampleId(0),
@@ -55,7 +57,7 @@ Wind3D::Wind3D():
     _spdIndex(-1), _dirIndex(-1),
     _noutVals(0),
     _numParsed(0),
-    _oaCalFile(0), _unusualOrientation(false),
+    _oaCalFile(0),
 #ifdef HAVE_LIBGSL
     _atCalFile(0),
     _atMatrix(),
@@ -75,14 +77,6 @@ Wind3D::Wind3D():
     }
     for (int i = 0; i < 4; i++) {
         _ttlast[i] = 0;
-    }
-
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
     }
 }
 
@@ -215,7 +209,7 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
                  */
                 if (cfields.size() > 8)
                 {
-                    setOrientation(cfields[8]);
+                    _orienter.setOrientation(cfields[8], getName());
                 }
             }
             catch(const n_u::EOFException& e)
@@ -252,16 +246,7 @@ void Wind3D::readOffsetsAnglesCalFile(dsm_time_t tt) throw()
 void Wind3D::applyOrientation(dsm_time_t tt, float* uvwt) throw()
 {
     readOffsetsAnglesCalFile(tt);
-
-    if (_unusualOrientation)
-    {
-        float dn[3];
-        for (int i = 0; i < 3; i++)
-        {
-            dn[i] = _sx[i] * uvwt[_tx[i]];
-        }
-        memcpy(uvwt, dn, sizeof(dn));
-    }
+    _orienter.applyOrientation(uvwt);
 }
 
 void Wind3D::offsetsTiltAndRotate(dsm_time_t tt, float* uvwt) throw()
@@ -287,132 +272,9 @@ void Wind3D::validate() throw(n_u::InvalidParameterException)
     checkSampleTags();
 }
 
-void
-Wind3D::
-setOrientation(const std::string& orientation)
-{
-    /* _tx and _sx are used in the calculation of a transformed wind
-     * vector as follows:
-     *
-     * for i = 0,1,2
-     *     dout[i] = _sx[i] * wind_in[_tx[i]]
-     * where:
-     *  dout[0,1,2] are the new, transformed U,V,W
-     *  wind_in[0,1,2] are the original U,V,W in raw sonic coordinates
-     *
-     *  When the sonic is in the normal orientation, +w is upwards
-     *  approximately w.r.t gravity, and +u is wind into the sonic array.
-     */
-    DLOG(("") << getName() << " setting orientation to " << orientation);
-    if (orientation == "normal")
-    {
-        _tx[0] = 0;
-        _tx[1] = 1;
-        _tx[2] = 2;
-        _sx[0] = 1;
-        _sx[1] = 1;
-        _sx[2] = 1;
-        _unusualOrientation = false;
-    }
-    else if (orientation == "down")
-    {
-        /* For flow-distortion experiments, the sonic may be mounted 
-         * pointing down. This is a 90 degree "down" rotation about the
-         * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
-         * flipping the sign of v.  Transform the components so that the
-         * new +w is upwards wrt gravity.
-         * new    raw sonic
-         * u      w
-         * v      -v
-         * w      u
-         */
-        _tx[0] = 2;     // new u is raw sonic w
-        _tx[1] = 1;     // v is raw sonic -v
-        _tx[2] = 0;     // new w is raw sonic u
-        _sx[0] = 1;
-        _sx[1] = -1;    // v is -v
-        _sx[2] = 1;
-        _unusualOrientation = true;
-    }
-    else if (orientation == "lefthanded")
-    {
-        /* If wind direction is measured counterclockwise, convert to 
-         * clockwise (dir = 360 - dir). This is done by negating the v 
-         * component.
-         * new    raw sonic
-         * u      u
-         * v      -v
-         * w      w
-         */
-        _tx[0] = 0;
-        _tx[1] = 1;
-        _tx[2] = 2;
-        _sx[0] = 1;
-        _sx[1] = -1; //v is -v
-        _sx[2] = 1;
-        _unusualOrientation = true;
-    }
-    else if (orientation == "flipped")
-    {
-        /* Sonic flipped over, a 180 deg rotation about sonic u axis.
-         * Change sign on v,w:
-         * new    raw sonic
-         * u      u
-         * v      -v
-         * w      -w
-         */
-        _tx[0] = 0;
-        _tx[1] = 1;
-        _tx[2] = 2;
-        _sx[0] = 1;
-        _sx[1] = -1;
-        _sx[2] = -1;
-        _unusualOrientation = true;
-    }
-    else if (orientation == "horizontal")
-    {
-        /* Sonic flipped on its side. For CSAT3, the labelled face of  the
-         * "junction box" faces up.
-         * Looking "out" from the tower in the -u direction, this is a 90 deg CC
-         * rotation about the u axis, so no change to u,
-         * new w is sonic v (sonic v points up), new v is sonic -w.
-         * new    raw sonic
-         * u      u
-         * v      -w
-         * w      v
-         */
-        _tx[0] = 0;
-        _tx[1] = 2;
-        _tx[2] = 1;
-        _sx[0] = 1;
-        _sx[1] = -1;
-        _sx[2] = 1;
-        _unusualOrientation = true;
-    }
-    else
-    {
-        throw n_u::InvalidParameterException
-            (getName(), "orientation parameter",
-             "must be one string: 'normal' (default), 'down', 'lefthanded', "
-             "'flipped' or 'horizontal'");
-    }
-    float before[3] = { 1.0, 2.0, 3.0 };
-    float after[3] = { 1.0, 2.0, 3.0 };
-    
-    applyOrientation(0, after);
-    DLOG(("sonic wind orientation will convert (%g,%g,%g) to (%g,%g,%g)",
-          before[0], before[1], before[2], after[0], after[1], after[2]));
-}
-
-
-
 void Wind3D::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-    // Set default values of these parameters from the Project if they exist.
-    // The value can be overridden with sensor parameters, below.
-    const Project* project = Project::getInstance();
-
     const Parameter* parameter =
         Project::getInstance()->getParameter("wind3d_horiz_rotation");
     if (parameter) {
@@ -487,18 +349,8 @@ void Wind3D::parseParameters()
                     "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
             setDoTiltCorrection((bool)parameter->getNumericValue(0));
         }
-        else if (parameter->getName() == "orientation") {
-            if (parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1)
-            {
-                setOrientation(project->expandString(parameter->getStringValue(0)));
-            }
-            else
-            {
-                throw n_u::InvalidParameterException
-                    (getName(), parameter->getName(),
-                    "must be a string parameter of length 1");
-            }
+        else if (_orienter.handleParameter(parameter, getName())) {
+            // pass
         }
         else if (parameter->getName() == "shadowFactor") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
@@ -510,7 +362,8 @@ void Wind3D::parseParameters()
 #else
             if (parameter->getNumericValue(0) != 0.0)
                     throw n_u::InvalidParameterException(getName(),
-                        "shadowFactor","must be zero since there is no GSL support");
+                        "shadowFactor",
+                        "must be zero since there is no GSL support");
 #endif
         }
         else if (parameter->getName() == "metek") {
@@ -835,242 +688,11 @@ bool Wind3D::process(const Sample* samp,
         dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
     }
     if (_dirIndex >= 0) {
-        float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
-        if (dr < 0.0) dr += 360.;
-        dout[_dirIndex] = dr;
+        dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
     }
 
     results.push_back(wsamp);
     return true;
 }
 
-WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
-{
-}
-
-double WindRotator::getAngleDegrees() const
-{
-    return _angle * 180.0 / M_PI;
-}
-
-void WindRotator::setAngleDegrees(double val)
-{
-    _angle = val * M_PI / 180.0;
-    _sinAngle = ::sin(_angle);
-    _cosAngle = ::cos(_angle);
-}
-
-void WindRotator::rotate(float* up, float* vp) const
-{
-    float u = (float)( *up * _cosAngle + *vp * _sinAngle);
-    float v = (float)(-*up * _sinAngle + *vp * _cosAngle);
-    *up = u;
-    *vp = v;
-}
-
-WindTilter::WindTilter(): _lean(0.0),_leanaz(0.0),_identity(true),
-	UP_IS_SONIC_W(false)
-{
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-	    _mat[i][j] = (i == j ? 1.0 : 0.0);
-}
-
-void WindTilter::rotate(float* up, float* vp, float* wp) const
-{
-
-    if (_identity) return;
-
-    float vin[3] = {*up,*vp,*wp};
-    double out[3];
-
-    for (int i = 0; i < 3; i++) {
-	out[i] = 0.0;
-	for (int j = 0; j < 3; j++)
-	    out[i] += _mat[i][j] * vin[j];
-    }
-    *up = (float) out[0];
-    *vp = (float) out[1];
-    *wp = (float) out[2];
-}
-
-void WindTilter::computeMatrix()
-{
-    double sinlean,coslean,sinaz,cosaz;
-    double mag;
-
-    _identity = fabs(_lean) < 1.e-5;
-
-    sinlean = ::sin(_lean);
-    coslean = ::cos(_lean);
-    sinaz = ::sin(_leanaz);
-    cosaz = ::cos(_leanaz);
-
-    /*
-     *This is Wf, the flow W axis in the sonic UVW system.
-     */
-    _mat[2][0] = sinlean * cosaz;
-    _mat[2][1] = sinlean * sinaz;
-    _mat[2][2] = coslean;
-
-
-    if (UP_IS_SONIC_W) {
-
-      /* Uf is cross product of Vs (sonic V axis = 0,1,0) with Wf */
-      mag = ::sqrt(coslean*coslean + sinlean*sinlean*cosaz*cosaz);
-
-      _mat[0][0] = coslean / mag;
-      _mat[0][1] = 0.0f;
-      _mat[0][2] = -sinlean * cosaz / mag;
-    }
-    else {
-      {
-	double WfXUs[3];
-        /* cross product of Wf and Us */
-	WfXUs[0] = 0.0f;
-	WfXUs[1] = coslean;
-	WfXUs[2] = -sinlean * sinaz;
-
-        /* Uf is cross of above with Wf */
-	_mat[0][0] = WfXUs[1] * _mat[2][2] - WfXUs[2] * _mat[2][1];
-	_mat[0][1] = WfXUs[2] * _mat[2][0] - WfXUs[0] * _mat[2][2];
-	_mat[0][2] = WfXUs[0] * _mat[2][1] - WfXUs[1] * _mat[2][0];
-
-	mag = ::sqrt(_mat[0][0]*_mat[0][0] + _mat[0][1]*_mat[0][1] + _mat[0][2]*_mat[0][2]);
-	_mat[0][0] /= mag;
-	_mat[0][1] /= mag;
-	_mat[0][2] /= mag;
-      }
-    }
-
-    /*  Vf = Wf cross Uf. */
-    _mat[1][0] = _mat[2][1] * _mat[0][2] - _mat[2][2] * _mat[0][1];
-    _mat[1][1] = _mat[2][2] * _mat[0][0] - _mat[2][0] * _mat[0][2];
-    _mat[1][2] = _mat[2][0] * _mat[0][1] - _mat[2][1] * _mat[0][0];
-}
-
-/*namespace metek holds some metek specific corrections*/
-
-namespace nidas { namespace dynld { namespace isff { namespace metek {
-  /*CorrectTemperature corrects the sonic temperature by using corrections from
-  the raw MeTek values.  This is Risø-R-1658(en) Eqn 20.  '0.0024813895781637717' is
-  a precomputed 1/403.0 value*/
-  void CorrectTemperature(uvwt &x) {
-    x.t += 0.0024813895781637717 * (
-        0.75*(std::pow(x.u, 2.0) + std::pow(x.v, 2.0)) +
-        0.5*std::pow(x.w, 2.0)
-      );
-    }
-
-  /*Remove2DCorrections removes the 2D correction applied during sampling by
-  the MeTek instrument as a first pass correction.  It remains to be known if
-  for PERDIGAO this correction was applied or not. The passed values X is modied
-  in place.*/
-  void Remove2DCorrections(uvwt &x) {
-    double alpha = -std::atan2(x.v, x.u),
-           delta = 1.0 + 0.015*std::sin(3*alpha + M_PI/6), // Risø-R-1658(en) Eqn 9
-           correctedSpeed = std::sqrt(std::pow(x.u, 2.0) + std::pow(x.v, 2.0)); //corrected horizontal speed
-    x.u = x.u/delta; // Risø-R-1658(en) Eqn 6
-    x.v = x.v/delta; //Risø-R-1658(en) Eqn 7
-    x.w = x.w - 0.031*correctedSpeed / delta * (sin(3*alpha) - 1); //Risø-R-1658(en) Eqn 8
-  }
-
-  /*Apply3DCorrect applies any corrections to uvwt, first by removing the applied
-  2D corrections, fixing the temperature, and then altering the 3D parameters to correct for measured wind flow per
-  the procedue given in Risø-R-1659(EN).  The values in x are altered in place.*/
-  void Apply3DCorrect(uvwt &x) {
-    Remove2DCorrections(x); //x.u, x.v, and x.w are now all raw values
-    CorrectTemperature(x); //do this before we apply final 3D corrections
-
-    // rectangular -> polar
-    double s_raw = std::sqrt(std::pow(x.u, 2.0) + std::pow(x.v, 2.0) + std::pow(x.w, 2.0)); //s_raw is the raw wind speed magnitude
-    double alpha_raw = std::atan2(-x.v, -x.u); //wind direction
-    double phi_raw = -std::atan2( x.w, std::sqrt(std::pow(x.u, 2.0) + std::pow(x.v, 2.0))); //tilt angle
-
-    //calcualte the coeffiecnts to the fourier array:
-    double fourierCoeffs[6] = {
-      std::cos(3*alpha_raw),
-      std::sin(3*alpha_raw),
-      std::cos(6*alpha_raw),
-      std::sin(6*alpha_raw),
-      std::cos(9*alpha_raw),
-      std::sin(9*alpha_raw)
-    };
-
-    //Applied corrections to the raw values
-    double speed_0 = s_raw * CalcCorrection(fourierCoeffs, phi_raw, metek::mu_lut), //Eqn 11?
-           alpha_0 = alpha_raw + Degrees2Rad*CalcCorrection(fourierCoeffs, phi_raw, metek::alpha_lut),  //Eqn 12
-           phi_0 = phi_raw + Degrees2Rad*CalcCorrection(fourierCoeffs, phi_raw, metek::phi_lut); //Eqn 13
-
-    //with corrections, convert polar -> rectangular
-    x.u = -speed_0 * std::cos(alpha_0) * std::cos(phi_0); //Eqn 14
-    x.v = -speed_0 * std::sin(alpha_0) * std::cos(phi_0); //Eqn 15
-    x.w = -speed_0 * std::sin(phi_0); //Eqn 16
-
-    //If u, v, or w are NAN, go ahead and NAN out all the parameters
-    // including temperature which does depending quite heavily on u, v, & w
-    if (isnan(x.u) || isnan(x.v) || isnan(x.w)) {
-        x.u = NAN;
-        x.v = NAN;
-        x.w = NAN;
-        x.t = NAN;
-    }
-  }
-  
-  /*Apply3DCorrect applies Metek corrections to a single sample.  It corrects teh values in place*/
-  void Apply3DCorrect(float uvwtd[5]) {
-    metek::uvwt samp;
-    samp.u = uvwtd[0]; samp.v = uvwtd[1]; samp.w = uvwtd[2]; samp.t = uvwtd[3];
-    Apply3DCorrect(samp);
-    uvwtd[0] = samp.u; uvwtd[1] = samp.v; uvwtd[2] = samp.w; uvwtd[3] = samp.t;
-  }
-/*CalcCorrection returns a correction value utilizing tables given in Risø-R-1659(EN).
-  fourierCoeffs is a double[6] array which is composed of the following values:
-    double fourierCoeffs[6] = {
-      std::cos(3*alpha),
-      std::sin(3*alpha),
-      std::cos(6*alpha),
-      std::sin(6*alpha),
-      std::cos(9*alpha),
-      std::sin(9*alpha),
-    };
-  where alpha is the wind direction, in radians.  This fourier array can be used for each
-  LUT, and should be precomputed by the called and passed here.  phi is the tilt angle of
-  the wind, in degrees, that is used to linearly extrapolated based on table values given in
-  Risø-R-1659(EN).  The returned value is a extrapolated value that is not corrected for units -
-  caller must correct the values in the table directly (eg table values must be in degrees where
-  corrections applied must be in radians, etc).
-
-  This used to returns a NAN if the incoming phi is greater than 45 degrees or less than 
-  -50 degrees.  As part of the PERDIGAO data processing, there are large periods where phi
-  is much higher or lower than -45  and 50.  In those case, this nails the correction to the
-  upper or lower limit.
-  */
-  double CalcCorrection(double fourierCoeffs[6], double phi, const double lut[20][7]) {
-    const double maxTiltAngle = 45 * Degrees2Rad; // 45 Degrees
-    const double minTiltAngle = -50 * Degrees2Rad; // -50 Degrees
-    const double radsPerStep = 5 * Degrees2Rad; //5 degrees per step
-    //if (phi > maxTiltAngle || phi < minTiltAngle) return NAN; //old behaviour
-    if (phi > maxTiltAngle) phi = maxTiltAngle; //!! 'horrizontal' Wind doing up!
-    if (phi < minTiltAngle) phi = minTiltAngle; //!! ' likewise, down!
-    
-    /*
-    index:   N                        N+1
-             |<------radsPerStep------>|
-    partial: 0                        1.0
-    */
-        int index = (int)((phi - minTiltAngle)/radsPerStep);
-        double partial = (phi - minTiltAngle)/radsPerStep - index;
-    /*It is a fourier expansion coefficients:  normally there would be 4 pairs, but since sin(0) === 0,
-    The sin(alpha) angle term is dropped from the 0th term.  Likewise, the cos(0) is always one, meaning
-    that we just return the coefficient. With this, we only have 7 terms in the table. */
-    return                      (1 - partial) * lut[index][0] + partial * lut[index+1][0] +
-          fourierCoeffs[0] * ( (1 - partial) * lut[index][1] + partial * lut[index+1][1]) +
-          fourierCoeffs[1] * ( (1 - partial) * lut[index][2] + partial * lut[index+1][2]) +
-          fourierCoeffs[2] * ( (1 - partial) * lut[index][3] + partial * lut[index+1][3]) +
-          fourierCoeffs[3] * ( (1 - partial) * lut[index][4] + partial * lut[index+1][4]) +
-          fourierCoeffs[4] * ( (1 - partial) * lut[index][5] + partial * lut[index+1][5]) +
-          fourierCoeffs[5] * ( (1 - partial) * lut[index][6] + partial * lut[index+1][6]);
-  }
-}}}}; //namespace nidas; dynld; isff; metek;
 

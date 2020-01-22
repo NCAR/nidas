@@ -4,11 +4,12 @@
 Import('env')
 env = env.Clone()
 env.Require('nidas')
+env.NidasRuntimeENV()
 
 ck_calfile = env.NidasApp('ck_calfile')
 
 depends = ["run_test.sh",ck_calfile]
-runtest = env.Command("cftest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+runtest = env.Command("cftest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

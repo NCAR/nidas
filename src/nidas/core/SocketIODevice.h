@@ -59,7 +59,7 @@ public:
      * is thrown.
      */
     void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /*
     * Perform an ioctl on the device. This is supported on sockets,
@@ -93,7 +93,7 @@ protected:
     /**
      * The type of the destination address, AF_INET or AF_UNIX.
      */
-    int _addrtype;	
+    int _addrtype;
 
     /**
      * Destination host name from sensor name.

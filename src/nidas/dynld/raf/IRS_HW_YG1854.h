@@ -33,7 +33,8 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * ARINC IRS label processor.
+ * ARINC IRS label processor.  The YG1854 Laseref III was used in the C130
+ * up until 2010.  The C130 then received new avionics and a laseref V.
  *
  * Taken from the Honeywell installation manual for the
  * YG1854 LASERREF SM IRS/GPIRS        (pages 640-650).

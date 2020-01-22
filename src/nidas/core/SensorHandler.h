@@ -78,7 +78,7 @@ namespace nidas { namespace core {
  * When an incoming socket connection is accepted on
  * RemoteSerialListener, a RemoteSerialConnection is
  * established, which first requests the name of a
- * DSMSensor on the connected socket. If that sensor 
+ * DSMSensor on the connected socket. If that sensor
  * is found then data are then passed back and forth
  * between the socket and the DSMSensor. This data path
  * is separate from the normal Sample data path.  It
@@ -184,17 +184,17 @@ public:
     void incrementFullBufferReads(const DSMSensor* sensor);
 
 
-    /** 
+    /**
      * Tell the SensorHandler that one or more sensor timeouts have changed.
      */
-    void updateTimeouts() 
+    void updateTimeouts()
     {
         _pollingChanged = true;
     }
 
 private:
 
-    class PolledDSMSensor : public Polled 
+    class PolledDSMSensor : public Polled
     {
     public:
         PolledDSMSensor(DSMSensor* sensor,SensorHandler* handler)
@@ -236,7 +236,7 @@ private:
          * The SensorHandler will call this method of each opened
          * sensor at the interval specified previously in the call to
          * setupTimeouts(int), or perhaps somewhat less often, due
-         * to normal overhead. 
+         * to normal overhead.
          * If handlePollEvents(events) with an event mask of EPOLLEDIN
          * has not bee called since the last call to checkTimeout,
          * then increment _nTimeoutChecks.
@@ -246,7 +246,7 @@ private:
         bool checkTimeout();
 
         /**
-         * Remove this DSMSensor from those being polled, 
+         * Remove this DSMSensor from those being polled,
          * then call its close() method.
          */
         void close() throw(nidas::util::IOException);
@@ -358,7 +358,7 @@ private:
 
     /**
      * Called when something has changed in our collection
-     * of sensors. Mainly this maintains the set of 
+     * of sensors. Mainly this maintains the set of
      * file descriptors used by the epoll() system functions.
      */
     void handlePollingChange();

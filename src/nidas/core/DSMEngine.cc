@@ -56,12 +56,12 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 
-#include <unistd.h>  // for getopt(), optind, optarg
+#include <unistd.h>
 
-#ifdef HAVE_SYS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H
 #include <sys/capability.h>
 #include <sys/prctl.h>
-#endif 
+#endif
 
 using namespace nidas::core;
 using namespace std;
@@ -76,14 +76,26 @@ int defaultLogLevel = n_u::LOGGER_NOTICE;
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
+/*
+ *  Force _disableAutoconfig true for master branch since it is not yet merged with
+ *  autoconfig branch.
+ */
 DSMEngine::DSMEngine():
-        _externalControl(false),_disableAutoconfig(false),_runState(DSM_RUNNING), 
-        _command(DSM_RUN),_syslogit(true),_configFile(),_configSockAddr(), 
-        _project(0), _dsmConfig(0),_selector(0),_pipeline(0), 
-        _statusThread(0),_xmlrpcThread(0), 
-        _outputSet(),_outputMutex(), 
-        _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self()), 
-        _app("dsm")
+    _externalControl(false),_disableAutoconfig(false),_runState(DSM_RUNNING),
+    _command(DSM_RUN),_syslogit(true),_configFile(),_configSockAddr(),
+    _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
+    _statusThread(0),_xmlrpcThread(0),
+    _outputSet(),_outputMutex(),
+    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self()),
+    _app("dsm"),
+    ExternalControl
+    ("-r,--remote", "",
+     "Start XML RPC thread to enable to remote commands."),
+    DisableAutoConfig
+    ("-n,--no-autoconfig", "",
+     "Disable autoconfig by removing all <autoconfig> tags from the DOM\n"
+     "before invoking fromDOMElement() and setting xml class names back\n"
+     "to DSMSerialSensor or other original value")
 {
     try {
         _configSockAddr = n_u::Inet4SocketAddress(
@@ -130,9 +142,17 @@ int DSMEngine::main(int argc, char** argv) throw()
 {
     DSMEngine engine;
 
-    int res = engine.parseRunstring(argc,argv);
-
-    if (res != 0) return res;
+    int res = 0;
+    try {
+        if ((res = engine.parseRunstring(argc, argv)) != 0)
+            return res;
+    }
+    catch (const NidasAppException& ex)
+    {
+        cerr << ex.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
 
     // If the user has not selected -d (debug), initLogger will fork
     // to the background, using daemon(). After the fork, threads other than this
@@ -189,22 +209,13 @@ int DSMEngine::main(int argc, char** argv) throw()
     return res;
 }
 
-int DSMEngine::parseRunstring(int argc, char** argv) throw()
+int DSMEngine::parseRunstring(int argc, char** argv)
 {
-    NidasAppArg ExternalControl
-        ("-r,--remote", "",
-         "Start XML RPC thread to enable to remote commands.");
-    NidasAppArg DisableAutoConfig
-        ("-n,--no-autoconfig", "", 
-         "Disable autoconfig by removing all "
-         "<autoconfig> tags from the DOM \n"
-         "before invoking fromDOMElement()"
-         "and setting xml class names back \n"
-         "to DSMSerialSensor or other original value");
-
-_app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
-                     _app.Username | _app.Hostname | _app.DebugDaemon |
-                     ExternalControl | DisableAutoConfig);
+    _app.enableArguments(_app.Help |
+                         _app.Username | _app.Hostname |
+                         _app.DebugDaemon | _app.PidFile |
+                         ExternalControl | DisableAutoConfig |
+                         _app.loggingArgs() | _app.Version);
 
     ArgVector args = _app.parseArgs(argc, argv);
     if (_app.helpRequested()) 
@@ -597,7 +608,7 @@ void DSMEngine::waitForSignal(int timeoutSecs)
     if (sig < 0) {
         if (errno == EAGAIN) return;    // timeout
         // if errno == EINTR, then the wait was interrupted by a signal other
-        // than those that are unblocked here in _signalMask. This 
+        // than those that are unblocked here in _signalMask. This
         // must have been an unblocked and non-ignored signal.
         if (errno == EINTR) PLOG(("DSMEngine::waitForSignal(): unexpected signal"));
         else PLOG(("DSMEngine::waitForSignal(): ") << n_u::Exception::errnoToString(errno));
@@ -775,11 +786,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 {
     _project = new Project();
 
-    if (_disableAutoconfig) {
-        ILOG(("DSMEngine::initialize(): _disableAutoconfig is true. Pull all the <autoconfig> tags out of DOM"));
-        xercesc::DOMNode* node = projectDoc->getDocumentElement();
-        removeAutoConfigObjects(node);
-    }
+    _project->disableAutoconfig(_disableAutoconfig);
 
     _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
@@ -791,7 +798,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     if (!_dsmConfig) 
     {
         throw n_u::InvalidParameterException("dsm","no match for hostname",
-                hostname);
+                                             hostname);
     }
 }
 
@@ -874,9 +881,8 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
         output->close();
     } 
     catch (const n_u::IOException& ioe) {
-        n_u::Logger::getInstance()->log(LOG_ERR,
-        "DSMEngine: error closing %s: %s",
-        output->getName().c_str(),ioe.what());
+        ELOG(("DSMEngine: error closing ") << output->getName()
+            << ioe.what());
     }
 
     SampleOutput* orig = output->getOriginal();

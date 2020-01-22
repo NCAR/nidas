@@ -190,6 +190,29 @@ void ATIK_Sonic::removeShadowCorrection(dsm_time_t, float* ) throw()
     return;
 }
 
+
+namespace {
+    /**
+     * Fill in the uvwt array with the scaled fields from the sonic,
+     * filling in missing values for fields which were not parsed or which
+     * are out of range.
+     **/
+    template <typename T>
+    inline void
+    fillUVWT(float* uvwt, unsigned int nvals, T* pdata)
+    {
+        for (unsigned int i = 0; i < 4; i++) {
+            if (i < nvals && pdata[i] >= -9998.0 && pdata[i] <= 9998.0) {
+                uvwt[i] = pdata[i] / 100.0;
+            }
+            else {
+                uvwt[i] = floatNAN;
+            }
+        }
+    }
+}
+
+
 bool ATIK_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
@@ -210,26 +233,16 @@ bool ATIK_Sonic::process(const Sample* samp,
         timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
-        const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+        const float* pdata;
+        pdata = static_cast<const float*>(psamp->getConstVoidDataPtr());
         const float* pend = pdata + nvals;
 
-        int i;
-        for (i = 0; i < 3; i++) {
-            int ix = _tx[i];
-            if (ix < (signed) nvals) {
-                float f = pdata[ix];
-                if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
-                else uvwt[i] = _sx[i] * f / 100.0;
-            }
-            else uvwt[i] = floatNAN;
-        }
-        // Sonic temperature, i=3
-        if (i < (signed) nvals) {
-            float f = pdata[i];
-            if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
-            else uvwt[i] = f / 100.0;
-        }
-        else uvwt[i] = floatNAN;
+        unsigned int i;
+
+        fillUVWT(uvwt, nvals, pdata);
+
+        // Now we have an array of uvw which can be oriented.
+        _orienter.applyOrientation(uvwt);
 
         pdata += 4;
         int miss_sum = 0;
@@ -254,37 +267,26 @@ bool ATIK_Sonic::process(const Sample* samp,
     else {
         // binary output into a char sample.
         unsigned int nvals = samp->getDataLength() / sizeof(short);
-        const short* pdata = (const short*) samp->getConstVoidDataPtr();
+        const short* pdata;
+        pdata = static_cast<const short*>(samp->getConstVoidDataPtr());
 
         timetag = samp->getTimeTag();
         if (_ttadjust)
             timetag = _ttadjust->adjust(timetag);
 
-        int i;
-        for (i = 0; i < 3; i++) {
-            int ix = _tx[i];
-            if (ix < (signed) nvals) {
-#if __BYTE_ORDER == __BIG_ENDIAN
-                short f = bswap_16(pdata[ix]);
-#else
-                short f = pdata[ix];
-#endif
-                if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
-                else uvwt[i] = _sx[i] * (float) f / 100.0;
+        // Binary values for uvwt may need to be swapped.
+        if (__BYTE_ORDER == __BIG_ENDIAN)
+        {
+            unsigned int i;
+            short* ncdata = const_cast<short*>(pdata);
+            for (i = 0; i < 4 && i < nvals; i++) {
+                ncdata[i] = bswap_16(ncdata[i]);
             }
-            else uvwt[i] = floatNAN;
         }
-        // Sonic temperature, i=3
-        if (i < (signed) nvals) {
-#if __BYTE_ORDER == __BIG_ENDIAN
-            short f = bswap_16(pdata[i]);
-#else
-            short f = pdata[i];
-#endif
-            if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
-            else uvwt[i] = (float) f / 100.0;
-        }
-        else uvwt[i] = floatNAN;
+        // Now we can fill in uvwt from pdata and apply orientation.
+        fillUVWT(uvwt, nvals, pdata);
+        _orienter.applyOrientation(uvwt);
+
         pdata += 4;
     }
 
@@ -341,9 +343,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
 
     if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
-        float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
-        if (dr < 0.0) dr += 360.;
-        dout[_dirIndex] = dr;
+        dout[_dirIndex] = n_u::dirFromUV(dout[0], dout[1]);
     }
 
     if (_diagIndex >= 0) dout[_diagIndex] = diag;

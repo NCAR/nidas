@@ -295,6 +295,16 @@ public:
         return _dataset;
     }
 
+    /**
+     * When true, autoconfig elements in the config document are removed
+     * before realizing the Project with fromDOMElement().
+     **/
+    void
+    disableAutoconfig(bool disable)
+    {
+        _disableAutoconfig = disable;
+    }
+
 protected:
     /**
      * Add a parameter to this Project. Project
@@ -307,6 +317,13 @@ protected:
     }
 
 private:
+
+    /**
+     * Scan the DOM and pull out any <autoconfig> tags, as well as change
+     * the autoconfig classes back to DSMSerialSensor, or isff.PropVane as
+     * needed, and remove porttype attributes.
+     */
+    void removeAutoConfig(xercesc::DOMNode* node, bool bumpRecursion=false);
 
 #ifdef ACCESS_AS_SINGLETON
     static Project* _instance;
@@ -379,6 +396,8 @@ private:
      * The current dataset.
      */
     Dataset _dataset;
+
+    bool _disableAutoconfig;
 
     /**
      * Copy not supported. The main problem with a supporting
