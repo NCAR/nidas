@@ -168,6 +168,10 @@ printf("--------------- Validate ----------------\n");
                     bipolar = param->getNumericValue(0) != 0;
                 }
 /*
+ * Currently channels must be consecutive, no gaps.  If you want to be able to
+ * specify channel number then engage this and modilfy code to have list of
+ * channel #'s.  As is, you may skip a channel by calling it DUMMY and parsing
+ * it.
                 else if (pname == "channel") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),pname,"no value");
