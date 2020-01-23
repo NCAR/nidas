@@ -343,6 +343,10 @@ parse(const ArgVector& argv, int* argi)
             _value = expectArg(argv, ++i);
             _bsf.setRules(_value);
         }
+        else
+        {
+            _bsf.setFilterBadSamples(true);
+        }
         result = true;
     }
     if (argi)

@@ -17,8 +17,7 @@
 namespace nidas { namespace core {
 
 /**
- * Implement rules for filtering bad samples.  The parameters are public to
- * make this object easy and efficient to embed in other classes.
+ * Implement rules for filtering bad samples.
  **/
 class BadSampleFilter
 {
@@ -45,6 +44,10 @@ public:
      **/
     void setFilterBadSamples(bool val);
 
+    /**
+     * Return true if bad sample filtering has been enabled.  See
+     * setFilterBadSamples().
+     **/
     bool filterBadSamples() const
     {
         return _filterBadSamples;

@@ -45,6 +45,8 @@ using namespace std;
 namespace n_u = nidas::util;
 using nidas::util::LogScheme;
 using nidas::util::UTime;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 
 NIDAS_CREATOR_FUNCTION(SampleInputStream)
 
@@ -65,21 +67,23 @@ BlockStats(bool goodblock, size_t startblock):
     last_good_sample_size(0)
 {}
 
-void
+bool
 BlockStats::
 addGoodSample(Sample* samp, long long offset)
 {
     // Reset a bad or empty block on a good sample.
+    bool started = false;
     if (!good || !nbytes)
     {
         *this = BlockStats(true, offset);
         start_time = samp->getTimeTag();
-        ILOG(("setting good block start to ") << ftime(start_time));
+        started = true;
     }
     end_time = samp->getTimeTag();
     ++nsamples;
     last_good_sample_size = samp->getDataByteLength();
     nbytes += samp->getHeaderLength() + last_good_sample_size;
+    return started;
 }
 
 
@@ -338,6 +342,12 @@ void SampleInputStream::init() throw()
 
 void SampleInputStream::close() throw(n_u::IOException)
 {
+    // Need two log contexts here, one for warnings when filtering
+    // is active and one for debug when there are no bad samples.
+    static LogContext wlog(LOG_WARNING);
+    static LogContext dlog(LOG_DEBUG);
+    LogContext* log =
+        (_bsf.filterBadSamples() || _badSamples != 0) ? &wlog : &dlog;
     if (_iostream)
     {
         // Finish tallying up the last block.  It would make more sense to
@@ -356,11 +366,11 @@ void SampleInputStream::close() throw(n_u::IOException)
             {
                 _block.endBadBlock(0, offset);
             }
-            WLOG(("") << _block);
+            log->log() << _block;
         }
-        WLOG(("") << getName() << ": Total " << _badSamples << " bad bytes.");
-        WLOG(("") << getName() << ": Total " << _goodSamples
-             << " good samples (" << (offset - _badSamples) << " bytes)");
+        log->log() << getName() << ": Total " << _badSamples << " bad bytes.";
+        log->log() << getName() << ": Total " << _goodSamples
+             << " good samples (" << (offset - _badSamples) << " bytes)";
         delete _iostream;
         _iostream = 0;
     }
@@ -677,7 +687,20 @@ sampleFromHeader() throw()
             // First good sample after a bad block, so log the bad block.
             WLOG(("") << _block);
         }
-        _block.addGoodSample(samp, offset);
+        if (_block.addGoodSample(samp, offset))
+        {
+            // This is not generally useful information, so limit it to debug
+            // unless filtering is on or there have been bad blocks.
+            static LogContext dlog(LOG_DEBUG);
+            static LogContext wlog(LOG_WARNING);
+            LogContext* log =
+                (_bsf.filterBadSamples() || _badSamples) ? &wlog : &dlog;
+            if (log->active())
+            {
+                log->log() << "setting good block start to "
+                        << ftime(_block.start_time);
+            }
+        }
     }
     return samp;
 }

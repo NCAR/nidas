@@ -69,11 +69,12 @@ struct BlockStats {
 
     /**
      * On a good sample, reset this block to a good block if not already,
-     * and update the last good sample and the size of the block.  Call
-     * this method on each good sample so that when a bad header appears,
-     * all the stats in this block are already correct.
+     * and update the last good sample and the size of the block.  Call this
+     * method on each good sample so that when a bad header appears, all the
+     * stats in this block are already correct.  Return true if this is the
+     * start of a new good block.
      **/
-    void
+    bool
     addGoodSample(nidas::core::Sample* samp, long long offset);
 
     /**
