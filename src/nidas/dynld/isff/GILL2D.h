@@ -283,7 +283,7 @@ public:
 
 protected:
     void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
-    bool compareScienceParameter(GILL2D_COMMANDS cmd, const char* match);
+    bool compareScienceParameter(GILL2D_COMMANDS cmd, const std::string& match);
     void printTargetConfig(n_c::PortConfig target)
     {
         target.print();

@@ -30,6 +30,8 @@
 #include <nidas/util/ParseException.h>
 #include <nidas/util/IosFlagSaver.h>
 
+#include <vector>
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 #include <limits>
@@ -242,13 +244,67 @@ GILL2D::~GILL2D()
     delete [] _desiredScienceParameters;
 }
 
+namespace {
+
+    // The rate is given in hertz, so it must be converted to the right
+    // argument for the P command like so:
+    // P1 ==> 1 Hz
+    // P2 ==> 4 Hz
+    // P3 ==> 2 Hz
+    // P4 ==> 5 Hz
+    // P5 ==> 8 Hz
+    // P6 ==> 10 Hz
+    struct GillOutputRate {
+        int rate;
+        const char* pcode;
+    } RATES[] = {
+        { 1, "1" },
+        { 2, "3" },
+        { 4, "2" },
+        { 5, "4" },
+        { 8, "5" },
+        { 10, "6" }
+    };
+    typedef std::vector<GillOutputRate> gill_outputs_v;
+    gill_outputs_v GillOutputs(RATES, 
+                            RATES+sizeof(RATES)/sizeof(RATES[0]));
+
+
+    struct match_rate
+    {
+        int rate;
+        match_rate(int _rate) : rate(_rate) {}
+        bool operator()(const GillOutputRate& gor)
+        {
+            return gor.rate == rate;
+        }
+    };
+
+    struct match_code
+    {
+        std::string code;
+        match_code(const std::string& _code) : code(_code) {}
+        bool operator()(const GillOutputRate& gor)
+        {
+            return gor.pcode == code;
+        }
+    };
+}
 
 bool
 GILL2D::
 validOutputRate(unsigned int rate)
 {
-    return (rate == 1 || rate == 2 || rate == 4 ||
-            rate == 5 || rate == 8 || rate == 10);
+    gill_outputs_v::iterator it = 
+    std::find_if(GillOutputs.begin(), GillOutputs.end(), match_rate(rate));
+    return it != GillOutputs.end();
+
+    // for (unsigned int i = 0; i < GillOutputs.size(); ++i)
+    // {
+    //     if (GillOutputs[i].rate == rate)
+    //         return true;
+    // }
+    // return false;
 }
 
 
@@ -286,31 +342,27 @@ std::string
 GILL2D::
 outputRateCommand(unsigned int rate)
 {
-    // The rate is given in hertz, so it must be converted to the right
-    // argument for the P command like so:
-    // P1 ==> 1 Hz
-    // P2 ==> 4 Hz
-    // P3 ==> 2 Hz
-    // P4 ==> 5 Hz
-    // P5 ==> 8 Hz
-    // P6 ==> 10 Hz
-    switch (rate)
+    gill_outputs_v::iterator it;
+    it = std::find_if(GillOutputs.begin(), GillOutputs.end(), match_rate(rate));
+    if (it != GillOutputs.end())
     {
-    case 1:
-        return "P1";
-    case 2:
-        return "P3";
-    case 4:
-        return "P2";
-    case 5:
-        return "P4";
-    case 8:
-        return "P5";
-    case 10:
-        return "P6";
-    default:
-        return "";
+        return std::string("P") + it->pcode;
     }
+    return "";
+}
+
+bool
+pcodeToOutputRate(const std::string& pcode, int& rate)
+{
+    gill_outputs_v::iterator it;
+    it = std::find_if(GillOutputs.begin(), GillOutputs.end(), match_code(pcode));
+    if (it != GillOutputs.end())
+    {
+        rate = it->rate;
+        return true;
+    }
+    WLOG(("") << "Could not convert P code to a rate: " << pcode);
+    return false;
 }
 
 
@@ -666,105 +718,118 @@ bool
 GILL2D::
 parseConfigResponse(const std::string& respStr)
 {
-    bool scienceParametersOK = false;
-
     cmatch results;
     bool regexFound = regex_search(respStr.c_str(), results, GILL2D_COMPARE_REGEX);
     bool responseOK = regexFound && results[0].matched;
     if (!responseOK) {
         DLOG(("GILL2D::checkScienceParameters(): regex failed"));
-        return scienceParametersOK;
+        return false;
     }
 
-    else {
-        if (results[A_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(A_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(A_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(A_VAL_CAPTURE_IDX)));
-        }
+    // If a parameter is in the output, update the current metadata, but don't indicate that all is ok
+    // unless all the parameters were found in the output and match the desired parameters.
+    int scienceParametersOK = 0;
+    int checked = 0;
 
-        if (scienceParametersOK && results[G_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking sample averaging time(G) with argument: ") << results.str(G_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(G_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(G_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[A_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(A_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(A_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(A_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[H_FIELD_CAPTURE_IDX].matched) {
-            VLOG(("Checking heater status(H) with argument: ") << results.str(H_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_HEATING_CMD, results.str(H_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(H_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[G_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking sample averaging time(G) with argument: ") << results.str(G_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(G_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(G_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[K_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking NMEA string(K) with argument: ") << results.str(K_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(K_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(K_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[H_FIELD_CAPTURE_IDX].matched) {
+        VLOG(("Checking heater status(H) with argument: ") << results.str(H_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_HEATING_CMD, results.str(H_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(H_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[L_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking message termination(L) with argument: ") << results.str(L_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(L_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(L_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[K_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking NMEA string(K) with argument: ") << results.str(K_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(K_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(K_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[M_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking message stream format(M) with argument: ") << results.str(M_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(M_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(M_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[L_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking message termination(L) with argument: ") << results.str(L_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(L_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(L_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[N_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking node address(N) with argument: ") << results.str(N_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(N_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(N_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[M_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking message stream format(M) with argument: ") << results.str(M_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(M_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(M_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[O_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking output field format(O) with argument: ") << results.str(O_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(O_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(O_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[N_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking node address(N) with argument: ") << results.str(N_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(N_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(N_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[P_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking output rate(P) with argument: ") << results.str(P_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, results.str(P_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, results.str(P_VAL_CAPTURE_IDX)));
-        }
+    if (++checked && results[O_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking output field format(O) with argument: ") << results.str(O_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(O_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(O_VAL_CAPTURE_IDX)));
+    }
 
-        if (scienceParametersOK && results[U_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking wind speed units(U) with argument: ") << results.str(U_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(U_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(U_VAL_CAPTURE_IDX)));
-        }
-
-        if (scienceParametersOK && results[V_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking vertical output pad(V) with argument: ") << results.str(V_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(V_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(V_VAL_CAPTURE_IDX)));
-        }
-
-        if (scienceParametersOK && results[X_VAL_CAPTURE_IDX].matched) {
-            VLOG(("Checking sensor alignment(X) with argument: ") << results.str(X_VAL_CAPTURE_IDX));
-            scienceParametersOK = compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(X_VAL_CAPTURE_IDX).c_str());
-            updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(X_VAL_CAPTURE_IDX)));
+    if (++checked && results[P_VAL_CAPTURE_IDX].matched) {
+        string pcode = results.str(P_VAL_CAPTURE_IDX);
+        VLOG(("Checking output rate(P) with argument: ") << pcode);
+        // Translate the P number into an actual rate in Hz.
+        int rate = 0;
+        if (pcodeToOutputRate(pcode, rate))
+        {
+            std::ostringstream out;
+            out << rate;
+            updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, out.str()));
+            // We need to compare the rate in Hz, not the pcode.
+            scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, out.str());
         }
     }
-    return scienceParametersOK;
+
+    if (++checked && results[U_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking wind speed units(U) with argument: ") << results.str(U_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(U_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(U_VAL_CAPTURE_IDX)));
+    }
+
+    if (++checked && results[V_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking vertical output pad(V) with argument: ") << results.str(V_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(V_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(V_VAL_CAPTURE_IDX)));
+    }
+
+    if (++checked && results[X_VAL_CAPTURE_IDX].matched) {
+        VLOG(("Checking sensor alignment(X) with argument: ") << results.str(X_VAL_CAPTURE_IDX));
+        scienceParametersOK += compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(X_VAL_CAPTURE_IDX));
+        updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(X_VAL_CAPTURE_IDX)));
+    }
+    return scienceParametersOK == checked;
 }
 
 
-bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const char* match)
+bool GILL2D::compareScienceParameter(GILL2D_COMMANDS cmd, const std::string& match)
 {
     n_c::SensorCmdData desiredCmd = getDesiredCmd(cmd);
     VLOG(("Desired command: ") << desiredCmd.cmd);
     VLOG(("Searched command: ") << cmd);
 
     int arg;
-    std::stringstream argStrm(match);
+    std::istringstream argStrm(match);
     argStrm >> arg;
 
-    VLOG(("Arguments match: ") << (desiredCmd.arg.intArg == arg ? "TRUE" : "FALSE"));
-    return (desiredCmd.arg.intArg == arg);
+    bool matched = desiredCmd.arg.intArg == arg;
+    VLOG(("") << "desired=" << desiredCmd.arg.intArg 
+              << ", found=" << arg
+              << ", arguments match: " << (matched ? "TRUE" : "FALSE"));
+    return matched;
 }
 
 n_c::SensorCmdData GILL2D::getDesiredCmd(GILL2D_COMMANDS cmd) {
