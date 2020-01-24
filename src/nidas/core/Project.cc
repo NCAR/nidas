@@ -77,7 +77,7 @@ Project::Project():
     _servers(),_lookupLock(),_dsmById(),_sensorMapLock(),
     _sensorById(),_siteByStationNumber(),_siteByName(),
     _usedIds(),_maxSiteNumber(0),_minSiteNumber(0),
-    _parameters(),_dataset(),_disableAutoconfig(true)
+    _parameters(),_dataset(),_disableAutoconfig(false)
 {
 #ifdef ACCESS_AS_SINGLETON
     _instance = this;
