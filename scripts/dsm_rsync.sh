@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEMP=`getopt --long -o "ufi:a:t:h:" "$@"`
+TEMP=`getopt --long -o "ufi:a:t:h:s:" "$@"`
 eval set -- "$TEMP"
 
 function showHelp()
@@ -10,6 +10,7 @@ function showHelp()
     echo "usage: ./dsm_rsync -t tunnelname -h targetname -a [armhf|armel]<ret>"
     echo "       ./dsm_rsync --h<ret>"
     echo
+    echo "-s: top of nidas installation directory to be copied."
     echo "-i: ip address for a local network."
     echo "-a: architecture of files to be xferred. Associates the correct destination directory."
     echo "-t: tunneled xfer. Causes tunnel to be built if it doesn't exist."
@@ -23,15 +24,12 @@ function showHelp()
     echo "This will work a lot more efficiently, if the user has set up an ssh"
     echo "config file in ~/.ssh/config, which details various tunnels and target "
     echo "hosts."
-    echo
-    echo "ssh config example:"
-    echo
-    [[ -e ~/.ssh/config ]] && cat ~/.ssh/config
     exit 0
 }
 
 force=0
 arch=""
+source="/opt/nidas"
 
 echo "Number of args: $#"
 echo "First arg: $1"
@@ -67,6 +65,11 @@ while true ; do
         -a )
             echo "-a arch = $2"
             arch=$2
+            shift 2
+	    ;;
+        -s )
+            echo "-s source = $2"
+            source=$2
             shift 2
         ;;
         -f )
@@ -140,11 +143,11 @@ fi
 
 echo "Now running rsync ops..."
 
-rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/bin root@$target:/opt/nidas
+rsync $opts "ssh $tunnelPortArg" --progress $source/bin root@$target:/opt/nidas
 # put the libs in the arch-specific directory. In this case, its the RPi w/the hardware float coproc.
 ssh $tunnelPortArg root@$target mkdir -p /opt/nidas/lib/$archlib 
-rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/lib/*     root@$target:/opt/nidas/lib/$archlib
-rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/firmware  root@$target:/opt/nidas
-rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/include   root@$target:/opt/nidas
-rsync $opts "ssh $tunnelPortArg" --progress /opt/nidas/share     root@$target:/opt/nidas
+rsync $opts "ssh $tunnelPortArg" --progress $source/lib/     root@$target:/opt/nidas/lib/$archlib
+rsync $opts "ssh $tunnelPortArg" --progress $source/firmware  root@$target:/opt/nidas
+rsync $opts "ssh $tunnelPortArg" --progress $source/include   root@$target:/opt/nidas
+rsync $opts "ssh $tunnelPortArg" --progress $source/share     root@$target:/opt/nidas
 
