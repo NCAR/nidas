@@ -114,6 +114,12 @@ protected:
      */
     void readCalFile(dsm_time_t tt) throw();
 
+    /**
+     * Apply A2D calibrations.  The A2D cal file should have 4 coefficients per
+     * channel.
+     */
+    float applyCalibration(float value, const std::vector<float> &cals) const;
+
 
     /**
      * Number of variables to decode.
@@ -141,8 +147,14 @@ protected:
      */
     size_t _havePPS;
 
+    /* This device will only support/use 2 voltage ranges. -5 to +5 and
+     * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
+     *  in case we ever want to change support positive only voltage range.
+     */
     int _gains[NUM_A2D_CHANNELS];
     int _bipolars[NUM_A2D_CHANNELS];
+
+    // A/D calibration coefficients
     std::vector<float> _polyCals[NUM_A2D_CHANNELS];
 
     size_t _shortPacketCnt;
