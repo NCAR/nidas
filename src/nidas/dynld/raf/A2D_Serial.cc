@@ -68,6 +68,7 @@ void A2D_Serial::open(int flags) throw(n_u::IOException)
     SerialSensor::open(flags);
 
     readConfig();
+// @TODO Need to set gain/offset/cals if read in....
 }
 
 void A2D_Serial::readConfig() throw(n_u::IOException)
@@ -90,7 +91,6 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;
-
             }
             if (nsamp > 50) {
                 WLOG(("%s: A2D_Serial open(): expected !EOC, not received",
@@ -108,10 +108,11 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
 void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 {
     SerialSensor::validate();
+printf("--------------- Validate ----------------\n");
 
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
-printf("--------------- Validate ----------------\n");
+
     for ( ; ti != tags.end(); ++ti) {
         SampleTag* stag = *ti;
 
@@ -182,8 +183,6 @@ printf("--------------- Validate ----------------\n");
 
             _gains[ichan] = fgain;
             _bipolars[ichan] = bipolar;
-
-// @TODO Need to set gain/offset/cals if read in....
         }
     }
 
@@ -191,7 +190,7 @@ printf("OutputMode = %d\n", (int)_outputMode);
 for (int i = 0; i < _nVars; ++i)
 {
   printf("gain=%d, offset=%d, cals=", _gains[i], _bipolars[i]);
-  for (int j = 0; j < _polyCals[i].size(); ++j)
+  for (size_t j = 0; j < _polyCals[i].size(); ++j)
     printf("%f, ", _polyCals[i].at(j));
   printf("\n");
 }
@@ -339,11 +338,9 @@ bool A2D_Serial::process(const Sample * samp,
         p = ::strchr(cp, ',');
 
         if (sscanf(cp, "%x", &data) == 1)
-            dout[ival] = float(data);
+            dout[ival] = applyCalibration(float(data), _polyCals[ival]);
         else
             dout[ival] = float(NAN);
-
-// Apply A2D cals here.
     }
 
     if (_outputMode == Engineering) {
@@ -367,7 +364,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
 
     while (tt >= _calFile->nextTime().toUsecs()) {
-        int nd = 2 + getMaxNumChannels() * 2;
+        int nd = 2 + getMaxNumChannels() * 4;
         float d[nd];
         try {
             n_u::UTime calTime;
@@ -376,7 +373,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
             int cgain = (int)d[0];
             int cbipolar = (int)d[1];
             for (int i = 0;
-                i < std::min((n-2)/2,getMaxNumChannels()); i++) {
+                i < std::min((n-2)/4,getMaxNumChannels()); i++) {
                     int gain = getGain(i);
                     int bipolar = getBipolar(i);
                     if ((cgain < 0 || gain == cgain) &&
@@ -436,5 +433,19 @@ int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
     return _bipolars[ichan];
+}
+
+float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) const
+{
+    float out = value;
+    if (cals.size() > 0)
+    {
+        int corder = cals.size() - 1;
+        out = cals[corder];
+        for (size_t k = 1; k < cals.size(); k++)
+          out = cals[corder-k] + value * out;
+
+    }
+    return out;
 }
 
