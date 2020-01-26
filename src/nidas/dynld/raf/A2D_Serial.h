@@ -97,9 +97,17 @@ public:
 
 protected:
     /**
-     * Read configuration from sensor.
+     * Read configuration from sensor, this is on the DSM called from open().
      */
     void readConfig() throw(nidas::util::IOException);
+
+    /**
+     * Parse a configuration line from from either open() or process().
+     */
+    void parseConfigLine(const char *data);
+
+    void dumpConfig() const;
+
 
     /**
      * Check the checksum for data lines.  Header and config lines have no
@@ -129,6 +137,9 @@ protected:
     size_t _sampleRate;
     size_t _deltaT;
 
+    int _boardID;   // serial number
+    bool _haveCkSum;    // Will packets have checksum
+
     /**
      * CalFile for this A2D_Serial sensor.  This is for the A2D cals, not
      * engineering cals.
@@ -143,7 +154,10 @@ protected:
     OutputMode _outputMode;
 
     /**
-     * Is device receiving PPS.  We read it from header packet.
+     * Is device receiving PPS.  We read it from header packet.  Used by
+     * process() to detrmine if use dsm timestamp or manufacture timestamp.
+     * Desired is _havePPS is true and we manufacture the timestamp from
+     * the sequence counter in the packet.
      */
     size_t _havePPS;
 

@@ -45,7 +45,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
     SerialSensor(),
-    _nVars(0), _sampleRate(0), _deltaT(0),
+    _nVars(0), _sampleRate(0), _deltaT(0), _boardID(0), _haveCkSum(true),
     _calFile(0), _outputMode(Engineering), _havePPS(false),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
@@ -59,7 +59,7 @@ headerLines = 0;
 
 A2D_Serial::~A2D_Serial()
 {
-    cout << "Number of header lines = " << headerLines << endl;
+    cerr << "A2D_Serial: " << getName() << " #header lines=" << headerLines << ", #shortPkts=" << _shortPacketCnt << ", #badCkSums=" << _badCkSumCnt << endl;
 }
 
 
@@ -69,6 +69,8 @@ void A2D_Serial::open(int flags) throw(n_u::IOException)
 
     readConfig();
 // @TODO Need to set gain/offset/cals if read in....
+cout << "open:\n";
+dumpConfig();
 }
 
 void A2D_Serial::readConfig() throw(n_u::IOException)
@@ -91,6 +93,7 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;
+                parseConfigLine(msg);
             }
             if (nsamp > 50) {
                 WLOG(("%s: A2D_Serial open(): expected !EOC, not received",
@@ -102,13 +105,33 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
             throw e;
         }
     }
-
 }
+
+
+void A2D_Serial::dumpConfig() const
+{
+    cout << "A2D_Serial: " << getName() << " configuration:" << endl;
+    cout << "Board ID = " << _boardID << endl;
+    cout << "Sample rate = " << _sampleRate << endl;
+    cout << "Checksum enabled = " << _haveCkSum << endl;
+    cout << "OutputMode [Counts, Volts, Engineering] = " << _outputMode << endl;
+    cout << "Number variables = " << _nVars << endl;
+    if (_calFile)
+        cout << "CalFileName = " << _calFile->getCurrentFileName() << endl;
+
+    for (int i = 0; i < _nVars; ++i)
+    {
+        cout << "gain=" << _gains[i] << ", offset=" << _bipolars[i] << ", cals=";
+        for (size_t j = 0; j < _polyCals[i].size(); ++j)
+            cout << _polyCals[i].at(j) << ", ";
+        cout << endl;
+    }
+}
+
 
 void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 {
     SerialSensor::validate();
-printf("--------------- Validate ----------------\n");
 
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
@@ -120,6 +143,7 @@ printf("--------------- Validate ----------------\n");
         if (stag->getSampleId() < 2)
             continue;
 
+        _sampleRate = stag->getRate();
 
         const std::list<const Parameter*>& params = stag->getParameters();
         list<const Parameter*>::const_iterator pi;
@@ -185,16 +209,8 @@ printf("--------------- Validate ----------------\n");
             _bipolars[ichan] = bipolar;
         }
     }
-
-printf("OutputMode = %d\n", (int)_outputMode);
-for (int i = 0; i < _nVars; ++i)
-{
-  printf("gain=%d, offset=%d, cals=", _gains[i], _bipolars[i]);
-  for (size_t j = 0; j < _polyCals[i].size(); ++j)
-    printf("%f, ", _polyCals[i].at(j));
-  printf("\n");
-}
-printf("------------- End Validate --------------\n");
+cout << "validate :\n";
+dumpConfig();
 }
 
 void A2D_Serial::init() throw(n_u::InvalidParameterException)
@@ -208,7 +224,6 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
               "must be two <sample> tags for this sensor");
 
 
-    _sampleRate = stags.back()->getRate();
     _deltaT = (int)rint(USECS_PER_SEC / _sampleRate);
 
     const map<string,CalFile*>& cfs = getCalFiles();
@@ -216,6 +231,8 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
     // is applied to this sensor, we must differentiate them by name.
     // Note this calibration is separate from that applied to each variable.
     if (!cfs.empty()) _calFile = cfs.begin()->second;
+cout << "init :\n";
+dumpConfig();
 }
 
 bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
@@ -255,6 +272,11 @@ bool A2D_Serial::process(const Sample * samp,
     const char *cp = (const char*)samp->getConstVoidDataPtr();
 
     // Process non-data lines (i.e. process header).
+    if (cp[0] == '!')
+    {
+        parseConfigLine(cp);
+        return false;
+    }
     if (cp[0] != '#')
     {
         // Decode the data with the standard ascii scanner.
@@ -290,7 +312,7 @@ bool A2D_Serial::process(const Sample * samp,
     ::memcpy(input, cp, nbytes);
     input[nbytes] = 0;
 
-    if (checkCkSum(samp, input) == false) return false;
+    if (_haveCkSum && checkCkSum(samp, input) == false) return false;
 
     SampleT<float>* outs = getSample<float>(_nVars);
     outs->setTimeTag(samp->getTimeTag());
@@ -350,6 +372,14 @@ bool A2D_Serial::process(const Sample * samp,
     results.push_back(outs);
 
     return true;
+}
+
+
+void A2D_Serial::parseConfigLine(const char *data)
+{
+    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
+    if (strstr(data, "!BID"))  _boardID = atoi(&data[5]);
+// @TODO, if _boardID changes, then we need to set new _calFile file name.
 }
 
 
