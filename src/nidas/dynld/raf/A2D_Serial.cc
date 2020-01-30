@@ -78,7 +78,7 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
     int nsamp = 0;
     bool done = false;
 
-    write("#PCFG\n", 6);        // request config.
+    write("#RST\n", 5);        // request config.
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
     while (!done) {
