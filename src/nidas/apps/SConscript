@@ -96,6 +96,7 @@ sing
 statsproc
 status_listener
 sync_server
+trh_load_cal
 xml_dump
 isff/datasets
 """)
