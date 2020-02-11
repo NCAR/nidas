@@ -275,8 +275,10 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     host_env.AppendUnique(LINKFLAGS = ['-Wl,-z,relro', '-Wl,-z,now'])
 
     SConscriptVariant(hostarch, host_env)
-    # Testing targets, built and run only on host
-    SConscript("tests/SConscript", exports={'env':host_env})
+    # Testing targets, built and run only on host. When building packages,
+    # it is not even in the source tree.
+    if env.File("tests/SConscript").exists():
+        SConscript("tests/SConscript", exports={'env':host_env})
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
