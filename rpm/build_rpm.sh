@@ -15,6 +15,11 @@ while [ $# -gt 0 ]; do
         -noarinc)
             buildarinc=false
             ;;
+	-*)
+	    echo "Usage: $0 [-nr] [-noarinc] [spec-file]"
+	    exit 1
+	    ;;
+
         *)
             dopkg=$1
             ;;

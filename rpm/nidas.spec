@@ -33,15 +33,9 @@ Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons
-
-%if 0%{?rhel} < 8
-BuildRequires: scons qt-devel
-Requires (post): policycoreutils-python
-Requires (postun): policycoreutils-python
-%else
-BuildRequires: python3-scons qt5-devel elfutils-libelf-devel
-Requires (post): python3-policycoreutils
-Requires (postun): python3-policycoreutils
+%if 0%{fedora} > 28
+Requires: jsoncpp
+BuildRequires: jsoncpp-devel
 %endif
 
 Requires: yum-utils nidas-min
@@ -66,6 +60,8 @@ that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[6
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
 Requires: nidas-min
+Requires (post): /sbin/ldconfig /sbin/selinuxenabled /sbin/semanage /sbin/restorecon
+Requires (postun): /sbin/ldconfig /sbin/selinuxenabled /sbin/semanage /sbin/restorecon
 Prefix: %{nidas_prefix}
 %description libs
 NIDAS shareable libraries
@@ -236,15 +232,15 @@ install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
 
-if selinuxenabled; then
-    semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-    restorecon -R %{nidas_prefix}/%{_lib} || :
+if /sbin/selinuxenabled; then
+    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+    /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
 fi
 /sbin/ldconfig
 
 %postun libs
 if [ $1 -eq 0 ]; then # final removal
-    semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+    /sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
 fi
 
 # If selinux is Enforcing, ldconfig can fail with permission denied if the
@@ -266,8 +262,8 @@ fi
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
 
-if selinuxenabled; then
-    /usr/sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+if /sbin/selinuxenabled; then
+    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
     /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
 fi
 /sbin/ldconfig
@@ -368,10 +364,12 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/status_listener
 %{nidas_prefix}/bin/sync_dump
 %{nidas_prefix}/bin/sync_server
-%{nidas_prefix}/bin/tee_tty
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
+%if 0%{fedora} > 28
+%{nidas_prefix}/bin/data_influxdb
+%endif
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
