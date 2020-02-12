@@ -56,12 +56,38 @@ Requires: xerces-c xmlrpc++
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
 that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
+# It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
+# does not work to name /sbin/selinuxenabled, even though rpm figures it
+# out:
+#
+# [root@ustar daq]# rpm -q --whatprovides /sbin/selinuxenabled
+# libselinux-utils-2.9-5.fc31.x86_64
+# [root@ustar daq]# rpm -q --whatprovides /sbin/semanage
+# policycoreutils-python-utils-2.9-5.fc31.noarch
+# [root@ustar daq]# rpm -q --whatprovides /sbin/restorecon
+# policycoreutils-2.9-5.fc31.x86_64
+#
+# So back to having to use different package names on different releases...
+#
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
 Requires: nidas-min
-Requires (post): /sbin/ldconfig /sbin/selinuxenabled /sbin/semanage /sbin/restorecon
-Requires (postun): /sbin/ldconfig /sbin/selinuxenabled /sbin/semanage /sbin/restorecon
+Requires (post): /sbin/ldconfig
+Requires (postun): /sbin/ldconfig
+%if 0%{?fedora} > 28
+Requires (post): libselinux-utils policycoreutils-python-utils policycoreutils
+Requires (postun): libselinux-utils policycoreutils-python-utils policycoreutils
+%else
+%if 0%{?rhel} < 8
+Requires (post): policycoreutils-python
+Requires (postun): policycoreutils-python
+%else
+Requires (post): python3-policycoreutils
+Requires (postun): python3-policycoreutils
+%endif
+%endif
+
 Prefix: %{nidas_prefix}
 %description libs
 NIDAS shareable libraries
@@ -261,6 +287,15 @@ fi
 # To view:
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
+#
+# (gjg) I'm not sure about this approach, since the context needs to be
+# installed even if selinux happens to be disabled at the moment.  The
+# suggestion at the link below is to put the selinux contexts into a
+# separate -selinux package, so they do not need to be installed on systems
+# without selinux.  (I don't know if this is still current, but there are
+# still examples of -selinux packages.)
+#
+# https://fedoraproject.org/wiki/PackagingDrafts/SELinux#File_contexts
 
 if /sbin/selinuxenabled; then
     /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
