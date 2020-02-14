@@ -36,23 +36,11 @@ BuildRequires: eol_scons >= 4.2
 Requires: jsoncpp
 BuildRequires: jsoncpp-devel
 
-Requires: yum-utils nidas-min
-Obsoletes: nidas-bin <= 1.0
+Requires: nidas-libs
 BuildRoot: %{_topdir}/%{name}-%{version}-root
-# Allow this package to be relocatable to other places than /opt/nidas
-# rpm --relocate /opt/nidas=/usr
 Prefix: %{nidas_prefix}
 %description
 NCAR In-Situ Data Acquistion Software programs
-
-%package min
-Summary: Minimal NIDAS run-time configuration.
-Group: Applications/Engineering
-Obsoletes: nidas <= 1.0, nidas-run <= 1.0
-Requires: xerces-c xmlrpc++
-%description min
-Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
-that NFS mount %{nidas_prefix}, or do their own builds.
 
 # It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
 # does not work to name /sbin/selinuxenabled, even though rpm figures it
@@ -70,7 +58,7 @@ that NFS mount %{nidas_prefix}, or do their own builds.
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
-Requires: nidas-min
+Requires: xerces-c xmlrpc++
 Requires (post): /sbin/ldconfig
 Requires (postun): /sbin/ldconfig
 %if 0%{?fedora} > 28
@@ -105,6 +93,11 @@ NIDAS kernel modules.
 %package autocal
 Summary: Auto-calibration program, with Qt GUI, for NCAR RAF A2D board
 Requires: nidas
+%if 0%{?rhel} < 8
+BuildRequires: qt-devel
+%else
+BuildRequires: qt5-devel
+%endif
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 %description autocal
@@ -117,6 +110,11 @@ Auto-calibration program, with Qt GUI, for NCAR A2D board.
 %package configedit
 Summary: GUI editor for NIDAS configurations
 Requires: nidas
+%if 0%{?rhel} < 8
+BuildRequires: qt-devel
+%else
+BuildRequires: qt5-devel
+%endif
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 %description configedit
@@ -128,7 +126,7 @@ GUI editor for NIDAS configurations
 Summary: Package for doing data acquisition with NIDAS.
 # remove dist from release on noarch RPM
 Release: %{releasenum}
-Requires: nidas-min
+Requires: nidas
 Group: Applications/Engineering
 BuildArch: noarch
 %description daq
@@ -140,43 +138,10 @@ to run NIDAS real-time data acquisition processes.
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
 Requires: nidas-libs libcap-devel
-Obsoletes: nidas-bin-devel <= 1.0
 Group: Applications/Engineering
 # Prefix: %%{nidas_prefix}
 %description devel
 NIDAS C/C++ headers, shareable library links, pkg-config.
-
-%package build
-Summary: Package for building NIDAS by hand
-# remove dist from release on noarch RPM
-Release: %{releasenum}
-Group: Applications/Engineering
-
-Requires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel
-Requires: flex gsl-devel kernel-devel libcap-devel rpm-build
-Requires: eol_scons >= 4.2
-%if 0%{?rhel} < 8
-Requires: qt-devel
-%else
-Requires: qt5-devel elfutils-libelf-devel
-%endif
-
-Obsoletes: nidas-builduser <= 1.2-189
-BuildArch: noarch
-%description build
-Contains software dependencies needed to build NIDAS by hand,
-and /etc/default/nidas-build containing the desired user and group owner
-of %{nidas_prefix}.
-
-%package buildeol
-Summary: Set build user and group to nidas.eol.
-# remove dist from release on noarch RPM
-Release: %{releasenum}
-Group: Applications/Engineering
-Requires: nidas-build
-BuildArch: noarch
-%description buildeol
-Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be group writable by eol.
 
 %prep
 %setup -q -c
@@ -209,9 +174,6 @@ cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 
-# install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
-# install -m 0775 pkg_files/root/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
-
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0664 pkg_files/root/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
@@ -224,10 +186,6 @@ install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 
 install -m 0664 pkg_files%{nidas_prefix}/bin/start_podman $RPM_BUILD_ROOT%{nidas_prefix}/bin
-
-%post min
-
-/sbin/ldconfig
 
 %post libs
 
@@ -300,62 +258,6 @@ if [ "$1" -eq 1 ]; then
     echo "Edit %{_sysconfdir}/default/nidas-daq to set the DAQ_USER and DAQ_GROUP"
 fi
 
-%pre build
-if [ $1 -eq 1 ]; then
-    echo "Set BUILD_USER and BUILD_GROUP in %{_sysconfdir}/default/nidas-build.
-Files installed in %{nidas_prefix} will then be owned by that user and group"
-fi
-
-%triggerin -n nidas-build -- nidas nidas-libs nidas-devel nidas-modules nidas-buildeol nidas-doxygen nidas-configedit nidas-autocal
-
-[ -d %{nidas_prefix} ] || mkdir -p -m u=rwx,g=rwxs,o=rx %{nidas_prefix}
-
-cf=%{_sysconfdir}/default/nidas-build
-
-if [ -f $cf ]; then
-
-    .  $cf 
-
-    echo "nidas-build trigger: BUILD_USER=$BUILD_USER, BUILD_GROUP=$BUILD_GROUP read from $cf"
-
-    if [ "$BUILD_USER" != root -o "$BUILD_GROUP" != root ]; then
-
-        n=$(find %{nidas_prefix} \( \! -user $BUILD_USER -o \! -group $BUILD_GROUP \) -execdir chown -h $BUILD_USER:$BUILD_GROUP {} + -print | wc -l)
-
-        find %{nidas_prefix} \! -type l \! -perm /g+w -execdir chmod g+w {} +
-
-        [ $n -gt 0 ] && echo "nidas-build trigger: ownership of $n files under %{nidas_prefix} set to $BUILD_USER.$BUILD_GROUP, with group write"
-
-        # chown on a file removes any associated capabilities
-        if [ -x /usr/sbin/setcap ]; then
-            arg="cap_sys_nice,cap_net_admin+p" 
-            ckarg=$(echo $arg | cut -d, -f 1 | cut -d+ -f 1)
-
-            for prog in %{nidas_prefix}/bin/{dsm_server,dsm,nidas_udp_relay}; do
-                if [ -f $prog ] && ! getcap $prog | grep -F -q $ckarg; then
-                    echo "nidas-build trigger: setcap $arg $prog"
-                    setcap $arg $prog
-                fi
-            done
-            arg="cap_sys_nice+p" 
-            ckarg=$(echo $arg | cut -d, -f 1 | cut -d+ -f 1)
-            for prog in %{nidas_prefix}/bin/{tee_tty,tee_i2c}; do
-                if [ -f $prog ] && ! getcap $prog | grep -F -q $ckarg; then
-                    echo "nidas-build trigger: setcap $arg $prog"
-                    setcap $arg $prog
-                fi
-            done
-        fi
-    fi
-fi
-
-%post buildeol
-cf=%{_sysconfdir}/default/nidas-build 
-. $cf
-if [ "$BUILD_GROUP" != eol ]; then
-    sed -i -r -e 's/^ *BUILD_GROUP=.*/BUILD_GROUP=eol/g' $cf
-fi
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -415,6 +317,9 @@ rm -rf $RPM_BUILD_ROOT
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_TiltSensor.so.*
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 
+%defattr(-,root,root,-)
+%{_sysconfdir}/ld.so.conf.d/nidas.conf
+
 %if %{with modules}
 %files modules
 %defattr(0775,root,root,2775)
@@ -448,10 +353,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/configedit
 %endif
 
-%files min
-%defattr(-,root,root,-)
-%{_sysconfdir}/ld.so.conf.d/nidas.conf
-
 %files daq
 %defattr(0775,root,root,0775)
 %config /usr/lib/udev/rules.d/99-nidas.rules
@@ -476,11 +377,5 @@ rm -rf $RPM_BUILD_ROOT
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
-
-%files build
-%defattr(-,root,root,-)
-%config(noreplace) %attr(0664,-,-) %{_sysconfdir}/default/nidas-build
-
-%files buildeol
 
 %changelog
