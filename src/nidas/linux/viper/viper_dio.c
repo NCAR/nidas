@@ -65,11 +65,6 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Driver for VIPER DIO pins");
 MODULE_VERSION(REPO_REVISION);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
 
 /*
  * Device structure.

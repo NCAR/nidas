@@ -150,11 +150,6 @@ MODULE_PARM_DESC(dtestchan, "Channel number for write test 0-7");
 MODULE_PARM_DESC(dtestcnt, "Number of tests to run");
 MODULE_PARM_DESC(a2dchans, "Active A2D channels, 0-7, separated by commas");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
 
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int NumBoards = 0;

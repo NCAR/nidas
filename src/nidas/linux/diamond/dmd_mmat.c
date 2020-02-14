@@ -58,12 +58,6 @@
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
-
 
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };

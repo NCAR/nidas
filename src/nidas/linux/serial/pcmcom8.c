@@ -530,11 +530,8 @@ static int __init pcmcom8_init_module(void)
                 brd->addr = brd->ioport + ioport_base;
                 brd->region_req = 1;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                 mutex_init(&brd->mutex);
-#else
-                init_MUTEX(&brd->mutex);
-#endif
+
                 /*
                  * Read EEPROM configuration. If it doesn't return
                  * -ETIMEDOUT then it looks like there is a board at

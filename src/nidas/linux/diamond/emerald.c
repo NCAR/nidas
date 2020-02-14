@@ -160,13 +160,8 @@ MODULE_DESCRIPTION("driver module supporting initialization and digital I/O on D
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_VERSION(REPO_REVISION);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
 
-/* 
+/*
  * To detect if compiling for VIPER
  * check ifdef __LINUX_ARM_ARCH
  * or CONFIG_ARCH_VIPER
