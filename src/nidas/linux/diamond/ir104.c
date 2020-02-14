@@ -75,11 +75,6 @@ MODULE_VERSION(REPO_REVISION);
 #define mutex_unlock(x)             up(x)
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 static struct IR104* boards = 0;
 
@@ -231,7 +226,7 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                           _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
-        switch (cmd) 
+        switch (cmd)
         {
 
         case IR104_GET_NOUT:
@@ -373,7 +368,7 @@ static void ir104_cleanup(void)
 }
 
 static int __init ir104_init(void)
-{	
+{
         int result = -EINVAL;
         int ib;
 

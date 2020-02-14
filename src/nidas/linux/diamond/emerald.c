@@ -51,7 +51,7 @@
     of the serial ports on an Emerald, and then creates the usual
     /dev/ttySn serial ports and configures them with the setserial
     system command.
-    
+
     Each Emerald serial port has a digital I/O pin, which can
     be controlled through this driver via a /dev/ttyDn device
     for each port.
@@ -648,14 +648,14 @@ static void emm_write_digio_port(emerald_board* brd,int port,int val)
 /*
  * The proc filesystem: function to read
  */
-                                                                                
+
 static int emerald_read_procmem(char *buf, char **start, off_t offset,
                    int count, int *eof, void *data)
 {
         int i, j, len = 0;
         int limit = count - 80; /* Don't print more than this */
         KLOG_DEBUG("count=%d\n",count);
-                                                                                    
+
         for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
                 struct emerald_board *brd = emerald_boards + i;
                 KLOG_DEBUG("i=%d, device=0x%lx\n",i,(unsigned long)brd);
@@ -678,7 +678,7 @@ static void emerald_create_proc(void)
                                NULL /* parent dir */, emerald_read_procmem,
                                NULL /* client data */);
 }
-                                                                                
+
 static void emerald_remove_proc(void)
 {
         /* no problem if it was not registered */
@@ -709,7 +709,7 @@ static int emerald_open(struct inode *inode, struct file *filp)
          *  If 4 boards are reporting, then there will be
          *  4*8=32 emerald_port structures. Convert
          *  the minor number to a pointer to the emerald_port.
-         */      
+         */
 
         if (num < EMERALD_MAX_NR_DEVS) num *= EMERALD_NR_PORTS;
         else num -= EMERALD_MAX_NR_DEVS; 
@@ -724,7 +724,7 @@ static int emerald_open(struct inode *inode, struct file *filp)
         // It may interfere with simultaneous serial port accesses.
         return 0;
 }
-						      
+
 static int emerald_release (struct inode *inode, struct file *filp)
 {
         return 0;
@@ -751,17 +751,9 @@ static long emerald_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-                err = !access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
-#else
-                err = !access_ok((void *)arg, _IOC_SIZE(cmd));
-#endif
+                err = !portable_access_ok(VERIFY_WRITE, (void *)arg, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-                err = !access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
-#else
-                err = !access_ok((void *)arg, _IOC_SIZE(cmd));
-#endif
+                err = !portable_access_ok(VERIFY_READ, (void *)arg, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         switch(cmd) {
@@ -959,7 +951,7 @@ static struct file_operations emerald_fops = {
 static void emerald_cleanup_module(void)
 {
         int i;
-                                                                                
+
 #ifdef EMERALD_DEBUG /* use proc only if debugging */
         emerald_remove_proc();
 #endif
@@ -1016,7 +1008,7 @@ static int __init emerald_init_module(void)
         result = alloc_chrdev_region(&emerald_device, 0,
                 emerald_nr_addrs, "emerald");
         if (result < 0) goto fail;
-        
+
         /*
          * allocate the board structures
          */
@@ -1113,7 +1105,7 @@ static int __init emerald_init_module(void)
                                 result = -ENODEV;
                         }
                 }
-                
+
                 if (boardOK) {
                         char* modelstrs[] = {"UNKNOWN","EMM=8","EMM-8P"};
                         dev_t devno;

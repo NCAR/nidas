@@ -63,11 +63,6 @@ MODULE_DESCRIPTION("Mesa ISA driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(REPO_REVISION);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 static struct MESA_Board *boards = 0;
 

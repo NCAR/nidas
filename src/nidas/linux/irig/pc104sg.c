@@ -210,7 +210,7 @@ struct clockSnapShot
         /**
          * The current time from the IRIG registers
          */
-        struct timeval32 irig_time;             
+        struct timeval32 irig_time;
 
         /**
          * current unix time
@@ -2010,7 +2010,7 @@ static void oneHzFunction(void *ptr)
                 spin_unlock(&board.dev_lock);
                 return;
         }
-        
+
         /*
          * Use the current value of the ticker for this sample timetag, not the
          * ticker value that was saved in the clock snapshot.
@@ -2122,7 +2122,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
                 if (unlikely(board.doSnapShot) ||
                                 unlikely(board.clockAction == RESET_COUNTERS)) {
-                        struct timeval32 itv32;             
+                        struct timeval32 itv32;
                         struct timeval32 utv32;
                         do_gettimeofday_tv32(&utv32);
                         get_irig_time_tv32(&itv32);
@@ -2329,19 +2329,11 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
          * Verify read or write access to the user arg, if necessary
          */
         if ((_IOC_DIR(cmd) & _IOC_READ) &&
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-            !access_ok(VERIFY_WRITE, userptr, len))
-#else
-            !access_ok(userptr, len))
-#endif
+            !portable_access_ok(VERIFY_WRITE, userptr, len))
                 return -EFAULT;
 
         if ((_IOC_DIR(cmd) & _IOC_WRITE) &&
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-            !access_ok(VERIFY_READ, userptr, len))
-#else
-            !access_ok(userptr, len))
-#endif
+            !portable_access_ok(VERIFY_READ, userptr, len))
                 return -EFAULT;
 
 
@@ -2498,7 +2490,7 @@ static int __init pc104sg_init(void)
         int irq;
         struct timeval unix_timeval;
         struct timeval32 irig_timeval;
-        struct irigTime irig_time;             
+        struct irigTime irig_time;
         int tdiff;
 
         KLOG_NOTICE("version: %s\n", REPO_REVISION);

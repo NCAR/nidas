@@ -53,7 +53,7 @@
 #include <linux/timer.h>
 #include <linux/version.h>
 
-#include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
+#include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR!
 //#include <linux/errno.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -62,7 +62,7 @@
 #include <asm/io.h>             // ioread8
 #include <asm/uaccess.h>        // VERIFY_???
 
-// DSM includes... 
+// DSM includes...
 #include "arinc.h"
 #include "Condor/CEI420A/Include/utildefs.h"
 
@@ -230,7 +230,7 @@ static void arinc_timesync(void *junk)
 static void arinc_timesync(unsigned long junk)
 #else
 static void arinc_timesync(struct timer_list* _tlist)
-#endif        
+#endif
 #endif
 {
 //      KLOG_INFO("%6d, %6d\n", GET_MSEC_CLOCK, ar_get_timercntl(BOARD_NUM));
@@ -293,7 +293,7 @@ static void arinc_sweep(struct timer_list* tlist)
                 KLOG_WARNING("%s: skippedSamples=%d\n",
                              dev->deviceName, dev->skippedSamples);
                 goto resched;
-        }               
+        }
 
         data = (tt_data_t*) sample->data;
         KLOG_DEBUG("%d data:   %x\n", chn, (unsigned int) data);
@@ -361,7 +361,7 @@ static int arinc_open(struct inode *inode, struct file *filp)
 
         if (chn >= N_ARINC_RX + N_ARINC_TX) return -ENXIO;
 
-        if (chn >= N_ARINC_RX) {    
+        if (chn >= N_ARINC_RX) {
                 /* transmit channel */
                 KLOG_NOTICE("arinc_open setting up txChn:  %d\n", txChn);
 
@@ -501,17 +501,9 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         // Verify read or write access to the user arg, if necessary
         if (_IOC_DIR(cmd) & _IOC_READ)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-                ret = !access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
-#else
-                ret = !access_ok(userptr, _IOC_SIZE(cmd));
-#endif
+                ret = !portable_access_ok(VERIFY_WRITE, userptr, _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-                ret = !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
-#else
-                ret = !access_ok(userptr, _IOC_SIZE(cmd));
-#endif
+                ret = !portable_access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         else ret = 0;
         if (ret) return -EFAULT;
 
@@ -519,25 +511,25 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case ARINC_SET:
 
-                // unfilter a label for this channel 
+                // unfilter a label for this channel
                 if (copy_from_user(&arcfg, userptr, sizeof(arcfg_t))) {
                         KLOG_ERR("copy_from_user error!\n");
                         return -EFAULT;
                 }
 
-                // store the rate for this channel's label 
+                // store the rate for this channel's label
                 if (dev->rate[arcfg.label]) {
                         KLOG_ERR("duplicate label: %04o\n", arcfg.label);
                         return -EINVAL;
                 }
                 dev->rate[arcfg.label] = arcfg.rate;
 
-                // measure the total labels per second for the given channel 
+                // measure the total labels per second for the given channel
                 dev->status.lps += roundUpRate(arcfg.rate);
 
                 spin_lock_bh(&board.lock);
 
-                // stop the board 
+                // stop the board
                 if (board.running) {
                         err = ar_reset(BOARD_NUM);
                         if (err != ARS_NORMAL)
@@ -546,7 +538,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 }
                 dev->arcfgs[dev->nArcfg++] = arcfg.label;
 
-                // un-filter this label on this channel 
+                // un-filter this label on this channel
                 err =
                     ar_label_filter(BOARD_NUM, chn, arcfg.label,
                                     ARU_FILTER_OFF);
@@ -562,7 +554,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case ARINC_OPEN:
 
-                // store the speed and parity for this channel 
+                // store the speed and parity for this channel
                 if (copy_from_user(&archn, userptr, sizeof(archn))) {
                         KLOG_ERR("copy_from_user error!\n");
                         return -EFAULT;
@@ -580,14 +572,14 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                 spin_lock_bh(&board.lock);
 
-                // stop the board 
+                // stop the board
                 if (board.running) {
                         err = ar_reset(BOARD_NUM);
-                        if (err != ARS_NORMAL) 
+                        if (err != ARS_NORMAL)
                                 goto ar_fail_unlock;
                         board.running = 0;
                 }
-                // set channel speed 
+                // set channel speed
                 err =
                     ar_set_config(BOARD_NUM,
                                   ARU_RX_CH01_BIT_RATE + chn,
@@ -634,7 +626,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 /* improve latency, want to report at least
                  * every 0.25 sec. */
                 if (pollRate < 4) pollRate = 4;
-		
+
 		dev->status.pollRate = pollRate;
                 dev->pollDtMsec = MSECS_PER_SEC / pollRate;
 
