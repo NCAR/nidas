@@ -29,9 +29,6 @@
 
 #include <nidas/dynld/isff/Wind2D.h>
 
-namespace n_c = nidas::core;
-namespace n_u = nidas::util;
-
 namespace nidas { namespace dynld { namespace isff {
 
 enum GILL2D_OUTPUT_MODE
@@ -235,8 +232,10 @@ public:
     GILL2D();
     ~GILL2D();
 
-    // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
-    void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+    // override fromDOMElement() to provide a means to intercept custom
+    // auto config instructions from the XML
+    void fromDOMElement(const xercesc::DOMElement* node)
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Gill WindObserver 65 sonics only support output rates of 1, 2, 4, 5,
@@ -282,9 +281,11 @@ public:
     parseConfigResponse(const std::string& respStr);
 
 protected:
-    void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
+    void
+    sendSensorCmd(int cmd,
+                  nidas::core::SensorCmdArg arg=nidas::core::SensorCmdArg(0));
     bool compareScienceParameter(GILL2D_COMMANDS cmd, const std::string& match);
-    void printTargetConfig(n_c::PortConfig target)
+    void printTargetConfig(nidas::core::PortConfig target)
     {
         target.print();
         target.xcvrConfig.print();
@@ -292,7 +293,7 @@ protected:
         std::cout << std::endl;
     }
     void updateDesiredScienceParameter(GILL2D_COMMANDS cmd, int arg=0);
-    n_c::SensorCmdData getDesiredCmd(GILL2D_COMMANDS cmd);
+    nidas::core::SensorCmdData getDesiredCmd(GILL2D_COMMANDS cmd);
     bool checkConfigMode(bool continuous = CONTINUOUS);
     bool isConfigCmd(int cmd)
     {
@@ -305,10 +306,11 @@ protected:
     }
     bool confirmGillSerialPortChange(int cmd, int arg);
 
-    virtual n_c::CFG_MODE_STATUS enterConfigMode();
+    virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual bool checkResponse();
-    virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
+    virtual bool
+    installDesiredSensorConfig(const nidas::core::PortConfig& rDesiredConfig);
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
@@ -322,9 +324,9 @@ private:
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 8;
     static const int DEFAULT_RTS485 = 0;
-    static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS422;
-//    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
-    static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+    static const nidas::core::PORT_TYPES DEFAULT_PORT_TYPE = nidas::core::RS422;
+//    static const nidas::core::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = nidas::core::SENSOR_POWER_ON;
+    static const nidas::core::TERM DEFAULT_SENSOR_TERMINATION = nidas::core::NO_TERM;
     static const bool DEFAULT_CONFIG_APPLIED = false;
 
     // default message parameters for the PB210
@@ -336,7 +338,7 @@ private:
     static const int MAX_AVERAGING_TIME = 3600;
 
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const n_c::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
+    static const nidas::core::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
 
     // GILL2D pre-packaged commands
     static const char* SENSOR_CONFIG_MODE_CMD_STR;
@@ -368,17 +370,17 @@ private:
     // NOTE: list sensor bauds from highest to lowest as the higher
     //       ones are the most likely
     static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
-    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
+    static const nidas::core::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
     static const int NUM_PORT_TYPES = 2;
-    static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+    static const nidas::core::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
-    static const n_c::PortConfig DEFAULT_PORT_CONFIG;
+    static const nidas::core::PortConfig DEFAULT_PORT_CONFIG;
 
-    n_c::PortConfig testPortConfig;
-    n_c::PortConfig _desiredPortConfig;
-    n_c::MessageConfig _defaultMessageConfig;
+    nidas::core::PortConfig testPortConfig;
+    nidas::core::PortConfig _desiredPortConfig;
+    nidas::core::MessageConfig _defaultMessageConfig;
 
-    n_c::SensorCmdData* _desiredScienceParameters;
+    nidas::core::SensorCmdData* _desiredScienceParameters;
     bool _sosEnabled;
 
     char _unitId;

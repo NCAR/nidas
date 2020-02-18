@@ -196,12 +196,21 @@ if has_i2c:
     env.Alias('tee_i2c', i2cenv.NidasUtilProgram('tee_i2c.cc', libs=[]))
     env.Alias('ublox', i2cenv.NidasUtilProgram('ublox.cc', libs=[]))
 
+def ublox(env):
+    """
+    Tool to build against the ublox protocol header-only library.  At the
+    moment it is always installed into /usr/local.
+    """
+    env.Append(CPPPATH=['/usr/local/include'])
+
+Export('ublox')
+
 # ubloxbin requires boost_asio, but as far as I can tell boost_asio is a
 # header only library.
 ubenv = env.Clone()
 ubenv.Append(CXXFLAGS='-Wno-effc++')
 ubenv['CXXFLAGS'].remove('-Weffc++')
-ubenv.Require(['boost_system'])
+ubenv.Require(['boost_system', 'ublox'])
 # boost_thread requires pthread, so someday boost_thread tool should be
 # fixed to add that.
 ubenv.Append(LIBS=['boost_thread', 'pthread'])
