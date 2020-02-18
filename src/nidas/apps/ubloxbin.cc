@@ -1046,7 +1046,7 @@ private:
         bits.setBitValue_lockedOtherSet(0);
     
         auto& timeGrid = cfgTp5Msg.field_flags().field_gridUtcGnss().value();
-        timeGrid = ublox::message::CfgTp5Fields<>::FlagsMembers::GridUtcGnssVal::UTC;
+        timeGrid = ublox::message::CfgTp5FieldsCommon::FlagsMembersCommon::GridUtcGnssVal::UTC;
 
         cfgTp5Msg.field_period().value().value() = 1000000; // 1 Sec == 1000000 uSec
         // cfgTp5Msg.field_periodLock().value().value() = 1;   // Hz

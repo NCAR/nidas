@@ -199,6 +199,8 @@ if has_i2c:
 # ubloxbin requires boost_asio, but as far as I can tell boost_asio is a
 # header only library.
 ubenv = env.Clone()
+ubenv.Append(CXXFLAGS='-Wno-effc++')
+ubenv['CXXFLAGS'].remove('-Weffc++')
 ubenv.Require(['boost_system'])
 # boost_thread requires pthread, so someday boost_thread tool should be
 # fixed to add that.
