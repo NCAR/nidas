@@ -142,8 +142,8 @@ def libusb1(env):
     conf = Configure(cfenv)
     conf.CheckLib('usb-1.0')
     cfenv = conf.Finish()
-    # Fedora installs header into a subdirectory.
     env.Append(LIBS=cfenv.get('LIBS', []))
+    # Fedora installs header into a subdirectory.
     usbpath = env.Dir("/usr/include/libusb-1.0").abspath
     if os.path.exists(usbpath):
         env.Append(CPPPATH=[usbpath])
@@ -151,10 +151,14 @@ def libusb1(env):
 def libftdi(env):
     # Force link libftdi.a.  Prepend rel path w/# to escape the confines of
     # scons root directory w/SConstruct.
-    libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch +
-                   '/src/libftdi1.a')
-    libftdi = "ftdi1"
-    env.Append(LIBS=[libftdi])
+    #libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch +
+    #               '/src/libftdi1.a')
+    cfenv = env.Clone()
+    cfenv.Replace(LIBS=[])
+    conf = Configure(cfenv)
+    conf.CheckLib('ftdi1')
+    cfenv = conf.Finish()
+    env.Append(LIBS=cfenv.get('LIBS', []))
     # On Fedora, libftdi-devel installs headers under /usr/include/libftdi1.
     hdir = env.Dir("/usr/include/libftdi1").abspath
     if os.path.exists(hdir):
