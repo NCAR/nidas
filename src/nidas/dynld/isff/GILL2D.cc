@@ -40,6 +40,10 @@
 #include <string.h>
 #include <sys/select.h>
 
+
+namespace n_c = nidas::core;
+namespace n_u = nidas::util;
+
 using namespace nidas::core;
 using namespace std;
 
