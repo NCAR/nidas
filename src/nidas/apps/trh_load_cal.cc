@@ -69,12 +69,9 @@ NidasAppArg Device("-d,--device", "i.e. /dev/ttyDSMx",
                    "Serial device to use when loading calibration "
                    "coefficients onto an NCAR_TRH sensor.", "", true);
 
-NidasAppArg Sensor("-s,--sensor", "i.e. isff.NCAR_TRH",
-                   "Sensor on which autoconfig will be performed.\n", 
-                   "isff.NCAR_TRH");
-
 NidasAppArg TrhCalFile("-f,--file", "i.e. TRH_SN_123456_20200203.cal",
                        "File containing the calibration coefficients ",
+                       "which should be in command form."
                        "", true);
 
 static NidasApp app("trh_load_cal");
@@ -83,7 +80,7 @@ int usage(const char* argv0)
 {
     std::cerr << "\
 Usage: " << argv0
-         << " [options] [-h | -d | -s | -f | -l]" << std::endl << std::endl
+         << " [options] [-h | -d | -f | -l]" << std::endl << std::endl
          << app.usage();
 
     return 1;
@@ -92,7 +89,7 @@ Usage: " << argv0
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Version | app.Help | 
-                        Device | Sensor | TrhCalFile);
+                        Device | TrhCalFile);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested() || argc < 2)
@@ -102,108 +99,191 @@ int parseRunString(int argc, char* argv[])
     return 0;
 }
 
+std::ifstream calFile;
+std::ofstream calFileLog;
+NCAR_TRH*  pTRHSensor = 0;
+
+int shutdown(int code)
+{
+    NLOG(("All the fun there was to be had, has been had"));
+    NLOG(("Close the device"));
+    calFile.close();
+    calFileLog.flush();
+    calFileLog.close();
+
+    if (pTRHSensor) {
+        pTRHSensor->pwrOff();
+        pTRHSensor->close();
+        delete pTRHSensor;
+    }
+
+    exit(code);
+}
+
 int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
     // cal command file use case
     std::string calFileName = TrhCalFile.getValue();
-    std::ifstream calFile;
-    std::string line;
 
     if (calFileName.length() != 0) {
         AutoProject ap;
     	struct stat statbuf;
 
-        if (::stat(calFileName.c_str(),&statbuf) == 0) {
-            NLOG(("Found cal file: ") << calFileName);
-            calFile = std::ifstream(calFileName);
-            if (!calFile) {
-                ELOG(("Failed to open ") << calFileName.c_str() << " on ifstream!!!");
-                return 10;
+        if (::stat(calFileName.c_str(), &statbuf) == 0) {
+            std::string calFileFound = 
+                "Found cal file: " + calFileName;
+
+            calFileLog = std::ofstream(calFileName + ".log", std::ofstream::trunc|std::ofstream::out);
+            if (!calFileLog.is_open()) {
+                std::string calFileLogOpenFail = 
+                    "Failed to open " + calFileName + ".log on ofstream!!!";
+                ELOG(("") << calFileLogOpenFail);
+                shutdown(20);
             }
+
+            std::string loggingToStr = "Logging to: " + calFileName + ".log";
+            NLOG(("") << loggingToStr);
+            calFileLog << loggingToStr << std::endl;
+            NLOG(("") << calFileFound);
+            calFileLog << calFileFound << std::endl;
+
+            calFile = std::ifstream(calFileName);
+            if (!calFile.is_open()) {
+                std::string calFileOpenFail = 
+                    "Failed to open " + calFileName + " on ifstream!!!";
+                ELOG(("") << calFileOpenFail);
+                calFileLog << calFileOpenFail << std::endl;
+                shutdown(10);
+            }
+
+            std::string calFileOpenStr = "Successfully opened: " + calFileName;
+            NLOG(("") << calFileOpenStr);
+            calFileLog << calFileOpenStr << std::endl;
         }
         else {
-            ELOG(("Failed to find cal file: ") << calFileName);
-            return -20;
+            std::string calFileNotFound = 
+                "Failed to find cal file: " + calFileName;
+            ELOG(("") << calFileNotFound);
+            std::cerr << calFileNotFound << std::endl;
+            shutdown(30);
         }
     }
 
-    else {
-        std::string sensorClass = Sensor.getValue();
-        if (sensorClass.length() != 0) {
-            NLOG(("Using Sensor: ") << sensorClass);
+    std::string sensorClass = "isff.NCAR_TRH";
+    std::string usingSensor = 
+        "Using Sensor: " + sensorClass;
+    NLOG(("") << usingSensor);
+    calFileLog << usingSensor << std::endl;
 
-            std::string deviceStr = Device.getValue();
+    std::string deviceStr = Device.getValue();
+    
+    if (deviceStr.length() != 0) {
+        std::string usingDevice = 
+            "Performing Auto Config and TRH Cal Load on Device: " + deviceStr;
+        NLOG(("") << usingDevice);
+        calFileLog << usingDevice << std::endl;
+    }
+    else
+    {
+        std::string noDeviceFail = 
+            "No device name specified. Cannot continue!!";
+        ELOG(("") << noDeviceFail);
+        calFileLog << noDeviceFail << std::endl;
+        shutdown(100);
+    }
+
+    DOMObjectFactory sensorFactory;
+
+    DOMable* domSensor = sensorFactory.createObject(sensorClass);
+    if (!domSensor) {
+        std::string sensorFactoryFail = 
+            "Sensor creator object not found: " + sensorClass;
+        ELOG(("") << sensorFactoryFail);
+        calFileLog << sensorFactoryFail << std::endl;
+        shutdown(200);
+    }
+
+    pTRHSensor = dynamic_cast<NCAR_TRH*>(domSensor);
+    if (!pTRHSensor) {
+        std::string trhSensorCastFail = 
+            "This utility only works with SerialSensor subclasses, "
+            "particularly those which have an autoconfig capability";
+        ELOG(("") << trhSensorCastFail);
+        calFileLog << trhSensorCastFail << std::endl;
+        shutdown(300);
+    }
+
+    // if (pTRHSensor->supportsAutoConfig()) {
+    //     pTRHSensor->setAutoConfigEnabled();
+    // }
+
+    std::string settingDeviceName = 
+        "Setting Device Name: " + deviceStr;
+    NLOG(("") << settingDeviceName);
+    calFileLog << settingDeviceName << std::endl;
+    pTRHSensor->setDeviceName(deviceStr);
+    std::string setDeviceName = 
+        "Set Device Name: " + pTRHSensor->getDeviceName();
+    NLOG(("") << setDeviceName);
+    calFileLog << setDeviceName << std::endl;
+
+    pTRHSensor->pwrOff();
+
+    std::string openingSensor = 
+        "Opening TRH sensor where port configuration occurs and power is turned on...";
+    NLOG(("") << openingSensor);
+    calFileLog << openingSensor << std::endl;
+    pTRHSensor->open(O_RDWR);
+
+    pTRHSensor->drainResponse();
+
+    std::string enteringEEPROMMenu = 
+        "Putting TRH into EEPROM Menu";
+    NLOG(("") << enteringEEPROMMenu);
+    calFileLog << enteringEEPROMMenu << std::endl;
+    if (pTRHSensor->sendAndCheckSensorCmd(SENSOR_EEPROM_MENU_CMD)) {
+        NLOG(("Sending calibration coefficient commands..."));
+        std::string coeffCmdStr;
+        std::getline(calFile, coeffCmdStr);
+        std::string firstString = 
+            "Got first string: " +  coeffCmdStr + "\n";
+        NLOG(("") << firstString);
+        calFileLog << firstString;
+
+        while (!coeffCmdStr.empty()) {
+            coeffCmdStr.append("\n");
+            std::string writingCoeff = 
+                "Writing coeff command: " +  coeffCmdStr;
+            NLOG(("") << writingCoeff);
+            calFileLog << writingCoeff;
+            size_t numWritten = pTRHSensor->writePause(coeffCmdStr.c_str(), coeffCmdStr.length(), 100);
+            if (numWritten != coeffCmdStr.length()) {
+                std::string writeCoeffFail = 
+                    "Failed to properly write cal coeff command: " + coeffCmdStr;
+                ELOG(("") << writeCoeffFail);
+            }
+            pTRHSensor->flush();
+
+            char respbuf[256];
+            std::memset(respbuf, 0, 256);
+            pTRHSensor->readEntireResponse(respbuf,255, 500);
+            std::string respStr("Command Response: ");
+            respStr.append(respbuf);
+            NLOG(("") << respStr);
+            calFileLog << respStr << std::endl;
             
-            if (deviceStr.length() != 0) {
-                NLOG(("Performing Auto Config on Device: ") << deviceStr);
-            }
-            else
-            {
-                std::cerr << "No device name specified. Cannot continue!!" << std::endl;
-                return 100;
-            }
-
-            DOMObjectFactory sensorFactory;
-
-            DOMable* domSensor = sensorFactory.createObject(sensorClass);
-            if (!domSensor) {
-                std::cerr << "Sensor creator object not found: " << sensorClass << std::endl;
-                return 200;
-            }
-
-            SerialSensor*  pSerialSensor = dynamic_cast<SerialSensor*>(domSensor);
-            if (!pSerialSensor) {
-                std::cerr << "This utility only works with serial sensors, "
-                             "particularly those which have an autoconfig capability" << std::endl;
-                return 300;
-            }
-
-            NLOG(("Setting Device Name: ") << deviceStr);
-            pSerialSensor->setDeviceName(deviceStr);
-            NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
-
-            NLOG(("Printing sensor power State..."));
-            pSerialSensor->updatePowerState();
-            pSerialSensor->printPowerState();
-
-            if (pSerialSensor->supportsAutoConfig()) {
-                NLOG(("Setting sensor to enable AutoConfig..."));
-                pSerialSensor->setAutoConfigEnabled();
-            }
-
-            else {
-                // set the message parameters just for the purposes of this test...
-                pSerialSensor->setMessageParameters(1, std::string("\n"), true);
-            }
-
-            NLOG(("Opening serial sensor, where all the autoconfig magic happens!"));
-            pSerialSensor->open(O_RDWR);
-
-            NLOG(("Sending calibration coefficient commands..."));
-            std::string coeffCmd;
-            while (getline(calFile, line)) {
-                size_t numWritten = pSerialSensor->write(line.c_str(), line.length());
-                if (numWritten != line.length()) {
-                    ELOG(("Failed to properly write cal coeff command: ") << line );
-                }
-            }
-
-            NLOG(("All the fun there was to be had, has been had"));
-            NLOG(("Close the device"));
-            calFile.close();
-            pSerialSensor->close();
-
-            delete pSerialSensor;
+            std::getline(calFile, coeffCmdStr);
         }
-
-        else {
-            std::cerr << "Must supply the sensor class name if not using DSM config file!!" << std::endl;
-            return usage(argv[0]);
-        }
+    }
+    else {
+        std::string eepromMenuFail("Failed to put the device into EEPROM Menu!!");
+        ELOG(("") << eepromMenuFail);
+        calFileLog << eepromMenuFail << std::endl;
+        shutdown(400);
     }
 
     // all good, return 0
-    return 0;
+    shutdown(0);
 }
