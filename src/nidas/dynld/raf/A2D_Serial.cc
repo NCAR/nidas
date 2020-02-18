@@ -78,7 +78,7 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
     int nsamp = 0;
     bool done = false;
 
-    write("#RST\n", 5);        // request config.
+    write("#RST\n", 5);        // reset device, which will return config.
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
     while (!done) {
@@ -92,7 +92,7 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
 
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
-                if (strstr(msg, "!EOC")) done = true;
+                if (strstr(msg, "!EOC")) done = true;   // last line of config
                 parseConfigLine(msg);
             }
             if (nsamp > 50) {
@@ -194,7 +194,7 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
                 }
 /*
  * Currently channels must be consecutive, no gaps.  If you want to be able to
- * specify channel number then engage this and modilfy code to have list of
+ * specify channel number then engage this and modify code to have list of
  * channel #'s.  As is, you may skip a channel by calling it DUMMY and parsing
  * it.
                 else if (pname == "channel") {
@@ -380,6 +380,20 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
     if (strstr(data, "!BID"))  _boardID = atoi(&data[5]);
 // @TODO, if _boardID changes, then we need to set new _calFile file name.
+    if (strstr(data, "!IFSR")) {
+        int channel = atoi(&data[6]);
+        int value = atoi(&data[8]);
+        if (_gains[channel] != value)
+            WLOG(("%s: SerialA2D config mismatch: gain xml=%d != dev=%d",
+                getName().c_str(), _gains[channel], value ));
+    }
+    if (strstr(data, "!IPOL")) {
+        int channel = atoi(&data[6]);
+        int value = atoi(&data[8]);
+        if (_bipolars[channel] != value)
+            WLOG(("%s: SerialA2D config mismatch: gain xml=%d != dev=%d",
+                getName().c_str(), _bipolars[channel], value ));
+    }
 }
 
 
