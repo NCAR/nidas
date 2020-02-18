@@ -94,6 +94,7 @@ RUN apt-get -y install libi2c-dev
 # get and install ftdi 1.4 and depends libusb-1.0
 RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
 RUN apt-get -y remove libftdi1=0.20-4
+RUN apt-get -y -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:armhf
 
 # will also be building for x86_64 host for unit testing, so add these libs
 # NOTE: re-adding libxerces for $hostarch as adding for host takes it out
@@ -125,11 +126,6 @@ WORKDIR /home/$user
 RUN find . -name nidas -delete
 
 # Local packages
-RUN mkdir -p libftdi
-COPY ./build-libftdi-pkg.sh libftdi
-COPY ./crosstoolchain-$hostarch.cmake libftdi
-RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
-
 RUN mkdir -p ublox
 COPY ./build-ublox.sh ublox
 RUN cd ublox && sudo ./build-ublox.sh
