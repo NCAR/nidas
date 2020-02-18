@@ -502,7 +502,7 @@ static const char* SENSOR_RESET_CMD_STR = "\x12"; // ctrl-r
 static const char* SENSOR_TOGGLE_CAL_OUTPUT_CMD_STR = "Oc"; // calibrated output message
 static const char* SENSOR_TOGGLE_RAW_OUTPUT_CMD_STR = "Or"; // raw output message
 static const char* SENSOR_ENTER_CAL_MODE_CMD_STR = "Ob";    // cal output messages
-static const char* SENSOR_EEPROM_MENU_CMD_STR = "\x15";     // ctrl-u
+static const char* SENSOR_EEPROM_MENU_CMD_STR = "\n";     // ctrl-u
 static const char* SENSOR_EEPROM_RATE_CMD_STR = "RAT";      // 1-60 seconds between sample messages
 static const char* SENSOR_EEPROM_MENU_EXIT_RESP_CMD_STR = "EXT"; // Exit EEPROM menu and reset
 
@@ -546,7 +546,7 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
  */
 
                                            //input command format: cmd [value] [[value] [value] ...]
-static string EEPROM_MENU_ENTERED_RESP_SPEC("input command format: cmd \\[value] \\[\\[value] \\[value] [.]{3}]");
+static string EEPROM_MENU_ENTERED_RESP_SPEC("[[:space:]]+UNKNOWN Command![[:space:]]+EEprom:");
 static regex EEPROM_MENU_ENTERED_RESP(EEPROM_MENU_ENTERED_RESP_SPEC, std::regex_constants::extended);
 static string EEPROM_MENU_EXIT_RESP_SPEC("Exit EEPROM LOADER - reset will take place");
 static regex EEPROM_MENU_EXIT_RESP(EEPROM_MENU_EXIT_RESP_SPEC, std::regex_constants::extended);

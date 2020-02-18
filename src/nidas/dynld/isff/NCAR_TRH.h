@@ -133,6 +133,15 @@ public:
     std::vector<float>
     getRawRHCoefficients();
 
+    /*
+     *  AutoConfig - TRH-specific methods.
+     */
+    void sendSensorCmd(int cmd, SensorCmdArg arg=SensorCmdArg(), bool resetNow=false);
+    bool sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg=SensorCmdArg());
+    bool checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg);
+    void initCustomMetadata();
+    bool captureResetMetaData(const char* buf);
+
 protected:
     /*
      *  AutoConfig - Virtual overrides of SerialSensor methods.
@@ -143,15 +152,6 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters() {return _scienceParametersOk;};
     virtual CFG_MODE_STATUS enterConfigMode();
-
-    /*
-     *  AutoConfig - TRH-specific methods.
-     */
-    void sendSensorCmd(int cmd, SensorCmdArg arg=SensorCmdArg(), bool resetNow=false);
-    bool sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg=SensorCmdArg());
-    bool checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg);
-    void initCustomMetadata();
-    bool captureResetMetaData(const char* buf);
 
 private:
 
