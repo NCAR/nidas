@@ -41,6 +41,9 @@ namespace n_u = nidas::util;
 using nidas::util::LogScheme;
 
 
+map<string, bool> configStatus;
+
+
 NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
@@ -55,6 +58,10 @@ headerLines = 0;
         _gains[i] = 0;          // 1 or 2 is all we support at this time.
         _bipolars[i] = true;    // At this time that is all this device supports.
     }
+
+    configStatus["IFSR"] = true;
+    configStatus["IPOL"] = true;
+    configStatus["ISEL"] = true;
 }
 
 A2D_Serial::~A2D_Serial()
@@ -235,6 +242,27 @@ cout << "init :\n";
 dumpConfig();
 }
 
+
+void A2D_Serial::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        return;
+    }
+
+    int i = 0;
+    for (map<string,bool>::iterator it = configStatus.begin(); it != configStatus.end(); ++it) {
+        if (i > 0) ostr << ',';
+        ostr << "<font";
+        if (it->second == false)
+            ostr << " color=red";
+        ostr << "><b>" << it->first << "</b></font>";
+        ++i;
+    }
+}
+
+
 bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 {
     bool rc = false;
@@ -377,22 +405,60 @@ bool A2D_Serial::process(const Sample * samp,
 
 void A2D_Serial::parseConfigLine(const char *data)
 {
+    int channel, value;
     if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
     if (strstr(data, "!BID"))  _boardID = atoi(&data[5]);
 // @TODO, if _boardID changes, then we need to set new _calFile file name.
+
+
     if (strstr(data, "!IFSR")) {
-        int channel = atoi(&data[6]);
-        int value = atoi(&data[8]);
-        if (_gains[channel] != value)
-            WLOG(("%s: SerialA2D config mismatch: gain xml=%d != dev=%d",
-                getName().c_str(), _gains[channel], value ));
+        channel = atoi(&data[6]);
+        value = atoi(&data[8]);
+        if (_gains[channel] != value) {
+            configStatus["IFSR"] = false;
+            WLOG(("%s: SerialA2D config mismatch: gain chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _gains[channel], value ));
+        }
     }
+    else
     if (strstr(data, "!IPOL")) {
-        int channel = atoi(&data[6]);
-        int value = atoi(&data[8]);
-        if (_bipolars[channel] != value)
-            WLOG(("%s: SerialA2D config mismatch: gain xml=%d != dev=%d",
-                getName().c_str(), _bipolars[channel], value ));
+        channel = atoi(&data[6]);
+        value = atoi(&data[8]);
+        if (_bipolars[channel] != value) {
+            configStatus["IPOL"] = false;
+            WLOG(("%s: SerialA2D config mismatch: bipolar chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _bipolars[channel], value ));
+        }
+    }
+    else
+    if (strstr(data, "!ISEL")) {
+        channel = atoi(&data[6]);
+        value = atoi(&data[8]);
+        if (value != 0) {
+            configStatus["ISEL"] = false;
+            WLOG(("%s: SerialA2D ISEL not default: chan=%d val=%d",
+                getName().c_str(), channel, value ));
+        }
+    }
+    else
+    if (strstr(data, "!OSEL")) {
+        configStatus["OSEL"] = true;
+        value = atoi(&data[6]);
+        if (value != 0) {
+            configStatus["OSEL"] = false;
+            WLOG(("%s: SerialA2D OSEL not default: val=%d",
+                getName().c_str(), value ));
+        }
+    }
+    else
+    if (strstr(data, "!OCEN")) {
+        configStatus["OCEN"] = true;
+        value = atoi(&data[6]);
+        if (value < _nVars) {
+            configStatus["OCEN"] = false;
+            WLOG(("%s: SerialA2D OCEN XML:nVars [%d] is greater than device config [%d]",
+                getName().c_str(), _nVars, value ));
+        }
     }
 }
 

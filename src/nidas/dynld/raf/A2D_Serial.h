@@ -65,6 +65,9 @@ public:
      */
     void init() throw(nidas::util::InvalidParameterException);
 
+    void printStatus(std::ostream& ostr) throw();
+
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
