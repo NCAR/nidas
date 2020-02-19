@@ -69,20 +69,25 @@ public:
 
     virtual Sample* nextSample()
     {
-        Sample *samp = getSampleScanner()->nextSample(this);
+        Sample *samp = SerialSensor::nextSample();
 
-        const char *msg = (const char *)samp->getConstVoidDataPtr();
-        if (msg[0] == 'H') {
-            const char *p = msg;
-            int cnt = 0, nbytes = samp->getDataByteLength();
-            for (int i = 0; i < nbytes && cnt < 2; ++i)
-                if (*p++ == ',')
-                    ++cnt;
-            if (cnt == 2) {
-                configStatus["PPS"] = atoi(p);
+        if (samp) {
+            const char *msg = (const char *)samp->getConstVoidDataPtr();
+            if (msg[0] == 'H') {    // header packet
+                const char *p = msg;
+                int cnt = 0, nbytes = samp->getDataByteLength();
+
+                for (int i = 0; i < nbytes && cnt < 2; ++i)
+                    if (*p++ == ',')
+                        ++cnt;
+                if (cnt == 2) {
+                    char s[nbytes+1];
+                    nbytes -= (p-msg);
+                    ::memcpy(s, p, nbytes); s[nbytes]=0;
+                    configStatus["PPS"] = atoi(s);
+                }
             }
         }
-
         return samp;
     }
 

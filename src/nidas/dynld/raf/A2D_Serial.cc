@@ -138,6 +138,13 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 {
     SerialSensor::validate();
 
+    const Parameter* param;
+    param = getParameter("boardID");
+    if (!param) throw n_u::InvalidParameterException(getName(),
+          "boardID","not found");
+    _boardID = (int)param->getNumericValue(0);
+
+
     const std::list<SampleTag*>& tags = getSampleTags();
     std::list<SampleTag*>::const_iterator ti = tags.begin();
 
@@ -155,9 +162,6 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
         for (pi = params.begin(); pi != params.end(); ++pi) {
             const Parameter* param = *pi;
             const string& pname = param->getName();
-            if (pname == "boardID") {
-                _boardID = (int)param->getNumericValue(0);
-            }
             if (pname == "outputmode") {
                     if (param->getType() != Parameter::STRING_PARAM ||
                         param->getLength() != 1)
@@ -252,6 +256,8 @@ void A2D_Serial::printStatus(std::ostream& ostr) throw()
         return;
     }
 
+
+    ostr << "<td align=left>";
     bool firstPass = true;
     for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
     {
@@ -276,6 +282,7 @@ void A2D_Serial::printStatus(std::ostream& ostr) throw()
         ostr << "><b>" << it->first << "</b></font>";
         firstPass = false;
     }
+    ostr << "</td>";
 }
 
 
