@@ -41,9 +41,6 @@ namespace n_u = nidas::util;
 using nidas::util::LogScheme;
 
 
-map<string, bool> configStatus;
-
-
 NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
@@ -59,6 +56,7 @@ headerLines = 0;
         _bipolars[i] = true;    // At this time that is all this device supports.
     }
 
+    configStatus["PPS"] = 0;
     configStatus["IFSR"] = true;
     configStatus["IPOL"] = true;
     configStatus["ISEL"] = true;
@@ -118,7 +116,7 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
 void A2D_Serial::dumpConfig() const
 {
     cout << "A2D_Serial: " << getName() << " configuration:" << endl;
-    cout << "Board ID = " << _boardID << endl;
+    cout << "Board ID: XML=" << _boardID << ", dev=" << configStatus.find("BID")->second << endl;
     cout << "Sample rate = " << _sampleRate << endl;
     cout << "Checksum enabled = " << _haveCkSum << endl;
     cout << "OutputMode [Counts, Volts, Engineering] = " << _outputMode << endl;
@@ -157,6 +155,9 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
         for (pi = params.begin(); pi != params.end(); ++pi) {
             const Parameter* param = *pi;
             const string& pname = param->getName();
+            if (pname == "boardID") {
+                _boardID = (int)param->getNumericValue(0);
+            }
             if (pname == "outputmode") {
                     if (param->getType() != Parameter::STRING_PARAM ||
                         param->getLength() != 1)
@@ -251,14 +252,29 @@ void A2D_Serial::printStatus(std::ostream& ostr) throw()
         return;
     }
 
-    int i = 0;
-    for (map<string,bool>::iterator it = configStatus.begin(); it != configStatus.end(); ++it) {
-        if (i > 0) ostr << ',';
+    bool firstPass = true;
+    for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
+    {
+        bool red = false;
+        if (!firstPass) ostr << ',';
+
         ostr << "<font";
+        if ((it->first).compare("BID") == 0) {
+            if (it->second != _boardID)
+                red = true;
+        }
+        else
+        if ((it->first).compare("PPS") == 0) {
+            if (it->second < 2)
+                red = true;
+        }
+        else
         if (it->second == false)
-            ostr << " color=red";
+            red = true;
+
+        if (red) ostr << " color=red";
         ostr << "><b>" << it->first << "</b></font>";
-        ++i;
+        firstPass = false;
     }
 }
 
@@ -407,7 +423,7 @@ void A2D_Serial::parseConfigLine(const char *data)
 {
     int channel, value;
     if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
-    if (strstr(data, "!BID"))  _boardID = atoi(&data[5]);
+    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
 // @TODO, if _boardID changes, then we need to set new _calFile file name.
 
 

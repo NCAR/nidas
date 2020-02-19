@@ -67,6 +67,25 @@ public:
 
     void printStatus(std::ostream& ostr) throw();
 
+    virtual Sample* nextSample()
+    {
+        Sample *samp = getSampleScanner()->nextSample(this);
+
+        const char *msg = (const char *)samp->getConstVoidDataPtr();
+        if (msg[0] == 'H') {
+            const char *p = msg;
+            int cnt = 0, nbytes = samp->getDataByteLength();
+            for (int i = 0; i < nbytes && cnt < 2; ++i)
+                if (*p++ == ',')
+                    ++cnt;
+            if (cnt == 2) {
+                configStatus["PPS"] = atoi(p);
+            }
+        }
+
+        return samp;
+    }
+
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
@@ -164,12 +183,23 @@ protected:
      */
     size_t _havePPS;
 
-    /* This device will only support/use 2 voltage ranges. -5 to +5 and
+    /**
+     * This device will only support/use 2 voltage ranges. -5 to +5 and
      * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
      *  in case we ever want to change support positive only voltage range.
      */
     int _gains[NUM_A2D_CHANNELS];
     int _bipolars[NUM_A2D_CHANNELS];
+
+
+    /**
+     * This contains the status of config verification between what we read
+     * off the device and what is in the XML.  These are then used in
+     * printStatus for the status page.  With the exception of PPS, these are
+     * all set at open() time.  nextSample() is over-ridden in order to get
+     * the PPS status.
+     */
+    std::map<std::string, int> configStatus;
 
     // A/D calibration coefficients
     std::vector<float> _polyCals[NUM_A2D_CHANNELS];
