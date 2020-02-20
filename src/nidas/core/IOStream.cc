@@ -175,7 +175,11 @@ size_t IOStream::backup(size_t len) throw()
 {
     size_t maxbackup = _tail - _buffer;
     // cerr << "IOStream::backup, len=" << len << " maxbackup=" << maxbackup << endl;
-    if (len > maxbackup) len = maxbackup;
+    if (len > maxbackup)
+    {
+        WLOG(("backup(") << len << "): capped at " << maxbackup << " bytes.");
+        len = maxbackup;
+    }
     _tail -= len;
     _nbytesIn -= len;
     return len;

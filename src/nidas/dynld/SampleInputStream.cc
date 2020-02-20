@@ -120,8 +120,6 @@ endBadBlock(Sample* samp, long long offset)
 {
     if (samp)
         end_time = samp->getTimeTag();
-    // The block is not empty and has at least one bad byte, but
-    // the actual size will not be known until endBadBlock() is called.
     nbytes = offset - block_start;
 }
 
@@ -188,7 +186,8 @@ SampleInputStream::SampleInputStream(bool raw):
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
-    _original(this),_raw(raw)
+    _original(this),_raw(raw),
+    _last_name()
 {
 }
 
@@ -203,7 +202,8 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
-    _original(this),_raw(raw)
+    _original(this),_raw(raw),
+    _last_name()
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -223,7 +223,8 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(x._bsf),
-    _original(&x),_raw(x._raw)
+    _original(&x),_raw(x._raw),
+    _last_name()
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -340,7 +341,8 @@ void SampleInputStream::init() throw()
 }
 #endif
 
-void SampleInputStream::close() throw(n_u::IOException)
+
+void SampleInputStream::closeBlocks()
 {
     // Need two log contexts here, one for warnings when filtering
     // is active and one for debug when there are no bad samples.
@@ -348,29 +350,36 @@ void SampleInputStream::close() throw(n_u::IOException)
     static LogContext dlog(LOG_DEBUG);
     LogContext* log =
         (_bsf.filterBadSamples() || _badSamples != 0) ? &wlog : &dlog;
+
+    // Tally up the blocks.  We cannot rely on the iostream to give a
+    // reliable end of the current block, because it may have already been
+    // reset to a new file.
+    size_t length = _block.block_start + _block.nbytes;
+    if (_block.nbytes)
+    {
+        log->log() << _block;
+    }
+    // It's possible this is the start of the first file, in which case
+    // there is nothing to report.
+    if (_badSamples || _goodSamples)
+    {
+        log->log() << _last_name << ": Total " << _badSamples << " bad bytes.";
+        log->log() << _last_name << ": Total " << _goodSamples
+                << " good samples (" << (length - _badSamples) << " bytes)";
+
+        DLOG(("resetting block stats..."));
+        _block = BlockStats();
+        _badSamples = 0;
+        _goodSamples = 0;
+    }
+}
+
+
+void SampleInputStream::close() throw(n_u::IOException)
+{
+    closeBlocks();
     if (_iostream)
     {
-        // Finish tallying up the last block.  It would make more sense to
-        // compute good and bad blocks per-file, for input streams like
-        // FileSets with multiple files.  However, the API for keeping
-        // track of when files change makes that difficult.  Likewise, it
-        // seems better to close the latest block when EOF is first
-        // detected in the stream, but since that exception can be thrown
-        // from so many places, this seems the next best option.  So
-        // callers which want to log stats on all blocks have to call
-        // close() manually first.
-        long long offset = _iostream->getNumInputBytes();
-        if (_block.nbytes)
-        {
-            if (!_block.good)
-            {
-                _block.endBadBlock(0, offset);
-            }
-            log->log() << _block;
-        }
-        log->log() << getName() << ": Total " << _badSamples << " bad bytes.";
-        log->log() << getName() << ": Total " << _goodSamples
-             << " good samples (" << (offset - _badSamples) << " bytes)";
         delete _iostream;
         _iostream = 0;
     }
@@ -388,21 +397,31 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
     while (!_inputHeaderParsed)
     {
         _iostream->read();
+        // I think this might result in a new input, if the previous input
+        // was shorter than the length of a header, in which case the
+        // parsing might need to be started over.  But since this has worked
+        // so far, nothing is done about it here.
         parseInputHeader();
     }
+    DLOG(("input header parsed, offset is now ")
+        << _iostream->getNumInputBytes() << " bytes.");
 }
 
 bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 {
-    if (!_expectHeader) {
-        _inputHeaderParsed = true;
-        return true;
-    }
+    // Since this presumably is happening at the start of a new file or
+    // new stream, it seems natural to clear out any leftovers from a
+    // previous input, even if _expectHeader is false.
+    DLOG(("attempting to parse input header"));
     if (_samp) _samp->freeReference();
     _samp = 0;
     _headerToRead = _sheader.getSizeOf();
     _hptr = (char*)&_sheader;
     _dataToRead = 0;
+    if (!_expectHeader) {
+        _inputHeaderParsed = true;
+        return true;
+    }
     try {
         _inputHeaderParsed = _inputHeader.parse(_iostream);
     }
@@ -448,6 +467,22 @@ namespace {
 }
 
 
+void
+SampleInputStream::
+handleNewInput()
+{
+    closeBlocks();
+    _last_name = getName();
+    size_t offset = _iostream->getNumInputBytes();
+    _iostream->backup();
+    size_t start = _iostream->getNumInputBytes();
+    DLOG(("new input detected after reading ")
+        << offset << " bytes, backed up to offset " << start);
+    _inputHeaderParsed = false;
+    readInputHeader();
+}
+
+
 /*
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
@@ -466,9 +501,10 @@ bool SampleInputStream::readSamples() throw(n_u::IOException)
     if (_iostream->available() == 0) return false;
 
     // first read from a new file
-    if (_expectHeader && _iostream->isNewInput()) _inputHeaderParsed = false;
-    
-    if (!_inputHeaderParsed && !parseInputHeader()) return true;
+    if (_iostream->isNewInput())
+    {
+        handleNewInput();
+    }
 
     // process all samples in buffer
     for (;;) {
@@ -486,6 +522,9 @@ readSampleHeader(bool keepreading) throw(n_u::IOException)
 {
     while (_headerToRead > 0) {
         size_t len;
+        // keepreading means read as much as we need from the stream, even if it
+        // means more physical reads of the underlying device.  Otherwise read
+        // only what is currently in the buffer.
         if (keepreading)
             len = _iostream->read(_hptr, _headerToRead);
         else
@@ -493,9 +532,12 @@ readSampleHeader(bool keepreading) throw(n_u::IOException)
         _headerToRead -= len;
         _hptr += len;
 
-        if (keepreading && _expectHeader && _iostream->isNewInput()) {
-                _iostream->backup(len);
-                readInputHeader();
+        if (_iostream->isNewInput())
+        {
+            // Always read through the header if any, since the rest of the
+            // sample reading code expects to be at a point to read the
+            // next sample rather than check if a header needs to be read.
+            handleNewInput();
         }
         if (!keepreading && _headerToRead > 0) 
             return false;   // no more data
@@ -515,12 +557,12 @@ readSampleData(bool keepreading) throw(n_u::IOException)
         else
             len = _iostream->readBuf(_dptr, _dataToRead);
 
-        if (keepreading && _expectHeader && _iostream->isNewInput()) {
-            _iostream->backup(len);
-            readInputHeader();  // sets _samp to 0
-            // abort this sample data and start over
+        if (_iostream->isNewInput())
+        {
+            handleNewInput();
             return false;
         }
+
         _dataToRead -= len;
         _dptr += len;
 
@@ -670,6 +712,14 @@ sampleFromHeader() throw()
             // block.
             WLOG(("") << _block);
             _block.startBadBlock(offset);
+        }
+        else
+        {
+            // Append to the existing bad block.  We need to do this now
+            // while we know the current stream offset, since in a
+            // multi-file stream the offset resets to zero before we find
+            // out the current file has been closed.
+            _block.endBadBlock(0, offset);
         }
         // bad header. Shift left by one byte, read next byte.
         memmove(&_sheader, ((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);

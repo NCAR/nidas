@@ -483,6 +483,15 @@ private:
     bool readSampleData(bool keepreading) throw(nidas::util::IOException);
 
     /**
+     * Whenever we are at the start of a new input, we need to handle
+     * parsing the input header.  This method sets up the right state to
+     * start over on a new file.
+     **/
+    void handleNewInput();
+
+    void closeBlocks();
+
+    /**
      * Check the current header for validity and generate a sample for it.
      **/
     nidas::core::Sample* sampleFromHeader() throw();
@@ -547,6 +556,13 @@ private:
     SampleInputStream* _original;
 
     bool _raw;
+
+    /**
+     * Keep the current name of the input stream so it can be  
+     * referenced even after the input stream has advanced to
+     * a new input name.
+     **/
+    std::string _last_name;
 
     /**
      * No regular copy.

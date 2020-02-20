@@ -221,6 +221,7 @@ void Bzip2FileSet::closeFile() throw(IOException)
             throw IOException(getCurrentName(),"fclose",ierr);                           
         }                     
         _fd = -1;
+        DLOG(("") << "closed " << getCurrentName());
     }
     FileSet::closeFile();
 }

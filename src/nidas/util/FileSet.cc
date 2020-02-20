@@ -138,7 +138,7 @@ void FileSet::closeFile() throw(IOException)
          * If necessary, we could add an fsync method if someone really wants it.
          */
         int fd = _fd;
-	_fd = -1;
+        _fd = -1;
 #ifdef DO_FSYNC
         if (::fsync(fd) < 0) {
             int ierr = errno;
@@ -147,7 +147,8 @@ void FileSet::closeFile() throw(IOException)
         }
 #endif
         if (::close(fd) < 0)
-	    throw IOException(_currname,"close",errno);
+            throw IOException(_currname,"close",errno);
+        DLOG(("") << "closed " << _currname);
     }
 }
 
@@ -360,6 +361,7 @@ void FileSet::initialize()
 
 void FileSet::openNextFile() throw(IOException)
 {
+    DLOG(("") << "openNextFile()");
     if (!_initialized) {
         initialize();
     }
@@ -371,6 +373,7 @@ void FileSet::openNextFile() throw(IOException)
     {
         if (_fileiter == _fileset.end())
         {
+            DLOG(("") << "openNextFile(): no more files in fileset");
             throw EOFException(_currname, "open");
         }
         _currname = *_fileiter++;
@@ -390,6 +393,7 @@ void FileSet::openNextFile() throw(IOException)
         }
         _newFile = true;
     }
+    DLOG(("") << "file opened: " << _currname);
 }
 
 /* static */
