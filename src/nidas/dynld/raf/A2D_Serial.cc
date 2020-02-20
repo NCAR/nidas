@@ -429,10 +429,9 @@ bool A2D_Serial::process(const Sample * samp,
 void A2D_Serial::parseConfigLine(const char *data)
 {
     int channel, value;
-    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
-    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
-// @TODO, if _boardID changes, then we need to set new _calFile file name.
-
+    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]); else
+    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]); else
+    if (strstr(data, "!FILT"))  configStatus["FILT"] = atoi(&data[6]); else
 
     if (strstr(data, "!IFSR")) {
         channel = atoi(&data[6]);
@@ -473,16 +472,21 @@ void A2D_Serial::parseConfigLine(const char *data)
                 getName().c_str(), value ));
         }
     }
-    else
-    if (strstr(data, "!OCEN")) {
-        configStatus["OCEN"] = true;
+    if (strstr(data, "!FILT")) {
+        configStatus["FILT"] = true;
         value = atoi(&data[6]);
-        if (value < _nVars) {
-            configStatus["OCEN"] = false;
-            WLOG(("%s: SerialA2D OCEN XML:nVars [%d] is greater than device config [%d]",
-                getName().c_str(), _nVars, value ));
-        }
+        if ((value == 0 || value == 5) && _sampleRate != 250)
+            configStatus["FILT"] = false;
+        if ((value == 1 || value == 6 || value == 10) && _sampleRate != 100)
+            configStatus["FILT"] = false;
+        if ((value == 2 || value == 7) && _sampleRate != 50)
+            configStatus["FILT"] = false;
+        if ((value == 3 || value == 8) && _sampleRate != 25)
+            configStatus["FILT"] = false;
+        if ((value == 4 || value == 9) && _sampleRate != 10)
+            configStatus["FILT"] = false;
     }
+std::cerr << "SampleRate = " << _sampleRate << std::endl;
 }
 
 
