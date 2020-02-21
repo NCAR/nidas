@@ -156,6 +156,31 @@ NidsMerge::NidsMerge():
 {
 }
 
+void
+check_fileset(list<string>& filenames, bool& requiretimes)
+{
+    bool timespecs = false;
+    // Collect any additional filenames in the file set up
+    // until the next option specified.
+    for (list<string>::iterator it = filenames.begin();
+         it != filenames.end(); ++it)
+    {
+        string& filespec = *it;
+        if (filespec.find('%') != string::npos)
+            timespecs = true;
+    };
+    if (timespecs && filenames.size() != 1)
+    {
+        std::ostringstream xmsg;
+        xmsg << "Only one filespec allowed in a file set "
+                << "with time specifiers : " << *filenames.begin()
+                << " ... " << *filenames.rbegin();
+        throw NidasAppException(xmsg.str());
+    }
+    requiretimes |= timespecs;
+}
+
+
 int NidsMerge::parseRunstring(int argc, char** argv) throw()
 {
     // Use LogConfig instead of the older LogLevel option to avoid -l
@@ -171,6 +196,13 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
          "The file specifier is either filename pattern with time\n"
          "specifier fields like %Y%m%d_%H%M, or it is one or more\n"
          "filenames which will be read as a consecutive stream.");
+    NidasAppArg InputFileSetFile
+        ("-I", "<filespec>",
+         "Read filesets from file <filespec>.  Each line in the given\n"
+         "file is taken as the argument to a single -i option.  So\n"
+         "each line is either a single filename pattern with time\n"
+         "specifiers, or a list of files which will be read as a\n"
+         "consecutive stream.");
     NidasAppArg ReadAhead
         ("-r,--readahead", "seconds",
          "How much time to read ahead and sort the input samples\n"
@@ -202,8 +234,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     app.enableArguments(app.LogConfig | app.LogShow | app.LogFields |
                         app.LogParam | app.StartTime | app.EndTime |
                         app.Version | app.OutputFiles | KeepOpening |
-                        FilterArg | InputFileSet | ReadAhead |
-                        ConfigName | OutputFileLength | DSMid |
+                        FilterArg | InputFileSet | InputFileSetFile |
+                        ReadAhead | ConfigName | OutputFileLength | DSMid |
                         app.Help);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = false;
@@ -235,24 +267,41 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
                 // First argument has already been retrieved.
                 list<string> fileNames;
                 string filespec = InputFileSet.getValue();
-                bool timespecs = false;
                 // Collect any additional filenames in the file set up
                 // until the next option specified.
                 do {
-                    if (filespec.find('%') != string::npos)
-                        timespecs = true;
                     fileNames.push_back(filespec);
                 } while (app.nextArg(filespec));
-
-                if (timespecs && fileNames.size() != 1)
-                {
-                    xmsg << "Only one filespec allowed in a file set "
-                         << "with time specifiers : " << *fileNames.begin()
-                         << " ... " << *fileNames.rbegin();
-                    throw NidasAppException(xmsg.str());
-                }
-                requiretimes |= timespecs;
+                check_fileset(fileNames, requiretimes);
                 inputFileNames.push_back(fileNames);
+            }
+            else if (arg == &InputFileSetFile)
+            {
+                // filepath is the argument
+                string path = arg->getValue();
+                std::ifstream files(path);
+                string line;
+                while (!files.eof())
+                {
+                    list<string> filenames;
+                    std::getline(files, line);
+                    DLOG(("Inputs line: ") << line);
+                    std::istringstream fileset(line);
+                    string filespec;
+                    while (fileset >> filespec)
+                    {
+                        // skip lines whose first non-ws character is '#'
+                        if (filespec[0] == '#')
+                            break;
+                        filenames.push_back(filespec);
+                    }
+                    // ignore empty lines
+                    if (filenames.size())
+                    {
+                        check_fileset(filenames, requiretimes);
+                        inputFileNames.push_back(filenames);
+                    }
+                }
             }
         }
         readAheadUsecs = ReadAhead.asInt() * (long long)USECS_PER_SEC;
