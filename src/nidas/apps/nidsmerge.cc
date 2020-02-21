@@ -279,7 +279,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
             {
                 // filepath is the argument
                 string path = arg->getValue();
-                std::ifstream files(path);
+                std::ifstream files(path.c_str());
                 string line;
                 while (!files.eof())
                 {
