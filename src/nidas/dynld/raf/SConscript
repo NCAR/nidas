@@ -9,6 +9,7 @@ sources = Split("""
     A2D_Serial.cc
     ADC_HW_EB7022597.cc
     Aircraft.cc
+    AlicatSDI.cc
     Arinc_IRS.cc
     BCPD_Serial.cc
     CDP_Serial.cc
@@ -59,6 +60,7 @@ headers = Split("""
     A2D_Serial.h
     ADC_HW_EB7022597.h
     Aircraft.h
+    AlicatSDI.h
     AltaEnet.h
     Arinc_IRS.h
     BCPD_Serial.h
