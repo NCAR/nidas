@@ -490,6 +490,23 @@ std::cerr << "SampleRate = " << _sampleRate << std::endl;
 }
 
 
+void A2D_Serial::extractStatus(const char *msg, int len)
+{
+    const char *p = msg;
+    int cnt = 0;
+
+    for (int i = 0; i < len && cnt < 2; ++i)
+        if (*p++ == ',')
+            ++cnt;
+    if (cnt == 2) {
+        char s[len+1];
+        len -= (p-msg);
+        ::memcpy(s, p, len); s[len]=0;
+        configStatus["PPS"] = atoi(s);
+    }
+}
+
+
 void A2D_Serial::readCalFile(dsm_time_t tt) throw()
 {
     if (!_calFile) return;

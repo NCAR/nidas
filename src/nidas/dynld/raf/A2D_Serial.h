@@ -65,31 +65,21 @@ public:
      */
     void init() throw(nidas::util::InvalidParameterException);
 
-    void printStatus(std::ostream& ostr) throw();
-
     virtual Sample* nextSample()
     {
         Sample *samp = SerialSensor::nextSample();
 
         if (samp) {
-            const char *msg = (const char *)samp->getConstVoidDataPtr();
-            if (msg[0] == 'H') {    // header packet
-                const char *p = msg;
-                int cnt = 0, nbytes = samp->getDataByteLength();
-
-                for (int i = 0; i < nbytes && cnt < 2; ++i)
-                    if (*p++ == ',')
-                        ++cnt;
-                if (cnt == 2) {
-                    char s[nbytes+1];
-                    nbytes -= (p-msg);
-                    ::memcpy(s, p, nbytes); s[nbytes]=0;
-                    configStatus["PPS"] = atoi(s);
-                }
-            }
+            const char *input = (const char *)samp->getConstVoidDataPtr();
+            if (input[0] == 'H')      // header packet
+                extractStatus(input, samp->getDataByteLength());
         }
         return samp;
     }
+
+    void extractStatus(const char *msg, int len);
+
+    void printStatus(std::ostream& ostr) throw();
 
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
