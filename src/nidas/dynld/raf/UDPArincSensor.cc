@@ -268,3 +268,64 @@ long long UDPArincSensor::decodeTIMER(const rxp& samp)
   return ttime; // return microseconds
 }
 
+
+void UDPArincSensor::extractStatus(const char *msg, int len)
+{
+    const char *p = &msg[7];    // skip STATUS, keyword
+    int cnt = 0;    // comma count
+    char s[len];
+
+    for (int i = 7; i < len && cnt < 4; ++i) {
+        if (*p++ == ',')
+            ++cnt;
+        if (cnt == 1) {
+            len -= (p-msg);
+            ::memcpy(s, p, len); s[len]=0;
+            configStatus["PBIT"] = atoi(s);
+        }
+        if (cnt == 3) {
+            len -= (p-msg);
+            ::memcpy(s, p, len); s[len]=0;
+            configStatus["PPS"] = atoi(s);
+        }
+    }
+}
+
+
+void UDPArincSensor::printStatus(std::ostream& ostr) throw()
+{
+    DSMSensor::printStatus(ostr);
+    if (getReadFd() < 0) {
+        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        return;
+    }
+
+
+    ostr << "<td align=left>";
+    bool firstPass = true;
+    for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
+    {
+        bool red = false;
+        if (!firstPass) ostr << ',';
+
+        ostr << "<font";
+        if ((it->first).compare("PBIT") == 0) {
+            if (it->second != 0)
+                red = true;
+        }
+        else
+        if ((it->first).compare("PPS") == 0) {
+            if (it->second != 0)
+                red = true;
+        }
+        else
+        if (it->second == false)
+            red = true;
+
+        if (red) ostr << " color=red";
+        ostr << "><b>" << it->first << "</b></font>";
+        firstPass = false;
+    }
+    ostr << "</td>";
+}
+

@@ -60,6 +60,23 @@ public:
 
     virtual void close() throw(nidas::util::IOException);
 
+    virtual Sample* nextSample()
+    {
+        Sample *samp = UDPSocketSensor::nextSample();
+
+        if (samp) {
+            const char *input = (const char *)samp->getConstVoidDataPtr();
+            if (input[0] == 'S')      // status packet
+                extractStatus(input, samp->getDataByteLength());
+        }
+        return samp;
+    }
+
+    void extractStatus(const char *msg, int len);
+
+    void printStatus(std::ostream& ostr) throw();
+
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
@@ -86,6 +103,14 @@ protected:
     std::string     _ipAddr;
 
     static const int MAX_CHANNELS;
+
+    /**
+     * This contains the status of config verification between what we read
+     * off the device and what is in the XML.  These are then used in
+     * printStatus for the status page.  nextSample() is over-ridden in order
+     * to get the PPS status.
+     */
+    std::map<std::string, int> configStatus;
 
 
 private:
