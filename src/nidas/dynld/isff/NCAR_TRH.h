@@ -48,28 +48,29 @@ class HandleRawRH;
 enum TRH_SENSOR_COMMANDS  
 {
     NULL_CMD,
-    SENSOR_RESET_CMD,
-    SENSOR_TOGGLE_CAL_OUTPUT_CMD,
-    SENSOR_TOGGLE_RAW_OUTPUT_CMD,
-    SENSOR_CAL_MODE_OUTPUT_CMD,
-    SENSOR_EEPROM_MENU_CMD,
-    SENSOR_EEPROM_RATE_CMD,
-    SENSOR_EEPROM_EXIT_CMD,
+    ENTER_EEPROM_MENU_CMD,
+    FW_VERSION_CMD,
+    RESOLUTION_CMD,
+    SENSOR_ID_CMD,
+    DATA_RATE_CMD,
+    FAN_DUTY_CYCLE_CMD,
+    FAN_MIN_RPM_CMD,
+    EEPROM_INIT_STATE_CMD,
+    TEMP_CAL_0_CMD,
+    TEMP_CAL_1_CMD,
+    TEMP_CAL_2_CMD,
+    HUMD_CAL_0_CMD,
+    HUMD_CAL_1_CMD,
+    HUMD_CAL_2_CMD,
+    HUMD_CAL_3_CMD,
+    HUMD_CAL_4_CMD,
+    CLEAR_EEPROM_CMD,
+    DEFAULT_EEPROM_CMD,
+    SHOW_CMDS_CMD,
+    SHOW_SETTINGS_CMD,
+    EXIT_EEPROM_MENU_CMD,
     NUM_SENSOR_CMDS,
-    // This is a "meta" command to use in _desiredScienceParameters
-    // since this operation needs two commands to complete
-    SENSOR_SET_OUTPUT_MODE_CMD
 };
-
-enum TRH_OUTPUT_MODE_STATE
-{
-    NEITHER,
-    CAL_ONLY,
-    RAW_ONLY,
-    BOTH,
-    ILLEGAL,
-};
-
 
 /**
  * Sensor class for the NCAR hygrothermometer, built at EOL.
@@ -140,7 +141,8 @@ public:
     bool sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg=SensorCmdArg());
     bool checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg);
     void initCustomMetadata();
-    bool captureResetMetaData(const char* buf);
+    bool captureEepromMetaData(const char* buf);
+    void updateMetaData();
 
 protected:
     /*
@@ -210,12 +212,8 @@ private:
      * Autoconfig 
      */
     SensorCmdData* _desiredScienceParameters;
-    TRH_OUTPUT_MODE_STATE _outputModeState;
     bool _scienceParametersOk;
  
-    TRH_OUTPUT_MODE_STATE checkOutputModeState();
-    bool setOutputMode(const TRH_OUTPUT_MODE_STATE newState);
-    std::string outputMode2Str(const TRH_OUTPUT_MODE_STATE state);
     void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
     bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
                                  const regex& matchStr, int matchGroup, 

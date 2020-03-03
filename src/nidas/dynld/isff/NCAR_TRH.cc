@@ -77,11 +77,9 @@ static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS
  */
 static const SensorCmdData DEFAULT_SCIENCE_PARAMETERS[] =
 {
-    SensorCmdData((int)SENSOR_EEPROM_MENU_CMD, SensorCmdArg()),
-    SensorCmdData(SENSOR_EEPROM_RATE_CMD, SensorCmdArg(1)),
-    SensorCmdData(SENSOR_EEPROM_EXIT_CMD, SensorCmdArg()),
-    // do this one last after exiting the EEPROM menu.
-    SensorCmdData(SENSOR_SET_OUTPUT_MODE_CMD, SensorCmdArg(BOTH))
+    SensorCmdData((int)ENTER_EEPROM_MENU_CMD, SensorCmdArg()),
+    SensorCmdData(DATA_RATE_CMD, SensorCmdArg(10)),
+    SensorCmdData(EXIT_EEPROM_MENU_CMD, SensorCmdArg())
 };
 
 const int NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(SensorCmdData);
@@ -107,7 +105,6 @@ NCAR_TRH::NCAR_TRH():
     _raw_rh_handler(0),
     _compute_order(),
     _desiredScienceParameters(0),
-    _outputModeState(ILLEGAL),
     _scienceParametersOk(false)
 {
     _raw_t_handler = makeCalFileHandler
@@ -139,8 +136,6 @@ NCAR_TRH::NCAR_TRH():
 
     setManufacturer("NCAR");
     setModel("TRH");
-    setSerialNumber("See custom metadata");
-    setCalDate("See custom metadata");
     initCustomMetadata();
     setAutoConfigSupported();
 }
@@ -498,46 +493,77 @@ ifanFilter(std::list<const Sample*>& results)
  *  AutoConfig: TRH Commands
  */
 
-static const char* SENSOR_RESET_CMD_STR = "\x12"; // ctrl-r
-static const char* SENSOR_TOGGLE_CAL_OUTPUT_CMD_STR = "Oc"; // calibrated output message
-static const char* SENSOR_TOGGLE_RAW_OUTPUT_CMD_STR = "Or"; // raw output message
-static const char* SENSOR_ENTER_CAL_MODE_CMD_STR = "Ob";    // cal output messages
-static const char* SENSOR_EEPROM_MENU_CMD_STR = "\n";     // ctrl-u
-static const char* SENSOR_EEPROM_RATE_CMD_STR = "RAT";      // 1-60 seconds between sample messages
-static const char* SENSOR_EEPROM_MENU_EXIT_RESP_CMD_STR = "EXT"; // Exit EEPROM menu and reset
+// Get into the EEPROM menu
+static const char* ENTER_EEPROM_MENU_CMD_STR =  "\x15";
+// Available once in the EEPROM menu     
+static const char* FW_VERSION_CMD_STR =         "VER";  // print out the firmware version
+static const char* DATA_RESOLUTION_CMD_STR =    "RES";  // arg is 0=14bits or 1=12bits
+static const char* SENSOR_ID_CMD_STR =          "SID";  // set the instrument ID
+static const char* DATA_RATE_CMD_STR =          "RAT";  // Integrals of 0.1 seconds between sample messages
+static const char* FAN_DUTY_CYCLE_CMD_STR =     "DUT";  // Fan motor duty cycle in % (0-100)
+static const char* MIN_FAN_DUTY_CYCLE_CMD_STR = "Rmin"; // Minimum fan motor duty cycle (not implemented)
+static const char* EEPROM_INIT_STATE_CMD_STR =  "STA";  // 1 = initialized, 255 = uninitialized
+static const char* TEMP_CAL_0_CMD_STR =         "TA0";  // temp cal value 0 - float value
+static const char* TEMP_CAL_1_CMD_STR =         "TA1";  // temp cal value 1 - float value
+static const char* TEMP_CAL_2_CMD_STR =         "TA2";  // temp cal value 2 - float value
+static const char* HUMD_CAL_0_CMD_STR =         "HA0";  // humidity cal value 0 - float value
+static const char* HUMD_CAL_1_CMD_STR =         "HA0";  // humidity cal value 1 - float value
+static const char* HUMD_CAL_2_CMD_STR =         "HA0";  // humidity cal value 2 - float value
+static const char* HUMD_CAL_3_CMD_STR =         "HA0";  // humidity cal value 3 - float value
+static const char* HUMD_CAL_4_CMD_STR =         "HA0";  // humidity cal value 4 - float value
+static const char* CLEAR_EEPROM_CMD_STR =       "EEC";  // clear EEPROM contents
+static const char* DEFAULT_EEPROM_CMD_STR =     "DEF";  // set EEPROM contents to default values
+static const char* SHOW_CMDS_CMD_STR =          "CMD";  // print out this list of commands
+static const char* SHOW_SETTINGS_CMD_STR =      "SET";  // print out all values which can be assigned
+static const char* EXIT_EEPROM_MENU_CMD_STR =   "EXT";  // Exit EEPROM menu and reset
 
 static const char* cmdTable[NUM_SENSOR_CMDS] =
 {
     0,
-    SENSOR_RESET_CMD_STR,
-    SENSOR_TOGGLE_CAL_OUTPUT_CMD_STR,
-    SENSOR_TOGGLE_RAW_OUTPUT_CMD_STR,
-    SENSOR_ENTER_CAL_MODE_CMD_STR,
-    SENSOR_EEPROM_MENU_CMD_STR,
-    SENSOR_EEPROM_RATE_CMD_STR,
-    SENSOR_EEPROM_MENU_EXIT_RESP_CMD_STR 
+    ENTER_EEPROM_MENU_CMD_STR, 
+    FW_VERSION_CMD_STR,
+    DATA_RESOLUTION_CMD_STR, 
+    SENSOR_ID_CMD_STR,  
+    DATA_RATE_CMD_STR,       
+    FAN_DUTY_CYCLE_CMD_STR,  
+    MIN_FAN_DUTY_CYCLE_CMD_STR,
+    EEPROM_INIT_STATE_CMD_STR,
+    TEMP_CAL_0_CMD_STR,
+    TEMP_CAL_1_CMD_STR,
+    TEMP_CAL_2_CMD_STR,
+    HUMD_CAL_0_CMD_STR,
+    HUMD_CAL_1_CMD_STR,
+    HUMD_CAL_2_CMD_STR,
+    HUMD_CAL_3_CMD_STR,
+    HUMD_CAL_4_CMD_STR,
+    CLEAR_EEPROM_CMD_STR,
+    DEFAULT_EEPROM_CMD_STR,
+    SHOW_CMDS_CMD_STR,
+    SHOW_SETTINGS_CMD_STR,
+    EXIT_EEPROM_MENU_CMD_STR,
 };
 
 /* 
  *  AutoConfig: TRH mode/data detection
  * 
- *  Typical reset response:
+ *  Typical SET response:
  * =====================================
- *   Sensor ID29   I2C ADD: 10   data rate: 1 (secs)  fan(0) max current: 80 (ma)
- * Calibration Dates: T - 030317, RH - 032117
- * resolution: 12 bits      1 sec MOTE: off
+ * TRH Code Version:  5.140
+ * Sensor ID170    data rate:   1.0 (secs)  fan PWM duty cycle (%): 40   fan min RPM: -1
+ * resolution: 12 bits
  * calibration coefficients:
- * Ta0 = -1.709815E+1
- * Ta1 =  2.899750E-2
- * Ta2 = -2.330196E-7
- * Ha0 =  6.774113E-1
- * Ha1 =  6.018195E-1
- * Ha2 = -4.784788E-4
- * Ha3 =  4.768972E-2
- * Ha4 =  1.067404E-3
- * Fa0 =  3.222650E-1
+ * Ta0 = -40.504280
+ * Ta1 = 0.040956
+ * Ta2 = -0.000000
+ * Ha0 = -12.705780
+ * Ha1 = 0.724077
+ * Ha2 = -0.000885
+ * Ha3 = 0.095170
+ * Ha4 = 0.000509
+
  * ===================================
  * 
+ *  TODO: Is the below note still true???
  *  NOTE: If fan is not present, then fan([0-9]+) simply becomes fan and Fa0 line is missing
  *        Also, Calibration Dates line may or may not be missing. 
  * 
@@ -545,74 +571,63 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
  *        when collecting metadata
  */
 
-                                           //input command format: cmd [value] [[value] [value] ...]
-static string EEPROM_MENU_ENTERED_RESP_SPEC("[[:space:]]+UNKNOWN Command![[:space:]]+EEprom:");
-static regex EEPROM_MENU_ENTERED_RESP(EEPROM_MENU_ENTERED_RESP_SPEC, std::regex_constants::extended);
-static string EEPROM_MENU_EXIT_RESP_SPEC("Exit EEPROM LOADER - reset will take place");
-static regex EEPROM_MENU_EXIT_RESP(EEPROM_MENU_EXIT_RESP_SPEC, std::regex_constants::extended);
-static string SENSOR_RESET_METADATA_REGEX_SPEC(
-    "[[:space:]]+Sensor ID([0-9]+)   I2C ADD: ([0-9]+)   data rate: ([0-9]+) \\(secs\\)  fan(\\(([0-9]+)\\)){0,1} max current: ([0-9]+) \\(ma\\)"
-    "([[:space:]]+Calibration Dates: T - ([0-9]+), RH - ([0-9]+))*"
-    "[[:space:]]+resolution: ([0-9]+) bits[[:blank:]]+1 sec MOTE: (off|on)" 
+//input command format: cmd [value] [[value] [value] ...]
+
+static string ENTER_EEPROM_MENU_CMD_RESP_SPEC("[[:space:]]+EEprom:");
+static regex ENTER_EEPROM_MENU_CMD_RESP(ENTER_EEPROM_MENU_CMD_RESP_SPEC, std::regex_constants::extended);
+static string EXIT_EEPROM_MENU_CMD_RESP_SPEC("Exit EEPROM LOADER - reset will take place");
+static regex EXIT_EEPROM_MENU_CMD_RESP(EXIT_EEPROM_MENU_CMD_RESP_SPEC, std::regex_constants::extended);
+static string SET_DATA_REGEX_SPEC(
+    "TRH Code Version:  ([0-9]+[.][0-9]+)"
+    "[[:space:]]+Sensor ID([0-9]+)    data rate:   ([0-9]+[.][0-9]+) \\(secs\\)  fan PWM duty cycle \\(%\\): ([0-9]+)   fan min RPM: (-*[0-9]+)"
+    "[[:space:]]+resolution: ([0-9]+) bits" 
     "[[:space:]]+calibration coefficients:"
-    "[[:space:]]+Ta0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ta1 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ta2 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha1 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha2 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha3 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "[[:space:]]+Ha4 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+)"
-    "([[:space:]]+Fa0 =[[:blank:]]+(-*[0-9]+[.][0-9]+E[+-][0-9]+))*"
+    "[[:space:]]+Ta0[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ta1[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ta2[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ha0[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ha1[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ha2[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ha3[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
+    "[[:space:]]+Ha4[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
 );
-static regex SENSOR_RESET_METADATA(SENSOR_RESET_METADATA_REGEX_SPEC, std::regex_constants::extended);
+static regex SET_DATA(SET_DATA_REGEX_SPEC, std::regex_constants::extended); 
+                                        //    | std::regex_constants::ECMAScript);
+
+static const int TRH_FW_VERSION_IDX = 1;
+static const int SENSOR_ID_IDX = 2;
+static const int DATA_RATE_IDX = 3;
+static const int FAN_DUTY_CYCLE_IDX = 4;
+static const int FAN_MIN_RPM_IDX = 5;
+static const int ADC_RESOLUTION_IDX = 6;
+static const int TCAL_COEFF_0_IDX = 7;
+static const int TCAL_COEFF_1_IDX = 8;
+static const int TCAL_COEFF_2_IDX = 9;
+static const int HCAL_COEFF_0_IDX = 10;
+static const int HCAL_COEFF_1_IDX = 11;
+static const int HCAL_COEFF_2_IDX = 12;
+static const int HCAL_COEFF_3_IDX = 13;
+static const int HCAL_COEFF_4_IDX = 14;
 
 // Typical TRH output
 //
 // TRH w/fan
 // TRH70 23.35 50.87 0 0 1578 94 0
-// 
-// Bare TRH module
-// TRH116 23.27 50.47 1584 96 0
-static string CAL_OUTPUT_ONLY_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+([[:blank:]]+[0-9]+[[:blank:]]+[0-9]+){0,1}");
-static regex CAL_OUTPUT_ONLY_ENABLED(CAL_OUTPUT_ONLY_ENABLED_SPEC, std::regex_constants::extended);
-static string RAW_OUTPUT_ONLY_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
-static regex RAW_OUTPUT_ONLY_ENABLED(RAW_OUTPUT_ONLY_ENABLED_SPEC, std::regex_constants::extended);
-static string CAL_AND_RAW_OUTPUT_ENABLED_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+([[:blank:]]+[0-9]+[[:blank:]]+[0-9]+){0,1}[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
-static regex CAL_AND_RAW_OUTPUT_ENABLED(CAL_AND_RAW_OUTPUT_ENABLED_SPEC, std::regex_constants::extended);
-static string NEITHER_OUTPUT_ENABLED_SPEC("TRH[0-9]+[[:blank:]]*");
-static regex NEITHER_OUTPUT_ENABLED(NEITHER_OUTPUT_ENABLED_SPEC, std::regex_constants::extended);
-static const int SENSOR_ID_IDX = 1;
-static const int I2C_ADD_IDX   = 2;
-static const int DATA_RATE_IDX = 3;
-static const int FAN_CURRENT_AVAILABLE = 4;
-static const int IFAN_IDX = 5;
-static const int IFAN_MAX_IDX = 6;
-static const int CAL_DATA_AVAILABLE = 7;
-static const int TEMP_CAL_DATE_IDX = 8;
-static const int REL_HUM_CAL_DATE_IDX = 9;
-static const int ADC_RESOLUTION_IDX = 10;
-static const int MOTE_1_SEC_IDX = 11;
-static const int TCAL_COEFF_0_IDX = 12;
-static const int TCAL_COEFF_1_IDX = 13;
-static const int TCAL_COEFF_2_IDX = 14;
-static const int HCAL_COEFF_0_IDX = 15;
-static const int HCAL_COEFF_1_IDX = 16;
-static const int HCAL_COEFF_2_IDX = 17;
-static const int HCAL_COEFF_3_IDX = 18;
-static const int HCAL_COEFF_4_IDX = 19;
-static const int FCAL_COEFF_0_IDX = 20;
+static string TRH_OUTPUT_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
+static regex TRH_OUTPUT(TRH_OUTPUT_SPEC, std::regex_constants::extended);
 
-static string DATA_RATE_ACCEPTED_RESPONSE_SPEC("WRITE: add:12 = ([0-9]{1,2})");
-static regex DATA_RATE_ACCEPTED_RESPONSE(DATA_RATE_ACCEPTED_RESPONSE_SPEC, std::regex_constants::extended);
-static string EEPROM_MENU_EXIT_RESP_RESPONSE_SPEC("[[:space:]]+Exit EEPROM LOADER - reset will take place");
-static regex EEPROM_MENU_EXIT_RESP_RESPONSE(EEPROM_MENU_EXIT_RESP_RESPONSE_SPEC, std::regex_constants::extended);
+static string INT_CMD_RESPONSE_SPEC("[[:space:]]*([0-9]+)");
+static regex INT_CMD_RESPONSE(INT_CMD_RESPONSE_SPEC, std::regex_constants::extended);
+static string FLOAT_CMD_RESPONSE_SPEC("[[:space:]]*([0-9]+[.][0-9]+)");
+static regex FLOAT_CMD_RESPONSE(FLOAT_CMD_RESPONSE_SPEC, std::regex_constants::extended);
 
-void cleanupEmbeddedNulls(char* buf, int buflen)
+void cleanupUnprintables(char* buf, int buflen)
 {
-    DLOG(("NCAR_TRH::checkCmdRepsonse(): Changing embedded nulls to spaces..."));
+    DLOG(("NCAR_TRH.cc - cleanupUnprintables(): Changing unprintable chars to spaces..."));
     for (int i=0; i < buflen; ++i) {
-        if ((int)buf[i] == 0) {
+        int ichar = (int)buf[i];
+        if ((ichar < 32 && !(ichar == '\n' || ichar == '\r'))
+            || ichar > 126) {
             buf[i] = ' ';
         }
     }
@@ -622,7 +637,7 @@ bool
 NCAR_TRH::
 checkResponse()
 {
-    return sendAndCheckSensorCmd(SENSOR_RESET_CMD);
+    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD);
 }
 
 void 
@@ -637,21 +652,39 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
     switch (cmd) {
         // these commands all take an argument...
     	// these take integers...
-		case SENSOR_EEPROM_RATE_CMD:
+        case SENSOR_ID_CMD:
+        case DATA_RATE_CMD:
+        case RESOLUTION_CMD:
+        case FAN_DUTY_CYCLE_CMD:
+        case FAN_MIN_RPM_CMD:
+        case EEPROM_INIT_STATE_CMD:
+        case TEMP_CAL_0_CMD:
+        case TEMP_CAL_1_CMD:
+        case TEMP_CAL_2_CMD:
+        case HUMD_CAL_0_CMD:
+        case HUMD_CAL_1_CMD:
+        case HUMD_CAL_2_CMD:
+        case HUMD_CAL_3_CMD:
+        case HUMD_CAL_4_CMD:
             argStr << " " << arg.intArg << std::endl;
             break;
 
+        // TODO: Figure out whether to use the commands to just get the data, or always 
+        //       use them to set the data and rely on SET to get the data.
+
         // these do not take arguments...
-		case SENSOR_EEPROM_EXIT_CMD:
+		case EXIT_EEPROM_MENU_CMD:
+		case ENTER_EEPROM_MENU_CMD:
+        case FW_VERSION_CMD:
+        case CLEAR_EEPROM_CMD:
+        case DEFAULT_EEPROM_CMD:
+        case SHOW_CMDS_CMD:
+        case SHOW_SETTINGS_CMD:
             argStr << std::endl;
             break;
 
-		case SENSOR_RESET_CMD:
-		case SENSOR_EEPROM_MENU_CMD:
-		case SENSOR_CAL_MODE_OUTPUT_CMD:
-		case SENSOR_TOGGLE_CAL_OUTPUT_CMD:
-		case SENSOR_TOGGLE_RAW_OUTPUT_CMD:
         default:
+            throw n_u::InvalidParameterException("Invalid TRH Command Index");
             break;
     }
 
@@ -669,15 +702,10 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
 /*
  *  Metadata 
  */
-static const string SENSOR_ID_DESC("Sensr ID");
-static const string I2C_ADDR_DESC("I2C Addr");
 static const string DATA_RATE_DESC("Data Rate");
-static const string IFAN_DESC("Ifan");
-static const string IFAN_MAX_DESC("Ifan(max)");
-static const string TEMP_CAL_DATE_DESC("Temp Cal Date");
-static const string REL_HUM_CAL_DATE_DESC("Rel. Hum. Cal Date");
+static const string FAN_DUTY_CYCLE_DESC("Fan Duty Cycle");
+static const string FAN_MIN_RPM_DESC("Fan Min RPM");
 static const string ADC_RES_DESC("ADC Resolution");
-static const string MOTE_1_SEC_DESC("1 Sec Mote");
 static const string TA0_COEFF_DESC("Ta0");
 static const string TA1_COEFF_DESC("Ta1");
 static const string TA2_COEFF_DESC("Ta2");
@@ -686,21 +714,13 @@ static const string HA1_COEFF_DESC("Ha1");
 static const string HA2_COEFF_DESC("Ha2");
 static const string HA3_COEFF_DESC("Ha3");
 static const string HA4_COEFF_DESC("Ha4");
-static const string FA0_COEFF_DESC("Fa0");
 
 void 
 NCAR_TRH::
 initCustomMetadata()
 {
-    addMetaDataItem(MetaDataItem(SENSOR_ID_DESC, ""));
-    addMetaDataItem(MetaDataItem(I2C_ADDR_DESC, ""));
     addMetaDataItem(MetaDataItem(DATA_RATE_DESC, ""));
-    addMetaDataItem(MetaDataItem(IFAN_DESC, ""));
-    addMetaDataItem(MetaDataItem(IFAN_MAX_DESC, ""));
-    addMetaDataItem(MetaDataItem(TEMP_CAL_DATE_DESC, ""));
-    addMetaDataItem(MetaDataItem(REL_HUM_CAL_DATE_DESC, ""));
     addMetaDataItem(MetaDataItem(ADC_RES_DESC, ""));
-    addMetaDataItem(MetaDataItem(MOTE_1_SEC_DESC, ""));
     addMetaDataItem(MetaDataItem(TA0_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(TA1_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(TA2_COEFF_DESC, ""));
@@ -709,52 +729,39 @@ initCustomMetadata()
     addMetaDataItem(MetaDataItem(HA2_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(HA3_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(HA4_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(FA0_COEFF_DESC, ""));
 }
 
 bool 
 NCAR_TRH::
-captureResetMetaData(const char* buf)
+captureEepromMetaData(const char* buf)
 {
-    // TODO DLOG(("NCAR_TRH::captureResetMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
-    DLOG(("NCAR_TRH::captureResetMetaData(): matching:") << std::string(buf));
+    // TODO DLOG(("NCAR_TRH::captureEepromMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
+    DLOG(("NCAR_TRH::captureEepromMetaData(): matching:") << std::string(buf));
     cmatch results;
-    bool regexFound = regex_search(buf, results, SENSOR_RESET_METADATA);
+    bool regexFound = regex_search(buf, results, SET_DATA);
     if (regexFound && results[0].matched) {
         if (results[SENSOR_ID_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(SENSOR_ID_DESC, results.str(SENSOR_ID_IDX)));
+            setSerialNumber(results[SENSOR_ID_IDX].str());
         }
     
-        if (results[I2C_ADD_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(I2C_ADDR_DESC, results.str(I2C_ADD_IDX)));
+        if (results[TRH_FW_VERSION_IDX].matched) {
+            setFwVersion(results[TRH_FW_VERSION_IDX].str());
         }
     
         if (results[DATA_RATE_IDX].matched) {
             updateMetaDataItem(MetaDataItem(DATA_RATE_DESC, results.str(DATA_RATE_IDX)));
         }
     
-        if (results[IFAN_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(IFAN_DESC, results.str(IFAN_IDX)));
+        if (results[FAN_DUTY_CYCLE_IDX].matched) {
+            updateMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, results.str(FAN_DUTY_CYCLE_IDX)));
         }
     
-        if (results[IFAN_MAX_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(IFAN_MAX_DESC, results.str(IFAN_MAX_IDX)));
+        if (results[FAN_MIN_RPM_IDX].matched) {
+            updateMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, results.str(FAN_MIN_RPM_IDX)));
         }
     
-        // yes, so collect the data
-        if (results[TEMP_CAL_DATE_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(TEMP_CAL_DATE_DESC, results.str(TEMP_CAL_DATE_IDX)));
-        }
-    
-        if (results[REL_HUM_CAL_DATE_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(REL_HUM_CAL_DATE_DESC, results.str(REL_HUM_CAL_DATE_IDX)));
-        }
         if (results[ADC_RESOLUTION_IDX].matched) {
             updateMetaDataItem(MetaDataItem(ADC_RES_DESC, results.str(ADC_RESOLUTION_IDX)));
-        }
-    
-        if (results[MOTE_1_SEC_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(MOTE_1_SEC_DESC, results.str(MOTE_1_SEC_IDX)));
         }
     
         if (results[TCAL_COEFF_0_IDX].matched) {
@@ -788,13 +795,9 @@ captureResetMetaData(const char* buf)
         if (results[HCAL_COEFF_4_IDX].matched) {
             updateMetaDataItem(MetaDataItem(HA4_COEFF_DESC, results.str(HCAL_COEFF_4_IDX)));
         }
-
-        if (results[FCAL_COEFF_0_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(FA0_COEFF_DESC, results.str(FCAL_COEFF_0_IDX)));
-        }
     }
     else {
-        DLOG(("NCAR_TRH::captureResetMetaData(): Didn't find overall match to string as expected."));
+        DLOG(("NCAR_TRH::captureEepromMetaData(): Didn't find overall match to string as expected."));
     }
 
     return regexFound;
@@ -812,18 +815,14 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
     int retryTimeoutFactor = 3;
 
     switch (cmd) {
-        case SENSOR_RESET_CMD:
-            checkForUnprintables = false;
-            BUF_SIZE = 355;
-            break;
-        case SENSOR_EEPROM_EXIT_CMD:
+        case EXIT_EEPROM_MENU_CMD:
             checkForUnprintables = false;
             BUF_SIZE = 60;
             break;
 
-        case SENSOR_EEPROM_MENU_CMD:
+        case ENTER_EEPROM_MENU_CMD:
             checkForUnprintables = false;
-            BUF_SIZE = 120;
+            // BUF_SIZE = 120;
             retryTimeoutFactor = 10;
             break;
 
@@ -846,35 +845,47 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
     string resultsStr = "";
 
     if (numCharsRead > 0) {
-        cleanupEmbeddedNulls(buf, BUF_SIZE);
+        cleanupUnprintables(buf, BUF_SIZE);
         
         DLOG(("NCAR_TRH::checkCmdRepsonse(): Number of chars read - %i", numCharsRead));
         DLOG(("NCAR_TRH::checkCmdRepsonse(): chars read - %s", buf));
 
 		// get the matching regex
 		switch (cmd) {
-            case SENSOR_EEPROM_MENU_CMD:
-                matchStr = EEPROM_MENU_ENTERED_RESP;
+            case ENTER_EEPROM_MENU_CMD:
+                matchStr = ENTER_EEPROM_MENU_CMD_RESP;
                 break;
-            case SENSOR_EEPROM_RATE_CMD:
-                matchStr = DATA_RATE_ACCEPTED_RESPONSE;
+
+            case DATA_RATE_CMD:
+            case FAN_DUTY_CYCLE_CMD:
+            case FAN_MIN_RPM_CMD:
+                matchStr = INT_CMD_RESPONSE;
                 compareMatch = 1;
                 break;
-            case SENSOR_RESET_CMD:
-			    responseOK = captureResetMetaData(buf+1);
-			    checkMatch = false;
+
+            case FW_VERSION_CMD:
+            case TEMP_CAL_0_CMD:
+            case TEMP_CAL_1_CMD:
+            case TEMP_CAL_2_CMD:
+            case HUMD_CAL_0_CMD:
+            case HUMD_CAL_1_CMD:
+            case HUMD_CAL_2_CMD:
+            case HUMD_CAL_3_CMD:
+            case HUMD_CAL_4_CMD:
+                matchStr = FLOAT_CMD_RESPONSE;
+                compareMatch = 1;
                 break;
-            case SENSOR_EEPROM_EXIT_CMD:
+
+            case EXIT_EEPROM_MENU_CMD:
 			    responseOK = handleEepromExit(buf+1, BUF_SIZE);
 			    checkMatch = false;
                 break;
 
-            // Don't check the output results of these commands as this has to be done 
-            // while the sensor is delivering data, and will be done by another means.
-            case SENSOR_TOGGLE_RAW_OUTPUT_CMD:
-            case SENSOR_CAL_MODE_OUTPUT_CMD:
+            case SHOW_SETTINGS_CMD:
+                responseOK = captureEepromMetaData(buf);
                 checkMatch = false;
-                responseOK = true;
+                break;
+
 			default:
 				break;
 		}
@@ -883,7 +894,7 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 		    responseOK = _checkSensorCmdResponse(cmd, arg, matchStr, compareMatch, buf);
 		}
 
-        if (cmd != SENSOR_RESET_CMD && cmd != SENSOR_EEPROM_EXIT_CMD) {
+        if (cmd != EXIT_EEPROM_MENU_CMD) {
             drainResponse();
         }
     }
@@ -987,18 +998,9 @@ sendScienceParameters() {
 
     DLOG(("Sending science parameters"));
     for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS && _scienceParametersOk; ++j) {
-        if (_desiredScienceParameters[j].cmd == SENSOR_SET_OUTPUT_MODE_CMD) {
-            // altho we did this in checking for config mode, something in the science parameters
-            // resets this to BOTH. So we have to double check.
-            (void)checkOutputModeState();
-            _scienceParametersOk = _scienceParametersOk 
-                                   && setOutputMode(static_cast<TRH_OUTPUT_MODE_STATE>(_desiredScienceParameters[j].arg.intArg));
-        }
-        else {
             _scienceParametersOk = _scienceParametersOk 
                                    && sendAndCheckSensorCmd(static_cast<TRH_SENSOR_COMMANDS>(_desiredScienceParameters[j].cmd), 
                                                             _desiredScienceParameters[j].arg);
-        }
     }
 }
 
@@ -1007,15 +1009,12 @@ NCAR_TRH::
 handleEepromExit(const char* buf, const int /* bufSize */)
 {
     bool success = false;
-//    DLOG(("NCAR_TRH::handleEepromExit(): regex: ") << EEPROM_MENU_EXIT_RESP_RESPONSE);
     DLOG(("NCAR_TRH::handleEepromExit(): matching: ") << std::string(buf));
     cmatch results;
-    bool regexFound = regex_search(buf, results, EEPROM_MENU_EXIT_RESP_RESPONSE);
+    bool regexFound = regex_search(buf, results, EXIT_EEPROM_MENU_CMD_RESP);
     if (regexFound && results[0].matched) {
-        DLOG(("NCAR_TRH::handleEepromExit(): Found expected EEPROM menu exit message indicating TRH reset imminent...\n"
-              "                              Now get reset metadata"));
-        sleep(1);
-        success = checkCmdResponse(SENSOR_RESET_CMD, SensorCmdArg());
+        DLOG(("NCAR_TRH::handleEepromExit(): Found expected EEPROM menu exit message indicating TRH reset imminent..."));
+        success = true;
     }
     else {
         DLOG(("NCAR_TRH::handleEepromExit(): Expected EEPROM menu exit message not found!!"));
@@ -1023,149 +1022,11 @@ handleEepromExit(const char* buf, const int /* bufSize */)
 
     return success;
 }
-bool 
-NCAR_TRH::
-setOutputMode(const TRH_OUTPUT_MODE_STATE desiredState)
-{
-    switch (desiredState) {
-        case BOTH:
-            if (_outputModeState != BOTH) {
-                if (_outputModeState == CAL_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-                else if (_outputModeState == RAW_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                }
-                else if (_outputModeState == NEITHER) {
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                }
-            }
-            break;
-        
-        case CAL_ONLY:
-            if (_outputModeState != CAL_ONLY) {
-                if (_outputModeState == RAW_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-                else if (_outputModeState == NEITHER) {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                }
-            }
-            break;
-
-        case RAW_ONLY:
-            if (_outputModeState != RAW_ONLY) {
-                if (_outputModeState == CAL_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-                else if (_outputModeState == NEITHER) {
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-            }
-            break;
-
-        case NEITHER:
-            if (_outputModeState != NEITHER) {
-                if (_outputModeState == CAL_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                }
-                else if (_outputModeState == RAW_ONLY) {
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-                else {
-                    sendSensorCmd(SENSOR_TOGGLE_CAL_OUTPUT_CMD);
-                    sendSensorCmd(SENSOR_TOGGLE_RAW_OUTPUT_CMD);
-                }
-            }
-            break;
-
-        default:
-            DLOG(("NCAR_TRH::setOutputMode(): Illegal output mode: ") << desiredState);
-            break;
-    }
-
-    sleep(2); // wait for it to take effect.
-
-    checkOutputModeState();
-    if (_outputModeState != desiredState) {
-        DLOG(("NCAR_TRH::setOutputMode(): Failed to set output mode to: ") << outputMode2Str(desiredState));
-       return false;
-    }
-
-    return true;
-}
-
-TRH_OUTPUT_MODE_STATE 
-NCAR_TRH::
-checkOutputModeState()
-{
-    TRH_OUTPUT_MODE_STATE status = ILLEGAL;
-
-    // Hijacking this method to capture the current output mode
-    static const int BUF_SIZE = 75; // > 2x output line length
-    int selectTimeout = 2000;
-    bool checkForUnprintables = false;
-    int retryTimeoutFactor = 5;
-
-    char respBuf[BUF_SIZE];
-    memset(respBuf, 0, BUF_SIZE);
-    int numCharsRead = readEntireResponse(respBuf, BUF_SIZE-1, selectTimeout,
-                                          checkForUnprintables, retryTimeoutFactor);
-
-    // string composed of the primary match
-    string resultsStr = "";
-
-    if (numCharsRead > 0) {
-        cleanupEmbeddedNulls(respBuf, BUF_SIZE);
-        char* buf = respBuf;
-        DLOG(("NCAR_TRH::checkOutputModeState(): Number of chars read - %i", numCharsRead));
-        DLOG(("NCAR_TRH::checkOutputModeState(): chars read - %s", buf));
-
-        cmatch results;
-        bool regexFound = regex_search(buf, results, CAL_AND_RAW_OUTPUT_ENABLED);
-        if (regexFound && results[0].matched) {
-            DLOG(("NCAR_TRH::checkOutputModeState(): CAL and RAW output mode is enabled"));
-            status = BOTH;
-        }
-        else {
-            regexFound = regex_search(buf, results, CAL_OUTPUT_ONLY_ENABLED);
-            if (regexFound && results[0].matched) {
-            DLOG(("NCAR_TRH::checkOutputModeState(): CAL output mode only is enabled"));
-                status = CAL_ONLY;
-            }
-            else {
-                regexFound = regex_search(buf, results, RAW_OUTPUT_ONLY_ENABLED);
-                if (regexFound && results[0].matched) {
-                    DLOG(("NCAR_TRH::checkOutputModeState(): RAW output mode only is enabled"));
-                    status = RAW_ONLY;
-                }
-                else {
-                    regexFound = regex_search(buf, results, NEITHER_OUTPUT_ENABLED);
-                    if (regexFound && results[0].matched) {
-                        DLOG(("NCAR_TRH::checkOutputModeState(): Neither CAL nor RAW output mode is enabled"));
-                        status = NEITHER;
-                    }
-                    else {
-                        DLOG(("NCAR_TRH::checkOutputModeState(): No regex search succeeded."));
-                    }
-                }
-            }
-        }
-    }
-
-    _outputModeState = status;
-
-    return _outputModeState;
-}
-
 CFG_MODE_STATUS 
 NCAR_TRH::
 enterConfigMode()
 {
-    return checkOutputModeState() != ILLEGAL ? ENTERED : NOT_ENTERED;
+    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD) ? ENTERED : NOT_ENTERED;
 }
 
 void 
@@ -1218,24 +1079,7 @@ fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterExcep
 
                 // start with science parameters, assuming SerialSensor took care of any overrides to 
                 // the default port config.
-                if (aname == "output_mode") {
-                    if (upperAval == "NEITHER") {
-                        updateDesiredScienceParameter(SENSOR_SET_OUTPUT_MODE_CMD, NEITHER);
-                    }
-                    else if (upperAval == "CAL") {
-                        updateDesiredScienceParameter(SENSOR_SET_OUTPUT_MODE_CMD, CAL_ONLY);
-                    }
-                    else if (upperAval == "RAW") {
-                        updateDesiredScienceParameter(SENSOR_SET_OUTPUT_MODE_CMD, RAW_ONLY);
-                    }
-                    else if (upperAval == "BOTH") {
-                        updateDesiredScienceParameter(SENSOR_SET_OUTPUT_MODE_CMD, BOTH);
-                    }
-                    else
-                        throw n_u::InvalidParameterException(
-                            string("NCAR_TRH:") + getName(), aname, aval);
-                }
-                else if (aname == "datarate") {
+                if (aname == "datarate") {
                     std::istringstream intValue(upperAval);
                     int dataRate = 1;
                     intValue >> dataRate;
@@ -1245,25 +1089,17 @@ fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterExcep
                                                                     aname, aval);
                     }
 
-                    updateDesiredScienceParameter(SENSOR_EEPROM_RATE_CMD, dataRate);
+                    updateDesiredScienceParameter(DATA_RATE_CMD, dataRate);
                 }
             }
         }
     }
 }
 
-string 
-NCAR_TRH::
-outputMode2Str(const TRH_OUTPUT_MODE_STATE state)
-{
-    static const char* modeStrTable[] =
-    {
-        "NEITHER",
-        "CAL_ONLY",
-        "RAW_ONLY",
-        "BOTH",
-        "ILLEGAL",
-    };
 
-    return string(modeStrTable[state]);
+void
+NCAR_TRH::
+updateMetaData()
+{
+    sendAndCheckSensorCmd(SHOW_SETTINGS_CMD);
 }

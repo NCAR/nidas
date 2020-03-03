@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
         "Putting TRH into EEPROM Menu";
     NLOG(("") << enteringEEPROMMenu);
     calFileLog << enteringEEPROMMenu << std::endl;
-    if (pTRHSensor->sendAndCheckSensorCmd(SENSOR_EEPROM_MENU_CMD)) {
+    if (pTRHSensor->sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD)) {
         NLOG(("Sending calibration coefficient commands..."));
         std::string coeffCmdStr;
         std::getline(calFile, coeffCmdStr);
