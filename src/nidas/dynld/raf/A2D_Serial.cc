@@ -52,6 +52,7 @@ A2D_Serial::A2D_Serial() :
 headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
+        _channels[i] = 0;
         _gains[i] = 0;          // 1 or 2 is all we support at this time.
         _bipolars[i] = true;    // At this time that is all this device supports.
     }
@@ -178,11 +179,12 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
         const vector<Variable*>& vars = stag->getVariables();
         _nVars = stag->getVariables().size();
+        int prevChan = -1;
 
         for (int iv = 0; iv < _nVars; iv++) {
             Variable* var = vars[iv];
 
-            int ichan = iv;
+            int ichan = prevChan + 1;
             int fgain = 0;
             int bipolar = true;
 
@@ -204,21 +206,25 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
                             pname,"no value");
                     bipolar = param->getNumericValue(0) != 0;
                 }
-/*
- * Currently channels must be consecutive, no gaps.  If you want to be able to
- * specify channel number then engage this and modify code to have list of
- * channel #'s.  As is, you may skip a channel by calling it DUMMY and parsing
- * it.
                 else if (pname == "channel") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),pname,"no value");
                     ichan = (int)param->getNumericValue(0);
                 }
-*/
+            }
+            if (ichan < 0 || ichan >= getMaxNumChannels()) {
+                ostringstream ost;
+                ost << "value=" << ichan << " is outside the range 0:" <<
+                    (getMaxNumChannels() - 1);
+                throw n_u::InvalidParameterException(getName(),
+                        "channel",ost.str());
             }
 
+
+            _channels[iv] = ichan;
             _gains[ichan] = fgain;
             _bipolars[ichan] = bipolar;
+            prevChan = ichan;
         }
     }
 cout << "validate :\n";
@@ -403,17 +409,22 @@ bool A2D_Serial::process(const Sample * samp,
 
     readCalFile(samp->getTimeTag());    // A2D Cals
     float * dout = outs->getDataPtr();
-    int data;
-    const char *p = ::strchr(cp, ',');
-    for (int ival = 0; ival < _nVars && p; ival++)
+    int data, ival = 0;
+    const char *p = ::strchr(input, ',');
+    for (int idx = 0; ival < _nVars && p; idx++)
     {
         cp = p + 1;
         p = ::strchr(cp, ',');
+
+        // This skips a channel we are not using/decoding
+        if (idx != _channels[ival])
+            continue;
 
         if (sscanf(cp, "%x", &data) == 1)
             dout[ival] = applyCalibration(float(data), _polyCals[ival]);
         else
             dout[ival] = float(NAN);
+        ++ival;
     }
 
     if (_outputMode == Engineering) {

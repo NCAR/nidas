@@ -183,6 +183,7 @@ protected:
      * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
      *  in case we ever want to change support positive only voltage range.
      */
+    int _channels[NUM_A2D_CHANNELS];
     int _gains[NUM_A2D_CHANNELS];
     int _bipolars[NUM_A2D_CHANNELS];
 
