@@ -100,18 +100,16 @@ void AlicatSDI::open(int flags) throw(n_u::IOException)
 		getName().c_str(),
 		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 
+
 // Initialize instrument here
-
-    // Initialize comms with Alicat - indicate error if fails
-    write("A\r", 2);    // Initialize
-
-//   [Valid response?]
+    struct timespec nsleep;
 
     write("AHC\r", 4);   // Hold valve closed
-    ::sleep(1);
+    nsleep.tv_sec = 1;
+    nsleep.tv_nsec = 0;
+    ::nanosleep(&nsleep, 0);
     write("AV\r", 3);    // Tare the Alicat
 
-    struct timespec nsleep;
     nsleep.tv_sec = 0;
     nsleep.tv_nsec = NSECS_PER_SEC / 10;                // 1/10th sec
     ::nanosleep(&nsleep, 0);
@@ -120,10 +118,6 @@ void AlicatSDI::open(int flags) throw(n_u::IOException)
 
     char msg[32];
     sprintf(msg, "AS%d\r", _Qmin);
-
-// Why wait, can't we just start querying?
-//    Wait for 1+ sec
-
 }
 
 
