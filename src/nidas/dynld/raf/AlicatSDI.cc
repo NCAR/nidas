@@ -35,7 +35,9 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, AlicatSDI)
 
-AlicatSDI::AlicatSDI() : _nTASav(5), _tasIdx(0), _Qmin(100), _Qmax(500), _Qfac(0.0)
+AlicatSDI::AlicatSDI() :
+    _nTASav(5), _tas(0.0), _tasIdx(0), _tasWeight(0),
+    _Qmin(100), _Qmax(500), _Qfac(0.0)
 {
 
 }
@@ -107,7 +109,7 @@ void AlicatSDI::open(int flags) throw(n_u::IOException)
     write("AHC\r", 4);   // Hold valve closed
     nsleep.tv_sec = 1;
     nsleep.tv_nsec = 0;
-    ::nanosleep(&nsleep, 0);
+    ::nanosleep(&nsleep, 0);    // sleep for 1 second.
     write("AV\r", 3);    // Tare the Alicat
 
     nsleep.tv_sec = 0;
@@ -118,6 +120,7 @@ void AlicatSDI::open(int flags) throw(n_u::IOException)
 
     char msg[32];
     sprintf(msg, "AS%d\r", _Qmin);
+    write(msg, strlen(msg));
 }
 
 
@@ -148,13 +151,19 @@ void AlicatSDI::derivedDataNotify(const nidas::core::DerivedDataReader * s) thro
 float AlicatSDI::computeFlow()
 {
     float tasSum = 0.0;
+    int tasidx = _tasIdx;
     for (int i = 0; i < _nTASav; ++i)
-        tasSum += _tas[i] * _tasWeight[i];
+    {
+        tasSum += _tas[tasidx++] * _tasWeight[i];
+        if (tasidx >= _nTASav) tasidx = 0;
+    }
 
-    float Qiso = _Qfac * (tasSum / _nTASav);
+    float Qiso = _Qfac * tasSum;
 
-    if (Qiso < _Qmin) Qiso = _Qmin;
+    if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
+    else
     if (Qiso > _Qmax) Qiso = _Qmax;
+
 
     return Qiso;
 }
