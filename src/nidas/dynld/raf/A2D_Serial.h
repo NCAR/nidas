@@ -185,7 +185,7 @@ protected:
      */
     int _channels[NUM_A2D_CHANNELS];
     int _gains[NUM_A2D_CHANNELS];
-    int _bipolars[NUM_A2D_CHANNELS];
+    int _polarity[NUM_A2D_CHANNELS];
 
 
     /**

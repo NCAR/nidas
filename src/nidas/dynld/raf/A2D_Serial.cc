@@ -54,7 +54,7 @@ headerLines = 0;
     {
         _channels[i] = 0;
         _gains[i] = 0;          // 1 or 2 is all we support at this time.
-        _bipolars[i] = true;    // At this time that is all this device supports.
+        _polarity[i] = 0;       // not the same as bipolar or offset in previous
     }
 
     configStatus["PPS"] = 0;
@@ -127,7 +127,7 @@ void A2D_Serial::dumpConfig() const
 
     for (int i = 0; i < _nVars; ++i)
     {
-        cout << "gain=" << _gains[i] << ", offset=" << _bipolars[i] << ", cals=";
+        cout << "gain=" << _gains[i] << ", ipol=" << _polarity[i] << ", cals=";
         for (size_t j = 0; j < _polyCals[i].size(); ++j)
             cout << _polyCals[i].at(j) << ", ";
         cout << endl;
@@ -186,7 +186,7 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
             int ichan = prevChan + 1;
             int fgain = 0;
-            int bipolar = true;
+            int ipol = 0;
 
             const std::list<const Parameter*>& vparams = var->getParameters();
             list<const Parameter*>::const_iterator pi;
@@ -200,11 +200,11 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
                     fgain = param->getNumericValue(0);
                 }
-                else if (pname == "bipolar") {
+                else if (pname == "polarity") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
-                    bipolar = param->getNumericValue(0) != 0;
+                    ipol = param->getNumericValue(0) != 0;
                 }
                 else if (pname == "channel") {
                     if (param->getLength() != 1)
@@ -223,7 +223,7 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
             _channels[iv] = ichan;
             _gains[ichan] = fgain;
-            _bipolars[ichan] = bipolar;
+            _polarity[ichan] = ipol;
             prevChan = ichan;
         }
     }
@@ -457,10 +457,10 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!IPOL")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (_bipolars[channel] != value) {
+        if (_polarity[channel] != value) {
             configStatus["IPOL"] = false;
-            WLOG(("%s: SerialA2D config mismatch: bipolar chan=%d: xml=%d != dev=%d",
-                getName().c_str(), channel, _bipolars[channel], value ));
+            WLOG(("%s: SerialA2D config mismatch: polarity chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _polarity[channel], value ));
         }
     }
     else
@@ -526,7 +526,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
         return;
 
     // Read CalFile  containing the following fields after the time
-    // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
+    // gain polarity(ignored for this card) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
 
     while (tt >= _calFile->nextTime().toUsecs()) {
         int nd = 2 + getMaxNumChannels() * 4;
@@ -536,13 +536,10 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
             int n = _calFile->readCF(calTime, d,nd);
             if (n < 2) continue;
             int cgain = (int)d[0];
-            int cbipolar = (int)d[1];
             for (int i = 0;
                 i < std::min((n-2)/4,getMaxNumChannels()); i++) {
                     int gain = getGain(i);
-                    int bipolar = getBipolar(i);
-                    if ((cgain < 0 || gain == cgain) &&
-                        (cbipolar < 0 || bipolar == cbipolar))
+                    if (cgain < 0 || gain == cgain)
                         setConversionCorrection(i, &d[2+i*4], 4);
             }
         }
@@ -597,7 +594,7 @@ int A2D_Serial::getGain(int ichan) const
 int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
-    return _bipolars[ichan];
+    return _polarity[ichan];
 }
 
 float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) const
