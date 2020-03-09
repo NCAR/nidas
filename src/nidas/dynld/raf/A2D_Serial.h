@@ -132,6 +132,10 @@ protected:
      */
     bool checkCkSum(const Sample *samp, const char *data);
 
+    /**
+     * Search _channels[] to see if we are sampling the target channel.
+     */
+    bool samplingChannel(int channel) const;
 
     /**
      * Read calibration file for this A2D. Does not throw exceptions,

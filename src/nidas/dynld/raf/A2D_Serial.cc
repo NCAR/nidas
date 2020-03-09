@@ -75,8 +75,6 @@ void A2D_Serial::open(int flags) throw(n_u::IOException)
 
     readConfig();
 // @TODO Need to set gain/offset/cals if read in....
-cout << "open:\n";
-dumpConfig();
 }
 
 void A2D_Serial::readConfig() throw(n_u::IOException)
@@ -179,6 +177,7 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
         const vector<Variable*>& vars = stag->getVariables();
         _nVars = stag->getVariables().size();
+
         int prevChan = -1;
 
         for (int iv = 0; iv < _nVars; iv++) {
@@ -227,8 +226,6 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
             prevChan = ichan;
         }
     }
-cout << "validate :\n";
-dumpConfig();
 }
 
 void A2D_Serial::init() throw(n_u::InvalidParameterException)
@@ -249,8 +246,6 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
     // is applied to this sensor, we must differentiate them by name.
     // Note this calibration is separate from that applied to each variable.
     if (!cfs.empty()) _calFile = cfs.begin()->second;
-cout << "init :\n";
-dumpConfig();
 }
 
 
@@ -447,7 +442,7 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!IFSR")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (_gains[channel] != value) {
+        if (samplingChannel(channel) && _gains[channel] != value) {
             configStatus["IFSR"] = false;
             WLOG(("%s: SerialA2D config mismatch: gain chan=%d: xml=%d != dev=%d",
                 getName().c_str(), channel, _gains[channel], value ));
@@ -457,7 +452,7 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!IPOL")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (_polarity[channel] != value) {
+        if (samplingChannel(channel) && _polarity[channel] != value) {
             configStatus["IPOL"] = false;
             WLOG(("%s: SerialA2D config mismatch: polarity chan=%d: xml=%d != dev=%d",
                 getName().c_str(), channel, _polarity[channel], value ));
@@ -467,7 +462,7 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!ISEL")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (value != 0) {
+        if (samplingChannel(channel) && value != 0) {
             configStatus["ISEL"] = false;
             WLOG(("%s: SerialA2D ISEL not default: chan=%d val=%d",
                 getName().c_str(), channel, value ));
@@ -595,6 +590,15 @@ int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
     return _polarity[ichan];
+}
+
+bool A2D_Serial::samplingChannel(int channel) const
+{
+    for (int i = 0; i < _nVars; ++i)
+        if (channel == _channels[i])
+            return true;
+
+    return false;
 }
 
 float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) const
