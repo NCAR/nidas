@@ -154,8 +154,8 @@ float AlicatSDI::computeFlow()
     int tasidx = _tasIdx;
     for (int i = 0; i < _nTASav; ++i)
     {
-        tasSum += _tas[tasidx++] * _tasWeight[i];
-        if (tasidx >= _nTASav) tasidx = 0;
+        if (--tasidx < 0) tasidx = _nTASav - 1;
+        tasSum += _tas[tasidx] * _tasWeight[i];
     }
 
     float Qiso = _Qfac * tasSum;
@@ -163,7 +163,6 @@ float AlicatSDI::computeFlow()
     if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
     else
     if (Qiso > _Qmax) Qiso = _Qmax;
-
 
     return Qiso;
 }
