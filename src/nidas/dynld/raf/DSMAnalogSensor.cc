@@ -227,7 +227,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 			string("bad input character: \'") +
 			string((char)n,1) + "\'");
 	    }
-	    fscanf(fp,"%*[^\n]");	// skip to newline
+	    (void)fscanf(fp,"%*[^\n]");	// skip to newline
 	}
 	else {
 	    if (ncoef < nexpect) coefs[ncoef] = val;
