@@ -45,8 +45,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
     SerialSensor(),
-    _nVars(0), _sampleRate(0), _deltaT(0), _boardID(0), _haveCkSum(true),
-    _calFile(0), _outputMode(Engineering), _havePPS(false),
+    _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
+    _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
 headerLines = 0;
@@ -125,7 +125,7 @@ void A2D_Serial::dumpConfig() const
 
     for (int i = 0; i < _nVars; ++i)
     {
-        cout << "gain=" << _gains[i] << ", ipol=" << _polarity[i] << ", cals=";
+        cout << "ifsr=" << _gains[i] << ", ipol=" << _polarity[i] << ", cals=";
         for (size_t j = 0; j < _polyCals[i].size(); ++j)
             cout << _polyCals[i].at(j) << ", ";
         cout << endl;
@@ -240,6 +240,7 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
 
 
     _deltaT = (int)rint(USECS_PER_SEC / _sampleRate);
+    _staticLag = _deltaT;   // This can be affected by FILT.
 
     const map<string,CalFile*>& cfs = getCalFiles();
     // Just use the first file. If, for some reason a second calibration
@@ -367,7 +368,7 @@ bool A2D_Serial::process(const Sample * samp,
     if (_haveCkSum && checkCkSum(samp, input) == false) return false;
 
     SampleT<float>* outs = getSample<float>(_nVars);
-    outs->setTimeTag(samp->getTimeTag());
+    outs->setTimeTag(samp->getTimeTag() - _staticLag);
     outs->setId(getId() + 2);
 
     int hz_counter;
@@ -396,7 +397,7 @@ bool A2D_Serial::process(const Sample * samp,
             if (usec < 100000) offset -= USECS_PER_SEC;
         }
 
-        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset;
+        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset - _staticLag;
         outs->setTimeTag(timeoffix);
     }
 
@@ -435,10 +436,12 @@ bool A2D_Serial::process(const Sample * samp,
 void A2D_Serial::parseConfigLine(const char *data)
 {
     int channel, value;
-    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]); else
-    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]); else
-    if (strstr(data, "!FILT"))  configStatus["FILT"] = atoi(&data[6]); else
 
+
+    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
+    else
+    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
+    else
     if (strstr(data, "!IFSR")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
@@ -478,9 +481,13 @@ void A2D_Serial::parseConfigLine(const char *data)
                 getName().c_str(), value ));
         }
     }
+    else
     if (strstr(data, "!FILT")) {
         configStatus["FILT"] = true;
         value = atoi(&data[6]);
+        if (value == 10)
+            _staticLag *= 5;   // TempDACQ shifts 5 samples.
+
         if ((value == 0 || value == 5) && _sampleRate != 250)
             configStatus["FILT"] = false;
         if ((value == 1 || value == 6 || value == 10) && _sampleRate != 100)
@@ -492,7 +499,6 @@ void A2D_Serial::parseConfigLine(const char *data)
         if ((value == 4 || value == 9) && _sampleRate != 10)
             configStatus["FILT"] = false;
     }
-std::cerr << "SampleRate = " << _sampleRate << std::endl;
 }
 
 
