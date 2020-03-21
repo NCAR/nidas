@@ -272,7 +272,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
 	return;
     }
     dsm_time_t unixTime;
@@ -302,10 +302,10 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             (iwarn ? "<font color=red><b>" : "") << status.syncToggles <<
             (iwarn ? "</b></font>" : "") <<
             ",clockResets=" << status.softwareClockResets <<
-            "</td>" << endl;
+            "</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
 	n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());

@@ -299,7 +299,7 @@ void TwoD_USB::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
 	return;
     }
     struct usb_twod_stats status;
@@ -317,10 +317,10 @@ void TwoD_USB::printStatus(std::ostream& ostr) throw()
 		",lost=" << status.lostImages << ",lostSOR=" << status.lostSORs <<
 		",lostTAS=" << status.lostTASs << ", urbErrs=" << status.urbErrors <<
                 ",TAS=" << setprecision(0) << _trueAirSpeed << "m/s" <<
-		"</td>" << endl;
+		"</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
 	n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());

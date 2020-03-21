@@ -296,7 +296,7 @@ void UDPArincSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
         return;
     }
 
@@ -326,6 +326,6 @@ void UDPArincSensor::printStatus(std::ostream& ostr) throw()
         ostr << "><b>" << it->first << "</b></font>";
         firstPass = false;
     }
-    ostr << "</td>";
+    ostr << "</td></tr>";
 }
 
