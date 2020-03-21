@@ -491,6 +491,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
     ostr <<
 "<table id=status>\
 <caption>"+dsm_lctn+" ("+dsm_name+") "+glyph[anim]+"</caption>\
+<thead>\
 <tr>\
 <th>name</th>\
 <th>samp/sec</th>\
@@ -499,6 +500,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 <th>max&nbsp;samp<br>length</th>\
 <th>bad<br>timetags</th>\
 <th>extended&nbsp;status</th>\
+</tr></thead>\
 <tbody align=center>" << endl;	// default alignment in table body
 }
 
