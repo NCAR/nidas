@@ -305,25 +305,25 @@ void UDPArincSensor::printStatus(std::ostream& ostr) throw()
     bool firstPass = true;
     for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
     {
-        bool red = false;
+        bool iwarn = false;
         if (!firstPass) ostr << ',';
 
-        ostr << "<font";
         if ((it->first).compare("PBIT") == 0) {
             if (it->second != 0)
-                red = true;
+                iwarn = true;
         }
         else
         if ((it->first).compare("PPS") == 0) {
             if (it->second != 0)
-                red = true;
+                iwarn = true;
         }
         else
         if (it->second == false)
-            red = true;
+            iwarn = true;
 
-        if (red) ostr << " color=red";
-        ostr << "><b>" << it->first << "</b></font>";
+        if (iwarn) ostr << "<font color=red><b>";
+        ostr << it->first;
+        if (iwarn) ostr << "</b></font>";
         firstPass = false;
     }
     ostr << "</td></tr>";
