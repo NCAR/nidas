@@ -215,13 +215,39 @@ public:
     void
     setURL(const std::string& url)
     {
+        // Make sure the url has no trailing /, since influx does not parse
+        // multiple slashes.  Instead it just responds with 404.
         _url = url;
+        while (_url.length() > 0 && _url[_url.length() - 1] == '/')
+        {
+            _url.erase(_url.length() - 1);
+        }
     }
         
     void
     setDatabase(const std::string& dbname)
     {
         _dbname = dbname;
+    }
+
+    void
+    setUser(const std::string& username, const std::string& password)
+    {
+        _username = username;
+        _password = password;
+
+    }
+
+    std::string
+    getAuth(const std::string& prefix = "")
+    {
+        std::string parms;
+        if (_username.length() || _password.length())
+        {
+            parms += prefix;
+            parms += "u=" + _username + "&p=" + _password;
+        }
+        return parms;
     }
 
     void
@@ -267,6 +293,7 @@ public:
     {
         ostringstream out;
         out << getHostURL() << "/write?db=" << _dbname << "&precision=u" ;
+        out << getAuth("&");
         return out.str();
     }
 
@@ -345,24 +372,31 @@ public:
         // Then see if the json result indicates an error.
         if (!_result.empty())
         {
-            std::istringstream js(_result.get());
-            Json::Value root;
-            js >> root;
-            Json::Value error = root["error"];
-            string dnf = "database not found";
-            if (!error.isNull() &&
-                error.asString().substr(0, dnf.size()) == dnf)
-            {
-                errs << error.asString()
-                     << "; maybe use --create to create it first?";
+            try {
+                std::istringstream js(_result.get());
+                Json::Value root;
+                js >> root;
+                Json::Value error = root["error"];
+                string dnf = "database not found";
+                if (!error.isNull() &&
+                    error.asString().substr(0, dnf.size()) == dnf)
+                {
+                    errs << error.asString()
+                         << "; maybe use --create to create it first?";
+                }
+                else if (!error.isNull())
+                {
+                    errs << error.asString();
+                }
+                else
+                {
+                    // Any result at all is probably an error.
+                    errs << _result.get();
+                }
             }
-            else if (!error.isNull())
+            catch (const Json::LogicError&)
             {
-                errs << error.asString();
-            }
-            else
-            {
-                // Any result at all is probably an error.
+                errs << "Server response could not be parsed as json: ";
                 errs << _result.get();
             }
         }
@@ -431,6 +465,8 @@ private:
 
     string _url;
     string _dbname;
+    string _username;
+    string _password;
 
     // _data points to the current data buffer to which data will be added.
     // This is a double-buffering scheme to allow one buffer to be written
@@ -689,7 +725,7 @@ createInfluxDB()
 {
     CURLcode res;
 
-    string url = getHostURL() + "/query";
+    string url = getHostURL() + "/query?" + getAuth();
     string createDB = "q=CREATE+DATABASE+" + _dbname;
     string full = url + "&" + createDB;
 
@@ -705,6 +741,7 @@ createInfluxDB()
         err += full;
         throw std::runtime_error(err);
     }
+    _result.clear();
 }
 
 
@@ -732,7 +769,7 @@ dataToInfluxDB(CURL* curl, const std::string& url,
                CharBuffer* data, unsigned int nmeasurements)
 {
     DLOG(("posting ") << nmeasurements << " measurements: " << url);
-    
+    DLOG(("data:") << data->get());
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data->get());
     CURLcode res = curl_easy_perform(curl);
@@ -963,6 +1000,8 @@ class DataInfluxdb
     NidasAppArg Echo;
     NidasAppArg Async;
     NidasAppArg Create;
+    NidasAppArg User;
+    NidasAppArg Password;
 
     InfluxDB _db;
 };
@@ -989,13 +1028,18 @@ DataInfluxdb::DataInfluxdb() :
           "yes"),
     Create("--create", "",
            "Create the given database before posting data to it."),
+    User("-u,--user", "username",
+         "Username if required for http authentication."),
+    Password("-p,--password", "password",
+             "Password if required for http authentication."),
     _db()
 {
     app.setApplicationInstance();
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Help |
                         app.SampleRanges | app.Version | app.InputFiles |
-                        Count | URL | Database | Echo | Create | Async);
+                        Count | URL | Database | Echo | Create | Async |
+                        User | Password);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1033,6 +1077,7 @@ parseRunstring(int argc, char **argv)
         _db.setDatabase(Database.getValue());
         _db.setCount(_count);
         _db.setEcho(Echo.asBool());
+        _db.setUser(User.getValue(), Password.getValue());
         if (Async.getValue() != "yes" && Async.getValue() != "no")
             throw NidasAppException("--async must be 'yes' or 'no'.");
         _db.setAsync(Async.getValue() == "yes");
@@ -1160,7 +1205,6 @@ int DataInfluxdb::run() throw()
         }
 
         SampleInputStream sis(iochan, /*processed*/true);
-        sis.setMaxSampleLength(32768);
         readHeader(sis);
 
         const SampleInputHeader &header = sis.getInputHeader();
