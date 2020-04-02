@@ -40,6 +40,8 @@ const float MBAR_PER_KPA = 10.0;
 
 const float KELVIN_AT_0C = 273.15;
 
+const float STANDARD_ATMOSPHERE = 1013.25;
+
 }}	// namespace nidas namespace core
 
 #endif

@@ -26,6 +26,7 @@
 
 #include "AlicatSDI.h"
 
+#include <nidas/core/PhysConstants.h>
 #include <nidas/util/Logger.h>
 
 using namespace std;
@@ -135,8 +136,14 @@ void AlicatSDI::close() throw(n_u::IOException)
 void AlicatSDI::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
 {
     try {
-        _tas[_tasIdx++] = s->getTrueAirspeed();
-        if (_tasIdx >= _nTASav) _tasIdx = 0;
+        if ( !isnan(s->getTrueAirspeed()) ) {
+            _tas[_tasIdx++] = s->getTrueAirspeed();
+            if (_tasIdx >= _nTASav) _tasIdx = 0;
+        }
+        if ( !isnan(s->getStaticPressure()) )
+            _ps = s->getStaticPressure();
+        if ( !isnan(s->getAmbientTemperature()) )
+            _at = s->getAmbientTemperature();
 
         float flow = computeFlow();
         sendFlow(flow);
@@ -158,7 +165,7 @@ float AlicatSDI::computeFlow()
         tasSum += _tas[tasidx] * _tasWeight[i];
     }
 
-    float Qiso = _Qfac * tasSum;
+    float Qiso = _Qfac * (_ps / STANDARD_ATMOSPHERE) * Tstd * (_at + KELVIN_AT_0C) * tasSum;
 
     if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
     else
