@@ -214,16 +214,6 @@ inline bool
 BadSampleFilter::
 invalidSampleHeader(const SampleHeader& sheader)
 {
-    if (_filterBadSamples)
-    {
-        // If filtering enabled but no max time set, use now plus 1 day.
-        if (_maxSampleTime == LONG_LONG_MAX)
-            _maxSampleTime = UTime().toUsecs() + 24*USECS_PER_HOUR;
-        // Likewise if no min time set, use within 20 years of max time.
-        if (_minSampleTime == LONG_LONG_MIN)
-            _minSampleTime = _maxSampleTime - 20*365*USECS_PER_DAY;
-    }
-
     // screen bad headers.
     return _filterBadSamples &&
         (sheader.getType() >= UNKNOWN_ST ||
