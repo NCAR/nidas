@@ -36,8 +36,11 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, AlicatSDI)
 
+const float AlicatSDI::Tstd = 298.15;
+
+
 AlicatSDI::AlicatSDI() :
-    _nTASav(5), _tas(0.0), _tasIdx(0), _tasWeight(0),
+    _nTASav(5), _tas(0.0), _tasIdx(0), _tasWeight(0), _at(20.0), _ps(1000.0),
     _Qmin(100), _Qmax(500), _Qfac(0.0)
 {
 

@@ -90,7 +90,7 @@ protected:
 
     float _Qfac;
 
-    static const float Tstd = 298.15;
+    static const float Tstd;
 
 private:
 
