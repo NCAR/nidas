@@ -165,7 +165,7 @@ float AlicatSDI::computeFlow()
         tasSum += _tas[tasidx] * _tasWeight[i];
     }
 
-    float Qiso = _Qfac * (_ps / STANDARD_ATMOSPHERE) * Tstd * (_at + KELVIN_AT_0C) * tasSum;
+    float Qiso = _Qfac * (_ps / STANDARD_ATMOSPHERE) * Tstd / (_at + KELVIN_AT_0C) * tasSum;
 
     if (Qiso < _Qmin || isnan(Qiso)) Qiso = _Qmin;
     else
