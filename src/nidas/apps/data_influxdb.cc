@@ -164,6 +164,18 @@ private:
 };
 
 
+std::string
+string_to_lower(const std::string& upper)
+{
+    std::string lower = upper;
+    for (std::string::size_type i = 0; i < upper.size(); ++i)
+    {
+        lower[i] = std::tolower(upper[i]);
+    }
+    return lower;
+}
+
+
 
 CURLcode
 dataToInfluxDB(CURL* curl, const std::string& url,
@@ -535,14 +547,21 @@ backslash(std::string& tagvalue)
     }
 }
 
+std::string
+id_to_string(unsigned int id)
+{
+    if (id >= 0x8000)
+    {
+        ostringstream intToHex;
+        intToHex << "0x" << hex << id;
+        return intToHex.str();
+    }
+    return to_string(id);
+}
 
 
 class SampleToDatabase
 {
-//   private: 
-//     class dbSenderThread //inherit from boost lib
-//         static threadPool;  //thread pool buffer
-  
   public:
     /**
      * A default constructor is required to use objects as a map element.
@@ -557,6 +576,7 @@ class SampleToDatabase
         measurementName(),
         spsid(),
         dsmid(),
+        sampid(),
         info(),
         varunits(),
         varnames()
@@ -573,9 +593,21 @@ class SampleToDatabase
             return;
         }
         const std::vector<const Variable *> &variables = stag->getVariables();
+
+        // The sample has to have variables.
+        if (variables.size() == 0)
+        {
+            NidasApp* app = NidasApp::getApplicationInstance();
+            WLOG(("sample tag has no variables, cannot import: ")
+                 << app->formatId(sid));
+            return;
+        }
+
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
-            varnames.push_back(variables[i]->getName());
+            // getName() returns the fully qualified name, so all we want is
+            // the name within the scope of this sensor, the prefix.
+            varnames.push_back(variables[i]->getPrefix());
             string units = variables[i]->getUnits();
             const VariableConverter* vc = variables[i]->getConverter();
             if (vc)
@@ -585,22 +617,13 @@ class SampleToDatabase
             backslash(units);
             varunits.push_back(units);
         }
+        dsmid = to_string(stag->getDSMId());
+        spsid = id_to_string(stag->getSensorId());
+        sampid = to_string(stag->getSampleId());
+
         setSiteAndMeasurement(stag);
 
-        dsmid = to_string(stag->getDSMId());
-        int tempSpSid = stag->getSpSId();
-        if (tempSpSid >= 0x8000)
-        {
-            stringstream intToHex;
-            intToHex << "0x" << hex << tempSpSid;
-            spsid = intToHex.str();
-        }
-        else
-        {
-            spsid = to_string(tempSpSid);
-        }
-
-        info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename;
+        info = measurementName + ",dsm_id=" + dsmid + ",site=" + sitename;
         const DSMSensor* dsm = stag->getDSMSensor();
         if (dsm)
         {
@@ -610,7 +633,8 @@ class SampleToDatabase
                 info += ",height=" + height;
             }
         }
-        info += ",sps_id=" + spsid;
+        info += ",sensor_id=" + spsid;
+        info += ",sample_id=" + sampid;
     }
 
     void
@@ -630,7 +654,57 @@ class SampleToDatabase
             sitename = stag->getSuffix();
             sitename.erase(0,1);
         }
-        measurementName = sitename;
+        // We want to use a canonical name for the kind of sensor which is
+        // reporting these measurements.  The best candidate is the idref
+        // name from the XML, if that is set, also known as the catalog
+        // name.  It is safe to assume that all sensors instantiated from
+        // that IDREF will have the same samples and variables, although
+        // that is only an assumption and not guaranteed in any way.
+        //
+        // If that is not set, then we could resort to the sensor ID
+        // (without the DSM ID), since usually it is safe to assume that the
+        // same kind of sensor has the same ID across multiple DSMs,
+        // although that is still convention and not always true.  If that
+        // is not the case, then we'll end up with some measurements with
+        // strange combinations of fields.
+        //
+        // We assume here the sensor part of the measurement name is unique,
+        // based on either the catalog name or the sensor id number, even
+        // after converting to lower case.
+        measurementName = stag->getDSMSensor()->getCatalogName();
+        if (measurementName.empty())
+        {
+            ostringstream out;
+            out << "sensor" << std::setfill('0') << std::setw(3)
+                            << stag->getDSMSensor()->getSensorId();
+            measurementName = out.str();
+        }
+
+        // Since some sensor names will contain underscores, always include
+        // an underscore as the final separator between sensor and sample,
+        // even if the sample identifier is omitted.
+        measurementName = string_to_lower(measurementName) + "_";
+
+        // Add the sample designation by using the name of the first
+        // variable in the sample.  The variable name is not converted to
+        // lower case with the sensor part of the measurement name, because
+        // we don't know if the name would still be unique.  I'm not sure I
+        // like that sample 1 gets this special treatment and makes the
+        // naming scheme vary between samples.  However, for most sensors
+        // with only 1 sample, it really is more natural to think of the
+        // sensor as a single measurement stream.
+        if (stag->getSampleId() != 1)
+        {
+            measurementName += varnames[0];
+        }
+
+        // Measurement names can contain periods, but then they have to be
+        // quoted.  Leave the periods and accept the use of quotes for now.
+        // for (string::size_type i = 0; i < measurementName.size(); ++i)
+        // {
+        //     if (measurementName[i] == '.')
+        //         measurementName[i] = '_';
+        // }
     }
 
     bool
@@ -655,6 +729,7 @@ class SampleToDatabase
     //gathering dsmid and spsid necessary to create measurement name
     string spsid;
     string dsmid;
+    string sampid;
     string info;
 
     // Stash the variable names from the sample tag to identify the
@@ -674,6 +749,7 @@ public:
             measurementName = rhs.measurementName;
             spsid = rhs.spsid;
             dsmid = rhs.dsmid;
+            sampid = rhs.sampid;
             info = rhs.info;
             varunits = rhs.varunits;
             varnames = rhs.varnames;
@@ -689,6 +765,7 @@ public:
         measurementName(),
         spsid(),
         dsmid(),
+        sampid(),
         info(),
         varunits(),
         varnames()
@@ -724,7 +801,7 @@ receive(const Sample *samp) throw()
  * database at the specfied url. createInfluxDB() uses the curl library for
  * assigning the url and the consequent fields to post during the HTTP POST
  * operation. Additionally, the string variable DBname can be assigned with
- * the DSMConfig information such as location or project name as this is
+ * the DSMConfig information such as site or project name as this is
  * only created once.
  */
 void
@@ -799,6 +876,8 @@ accumulate(const Sample *samp)
     string data;
     string timeStamp = to_string(samp->getTimeTag());
 
+    data = info;
+    int n = 0;
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
@@ -810,27 +889,25 @@ accumulate(const Sample *samp)
         }
         else
         {
-            data = info;
-            if (varunits[i].length() > 0)
-            {
-                data += ",units=" + varunits[i];
-            }
-            data += " ";
+            data += (n++ == 0) ? " " : ",";
             data += varnames[i];
             data += "=";
             data += to_string(value);
-            data += " ";
-            data += timeStamp;
-            data += "\n";
-            if (!_db->addMeasurement(data))
+        }
+    }
+    if (n > 0)
+    {
+        data += " ";
+        data += timeStamp;
+        data += "\n";
+        if (!_db->addMeasurement(data))
+        {
+            // An error occurred, so set an app exception to interrupt
+            // the main loop.
+            NidasApp* app = NidasApp::getApplicationInstance();
+            if (app)
             {
-                // An error occurred, so set an app exception to interrupt
-                // the main loop.
-                NidasApp* app = NidasApp::getApplicationInstance();
-                if (app)
-                {
-                    app->setException(n_u::Exception(_db->getErrors()));
-                }
+                app->setException(n_u::Exception(_db->getErrors()));
             }
         }
     }
