@@ -335,12 +335,6 @@ public:
             return false;
         }
 
-        // If any error messages are accumulated in this stream, they are
-        // set to the error string member.  We don't throw exceptions in
-        // this method because it is likely called from a receive() method
-        // which is not running in the main thread.
-        std::ostringstream errs;
-        
         DLOG(("sendData()...") << "async:" << _async);
 
         // Do one of three things with the current data: echo, send it
@@ -364,46 +358,7 @@ public:
         {
             res = dataToInfluxDB(_curl, getWriteURL(), _data, _nmeasurements);
         }
-        // First see if the curl call itself failed.
-        if (res != CURLE_OK)
-        {
-            errs << "http post failed: " << _curl_errors;
-        }
-        // Then see if the json result indicates an error.
-        if (!_result.empty())
-        {
-            try {
-                std::istringstream js(_result.get());
-                Json::Value root;
-                js >> root;
-                Json::Value error = root["error"];
-                string dnf = "database not found";
-                if (!error.isNull() &&
-                    error.asString().substr(0, dnf.size()) == dnf)
-                {
-                    errs << error.asString()
-                         << "; maybe use --create to create it first?";
-                }
-                else if (!error.isNull())
-                {
-                    errs << error.asString();
-                }
-                else
-                {
-                    // Any result at all is probably an error.
-                    errs << _result.get();
-                }
-            }
-            catch (const Json::LogicError&)
-            {
-                errs << "Server response could not be parsed as json: ";
-                errs << _result.get();
-            }
-        }
-
-        // Done with the result, prepare it for another posting.
-        _result.clear();
-        _errs = errs.str();
+        handleResult(res);
 
         if (_async && _errs.empty() && !_data->empty())
         {
@@ -457,6 +412,59 @@ public:
 
     void
     createInfluxDB();
+
+    void
+    handleResult(CURLcode res)
+    {
+        // If any error messages are accumulated in this stream, they are
+        // set to the error string member.  We don't throw exceptions in
+        // this method because it is likely called from a receive() method
+        // which is not running in the main thread.
+        std::ostringstream errs;
+
+        // First see if the curl call itself failed.
+        if (res != CURLE_OK)
+        {
+            errs << "http post failed: " << _curl_errors;
+        }
+        // Then see if the json result indicates an error.
+        if (!_result.empty())
+        {
+            try {
+                std::istringstream js(_result.get());
+                Json::Value root;
+                js >> root;
+                Json::Value error = root["error"];
+                string dnf = "database not found";
+                if (!error.isNull() &&
+                    error.asString().substr(0, dnf.size()) == dnf)
+                {
+                    errs << error.asString()
+                         << "; maybe use --create to create it first?";
+                }
+                else if (!error.isNull())
+                {
+                    errs << error.asString();
+                }
+                else
+                {
+                    // Show the output in debug mode, just in case there are useful messages
+                    // in it, but assume the command succeeded.
+                    DLOG(("") << _result.get());
+                }
+            }
+            catch (const Json::LogicError&)
+            {
+                errs << "Server response could not be parsed as json: ";
+                errs << _result.get();
+            }
+        }
+
+        // Done with the result, prepare it for another posting.
+        _result.clear();
+        _errs = errs.str();
+    }
+
 
 private:
 
@@ -734,16 +742,12 @@ createInfluxDB()
     curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, createDB.c_str());
     res = curl_easy_perform(_curl);
-
-    if (res != CURLE_OK)
+    handleResult(res);
+    if (!_errs.empty())
     {
-        string err("createInfluxDB() failed: ");
-        err += full;
-        throw std::runtime_error(err);
+        throw n_u::Exception(_errs);
     }
-    _result.clear();
 }
-
 
 
 size_t
