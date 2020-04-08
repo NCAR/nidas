@@ -33,10 +33,8 @@ Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons
-%if 0%{?fedora} > 28
 Requires: jsoncpp
 BuildRequires: jsoncpp-devel
-%endif
 
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
@@ -402,9 +400,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
-%if 0%{?fedora} > 28
 %{nidas_prefix}/bin/data_influxdb
-%endif
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
