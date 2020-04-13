@@ -311,7 +311,7 @@ bool SampleAverager::receive(const Sample* samp) throw()
         for (unsigned int j = 0;  j < lenvec[iv] && ii < samp->getDataLength(); j++) {
             double v = samp->getDataValue(ii);
             assert(oi < _ndataValues);
-            if (!isnan(v)) {
+            if (!std::isnan(v)) {
                 _sums[oi] += v;
                 _cnts[oi]++;
             }

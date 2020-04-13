@@ -354,7 +354,7 @@ int SyncDumper::run()
 		     << " === " << endl;
 		// cout << "lag= " << rec[lagoffset] << endl;
 
-		if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
+		if (!std::isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 		if (tt <= ttlast && _vars.size() == 1)
 		{
 		    cerr << "timetag=" << time_format(tt)

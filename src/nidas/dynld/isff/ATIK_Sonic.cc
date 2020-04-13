@@ -169,7 +169,7 @@ void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()
      * whether some values were not being shadow corrected. So we'll
      * let one NAN "spoil the barrel".
      */
-    if (isnan(spd)) {
+    if (std::isnan(spd)) {
         for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
         return;
     }
@@ -249,7 +249,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         for (i = 0; i < 3 && pdata < pend; i++) {
             float f = counts[i] = *pdata++;
             int c = 0;
-            if (!isnan(f)) c = (int) f;
+            if (!std::isnan(f)) c = (int) f;
             miss_sum += std::min(_expectedCounts - c,0);
             // cerr << "c=" << c << " expected=" << _expectedCounts << ", sum=" << miss_sum << endl;
         }

@@ -221,7 +221,7 @@ accumulate(const Sample* samp)
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
-        if (isnan(value))
+        if (std::isnan(value))
         {
             nnans[i] += 1;
         }
