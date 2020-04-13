@@ -268,7 +268,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
+    host_env.AppendUnique(CXXFLAGS = ['-Wextra'])
     CheckStackProtectorOptions(host_env)
 
 # hardening option "-pie" in LINKFLAGS results in this error:
