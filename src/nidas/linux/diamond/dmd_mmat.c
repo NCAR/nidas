@@ -217,12 +217,13 @@ static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
         return n;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -240,20 +241,19 @@ static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -270,11 +270,9 @@ static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
