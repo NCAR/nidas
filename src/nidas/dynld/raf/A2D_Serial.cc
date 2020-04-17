@@ -92,12 +92,14 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
             // process all samples in buffer
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
 
-                distributeRaw(samp);        // send it on to the clients
 
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;   // last line of config
                 parseConfigLine(msg);
+
+                // send it on to the clients and freeReference
+                distributeRaw(samp);
             }
             if (nsamp > 50) {
                 WLOG(("%s: A2D_Serial open(): expected !EOC, not received",
