@@ -4126,6 +4126,29 @@ static void cleanup_cntr(struct DMMAT* brd)
         brd->cntr = 0;
 }
 
+/*
+ * Check D2A resolution on a MM32DXAT
+ */
+static int checkD2A_MM32DXAT(struct DMMAT_D2A* d2a)
+{
+        unsigned long flags;
+        unsigned char d2aconfig;
+        int bits = 16;
+        struct DMMAT* brd = d2a->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        outb(0x07,brd->addr + 8);	// set page 7
+        d2aconfig = inb(brd->addr + 14);
+
+        if (d2aconfig & 0x40) bits = 12;
+
+        outb(0x00,brd->addr + 8);	// set back to page 0
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return bits;
+}
+
 static int __init init_d2a(struct DMMAT* brd)
 {
         int result = -ENOMEM;
@@ -4188,6 +4211,9 @@ static int __init init_d2a(struct DMMAT* brd)
                 d2a->startWaveforms = startWaveforms_MM32XAT;
                 d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 d2a->cmax = 65535;
+                KLOG_INFO("%s, board %d, has a %d bit D/A\n",
+                        d2a->deviceName, brd->num, 
+                        checkD2A_MM32DXAT(d2a));
                 break;
         }
 
@@ -4226,7 +4252,6 @@ static int __init init_d2a(struct DMMAT* brd)
         return result;
 }
 
-
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
 static void cleanup_d2a(struct DMMAT* brd)
@@ -4243,6 +4268,7 @@ static void cleanup_d2a(struct DMMAT* brd)
         kfree(d2a);
         brd->d2a = 0;
 }
+
 
 static int __init init_d2d(struct DMMAT* brd)
 {
