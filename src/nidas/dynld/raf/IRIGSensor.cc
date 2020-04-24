@@ -96,13 +96,14 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
  */
 dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 {
-    struct pc104sg_status status;
-    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
     struct timeval32 tval;
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 
 #ifdef DEBUG
+    struct pc104sg_status status;
+    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
 	tval.tv_usec << ", status=0x" << hex << (int)status.statusOR << dec << endl;
 #endif
@@ -138,9 +139,9 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     irigTime = getIRIGTime();
     unixTime = n_u::getSystemTime();
 
-    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
+    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT | CLOCK_SYNC_NOT_OK)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
+	    "NOSYNC, NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
     }
     else if (::llabs(unixTime-irigTime) > 180LL*USECS_PER_DAY) {
@@ -160,9 +161,6 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     for (ntry = 0; ntry < NTRY; ntry++) {
 
 	::nanosleep(&nsleep,0);
-
-	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        statusOR = status.statusOR;
 
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
