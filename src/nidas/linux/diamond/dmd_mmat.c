@@ -4146,6 +4146,10 @@ static int checkD2A_MM32DXAT(struct DMMAT_D2A* d2a)
         outb(0x00,brd->addr + 8);	// set back to page 0
 
         spin_unlock_irqrestore(&brd->reglock,flags);
+
+        KLOG_INFO("%s, board %d, has a %d bit D/A, config=%#02x\n",
+                d2a->deviceName, brd->num, 
+                bits, (unsigned int) d2aconfig);
         return bits;
 }
 
@@ -4211,9 +4215,7 @@ static int __init init_d2a(struct DMMAT* brd)
                 d2a->startWaveforms = startWaveforms_MM32XAT;
                 d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 d2a->cmax = 65535;
-                KLOG_INFO("%s, board %d, has a %d bit D/A\n",
-                        d2a->deviceName, brd->num, 
-                        checkD2A_MM32DXAT(d2a));
+                checkD2A_MM32DXAT(d2a);
                 break;
         }
 
@@ -4268,7 +4270,6 @@ static void cleanup_d2a(struct DMMAT* brd)
         kfree(d2a);
         brd->d2a = 0;
 }
-
 
 static int __init init_d2d(struct DMMAT* brd)
 {
