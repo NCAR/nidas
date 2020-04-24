@@ -2117,8 +2117,8 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
                 board.statusOR |= board.lastStatus;
 
-                /* returned by IRIG_GET_STATUS ioctl, and zeroed after the call */
-                board.status.statusOR |= board.lastStatus;
+                /* queried by user with IRIG_GET_STATUS ioctl */
+                board.status.statusOR = board.lastStatus;
 
                 if (unlikely(board.doSnapShot) ||
                                 unlikely(board.clockAction == RESET_COUNTERS)) {
@@ -2345,7 +2345,6 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                         break;
                 ret =
                     copy_to_user(userptr, &board.status,len) ? -EFAULT : len;
-                board.status.statusOR = 0;
                 break;
         case IRIG_GET_CLOCK:
                 if (len != sizeof(tv))
@@ -2492,6 +2491,7 @@ static int __init pc104sg_init(void)
         struct timeval32 irig_timeval;
         struct irigTime irig_time;
         int tdiff;
+        unsigned char status;
 
         KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
@@ -2569,6 +2569,14 @@ static int __init pc104sg_init(void)
 
         board.ioport = IoPort;
         board.addr = board.ioport + SYSTEM_ISA_IOPORT_BASE;
+
+        /* get initial value of sync state from status port */
+        status = inb(board.addr + Status_Port);
+        if (!(status & Sync_OK))
+                board.lastStatus |= (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        else
+                board.lastStatus &= ~(CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        board.status.statusOR = board.lastStatus;
 
         board.class = class_create(THIS_MODULE, "irig");
         if (IS_ERR(board.class)) {
@@ -2711,6 +2719,9 @@ static int __init pc104sg_init(void)
 		errval = PTR_ERR(board.device);
 		goto err0;
 	}
+
+        KLOG_INFO("%s init done: IRQ=%d, ioport=%#03x\n",
+                board.deviceName, board.irq, board.ioport);
 
         return 0;
 
