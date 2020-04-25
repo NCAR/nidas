@@ -28,6 +28,11 @@
  *
  * driver for Brandywine's PC104-SG IRIG card
  *
+ *  A large portion of this code attempts to deal with an
+ *  error condition, the lack of synchronization of this card
+ *  with the input PPS, due to problems with the PPS distribution
+ *  on the aircraft.
+ *  That problem has been corrected, but the code carries on...
  */
 
 #include <linux/kernel.h>
@@ -154,27 +159,11 @@ EXPORT_SYMBOL(ReadClock);
 /**
  * What to do with the with the software clock and loop counter
  * in the bottom-half tasklet.
- *
- * For USER_SET_REQUESTED, the software clock will be set once
- * from a time provided by the user if the card does not have sync,
- * and then adjusted from either the IRIG clock or unix clock.
- * This is not currently used.
- *
- * If USER_OVERRIDE_REQUESTED the software clock will be set once
- * from a time provided by the user in an ioctl and not thereafter
- * adjusted. USER_OVERRIDE_REQUESTED is not currently used and
- * could probably be removed.
  */
 enum clockAction
 {
         RESET_COUNTERS,
         NO_ACTION,
-#ifdef SUPPORT_USER_SET
-        USER_SET_REQUESTED,     /* user has requested to set the clock via ioctl */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE_REQUESTED /* user has requested override of clock */
-#endif
 };
 
 /**
@@ -184,12 +173,6 @@ enum clockState
 {
         SYNCD_SET,              /* good state, clock set from irig clock */
         UNSYNCD_SET,            /* card does not have sync, set from unix clock */
-#ifdef SUPPORT_USER_SET
-        USER_SET,               /* software clock set from value provided by user */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE           /* clock has been overridden */
-#endif
 };
 
 /**
@@ -463,13 +446,6 @@ struct pc104sg_board
          */
         wait_queue_head_t callbackWaitQ;
 
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-        /**
-         * value passed by user via ioctl who wants to set the IRIG clock.
-         */
-        struct timeval32 userClock;
-#endif
-
         int max100HzBacklog;
 
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
@@ -534,14 +510,6 @@ static const char *clockStateString(void)
                 return "SYNCD_SET";
         case UNSYNCD_SET:
                 return "UNSYNCD_SET";
-#ifdef SUPPORT_USER_SET
-        case USER_SET:
-                return "USER_SET";
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        case USER_OVERRIDE:
-                return "USER_OVERRIDE";
-#endif
         default:
                 break;
         }
@@ -1641,10 +1609,7 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                                     ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
                                      board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
                                 spin_lock_irqsave(&board.lock, flags);
-#ifdef SUPPORT_USER_OVERRIDE
-                                if (board.clockState != USER_OVERRIDE)
-#endif
-                                        board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
+                                board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
                                 spin_unlock_irqrestore(&board.lock, flags);
                         }
                 }
@@ -1733,31 +1698,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
 
                 atomic_dec(&board.pending100Hz);
 
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-                switch (board.clockAction) {
-#ifdef SUPPORT_USER_OVERRIDE
-                case USER_OVERRIDE_REQUESTED:
-                        count100Hz = setSoftTickers(&board.userClock,1);
-                        board.clockState = USER_OVERRIDE;
-                        break;
-#endif
-#ifdef SUPPORT_USER_SET
-                case USER_SET_REQUESTED:
-                        // has requested to set the clock, and we
-                        // have no time sync, then set the clock counters
-                        // to the user clock, and then run normally.
-                        if ((board.lastStatus & DP_Extd_Sts_Nosync)) {
-                                count100Hz = setSoftTickers(&board.userClock,1);
-                                board.clockACTION = NO_ACTION;
-                        }
-                        // set to irig clock since we have time sync
-                        else board.clockAction = RESET_COUNTERS;
-                        break;
-#endif
-                default:
-                        break;
-                }
-#endif
 
                 /* fix the clock and loop counter if requested */
                 if (unlikely(board.clockAction == RESET_COUNTERS) && board.resetSnapshotDone) {
@@ -1919,11 +1859,7 @@ static void oneHzFunction(void *ptr)
         spin_unlock_irqrestore(&board.lock, flags);
 
         /* check if snapshot was taken */
-        if (!doSnapShot
-#ifdef SUPPORT_USER_OVERRIDE
-                        && board.clockState != USER_OVERRIDE
-#endif
-                ) {
+        if (!doSnapShot) {
                 int syncDiff = 0;
                 if (board.lastSyncTime > 0)
                         syncDiff = GET_TMSEC_CLOCK - board.lastSyncTime;
@@ -2382,38 +2318,6 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 
                 board.clockAction = RESET_COUNTERS;
                 break;
-#ifdef SUPPORT_USER_OVERRIDE
-        case IRIG_OVERRIDE_CLOCK:
-                if (len != sizeof(board.userClock))
-                        break;
-
-                spin_lock_irqsave(&board.lock, flags);
-                ret =
-                    copy_from_user(&board.userClock, userptr,
-                                   sizeof(board.userClock)) ? -EFAULT : len;
-                if (ret < 0) {
-                        spin_unlock_irqrestore(&board.lock, flags);
-                        break;
-                }
-                board.DP_RamExtStatusEnabled = 0;
-                board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                timeval32Toirig(&board.userClock, &ti);
-
-                if (board.lastStatus & DP_Extd_Sts_Nosync)
-                        ret = setMajorTime(&ti);
-                else
-                        ret = setYear(ti.year);
-
-                spin_lock_irqsave(&board.lock, flags);
-                board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                board.clockState = USER_OVERRIDE_REQUESTED;
-                ret = len;
-                break;
-#endif
         default:
                 KLOG_WARNING
                     ("%s: Unrecognized ioctl %d (number %d, size %d)\n",
@@ -2557,7 +2461,6 @@ static int __init pc104sg_init(void)
         board.clockState = UNSYNCD_SET;
         board.clockAction = RESET_COUNTERS;
         board.notifyClients = NO_NOTIFY;
-
 
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
