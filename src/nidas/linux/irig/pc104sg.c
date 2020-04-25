@@ -26,13 +26,45 @@
 */
 /* pc104sg.c
  *
- * driver for Brandywine's PC104-SG IRIG card
+ * Driver for Brandywine's PC104-SG IRIG card
  *
- *  A large portion of this code attempts to deal with an
- *  error condition, the lack of synchronization of this card
- *  with the input PPS, due to problems with the PPS distribution
- *  on the aircraft.
- *  That problem has been corrected, but the code carries on...
+ * 1. Configures a 10 KHz output used by other cards in the PC104 stack
+ * 2. Allows other driver modules to register callbacks, to be
+ *    called at desired rates from 0.1/sec to 100/sec.
+ * 3. Enables a 100/sec interrupt, whose ISR:
+ *    a. maintains a 4 byte unsigned int software clock, in units of
+ *       1/10ths of milliseconds, rolling over at 00:00 UTC. This clock
+ *       can be read by other modules.
+ *    b. schedules a software tasklet to run
+ * 4. The 100Hz software tasklet:
+ *    1. calls the registered callbacks at the requested rates.
+ *    b. calls its own callback at 1 Hz
+ * 5. The 1 Hz callback:
+ *     a. takes a snapshot of the IRIG and system (UNIX) clocks, the
+ *        board synchronization state, and the status of the IRIG and
+ *        PPS inputs. These values are also placed in a NIDAS sample and
+ *        queued up for read.
+ *     b. If the board is in sync with IRIG and PPS inputs, the
+ *        agreement between the software clock and the IRIG hardware clock
+ *        is checked. If the clocks disagree it is probably due to a
+ *        missed interrupt, and the 100Hz tasklet is asked to catch up.
+ *     c. If the  board is not in sync with inputs, the agreement
+ *        between the software clock and the UNIX system clock is checked.
+ *     d. If there is significant difference between the reference clock
+ *        (IRIG if in sync, UNIX otherwise) then the software clock is
+ *        simply reset. Callback clients may have registered a
+ *        resync-callback, and if so, that is called.
+ * 6. Provides a open/close/poll/read/ioctl device interface.
+ *    a. ioctls: GET_STATUS, GET_CLOCK, SET_CLOCK.
+ *       SET_CLOCK allows the user to initialize parts the IRIG clock, namely
+ *       the year and major time (1 second or greater) fields.
+ *       Setting the major time is necessary if IRIG time codes are not being
+ *       received by the card.
+ *    b. Provides for user polling and reads of the 1/sec NIDAS samples.
+ *
+ * A large portion of this code attempts to deal with error conditions:
+ * the lack of synchronization of this card with the input PPS,
+ * and with missed interrupts.
  */
 
 #include <linux/kernel.h>
@@ -1697,7 +1729,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                         board.max100HzBacklog = npend;
 
                 atomic_dec(&board.pending100Hz);
-
 
                 /* fix the clock and loop counter if requested */
                 if (unlikely(board.clockAction == RESET_COUNTERS) && board.resetSnapshotDone) {
