@@ -174,16 +174,16 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
                 "UNIX: %s, dt=%7d usec",
                 ut.format(true,timeFormat).c_str(),dtunix);
             n_u::Logger::getInstance()->log(LOG_INFO,
-                "IRIG: %s, dt=%7d usec, unix-irig=%10lld usec, rate ratio diff=%f",
+                "IRIG: %s, dt=%7d usec, unix-irig=%10lld usec, IRIG correction rate=%f sec/sec",
                 it.format(true,timeFormat).c_str(),dtirig,
-                unixTime - irigTime,fabs((float)(dtunix - dtirig)) / dtunix);
+                unixTime - irigTime,(float)(dtirig - dtunix) / dtunix);
 
 	    // cerr << "UNIX-IRIG=" << unixTime - irigTime <<
 	    //	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
-	    //	", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
+	    //	", correction rate=" << (float)(dtirig - dtunix) / dtunix << endl;
 
 	    if (::llabs(unixTime - irigTime) < 10 * USECS_PER_SEC &&
-		fabs((float)(dtunix - dtirig)) / dtunix < 1.e-2) break;
+		fabs((float)(dtirig - dtunix)) / dtunix < 1.e-2) break;
 	}
 
 	unixTimeLast = unixTime;
