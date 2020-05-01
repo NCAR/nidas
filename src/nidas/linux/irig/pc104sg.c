@@ -28,39 +28,51 @@
  *
  * Driver for Brandywine's PC104-SG IRIG card
  *
- * 1. Configures a 10 KHz output used by other cards in the PC104 stack
+ * 1. Enables a 10 KHz output used by other cards in the PC104 stack
  * 2. Allows other driver modules to register callbacks, to be
  *    called at desired rates from 0.1/sec to 100/sec.
- * 3. Enables a 100/sec interrupt, whose ISR:
+ *    a. registers its own 1/sec callback function, oneHzFunction.
+ * 3. Enables a 100/sec interrupt, whose ISR, pc104sg_isr:
+ *    a. Reads the extended status value from DPRAM, issues request
+ *       for next extended status. In this way, by issuing DPRAM requests
+ *       0.01 seconds apart, one doesn't have to wait for the DPRAM
+ *       to be ready.
+ *    b. If doSnapShot is true, takes a snapshot of the software clock counter,
+ *       the IRIG clock, the UNIX system clock, the board synchronization state,
+ *       and the status of the IRIG and PPS inputs.
+ *    c. schedules a software tasklet to run
+ * 4. The 100Hz software tasklet, function pc104sg_bh_100Hz:
  *    a. maintains a 4 byte unsigned int software clock, in units of
  *       1/10ths of milliseconds, rolling over at 00:00 UTC. This clock
  *       can be read by other modules.
- *    b. schedules a software tasklet to run
- * 4. The 100Hz software tasklet:
- *    1. calls the registered callbacks at the requested rates.
- *    b. calls its own callback at 1 Hz
- * 5. The 1 Hz callback:
- *     a. takes a snapshot of the IRIG and system (UNIX) clocks, the
- *        board synchronization state, and the status of the IRIG and
- *        PPS inputs. These values are also placed in a NIDAS sample and
- *        queued up for read.
- *     b. If the board is in sync with IRIG and PPS inputs, the
- *        agreement between the software clock and the IRIG hardware clock
- *        is checked. If the clocks disagree it is probably due to a
- *        missed interrupt, and the 100Hz tasklet is asked to catch up.
- *     c. If the  board is not in sync with inputs, the agreement
- *        between the software clock and the UNIX system clock is checked.
- *     d. If there is significant difference between the reference clock
- *        (IRIG if in sync, UNIX otherwise) then the software clock is
- *        simply reset. Callback clients may have registered a
- *        resync-callback, and if so, that is called.
+ *    b. calls the registered callbacks at the requested rates,
+ *       including its own callback at 1/sec.
+ *    c. If near the end of the current second, sets doSnapShot, so that
+ *       the ISR will take a clock snapshot on the next run.
+ * 5. The 1 Hz callback, oneHzFunction:
+ *    a. Uses the last snapshot to determine the quality of the software
+ *       clock counter.
+ *       * If the board is in sync with IRIG and PPS inputs, the
+ *         agreement between the software clock and the IRIG hardware clock
+ *         is checked. If the clocks disagree it is probably due to a
+ *         missed interrupt, and the 100Hz tasklet is asked to catch up,
+ *         by changing the value of pending100Hz.
+ *       * If the  board is not in sync with the inputs, the agreement
+ *         between the software clock and the UNIX system clock is checked.
+ *       * If there is significant difference between the reference clock
+ *         (IRIG if in sync, UNIX otherwise) and the software clock, then
+ *         the software clock is simply reset. Callback clients may have
+ *         registered a resync-callback, and if so, that is called.
+ *         At this point no drivers have resync-callbacks, this capability
+ *         has not been tested, probably could be removed.
+ *    b. Places the snapshot values in a NIDAS sample and queues it for read.
  * 6. Provides a open/close/poll/read/ioctl device interface.
  *    a. ioctls: GET_STATUS, GET_CLOCK, SET_CLOCK.
- *       SET_CLOCK allows the user to initialize parts the IRIG clock, namely
+ *       SET_CLOCK allows the user to initialize parts of the IRIG clock, namely
  *       the year and major time (1 second or greater) fields.
  *       Setting the major time is necessary if IRIG time codes are not being
  *       received by the card.
- *    b. Provides for user polling and reads of the 1/sec NIDAS samples.
+ *    b. Supports polling and reads of the 1/sec NIDAS samples.
  *
  * A large portion of this code attempts to deal with error conditions:
  * the lack of synchronization of this card with the input PPS,
@@ -1042,7 +1054,6 @@ static int writeDPRAM(unsigned char addr, unsigned char value)
         return ret;
 }
 
-
 /* This controls COUNTER 1 on the PC104SG card */
 static int setHeartBeatOutput(int rate)
 {
@@ -1959,6 +1970,13 @@ static void oneHzFunction(void *ptr)
         }
 
         /* if device is open, send the snapshot as a sample. */
+
+        /* Note this is locking dev_lock, which is not used in the ISR,
+         * so we don't need to use spin_lock_irqsave. This is the only
+         * use of dev_lock in software interrupt context. Users
+         * of dev_lock outside of software interrupt context
+         * need to use spin_lock_bh.
+         */
         spin_lock(&board.dev_lock);
         dev = board.dev;
         if (!dev) {
