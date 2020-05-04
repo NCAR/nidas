@@ -1,4 +1,4 @@
 [submodule "src/nidas/linux/arinc/Condor"]
 	path = src/nidas/linux/arinc/Condor
-	url = https://github.com/ncareol/CondorARINC
+	url = ../CondorARINC
 	branch = v2.0

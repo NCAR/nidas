@@ -183,9 +183,7 @@ private:
 
     int _counter;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
     std::vector<short> _swapBuf;
-#endif
 
     int _rate;
 

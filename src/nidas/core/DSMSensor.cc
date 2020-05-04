@@ -54,6 +54,7 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
+    _openable(true),
     _devname(),
     _dictionary(this),
     _iodev(0),_defaultMode(O_RDONLY),
@@ -79,10 +80,9 @@ DSMSensor::DSMSensor() :
 
 DSMSensor::~DSMSensor()
 {
-
     for (list<SampleTag*>::const_iterator si = _sampleTags.begin();
-    	si != _sampleTags.end(); ++si) {
-	delete *si;
+        si != _sampleTags.end(); ++si) {
+        delete *si;
     }
     delete _scanner;
     delete _iodev;
@@ -332,7 +332,7 @@ const Parameter* DSMSensor::getParameter(const std::string& name) const
  * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
  */
 void DSMSensor::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException) 
+	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     if (!_iodev) _iodev = buildIODevice();
     _iodev->setName(getDeviceName());
@@ -344,7 +344,7 @@ void DSMSensor::open(int flags)
     _scanner->init();
 }
 
-void DSMSensor::close() throw(n_u::IOException) 
+void DSMSensor::close() throw(n_u::IOException)
 {
     NLOG(("closing: %s, #timeouts=%d",
         getDeviceName().c_str(),getTimeoutCount()));
@@ -367,7 +367,7 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
         assert(project);
         if (project->getName() == "test" &&
             getDSMId() == 1 && getSensorId() == 10) {
-            DLOG(("%s: ",getName().c_str()) << ", samp=" << 
+            DLOG(("%s: ",getName().c_str()) << ", samp=" <<
                 string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
         }
 #endif
@@ -491,6 +491,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
     ostr <<
 "<table id=status>\
 <caption>"+dsm_lctn+" ("+dsm_name+") "+glyph[anim]+"</caption>\
+<thead>\
 <tr>\
 <th>name</th>\
 <th>samp/sec</th>\
@@ -499,6 +500,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 <th>max&nbsp;samp<br>length</th>\
 <th>bad<br>timetags</th>\
 <th>extended&nbsp;status</th>\
+</tr></thead>\
 <tbody align=center>" << endl;	// default alignment in table body
 }
 
@@ -511,7 +513,7 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
     string oe(zebra?"odd":"even");
     zebra = !zebra;
     bool warn = fabs(getObservedSamplingRate()) < 0.0001;
-    	
+
     ostr <<
         "<tr class=" << oe << "><td align=left>" <<
                 getDeviceName() << ',' <<
@@ -519,10 +521,10 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 			getCatalogName() : getClassName()) <<
 		"</td>" << endl <<
 	(warn ? "<td><font color=red><b>" : "<td>") <<
-    	fixed << setprecision(2) <<
+        fixed << setprecision(2) <<
 		getObservedSamplingRate() <<
 	(warn ? "</b></font></td>" : "</td>") << endl <<
-    	"<td>" << setprecision(0) <<
+        "<td>" << setprecision(0) <<
 		getObservedDataRate() << "</td>" << endl <<
 	"<td>" << getMinSampleLength() << "</td>" << endl <<
 	"<td>" << getMaxSampleLength() << "</td>" << endl <<
@@ -607,8 +609,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 	map<string,xercesc::DOMElement*>::const_iterator mi;
 
-        const xercesc::DOMElement* cnode = 
-	project->getSensorCatalog()->find(idref);
+        const xercesc::DOMElement* cnode =
+                        project->getSensorCatalog()->find(idref);
         if (!cnode)
 		throw n_u::InvalidParameterException(
 	    string("dsm") + ": " + getName(),
@@ -642,7 +644,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		    setClassName(aval);
 		else if (getClassName() != aval)
 		    n_u::Logger::getInstance()->log(LOG_WARNING,
-		    	"class attribute=%s does not match getClassName()=%s\n",
+                        "class attribute=%s does not match getClassName()=%s\n",
 			aval.c_str(),getClassName().c_str());
 	    }
 	    else if (aname == "location") setLocation(aval);
@@ -652,15 +654,15 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException("sensor",
-		    	aname,aval);
+                        aname,aval);
 		setLatency(val);
 	    }
 	    else if (aname == "height")
-	    	setHeight(aval);
+                setHeight(aval);
 	    else if (aname == "depth")
-	    	setDepth(aval);
+                setDepth(aval);
 	    else if (aname == "suffix")
-	    	setSuffix(aval);
+                setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);
             else if (aname == "duplicateIdOK") {
                 istringstream ist(aval);
@@ -706,7 +708,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
             else if (aname == "xml:base" || aname == "xmlns") {}
 	}
     }
-    
+
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -739,7 +741,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                     catch (const n_u::InvalidParameterException& e) {
                         throw n_u::InvalidParameterException(getName() + ": " + e.what());
                     }
-		    
+
 		    delete newtag;
 		    newtag = 0;
 		    break;
@@ -791,7 +793,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	stag->setSuffix(getFullSuffix());
 
 	if (getSensorId() == 0) throw n_u::InvalidParameterException(
-	    	getName(),"id","zero or missing");
+                getName(),"id","zero or missing");
 
 	pair<set<unsigned int>::const_iterator,bool> ins =
 		ids.insert(stag->getId());
@@ -799,7 +801,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    ostringstream ost;
 	    ost << stag->getDSMId() << ',' << stag->getSpSId();
 	    throw n_u::InvalidParameterException(
-	    	getName(),"duplicate sample id", ost.str());
+                getName(),"duplicate sample id", ost.str());
 	}
 	rawRate = std::max(rawRate,stag->getRate());
     }
@@ -819,11 +821,11 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
 {
-    if (getDeviceName().length() == 0) 
+    if (getDeviceName().length() == 0)
 	throw n_u::InvalidParameterException(getName(),
             "no device name","");
 
-    if (getSensorId() == 0) 
+    if (getSensorId() == 0)
 	throw n_u::InvalidParameterException(
 	    getDSMConfig()->getName() + ": " + getName(),
 	    "id is zero","");

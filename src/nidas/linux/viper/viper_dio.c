@@ -65,11 +65,6 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Driver for VIPER DIO pins");
 MODULE_VERSION(REPO_REVISION);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
 
 /*
  * Device structure.
@@ -181,14 +176,14 @@ static long viper_dio_ioctl(struct file *filp, unsigned int cmd, unsigned long a
          * "write" is reversed
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
-                err = !access_ok(VERIFY_WRITE, (void __user *)arg,
+                err = !portable_access_ok(VERIFY_WRITE, (void __user *)arg,
                     _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
-                err =  !access_ok(VERIFY_READ, (void __user *)arg,
+                err =  !portable_access_ok(VERIFY_READ, (void __user *)arg,
                     _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
-        switch (cmd) 
+        switch (cmd)
         {
 
         case VIPER_DIO_GET_NOUT:
@@ -295,7 +290,7 @@ static void viper_dio_cleanup(void)
 }
 
 static int __init viper_dio_init(void)
-{	
+{
         int result = -EINVAL;
         int i;
         dev_t devno = MKDEV(0,0);

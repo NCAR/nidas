@@ -152,7 +152,8 @@ protected:
     enum irigClockRates _temperatureRate;
 
     /**
-     * CalFile for this DSMAnalogSensor.
+     * CalFile for this DSMAnalogSensor.  This is for the A2D cals, not
+     * engineering cals.
      */
     CalFile* _calFile;
 

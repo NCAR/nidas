@@ -29,6 +29,10 @@
 */
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Logger.h>
+
+using nidas::util::LogConfig;
+using nidas::util::LogScheme;
 
 #include <iostream>
 
@@ -40,11 +44,17 @@
 #include <time.h>
 #include <stdlib.h> // rand
 
+#include <vector>
+
 using namespace nidas::util;
 using namespace std;
 
-int main(int argc, char** argv)
+int main(int, char** argv)
 {
+    Logger::createInstance(&cerr)->setScheme
+        (LogScheme().addConfig(LogConfig("debug")));
+    DLOG(("debug enabled."));
+
     time_t now = ::time(0);       // current time
     unsigned int randseed = now % 0xffffffff;
 
@@ -263,7 +273,37 @@ int main(int argc, char** argv)
         sec += secdt;
     }
     cout << "OK, " << ncheck << " times checked" << endl;
-    cout << "Success: " << argv[0] << endl;
 
+    cout << "Checking default parsing formats... " << endl;
+    typedef std::pair<std::string, UTime> format_pair_t;
+    typedef std::vector<format_pair_t> cases_t;
+    cases_t cases;
+    cases.push_back(make_pair("2019-11-07T16:10:55.001",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.001)));
+    cases.push_back(make_pair("2019-11-07 16:10:55.001",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.001)));
+    cases.push_back(make_pair("2019-11-07 16:10:55.124000",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.124)));
+    // Make sure shortened forms handled correctly too.
+    cases.push_back(make_pair("2019-11-07 16:10:55",
+                              UTime(true, 2019, 11, 7, 16, 10, 55)));
+    cases.push_back(make_pair("2019-11-07 16:10",
+                              UTime(true, 2019, 11, 7, 16, 10, 0)));
+    cases.push_back(make_pair("2019-11-07",
+                              UTime(true, 2019, 11, 7, 0, 0, 0)));
+
+    for (cases_t::iterator cit = cases.begin(); cit != cases.end(); ++cit)
+    {
+        UTime ut = UTime::parse(true, cit->first);
+        if (ut != cit->second)
+        {
+            cerr << "parsed " << cit->first << " and got "
+                 << ut.format() << " instead of " << cit->second << "\n";
+            return 1;
+        }
+    }
+    cout << "OK." << endl;
+
+    cout << "Success: " << argv[0] << endl;
     return 0;
 }

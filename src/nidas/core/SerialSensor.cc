@@ -216,16 +216,16 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
 	if (getReadFd() < 0) {
 	    ostr << ",<font color=red><b>not active</b></font>";
 	    if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	    ostr << "</td>" << endl;
+		ostr << ",timeouts=" << getTimeoutCount();
+	    ostr << "</td></tr>" << endl;
 	    return;
 	}
 	if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	ostr << "</td>" << endl;
+		ostr << ",timeouts=" << getTimeoutCount();
+	ostr << "</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: printStatus: %s",getName().c_str(),
 	    ioe.what());

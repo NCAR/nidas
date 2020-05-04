@@ -43,8 +43,137 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::LogScheme;
+using nidas::util::UTime;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 
 NIDAS_CREATOR_FUNCTION(SampleInputStream)
+
+inline std::string
+ftime(dsm_time_t tt)
+{
+    return UTime(tt).format(true, "%Y-%m-%d,%H:%M:%S");
+}
+
+BlockStats::
+BlockStats(bool goodblock, size_t startblock):
+    start_time(LONG_LONG_MIN),
+    end_time(LONG_LONG_MAX),
+    good(goodblock),
+    nsamples(0),
+    block_start(startblock),
+    nbytes(0),
+    last_good_sample_size(0)
+{}
+
+bool
+BlockStats::
+addGoodSample(Sample* samp, long long offset)
+{
+    // Reset a bad or empty block on a good sample.
+    bool started = false;
+    if (!good || !nbytes)
+    {
+        *this = BlockStats(true, offset);
+        start_time = samp->getTimeTag();
+        started = true;
+    }
+    end_time = samp->getTimeTag();
+    ++nsamples;
+    last_good_sample_size = samp->getDataByteLength();
+    nbytes += samp->getHeaderLength() + last_good_sample_size;
+    return started;
+}
+
+
+void
+BlockStats::
+addBadSample(long long offset, unsigned int nbadbytes)
+{
+    // Reset a good block on a bad sample, but use the end time from
+    // the previous block as the start time of this block.
+    if (good || !nbytes)
+    {
+        startBadBlock(offset);
+    }
+    nbytes += nbadbytes - 1;
+}
+
+
+void
+BlockStats::
+startBadBlock(long long offset)
+{
+    dsm_time_t lastgood = end_time;
+    *this = BlockStats(false, offset);
+    start_time = lastgood;
+    // The block is not empty and has at least one bad byte, but
+    // the actual size will not be known until endBadBlock() is called.
+    nbytes = 1;
+}
+
+
+void
+BlockStats::
+endBadBlock(Sample* samp, long long offset)
+{
+    if (samp)
+        end_time = samp->getTimeTag();
+    nbytes = offset - block_start;
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const BlockStats& bs)
+{
+    std::ostringstream buf;
+
+    buf << (bs.good ? ".Good" : "..Bad") << " block from ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.block_start
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.block_start << ")";
+    buf << " to ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.blockEnd()
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.blockEnd() << ")";
+    buf << ", size ";
+    buf << std::dec << std::setw(8) << std::setfill(' ') << bs.nbytes
+        << " (0x" << std::hex << std::setfill('0') << std::setw(8)
+        << bs.nbytes << ")";
+    buf << std::dec << std::setw(8) << std::setfill(' ');
+    if (bs.good)
+    {
+        buf << "; number of good samples in block: "
+            << bs.nsamples;
+        buf << ", from "
+            << ftime(bs.start_time) << " to " << ftime(bs.end_time)
+            << ", last length: " << bs.last_good_sample_size;
+    }
+    else
+    {
+        if (bs.start_time != LONG_LONG_MIN)
+            buf << "; last good sample before block: "
+                << ftime(bs.start_time) << "; ";
+        else
+            buf << "no good sample before block; ";
+        if (bs.end_time != LONG_LONG_MAX)
+            buf << "first good sample after block: "
+                << ftime(bs.end_time);
+        else
+            buf << "no good sample after block.";
+    }
+    out << buf.str();
+    return out;
+}
+
+namespace nidas {
+    namespace util {
+        // Put stream operator for BlockStats in scope where it can be
+        // resolved by logging templates in nidas::util.
+        using ::operator<<;
+    }
+}
 
 /*
  * Constructor
@@ -54,12 +183,11 @@ SampleInputStream::SampleInputStream(bool raw):
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
-    _filterBadSamples(false),_maxDsmId(1024),
-    _maxSampleLength(UINT_MAX),
-    _minSampleTime(LONG_LONG_MIN),
-    _maxSampleTime(LONG_LONG_MAX),
-    _original(this),_raw(raw)
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
+    _bsf(),
+    _original(this),_raw(raw),
+    _last_name()
 {
 }
 
@@ -71,12 +199,11 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
-    _filterBadSamples(false),_maxDsmId(1024),
-    _maxSampleLength(UINT_MAX),
-    _minSampleTime(LONG_LONG_MIN),
-    _maxSampleTime(LONG_LONG_MAX),
-    _original(this),_raw(raw)
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
+    _bsf(),
+    _original(this),_raw(raw),
+    _last_name()
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -93,11 +220,11 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),_inputHeader(),
-    _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
-    _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
-    _maxSampleTime(x._maxSampleTime),
-    _original(&x),_raw(x._raw)
+    _block(),_badSamples(0),_goodSamples(0),
+    _inputHeader(),
+    _bsf(x._bsf),
+    _original(&x),_raw(x._raw),
+    _last_name()
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -113,9 +240,9 @@ SampleInputStream* SampleInputStream::clone(IOChannel* iochannel)
 
 SampleInputStream::~SampleInputStream()
 {
+    close();
     if (_samp)
         _samp->freeReference();
-    delete _iostream;
     delete _iochan;
 }
 
@@ -214,11 +341,50 @@ void SampleInputStream::init() throw()
 }
 #endif
 
+
+void SampleInputStream::closeBlocks()
+{
+    // Need two log contexts here, one for warnings when filtering
+    // is active and one for debug when there are no bad samples.
+    static LogContext wlog(LOG_WARNING);
+    static LogContext dlog(LOG_DEBUG);
+    LogContext* log =
+        (_bsf.filterBadSamples() || _badSamples != 0) ? &wlog : &dlog;
+
+    // Tally up the blocks.  We cannot rely on the iostream to give a
+    // reliable end of the current block, because it may have already been
+    // reset to a new file.
+    size_t length = _block.block_start + _block.nbytes;
+    if (_block.nbytes)
+    {
+        log->log() << _block;
+    }
+    // It's possible this is the start of the first file, in which case
+    // there is nothing to report.
+    if (_badSamples || _goodSamples)
+    {
+        log->log() << _last_name << ": Total " << _badSamples << " bad bytes.";
+        log->log() << _last_name << ": Total " << _goodSamples
+                << " good samples (" << (length - _badSamples) << " bytes)";
+
+        DLOG(("resetting block stats..."));
+        _block = BlockStats();
+        _badSamples = 0;
+        _goodSamples = 0;
+    }
+}
+
+
 void SampleInputStream::close() throw(n_u::IOException)
 {
-    delete _iostream;
-    _iostream = 0;
-    _iochan->close();
+    closeBlocks();
+    if (_iostream)
+    {
+        delete _iostream;
+        _iostream = 0;
+    }
+    if (_iochan)
+        _iochan->close();
 }
 
 const DSMConfig* SampleInputStream::getDSMConfig() const
@@ -228,51 +394,92 @@ const DSMConfig* SampleInputStream::getDSMConfig() const
 
 void SampleInputStream::readInputHeader() throw(n_u::IOException)
 {
-    if (_samp) _samp->freeReference();
-    _samp = 0;
-    _headerToRead = _sheader.getSizeOf();
-    _hptr = (char*)&_sheader;
-    _dataToRead = 0;
-    _inputHeader.read(_iostream);
-    _inputHeaderParsed = true;
+    while (!_inputHeaderParsed)
+    {
+        _iostream->read();
+        // I think this might result in a new input, if the previous input
+        // was shorter than the length of a header, in which case the
+        // parsing might need to be started over.  But since this has worked
+        // so far, nothing is done about it here.
+        parseInputHeader();
+    }
+    DLOG(("input header parsed, offset is now ")
+        << _iostream->getNumInputBytes() << " bytes.");
 }
 
 bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 {
-    if (!_expectHeader) {
-        _inputHeaderParsed = true;
-        return true;
-    }
+    // Since this presumably is happening at the start of a new file or
+    // new stream, it seems natural to clear out any leftovers from a
+    // previous input, even if _expectHeader is false.
+    DLOG(("attempting to parse input header"));
     if (_samp) _samp->freeReference();
     _samp = 0;
     _headerToRead = _sheader.getSizeOf();
     _hptr = (char*)&_sheader;
     _dataToRead = 0;
+    if (!_expectHeader) {
+        _inputHeaderParsed = true;
+        return true;
+    }
     try {
         _inputHeaderParsed = _inputHeader.parse(_iostream);
     }
     catch(const n_u::ParseException& e) {
-        throw n_u::IOException(getName(),"read header",e.what());
+        // SampleInputHeader::parse() will throw an exception if the header
+        // is read but does not parse, ie, because the magic string is not
+        // found.  Skip the header and consider it parsed if that is enabled.
+        if (!_bsf.skipNidasHeader())
+        {
+            throw n_u::IOException(getName(),"read header",e.what());
+        }
+        ELOG(("skipping header: ") << e.what());
+        _inputHeaderParsed = true;
+        // I don't think we know whether this will back up to the beginning
+        // of the file or not, it only backups up to the beginning of the
+        // buffer.
+        _iostream->backup();
+        ELOG(("backed up iostream to offset ") << _iostream->getNumInputBytes());
     }
     return _inputHeaderParsed;
 }
 
 namespace {
-    void logBadSampleHeader(const string& name,size_t nbad,long long pos,bool raw, const SampleHeader& header)
+    void logBadSampleHeader(const string& name, size_t nbad,
+                            long long pos, bool raw,
+                            const SampleHeader& header)
     {
         if (raw && header.getType() != CHAR_ST) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: raw sample not of type char(%d): #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                name.c_str(),CHAR_ST,nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
-                (int)header.getType(),header.getDataByteLength());
+            WLOG(("%s: raw sample not of type char(%d): "
+                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+                  name.c_str(), CHAR_ST, nbad, pos,
+                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+                  (int)header.getType(), header.getDataByteLength()));
         }
         else {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: bad sample header: #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                name.c_str(),nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
-                (int)header.getType(),header.getDataByteLength());
+            WLOG(("%s: bad sample header: "
+                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+                  name.c_str(), nbad, pos,
+                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+                  (int)header.getType(), header.getDataByteLength()));
         }
     }
+}
+
+
+void
+SampleInputStream::
+handleNewInput()
+{
+    closeBlocks();
+    _last_name = getName();
+    size_t offset = _iostream->getNumInputBytes();
+    _iostream->backup();
+    size_t start = _iostream->getNumInputBytes();
+    DLOG(("new input detected after reading ")
+        << offset << " bytes, backed up to offset " << start);
+    _inputHeaderParsed = false;
+    readInputHeader();
 }
 
 
@@ -294,9 +501,10 @@ bool SampleInputStream::readSamples() throw(n_u::IOException)
     if (_iostream->available() == 0) return false;
 
     // first read from a new file
-    if (_expectHeader && _iostream->isNewInput()) _inputHeaderParsed = false;
-    
-    if (!_inputHeaderParsed && !parseInputHeader()) return true;
+    if (_iostream->isNewInput())
+    {
+        handleNewInput();
+    }
 
     // process all samples in buffer
     for (;;) {
@@ -314,6 +522,9 @@ readSampleHeader(bool keepreading) throw(n_u::IOException)
 {
     while (_headerToRead > 0) {
         size_t len;
+        // keepreading means read as much as we need from the stream, even if it
+        // means more physical reads of the underlying device.  Otherwise read
+        // only what is currently in the buffer.
         if (keepreading)
             len = _iostream->read(_hptr, _headerToRead);
         else
@@ -321,9 +532,12 @@ readSampleHeader(bool keepreading) throw(n_u::IOException)
         _headerToRead -= len;
         _hptr += len;
 
-        if (keepreading && _expectHeader && _iostream->isNewInput()) {
-                _iostream->backup(len);
-                readInputHeader();
+        if (_iostream->isNewInput())
+        {
+            // Always read through the header if any, since the rest of the
+            // sample reading code expects to be at a point to read the
+            // next sample rather than check if a header needs to be read.
+            handleNewInput();
         }
         if (!keepreading && _headerToRead > 0) 
             return false;   // no more data
@@ -343,12 +557,12 @@ readSampleData(bool keepreading) throw(n_u::IOException)
         else
             len = _iostream->readBuf(_dptr, _dataToRead);
 
-        if (keepreading && _expectHeader && _iostream->isNewInput()) {
-            _iostream->backup(len);
-            readInputHeader();  // sets _samp to 0
-            // abort this sample data and start over
+        if (_iostream->isNewInput())
+        {
+            handleNewInput();
             return false;
         }
+
         _dataToRead -= len;
         _dptr += len;
 
@@ -381,46 +595,72 @@ Sample* SampleInputStream::nextSample() throw()
  * complete sample available.  Otherwise keep reading until a full sample
  * is read.
  */
-Sample* SampleInputStream::nextSample(bool keepreading) throw(n_u::IOException)
+Sample* SampleInputStream::
+nextSample(bool keepreading, bool searching, dsm_time_t search_time)
+    throw(n_u::IOException)
 {
-    for (;;) {
+    Sample* out = 0;
+    while (!out) {
+
+        // See if a header needs to be read first.  As soon as the header
+        // is read _headerToRead will be zero, and a Sample can be
+        // created from the header.
         if (_headerToRead > 0) {
 
             if (! readSampleHeader(keepreading))
                 return 0;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-            _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
-            _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
-            _sheader.setRawId(bswap_32(_sheader.getRawId()));
-#endif
-
+            if (__BYTE_ORDER == __BIG_ENDIAN)
+            {
+                _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
+                _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
+                _sheader.setRawId(bswap_32(_sheader.getRawId()));
+            }
             _samp = sampleFromHeader();
             if (!_samp) {
                 continue;
             }
 
-            _dataToRead = _sheader.getDataByteLength();
+            _dataToRead = _samp->getDataByteLength();
             _dptr = (char*) _samp->getVoidDataPtr();
-
-            _samp->setTimeTag(_sheader.getTimeTag());
-            _samp->setId(_sheader.getId());
         }
 
-        if (!readSampleData(keepreading))
+        // We have a good sample in _samp, see if the time is right.
+        if (searching && _samp->getTimeTag() >= search_time)
+        {
+            DLOG(("searching for sample time >= ")
+                 << UTime(search_time).format(true)
+                 << ", found sample at time: "
+                 << UTime(_samp->getTimeTag()).format(true));
+            // A sample with the right time has been found, stop here
+            // before reading the sample data.
+            return 0;
+            // We don't want this sample, but drop down to read the data
+            // before skipping it.
+        }
+
+        if (_samp && !readSampleData(keepreading))
         {
             if (!keepreading)
                 return 0;
+            // Continue until we finish reading the data.
             continue;
         }
 
-        Sample* out = _samp;
+        // If still searching for a sample, free this one and keep going.
+        if (searching)
+        {
+            _samp->freeReference();
+            _samp = 0;
+        }
+
+        out = _samp;
         _samp = 0;
-        // next read is the header
+        // next read is the next header
         _headerToRead = _sheader.getSizeOf();
         _hptr = (char*)&_sheader;
-        return out;
     }
+    return out;
 }
 
 
@@ -428,34 +668,89 @@ Sample*
 SampleInputStream::
 sampleFromHeader() throw()
 {
+    // Default to zero to disable logging of individual bad samples.
+    // Logging blocks could be overwhelming too, but seems more likely to
+    // be useful.
+    static unsigned int log_count =
+        LogScheme::current().getParameterT
+        ("sample_input_stream_bad_sample_log_count", 0);
     Sample* samp = 0;
 
-    // screen bad headers.
+    // Mark the offset of this sample.
+    long long offset = _iostream->getNumInputBytes() - _sheader.getSizeOf();
+
+    // Screen bad headers.
+    //
+    // @todo: I'm not sure why non-character samples get filtered in raw
+    // mode, since maybe they are still valid samples but just the wrong
+    // type.  And if they do somehow indicate a bad sample, then why
+    // shouldn't filtering have to be turned on to catch them, like all the
+    // other validity checks?
     if ((_raw && _sheader.getType() != CHAR_ST) ||
-        (_filterBadSamples &&
-         (_sheader.getType() >= UNKNOWN_ST ||
-          GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
-          _sheader.getDataByteLength() > _maxSampleLength ||
-          _sheader.getDataByteLength() == 0 ||
-          _sheader.getTimeTag() < _minSampleTime ||
-          _sheader.getTimeTag() > _maxSampleTime))) {
+        _bsf.invalidSampleHeader(_sheader))
+    {
         samp = 0;
     }
-    // getSample can return NULL if type or length are bad
-    else {
+    else
+    {
+        // getSample can return NULL if type or length are bad
         samp = nidas::core::getSample((sampleType)_sheader.getType(),
                                       _sheader.getDataByteLength());
     }
 
     if (!samp) {
-        if (!(_badSamples++ % 1000))
-            logBadSampleHeader(getName(),_badSamples,
-                               _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                               _raw,_sheader);
+        // At least by logging some of the bad samples by default, it's
+        // more likely someone notices the input stream has bad samples.
+        ++_badSamples;
+        if (log_count && !((_badSamples-1) % log_count))
+        {
+            logBadSampleHeader(getName(), _badSamples, offset, _raw, _sheader);
+        }
+        if (_block.good && _block.nbytes)
+        {
+            // Log the good block which preceded the start of this bad
+            // block.
+            WLOG(("") << _block);
+            _block.startBadBlock(offset);
+        }
+        else
+        {
+            // Append to the existing bad block.  We need to do this now
+            // while we know the current stream offset, since in a
+            // multi-file stream the offset resets to zero before we find
+            // out the current file has been closed.
+            _block.endBadBlock(0, offset);
+        }
         // bad header. Shift left by one byte, read next byte.
-        memmove(&_sheader,((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
+        memmove(&_sheader, ((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
         _headerToRead = 1;
         _hptr--;
+    } else {
+        // Good sample, fill it in.  The data length was set by getSample()
+        // above, so only the timestamp and id are left.
+        _goodSamples++;
+        samp->setTimeTag(_sheader.getTimeTag());
+        samp->setId(_sheader.getId());
+        if (!_block.good && _block.nbytes)
+        {
+            _block.endBadBlock(samp, offset);
+            // First good sample after a bad block, so log the bad block.
+            WLOG(("") << _block);
+        }
+        if (_block.addGoodSample(samp, offset))
+        {
+            // This is not generally useful information, so limit it to debug
+            // unless filtering is on or there have been bad blocks.
+            static LogContext dlog(LOG_DEBUG);
+            static LogContext wlog(LOG_WARNING);
+            LogContext* log =
+                (_bsf.filterBadSamples() || _badSamples) ? &wlog : &dlog;
+            if (log->active())
+            {
+                log->log() << "setting good block start to "
+                        << ftime(_block.start_time);
+            }
+        }
     }
     return samp;
 }
@@ -473,83 +768,10 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 /*
  * Search for a sample with timetag >= tt.
  */
-void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
+void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
 {
-    size_t len;
-    if (_samp) _samp->freeReference();
-    _samp = 0;
-    for (;;) {
-        if (_headerToRead > 0) {
-            while (_headerToRead > 0) {
-		len = _iostream->read(_hptr,_headerToRead);
-                _headerToRead -= len;
-                _hptr += len;
-                // new file
-                if (_expectHeader && _iostream->isNewInput()) {
-                    _iostream->backup(len);
-                    readInputHeader();
-                }
-            }
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-            _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
-            _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
-            _sheader.setRawId(bswap_32(_sheader.getRawId()));
-#endif
-	    if ((_raw && _sheader.getType() != CHAR_ST) ||
-                (_filterBadSamples &&
-                (_sheader.getType() >= UNKNOWN_ST ||
-                    GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
-                _sheader.getDataByteLength() > _maxSampleLength ||
-                _sheader.getDataByteLength() == 0 ||
-                _sheader.getTimeTag() < _minSampleTime ||
-                _sheader.getTimeTag() > _maxSampleTime))) {
-                if (!(_badSamples++ % 1000))
-                    logBadSampleHeader(getName(),_badSamples,
-                            _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
-                // bad header. Shift left by one byte, read next byte.
-                memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
-                _headerToRead = 1;
-                _hptr--;
-                continue;
-            }
-
-            _dataToRead = _sheader.getDataByteLength();
-            // cerr << "time=" << n_u::UTime(_sheader.getTimeTag()).format(true,"%c %6f") << endl;
-            if (_sheader.getTimeTag() >= tt.toUsecs()) {
-                // getSample can return NULL if type or length are bad
-                _samp = nidas::core::getSample((sampleType)_sheader.getType(),
-                    _sheader.getDataByteLength());
-                if (!_samp) {
-                    if (!(_badSamples++ % 1000))
-                        logBadSampleHeader(getName(),_badSamples,
-                                _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
-                    // bad header. Shift left by one byte, read next byte.
-                    memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
-                    _headerToRead = 1;
-                    _hptr--;
-                    _dataToRead = 0;
-                    continue;
-                }
-                _samp->setTimeTag(_sheader.getTimeTag());
-                _samp->setId(_sheader.getId());
-                _dptr = (char*) _samp->getVoidDataPtr();
-                return;
-            }
-        }
-        while (_dataToRead > 0) {
-            len = _iostream->skip(_dataToRead);
-            // new file
-            if (_expectHeader && _iostream->isNewInput()) {
-                _iostream->backup(len);
-                readInputHeader();
-                break;
-            }
-            _dataToRead -= len;
-        }
-	_headerToRead = _sheader.getSizeOf();
-	_hptr = (char*)&_sheader;
-    }
+    DLOG(("searching for sample time >= ") << tt.format(true));
+    nextSample(true, true, tt.toUsecs());
 }
 
 /*
@@ -622,4 +844,3 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
                 "SampleInputStream::fromDOMElement",
 		"input", "must have one child element");
 }
-                                                           

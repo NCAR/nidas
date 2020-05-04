@@ -118,7 +118,7 @@ bindaddr
             regfree(&addrPreg);
 
             port = 1;
-            
+
             if (regstatus == 0 && pmatch[0].rm_so >= 0 && pmatch[0].rm_eo > pmatch[0].rm_so) {
                 desthost = name.substr(pmatch[1].rm_so,pmatch[1].rm_eo - pmatch[1].rm_so);
                 int ci = 4; // index of channel number field

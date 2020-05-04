@@ -256,7 +256,8 @@ openStream()
     sis.setMaxDsmId(2000);
     sis.setMaxSampleLength(64000);
     sis.setMinSampleTime(n_u::UTime::parse(true,"2006 jan 1 00:00"));
-    sis.setMaxSampleTime(n_u::UTime::parse(true,"2020 jan 1 00:00"));
+    // This needs another answer than just a fixed date.  Perhaps current date + 48 hours...
+    sis.setMaxSampleTime(n_u::UTime::parse(true,"2025 jan 1 00:00"));
 
     sis.readInputHeader();
     SampleInputHeader header = sis.getInputHeader();

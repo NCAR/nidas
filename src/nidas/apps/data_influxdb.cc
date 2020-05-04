@@ -51,7 +51,6 @@
 #include <sys/stat.h>
 
 #include <unistd.h>
-#include <getopt.h>
 
 #include <stdexcept>
 
@@ -165,6 +164,18 @@ private:
 };
 
 
+std::string
+string_to_lower(const std::string& upper)
+{
+    std::string lower = upper;
+    for (std::string::size_type i = 0; i < upper.size(); ++i)
+    {
+        lower[i] = std::tolower(upper[i]);
+    }
+    return lower;
+}
+
+
 
 CURLcode
 dataToInfluxDB(CURL* curl, const std::string& url,
@@ -216,13 +227,39 @@ public:
     void
     setURL(const std::string& url)
     {
+        // Make sure the url has no trailing /, since influx does not parse
+        // multiple slashes.  Instead it just responds with 404.
         _url = url;
+        while (_url.length() > 0 && _url[_url.length() - 1] == '/')
+        {
+            _url.erase(_url.length() - 1);
+        }
     }
         
     void
     setDatabase(const std::string& dbname)
     {
         _dbname = dbname;
+    }
+
+    void
+    setUser(const std::string& username, const std::string& password)
+    {
+        _username = username;
+        _password = password;
+
+    }
+
+    std::string
+    getAuth(const std::string& prefix = "")
+    {
+        std::string parms;
+        if (_username.length() || _password.length())
+        {
+            parms += prefix;
+            parms += "u=" + _username + "&p=" + _password;
+        }
+        return parms;
     }
 
     void
@@ -268,6 +305,7 @@ public:
     {
         ostringstream out;
         out << getHostURL() << "/write?db=" << _dbname << "&precision=u" ;
+        out << getAuth("&");
         return out.str();
     }
 
@@ -309,12 +347,6 @@ public:
             return false;
         }
 
-        // If any error messages are accumulated in this stream, they are
-        // set to the error string member.  We don't throw exceptions in
-        // this method because it is likely called from a receive() method
-        // which is not running in the main thread.
-        std::ostringstream errs;
-        
         DLOG(("sendData()...") << "async:" << _async);
 
         // Do one of three things with the current data: echo, send it
@@ -338,39 +370,7 @@ public:
         {
             res = dataToInfluxDB(_curl, getWriteURL(), _data, _nmeasurements);
         }
-        // First see if the curl call itself failed.
-        if (res != CURLE_OK)
-        {
-            errs << "http post failed: " << _curl_errors;
-        }
-        // Then see if the json result indicates an error.
-        if (!_result.empty())
-        {
-            std::istringstream js(_result.get());
-            Json::Value root;
-            js >> root;
-            Json::Value error = root["error"];
-            string dnf = "database not found";
-            if (!error.isNull() &&
-                error.asString().substr(0, dnf.size()) == dnf)
-            {
-                errs << error.asString()
-                     << "; maybe use --create to create it first?";
-            }
-            else if (!error.isNull())
-            {
-                errs << error.asString();
-            }
-            else
-            {
-                // Any result at all is probably an error.
-                errs << _result.get();
-            }
-        }
-
-        // Done with the result, prepare it for another posting.
-        _result.clear();
-        _errs = errs.str();
+        handleResult(res);
 
         if (_async && _errs.empty() && !_data->empty())
         {
@@ -425,6 +425,59 @@ public:
     void
     createInfluxDB();
 
+    void
+    handleResult(CURLcode res)
+    {
+        // If any error messages are accumulated in this stream, they are
+        // set to the error string member.  We don't throw exceptions in
+        // this method because it is likely called from a receive() method
+        // which is not running in the main thread.
+        std::ostringstream errs;
+
+        // First see if the curl call itself failed.
+        if (res != CURLE_OK)
+        {
+            errs << "http post failed: " << _curl_errors;
+        }
+        // Then see if the json result indicates an error.
+        if (!_result.empty())
+        {
+            try {
+                std::istringstream js(_result.get());
+                Json::Value root;
+                js >> root;
+                Json::Value error = root["error"];
+                string dnf = "database not found";
+                if (!error.isNull() &&
+                    error.asString().substr(0, dnf.size()) == dnf)
+                {
+                    errs << error.asString()
+                         << "; maybe use --create to create it first?";
+                }
+                else if (!error.isNull())
+                {
+                    errs << error.asString();
+                }
+                else
+                {
+                    // Show the output in debug mode, just in case there are useful messages
+                    // in it, but assume the command succeeded.
+                    DLOG(("") << _result.get());
+                }
+            }
+            catch (const Json::LogicError&)
+            {
+                errs << "Server response could not be parsed as json: ";
+                errs << _result.get();
+            }
+        }
+
+        // Done with the result, prepare it for another posting.
+        _result.clear();
+        _errs = errs.str();
+    }
+
+
 private:
 
     InfluxDB(const InfluxDB&);
@@ -432,6 +485,8 @@ private:
 
     string _url;
     string _dbname;
+    string _username;
+    string _password;
 
     // _data points to the current data buffer to which data will be added.
     // This is a double-buffering scheme to allow one buffer to be written
@@ -492,14 +547,21 @@ backslash(std::string& tagvalue)
     }
 }
 
+std::string
+id_to_string(unsigned int id)
+{
+    if (id >= 0x8000)
+    {
+        ostringstream intToHex;
+        intToHex << "0x" << hex << id;
+        return intToHex.str();
+    }
+    return to_string(id);
+}
 
 
 class SampleToDatabase
 {
-//   private: 
-//     class dbSenderThread //inherit from boost lib
-//         static threadPool;  //thread pool buffer
-  
   public:
     /**
      * A default constructor is required to use objects as a map element.
@@ -514,6 +576,7 @@ class SampleToDatabase
         measurementName(),
         spsid(),
         dsmid(),
+        sampid(),
         info(),
         varunits(),
         varnames()
@@ -530,9 +593,21 @@ class SampleToDatabase
             return;
         }
         const std::vector<const Variable *> &variables = stag->getVariables();
+
+        // The sample has to have variables.
+        if (variables.size() == 0)
+        {
+            NidasApp* app = NidasApp::getApplicationInstance();
+            WLOG(("sample tag has no variables, cannot import: ")
+                 << app->formatId(sid));
+            return;
+        }
+
         for (unsigned int i = 0; i < variables.size(); ++i)
         {
-            varnames.push_back(variables[i]->getName());
+            // getName() returns the fully qualified name, so all we want is
+            // the name within the scope of this sensor, the prefix.
+            varnames.push_back(variables[i]->getPrefix());
             string units = variables[i]->getUnits();
             const VariableConverter* vc = variables[i]->getConverter();
             if (vc)
@@ -542,22 +617,13 @@ class SampleToDatabase
             backslash(units);
             varunits.push_back(units);
         }
+        dsmid = to_string(stag->getDSMId());
+        spsid = id_to_string(stag->getSensorId());
+        sampid = to_string(stag->getSampleId());
+
         setSiteAndMeasurement(stag);
 
-        dsmid = to_string(stag->getDSMId());
-        int tempSpSid = stag->getSpSId();
-        if (tempSpSid >= 0x8000)
-        {
-            stringstream intToHex;
-            intToHex << "0x" << hex << tempSpSid;
-            spsid = intToHex.str();
-        }
-        else
-        {
-            spsid = to_string(tempSpSid);
-        }
-
-        info = measurementName + ",dsm_id=" + dsmid + ",location=" + sitename;
+        info = measurementName + ",dsm_id=" + dsmid + ",site=" + sitename;
         const DSMSensor* dsm = stag->getDSMSensor();
         if (dsm)
         {
@@ -567,7 +633,8 @@ class SampleToDatabase
                 info += ",height=" + height;
             }
         }
-        info += ",sps_id=" + spsid;
+        info += ",sensor_id=" + spsid;
+        info += ",sample_id=" + sampid;
     }
 
     void
@@ -587,7 +654,57 @@ class SampleToDatabase
             sitename = stag->getSuffix();
             sitename.erase(0,1);
         }
-        measurementName = sitename;
+        // We want to use a canonical name for the kind of sensor which is
+        // reporting these measurements.  The best candidate is the idref
+        // name from the XML, if that is set, also known as the catalog
+        // name.  It is safe to assume that all sensors instantiated from
+        // that IDREF will have the same samples and variables, although
+        // that is only an assumption and not guaranteed in any way.
+        //
+        // If that is not set, then we could resort to the sensor ID
+        // (without the DSM ID), since usually it is safe to assume that the
+        // same kind of sensor has the same ID across multiple DSMs,
+        // although that is still convention and not always true.  If that
+        // is not the case, then we'll end up with some measurements with
+        // strange combinations of fields.
+        //
+        // We assume here the sensor part of the measurement name is unique,
+        // based on either the catalog name or the sensor id number, even
+        // after converting to lower case.
+        measurementName = stag->getDSMSensor()->getCatalogName();
+        if (measurementName.empty())
+        {
+            ostringstream out;
+            out << "sensor" << std::setfill('0') << std::setw(3)
+                            << stag->getDSMSensor()->getSensorId();
+            measurementName = out.str();
+        }
+
+        // Since some sensor names will contain underscores, always include
+        // an underscore as the final separator between sensor and sample,
+        // even if the sample identifier is omitted.
+        measurementName = string_to_lower(measurementName) + "_";
+
+        // Add the sample designation by using the name of the first
+        // variable in the sample.  The variable name is not converted to
+        // lower case with the sensor part of the measurement name, because
+        // we don't know if the name would still be unique.  I'm not sure I
+        // like that sample 1 gets this special treatment and makes the
+        // naming scheme vary between samples.  However, for most sensors
+        // with only 1 sample, it really is more natural to think of the
+        // sensor as a single measurement stream.
+        if (stag->getSampleId() != 1)
+        {
+            measurementName += varnames[0];
+        }
+
+        // Measurement names can contain periods, but then they have to be
+        // quoted.  Leave the periods and accept the use of quotes for now.
+        // for (string::size_type i = 0; i < measurementName.size(); ++i)
+        // {
+        //     if (measurementName[i] == '.')
+        //         measurementName[i] = '_';
+        // }
     }
 
     bool
@@ -612,6 +729,7 @@ class SampleToDatabase
     //gathering dsmid and spsid necessary to create measurement name
     string spsid;
     string dsmid;
+    string sampid;
     string info;
 
     // Stash the variable names from the sample tag to identify the
@@ -631,6 +749,7 @@ public:
             measurementName = rhs.measurementName;
             spsid = rhs.spsid;
             dsmid = rhs.dsmid;
+            sampid = rhs.sampid;
             info = rhs.info;
             varunits = rhs.varunits;
             varnames = rhs.varnames;
@@ -646,6 +765,7 @@ public:
         measurementName(),
         spsid(),
         dsmid(),
+        sampid(),
         info(),
         varunits(),
         varnames()
@@ -681,7 +801,7 @@ receive(const Sample *samp) throw()
  * database at the specfied url. createInfluxDB() uses the curl library for
  * assigning the url and the consequent fields to post during the HTTP POST
  * operation. Additionally, the string variable DBname can be assigned with
- * the DSMConfig information such as location or project name as this is
+ * the DSMConfig information such as site or project name as this is
  * only created once.
  */
 void
@@ -690,7 +810,7 @@ createInfluxDB()
 {
     CURLcode res;
 
-    string url = getHostURL() + "/query";
+    string url = getHostURL() + "/query?" + getAuth();
     string createDB = "q=CREATE+DATABASE+" + _dbname;
     string full = url + "&" + createDB;
 
@@ -699,15 +819,12 @@ createInfluxDB()
     curl_easy_setopt(_curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(_curl, CURLOPT_POSTFIELDS, createDB.c_str());
     res = curl_easy_perform(_curl);
-
-    if (res != CURLE_OK)
+    handleResult(res);
+    if (!_errs.empty())
     {
-        string err("createInfluxDB() failed: ");
-        err += full;
-        throw std::runtime_error(err);
+        throw n_u::Exception(_errs);
     }
 }
-
 
 
 size_t
@@ -733,7 +850,7 @@ dataToInfluxDB(CURL* curl, const std::string& url,
                CharBuffer* data, unsigned int nmeasurements)
 {
     DLOG(("posting ") << nmeasurements << " measurements: " << url);
-    
+    DLOG(("data:") << data->get());
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data->get());
     CURLcode res = curl_easy_perform(curl);
@@ -759,6 +876,8 @@ accumulate(const Sample *samp)
     string data;
     string timeStamp = to_string(samp->getTimeTag());
 
+    data = info;
+    int n = 0;
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
@@ -770,27 +889,25 @@ accumulate(const Sample *samp)
         }
         else
         {
-            data = info;
-            if (varunits[i].length() > 0)
-            {
-                data += ",units=" + varunits[i];
-            }
-            data += " ";
+            data += (n++ == 0) ? " " : ",";
             data += varnames[i];
             data += "=";
             data += to_string(value);
-            data += " ";
-            data += timeStamp;
-            data += "\n";
-            if (!_db->addMeasurement(data))
+        }
+    }
+    if (n > 0)
+    {
+        data += " ";
+        data += timeStamp;
+        data += "\n";
+        if (!_db->addMeasurement(data))
+        {
+            // An error occurred, so set an app exception to interrupt
+            // the main loop.
+            NidasApp* app = NidasApp::getApplicationInstance();
+            if (app)
             {
-                // An error occurred, so set an app exception to interrupt
-                // the main loop.
-                NidasApp* app = NidasApp::getApplicationInstance();
-                if (app)
-                {
-                    app->setException(n_u::Exception(_db->getErrors()));
-                }
+                app->setException(n_u::Exception(_db->getErrors()));
             }
         }
     }
@@ -964,6 +1081,8 @@ class DataInfluxdb
     NidasAppArg Echo;
     NidasAppArg Async;
     NidasAppArg Create;
+    NidasAppArg User;
+    NidasAppArg Password;
 
     InfluxDB _db;
 };
@@ -990,13 +1109,18 @@ DataInfluxdb::DataInfluxdb() :
           "yes"),
     Create("--create", "",
            "Create the given database before posting data to it."),
+    User("-u,--user", "username",
+         "Username if required for http authentication."),
+    Password("-p,--password", "password",
+             "Password if required for http authentication."),
     _db()
 {
     app.setApplicationInstance();
     app.setupSignals();
     app.enableArguments(app.XmlHeaderFile | app.loggingArgs() | app.Help |
                         app.SampleRanges | app.Version | app.InputFiles |
-                        Count | URL | Database | Echo | Create | Async);
+                        Count | URL | Database | Echo | Create | Async |
+                        User | Password);
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1034,6 +1158,7 @@ parseRunstring(int argc, char **argv)
         _db.setDatabase(Database.getValue());
         _db.setCount(_count);
         _db.setEcho(Echo.asBool());
+        _db.setUser(User.getValue(), Password.getValue());
         if (Async.getValue() != "yes" && Async.getValue() != "no")
             throw NidasAppException("--async must be 'yes' or 'no'.");
         _db.setAsync(Async.getValue() == "yes");
@@ -1161,7 +1286,6 @@ int DataInfluxdb::run() throw()
         }
 
         SampleInputStream sis(iochan, /*processed*/true);
-        sis.setMaxSampleLength(32768);
         readHeader(sis);
 
         const SampleInputHeader &header = sis.getInputHeader();

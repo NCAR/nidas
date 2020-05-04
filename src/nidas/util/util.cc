@@ -29,6 +29,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <math.h>
 
 using namespace std;
 
@@ -212,4 +213,13 @@ std::string nidas::util::svnStatus(const std::string& path)
         throw IOException("svn status -v --depth empty",strerr);
     }
     return strout;
+}
+
+float nidas::util::dirFromUV(float u, float v){
+    float dir = nanf("");
+    if (!(u==0 && v==0)){
+        dir = atan2f(-u, -v) * 180.0 / M_PI;
+        if (dir < 0.0) dir += 360.0;
+    }
+    return dir;
 }

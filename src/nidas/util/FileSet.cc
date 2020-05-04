@@ -50,24 +50,24 @@ using namespace std;
 const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
-	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-        _newFile(false),_lastErrno(0),_fd(-1),
-        _dir(),_filename(),_currname(),_fullpath(),
-        _startTime((time_t)0),_endTime((time_t)0),
-        _fileset(),_fileiter(_fileset.begin()),
-	_initialized(false),_fileLength(LONG_LONG_MAX)
+    _timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+    _newFile(false),_lastErrno(0),_fd(-1),_keepopening(false),
+    _dir(),_filename(),_currname(),_fullpath(),
+    _startTime((time_t)0),_endTime((time_t)0),
+    _fileset(),_fileiter(_fileset.begin()),
+    _initialized(false),_fileLength(LONG_LONG_MAX)
 {
 }
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
-	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-        _newFile(false),_lastErrno(0),_fd(-1),
-	_dir(x._dir),_filename(x._filename),_currname(),_fullpath(x._fullpath),
-	_startTime(x._startTime),_endTime(x._endTime),
-	_fileset(x._fileset),_fileiter(_fileset.begin()),
-	_initialized(x._initialized),
-	_fileLength(x._fileLength)
+    _timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+    _newFile(false),_lastErrno(0),_fd(-1),_keepopening(false),
+    _dir(x._dir),_filename(x._filename),_currname(),_fullpath(x._fullpath),
+    _startTime(x._startTime),_endTime(x._endTime),
+    _fileset(x._fileset),_fileiter(_fileset.begin()),
+    _initialized(x._initialized),
+    _fileLength(x._fileLength)
 {
 }
 
@@ -78,16 +78,17 @@ FileSet& FileSet::operator=(const FileSet& rhs)
         closeFile();
         _newFile = false;
         _lastErrno = 0;
-	_dir = rhs._dir;
+        _dir = rhs._dir;
         _filename = rhs._filename;
         _currname = "";
         _fullpath = rhs._fullpath;
         _startTime = rhs._startTime;
         _endTime = rhs._endTime;
-	_fileset = rhs._fileset;
+        _fileset = rhs._fileset;
         _fileiter = _fileset.begin();
-	_initialized = rhs._initialized;
-	_fileLength = rhs._fileLength;
+        _initialized = rhs._initialized;
+        _fileLength = rhs._fileLength;
+        _keepopening = rhs._keepopening;
     }
     return *this;
 }
@@ -137,7 +138,7 @@ void FileSet::closeFile() throw(IOException)
          * If necessary, we could add an fsync method if someone really wants it.
          */
         int fd = _fd;
-	_fd = -1;
+        _fd = -1;
 #ifdef DO_FSYNC
         if (::fsync(fd) < 0) {
             int ierr = errno;
@@ -146,7 +147,8 @@ void FileSet::closeFile() throw(IOException)
         }
 #endif
         if (::close(fd) < 0)
-	    throw IOException(_currname,"close",errno);
+            throw IOException(_currname,"close",errno);
+        DLOG(("") << "closed " << _currname);
     }
 }
 
@@ -305,68 +307,93 @@ size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 }
 
 
+void FileSet::initialize()
+{
+    DLOG(("openNextFile, fullpath=") << _fullpath);
+    if (_fullpath.length() > 0) {
+
+        _fileset = matchFiles(_startTime,_endTime);
+
+        // If the first matched file is later than the
+        // start time, then we'll look to find an earlier
+        // file.
+        string firstFile;
+        string t1File = formatName(_startTime);
+        if (!_fileset.empty()) firstFile = _fileset.front();
+        if (_fileset.empty() || firstFile.compare(t1File) > 0) {
+            UTime t1;
+            list<string> files;
+            // roll back a day
+            if (_fileLength > USECS_PER_DAY)
+                t1 = _startTime - USECS_PER_DAY;
+            else {
+                t1 = _startTime;
+                t1 -= t1.toUsecs() % _fileLength;
+            }
+            UTime t2 = _startTime;
+
+            // Try to handle the situation where the fileLength in the XML
+            // is incorrect, which may happen if the archive files were
+            // merged, with a longer file length than the original. If the
+            // fileLength is smaller than the lengths of the files being read,
+            // an earlier file may not be found here. If no matches,
+            // back up some more.
+            for (int i = 0; i < 4; i++) {
+                files = matchFiles(t1,t2);
+                if (!files.empty()) break;
+                if (_fileLength > USECS_PER_DAY) t1 -= USECS_PER_DAY;
+                else t1 -= _fileLength;
+            }
+            if (!files.empty())  {
+                list<string>::const_reverse_iterator ptr = files.rbegin();
+                string fl = *ptr;
+                if (firstFile.length() == 0 ||
+                    fl.compare(firstFile) < 0) _fileset.push_front(fl);
+            }
+        }
+
+        if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
+    }
+    _fileiter = _fileset.begin();
+    _initialized = true;
+}
+
+
 void FileSet::openNextFile() throw(IOException)
 {
+    DLOG(("") << "openNextFile()");
     if (!_initialized) {
-
-	DLOG(("openNextFile, fullpath=") << _fullpath);
-	if (_fullpath.length() > 0) {
-
-	    _fileset = matchFiles(_startTime,_endTime);
-
-	    // If the first matched file is later than the
-	    // start time, then we'll look to find an earlier
-	    // file.
-            string firstFile;
-            string t1File = formatName(_startTime);
-	    if (!_fileset.empty()) firstFile = _fileset.front();
-	    if (_fileset.empty() || firstFile.compare(t1File) > 0) {
-                UTime t1;
-                list<string> files;
-                // roll back a day
-                if (_fileLength > USECS_PER_DAY)
-                    t1 = _startTime - USECS_PER_DAY;
-                else {
-                    t1 = _startTime;
-                    t1 -= t1.toUsecs() % _fileLength;
-                }
-                UTime t2 = _startTime;
-
-                // Try to handle the situation where the fileLength in the XML
-                // is incorrect, which may happen if the archive files were
-                // merged, with a longer file length than the original. If the
-                // fileLength is smaller than the lengths of the files being read,
-                // an earlier file may not be found here. If no matches,
-                // back up some more.
-                for (int i = 0; i < 4; i++) {
-                    files = matchFiles(t1,t2);
-                    if (!files.empty()) break;
-                    if (_fileLength > USECS_PER_DAY) t1 -= USECS_PER_DAY;
-                    else t1 -= _fileLength;
-                }
-                if (!files.empty())  {
-                    list<string>::const_reverse_iterator ptr = files.rbegin();
-                    string fl = *ptr;
-                    if (firstFile.length() == 0 || 
-                        fl.compare(firstFile) < 0) _fileset.push_front(fl);
-                }
-            }
-
-	    if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
-	}
-	_fileiter = _fileset.begin();
-	_initialized = true;
+        initialize();
     }
     closeFile();
+    _newFile = false;
 
-    if (_fileiter == _fileset.end()) throw EOFException(_currname,"open");
-    _currname = *_fileiter++;
-    ILOG(("opening: ") << _currname);
+    /* Keep opening files until one succeeds if keep-going is true. */
+    while (!_newFile)
+    {
+        if (_fileiter == _fileset.end())
+        {
+            DLOG(("") << "openNextFile(): no more files in fileset");
+            throw EOFException(_currname, "open");
+        }
+        _currname = *_fileiter++;
+        ILOG(("opening: ") << _currname);
 
-    if (_currname == "-") _fd = 0;	// read from stdin
-    else if ((_fd = ::open(_currname.c_str(),O_RDONLY)) < 0)
-    	throw IOException(_currname,"open",errno);
-    _newFile = true;
+        if (_currname == "-")
+        {
+            _fd = 0;  // read from stdin
+        }
+        else if ((_fd = ::open(_currname.c_str(), O_RDONLY)) < 0)
+        {
+            IOException ioe(_currname, "open", errno);
+            if (!_keepopening)
+                throw ioe;
+            ELOG(("") << ioe.what() << "; keep-going enabled...");
+            continue;
+        }
+        _newFile = true;
+    }
+    DLOG(("") << "file opened: " << _currname);
 }
 
 /* static */

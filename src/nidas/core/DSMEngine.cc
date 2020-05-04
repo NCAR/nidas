@@ -56,12 +56,12 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 
-#include <unistd.h>  // for getopt(), optind, optarg
+#include <unistd.h>
 
-#ifdef HAVE_SYS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H
 #include <sys/capability.h>
 #include <sys/prctl.h>
-#endif 
+#endif
 
 using namespace nidas::core;
 using namespace std;
@@ -76,8 +76,8 @@ namespace {
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
 
-/* 
- *  Force _disableAutoconfig true for master branch since it is not yet merged with 
+/*
+ *  Force _disableAutoconfig true for master branch since it is not yet merged with
  *  autoconfig branch.
  */
 DSMEngine::DSMEngine():
@@ -87,7 +87,15 @@ DSMEngine::DSMEngine():
     _statusThread(0),_xmlrpcThread(0),
     _outputSet(),_outputMutex(),
     _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self()),
-    _app("dsm")
+    _app("dsm"),
+    ExternalControl
+    ("-r,--remote", "",
+     "Start XML RPC thread to enable to remote commands."),
+    DisableAutoConfig
+    ("-n,--no-autoconfig", "",
+     "Disable autoconfig by removing all <autoconfig> tags from the DOM\n"
+     "before invoking fromDOMElement() and setting xml class names back\n"
+     "to DSMSerialSensor or other original value")
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -111,7 +119,7 @@ DSMEngine::~DSMEngine()
 }
 
 namespace {
-    void getPageFaults(long& minor,long& major, long& nswap) 
+    void getPageFaults(long& minor,long& major, long& nswap)
     {
         struct rusage r;
         getrusage(RUSAGE_SELF,&r);
@@ -134,8 +142,17 @@ int DSMEngine::main(int argc, char** argv) throw()
 {
     DSMEngine engine;
 
-    int res;
-    if ((res = engine.parseRunstring(argc,argv)) != 0) return res;
+    int res = 0;
+    try {
+        if ((res = engine.parseRunstring(argc, argv)) != 0)
+            return res;
+    }
+    catch (const NidasAppException& ex)
+    {
+        cerr << ex.what() << endl;
+        cerr << "Use -h to see usage info." << endl;
+        return 1;
+    }
 
     // If the user has not selected -d (debug), initLogger will fork
     // to the background, using daemon(). After the fork, threads other than this
@@ -192,22 +209,13 @@ int DSMEngine::main(int argc, char** argv) throw()
     return res;
 }
 
-int DSMEngine::parseRunstring(int argc, char** argv) throw()
+int DSMEngine::parseRunstring(int argc, char** argv)
 {
-    NidasAppArg ExternalControl
-        ("-r,--remote", "",
-         "Start XML RPC thread to enable to remote commands.");
-    NidasAppArg DisableAutoConfig
-        ("-n,--no-autoconfig", "", 
-         "Disable autoconfig by removing all "
-         "<autoconfig> tags from the DOM \n"
-         "before invoking fromDOMElement()"
-         "and setting xml class names back \n"
-         "to DSMSerialSensor or other original value");
-
-    _app.enableArguments(_app.loggingArgs() | _app.Version | _app.Help |
-                         _app.Username | _app.Hostname | _app.DebugDaemon | 
-                         ExternalControl | DisableAutoConfig);
+    _app.enableArguments(_app.Help |
+                         _app.Username | _app.Hostname |
+                         _app.DebugDaemon | _app.PidFile |
+                         ExternalControl | DisableAutoConfig |
+                         _app.loggingArgs() | _app.Version);
 
     ArgVector args = _app.parseArgs(argc, argv);
     if (_app.helpRequested())
@@ -221,7 +229,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
      * Don't check this until master branch is merged with autoconfig branch
     _disableAutoconfig = DisableAutoConfig.asBool();
     */
-    
+
     if (args.size() == 1)
     {
         string url = string(args[0]);
@@ -252,7 +260,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	        cerr << e.what() << endl;
 		usage();
 		return 1;
-	    }	
+	    }
 	}
         else if (type == "file") _configFile = url;
         else {
@@ -269,7 +277,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
-void DSMEngine::usage() 
+void DSMEngine::usage()
 {
     cerr <<
         "Usage: " << _app.getName() << " [options] [config]\n"
@@ -346,7 +354,7 @@ int DSMEngine::run() throw()
             _command = DSM_RUN;
         }
 
-        
+
         if (_command == DSM_RESTART) _command = DSM_RUN;
         if (_command != DSM_RUN) continue;
 
@@ -602,7 +610,7 @@ void DSMEngine::waitForSignal(int timeoutSecs)
     if (sig < 0) {
         if (errno == EAGAIN) return;    // timeout
         // if errno == EINTR, then the wait was interrupted by a signal other
-        // than those that are unblocked here in _signalMask. This 
+        // than those that are unblocked here in _signalMask. This
         // must have been an unblocked and non-ignored signal.
         if (errno == EINTR) PLOG(("DSMEngine::waitForSignal(): unexpected signal"));
         else PLOG(("DSMEngine::waitForSignal(): ") << n_u::Exception::errnoToString(errno));
@@ -658,133 +666,12 @@ void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* s
     if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
 }
 
-void DSMEngine::removeAutoConfigObjects(xercesc::DOMNode* node, bool bumpRecursion) 
-{
-    static int recursionLevel = 0;
-    xercesc::DOMNode* pChild;
-    xercesc::DOMElement* pElementNode = dynamic_cast<xercesc::DOMElement*>(node);
-
-    if (bumpRecursion) {
-        // should get here for any invocation within this method
-        ++recursionLevel;
-    }
-    else {
-        // should only happen on first invocation from outside this method
-        if (pElementNode) {
-            XDOMElement xnode(pElementNode);
-            if (xnode.getNodeName() != "project") {
-                throw n_u::InvalidParameterException(
-                    "DSMEngine::removeAutoConfigObjects(): ","starting xml node name not \"project\"",
-                        xnode.getNodeName());
-            }
-            else {
-                ILOG(("DSMEngine::removeAutoConfigObjects(): Getting off on the right foot. First tag: ") 
-                        << xnode.getNodeName());
-            }
-        }
-        else {
-            throw n_u::InvalidParameterException(
-                "DSMEngine::removeAutoConfigObjects(): ","starting xml node not element tag",
-                    XMLStringConverter(node->getNodeName()));
-        }
-    }
-
-    VLOG(("DSMEngine::removeAutoConfigObjects(): recursion depth is: ") << recursionLevel);
-
-    std::string classValue;
-    int numElementChildren = 0;
-    pChild = node->getFirstChild();
-    if (!pChild) {
-        VLOG(("DSMEngine::removeAutoConfigObjects(): Root node has no children. All done. Get outta here."));
-        --recursionLevel;
-        return;
-    }
-
-    for (pChild = node->getFirstChild(); pChild != 0;
-         pChild = pChild->getNextSibling(), ++numElementChildren) {
-        VLOG(("DSMEngine::removeAutoConfigObjects(): checking element child #") << numElementChildren+1);
-
-        // nothing interesting to do if not a <serialSensor> element
-        if (pChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
-            // except check its child elements
-            VLOG(("DSMEngine::removeAutoConfigObjects(): Node is not an element tag, so recurse down..."));
-            removeAutoConfigObjects(pChild, true);
-            continue;
-        }
-
-        XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pChild));
-        if (xChild.getNodeName() != std::string("serialSensor")) {
-            VLOG(("DSMEngine::removeAutoConfigObjects(): Element node is not named serialSensor, so recurse down..."));
-            removeAutoConfigObjects(pChild, true);
-            continue;
-        }
-        else {
-            VLOG(("DSMEngine::removeAutoConfigObjects(): found element named: ") << xChild.getNodeName());
-        }
-
-        // landed on a <serialSensor> tag, so if the sensor class is one of the 
-        // values called out below, warp it back to DSMSerialSensor.
-        VLOG(("DSMEngine::removeAutoConfigObjects(): Looking for class values that need to be reset..."));
-        std::string classValue = xChild.getAttributeValue("class");
-        if (classValue.length()) {
-            if (classValue == "isff.PTB210" || classValue == "isff.PTB220" ) {
-                ILOG(("DSMEngine::removeAutoConfigObjects(): Resetting ") << classValue << " to DSMSerialSensor");
-                // Change the class to instantiate to non-autoconfig
-                xChild.setAttributeValue("class", "DSMSerialSensor");
-            }
-            else if (classValue == "isff.GILL2D") {
-                xChild.setAttributeValue("class", "isff.PropVane");
-                ILOG(("DSMEngine::removeAutoConfigObjects(): resetting class value to isff.PropVane for: ") << classValue);
-            }
-            else {
-                VLOG(("DSMEngine::removeAutoConfigObjects(): Skipping class value: ") << classValue);
-            }
-        }
-        else {
-            VLOG(("DSMEngine::removeAutoConfigObjects(): No attributes named \"class\" to check in this serial sensor..."));
-        }
-
-        VLOG(("DSMEngine::removeAutoConfigObjects(): Also check element for an <autoconfig> tag to remove"));
-        xercesc::DOMNode* pSensorChild = pChild->getFirstChild();
-        if (!pSensorChild) {
-            VLOG(("DSMEngine::removeAutoConfigObjects(): serialSensor element has no sub-children."));
-            continue;
-        }
-
-        int numSubElementChild = 0;
-        for (; pSensorChild != 0; 
-               pSensorChild = pSensorChild->getNextSibling(), ++numSubElementChild) {
-            VLOG(("DSMEngine::removeAutoConfigObjects(): Checking subElement child #") << numSubElementChild+1);
-            if (pSensorChild->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
-                removeAutoConfigObjects(pSensorChild, true);
-                continue;
-            }
-            
-            XDOMElement xChild(dynamic_cast<xercesc::DOMElement*>(pSensorChild));
-            if (xChild.getNodeName() != "autoconfig") {
-                removeAutoConfigObjects(pSensorChild, true);
-                continue;
-            }
-
-            pChild->removeChild(pSensorChild);
-            ILOG(("DSMEngine::removeAutoConfigObjects(): removed <autoconfig> tag from: ") << classValue);
-            break; // should only be one <autoconfig> tag
-        }
-    }
-    VLOG(("DSMEngine::removeAutoConfigObjects(): Done checking at recursion level: ") << recursionLevel);
-    --recursionLevel;
-}
-
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	throw(n_u::InvalidParameterException)
 {
     _project = new Project();
 
-    if (_disableAutoconfig) {
-        ILOG(("DSMEngine::initialize(): _disableAutoconfig is true. Pull all the <autoconfig> tags out of DOM"));
-        xercesc::DOMNode* node = projectDoc->getDocumentElement();
-        removeAutoConfigObjects(node);
-    }
+    _project->disableAutoconfig(_disableAutoconfig);
 
      _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
@@ -795,7 +682,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     _dsmConfig = _project->findDSMFromHostname(hostname);
     if (!_dsmConfig)
     {
-    	throw n_u::InvalidParameterException("dsm","no match for hostname",
+        throw n_u::InvalidParameterException("dsm","no match for hostname",
                                              hostname);
     }
 }
@@ -881,7 +768,7 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
     catch (const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "DSMEngine: error closing %s: %s",
-	    	output->getName().c_str(),ioe.what());
+                output->getName().c_str(),ioe.what());
     }
 
     SampleOutput* orig = output->getOriginal();

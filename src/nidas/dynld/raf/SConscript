@@ -9,6 +9,7 @@ sources = Split("""
     A2D_Serial.cc
     ADC_HW_EB7022597.cc
     Aircraft.cc
+    AlicatSDI.cc
     Arinc_IRS.cc
     BCPD_Serial.cc
     CDP_Serial.cc
@@ -45,6 +46,7 @@ sources = Split("""
     TwoD64_USB.cc
     TwoD64_USB_v3.cc
     TwoD32_USB.cc
+    UDPArincSensor.cc
     UDPSocketSensor.cc
     UHSAS_Serial.cc
     VCSEL_Serial.cc
@@ -58,6 +60,8 @@ headers = Split("""
     A2D_Serial.h
     ADC_HW_EB7022597.h
     Aircraft.h
+    AlicatSDI.h
+    AltaEnet.h
     Arinc_IRS.h
     BCPD_Serial.h
     CDP_Serial.h
@@ -96,6 +100,7 @@ headers = Split("""
     TwoD64_USB_v3.h
     TwoD32_USB.h
     UHSAS_Serial.h
+    UDPArincSensor.h
     UDPSocketSensor.h
     VCSEL_Serial.h
     VCSEL2_Serial.h

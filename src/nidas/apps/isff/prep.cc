@@ -50,6 +50,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/core/BadSampleFilter.h>
 
 #include <set>
 #include <map>
@@ -150,11 +151,12 @@ public:
 
     int usage();
 
-    map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
-                                                         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
+    map<double, vector<const Variable*> >
+    matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
+                   set<DSMSensor*>& activeSensors)
+        throw (n_u::InvalidParameterException);
 
     // default initialization values, which are displayed in usage() method.
-    static const int defaultLogLevel = n_u::LOGGER_INFO;
     static const int defaultNCInterval = 1;
     static const int defaultNCLength = 86400;
     static const float defaultNCFillValue;
@@ -199,8 +201,6 @@ private:
 
     int _asciiPrecision;
 
-    int _logLevel;
-
     string _ncserver;
 
     string _ncdir;
@@ -225,6 +225,21 @@ private:
 
     string _datasetName;
 
+    BadSampleFilterArg _FilterArg;
+    NidasAppArg DataVariables;
+    NidasAppArg DataRate;
+    NidasAppArg DatasetName;
+    NidasAppArg ConfigsName;
+    NidasAppArg DSMName;
+    NidasAppArg DumpASCII;
+    NidasAppArg DumpBINARY;
+    NidasAppArg DOSOutput;
+    NidasAppArg Clipping;
+    NidasAppArg SorterLength;
+    NidasAppArg Precision;
+    NidasAppArg NoHeader;
+    NidasAppArg NetcdfOutput;
+    NidasAppArg HeapSize;
 };
 
 const float DataPrep::defaultNCFillValue = 1.e37;
@@ -236,12 +251,61 @@ DataPrep::DataPrep():
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
     _middleTimeTags(true),_dosOut(false),_doHeader(true),
     _clipping(false),
-    _asciiPrecision(5),_logLevel(defaultLogLevel),
+    _asciiPrecision(5),
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
     _ncbatchperiod(defaultNCBatchPeriod),
-    _resamplers(),_dsmName(),_datasetName()
+    _resamplers(),_dsmName(),_datasetName(),
+    _FilterArg(),
+    DataVariables
+    ("-D", "var[,var,...]",
+     "One or more variable names to output at the current rate"),
+    DataRate
+    ("-r,-R", "<rate in Hz>",
+     "Set the resample rate, in Hz, for all successive variables "
+     "specified with -D.\n"
+     "With -r, output timetags will be in middle of periods.\n"
+     "With -R, output timetags will be at integral deltaTs.\n"
+     "When writing NetCDF files, it can be useful for prep to generate\n"
+     "output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n"
+     "If multiple -D options, specify the rate BEFORE the -D var."),
+    DatasetName("-S,--dataset", "<datasetname>",
+                "dataset name from $ISFS/projects/$PROJECT/"
+                "ISFS/config/datasets.xml"),
+    ConfigsName("-c,--config", "<configname>",
+                "(optional) name of configuration period to use, "
+                "from configs.xml"),
+    DSMName("-d,--dsm", "<dsm>",
+            "Look for a <fileset> belonging to the given dsm to "
+            "determine input file names."),
+    DumpASCII("-A", "", "ascii output (default)"),
+    DumpBINARY("-C", "",
+               "binary column output, double seconds since "
+               "Jan 1, 1970, \nfollowed by floats for each var"),
+    DOSOutput("-w,--dos", "", "windows/dos output "
+              "(records terminated by CRNL instead of just NL)"),
+    Clipping
+    ("--clip", "",
+     "Clip the output samples to the given time range,\n"
+     "and expand the input time boundaries by 5 minutes.\n"
+     "The input times are expanded to catch all raw samples\n"
+     "whose processed sample times might fall within the output times.\n"
+     "This option only applies to netcdf outputs.\n"),
+    SorterLength("-s,--sortlen", "<seconds>",
+                 "sorter length for processed samples in "
+                 "floating point seconds (optional)", "1.0"),
+    Precision("-p,--precision", "ndigits",
+              "number of digits in ASCII output values", "5"),
+    NoHeader("-H,--noheader", "",
+             "do not print initial 2-line ASCII header of "
+             "variable names and units"),
+    NetcdfOutput
+    ("-n,--netcdf",
+     "server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod"),
+    HeapSize("--heapsize", "<kilobytes>",
+             "Set the sizes of the raw and processed sorter heaps in "
+             "kilobytes.", "1000")
 {
 }
 
@@ -406,51 +470,6 @@ int DataPrep::parseRunstring(int argc, char** argv)
     const char* p1,*p2;
     double rate = 0.0;
 
-    NidasAppArg DataVariables
-        ("-D", "var[,var,...]",
-         "One or more variable names to output at the current rate");
-    NidasAppArg DataRate
-        ("-r,-R", "<rate in Hz>",
-         "Set the resample rate, in Hz, for all successive variables "
-         "specified with -D.\n"
-         "With -r, output timetags will be in middle of periods.\n"
-         "With -R, output timetags will be at integral deltaTs.\n"
-         "When writing NetCDF files, it can be useful for prep to generate\n"
-         "output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n"
-         "If multiple -D options, specify the rate BEFORE the -D var.");
-    NidasAppArg DatasetName("-S,--dataset", "<datasetname>",
-                            "dataset name from $ISFS/projects/$PROJECT/"
-                            "ISFS/config/datasets.xml");
-    NidasAppArg ConfigsName("-c,--config", "<configname>",
-                            "(optional) name of configuration period to use, "
-                            "from configs.xml");
-    NidasAppArg DSMName("-d,--dsm", "<dsm>",
-                        "Look for a <fileset> belonging to the given dsm to "
-                        "determine input file names.");
-    NidasAppArg DumpASCII("-A", "", "ascii output (default)");
-    NidasAppArg DumpBINARY("-C", "",
-                           "binary column output, double seconds since "
-                           "Jan 1, 1970, \nfollowed by floats for each var");
-    NidasAppArg DOSOutput("-w,--dos", "", "windows/dos output "
-                          "(records terminated by CRNL instead of just NL)");
-
-    NidasAppArg Clipping
-        ("--clip", "",
-         "Clip the output samples to the given time range,\n"
-         "and expand the input time boundaries by 5 minutes.\n"
-         "The input times are expanded to catch all raw samples\n"
-         "whose processed sample times might fall within the output times.\n"
-         "This option only applies to netcdf outputs.\n");
-
-    NidasAppArg SorterLength("-s,--sortlen", "<seconds>",
-                             "input data sorter length in seconds (optional)",
-                             "1");
-    NidasAppArg Precision("-p,--precision", "ndigits",
-                          "number of digits in ASCII output values", "5");
-    NidasAppArg NoHeader("-H,--noheader", "",
-                         "do not print initial 2-line ASCII header of "
-                         "variable names and units");
-
     std::ostringstream nchelp;
     nchelp << "server: host name of system running nc_server RPC process\n"
         "dir: directory on server to write files\n"
@@ -467,11 +486,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
         "         Default: " << defaultNCTimeout << "\n"
         "batchperiod: check for response back from server after this number\n"
         "             of seconds. Default: " << defaultNCInterval << "\n";
-
-    NidasAppArg NetcdfOutput
-        ("-n,--netcdf",
-         "server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod",
-         nchelp.str());
+    NetcdfOutput.setUsageString(nchelp.str());
 
     // prep uses -B and -E for window times, but keep the long flags
     _app.StartTime.setFlags("-B,--start");
@@ -482,8 +497,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
                          _app.InputFiles |
                          DatasetName | ConfigsName | DSMName |
                          DumpASCII | DumpBINARY | DOSOutput |
-                         NetcdfOutput | Clipping |
-                         SorterLength | Precision | NoHeader |
+                         NetcdfOutput | Clipping | _FilterArg |
+                         SorterLength | HeapSize | Precision | NoHeader |
                          _app.loggingArgs() | _app.XmlHeaderFile |
                          _app.Version | _app.Help);
 
@@ -571,7 +586,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     _doHeader = !NoHeader.asBool();
     _xmlFileName = _app.xmlHeaderFile();
     _clipping = Clipping.asBool();
-    _sorterLength = SorterLength.asInt();
+    _sorterLength = SorterLength.asFloat();
     if (_sorterLength < 0 || _sorterLength > 10000)
     {
         cerr << "Invalid sorter length: " << SorterLength.getValue() << endl;
@@ -672,11 +687,6 @@ int DataPrep::main(int argc, char** argv)
     int res;
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
-
-    n_u::LogConfig lc;
-    lc.level = dump._logLevel;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme("prep").addConfig (lc));
 
     return dump.run();
 }
@@ -792,8 +802,7 @@ int DataPrep::run() throw()
                 }
                 catch(const n_u::IOException& e) {
                     if (i > 2)
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: retrying",e.what());
+                        WLOG(("%s: retrying", e.what()));
                     sleep(10);
                 }
             }
@@ -834,11 +843,11 @@ int DataPrep::run() throw()
                 if (_dsmName.length() > 0) {
                     fsets = project.findSampleOutputStreamFileSets(_dsmName);
                     if (fsets.empty()) {
-                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        PLOG(("Cannot find a FileSet for dsm ") << _dsmName);
                         return 1;
                     }
                     if (fsets.size() > 1) {
-                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        PLOG(("Multple filesets found for dsm ") << _dsmName);
                         return 1;
                     }
                 }
@@ -858,7 +867,8 @@ int DataPrep::run() throw()
                     return 1;
                 }
                 if (fsets.size() > 1) {
-                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    PLOG(("Multple filesets found for dsms. "
+                          "Pass a -d dsmname parameter to select one"));
                     return 1;
                 }
 
@@ -895,12 +905,18 @@ int DataPrep::run() throw()
         }
 
         RawSampleInputStream sis(iochan);
+        BadSampleFilter& bsf = _FilterArg.getFilter();
+        bsf.setDefaultTimeRange(_startTime, _endTime);
+        sis.setBadSampleFilter(bsf);
+
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);
         pipeline.setProcSorterLength(_sorterLength);
-        pipeline.setRawHeapMax(1 * 1000 * 1000);
-        pipeline.setProcHeapMax(1 * 1000 * 1000);
+        pipeline.setRawHeapMax(HeapSize.asInt() * 1024);
+        pipeline.setProcHeapMax(HeapSize.asInt() * 1024);
+        DLOG(("pipeline heap sizes set to ")
+             << HeapSize.asInt()*1024 << " KB");
         pipeline.setRawLateSampleCacheSize(0);
         pipeline.setProcLateSampleCacheSize(5);
 

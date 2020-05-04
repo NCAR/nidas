@@ -96,13 +96,14 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
  */
 dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 {
-    struct pc104sg_status status;
-    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
     struct timeval32 tval;
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
 
 #ifdef DEBUG
+    struct pc104sg_status status;
+    ioctl(IRIG_GET_STATUS,&status,sizeof(status));
+
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
 	tval.tv_usec << ", status=0x" << hex << (int)status.statusOR << dec << endl;
 #endif
@@ -138,9 +139,9 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     irigTime = getIRIGTime();
     unixTime = n_u::getSystemTime();
 
-    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
+    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT | CLOCK_SYNC_NOT_OK)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
-	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
+	    "NOSYNC, NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
     }
     else if (::llabs(unixTime-irigTime) > 180LL*USECS_PER_DAY) {
@@ -161,9 +162,6 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 
 	::nanosleep(&nsleep,0);
 
-	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        statusOR = status.statusOR;
-
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
 
@@ -176,16 +174,16 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
                 "UNIX: %s, dt=%7d usec",
                 ut.format(true,timeFormat).c_str(),dtunix);
             n_u::Logger::getInstance()->log(LOG_INFO,
-                "IRIG: %s, dt=%7d usec, unix-irig=%10lld usec, rate ratio diff=%f",
+                "IRIG: %s, dt=%7d usec, unix-irig=%10lld usec, IRIG correction rate=%f sec/sec",
                 it.format(true,timeFormat).c_str(),dtirig,
-                unixTime - irigTime,fabs((float)(dtunix - dtirig)) / dtunix);
+                unixTime - irigTime,(float)(dtirig - dtunix) / dtunix);
 
 	    // cerr << "UNIX-IRIG=" << unixTime - irigTime <<
 	    //	", dtunix=" << dtunix << ", dtirig=" << dtirig <<
-	    //	", rate ratio diff=" << fabs(dtunix - dtirig) / dtunix << endl;
+	    //	", correction rate=" << (float)(dtirig - dtunix) / dtunix << endl;
 
 	    if (::llabs(unixTime - irigTime) < 10 * USECS_PER_SEC &&
-		fabs((float)(dtunix - dtirig)) / dtunix < 1.e-2) break;
+		fabs((float)(dtirig - dtunix)) / dtunix < 1.e-2) break;
 	}
 
 	unixTimeLast = unixTime;
@@ -272,7 +270,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
 	return;
     }
     dsm_time_t unixTime;
@@ -302,10 +300,10 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             (iwarn ? "<font color=red><b>" : "") << status.syncToggles <<
             (iwarn ? "</b></font>" : "") <<
             ",clockResets=" << status.softwareClockResets <<
-            "</td>" << endl;
+            "</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
 	n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());

@@ -26,8 +26,57 @@
 */
 /* pc104sg.c
  *
- * driver for Brandywine's PC104-SG IRIG card
+ * Driver for Brandywine's PC104-SG IRIG card
  *
+ * 1. Enables a 10 KHz output used by other cards in the PC104 stack
+ * 2. Allows other driver modules to register callbacks, to be
+ *    called at desired rates from 0.1/sec to 100/sec.
+ *    a. registers its own 1/sec callback function, oneHzFunction.
+ * 3. Enables a 100/sec interrupt, whose ISR, pc104sg_isr:
+ *    a. Reads the extended status value from DPRAM, issues request
+ *       for next extended status. In this way, by issuing DPRAM requests
+ *       0.01 seconds apart, one doesn't have to wait for the DPRAM
+ *       to be ready.
+ *    b. If doSnapShot is true, takes a snapshot of the software clock counter,
+ *       the IRIG clock, the UNIX system clock, the board synchronization state,
+ *       and the status of the IRIG and PPS inputs.
+ *    c. schedules a software tasklet to run
+ * 4. The 100Hz software tasklet, function pc104sg_bh_100Hz:
+ *    a. maintains a 4 byte unsigned int software clock, in units of
+ *       1/10ths of milliseconds, rolling over at 00:00 UTC. This clock
+ *       can be read by other modules.
+ *    b. calls the registered callbacks at the requested rates,
+ *       including its own callback at 1/sec.
+ *    c. If near the end of the current second, sets doSnapShot, so that
+ *       the ISR will take a clock snapshot on the next run.
+ * 5. The 1 Hz callback, oneHzFunction:
+ *    a. Uses the last snapshot to determine the quality of the software
+ *       clock counter.
+ *       * If the board is in sync with IRIG and PPS inputs, the
+ *         agreement between the software clock and the IRIG hardware clock
+ *         is checked. If the clocks disagree it is probably due to a
+ *         missed interrupt, and the 100Hz tasklet is asked to catch up,
+ *         by changing the value of pending100Hz.
+ *       * If the  board is not in sync with the inputs, the agreement
+ *         between the software clock and the UNIX system clock is checked.
+ *       * If there is significant difference between the reference clock
+ *         (IRIG if in sync, UNIX otherwise) and the software clock, then
+ *         the software clock is simply reset. Callback clients may have
+ *         registered a resync-callback, and if so, that is called.
+ *         At this point no drivers have resync-callbacks, this capability
+ *         has not been tested, probably could be removed.
+ *    b. Places the snapshot values in a NIDAS sample and queues it for read.
+ * 6. Provides a open/close/poll/read/ioctl device interface.
+ *    a. ioctls: GET_STATUS, GET_CLOCK, SET_CLOCK.
+ *       SET_CLOCK allows the user to initialize parts of the IRIG clock, namely
+ *       the year and major time (1 second or greater) fields.
+ *       Setting the major time is necessary if IRIG time codes are not being
+ *       received by the card.
+ *    b. Supports polling and reads of the 1/sec NIDAS samples.
+ *
+ * A large portion of this code attempts to deal with error conditions:
+ * the lack of synchronization of this card with the input PPS,
+ * and with missed interrupts.
  */
 
 #include <linux/kernel.h>
@@ -154,27 +203,11 @@ EXPORT_SYMBOL(ReadClock);
 /**
  * What to do with the with the software clock and loop counter
  * in the bottom-half tasklet.
- *
- * For USER_SET_REQUESTED, the software clock will be set once
- * from a time provided by the user if the card does not have sync,
- * and then adjusted from either the IRIG clock or unix clock.
- * This is not currently used.
- *
- * If USER_OVERRIDE_REQUESTED the software clock will be set once
- * from a time provided by the user in an ioctl and not thereafter
- * adjusted. USER_OVERRIDE_REQUESTED is not currently used and
- * could probably be removed.
  */
 enum clockAction
 {
         RESET_COUNTERS,
         NO_ACTION,
-#ifdef SUPPORT_USER_SET
-        USER_SET_REQUESTED,     /* user has requested to set the clock via ioctl */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE_REQUESTED /* user has requested override of clock */
-#endif
 };
 
 /**
@@ -184,12 +217,6 @@ enum clockState
 {
         SYNCD_SET,              /* good state, clock set from irig clock */
         UNSYNCD_SET,            /* card does not have sync, set from unix clock */
-#ifdef SUPPORT_USER_SET
-        USER_SET,               /* software clock set from value provided by user */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE           /* clock has been overridden */
-#endif
 };
 
 /**
@@ -210,7 +237,7 @@ struct clockSnapShot
         /**
          * The current time from the IRIG registers
          */
-        struct timeval32 irig_time;             
+        struct timeval32 irig_time;
 
         /**
          * current unix time
@@ -463,13 +490,6 @@ struct pc104sg_board
          */
         wait_queue_head_t callbackWaitQ;
 
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-        /**
-         * value passed by user via ioctl who wants to set the IRIG clock.
-         */
-        struct timeval32 userClock;
-#endif
-
         int max100HzBacklog;
 
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
@@ -534,14 +554,6 @@ static const char *clockStateString(void)
                 return "SYNCD_SET";
         case UNSYNCD_SET:
                 return "UNSYNCD_SET";
-#ifdef SUPPORT_USER_SET
-        case USER_SET:
-                return "USER_SET";
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        case USER_OVERRIDE:
-                return "USER_OVERRIDE";
-#endif
         default:
                 break;
         }
@@ -1041,7 +1053,6 @@ static int writeDPRAM(unsigned char addr, unsigned char value)
         spin_unlock_irqrestore(&board.lock, flags);
         return ret;
 }
-
 
 /* This controls COUNTER 1 on the PC104SG card */
 static int setHeartBeatOutput(int rate)
@@ -1641,10 +1652,7 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                                     ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
                                      board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
                                 spin_lock_irqsave(&board.lock, flags);
-#ifdef SUPPORT_USER_OVERRIDE
-                                if (board.clockState != USER_OVERRIDE)
-#endif
-                                        board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
+                                board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
                                 spin_unlock_irqrestore(&board.lock, flags);
                         }
                 }
@@ -1732,32 +1740,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                         board.max100HzBacklog = npend;
 
                 atomic_dec(&board.pending100Hz);
-
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-                switch (board.clockAction) {
-#ifdef SUPPORT_USER_OVERRIDE
-                case USER_OVERRIDE_REQUESTED:
-                        count100Hz = setSoftTickers(&board.userClock,1);
-                        board.clockState = USER_OVERRIDE;
-                        break;
-#endif
-#ifdef SUPPORT_USER_SET
-                case USER_SET_REQUESTED:
-                        // has requested to set the clock, and we
-                        // have no time sync, then set the clock counters
-                        // to the user clock, and then run normally.
-                        if ((board.lastStatus & DP_Extd_Sts_Nosync)) {
-                                count100Hz = setSoftTickers(&board.userClock,1);
-                                board.clockACTION = NO_ACTION;
-                        }
-                        // set to irig clock since we have time sync
-                        else board.clockAction = RESET_COUNTERS;
-                        break;
-#endif
-                default:
-                        break;
-                }
-#endif
 
                 /* fix the clock and loop counter if requested */
                 if (unlikely(board.clockAction == RESET_COUNTERS) && board.resetSnapshotDone) {
@@ -1919,11 +1901,7 @@ static void oneHzFunction(void *ptr)
         spin_unlock_irqrestore(&board.lock, flags);
 
         /* check if snapshot was taken */
-        if (!doSnapShot
-#ifdef SUPPORT_USER_OVERRIDE
-                        && board.clockState != USER_OVERRIDE
-#endif
-                ) {
+        if (!doSnapShot) {
                 int syncDiff = 0;
                 if (board.lastSyncTime > 0)
                         syncDiff = GET_TMSEC_CLOCK - board.lastSyncTime;
@@ -1992,6 +1970,13 @@ static void oneHzFunction(void *ptr)
         }
 
         /* if device is open, send the snapshot as a sample. */
+
+        /* Note this is locking dev_lock, which is not used in the ISR,
+         * so we don't need to use spin_lock_irqsave. This is the only
+         * use of dev_lock in software interrupt context. Users
+         * of dev_lock outside of software interrupt context
+         * need to use spin_lock_bh.
+         */
         spin_lock(&board.dev_lock);
         dev = board.dev;
         if (!dev) {
@@ -2010,7 +1995,7 @@ static void oneHzFunction(void *ptr)
                 spin_unlock(&board.dev_lock);
                 return;
         }
-        
+
         /*
          * Use the current value of the ticker for this sample timetag, not the
          * ticker value that was saved in the clock snapshot.
@@ -2117,12 +2102,12 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
                 board.statusOR |= board.lastStatus;
 
-                /* returned by IRIG_GET_STATUS ioctl, and zeroed after the call */
-                board.status.statusOR |= board.lastStatus;
+                /* queried by user with IRIG_GET_STATUS ioctl */
+                board.status.statusOR = board.lastStatus;
 
                 if (unlikely(board.doSnapShot) ||
                                 unlikely(board.clockAction == RESET_COUNTERS)) {
-                        struct timeval32 itv32;             
+                        struct timeval32 itv32;
                         struct timeval32 utv32;
                         do_gettimeofday_tv32(&utv32);
                         get_irig_time_tv32(&itv32);
@@ -2329,19 +2314,11 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
          * Verify read or write access to the user arg, if necessary
          */
         if ((_IOC_DIR(cmd) & _IOC_READ) &&
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-            !access_ok(VERIFY_WRITE, userptr, len))
-#else
-            !access_ok(userptr, len))
-#endif
+            !portable_access_ok(VERIFY_WRITE, userptr, len))
                 return -EFAULT;
 
         if ((_IOC_DIR(cmd) & _IOC_WRITE) &&
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-            !access_ok(VERIFY_READ, userptr, len))
-#else
-            !access_ok(userptr, len))
-#endif
+            !portable_access_ok(VERIFY_READ, userptr, len))
                 return -EFAULT;
 
 
@@ -2353,7 +2330,6 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                         break;
                 ret =
                     copy_to_user(userptr, &board.status,len) ? -EFAULT : len;
-                board.status.statusOR = 0;
                 break;
         case IRIG_GET_CLOCK:
                 if (len != sizeof(tv))
@@ -2391,38 +2367,6 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 
                 board.clockAction = RESET_COUNTERS;
                 break;
-#ifdef SUPPORT_USER_OVERRIDE
-        case IRIG_OVERRIDE_CLOCK:
-                if (len != sizeof(board.userClock))
-                        break;
-
-                spin_lock_irqsave(&board.lock, flags);
-                ret =
-                    copy_from_user(&board.userClock, userptr,
-                                   sizeof(board.userClock)) ? -EFAULT : len;
-                if (ret < 0) {
-                        spin_unlock_irqrestore(&board.lock, flags);
-                        break;
-                }
-                board.DP_RamExtStatusEnabled = 0;
-                board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                timeval32Toirig(&board.userClock, &ti);
-
-                if (board.lastStatus & DP_Extd_Sts_Nosync)
-                        ret = setMajorTime(&ti);
-                else
-                        ret = setYear(ti.year);
-
-                spin_lock_irqsave(&board.lock, flags);
-                board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                board.clockState = USER_OVERRIDE_REQUESTED;
-                ret = len;
-                break;
-#endif
         default:
                 KLOG_WARNING
                     ("%s: Unrecognized ioctl %d (number %d, size %d)\n",
@@ -2498,8 +2442,9 @@ static int __init pc104sg_init(void)
         int irq;
         struct timeval unix_timeval;
         struct timeval32 irig_timeval;
-        struct irigTime irig_time;             
+        struct irigTime irig_time;
         int tdiff;
+        unsigned char status;
 
         KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
@@ -2566,7 +2511,6 @@ static int __init pc104sg_init(void)
         board.clockAction = RESET_COUNTERS;
         board.notifyClients = NO_NOTIFY;
 
-
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
         if (!request_region(IoPort, PC104SG_IOPORT_WIDTH,driver_name)) {
@@ -2577,6 +2521,14 @@ static int __init pc104sg_init(void)
 
         board.ioport = IoPort;
         board.addr = board.ioport + SYSTEM_ISA_IOPORT_BASE;
+
+        /* get initial value of sync state from status port */
+        status = inb(board.addr + Status_Port);
+        if (!(status & Sync_OK))
+                board.lastStatus |= (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        else
+                board.lastStatus &= ~(CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        board.status.statusOR = board.lastStatus;
 
         board.class = class_create(THIS_MODULE, "irig");
         if (IS_ERR(board.class)) {
@@ -2719,6 +2671,9 @@ static int __init pc104sg_init(void)
 		errval = PTR_ERR(board.device);
 		goto err0;
 	}
+
+        KLOG_INFO("%s init done: IRQ=%d, ioport=%#03x\n",
+                board.deviceName, board.irq, board.ioport);
 
         return 0;
 

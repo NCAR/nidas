@@ -31,10 +31,12 @@ Group: Applications/Engineering
 Url: https://github.com/ncareol/nidas
 Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
+
+BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons
+Requires: jsoncpp
+BuildRequires: jsoncpp-devel
+
 Requires: yum-utils nidas-min
-Requires (post): policycoreutils-python
-Requires (postun): policycoreutils-python
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
 # Allow this package to be relocatable to other places than /opt/nidas
@@ -52,10 +54,38 @@ Requires: xerces-c xmlrpc++
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
 that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
+# It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
+# does not work to name /sbin/selinuxenabled, even though rpm figures it
+# out:
+#
+# [root@ustar daq]# rpm -q --whatprovides /sbin/selinuxenabled
+# libselinux-utils-2.9-5.fc31.x86_64
+# [root@ustar daq]# rpm -q --whatprovides /sbin/semanage
+# policycoreutils-python-utils-2.9-5.fc31.noarch
+# [root@ustar daq]# rpm -q --whatprovides /sbin/restorecon
+# policycoreutils-2.9-5.fc31.x86_64
+#
+# So back to having to use different package names on different releases...
+#
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
 Requires: nidas-min
+Requires (post): /sbin/ldconfig
+Requires (postun): /sbin/ldconfig
+%if 0%{?fedora} > 28
+Requires (post): libselinux-utils policycoreutils-python-utils policycoreutils
+Requires (postun): libselinux-utils policycoreutils-python-utils policycoreutils
+%else
+%if 0%{?rhel} < 8
+Requires (post): policycoreutils-python
+Requires (postun): policycoreutils-python
+%else
+Requires (post): python3-policycoreutils
+Requires (postun): python3-policycoreutils
+%endif
+%endif
+
 Prefix: %{nidas_prefix}
 %description libs
 NIDAS shareable libraries
@@ -119,7 +149,14 @@ Summary: Package for building NIDAS by hand
 # remove dist from release on noarch RPM
 Release: %{releasenum}
 Group: Applications/Engineering
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons rpm-build
+
+Requires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons rpm-build
+%if 0%{?rhel} < 8
+Requires: scons qt-devel
+%else
+Requires: python3-scons qt5-devel elfutils-libelf-devel
+%endif
+
 Obsoletes: nidas-builduser <= 1.2-189
 BuildArch: noarch
 %description build
@@ -140,15 +177,30 @@ Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be
 %prep
 %setup -q -c
 
+
 %build
+
+%if 0%{?rhel} < 8
+scns=scons
+%else
+scns=scons-3
+%endif
+
 cd src
-scons -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
+$scns -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
  
+
 %install
 rm -rf $RPM_BUILD_ROOT
 
+%if 0%{?rhel} < 8
+scns=scons
+%else
+scns=scons-3
+%endif
+
 cd src
-scons -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
+$scns -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
@@ -204,15 +256,15 @@ install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
 
-if selinuxenabled; then
-    semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
-    restorecon -R %{nidas_prefix}/%{_lib} || :
+if /sbin/selinuxenabled; then
+    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+    /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
 fi
 /sbin/ldconfig
 
 %postun libs
 if [ $1 -eq 0 ]; then # final removal
-    semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+    /sbin/semanage fcontext -d -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
 fi
 
 # If selinux is Enforcing, ldconfig can fail with permission denied if the
@@ -233,9 +285,18 @@ fi
 # To view:
 # semanage fcontext --list -C | fgrep /opt/nidas
 # /opt/(.*/)?var/lib(/.*)?  all files system_u:object_r:var_lib_t:s0
+#
+# (gjg) I'm not sure about this approach, since the context needs to be
+# installed even if selinux happens to be disabled at the moment.  The
+# suggestion at the link below is to put the selinux contexts into a
+# separate -selinux package, so they do not need to be installed on systems
+# without selinux.  (I don't know if this is still current, but there are
+# still examples of -selinux packages.)
+#
+# https://fedoraproject.org/wiki/PackagingDrafts/SELinux#File_contexts
 
-if selinuxenabled; then
-    /usr/sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
+if /sbin/selinuxenabled; then
+    /sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?" 2>/dev/null || :
     /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
 fi
 /sbin/ldconfig
@@ -336,10 +397,10 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/status_listener
 %{nidas_prefix}/bin/sync_dump
 %{nidas_prefix}/bin/sync_server
-%{nidas_prefix}/bin/tee_tty
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
+%{nidas_prefix}/bin/data_influxdb
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh

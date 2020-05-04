@@ -4,6 +4,7 @@
 Import('env')
 env = env.Clone()
 env.Require('nidas')
+env.NidasRuntimeENV()
 
 data_dump = env.NidasApp('data_dump')
 
@@ -13,7 +14,7 @@ data_dump = env.NidasApp('data_dump')
 # targets, "scons -j 2 test" is likely to run them simultaneously.
 #
 depends = ["run_test.sh", data_dump]
-runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh -i"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

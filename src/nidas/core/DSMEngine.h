@@ -94,7 +94,7 @@ public:
      * then returns a error value of 1.
      * @return 0: OK, 1: failure.
      */
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
     /**
      * Print runstring usage to stderr.
@@ -204,12 +204,6 @@ private:
      */
     void disconnect(SampleInput*) throw() { assert(false); }
 
-    /**
-     *  Scan the DOM and pull out any <autoconfig> tags, as well as change the 
-     *  autoconfig classes back to DSMSerialSensor, or isff.PropVane as needed.
-     */
-    void removeAutoConfigObjects(xercesc::DOMNode* node, bool bumpRecursion=false);
-
     bool _externalControl;
     bool _disableAutoconfig;
     enum run_states { DSM_RUNNING, DSM_ERROR, DSM_STOPPED } _runState;
@@ -260,6 +254,9 @@ private:
     pthread_t _myThreadId;
 
     NidasApp _app;
+
+    NidasAppArg ExternalControl;
+    NidasAppArg DisableAutoConfig;
 
     /** No copy */
     DSMEngine(const DSMEngine&);

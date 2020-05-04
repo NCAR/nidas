@@ -121,6 +121,12 @@ public:
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
+    UTime(const UTime& u) :
+        _utime(u._utime),
+        _fmt(u._fmt),
+        _utc(u._utc)
+    { }
+
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
     /**
@@ -155,10 +161,14 @@ public:
 
     /**
      * Parse a character string into a UTime, using these formats until success:
+     *
      * [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
      * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
      * [CC]YY [cmon|mon] day
      * s.f
+     * YYYY-mm-dd[THH:MM[:SS[.f]]]          ISO format
+     * YYYY-mm-dd[ HH:MM[:SS[.f]]]          ISO format with space separator
+     *
      * "cmon" is a character month or abbreviation.
      * "mon" is a numeric month (1-12).
      * "day" is day of month, 1-31.
@@ -171,7 +181,7 @@ public:
      * If all parsing fails, throw ParseException.
      * @param nparsed: number of characters parsed.
      */
-    static UTime parse(bool utc,const std::string& string,int* nparsed=0)
+    static UTime parse(bool utc, const std::string& string, int* nparsed=0)
     	throw(ParseException);
 
     /**
@@ -186,8 +196,9 @@ public:
      * Example:
      * UTime ut = UTime::parse(true,timestr,"%Y %m %d %H:%M:%S.%2f");
      */
-    static UTime parse(bool utc,const std::string& string,
-    	const std::string& format,int* nparsed=0) throw(ParseException);
+    static UTime parse(bool utc, const std::string& string,
+                       const std::string& format, int* nparsed=0)
+        throw(ParseException);
 
     /**
      * Updates the value of a UTime by doing a parse(utc,string,nparsed).
@@ -254,7 +265,7 @@ public:
             _utime = u._utime;
             _fmt = u._fmt;
         }
-	return *this;
+        return *this;
     }
 
     UTime& operator=(long long u) { _utime = u; return *this; }
@@ -396,6 +407,15 @@ protected:
     } 
 
 private:
+
+    /**
+     * Parse into this UTime same as parse(), returning true on success.
+     * If parsing fails and throwx is true, then throw an exception.
+     * If parsing fails and throwx is false, then return false.
+     **/
+    bool
+    checkParse(bool utc, const std::string& str, const std::string& fmt,
+               int *ncharp, bool throwx=false);
 
     /**
      * non-leap micro-seconds since 1970 Jan 1 00:00 UTC.

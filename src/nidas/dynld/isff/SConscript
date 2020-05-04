@@ -16,6 +16,7 @@ sources = Split("""
     DAUSensor.cc
     GroundStation.cc
     Licor7500.cc
+    metek.cc
     MOSMote.cc
     NCAR_TRH.cc
     NetcdfRPCChannel.cc
@@ -25,6 +26,9 @@ sources = Split("""
     SonicAnemometer.cc
     Wind2D.cc
     Wind3D.cc
+    WindOrienter.cc
+    WindRotator.cc
+    WindTilter.cc
     WisardMote.cc
 """)
 
@@ -38,6 +42,7 @@ headers = Split("""
     DAUSensor.h
     GroundStation.h
     Licor7500.h
+    metek.h
     MOSMote.h
     NCAR_TRH.h
     NetcdfRPCChannel.h
@@ -47,6 +52,9 @@ headers = Split("""
     SonicAnemometer.h
     Wind2D.h
     Wind3D.h
+    WindOrienter.h
+    WindRotator.h
+    WindTilter.h
     WisardMote.h
 """)
 

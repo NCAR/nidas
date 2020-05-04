@@ -94,11 +94,6 @@ MODULE_VERSION(REPO_REVISION);
 #define PCMCOM8_UNLOCK(x) up(x)
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 /*
  * return 0 if config is not OK.
@@ -280,7 +275,7 @@ static int pcmcom8_read_procmem(char *buf, char **start, off_t offset,
         int limit = count - 80; /* Don't print more than this */
         int result = 0;
         KLOG_DEBUG("read_proc, count=%d\n",count);
-                                                                                    
+
         for (i = 0; i < pcmcom8_nr_ok && len <= limit; i++) {
                 pcmcom8_board *brd = pcmcom8_boards + i;
                 KLOG_DEBUG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
@@ -306,7 +301,7 @@ static void pcmcom8_create_proc(void)
                            NULL /* parent dir */, pcmcom8_read_procmem,
                            NULL /* client data */);
 }
-                                                                                
+
 static void pcmcom8_remove_proc(void)
 {
         /* no problem if it was not registered */
@@ -334,7 +329,7 @@ static int pcmcom8_open (struct inode *inode, struct file *filp)
         if ((result = PCMCOM8_LOCK(&brd->mutex))) return result;
 
         pcmcom8_read_config(brd);
-        
+
         PCMCOM8_UNLOCK(&brd->mutex);
 
         return result;	/* success */
@@ -375,7 +370,7 @@ static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                 if (copy_to_user((struct pcmcom8_config *) arg,&brd->config,
                         sizeof(struct pcmcom8_config)) != 0) ret = -EFAULT;
                 break;
-            
+
         case PCMCOM8_IOCSPORTCONFIG:	/* set port config */
                 {
                 struct pcmcom8_config tmpconfig;
@@ -400,7 +395,7 @@ static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                           sizeof(struct pcmcom8_config)) != 0) ret = -EFAULT;
                 }
                 break;
-            
+
         case PCMCOM8_IOCSEEPORTCONFIG:	/* set config in eeprom */
                 {
                 struct pcmcom8_config eeconfig;
@@ -448,7 +443,7 @@ static struct file_operations pcmcom8_fops = {
         .release    = pcmcom8_release,
         .llseek     = no_llseek,
 };
-						      
+
 /*
  * The cleanup function is used to handle initialization failures as well.
  * Thefore, it must be careful to work correctly even if some of the items
@@ -461,7 +456,7 @@ static void pcmcom8_cleanup_module(void)
         int i;
         /* cleanup_module is never called if registering failed */
         unregister_chrdev(pcmcom8_major, DRIVER_NAME);
-                                                                                
+
 #ifdef DEBUG /* use proc only if debugging */
         pcmcom8_remove_proc();
 #endif
@@ -535,11 +530,8 @@ static int __init pcmcom8_init_module(void)
                 brd->addr = brd->ioport + ioport_base;
                 brd->region_req = 1;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
                 mutex_init(&brd->mutex);
-#else
-                init_MUTEX(&brd->mutex);
-#endif
+
                 /*
                  * Read EEPROM configuration. If it doesn't return
                  * -ETIMEDOUT then it looks like there is a board at
@@ -577,7 +569,7 @@ static int __init pcmcom8_init_module(void)
                 result = -ENODEV;
                 goto fail;
         }
-  
+
 #ifdef DEBUG /* only when debugging */
         KLOG_DEBUG("create_proc\n");
         pcmcom8_create_proc();

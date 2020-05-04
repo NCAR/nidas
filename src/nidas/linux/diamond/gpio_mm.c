@@ -58,17 +58,6 @@
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 /* info string used in various places */
 static const char* driver_name = "gpio_mm";
@@ -737,7 +726,7 @@ static irqreturn_t gpio_mm_timer_irq_handler(int irq, void* dev_id, struct pt_re
 
         /* check interrupt A */
         status = inb(brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS) & 0x01;
-        if (!status) {     
+        if (!status) {
                 /* not my interrupt. Hopefully somebody cares! */
                 spin_unlock(&brd->reglock);
                 return IRQ_NONE;
@@ -786,7 +775,7 @@ static irqreturn_t gpio_mm_event_irq_handler(int irq, void* dev_id, struct pt_re
 
         /* check interrupt B */
         status = inb(brd->ct_addr + GPIO_MM_IRQ_CTL_STATUS) & 0x10;
-        if (!status) {     
+        if (!status) {
                 /* not my interrupt. Hopefully somebody cares! */
                 spin_unlock(&brd->reglock);
                 return IRQ_NONE;
@@ -1207,7 +1196,7 @@ static void fcntr_timer_callback_func(void *privateData)
                 samp->length = 2 * sizeof(int);
                 // Data is little endian
                 samp->ticks = cpu_to_le32(tcn);
-                 
+
                 if (pcstatus)  {
                         // pc output high, all pulses counted, or not finished counting the initial few
                         switch (pcn) {
@@ -2126,7 +2115,7 @@ static void gpio_mm_cleanup(void)
 }
 
 static int __init gpio_mm_init(void)
-{	
+{
         int result = -EINVAL;
         int ib;
         int chip;

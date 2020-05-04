@@ -3,12 +3,13 @@
 #
 Import('env')
 env = env.Clone(tools = ['nidas'])
+env.NidasRuntimeENV()
 
 sync_server = env.NidasApp('sync_server')
 sync_dump = env.NidasApp('sync_dump')
 
 depends1 = ["run_test.sh",  sync_server, sync_dump]
-runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])
+runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh -i"])
 
 testlist = [runtest1]
 

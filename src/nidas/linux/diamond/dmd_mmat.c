@@ -58,17 +58,6 @@
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
@@ -228,12 +217,13 @@ static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
         return n;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -251,20 +241,19 @@ static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -281,11 +270,9 @@ static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
@@ -483,7 +470,7 @@ static int selectA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
         if (a2d->highChan >= nchan ||
             a2d->highChan < a2d->lowChan) return -EINVAL;
         if (a2d->lowChan > a2d->highChan) return -EINVAL;
-          
+
         chanNibbles = (a2d->highChan << 4) + a2d->lowChan;
         KLOG_DEBUG("highChan=%d,lowChan=%d,nib=0x%x\n",
             a2d->highChan,a2d->lowChan,(int)chanNibbles);
@@ -509,7 +496,7 @@ static int selectA2DChannelsMM32XAT(struct DMMAT_A2D* a2d)
         if (a2d->highChan >= nchan ||
             a2d->highChan < a2d->lowChan) return -EINVAL;
         if (a2d->lowChan > a2d->highChan) return -EINVAL;
-          
+
         spin_lock_irqsave(&a2d->brd->reglock,flags);
         outb(a2d->lowChan, a2d->brd->addr + 2);
         outb(a2d->highChan, a2d->brd->addr + 3);
@@ -999,7 +986,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                 /* inw converts from little-endian to cpu-endian, which we want. */
                 for (i = 0; i < a2d->fifoThreshold; i++)
                         *dptr++ = inw(brd->addr16);
-                
+
                 samp->length = a2d->fifoThreshold * sizeof(short);
 
                 /* increment head. This sample is ready for processing
@@ -1099,7 +1086,7 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                         KLOG_INFO("board %d: requesting irq: ISA %d, SYS %d\n",brd->num,irqs[brd->num],irq);
                 else
                         KLOG_INFO("board %d: requesting irq: %d\n",brd->num,irq);
-                
+
                 /* In earlier versions of this driver, saw intermittent missed
                  * interrupts with 2 DMMAT cards sharing an interrupt on a Viper.
                  * We'll allow sharing interrupts here, and leave it up to the user.
@@ -1176,7 +1163,7 @@ static void stopA2D_MM32XAT(struct DMMAT_A2D* a2d)
 
         // set page to 0
         outb(0x00, brd->addr + 8);
-        
+
         // disable A2D interrupts, hardware clock
         brd->itr_ctrl_val &= ~0x83;
         outb(brd->itr_ctrl_val, brd->addr + 9);
@@ -1432,7 +1419,6 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
          *            trigger or gating.
          *
          */
-  
 
 #ifdef OUTPUT_CLOCK12_DOUT2
         regval = inb(brd->addr + 10);
@@ -1527,7 +1513,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
         fifoMsecs = a2d->fifoThreshold / a2d->nchanScanned * MSECS_PER_SEC / a2d->scanRate + 1;
         if (fifoMsecs > maxBufferMsecs) maxBufferMsecs = fifoMsecs;
         nsamps = maxBufferMsecs * a2d->totalOutputRate / MSECS_PER_SEC;
-        
+
         /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
         nsamps = 1 << fls(nsamps);
         if (nsamps < 4) nsamps = 4;
@@ -2137,7 +2123,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 }
                                 // We wake up the read_queue.  How often the
                                 // queue is woken depends on the requested latency.
-                                // 
+                                //
                                 // Since the sample queue may fill up before latencyJiffies have elapsed,
                                 // we also wake the read_queue if the output sample queue is half full.
                                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
@@ -2555,8 +2541,8 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
          *         * 10 = Counter 1/2 output
          *           11 = External Trigger (J3 pin 45)
          */
-        depth30 = (d2a->wavesize * d2a->nWaveforms) / 64 - 1;  
-        outb( (depth30 << 4) + ((d2a->nWaveforms - 1) << 2) + 2, brd->addr + 14);        
+        depth30 = (d2a->wavesize * d2a->nWaveforms) / 64 - 1;
+        outb( (depth30 << 4) + ((d2a->nWaveforms - 1) << 2) + 2, brd->addr + 14);
 
         outb(0x00, brd->addr + 8);      /* page 0 */
         spin_unlock_irqrestore(&brd->reglock,flags);
@@ -2960,7 +2946,7 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
         int result = -EINVAL,err = 0;
         void __user *userptr = (void __user *) arg;
         int len;
-        
+
         if (ibrd >= numActualBoards) return -ENXIO;
         if (ia2d != DMMAT_DEVICES_A2D_MINOR) return -ENXIO;
 
@@ -2991,7 +2977,7 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
 
         BUG_ON(brd != a2d->brd);
 
-        switch (cmd) 
+        switch (cmd)
         {
 
         case NIDAS_A2D_GET_NCHAN:
@@ -3217,7 +3203,7 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
 
         BUG_ON(brd != cntr->brd);
 
-        switch (cmd) 
+        switch (cmd)
         {
         case DMMAT_CNTR_START:
                 {
@@ -3372,7 +3358,7 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
 
         BUG_ON(d2a != brd->d2a);
 
-        switch (cmd) 
+        switch (cmd)
         {
         case DMMAT_D2A_GET_NOUTPUTS:
                 result = (numActualBoards - brd->num) *
@@ -3481,7 +3467,6 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
 
 static int dmmat_open_d2d(struct inode *inode, struct file *filp)
 {
-        
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
@@ -3500,7 +3485,7 @@ static int dmmat_open_d2d(struct inode *inode, struct file *filp)
         if (ibrd >= numActualBoards) return -ENXIO;
         // minor number of D2D devices is (numboard*DMMAT_DEVICES_PER_BOARD)+
         //                                 DMMAT_DEVICES_D2D_MINOR
-        if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;   
+        if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;
 
         brd = board + ibrd;
         d2d = brd->d2d;
@@ -3626,7 +3611,7 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
 
         BUG_ON(d2d != brd->d2d);
 
-        switch (cmd) 
+        switch (cmd)
         {
         case NIDAS_A2D_GET_NCHAN:
                 {
@@ -4086,7 +4071,7 @@ static int __init init_cntr(struct DMMAT* brd)
                 cntr->stop = stopCntr_MM32AT;
                 break;
         }
-            
+
         /*
          * Allocate counter samples in circular buffer
          */
@@ -4139,6 +4124,33 @@ static void cleanup_cntr(struct DMMAT* brd)
 
         kfree(cntr);
         brd->cntr = 0;
+}
+
+/*
+ * Check D2A resolution on a MM32DXAT
+ */
+static int checkD2A_MM32DXAT(struct DMMAT_D2A* d2a)
+{
+        unsigned long flags;
+        unsigned char d2aconfig;
+        int bits = 16;
+        struct DMMAT* brd = d2a->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        outb(0x07,brd->addr + 8);	// set page 7
+        d2aconfig = inb(brd->addr + 14);
+
+        if (d2aconfig & 0x40) bits = 12;
+
+        outb(0x00,brd->addr + 8);	// set back to page 0
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        KLOG_INFO("%s, board %d, has a %d bit D/A, config=%#02x\n",
+                d2a->deviceName, brd->num, 
+                bits, (unsigned int) d2aconfig);
+        return bits;
 }
 
 static int __init init_d2a(struct DMMAT* brd)
@@ -4203,9 +4215,10 @@ static int __init init_d2a(struct DMMAT* brd)
                 d2a->startWaveforms = startWaveforms_MM32XAT;
                 d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 d2a->cmax = 65535;
+                checkD2A_MM32DXAT(d2a);
                 break;
         }
-            
+
         switch(d2aconfig[brd->num]) {
         case DMMAT_D2A_UNI_5:
                 d2a->vmin = 0;
@@ -4240,7 +4253,6 @@ static int __init init_d2a(struct DMMAT* brd)
         }
         return result;
 }
-
 
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */
@@ -4374,7 +4386,7 @@ static void dmd_mmat_cleanup(void)
 }
 
 static int __init dmd_mmat_init(void)
-{	
+{
         int result = -EINVAL;
         int ib;
         int numBoardTypes = sizeof(BOARD_TYPE_STRS) / sizeof(BOARD_TYPE_STRS[0]);
@@ -4402,7 +4414,7 @@ static int __init dmd_mmat_init(void)
          *  (3,8,13,...)    Digital out
          *  (4,9,14,...)    D2D
          */
-  
+
         result = alloc_chrdev_region(&dmmat_device, 0,
             numboards * DMMAT_DEVICES_PER_BOARD,"dmd_mmat");
         if (result < 0) goto err;

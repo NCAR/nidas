@@ -190,7 +190,8 @@ int PacketReader::parseRunstring(int argc, char** argv)
                          _app.Help);
     // conflicts with header file.
     _app.Help.acceptShortFlag(false);
-    
+    _app.allowUnrecognized(true);
+
     // The default logging scheme logs to syslog.  Set it here so it can be
     // overridden by command-line options.  Note things are a little broken
     // here because the NidasApp logging options are applied first, even if

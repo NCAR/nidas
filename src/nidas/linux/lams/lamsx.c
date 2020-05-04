@@ -42,13 +42,13 @@
     do this (word size remains at 36 after each accumulation).  After all
     accumulations are done the  36-bit word is reduced to 32-bits by shifting
     right 4 times. The card then generates an interrupt.
-    
+
     Upon an interrupt, these 32 bit averages are read by the ISR in this driver
     (lams_irq_handler) as 2 16 bit words from AVG_LSW_DATA_OFFSET and
     AVG_MSW_DATA_OFFSET. These values are then further averaged by this
     driver before being passed onto the user.  The number of points in an average
     is set by via the LAMS_N_AVG ioctl.
-   
+
     The spectra contain 1024 values. Since the input is real,
     only 512 values are independent (the other 512 are complex conjugates).
     Due to latency in the FPGA and due to the continuous
@@ -102,17 +102,6 @@
 # define IRQF_SHARED SA_SHIRQ
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-#define mutex_init(x)               init_MUTEX(x)
-#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
-#define mutex_unlock(x)             up(x)
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-#define portable_access_ok(mode, userptr, len) access_ok(mode, userptr, len)
-#else
-#define portable_access_ok(mode, userptr, len) access_ok(userptr, len)
-#endif
 
 static const char* driver_name = "lamsx";
 
@@ -209,7 +198,6 @@ struct LAMS_board {
 
         char deviceName[32];
 
-        
         struct device* device;
 
         struct cdev cdev;
@@ -401,7 +389,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-        if (!asamp) {                
+        if (!asamp) {
                 // No output sample available.  Do the minimum necessary to
                 // acknowledge the interrupt and then return.
 
@@ -498,7 +486,7 @@ static int lams_request_irq(struct LAMS_board* brd)
         irq = irqs[brd->num];
 #endif
         KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
-        
+
         /* The LAMS card does not have an interrupt status register,
          * so we cannot find out if an interrupt is for us. Therefore we
          * can't share this interrupt.
@@ -705,7 +693,7 @@ static long lams_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         BUG_ON(brd != boards + ibrd);
 
-        switch (cmd) 
+        switch (cmd)
         {
                 case LAMS_SET_CHN:  // does nothing in this driver
                         result = 0;
@@ -818,7 +806,7 @@ static void lams_cleanup(void)
 }
 
 static int __init lams_init(void)
-{	
+{
         int result = -EINVAL;
         int ib;
 

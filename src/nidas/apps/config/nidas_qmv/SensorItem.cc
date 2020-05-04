@@ -37,8 +37,8 @@
 using namespace xercesc;
 using namespace std;
 
-SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, 
-                       NidasItem *parent) 
+SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel,
+                       NidasItem *parent)
 {
     _sensor = sensor;
     domNode = 0;
@@ -49,17 +49,17 @@ SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel,
     model = theModel;
 }
 
-SensorItem::SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel, 
-                       NidasItem *parent) 
+SensorItem::SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel,
+                       NidasItem *parent)
 {
     _sensor = sensor;
     domNode = 0;
-    
+
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
     model = theModel;
-} 
+}
 
 SensorItem::~SensorItem()
 {
@@ -73,7 +73,7 @@ SensorItem::~SensorItem()
 
 /*
  * unparent the children and schedule them for deletion
- * prevents parentItem->removeChild() from being called for an already gone 
+ * prevents parentItem->removeChild() from being called for an already gone
  * parentItem
  *
  * can't be done because children() is const
@@ -125,10 +125,10 @@ void SensorItem::refreshChildItems()
   SampleTagIterator it;
   for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext();) {
     SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
-    for (VariableIterator vt = sample->getVariableIterator(); 
+    for (VariableIterator vt = sample->getVariableIterator();
                           vt.hasNext(); j++) {
       Variable* variable = (Variable*)vt.next(); // XXX cast from const
-      NidasItem *childItem = new VariableItem(variable, sample, j, 
+      NidasItem *childItem = new VariableItem(variable, sample, j,
                                               model, this);
       childItems.append( childItem);
     }
@@ -138,7 +138,7 @@ void SensorItem::refreshChildItems()
 QString SensorItem::dataField(int column)
 {
     switch (column) {
-      case 0: 
+      case 0:
         return viewName();
       case 1:
         return QString::fromStdString(_sensor->getSuffix());
@@ -210,11 +210,11 @@ cerr<<"SensorItem::findDOMNode\n";
   if (!dsmItem) return(0);
   DOMNode * DSMNode = dsmItem->getDOMNode();
 
-  //for (XMLSize_t i = 0; i < SiteNodes->getLength(); i++) 
+  //for (XMLSize_t i = 0; i < SiteNodes->getLength(); i++)
   //{
      //XDOMElement xnode((DOMElement *)SiteNodes->item(i));
      //const string& sSiteName = xnode.getAttributeValue("name");
-     //if (sSiteName == dsmConfig->getSite()->getName()) { 
+     //if (sSiteName == dsmConfig->getSite()->getName()) {
        //cerr<<"getSiteNode - Found SiteNode with name:" << sSiteName << endl;
        //SiteNode = SiteNodes->item(i);
        //break;
@@ -228,7 +228,7 @@ cerr<< "getting a list of sensors for DSM\n";
   DOMNode * SensorNode = 0;
   int sensorId = _sensor->getSensorId();
 
-  for (XMLSize_t i = 0; i < SensorNodes->getLength(); i++) 
+  for (XMLSize_t i = 0; i < SensorNodes->getLength(); i++)
   {
      DOMNode * dsmChild = SensorNodes->item(i);
      if ( ((string)XMLStringConverter(dsmChild->getNodeName())).find("ensor") == string::npos ) continue;
@@ -250,10 +250,10 @@ cerr<< "getting a list of sensors for DSM\n";
  * \brief find the DOM node for the given sample tag
  *
  *  Search through the Sensor DOM Node children looking for nodes with
- *  the name sample and for every one found, see if the id attribute of 
+ *  the name sample and for every one found, see if the id attribute of
  *  that node is equal to the sampleId passed in.  Note that we search
  *  through all children of the sensor node because we want the last such
- *  node.  Nidas allows multiple definitions, using the last one as the 
+ *  node.  Nidas allows multiple definitions, using the last one as the
  *  'final' say so.
  */
 DOMNode * SensorItem::findSampleDOMNode(unsigned int sampleId)
@@ -328,7 +328,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     throw InternalProcessingException("Could not find sample DOM node");
   }
 
-  // delete all the matching variable DOM nodes from this Sample's DOM node 
+  // delete all the matching variable DOM nodes from this Sample's DOM node
   //   (schema allows overrides/multiples)
   xercesc::DOMNode* child;
   xercesc::DOMNodeList* sampleChildren = sampleNode->getChildNodes();
@@ -356,7 +356,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
       }
   }
 
-  // delete variable from nidas model 
+  // delete variable from nidas model
   for (VariableIterator vi = sampleTag->getVariableIterator(); vi.hasNext(); ) {
     const Variable* variable = vi.next();
     if (variable->getName() == deleteVariableName)  {
@@ -379,7 +379,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     }
     cerr << "past getSensorNode()\n";
 
-    // delete all the matching sample DOM nodes from this Sensor's DOM node 
+    // delete all the matching sample DOM nodes from this Sensor's DOM node
     //   (schema allows overrides/multiples)
     xercesc::DOMNode* child;
     xercesc::DOMNodeList* sensorChildren = sensorNode->getChildNodes();
@@ -390,15 +390,14 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
         if (!(child = sensorChildren->item(index))) continue;
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
-  
+
         const string& elname = xchild.getNodeName();
         if (elname == "sample")
         {
-  
           const string & id = xchild.getAttributeValue("id");
           cerr << "found node with name " << elname  << " and id: " << id << endl;
-  
-            if (id == deleteSampleIdStr) 
+
+            if (id == deleteSampleIdStr)
             {
                xercesc::DOMNode* removableChld = sensorNode->removeChild(child);
                removableChld->release();

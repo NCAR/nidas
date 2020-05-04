@@ -227,7 +227,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
 			string("bad input character: \'") +
 			string((char)n,1) + "\'");
 	    }
-	    fscanf(fp,"%*[^\n]");	// skip to newline
+	    (void)fscanf(fp,"%*[^\n]");	// skip to newline
 	}
 	else {
 	    if (ncoef < nexpect) coefs[ncoef] = val;
@@ -365,7 +365,7 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+	ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
 	return;
     }
 
@@ -385,15 +385,13 @@ void DSMAnalogSensor::printStatus(std::ostream& ostr) throw()
 		", #lost=" << stat.skippedSamples;
 
 	ostr << ", temp=" << fixed << setprecision(1) <<
-	    tdeg << " degC</td>" << endl;
-
-        ostr << "</td>";
+	    tdeg << " degC</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: printStatus: %s",getName().c_str(),
 	    ioe.what());
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
     }
 }
 

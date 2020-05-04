@@ -24,8 +24,8 @@
  ********************************************************************
 */
 /*
-    Interface for the PC104-SG time and frequency processor.
-
+ *  Interface for the PC104-SG time and frequency processor.
+ *
 */
 
 #ifndef PC104SG_H

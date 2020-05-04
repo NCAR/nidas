@@ -1,0 +1,95 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "scons",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "BUILDS=host"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "scons install",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "BUILDS=host",
+                "install"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "label": "scons test",
+            "type": "process",
+            "command": "scons",
+            "args": [
+                "-C",
+                "${workspaceFolder}/src",
+                "-u",
+                "BUILDS=host",
+                "test"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "g++ build active file",
+            "command": "/usr/bin/g++",
+            "args": [
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "options": {
+                "cwd": "/usr/bin"
+            }
+        }
+    ]
+}
