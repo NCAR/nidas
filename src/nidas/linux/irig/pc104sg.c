@@ -28,11 +28,13 @@
  *
  * Driver for Brandywine's PC104-SG IRIG card
  *
- * 1. Enables a 10 KHz output used by other cards in the PC104 stack
- * 2. Allows other driver modules to register callbacks, to be
+ * 1. Enables a 10 KHz output, on P10 pin 10, used by other cards in the PC104 stack
+ * 2. Enables a 100/sec heartbeat which is output on P10, pin 8, and also
+ *    generates an interrupt on the ISA/PC104 bus.
+ * 3. Allows other driver modules to register callbacks, to be
  *    called at desired rates from 0.1/sec to 100/sec.
  *    a. registers its own 1/sec callback function, oneHzFunction.
- * 3. Enables a 100/sec interrupt, whose ISR, pc104sg_isr:
+ * 4. Attaches an ISR, function pc104sg_isr, to the 100/sec interrupt, which:
  *    a. Reads the extended status value from DPRAM, issues request
  *       for next extended status. In this way, by issuing DPRAM requests
  *       0.01 seconds apart, one doesn't have to wait for the DPRAM
@@ -41,7 +43,7 @@
  *       the IRIG clock, the UNIX system clock, the board synchronization state,
  *       and the status of the IRIG and PPS inputs.
  *    c. schedules a software tasklet to run
- * 4. The 100Hz software tasklet, function pc104sg_bh_100Hz:
+ * 5. The 100Hz software tasklet, function pc104sg_bh_100Hz:
  *    a. maintains a 4 byte unsigned int software clock, in units of
  *       1/10ths of milliseconds, rolling over at 00:00 UTC. This clock
  *       can be read by other modules.
@@ -49,7 +51,7 @@
  *       including its own callback at 1/sec.
  *    c. If near the end of the current second, sets doSnapShot, so that
  *       the ISR will take a clock snapshot on the next run.
- * 5. The 1 Hz callback, oneHzFunction:
+ * 6. The 1 Hz callback, oneHzFunction:
  *    a. Uses the last snapshot to determine the quality of the software
  *       clock counter.
  *       * If the board is in sync with IRIG and PPS inputs, the
@@ -66,7 +68,7 @@
  *         At this point no drivers have resync-callbacks, this capability
  *         has not been tested, probably could be removed.
  *    b. Places the snapshot values in a NIDAS sample and queues it for read.
- * 6. Provides a open/close/poll/read/ioctl device interface.
+ * 7. Provides a open/close/poll/read/ioctl device interface.
  *    a. ioctls: GET_STATUS, GET_CLOCK, SET_CLOCK.
  *       SET_CLOCK allows the user to initialize parts of the IRIG clock, namely
  *       the year and major time (1 second or greater) fields.
