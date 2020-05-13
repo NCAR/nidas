@@ -565,9 +565,6 @@ void CounterClient::printResults(std::ostream& outs)
          << setw(lenpow[0] + lenpow[1]) << " minMaxLen"
          << endl;
     
-    //CHRIS ADDed
-    std::vector<string> counterAsStrings;
-    
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter& ss = si->second;
@@ -625,11 +622,8 @@ void CounterClient::printResults(std::ostream& outs)
 
         if (_reportdata){
             printData(outs, ss);
-            //adding call to json output method**
-            addToJson(counterAsStrings, ss);
         }
     }
-    writeToJson(counterAsStrings, "data_stats.json");
 }
 
 
@@ -683,9 +677,7 @@ printData(std::ostream& outs, SampleCounter& ss)
             outs << "(*" << ss.nnans[i] << " NaN*)";
         }
     }
-    
     outs << endl;
-
 }
 
 
