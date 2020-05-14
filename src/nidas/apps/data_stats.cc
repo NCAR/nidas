@@ -59,15 +59,21 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+/**
+ * SampleCounter accumulates samples and values for a particular sample stream.
+ **/
 class SampleCounter
 {
 public:
     /**
-     * A default constructor is required to use objects as a map element.
+     * Create a SampleCounter for the given sample id @p sid.  A sensor name
+     * can be set for this sample using @p sname.  If the SampleTag for this
+     * sample is passed in @p stag, then it is used to store the variable
+     * names for the sample values.
      **/
     SampleCounter(dsm_sample_id_t sid = 0, const std::string& sname = "",
                   const SampleTag* stag = 0) :
-        name(sname),
+        sname(sname),
         id(sid),
         t1s(0),
         t2s(0),
@@ -78,7 +84,9 @@ public:
         maxDeltaTs(0),
         sums(),
         nnans(),
+        values(),
         rawmsg(),
+        times(),
         varnames()
     {
         if (stag)
@@ -91,6 +99,37 @@ public:
         }
     }
 
+    /**
+     * Format the sensor name or variable names for this SampleCounter into a
+     * comma-separated list, abbreviated to a shortened form unless @p
+     * fullnames is true.  If this is a raw counter, meaning no variables,
+     * then use the sensor name.
+     **/
+    std::string
+    getHeader(bool fullnames)
+    {
+        if (varnames.empty())
+            return sname;
+        string varname = varnames[0];
+        for (unsigned int i = 1; fullnames && i < varnames.size(); ++i)
+        {
+            varname += "," + varnames[i];
+        }
+        if (!fullnames && varnames.size() > 1)
+        {
+            varname += ",...";
+        }
+        // Include device name in the full variable names
+        if (fullnames)
+        {
+            varname = "[" + sname + "] " + varname;
+        }
+        return varname;
+    }
+
+    /**
+     * Reset the accumulated data without changing the sample tag information.
+     **/
     void
     reset()
     {
@@ -103,7 +142,9 @@ public:
         maxDeltaTs = 0;
         sums.clear();
         nnans.clear();
-        rawmsg.erase();
+        values.clear();
+        rawmsg.clear();
+        times.clear();
     }
 
     bool
@@ -112,7 +153,7 @@ public:
     void
     accumulate(const Sample* samp);
 
-    string name;
+    string sname;
     dsm_sample_id_t id;
 
     dsm_time_t t1s;
@@ -124,16 +165,21 @@ public:
     int maxDeltaTs;
 
     // Accumulate sums of each variable in the sample and counts of the
-    // number of nans seen in each variable.
+    // number of nans seen in each variable.  These are vectors keyed by
+    // variable index.
     vector<float> sums;
     vector<int> nnans;
+    vector<vector<float> > values;
 
-    // For raw samples, just keep the last message seen.  Someday this
-    // could be a buffer of the last N messages.
-    std::string rawmsg;
+    // For raw samples, build up a vector of the raw messages converted to strings.
+    vector<std::string> rawmsg;
+
+    // Collect the timestamps of all the samples also.
+    vector<dsm_time_t> times;
 
     // Stash the variable names from the sample tag to identify the
-    // variables in the accumulated data.
+    // variables in the accumulated data.  This can be used to map from
+    // variable index in the sample to the key for the data maps.
     vector<string> varnames;
 };
 
@@ -173,9 +219,10 @@ receive(const Sample* samp) throw()
     else
     {
         int deltaT = (sampt - t2s + USECS_PER_MSEC/2) / USECS_PER_MSEC;
-	minDeltaTs = std::min(minDeltaTs, deltaT);
-	maxDeltaTs = std::max(maxDeltaTs, deltaT);
+        minDeltaTs = std::min(minDeltaTs, deltaT);
+        maxDeltaTs = std::max(maxDeltaTs, deltaT);
     }
+    times.push_back(sampt);
     t2s = sampt;
 
     size_t slen = samp->getDataByteLength();
@@ -205,7 +252,7 @@ accumulate(const Sample* samp)
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
         if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-        rawmsg = n_u::addBackslashSequences(string(cp,l));
+            rawmsg.push_back(n_u::addBackslashSequences(string(cp,l)));
         return;
     }
     if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
@@ -217,10 +264,12 @@ accumulate(const Sample* samp)
     {
         sums.resize(nvalues);
         nnans.resize(nvalues);
+        values.resize(nvalues);
     }
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
+        values[i].push_back(value);
         if (isnan(value))
         {
             nnans[i] += 1;
@@ -233,16 +282,21 @@ accumulate(const Sample* samp)
 }
 
 
+/**
+ * CounterClient creates a SampleCounter for all the sample tags in a
+ * given list of sensors, then it passes samples to the appropriate 
+ * SampleCounter to be counted.
+ **/
 class CounterClient: public SampleClient 
 {
 public:
 
     /**
-     * CounterClient creates a SampleCounter for all the sample tags in the
-     * given sensors, if any.  Set @p singlemote to expect only one mote
-     * for each sensor type.  When a wisard sensor returns multiple sample
-     * tags with different mote IDs, samples will only be expected from one
-     * of those tags.
+     * Construct a CounterClient, and create a SampleCounter for eacg of the
+     * sample tags in the given sensors, if any.  Set @p singlemote to
+     * expect only one mote for each sensor type.  When a wisard sensor
+     * returns multiple sample tags with different mote IDs, samples will
+     * only be expected from one of those tags.
      **/
     CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
                   bool singlemote, bool fullnames);
@@ -255,6 +309,10 @@ public:
 
     void printResults(std::ostream& outs);
 
+    /**
+     * Format the actual data from this SampleCounter and write it to the
+     * given output stream @p outs.
+     **/
     void
     printData(std::ostream& outs, SampleCounter& ss);
 
@@ -380,29 +438,12 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
             continue;
         }
 
-	// for samples show the first variable name, followed by ",..."
-	// if more than one.
-	SampleTagIterator ti = sensor->getSampleTagIterator();
-	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
+        SampleTagIterator ti = sensor->getSampleTagIterator();
+        for ( ; ti.hasNext(); ) {
+            const SampleTag* stag = ti.next();
             const std::vector<const Variable*>& variables = stag->getVariables();
-	    if (variables.size() > 0)
+            if (variables.size() > 0)
             {
-		string varname = variables.front()->getName();
-                for (unsigned int i = 1;
-                     _fullnames && i < variables.size(); ++i)
-                {
-                    varname += "," + variables[i]->getName();
-                }
-		if (!_fullnames && variables.size() > 1)
-                {
-                    varname += ",...";
-                }
-                // Include device name in the full variable names
-                if (_fullnames)
-                {
-                    varname = "[" + sname + "] " + varname;
-                }
                 // As a special case for wisard sensors, mask the last two
                 // bits of the IDs so all "sensor types" aka I2C addresses
                 // are treated like the same kind of sample.  We use the
@@ -441,11 +482,11 @@ CounterClient::CounterClient(const list<DSMSensor*>& sensors, NidasApp& app,
                 if (it == _samples.end())
                 {
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    SampleCounter pstats(sid, varname, stag);
+                    SampleCounter pstats(sid, sname, stag);
                     _samples[pstats.id] = pstats;
                 }
-	    }
-	}
+            }
+        }
     }
 }
 
@@ -531,8 +572,8 @@ void CounterClient::printResults(std::ostream& outs)
         SampleCounter &ss = si->second;
         if (ss.nsamps == 0 && !_reportall)
             continue;
-
-        maxnamelen = std::max(maxnamelen, ss.name.length());
+        string name = ss.getHeader(_fullnames);
+        maxnamelen = std::max(maxnamelen, name.length());
         if (ss.nsamps >= 1)
         {
             lenpow[0] = std::max(lenpow[0], ndigits(ss.minlens)+1);
@@ -595,12 +636,13 @@ void CounterClient::printResults(std::ostream& outs)
         }
 
         // Put long variable names on a header line before statistics.
+        string name = ss.getHeader(_fullnames);
         if (_fullnames)
         {
-            outs << left << ss.name << endl;
+            outs << left << name << endl;
         }
 
-        outs << left << setw(maxnamelen) << (maxnamelen ? ss.name : "")
+        outs << left << setw(maxnamelen) << (maxnamelen ? name : "")
              << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
@@ -631,13 +673,15 @@ void
 CounterClient::
 printData(std::ostream& outs, SampleCounter& ss)
 {
-    if (ss.rawmsg.length())
-    {
-        outs << " " << ss.rawmsg << endl;
-    }
-    if (ss.sums.size() == 0)
+    // No samples, no data to print.
+    if (ss.nsamps == 0)
     {
         return;
+    }
+    // Print the last raw data message, if there were any.
+    if (ss.rawmsg.size() > 0)
+    {
+        outs << " " << *ss.rawmsg.rbegin() << endl;
     }
     size_t nwidth = 8;
     outs.unsetf(std::ios::fixed);
@@ -1017,22 +1061,22 @@ int DataStats::run() throw()
 
     try {
         AutoProject aproject;
-	IOChannel* iochan = 0;
+    IOChannel* iochan = 0;
 
-	if (app.dataFileNames().size() > 0)
+    if (app.dataFileNames().size() > 0)
         {
             nidas::core::FileSet* fset =
                 nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
-	}
-	else
+    }
+    else
         {
-	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
-	    iochan = new nidas::core::Socket(sock);
+        n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
+        iochan = new nidas::core::Socket(sock);
             _realtime = true;
-	}
+    }
 
-	SampleInputStream sis(iochan, app.processData());
+    SampleInputStream sis(iochan, app.processData());
         sis.setBadSampleFilter(FilterArg.getFilter());
         DLOG(("filter setting: ") << FilterArg.getFilter());
 
@@ -1041,51 +1085,51 @@ int DataStats::run() throw()
             app.addSignal(SIGALRM, &DataStats::handleSignal, true);
         }
         readHeader(sis);
-	const SampleInputHeader& header = sis.getInputHeader();
+    const SampleInputHeader& header = sis.getInputHeader();
 
-	list<DSMSensor*> allsensors;
+    list<DSMSensor*> allsensors;
 
         string xmlFileName = app.xmlHeaderFile();
-	if (xmlFileName.length() == 0)
-	    xmlFileName = header.getConfigName();
-	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+    if (xmlFileName.length() == 0)
+        xmlFileName = header.getConfigName();
+    xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
-	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
+    struct stat statbuf;
+    if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
         {
             n_u::auto_ptr<xercesc::DOMDocument>
                 doc(parseXMLConfigFile(xmlFileName));
 
-	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+        Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
             DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-	    for ( ; di.hasNext(); )
+        for ( ; di.hasNext(); )
             {
-		const DSMConfig* dsm = di.next();
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
-	    }
-	}
+        const DSMConfig* dsm = di.next();
+        const list<DSMSensor*>& sensors = dsm->getSensors();
+        allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
+        }
+    }
         XMLImplementation::terminate();
 
-	SamplePipeline pipeline;                                  
+    SamplePipeline pipeline;                                  
         CounterClient counter(allsensors, app, SingleMote.asBool(),
                               Fullnames.asBool());
         counter.reportAll(AllSamples.asBool());
         counter.reportData(ShowData.asBool());
 
-	if (app.processData()) {
+    if (app.processData()) {
             pipeline.setRealTime(false);                              
             pipeline.setRawSorterLength(0);                           
             pipeline.setProcSorterLength(0);                          
 
-	    list<DSMSensor*>::const_iterator si;
-	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		sensor->init();
+        list<DSMSensor*>::const_iterator si;
+        for (si = allsensors.begin(); si != allsensors.end(); ++si) {
+        DSMSensor* sensor = *si;
+        sensor->init();
                 //  1. inform the SampleInputStream of what SampleTags to expect
                 sis.addSampleTag(sensor->getRawSampleTag());
-	    }
+        }
             // 2. connect the pipeline to the SampleInputStream.
             pipeline.connect(&sis);
 
@@ -1129,7 +1173,7 @@ int DataStats::run() throw()
             counter.printResults(cout);
             throw(e);
         }
-	if (app.processData())
+    if (app.processData())
         {
             pipeline.disconnect(&sis);
             pipeline.flush();
@@ -1146,7 +1190,7 @@ int DataStats::run() throw()
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
-	result = 1;
+    result = 1;
     }
     return result;
 }
