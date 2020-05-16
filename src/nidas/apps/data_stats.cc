@@ -274,6 +274,8 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
     if (sensor)
     {
         const Project* project = sensor->getDSMConfig()->getProject();
+        string dsmname = sensor->getDSMConfig()->getName();
+        header["dsmname"] = dsmname;
         if (project)
             header["project"] = project->getName();
         const Site* site = sensor->getSite();
@@ -966,9 +968,10 @@ private:
     NidasAppArg JsonOutput;
 
     std::unique_ptr<Json::StreamWriter> streamWriter;
+    std::unique_ptr<Json::StreamWriter> headerWriter;
 
     void
-    createJsonWriter();
+    createJsonWriters();
 };
 
 
@@ -977,7 +980,7 @@ bool DataStats::_alarm(false);
 
 void
 DataStats::
-createJsonWriter()
+createJsonWriters()
 {
     if (! streamWriter.get())
     {
@@ -987,6 +990,9 @@ createJsonWriter()
         // the output a little more human readable and concise.
         builder.settings_["precision"] = 5;
         streamWriter.reset(builder.newStreamWriter());
+
+        builder.settings_["indentation"] = "  ";
+        headerWriter.reset(builder.newStreamWriter());
     }
 }
 
@@ -1009,7 +1015,7 @@ writeJson(const std::string& filename, Json::Value& value)
 {
     std::ofstream json;
     json.open(filename.c_str());
-    json << value;
+    headerWriter->write(value, &json);
     json.close();
 }
 
@@ -1050,7 +1056,8 @@ DataStats::DataStats():
                "newline-separated json stream, where each json line is an\n"
                "has fields for each variable short name set to an array\n"
                "of values."),
-    streamWriter()
+    streamWriter(),
+    headerWriter()
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -1226,6 +1233,7 @@ writeResults(CounterClient& counter)
         // been written yet, so they are only written the first time.
         if (!streamWriter.get())
         {
+            createJsonWriters();
             ILOG(("writing json to ") << JsonOutput.getValue());
             // Create a json object which contains all the headers and all the
             // data for all the SampleCounter streams, then write it out.
@@ -1245,7 +1253,6 @@ writeResults(CounterClient& counter)
             }
             writeJson(JsonOutput.getValue(), root);
         }
-        createJsonWriter();
         for (unsigned int i = 0; i < ids.size(); ++i)
         {
             SampleCounter* stream = counter.getSampleCounter(ids[i]);
