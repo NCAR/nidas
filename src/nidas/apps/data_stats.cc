@@ -1049,13 +1049,14 @@ DataStats::DataStats():
     FilterArg(),
     JsonOutput("--json", "<path>",
                "Write json stream headers to the given file path.\n"
-               "The json file contains an object named 'stream' which maps\n"
+               "The json file contains an object which maps\n"
                "each streamid to the header object for that stream.\n"
-               "The stream header contains metadata and a dictionary of\n"
+               "The header contains stream metadata and a dictionary of\n"
                "variables.  The sample data will be written to stdout as a\n"
-               "newline-separated json stream, where each json line is an\n"
-               "has fields for each variable short name set to an array\n"
-               "of values."),
+               "newline-separated json stream, where each json line is\n"
+               "an object with fields for each variable set to an array\n"
+               "of values.  The 'streamid' in the data object relates to\n"
+               "the header with that streamid."),
     streamWriter(),
     headerWriter()
 {
