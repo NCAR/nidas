@@ -964,11 +964,31 @@ private:
     NidasAppArg Fullnames;
     BadSampleFilterArg FilterArg;
     NidasAppArg JsonOutput;
+
+    std::unique_ptr<Json::StreamWriter> streamWriter;
+
+    void
+    createJsonWriter();
 };
 
 
 bool DataStats::_alarm(false);
 
+
+void
+DataStats::
+createJsonWriter()
+{
+    if (! streamWriter.get())
+    {
+        Json::StreamWriterBuilder builder;
+        builder.settings_["indentation"] = "";
+        // This is just a guess at a reasonable value.  The goal is to make
+        // the output a little more human readable and concise.
+        builder.settings_["precision"] = 5;
+        streamWriter.reset(builder.newStreamWriter());
+    }
+}
 
 void
 DataStats::handleSignal(int signum)
@@ -1021,9 +1041,16 @@ DataStats::DataStats():
               "Report all the variable names and the device name for each\n"
               "for each sensor."),
     FilterArg(),
-    JsonOutput("--json", "<directory>",
-               "Write stream headers and data as json to files in the given\n"
-               "directory.  The files will be named after the stream id.")
+    JsonOutput("--json", "<path>",
+               "Write json stream headers to the given file path.\n"
+               "The json file contains an object named 'stream' which maps\n"
+               "each streamid to the header object for that stream.\n"
+               "The stream header contains metadata and a dictionary of\n"
+               "variables.  The sample data will be written to stdout as a\n"
+               "newline-separated json stream, where each json line is an\n"
+               "has fields for each variable short name set to an array\n"
+               "of values."),
+    streamWriter()
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -1179,25 +1206,55 @@ readSamples(SampleInputStream& sis)
 }
 
 
+
+
 void
 DataStats::
 writeResults(CounterClient& counter)
 {
-    counter.printResults(cout);
-    if (JsonOutput.specified())
+    // Print results to stdout unless json output specified.  For json
+    // output, write the headers and data to a file, and stream the data to
+    // stdout in line-separated json.
+    if (!JsonOutput.specified())
     {
-        ILOG(("writing json to ") << JsonOutput.getValue());
-        // Create a json object which contains all the headers and all the
-        // data for all the SampleCounter streams, then write it out.
-        Json::Value root;
+        counter.printResults(cout);
+    }
+    else
+    {
         vector<dsm_sample_id_t> ids = counter.getSampleIds();
+        // Use the existence of the json writer to know if the headers have
+        // been written yet, so they are only written the first time.
+        if (!streamWriter.get())
+        {
+            ILOG(("writing json to ") << JsonOutput.getValue());
+            // Create a json object which contains all the headers and all the
+            // data for all the SampleCounter streams, then write it out.
+            Json::Value root;
+            for (unsigned int i = 0; i < ids.size(); ++i)
+            {
+                SampleCounter* stream = counter.getSampleCounter(ids[i]);
+                root[stream->streamid] = stream->jsonHeader();
+                // If we ever want to combine headers and data into one
+                // file, such as for serving through a web server, then we
+                // can do like below.  For now, when only the headers are
+                // needed in the file and the data are streamed to stdout,
+                // the "stream" hash is superfluous.
+                //
+                // root["stream"][stream->streamid] = stream->jsonHeader();
+                // root["data"][stream->streamid] = stream->jsonData();
+            }
+            writeJson(JsonOutput.getValue(), root);
+        }
+        createJsonWriter();
         for (unsigned int i = 0; i < ids.size(); ++i)
         {
             SampleCounter* stream = counter.getSampleCounter(ids[i]);
-            root["stream"][stream->streamid] = stream->jsonHeader();
-            root["data"][stream->streamid] = stream->jsonData();
+            if (stream->nsamps || AllSamples.asBool())
+            {
+                streamWriter->write(stream->jsonData(), &std::cout);
+                std::cout << std::endl;
+            }
         }
-        writeJson(JsonOutput.getValue(), root);
     }
     counter.resetResults();
 }
