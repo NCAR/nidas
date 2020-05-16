@@ -1,5 +1,5 @@
 # -*- python -*-
-## 2004, Copyright University Corporation for Atmospheric Research
+# 2004, Copyright University Corporation for Atmospheric Research
 
 # This SConscript can be run two ways.  Normally it is part of a full build
 # of the NIDAS source tree, using variant dirs to build into different
@@ -19,10 +19,12 @@ import os
 import eol_scons
 import eol_scons.parseconfig as pc
 
+
 def check_pkg_config(env, pkg):
     found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
     print("pkg-config found for %s: %s" % (pkg, ["no", "yes"][int(found)]))
     return found
+
 
 cpp11_source = """
 #include <string>  //for converting data to_string
@@ -33,22 +35,25 @@ std::string one = std::to_string(1);
 return 0;
 }
 """
+
+
 def CheckCpp11(context):
     context.env.Append(CXXFLAGS='-std=c++11')
     context.Message('Checking for C++11 support...')
     result = context.TryCompile(cpp11_source, '.cc')
     context.Result(result)
     return result
- 
-custom_tests = {'CheckCpp11':CheckCpp11}
+
+
+custom_tests = {'CheckCpp11': CheckCpp11}
 
 
 if not ARGUMENTS.get('NIDAS_PATH'):
-    ##
-    ##  Import the build environment.
-    ##
+    #
+    #  Import the build environment.
+    #
     Import('env')
-    env = env.Clone(tools = ['nidas'])
+    env = env.Clone(tools=['nidas'])
     arch = env['ARCH']  # empty string for native builds
     machs = env['MACHS']
 else:
@@ -63,6 +68,9 @@ else:
     xlibs = env.subst("${NIDAS_PATH}/lib/arm-linux-gnueabihf")
     if os.path.exists(xlibs):
         env.Append(LIBPATH=xlibs)
+
+# Add jsoncpp to the environment for all now that a few apps use it.
+jsoncpp_enabled = False if arch else check_pkg_config(env, 'jsoncpp')
 
 programs = Split("""
 arl-ingest
@@ -118,8 +126,7 @@ didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
 if not dbconf.CheckCpp11():
     print("No C++11 support, data_influxdb will not be built.")
-elif bool(not arch and
-          check_pkg_config(didbenv, 'jsoncpp') and
+elif bool(not arch and jsoncpp_enabled and
           check_pkg_config(didbenv, 'libcurl')):
     print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
     didbenv.AppendUnique(CXXFLAGS='-std=c++11')
@@ -135,7 +142,7 @@ sdenv = env.Clone()
 # probably wouldn't get all the special compiler setup from the top level.
 sdenv.Replace(LIBS=[])
 sdconf = sdenv.Configure()
-if not arch and check_pkg_config(sdenv, 'jsoncpp'):
+if jsoncpp_enabled:
     print("sync_dump will be built with json support")
     sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
 else:
@@ -149,7 +156,7 @@ ncenv = env.Clone()
 try:
     if pc.CheckConfig(env, 'pkg-config nc_server'):
         ncenv.MergeFlags('!pkg-config --cflags nc_server')
-except OSerror:
+except OSError:
     pass
 
 ncenv.NidasProgram('isff/prep.cc')
@@ -234,7 +241,7 @@ if arch != '':
     env.NidasUtilProgram('garmin.cc')
 
 # build auto_cal and config
-if not env.has_key("BUILD_RAF") or env['BUILD_RAF']:
+if "BUILD_RAF" not in env or env['BUILD_RAF']:
     SConscript("auto_cal/SConscript", exports=['env'])
     SConscript("config/SConscript", exports=['env'])
 
