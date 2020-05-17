@@ -1378,8 +1378,8 @@ int DataStats::run()
     {
         if (_period > 0 && _realtime)
         {
-            cout << "....... Collecting samples for " << _period << " seconds "
-                    << "......." << endl;
+            ILOG(("") << "....... Collecting samples for "
+                      << _period << " seconds " << ".......");
         }
         while (!app.interrupted() && !reportsExhausted(++_nreports))
         {
