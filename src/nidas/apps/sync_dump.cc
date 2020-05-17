@@ -26,6 +26,10 @@
 
 #include <ctime>
 
+#if defined(NIDAS_JSONCPP_ENABLED) and NIDAS_JSONCPP_ENABLED
+#define SYNC_RECORD_JSON_OUTPUT
+#endif
+
 #include <nidas/core/FileSet.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/auto_ptr.h>

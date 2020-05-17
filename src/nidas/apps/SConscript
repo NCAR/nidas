@@ -71,6 +71,11 @@ else:
 
 # Add jsoncpp to the environment for all now that a few apps use it.
 jsoncpp_enabled = False if arch else check_pkg_config(env, 'jsoncpp')
+if jsoncpp_enabled:
+    print("jsoncpp enabled for data_stats and sync_dump.")
+    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
+else:
+    print("jsoncpp not enabled.")
 
 programs = Split("""
 arl-ingest
@@ -103,6 +108,7 @@ serstress
 sing
 statsproc
 status_listener
+sync_dump
 sync_server
 trh_load_cal
 xml_dump
