@@ -907,7 +907,7 @@ public:
 
     ~DataStats() {}
 
-    int run() throw();
+    int run();
 
     void readHeader(SampleInputStream& sis);
 
@@ -1120,11 +1120,19 @@ int DataStats::main(int argc, char** argv)
 {
     DataStats stats;
     int result;
-    if ((result = stats.parseRunstring(argc, argv)))
+    if (! (result = stats.parseRunstring(argc, argv)))
     {
-        return result;
+        try {
+            result = stats.run();
+        }
+        catch (n_u::Exception& e)
+        {
+            cerr << e.what() << endl;
+            XMLImplementation::terminate(); // ok to terminate() twice
+            result = 1;
+        }
     }
-    return stats.run();
+    return result;
 }
 
 class AutoProject
@@ -1214,8 +1222,6 @@ readSamples(SampleInputStream& sis)
 }
 
 
-
-
 void
 DataStats::
 writeResults(CounterClient& counter)
@@ -1268,12 +1274,11 @@ writeResults(CounterClient& counter)
 }
 
 
-int DataStats::run() throw()
+int DataStats::run()
 {
     int result = 0;
 
-    try {
-        AutoProject aproject;
+    AutoProject aproject;
     IOChannel* iochan = 0;
 
     if (app.dataFileNames().size() > 0)
@@ -1331,7 +1336,8 @@ int DataStats::run() throw()
     counter.reportAll(AllSamples.asBool());
     counter.reportData(ShowData.asBool());
 
-    if (app.processData()) {
+    if (app.processData())
+    {
         pipeline.setRealTime(false);                              
         pipeline.setRawSorterLength(0);                           
         pipeline.setProcSorterLength(0);                          
@@ -1346,64 +1352,62 @@ int DataStats::run() throw()
         // 2. connect the pipeline to the SampleInputStream.
         pipeline.connect(&sis);
 
-            // 3. connect the client to the pipeline
-            pipeline.getProcessedSampleSource()->addSampleClient(&counter);
-        }
-        else sis.addSampleClient(&counter);
+        // 3. connect the client to the pipeline
+        pipeline.getProcessedSampleSource()->addSampleClient(&counter);
+    }
+    else
+    {
+        sis.addSampleClient(&counter);
+    }
 
-        try {
-            if (_period > 0 && _realtime)
-            {
-                cout << "....... Collecting samples for " << _period << " seconds "
-                     << "......." << endl;
-            }
-            while (!app.interrupted() && !reportsExhausted(++_nreports))
-            {
-                readSamples(sis);
-                writeResults(counter);
-            }
-        }
-        catch (n_u::EOFException& e)
+    try
+    {
+        if (_period > 0 && _realtime)
         {
-            cerr << e.what() << endl;
+            cout << "....... Collecting samples for " << _period << " seconds "
+                    << "......." << endl;
+        }
+        while (!app.interrupted() && !reportsExhausted(++_nreports))
+        {
+            readSamples(sis);
             writeResults(counter);
         }
-        catch (n_u::IOException& e)
+    }
+    catch (n_u::EOFException& e)
+    {
+        cerr << e.what() << endl;
+        writeResults(counter);
+    }
+    catch (n_u::IOException& e)
+    {
+        if (app.processData())
         {
-            if (app.processData())
-            {
-                pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
-                pipeline.disconnect(&sis);
-                pipeline.interrupt();
-                pipeline.join();
-            }
-            else
-            {
-                sis.removeSampleClient(&counter);
-            }
-            sis.close();
-            writeResults(counter);
-            throw(e);
-        }
-    if (app.processData())
-        {
-            pipeline.disconnect(&sis);
-            pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+            pipeline.disconnect(&sis);
+            pipeline.interrupt();
+            pipeline.join();
         }
         else
         {
             sis.removeSampleClient(&counter);
         }
         sis.close();
-        pipeline.interrupt();
-        pipeline.join();
+        writeResults(counter);
+        throw(e);
     }
-    catch (n_u::Exception& e) {
-        cerr << e.what() << endl;
-        XMLImplementation::terminate(); // ok to terminate() twice
-    result = 1;
+    if (app.processData())
+    {
+        pipeline.disconnect(&sis);
+        pipeline.flush();
+        pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
     }
+    else
+    {
+        sis.removeSampleClient(&counter);
+    }
+    sis.close();
+    pipeline.interrupt();
+    pipeline.join();
     return result;
 }
 
