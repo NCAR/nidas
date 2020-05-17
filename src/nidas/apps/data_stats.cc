@@ -53,7 +53,12 @@
 
 #include <unistd.h>
 
+#ifndef NIDAS_JSONCPP_ENABLED
+#define NIDAS_JSONCPP_ENABLED 1
+#endif
+#if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
+#endif
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -92,8 +97,10 @@ public:
         rawmsg(),
         times(),
         varnames(),
-        fullnames(),
-        header()
+        fullnames()
+#if NIDAS_JSONCPP_ENABLED        
+        ,header()
+#endif
     {
         streamid = generateStreamId(sensor);
         if (sensor)
@@ -179,21 +186,6 @@ public:
     printData(std::ostream& outs);
 
     /**
-     * Return a Json::Value node containing all the data in this SampleCounter.
-     **/
-    Json::Value
-    jsonData();
-
-    /**
-     * Return a Json::Value containing just the header for this SampleClient.
-     **/
-    Json::Value
-    jsonHeader()
-    {
-        return header;
-    }
-
-    /**
      * Generate a streamid for this SampleCounter.  The streamid is the unique identifer for this stream of samples based on 
      * the available metadata.
      **/
@@ -234,8 +226,25 @@ public:
     vector<string> varnames;
     vector<string> fullnames;
 
+#if NIDAS_JSONCPP_ENABLED
+    /**
+     * Return a Json::Value node containing all the data in this SampleCounter.
+     **/
+    Json::Value
+    jsonData();
+
+    /**
+     * Return a Json::Value containing just the header for this SampleClient.
+     **/
+    Json::Value
+    jsonHeader()
+    {
+        return header;
+    }
+
     // Store stream header metadata.
     Json::Value header;
+#endif
 };
 
 
@@ -267,6 +276,7 @@ void
 SampleCounter::
 collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 {
+#if NIDAS_JSONCPP_ENABLED
     header["streamid"] = streamid;
     header["dsmid"] = GET_DSM_ID(id);
     header["spsid"] = GET_SPS_ID(id);
@@ -304,6 +314,7 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
         }
     }
     ILOG(("created stream header: ") << header);
+#endif
 }
 
 
@@ -864,7 +875,7 @@ printData(std::ostream& outs)
     outs << endl;
 }
 
-
+#if NIDAS_JSONCPP_ENABLED
 Json::Value
 SampleCounter::
 jsonData()
@@ -898,7 +909,7 @@ jsonData()
     data["time"] = jtimes;
     return data;
 }
-
+#endif
 
 class DataStats
 {
@@ -929,9 +940,6 @@ public:
             _nreports = nreports;
         return (_count > 0 && _nreports > _count);
     }
-
-    void
-    writeJson(const std::string& filename, Json::Value& value);
 
     void
     writeResults(CounterClient& counter);
@@ -967,34 +975,32 @@ private:
     BadSampleFilterArg FilterArg;
     NidasAppArg JsonOutput;
 
+#if NIDAS_JSONCPP_ENABLED
     std::unique_ptr<Json::StreamWriter> streamWriter;
     std::unique_ptr<Json::StreamWriter> headerWriter;
 
     void
-    createJsonWriters();
+    createJsonWriters()
+    {
+        if (! streamWriter.get())
+        {
+            Json::StreamWriterBuilder builder;
+            builder.settings_["indentation"] = "";
+            // This is just a guess at a reasonable value.  The goal is to make
+            // the output a little more human readable and concise.
+            builder.settings_["precision"] = 5;
+            streamWriter.reset(builder.newStreamWriter());
+
+            builder.settings_["indentation"] = "  ";
+            headerWriter.reset(builder.newStreamWriter());
+        }
+    }
+#endif
 };
 
 
 bool DataStats::_alarm(false);
 
-
-void
-DataStats::
-createJsonWriters()
-{
-    if (! streamWriter.get())
-    {
-        Json::StreamWriterBuilder builder;
-        builder.settings_["indentation"] = "";
-        // This is just a guess at a reasonable value.  The goal is to make
-        // the output a little more human readable and concise.
-        builder.settings_["precision"] = 5;
-        streamWriter.reset(builder.newStreamWriter());
-
-        builder.settings_["indentation"] = "  ";
-        headerWriter.reset(builder.newStreamWriter());
-    }
-}
 
 void
 DataStats::handleSignal(int signum)
@@ -1006,17 +1012,6 @@ DataStats::handleSignal(int signum)
         NidasApp::setInterrupted(false);
         _alarm = true;
     }
-}
-
-
-void
-DataStats::
-writeJson(const std::string& filename, Json::Value& value)
-{
-    std::ofstream json;
-    json.open(filename.c_str());
-    headerWriter->write(value, &json);
-    json.close();
 }
 
 
@@ -1056,9 +1051,11 @@ DataStats::DataStats():
                "newline-separated json stream, where each json line is\n"
                "an object with fields for each variable set to an array\n"
                "of values.  The 'streamid' in the data object relates to\n"
-               "the header with that streamid."),
-    streamWriter(),
+               "the header with that streamid.")
+#if NIDAS_JSONCPP_ENABLED
+    ,streamWriter(),
     headerWriter()
+#endif
 {
     app.setApplicationInstance();
     app.setupSignals();
@@ -1067,8 +1064,10 @@ DataStats::DataStats():
                         app.FormatSampleId | app.ProcessData |
                         app.Version | app.InputFiles | FilterArg |
                         app.Help | Period | Count |
-                        AllSamples | ShowData | SingleMote | Fullnames |
-                        JsonOutput);
+                        AllSamples | ShowData | SingleMote | Fullnames);
+#if NIDAS_JSONCPP_ENABLED
+    app.enableArguments(JsonOutput);
+#endif               
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
     app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
@@ -1233,6 +1232,7 @@ writeResults(CounterClient& counter)
     {
         counter.printResults(cout);
     }
+#if NIDAS_JSONCPP_ENABLED
     else
     {
         vector<dsm_sample_id_t> ids = counter.getSampleIds();
@@ -1267,7 +1267,10 @@ writeResults(CounterClient& counter)
                 // have a corresponding stream header in the same file.
                 root["data"][stream->streamid] = stream->jsonData();
             }
-            writeJson(JsonOutput.getValue(), root);
+            std::ofstream json;
+            json.open(JsonOutput.getValue().c_str());
+            headerWriter->write(root, &json);
+            json.close();
         }
         // Now stream the data to stdout.
         for (unsigned int i = 0; i < ids.size(); ++i)
@@ -1280,6 +1283,7 @@ writeResults(CounterClient& counter)
             }
         }
     }
+#endif
     counter.resetResults();
 }
 

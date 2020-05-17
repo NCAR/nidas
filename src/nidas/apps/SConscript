@@ -71,6 +71,11 @@ else:
 
 # Add jsoncpp to the environment for all now that a few apps use it.
 jsoncpp_enabled = False if arch else check_pkg_config(env, 'jsoncpp')
+if jsoncpp_enabled:
+    print("jsoncpp enabled for data_stats and sync_dump.")
+    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
+else:
+    print("jsoncpp not enabled.")
 
 programs = Split("""
 arl-ingest
@@ -97,6 +102,7 @@ sensor_extract
 sensor_sim
 statsproc
 status_listener
+sync_dump
 sync_server
 xml_dump
 isff/datasets
@@ -122,16 +128,7 @@ elif bool(not arch and jsoncpp_enabled and
     didbenv.Alias('data_influxdb', didb)
 dbconf.Finish()
 
-sdenv = env.Clone()
-SDSRCS = ['sync_dump.cc']
-sdconf = sdenv.Configure()
-if jsoncpp_enabled:
-    print("sync_dump will be built with json support")
-    sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
-else:
-    print("sync_dump will be built without json support")
-
-# linux/i2c-dev.h contains only macros, no library needed.
+sdconf = env.Configure()
 # It exists on RedHat systems, but does not contain
 # macros such as i2c_smbus_read_byte_data
 has_i2c = False
@@ -144,10 +141,7 @@ if sdconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
     if not sdconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
             'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
         env.Append(CPPDEFINES="OLD_I2C_API")
-
-sdenv = sdconf.Finish()
-sdenv.Append(CPPFLAGS='-Wno-effc++')
-env.Alias('sync_dump', sdenv.NidasProgram(SDSRCS))
+sdconf.Finish()
 
 ncenv = env.Clone()
 try:
