@@ -1242,24 +1242,34 @@ writeResults(CounterClient& counter)
         {
             createJsonWriters();
             ILOG(("writing json to ") << JsonOutput.getValue());
+        }
+        if (1)
+        {
             // Create a json object which contains all the headers and all the
             // data for all the SampleCounter streams, then write it out.
             Json::Value root;
             for (unsigned int i = 0; i < ids.size(); ++i)
             {
                 SampleCounter* stream = counter.getSampleCounter(ids[i]);
-                root[stream->streamid] = stream->jsonHeader();
-                // If we ever want to combine headers and data into one
-                // file, such as for serving through a web server, then we
-                // can do like below.  For now, when only the headers are
-                // needed in the file and the data are streamed to stdout,
-                // the "stream" hash is superfluous.
-                //
-                // root["stream"][stream->streamid] = stream->jsonHeader();
-                // root["data"][stream->streamid] = stream->jsonData();
+                // Use a "stream" field in the top level object to provide a
+                // "namespace" for stream objects.  Keeping "data" and
+                // "stream" namespaces allows writing both into one file or
+                // into different files, without modifying the schema
+                // expected by consumers.
+                root["stream"][stream->streamid] = stream->jsonHeader();
+                // Rewriting the data every time seems excessive, but at the
+                // moment it's an expedient way to provide both headers and
+                // data in one file for web clients.  Later the data could
+                // be written into a different file.  Also, it might be
+                // possible for the set of headers to change as streams come
+                // and go, so writing them all together means they are
+                // always in sync and consistent.  Every data object will
+                // have a corresponding stream header in the same file.
+                root["data"][stream->streamid] = stream->jsonData();
             }
             writeJson(JsonOutput.getValue(), root);
         }
+        // Now stream the data to stdout.
         for (unsigned int i = 0; i < ids.size(); ++i)
         {
             SampleCounter* stream = counter.getSampleCounter(ids[i]);
