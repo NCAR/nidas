@@ -271,6 +271,20 @@ generateStreamId(const DSMSensor* sensor)
     return out.str();
 }
 
+#if NIDAS_JSONCPP_ENABLED
+/**
+ * If the metadata string value is not empty, assign that
+ * value to the json field named key.
+ **/
+std::string
+assign_if_set(Json::Value& object, const std::string& key,
+              const std::string& value)
+{
+    if (! value.empty())
+        object[key] = value;
+    return value;
+}
+#endif
 
 void
 SampleCounter::
@@ -283,14 +297,22 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 
     if (sensor)
     {
-        const Project* project = sensor->getDSMConfig()->getProject();
-        string dsmname = sensor->getDSMConfig()->getName();
+        const DSMConfig* dsm = sensor->getDSMConfig();
+        const Project* project = dsm->getProject();
+        string dsmname = dsm->getName();
         header["dsmname"] = dsmname;
         if (project)
             header["project"] = project->getName();
         const Site* site = sensor->getSite();
         if (site)
             header["site"] = site->getName();
+        header["device"] = sensor->getDeviceName();
+        // Some fields are not meaningful unless set.
+        assign_if_set(header, "classname", sensor->getClassName());
+        assign_if_set(header, "sensorcatalogname", sensor->getCatalogName());
+        assign_if_set(header, "depth", sensor->getDepthString());
+        assign_if_set(header, "height", sensor->getHeightString());
+        assign_if_set(header, "location", sensor->getLocation());
     }
     if (stag)
     {
