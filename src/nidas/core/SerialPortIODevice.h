@@ -57,21 +57,7 @@ struct PortConfig {
                const PORT_TYPES portType, const TERM term, const int initRts485, const bool initApplied)
         : termios(), xcvrConfig(), rts485(initRts485), applied(initApplied)
     {
-        if (!termios.getLocal()) {
-            VLOG(("PortConfig::PortConfig(...): CLOCAL wasn't set, so set it now..."));
-            termios.setLocal(true);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(...): CLOCAL *was* set already..."));
-        }
-
-        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
-            VLOG(("PortConfig::PortConfig(...): Flow control  wasn't turned off, so set it now..."));
-            termios.setFlowControl(Termios::NOFLOWCONTROL);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(...): Flow control *was* turned off..."));
-        }
+        update_termios();
 
         termios.setBaudRate(baudRate);
         termios.setParity(parity);
@@ -85,59 +71,27 @@ struct PortConfig {
         : termios(rInitPortConfig.termios), xcvrConfig(rInitPortConfig.xcvrConfig), 
           rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied)
     {
-        if (!termios.getLocal()) {
-            VLOG(("PortConfig::PortConfig(copy): CLOCAL wasn't set, so set it now..."));
-            termios.setLocal(true);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(copy): CLOCAL *was* set already..."));
-        }
+        update_termios();
+    }
 
-        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
-            VLOG(("PortConfig::PortConfig(copy): Flow control  wasn't turned off, so set it now..."));
-            termios.setFlowControl(Termios::NOFLOWCONTROL);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(copy): Flow control *was* turned off..."));
-        }
+    PortConfig& operator=(const PortConfig& rInitPortConfig)
+    {
+        termios = rInitPortConfig.termios;
+        xcvrConfig = rInitPortConfig.xcvrConfig;
+        rts485 = rInitPortConfig.rts485;
+        applied = rInitPortConfig.applied;
+        update_termios();
+        return *this;
     }
 
     PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) 
     {
-        if (!termios.getLocal()) {
-            VLOG(("PortConfig::PortConfig(): CLOCAL wasn't set, so set it now..."));
-            termios.setLocal(true);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(): CLOCAL *was* set already..."));
-        }
-
-        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
-            VLOG(("PortConfig::PortConfig(): Flow control  wasn't turned off, so set it now..."));
-            termios.setFlowControl(Termios::NOFLOWCONTROL);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(): Flow control *was* turned off..."));
-        }
+        update_termios();
     }
     PortConfig(const std::string& rDeviceName, const int fd)
         : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) 
     {
-        if (!termios.getLocal()) {
-            VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
-            termios.setLocal(true);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
-        }
-
-        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
-            VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
-            termios.setFlowControl(Termios::NOFLOWCONTROL);
-        }
-        else {
-            VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
-        }
+        update_termios();
     }
 
     bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
@@ -162,6 +116,27 @@ struct PortConfig {
     XcvrConfig xcvrConfig;
     int rts485;
     bool applied;
+
+private:
+    void update_termios()
+    {
+        if (!termios.getLocal()) {
+            VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
+            termios.setLocal(true);
+        }
+        else {
+            VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
+        }
+
+        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
+            VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
+            termios.setFlowControl(Termios::NOFLOWCONTROL);
+        }
+        else {
+            VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
+        }
+    }
+
 };
 
 
