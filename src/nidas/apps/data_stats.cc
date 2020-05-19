@@ -186,8 +186,9 @@ public:
     printData(std::ostream& outs);
 
     /**
-     * Generate a streamid for this SampleCounter.  The streamid is the unique identifer for this stream of samples based on 
-     * the available metadata.
+     * Generate a streamid for this SampleCounter.  The streamid is the
+     * unique identifer for this stream of samples based on the available
+     * metadata.
      **/
     std::string
     generateStreamId(const DSMSensor* sensor=0);
@@ -253,13 +254,16 @@ namespace {
     std::string
     id_to_string(unsigned int id)
     {
+        ostringstream tostring;
         if (id >= 0x8000)
         {
-            ostringstream intToHex;
-            intToHex << "0x" << hex << id;
-            return intToHex.str();
+            tostring << "0x" << hex << id;
         }
-        return to_string(id);
+        else
+        {
+            tostring << id;
+        }
+        return tostring.str();
     }
 }
 
@@ -1014,8 +1018,8 @@ private:
     NidasAppArg JsonOutput;
 
 #if NIDAS_JSONCPP_ENABLED
-    std::unique_ptr<Json::StreamWriter> streamWriter;
-    std::unique_ptr<Json::StreamWriter> headerWriter;
+    n_u::auto_ptr<Json::StreamWriter> streamWriter;
+    n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
     void
     createJsonWriters()
