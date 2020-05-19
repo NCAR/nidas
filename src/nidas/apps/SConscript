@@ -141,23 +141,6 @@ elif bool(not arch and jsoncpp_enabled and
     didbenv.Alias('data_influxdb', didb)
 dbconf.Finish()
 
-sdenv = env.Clone()
-# Remove nidas libraries before building configure tests, since they
-# introduce dependencies on parts of nidas and scons tries to build them.
-# They are added back later.  We can't use a fresh environment because it
-# probably wouldn't get all the special compiler setup from the top level.
-sdenv.Replace(LIBS=[])
-sdconf = sdenv.Configure()
-if jsoncpp_enabled:
-    print("sync_dump will be built with json support")
-    sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
-else:
-    print("sync_dump will be built without json support")
-sdenv = sdconf.Finish()
-sdenv.Append(CPPFLAGS='-Wno-effc++')
-sdenv.Replace(LIBS=env['LIBS']+sdenv.get('LIBS', []))
-env.Alias('sync_dump', sdenv.NidasProgram(['sync_dump.cc']))
-
 ncenv = env.Clone()
 try:
     if pc.CheckConfig(env, 'pkg-config nc_server'):
