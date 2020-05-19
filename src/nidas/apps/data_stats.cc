@@ -247,6 +247,21 @@ public:
 #endif
 };
 
+namespace {
+    // Copied from data_influxdb.cc, should probably be moved where it can
+    // be shared.
+    std::string
+    id_to_string(unsigned int id)
+    {
+        if (id >= 0x8000)
+        {
+            ostringstream intToHex;
+            intToHex << "0x" << hex << id;
+            return intToHex.str();
+        }
+        return to_string(id);
+    }
+}
 
 std::string
 SampleCounter::
@@ -267,7 +282,8 @@ generateStreamId(const DSMSensor* sensor)
         // I suppose technically ISFS project names are case-sensitive.
     }
     std::ostringstream out;
-    out << projectname << "." << dsmid << "." << spsid;
+    // Hex for mote sample ids is just more useful for human inspection.
+    out << projectname << "." << dsmid << "." << id_to_string(spsid);
     return out.str();
 }
 
