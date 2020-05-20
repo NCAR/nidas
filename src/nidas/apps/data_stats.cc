@@ -122,27 +122,29 @@ public:
     }
 
     /**
-     * Format the sensor name or variable names for this SampleCounter into a
-     * comma-separated list, abbreviated to a shortened form unless @p
-     * fullnames is true.  If this is a raw counter, meaning no variables,
-     * then use the sensor name.
+     * Format the sensor name or variable names for this SampleCounter into
+     * a comma-separated list, abbreviated to a shortened form unless @p
+     * allnames is true.  If this is a raw counter, meaning no variables,
+     * then use the sensor name.  The fully-qualified variable names are
+     * used in the header line to be compatible with historical behavior,
+     * but maybe someday this can change.
      **/
     std::string
-    getHeader(bool fullnames)
+    getHeader(bool allnames)
     {
         if (varnames.empty())
             return sname;
-        string varname = varnames[0];
-        for (unsigned int i = 1; fullnames && i < varnames.size(); ++i)
+        string varname = fullnames[0];
+        for (unsigned int i = 1; allnames && i < fullnames.size(); ++i)
         {
-            varname += "," + varnames[i];
+            varname += "," + fullnames[i];
         }
-        if (!fullnames && varnames.size() > 1)
+        if (!allnames && fullnames.size() > 1)
         {
             varname += ",...";
         }
-        // Include device name in the full variable names
-        if (fullnames)
+        // Include device name when allnames enabled.
+        if (allnames)
         {
             varname = "[" + sname + "] " + varname;
         }
@@ -352,7 +354,6 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
             vmap[vname]["units"] = v.getUnits();
         }
     }
-    ILOG(("created stream header: ") << header);
 #endif
 }
 
@@ -877,6 +878,9 @@ printData(std::ostream& outs)
     outs.unsetf(std::ios::fixed);
     outs << setprecision(3) << fixed;
 
+    // Deliberately choose the short variable name when printing data, to
+    // make the output more compact, and since the sensor header should
+    // provide the necessary context to differentiate variable names.
     size_t maxname = 0;
     for (unsigned int i = 0; i < varnames.size(); ++i)
     {
