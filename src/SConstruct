@@ -2,6 +2,7 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os, re
+import platform
 import eol_scons
 
 # eol_scons.debug.SetDebug("true")
@@ -210,11 +211,22 @@ def CheckStackProtectorOptions(env):
             break
     add_stack_option(env, '-fstack-check')
 
+
+def get_variant_dir(arch):
+    mach = arch
+    if mach == 'host':
+        mach = platform.machine()
+    vdir = "build_" + mach + "_" + "_".join(platform.dist()[0:2])
+    return vdir
+
+
 def SConscriptVariant(arch, archenv):
     if arch != env.get('NOVARIANT'):
-        vdir = "build_" + arch
-        if arch == 'host' or arch == 'x86':
-            vdir = 'build'
+        # Differentiate the variant directories by architecture and
+        # distribution so native builds or builds of the same architecture
+        # can coexist with the builds for different OS releases, such as
+        # when building the same source tree in different containers.
+        vdir = get_variant_dir(arch)
         SConscript('nidas/SConscript',
                    variant_dir=vdir,
                    duplicate=0, exports={'env':archenv})
@@ -278,7 +290,10 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     # Testing targets, built and run only on host. When building packages,
     # it is not even in the source tree.
     if env.File("tests/SConscript").exists():
-        SConscript("tests/SConscript", exports={'env':host_env})
+        vdir = os.path.join(get_variant_dir('host'), "tests")
+        SConscript("tests/SConscript", variant_dir=vdir, duplicate=0,
+                   exports={'env':host_env})
+
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
