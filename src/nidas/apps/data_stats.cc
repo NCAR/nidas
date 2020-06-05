@@ -58,6 +58,13 @@
 #endif
 #if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>
+// Early json versions without StreamWriterBuilder also did not define a
+// version symbol.
+#ifndef JSONCPP_VERSION_STRING
+#define NIDAS_JSONCPP_STREAMWRITER 0
+#else
+#define NIDAS_JSONCPP_STREAMWRITER 1
+#endif
 #endif
 
 using namespace nidas::core;
@@ -1022,6 +1029,24 @@ private:
     NidasAppArg JsonOutput;
 
 #if NIDAS_JSONCPP_ENABLED
+#if !NIDAS_JSONCPP_STREAMWRITER
+    n_u::auto_ptr<Json::StyledStreamWriter> streamWriter;
+    n_u::auto_ptr<Json::StyledStreamWriter> headerWriter;
+
+    void
+    createJsonWriters()
+    {
+        if (! streamWriter.get())
+        {
+            Json::StyledStreamWriter* sw = new Json::StyledStreamWriter("");
+            // Can't set precision in the old StyledStreamWriter.
+            streamWriter.reset(sw);
+
+            Json::StyledStreamWriter* hw = new Json::StyledStreamWriter("  ");
+            headerWriter.reset(hw);
+        }
+    }
+#else
     n_u::auto_ptr<Json::StreamWriter> streamWriter;
     n_u::auto_ptr<Json::StreamWriter> headerWriter;
 
@@ -1041,6 +1066,7 @@ private:
             headerWriter.reset(builder.newStreamWriter());
         }
     }
+#endif
 #endif
 };
 
@@ -1315,7 +1341,11 @@ writeResults(CounterClient& counter)
             }
             std::ofstream json;
             json.open(JsonOutput.getValue().c_str());
+#if !NIDAS_JSONCPP_STREAMWRITER
+            headerWriter->write(json, root);
+#else
             headerWriter->write(root, &json);
+#endif
             json.close();
         }
         // Now stream the data to stdout.
@@ -1324,7 +1354,11 @@ writeResults(CounterClient& counter)
             SampleCounter* stream = counter.getSampleCounter(ids[i]);
             if (stream->nsamps || AllSamples.asBool())
             {
+#if !NIDAS_JSONCPP_STREAMWRITER
+                streamWriter->write(std::cout, stream->jsonData());
+#else
                 streamWriter->write(stream->jsonData(), &std::cout);
+#endif
                 std::cout << std::endl;
             }
         }
