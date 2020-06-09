@@ -176,9 +176,4 @@ if arch != '':
     env.NidasUtilProgram('gps_nmea_sysclock.cc')
     env.NidasUtilProgram('garmin.cc')
 
-# build auto_cal and config
-if "BUILD_RAF" not in env or env['BUILD_RAF']:
-    SConscript("auto_cal/SConscript", exports=['env'])
-    SConscript("config/SConscript", exports=['env'])
-
 env.Alias('install', ['$PREFIX/bin'])
