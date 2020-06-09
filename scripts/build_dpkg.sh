@@ -139,8 +139,8 @@ if $use_chroot; then
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args "$karg" \
-        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
+    (set -x; debuild $args "$karg"
+        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames)
 fi
 
 # debuild puts results in parent directory
