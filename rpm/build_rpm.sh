@@ -4,7 +4,7 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildraf=true
+buildraf=false
 buildarinc=true
 
 while [ $# -gt 0 ]; do
@@ -80,7 +80,7 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     fi
     # example output of git describe: v2.0-14-gabcdef123
     gitdesc=${gitdesc/#v}       # remove leading v
-    version=${gitdesc%%-*}       # 2.0
+    version=${gitdesc%%-*}      # 2.0
 
     release=${gitdesc#*-}       # 14-gabcdef123
     release=${release%-*}       # 14
