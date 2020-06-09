@@ -3,23 +3,19 @@ ARG hostarch=armel
 FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
-ARG user=builder
-ARG uid=1000
-ARG group=eol
-ARG gid=1000
-
 # FROM line above "consumes" hostarch arg, unless we re-declare it header
 # But don't re-assign it!!!
 ARG hostarch
 
 RUN echo "hostarch == $hostarch"
 
-RUN sudo dpkg --add-architecture ${hostarch}
+USER root
+
+RUN dpkg --add-architecture ${hostarch}
 
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
 # These ops require an explicit root user
-USER root
 RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that
@@ -31,7 +27,9 @@ RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid
 #RUN echo "CROSS_ARCH == $CROSS_ARCH"
 
 RUN apt-get -y update
-RUN apt-get -y --only-upgrade install eol-scons
+
+# This will be mounted into the container from the host.
+#RUN apt-get -y --only-upgrade install eol-scons
 
 # add boost-regex/filesystem
 RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
@@ -41,15 +39,14 @@ RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch
 # in a single header.
 RUN apt-get -y install libi2c-dev
 
+RUN apt-get -y install libjsoncpp-dev:${hostarch}
+
 # install ftdi and depends libusb-1.0
 RUN apt-get -y install wget
 RUN apt-get -y install cmake
 RUN apt-get -y install libusb-1.0:${hostarch}
 
 ENV CROSS_ARCH=$hostarch
-
-USER $user
-WORKDIR /home/$user
 
 RUN mkdir -p libftdi
 COPY ./build-libftdi-pkg.sh libftdi
