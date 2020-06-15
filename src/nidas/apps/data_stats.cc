@@ -949,7 +949,17 @@ jsonData()
         Json::Value jvalues(Json::arrayValue);
         for (unsigned int j = 0; j < values[i].size(); ++j)
         {
-            jvalues.append(values[i][j]);
+            // jsoncpp on jessie does not convert nan to null, and nan is
+            // not valid json.
+            float& value = values[i][j];
+            if (std::isnan(value))
+            {
+                jvalues.append(Json::Value());
+            }
+            else
+            {
+                jvalues.append(value);
+            }
         }
         data[varnames[i]] = jvalues;
     }
