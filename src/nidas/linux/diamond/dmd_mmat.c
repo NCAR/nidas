@@ -2291,7 +2291,7 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
                         // it appears to be needed.
                         if (nset < nout) chn |= 0x20;
 #endif
-                        KLOG_DEBUG("lsb=%d,msb=%d\n",lsb,msb);
+                        KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
 
                         if (nset > 1) {
                                 // Check DAC busy if we have already set an output
