@@ -396,13 +396,14 @@ int Sender::run() throw(n_u::Exception)
 
         // Check to see if we need RS485 1/2 duplex signaling
         if (port.getPortType() == n_c::RS485_HALF) {
-            int timeout = 10;
+            int timeout = 100;
             while (!getRS485HalfSend() && timeout > 0) {
                 n_u::sleepUntil(periodMsec);
                 --timeout;
             }
             if (!timeout) {
-                ELOG(("serstress::Sender.run(): Failed to hear back from Sender Receiver in RS485 Half Duplex..."));
+                std::cout << "serstress::Sender.run(): Failed to hear back from "
+                          << "Sender Receiver in RS485 Half Duplex..." << std::endl;
                 return RUN_EXCEPTION;
             }
             setRS485HalfSend(false);
@@ -451,6 +452,7 @@ void Sender::send() throw(n_u::IOException)
         _msec100[iout] = msec;
         _last100[iout] = 0;
         _nout++;
+        DLOG(("Sender::send() - Can't write - no room in buffer..."));
         return;  // can't write
     }
         
@@ -528,7 +530,11 @@ int Receiver::run() throw(n_u::IOException)
     ILOG(("Starting Receiver for ") << (_sender ? "Sender" : "Echo") << " on port: " << myPort.getName());
     ILOG(("Current ") << (_sender ? "Sender" : "Echo") << " modem status: " << myPort.modemFlagsToString(myPort.getModemStatus()));
 
-    for ( ; isInterrupted() || !interrupted; ) {
+    for (;;) {
+        if (isInterrupted() || interrupted) {
+            return RUN_CANCELED;
+        }
+
         // wait for data
         int nfd = poller.poll();
         if (nfd < 0) {
@@ -548,9 +554,14 @@ int Receiver::run() throw(n_u::IOException)
             ILOG(("No data found on ") << (_sender ? "Sender " : "Echo ") << "Receiver");
             break;
         }
-        ILOG(("Received data on: ") << (_sender ? "Sender " : "Echo ") << "Receiver");
-        _wptr += l;
-        if (scanBuffer()) break;
+        else if (l < 0) {
+            ILOG(("Read error on: ") << (_sender ? "Sender " : "Echo ") << "Receiver: " << l);
+        }
+        else {
+            ILOG(("Received data on: ") << (_sender ? "Sender " : "Echo ") << "Receiver");
+            _wptr += l;
+            if (scanBuffer()) break;
+        }
     }
 
     return RUN_OK;
@@ -996,18 +1007,23 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
 
     if (myPort.getPortType() == n_c::RS485_HALF) {
         ILOG(("Port is set to RS485_HALF"));
-        // Need to set RTS low so that no xmission occurs until needed. This allows 
-        // the sensor to send data until the DSM has something to say to it.
-        // NOTE: Have to set RTS flag high to get it set low on output.
-        //       For some reason, the API logic sets it high, when the arguement is -1.
-        if (isSender) {
-            myPort.setRTS485(-1);
-            ILOG(("Setting Sender Port to RTS485 mode: ") << myPort.getRTS485());
-        }
+        if (!n_c::SerialXcvrCtrl::xcvrCtrlSupported(myPort.getPortConfig().xcvrConfig.port)) {
+            // Need to set RTS low so that no xmission occurs until needed. This allows 
+            // the sensor to send data until the DSM has something to say to it.
+            // NOTE: Have to set RTS flag high to get it set low on output.
+            //       For some reason, the API logic sets it high, when the arguement is -1.
+            if (isSender) {
+                myPort.setRTS485(-1);
+                ILOG(("Setting Sender Port to RTS485 mode: ") << myPort.getRTS485());
+            }
 
+            else {
+                myPort.setRTS485(-1);
+                ILOG(("Setting Echo Port to RTS485 mode: ") << myPort.getRTS485() );
+            }
+        }
         else {
-            myPort.setRTS485(-1);
-            ILOG(("Setting Echo Port to RTS485 mode: ") << myPort.getRTS485() );
+            ILOG(("RS485 Half Duplex transmission direction is controlled by the hardware."));
         }
     }
 
@@ -1190,10 +1206,6 @@ int main(int argc, char**argv)
                 throw Exception("Sender and Echo PortConfigs don't match!!!");
             }
             echoPortConfig.xcvrConfig.port = static_cast<n_u::GPIO_PORT_DEFS>(echoPortNum);
-
-            /*************************************************************************
-            ** TODO: RS485 half duplex? Set the GPIO to short Bulgin pins 3&4, and 5&6
-            *************************************************************************/
 
             try {
                 openPort(SENDING, calcRecvrTimeout);
