@@ -26,7 +26,7 @@
 //  dmd_mmat_test.cc
 //  NIDAS
 //  Created by Ryan Orendorff on 2010-06-28.
-//  Added in SVN Trunk Revision 5572 
+//  Added in SVN Trunk Revision 5572
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,11 +54,11 @@ namespace n_u = nidas::util;
 
 struct waveout
 {
-    int chan;      // Output Voltage Channel
-    int len;       // Ramp length
-    float vstart;  // Ramp min voltage
-    float vend;    // Ramp max voltage
-    bool constant; // Waveform is a constant value, T/F
+    int chan;       // Output Voltage Channel
+    int len;        // Ramp length
+    float vstart;   // Ramp min voltage
+    float vend;     // Ramp max voltage
+    bool constant;  // Waveform is a constant value, T/F
 };
 
 class DMD_MMAT_test
@@ -68,6 +68,7 @@ public:
     int usage(const char* argv0);
     int parseRunstring(int argc, char* argv[]);
     void run() throw(n_u::IOException);
+
 private:
     float _rate;
     string _deviceName;
@@ -94,9 +95,9 @@ int DMD_MMAT_test::usage(const char * argv0)
 
 int DMD_MMAT_test::parseRunstring(int argc, char * argv[])
 {
-    extern char *optarg; /* set by getopt() */
-    extern int optind;   /* "  "     "     */
-    int opt_char;        /* option character */
+    extern char *optarg;    // set by getopt()
+    extern int optind;      // "  "     "
+    int opt_char;           // option character
 
     while ((opt_char = getopt(argc, argv, "ad:r:w:")) != -1) {
         switch (opt_char) {
@@ -183,7 +184,7 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
 
     // Display D2A config info
     for (int i = 0; i < nchan; i++) {
-        cout << "D2A conversion for chan= " << i << 
+        cout << "D2A conversion for chan= " << i <<
             ": vmin=" << conv.vmin[i] << ", vmax=" << conv.vmax[i] <<
             ", cmin=" << conv.cmin[i] << ", cmax=" << conv.cmax[i] << endl;
     }
@@ -263,7 +264,7 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
 
     // Start D2A waveform generator if requested
     if (start_waveform_generator == true)
-    {	
+    {
         if ((res = ::ioctl(fd,DMMAT_START)) < 0) {
             ::close(fd);
             throw n_u::IOException(_deviceName,"ioctl(,DMMAT_START,)",errno);
@@ -271,7 +272,7 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
 
         cerr << "Waveforms Running, [ctrl-C] to stop" << endl;
         ::pause();
-    }    
+    }
 
     cerr << "closing " << _deviceName << endl;
     ::close(fd);
