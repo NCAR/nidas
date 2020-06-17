@@ -151,7 +151,8 @@ enum dmmat_d2a_jumpers
         DMMAT_D2A_UNI_5,        // unipolar, 0-5V
         DMMAT_D2A_UNI_10,       // unipolar, 0-10V
         DMMAT_D2A_BI_5,         // bipolar, -5-5V
-        DMMAT_D2A_BI_10        // bipolar, -10-10V
+        DMMAT_D2A_BI_10,        // bipolar, -10-10V
+        DMMAT_D2A_BI_2P5        // bipolar, -2.5-2.5V
 };
 
 
