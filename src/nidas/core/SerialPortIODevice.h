@@ -128,7 +128,7 @@ private:
             VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
         }
 
-        if (!termios.getFlowControl() == Termios::NOFLOWCONTROL) {
+        if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
             VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
             termios.setFlowControl(Termios::NOFLOWCONTROL);
         }

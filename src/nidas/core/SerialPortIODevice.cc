@@ -482,35 +482,43 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
 {
     ssize_t result;
 
-//    //TODO: Current production FTDI board does not directly manipulate RTS to control transmission/reception
-//    //      on RS485 half duplex devices. And so the below hack was created to implement this control.
-//    //
-//    //      The current iteration of the FTDI board does control transmission/reception on RS485 Half Duplex
-//    //      devices. However it is not yet production ready (as of 02/27/2019).
-//    //
-//    //      The point being that soon the code needs to ascertain which regime should be used, and then use that regime.
-//    //
-//    // remember that setting the FT4232H register has the opposite effect on
-//    // the RTS line signal which it outputs. Other UARTS may behave differently. YMMV.
-//    if (getPortType() == RS485_HALF) {
-//        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
-//            // see the above discussion about RTS and 485. Here we
-//            // try an in-exact set/clear of RTS on either side of a write.
-//            if (getRTS485() > 0) {
-//                // set RTS before write
-//                setModemBits(TIOCM_RTS);
-//            }
-//            else if (getRTS485() < 0) {
-//                // clear RTS before write
-//                clearModemBits(TIOCM_RTS);
-//            }
-//
-//            // else rts485 == 0, so do nothing
-//        }
-//
-//        VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
-//              << modemFlagsToString(getModemStatus() & TIOCM_RTS));
-//    }
+    // Current production FTDI board (the version that requires jumpers to set the transceiver
+    // mode) does not directly manipulate RTS to control transmission/reception on RS485 
+    // half duplex devices. And so the below method was created to implement this control.
+
+    // The current iteration of the FTDI board does control transmission/reception on RS485 
+    // Half Duplex devices. However it is not yet production ready (as of 02/27/2019).
+
+    // The point being that soon the code needs to ascertain which regime should be used, and 
+    // then use that regime.
+    if (getPortType() == RS485_HALF) {
+        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
+            // remember that setting the FT4232H register has the opposite effect on
+            // the RTS line signal which it outputs. Other UARTS may behave differently. 
+            // YMMV.
+            //
+            // see the above discussion about RTS and 485. Here we
+            // try an in-exact set/clear of RTS on either side of a write.
+            if (getRTS485() > 0) {
+                // set RTS before write
+                setModemBits(TIOCM_RTS);
+            }
+            else if (getRTS485() < 0) {
+                // clear RTS before write
+                clearModemBits(TIOCM_RTS);
+            }
+
+            // else rts485 == 0, so do nothing
+        }
+
+        VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
+                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    }
+
+    else {
+        VLOG(("SerialPortIODevice supports automatic control of RTS state "
+              "during RS485 Half Duplex writes"));
+    }
 
     std::string data((char*)buf, 1);
     if (data == "\r") {
@@ -534,24 +542,25 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
         }
     }
 
-//    if (getPortType() == RS485_HALF) {
-//        // Sleep until we think the last bit has been transmitted.
-//        // Add a fudge-factor of one quarter of a character.
-//        ::usleep(len * _usecsperbyte + _usecsperbyte/4);
-//        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
-//            if (getRTS485() > 0) {
-//                // then clear RTS
-//                clearModemBits(TIOCM_RTS);
-//            }
-//            else if (getRTS485() < 0) {
-//                // then set RTS
-//                setModemBits(TIOCM_RTS);
-//            }
-//        }
-//
-//        VLOG(("Post SerialPortIODevice::write() RTS state: ")
-//                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
-//    }
+    if (getPortType() == RS485_HALF) {
+        if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
+            // Sleep until we think the last bit has been transmitted.
+            // Add a fudge-factor of one quarter of a character.
+            ::usleep(len * _usecsperbyte + _usecsperbyte/4);
+            // set the RTS opposite of what was set before xmitting...
+            if (getRTS485() > 0) {
+                // then clear RTS
+                clearModemBits(TIOCM_RTS);
+            }
+            else if (getRTS485() < 0) {
+                // then set RTS
+                setModemBits(TIOCM_RTS);
+            }
+
+            VLOG(("Post SerialPortIODevice::write() RTS state: ")
+                    << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+        }
+   }
 
    return result;
 }
