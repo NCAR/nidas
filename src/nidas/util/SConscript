@@ -168,6 +168,10 @@ def libftdi(env):
 deps = [libusb1, libftdi, 'boost_system', 'boost_filesystem']
 env.Require(deps)
 env.Append(LIBS=['pthread'])
+arch = env['ARCH']
+if arch in ["armhf", "armel"]:
+    if 'xmlrpcpp' in env['LIBS']:
+        env['LIBS'].remove('xmlrpcpp')
 
 objects = env.SharedObject(sources)
 
