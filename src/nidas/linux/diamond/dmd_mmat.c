@@ -2306,6 +2306,7 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
                         outb(0x07,brd->addr + 8);	// set page 7
                         outb(lsb,brd->addr + 12);
                         outb(msb,brd->addr + 13);
+                        outb(lsb, brd->addr + 4);
 
                         outb(0x00,brd->addr + 8);	// set page 0
                         outb(chn,brd->addr + 5);        // channel number
@@ -2446,7 +2447,7 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
         struct DMMAT* brd = d2a->brd; 
 
         int ipt,ichan;
-        unsigned char lsb, msb;
+        unsigned char lsb, msb, chan;
         unsigned long flags;
         int bufaddr;
         int depth30;
@@ -2505,17 +2506,21 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
                          * 0x10 = DAGEN bit, so that D2A value is latched to internal memory
                          * and not to the DAC chip.
                          */
-                        msb = (wave->channel << 6) + 0x10 + ((wave->point[ipt] >> 8) & 0x0F);
+                        chan = (wave->channel << 6) + 0x10;
+                        msb = (wave->point[ipt] >> 8) & 0xFF; //16-bit msb
 
                         // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
                         // Cannot do a process sleep since we hold a spin_lock.
                         for (i = 0; inb(brd->addr + 4) & 0x80; i++);
 
-                        // Write LSB and MSB
-                        outb(lsb, brd->addr + 4);
-                        outb(msb, brd->addr + 5); 
+                        // Write 16-bit LSB and MSB
+                        outb(0x07, brd->addr + 8); // set to page 7
+                        outb(lsb, brd->addr + 12);
+                        outb(msb, brd->addr + 13);
+                        outb(chan, brd->addr + 5); 
 
                         //Store D2A value into the buffer.
+                        outb(0x05, brd->addr + 8); // set to page 5
                         outb(bufaddr & 0xFF, brd->addr + 12);
                         outb((bufaddr >> 8) & 0x3, brd->addr + 13);
                         bufaddr++;
@@ -4132,24 +4137,24 @@ static void cleanup_cntr(struct DMMAT* brd)
 static int checkD2A_MM32DXAT(struct DMMAT_D2A* d2a)
 {
         unsigned long flags;
-        unsigned char d2aconfig;
+        unsigned char d2aconfig_reg;
         int bits = 16;
         struct DMMAT* brd = d2a->brd;
 
         spin_lock_irqsave(&brd->reglock,flags);
 
         outb(0x07,brd->addr + 8);	// set page 7
-        d2aconfig = inb(brd->addr + 14);
 
-        if (d2aconfig & 0x40) bits = 12;
-
+        d2aconfig_reg = inb(brd->addr + 14);
         outb(0x00,brd->addr + 8);	// set back to page 0
 
         spin_unlock_irqrestore(&brd->reglock,flags);
 
+        if (d2aconfig_reg & 0x40) bits = 12;
+
         KLOG_INFO("%s, board %d, has a %d bit D/A, config=%#02x\n",
                 d2a->deviceName, brd->num, 
-                bits, (unsigned int) d2aconfig);
+                bits, (unsigned int) d2aconfig_reg);
         return bits;
 }
 
@@ -4227,6 +4232,10 @@ static int __init init_d2a(struct DMMAT* brd)
         case DMMAT_D2A_UNI_10:
                 d2a->vmin = 0;
                 d2a->vmax = 10;
+                break;
+        case DMMAT_D2A_BI_2P5:
+                d2a->vmin = -2.5;
+                d2a->vmax = 2.5;
                 break;
         case DMMAT_D2A_BI_5:
                 d2a->vmin = -5;

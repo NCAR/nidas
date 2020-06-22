@@ -95,7 +95,7 @@ struct DMMAT_A2D_Status
 
 /*
  * The enumeration of IOCTLs that this driver supports.
- * See pages 130-132 of Linux Device Driver's Manual 
+ * See pages 130-132 of Linux Device Driver's Manual
  */
 
 /** A2D Ioctls in addition to those in nidas/linux/a2d.h */
@@ -151,7 +151,8 @@ enum dmmat_d2a_jumpers
         DMMAT_D2A_UNI_5,        // unipolar, 0-5V
         DMMAT_D2A_UNI_10,       // unipolar, 0-10V
         DMMAT_D2A_BI_5,         // bipolar, -5-5V
-        DMMAT_D2A_BI_10        // bipolar, -10-10V
+        DMMAT_D2A_BI_10,        // bipolar, -10-10V
+        DMMAT_D2A_BI_2P5        // bipolar, -2.5-2.5V
 };
 
 
@@ -380,7 +381,7 @@ struct DMMAT
         unsigned long itr_status_reg;
 
         /** addr of interrupt acknowledge reg */
-        unsigned long itr_ack_reg;	   
+        unsigned long itr_ack_reg;
 
         /** mask of all interrupt bits */
         unsigned char itr_mask;
@@ -560,7 +561,7 @@ struct DMMAT_A2D
          * Total of the requested sample output rates.
          */
         int totalOutputRate;
-        
+
         /** bottom half worker for normal processing */
         struct work_struct worker;
 
@@ -725,7 +726,7 @@ struct DMMAT_D2A
 
         atomic_t num_opened;                     // number of times opened
 
-        atomic_t waveform_running;		
+        atomic_t waveform_running;
 
         STRUCT_MUTEX waveform_mutex;
 
@@ -752,11 +753,11 @@ struct DMMAT_D2A
 
         /** integer count value associated with the maximum output. */
         int cmax;
-				
+
         /**
          * Output rate of waveform, in Hz (waveforms/sec)
          */
-        int waveformRate;								
+        int waveformRate;
 
         /**
          * waveforms that the user has requested.
@@ -783,16 +784,16 @@ struct DMMAT_D2A
 struct DMMAT_D2D
 {
 	struct DMMAT* brd;
-	
+
         struct device* device;
 
 	struct cdev cdev;
-  
+
 	char deviceName[32];
-	
+
 	void (*start)(struct DMMAT_D2D* d2d);
 	void (*stop)(struct DMMAT_D2D* d2d);
-	
+
         STRUCT_MUTEX mutex;
 
         atomic_t num_opened;

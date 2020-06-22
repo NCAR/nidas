@@ -120,7 +120,7 @@
 
     To enable (up) the ports, assuming the existing values are OK
     set_emerald -u /dev/emerald0
-    
+
     After configuring the emerald card as above, the tty driver can
     be configured to access those ports, using the Linux setserial command.
     In this example, minor number 64-68 were used for serial ports /dev/ttyS0-4
@@ -137,7 +137,7 @@
     At this point the serial ports should be accessible.
 
     This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
-    
+
 */
 #ifndef NIDAS_LINUX_EMERALD_H
 #define NIDAS_LINUX_EMERALD_H
@@ -184,7 +184,7 @@
 #define EMERALD_EBR 0x4		/* EEPROM busy reg (read) */
 #define EMERALD_EDR 0x5		/* EEPROM data reg (read/write) */
 #define EMERALD_CRR 0x6		/* Configuration register reload (write) */
-                                                                                
+
 #endif /* __KERNEL__ */
 
 typedef struct emerald_serial_port {
@@ -206,7 +206,7 @@ enum EMERALD_MODE {
         EMERALD_RS485_NOECHO
 };
 
-/* 
+/*
  * Module attempts to determine which model of card.
  */
 enum EMERALD_MODEL {
@@ -239,7 +239,7 @@ typedef struct emerald_board {
         int digioout;		/* bit=1, dig I/O direction = out */
 
         struct cdev cdev;
-        struct device* device;  
+        struct device* device;
 
 } emerald_board;
 
@@ -251,7 +251,7 @@ typedef struct emerald_port {
         emerald_board* board;
         struct cdev cdev;
         int portNum;            /* serial port number on  this board, 0-7 */
-        struct device* device;  
+        struct device* device;
 } emerald_port;
 
 

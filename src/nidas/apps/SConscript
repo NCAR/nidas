@@ -70,7 +70,7 @@ else:
         env.Append(LIBPATH=xlibs)
 
 # Add jsoncpp to the environment for all now that a few apps use it.
-jsoncpp_enabled = check_pkg_config(env, 'jsoncpp')
+jsoncpp_enabled = ('armbe' not in arch) and check_pkg_config(env, 'jsoncpp')
 if jsoncpp_enabled:
     print("jsoncpp enabled for data_stats and sync_dump.")
     env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
@@ -175,10 +175,5 @@ if arch != '':
     # nidas_util
     env.NidasUtilProgram('gps_nmea_sysclock.cc')
     env.NidasUtilProgram('garmin.cc')
-
-# build auto_cal and config
-if "BUILD_RAF" not in env or env['BUILD_RAF']:
-    SConscript("auto_cal/SConscript", exports=['env'])
-    SConscript("config/SConscript", exports=['env'])
 
 env.Alias('install', ['$PREFIX/bin'])
