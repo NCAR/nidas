@@ -150,7 +150,7 @@ public:
      * but maybe someday this can change.
      **/
     std::string
-    getHeader(bool allnames)
+    getHeaderLine(bool allnames)
     {
         if (varnames.empty())
             return sname;
@@ -345,6 +345,9 @@ collectMetadata(const DSMSensor* sensor, const SampleTag* stag)
 {
 #if NIDAS_JSONCPP_ENABLED
     header["streamid"] = streamid;
+    // The header specifies a version in case the schema changes for either
+    // the header itself or the data streams which reference it.
+    header["version"] = "v0";
     header["dsmid"] = GET_DSM_ID(id);
     header["spsid"] = GET_SPS_ID(id);
 
@@ -857,7 +860,7 @@ void CounterClient::printResults(std::ostream& outs)
         SampleCounter &ss = si->second;
         if (ss.nsamps == 0 && !_reportall)
             continue;
-        string name = ss.getHeader(_fullnames);
+        string name = ss.getHeaderLine(_fullnames);
         maxnamelen = std::max(maxnamelen, name.length());
         if (ss.nsamps >= 1)
         {
@@ -921,7 +924,7 @@ void CounterClient::printResults(std::ostream& outs)
         }
 
         // Put long variable names on a header line before statistics.
-        string name = ss.getHeader(_fullnames);
+        string name = ss.getHeaderLine(_fullnames);
         if (_fullnames)
         {
             outs << left << name << endl;
@@ -1449,6 +1452,11 @@ writeResults(CounterClient& counter)
             // Create a json object which contains all the headers and all the
             // data for all the SampleCounter streams, then write it out.
             Json::Value root;
+            Json::Value timeperiod(Json::arrayValue);
+            timeperiod.append(iso_format(_period_start));
+            timeperiod.append(iso_format(_period_end));
+            root["stats"]["timeperiod"] = timeperiod;
+
             for (unsigned int i = 0; i < ids.size(); ++i)
             {
                 SampleCounter* stream = counter.getSampleCounter(ids[i]);
@@ -1587,7 +1595,7 @@ int DataStats::run()
     {
         // If realtime, start the period clock now.
         if (_realtime)
-            _period_start = nidas::util::UTime(time(0));
+            _period_start = nidas::util::UTime();
         if (_period > 0 && _realtime)
         {
             ILOG(("") << "... Collecting samples for "
@@ -1602,7 +1610,7 @@ int DataStats::run()
             if (_realtime)
             {
                 // Make sure the stat period is never more than requested.
-                _period_end = nidas::util::UTime(time(0));
+                _period_end = nidas::util::UTime();
             }
             if (_realtime && _period > 0)
             {
