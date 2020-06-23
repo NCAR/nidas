@@ -55,7 +55,7 @@
 #include <unistd.h>
 
 #ifndef NIDAS_JSONCPP_ENABLED
-#define NIDAS_JSONCPP_ENABLED 0
+#define NIDAS_JSONCPP_ENABLED 1
 #endif
 #if NIDAS_JSONCPP_ENABLED
 #include <json/json.h>

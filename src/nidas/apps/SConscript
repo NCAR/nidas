@@ -76,6 +76,7 @@ if jsoncpp_enabled:
     env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
 else:
     print("jsoncpp not enabled.")
+    env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
 
 programs = Split("""
 arl-ingest
