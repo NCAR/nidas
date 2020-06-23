@@ -1085,7 +1085,7 @@ jsonStats()
     stats["streamid"] = streamid;
 
     // Some stats relate to the whole sample stream.
-    stats["nsamps"] = nsamps;
+    stats["nsamps"] = Json::Value::UInt(nsamps);
     if (nsamps > 0)
     {
         Json::Value timerange(Json::arrayValue);
@@ -1097,8 +1097,8 @@ jsonStats()
     {
         stats["mindeltat"] = (double)minDeltaTs / MSECS_PER_SEC;
         stats["maxdeltat"] = (double)maxDeltaTs / MSECS_PER_SEC;
-        stats["minsamplebytes"] = minlens;
-        stats["maxsamplebytes"] = maxlens;
+        stats["minsamplebytes"] = Json::Value::UInt(minlens);
+        stats["maxsamplebytes"] = Json::Value::UInt(maxlens);
     }
 
     // Store computed rate no matter what, so it will be null if not enough
@@ -1112,8 +1112,8 @@ jsonStats()
         Json::Value variable;
 
         variable["name"] = varnames[i];
-        int nvalues = 0;
-        variable["nnans"] = 0;
+        unsigned int nvalues = 0;
+        variable["nnans"] = Json::Value::UInt(0);
         if (nsamps > 0)
         {
             variable["nnans"] = nnans[i];
