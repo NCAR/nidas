@@ -82,6 +82,7 @@ namespace {
         return ut.format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
     }
 
+#if NIDAS_JSONCPP_ENABLED
     inline Json::Value
     number_or_null(float value)
     {
@@ -94,7 +95,7 @@ namespace {
             return Json::Value(value);
         }
     }
-
+#endif
 }
 
 /**
