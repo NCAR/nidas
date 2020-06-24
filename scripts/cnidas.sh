@@ -105,23 +105,34 @@ build_image() # alias
 # Run the image to mount the source tree containing this script as /nidas,
 # the user .scons directory, and the given install path as /opt/nidas.  If
 # no install path, then default to nidas/install/<alias>.
-run_image() # alias [install]
+run_image() # alias command...
 {
     alias="$1"
+    shift
     source=$(cd `dirname $0`/.. && pwd)
     echo "Top of nidas source tree: $source"
     tag=`get_image_tag "$alias"`
-    install="$2"
+    install=""
     if [ -z "$install" ]; then
 	install="$source/install/$alias"
 	mkdir -p "$install"
+    fi
+    if [ -z "$1" ]; then
+	set /bin/bash
     fi
     set -x
     exec podman run -i -t \
       --volume "$source":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
-      $tag /bin/bash 
+      $tag "$@"
+}
+
+build_packages()
+{
+    alias="$1"
+    shift
+    run_image "$alias" /nidas/scripts/build_dpkg.sh armhf -d /nidas/packages
 }
 
 # To build armhf jessie packages:
@@ -139,9 +150,15 @@ case "$1" in
     build)
 	build_image "$2"
 	;;
+
     run)
 	shift
 	run_image "$@"
+	;;
+
+    package)
+	shift
+	build_packages "$@"
 	;;
 
     list)
