@@ -32,6 +32,7 @@
 
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/InvalidParameterException.h>
 #include <nidas/core/NidasApp.h>
 
 using namespace nidas::core;
@@ -261,6 +262,7 @@ static bool spyOnCapturedInput = false;
 
 class Session 
 {
+public:
     using InMessage =
         ublox::Message<
             comms::option::ReadIterator<const std::uint8_t*>,
@@ -302,7 +304,6 @@ class Session
     using SerialPort = boost::asio::serial_port;
     using IoService = boost::asio::io_service;
 
-public:
     Session(boost::asio::io_service& io, const std::string& dev)
       : m_serial(io), m_device(dev), m_inputBuf(), m_inData(), 
         m_frame(), m_waitingAckMsg(false), m_sentMsgId((MsgId)0), m_msgAcked(false),
@@ -402,6 +403,7 @@ public:
         if (getCheckEnabledMsgs() && msgEnabled(msgName)) {
             if (!timeIsResolved() && m_enabledMsgs[msgName] == 0) {
                 setColdBootDetected();
+                DLOG(("Cold boot detected..."));
             }
             m_enabledMsgs[msgName]++;
         }
@@ -575,26 +577,28 @@ public:
 
     bool findBaudRate()
     {
-        DLOG(("Session::findBaudRate(): find baud rate by trying to disable a message, and check for ACK"));
+        ILOG(("Session::findBaudRate(): find baud rate by trying to disable a message, and check for ACK"));
         using OutCfgMsgCurrent = ublox::message::CfgMsgCurrent<OutMessage>;
-        DLOG(("Session::findBaudRate(): checking for response @ 9600 baud"));
+        ILOG(("Session::findBaudRate(): checking for response @ 9600 baud"));
         OutCfgMsgCurrent msg;
         msg.field_msgId().value() = ublox::MsgId_NavPvt;
         msg.field_rate().value() = 0;
         sendMessage(msg);
         if (m_waitingAckMsg || !m_msgAcked) {
-            DLOG(("Session::findBaudRate(): No response @ 9600 baud, checking for response @ 115200 baud"));
+            ILOG(("Session::findBaudRate(): No response @ 9600 baud, checking for response @ 115200 baud"));
             m_serial.set_option(SerialPort::baud_rate(115200));
             sendMessage(msg);
             if (m_waitingAckMsg || !m_msgAcked) {
-                DLOG(("Session::findBaudRate(): No response @ 115200 baud - failed"));
+                ILOG(("Session::findBaudRate(): No response @ 115200 baud - failed"));
                 return false;
             }
             else {
+                ILOG(("Session::findBaudRate(): Response @ 115200 baud - success!"));
                 m_detectedBaudRate = 115200;
             }
         }
         else {
+            ILOG(("Session::findBaudRate(): Response @ 9600 baud - success!"));
             m_detectedBaudRate = 9600;
         }
         return true;
@@ -602,56 +606,43 @@ public:
 
     bool configureUbx()
     {
-        bool success = configureUbxProtocol(true); // use the detected baud rate
+        bool success = false;
+        
+        if (!configureUbxProtocol(true)) {// use the detected baud rate
+            ILOG(("Session::configureUbx() - Could not detect baud rate " 
+                  "and/or configure UBX Protocol"));
+        }
         // spyOnCapturedInput = true;
-        if (success)  {
-            success &= disableAllMessages();
+
+        else if (!disableAllMessages())  {
+            ILOG(("Session::configureUbx() - Could not disable all messages"));
         }
-        else {
-            DLOG(("Session::configureUbx() - Could not disable all messages"));
+        else if(!configGnss()) {
+            ILOG(("Session::configureUbx() - Could not configure UBX satellites used"));
         }
-        if (success)  {
-            success &= configGnss();
+        else if (!configureUbxPowerMode())  {
+            ILOG(("Session::configureUbx() - Could not configure UBX power mode"));
         }
-        else {
-            DLOG(("Session::configureUbx() - Could not configure UBX satellites used"));
+        else if (!configureUbxRTCUpdate())  {
+            ILOG(("Session::configureUbx() - Could not configure UBX RTC update"));
         }
-        if (success)  {
-            success &= configureUbxPowerMode();
-        }
-        else {
-            DLOG(("Session::configureUbx() - Could not configure UBX power mode"));
-        }
-        if (success)  {
-            success &= configureUbxRTCUpdate();
-        }
-        else {
-            ELOG(("Session::configureUbx() - Could not configure UBX RTC update"));
-        }
+
         // spyOnCapturedInput = false;
-        if (success)  {
-            success &= configureUbxNavMode();
+
+        else if (!configureUbxNavMode())  {
+            ILOG(("Session::configureUbx() - Could not configure UBX NAV mode"));
+        }
+        else if (!configurePPS())  {
+            ILOG(("Session::configureUbx() - Could not configure PPS"));
+        }
+        else if (!enableDefaultMessages())  {
+            ILOG(("Session::configureUbx() - Could not enable default messages"));
+        }
+        else if (!configureUbxProtocol(false))  {
+            ILOG(("Session::configureUbx() - Could not force switch to 115200 baud"));
         }
         else {
-            ELOG(("Session::configureUbx() - Could not configure UBX NAV mode"));
-        }
-        if (success)  {
-            success &= configurePPS();
-        }
-        else {
-            ELOG(("Session::configureUbx() - Could not configure PPS"));
-        }
-        if (success)  {
-            success &= enableDefaultMessages();
-        }
-        else {
-            ELOG(("Session::configureUbx() - Could not enable default messages"));
-        }
-        if (success)  {
-            success &= configureUbxProtocol(false); // force switch to 115200 baud
-        }
-        else {
-            ELOG(("Session::configureUbx() - Could not force switch to 115200 baud"));
+            success = true;
         }
 
         return success;
@@ -662,7 +653,17 @@ public:
         return (m_enabledMsgs.find(name) != m_enabledMsgs.end());
     }
 
-    bool testEnabledMsgs()
+    int msgCount(const std::string& name) {
+        int count = 0;
+        // ILOG(("Testing message count for: ") << name);
+        if (msgEnabled(name)) {
+            count = m_enabledMsgs.find(name)->second;
+        }
+
+        return count;
+    }
+
+    bool testEnabledMsgs(const int numRequiredMsgs=1)
     {
         if (getCheckEnabledMsgs()) {
             DLOG(("Session::testEnabledMsgs(): enabled"));
@@ -670,7 +671,7 @@ public:
             using MsgItem = std::pair<std::string, int>;
             for (MsgItem msg : m_enabledMsgs) {
                 ILOG(("Session::testEnabledMsgs(): msg: ") << msg.first << " - received: " << msg.second);
-                done &= (msg.second > 1);
+                done &= (msg.second >= numRequiredMsgs);
             }
 
             ILOG(("Session::testEnabledMsgs(): ") << (done ? "done" : "not done." ));
@@ -692,6 +693,28 @@ public:
             std::cout << enabledMsg.first << " - received: " << enabledMsg.second << std::endl;
         }
         std::cout << std::endl;
+    }
+
+    bool resetUBloxConfig()
+    {
+        using OutCfgCfgMsg = ublox::message::CfgCfg<OutMessage>;
+        OutCfgCfgMsg msg;
+
+        // clear all settings, and set to defaults
+        auto& fieldClrMask = msg.field_clearMask().value();
+        fieldClrMask = 0x1F1F;
+
+        // in battery backed RAM, because that's all there is...
+        auto& fieldDeviceMask = msg.field_deviceMask().value();
+        fieldDeviceMask.setBitValue_devBBR(1);
+
+        bool retval = sendMessage(msg);
+
+        if (!retval) {
+            ILOG(("resetUBloxConfig(): failed to reset config in battery backed ram"));
+        }
+
+        return retval;
     }
 
 private:
@@ -863,14 +886,14 @@ private:
         DLOG(("Session::configureUbxProtocol(): commanded inProtoMaskField: ") << inProtoMaskField.value());
 
         auto& baud = msg.field_baudRate().value();
-        DLOG(("Session::configureUbxProtocol(): default baud: ") << baud);
+        ILOG(("Session::configureUbxProtocol(): default baud: ") << baud);
         if (useDetected) {
             baud = m_detectedBaudRate;
         }
         else {
             baud = 115200;
         }
-        DLOG(("Session::configureUbxProtocol(): commanded baud: ") << baud);
+        ILOG(("Session::configureUbxProtocol(): commanded baud: ") << baud);
 
         auto& txReadyField = msg.field_txReady().value();
         auto& txReadyEnabled = std::get<0>(txReadyField);
@@ -885,8 +908,8 @@ private:
 
     bool configureUbxRTCUpdate()
     {
-        DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX to update RTC and ephemeris data occasionally..."));
-        DLOG(("Session::configureUbxRTCUpdate(): Configuring UBX tracking state machine to cyclic, w/no off period on fail..."));
+        ILOG(("Session::configureUbxRTCUpdate(): Configuring UBX to update RTC and ephemeris data occasionally..."));
+        ILOG(("Session::configureUbxRTCUpdate(): Configuring UBX tracking state machine to cyclic, w/no off period on fail..."));
         using OutCfgPm2 = ublox::message::CfgPm2<OutMessage>;
         OutCfgPm2 msg;
 
@@ -935,7 +958,7 @@ private:
 
     bool configureUbxPowerMode()
     {
-        DLOG(("Session::enableDefaultMessages(): Configuring UBX Power Mode..."));
+        ILOG(("Session::enableDefaultMessages(): Configuring UBX Power Mode..."));
         using OutCfgRxm = ublox::message::CfgRxm<OutMessage>;
 
         OutCfgRxm msg;
@@ -949,7 +972,7 @@ private:
 
     bool configureUbxNavMode()
     {
-        DLOG(("Session::enableDefaultMessages(): Configuring UBX NAV Mode..."));
+        ILOG(("Session::enableDefaultMessages(): Configuring UBX NAV Mode..."));
         using OutCfgNav5 = ublox::message::CfgNav5<OutMessage>;
         OutCfgNav5 msg;
         auto& outDynamicModel = msg.field_dynModel().value();
@@ -967,7 +990,7 @@ private:
 
     bool configGnss()
     {
-        DLOG(("Session::configGnss(): Set up which GNSS sat systems are in use, and reserve channels for them."));
+        ILOG(("Session::configGnss(): Set up which GNSS sat systems are in use, and reserve channels for them."));
         using OutCfgGnss = ublox::message::CfgGnss<OutMessage>;
         OutCfgGnss cfgGnssMsg;
 
@@ -1012,8 +1035,8 @@ private:
     {
         bool ppsConfigured = false;
 
-        // first set up the measurement rate
-        DLOG(("Session::configurePPS(): Configuring UBX Measurement Rate..."));
+        // set up the measurement rate
+        ILOG(("Session::configurePPS(): Configuring UBX Measurement Rate..."));
         using OutCfgRate = ublox::message::CfgRate<OutMessage>;
         OutCfgRate cfgRatemsg;
         auto& measRate = cfgRatemsg.field_measRate().value();
@@ -1024,9 +1047,13 @@ private:
         timeRef = ublox::message::CfgRateFieldsCommon::TimeRefVal::UTC;
 
         ppsConfigured = sendMessage(cfgRatemsg);
+        if (!ppsConfigured) {
+            ILOG(("Session::configurePPS(): Failed to configure UBX Measurement Rate"));
+            return ppsConfigured;
+        }
 
         // then set up the PPS signal output
-        DLOG(("Session::configurePPS(): Configuring UBX PPS Output..."));
+        ILOG(("Session::configurePPS(): Configuring UBX PPS Output..."));
         using OutCfgTp5 = ublox::message::CfgTp5<OutMessage>;
         OutCfgTp5 cfgTp5Msg;
 
@@ -1058,13 +1085,18 @@ private:
         cfgTp5Msg.field_userConfigDelay().value() = 0;
         // cfgTp5Msg.field_freq().value().value() = 0;
         // cfgTp5Msg.field_freqLock().value().value() = 0;
+
+        ppsConfigured &= sendMessage(cfgTp5Msg);
+        if (!ppsConfigured) {
+            ILOG(("Session::configurePPS(): Failed to configure UBX PPS Output."));
+        }
     
-        return (ppsConfigured && sendMessage(cfgTp5Msg));
+        return (ppsConfigured);
     }
 
     bool enableDefaultMessages()
     {
-        DLOG(("Session::enableDefaultMessages(): Enabling NAV PVT Message..."));
+        ILOG(("Session::enableDefaultMessages(): Enabling NAV PVT Message..."));
         using OutCfgMsg = ublox::message::CfgMsg<OutMessage>;
         OutCfgMsg msg;
         
@@ -1081,7 +1113,7 @@ private:
             std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
             m_enabledMsgs.insert(NavPvt);
 
-            DLOG(("Session::enableDefaultMessages(): Enabling TIM TP Message..."));
+            ILOG(("Session::enableDefaultMessages(): Enabling TIM TP Message..."));
             msg.field_msgId().value() = ublox::MsgId_TimTp;
         }
 
@@ -1091,7 +1123,7 @@ private:
             std::pair<std::string, int> TimTp(InTimTp().doName(), 0);
             m_enabledMsgs.insert(TimTp);
 
-            DLOG(("Session::enableDefaultMessages(): Enabling NAV SOL Message..."));
+            ILOG(("Session::enableDefaultMessages(): Enabling NAV SOL Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavSol;
         }
 
@@ -1101,7 +1133,7 @@ private:
             std::pair<std::string, int> NavSol(InNavSol().doName(), 0);
             m_enabledMsgs.insert(NavSol);
 
-            DLOG(("Session::enableDefaultMessages(): Enabling NAV DOP Message..."));
+            ILOG(("Session::enableDefaultMessages(): Enabling NAV DOP Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavDop;
         }
 
@@ -1111,7 +1143,7 @@ private:
             std::pair<std::string, int> NavDop(InNavDop().doName(), 0);
             m_enabledMsgs.insert(NavDop);
 
-            DLOG(("Session::enableDefaultMessages(): Enabling NAV Timegps Message..."));
+            ILOG(("Session::enableDefaultMessages(): Enabling NAV Timegps Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavTimegps;
         }
 
@@ -1141,10 +1173,10 @@ private:
     bool m_coldBootDetected;
 };
 
-NidasAppArg Enable("NOT IMPLEMENTED -E,--enable-msg", "-E UBX-NAV-LLV",
-        "Enable a specific u-blox binary message.", "");
-NidasAppArg Disable("NOT IMPLEMENTED -D,--disable-msg", "-D UBX-NAV-LLV",
-        "Disable a specific u-blox binary message.", "");
+// NidasAppArg Enable("NOT IMPLEMENTED -E,--enable-msg", "-E UBX-NAV-LLV",
+//         "Enable a specific u-blox binary message.", "");
+// NidasAppArg Disable("NOT IMPLEMENTED -D,--disable-msg", "-D UBX-NAV-LLV",
+//         "Disable a specific u-blox binary message.", "");
 NidasAppArg NoBreak("-n,--no-break", "", 
         "Disables the feature to collect enough data to ascertain that the u-blox GPS receiver \n"
         "is operational and then exit. When this option is specified, ubloxbin continuously \n"
@@ -1153,6 +1185,15 @@ NidasAppArg NoBreak("-n,--no-break", "",
 NidasAppArg Device("-d,--device", "/dev/gps[0-9]",
         "Device to which a u-blox GPS receiver is connected, and which this program uses.\n" 
         "May differ from the example given.", "/dev/gps0");
+NidasAppArg Timer("-t, --timer", "", 
+        "Causes the utility to determine the time from end of configuration, or \n"
+        "restart, to the first TIM-TP message.", "");
+NidasAppArg ResetConfig("-r, --reset", "", 
+        "Causes the utility to reset the device configuration which is \n"
+        "held in battery backed RAM", "");
+NidasAppArg SyncMsgCount("-s, --sync", "<int>", 
+        "Causes the utility to run until the count of the number of each enabled message \n"
+        "reaches the value specified.", "1");
 NidasApp app("ubloxbin");
 
 int usage(const char* argv0)
@@ -1169,11 +1210,11 @@ int usage(const char* argv0)
 << std::endl
 << "As described below, there are command line options to " << std::endl
 << "   * specify the gps device, often a serial port, " << std::endl
-<< "   * enable/disable UBX messages (not implemented)" << std::endl
 << "   * continously read UBX messages w/o exiting." << std::endl
-<< "   * reboot the GPS prior to configuring it." << std::endl
+<< "   * reset the GPS configuration prior to configuring it." << std::endl
+<< "   * set the number of each message to receive before declaring the time is synced." << std::endl
 << std::endl
-<< "Usage: " << argv0 << " [-d <device path> | -n | -r | -h | -D UBX-NAV-PVT | -E UBX-NAV-POLL | -l <log level>]" << std::endl
+<< "Usage: " << argv0 << " [-d <device path> | -n | -r | -h | -t | -s <int> | -l <log level>]" << std::endl
 << "       " << argv0 << " -h" << std::endl
 << "       " << argv0 << " -d <device path> -l <log level>" << std::endl
 << "       " << argv0 << " -n -l <log level>" << std::endl << std::endl
@@ -1184,7 +1225,8 @@ int usage(const char* argv0)
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(Device | Enable | Disable | NoBreak | app.Help | app.loggingArgs());
+    app.enableArguments(Device | SyncMsgCount | NoBreak | Timer | ResetConfig
+                        | app.Help | app.loggingArgs());
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -1243,43 +1285,66 @@ int main(int argc, char** argv)
 
             success = session.configureUbx();
             if (!success) {
+                ILOG(("Failed to configure UBlox receiver!! Trying again..."));
                 continue;
+            }
+
+            if (ResetConfig.specified()) {
+                if (!session.resetUBloxConfig()) {
+                    ILOG(("main(): Failed to reset the UBlox config in battery backed RAM"));
+                    exit(-1);
+                }
+
+                else {
+                    ILOG(("Succeeded in resetting UBlox config in battery backed RAM"));
+                    if (!session.configureUbx()) {
+                        ILOG(("main(): Failed to configure UBlox protocol after resetting UBlox config"));
+                    }
+                }
+            }
+
+
+            time_t start_time;
+            if (Timer.specified()) {
+                time(&start_time);
             }
 
             session.printEnabledMsgs();
 
-            // Wait for configuration to finish before checking for correct
-            // operation
-            if (!NoBreak.specified()) {
-                session.setCheckEnabledMsgs();
-            }
+            session.setCheckEnabledMsgs();
 
             int numEnabledMsgTests = 0;
             bool skipTry = false;
+            time_t TIM_TP_time = 0;
+
             ILOG(("ubloxbin: waiting for messages to arrive and be handled..."));
-            while (!skipTry) {
+
+            while (NoBreak.specified() || !skipTry) {
                 readClock.expires_from_now(std::chrono::seconds(1));
                 readClock.wait();
                 session.performRead();
-                if (!NoBreak.specified()) {
-                    if (session.getCheckEnabledMsgs()) {
-                        success = session.testEnabledMsgs();
-                        if (success) {
-                            DLOG(("ubloxbin: have all the enabled msgs needed. breaking out..."));
-                            break;
-                        }
-                        else if (!session.timeIsResolved()) {
-                            DLOG(("ubloxbin: Time is not resolved and not enough messages reporting. Go around the while loop again..."));
-                            continue;
-                        }
-                        else if (numEnabledMsgTests < 10) {
-                                ++numEnabledMsgTests;
-                            DLOG(("ubloxbin: Time is resolved, but we don't have all messages reporting. Increment test count:") << numEnabledMsgTests);
-                        }
-                        else if (!session.coldBootDetected()) {
-                            DLOG(("ubloxbin: Time is resolved, not cold booting, but we don't have all messages reporting. Time to start over..."));
-                            skipTry = true;
-                        }
+                if (Timer.specified() && TIM_TP_time == 0 
+                    && session.msgCount(Session::InTimTp::doName()) != 0) {
+                    time(&TIM_TP_time);
+                    ILOG(("Time to PPS time sync: ") << (TIM_TP_time-start_time));
+                }
+                if (session.getCheckEnabledMsgs()) {
+                    success = session.testEnabledMsgs(SyncMsgCount.asInt());
+                    if (success) {
+                        DLOG(("ubloxbin: have all the enabled msgs needed. breaking out..."));
+                        break;
+                    }
+                    else if (!session.timeIsResolved()) {
+                        DLOG(("ubloxbin: Time is not resolved and not enough messages reporting. Go around the while loop again..."));
+                        continue;
+                    }
+                    else if (numEnabledMsgTests < 10) {
+                            ++numEnabledMsgTests;
+                        DLOG(("ubloxbin: Time is resolved, but we don't have all messages reporting. Increment test count:") << numEnabledMsgTests);
+                    }
+                    else if (!session.coldBootDetected()) {
+                        DLOG(("ubloxbin: Time is resolved, not cold booting, but we don't have all messages reporting. Time to start over..."));
+                        skipTry = true;
                     }
                 }
             }
