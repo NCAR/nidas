@@ -1179,6 +1179,7 @@ private:
     bool _realtime;
     UTime _period_start;
     UTime _period_end;
+    UTime _start_time;
     int _count;
     int _period;
     int _update;
@@ -1267,6 +1268,7 @@ DataStats::DataStats():
     _realtime(false),
     _period_start(time_t(0)),
     _period_end(time_t(0)),
+    _start_time(time_t(0)),
     _count(1), _period(0), _update(0), _nreports(0),
     app("data_stats"),
     Period("-P,--period", "<seconds>",
@@ -1532,6 +1534,9 @@ writeResults(CounterClient& counter)
             timeperiod.append(iso_format(_period_start));
             timeperiod.append(iso_format(_period_end));
             root["stats"]["timeperiod"] = timeperiod;
+            root["stats"]["update"] = _update;
+            root["stats"]["period"] = _period;
+            root["stats"]["starttime"] = iso_format(_start_time);
             Json::Value streamstats;
 
             for (unsigned int i = 0; i < ids.size(); ++i)
@@ -1674,7 +1679,10 @@ int DataStats::run()
     {
         // If realtime, start the period clock now.
         if (_realtime)
+        {
             _period_start = UTime();
+            _start_time = _period_start;
+        }
         if (_period > 0 && _realtime)
         {
             ILOG(("") << "... Collecting samples for "
