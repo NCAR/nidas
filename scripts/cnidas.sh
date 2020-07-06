@@ -68,6 +68,9 @@ get_image_tag() # alias
 	pi2)
 	    echo nidas-build-debian-armhf:jessie
 	    ;;
+	pi3)
+	    echo nidas-build-debian-armhf:buster
+	    ;;
 	titan)
 	    echo nidas-build-debian-armel:jessie
 	    ;;
@@ -91,6 +94,9 @@ build_image() # alias
 	    ;;	    
 	pi2)
 	    podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf
+	    ;;
+	pi3)
+	    podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
 	    ;;
 	titan)
 	    podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
