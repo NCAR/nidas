@@ -5,11 +5,12 @@ set -e
 key='<eol-prog@eol.ucar.edu>'
 
 usage() {
-    echo "Usage: ${1##*/} [-s] [-i repository ] arch"
+    echo "Usage: ${1##*/} [-s] [-i repository ] [-d dest] arch"
     echo "-s: sign the package files with $key"
     echo "-c: build in a chroot"
     echo "-i: install them with reprepro to the repository"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
+    echo "-d: move the final packages in the given directory"
     echo "arch is armel, armhf or amd64"
     exit 1
 }
@@ -21,6 +22,7 @@ fi
 sign=false
 arch=amd64
 args="--no-tgz-check -sa"
+dest=""
 use_chroot=false
 while [ $# -gt 0 ]; do
     case $1 in
@@ -28,6 +30,10 @@ while [ $# -gt 0 ]; do
         shift
         repo=$1
         ;;
+    -d)
+	shift
+	dest=$1
+	;;
     -c)
         use_chroot=true
         ;;
@@ -139,12 +145,14 @@ if $use_chroot; then
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args "$karg" \
-        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
+    (set -x; debuild $args "$karg" \
+        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames)
 fi
 
 # debuild puts results in parent directory
 cd ..
+chngs=nidas_*_$arch.changes 
+archdebs=nidas*$arch.deb
 
 if [ -n "$repo" ]; then
     umask 0002
@@ -153,13 +161,11 @@ if [ -n "$repo" ]; then
     ls
     echo ""
 
-    chngs=nidas_*_$arch.changes 
     # display changes file
     echo "Contents of $chngs"
     cat $chngs
     echo ""
 
-    archdebs=nidas*$arch.deb
 
     # echo "pkgs=$pkgs"
     # echo "archalls=$archalls"
@@ -208,7 +214,9 @@ if [ -n "$repo" ]; then
 
     rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
 
+elif [ -n "$dest" ]; then
+    echo "moving results to $dest"
+    mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest
 else
     echo "build results are in $PWD"
 fi
-
