@@ -54,7 +54,7 @@
 # complication hardcoding non-root users in the containers.
 
 
-targets=(centos7 centos8 vulcan titan pi2)
+targets=(centos7 centos8 vulcan titan pi2 pi3)
 
 get_image_tag() # alias
 {
