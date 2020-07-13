@@ -3,10 +3,7 @@ ARG hostarch=armel
 FROM docker.io/debian:buster
 LABEL organization="NCAR EOL"
 
-ARG user=builder
-ARG uid=1000
-ARG group=eol
-ARG gid=1000
+USER root
 
 # FROM line above "consumes" hostarch arg, unless we re-declare it here
 # But don't re-assign it!!!
@@ -16,7 +13,8 @@ RUN echo "hostarch == $hostarch"
 
 RUN dpkg --add-architecture ${hostarch}
 
-# need to refresh the apt DB before doing anything else on the bare debian stretch container
+# sudo is not technically needed, but there are other scripts which expect it,
+# like build-xmlrpc.
 RUN apt-get -y update
 RUN apt-get install -y --no-install-recommends gnupg wget cmake apt-utils sudo \
     vim nano curl git ca-certificates build-essential fakeroot libncurses-dev bc dh-make \
@@ -36,7 +34,7 @@ RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
 RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
 RUN cat /etc/apt/apt.conf
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list
-RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | sudo apt-key add -
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
@@ -101,13 +99,7 @@ RUN apt-get -y -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:armhf
 RUN apt-get -y install libxerces-c-dev
 RUN apt-get -y install libxerces-c-dev:${hostarch}
 
-# for some reason the plain xerces-c lib isn't linked to the actual one, so do it here.
-#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libxerces-c-3.1.so /usr/lib/x86_64-linux-gnu/libxerces-c.so 
-
 RUN apt-get -y install valgrind net-tools
-
-# for some reason the plain bluetooth lib isn't linked to the actual one, so do it here.
-#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libbluetooth.so.3 /usr/lib/x86_64-linux-gnu/libbluetooth.so 
 
 # Need Ruby to install packagecloud crossbuild
 #RUN apt-get -y --no-install-recommends install ruby ruby-dev
@@ -115,21 +107,13 @@ RUN apt-get -y install valgrind net-tools
 
 ENV CROSS_ARCH=$hostarch
 
-#RUN useradd -ms /bin/bash $user
-RUN addgroup --gid $gid $group
-RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
-RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
-
-USER $user
-WORKDIR /home/$user
-
-RUN find . -name nidas -delete
+WORKDIR /
 
 # Local packages
 RUN mkdir -p ublox
 COPY ./build-ublox.sh ublox
-RUN cd ublox && sudo ./build-ublox.sh
+RUN cd ublox && ./build-ublox.sh
 
 RUN mkdir -p xmlrpc-build
 COPY ./build-xmlrpc.sh xmlrpc-build
-RUN cd xmlrpc-build && sudo ./build-xmlrpc.sh ${hostarch}
+RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
