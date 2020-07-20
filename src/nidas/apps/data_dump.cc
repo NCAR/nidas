@@ -283,50 +283,33 @@ bool DumpClient::receive(const Sample* samp) throw()
         break;
     case IRIG:
 	{
-	const unsigned char* dp = (const unsigned char*) samp->getConstVoidDataPtr();
-	unsigned int nbytes = samp->getDataByteLength();
-	struct timeval32 tv;
-	char timestr[128];
-	struct tm tm;
+        const unsigned char* statusp = IRIGSensor::getStatusPtr(samp);
+        unsigned char status = *statusp++;
 
-        // IRIG time
-        time_t irig_sec = fromLittle->int32Value(dp);
-	dp += sizeof(tv.tv_sec);
-        int irig_usec = fromLittle->int32Value(dp);
-	dp += sizeof(tv.tv_usec);
+        dsm_time_t tirig = IRIGSensor::getIRIGTime(samp);
+        string tstr = n_u::UTime(tirig).format(true,"%H:%M:%S.%6f");
+	ostr << "irig: " << tstr << ", ";
 
-	gmtime_r(&irig_sec,&tm);
-	strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
-	ostr << "irig: " << timestr << '.' << setw(6) << setfill('0') << irig_usec << ", ";
+        dsm_time_t tunix = IRIGSensor::getUnixTime(samp);
+        if (tunix != 0LL) {
+            tstr = n_u::UTime(tunix).format(true,"%H:%M:%S.%6f");
+            ostr << "unix: " << tstr << ", ";
+            ostr << "i-u: " << setfill(' ') << setw(4) <<
+                    (tirig - tunix) << " us, ";
 
-        if (nbytes >= 2 * sizeof(struct timeval32) + 1) {
-
-            // UNIX time
-
-            time_t unix_sec = fromLittle->int32Value(dp);
-            dp += sizeof(tv.tv_sec);
-            int unix_usec = fromLittle->int32Value(dp);
-            dp += sizeof(tv.tv_usec);
-
-            gmtime_r(&unix_sec,&tm);
-            strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
-            ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
-            ostr << "i-u: " << setfill(' ') << setw(4) << ((irig_sec - unix_sec) * USECS_PER_SEC +
-                (irig_usec - unix_usec)) << " us, ";
+            ostr << "status: " << setw(2) << setfill('0') << hex <<
+                (int)status << dec <<
+                    '(' << IRIGSensor::shortStatusString(status) << ')';
+            ostr << ", seq: " << (int)*statusp++;
+            ostr << ", synctgls: " << (int)*statusp++;
+            ostr << ", clksteps: " << (int)*statusp++;
+            ostr << ", maxbacklog: " << (int)*statusp++;
         }
-
-	unsigned char status = *dp++;
-
-        ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
-		'(' << IRIGSensor::shortStatusString(status) << ')';
-        if (nbytes >= 2 * sizeof(struct timeval32) + 2)
-            ostr << ", seq: " << (int)*dp++;
-        if (nbytes >= 2 * sizeof(struct timeval32) + 3)
-            ostr << ", synctgls: " << (int)*dp++;
-        if (nbytes >= 2 * sizeof(struct timeval32) + 4)
-            ostr << ", clksteps: " << (int)*dp++;
-        if (nbytes >= 2 * sizeof(struct timeval32) + 5)
-            ostr << ", maxbacklog: " << (int)*dp++;
+        else {
+            ostr << "status: " << setw(2) << setfill('0') << hex <<
+                (int)status << dec <<
+                    '(' << IRIGSensor::shortStatusString(status) << ')';
+        }
 	ostr << endl;
 	}
         break;

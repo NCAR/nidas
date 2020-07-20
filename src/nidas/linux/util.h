@@ -41,7 +41,7 @@
 #include <linux/fs.h>
 
 #include <linux/circ_buf.h>
-#include <linux/time.h>
+#include <linux/ktime.h>
 #include <linux/version.h>
 
 /**
@@ -216,41 +216,58 @@ extern int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int bl
  */
 extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
 
+/**
+ * Define a thiskernel_timespec_t, the natural timespec
+ * for this machine and kernel.  It is what is used by the
+ * ktime_get_*_*() functions. It is only defined in __KERNEL__ space.
+ * timespec64 first appears in 3.17, include/linux/time64.h.
+ * 
+ * The typedef of thiskernel_timespec_t has the following member sizes,
+ * where a 4 byte tv_sec field is not year 2038 compatible.
+ *
+ * 32 bit machine, kernel < 3.17:  4 byte tv_sec and 4 byte tv_usec
+ * 32 bit machine, kernel >= 3.17: 8 byte tv_sec and 4 byte tv_usec
+ * 64 bit machine, most any kernel?: 8 byte tv_sec and 8 byte tv_usec
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
+typedef struct timespec thiskernel_timespec_t;
+#else
+typedef struct timespec64 thiskernel_timespec_t;
+#endif
+
+/*
+ * Return system time in a thiskernel_timespec_t.
+ * ktime_get_real_ts64 first appears in 3.17
+ */
+inline void getSystemTimeTs(thiskernel_timespec_t *ts)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
+        ktime_get_real_ts(ts);
+#else
+        ktime_get_real_ts64(ts);
+#endif
+}
+
 /*
  * Return time in milliseconds since 00:00 UTC.
  */
 inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        struct timeval tv;
-        do_gettimeofday(&tv);
-        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
-                tv.tv_usec / USECS_PER_MSEC;
-#else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
-                tv.tv_nsec / NSECS_PER_MSEC;
-#endif
+        thiskernel_timespec_t ts;
+        getSystemTimeTs(&ts);
+        return (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+                ts.tv_nsec / NSECS_PER_MSEC;
 }
-
 
 /*
  * Return time in tenths of milliseconds since 00:00 UTC.
  */
 inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        struct timeval tv;
-        do_gettimeofday(&tv);
-        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
-                tv.tv_usec / USECS_PER_TMSEC;
-#else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
-                tv.tv_nsec / 1000 / USECS_PER_TMSEC;
-#endif
+        thiskernel_timespec_t ts;
+        getSystemTimeTs(&ts);
+        return (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                ts.tv_nsec / NSECS_PER_TMSEC;
 }
 
 struct sample_read_state

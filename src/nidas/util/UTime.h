@@ -604,9 +604,9 @@ UTime_stream_manip setTZ(const std::string& val)
  * since Jan 1, 1970, 00:00 GMT
  */
 inline long long getSystemTime() {
-    struct timeval tval;
-    if (::gettimeofday(&tval,0) < 0) return 0;   // shouldn't happen
-    return (long long)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
+    struct timespec ts;
+    ::clock_gettime(CLOCK_REALTIME,&ts);
+    return (long long)ts.tv_sec * USECS_PER_SEC + ts.tv_nsec / NSECS_PER_USEC;
 }
 
 /**

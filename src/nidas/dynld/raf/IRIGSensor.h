@@ -94,23 +94,23 @@ public:
 	throw(nidas::util::InvalidParameterException);
 
     /**
-     * compute the dsm_time_t from an IRIG sample.
-     * Values from device are little-endian.
+     * Return the IRIG time in an IRIG sample.
      */
-    dsm_time_t getIRIGTime(const Sample* samp) const;
+    static dsm_time_t getIRIGTime(const Sample* samp);
 
     /**
-     * compute the dsm_time_t from the Unix struct timeval32 in an IRIG sample.
-     * Values from device are little-endian.
+     * Return the UNIX time in an IRIG sample.
+     * Early IRIG samples don't contain the UNIX time. For those
+     * the returned value will be 0LL.
      */
-    dsm_time_t getUnixTime(const Sample* samp) const;
+    static dsm_time_t getUnixTime(const Sample* samp);
 
     /**
-     * fetch the clock status from an IRIG sample.
+     * fetch the pointer to the clock status in an IRIG sample.
      */
-    unsigned char getStatus(const Sample* samp) const;
+    static const unsigned char* getStatusPtr(const Sample* samp);
 
-    float get100HzBacklog(const Sample* samp) const;
+    static float get100HzBacklog(const Sample* samp);
 
     static const nidas::util::EndianConverter* lecvtr;
 private:

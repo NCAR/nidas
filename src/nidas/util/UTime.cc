@@ -45,9 +45,9 @@ string UTime::_defaultFormat("%c");
 
 UTime::UTime():_utime(0),_fmt(),_utc(true)
 {
-    struct timeval tv;
-    ::gettimeofday(&tv,0);
-    _utime = (long long)tv.tv_sec * USECS_PER_SEC + tv.tv_usec;
+    struct timespec ts;
+    ::clock_gettime(CLOCK_REALTIME,&ts);
+    _utime = (long long)ts.tv_sec * USECS_PER_SEC + ts.tv_nsec / NSECS_PER_USEC;
 }
 
 //
