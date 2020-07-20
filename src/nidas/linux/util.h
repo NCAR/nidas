@@ -217,13 +217,19 @@ extern int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int bl
 extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
 
 /**
- * The timespec used on this machine and kernel, for example
- * by the ktime_get_real_ts*() function:
- * 32 bit machine, old kernels:  4 byte tv_sec and 4 byte tv_usec
- * 32 bit machine, kernels > 5:  8 byte tv_sec and 4 byte tv_usec
- * 64 bit machine:               8 byte tv_sec and 8 byte tv_usec
+ * Define a thiskernel_timespec_t, the natural timespec
+ * for this machine and kernel.  It is what is used by the
+ * ktime_get_*_*() functions. It is only defined in __KERNEL__ space.
+ * timespec64 first appears in 3.17, include/linux/time64.h.
+ * 
+ * The typedef of thiskernel_timespec_t has the following member sizes,
+ * where a 4 byte tv_sec field is not year 2038 compatible.
+ *
+ * 32 bit machine, kernel < 3.17:  4 byte tv_sec and 4 byte tv_usec
+ * 32 bit machine, kernel >= 3.17: 8 byte tv_sec and 4 byte tv_usec
+ * 64 bit machine, most any kernel?: 8 byte tv_sec and 8 byte tv_usec
  */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
 typedef struct timespec thiskernel_timespec_t;
 #else
 typedef struct timespec64 thiskernel_timespec_t;
@@ -231,10 +237,11 @@ typedef struct timespec64 thiskernel_timespec_t;
 
 /*
  * Return system time in a thiskernel_timespec_t.
+ * ktime_get_real_ts64 first appears in 3.17
  */
 inline void getSystemTimeTs(thiskernel_timespec_t *ts)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
         ktime_get_real_ts(ts);
 #else
         ktime_get_real_ts64(ts);

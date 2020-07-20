@@ -1,5 +1,5 @@
 /* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
-/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
@@ -24,6 +24,7 @@
  ********************************************************************
 */
 # include <stdio.h>
+# include <stddef.h>
 # include <string.h>
 # include <errno.h>
 # include <time.h>
@@ -37,7 +38,8 @@ main()
     char *devname = "/dev/irig0";
     FILE *irig = fopen(devname, "r");
     int status;
-    struct timeval tv;
+    struct timeval32 tv;
+    struct timespec ts;
     /*
      * Open the IRIG device
      */
@@ -49,7 +51,9 @@ main()
     /*
      * Kick the IRIG time to now
      */
-    gettimeofday(&tv, NULL);
+    clock_gettime(CLOCK_REALTIME, &ts);
+    tv.tv_sec = ts.tv_sec;
+    tv.tv_usec = ts.tv_nsec / NSECS_PER_SEC;
     printf("Kicking IRIG clock...\n");
     if ((status = ioctl(fileno(irig), IRIG_SET_CLOCK, &tv)) != sizeof(tv))
     {
@@ -63,22 +67,69 @@ main()
      */
     while (1) 
     {
-	struct dsm_clock_sample samp;
-	int nread;
+	size_t nread, n;
 	char buf[128];
 	time_t tsec;
-	
-	if ((nread = fread(&samp, sizeof(samp), 1, irig)) != 1) 
+	unsigned long usec;
+        unsigned char status;
+
+        /* There are three possible types of samples from an irig. Read
+         * the sample length to determine which one is coming.
+         */
+
+        dsm_sample_time_t tt;
+        n = sizeof(tt);
+	if ((nread = fread(&tt, 1, n, irig)) != n) 
 	{
-	    fprintf(stderr, "Bad read size (%d != %d)!\n", nread, 
-		    sizeof(samp));
+	    fprintf(stderr, "Bad read size (%d != %d)!\n", nread, n);
 	    continue;
 	}
+        dsm_sample_time_t len;
+        n = sizeof(len);
+	if ((nread = fread(&len, 1, n, irig)) != n) 
+	{
+	    fprintf(stderr, "Bad read size (%d != %d)!\n", nread, n);
+	    continue;
+	}
+
+        if (len < offsetof(struct dsm_clock_data_2,end)) {
+            struct dsm_clock_data data;
+            int n = offsetof(struct dsm_clock_data,end);
+            if ((nread = fread(&data, 1, n, irig)) != n) 
+            {
+                fprintf(stderr, "Bad read size (%d != %d)!\n", nread, n);
+                continue;
+            }
+            status = data.status;
+            tsec = data.tval.tv_sec;
+            usec = data.tval.tv_usec;
+        }
+        else if (len < offsetof(struct dsm_clock_data_3,end)) {
+            struct dsm_clock_data_2 data;
+            int n = offsetof(struct dsm_clock_data_2,end);
+            if ((nread = fread(&data, 1, n, irig)) != n) 
+            {
+                fprintf(stderr, "Bad read size (%d != %d)!\n", nread, n);
+                continue;
+            }
+            status = data.status;
+            tsec = data.irigt.tv_sec;
+            usec = data.irigt.tv_usec;
+        }
+        else {
+            struct dsm_clock_data_3 data;
+            int n = offsetof(struct dsm_clock_data_3,end);
+            if ((nread = fread(&data, 1, n, irig)) != n) 
+            {
+                fprintf(stderr, "Bad read size (%d != %d)!\n", nread, n);
+                continue;
+            }
+            status = data.status;
+            tsec = data.irigt / USECS_PER_SEC;
+            usec = data.irigt % USECS_PER_SEC;
+        }
 	
-	tsec = samp.data.tval.tv_sec;
 	strftime(buf, sizeof(buf), "%F %T", gmtime(&tsec));
-	printf("%s.%06ld status 0x%x\n", buf, 
-	       (unsigned long)samp.data.tval.tv_usec, 
-	       samp.data.status);
+	printf("%s.%06ld status 0x%x\n", buf, usec, (unsigned int) status);
     }
 }

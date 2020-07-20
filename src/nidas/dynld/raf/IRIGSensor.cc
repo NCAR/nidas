@@ -38,6 +38,7 @@
 #include <sstream>
 #include <cmath>
 #include <unistd.h>	// for sleep()
+#include <stddef.h>	// for offsetof()
 
 using namespace std;
 using namespace nidas::core;
@@ -91,31 +92,41 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
 }
 
 /**
- * Get the current time from the IRIG card.
+ * Get the current time from the IRIG card via ioctl.
  * This is not meant to be used for frequent use.
  */
 dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 {
-
+    dsm_time_t val;
+#if BITS_PER_LONG == 64
+    ioctl(IRIG_GET_CLOCK64,&val,sizeof(val));
+#else
     struct timeval32 tval;
     ioctl(IRIG_GET_CLOCK,&tval,sizeof(tval));
+    val = (dsm_time_t)tval.tv_sec * USECS_PER_SEC +
+            tval.tv_usec;
+#endif
 
 #ifdef DEBUG
     struct pc104sg_status status;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-    cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	tval.tv_usec << ", status=0x" << hex << (int)status.statusOR << dec << endl;
+    cerr << "IRIG_GET_CLOCK=" << val <<
+	", status=0x" << hex << (int)status.statusOR << dec << endl;
 #endif
-    return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
+    return val;
 }
 
 void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
 {
+#if BITS_PER_LONG == 64
+    ioctl(IRIG_SET_CLOCK64,&val,sizeof(val));
+#else
     struct timeval32 tval;
     tval.tv_sec = val / USECS_PER_SEC;
     tval.tv_usec = val % USECS_PER_SEC;
     ioctl(IRIG_SET_CLOCK,&tval,sizeof(tval));
+#endif
 }
 
 void IRIGSensor::checkClock() throw(n_u::IOException)
@@ -327,34 +338,50 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-dsm_time_t IRIGSensor::getIRIGTime(const Sample* samp) const {
+dsm_time_t IRIGSensor::getIRIGTime(const Sample* samp) {
     const dsm_clock_data* dp = (dsm_clock_data*)samp->getConstVoidDataPtr();
-    return (dsm_time_t)lecvtr->int32Value(dp->tval.tv_sec) * USECS_PER_SEC +
+
+    // IRIG time has same location and format in dsm_clock_data and
+    // dsm_clock_data_2 samples
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_3, end))
+        return (dsm_time_t)lecvtr->int32Value(dp->tval.tv_sec) * USECS_PER_SEC +
             lecvtr->int32Value(dp->tval.tv_usec);
+
+    const dsm_clock_data_3* dp3 = (const dsm_clock_data_3*)samp->getConstVoidDataPtr();
+    return (dsm_time_t)lecvtr->int64Value(dp3->irigt);
 }
 
-dsm_time_t IRIGSensor::getUnixTime(const Sample* samp) const {
-    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) return 0LL;
-    const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
-    return (dsm_time_t)lecvtr->int32Value(dp->unixt.tv_sec) * USECS_PER_SEC +
-            lecvtr->int32Value(dp->unixt.tv_usec);
+dsm_time_t IRIGSensor::getUnixTime(const Sample* samp) {
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_2,end)) return 0LL;
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_3,end)) {
+
+        const dsm_clock_data_2* dp2 = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+        return (dsm_time_t)lecvtr->int32Value(dp2->unixt.tv_sec) * USECS_PER_SEC +
+            lecvtr->int32Value(dp2->unixt.tv_usec);
+    }
+    const dsm_clock_data_3* dp3 = (const dsm_clock_data_3*)samp->getConstVoidDataPtr();
+    return (dsm_time_t)lecvtr->int64Value(dp3->unixt);
 }
 
-unsigned char IRIGSensor::getStatus(const Sample* samp) const {
-    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 1) {
+const unsigned char* IRIGSensor::getStatusPtr(const Sample* samp) {
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_2,end)) {
         const dsm_clock_data* dp = (const dsm_clock_data*)samp->getConstVoidDataPtr();
-        return dp->status;
+        return &dp->status;
     }
-    else {
-        const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
-        return dp->status;
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_3,end)) {
+
+        const dsm_clock_data_2* dp2 = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+        return &dp2->status;
     }
+    const dsm_clock_data_3* dp3 = (const dsm_clock_data_3*)samp->getConstVoidDataPtr();
+    return &dp3->status;
 }
 
-float IRIGSensor::get100HzBacklog(const Sample* samp) const {
-    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 5) return floatNAN;
-    const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
-    return (int)dp->max100HzBacklog; // convert from unsigned char
+float IRIGSensor::get100HzBacklog(const Sample* samp) {
+    if (samp->getDataByteLength() < offsetof(dsm_clock_data_2,end))
+        return floatNAN;
+    const unsigned char* sp = getStatusPtr(samp);
+    return (int)sp[4];
 }
 
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
@@ -363,17 +390,22 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
     SampleT<float>* osamp = getSample<float>(_nvars);
     osamp->setTimeTag(samp->getTimeTag());
     osamp->setId(_sampleId);
-    // clock difference, IRIG-UNIX
-    if (samp->getDataByteLength() >= 2 * sizeof(struct timeval32) + 1)
-        osamp->getDataPtr()[0] = (float)(getIRIGTime(samp) - getUnixTime(samp)) / USECS_PER_SEC;
-    else
-        osamp->getDataPtr()[0] = floatNAN;
-    if (_nvars > 1)
-        osamp->getDataPtr()[1] = (float)getStatus(samp);     // status value
-    if (_nvars > 2)
-        osamp->getDataPtr()[2] = get100HzBacklog(samp);
-    result.push_back(osamp);
 
+    int iv = 0;
+    // clock difference, IRIG-UNIX
+    if (samp->getDataByteLength() >= offsetof(dsm_clock_data_2, end))
+        osamp->getDataPtr()[iv++] = (float)(getIRIGTime(samp) - getUnixTime(samp)) / USECS_PER_SEC;
+    else
+        osamp->getDataPtr()[iv++] = floatNAN;
+
+    if (_nvars > 1)
+        osamp->getDataPtr()[iv++] = (float)*getStatusPtr(samp);     // status value
+    if (_nvars > 2)
+        osamp->getDataPtr()[iv++] = get100HzBacklog(samp);
+
+    for ( ; iv < _nvars; ) 
+        osamp->getDataPtr()[iv++] = floatNAN;
+    result.push_back(osamp);
     return true;
 }
 
