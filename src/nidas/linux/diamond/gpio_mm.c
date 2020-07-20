@@ -24,9 +24,50 @@
  ********************************************************************
 */
 /*
- * Driver for Diamond Systems GPIO-MM Digital I/O
+ * Driver for Diamond Systems GPIO-MM Counter/Timeer and Digital I/O
  *
  * Original author:	Gordon Maclean
+ *
+ * GPIO-MM has 10 16-bit counter timers, 48 digital I/O lines
+ * and 8 bits of TTL input and output.  Counter/timers are
+ * implemented in FPGA, emulating two CTS9513 chips.
+ *
+ * This board can provide the implementation of 4 different types of devices:
+ * frequency counter (3 per board), pulse counter (9 per board), a digital
+ * I/O device and an event timer.
+ *
+ * This driver currently only implements the frequency counter.
+ *
+ * This driver uses one counter on the board to generate interrupts.
+ * The counter number of this timer is the value of GPIO_MM_TIMER_COUNTER, which
+ * is typically 9, the last counter on the board.  The interrupt service routine
+ * schedules a bottom-half tasklet, function gpio_mm_timer_bottom_half.
+ * Callback functions can be registered to be called by the tasklet at
+ * requested rates.
+ *
+ * Frequency Counter
+ *   Each frequency counter uses 3 of the counter timers, one to
+ *   count pulses from the sensor input, and 2 to count tics
+ *   of the internal 20 MHz clock while the pulses are counted.
+ *   This requires a hardwired connection on J3 between the pulse counter
+ *   output and the gate of the lower order tic counter. In the usual
+ *   configuration, Out1 on J3 is connected to In2 for the first frequency
+ *   counter, Out4 to In5 for the second, and Out7 to In8 for the third.
+ *
+ *   For a requested sample rate, the user determines a number
+ *   of pulses to be counted, based on the estimated minimum frequency
+ *   to be measured.
+ *
+ *   The requested output rate, the number of pulses to count, and a 20 MHz clock
+ *   correction are passed from user space to the driver for each frequency counter
+ *   via an the GPIO_MM_FCNTR_START ioctl.
+ *
+ *   The frequency counter registers a callback at the requested output rate
+ *   to create samples of the number of pulses and tics and make them
+ *   available for reading from the user side.  From these values one can 
+ *   calculate an average frequency while the pulses were counted.
+ *   This provides a more accurate and instantaneous frequency estimate than
+ *   just counting pulses.
 */
 
 #include <linux/types.h>
@@ -50,6 +91,7 @@
 // #define DEBUG
 #include <nidas/linux/ver_macros.h>
 #include <nidas/linux/klog.h>
+#include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/Revision.h>    // REPO_REVISION
 
@@ -136,35 +178,23 @@ static int gcd(unsigned int a, unsigned int b)
         return gcd(b,a % b);
 }
 
-static void gpio_gettimeofday(struct timeval* tvp)
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        do_gettimeofday(tvp);
-#else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        tvp->tv_sec = tv.tv_sec;
-        tvp->tv_usec = tv.tv_nsec / 1000;
-#endif
-}
-
 #ifdef DEBUG
-static void print_timeval(const char* msg,struct timeval* tvp)
+static void print_timespec(const char* msg,thiskernel_timespec_t* ts)
 {
         int hr,mn,sc;
-        sc = tvp->tv_sec % 86400;
+        sc = ts->tv_sec % 86400;
         hr = sc / 3600;
         sc -= hr * 3600;
         mn = sc / 60;
         sc -= mn * 60;
         KLOG_DEBUG("%s: %02d:%02d:%02d.%06ld\n",
-            msg,hr,mn,sc,tvp->tv_usec);
+            msg,hr,mn,sc,tvp->tv_nsec / NSECS_PER_USEC);
 }
 static void print_time_of_day(const char* msg)
 {
-        struct timeval tv;
-        gpio_gettimeofday(&tv);
-        print_timeval(msg,&tv);
+        thiskernel_timespec_t ts;
+        getSystemTimeTs(&ts);
+        print_timespec(msg,&ts);
 }
 #endif
 
@@ -472,26 +502,29 @@ static int check_timer_interval(struct GPIO_MM*brd, unsigned int usecs)
 static void set_ticks(struct GPIO_MM_timer* timer,unsigned int usecs,
     unsigned int maxUsecs,unsigned short* initial_ticsp)
 {
-        struct timeval tv;
+        thiskernel_timespec_t ts;
+        int usecs_of_day;
+
         timer->tickLimit = UINT_MAX - (UINT_MAX % (unsigned)(maxUsecs / usecs) );
+
         /* determine initial amount of time to count so that
          * we are (somewhat) in sync with the system clock.
          */
-        gpio_gettimeofday(&tv);
+        getSystemTimeTs(&ts);
+        usecs_of_day = ts.tv_nsec / NSECS_PER_USEC;
+
         if (initial_ticsp) {
                 unsigned short initial_tics;
                 unsigned int initial_usecs;
-                initial_usecs = 2 * usecs - (tv.tv_usec % usecs);
-                initial_tics = clockHZ / USECS_PER_SEC * initial_usecs /
-                    timer->scaler;
-                timer->tick =
-                    ((tv.tv_usec + initial_usecs - usecs) / usecs) % timer->tickLimit;
+                initial_usecs = 2 * usecs - usecs_of_day % usecs;
+                initial_tics = clockHZ / USECS_PER_SEC * initial_usecs / timer->scaler;
                 *initial_ticsp = initial_tics;
-                KLOG_DEBUG("usecs=%d,maxUsecs=%d,tv_usec=%ld,initial_usecs=%d,initial_tics=%d,tick=%u,tickLimit=%u\n",
-                           usecs,maxUsecs,tv.tv_usec,initial_usecs,initial_tics,
+                timer->tick = (usecs_of_day + initial_usecs - usecs) / usecs;
+                KLOG_DEBUG("usecs=%d,maxUsecs=%d,usecs_of_day=%ld,initial_usecs=%d,initial_tics=%d,tick=%u,tickLimit=%u\n",
+                           usecs,maxUsecs, usecs_of_day,initial_usecs,initial_tics,
                            timer->tick,timer->tickLimit);
         }
-        else timer->tick = (tv.tv_usec / usecs);
+        else timer->tick = usecs_of_day / usecs;
 
 }
 /*
@@ -509,7 +542,11 @@ static void start_gpio_timer(struct GPIO_MM_timer* timer,
         int scaler;
         unsigned short initial_tics;
 
-        /* timer is mode D: Rate Generator with No Hardware Gating */
+        /* timer is mode D: Rate Generator with No Hardware Gating,
+         *      binary counting. Note this setting of binary counting
+         *      is separate from the BIN/BCD setting of the internal frequency
+         *      pre-scaler, set in the master-mode register.
+         */
         lmode = CTS9513_CML_OUT_HIGH_ON_TC |
                 CTS9513_CML_CNT_DN |
                 CTS9513_CML_CNT_BIN |
@@ -705,7 +742,6 @@ static void gpio_mm_timer_bottom_half(unsigned long dev)
                 if (!(timer->tick % cbentry->tickModulus))
                     cbentry->callbackFunc(cbentry->privateData);
         }
-
 }
 
 /*
@@ -1197,7 +1233,7 @@ static void fcntr_timer_callback_func(void *privateData)
                 // Data is little endian
                 samp->ticks = cpu_to_le32(tcn);
 
-                if (pcstatus)  {
+                if (pcstatus) {
                         // pc output high, all pulses counted, or not finished counting the initial few
                         switch (pcn) {
                         case 3:
@@ -2031,30 +2067,30 @@ err0:
 #ifdef DEBUG_CALLBACKS
 struct test_callback_data
 {
-        struct timeval tv;
+        thiskernel_timespec_t ts;
         struct gpio_timer_callback *cbh;
 };
 
 void test_callback(void* ptr)
 {
         struct test_callback_data* cbd = ptr;
-        struct timeval tv;
+        thiskernel_timespec_t ts;
         int hr,mn,sc;
         int diff = 0;
-        gpio_gettimeofday(&tv);
-        if (cbd->tv.tv_usec > 0) {
-            int sd = tv.tv_sec - cbd->tv.tv_sec;
-            diff = tv.tv_usec - cbd->tv.tv_usec;
-            if (sd > 0) diff += sd * USECS_PER_SEC;
+        getSystemTimeTs(&ts);
+        if (cbd->ts.tv_nsec > 0) {
+            int sd = ts.tv_sec - cbd->tv.tv_sec;
+            diff = ts.tv_nsec - cbd->tv.tv_nsec;
+            if (sd > 0) diff += sd * NSECS_PER_SEC;
         }
-        sc = tv.tv_sec % 86400;
+        sc = ts.tv_sec % 86400;
         hr = sc / 3600;
         sc -= hr * 3600;
         mn = sc / 60;
         sc -= mn * 60;
         KLOG_INFO("callback %02d:%02d:%02d.%06ld, usecs=%d, diff=%6d\n",
-            hr,mn,sc,tv.tv_usec,cbd->cbh->usecs,diff);
-        memcpy(&cbd->tv,&tv,sizeof(struct timeval));
+            hr,mn,sc,ts.tv_usec,cbd->cbh->usecs,diff);
+        memcpy(&cbd->ts,&ts,sizeof(thiskernel_timespec_t));
 }
 
 struct test_callback_data testcbd1;
