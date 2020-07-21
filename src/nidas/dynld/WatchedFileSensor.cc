@@ -179,17 +179,14 @@ bool WatchedFileSensor::readSamples() throw(n_u::IOException)
     // don't need to allocate buffer space for the file name.
     struct inotify_event event;
 
-    bool exhausted = false;
+    bool exhausted = true;
 
     for (;;) {
 
         ssize_t len = ::read(_inotifyfd,&event,sizeof(event));
         if (len < 0) {
             // inotify fd is O_NONBLOCK, so read until EAGAIN to get all events
-            if (errno == EAGAIN || EWOULDBLOCK) {
-                exhausted = true;
-                break;
-            }
+            if (errno == EAGAIN || EWOULDBLOCK) break;
             throw n_u::IOException(getDeviceName(),"inotify read",errno);
         }
 
