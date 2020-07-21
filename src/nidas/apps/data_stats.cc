@@ -767,7 +767,7 @@ public:
     updateStats(const UTime& start);
 
     void
-    writeResults();
+    report();
 
     static void handleSignal(int signum);
 
@@ -779,7 +779,9 @@ public:
 
     // ********************************
 
-    void printResults(std::ostream& outs);
+    void printReport(std::ostream& outs);
+
+    void jsonReport();
 
     void resetResults();
 
@@ -1322,7 +1324,7 @@ receive(const Sample* samp) throw()
 }
 
 
-void DataStats::printResults(std::ostream& outs)
+void DataStats::printReport(std::ostream& outs)
 {
     size_t maxnamelen = 6;
     int lenpow[2] = {5,5};
@@ -1471,12 +1473,7 @@ updateStats(const UTime& start)
     }
 
     // Tell all the counters to reset their statistics.
-    vector<dsm_sample_id_t> ids = getSampleIds();
-    for (unsigned int i = 0; i < ids.size(); ++i)
-    {
-        SampleCounter* stream = getSampleCounter(ids[i]);
-        stream->reset();
-    }
+    resetResults();
 
     // Now replay all the samples from the queue, so they will be dispatched
     // and accumulated in the appropriate counters.
@@ -1485,14 +1482,14 @@ updateStats(const UTime& start)
         const Sample* samp = *it;
         dsm_sample_id_t sampid = samp->getId();
         sample_map_t::iterator smit = findStats(sampid);
-        smit->second.receive(samp);
+        smit->second.accumulateSample(samp);
     }
 }
 
 
 void
 DataStats::
-writeResults()
+report()
 {
     ILOG(("") << "computing stats from "
               << iso_format(_period_start) << " to "
@@ -1505,80 +1502,87 @@ writeResults()
     // stdout in line-separated json.
     if (!JsonOutput.specified())
     {
-        printResults(cout);
+        printReport(cout);
     }
-#if NIDAS_JSONCPP_ENABLED
     else
     {
-        vector<dsm_sample_id_t> ids = getSampleIds();
-        // Use the existence of the json writer to know if the headers have
-        // been written yet, so they are only written the first time.
-        if (!streamWriter.get())
-        {
-            createJsonWriters();
-            ILOG(("writing json to ") << JsonOutput.getValue());
-        }
-        if (1)
-        {
-            // Create a json object which contains all the headers and all the
-            // data for all the SampleCounter streams, then write it out.
-            Json::Value root;
-            Json::Value timeperiod(Json::arrayValue);
-            timeperiod.append(iso_format(_period_start));
-            timeperiod.append(iso_format(_period_end));
-            root["stats"]["timeperiod"] = timeperiod;
-            root["stats"]["update"] = _update;
-            root["stats"]["period"] = _period;
-            root["stats"]["starttime"] = iso_format(_start_time);
-            Json::Value streamstats;
+        jsonReport();
+    }
+}
 
-            for (unsigned int i = 0; i < ids.size(); ++i)
-            {
-                SampleCounter* stream = getSampleCounter(ids[i]);
-                // Use a "stream" field in the top level object to provide a
-                // "namespace" for stream objects.  Keeping "data" and
-                // "stream" namespaces allows writing both into one file or
-                // into different files, without modifying the schema
-                // expected by consumers.
-                root["stream"][stream->streamid] = stream->jsonHeader();
-                // Rewriting the data every time seems excessive, but at the
-                // moment it's an expedient way to provide both headers and
-                // data in one file for web clients.  Later the data could
-                // be written into a different file.  Also, it might be
-                // possible for the set of headers to change as streams come
-                // and go, so writing them all together means they are
-                // always in sync and consistent.  Every data object will
-                // have a corresponding stream header in the same file.
-                root["data"][stream->streamid] = stream->jsonData();
-                streamstats[stream->streamid] = stream->jsonStats();
-            }
-            root["stats"]["streams"] = streamstats;
-            std::ofstream json;
-            json.open(JsonOutput.getValue().c_str());
-#if !NIDAS_JSONCPP_STREAMWRITER
-            headerWriter->write(json, root);
-#else
-            headerWriter->write(root, &json);
-#endif
-            json.close();
-        }
-        // Now stream the data to stdout.
+
+void
+DataStats::
+jsonReport()
+{
+#if NIDAS_JSONCPP_ENABLED
+    vector<dsm_sample_id_t> ids = getSampleIds();
+    // Use the existence of the json writer to know if the headers have
+    // been written yet, so they are only written the first time.
+    if (!streamWriter.get())
+    {
+        createJsonWriters();
+        ILOG(("writing json to ") << JsonOutput.getValue());
+    }
+    if (1)
+    {
+        // Create a json object which contains all the headers and all the
+        // data for all the SampleCounter streams, then write it out.
+        Json::Value root;
+        Json::Value timeperiod(Json::arrayValue);
+        timeperiod.append(iso_format(_period_start));
+        timeperiod.append(iso_format(_period_end));
+        root["stats"]["timeperiod"] = timeperiod;
+        root["stats"]["update"] = _update;
+        root["stats"]["period"] = _period;
+        root["stats"]["starttime"] = iso_format(_start_time);
+        Json::Value streamstats;
+
         for (unsigned int i = 0; i < ids.size(); ++i)
         {
             SampleCounter* stream = getSampleCounter(ids[i]);
-            if (stream->nsamps || AllSamples.asBool())
-            {
+            // Use a "stream" field in the top level object to provide a
+            // "namespace" for stream objects.  Keeping "data" and
+            // "stream" namespaces allows writing both into one file or
+            // into different files, without modifying the schema
+            // expected by consumers.
+            root["stream"][stream->streamid] = stream->jsonHeader();
+            // Rewriting the data every time seems excessive, but at the
+            // moment it's an expedient way to provide both headers and
+            // data in one file for web clients.  Later the data could
+            // be written into a different file.  Also, it might be
+            // possible for the set of headers to change as streams come
+            // and go, so writing them all together means they are
+            // always in sync and consistent.  Every data object will
+            // have a corresponding stream header in the same file.
+            root["data"][stream->streamid] = stream->jsonData();
+            streamstats[stream->streamid] = stream->jsonStats();
+        }
+        root["stats"]["streams"] = streamstats;
+        std::ofstream json;
+        json.open(JsonOutput.getValue().c_str());
 #if !NIDAS_JSONCPP_STREAMWRITER
-                streamWriter->write(std::cout, stream->jsonData());
+        headerWriter->write(json, root);
 #else
-                streamWriter->write(stream->jsonData(), &std::cout);
+        headerWriter->write(root, &json);
 #endif
-                std::cout << std::endl;
-            }
+        json.close();
+    }
+    // Now stream the data to stdout.
+    for (unsigned int i = 0; i < ids.size(); ++i)
+    {
+        SampleCounter* stream = getSampleCounter(ids[i]);
+        if (stream->nsamps || AllSamples.asBool())
+        {
+#if !NIDAS_JSONCPP_STREAMWRITER
+            streamWriter->write(std::cout, stream->jsonData());
+#else
+            streamWriter->write(stream->jsonData(), &std::cout);
+#endif
+            std::cout << std::endl;
         }
     }
 #endif
-    resetResults();
 }
 
 
@@ -1694,13 +1698,13 @@ int DataStats::run()
                 if (_period_start.toSecs() + _period < _period_end.toSecs())
                     _period_start = _period_end - _period * USECS_PER_SEC;
             }
-            writeResults();
+            report();
         }
     }
     catch (n_u::EOFException& e)
     {
         cerr << e.what() << endl;
-        writeResults();
+        report();
     }
     catch (n_u::IOException& e)
     {
@@ -1716,7 +1720,7 @@ int DataStats::run()
             sis.removeSampleClient(this);
         }
         sis.close();
-        writeResults();
+        report();
         throw(e);
     }
     if (_app.processData())
