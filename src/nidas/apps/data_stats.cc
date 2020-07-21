@@ -53,6 +53,7 @@
 #include <sys/stat.h>
 
 #include <unistd.h>
+#include <stdio.h>   // rename()
 
 #ifndef NIDAS_JSONCPP_ENABLED
 #define NIDAS_JSONCPP_ENABLED 1
@@ -987,6 +988,8 @@ DataStats::DataStats():
     FilterArg(),
     JsonOutput("--json", "<path>",
                "Write json stream headers to the given file path.\n"
+               "The output is first written to a filename with .tmp\n"
+               "appended, then renamed to the given path.\n"
                "The json file contains an object which maps\n"
                "each streamid to the header object for that stream.\n"
                "The header contains stream metadata and a dictionary of\n"
@@ -1560,13 +1563,18 @@ jsonReport()
         }
         root["stats"]["streams"] = streamstats;
         std::ofstream json;
-        json.open(JsonOutput.getValue().c_str());
+        // Write to a temporary file first, then move into place.
+        std::string jsonname(JsonOutput.getValue());
+        std::string tmpname = jsonname + ".tmp";
+        json.open(tmpname.c_str());
 #if !NIDAS_JSONCPP_STREAMWRITER
         headerWriter->write(json, root);
 #else
         headerWriter->write(root, &json);
 #endif
         json.close();
+        // Now move into place.
+        ::rename(tmpname.c_str(), jsonname.c_str());
     }
     // Now stream the data to stdout.
     for (unsigned int i = 0; i < ids.size(); ++i)
