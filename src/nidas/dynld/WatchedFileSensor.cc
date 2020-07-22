@@ -299,8 +299,26 @@ bool WatchedFileSensor::readSamples() throw(n_u::IOException)
          *    copy("messages","message.0")              no event
          *    truncate("messages")                      IN_MODIFY (read will get EOF)
          *
-         *  To read a value from /sys/devices, such as CPU temperature
+         *  How to read a value from /sys/devices, such as CPU temperature.
+         *  Note that it doesn't work to watch a sysfs file directly, since inotify won't
+         *  receive any events.  It's the read of the file that causes the kernel to deliver a value.
          *
+         *  script                                      Nidas, inotify
+         *  #!/bin/sh
+         *  in=/sys/devices/platform/.../temp1_input    Nidas loops trying to open cpu_temp.txt
+         *  out=/tmp/cpu_temp.txt                       Once it sees cpu_temp.txt, starts watching it,
+         *  rm -f $out                                  and seeks to end of file.
+         *  while true; do
+         *      i=0
+         *      while [ $((i=i+1)) -le 100 ]; do        So file doesn't become large
+         *         cat $in >> $out                      inotify events: IN_MODIFY, IN_CLOSE_WRITE 
+         *         sleep 5                                 reads record, keeps file open.
+         *      done                                    
+         *      cat /dev/null > $out                    IN_MODIFY, IN_CLOSE_WRITE. Read returns EOF,
+         *                                              lseek is done to new end of file
+         * done                                         
+         *
+         *  Instead of truncating, moving then recreating may result in some loss of data:
          *  script                                      Nidas and inotify
          *  #!/bin/sh
          *  in=/sys/devices/platform/.../temp1_input    Nidas loops trying to open cpu_temp.txt
@@ -309,16 +327,18 @@ bool WatchedFileSensor::readSamples() throw(n_u::IOException)
          *  rm -f $out
          *  while true; do
          *      i=0
-         *      while [ $((i=i+1)) -le 1000 ]; do
+         *      while [ $((i=i+1)) -le 100 ]; do        So file doesn't become large
          *         cat $in >> $out                      inotify events: IN_MODIFY, IN_CLOSE_WRITE 
-         *         sleep 5                                 reads data, keeps file open.
+         *         sleep 5                                 reads record, keeps file open.
          *      done                                    
-         *      mv $out $old                            IN_MOVE_SELF, then IOException trying to reopen
-         *      cat /dev/null > $out                    cpu_temp.txt. Schedules it to be reopened.
-         #                                              Once it is reopened a seek is done to the end.
-         # done                                         Since the sensor opener loop doesn't run fast,
-         *                                              maybe once every 10 seconds, the seek may
-         *                                              skip some record.
+         *      mv $out $old                            IN_MOVE_SELF, then likely an IOException trying to
+         *                                              reopen cpu_temp.txt since it doesn't exist for a
+         *                                              moment. Nidas schedules it to be reopened.
+         *      cat /dev/null > $out                    Once it is reopened an lseek is done
+         * done                                         to the end.  Since the sensor opener loop
+         *                                              doesn't run fast, maybe once every 10 seconds,
+         *                                              the lseek may skip some records.
+         *
          */
         
         if (event.mask & IN_DELETE_SELF) {      // last link to inode removed
