@@ -1513,6 +1513,15 @@ report()
     }
 }
 
+#if NIDAS_JSONCPP_ENABLED
+inline
+Json::Value&
+createObject(Json::Value& value)
+{
+    value = Json::Value(Json::objectValue);
+    return value;
+}
+#endif
 
 void
 DataStats::
@@ -1535,11 +1544,16 @@ jsonReport()
         Json::Value timeperiod(Json::arrayValue);
         timeperiod.append(iso_format(_period_start));
         timeperiod.append(iso_format(_period_end));
-        root["stats"]["timeperiod"] = timeperiod;
-        root["stats"]["update"] = _update;
-        root["stats"]["period"] = _period;
-        root["stats"]["starttime"] = iso_format(_start_time);
-        Json::Value streamstats;
+        // Create three top-level objects.  They always exist,
+        // even if there are no streams or no data.
+        Json::Value& stats = createObject(root["stats"]);
+        Json::Value& data = createObject(root["data"]);
+        Json::Value& streams = createObject(root["stream"]);
+        stats["timeperiod"] = timeperiod;
+        stats["update"] = _update;
+        stats["period"] = _period;
+        stats["starttime"] = iso_format(_start_time);
+        Json::Value& streamstats = createObject(stats["streams"]);
 
         for (unsigned int i = 0; i < ids.size(); ++i)
         {
@@ -1549,7 +1563,7 @@ jsonReport()
             // "stream" namespaces allows writing both into one file or
             // into different files, without modifying the schema
             // expected by consumers.
-            root["stream"][stream->streamid] = stream->jsonHeader();
+            streams[stream->streamid] = stream->jsonHeader();
             // Rewriting the data every time seems excessive, but at the
             // moment it's an expedient way to provide both headers and
             // data in one file for web clients.  Later the data could
@@ -1558,10 +1572,9 @@ jsonReport()
             // and go, so writing them all together means they are
             // always in sync and consistent.  Every data object will
             // have a corresponding stream header in the same file.
-            root["data"][stream->streamid] = stream->jsonData();
+            data[stream->streamid] = stream->jsonData();
             streamstats[stream->streamid] = stream->jsonStats();
         }
-        root["stats"]["streams"] = streamstats;
         std::ofstream json;
         // Write to a temporary file first, then move into place.
         std::string jsonname(JsonOutput.getValue());
