@@ -725,7 +725,10 @@ class DataStats : public SampleClient
 public:
     DataStats();
 
-    ~DataStats() {}
+    ~DataStats()
+    {
+        clearSampleQueue();
+    }
 
     int run();
 
@@ -766,6 +769,9 @@ public:
      **/
     void
     updateStats(const UTime& start);
+
+    void
+    clearSampleQueue();
 
     void
     report();
@@ -1486,6 +1492,19 @@ updateStats(const UTime& start)
         dsm_sample_id_t sampid = samp->getId();
         sample_map_t::iterator smit = findStats(sampid);
         smit->second.accumulateSample(samp);
+    }
+}
+
+
+void
+DataStats::
+clearSampleQueue()
+{
+    while (!_sampleq.empty())
+    {
+        const Sample* samp = _sampleq.front();
+        _sampleq.pop_front();
+        samp->freeReference();
     }
 }
 
