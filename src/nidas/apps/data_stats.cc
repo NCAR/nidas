@@ -124,13 +124,15 @@ public:
         maxlens(0),
         minDeltaTs(0),
         maxDeltaTs(0),
+        varnames(),
+        fullnames(),
+        enable_json(false),
+        enable_data(false),
         sums(),
         nnans(),
-        values(),
         rawmsg(),
-        times(),
-        varnames(),
-        fullnames()
+        values(),
+        times()
 #if NIDAS_JSONCPP_ENABLED
         ,header()
 #endif
@@ -155,6 +157,32 @@ public:
             }
         }
         collectMetadata(sensor, stag);
+    }
+
+    /**
+     * Set whether information for JSON output will be accumulated, according to whether @p enable
+     * is true or false.  Enabling JSON output automatically enables the collection of data
+     * statistics.
+     **/
+    void
+    enableJSON(bool enable)
+    {
+        enable_json = enable;
+        if (enable_json)
+            enableData(true);
+    }
+
+    /**
+     * Set whether data values will be extracted from processed samples and accumulated to
+     * compute data statistics.  Disabling data statistics automatically disables JSON
+     * information.
+     **/
+    void
+    enableData(bool enable)
+    {
+        enable_data = enable;
+        if (!enable_data)
+            enableJSON(false);
     }
 
     /**
@@ -257,24 +285,44 @@ public:
     int minDeltaTs;
     int maxDeltaTs;
 
-    // Accumulate sums of each variable in the sample and counts of the
-    // number of nans seen in each variable.  These are vectors keyed by
-    // variable index.
-    vector<float> sums;
-    vector<int> nnans;
-    vector<vector<float> > values;
-
-    // For raw samples, build up a vector of the raw messages converted to strings.
-    vector<std::string> rawmsg;
-
-    // Collect the timestamps of all the samples also.
-    vector<dsm_time_t> times;
-
     // Stash the variable names from the sample tag to identify the
     // variables in the accumulated data.  This can be used to map from
     // variable index in the sample to the key for the data maps.
     vector<string> varnames;
     vector<string> fullnames;
+
+    // As samples are accumulated, take care to only consume memory for what
+    // is needed.  These settings select what will be accumulated.
+
+    // Enable JSON objects.  Everything is included in the JSON output,
+    // including individual data samples and the data statistics.
+    bool enable_json;
+
+    // Enable data statistics.
+    bool enable_data;
+
+    // ==> Following members are only filled when a data report is needed.
+
+    // Accumulate sums of each variable in the sample and counts of the
+    // number of nans seen in each variable.  These are vectors keyed by
+    // variable index.
+    vector<float> sums;
+    vector<int> nnans;
+
+    // For raw samples, build up a vector of the raw messages converted to
+    // strings.  Actually, since right now only the last is ever printed,
+    // this only ever contains the last raw message.
+    vector<std::string> rawmsg;
+
+    // ==> Following members only needed for JSON output.
+
+    // All the processed values.  The outer vector is indexed by variable
+    // index, and each element is a vector for all the values of that
+    // variable at each time, including nans.
+    vector<vector<float> > values;
+
+    // Collect the timestamps of all the samples also.
+    vector<dsm_time_t> times;
 
 #if NIDAS_JSONCPP_ENABLED
     /**
@@ -467,7 +515,6 @@ accumulateSample(const Sample* samp)
         minDeltaTs = std::min(minDeltaTs, deltaT);
         maxDeltaTs = std::max(maxDeltaTs, deltaT);
     }
-    times.push_back(sampt);
     t2s = sampt;
 
     size_t slen = samp->getDataByteLength();
@@ -483,7 +530,10 @@ accumulateSample(const Sample* samp)
     }
     ++nsamps;
 
-    accumulateData(samp);
+    if (enable_data || enable_json)
+    {
+        accumulateData(samp);
+    }
 }
 
 
@@ -491,12 +541,24 @@ void
 SampleCounter::
 accumulateData(const Sample* samp)
 {
+    dsm_time_t sampt = samp->getTimeTag();
+
+    // Only need sample times for JSON output.
+    if (enable_json)
+    {
+        times.push_back(sampt);
+    }
+
     if (samp->getType() == CHAR_ST)
     {
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
-        if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-            rawmsg.push_back(n_u::addBackslashSequences(string(cp,l)));
+        if (l > 0 && cp[l-1] == '\0')
+            l--;  // exclude trailing '\0'
+        // Only keep the most recent raw message, since so far that is all
+        // that is used in the reports.
+        rawmsg.resize(1);
+        rawmsg[0] = n_u::addBackslashSequences(string(cp,l));
         return;
     }
     if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST)
@@ -513,7 +575,11 @@ accumulateData(const Sample* samp)
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
-        values[i].push_back(value);
+        // Only need data values for JSON output.
+        if (enable_json)
+        {
+            values[i].push_back(value);
+        }
         if (isnan(value))
         {
             nnans[i] += 1;
@@ -751,6 +817,14 @@ public:
      **/
     void
     createCounters(const list<DSMSensor*>& sensors);
+
+    /**
+     * Copy the counter into the samples map and return a reference to it.
+     * Also configure the counter according to whether json output or
+     * data statistics should be enabled.
+     **/
+    SampleCounter&
+    addCounter(const SampleCounter& counter);
 
     bool
     reportsExhausted(int nreports=-1)
@@ -1226,6 +1300,16 @@ getSampleIds()
     return ids;
 }
 
+SampleCounter&
+DataStats::
+addCounter(const SampleCounter& counter)
+{
+    _samples[counter.id] = counter;
+    SampleCounter& stats = _samples[counter.id];
+    stats.enableData(_reportdata);
+    stats.enableJSON(JsonOutput.specified());
+    return stats;
+}
 
 void
 DataStats::createCounters(const list<DSMSensor*>& sensors)
@@ -1247,8 +1331,7 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
             {
                 dsm_sample_id_t sid = sensor->getId();
                 DLOG(("adding raw sample: ") << _app.formatId(sid));
-                SampleCounter stats(sid, sensor);
-                _samples[stats.id] = stats;
+                addCounter(SampleCounter(sid, sensor));
             }
             continue;
         }
@@ -1297,8 +1380,7 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
                 if (it == _samples.end())
                 {
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    SampleCounter pstats(sid, sensor, stag);
-                    _samples[pstats.id] = pstats;
+                    addCounter(SampleCounter(sid, sensor, stag));
                 }
             }
         }
@@ -1327,6 +1409,10 @@ receive(const Sample* samp) throw()
         _samples[sampid] = ss;
         it = findStats(sampid);
     }
+    // The samples only need to be queue if they will need to be "replayed"
+    // through the counters to update statistics.  In other words, queue
+    // this sample if count is not 1 and update does not equal period.
+    // The stats will be accumulated in the Samplecounter either way.
     samp->holdReference();
     _sampleq.push_back(samp);
     return it->second.receive(samp);
