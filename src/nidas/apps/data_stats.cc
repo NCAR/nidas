@@ -1634,62 +1634,60 @@ jsonReport()
         createJsonWriters();
         ILOG(("writing json to ") << JsonOutput.getValue());
     }
-    if (1)
-    {
-        // Create a json object which contains all the headers and all the
-        // data for all the SampleCounter streams, then write it out.
-        Json::Value root;
-        Json::Value timeperiod(Json::arrayValue);
-        timeperiod.append(iso_format(_period_start));
-        timeperiod.append(iso_format(_period_end));
-        // Create three top-level objects.  They always exist,
-        // even if there are no streams or no data.
-        Json::Value& stats = createObject(root["stats"]);
-        Json::Value& data = createObject(root["data"]);
-        Json::Value& streams = createObject(root["stream"]);
-        stats["timeperiod"] = timeperiod;
-        stats["update"] = _update;
-        stats["period"] = _period;
-        stats["starttime"] = iso_format(_start_time);
-        Json::Value& streamstats = createObject(stats["streams"]);
 
-        sample_map_t::iterator si;
-        for (si = _samples.begin(); si != _samples.end(); ++si)
-        {
-            SampleCounter* stream = &si->second;
-            // Use a "stream" field in the top level object to provide a
-            // "namespace" for stream objects.  Keeping "data" and
-            // "stream" namespaces allows writing both into one file or
-            // into different files, without modifying the schema
-            // expected by consumers.
-            streams[stream->streamid] = stream->jsonHeader();
-            // Rewriting the data every time seems excessive, but at the
-            // moment it's an expedient way to provide both headers and
-            // data in one file for web clients.  Later the data could
-            // be written into a different file.  Also, it might be
-            // possible for the set of headers to change as streams come
-            // and go, so writing them all together means they are
-            // always in sync and consistent.  Every data object will
-            // have a corresponding stream header in the same file.
-            data[stream->streamid] = stream->jsonData();
-            streamstats[stream->streamid] = stream->jsonStats();
-        }
-        std::ofstream json;
-        // Write to a temporary file first, then move into place.
-        std::string jsonname(JsonOutput.getValue());
-        std::string tmpname = jsonname + ".tmp";
-        json.open(tmpname.c_str());
-#if !NIDAS_JSONCPP_STREAMWRITER
-        headerWriter->write(json, root);
-#else
-        headerWriter->write(root, &json);
-#endif
-        json.close();
-        // Now move into place.
-        ::rename(tmpname.c_str(), jsonname.c_str());
-    }
-    // Now stream the data to stdout.
+    // Create a json object which contains all the headers and all the
+    // data for all the SampleCounter streams, then write it out.
+    Json::Value root;
+    Json::Value timeperiod(Json::arrayValue);
+    timeperiod.append(iso_format(_period_start));
+    timeperiod.append(iso_format(_period_end));
+    // Create three top-level objects.  They always exist,
+    // even if there are no streams or no data.
+    Json::Value& stats = createObject(root["stats"]);
+    Json::Value& data = createObject(root["data"]);
+    Json::Value& streams = createObject(root["stream"]);
+    stats["timeperiod"] = timeperiod;
+    stats["update"] = _update;
+    stats["period"] = _period;
+    stats["starttime"] = iso_format(_start_time);
+    Json::Value& streamstats = createObject(stats["streams"]);
+
     sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
+    {
+        SampleCounter* stream = &si->second;
+        // Use a "stream" field in the top level object to provide a
+        // "namespace" for stream objects.  Keeping "data" and
+        // "stream" namespaces allows writing both into one file or
+        // into different files, without modifying the schema
+        // expected by consumers.
+        streams[stream->streamid] = stream->jsonHeader();
+        // Rewriting the data every time seems excessive, but at the
+        // moment it's an expedient way to provide both headers and
+        // data in one file for web clients.  Later the data could
+        // be written into a different file.  Also, it might be
+        // possible for the set of headers to change as streams come
+        // and go, so writing them all together means they are
+        // always in sync and consistent.  Every data object will
+        // have a corresponding stream header in the same file.
+        data[stream->streamid] = stream->jsonData();
+        streamstats[stream->streamid] = stream->jsonStats();
+    }
+    std::ofstream json;
+    // Write to a temporary file first, then move into place.
+    std::string jsonname(JsonOutput.getValue());
+    std::string tmpname = jsonname + ".tmp";
+    json.open(tmpname.c_str());
+#if !NIDAS_JSONCPP_STREAMWRITER
+    headerWriter->write(json, root);
+#else
+    headerWriter->write(root, &json);
+#endif
+    json.close();
+    // Now move into place.
+    ::rename(tmpname.c_str(), jsonname.c_str());
+
+    // Now stream the data to stdout.
     for (si = _samples.begin(); si != _samples.end(); ++si)
     {
         SampleCounter* stream = &si->second;
