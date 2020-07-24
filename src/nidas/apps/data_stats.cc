@@ -820,11 +820,24 @@ public:
 
     /**
      * Copy the counter into the samples map and return a reference to it.
-     * Also configure the counter according to whether json output or
-     * data statistics should be enabled.
+     * Also configure the counter according to whether json output or data
+     * statistics should be enabled.  Mote sensor IDs for the same sensor
+     * type will be hashed to one bucket, as will sensors with different
+     * mote IDs if _singlemote is enabled.  This should only be called if
+     * getCounter() does not return a counter for the sample ID.
      **/
-    SampleCounter&
+    SampleCounter*
     addCounter(const SampleCounter& counter);
+
+    /**
+     * Return a pointer to the SampleCounter for the given sample id @p sid.
+     * If no such counter exists, return null.  Mote sensor sample IDs are
+     * hashed into buckets by sensor type and according to the _singlemote
+     * setting, so the returned SampleCounter may not have the same ID as
+     * the one passed in.
+     **/
+    SampleCounter*
+    getCounter(dsm_sample_id_t sid);
 
     bool
     reportsExhausted(int nreports=-1)
@@ -838,11 +851,11 @@ public:
     }
 
     /**
-     * Recalculate all the statistics based on the current collection of
-     * data.
+     * Recalculate statistics as needed based on the current collection of
+     * data and time period.
      **/
     void
-    updateStats(const UTime& start);
+    updateStats(const UTime& start, const UTime& end);
 
     void
     clearSampleQueue();
@@ -866,16 +879,6 @@ public:
 
     void resetResults();
 
-    /**
-     * Provide direct access to a SampleCounter.
-     **/
-    SampleCounter*
-    getSampleCounter(dsm_sample_id_t sid);
-
-    vector<dsm_sample_id_t>
-    getSampleIds();
-
-
 private:
     static const int DEFAULT_PORT = 30000;
 
@@ -884,14 +887,8 @@ private:
     typedef map<dsm_sample_id_t, SampleCounter> sample_map_t;
     sample_map_t _samples;
 
-    /**
-     * Find the SampleCounter for the given sample ID.  Wisard samples get
-     * mapped to one sensor type, so we look for all of them.  Also, if
-     * singlemote is enabled, search for wisard tags across all mote IDs
-     * also, so only one mote ID will be mapped for each wisard sensor type.
-     **/
-    sample_map_t::iterator
-    findStats(dsm_sample_id_t sampid);
+    dsm_sample_id_t
+    hashId(dsm_sample_id_t sid);
 
     bool _reportall;
     bool _reportdata;
@@ -987,42 +984,6 @@ DataStats::handleSignal(int signum)
         NidasApp::setInterrupted(false);
         _alarm = true;
     }
-}
-
-
-DataStats::sample_map_t::iterator
-DataStats::
-findStats(dsm_sample_id_t sampid)
-{
-    dsm_sample_id_t sid = sampid;
-    sample_map_t::iterator it = _samples.end();
-    if (sid & 0x8000)
-    {
-        sid = sid ^ (sid & 3);
-        dsm_sample_id_t endid = sid + 4;
-        VLOG(("searching from ")
-                << _app.formatId(sid) << " to " << _app.formatId(endid)
-                << " to match " << _app.formatId(sampid));
-        while (sid < endid && it == _samples.end())
-        {
-            it = _samples.find(sid);
-            unsigned int moteid = 0;
-            while (_singlemote && it == _samples.end() && ++moteid <= 4)
-            {
-                dsm_sample_id_t mid;
-                mid = (sid ^ (sid & 0xf00)) + (moteid * 0x100);
-                VLOG(("searching for alternate mote ID: ")
-                        << _app.formatId(mid));
-                it = _samples.find(mid);
-            }
-            ++sid;
-        }
-    }
-    else
-    {
-        it = _samples.find(sid);
-    }
-    return it;
 }
 
 
@@ -1277,39 +1238,56 @@ resetResults()
     }
 }
 
+
+dsm_sample_id_t
+DataStats::
+hashId(dsm_sample_id_t sid)
+{
+    if (sid & 0x8000)
+    {
+        // collapse mote sensor types to one id
+        dsm_sample_id_t mid = sid ^ (sid & 3);
+        if (_singlemote)
+        {
+            mid = mid ^ (mid & 0xf00);
+        }
+        if (sid != mid)
+        {
+            VLOG(("hashed ID ") << _app.formatId(sid) << " to "
+             << _app.formatId(mid));
+        }
+        sid = mid;
+    }
+    return sid;
+}
+
+
 SampleCounter*
 DataStats::
-getSampleCounter(dsm_sample_id_t sid)
+getCounter(dsm_sample_id_t sid)
 {
-    sample_map_t::iterator it = findStats(sid);
-    if (it == _samples.end())
-        return 0;
-    return &it->second;
-}
-
-vector<dsm_sample_id_t>
-DataStats::
-getSampleIds()
-{
-    vector<dsm_sample_id_t> ids;
-    sample_map_t::iterator si;
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    SampleCounter *stats = 0;
+    sample_map_t::iterator it = _samples.find(hashId(sid));
+    if (it != _samples.end())
     {
-        ids.push_back(si->first);
+        stats = &it->second;
     }
-    return ids;
+    return stats;
 }
 
-SampleCounter&
+
+SampleCounter*
 DataStats::
 addCounter(const SampleCounter& counter)
 {
-    _samples[counter.id] = counter;
-    SampleCounter& stats = _samples[counter.id];
+    dsm_sample_id_t sid = hashId(counter.id);
+    _samples[sid] = counter;
+    SampleCounter& stats = _samples[sid];
     stats.enableData(_reportdata);
     stats.enableJSON(JsonOutput.specified());
-    return stats;
+    return &stats;
 }
+
 
 void
 DataStats::createCounters(const list<DSMSensor*>& sensors)
@@ -1351,8 +1329,8 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
                 // risk this could hide multiple sensor types appearing in
                 // the stream.  We can warn for that later if it happens.
                 // Since the wisard ID mapping is taken care of in
-                // findStats(), here we just add the sensor if the ID does
-                // not already have a stats entry.
+                // getCounter(), here we just add the sensor if the ID
+                // does not already have a stats entry.
                 //
                 // Note this just adds the first of possibly multiple
                 // "sensor types" assigned to a sample.  The actual sample
@@ -1368,19 +1346,19 @@ DataStats::createCounters(const list<DSMSensor*>& sensors)
                 // should be unique.  The sample tags should be complete as
                 // long as there is at least one sample tag for each
                 // variable name.  That does not help for raw mode when no
-                // project config is available, but it still might be a
-                // more accurate and cleaner approach when there is a
-                // project configuration.  Future implementation perhaps.
+                // project config is available, but it still might be a more
+                // accurate and cleaner approach when there is a project
+                // configuration.  Future implementation perhaps.
                 dsm_sample_id_t sid = stag->getId();
                 if (! matcher.match(sid))
                 {
                     continue;
                 }
-                sample_map_t::iterator it = findStats(sid);
-                if (it == _samples.end())
+                SampleCounter* stats = getCounter(sid);
+                if (!stats)
                 {
                     DLOG(("adding processed sample: ") << _app.formatId(sid));
-                    addCounter(SampleCounter(sid, sensor, stag));
+                    stats = addCounter(SampleCounter(sid, sensor, stag));
                 }
             }
         }
@@ -1398,24 +1376,29 @@ receive(const Sample* samp) throw()
         return false;
     }
     VLOG(("received and accepted sample ") << _app.formatId(sampid));
-    sample_map_t::iterator it = findStats(sampid);
-    if (it == _samples.end())
+    SampleCounter* stats = getCounter(sampid);
+    if (!stats)
     {
         // When there is no header from which to gather samples ahead of
         // time, just add a SampleCounter instance for any new raw sample
         // that arrives.
         DLOG(("creating counter for sample id ") << _app.formatId(sampid));
-        SampleCounter ss(sampid);
-        _samples[sampid] = ss;
-        it = findStats(sampid);
+        stats = addCounter(SampleCounter(sampid));
     }
-    // The samples only need to be queue if they will need to be "replayed"
-    // through the counters to update statistics.  In other words, queue
-    // this sample if count is not 1 and update does not equal period.
-    // The stats will be accumulated in the Samplecounter either way.
-    samp->holdReference();
-    _sampleq.push_back(samp);
-    return it->second.receive(samp);
+    // The samples only need to be queued if they will need to be "replayed"
+    // through the counters to update statistics, or to cache samples which
+    // are received past the current sample period.  In other words, queue
+    // this sample if count is not 1 and a period has been set.  In
+    // real-time with no period set, period and update are zero.  Also, if
+    // not real-time (inputs are files), then there will only be one report,
+    // so there is no point keeping samples.  The stats will be accumulated
+    // and updated in the Samplecounter even if the sample is not queue.
+    if (_realtime && _count != 1 && _period > 0)
+    {
+        samp->holdReference();
+        _sampleq.push_back(samp);
+    }
+    return stats->receive(samp);
 }
 
 
@@ -1529,13 +1512,24 @@ void DataStats::printReport(std::ostream& outs)
 
 void
 DataStats::
-updateStats(const UTime& start)
+updateStats(const UTime& start, const UTime& end)
 {
-    DLOG(("") << "updateStats(" << iso_format(start) << ")");
+    DLOG(("") << "updateStats(" << iso_format(start) << ", "
+     << iso_format(end) << ")");
+
+    // If we are not queueing samples or this is the first report, then
+    // there is nothing to be done here.  This conditional matches the one
+    // in DataStas::receive().  Note that no samples queue is different than
+    // not queuing samples.
+    if (_nreports == 1 || !(_realtime && _count != 1 && _period > 0))
+    {
+        DLOG(("skipping stats reset for first report"));
+        return;
+    }
 
     // Clear out any samples which precede the start time.  Start from the
-    // end and erase from the first one which is too early, just in case a
-    // sample with a future time might prevent any samples after it from
+    // end and erase prior to the first one which is too early, just in case
+    // a sample with a future time might prevent any samples after it from
     // being removed.
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
@@ -1576,8 +1570,8 @@ updateStats(const UTime& start)
     {
         const Sample* samp = *it;
         dsm_sample_id_t sampid = samp->getId();
-        sample_map_t::iterator smit = findStats(sampid);
-        smit->second.accumulateSample(samp);
+        SampleCounter* stats = getCounter(sampid);
+        stats->accumulateSample(samp);
     }
 }
 
@@ -1603,7 +1597,7 @@ report()
               << iso_format(_period_start) << " to "
               << iso_format(_period_end));
 
-    updateStats(_period_start);
+    updateStats(_period_start, _period_end);
 
     // Print results to stdout unless json output specified.  For json
     // output, write the headers and data to a file, and stream the data to
@@ -1633,7 +1627,6 @@ DataStats::
 jsonReport()
 {
 #if NIDAS_JSONCPP_ENABLED
-    vector<dsm_sample_id_t> ids = getSampleIds();
     // Use the existence of the json writer to know if the headers have
     // been written yet, so they are only written the first time.
     if (!streamWriter.get())
@@ -1660,9 +1653,10 @@ jsonReport()
         stats["starttime"] = iso_format(_start_time);
         Json::Value& streamstats = createObject(stats["streams"]);
 
-        for (unsigned int i = 0; i < ids.size(); ++i)
+        sample_map_t::iterator si;
+        for (si = _samples.begin(); si != _samples.end(); ++si)
         {
-            SampleCounter* stream = getSampleCounter(ids[i]);
+            SampleCounter* stream = &si->second;
             // Use a "stream" field in the top level object to provide a
             // "namespace" for stream objects.  Keeping "data" and
             // "stream" namespaces allows writing both into one file or
@@ -1695,9 +1689,10 @@ jsonReport()
         ::rename(tmpname.c_str(), jsonname.c_str());
     }
     // Now stream the data to stdout.
-    for (unsigned int i = 0; i < ids.size(); ++i)
+    sample_map_t::iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si)
     {
-        SampleCounter* stream = getSampleCounter(ids[i]);
+        SampleCounter* stream = &si->second;
         if (stream->nsamps || AllSamples.asBool())
         {
 #if !NIDAS_JSONCPP_STREAMWRITER
