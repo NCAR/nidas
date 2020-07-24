@@ -490,9 +490,6 @@ receive(const Sample* samp)
              << "samples with different ID: "
              << NidasApp::getApplicationInstance()->formatId(id));
     }
-    // We may as well accumulate stats now, so the stats are always current,
-    // even though they may be recalculated later if the the update interval
-    // is shorter than the time period.
     accumulateSample(samp);
     return true;
 }
@@ -855,7 +852,7 @@ public:
      * data and time period.
      **/
     void
-    updateStats(const UTime& start, const UTime& end);
+    restartStats(const UTime& start, const UTime& end);
 
     void
     clearSampleQueue();
@@ -905,7 +902,7 @@ private:
     int _nreports;
 
     // The buffer of samples from which statistics will be generated.
-    typedef std::deque<const Sample*> sample_queue;
+    typedef std::list<const Sample*> sample_queue;
     sample_queue _sampleq;
 
     NidasApp _app;
@@ -1210,7 +1207,16 @@ readSamples(SampleInputStream& sis)
     _alarm = false;
     if (_update > 0 && _realtime)
     {
-        alarm(_update);
+        // Add some slack to the alarm to allow samples to arrive within the
+        // period, rounded up.
+        int delay = 1; // seconds of lag
+        UTime when;
+        if (when < _period_end)
+        {
+            when = _period_end - when.toUsecs();
+            delay += when.toSecs();
+        }
+        alarm(delay);
     }
     while (!_alarm && !_app.interrupted())
     {
@@ -1392,13 +1398,23 @@ receive(const Sample* samp) throw()
     // real-time with no period set, period and update are zero.  Also, if
     // not real-time (inputs are files), then there will only be one report,
     // so there is no point keeping samples.  The stats will be accumulated
-    // and updated in the Samplecounter even if the sample is not queue.
+    // and updated in the Samplecounter even if the sample is not queue.  We
+    // do nothing with samples which are too old.
+    dsm_time_t sampt = samp->getTimeTag();
+    if (_realtime && _period > 0 && sampt < _period_start.toUsecs())
+        return true;
     if (_realtime && _count != 1 && _period > 0)
     {
         samp->holdReference();
         _sampleq.push_back(samp);
     }
-    return stats->receive(samp);
+    // Do not accumlate this sample into the statistics if it is not yet in
+    // the current time period.
+    if (!_realtime || (_period == 0) || (sampt < _period_end.toUsecs()))
+    {
+        stats->receive(samp);
+    }
+    return true;
 }
 
 
@@ -1512,66 +1528,36 @@ void DataStats::printReport(std::ostream& outs)
 
 void
 DataStats::
-updateStats(const UTime& start, const UTime& end)
+restartStats(const UTime& start, const UTime& end)
 {
-    DLOG(("") << "updateStats(" << iso_format(start) << ", "
+    DLOG(("") << "restartStats(" << iso_format(start) << ", "
      << iso_format(end) << ")");
 
-    // If we are not queueing samples or this is the first report, then
-    // there is nothing to be done here.  This conditional matches the one
-    // in DataStas::receive().  Note that no samples queue is different than
-    // not queuing samples.
-    if (_nreports == 1 || !(_realtime && _count != 1 && _period > 0))
-    {
-        DLOG(("skipping stats reset for first report"));
-        return;
-    }
-
-    // Clear out any samples which precede the start time.  Start from the
-    // end and erase prior to the first one which is too early, just in case
-    // a sample with a future time might prevent any samples after it from
-    // being removed.
+    // Clear out any samples which precede the start time.
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
-    for (it = _sampleq.end(); it != _sampleq.begin(); )
+    for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
-        --it;
         if ((*it)->getTimeTag() < tstart)
         {
-            DLOG(("") << "erasing samples up to "
-                << iso_format((*it)->getTimeTag()));
-            sample_queue::iterator jt;
-            for (jt = _sampleq.begin(); jt != it+1; ++jt)
-            {
-                (*jt)->freeReference();
-            }
-            _sampleq.erase(_sampleq.begin(), it+1);
-            break;
+            (*it)->freeReference();
+            it = _sampleq.erase(it);
         }
-    }
-    if (_sampleq.begin() == _sampleq.end())
-    {
-        DLOG(("") << "samples are empty after purge");
-    }
-    else
-    {
-        DLOG(("") << "computing stats for samples from "
-                << iso_format((*_sampleq.begin())->getTimeTag())
-                << " to "
-                << iso_format((*_sampleq.rbegin())->getTimeTag()));
     }
 
     // Tell all the counters to reset their statistics.
     resetResults();
 
-    // Now replay all the samples from the queue, so they will be dispatched
-    // and accumulated in the appropriate counters.
+    // Now replay all the samples from the queue prior to the new end time.
     for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
     {
         const Sample* samp = *it;
-        dsm_sample_id_t sampid = samp->getId();
-        SampleCounter* stats = getCounter(sampid);
-        stats->accumulateSample(samp);
+        dsm_time_t sampt = samp->getTimeTag();
+        if (sampt < _period_end.toUsecs())
+        {
+            SampleCounter* stats = getCounter(samp->getId());
+            stats->accumulateSample(samp);
+        }
     }
 }
 
@@ -1593,11 +1579,9 @@ void
 DataStats::
 report()
 {
-    ILOG(("") << "computing stats from "
+    ILOG(("") << "reporting stats from "
               << iso_format(_period_start) << " to "
               << iso_format(_period_end));
-
-    updateStats(_period_start, _period_end);
 
     // Print results to stdout unless json output specified.  For json
     // output, write the headers and data to a file, and stream the data to
@@ -1794,6 +1778,7 @@ int DataStats::run()
         if (_realtime)
         {
             _period_start = UTime();
+            _period_end = _period_start + _period * USECS_PER_SEC;
             _start_time = _period_start;
         }
         if (_period > 0 && _realtime)
@@ -1807,17 +1792,14 @@ int DataStats::run()
         while (!_app.interrupted() && !reportsExhausted(++_nreports))
         {
             readSamples(sis);
-            if (_realtime)
-            {
-                // Make sure the stat period is never more than requested.
-                _period_end = UTime();
-            }
+            report();
             if (_realtime && _period > 0)
             {
-                if (_period_start.toSecs() + _period < _period_end.toSecs())
-                    _period_start = _period_end - _period * USECS_PER_SEC;
+                _period_start = _period_end;
+                _period_end += _period * USECS_PER_SEC;
+                // Reset statistics to start accumulating for the new time period.
+                restartStats(_period_start, _period_end);
             }
-            report();
         }
     }
     catch (n_u::EOFException& e)
