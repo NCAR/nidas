@@ -909,9 +909,6 @@ public:
         return _openable;
     }
 
-
-protected:
-
     /**
      * Read into my SampleScanner's buffer.
      */
@@ -932,6 +929,9 @@ protected:
         _scanner->readBuffer(this,exhausted, msecTimeout);
         return exhausted;
     }
+
+
+protected:
 
     /**
      * Clear the internal buffer.
