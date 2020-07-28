@@ -51,6 +51,7 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
 
     case 0011:  // BCD - pos longitude        (deg)
         carry = ((data & (0x1<<28)) >> 28) *  100.0;
+        // FALLTHRU
     case 0010:  // BCD - pos latitude         (deg)
         if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
         if ((data & SSM) == SSM) sign = -1;
@@ -75,7 +76,9 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
                ) * KTS_MS; // no sign
 
     case 0013:  // BCD - trk angle true       (deg)
+        // FALLTHRU
     case 0014:  // BCD - mag heading          (deg)
+        // FALLTHRU
     case 0044:  // BCD - true heading         (deg)
         if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
         if ((data & SSM) == SSM) {sign = -1; carry = 360.0;}
@@ -108,6 +111,7 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         return (data<<4>>17) * 1.0; // no sign
 
     case 0132:  // BNR - 15 sig bits - hybrid true_heading  (deg)
+        // FALLTHRU
     case 0137:  // BNR - 15 sig bits - hybrid track_angle_true (deg)
         if ((data & SSM) != SSM) break;
         if (data & 0x10000000) carry += 360.0;
@@ -122,13 +126,17 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         return (data<<4>>17) * 0.125 * KTS_MS; // no sign
 
     case 0300:  // BNR - delta theta x        (radian)
+        // FALLTHRU
     case 0301:  // BNR - delta theta y        (radian)
+        // FALLTHRU
     case 0302:  // BNR - delta theta z        (radian)
         if ((data & SSM) != SSM) break;
         return (data<<1>>9) * 3.7252902984619140625e-9 * RAD_DEG;
 
     case 0303:  // BNR - delta theta v x      (ft/s)
+        // FALLTHRU
     case 0304:  // BNR - delta theta v y      (ft/s)
+        // FALLTHRU
     case 0305:  // BNR - delta theta v z      (ft/s)
         if ((data & SSM) != SSM) break;
         return (data<<1>>9) * 4.76837158203125e-7 * FT_MTR;
@@ -160,6 +168,7 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         return _lon + (data<<4>>21) * 8.381903171539306640625e-8 * _lon_sign; // 180.0/(1<<31)
 
     case 0310:  // BNR - 20 sig bits - pos_latitude         (deg)
+        // FALLTHRU
     case 0311:  // BNR - 20 sig bits - pos_longitude        (deg)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 1.71661376953125e-4; // 180.0/(1<<20)
@@ -176,14 +185,20 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         goto corr;
     case 0314:  // BNR - true_heading         (deg)
         carry = _irs_thdg_corr;
+        // FALLTHRU
     case 0313:  // BNR - track_angle_true     (deg)
+        // FALLTHRU
     case 0316:  // BNR - wind_dir_true        (deg)
+        // FALLTHRU
     case 0317:  // BNR - trk angle mag        (deg)
+        // FALLTHRU
     case 0320:  // BNR - mag heading          (deg)
+        // FALLTHRU
     case 0334:  // BNR - platform_hdg         (deg)
         if (data & 0x10000000) carry += 360.0;
         goto corr;
     case 0321:  // BNR - drift_angle          (deg)
+        // FALLTHRU
     case 0322:  // BNR - flt pth angle        (deg)
 corr:
         if ((data & SSM) != SSM) break;
@@ -194,13 +209,21 @@ corr:
         return (data<<3>>13) * 9.765625e-4 * KTS_MS; // no sign
 
     case 0323:  // BNR - flt pth accel        (G)
+        // FALLTHRU
     case 0331:  // BNR - long_accel           (G)
+        // FALLTHRU
     case 0332:  // BNR - lat_accel            (G)
+        // FALLTHRU
     case 0333:  // BNR - normal_accel         (G)
+        // FALLTHRU
     case 0362:  // BNR - along trk accel      (G)
+        // FALLTHRU
     case 0363:  // BNR - cross trk accel      (G)
+        // FALLTHRU
     case 0364:  // BNR - vertical_accel       (G)
+        // FALLTHRU
     case 0375:  // BNR - along hdg accel      (G)
+        // FALLTHRU
     case 0376:  // BNR - cross hdg accel      (G)
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 1.52587890625e-5 * G_MPS2;
@@ -210,9 +233,13 @@ corr:
         return (data<<3>>13) * 3.0517578125e-5 * G_MPS2;
 
     case 0326:  // BNR - pitch_rate           (deg/s)
+        // FALLTHRU
     case 0327:  // BNR - roll_rate            (deg/s)
+        // FALLTHRU
     case 0330:  // BNR - yaw_rate             (deg/s)
+        // FALLTHRU
     case 0336:  // BNR - pitch_att_rate       (deg/s)
+        // FALLTHRU
     case 0337:  // BNR - roll_att_rate        (deg/s)
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 4.8828125e-4;
@@ -234,12 +261,15 @@ corr:
         return (data<<4>>14) * 1.0; // no sign
 
     case 0245:  // BNR - hyb vert_speed       (ft/min)
+        // FALLTHRU
     case 0360:  // BNR - pot_vert_speed       (ft/min)
+        // FALLTHRU
     case 0365:  // BNR - vert_speed           (ft/min)
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 0.125 * FPM_MPS;
 
     case 0261:  // BNR - 20 sig bits - hybrid inertial_alt  (ft)
+        // FALLTHRU
     case 0361:  // BNR - 20 sig bits - inertial_alt         (ft)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 0.125 * FT_MTR;
@@ -249,19 +279,25 @@ corr:
         return (data<<4>>14) * NM_MTR / (1<<14); // no sign
 
     case 0266:  // BNR - 15 sig bits - hybrid velocity_ns   (knot)
+        // FALLTHRU
     case 0267:  // BNR - 15 sig bits - hybrid velocity_ew   (knot)
         if ((data & SSM) != SSM) break;
         return (data<<3>>16) * 0.125 * KTS_MS;
 
     case 0366:  // BNR - velocity_ns          (knot)
+        // FALLTHRU
     case 0367:  // BNR - velocity_ew          (knot)
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 0.015625 * KTS_MS;
 
     case 0226:  // DIS - Data Loader SAL      ()
+        // FALLTHRU
     case 0270:  // DIS - irs_discretes        ()
+        // FALLTHRU
     case 0277:  // DIS - Test Word            ()
+        // FALLTHRU
     case 0350:  // DIS - irs_maint_discretes  ()
+        // FALLTHRU
     case 0371:  // DIS - equipment_id         ()
     default:
         // unrecognized label type, return raw data
