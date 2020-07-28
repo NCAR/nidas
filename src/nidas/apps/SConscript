@@ -87,6 +87,7 @@ ck_xml
 data_dump
 data_stats
 dmd_mmat_test
+dsc_a2d_ck
 dsm_server
 dsm
 extract2d
