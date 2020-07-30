@@ -168,33 +168,33 @@ int DmdA2dCk::run() throw()
 
         DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
         DSC_A2DSensor *a2d = 0;
+        const DSMConfig * dsm;
 
-
-        for ( ; di.hasNext(); )
+        for ( ; !a2d && di.hasNext(); )
         {
-            const DSMConfig * dsm = di.next();
+            dsm = di.next();
             const list<DSMSensor *>& sensors = dsm->getSensors();
 
-            list<DSMSensor *>::const_iterator dsm_it;
-            for (dsm_it = sensors.begin(); dsm_it != sensors.end(); ++dsm_it)
+            list<DSMSensor *>::const_iterator si;
+            for (si = sensors.begin(); !a2d && si != sensors.end(); ++si)
             {
-                a2d = dynamic_cast<DSC_A2DSensor *>((*dsm_it));
-                if ( ! a2d ) continue;
-
-                cerr << "Found DSC_A2DSensor = " << (*dsm_it)->getDeviceName()
-                     << endl;
-
-                a2d->validate();
-
-                // const Parameter * parm = p->sensor->getParameter("RESOLUTION");
-                a2d->open(O_RDONLY);
-                a2d->init();
+                a2d = dynamic_cast<DSC_A2DSensor *>((*si));
             }
         }
+
         if (!a2d) {
             cerr << "DSC_A2DSensor not found in XML" << endl;
             return 1;
         }
+
+        cerr << "Found DSC_A2DSensor = " << a2d->getDeviceName() <<
+            " for dsm " << dsm->getName() << endl;
+
+        a2d->validate();
+        a2d->open(O_RDONLY);
+        a2d->init();
+
+        // const Parameter * parm = p->sensor->getParameter("RESOLUTION");
 
         DSC_AnalogOut aout;
         aout.setDeviceName(_aoutDev);
