@@ -710,6 +710,12 @@ public:
     }
 
     /**
+     * Return the next sample. Buffer(s) will be read if necessary.
+     */
+    virtual Sample* readSample()
+        throw(nidas::util::IOException);
+
+    /**
      * A DSMSensor can be used as a SampleClient,
      * meaning it receives its own raw samples.
      * In real-time operations, a DSMSensor can be added

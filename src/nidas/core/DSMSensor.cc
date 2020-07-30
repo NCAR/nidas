@@ -383,6 +383,17 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
     return exhausted;
 }
 
+Sample* DSMSensor::readSample() throw(nidas::util::IOException)
+{
+    Sample* samp = nextSample();
+
+    while (!samp) {
+        readBuffer();
+        samp = nextSample();
+    }
+    return samp;
+}
+
 bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
