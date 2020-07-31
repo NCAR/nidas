@@ -115,7 +115,6 @@ run_image() # alias command...
 {
     alias="$1"
     shift
-    source=$(cd `dirname $0`/.. && pwd)
     echo "Top of nidas source tree: $source"
     tag=`get_image_tag "$alias"`
     install=""
@@ -127,10 +126,14 @@ run_image() # alias command...
 	set /bin/bash
     fi
     set -x
+    # Mount the local scripts directory over top of the source, so the
+    # local build scripts are used no matter what version of source is
+    # being built.
     exec podman run -i -t \
       --volume "$source":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
+      --volume "$scripts":/nidas/scripts \
       $tag "$@"
 }
 
@@ -138,6 +141,8 @@ build_packages()
 {
     alias="$1"
     shift
+    # Make sure packages directory exists, of course.
+    mkdir -p "$source/packages"
     run_image "$alias" /nidas/scripts/build_dpkg.sh armhf -d /nidas/packages
 }
 
@@ -150,6 +155,18 @@ build_packages()
 # a clean checkout and then tar that.  Perhaps use the current repo to
 # update the debian changelog, then use a shallow clone.
 
+# scripts is the directory from which we're running and in which the build
+# scripts and Dockerfiles are found, while source is the source tree that
+# will actually be built.
+scripts=$(cd `dirname $0`/.. && pwd)
+scripts="$scripts/scripts"
+
+source=$(cd `dirname $0`/.. && pwd)
+if [ "$1" == "--source" ]; then
+    source="$2"
+    shift; shift
+fi
+echo "Source tree path: $source"
 
 case "$1" in
 
@@ -173,6 +190,23 @@ case "$1" in
 	for target in ${targets[*]}; do
 	    echo "$target" `get_image_tag "$target"`
 	done
+	;;
+
+    *)
+	cat <<EOF
+Usage: $0 [--source <path>] {build|run|package,list}
+  list
+    List the available aliases and container images for OS and architecture targets.
+  build <alias>
+    Build the container image for the given alias and tag it.
+  run <alias> [command args ...]
+    Run the image for the given alias, mounting the source, install,
+    and ~/.scons paths into the container.
+  package <alias>
+    Run the script which builds packages for the alias.  Typically the
+    packages are copied into <source>/packages.
+EOF
+	exit 0
 	;;
 
 esac

@@ -130,6 +130,12 @@ fi
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
+# I think the way this works is that debuild will tar up the source to
+# build the package from, but the scons clean will not catch *all* the
+# build directories that might exist, so just make a point of removing all
+# of them here.
+rm -rf src/build*
+
 # export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
 
 if $use_chroot; then
