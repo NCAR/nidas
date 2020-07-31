@@ -1216,6 +1216,8 @@ readSamples(SampleInputStream& sis)
             when = _period_end - when.toUsecs();
             delay += when.toSecs();
         }
+        DLOG(("alarm(") << delay << ") seconds until period ends at "
+                        << iso_format(_period_end));
         alarm(delay);
     }
     while (!_alarm && !_app.interrupted())
@@ -1536,12 +1538,16 @@ restartStats(const UTime& start, const UTime& end)
     // Clear out any samples which precede the start time.
     sample_queue::iterator it;
     dsm_time_t tstart(start.toUsecs());
-    for (it = _sampleq.begin(); it != _sampleq.end(); ++it)
+    for (it = _sampleq.begin(); it != _sampleq.end(); )
     {
         if ((*it)->getTimeTag() < tstart)
         {
             (*it)->freeReference();
             it = _sampleq.erase(it);
+        }
+        else
+        {
+            ++it;
         }
     }
 
@@ -1553,7 +1559,7 @@ restartStats(const UTime& start, const UTime& end)
     {
         const Sample* samp = *it;
         dsm_time_t sampt = samp->getTimeTag();
-        if (sampt < _period_end.toUsecs())
+        if (sampt < end.toUsecs())
         {
             SampleCounter* stats = getCounter(samp->getId());
             stats->accumulateSample(samp);
@@ -1774,16 +1780,26 @@ int DataStats::run()
 
     try
     {
-        // If realtime, start the period clock now.
+        // If realtime, set the period being covered now.  The period starts
+        // now, since that is when data starts being collected, and it goes
+        // until the next update or next period, whichever is shorter.  If
+        // period is shorter, then the first update comes when a whole
+        // period has filled, and then every update seconds after that.  If
+        // update is shorter, then the period does not fill until enough
+        // updates have passed.
         if (_realtime)
         {
             _period_start = UTime();
             _period_end = _period_start + _period * USECS_PER_SEC;
+            if (_update < _period)
+            {
+                _period_end = _period_start + _update * USECS_PER_SEC;
+            }
             _start_time = _period_start;
         }
         if (_period > 0 && _realtime)
         {
-            ILOG(("") << "... Collecting samples for "
+            ILOG(("") << "... Reporting stats over "
                       << _period << " seconds, "
                       << "updating " << _update
                       << " seconds, " << iso_format(_period_start)
@@ -1795,8 +1811,13 @@ int DataStats::run()
             report();
             if (_realtime && _period > 0)
             {
-                _period_start = _period_end;
-                _period_end += _period * USECS_PER_SEC;
+                // Advance the period end by the update time, but do not
+                // advance the period start until the period is long enough.
+                _period_end += _update * USECS_PER_SEC;
+                if (_period_end - _period * USECS_PER_SEC > _period_start)
+                {
+                    _period_start = _period_end - _period * USECS_PER_SEC;
+                }
                 // Reset statistics to start accumulating for the new time period.
                 restartStats(_period_start, _period_end);
             }
