@@ -1585,9 +1585,13 @@ void
 DataStats::
 report()
 {
-    ILOG(("") << "reporting stats from "
-              << iso_format(_period_start) << " to "
-              << iso_format(_period_end));
+    // Only report the period start and end when it's been set.
+    if (_period > 0 && _realtime)
+    {
+        ILOG(("") << "Reporting stats from "
+                << iso_format(_period_start) << " to "
+                << iso_format(_period_end));
+    }
 
     // Print results to stdout unless json output specified.  For json
     // output, write the headers and data to a file, and stream the data to
