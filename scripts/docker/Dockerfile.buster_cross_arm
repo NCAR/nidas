@@ -101,6 +101,8 @@ RUN apt-get -y install libxerces-c-dev:${hostarch}
 
 RUN apt-get -y install valgrind net-tools
 
+RUN apt-get -y install libjsoncpp-dev:${hostarch}
+
 # Need Ruby to install packagecloud crossbuild
 #RUN apt-get -y --no-install-recommends install ruby ruby-dev
 #RUN sudo gem install package_cloud
