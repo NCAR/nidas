@@ -157,6 +157,9 @@ public:
 int DmdA2dCk::run() throw()
 {
     AutoProject aproject;
+    DSC_A2DSensor *a2d = 0;
+    DSC_AnalogOut aout;
+
     try
     {
 	string xmlFileName = _app.xmlHeaderFile();
@@ -167,7 +170,6 @@ int DmdA2dCk::run() throw()
         Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
         DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
-        DSC_A2DSensor *a2d = 0;
         const DSMConfig * dsm;
 
         for ( ; !a2d && di.hasNext(); )
@@ -187,8 +189,18 @@ int DmdA2dCk::run() throw()
             return 1;
         }
 
-        cerr << "Found DSC_A2DSensor = " << a2d->getDeviceName() <<
+        cerr << "Found DSC_A2DSensor " << a2d->getDeviceName() <<
             " for dsm " << dsm->getName() << endl;
+    }
+    catch (XMLException& ioe)
+    {
+        cerr << ioe.what() << endl;
+	return 1;
+    }
+
+    int result = 0;
+
+    try {
 
         a2d->validate();
         a2d->open(O_RDONLY);
@@ -196,7 +208,6 @@ int DmdA2dCk::run() throw()
 
         // const Parameter * parm = p->sensor->getParameter("RESOLUTION");
 
-        DSC_AnalogOut aout;
         aout.setDeviceName(_aoutDev);
         aout.open();
         cerr << "num Analog outputs=" << aout.getNumOutputs() << endl;
@@ -205,79 +216,78 @@ int DmdA2dCk::run() throw()
             cerr << "max voltage " << i << " = " << aout.getMaxVoltage(i) << endl;
         }
 
-        try {
+        // read and discard all analog samples that are in the buffer
+        while (!a2d->readSamples());
 
-            // read and discard all analog samples that are in the buffer
-            while (!a2d->readSamples());
+        // step through voltage range of outputNum output, by vstep.
+        int outputNum = 0;
+        float vstep = 0.5;
+        for (float vout = aout.getMinVoltage(outputNum);
+                vout <= aout.getMaxVoltage(outputNum);
+                vout += vstep) {
 
-            // step through voltage range of outputNum output, by vstep.
-            int outputNum = 0;
-            float vstep = 0.5;
-            for (float vout = aout.getMinVoltage(outputNum);
-                    vout <= aout.getMaxVoltage(outputNum);
-                    vout += vstep) {
+            if (_app.interrupted()) break;
+            aout.setVoltage(outputNum, vout);
 
-                aout.setVoltage(outputNum, vout);
+            // read and discard ndiscard samples
+            int ndiscard = 10;
+            for (int i = 0; i < ndiscard; i++) {
+                const Sample *samp = a2d->readSample();
+                samp->freeReference();
+            }
 
-                // read and discard ndiscard samples
-                int ndiscard = 10;
-                for (int i = 0; i < ndiscard; i++) {
-                    const Sample *samp = a2d->readSample();
-                    samp->freeReference();
-                }
+            int nsamp = 20;
 
-                int nsamp = 20;
+            for (int isamp = 0; isamp < nsamp; isamp++) {
+                if (_app.interrupted()) break;
+                const Sample *samp = a2d->readSample();
 
-                for (int isamp = 0; isamp < nsamp; ) {
-                    if (_app.interrupted()) break;
-                    const Sample *samp = a2d->readSample();
+                list<const Sample*> results;
 
-                    list<const Sample*> results;
+                // process sample
+                a2d->process(samp,results);
 
-                    // process sample
-                    a2d->process(samp,results);
+                // free raw sample
+                samp->freeReference();
 
-                    // free raw sample
-                    samp->freeReference();
+                // iterate over processed samples
+                list<const Sample*>::const_iterator psi = results.begin();
 
-                    // iterate over processed samples
-                    list<const Sample*>::const_iterator psi = results.begin();
+                for ( ; psi != results.end(); ++psi) {
+                    const Sample *psamp = *psi;
+                    n_u::UTime tt(psamp->getTimeTag());
+                    string tstr = tt.format(true,"%H:%M:%S.%3f");
+                    cout << tstr << ' ';
+                    int nval = psamp->getDataLength();
 
-                    for ( ; psi != results.end(); ++psi) {
-                        const Sample *psamp = *psi;
-                        n_u::UTime tt(psamp->getTimeTag());
-                        string tstr = tt.format(true,"%H:%M:%S.%3F");
-                        cout << tstr << ' ';
-                        int nval = psamp->getDataLength();
-
-                        for (int i = 0; i < nval; i++) {
-                            double val = psamp->getDataValue(i);
-                            cout << val << ' ';
-                        }
-                        cout << endl;
-                        // free processed sample
-                        psamp->freeReference();
+                    for (int i = 0; i < nval; i++) {
+                        double val = psamp->getDataValue(i);
+                        cout << val << ' ';
                     }
-                }   // read nsamp
-            }   // step over output voltages
-        }
-        catch (n_u::IOException& ioe) {
-            cerr << ioe.what() << endl;
-        }
+                    cout << endl;
+                    // free processed sample
+                    psamp->freeReference();
+                }
+            }   // read nsamp
+        }   // step over output voltages
+    }
+    catch (n_u::InvalidParameterException& ipe) {
+        cerr << ipe.what() << endl;
+        result = 1;
+    }
+    catch (n_u::IOException& ioe) {
+        cerr << ioe.what() << endl;
+        result = 1;
+    }
 
+    try {
         a2d->close();
         aout.close();
-    }
-    catch (XMLException& ioe)
-    {
-        cerr << ioe.what() << endl;
-	return 1;
     }
     catch (n_u::IOException& ioe)
     {
         cerr << ioe.what() << endl;
-	return 1;
+	result = 1;
     }
-    return 0;
+    return result;
 }
-
