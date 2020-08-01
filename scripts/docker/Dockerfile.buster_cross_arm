@@ -29,18 +29,14 @@ RUN apt-get install -y --no-install-recommends scons libbz2-dev:${hostarch} \
 
 # Add the eol repo first
 # But need to allow apt to use ftp, since Buster doesn't allow it by default
-RUN touch /etc/apt/apt.conf
-RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
-RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
-RUN cat /etc/apt/apt.conf
-RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list
-RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+# RUN touch /etc/apt/apt.conf
+# RUN echo '// allow ftp for eol repo' >> /etc/apt/apt.conf
+# RUN echo 'dir::bin::methods::ftp "ftp";' >> /etc/apt/apt.conf
+# RUN cat /etc/apt/apt.conf
+# RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
+# RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
-# Rip out jessie updates repos as they no longer exist. 
-# See https://www.lucas-nussbaum.net/blog/?p=947
-# These ops require an explicit root user
 USER root
-#RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that -- PEO still true for stretch??
 RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
@@ -48,7 +44,15 @@ RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/so
 
 RUN apt-get -y update
 
-RUN apt-get -y install eol-scons
+# Even though container builds can use a locally mounted eol_scons, it is
+# still a build dependency, and it would be required if building nidas on a
+# stock system without the eol_scons mount.
+
+# However, until there is a buster EOL repo, do without it.  Actually, this
+# and the xmlrpc++ dependency below should be installed from the
+# packagecloud repo if that's where the nidas packages are going to end up.
+
+# RUN apt-get -y install eol-scons
 
 # add boost-system,filesystem,asio, thread
 RUN apt-get -y install libboost-all-dev:amd64
