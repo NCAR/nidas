@@ -140,10 +140,12 @@ private:
 
     /**
      * Close the currently opened file, start a new watch
-     * of the file named getDeviceName(), open it, and
-     * seek to the end. This is called when, due to
-     * file renames, the inode of the file named getDeviceName() is
-     * not the inode which is currently opened.
+     * of the file named getDeviceName(), open it.
+     * This is called when, due to file renames, the inode of
+     * the file named getDeviceName() is not the inode which
+     * is currently opened. Since this is should be a new file
+     * a seek to the end is not performed, so reads will start
+     * at the beginning.
      */
     void reopen() throw(nidas::util::IOException);
 
@@ -183,6 +185,21 @@ private:
      * See man page of fstat(2).
      */
     ino_t _inode;
+
+    /**
+     * Whether to seek to end of file after opening.
+     */
+    bool _seekToEnd;
+
+    /**
+     * File size, used to detect trunction.
+     */
+    off_t _size;
+
+    /**
+     * Current read offset.
+     */
+    off_t _curpos;
 
     /** No copying */
     WatchedFileSensor(const  WatchedFileSensor&);
