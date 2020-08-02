@@ -320,6 +320,8 @@ if 'armbe' in BUILDS:
         ARCHPREFIX='$PREFIX/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    # clock_gettime is in librt on vulcans
+    armbe_env.AppendUnique(LIBS = 'rt')
     CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
