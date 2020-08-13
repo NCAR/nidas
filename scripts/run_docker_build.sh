@@ -12,7 +12,7 @@ case $1 in
         image=ncar/nidas-build-debian-armhf:jessie_v1
         ;;
     buster)
-        image=ncar/nidas-build-debian-armhf:buster_v1
+        image=ncar/nidas-build-debian-armhf:buster_v2
         ;;
     armel | viper | titan)
         image=ncar/nidas-build-debian-armel:jessie_v1

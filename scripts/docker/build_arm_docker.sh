@@ -14,7 +14,7 @@ dockuser=ncar
 
 group=eol
 gid=1342
-version=1
+version=2
 tag=buster_v$version
 
 cacheFlag="--no-cache"
@@ -29,10 +29,9 @@ fi
 # do not expect to be using these DSMs in future ISFS projects.
 if false; then
     hostarch=armel
-    image=nidas-build-debian-$hostarch
+    image=$dockuser/nidas-build-debian-$hostarch
     echo "arch is $hostarch"
     echo "image is $image"
-    echo "tagged image is $dockuser/$image:$tag"
     docker build $cacheFlag -t $image \
         --build-arg group=$group \
         --build-arg gid=$gid \
@@ -40,16 +39,17 @@ if false; then
         -f Dockerfile.cross_arm .
     # Only tag and push if the build worked
     if [[ "$?" -eq 0 ]] ; then
-        docker tag  $image $dockuser/$image:$tag
-        docker push $dockuser/$image:$tag
+        docker tag  $image $image:$tag
+        docker push $image:$tag
     fi
 fi
 
 hostarch=armhf
-image=nidas-build-debian-$hostarch
+image=$dockuser/nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
-echo "tagged image is $dockuser/$image:$tag"
+echo "tag is $tag"
+sleep 5
 docker build $cacheFlag -t $image \
     --build-arg group=$group \
     --build-arg gid=$gid \
@@ -58,6 +58,7 @@ docker build $cacheFlag -t $image \
 # Only tag and push if the build worked
 if [[ "$?" -eq 0 ]] ; 
 then
-    docker tag  $image $dockuser/$image:$tag
-    docker push $dockuser/$image:$tag
+    echo "tagging $image:latest with $tag"
+    docker tag  $image:latest $image:$tag
+    docker push $image:$tag
 fi
