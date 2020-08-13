@@ -1300,10 +1300,10 @@ int getTimeUsec()
 static void timespecToirig(const thiskernel_timespec_t *ts, struct irigTime *ti)
 {
         int days, rem, y;
-        unsigned int t = ts->tv_sec;
+        uint64_t t = ts->tv_sec;
 
-        days = t / SECS_PER_DAY;
-        rem = t % SECS_PER_DAY;
+        days = t / (uint64_t)SECS_PER_DAY;
+        rem = t % (uint64_t)SECS_PER_DAY;
         ti->hour = rem / SECS_PER_HOUR;
         rem %= SECS_PER_HOUR;
         ti->min = rem / 60;
@@ -1342,21 +1342,21 @@ static void irigTotimespec(const struct irigTime *ti, thiskernel_timespec_t *ts)
             ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC +
             ti->nsec;
 
-        ts->tv_sec = (long long)(y - 1970) * 365 * SECS_PER_DAY +
+        ts->tv_sec = (uint64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
             ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
 /**
- * Convert a struct irigTime to a long long time in microseconds
+ * Convert a struct irigTime to a uint64_t time in microseconds
  */
-static long long irigTousec(const struct irigTime *ti)
+static uint64_t irigTousec(const struct irigTime *ti)
 {
         int y = ti->year;
         int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
-        long long val;
+        uint64_t val;
 
-        val = ((long long)(y - 1970) * 365 * SECS_PER_DAY +
+        val = ((uint64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
             ti->hour * 3600 + ti->min * 60 + ti->sec) * USECS_PER_SEC +
             ti->msec * USECS_PER_MSEC + ti->usec;
@@ -1382,7 +1382,7 @@ static void irigTotimeval32(const struct irigTime *ti, struct timeval32 *tv)
          * But for some reason the error has gone away.
          */
         // tv->tv_usec = do_div(ts.tv_nsec , NSECS_PER_USEC);
-        tv->tv_usec = ts.tv_nsec / NSECS_PER_USEC;
+        tv->tv_usec = (uint64_t)ts.tv_nsec / NSECS_PER_USEC;
 }
 
 /**
@@ -1399,7 +1399,7 @@ static void get_irig_time_nolock(struct irigTime *ti)
                 thiskernel_timespec_t ts;
                 irigTotimespec(ti, &ts);
                 // clock difference
-                td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                td = ((uint64_t)ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                     ts.tv_nsec / NSECS_PER_TMSEC - tt;
                 hr = (tt / 3600 / TMSECS_PER_SEC);
                 tt %= (3600 * TMSECS_PER_SEC);
@@ -1546,7 +1546,7 @@ static int setSoftTickers(thiskernel_timespec_t *ts,int round)
 {
         int counter, newClock;
 
-        newClock = (ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+        newClock = ((uint64_t)ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
             ts->tv_nsec / NSECS_PER_TMSEC;
         if (round) newClock += TMSEC_PER_SOFT_TIC / 2;
         newClock -= newClock % TMSEC_PER_SOFT_TIC;
@@ -1887,7 +1887,7 @@ static void oneHzFunction(void *ptr)
         unsigned char lastStatus;
         int doSnapShot;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-        long long lltime;
+        uint64_t lltime;
 #endif
 
         int newClock;
@@ -2031,11 +2031,11 @@ static void oneHzFunction(void *ptr)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
         osamp->length = offsetof(struct dsm_clock_data_3, end);
         /* snapshot of irig time. Convert to little endian */
-        lltime = (long long)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
+        lltime = (uint64_t)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
         osamp->data.irigt = cpu_to_le64(lltime);
 
         /* snapshot of unix system time. Convert to little endian */
-        lltime = (long long)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
+        lltime = (uint64_t)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
         osamp->data.unixt = cpu_to_le64(lltime);
 
         osamp->data.dummystatus = 0xff;
@@ -2330,7 +2330,7 @@ pc104sg_read(struct file *filp, char __user * buf, size_t count,
  * Set the IRIG hardware clock fields in DPRAM.
  * Interrupts are disabled when writing to DPRAM.
  */
-static long setIRIGclock(long long usec)
+static long setIRIGclock(uint64_t usec)
 {
         unsigned long flags;
         thiskernel_timespec_t ts;
@@ -2366,7 +2366,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
         int len = _IOC_SIZE(cmd);
         int ret = -EINVAL;
         struct irigTime ti;
-        long long usec;
+        uint64_t usec;
         struct timeval32 tv32;
         unsigned long flags;
 
@@ -2443,7 +2443,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 ret =
                     copy_from_user(&tv32, userptr, sizeof(tv32)) ? -EFAULT : len;
                 if (ret < 0) break;
-                usec = (long long) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
+                usec = (uint64_t) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
                 ret = setIRIGclock(usec);
                 break;
         default:

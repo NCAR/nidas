@@ -114,7 +114,7 @@ struct dsm_clock_data_2 {
 };
 
 /**
- * Note that a long long has the same size, 8 bytes, as a timeval32.
+ * Note that a uint64_t has the same size, 8 bytes, as a timeval32.
  * In order to diffentiate this new IRIG sample type from a
  * dsm_clock_data_2 we place a dummy status with a value of 0xff in the
  * same location as status in dsm_clock_data_2.
@@ -124,11 +124,11 @@ struct dsm_clock_data_2 {
  * format, independent of machine type or kernel version. So we can't use
  * timespec64, since the long tv_nsec member can be 8 or 4 bytes depending
  * on the machine. Two timespec64s on a 32 bit machine may also
- * be subject to alignment padding. So for samples we'll use long long.
+ * be subject to alignment padding. So for samples we'll use uint64_t.
  */
 struct dsm_clock_data_3 {
-        long long irigt;
-        long long unixt;
+        uint64_t irigt;
+        uint64_t unixt;
         unsigned char dummystatus;
         unsigned char status;
         unsigned char seqnum;
@@ -217,8 +217,8 @@ struct pc104sg_status {
 #define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval32)
 #define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval32)
 #define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval32)
-#define IRIG_GET_CLOCK64	_IOR(IRIG_IOC_MAGIC, 6, long long)
-#define IRIG_SET_CLOCK64	_IOW(IRIG_IOC_MAGIC, 7, long long)
+#define IRIG_GET_CLOCK64	_IOR(IRIG_IOC_MAGIC, 6, uint64_t)
+#define IRIG_SET_CLOCK64	_IOW(IRIG_IOC_MAGIC, 7, uint64_t)
 
 /**********  Start of symbols used by kernel modules **********/
 
