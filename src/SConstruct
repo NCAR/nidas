@@ -284,7 +284,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    host_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
+    host_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
                                       '-fno-elide-constructors', 
                                       '-Inidas/util'])
     CheckStackProtectorOptions(host_env)
@@ -380,7 +380,7 @@ if 'armhf' in BUILDS:
     armhf_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
-    armhf_env.AppendUnique(CXXFLAGS = ['-std=c++11', '-Wextra','-Weffc++', 
+    armhf_env.AppendUnique(CXXFLAGS = ['-std=c++14', '-Wextra','-Weffc++', 
                                        '-fno-elide-constructors',
                                        '-fdiagnostics-show-template-tree'])
     armhf_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])

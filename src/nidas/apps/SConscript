@@ -26,7 +26,7 @@ def check_pkg_config(env, pkg):
     return found
 
 
-cpp11_source = """
+cpp14_source = """
 #include <string>  //for converting data to_string
 #include <future> //async function calls
 
@@ -37,15 +37,15 @@ return 0;
 """
 
 
-def CheckCpp11(context):
-    context.env.Append(CXXFLAGS='-std=c++11')
-    context.Message('Checking for C++11 support...')
-    result = context.TryCompile(cpp11_source, '.cc')
+def CheckCpp14(context):
+    context.env.Append(CXXFLAGS='-std=c++14')
+    context.Message('Checking for C++14 support...')
+    result = context.TryCompile(cpp14_source, '.cc')
     context.Result(result)
     return result
 
 
-custom_tests = {'CheckCpp11': CheckCpp11}
+custom_tests = {'CheckCpp14': CheckCpp14}
 
 
 if not ARGUMENTS.get('NIDAS_PATH'):
@@ -131,12 +131,12 @@ for prog in programs:
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
-if not dbconf.CheckCpp11():
-    print("No C++11 support, data_influxdb will not be built.")
+if not dbconf.CheckCpp14():
+    print("No C++14 support, data_influxdb will not be built.")
 elif bool(not arch and jsoncpp_enabled and
           check_pkg_config(didbenv, 'libcurl')):
-    print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
-    didbenv.AppendUnique(CXXFLAGS='-std=c++11')
+    print("C++14, jsoncpp, and libcurl found, building data_influxdb.")
+    didbenv.AppendUnique(CXXFLAGS='-std=c++14')
     didbenv.Append(CXXFLAGS='-Wno-effc++')
     didb = didbenv.NidasProgram('data_influxdb.cc')
     didbenv.Alias('data_influxdb', didb)
