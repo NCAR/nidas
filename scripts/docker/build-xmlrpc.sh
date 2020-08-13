@@ -26,7 +26,7 @@ echo "Checking out build artifacts in ./amd64"
 ls -alg ./amd64
 echo "Checking out build artifacts in ./${hostarch}"
 ls -alg ./${hostarch}
-dpkg -i ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
-# We don't want to actually install the shared libs for ${hostarch} 
-# as we're linking the static library instead
-dpkg -i ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
+# It looks like installing with dpkg -i is not enough to satisfy the build
+# dependency check run by debuild, but it does work to install with apt.
+apt install ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
+apt install ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
