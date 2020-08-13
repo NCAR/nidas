@@ -116,10 +116,21 @@ run_image() # alias command...
     alias="$1"
     shift
     echo "Top of nidas source tree: $source"
-    tag=`get_image_tag "$alias"`
+    # If packagepath not set, then default to a subdirectory of the source.
+    if [ -z "$packagepath" ]; then
+	packagepath="$source/packages/$alias"
+	mkdir -p "$packagepath"
+    fi
+    # If a tag has been requested, clone it and use that for the source.
+    dest="$source"
+    if [ -n "$tag" ]; then
+	dest="$source/clones/nidas-$tag"
+	clone_local "$tag" "$source" "$dest"
+    fi
+    imagetag=`get_image_tag "$alias"`
     install=""
     if [ -z "$install" ]; then
-	install="$source/install/$alias"
+	install="$dest/install/$alias"
 	mkdir -p "$install"
     fi
     if [ -z "$1" ]; then
@@ -130,21 +141,89 @@ run_image() # alias command...
     # local build scripts are used no matter what version of source is
     # being built.
     exec podman run -i -t \
-      --volume "$source":/nidas:rw,Z \
+      --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
+      --volume "$packagepath":/nidas/packages:rw,Z \
       --volume "$scripts":/nidas/scripts \
-      $tag "$@"
+      $imagetag "$@"
 }
 
-build_packages()
+build_packages() # alias dest
 {
     alias="$1"
-    shift
+    packagepath="$2"
+    shift; shift
     # Make sure packages directory exists, of course.
-    mkdir -p "$source/packages"
+    # mkdir -p "$source/packages/$alias"
     run_image "$alias" /nidas/scripts/build_dpkg.sh armhf -d /nidas/packages
 }
+
+
+# Push packages to the cloud for the given alias located in the given
+# path. Explicitly avoid uploading dbgsym packages.  package.
+
+push_packages() # alias path
+{
+    # list the specific package files that need to be uploaded, ie, not
+    # debug symbols
+    alias="$1"
+    path="$2"
+    if [ -z "$alias" -o -z "$path" ]; then
+	echo "push <alias> <path>"
+	exit 1
+    fi
+    case "$alias" in
+	pi3)
+	    repo="ncareol/isfs-testing/raspbian/buster"
+	    (set -x
+	     package_cloud push $repo `ls "$path"/*.deb | egrep -v dbgsym`)
+	    ;;
+	*)
+	    echo Only pi3 packages are pushed to package cloud.
+	    ;;
+    esac
+}
+
+# We don't need shallow clone since git automatically optimizes local
+# clones with hard links to repo object files, and that way the cloned repo
+# still has history for generating the changelog file.
+#
+# The origin of the cloned repo will be the local path, so submodules with
+# relative URLs will then fail to update.  So we have to override the URL
+# of each submodule being cloned from the origin repo.
+#
+# Rather than use git clone -b option to choose a particular remote branch
+# to be checked out in the clone, checkout the given tag explicitly.  That
+# allows tags to be used, whereas -b only allows branches.
+
+clone_local() # tag source dest
+{
+    tag="$1"
+    source="$2"
+    dest="$3"
+    if [ -z "$tag" -o -z "$source" -o -z "$dest" ]; then
+	echo 'clone_local {tag} {source} {dest}'
+	exit 1
+    fi
+    (cd "$source"
+     absource=$(pwd)
+     set -x
+     git clone . "$dest" || exit 1
+     if [ ! -d "$dest" ]; then
+	 echo "Destination directory not found: $dest"
+	 exit 1
+     fi
+     (cd "$dest"; git checkout "$tag")
+     git submodule --quiet foreach 'echo $sm_path' | while read path ; do
+	 (cd "$dest"
+	  git submodule init "$path"
+	  git config --local submodule."$path".url "$absource"/.git/modules/"$path"
+	  git submodule update "$path")
+     done)
+}
+
+
 
 # To build armhf jessie packages:
 #
@@ -162,11 +241,20 @@ scripts=$(cd `dirname $0`/.. && pwd)
 scripts="$scripts/scripts"
 
 source=$(cd `dirname $0`/.. && pwd)
+tag=""
+
 if [ "$1" == "--source" ]; then
     source="$2"
     shift; shift
 fi
+if [ "$1" == "--tag" ]; then
+    tag="$2"
+    shift; shift
+fi
 echo "Source tree path: $source"
+if [ -n "$tag" ]; then
+    echo "Using clone of $tag"
+fi
 
 case "$1" in
 
@@ -192,9 +280,19 @@ case "$1" in
 	done
 	;;
 
+    clone)
+	shift
+	clone_local "$@"
+	;;
+
+    push)
+	shift
+	push_packages "$@"
+	;;
+
     *)
 	cat <<EOF
-Usage: $0 [--source <path>] {build|run|package,list}
+Usage: $0 [--source <path>] [--tag <tag>] {build|run|package,list}
   list
     List the available aliases and container images for OS and architecture targets.
   build <alias>
@@ -202,9 +300,14 @@ Usage: $0 [--source <path>] {build|run|package,list}
   run <alias> [command args ...]
     Run the image for the given alias, mounting the source, install,
     and ~/.scons paths into the container.
-  package <alias>
-    Run the script which builds packages for the alias.  Typically the
-    packages are copied into <source>/packages.
+  package <alias> <dest>
+    Run the script which builds packages for the alias, and copy the
+    packages into <dest>.
+  push <alias> <path>
+    Push packages to the cloud for alias from the given path.
+If --tag is given, it can be HEAD, tag, branch, or any git commit.
+That commit of the target source is first shallow cloned before
+continuing with the build.
 EOF
 	exit 0
 	;;
