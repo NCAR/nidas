@@ -26,8 +26,6 @@ RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch} 
 RUN apt-get install -y --no-install-recommends scons libbz2-dev:${hostarch} \
     libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
     libnetcdf-dev:${hostarch}
-# libgsl0ldbl is now in libgsl0-dev??
-#RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
 
 # Add the eol repo first
 # But need to allow apt to use ftp, since Buster doesn't allow it by default
@@ -41,8 +39,8 @@ RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.ke
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
 # These ops require an explicit root user
+
 USER root
-#RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that -- PEO still true for stretch??
 RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
@@ -101,13 +99,9 @@ RUN apt-get -y -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:armhf
 RUN apt-get -y install libxerces-c-dev
 RUN apt-get -y install libxerces-c-dev:${hostarch}
 
-# for some reason the plain xerces-c lib isn't linked to the actual one, so do it here.
-#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libxerces-c-3.1.so /usr/lib/x86_64-linux-gnu/libxerces-c.so 
-
 RUN apt-get -y install valgrind net-tools
 
-# for some reason the plain bluetooth lib isn't linked to the actual one, so do it here.
-#RUN sudo ln -s /usr/lib/x86_64-linux-gnu/libbluetooth.so.3 /usr/lib/x86_64-linux-gnu/libbluetooth.so 
+RUN apt-get -y install libjsoncpp-dev:${hostarch}
 
 # Need Ruby to install packagecloud crossbuild
 #RUN apt-get -y --no-install-recommends install ruby ruby-dev
@@ -115,7 +109,17 @@ RUN apt-get -y install valgrind net-tools
 
 ENV CROSS_ARCH=$hostarch
 
-#RUN useradd -ms /bin/bash $user
+WORKDIR /
+
+# Local packages
+RUN mkdir -p ublox
+COPY ./build-ublox.sh ublox
+RUN cd ublox && ./build-ublox.sh
+
+RUN mkdir -p xmlrpc-build
+COPY ./build-xmlrpc.sh xmlrpc-build
+RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
+
 RUN addgroup --gid $gid $group
 RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
@@ -123,13 +127,3 @@ RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
 USER $user
 WORKDIR /home/$user
 
-RUN find . -name nidas -delete
-
-# Local packages
-RUN mkdir -p ublox
-COPY ./build-ublox.sh ublox
-RUN cd ublox && sudo ./build-ublox.sh
-
-RUN mkdir -p xmlrpc-build
-COPY ./build-xmlrpc.sh xmlrpc-build
-RUN cd xmlrpc-build && sudo ./build-xmlrpc.sh ${hostarch}
