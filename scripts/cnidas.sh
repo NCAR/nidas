@@ -121,6 +121,8 @@ run_image() # alias command...
 	packagepath="$source/packages/$alias"
 	mkdir -p "$packagepath"
     fi
+    # packagepath must be absolute since it will be mounted into container.
+    packagepath=$(cd "$packagepath" && pwd)
     # If a tag has been requested, clone it and use that for the source.
     dest="$source"
     if [ -n "$tag" ]; then
@@ -149,7 +151,7 @@ run_image() # alias command...
       $imagetag "$@"
 }
 
-build_packages() # alias dest
+build_packages() # alias [dest]
 {
     alias="$1"
     packagepath="$2"
@@ -245,6 +247,7 @@ tag=""
 
 if [ "$1" == "--source" ]; then
     source="$2"
+    source=$(cd "$source" && pwd)
     shift; shift
 fi
 if [ "$1" == "--tag" ]; then
@@ -300,9 +303,9 @@ Usage: $0 [--source <path>] [--tag <tag>] {build|run|package,list}
   run <alias> [command args ...]
     Run the image for the given alias, mounting the source, install,
     and ~/.scons paths into the container.
-  package <alias> <dest>
+  package <alias> [<dest>]
     Run the script which builds packages for the alias, and copy the
-    packages into <dest>.
+    packages into <dest>, or else <source>/packages/<alias>.
   push <alias> <path>
     Push packages to the cloud for alias from the given path.
 If --tag is given, it can be HEAD, tag, branch, or any git commit.
