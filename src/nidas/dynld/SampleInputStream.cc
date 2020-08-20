@@ -183,6 +183,7 @@ SampleInputStream::SampleInputStream(bool raw):
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
+    _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
@@ -199,6 +200,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
+    _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
@@ -220,6 +222,7 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
+    _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(x._bsf),
@@ -446,23 +449,14 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
 
 namespace {
     void logBadSampleHeader(const string& name, size_t nbad,
-                            long long pos, bool raw,
+                            long long pos,
                             const SampleHeader& header)
     {
-        if (raw && header.getType() != CHAR_ST) {
-            WLOG(("%s: raw sample not of type char(%d): "
-                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                  name.c_str(), CHAR_ST, nbad, pos,
-                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
-                  (int)header.getType(), header.getDataByteLength()));
-        }
-        else {
-            WLOG(("%s: bad sample header: "
-                  "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-                  name.c_str(), nbad, pos,
-                  GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
-                  (int)header.getType(), header.getDataByteLength()));
-        }
+        WLOG(("%s: bad sample header: "
+              "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
+              name.c_str(), nbad, pos,
+              GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
+              (int)header.getType(), header.getDataByteLength()));
     }
 }
 
@@ -572,7 +566,6 @@ readSampleData(bool keepreading) throw(n_u::IOException)
     return true;
 }
 
-
 /*
  * Use readNextSample() to return the next sample from the buffer, if any.
  */
@@ -621,12 +614,15 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
                 continue;
             }
 
+            // sampleFromHeader() sets _skipSample if there is sample data
+            // to read but the sample itself should be ignored.
             _dataToRead = _samp->getDataByteLength();
             _dptr = (char*) _samp->getVoidDataPtr();
         }
 
         // We have a good sample in _samp, see if the time is right.
-        if (searching && _samp->getTimeTag() >= search_time)
+        if (!_skipSample &&
+            searching && _samp->getTimeTag() >= search_time)
         {
             DLOG(("searching for sample time >= ")
                  << UTime(search_time).format(true)
@@ -648,7 +644,7 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
         }
 
         // If still searching for a sample, free this one and keep going.
-        if (searching)
+        if (_skipSample || searching)
         {
             _samp->freeReference();
             _samp = 0;
@@ -679,15 +675,22 @@ sampleFromHeader() throw()
     // Mark the offset of this sample.
     long long offset = _iostream->getNumInputBytes() - _sheader.getSizeOf();
 
-    // Screen bad headers.
+    // Screen bad headers when enabled.
     //
-    // @todo: I'm not sure why non-character samples get filtered in raw
-    // mode, since maybe they are still valid samples but just the wrong
-    // type.  And if they do somehow indicate a bad sample, then why
-    // shouldn't filtering have to be turned on to catch them, like all the
-    // other validity checks?
-    if ((_raw && _sheader.getType() != CHAR_ST) ||
-        _bsf.invalidSampleHeader(_sheader))
+    // At one point this check required samples in raw streams to have
+    // sample type CHAR_ST, so some kind of sample filtering would happen
+    // even if it wasn't enabled.  Since then the bad sample filtering has
+    // become more capable, so this code just relies on that.  If filtering
+    // is not enabled, then getSample() below might still catch an invalid
+    // sample and go nuts reporting it.  getSample() always checks for valid
+    // sample type, reasonable length, and length that is a multiple of the
+    // size of the sample type.  The log meesages will be the user's cue to
+    // turn on filtering and tune it as needed, but that may still need
+    // adjustment.  It also seems cleaner if SampleInputStream does not have
+    // to know if the samples it is reading are "raw" or not.  If the
+    // CHAR_ST check is needed for a particular sample stream, it can be
+    // enabled in the BadSampleFilter with the 'raw' rule.
+    if (_bsf.filterBadSamples() && _bsf.invalidSampleHeader(_sheader))
     {
         samp = 0;
     }
@@ -696,15 +699,22 @@ sampleFromHeader() throw()
         // getSample can return NULL if type or length are bad
         samp = nidas::core::getSample((sampleType)_sheader.getType(),
                                       _sheader.getDataByteLength());
+        if (!samp)
+        {
+            WLOG(("getSample() failed!  ")
+                << "type=" << (int)_sheader.getType()
+                << "; len=" << _sheader.getDataByteLength());
+        }
     }
 
     if (!samp) {
         // At least by logging some of the bad samples by default, it's
         // more likely someone notices the input stream has bad samples.
+        _skipSample = false;
         ++_badSamples;
         if (log_count && !((_badSamples-1) % log_count))
         {
-            logBadSampleHeader(getName(), _badSamples, offset, _raw, _sheader);
+            logBadSampleHeader(getName(), _badSamples, offset, _sheader);
         }
         if (_block.good && _block.nbytes)
         {
@@ -725,9 +735,25 @@ sampleFromHeader() throw()
         memmove(&_sheader, ((const char *)&_sheader)+1, _sheader.getSizeOf() - 1);
         _headerToRead = 1;
         _hptr--;
-    } else {
+    }
+    else if (!_block.good && _block.nbytes && !_skipSample)
+    {
+        // This is the first good sample immediately after a bad block.
+        // However, since we still can't be sure the time is not corrupted
+        // at the beginning of the sample, skip this sample.
+        _skipSample = true;
+        WLOG(("skipping first unfiltered sample at end of bad block: "
+              "filepos=%lld,id=(%d,%d),type=%d,len=%u",
+              offset,
+              GET_DSM_ID(_sheader.getId()), GET_SPS_ID(_sheader.getId()),
+              (int)_sheader.getType(), _sheader.getDataByteLength())
+              << "," << ftime(_sheader.getTimeTag()));
+    }
+    else
+    {
         // Good sample, fill it in.  The data length was set by getSample()
         // above, so only the timestamp and id are left.
+        _skipSample = false;
         _goodSamples++;
         samp->setTimeTag(_sheader.getTimeTag());
         samp->setId(_sheader.getId());

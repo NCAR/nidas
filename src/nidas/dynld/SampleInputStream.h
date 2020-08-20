@@ -532,6 +532,13 @@ private:
      */
     char* _dptr;
 
+    /**
+     * This is set if the data for the current sample header should
+     * be read but skipped, because the sample is the first after
+     * a block of bad samples and thus the time at the front of the
+     * sample might still be corrupt.
+     **/
+    bool _skipSample;
 
     /**
      * Information about the current block of samples, good or bad.
@@ -555,6 +562,8 @@ private:
 
     SampleInputStream* _original;
 
+    // XXX This is no longer used and is deprecated.  Someday it will be
+    // removed from here and from the constructor signatures. XXX
     bool _raw;
 
     /**
