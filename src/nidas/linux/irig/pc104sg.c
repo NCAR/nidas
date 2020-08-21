@@ -1300,10 +1300,16 @@ int getTimeUsec()
 static void timespecToirig(const thiskernel_timespec_t *ts, struct irigTime *ti)
 {
         int days, rem, y;
-        uint64_t t = ts->tv_sec;
 
-        days = t / (uint64_t)SECS_PER_DAY;
-        rem = t % (uint64_t)SECS_PER_DAY;
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes arg 1 in place, returns remainder */
+        int64_t sec = ts->tv_sec;
+        rem = do_div(sec, SECS_PER_DAY);
+        days = sec;
+#else
+        days = ts->tv_sec / SECS_PER_DAY;
+        rem = ts->tv_sec % SECS_PER_DAY;
+#endif
         ti->hour = rem / SECS_PER_HOUR;
         rem %= SECS_PER_HOUR;
         ti->min = rem / 60;
@@ -1342,21 +1348,21 @@ static void irigTotimespec(const struct irigTime *ti, thiskernel_timespec_t *ts)
             ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC +
             ti->nsec;
 
-        ts->tv_sec = (uint64_t)(y - 1970) * 365 * SECS_PER_DAY +
+        ts->tv_sec = (int64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
             ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
 /**
- * Convert a struct irigTime to a uint64_t time in microseconds
+ * Convert a struct irigTime to a int64_t time in microseconds
  */
-static uint64_t irigTousec(const struct irigTime *ti)
+static int64_t irigTousec(const struct irigTime *ti)
 {
         int y = ti->year;
         int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
-        uint64_t val;
+        int64_t val;
 
-        val = ((uint64_t)(y - 1970) * 365 * SECS_PER_DAY +
+        val = ((int64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
             ti->hour * 3600 + ti->min * 60 + ti->sec) * USECS_PER_SEC +
             ti->msec * USECS_PER_MSEC + ti->usec;
@@ -1373,16 +1379,7 @@ static void irigTotimeval32(const struct irigTime *ti, struct timeval32 *tv)
         irigTotimespec(ti, &ts);
 
         tv->tv_sec = ts.tv_sec;
-        /*
-         * At one point builds for armel (32 bit) with arm-linux-gnueabi-gcc for
-         * kernel 3.16 in a debian jessie docker container were getting this error when
-         * building this module:
-         *      "undefined reference to `__aeabi_ldivmod'"
-         * Substituting  do_div(x,y) for x/y got rid of the error.
-         * But for some reason the error has gone away.
-         */
-        // tv->tv_usec = do_div(ts.tv_nsec , NSECS_PER_USEC);
-        tv->tv_usec = (uint64_t)ts.tv_nsec / NSECS_PER_USEC;
+        tv->tv_usec = ts.tv_nsec / NSECS_PER_USEC;
 }
 
 /**
@@ -1399,8 +1396,14 @@ static void get_irig_time_nolock(struct irigTime *ti)
                 thiskernel_timespec_t ts;
                 irigTotimespec(ti, &ts);
                 // clock difference
-                td = ((uint64_t)ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                    ts.tv_nsec / NSECS_PER_TMSEC - tt;
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+		/* do_div changes arg 1 in place, returns remainder */
+		td = do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                    ts.tv_nsec / NSECS_PER_TMSEC;
+#else
+                td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                    ts.tv_nsec / NSECS_PER_TMSEC;
+#endif
                 hr = (tt / 3600 / TMSECS_PER_SEC);
                 tt %= (3600 * TMSECS_PER_SEC);
                 mn = (tt / 60 / TMSECS_PER_SEC);
@@ -1546,8 +1549,14 @@ static int setSoftTickers(thiskernel_timespec_t *ts,int round)
 {
         int counter, newClock;
 
-        newClock = ((uint64_t)ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes arg 1 in place, returns remainder */
+        newClock = do_div(ts->tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
             ts->tv_nsec / NSECS_PER_TMSEC;
+#else
+        newClock = (ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+            ts->tv_nsec / NSECS_PER_TMSEC;
+#endif
         if (round) newClock += TMSEC_PER_SOFT_TIC / 2;
         newClock -= newClock % TMSEC_PER_SOFT_TIC;
         newClock %= TMSECS_PER_DAY;
@@ -1887,7 +1896,7 @@ static void oneHzFunction(void *ptr)
         unsigned char lastStatus;
         int doSnapShot;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-        uint64_t lltime;
+        int64_t lltime;
 #endif
 
         int newClock;
@@ -1926,15 +1935,27 @@ static void oneHzFunction(void *ptr)
                 if (!(statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                         if (syncDiff > MAX_TMSEC_SINCE_LAST_SYNC) {
                                 /* first sync after a long time of no sync */
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+				/* do_div changes arg 1 in place, returns remainder */
+                                newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 /* use 1/2 the tick tolerances */
                                 checkSoftTicker(newClock,currClock,2,NOTIFY_CLIENTS);
                         }
                         else if (board.clockState == SYNCD_SET) {
                                 /* good situation, sync'd */
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+				/* do_div changes arg 1 in place, returns remainder */
+                                newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 checkSoftTicker(newClock,currClock,1,NOTIFY_CLIENTS);
                         }
                         else {
@@ -1951,8 +1972,14 @@ static void oneHzFunction(void *ptr)
                                  * consistently sync'd */
                                 if (board.clockState == UNSYNCD_SET) {
                                         /* check against unix clock */
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes arg 1 in place, returns remainder */
+                                        newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                         checkSoftTicker(newClock,currClock,1,NOTIFY_CLIENTS);
                                 }
                                 else {
@@ -1969,13 +1996,25 @@ static void oneHzFunction(void *ptr)
                                  * since last full second of sync */
                                 if (!(lastStatus & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                                         /* currently sync'd, check against irig time */
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes arg 1 in place, returns remainder */
+                                        newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                                             ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 }
                                 else {
                                         /* currently not sync'd, check against unix time */
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes arg 1 in place, returns remainder */
+                                        newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 }
                                 checkSoftTicker(newClock,currClock,1,NO_NOTIFY);
                         }
@@ -2031,11 +2070,11 @@ static void oneHzFunction(void *ptr)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
         osamp->length = offsetof(struct dsm_clock_data_3, end);
         /* snapshot of irig time. Convert to little endian */
-        lltime = (uint64_t)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
+        lltime = (int64_t)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
         osamp->data.irigt = cpu_to_le64(lltime);
 
         /* snapshot of unix system time. Convert to little endian */
-        lltime = (uint64_t)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
+        lltime = (int64_t)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
         osamp->data.unixt = cpu_to_le64(lltime);
 
         osamp->data.dummystatus = 0xff;
@@ -2330,7 +2369,7 @@ pc104sg_read(struct file *filp, char __user * buf, size_t count,
  * Set the IRIG hardware clock fields in DPRAM.
  * Interrupts are disabled when writing to DPRAM.
  */
-static long setIRIGclock(uint64_t usec)
+static long setIRIGclock(int64_t usec)
 {
         unsigned long flags;
         thiskernel_timespec_t ts;
@@ -2342,8 +2381,14 @@ static long setIRIGclock(uint64_t usec)
         board.DP_RamExtStatusRequested = 0;
         spin_unlock_irqrestore(&board.lock, flags);
 
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes arg 1 in place, returns remainder */
+        ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
+        ts.tv_sec = usec;
+#else
         ts.tv_sec = usec / USECS_PER_SEC;
-        ts.tv_nsec = (usec % USECS_PER_SEC);
+        ts.tv_nsec = (usec % USECS_PER_SEC) * NSECS_PER_USEC;
+#endif
 
         timespecToirig(&ts, &ti);
 
@@ -2366,7 +2411,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
         int len = _IOC_SIZE(cmd);
         int ret = -EINVAL;
         struct irigTime ti;
-        uint64_t usec;
+        int64_t usec;
         struct timeval32 tv32;
         unsigned long flags;
 
@@ -2443,7 +2488,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 ret =
                     copy_from_user(&tv32, userptr, sizeof(tv32)) ? -EFAULT : len;
                 if (ret < 0) break;
-                usec = (uint64_t) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
+                usec = (int64_t) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
                 ret = setIRIGclock(usec);
                 break;
         default:

@@ -225,9 +225,9 @@ extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
  * The typedef of thiskernel_timespec_t has the following member sizes,
  * where a 4 byte tv_sec field is not year 2038 compatible.
  *
- * 32 bit machine, kernel < 3.17:  4 byte tv_sec and 4 byte tv_usec
- * 32 bit machine, kernel >= 3.17: 8 byte tv_sec and 4 byte tv_usec
- * 64 bit machine, most any kernel?: 8 byte tv_sec and 8 byte tv_usec
+ * 32 bit machine, kernel < 3.17:  4 byte tv_sec and 4 byte tv_nsec
+ * 32 bit machine, kernel >= 3.17: 8 byte tv_sec and 4 byte tv_nsec
+ * 64 bit machine, most any kernel?: 8 byte tv_sec and 8 byte tv_nsec
  */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
 typedef struct timespec thiskernel_timespec_t;
@@ -255,8 +255,14 @@ inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
         thiskernel_timespec_t ts;
         getSystemTimeTs(&ts);
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes arg 1 in place, returns remainder */
+        return do_div(ts.tv_sec, SECS_PER_DAY) * MSECS_PER_SEC +
+		ts.tv_nsec / NSECS_PER_MSEC;
+#else
         return (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
                 ts.tv_nsec / NSECS_PER_MSEC;
+#endif
 }
 
 /*
@@ -266,8 +272,14 @@ inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
         thiskernel_timespec_t ts;
         getSystemTimeTs(&ts);
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes arg 1 in place, returns remainder */
+        return do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+		ts.tv_nsec / NSECS_PER_TMSEC;
+#else
         return (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                 ts.tv_nsec / NSECS_PER_TMSEC;
+#endif
 }
 
 struct sample_read_state
