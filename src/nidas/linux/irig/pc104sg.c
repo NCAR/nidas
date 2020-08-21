@@ -1,6 +1,7 @@
 /* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
 /* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
+
 /*
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
@@ -2382,7 +2383,7 @@ static long setIRIGclock(int64_t usec)
         board.DP_RamExtStatusRequested = 0;
         spin_unlock_irqrestore(&board.lock, flags);
 
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if __BITS_PER_LONG == 32
 	/* do_div changes dividend in place, returns remainder */
         ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
         ts.tv_sec = usec;
