@@ -1302,7 +1302,7 @@ static void timespecToirig(const thiskernel_timespec_t *ts, struct irigTime *ti)
         int days, rem, y;
 
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-	/* do_div changes arg 1 in place, returns remainder */
+	/* do_div changes dividend in place, returns remainder */
         int64_t sec = ts->tv_sec;
         rem = do_div(sec, SECS_PER_DAY);
         days = sec;
@@ -1397,7 +1397,7 @@ static void get_irig_time_nolock(struct irigTime *ti)
                 irigTotimespec(ti, &ts);
                 // clock difference
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-		/* do_div changes arg 1 in place, returns remainder */
+		/* do_div changes dividend in place, returns remainder */
 		td = do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                     ts.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -1545,13 +1545,14 @@ static int setMajorTime(struct irigTime *ti)
  * This function sets TMsecClockTicker from the timespec.
  *
  */
-static int setSoftTickers(thiskernel_timespec_t *ts,int round)
+static int setSoftTickers(const thiskernel_timespec_t *ts,int round)
 {
         int counter, newClock;
 
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-	/* do_div changes arg 1 in place, returns remainder */
-        newClock = do_div(ts->tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+	/* do_div changes dividend in place, returns remainder */
+        int64_t sec = ts->tv_sec;
+        newClock = do_div(sec, SECS_PER_DAY) * TMSECS_PER_SEC +
             ts->tv_nsec / NSECS_PER_TMSEC;
 #else
         newClock = (ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1936,7 +1937,7 @@ static void oneHzFunction(void *ptr)
                         if (syncDiff > MAX_TMSEC_SINCE_LAST_SYNC) {
                                 /* first sync after a long time of no sync */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-				/* do_div changes arg 1 in place, returns remainder */
+				/* do_div changes dividend in place, returns remainder */
                                 newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -1949,7 +1950,7 @@ static void oneHzFunction(void *ptr)
                         else if (board.clockState == SYNCD_SET) {
                                 /* good situation, sync'd */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-				/* do_div changes arg 1 in place, returns remainder */
+				/* do_div changes dividend in place, returns remainder */
                                 newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -1973,7 +1974,7 @@ static void oneHzFunction(void *ptr)
                                 if (board.clockState == UNSYNCD_SET) {
                                         /* check against unix clock */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-					/* do_div changes arg 1 in place, returns remainder */
+					/* do_div changes dividend in place, returns remainder */
                                         newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -1997,7 +1998,7 @@ static void oneHzFunction(void *ptr)
                                 if (!(lastStatus & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                                         /* currently sync'd, check against irig time */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-					/* do_div changes arg 1 in place, returns remainder */
+					/* do_div changes dividend in place, returns remainder */
                                         newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             ti.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -2008,7 +2009,7 @@ static void oneHzFunction(void *ptr)
                                 else {
                                         /* currently not sync'd, check against unix time */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-					/* do_div changes arg 1 in place, returns remainder */
+					/* do_div changes dividend in place, returns remainder */
                                         newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
 #else
@@ -2382,7 +2383,7 @@ static long setIRIGclock(int64_t usec)
         spin_unlock_irqrestore(&board.lock, flags);
 
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-	/* do_div changes arg 1 in place, returns remainder */
+	/* do_div changes dividend in place, returns remainder */
         ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
         ts.tv_sec = usec;
 #else
