@@ -1788,7 +1788,7 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                  */
                 TMsecClock[board.WriteClock] = board.TMsecClockTicker;
 
-                /* see comment about memory barrier in setSoftwareTickers */
+                /* see comment about memory barrier in irigclock.h */
                 smp_wmb();
                 ic = ReadClock;
                 /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
@@ -1911,6 +1911,10 @@ static void oneHzFunction(void *ptr)
         struct dsm_clock_sample_2 *osamp;
 #endif
 
+#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        int64_t sec64;
+#endif
+
         /* copy the snapshot */
         spin_lock_irqsave(&board.lock, flags);
 
@@ -1939,7 +1943,8 @@ static void oneHzFunction(void *ptr)
                                 /* first sync after a long time of no sync */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 				/* do_div changes dividend in place, returns remainder */
-                                newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                sec64 = ti.tv_sec;
+                                newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
 #else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1952,7 +1957,8 @@ static void oneHzFunction(void *ptr)
                                 /* good situation, sync'd */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 				/* do_div changes dividend in place, returns remainder */
-                                newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                sec64 = ti.tv_sec;
+                                newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
                                     ti.tv_nsec / NSECS_PER_TMSEC;
 #else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1976,7 +1982,8 @@ static void oneHzFunction(void *ptr)
                                         /* check against unix clock */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
-                                        newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                        sec64 = tu.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
 #else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -2000,7 +2007,8 @@ static void oneHzFunction(void *ptr)
                                         /* currently sync'd, check against irig time */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
-                                        newClock = do_div(ti.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                        sec64 = ti.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             ti.tv_nsec / NSECS_PER_TMSEC;
 #else
                                         newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -2011,7 +2019,8 @@ static void oneHzFunction(void *ptr)
                                         /* currently not sync'd, check against unix time */
 #if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
-                                        newClock = do_div(tu.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                        sec64 = tu.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
                                             tu.tv_nsec / NSECS_PER_TMSEC;
 #else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
