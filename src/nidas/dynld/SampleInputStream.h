@@ -479,8 +479,16 @@ private:
                                     dsm_time_t search_time=LONG_LONG_MIN)
         throw(nidas::util::IOException);
 
-    bool readSampleHeader(bool keepreading) throw(nidas::util::IOException);
-    bool readSampleData(bool keepreading) throw(nidas::util::IOException);
+    void checkUnexpectedEOF();
+
+    /**
+     * Read a block into memory, updating the given block pointer and 
+     * length counter accordingly.  If @p keepreading is false, only
+     * read into the block what is available from the iostream buffer.
+     * Return true if the complete block was read, false otherwise.
+     **/
+    bool
+    readBlock(bool keepreading, char* &ptr, size_t& lentoread);
 
     /**
      * Whenever we are at the start of a new input, we need to handle
@@ -520,6 +528,13 @@ private:
      * from the stream.
      */
     nidas::core::Sample* _samp;
+
+    /**
+     * The currently pending sample.  When filtering is active, the pending
+     * sample is held until the succeeding sample header is confirmed to be
+     * good.
+     **/
+    nidas::core::Sample* _sampPending;
 
     /**
      * How many bytes left to read from the stream into the data
