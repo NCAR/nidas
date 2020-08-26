@@ -215,7 +215,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
  * Copy constructor, with a new, connected IOChannel.
  */
 SampleInputStream::SampleInputStream(SampleInputStream& x,
-	IOChannel* iochannel):
+    IOChannel* iochannel):
     _iochan(0),_source(x._source),_service(x._service),_iostream(0),
     _dsm(x._dsm),
     _expectHeader(x._expectHeader),
@@ -255,8 +255,8 @@ void SampleInputStream::setIOChannel(IOChannel* val)
 {
     if (val != _iochan) {
         if (_iochan) _iochan->close();
-	delete _iochan;
-	_iochan = val;
+    delete _iochan;
+    _iochan = val;
     }
     if (_iochan) {
         setExpectHeader(_iochan->writeNidasHeader());
@@ -292,9 +292,8 @@ int SampleInputStream::getFd() const
 
 void SampleInputStream::flush() throw()
 {
-#ifdef DEBUG
-    cerr << getName() << " flush, #clients=" << _source.getClientCount() << endl;
-#endif
+    VLOG(("") << getName() << " flush, #clients="
+        << _source.getClientCount());
     // process all samples in buffer
     for (;;) {
         Sample* samp = nextSample();
@@ -332,19 +331,6 @@ SampleInput* SampleInputStream::connected(IOChannel* ioc) throw()
     }
     return this;
 }
-
-#ifdef NEEDED
-
-void SampleInputStream::init() throw()
-{
-#ifdef DEBUG
-    cerr << "SampleInputStream::init(), buffer size=" << 
-    	_iochan->getBufferSize() << endl;
-#endif
-    if (!_iostream)
-	_iostream = new IOStream(*_iochan,_iochan->getBufferSize());
-}
-#endif
 
 
 void SampleInputStream::closeBlocks()
@@ -883,7 +869,7 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     XDOMElement xnode(node);
 
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -892,33 +878,13 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             // const std::string& aval = attr.getValue();
             // Sample sorter length in seconds
-	    if (aname == "sorterLength") {
+            if (aname == "sorterLength") {
                 WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
-#ifdef NEEDED
-	        istringstream ist(aval);
-		float len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SampleInputStream",
-			attr.getName(),attr.getValue());
-		setSorterLengthMsecs((int)rint(len * MSECS_PER_SEC));
-#endif
-	    }
-	    else if (aname == "heapMax") {
+            }
+            else if (aname == "heapMax") {
                 WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
-#ifdef NEEDED
-	        istringstream ist(aval);
-		int len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SampleInputStream",
-			attr.getName(),attr.getValue());
-		setHeapMax(len);
-#endif
-	    }
-	}
+            }
+        }
     }
 
     // process <socket>, <fileset> child elements (should only be one)
@@ -931,16 +897,18 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
         IOChannel* iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
-	iochan->fromDOMElement((xercesc::DOMElement*)child);
+        iochan->fromDOMElement((xercesc::DOMElement*)child);
         setIOChannel(iochan);
 
-	if (++niochan > 1)
-	    throw n_u::InvalidParameterException(
-		    "SampleInputStream::fromDOMElement",
-		    "input", "must have one child element");
+        if (++niochan > 1) {
+            throw n_u::InvalidParameterException(
+                "SampleInputStream::fromDOMElement",
+                "input", "must have one child element");
+        }
     }
-    if (!_iochan)
+    if (!_iochan) {
         throw n_u::InvalidParameterException(
                 "SampleInputStream::fromDOMElement",
-		"input", "must have one child element");
+        "input", "must have one child element");
+    }
 }
