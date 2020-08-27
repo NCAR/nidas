@@ -482,20 +482,32 @@ private:
     void checkUnexpectedEOF();
 
     /**
-     * Read a block into memory, updating the given block pointer and 
-     * length counter accordingly.  If @p keepreading is false, only
-     * read into the block what is available from the iostream buffer.
-     * Return true if the complete block was read, false otherwise.
+     * Tuple for all the possible results of iostream reads.  Keep it
+     * private to SampleInputStream class to avoid polluting the nidas::core
+     * namespace.
      **/
-    bool
+    struct ReadResult
+    {
+    public:
+        ReadResult(size_t ilen=0, bool inewinput=false, bool ieof=false):
+            len(ilen), newinput(inewinput), eof(ieof)
+        {}
+        size_t len;
+        bool newinput;
+        bool eof;
+    };
+
+    ReadResult
     readBlock(bool keepreading, char* &ptr, size_t& lentoread);
 
-    /**
-     * Whenever we are at the start of a new input, we need to handle
-     * parsing the input header.  This method sets up the right state to
-     * start over on a new file.
-     **/
-    void handleNewInput();
+    ReadResult
+    read(bool keepreading, char* ptr, size_t lentoread);
+
+    void
+    handleNewInput();
+
+    nidas::core::Sample*
+    handleEOF(bool keepreading);
 
     void closeBlocks();
 
@@ -587,6 +599,9 @@ private:
      * a new input name.
      **/
     std::string _last_name;
+
+    nidas::util::EOFException _eofx;
+    bool _ateof;
 
     /**
      * No regular copy.

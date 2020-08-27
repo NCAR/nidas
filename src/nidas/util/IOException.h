@@ -85,6 +85,12 @@ public:
      */
     IOException(const IOException& e): Exception(e) {}
 
+    IOException& operator=(const IOException& e)
+    {
+        Exception::operator=(e);
+        return *this;
+    }
+
     /**
      * clone myself (a "virtual" constructor).
      */
