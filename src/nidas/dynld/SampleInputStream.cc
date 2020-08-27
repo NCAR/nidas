@@ -182,13 +182,15 @@ SampleInputStream::SampleInputStream(bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
+    _samp(0),_sampPending(0),_dataToRead(0),_dptr(0),
     _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
     _original(this),_raw(raw),
-    _last_name()
+    _last_name(),
+    _eofx("", ""),
+    _ateof(false)
 {
 }
 
@@ -199,13 +201,15 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
     _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
+    _samp(0),_sampPending(0),_dataToRead(0),_dptr(0),
     _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(),
     _original(this),_raw(raw),
-    _last_name()
+    _last_name(),
+    _eofx("", ""),
+    _ateof(false)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -215,19 +219,21 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
  * Copy constructor, with a new, connected IOChannel.
  */
 SampleInputStream::SampleInputStream(SampleInputStream& x,
-	IOChannel* iochannel):
+    IOChannel* iochannel):
     _iochan(0),_source(x._source),_service(x._service),_iostream(0),
     _dsm(x._dsm),
     _expectHeader(x._expectHeader),
     _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
-    _samp(0),_dataToRead(0),_dptr(0),
+    _samp(0),_sampPending(0),_dataToRead(0),_dptr(0),
     _skipSample(false),
     _block(),_badSamples(0),_goodSamples(0),
     _inputHeader(),
     _bsf(x._bsf),
     _original(&x),_raw(x._raw),
-    _last_name()
+    _last_name(),
+    _eofx("", ""),
+    _ateof(false)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -246,6 +252,8 @@ SampleInputStream::~SampleInputStream()
     close();
     if (_samp)
         _samp->freeReference();
+    if (_sampPending)
+        _sampPending->freeReference();
     delete _iochan;
 }
 
@@ -253,8 +261,8 @@ void SampleInputStream::setIOChannel(IOChannel* val)
 {
     if (val != _iochan) {
         if (_iochan) _iochan->close();
-	delete _iochan;
-	_iochan = val;
+    delete _iochan;
+    _iochan = val;
     }
     if (_iochan) {
         setExpectHeader(_iochan->writeNidasHeader());
@@ -290,9 +298,8 @@ int SampleInputStream::getFd() const
 
 void SampleInputStream::flush() throw()
 {
-#ifdef DEBUG
-    cerr << getName() << " flush, #clients=" << _source.getClientCount() << endl;
-#endif
+    VLOG(("") << getName() << " flush, #clients="
+        << _source.getClientCount());
     // process all samples in buffer
     for (;;) {
         Sample* samp = nextSample();
@@ -330,19 +337,6 @@ SampleInput* SampleInputStream::connected(IOChannel* ioc) throw()
     }
     return this;
 }
-
-#ifdef NEEDED
-
-void SampleInputStream::init() throw()
-{
-#ifdef DEBUG
-    cerr << "SampleInputStream::init(), buffer size=" << 
-    	_iochan->getBufferSize() << endl;
-#endif
-    if (!_iostream)
-	_iostream = new IOStream(*_iochan,_iochan->getBufferSize());
-}
-#endif
 
 
 void SampleInputStream::closeBlocks()
@@ -399,11 +393,20 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
 {
     while (!_inputHeaderParsed)
     {
+        // There shouldn't be any sample pending here, so it's safe to throw
+        // EOF if EOF is hit while reading the header.
         _iostream->read();
         // I think this might result in a new input, if the previous input
         // was shorter than the length of a header, in which case the
         // parsing might need to be started over.  But since this has worked
         // so far, nothing is done about it here.
+
+        // Since this should be the first read on a stream, especially the
+        // first file in a FileSet stream, this seems like a good place to
+        // cache the name of the current file, so it is available after
+        // isNewInput() is detected.
+        _last_name = getName();
+        DLOG(("set _last_name: ") << _last_name);
         parseInputHeader();
     }
     DLOG(("input header parsed, offset is now ")
@@ -447,33 +450,47 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
     return _inputHeaderParsed;
 }
 
-namespace {
-    void logBadSampleHeader(const string& name, size_t nbad,
-                            long long pos,
-                            const SampleHeader& header)
-    {
-        WLOG(("%s: bad sample header: "
-              "#bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
-              name.c_str(), nbad, pos,
-              GET_DSM_ID(header.getId()), GET_SPS_ID(header.getId()),
-              (int)header.getType(), header.getDataByteLength()));
+namespace nidas {
+    namespace core {
+
+        std::ostream&
+        operator<<(std::ostream& out, const nidas::core::SampleHeader& header)
+        {
+            out << "id=(" << GET_DSM_ID(header.getId()) << ","
+                << GET_SPS_ID(header.getId()) << ");"
+                << "type=" << (int)header.getType() << ";"
+                << "len=" << header.getDataByteLength() << ";"
+                << "time=" << ftime(header.getTimeTag());
+            return out;
+        }
+
+        std::ostream&
+        operator<<(std::ostream& out, const nidas::core::Sample& samp)
+        {
+            out << *(nidas::core::SampleHeader*)samp.getHeaderPtr();
+            return out;
+        }
     }
 }
 
 
+/**
+ * Whenever we are at the start of a new input, we need to start over with
+ * parsing the input header.  This method sets up the right state to start
+ * over on a new file.
+ **/
 void
 SampleInputStream::
 handleNewInput()
 {
+    VLOG(("entering handleNewInput()..."));
     closeBlocks();
-    _last_name = getName();
     size_t offset = _iostream->getNumInputBytes();
     _iostream->backup();
     size_t start = _iostream->getNumInputBytes();
     DLOG(("new input detected after reading ")
         << offset << " bytes, backed up to offset " << start);
     _inputHeaderParsed = false;
-    readInputHeader();
 }
 
 
@@ -488,86 +505,170 @@ handleNewInput()
  */
 bool SampleInputStream::readSamples() throw(n_u::IOException)
 {
-    _iostream->read();		// read a buffer's worth
+    // Use read() to fill the buffer, handle new input, and record if EOF is
+    // hit.  Then call into nextSample() in case there is a sample pending
+    // which needs to be returned before throwing EOF.
+    ReadResult rr = read(true, 0, 0);
+    VLOG(("readSamples(): read result: ") << "len=" << rr.len
+        << ",eof=" << rr.eof << ",newinput=" << rr.newinput);
+
+#ifdef notdef
+    // I'm not sure if this is needed.  nextSample() will only
+    // use what's available in the buffer, as well as handling
+    // other conditions like EOF and pending samples, so it seems
+    // clearer to go directly to calling nextSample().
 
     // no data in buffer after above read, must have been
     // EAGAIN on a non-blocking read
     if (_iostream->available() == 0) return false;
+#endif
 
-    // first read from a new file
-    if (_iostream->isNewInput())
+    // Process all samples in buffer.  Return false if there aren't any.  We
+    // have to check for EOF here, because it is not allowed to be thrown
+    // from nextSample().
+    Sample* samp = nextSample();
+    if (!samp && !_ateof)
     {
+        return false;
+    }
+    while (samp)
+    {
+        _source.distribute(samp);
+        samp = nextSample();
+    }
+    if (_ateof)
+        handleEOF(true);
+    return true;
+}
+
+
+void
+SampleInputStream::
+checkUnexpectedEOF()
+{
+    if (0 < _headerToRead && _headerToRead < _sheader.getSizeOf())
+    {
+        // Part of a header was read, but not all of it.
+        WLOG(("unexpected EOF on ") << _last_name
+        << ": needed " << _headerToRead << " more bytes "
+        << "for sample header length " << _sheader.getSizeOf());
+    }
+    else if (_dataToRead > 0)
+    {
+        WLOG(("unexpected EOF on ") << _last_name
+        << ": expected " << _dataToRead << " more bytes "
+        << "for sample data length " << _samp->getDataByteLength());
+    }
+}
+
+
+/**
+ * All reads of the iostream go through here.  There are three kinds of
+ * reads needed:
+ *
+ *  - Read to fill the iostream buffer but not a local block. (ptr==0 and
+ *    keepreading=true)
+ *  - Read from the iostream buffer into a local block (keepreading==false).
+ *  - Read from the iostream to fill a local block, filling the buffer as
+ *    needed (keepreading=true)
+ *
+ * In all these cases, we need to catch if we hit the end of a file to know
+ * if the file ended unexpectedly.  Also, if we hit the end of a file and a
+ * sample is still pending (because filtering is enabled and a sample is not
+ * good until it passes the filter and is succeeded by eof or another good
+ * sample), then we also need to return that sample.  This method records
+ * the eof exception but does not pass it on, waiting instead for it to be
+ * thrown after any pending sample has been returned by nextSample().
+ * Callers can test ReadResult members for which cases have occurred.
+ **/
+SampleInputStream::ReadResult
+SampleInputStream::
+read(bool keepreading, char* ptr, size_t lentoread)
+{
+    ReadResult rr;
+    // keepreading means read as much as we need from the stream, even if it
+    // means more physical reads of the underlying device.  Otherwise read
+    // only what is currently in the buffer.
+    if (keepreading)
+    {
+        try {
+            if (ptr)
+            {
+                rr.len = _iostream->read(ptr, lentoread);
+            }
+            else
+            {
+                rr.len = _iostream->read();
+                VLOG(("buffer read() returned ")
+                    << rr.len << " bytes read, "
+                    << _iostream->available()
+                    << " bytes available in buffer.");
+            }
+        }
+        catch (nidas::util::EOFException& eof)
+        {
+            DLOG(("EOF caught in SampleInputStream::read()"));
+            _eofx = eof;
+            _ateof = true;
+            rr.eof = true;
+        }
+    }
+    else if (ptr)
+    {
+        rr.len = _iostream->readBuf(ptr, lentoread);
+    }
+    rr.newinput = _iostream->isNewInput();
+
+    if (rr.newinput || rr.eof)
+    {
+        checkUnexpectedEOF();
+    }
+    if (rr.newinput)
+    {
+        // Always read through the input header if any, since the rest
+        // of the sample reading code expects to be at a point to read
+        // the next sample rather than check if a header needs to be
+        // read.
         handleNewInput();
     }
-
-    // process all samples in buffer
-    for (;;) {
-        Sample* samp = nextSample();
-        if (!samp) break;
-        _source.distribute(samp);
-    }
-    return true;
+    VLOG(("read(keepreading=") << keepreading
+        << ",lentoread=" << lentoread << ") returning read result: "
+        << "len=" << rr.len << ",eof=" << rr.eof
+        << ",newinput=" << rr.newinput);
+    return rr;
 }
 
 
-bool
+/**
+ * Read a block into memory, updating the given block pointer and length
+ * counter accordingly.  If @p keepreading is false, only read into the
+ * block what is available from the iostream buffer.  Return the ReadResult
+ * of the last read.  Always return if the current input ends or eof is
+ * reached.
+ **/
+SampleInputStream::ReadResult
 SampleInputStream::
-readSampleHeader(bool keepreading) throw(n_u::IOException)
+readBlock(bool keepreading, char* &ptr, size_t& lentoread)
 {
-    while (_headerToRead > 0) {
-        size_t len;
-        // keepreading means read as much as we need from the stream, even if it
-        // means more physical reads of the underlying device.  Otherwise read
-        // only what is currently in the buffer.
-        if (keepreading)
-            len = _iostream->read(_hptr, _headerToRead);
-        else
-            len = _iostream->readBuf(_hptr, _headerToRead);
-        _headerToRead -= len;
-        _hptr += len;
-
-        if (_iostream->isNewInput())
-        {
-            // Always read through the header if any, since the rest of the
-            // sample reading code expects to be at a point to read the
-            // next sample rather than check if a header needs to be read.
-            handleNewInput();
-        }
-        if (!keepreading && _headerToRead > 0) 
-            return false;   // no more data
+    // In order to catch an unexpected EOF, I think we have to account for
+    // two scenarios.  One is that one file ends early but there are more
+    // files to read, which we have to detect with isNewInput().  The other
+    // is that the last file reaches EOF and throws the EOF exception.
+    ReadResult rr;
+    do
+    {
+        rr = read(keepreading, ptr, lentoread);
+        lentoread -= rr.len;
+        ptr += rr.len;
     }
-    return true;
+    while (keepreading && lentoread > 0 && !rr.eof && !rr.newinput);
+    return rr;
 }
 
-
-bool
-SampleInputStream::
-readSampleData(bool keepreading) throw(n_u::IOException)
-{
-    while (_dataToRead > 0) {
-        size_t len;
-        if (keepreading)
-            len = _iostream->read(_dptr, _dataToRead);
-        else
-            len = _iostream->readBuf(_dptr, _dataToRead);
-
-        if (_iostream->isNewInput())
-        {
-            handleNewInput();
-            return false;
-        }
-
-        _dataToRead -= len;
-        _dptr += len;
-
-        if (!keepreading && _dataToRead > 0)
-            return false;   // no more data
-    }
-    return true;
-}
 
 /*
- * Use readNextSample() to return the next sample from the buffer, if any.
+ * Use nextSample(keepreading=false) to return the next sample from the
+ * buffer, if any.
  */
 Sample* SampleInputStream::nextSample() throw()
 {
@@ -581,6 +682,40 @@ Sample* SampleInputStream::nextSample() throw()
     return 0;
 }
 
+
+/**
+ * When EOF has been caught, then either we need to return the last pending
+ * sample, or else we need to throw the exception.  HOWEVER, because
+ * nextSample() is not allowed to throw an IOException when keepreading is
+ * false, since in general it does not make sense to trigger EOF when
+ * nothing is being read, this handler only throws the exception when
+ * keepreading is true.
+ **/
+Sample*
+SampleInputStream::
+handleEOF(bool keepreading)
+{
+    if (_sampPending)
+    {
+        DLOG(("reached eof, returning pending sample"));
+        Sample* out = _sampPending;
+        _sampPending = 0;
+        return out;
+    }
+    if (keepreading)
+    {
+        DLOG(("handleEOF(): no sample pending, keepreading is true, "
+            "raising EOFException"));
+        throw _eofx;
+    }
+    else
+    {
+        DLOG(("handleEOF(): no sample pending, but keepreading is false"));
+    }
+    return 0;
+}
+
+
 /*
  * Try to read a sample, either by reading more from the stream or by
  * reading exclusively from the buffer.  If @p keepreading is false, then
@@ -593,14 +728,48 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
     throw(n_u::IOException)
 {
     Sample* out = 0;
-    while (!out) {
+    // Check if EOF has been hit and there is still a sample pending.
+    if (_ateof)
+    {
+        return handleEOF(keepreading);
+    }
 
-        // See if a header needs to be read first.  As soon as the header
-        // is read _headerToRead will be zero, and a Sample can be
-        // created from the header.
+    while (!out)
+    {
+        ReadResult rr;
+
+        // If last time through we hit new input, then there may be an input
+        // header to read first.  This forces a read of the iostream, even
+        // if keepreading is false.
+        if (!_inputHeaderParsed)
+        {
+            readInputHeader();
+        }
+
+        // See if a sample header needs to be read.  As soon as the header
+        // is read _headerToRead will be zero, and a Sample can be created
+        // from the header.
         if (_headerToRead > 0) {
 
-            if (! readSampleHeader(keepreading))
+            rr = readBlock(keepreading, _hptr, _headerToRead);
+            if (rr.eof)
+            {
+                return handleEOF(keepreading);
+            }
+            if (rr.newinput && _sampPending)
+            {
+                // Hit end of a file, so we can send any currently pending
+                // sample.  Next call to this method will continue in the
+                // new input where we left off.
+                DLOG(("switched to new input, returning pending sample"));
+                out = _sampPending;
+                _sampPending = 0;
+                return out;
+            }
+
+            // We didn't get all of a header yet, keepreading must have been
+            // false.
+            if (_headerToRead > 0)
                 return 0;
 
             if (__BYTE_ORDER == __BIG_ENDIAN)
@@ -610,7 +779,17 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
                 _sheader.setRawId(bswap_32(_sheader.getRawId()));
             }
             _samp = sampleFromHeader();
-            if (!_samp) {
+            if (!_samp)
+            {
+                // The header was corrupt somehow, meaning we have hit
+                // corrupt data and any pending sample needs to be dropped.
+                if (_sampPending)
+                {
+                    WLOG(("dropping unfiltered sample preceding a bad block: ")
+                        << *_sampPending);
+                    _sampPending->freeReference();
+                    _sampPending = 0;
+                }
                 continue;
             }
 
@@ -618,6 +797,17 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
             // to read but the sample itself should be ignored.
             _dataToRead = _samp->getDataByteLength();
             _dptr = (char*) _samp->getVoidDataPtr();
+        }
+
+        // If a good sample is pending, then now we can pass on that pending
+        // sample as the next good sample, since it was succeeded by a good
+        // header.  The next entry to this function will continue with
+        // handling the current header.
+        if (_sampPending)
+        {
+            out = _sampPending;
+            _sampPending = 0;
+            return out;
         }
 
         // We have a good sample in _samp, see if the time is right.
@@ -635,23 +825,45 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
             // before skipping it.
         }
 
-        if (_samp && !readSampleData(keepreading))
+        if (_samp)
         {
-            if (!keepreading)
+            rr = readBlock(keepreading, _dptr, _dataToRead);
+            if (rr.eof)
+                return handleEOF(keepreading);
+            if (_dataToRead > 0)
                 return 0;
-            // Continue until we finish reading the data.
-            continue;
         }
 
+        // We now have a good (unfiltered) sample with complete data.
+        // Either it needs to be skipped because it succeeds a bad block, or
+        // it needs to be held back in case it precedes a bad block.
+        //
         // If still searching for a sample, free this one and keep going.
+        // Searching presents a real problem, because it expects to return
+        // when a good header is read but before the data are read, so it is
+        // not possible to see if the sample is followed by a bad block
+        // before passing it on as valid.  So as it stands now, when
+        // searching for a particular time, it's possible to get a sample
+        // which precedes a bad block and might itself have corrupt data.
         if (_skipSample || searching)
         {
             _samp->freeReference();
             _samp = 0;
         }
 
-        out = _samp;
-        _samp = 0;
+        // Hold the current sample as pending.  It will be returned above if
+        // it is followed with a good header.
+        if (_bsf.filterBadSamples())
+        {
+            _sampPending = _samp;
+            _samp = 0;
+        }
+        else
+        {
+            out = _samp;
+            _samp = 0;
+        }
+
         // next read is the next header
         _headerToRead = _sheader.getSizeOf();
         _hptr = (char*)&_sheader;
@@ -714,7 +926,9 @@ sampleFromHeader() throw()
         ++_badSamples;
         if (log_count && !((_badSamples-1) % log_count))
         {
-            logBadSampleHeader(getName(), _badSamples, offset, _sheader);
+            WLOG(("") << getName() << ": bad sample header: "
+            << "#bad=" << _badSamples << ","
+            << "filepos=" << offset << "," << _sheader);
         }
         if (_block.good && _block.nbytes)
         {
@@ -743,11 +957,7 @@ sampleFromHeader() throw()
         // at the beginning of the sample, skip this sample.
         _skipSample = true;
         WLOG(("skipping first unfiltered sample at end of bad block: "
-              "filepos=%lld,id=(%d,%d),type=%d,len=%u",
-              offset,
-              GET_DSM_ID(_sheader.getId()), GET_SPS_ID(_sheader.getId()),
-              (int)_sheader.getType(), _sheader.getDataByteLength())
-              << "," << ftime(_sheader.getTimeTag()));
+              "filepos=%lld", offset) << _sheader);
     }
     else
     {
@@ -809,7 +1019,7 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
     XDOMElement xnode(node);
 
     if(node->hasAttributes()) {
-    // get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -818,33 +1028,13 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             // const std::string& aval = attr.getValue();
             // Sample sorter length in seconds
-	    if (aname == "sorterLength") {
+            if (aname == "sorterLength") {
                 WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
-#ifdef NEEDED
-	        istringstream ist(aval);
-		float len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SampleInputStream",
-			attr.getName(),attr.getValue());
-		setSorterLengthMsecs((int)rint(len * MSECS_PER_SEC));
-#endif
-	    }
-	    else if (aname == "heapMax") {
+            }
+            else if (aname == "heapMax") {
                 WLOG(("SampleInputStream: attribute ") << aname << " is deprecated");
-#ifdef NEEDED
-	        istringstream ist(aval);
-		int len;
-		ist >> len;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-		    	"SampleInputStream",
-			attr.getName(),attr.getValue());
-		setHeapMax(len);
-#endif
-	    }
-	}
+            }
+        }
     }
 
     // process <socket>, <fileset> child elements (should only be one)
@@ -857,16 +1047,18 @@ void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 
         IOChannel* iochan = IOChannel::createIOChannel((const xercesc::DOMElement*)child);
-	iochan->fromDOMElement((xercesc::DOMElement*)child);
+        iochan->fromDOMElement((xercesc::DOMElement*)child);
         setIOChannel(iochan);
 
-	if (++niochan > 1)
-	    throw n_u::InvalidParameterException(
-		    "SampleInputStream::fromDOMElement",
-		    "input", "must have one child element");
+        if (++niochan > 1) {
+            throw n_u::InvalidParameterException(
+                "SampleInputStream::fromDOMElement",
+                "input", "must have one child element");
+        }
     }
-    if (!_iochan)
+    if (!_iochan) {
         throw n_u::InvalidParameterException(
                 "SampleInputStream::fromDOMElement",
-		"input", "must have one child element");
+        "input", "must have one child element");
+    }
 }
