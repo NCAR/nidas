@@ -8,8 +8,9 @@
 # fedora 31 x86_64 (native)
 # centos 7  x86_64 (native)
 # centos 8  x86_64 (native)
-# buster    amd64 (native)  (I think we build these now, but EOL does not install them...?)
-# jessie armbe Vulcan (cross)
+# buster    amd64 (native) (This would be a new one, but something we may as well support.)
+# jessie    amd64 (native) (I think we build this on the debian VM, but no one ever used it?)
+# jessie armbe Vulcan (cross-compiled on Fedora25)
 # jessie armhf Raspberry Pi 2B (cross)
 # jessie armel Viper Titan (cross)
 # buster armhf Raspberry Pi 3B (cross)
@@ -33,28 +34,108 @@
 # pi2      nidas-build-debian-armhf:jessie     Dockerfile.cross_arm hostarch=armhf
 # pi3      nidas-build-debian-armhf:buster     Dockerfile.buster_cross_arm hostarch=armhf (on the buster branch)
 #
-# Titan is equivalent to Viper.
+# I think Titan is equivalent to Viper, except for the
+# nidas-modules-titan and nidas-modules-viper packages, since the
+# Titans and Vipers have different kernels and thus different kernel
+# modules.
 #
 # One confusion in this naming scheme is that the armbe Vulcan DSMs run
 # Debian Jessie, but the NIDAS binaries are cross-compiled on a fedora25
 # container.
 #
-# The original container approach created a separate user called 'builder',
-# and then tried to map the user running the container to that user, with
-# hardcoded group permissions for eol.  This really complicated things
-# unnecessarily.  By default, the user running the container maps to the
-# root user in the container, and the container has no more privileges in
-# the host OS than that user.  So all that's necessary is that the mounted
-# source and install directories are writable by the user running the
-# container.  Technically, by running as root the build could seriously and
+# The original container approach created a separate user called
+# 'builder', and then tried to map the user running the container to
+# that user, with hardcoded group permissions for eol.  This really
+# complicated things.  With rootless podman containers, the user
+# running the container maps to the root user in the container, and
+# the container has no more privileges in the host OS than that user.
+# So all that's necessary is that the mounted source and install
+# directories are writable by the user running the container.
+# Technically, by running as root the build could seriously and
 # unexpectedly break the container, and builds definitely should not
-# usually run that way.  Also, there might be permissions bugs in the build
-# which get missed by container builds.  However, containers are meant to
-# be transient, disposable wrappers, so none of that is worth the
-# complication hardcoding non-root users in the containers.
+# usually run that way.  Also, there might be permissions bugs in the
+# build which get missed by container builds.  However, containers are
+# meant to be transient, disposable wrappers, so none of that is worth
+# hardcoding non-root users in the containers.
 
+usage()
+{
+    cat <<EOF
+Usage: $0 [--source <path>] [--tag <tag>] [--work <path>] {list|build|run|package|push}
+
+These operations use the current source directory, ignoring --source
+and --tag:
+
+  list
+    List the available aliases and container images for OS and
+    architecture targets.  This does not list the existing containers,
+    only what this script can build and run.
+
+  build <alias>
+    Build a local container image for the given alias and tag it.
+
+These operations can use the --source, --tag, and --work options.
+Using either the current repository or a path to a different source
+repository, and optionally using a clone of the source checked out
+with a given tag, execute the 'run' or 'package' operation against
+that source:
+
+  clone
+    Create a clone from the source and tag, as would be done
+    with the --tag and --source options.  The clone will be 
+    in <work>/clones/nidas-<tag>.
+
+  run <alias> [command args ...]
+    Run the image for the given alias, mounting the source, install,
+    and ~/.scons paths into the container.
+
+  package <alias> [<dest>]
+    Run the script which builds packages for the alias, and copy the
+    packages into <dest>, or else <source>/packages/<alias>.
+
+  push <alias>
+    Push packages to the cloud for alias from the given path.  The
+    packages must be in <work>/packages/<alias>.
+
+If --tag is given, it can be HEAD, tag, branch, or any git commit.
+That commit of the target source is first shallow cloned before
+continuing with the build.
+
+The work path will be used to hold clones and packages, like so:
+
+Packages: <work>/packages/<alias>
+Clones: <work>/clones/nidas-<tag>
+
+The packages path is mounted in the container at path /nidas/packages.
+Packages will be moved there after being built, or else will be pushed
+from there.  The work path by default is /tmp/cnidas.
+
+If no tag is given, then no clone is performed and the compile (and
+possibly package build) happens inside the source tree.  If no source
+is named, then the current repo is used.
+
+EOF
+}
 
 targets=(centos7 centos8 vulcan titan pi2 pi3)
+
+get_arch() # alias
+{
+    case "$1" in
+	centos*)
+	    echo x86_64
+	    ;;
+	pi*)
+	    echo armhf
+	    ;;
+	titan)
+	    echo armel
+	    ;;
+	vulcan)
+	    echo armbe
+	    ;;
+    esac
+}
 
 get_image_tag() # alias
 {
@@ -117,16 +198,14 @@ run_image() # alias command...
     shift
     echo "Top of nidas source tree: $source"
     # If packagepath not set, then default to a subdirectory of the source.
-    if [ -z "$packagepath" ]; then
-	packagepath="$source/packages/$alias"
-	mkdir -p "$packagepath"
-    fi
-    # packagepath must be absolute since it will be mounted into container.
+    packagepath="$workpath/packages/$alias"
+    mkdir -p "$packagepath"
+    # Make sure packagepath is absolute to mount it into container.
     packagepath=$(cd "$packagepath" && pwd)
     # If a tag has been requested, clone it and use that for the source.
     dest="$source"
     if [ -n "$tag" ]; then
-	dest="$source/clones/nidas-$tag"
+	dest="$workpath/clones/nidas-$tag"
 	clone_local "$tag" "$source" "$dest"
     fi
     imagetag=`get_image_tag "$alias"`
@@ -138,6 +217,13 @@ run_image() # alias command...
     if [ -z "$1" ]; then
 	set /bin/bash
     fi
+    # If the repository is available on this host, then mount that
+    # too.
+    DEBIAN_REPOSITORY=/net/ftp/pub/archive/software/debian
+    repomoun=""
+    if [ -d $DEBIAN_REPOSITORY ]; then
+	repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
+    fi
     set -x
     # Mount the local scripts directory over top of the source, so the
     # local build scripts are used no matter what version of source is
@@ -148,22 +234,23 @@ run_image() # alias command...
       --volume "$HOME/.scons":/root/.scons:rw,Z \
       --volume "$packagepath":/nidas/packages:rw,Z \
       --volume "$scripts":/nidas/scripts \
+      $repomount \
       $imagetag "$@"
 }
 
-build_packages() # alias [dest]
+build_packages() # alias
 {
     alias="$1"
-    packagepath="$2"
-    shift; shift
-    # Make sure packages directory exists, of course.
-    # mkdir -p "$source/packages/$alias"
-    run_image "$alias" /nidas/scripts/build_dpkg.sh armhf -d /nidas/packages
+    if [ -z "$alias" ]; then
+	echo "build_packages {alias}"
+	exit 1
+    fi
+    run_image "$alias" /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /nidas/packages
 }
 
 
 # Push packages to the cloud for the given alias located in the given
-# path. Explicitly avoid uploading dbgsym packages.  package.
+# path.  Explicitly avoid uploading dbgsym packages.
 
 push_packages() # alias path
 {
@@ -175,14 +262,34 @@ push_packages() # alias path
 	echo "push <alias> <path>"
 	exit 1
     fi
+    packages=`ls "$path"/*.deb | egrep -v dbgsym`
+    echo $packages
     case "$alias" in
 	pi3)
 	    repo="ncareol/isfs-testing/raspbian/buster"
 	    (set -x
-	     package_cloud push $repo `ls "$path"/*.deb | egrep -v dbgsym`)
+	     package_cloud push $repo $packages)
 	    ;;
-	*)
-	    echo Only pi3 packages are pushed to package cloud.
+	pi2)
+	    # This code runs in the debian container with the repo and
+	    # packages mounted.
+	    codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
+	    repo=/debian
+	    arch=armhf
+	    tmplog=$(mktemp)
+	    trap "{ rm -f $tmplog; }" EXIT
+	    status=0
+	    set -x
+            flock $repo sh -c "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $packages" 2> $tmplog || status=$?
+	    set +x
+	    if [ $status -ne 0 ]; then
+		cat $tmplog
+		if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
+		    echo "One or more package versions are already present in the repository. Continuing"
+		else
+		    exit $status
+		fi
+	    fi
 	    ;;
     esac
 }
@@ -211,7 +318,13 @@ clone_local() # tag source dest
     (cd "$source"
      absource=$(pwd)
      set -x
-     git clone . "$dest" || exit 1
+     if [ -d "$dest" ]; then
+	 echo "Clone already exists: $dest"
+	 echo "Pulling instead of cloning..."
+	 (cd "$dest" && git pull) || exit 1
+     else
+	 git clone . "$dest" || exit 1
+     fi
      if [ ! -d "$dest" ]; then
 	 echo "Destination directory not found: $dest"
 	 exit 1
@@ -254,6 +367,21 @@ if [ "$1" == "--tag" ]; then
     tag="$2"
     shift; shift
 fi
+workpath=""
+if [ "$1" == "--work" ]; then
+    workpath="$2"
+    shift; shift
+fi
+if [ -z "$workpath" ]; then
+    workpath="/tmp/cnidas"
+    mkdir -p "$workpath"
+fi
+if [ ! -d "$workpath" ]; then
+    # Technically we don't need workpath for build and list
+    # operations, but whatever...
+    echo "$workpath does not exist."
+    exit 1
+fi
 echo "Source tree path: $source"
 if [ -n "$tag" ]; then
     echo "Using clone of $tag"
@@ -285,7 +413,7 @@ case "$1" in
 
     clone)
 	shift
-	clone_local "$@"
+	clone_local "$tag" "$source" "$workpath/clones/nidas-$tag"
 	;;
 
     push)
@@ -294,24 +422,7 @@ case "$1" in
 	;;
 
     *)
-	cat <<EOF
-Usage: $0 [--source <path>] [--tag <tag>] {build|run|package,list}
-  list
-    List the available aliases and container images for OS and architecture targets.
-  build <alias>
-    Build the container image for the given alias and tag it.
-  run <alias> [command args ...]
-    Run the image for the given alias, mounting the source, install,
-    and ~/.scons paths into the container.
-  package <alias> [<dest>]
-    Run the script which builds packages for the alias, and copy the
-    packages into <dest>, or else <source>/packages/<alias>.
-  push <alias> <path>
-    Push packages to the cloud for alias from the given path.
-If --tag is given, it can be HEAD, tag, branch, or any git commit.
-That commit of the target source is first shallow cloned before
-continuing with the build.
-EOF
+	usage
 	exit 0
 	;;
 
