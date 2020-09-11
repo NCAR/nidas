@@ -160,6 +160,11 @@ cd ..
 chngs=nidas_*_$arch.changes 
 archdebs=nidas*$arch.deb
 
+# get the debian release codename.  buster conviently provides
+# VERSION_CODENAME, but on jessie it is only available embedded in
+# VERSION.
+codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
+
 if [ -n "$repo" ]; then
     umask 0002
 
@@ -202,11 +207,11 @@ if [ -n "$repo" ]; then
 
     if [ $arch == armel ]; then
         flock $repo sh -c "
-            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs" 2> $tmplog || status=$?
+            reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
     else
         echo "Installing $archdebs"
         flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs" 2> $tmplog || status=$?
+            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
     fi
 
     if [ $status -ne 0 ]; then
@@ -217,12 +222,14 @@ if [ -n "$repo" ]; then
             exit $status
         fi
     fi
+fi
 
-    rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
-
-elif [ -n "$dest" ]; then
+# Dispatch the packages unless neither -d nor -i were specified.
+if [ -n "$dest" ]; then
     echo "moving results to $dest"
     mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest
+elif [ -n "$repo" ]; then
+    rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
 else
     echo "build results are in $PWD"
 fi
