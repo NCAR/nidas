@@ -44,6 +44,9 @@ RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/so
 
 RUN apt-get -y update
 
+# Need reprepro to add packages to debian repo.
+RUN apt-get -y install reprepro
+
 # Even though container builds can use a locally mounted eol_scons, it is
 # still a build dependency, and it would be required if building nidas on a
 # stock system without the eol_scons mount.
