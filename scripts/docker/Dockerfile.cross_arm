@@ -26,7 +26,14 @@ RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid
 #ENV CROSS_ARCH $hostarch
 #RUN echo "CROSS_ARCH == $CROSS_ARCH"
 
+# The emdebian repo is no longer reachable, so we must disable that
+# repo to allow the rest of the apt commands to succeed.
+RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
+
 RUN apt-get -y update
+
+# Need reprepro to add packages to debian repo.
+RUN apt-get -y install reprepro
 
 # This will be mounted into the container from the host.
 #RUN apt-get -y --only-upgrade install eol-scons
