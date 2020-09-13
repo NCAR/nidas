@@ -41,14 +41,18 @@ group=eol
 # if embedded-linux is cloned next to nidas then mount that in the container
 # for building kernels
 embdir=$PWD/../embedded-linux
-[ -d $emb ] && embopt="--volume $embdir:/home/builder/embedded-linux:rw,Z"
+[ -d $emb ] && embopt="--volume $embdir:/home/builder/embedded-linux:rw"
+
+repo=/net/ftp/pub/archive/software/debian
+[ -d $repo ] && repoopt="--volume $repo:$repo:rw"
 
 echo "Running container as group $group, which must have rwx permission on $PWD and /opt/nidas"
 
 set -x
 exec docker run --rm --user `id -u`:$group \
-    --volume $PWD:/home/builder/nidas:rw,Z \
-    --volume /opt/nidas:/opt/nidas:rw,Z $embopt \
+    --volume $PWD:/home/builder/nidas:rw \
+    --volume /opt/nidas:/opt/nidas:rw \
+    $repoopt $embopt \
     --network=host \
     -i -t $image /bin/bash
 
