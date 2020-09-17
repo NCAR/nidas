@@ -102,6 +102,12 @@ public:
     }
 
     void
+    setTimeFormat(const std::string& fmt)
+    {
+        timeformat = fmt;
+    }
+
+    void
     setSensors(list<DSMSensor *> &sensors);
 
 private:
@@ -116,6 +122,7 @@ private:
     float warntime;
     bool showdeltat;
     bool showlen;
+    string timeformat;
 
     vector<string> vnames;
 
@@ -123,6 +130,7 @@ private:
     DumpClient& operator=(const DumpClient&);
 };
 
+#define DEFTIMEFMT "%Y %m %d %H:%M:%S.%4f"
 
 DumpClient::DumpClient(const SampleMatcher& matcher,
                        format_t fmt,
@@ -133,6 +141,7 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
     warntime(0.0),
     showdeltat(true),
     showlen(true),
+    timeformat(DEFTIMEFMT),
     vnames()
 {
 }
@@ -246,7 +255,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     // chosen output format, in case the output format is naked.
     ostringstream leader;
 
-    leader << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%4f") << ' ';
+    leader << n_u::UTime(tt).format(true, timeformat) << ' ';
 
     leader << setprecision(4) << setfill(' ');
     if (prev_tt != 0) {
@@ -445,8 +454,12 @@ private:
     NidasAppArg WarnTime;
     NidasAppArg NoDeltaT;
     NidasAppArg NoLen;
+    NidasAppArg FormatTimeISO;
     BadSampleFilterArg FilterArg;
 };
+
+
+#define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
 
 
 DataDump::DataDump():
@@ -462,6 +475,9 @@ DataDump::DataDump():
              "Do not include the time delta between samples in the output."),
     NoLen("--nolen", "",
           "Do not include the sample length in the output."),
+    FormatTimeISO("--iso", "",
+        "Print timestamps without spaces in format: " ISOFORMAT "\n"
+        "Times are always printed in UTC, default format: " DEFTIMEFMT),
     FilterArg()
 {
     app.setApplicationInstance();
@@ -476,7 +492,7 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
                         app.Help | app.Version | WarnTime |
-                        NoDeltaT | NoLen | FilterArg);
+                        NoDeltaT | NoLen | FormatTimeISO | FilterArg);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -689,6 +705,9 @@ int DataDump::run() throw()
         dumper.setShowDeltaT(!NoDeltaT.asBool());
         dumper.setShowLen(!NoLen.asBool());
         dumper.setSensors(allsensors);
+
+        if (FormatTimeISO.asBool())
+            dumper.setTimeFormat(ISOFORMAT);
 
 	if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.
