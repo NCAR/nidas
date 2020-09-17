@@ -22,9 +22,7 @@
  ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  **
  ********************************************************************
-*/
-
-// #define _XOPEN_SOURCE	/* glibc2 needs this */
+ */
 
 #include <ctime>
 
@@ -64,18 +62,31 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-class DumpClient: public SampleClient 
+class DumpClient: public SampleClient
 {
 public:
-
-    typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
-                          FLOAT, IRIG, INT32, ASCII_7, NAKED } format_t;
+    typedef enum format
+    {
+        DEFAULT,
+        ASCII,
+        HEX_FMT,
+        SIGNED_SHORT,
+        UNSIGNED_SHORT,
+        FLOAT,
+        IRIG,
+        INT32,
+        ASCII_7,
+        NAKED
+    } format_t;
 
     DumpClient(const SampleMatcher&, format_t, ostream&);
 
     virtual ~DumpClient() {}
 
-    void flush() throw() {}
+    void
+    flush() throw()
+    {
+    }
 
     bool receive(const Sample* samp) throw();
 
@@ -107,8 +118,7 @@ public:
         timeformat = fmt;
     }
 
-    void
-    setSensors(list<DSMSensor *> &sensors);
+    void setSensors(list<DSMSensor*>& sensors);
 
 private:
     SampleMatcher _samples;
@@ -132,12 +142,13 @@ private:
 
 #define DEFTIMEFMT "%Y %m %d %H:%M:%S.%4f"
 
-DumpClient::DumpClient(const SampleMatcher& matcher,
-                       format_t fmt,
-                       ostream &outstr):
+DumpClient::DumpClient(const SampleMatcher& matcher, format_t fmt,
+                       ostream& outstr):
     _samples(matcher),
-    format(fmt), ostr(outstr),
-    fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
+    format(fmt),
+    ostr(outstr),
+    fromLittle(n_u::EndianConverter::getConverter(
+        n_u::EndianConverter::EC_LITTLE_ENDIAN)),
     warntime(0.0),
     showdeltat(true),
     showlen(true),
@@ -146,29 +157,29 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
 {
 }
 
-void DumpClient::
-setSensors(list<DSMSensor *> &sensors)
+void
+DumpClient::setSensors(list<DSMSensor*>& sensors)
 {
     // If there is exactly one sample being matched, and there is a sensor
     // sample tag which matches it, then use the sample tag variable names
     // for the header.
     if (!_samples.exclusiveMatch())
         return;
-    list<DSMSensor *>::const_iterator si;
+    list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end() && vnames.empty(); ++si)
     {
-        DSMSensor *sensor = *si;
+        DSMSensor* sensor = *si;
 
         SampleTagIterator itag = sensor->getSampleTagIterator();
         while (itag.hasNext() && vnames.empty())
         {
-            const SampleTag *tag = itag.next();
+            const SampleTag* tag = itag.next();
             if (_samples.match(tag->getId()))
             {
                 VariableIterator ivar = tag->getVariableIterator();
                 while (ivar.hasNext())
                 {
-                    const Variable *var = ivar.next();
+                    const Variable* var = ivar.next();
                     vnames.push_back(var->getPrefix());
                 }
             }
@@ -176,7 +187,8 @@ setSensors(list<DSMSensor *> &sensors)
     }
 }
 
-void DumpClient::printHeader()
+void
+DumpClient::printHeader()
 {
     // columns have set widths and are separated by a single space.
     cout << "|--- date time --------|";
@@ -188,7 +200,7 @@ void DumpClient::printHeader()
     {
         // DSM ID has width 2, plus comma, plus width required by the SPS
         // ID.
-        NidasApp *app = NidasApp::getApplicationInstance();
+        NidasApp* app = NidasApp::getApplicationInstance();
         int width = app->getIdFormat().decimalWidth() + 3;
         cout << " ";
         cout << setw(width) << "id";
@@ -212,7 +224,6 @@ void DumpClient::printHeader()
     cout << endl;
 }
 
-
 /*
  * This function is not as useful as it seems. Currently in NIDAS,
  * all raw samples from sensors are of type CHAR_ST, and processed samples
@@ -220,28 +231,27 @@ void DumpClient::printHeader()
  * data being displayed in its natural format.
  */
 DumpClient::format_t
-DumpClient::
-typeToFormat(sampleType t)
+DumpClient::typeToFormat(sampleType t)
 {
-  static std::map<sampleType,DumpClient::format_t> themap;
-  if (themap.begin() == themap.end())
-  {
-    themap[CHAR_ST] = ASCII;
-    themap[UCHAR_ST] = HEX_FMT;
-    themap[SHORT_ST] = SIGNED_SHORT;
-    themap[USHORT_ST] = UNSIGNED_SHORT;
-    themap[INT32_ST] = INT32;
-    themap[UINT32_ST] = HEX_FMT;
-    themap[FLOAT_ST] = FLOAT;
-    themap[DOUBLE_ST] = FLOAT;
-    themap[INT64_ST] = HEX_FMT;
-    themap[UNKNOWN_ST] = HEX_FMT;
-  }
-  return themap[t];
+    static std::map<sampleType, DumpClient::format_t> themap;
+    if (themap.begin() == themap.end())
+    {
+        themap[CHAR_ST] = ASCII;
+        themap[UCHAR_ST] = HEX_FMT;
+        themap[SHORT_ST] = SIGNED_SHORT;
+        themap[USHORT_ST] = UNSIGNED_SHORT;
+        themap[INT32_ST] = INT32;
+        themap[UINT32_ST] = HEX_FMT;
+        themap[FLOAT_ST] = FLOAT;
+        themap[DOUBLE_ST] = FLOAT;
+        themap[INT64_ST] = HEX_FMT;
+        themap[UNKNOWN_ST] = HEX_FMT;
+    }
+    return themap[t];
 }
 
-
-bool DumpClient::receive(const Sample* samp) throw()
+bool
+DumpClient::receive(const Sample* samp) throw()
 {
     if (!_samples.match(samp))
     {
@@ -258,7 +268,8 @@ bool DumpClient::receive(const Sample* samp) throw()
     leader << n_u::UTime(tt).format(true, timeformat) << ' ';
 
     leader << setprecision(4) << setfill(' ');
-    if (prev_tt != 0) {
+    if (prev_tt != 0)
+    {
         double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
         if (showdeltat)
         {
@@ -267,8 +278,8 @@ bool DumpClient::receive(const Sample* samp) throw()
         if ((warntime < 0 && tdiff < warntime) ||
             (warntime > 0 && tdiff > warntime))
         {
-            cerr << "Warning: Sample time skips "
-                 << tdiff << " seconds." << endl;
+            cerr << "Warning: Sample time skips " << tdiff << " seconds."
+                 << endl;
         }
     }
     else if (showdeltat)
@@ -278,7 +289,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     if (!_samples.exclusiveMatch())
     {
-        NidasApp *app = NidasApp::getApplicationInstance();
+        NidasApp* app = NidasApp::getApplicationInstance();
         leader << setw(2) << setfill(' ') << GET_DSM_ID(sampid) << ',';
         // formatSampleId() appends a blank space automatically.  Probably
         // that should be fixed.
@@ -295,9 +306,12 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     // Naked format trumps everything, otherwise force floating point
     // samples to be printed in FLOAT format.
-    if (format != NAKED) {
-        if (samp->getType() == FLOAT_ST) sample_format = FLOAT;
-        else if (samp->getType() == DOUBLE_ST) sample_format = FLOAT;
+    if (format != NAKED)
+    {
+        if (samp->getType() == FLOAT_ST)
+            sample_format = FLOAT;
+        else if (samp->getType() == DOUBLE_ST)
+            sample_format = FLOAT;
         else if (format == DEFAULT)
         {
             sample_format = typeToFormat(samp->getType());
@@ -305,108 +319,116 @@ bool DumpClient::receive(const Sample* samp) throw()
         ostr << leader.str();
     }
 
-    switch(sample_format) {
+    switch (sample_format)
+    {
     case ASCII:
     case ASCII_7:
-	{
+    {
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
-        if (l > 0 && cp[l-1] == '\0') l--;  // exclude trailing '\0'
-        if (sample_format ==  ASCII_7) {
+        if (l > 0 && cp[l - 1] == '\0')
+            l--; // exclude trailing '\0'
+        if (sample_format == ASCII_7)
+        {
             char cp7[l];
             char* xp;
-            for (xp=cp7; *cp; ) *xp++ = *cp++ & 0x7f;
-            ostr << n_u::addBackslashSequences(string(cp7,l)) << endl;
+            for (xp = cp7; *cp;)
+                *xp++ = *cp++ & 0x7f;
+            ostr << n_u::addBackslashSequences(string(cp7, l)) << endl;
         }
-        else {
-            ostr << n_u::addBackslashSequences(string(cp,l)) << endl;
-        }
-        }
-        break;
-    case HEX_FMT:
+        else
         {
-	const unsigned char* cp =
-		(const unsigned char*) samp->getConstVoidDataPtr();
-	ostr << setfill('0');
-	for (unsigned int i = 0; i < samp->getDataByteLength(); i++)
-	    ostr << hex << setw(2) << (unsigned int)cp[i] << dec << ' ';
-	ostr << endl;
-	}
-        break;
+            ostr << n_u::addBackslashSequences(string(cp, l)) << endl;
+        }
+    }
+    break;
+    case HEX_FMT:
+    {
+        const unsigned char* cp =
+            (const unsigned char*)samp->getConstVoidDataPtr();
+        ostr << setfill('0');
+        for (unsigned int i = 0; i < samp->getDataByteLength(); i++)
+            ostr << hex << setw(2) << (unsigned int)cp[i] << dec << ' ';
+        ostr << endl;
+    }
+    break;
     case SIGNED_SHORT:
-	{
-	const short* sp =
-		(const short*) samp->getConstVoidDataPtr();
-	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(short); i++)
-	    ostr << setw(6) << sp[i] << ' ';
-	ostr << endl;
-	}
-        break;
+    {
+        const short* sp = (const short*)samp->getConstVoidDataPtr();
+        ostr << setfill(' ');
+        for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(short);
+             i++)
+            ostr << setw(6) << sp[i] << ' ';
+        ostr << endl;
+    }
+    break;
     case UNSIGNED_SHORT:
-	{
-	const unsigned short* sp =
-		(const unsigned short*) samp->getConstVoidDataPtr();
-	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(short); i++)
-	    ostr << setw(6) << sp[i] << ' ';
-	ostr << endl;
-	}
-        break;
+    {
+        const unsigned short* sp =
+            (const unsigned short*)samp->getConstVoidDataPtr();
+        ostr << setfill(' ');
+        for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(short);
+             i++)
+            ostr << setw(6) << sp[i] << ' ';
+        ostr << endl;
+    }
+    break;
     case FLOAT:
-         if (samp->getType() == DOUBLE_ST) ostr << setprecision(10);
-         else ostr << setprecision(5);
+        if (samp->getType() == DOUBLE_ST)
+            ostr << setprecision(10);
+        else
+            ostr << setprecision(5);
 
-         ostr << setfill(' ');
+        ostr << setfill(' ');
 
         for (unsigned int i = 0; i < samp->getDataLength(); i++)
             ostr << setw(10) << samp->getDataValue(i) << ' ';
         ostr << endl;
         break;
     case IRIG:
-	{
+    {
         const unsigned char* statusp = IRIGSensor::getStatusPtr(samp);
         unsigned char status = *statusp++;
 
         dsm_time_t tirig = IRIGSensor::getIRIGTime(samp);
-        string tstr = n_u::UTime(tirig).format(true,"%H:%M:%S.%6f");
-	ostr << "irig: " << tstr << ", ";
+        string tstr = n_u::UTime(tirig).format(true, "%H:%M:%S.%6f");
+        ostr << "irig: " << tstr << ", ";
 
         dsm_time_t tunix = IRIGSensor::getUnixTime(samp);
-        if (tunix != 0LL) {
-            tstr = n_u::UTime(tunix).format(true,"%H:%M:%S.%6f");
+        if (tunix != 0LL)
+        {
+            tstr = n_u::UTime(tunix).format(true, "%H:%M:%S.%6f");
             ostr << "unix: " << tstr << ", ";
-            ostr << "i-u: " << setfill(' ') << setw(4) <<
-                    (tirig - tunix) << " us, ";
+            ostr << "i-u: " << setfill(' ') << setw(4) << (tirig - tunix)
+                 << " us, ";
 
-            ostr << "status: " << setw(2) << setfill('0') << hex <<
-                (int)status << dec <<
-                    '(' << IRIGSensor::shortStatusString(status) << ')';
+            ostr << "status: " << setw(2) << setfill('0') << hex << (int)status
+                 << dec << '(' << IRIGSensor::shortStatusString(status) << ')';
             ostr << ", seq: " << (int)*statusp++;
             ostr << ", synctgls: " << (int)*statusp++;
             ostr << ", clksteps: " << (int)*statusp++;
             ostr << ", maxbacklog: " << (int)*statusp++;
         }
-        else {
-            ostr << "status: " << setw(2) << setfill('0') << hex <<
-                (int)status << dec <<
-                    '(' << IRIGSensor::shortStatusString(status) << ')';
-        }
-	ostr << endl;
-	}
-        break;
-    case INT32:
-	{
-	const int* lp =
-		(const int*) samp->getConstVoidDataPtr();
-	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(int); i++)
-	    ostr << setw(8) << lp[i] << ' ';
-	ostr << endl;
-	}
-        break;
-    case NAKED:
+        else
         {
+            ostr << "status: " << setw(2) << setfill('0') << hex << (int)status
+                 << dec << '(' << IRIGSensor::shortStatusString(status) << ')';
+        }
+        ostr << endl;
+    }
+    break;
+    case INT32:
+    {
+        const int* lp = (const int*)samp->getConstVoidDataPtr();
+        ostr << setfill(' ');
+        for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(int);
+             i++)
+            ostr << setw(8) << lp[i] << ' ';
+        ostr << endl;
+    }
+    break;
+    case NAKED:
+    {
         // Write the raw sample unadorned and unformatted.
         // NIDAS adds a NULL char, '\0', if the user has specified
         // a separator that ends in \r or \n. In this way records are easily
@@ -415,11 +437,12 @@ bool DumpClient::receive(const Sample* samp) throw()
         // right to check for a ending "\n\0" or "\r\0" here, and if found,
         // remove the \0.
         size_t n = samp->getDataByteLength();
-        const char* ptr = (const char*) samp->getConstVoidDataPtr(); 
-        if (n > 1 && ptr[n-1] == '\0' && 
-                (ptr[n-2] == '\r' || ptr[n-2] == '\n')) n--;
-        ostr.write(ptr,n);
-        }
+        const char* ptr = (const char*)samp->getConstVoidDataPtr();
+        if (n > 1 && ptr[n - 1] == '\0' &&
+            (ptr[n - 2] == '\r' || ptr[n - 2] == '\n'))
+            n--;
+        ostr.write(ptr, n);
+    }
     case DEFAULT:
         break;
     }
@@ -429,7 +452,6 @@ bool DumpClient::receive(const Sample* samp) throw()
 class DataDump
 {
 public:
-
     DataDump();
 
     int parseRunstring(int argc, char** argv);
@@ -441,7 +463,6 @@ public:
     static int main(int argc, char** argv);
 
 private:
-
     static const int DEFAULT_PORT = 30000;
 
     string xmlFileName;
@@ -458,24 +479,24 @@ private:
     BadSampleFilterArg FilterArg;
 };
 
-
 #define ISOFORMAT "%Y-%m-%dT%H:%M:%S.%4f"
-
 
 DataDump::DataDump():
     xmlFileName(),
     format(DumpClient::DEFAULT),
     warntime(0.0),
     app("data_dump"),
-    WarnTime("-w,--warntime", "<seconds>",
-             "Warn when sample time succeeds the previous more than <seconds>.\n"
-             "If <seconds> is negative, then warn when the succeeding time skips\n"
-             "backwards.\n", "0"),
+    WarnTime(
+        "-w,--warntime", "<seconds>",
+        "Warn when sample time succeeds the previous more than <seconds>.\n"
+        "If <seconds> is negative, then warn when the succeeding time skips\n"
+        "backwards.\n",
+        "0"),
     NoDeltaT("--nodeltat", "",
              "Do not include the time delta between samples in the output."),
-    NoLen("--nolen", "",
-          "Do not include the sample length in the output."),
-    FormatTimeISO("--iso", "",
+    NoLen("--nolen", "", "Do not include the sample length in the output."),
+    FormatTimeISO(
+        "--iso", "",
         "Print timestamps without spaces in format: " ISOFORMAT "\n"
         "Times are always printed in UTC, default format: " DEFTIMEFMT),
     FilterArg()
@@ -484,15 +505,14 @@ DataDump::DataDump():
     app.setupSignals();
 }
 
-
-int DataDump::parseRunstring(int argc, char** argv)
+int
+DataDump::parseRunstring(int argc, char** argv)
 {
-    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
-                        app.FormatHexId | app.FormatSampleId |
-                        app.SampleRanges | app.StartTime | app.EndTime |
-                        app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | app.Version | WarnTime |
-                        NoDeltaT | NoLen | FormatTimeISO | FilterArg);
+    app.enableArguments(
+        app.XmlHeaderFile | app.loggingArgs() | app.FormatHexId |
+        app.FormatSampleId | app.SampleRanges | app.StartTime | app.EndTime |
+        app.Version | app.InputFiles | app.ProcessData | app.Help |
+        app.Version | WarnTime | NoDeltaT | NoLen | FormatTimeISO | FilterArg);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -509,41 +529,43 @@ int DataDump::parseRunstring(int argc, char** argv)
     warntime = WarnTime.asFloat();
 
     NidasAppArgv left(argv[0], args);
-    int opt_char;     /* option character */
+    int opt_char; /* option character */
 
-    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSU")) != -1) {
-	switch (opt_char) {
-	case 'A':
-	    format = DumpClient::ASCII;
-	    break;
-	case '7':
-	    format = DumpClient::ASCII_7;
-	    break;
-	case 'F':
-	    format = DumpClient::FLOAT;
-	    break;
-	case 'H':
-	    format = DumpClient::HEX_FMT;
-	    break;
+    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSU")) != -1)
+    {
+        switch (opt_char)
+        {
+        case 'A':
+            format = DumpClient::ASCII;
+            break;
+        case '7':
+            format = DumpClient::ASCII_7;
+            break;
+        case 'F':
+            format = DumpClient::FLOAT;
+            break;
+        case 'H':
+            format = DumpClient::HEX_FMT;
+            break;
         case 'n':
             format = DumpClient::NAKED;
             break;
-	case 'I':
-	    format = DumpClient::IRIG;
-	    break;
-	case 'L':
-	    format = DumpClient::INT32;
-	    break;
-	case 'S':
-	    format = DumpClient::SIGNED_SHORT;
-	    break;
-	case 'U':
-	    format = DumpClient::UNSIGNED_SHORT;
-	    break;
-	case '?':
+        case 'I':
+            format = DumpClient::IRIG;
+            break;
+        case 'L':
+            format = DumpClient::INT32;
+            break;
+        case 'S':
+            format = DumpClient::SIGNED_SHORT;
+            break;
+        case 'U':
+            format = DumpClient::UNSIGNED_SHORT;
+            break;
+        case '?':
             std::cerr << "Use -h to see usage info.\n";
-	    return 1;
-	}
+            return 1;
+        }
     }
     app.parseInputs(left.unparsedArgs(optind));
 
@@ -554,7 +576,8 @@ int DataDump::parseRunstring(int argc, char** argv)
     return 0;
 }
 
-int DataDump::usage(const char* argv0)
+int
+DataDump::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0
@@ -562,8 +585,7 @@ Usage: " << argv0
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
-         << app.usage()
-         << "data_dump options:\n\
+         << app.usage() << "data_dump options:\n\
 \
     -A: ASCII output of character data (for samples from a serial sensor)\n\
     -7: 7-bit ASCII output\n\
@@ -585,31 +607,42 @@ Standard options:\n"
 \n\
 Examples:\n\
 Display IRIG data of sensor 100 on dsm 1 from sock:localhost:\n\
-  " << argv0 << " -i 1,100 -I\n\
+  " << argv0
+         << " -i 1,100 -I\n\
 Display ASCII data of sensor 200, dsm 1 from sock:localhost:\n\
-  " << argv0 << " -i 1,200 -A\n\
+  " << argv0
+         << " -i 1,200 -A\n\
 Display ASCII data from archive files:\n\
-  " << argv0 << " -i 1,200 -A xxx.dat yyy.dat\n\
+  " << argv0
+         << " -i 1,200 -A xxx.dat yyy.dat\n\
 Hex dump of sensor ids 200 through 210 using configuration in ads3.xml:\n\
-  " << argv0 << " -i 3,200-210 -H -x ads3.xml xxx.dat\n\
+  " << argv0
+         << " -i 3,200-210 -H -x ads3.xml xxx.dat\n\
 Display processed data of sample 1 of sensor 200:\n\
-  " << argv0 << " -i 3,201 -p sock:hyper\n\
+  " << argv0
+         << " -i 3,201 -p sock:hyper\n\
 Display processed data of sample 1, sensor 200, from unix socket:\n\
-  " << argv0 << " -i 3,201 -p unix:/tmp/dsm\n\
+  " << argv0
+         << " -i 3,201 -p unix:/tmp/dsm\n\
 Display all raw and processed samples in their default format:\n\
-  " << argv0 << " -i -1,-1 -p -x path/to/project.xml file.dat\n" << endl;
+  " << argv0
+         << " -i -1,-1 -p -x path/to/project.xml file.dat\n"
+         << endl;
     return 1;
 }
 
 /* static */
-int DataDump::main(int argc, char** argv)
+int
+DataDump::main(int argc, char** argv)
 {
     DataDump dump;
 
     int res;
 
-    try {
-        if ((res = dump.parseRunstring(argc,argv))) return res;
+    try
+    {
+        if ((res = dump.parseRunstring(argc, argv)))
+            return res;
 
         return dump.run();
     }
@@ -628,59 +661,65 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-int DataDump::run() throw()
+int
+DataDump::run() throw()
 {
-    try {
+    try
+    {
         AutoProject project;
 
-	IOChannel* iochan = 0;
+        IOChannel* iochan = 0;
 
-	if (app.dataFileNames().size() > 0) {
+        if (app.dataFileNames().size() > 0)
+        {
             nidas::core::FileSet* fset =
                 nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
-	}
-	else {
+        }
+        else
+        {
             // We know a default socket address was provided, so it's safe
             // to dereference it.
-	    n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
+            n_u::Socket* sock = new n_u::Socket(*app.socketAddress());
             iochan = new nidas::core::Socket(sock);
-	}
+        }
 
         // If you want to process data, get the raw stream
-	SampleInputStream sis(iochan, app.processData());
-	// SampleStream now owns the iochan ptr.
+        SampleInputStream sis(iochan, app.processData());
+        // SampleStream now owns the iochan ptr.
 
         BadSampleFilter& bsf = FilterArg.getFilter();
         bsf.setDefaultTimeRange(app.getStartTime(), app.getEndTime());
         sis.setBadSampleFilter(bsf);
-	sis.readInputHeader();
-	const SampleInputHeader& header = sis.getInputHeader();
+        sis.readInputHeader();
+        const SampleInputHeader& header = sis.getInputHeader();
 
-	list<DSMSensor*> allsensors;
+        list<DSMSensor*> allsensors;
 
         xmlFileName = app.xmlHeaderFile();
-	if (xmlFileName.length() == 0)
-	    xmlFileName = header.getConfigName();
-	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+        if (xmlFileName.length() == 0)
+            xmlFileName = header.getConfigName();
+        xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
-	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || app.processData())
+        struct stat statbuf;
+        if (::stat(xmlFileName.c_str(), &statbuf) == 0 || app.processData())
         {
-            n_u::auto_ptr<xercesc::DOMDocument>
-                doc(parseXMLConfigFile(xmlFileName));
+            n_u::auto_ptr<xercesc::DOMDocument> doc(
+                parseXMLConfigFile(xmlFileName));
 
-	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	    DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+            DSMConfigIterator di =
+                Project::getInstance()->getDSMConfigIterator();
 
-	    for ( ; di.hasNext(); ) {
-		const DSMConfig* dsm = di.next();
-		const list<DSMSensor*>& sensors = dsm->getSensors();
-		allsensors.insert(allsensors.end(),sensors.begin(),
-			sensors.end());
-	    }
-	}
+            for (; di.hasNext();)
+            {
+                const DSMConfig* dsm = di.next();
+                const list<DSMSensor*>& sensors = dsm->getSensors();
+                allsensors.insert(allsensors.end(), sensors.begin(),
+                                  sensors.end());
+            }
+        }
         XMLImplementation::terminate();
 
         SamplePipeline pipeline;
@@ -688,17 +727,20 @@ int DataDump::run() throw()
         pipeline.setRawSorterLength(0);
         pipeline.setProcSorterLength(0);
 
-	// Always add dumper as raw client, in case user wants to dump
-	// both raw and processed samples.
-	if (app.processData()) {
-	    list<DSMSensor*>::const_iterator si;
-	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
-		DSMSensor* sensor = *si;
-		sensor->init();
-                //  1. inform the SampleInputStream of what SampleTags to expect
+        // Always add dumper as raw client, in case user wants to dump
+        // both raw and processed samples.
+        if (app.processData())
+        {
+            list<DSMSensor*>::const_iterator si;
+            for (si = allsensors.begin(); si != allsensors.end(); ++si)
+            {
+                DSMSensor* sensor = *si;
+                sensor->init();
+                //  1. inform the SampleInputStream of what SampleTags to
+                //  expect
                 sis.addSampleTag(sensor->getRawSampleTag());
-	    }
-	}
+            }
+        }
 
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
@@ -709,32 +751,40 @@ int DataDump::run() throw()
         if (FormatTimeISO.asBool())
             dumper.setTimeFormat(ISOFORMAT);
 
-	if (app.processData()) {
+        if (app.processData())
+        {
             // 2. connect the pipeline to the SampleInputStream.
             pipeline.connect(&sis);
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
             // 3. connect the client to the pipeline
             pipeline.getRawSampleSource()->addSampleClient(&dumper);
         }
-        else {
+        else
+        {
             sis.addSampleClient(&dumper);
         }
 
         if (format != DumpClient::NAKED)
             dumper.printHeader();
 
-        try {
-            for (;;) {
+        try
+        {
+            for (;;)
+            {
                 sis.readSamples();
-                if (app.interrupted()) break;
+                if (app.interrupted())
+                    break;
             }
         }
-        catch (n_u::EOFException& e) {
+        catch (n_u::EOFException& e)
+        {
             cerr << e.what() << endl;
         }
-        catch (n_u::IOException& e) {
+        catch (n_u::IOException& e)
+        {
             if (app.processData())
-                pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
+                pipeline.getProcessedSampleSource()->removeSampleClient(
+                    &dumper);
             else
                 pipeline.getRawSampleSource()->removeSampleClient(&dumper);
 
@@ -744,28 +794,32 @@ int DataDump::run() throw()
             sis.close();
             throw(e);
         }
-	if (app.processData()) {
+        if (app.processData())
+        {
             pipeline.disconnect(&sis);
             pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
             pipeline.getRawSampleSource()->removeSampleClient(&dumper);
         }
-        else {
+        else
+        {
             sis.removeSampleClient(&dumper);
         }
         sis.close();
         pipeline.interrupt();
         pipeline.join();
     }
-    catch (n_u::Exception& e) {
-	cerr << e.what() << endl;
+    catch (n_u::Exception& e)
+    {
+        cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
-	return 1;
+        return 1;
     }
     return 0;
 }
 
-int main(int argc, char** argv)
+int
+main(int argc, char** argv)
 {
-    return DataDump::main(argc,argv);
+    return DataDump::main(argc, argv);
 }

@@ -1,0 +1,23 @@
+# These clang-format settings were picked to be similar to current NIDAS
+# practices, varied though they are, and tested to introduce as few changes
+# as possible to data_dump.cc.  Once the style is consistent, then the style
+# can transition as needed.  For example, it might be nice to pick one
+# standard style and start removing the custom settings here.  Sorting
+# includes seems to be a common practice and could be worth adopting.
+---
+Language: Cpp
+BasedOnStyle: gnu
+IndentWidth: 4
+PointerAlignment: Left
+DerivePointerAlignment: false
+SpaceBeforeParens: ControlStatements
+BreakBeforeBraces: Allman
+BreakBeforeBinaryOperators: None
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AllowAllConstructorInitializersOnNextLine: false
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeInheritanceColon: false
+AccessModifierOffset: -4
+SortIncludes: false
+...
