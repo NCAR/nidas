@@ -368,8 +368,7 @@ void outputMetaData(const string& when)
     SensorManufacturerMetaData manufMeta = pTRHSensor->getSensorManufMetaData();
     SensorConfigMetaData configMeta = pTRHSensor->getSensorConfigMetaData();
 
-    std::cout << "Sensor metadata " << when << " coeffs loaded: " << std::endl;
-    
+    json_root["applied"] = when;
     json_root["manufacturer"] = manufMeta.manufacturer;
     json_root["model"] = manufMeta.model;
     json_root["serialNum"] = manufMeta.serialNum;
