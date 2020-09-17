@@ -45,6 +45,7 @@
 #include <nidas/util/EndianConverter.h>
 #include <nidas/core/NidasApp.h>
 #include <nidas/core/BadSampleFilter.h>
+#include <nidas/core/Variable.h>
 
 #include <set>
 #include <map>
@@ -94,8 +95,16 @@ public:
         showdeltat = show;
     }
 
-private:
+    void
+    setShowLen(bool show)
+    {
+        showlen = show;
+    }
 
+    void
+    setSensors(list<DSMSensor *> &sensors);
+
+private:
     SampleMatcher _samples;
 
     format_t format;
@@ -106,6 +115,9 @@ private:
 
     float warntime;
     bool showdeltat;
+    bool showlen;
+
+    vector<string> vnames;
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
@@ -119,20 +131,76 @@ DumpClient::DumpClient(const SampleMatcher& matcher,
     format(fmt), ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
     warntime(0.0),
-    showdeltat(true)
+    showdeltat(true),
+    showlen(true),
+    vnames()
 {
+}
+
+void DumpClient::
+setSensors(list<DSMSensor *> &sensors)
+{
+    // If there is exactly one sample being matched, and there is a sensor
+    // sample tag which matches it, then use the sample tag variable names
+    // for the header.
+    if (!_samples.exclusiveMatch())
+        return;
+    list<DSMSensor *>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end() && vnames.empty(); ++si)
+    {
+        DSMSensor *sensor = *si;
+
+        SampleTagIterator itag = sensor->getSampleTagIterator();
+        while (itag.hasNext() && vnames.empty())
+        {
+            const SampleTag *tag = itag.next();
+            if (_samples.match(tag->getId()))
+            {
+                VariableIterator ivar = tag->getVariableIterator();
+                while (ivar.hasNext())
+                {
+                    const Variable *var = ivar.next();
+                    vnames.push_back(var->getPrefix());
+                }
+            }
+        }
+    }
 }
 
 void DumpClient::printHeader()
 {
+    // columns have set widths and are separated by a single space.
     cout << "|--- date time --------|";
+    // deltaT column is width 7, preceded by a space
     if (showdeltat)
         cout << "  deltaT";
+    // IDs width 8
     if (!_samples.exclusiveMatch())
     {
-        cout << "   id   ";
+        // DSM ID has width 2, plus comma, plus width required by the SPS
+        // ID.
+        NidasApp *app = NidasApp::getApplicationInstance();
+        int width = app->getIdFormat().decimalWidth() + 3;
+        cout << " ";
+        cout << setw(width) << "id";
     }
-    cout << "       len data..." << endl;
+    // len column is width 7, preceded by a space
+    if (showlen)
+        cout << "     len";
+    if (!vnames.empty())
+    {
+        // We know the variable names for all the columns, so use them.
+        vector<string>::iterator it;
+        for (it = vnames.begin(); it != vnames.end(); ++it)
+        {
+            cout << " " << setw(10) << *it;
+        }
+    }
+    else
+    {
+        cout << " data...";
+    }
+    cout << endl;
 }
 
 
@@ -201,12 +269,17 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     if (!_samples.exclusiveMatch())
     {
+        NidasApp *app = NidasApp::getApplicationInstance();
         leader << setw(2) << setfill(' ') << GET_DSM_ID(sampid) << ',';
-        NidasApp* app = NidasApp::getApplicationInstance();
+        // formatSampleId() appends a blank space automatically.  Probably
+        // that should be fixed.
         app->formatSampleId(leader, sampid);
     }
 
-    leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
+    if (showlen)
+    {
+        leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
+    }
     prev_tt = tt;
 
     format_t sample_format = format;
@@ -371,6 +444,7 @@ private:
     NidasApp app;
     NidasAppArg WarnTime;
     NidasAppArg NoDeltaT;
+    NidasAppArg NoLen;
     BadSampleFilterArg FilterArg;
 };
 
@@ -386,6 +460,8 @@ DataDump::DataDump():
              "backwards.\n", "0"),
     NoDeltaT("--nodeltat", "",
              "Do not include the time delta between samples in the output."),
+    NoLen("--nolen", "",
+          "Do not include the sample length in the output."),
     FilterArg()
 {
     app.setApplicationInstance();
@@ -399,7 +475,8 @@ int DataDump::parseRunstring(int argc, char** argv)
                         app.FormatHexId | app.FormatSampleId |
                         app.SampleRanges | app.StartTime | app.EndTime |
                         app.Version | app.InputFiles | app.ProcessData |
-                        app.Help | app.Version | WarnTime | NoDeltaT | FilterArg);
+                        app.Help | app.Version | WarnTime |
+                        NoDeltaT | NoLen | FilterArg);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -610,6 +687,8 @@ int DataDump::run() throw()
         DumpClient dumper(app.sampleMatcher(), format, cout);
         dumper.setWarningTime(warntime);
         dumper.setShowDeltaT(!NoDeltaT.asBool());
+        dumper.setShowLen(!NoLen.asBool());
+        dumper.setSensors(allsensors);
 
 	if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.
