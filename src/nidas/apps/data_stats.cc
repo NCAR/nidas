@@ -1506,6 +1506,7 @@ void DataStats::printReport(std::ostream& outs)
              << right << ' ' << setw(4) << GET_DSM_ID(ss.id) << ' ';
         NidasApp* app = NidasApp::getApplicationInstance();
         app->formatSampleId(outs, ss.id);
+        outs << " ";
 
         double rate = ss.computeRate();
         outs << setw(9) << ss.nsamps << ' '
