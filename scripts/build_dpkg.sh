@@ -149,6 +149,12 @@ cd ..
 if [ -n "$repo" ]; then
     umask 0002
 
+    if ! which reprepro 2> /dev/null; then
+        cmd="sudo apt-get install -y reprepro"
+        echo "reprepro not found, doing: $cmd. Better yet add it to the image"
+        $cmd
+    fi
+
     echo "Build results:"
     ls
     echo ""

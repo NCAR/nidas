@@ -56,7 +56,7 @@ dir=$(dirname $0)
 cd $dir/..
 
 nowrite=$(find . \( \! -perm /020 -o \! -group $group \) -print -quit)
-[ -n "$nowrite" ] && echo "Warning, some files in $PWD don't have $group group write access. Do \"chgrp -R $group $PWD; chmod -R g+w $PWD\""
+[ -n "$nowrite" ] && echo "Warning, some files in $PWD don't have $group group write access. Do \"chgrp -R $group $PWD; chmod -R g+ws $PWD\""
 
 # If the image is not already loaded, docker run will pull the image from
 # the Docker Hub.
