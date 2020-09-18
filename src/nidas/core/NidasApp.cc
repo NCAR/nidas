@@ -1240,17 +1240,17 @@ formatSampleId(std::ostream& leader, IdFormat idFormat, dsm_sample_id_t sampid)
   // leader << setw(2) << setfill(' ') << dsmid << ',';
   switch(spsfmt) {
   case NidasApp::HEX_ID:
-    leader << "0x" << setw(4) << setfill('0') << hex << spsid
-	   << setfill(' ') << dec << ' ';
+    leader << "0x" << setw(4) << setfill('0') << hex << spsid;
     break;
   case NidasApp::OCTAL_ID:
-    leader << "0" << setw(6) << setfill('0') << oct << spsid
-	   << setfill(' ') << dec << ' ';
+    leader << "0" << setw(6) << setfill('0') << oct << spsid;
     break;
   default:
-    leader << setw(width) << spsid << ' ';
+    leader << setw(width) << spsid;
     break;
   }
+  // Restore stream settings that may have changed.
+  leader << setfill(' ') << dec;
   return leader;
 }
 
