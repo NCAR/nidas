@@ -118,6 +118,12 @@ public:
         timeformat = fmt;
     }
 
+    void
+    setCSV(bool enable)
+    {
+        csv = enable;
+    }
+
     void setSensors(list<DSMSensor*>& sensors);
 
 private:
@@ -133,8 +139,26 @@ private:
     bool showdeltat;
     bool showlen;
     string timeformat;
+    bool csv;
 
     vector<string> vnames;
+    /// Map a column name to a width.
+    map<string, int> widths;
+
+    int
+    getWidth(const std::string& name)
+    {
+        int width = 10;
+        map<string, int>::iterator it = widths.find(name);
+        if (it != widths.end())
+            width = it->second;
+        return width;
+    }
+
+    std::ostream& setfield(std::ostream& out, const std::string& name,
+                           int width = 0);
+
+    void dumpNaked(const Sample* samp);
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
@@ -153,7 +177,9 @@ DumpClient::DumpClient(const SampleMatcher& matcher, format_t fmt,
     showdeltat(true),
     showlen(true),
     timeformat(DEFTIMEFMT),
-    vnames()
+    csv(false),
+    vnames(),
+    widths()
 {
 }
 
@@ -187,14 +213,40 @@ DumpClient::setSensors(list<DSMSensor*>& sensors)
     }
 }
 
+/**
+ * Setup the ostream for the given field, depending on the field
+ * separator and field width.
+ **/
+std::ostream&
+DumpClient::setfield(std::ostream& out, const std::string& name, int width)
+{
+    if (width == 0)
+        width = getWidth(name);
+    if (name != "datetime")
+    {
+        out << (csv ? "," : " ");
+    }
+    if (!csv)
+    {
+        DLOG(("field ") << name << " width set to " << width);
+        out << setw(width);
+    }
+    return out;
+}
+
 void
 DumpClient::printHeader()
 {
-    // columns have set widths and are separated by a single space.
-    cout << "|--- date time --------|";
-    // deltaT column is width 7, preceded by a space
+    // Setup the widths now.  Columns have set widths and are separated by a
+    // single space.
+    string datetimehdr = "|--- date time --------|";
+    widths["datetime"] = datetimehdr.size();
+    widths["len"] = 7;
+    widths["deltaT"] = 7;
+
+    setfield(ostr, "datetime") << (csv ? "datetime" : datetimehdr);
     if (showdeltat)
-        cout << "  deltaT";
+        setfield(ostr, "deltaT") << "deltaT";
     // IDs width 8
     if (!_samples.exclusiveMatch())
     {
@@ -202,26 +254,28 @@ DumpClient::printHeader()
         // ID.
         NidasApp* app = NidasApp::getApplicationInstance();
         int width = app->getIdFormat().decimalWidth() + 3;
-        cout << " ";
-        cout << setw(width) << "id";
+        widths["id"] = width;
+        setfield(ostr, "id") << "id";
     }
     // len column is width 7, preceded by a space
     if (showlen)
-        cout << "     len";
+    {
+        setfield(ostr, "len") << "len";
+    }
     if (!vnames.empty())
     {
         // We know the variable names for all the columns, so use them.
         vector<string>::iterator it;
         for (it = vnames.begin(); it != vnames.end(); ++it)
         {
-            cout << " " << setw(10) << *it;
+            setfield(ostr, "data") << *it;
         }
     }
     else
     {
-        cout << " data...";
+        ostr << " data...";
     }
-    cout << endl;
+    ostr << endl;
 }
 
 /*
@@ -250,6 +304,24 @@ DumpClient::typeToFormat(sampleType t)
     return themap[t];
 }
 
+void
+DumpClient::dumpNaked(const Sample* samp)
+{
+    // Write the raw sample unadorned and unformatted.
+    // NIDAS adds a NULL char, '\0', if the user has specified
+    // a separator that ends in \r or \n. In this way records are easily
+    // scanned with sscanf without adding a NULL. We don't know
+    // what the separator actually is, but it should be mostly
+    // right to check for a ending "\n\0" or "\r\0" here, and if found,
+    // remove the \0.
+    size_t n = samp->getDataByteLength();
+    const char* ptr = (const char*)samp->getConstVoidDataPtr();
+    if (n > 1 && ptr[n - 1] == '\0' &&
+        (ptr[n - 2] == '\r' || ptr[n - 2] == '\n'))
+        n--;
+    ostr.write(ptr, n);
+}
+
 bool
 DumpClient::receive(const Sample* samp) throw()
 {
@@ -257,24 +329,23 @@ DumpClient::receive(const Sample* samp) throw()
     {
         return false;
     }
+    // Naked format trumps everything.
+    if (format == NAKED)
+    {
+        dumpNaked(samp);
+        return true;
+    }
+
     dsm_time_t tt = samp->getTimeTag();
     static dsm_time_t prev_tt = 0;
     dsm_sample_id_t sampid = samp->getId();
 
-    // Format the line leader into a separate string before handling the
-    // chosen output format, in case the output format is naked.
-    ostringstream leader;
+    setfield(ostr, "datetime") << n_u::UTime(tt).format(true, timeformat);
 
-    leader << n_u::UTime(tt).format(true, timeformat) << ' ';
-
-    leader << setprecision(4) << setfill(' ');
+    double tdiff = 0.0;
     if (prev_tt != 0)
     {
-        double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
-        if (showdeltat)
-        {
-            leader << setw(7) << tdiff << ' ';
-        }
+        tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
         if ((warntime < 0 && tdiff < warntime) ||
             (warntime > 0 && tdiff > warntime))
         {
@@ -282,41 +353,34 @@ DumpClient::receive(const Sample* samp) throw()
                  << endl;
         }
     }
-    else if (showdeltat)
+    ostr << setprecision(4);
+    if (showdeltat)
     {
-        leader << setw(7) << 0 << ' ';
+        setfield(ostr, "deltaT") << tdiff;
     }
 
     if (!_samples.exclusiveMatch())
     {
         NidasApp* app = NidasApp::getApplicationInstance();
-        leader << setw(2) << setfill(' ') << GET_DSM_ID(sampid) << ',';
-        // formatSampleId() appends a blank space automatically.  Probably
-        // that should be fixed.
-        app->formatSampleId(leader, sampid);
+        ostr << " " << setw(2) << GET_DSM_ID(sampid) << ',';
+        app->formatSampleId(ostr, sampid);
     }
 
     if (showlen)
     {
-        leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
+        setfield(ostr, "len") << samp->getDataByteLength();
     }
     prev_tt = tt;
 
+    // Force floating point samples to be printed in FLOAT format.
     format_t sample_format = format;
-
-    // Naked format trumps everything, otherwise force floating point
-    // samples to be printed in FLOAT format.
-    if (format != NAKED)
+    if (samp->getType() == FLOAT_ST)
+        sample_format = FLOAT;
+    else if (samp->getType() == DOUBLE_ST)
+        sample_format = FLOAT;
+    else if (format == DEFAULT)
     {
-        if (samp->getType() == FLOAT_ST)
-            sample_format = FLOAT;
-        else if (samp->getType() == DOUBLE_ST)
-            sample_format = FLOAT;
-        else if (format == DEFAULT)
-        {
-            sample_format = typeToFormat(samp->getType());
-        }
-        ostr << leader.str();
+        sample_format = typeToFormat(samp->getType());
     }
 
     switch (sample_format)
@@ -328,18 +392,18 @@ DumpClient::receive(const Sample* samp) throw()
         size_t l = samp->getDataByteLength();
         if (l > 0 && cp[l - 1] == '\0')
             l--; // exclude trailing '\0'
-        if (sample_format == ASCII_7)
+        // DLOG(("rendering char sample: '")
+        //      << n_u::addBackslashSequences(string(cp, l)) << "'");
+
+        char cp7[l];
+        for (char* xp = cp7; xp < cp7 + l; ++xp, ++cp)
         {
-            char cp7[l];
-            char* xp;
-            for (xp = cp7; *cp;)
-                *xp++ = *cp++ & 0x7f;
-            ostr << n_u::addBackslashSequences(string(cp7, l)) << endl;
+            *xp = *cp;
+            if (sample_format == ASCII_7)
+                *xp = *xp & 0x7f;
         }
-        else
-        {
-            ostr << n_u::addBackslashSequences(string(cp, l)) << endl;
-        }
+        setfield(ostr, "data", 1)
+            << n_u::addBackslashSequences(string(cp7, l));
     }
     break;
     case HEX_FMT:
@@ -348,29 +412,25 @@ DumpClient::receive(const Sample* samp) throw()
             (const unsigned char*)samp->getConstVoidDataPtr();
         ostr << setfill('0');
         for (unsigned int i = 0; i < samp->getDataByteLength(); i++)
-            ostr << hex << setw(2) << (unsigned int)cp[i] << dec << ' ';
-        ostr << endl;
+            setfield(ostr, "data", 2) << hex << (unsigned int)cp[i];
+        ostr << dec << setfill(' ');
     }
     break;
     case SIGNED_SHORT:
     {
         const short* sp = (const short*)samp->getConstVoidDataPtr();
-        ostr << setfill(' ');
         for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(short);
              i++)
-            ostr << setw(6) << sp[i] << ' ';
-        ostr << endl;
+            setfield(ostr, "data", 6) << sp[i];
     }
     break;
     case UNSIGNED_SHORT:
     {
         const unsigned short* sp =
             (const unsigned short*)samp->getConstVoidDataPtr();
-        ostr << setfill(' ');
         for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(short);
              i++)
-            ostr << setw(6) << sp[i] << ' ';
-        ostr << endl;
+            setfield(ostr, "data", 6) << sp[i];
     }
     break;
     case FLOAT:
@@ -379,11 +439,8 @@ DumpClient::receive(const Sample* samp) throw()
         else
             ostr << setprecision(5);
 
-        ostr << setfill(' ');
-
         for (unsigned int i = 0; i < samp->getDataLength(); i++)
-            ostr << setw(10) << samp->getDataValue(i) << ' ';
-        ostr << endl;
+            setfield(ostr, "data") << samp->getDataValue(i);
         break;
     case IRIG:
     {
@@ -414,38 +471,23 @@ DumpClient::receive(const Sample* samp) throw()
             ostr << "status: " << setw(2) << setfill('0') << hex << (int)status
                  << dec << '(' << IRIGSensor::shortStatusString(status) << ')';
         }
-        ostr << endl;
+        ostr << setfill(' ');
     }
     break;
     case INT32:
     {
         const int* lp = (const int*)samp->getConstVoidDataPtr();
-        ostr << setfill(' ');
         for (unsigned int i = 0; i < samp->getDataByteLength() / sizeof(int);
              i++)
-            ostr << setw(8) << lp[i] << ' ';
-        ostr << endl;
+            setfield(ostr, "data", 8) << lp[i];
     }
     break;
     case NAKED:
-    {
-        // Write the raw sample unadorned and unformatted.
-        // NIDAS adds a NULL char, '\0', if the user has specified
-        // a separator that ends in \r or \n. In this way records are easily
-        // scanned with sscanf without adding a NULL. We don't know
-        // what the separator actually is, but it should be mostly
-        // right to check for a ending "\n\0" or "\r\0" here, and if found,
-        // remove the \0.
-        size_t n = samp->getDataByteLength();
-        const char* ptr = (const char*)samp->getConstVoidDataPtr();
-        if (n > 1 && ptr[n - 1] == '\0' &&
-            (ptr[n - 2] == '\r' || ptr[n - 2] == '\n'))
-            n--;
-        ostr.write(ptr, n);
-    }
+        break;
     case DEFAULT:
         break;
     }
+    ostr << endl;
     return true;
 }
 
@@ -476,6 +518,7 @@ private:
     NidasAppArg NoDeltaT;
     NidasAppArg NoLen;
     NidasAppArg FormatTimeISO;
+    NidasAppArg CSV;
     BadSampleFilterArg FilterArg;
 };
 
@@ -499,6 +542,13 @@ DataDump::DataDump():
         "--iso", "",
         "Print timestamps without spaces in format: " ISOFORMAT "\n"
         "Times are always printed in UTC, default format: " DEFTIMEFMT),
+    CSV("--csv", "",
+        "Enable comma-separated values output.  This only works for floating "
+        "point\n"
+        "and a few other formats.  Forces ISO time format.  When only a "
+        "single\n"
+        "sample is selected, then the variable names will be included in the\n"
+        "header line."),
     FilterArg()
 {
     app.setApplicationInstance();
@@ -508,11 +558,12 @@ DataDump::DataDump():
 int
 DataDump::parseRunstring(int argc, char** argv)
 {
-    app.enableArguments(
-        app.XmlHeaderFile | app.loggingArgs() | app.FormatHexId |
-        app.FormatSampleId | app.SampleRanges | app.StartTime | app.EndTime |
-        app.Version | app.InputFiles | app.ProcessData | app.Help |
-        app.Version | WarnTime | NoDeltaT | NoLen | FormatTimeISO | FilterArg);
+    app.enableArguments(app.XmlHeaderFile | app.loggingArgs() |
+                        app.FormatHexId | app.FormatSampleId |
+                        app.SampleRanges | app.StartTime | app.EndTime |
+                        app.Version | app.InputFiles | app.ProcessData |
+                        app.Help | app.Version | WarnTime | NoDeltaT | NoLen |
+                        FormatTimeISO | CSV | FilterArg);
 
     app.InputFiles.allowFiles = true;
     app.InputFiles.allowSockets = true;
@@ -747,6 +798,11 @@ DataDump::run() throw()
         dumper.setShowDeltaT(!NoDeltaT.asBool());
         dumper.setShowLen(!NoLen.asBool());
         dumper.setSensors(allsensors);
+        if (CSV.asBool())
+        {
+            dumper.setCSV(true);
+            dumper.setTimeFormat(ISOFORMAT);
+        }
 
         if (FormatTimeISO.asBool())
             dumper.setTimeFormat(ISOFORMAT);
