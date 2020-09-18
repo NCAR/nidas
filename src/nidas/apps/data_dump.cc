@@ -243,6 +243,8 @@ DumpClient::printHeader()
     widths["datetime"] = datetimehdr.size();
     widths["len"] = 7;
     widths["deltaT"] = 7;
+    // DSM ID width is always 3.
+    widths["dsm"] = 3;
 
     setfield(ostr, "datetime") << (csv ? "datetime" : datetimehdr);
     if (showdeltat)
@@ -250,12 +252,13 @@ DumpClient::printHeader()
     // IDs width 8
     if (!_samples.exclusiveMatch())
     {
-        // DSM ID has width 2, plus comma, plus width required by the SPS
-        // ID.
+        setfield(ostr, "dsm") << "dsm";
+        // Width of the SPS ID is determined by the format.
         NidasApp* app = NidasApp::getApplicationInstance();
-        int width = app->getIdFormat().decimalWidth() + 3;
-        widths["id"] = width;
-        setfield(ostr, "id") << "id";
+        widths["sid"] = app->getIdFormat().decimalWidth();
+        // By convention, dsm and sid are always separated by a comma.  And
+        // sid always takes up the format width, even in csv.
+        ostr << "," << setw(getWidth("sid")) << "sid";
     }
     // len column is width 7, preceded by a space
     if (showlen)
@@ -273,7 +276,8 @@ DumpClient::printHeader()
     }
     else
     {
-        ostr << " data...";
+        // Left justify data header when columns unknown.
+        setfield(ostr, "data", 1) << "data...";
     }
     ostr << endl;
 }
@@ -362,7 +366,10 @@ DumpClient::receive(const Sample* samp) throw()
     if (!_samples.exclusiveMatch())
     {
         NidasApp* app = NidasApp::getApplicationInstance();
-        ostr << " " << setw(2) << GET_DSM_ID(sampid) << ',';
+        setfield(ostr, "dsm") << GET_DSM_ID(sampid);
+        // By convention, IDs are always separated by a comma, even when CSV
+        // is not in effect.
+        ostr << ",";
         app->formatSampleId(ostr, sampid);
     }
 
@@ -543,12 +550,9 @@ DataDump::DataDump():
         "Print timestamps without spaces in format: " ISOFORMAT "\n"
         "Times are always printed in UTC, default format: " DEFTIMEFMT),
     CSV("--csv", "",
-        "Enable comma-separated values output.  This only works for floating "
-        "point\n"
-        "and a few other formats.  Forces ISO time format.  When only a "
-        "single\n"
-        "sample is selected, then the variable names will be included in the\n"
-        "header line."),
+        "Output data lines as comma-separated values.\n"
+        "If only a single sample is selected, the variable names will\n"
+        "listed in the header line."),
     FilterArg()
 {
     app.setApplicationInstance();
@@ -798,11 +802,7 @@ DataDump::run() throw()
         dumper.setShowDeltaT(!NoDeltaT.asBool());
         dumper.setShowLen(!NoLen.asBool());
         dumper.setSensors(allsensors);
-        if (CSV.asBool())
-        {
-            dumper.setCSV(true);
-            dumper.setTimeFormat(ISOFORMAT);
-        }
+        dumper.setCSV(CSV.asBool());
 
         if (FormatTimeISO.asBool())
             dumper.setTimeFormat(ISOFORMAT);
