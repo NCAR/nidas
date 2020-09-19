@@ -5,7 +5,6 @@ ARG user=builder
 ARG uid=1000
 ARG group=eol
 ARG gid=1000
-ARG hostarch=armeb
 
 RUN dnf install -y sudo
 

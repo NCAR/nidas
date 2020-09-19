@@ -4,7 +4,7 @@ LABEL organization="NCAR EOL"
 ARG user=builder
 ARG uid=1000
 ARG group=eol
-ARG gid=1000
+ARG gid=1342
 
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
