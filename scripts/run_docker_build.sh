@@ -51,6 +51,8 @@ done
 
 [ -z $image ] && usage
 
+selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
+
 # The nidas tree is the parent of the directory containing this script.
 # It will be bind mounted to ~/nidas in the Docker container.
 # The username in the container is "builder".
@@ -67,18 +69,18 @@ nowrite=$(find . \( \! -perm /020 -o \! -group $group \) -print -quit)
 # if embedded-linux is cloned next to nidas then mount that in the container
 # for building kernels
 embdir=$PWD/../embedded-linux
-[ -d $emb ] && embopt="--volume $embdir:/home/builder/embedded-linux:rw"
+[ -d $emb ] && embopt="--volume $embdir:/home/builder/embedded-linux:rw$zopt"
 
 repo=/net/ftp/pub/archive/software/debian
-[ -d $repo ] && repoopt="--volume $repo:$repo:rw"
+[ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
 
 echo "Running container as user $user. If it isn't listed in /etc/passwd in the container, you'll have a \"I have no name\" prompt, but it isn't necessarily a fatal problem."
 echo "Running container as group $group, which must have rwx permission on $PWD and /opt/nidas"
 
 set -x
 exec docker run --rm --user $user:$group \
-    --volume $PWD:/home/builder/nidas:rw \
-    --volume /opt/nidas:/opt/nidas:rw \
+    --volume $PWD:/home/builder/nidas:rw$zopt \
+    --volume /opt/nidas:/opt/nidas:rw$zopt \
     $repoopt $embopt \
     --network=host \
     -i -t $image /bin/bash
