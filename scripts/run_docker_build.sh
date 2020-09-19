@@ -32,6 +32,9 @@ case $1 in
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael
         ;;
+    vortex)
+        image=maclean/ubuntu-i386:xenial
+        ;;
     -u)
         shift
         [ $# -lt 1 ] && usage
