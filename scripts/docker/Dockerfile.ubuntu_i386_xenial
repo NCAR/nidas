@@ -58,8 +58,9 @@ RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-xenial
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
-    pkg-config libbz2-dev libgsl2 libgsl-dev libcap-dev \
-    libxerces-c-dev libbluetooth-dev libnetcdf-dev
+    pkg-config libbz2-dev libgsl2 libgsl-dev libcap-dev libxerces-c-dev \
+    libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
+    libxerces-c-dev
 
 # Local packages
 # RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev
