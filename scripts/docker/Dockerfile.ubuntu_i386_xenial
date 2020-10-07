@@ -1,6 +1,48 @@
 FROM docker.io/i386/ubuntu:xenial
 LABEL organization="NCAR EOL"
 
+# Vortex;
+# uname -a
+# Linux vortex 4.4.6 #1 SMP Wed Mar 8 11:40:41 CST 2017 i686 i686 i686 GNU/Linux
+# more /etc/os-release
+# NAME="Ubuntu"
+# VERSION="16.04.6 LTS (Xenial Xerus)"
+# ID=ubuntu
+# ID_LIKE=debian
+# PRETTY_NAME="Ubuntu 16.04.6 LTS"
+# VERSION_ID="16.04"
+# HOME_URL="http://www.ubuntu.com/"
+# SUPPORT_URL="http://help.ubuntu.com/"
+# BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
+# VERSION_CODENAME=xenial
+# UBUNTU_CODENAME=xenial
+# 
+# dpkg -l | fgrep linux-image
+# linux-image-4.4.6
+# linux-image-4.15.0-96-generic
+
+# dpkg -l | fgrep linux-headers
+# linux-headers-4.15.0-96   all
+# linux-headers-4.15.0-96-generic   i386
+# linux-headers-4.4.6   i386
+
+# From docker container could not find linux-headers-4.4.6:
+# apt-cache search linux-headers-4.4.6
+# /etc/apt/sources.list looks the same on the docker container
+# as it does on the Vortex, and nothing in /etc/apt/sources.list.d
+#
+# NOTE, don't do this:
+# sudo apt-get install linux-headers-4.4.0
+# A regex matches hundreds of packages, from
+# -4.4.0-21 to -4.4.0-189 including a "-generic" and
+# "-lowlatency" of each.
+#
+# To search
+# apt-cache search linux-headers-4.4.0
+#
+# Then only install one package:
+# sudo apt-get install linux-headers-4.4.0-189
+
 ARG user=builder
 ARG uid=1000
 ARG group=eol
@@ -11,9 +53,9 @@ RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates
 RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz
 
-# Add EOL repository for some local packages
-#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
-#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+# Add EOL repository for local packages
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-xenial xenial main" > /etc/apt/sources.list.d/eol.list 
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
     pkg-config libbz2-dev libgsl2 libgsl-dev libcap-dev \

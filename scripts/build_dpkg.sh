@@ -48,6 +48,9 @@ while [ $# -gt 0 ]; do
     amd64)
         arch=$1
         ;;
+    i386)
+        arch=$1
+        ;;
     *)
         usage $0
         ;;

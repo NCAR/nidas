@@ -10,7 +10,9 @@ user=$defuser
 group=$defgroup
 
 usage() {
-    echo "usage: ${0##*/} [-u user] [-g group] [ armel | armhf | armbe | viper=armel | titan=armel | rpi2=armhf | vulcan=armbe ]
+    echo "usage: ${0##*/} [-u user] [-g group] [ armel | armhf | armbe | vortex ]
+
+    viper and titan are armel, rpi2 is armhf and vulcan is armbe
 
 If user id is numeric and not in /etc/passwd inside the container, you'll see a prompt of \"I have no name\", which isn't generally fatal. If it is a string and not in /etc/passwd, docker will fail.
 
