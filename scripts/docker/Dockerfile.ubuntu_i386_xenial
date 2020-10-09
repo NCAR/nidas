@@ -26,7 +26,7 @@ LABEL organization="NCAR EOL"
 # linux-headers-4.15.0-96-generic   i386
 # linux-headers-4.4.6   i386
 
-# From docker container could not find linux-headers-4.4.6:
+# From docker container, apt-get could not find linux-headers-4.4.6:
 # apt-cache search linux-headers-4.4.6
 # /etc/apt/sources.list looks the same on the docker container
 # as it does on the Vortex, and nothing in /etc/apt/sources.list.d
@@ -57,10 +57,11 @@ RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-xenial xenial main" > /etc/apt/sources.list.d/eol.list 
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
+# kmod provides modinfo command for querying modules
 RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
     pkg-config libbz2-dev libgsl2 libgsl-dev libcap-dev libxerces-c-dev \
     libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
-    libxerces-c-dev
+    libxerces-c-dev kmod
 
 # Local packages
 # RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev

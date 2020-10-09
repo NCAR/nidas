@@ -42,6 +42,15 @@
 #     deb (nidas-modules-rpi2): 
 #	/lib/modules/$(uname -r)/nidas
 #	e.g.: /lib/modules/4.4.9-v7+/nidas (RPi2, May 2016)
+# i386, vortex
+#   libs:
+#     scons: $DESTDIR/$PREFIX/lib
+#     deb (nidas-libs,nidas-dev): $PREFIX/lib
+#   modules:
+#     scons: $DESTDIR/$PREFIX/modules
+#     deb (nidas-modules-vortex): 
+#	/lib/modules/$(uname -r)/nidas
+#	e.g.: /lib/modules/4.4.6/nidas (vortex, Oct 2020)
 # arm (old, non-EABI): viper, titan (not built from this Makefile)
 #   libs:
 #     scons: $DESTDIR/$PREFIX/arm/lib
@@ -102,6 +111,8 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
        # We don't really need linux modules on Pi, so do not try to build them if headers not installed.
         LINUX_MODULES := off
     endif
+else ifeq ($(DEB_HOST_GNU_TYPE),i686-linux-gnu)
+    VORTEX_KERN := 4.4.6
 endif
 
 # Where to find pkg-configs of other software
@@ -160,6 +171,10 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	if [ -n "$(X86_64_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(X86_64_KERN)/nidas;\
 	    mv $(SCONSMODDIR)/* $(MODDIR)/$(X86_64_KERN)/nidas;\
+	fi
+	if [ -n "$(VORTEX_KERN)" ]; then\
+	    mkdir -p $(MODDIR)/$(VORTEX_KERN)/nidas;\
+	    mv $(SCONSMODDIR)/* $(MODDIR)/$(VORTEX_KERN)/nidas;\
 	fi
 
 clean:

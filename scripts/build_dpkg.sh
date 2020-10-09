@@ -10,7 +10,7 @@ usage() {
     echo "-c: build in a chroot"
     echo "-i: install them with reprepro to the repository"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
-    echo "arch is armel, armhf or amd64"
+    echo "arch is armel, armhf, amd64 or i386"
     exit 1
 }
 

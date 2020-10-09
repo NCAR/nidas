@@ -90,17 +90,18 @@ MACHS = Split(env['MACHS'])
 
 if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', '\n'
-             '  path to linux kernel source for build host,\n'
-             '  (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:', '*')
+        '  path to linux kernel headers for building modules.\n'
+        '  Use $KERNELDIRDEFAULT to use the path found by the kmake tool.',
+	'$KERNELDIRDEFAULT')
 
 if 'arm' in BUILDS:
-    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel source for Viper:',
+    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel headers for Viper:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-viper')
-    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel source for Titan:',
+    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel headers for Titan:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-titan')
 
 if 'armbe' in BUILDS:
-    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel source for Vulcan:',
+    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel headers for Vulcan:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
 
 if 'armel' in BUILDS:
