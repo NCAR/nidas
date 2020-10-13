@@ -76,6 +76,9 @@ embdir=$PWD/../embedded-linux
 repo=/net/ftp/pub/archive/software/debian
 [ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
 
+gnupg=$HOME/.gnupg
+[ -d $gnupg ] && gnupgopt="--volume $gnupg:/home/builder/${gnupg##*/}:rw$zopt"
+
 echo "Running container as user $user. If it isn't listed in /etc/passwd in the container, you'll have a \"I have no name\" prompt, but it isn't necessarily a fatal problem."
 echo "Running container as group $group, which must have rwx permission on $PWD and /opt/nidas"
 
@@ -83,7 +86,7 @@ set -x
 exec docker run --rm --user $user:$group \
     --volume $PWD:/home/builder/nidas:rw$zopt \
     --volume /opt/nidas:/opt/nidas:rw$zopt \
-    $repoopt $embopt \
+    $repoopt $embopt $gnupgopt \
     --network=host \
     -i -t $image /bin/bash
 
