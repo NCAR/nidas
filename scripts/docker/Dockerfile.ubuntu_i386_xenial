@@ -29,25 +29,17 @@ LABEL organization="NCAR EOL"
 # -4.4.0-21 to -4.4.0-189 including a "-generic" and
 # "-lowlatency" of each.
 #
-# linux-headers-4.4.6 is not available from debian repos.  We can
-# repackage it on a vortex:
+# linux-headers-4.4.6 is not available from debian repos.
+# Instead, repackage it on a vortex:
 
-# On vortex
 # cd /tmp
 # dpkg-repack linux-headers-4.4.6
 # nidas/scripts/run_docker_build.sh -u 12900 vortex
-# Copy to system with docker installed, e.g. steam
+# Copy to system with docker installed, e.g. steam, start a container:
 # nidas/scripts/run_docker_build.sh vortex
 # From within the container
-# export GNUPGHOME=/home/ads/.gnupg
-# umask 0002
 # gpg2 --list-keys
 # reprepro -b /net/ftp/pub/archive/software/debian/codename-xenial includedeb xenial linux-headers-4.4.6_4.4.6-1_i386.deb
-# To search
-# apt-cache search linux-headers-4.4.0
-#
-# Then only install one package:
-# sudo apt-get install linux-headers-4.4.0-189
 
 ARG user=ads
 ARG uid=12900
@@ -63,16 +55,16 @@ RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-xenial xenial main" > /etc/apt/sources.list.d/eol.list 
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
+RUN apt-get update
 # kmod provides modinfo command for querying modules
+# Use linux-headers-4.4.6 from EOL repo
 RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
     pkg-config libbz2-dev libgsl2 libgsl-dev libcap-dev libxerces-c-dev \
     libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
-    libxerces-c-dev kmod
+    libxerces-c-dev kmod rsync quilt linux-headers-4.4.6
 
 # Local packages
 # RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev
-
-RUN apt-get install -y --no-install-recommends rsync quilt
 
 RUN addgroup --gid $gid $group
 RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
