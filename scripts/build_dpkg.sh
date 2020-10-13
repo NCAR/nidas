@@ -5,10 +5,11 @@ set -e
 key='<eol-prog@eol.ucar.edu>'
 
 usage() {
-    echo "Usage: ${1##*/} [-s] [-i repository ] arch codename"
+    echo "Usage: ${1##*/} [-s] [-i repository ] [ -I codename ] arch"
     echo "-s: sign the package files with $key"
     echo "-c: build in a chroot"
-    echo "-i: install them with reprepro to the repository"
+    echo "-i: install packages with reprepro to the repository"
+    echo "-I: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
     echo "arch is armel, armhf, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on the repo"
@@ -23,12 +24,16 @@ sign=false
 arch=amd64
 args="--no-tgz-check -sa"
 use_chroot=false
-codename=jessie
 while [ $# -gt 0 ]; do
     case $1 in
     -i)
         shift
         repo=$1
+        ;;
+    -I)
+        shift
+        codename=$1
+        repo=/net/ftp/pub/archive/software/debian/codename-$codename
         ;;
     -c)
         use_chroot=true
@@ -53,15 +58,24 @@ while [ $# -gt 0 ]; do
     i386)
         arch=$1
         ;;
-    jessie | xenial)
-        codename=$1
-        ;;
     *)
         usage $0
         ;;
     esac
     shift
 done
+
+if [ -n "$repo" ]; then
+    distconf=$repo/conf/distributions
+    if [ -r $distconf ]; then
+        codename=$(fgrep Codename: $distconf | cut -d : -f 2)
+    fi
+
+    if [ -z "$codename" ]; then
+        echo "Cannot determine codename of repository at $repo"
+        exit 1
+    fi
+fi
 
 args="$args -a$arch"
 
