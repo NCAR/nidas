@@ -5,12 +5,13 @@ set -e
 key='<eol-prog@eol.ucar.edu>'
 
 usage() {
-    echo "Usage: ${1##*/} [-s] [-i repository ] arch"
+    echo "Usage: ${1##*/} [-s] [-i repository ] arch codename"
     echo "-s: sign the package files with $key"
     echo "-c: build in a chroot"
     echo "-i: install them with reprepro to the repository"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
     echo "arch is armel, armhf, amd64 or i386"
+    echo "codename is jessie, xenial or whatever distribution has been enabled on the repo"
     exit 1
 }
 
@@ -22,6 +23,7 @@ sign=false
 arch=amd64
 args="--no-tgz-check -sa"
 use_chroot=false
+codename=jessie
 while [ $# -gt 0 ]; do
     case $1 in
     -i)
@@ -50,6 +52,9 @@ while [ $# -gt 0 ]; do
         ;;
     i386)
         arch=$1
+        ;;
+    jessie | xenial)
+        codename=$1
         ;;
     *)
         usage $0
@@ -114,10 +119,6 @@ $sdir/deb_changelog.sh > debian/changelog
 
 karg=
 if $sign; then
-    if [ -z "$GPG_AGENT_INFO" -a -f $HOME/.gpg-agent-info ]; then
-        . $HOME/.gpg-agent-info
-        export GPG_AGENT_INFO
-    fi
     karg=-k"$key"
 else
     args="$args -us -uc"
@@ -197,13 +198,13 @@ if [ -n "$repo" ]; then
     trap "{ rm -f $tmplog; }" EXIT
     status=0
 
-    if [ $arch == armel ]; then
+    if [ $arch == armel -o \( $arch == i386 -a $codename == xenial \) ]; then
         flock $repo sh -c "
-            reprepro -V -b $repo -C main --keepunreferencedfiles include jessie $chngs" 2> $tmplog || status=$?
+            reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
     else
         echo "Installing $archdebs"
         flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb jessie $archdebs" 2> $tmplog || status=$?
+            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
     fi
 
     if [ $status -ne 0 ]; then

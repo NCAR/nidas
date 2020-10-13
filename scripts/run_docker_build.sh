@@ -3,7 +3,7 @@
 # Start a Docker container to do cross-building of NIDAS for various
 # non-x86_64, non-redhat systems.
 
-defuser=builder
+defuser=ads
 defgroup=eol
 
 user=$defuser
@@ -57,7 +57,7 @@ selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
 
 # The nidas tree is the parent of the directory containing this script.
 # It will be bind mounted to ~/nidas in the Docker container.
-# The username in the container is "builder".
+# The username in the container is "ads".
 
 dir=$(dirname $0)
 cd $dir/..
@@ -71,20 +71,33 @@ nowrite=$(find . \( \! -perm /020 -o \! -group $group \) -print -quit)
 # if embedded-linux is cloned next to nidas then mount that in the container
 # for building kernels
 embdir=$PWD/../embedded-linux
-[ -d $emb ] && embopt="--volume $embdir:/home/builder/embedded-linux:rw$zopt"
+[ -d $emb ] && embopt="--volume $embdir:/home/ads/embedded-linux:rw$zopt"
 
 repo=/net/ftp/pub/archive/software/debian
 [ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
 
-gnupg=$HOME/.gnupg
-[ -d $gnupg ] && gnupgopt="--volume $gnupg:/home/builder/${gnupg##*/}:rw$zopt"
+# Get name of the uid on this system
+# hostuser=$(id -un $user 2> /dev/null)
+hostuser=$(id -un $user)
+# If local user has a .gnupg, mount it in the container
+gnupg=$(eval realpath ~${hostuser})/.gnupg
+# Note [ -d $gnupg ] may fail due to lack of group or world
+# execute and read perms on the user's HOME directory.
+# Docker can still mount it however.
+gnupgopt="--volume $gnupg:/home/ads/${gnupg##*/}:rw$zopt"
 
-echo "Running container as user $user. If it isn't listed in /etc/passwd in the container, you'll have a \"I have no name\" prompt, but it isn't necessarily a fatal problem."
-echo "Running container as group $group, which must have rwx permission on $PWD and /opt/nidas"
+echo "Running container as user $user, group $group.
+If $user isn't a valid user on this docker host, writing files to
+this host will fail unless the group exists, and group write is permitted
+on files and directories.  Signing with gnupg probably won't work.
+
+If $user isn't found in /etc/passwd in the container, docker will fail
+if it is a name. If it is a number you'll see a \"I have no name\" prompt
+in the container. Builds might work if file permissions are OK."
 
 set -x
 exec docker run --rm --user $user:$group \
-    --volume $PWD:/home/builder/nidas:rw$zopt \
+    --volume $PWD:/home/ads/nidas:rw$zopt \
     --volume /opt/nidas:/opt/nidas:rw$zopt \
     $repoopt $embopt $gnupgopt \
     --network=host \

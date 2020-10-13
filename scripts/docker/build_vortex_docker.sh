@@ -3,13 +3,13 @@
 set -e
 
 # A --build-arg overrides an ARG in the Dockerfile
-user=builder
-uid=1000
+user=ads
+uid=12900
 group=eol
 gid=1342
 
 # Must do a #docker login" with your personal docker account.
-# this account must be registered with ncar organiztion as an
+# this account must be registered with ncar organization as an
 # administor.  Call Gary.
 docuser=ncar
 

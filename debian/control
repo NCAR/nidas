@@ -2,7 +2,10 @@ Source: nidas
 Section: science
 Priority: optional
 Maintainer: Gordon Maclean <maclean@ucar.edu>
-Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl, libgsl0-dev, libcap-dev, eol-scons, xmlrpc++-dev
+# This Build-Depends is being parsed (a syntax error causes a failure) but it doesn't
+# seem to have any effect in the debuild.  If a non-existent package is specified, the build
+# still succeeds
+Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl, libgsl0-dev, libcap-dev, eol-scons, xmlrpc++-dev [i386 armel], libxmlrpcpp-dev [i386 amd64], libbozo-dev
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git
@@ -103,6 +106,12 @@ Architecture: armel
 Depends:  nidas, nidas-modules-viper, pxaregs
 Description: Meta-package for installation of NIDAS onto a Eurotech Viper
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
+
+Package: nidas-vortex
+Architecture: i386
+Depends:  nidas, nidas-modules-vortex
+Description: Meta-package for installation of NIDAS onto a VortexDX3
+ Metapackage with sufficient dependencies to run NIDAS on a VortexDX3
 
 Package: nidas-rpi2
 Architecture: armhf
