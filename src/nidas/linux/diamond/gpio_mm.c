@@ -182,7 +182,7 @@ static int gcd(unsigned int a, unsigned int b)
 static void print_timespec(const char* msg,thiskernel_timespec_t* ts)
 {
         int hr,mn,sc;
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes arg 1 in place, returns remainder */
         int64_t sec = ts->tv_sec;
         sc = do_div(sec, 86400);
@@ -2089,7 +2089,7 @@ void test_callback(void* ptr)
             diff = ts.tv_nsec - cbd->tv.tv_nsec;
             if (sd > 0) diff += sd * NSECS_PER_SEC;
         }
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes arg 1 in place, returns remainder */
         int64_t sec = ts->tv_sec;
         sc = do_div(sec, 86400);

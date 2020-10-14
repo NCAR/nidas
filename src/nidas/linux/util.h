@@ -255,7 +255,10 @@ inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
         thiskernel_timespec_t ts;
         getSystemTimeTs(&ts);
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        /* BITS_PER_LONG seems to be defined in all kernels, but
+         * __BITS_PER_LONG isn't defined in 2.6 kernels.
+         * Use __BITS_PER_LONG if exporting a .h to user space. */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes dividend in place, returns remainder */
         return do_div(ts.tv_sec, SECS_PER_DAY) * MSECS_PER_SEC +
 		ts.tv_nsec / NSECS_PER_MSEC;
@@ -272,7 +275,7 @@ inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
         thiskernel_timespec_t ts;
         getSystemTimeTs(&ts);
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes dividend in place, returns remainder */
         return do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
 		ts.tv_nsec / NSECS_PER_TMSEC;

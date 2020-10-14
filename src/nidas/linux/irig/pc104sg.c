@@ -1302,7 +1302,7 @@ static void timespecToirig(const thiskernel_timespec_t *ts, struct irigTime *ti)
 {
         int days, rem, y;
 
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes dividend in place, returns remainder */
         int64_t sec = ts->tv_sec;
         rem = do_div(sec, SECS_PER_DAY);
@@ -1397,7 +1397,7 @@ static void get_irig_time_nolock(struct irigTime *ti)
                 thiskernel_timespec_t ts;
                 irigTotimespec(ti, &ts);
                 // clock difference
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 		/* do_div changes dividend in place, returns remainder */
 		td = do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
                     ts.tv_nsec / NSECS_PER_TMSEC;
@@ -1550,7 +1550,7 @@ static int setSoftTickers(const thiskernel_timespec_t *ts,int round)
 {
         int counter, newClock;
 
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	/* do_div changes dividend in place, returns remainder */
         int64_t sec = ts->tv_sec;
         newClock = do_div(sec, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1911,7 +1911,7 @@ static void oneHzFunction(void *ptr)
         struct dsm_clock_sample_2 *osamp;
 #endif
 
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
         int64_t sec64;
 #endif
 
@@ -1941,7 +1941,7 @@ static void oneHzFunction(void *ptr)
                 if (!(statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                         if (syncDiff > MAX_TMSEC_SINCE_LAST_SYNC) {
                                 /* first sync after a long time of no sync */
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 				/* do_div changes dividend in place, returns remainder */
                                 sec64 = ti.tv_sec;
                                 newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1955,7 +1955,7 @@ static void oneHzFunction(void *ptr)
                         }
                         else if (board.clockState == SYNCD_SET) {
                                 /* good situation, sync'd */
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 				/* do_div changes dividend in place, returns remainder */
                                 sec64 = ti.tv_sec;
                                 newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1980,7 +1980,7 @@ static void oneHzFunction(void *ptr)
                                  * consistently sync'd */
                                 if (board.clockState == UNSYNCD_SET) {
                                         /* check against unix clock */
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
                                         sec64 = tu.tv_sec;
                                         newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -2005,7 +2005,7 @@ static void oneHzFunction(void *ptr)
                                  * since last full second of sync */
                                 if (!(lastStatus & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                                         /* currently sync'd, check against irig time */
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
                                         sec64 = ti.tv_sec;
                                         newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -2017,7 +2017,7 @@ static void oneHzFunction(void *ptr)
                                 }
                                 else {
                                         /* currently not sync'd, check against unix time */
-#if __BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 					/* do_div changes dividend in place, returns remainder */
                                         sec64 = tu.tv_sec;
                                         newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -2392,7 +2392,7 @@ static long setIRIGclock(int64_t usec)
         board.DP_RamExtStatusRequested = 0;
         spin_unlock_irqrestore(&board.lock, flags);
 
-#if __BITS_PER_LONG == 32
+#if BITS_PER_LONG == 32
 	/* do_div changes dividend in place, returns remainder */
         ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
         ts.tv_sec = usec;
