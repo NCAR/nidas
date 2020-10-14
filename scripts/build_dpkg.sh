@@ -9,7 +9,7 @@ usage() {
     echo "-s: sign the package files with $key"
     echo "-c: build in a chroot"
     echo "-i: install packages with reprepro to the repository"
-    echo "-I: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>"
+    echo "-I codename: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
     echo "arch is armel, armhf, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on the repo"
