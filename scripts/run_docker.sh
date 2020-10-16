@@ -73,6 +73,10 @@ nowrite=$(find . \( \! -perm /020 -o \! -group $group \) -print -quit)
 embdir=$PWD/../embedded-linux
 [ -d $embdir ] && embopt="--volume $embdir:/home/ads/embedded-linux:rw$zopt"
 
+# if cmigits-nidas is cloned next to nidas then mount that too
+cmig3dir=$PWD/../cmigits-nidas
+[ -d $cmig3dir ] && cmig3opt="--volume $cmig3dir:/home/ads/cmigits-nidas:rw$zopt"
+
 # if embedded-daq is cloned next to nidas then mount that too
 daqdir=$PWD/../embedded-daq
 [ -d $daqdir ] && daqopt="--volume $daqdir:/home/ads/embedded-daq:rw$zopt"
@@ -104,7 +108,7 @@ set -x
 exec docker run --rm --user $user:$group \
     --volume $PWD:/home/ads/nidas:rw$zopt \
     --volume /opt/nidas:/opt/nidas:rw$zopt \
-    $repoopt $embopt $gpgopt $daqopt \
+    $repoopt $embopt $gpgopt $daqopt $cmig3opt \
     --network=host \
     -i -t $image /bin/bash
 
