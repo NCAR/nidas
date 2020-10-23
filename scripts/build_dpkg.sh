@@ -5,8 +5,7 @@ set -e
 key='<eol-prog@eol.ucar.edu>'
 
 usage() {
-    echo "Usage: ${1##*/} [-s] [-i repository ] [ -I codename ] arch"
-    echo "-s: sign the package files with $key"
+    echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
     echo "-c: build in a chroot"
     echo "-i: install packages with reprepro to the repository"
     echo "-I codename: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>"
@@ -20,7 +19,6 @@ if [ $# -lt 1 ]; then
     usage $0
 fi
 
-sign=false
 arch=amd64
 args="--no-tgz-check -sa"
 use_chroot=false
@@ -40,9 +38,6 @@ while [ $# -gt 0 ]; do
         ;;
     -n)
         args="$args -nc -F"
-        ;;
-    -s)
-        sign=true
         ;;
     armel)
         export CC=arm-linux-gnueabi-gcc
@@ -132,11 +127,7 @@ $sdir/deb_changelog.sh > debian/changelog
 #       in one package?
 
 karg=
-if $sign; then
-    karg=-k"$key"
-else
-    args="$args -us -uc"
-fi
+args="$args -us -uc"
 
 # clean old results
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc

@@ -13,7 +13,7 @@ Vcs-Git: git://github.com/ncareol/nidas.git
 
 Package: nidas-min
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}
 Description: NCAR In-Situ Data Acquistion Software
  Minimal run-time setup for NIDAS, namely /etc/ld.so.conf.d/nidas.conf.
  Useful on systems that NFS mount /opt/nidas, or do their own builds.
