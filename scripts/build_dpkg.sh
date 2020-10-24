@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim: set shiftwidth=4 softtabstop=4 expandtab:
 
 set -e
 
@@ -64,12 +65,26 @@ if [ -n "$repo" ]; then
     distconf=$repo/conf/distributions
     if [ -r $distconf ]; then
         codename=$(fgrep Codename: $distconf | cut -d : -f 2)
+        key=$(fgrep SignWith: $distconf | cut -d : -f 2)
+        # first architecture listed
+        primarch=$(fgrep Architectures: $distconf | cut -d : -f 2 | awk '{print $1}')
     fi
 
     if [ -z "$codename" ]; then
         echo "Cannot determine codename of repository at $repo"
         exit 1
     fi
+    export GPG_TTY=$(tty)
+    # do a test signing.  gpg2 and reprepro contact the gpg-agent via
+    # the .gnupg/S.gpg-agent socket for the key passphrase.
+    # When running a Ubuntu xenial container on a RHEL7 host, there
+    # is a version mismatch between gpg2/reprepro in the container
+    # and the gpg-agent on the host:
+    #     gpg: WARNING: server 'gpg-agent' is older than us (2.0.22 < 2.1.11)
+    # A solution is to kill the agent:  echo killagent | gpg-connect-agent
+    # This can be done on the host before running the container, or I guess
+    # it could be done here in the container.
+    echo test | gpg2 --clearsign --default-key "$key" > /dev/null
 fi
 
 args="$args -a$arch"
@@ -176,12 +191,13 @@ if [ -n "$repo" ]; then
 
     archdebs=nidas*$arch.deb
 
-    # echo "pkgs=$pkgs"
-    # echo "archalls=$archalls"
-    # echo "chngs=$chngs"
+    # Grab all the package names from the changes file
+    pkgs=($(awk '/Checksums-Sha1/,/Checksums-Sha256/ { if (NF > 2) print $3 }' $chngs | grep ".*\.deb" | sed "s/_.*_.*\.deb//"))
 
-    # install all packages and sources for armel.
-    # for other architectures, just install the packages for that arch
+
+    # echo "chngs=$chngs"
+    # echo "pkgs=$pkgs"
+    # echo "archdebs=$archdebs"
 
     # Use --keepunreferencedfiles so that the previous version .deb files 
     # are not removed. Then user's who don't do an apt-get update will
@@ -201,27 +217,75 @@ if [ -n "$repo" ]; then
 
     tmplog=$(mktemp)
     trap "{ rm -f $tmplog; }" EXIT
-    status=0
 
-    if [ $arch == armel -o \( $arch == i386 -a $codename == xenial \) ]; then
-        flock $repo sh -c "
-            reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
-    else
-        echo "Installing $archdebs"
-        flock $repo sh -c "
-            reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
-    fi
+    for (( i=0; i < 2; i++ )); do
+        status=0
+        set -v
+        set +e
 
-    if [ $status -ne 0 ]; then
+        # For the first architecture listed in confg/distributions, install
+        # all the packages listed in the changes file, including source and
+        # "all" packages.
+        if [ $arch == $primarch ]; then
+            echo "Installing ${pkgs[*]}"
+            if [ $i -gt 0 ]; then
+                for pkg in ${pkgs[*]}; do
+                    # Specifying -A $arch\|source\|all with a remove
+                    # doesn't work.
+                    # A package built for all archs will be placed into
+                    # the repo for each architecture in the repo, but "all"
+                    # is ignored in -A for the remove.  So a package for all,
+                    # that is installed in the repo for amd64 won't be
+                    # removed with -A i386|source|all", and you'll get
+                    # a "registered with different checksums" error if
+                    # you try to install it for i386. So leave -A off.
+                    flock $repo sh -c "
+                        reprepro -V -b $repo remove $codename $pkg"
+                done
+                flock $repo sh -c "
+                    reprepro -V -b $repo deleteunreferenced"
+
+            fi
+
+            flock $repo sh -c "
+                reprepro -V -b $repo -C main --keepunreferencedfiles include $codename $chngs" 2> $tmplog || status=$?
+
+        # If not the first architecture listed, just install the
+        # specific architecture packages.
+        else
+            echo "Installing $archdebs"
+
+            if [ $i -gt 0 ]; then
+                for pkg in ${archdebs[*]}; do
+                    # remove last two underscores
+                    pkg=${pkg%_*}
+                    pkg=${pkg%_*}
+                    flock $repo sh -c "
+                        reprepro -V -b $repo -A $arch remove $codename $pkg"
+                done
+                flock $repo sh -c "
+                    reprepro -V -b $repo deleteunreferenced"
+            fi
+
+            flock $repo sh -c "
+                reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $archdebs" 2> $tmplog || status=$?
+        fi
+        echo "status=$status"
+
+        [ $status -eq 0 ] && break
+
         cat $tmplog
         if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
-            echo "One or more package versions are already present in the repository. Continuing"
-        else
-            exit $status
+            echo "One or more package versions are already present in the repository. Removing and trying again"
         fi
-    fi
+    done
 
-    rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs
+    if [ $status -eq 0 ]; then
+        rm -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz \
+            nidas*_all.deb nidas*_$arch.deb $chngs
+    else
+        echo "saving results in $PWD"
+    fi
 
 else
     echo "build results are in $PWD"
