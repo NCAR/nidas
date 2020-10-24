@@ -29,7 +29,7 @@ RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.ke
 RUN apt-get update
 # kmod provides modinfo command for querying modules
 # Use linux-headers-4.4.6 from EOL repo
-RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
+RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts lintian \
     pkg-config libbz2-dev libgsl23 libgsl-dev libcap-dev libxerces-c-dev \
     libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
     libxerces-c-dev kmod rsync quilt linux-headers-4.4.6

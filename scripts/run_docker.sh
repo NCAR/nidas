@@ -86,6 +86,10 @@ embdir=$PWD/../embedded-linux
 cmig3dir=$PWD/../cmigits-nidas
 [ -d $cmig3dir ] && cmig3opt="--volume $cmig3dir:/home/ads/cmigits-nidas:rw$zopt"
 
+# if eol_scons is cloned next to nidas then mount that too
+esconsdir=$PWD/../eol_scons
+[ -d $esconsdir ] && esconsopt="--volume $esconsdir:/home/ads/eol_scons:rw$zopt"
+
 # if embedded-daq is cloned next to nidas then mount that too
 daqdir=$PWD/../embedded-daq
 [ -d $daqdir ] && daqopt="--volume $daqdir:/home/ads/embedded-daq:rw$zopt"
@@ -124,7 +128,7 @@ set -x
 exec docker run --rm --user $user:$group \
     --volume $PWD:/home/ads/nidas:rw$zopt \
     --volume /opt/nidas:/opt/nidas:rw$zopt \
-    $repoopt $embopt $gpgopt $daqopt $cmig3opt \
+    $repoopt $embopt $gpgopt $daqopt $cmig3opt $esconsopt \
     --network=host \
     -i -t $image /bin/bash
 
