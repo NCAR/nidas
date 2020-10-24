@@ -16,26 +16,30 @@ ARG user=ads
 ARG uid=12900
 ARG group=eol
 ARG gid=1342
+ARG dolocal=no
 
 RUN apt-get update
+# kmod provides modinfo command for querying modules
+# In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
 RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
-    build-essential fakeroot libncurses-dev bc dh-make ca-certificates
-RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz gnupg2
+    build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
+    git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
+    devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
+    libcap-dev libxerces-c-dev libbluetooth-dev libnetcdf-dev \
+    libxmlrpcpp-dev libjsoncpp-dev xmlto libxerces-c-dev kmod rsync quilt \
+    libfl-dev
+
+# debhelper in bionic is 11.1.6ubuntu2, which fails when
+# in building nidas in a container, when it tries a cross-device rename
+# of a file residing on a mounted volume (nidas) to the parent of the
+# nidas directory. debhelper on bionic-backports is
+# 12.1.1ubuntu1~ubuntu18.04.1# which falls back to a regular mv if the
+# rename fails.
+RUN apt-get -t bionic-backports install -y --no-install-recommends debhelper
 
 # Add EOL repository for local packages
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
-
-RUN apt-get update
-# kmod provides modinfo command for querying modules
-# Use linux-headers-4.4.6 from EOL repo
-RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts lintian \
-    pkg-config libbz2-dev libgsl23 libgsl-dev libcap-dev libxerces-c-dev \
-    libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
-    libxerces-c-dev kmod rsync quilt linux-headers-4.4.6
-
-# Local packages
-# RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev
 
 RUN addgroup --gid $gid $group
 RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
@@ -48,3 +52,13 @@ WORKDIR /home/$user
 RUN echo "umask 0002" >> .bashrc
 
 RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
+
+# Install local packages once they are ready in the repo.
+# You have to do "apt-get update && apt-get install", so that if you
+# add a package to the list, the update will be performed.
+# We're now running as a non-root user, so use sudo.
+# Get linux-headers-4.4.6 from EOL repo
+RUN [ $dolocal = yes ] && sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends \
+    linux-headers-4.4.6 eol-scons eol-repo
+
