@@ -11,9 +11,11 @@ user=$defuser
 group=$defgroup
 
 usage() {
-    echo "usage: ${0##*/} [-u user] [-g group] [ armel | armhf | armbe | vortex ]
+    echo "usage: ${0##*/} [-u user] [-g group] [ armel | armhf | armbe | xenial | bionic ]
 
     viper and titan are armel, rpi2 is armhf and vulcan is armbe
+
+    xenial and bionic are i386 Ubuntu images for the vortex
 
 If user id is numeric and not in /etc/passwd inside the container, you'll see a prompt of \"I have no name\", which isn't generally fatal. If it is a string and not in /etc/passwd, docker will fail.
 
@@ -35,8 +37,11 @@ case $1 in
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael
         ;;
-    vortex)
+    xenial)
         image=ncar/nidas-build-ubuntu-i386:xenial
+        ;;
+    bionic)
+        image=ncar/nidas-build-ubuntu-i386:bionic
         ;;
     -u)
         shift
@@ -47,6 +52,9 @@ case $1 in
         shift
         [ $# -lt 1 ] && usage
         group=$1
+        ;;
+    *)
+        usage
         ;;
 esac
     shift

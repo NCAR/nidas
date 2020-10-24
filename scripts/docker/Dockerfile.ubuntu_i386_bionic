@@ -1,0 +1,50 @@
+FROM docker.io/i386/ubuntu:bionic
+LABEL organization="NCAR EOL"
+
+# We need linux-headers that match the running kernel (4.4.6) on
+# the vortex. However linux-headers-4.4.6 is not available from
+# ubuntu repos. Instead, repackage it on a vortex:
+# cd /tmp
+# dpkg-repack linux-headers-4.4.6
+# Copy to system with docker installed, e.g. steam, start a container.
+# Note that the container could be an earlier version (e.g. xenial) of ubuntu.
+# nidas/scripts/run_docker.sh vortex
+# From within the container
+# reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.4.6_4.4.6-1_i386.deb
+
+ARG user=ads
+ARG uid=12900
+ARG group=eol
+ARG gid=1342
+
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
+    build-essential fakeroot libncurses-dev bc dh-make ca-certificates
+RUN apt-get install -y --no-install-recommends git ssh scons doxygen graphviz gnupg2
+
+# Add EOL repository for local packages
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+RUN apt-get update
+# kmod provides modinfo command for querying modules
+# Use linux-headers-4.4.6 from EOL repo
+RUN apt-get install -y --no-install-recommends reprepro flex gawk devscripts \
+    pkg-config libbz2-dev libgsl23 libgsl-dev libcap-dev libxerces-c-dev \
+    libbluetooth-dev libnetcdf-dev libxmlrpcpp-dev libjsoncpp-dev xmlto \
+    libxerces-c-dev kmod rsync quilt linux-headers-4.4.6
+
+# Local packages
+# RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev
+
+RUN addgroup --gid $gid $group
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+
+RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+USER $user
+WORKDIR /home/$user
+
+RUN echo "umask 0002" >> .bashrc
+
+RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
