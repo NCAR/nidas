@@ -3,10 +3,10 @@ ARG hostarch=armel
 FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
-ARG user=builder
-ARG uid=1000
+ARG user=ads
+ARG uid=12900
 ARG group=eol
-ARG gid=1000
+ARG gid=1342
 
 # FROM line above "consumes" hostarch arg, unless we re-declare it header
 # But don't re-assign it!!!
@@ -30,8 +30,8 @@ RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid
 #ENV CROSS_ARCH $hostarch
 #RUN echo "CROSS_ARCH == $CROSS_ARCH"
 
-RUN apt-get -y update
-RUN apt-get -y --only-upgrade install eol-scons
+# RUN apt-get -y update || echo "failed"
+RUN apt-get -y update || echo "update failed" && apt-get --force-yes -y --no-install-recommends install eol-scons
 
 # add boost-regex/filesystem
 RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
@@ -43,20 +43,23 @@ RUN apt-get -y install libi2c-dev
 
 # install ftdi and depends libusb-1.0
 RUN apt-get -y install wget
-RUN apt-get -y install cmake
-RUN apt-get -y install libusb-1.0:${hostarch}
+# RUN apt-get -y install cmake
+# RUN apt-get -y install libusb-1.0:${hostarch}
 # reprepro is a debian repo maintenance command
-RUN apt-get -y install reprepro
+RUN apt-get -y install reprepro xmlto rsync
 
 ENV CROSS_ARCH=$hostarch
+
+RUN addgroup --gid $gid $group || echo "add group failed"
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
 USER $user
 WORKDIR /home/$user
 
-RUN mkdir -p libftdi
-COPY ./build-libftdi-pkg.sh libftdi
-COPY ./crosstoolchain-$hostarch.cmake libftdi
-RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
+# RUN mkdir -p libftdi
+# COPY ./build-libftdi-pkg.sh libftdi
+# COPY ./crosstoolchain-$hostarch.cmake libftdi
+# RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
 
 # Everything commented out below should already be in the image in the FROM line above
 #RUN apt-get update
@@ -80,10 +83,8 @@ RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
 # a correct pkg-config file for cross building.
 #RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
 
+
 # viper, titan headers
 #RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
-
-#RUN addgroup --gid $gid $group
-#RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
 #RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
