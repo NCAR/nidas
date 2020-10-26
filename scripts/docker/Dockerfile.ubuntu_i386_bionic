@@ -41,6 +41,9 @@ RUN apt-get -t bionic-backports install -y --no-install-recommends debhelper
 RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
+# Force override of libxerces-c3.2 from the EOL repo
+RUN printf "Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n" > /etc/apt/preferences.d/libxerces-c
+
 RUN addgroup --gid $gid $group
 RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
@@ -49,7 +52,8 @@ RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
 USER $user
 WORKDIR /home/$user
 
-RUN echo "umask 0002" >> .bashrc
+# GPG_TTY is needed for package signing
+RUN printf "umask 0002\nexport GPG_TTY=$(tty)" >> .bashrc
 
 RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
 
@@ -57,8 +61,10 @@ RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons sit
 # You have to do "apt-get update && apt-get install", so that if you
 # add a package to the list, the update will be performed.
 # We're now running as a non-root user, so use sudo.
-# Get linux-headers-4.4.6 from EOL repo
+# Get linux-headers-4.4.6 from EOL repo. 
+# Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
+# will be fetched and possibly downgraded from EOL repository.
 RUN [ $dolocal = yes ] && sudo apt-get update && \
-    sudo apt-get install -y --no-install-recommends \
-    linux-headers-4.4.6 eol-scons eol-repo
+    sudo apt-get install -y --no-install-recommends --allow-downgrades \
+    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2
 

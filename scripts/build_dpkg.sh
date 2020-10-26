@@ -141,7 +141,6 @@ $sdir/deb_changelog.sh > debian/changelog
 #       This seems to be the result of having multiple libraries 
 #       in one package?
 
-karg=
 args="$args -us -uc"
 
 # clean old results
@@ -159,11 +158,11 @@ if $use_chroot; then
         set -e
         [ -f $HOME/.gpg-agent-info ] && . $HOME/.gpg-agent-info
         export GPG_AGENT_INFO
-        debuild $args "$karg" \
+        debuild $args \
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args "$karg" \
+    debuild $args \
         --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 fi
 
