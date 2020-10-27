@@ -675,7 +675,22 @@ class SampleToDatabase
         {
             sitename = stag->getSuffix();
             sitename.erase(0,1);
+            // Use site as measurement name also, since there is only one
+            // sensor for each site (at this point).
+            measurementName = sitename;
         }
+        if (measurementName.empty())
+        {
+            defaultMeasurementName(stag);
+        }
+    }
+
+    /**
+     * Generate a default measurement name for SampleTag @p stag.
+     **/
+    void
+    defaultMeasurementName(const SampleTag* stag)
+    {
         // We want to use a canonical name for the kind of sensor which is
         // reporting these measurements.  The best candidate is the idref
         // name from the XML, if that is set, also known as the catalog
