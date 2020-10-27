@@ -108,12 +108,20 @@ gnupg=$(eval realpath ~${hostuser})/.gnupg
 # Docker can still mount it however.
 gpgopt="--volume $gnupg:/home/ads/${gnupg##*/}:rw$zopt"
 
-# In case of a version mismatch between gpg2/reprepro
-# in the container and gpg-agent on the host, shutdown
-# the gpg-agent on the host, so that it will be started
-# in the container.
-echo "Shutting down gpg-agent on the host"
-echo killagent | gpg-connect-agent
+# Avoid version mismatch between gpg2/reprepro
+# in the container and gpg-agent on the host.
+# If running old gpg2 version 2.0 in the container, it
+# will always start its own gpg-agent. If running gpg2 2.1
+# and later, it can talk to gpg-agent on the host if it
+# is also version 2.1 and later (and if user ids match
+# and SELinux doesn't interfere).
+# A version mismatch results in:
+#     gpg: WARNING: server 'gpg-agent' is older than us (2.0.22 < 2.1.11)
+gpgver=$(gpg2 --version | head -n 1 | awk '{print $NF}')
+if [[ $gpgver == 2.0* ]]; then
+    echo "Shutting down gpg-agent on the host"
+    echo killagent | gpg-connect-agent
+fi
 
 echo "Running container as user $user, group $group.
 If $user isn't a valid user on this docker host, writing files to

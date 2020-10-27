@@ -88,3 +88,10 @@ WORKDIR /home/$user
 #RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
 
 #RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+# GPG_TTY is needed for package signing
+RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
+# start gpg-agent, use unique socket to avoid gpg2 version compatibility
+# between the host and the container.
+RUN printf 'eval $(gpg-agent --daemon --no-use-standard-socket)\n' >> .profile
+

@@ -42,7 +42,7 @@ RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic
 RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 # Force override of libxerces-c3.2 from the EOL repo
-RUN printf "Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n" > /etc/apt/preferences.d/libxerces-c
+RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' > /etc/apt/preferences.d/libxerces-c
 
 RUN addgroup --gid $gid $group
 RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
@@ -53,7 +53,7 @@ USER $user
 WORKDIR /home/$user
 
 # GPG_TTY is needed for package signing
-RUN printf "umask 0002\nexport GPG_TTY=$(tty)" >> .bashrc
+RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 
 RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
 

@@ -75,15 +75,23 @@ if [ -n "$repo" ]; then
         exit 1
     fi
     export GPG_TTY=$(tty)
-    # do a test signing.  gpg2 and reprepro contact the gpg-agent via
-    # the .gnupg/S.gpg-agent socket for the key passphrase.
-    # When running a Ubuntu xenial container on a RHEL7 host, there
-    # is a version mismatch between gpg2/reprepro in the container
-    # and the gpg-agent on the host:
-    #     gpg: WARNING: server 'gpg-agent' is older than us (2.0.22 < 2.1.11)
-    # A solution is to kill the agent:  echo killagent | gpg-connect-agent
-    # This can be done on the host before running the container, or I guess
-    # it could be done here in the container.
+
+    # Check that gpg-agent is running, and do a test signing,
+    # which also caches the passphrase.
+    # With gpg2 v2.1 and later, gpg-connect-agent /bye will start the
+    # agent if necessary and comms are done over the standard socket:
+    # $HOME/.gnupg/S.gpg-agent.
+    #
+    # It may contact the gpg-agent on the host over
+    # the unix socket in .gnupg if many things are OK:
+    #   compatible gpg2 version, same user ids, SELinux not interfering
+    # With gpg2 v2.1 and later, gpg-connect-agent will start gpg-agent
+    # if necessary.
+    # On gpg2 v2.0 (debian jessie) one needs to start the
+    # agent and use the value of GPG_AGENT_INFO that is returned to
+    # determine the path to the socket.
+    gpg-connect-agent /bye 2> /dev/null || eval $(gpg-agent --daemon)
+
     echo test | gpg2 --clearsign --default-key "$key" > /dev/null
 fi
 
