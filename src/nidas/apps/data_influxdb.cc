@@ -235,19 +235,41 @@ public:
             _url.erase(_url.length() - 1);
         }
     }
-        
+
     void
     setDatabase(const std::string& dbname)
     {
         _dbname = dbname;
     }
 
+    /**
+     * Set @p username to use for the http connection.  If @p passwordfile
+     * is not empty, then open the file at the given path to read the
+     * password.
+     **/
     void
-    setUser(const std::string& username, const std::string& password)
+    setUser(const std::string& username, const std::string& passwordfile)
     {
         _username = username;
-        _password = password;
-
+        if (!passwordfile.empty())
+        {
+            _password = "";
+            std::ifstream pin(passwordfile.c_str());
+            if (pin)
+                std::getline(pin, _password);
+            pin.close();
+            if (_password.empty())
+            {
+                throw NidasAppException("password could not be read: " +
+                                        passwordfile);
+            }
+            ILOG(("") << "username: " << _username
+                      << "; password read from file: " << passwordfile);
+        }
+        else
+        {
+            ILOG(("") << "username: " << _username << "; no password file");
+        }
     }
 
     std::string
@@ -1112,7 +1134,8 @@ DataInfluxdb::DataInfluxdb() :
     User("-u,--user", "username",
          "Username if required for http authentication."),
     Password("-p,--password", "password",
-             "Password if required for http authentication."),
+             "Path to file containing password, "
+             "if required for http authentication."),
     _db()
 {
     app.setApplicationInstance();
