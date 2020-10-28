@@ -46,7 +46,7 @@ RUN apt-get -y install wget
 # RUN apt-get -y install cmake
 # RUN apt-get -y install libusb-1.0:${hostarch}
 # reprepro is a debian repo maintenance command
-RUN apt-get -y install reprepro xmlto rsync
+RUN apt-get -y install --no-install-recommends reprepro xmlto rsync
 
 ENV CROSS_ARCH=$hostarch
 
@@ -83,7 +83,6 @@ WORKDIR /home/$user
 # a correct pkg-config file for cross building.
 #RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
 
-
 # viper, titan headers
 #RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
 
@@ -91,7 +90,8 @@ WORKDIR /home/$user
 
 # GPG_TTY is needed for package signing
 RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
-# start gpg-agent, use unique socket to avoid gpg2 version compatibility
-# between the host and the container.
-RUN printf 'eval $(gpg-agent --daemon --no-use-standard-socket)\n' >> .profile
+# start gpg-agent, using unique socket to avoid gpg2 version compatibility
+# with host. gpg-agent returns value for GPG_AGENT_INFO which has the name
+# of the socket.  .profile is not sourced on startup, only .bashrc.
+RUN printf 'gpg-connect-agent /bye 2>/dev/null || eval $(gpg-agent --daemon --no-use-standard-socket)\n' >> .bashrc
 

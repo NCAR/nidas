@@ -94,6 +94,10 @@ esconsdir=$PWD/../eol_scons
 daqdir=$PWD/../embedded-daq
 [ -d $daqdir ] && daqopt="--volume $daqdir:/home/ads/embedded-daq:rw$zopt"
 
+# if nc-server is cloned next to nidas then mount that too
+ncsdir=$PWD/../nc-server
+[ -d $ncsdir ] && ncsopt="--volume $ncsdir:/home/ads/${ncsdir##*/}:rw$zopt"
+
 repo=/net/ftp/pub/archive/software/debian
 [ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
 
@@ -137,6 +141,7 @@ exec docker run --rm --user $user:$group \
     --volume $PWD:/home/ads/nidas:rw$zopt \
     --volume /opt/nidas:/opt/nidas:rw$zopt \
     $repoopt $embopt $gpgopt $daqopt $cmig3opt $esconsopt \
+    $ncsopt \
     --network=host \
     -i -t $image /bin/bash
 
