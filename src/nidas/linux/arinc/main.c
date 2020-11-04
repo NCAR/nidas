@@ -289,9 +289,9 @@ static void arinc_sweep(struct timer_list* tlist)
 
         sample = GET_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         if (!sample) {           // no output sample available
-                dev->skippedSamples++;
-                KLOG_WARNING("%s: skippedSamples=%d\n",
-                             dev->deviceName, dev->skippedSamples);
+                if (!(dev->skippedSamples++ % 100))
+                        KLOG_WARNING("%s: skippedSamples=%d\n",
+                                     dev->deviceName, dev->skippedSamples);
                 goto resched;
         }
 
