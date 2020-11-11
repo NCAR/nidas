@@ -131,7 +131,7 @@ public:
      * @param tt NIDAS time tag to be adjusted.
      * @return Adjusted time tag.
      */
-    dsm_time_t adjust(dsm_time_t tt);
+    dsm_time_t adjust(dsm_time_t tt, bool debug=false);
 
     /**
      * Log various statistics of the TimetagAdjuster.
