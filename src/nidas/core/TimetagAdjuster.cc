@@ -24,7 +24,14 @@
  ********************************************************************
 */
 
+// #define DEBUG
+
 #include "TimetagAdjuster.h"
+#include <nidas/util/Logger.h>
+
+#ifdef DEBUG
+#include <nidas/util/UTime.h>
+#endif
 
 #include <cmath>
 #include <iostream>
@@ -36,13 +43,20 @@ using namespace std;
 TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
     float sampleGap):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
-    _dtUsec((unsigned int) ::rint(USECS_PER_SEC / rate)),
-    _dtUsecActual((unsigned int) ::rint(USECS_PER_SEC / rate)),
-    _adjustUsec((unsigned int) adjustSecs * USECS_PER_SEC),
+    _dtUsec((unsigned int) ::lrint(USECS_PER_SEC / rate)),
+    _dtUsecCorr(_dtUsec),
+    // keep adjustSecs to less than 1/2 hour. It should be typically 
+    // less than 10 seconds.
+    _adjustUsec(::lrint(std::min(adjustSecs,1800.0f) * USECS_PER_SEC)),
     _nDt(0),
     _npts(_adjustUsec / _dtUsec),
     _tdiffminUsec(INT_MAX),
-    _dtGapUsec(::rint(_dtUsec * sampleGap))
+    _dtGapUsec(::lrint(_dtUsec * sampleGap)),
+    _nLargeAdjust(0),
+    _dtUsecCorrMin(INT_MAX), _dtUsecCorrMax(0),
+    _dtUsecCorrSum(0.0), _nCorrSum(0), _nResets(0),
+    _tadjMinUsec(INT_MAX), _tadjMaxUsec(INT_MIN),
+    _ntotalPts(0)
 {
 }
 
@@ -51,51 +65,92 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 
     int tdiff = tt - _tlast;
     _tlast = tt;
+    _ntotalPts++;
+#ifdef DEBUG
+    cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+        " tdiff=" << tdiff <<
+        " _tadjMaxUsec=" << _tadjMaxUsec << endl;
+#endif
     if (tdiff < 0 || tdiff > _dtGapUsec) {
         _tt0 = tt;
         _nDt = 0;
         _tdiffminUsec = INT_MAX;
         /* 10 points initially */
-        _npts = std::max(10U, std::min(10U, _adjustUsec / _dtUsec));
-        _dtUsecActual = _dtUsec;
+        _npts = 10;
+        _dtUsecCorr = _dtUsec;
+        _nResets++;
         return tt;
     }
 
     _nDt++;
 
-    /* Expected time from _tt0, assuming a fixed delta-T.
-     * max value in toff (32 bit int) is 4.2*10^9 usecs, or
-     * 4200 seconds, which is over an hour. So 32 bit int
-     * should be large enough.
-     * Could override user's value for adjustSecs in the constructor
-     * (or throw exception) if it's over an hour.
+    /* Expected time from _tt0, as an integral number of dt's.
+     * The max time diff in toff (32 bit unsigned int) is 2^32/10^6 = 
+     * 4294 seconds, over an hour. So 32 bit unsigned int
+     * should be large enough.  _adjustUsec is limited to 1800 sec
+     * and so _nDt will be less than 1800 / _dtUsecCorr.
      */
-    unsigned int toff = _nDt * _dtUsecActual;
+    unsigned int toff = _nDt * _dtUsecCorr;
 
     /* Expected time */
     dsm_time_t tt_est = _tt0 + toff;
 
-    /* time tag difference between actual and expected */
+    /* time tag difference between actual and expected, the
+     * correction that is being applied */
     tdiff = tt - tt_est;
+
+    if (tdiff > (signed)_dtUsec) {
+        _nLargeAdjust++;
+
+#ifdef DEBUG
+        cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+            " _npts=" << _npts << ", _nDt=" << _nDt <<
+            ", _dtUsecCorr=" << _dtUsecCorr <<
+            ", tdiff=" << tdiff << endl;
+#endif
+        // reduce the stats period by 10% since correction was large
+        _npts = std::max(10U, (unsigned int)::lrint(_npts * 0.9));
+    }
 
     /* minimum difference in this adjustment period. */
     _tdiffminUsec = std::min(tdiff, _tdiffminUsec);
 
-    if (_nDt == _npts) {
+    _tadjMinUsec = std::min(tdiff, _tadjMinUsec);
+    _tadjMaxUsec = std::max(tdiff, _tadjMaxUsec);
+
+    if (_nDt >= _npts) {
+#ifdef DEBUG
+        cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+            " _dtUsecCorr=" << _dtUsecCorr << 
+            " _nDt=" << _nDt << 
+            " _tdiffminUsec=" << _tdiffminUsec <<  endl;
+#endif
+
 	/* Adjust tt0 */
 	_tt0 = tt_est + _tdiffminUsec;
         tt_est = _tt0;
 
-        /* Tweak the sampling delta-T from the observed times. */
-        /* TODO: would be good to issue a warning if the adjusted
-         * delta-T is significantly different from the stated delta-T.
-         * Also would want to have the sample ID in the warning message.
+        /* Tweak the sampling dt using the minimum difference between
+         * the measured and the estimated time tags.
+         * If the minimum difference is positive, then the measured
+         * timetags are later than the estimated, and the estimated
+         * dt (_duUsecCorr) will be increased.
+         * The adjustment to _dtUsecCorr is gradual, the difference
+         * is divided ty _nDt to avoid wild changes.
          */
 
-        _dtUsecActual += (int) ::rint(_tdiffminUsec / _nDt);
-        _npts = std::max(10U, (unsigned int)::rint(_adjustUsec / _dtUsecActual));
+        _dtUsecCorr += (int) ::lrint(_tdiffminUsec / _nDt);
+        // at least 10 points
+        _npts = std::max(10U, (unsigned int)::lrint(_adjustUsec / _dtUsecCorr));
         _nDt = 0;
 	_tdiffminUsec = INT_MAX;
+
+        /* maintain some statistics on the correction */
+        _dtUsecCorrMin = std::min(_dtUsecCorrMin, _dtUsecCorr);
+        _dtUsecCorrMax = std::max(_dtUsecCorrMax, _dtUsecCorr);
+        _dtUsecCorrSum += _dtUsecCorr;
+        _nCorrSum++;
+
     }
 
 #ifdef DEBUG
@@ -110,4 +165,20 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 #endif
 
     return tt_est;
+}
+
+void TimetagAdjuster::log(int level, const DSMSensor* sensor,
+        dsm_sample_id_t id)
+{
+    // getNumResets() will be at least one if the adjuster
+    // has been called.
+    if (getNumResets() > 0) {
+        nidas::util::Logger::getInstance()->log(level, __FILE__, __PRETTY_FUNCTION__, __LINE__,
+            "ttadjust: %s (%d,%d): min,max: %8.4f,%8.4f, dt min,max,avg: %8.4f,%8.4f,%11.7f, rate cfg,obs,diff: %6.2f,%9.5f,%6.2f, nAdj > dt: %u, #resets: %u, #points: %u",
+            sensor->getName().c_str(), GET_DSM_ID(id), GET_SPS_ID(id),
+            getAdjMin(), getAdjMax(),
+            getDtMin(), getDtMax(), getDtAvg(),
+            getRate(), 1.0 / getDtAvg(), getRate()- 1.0 / getDtAvg(),
+            getNumLargeAdjust(), getNumResets()-1, getNumPoints());
+    }
 }

@@ -27,7 +27,8 @@
 #ifndef NIDAS_CORE_TIMETADJUSTER_H
 #define NIDAS_CORE_TIMETADJUSTER_H
 
-#include "Sample.h"
+#include "SampleTag.h"
+#include "DSMSensor.h"
 
 namespace nidas { namespace core {
 
@@ -59,7 +60,7 @@ namespace nidas { namespace core {
  * This value of tt[I] is returned as the adjusted time tag
  * from the adjust() method.
  *
- * The trick is to figure out what tt[0] is. To start off, and
+ * The trick is to figure out what tt[0] and dt are. To start off, and
  * after any gap or backwards time in the time series, tt[0] is
  * reset to the original time tag passed to adjust():
  *      I = 0
@@ -68,7 +69,7 @@ namespace nidas { namespace core {
  * adjust().
  *
  * Then over the next adjustment period, the difference between
- * the original and estimated time tag is computed:
+ * each measured and estimated time tag is computed:
  *      tdiff = ttorig[i] - tt[I]
  * tdiff is an estimate of any additional latency in the assignment
  * of the original time tag.  Over the adjustment period, the minimum
@@ -80,10 +81,22 @@ namespace nidas { namespace core {
  * where tt[N] is the last estimated time generated in the previous
  * adjustment period.
  *
+ * tdiff min is also used for a small correction to dt:
+ *      dt = dt + tdiffmin / N
+ * This correction to dt  corrects for a sensor clock that may
+ * not be exactly correct, so that the measured dt is different
+ * from what would be expected as dt=1/rate.
+ *
  * Using this simple method one can account for a slowly drifting
  * sensor clock, where (hopefully small) step changes are made after
  * every adjustment period to correct the accumulated time tag error
  * when the actual time delta of the samples differs from the stated dt.
+ *
+ * This adjustment algorithm assumes that the system clock is much
+ * more accurate than the variable sampling latency of the system,
+ * which is generally true when the data system is synced to a
+ * NTP stratum 1-3 server over a good network link, or to a directly
+ * connected reference clock, such as a GPS with a PPS.
  *
  * This method works if there are times during the adjustment period
  * where the system is able to respond very quickly to the receipt
@@ -92,7 +105,8 @@ namespace nidas { namespace core {
  * time series.
  *
  * The adjustment period is passed to the constructor, and is typically
- * something like 10 seconds.
+ * something like one second for sample rates over 1, and perhaps 10 seconds
+ * for a sample rate of 1 sps.
  *
  * The adjustment is reset as described above on a backwards time in
  * the original time series or on a data gap.
@@ -105,7 +119,7 @@ public:
     /**
      * Constructor
      * @param rate Sample rate in Hz, sec^-1.
-     * @param adjustSecs Number of seconds to compute minimum
+     * @param adjustSeconds Number of seconds to compute minimum
      *      latency jitter.
      * @param sampleGap Fractional number of sample time deltas
      *      to consider a gap, and a reset of the adjustment.
@@ -118,6 +132,61 @@ public:
      * @return Adjusted time tag.
      */
     dsm_time_t adjust(dsm_time_t tt);
+
+    /**
+     * Log various statistics of the TimetagAdjuster.
+     */
+    void log(int level, const DSMSensor* sensor, dsm_sample_id_t id);
+
+    /**
+     * Return the number of times an adjustment to a time tag has
+     * been greater than the configured delta-T.
+     */
+    unsigned int getNumLargeAdjust() const { return _nLargeAdjust; }
+
+    /**
+     * Return the number of ttadjust results so far.
+     * A reset of the ttadjust algrorithm happens when a measured
+     * delta-T (difference between a time tag and the previous)
+     * is greater than sampleGap seconds.
+     */
+    unsigned int getNumResets() const { return _nResets; }
+
+    /**
+     * Return the configured sample rate, as passed to constructor.
+     */
+    float getRate() const { return USECS_PER_SEC / (float) _dtUsec; }
+
+    /**
+     * Return the minimum calculated delta-T so far.
+     */
+    float getDtMin() const { return (float)_dtUsecCorrMin / USECS_PER_SEC; }
+
+    /**
+     * Return the maximum calculated delta-T so far.
+     */
+    float getDtMax() const { return (float)_dtUsecCorrMax / USECS_PER_SEC; }
+
+    /**
+     * Return the average calculated delta-T so far.  1.0 / getDtAvg() is the
+     * calculated sample rate.
+     */
+    double getDtAvg() const { return _dtUsecCorrSum / _nCorrSum / USECS_PER_SEC; }
+
+    /**
+     * Return the minimum adjustment to the measured time tags.
+     */
+    float getAdjMin() const { return (float)_tadjMinUsec / USECS_PER_SEC; }
+
+    /**
+     * Return the maximum adjustment to the measured time tags.
+     */
+    float getAdjMax() const { return (float)_tadjMaxUsec / USECS_PER_SEC; }
+
+    /**
+     * Total number of time tags processed.
+     */
+    unsigned int getNumPoints() const { return _ntotalPts; }
 
 private:
    
@@ -140,9 +209,9 @@ private:
     unsigned int _dtUsec;
 
     /**
-     * Actual delta-T in microseconds.
+     * Corrected delta-T in microseconds.
      */
-    unsigned int _dtUsecActual;
+    unsigned int _dtUsecCorr;
 
     /**
      * Adjustment period, how long to calculate the minimum
@@ -170,6 +239,20 @@ private:
      * causes a reset in the computation of estimated time tags.
      */
     int _dtGapUsec;
+
+    unsigned int _nLargeAdjust;
+
+    unsigned int _dtUsecCorrMin;
+    unsigned int _dtUsecCorrMax;
+    double _dtUsecCorrSum;
+    unsigned int _nCorrSum;
+
+    unsigned int _nResets;
+
+    int _tadjMinUsec;
+    int _tadjMaxUsec;
+
+    unsigned int _ntotalPts;
 
 };
 
