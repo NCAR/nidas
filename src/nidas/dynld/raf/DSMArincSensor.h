@@ -155,7 +155,7 @@ protected:
 
     /// A list of which samples are processed.
     int _processed[NLABELS];
-    int _labelCnt[NLABELS];
+    int _observedLabelCnt[NLABELS];
 
     bool _altaEnetDevice;
 

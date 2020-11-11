@@ -78,7 +78,7 @@ DSMArincSensor::DSMArincSensor() :
     for (unsigned int label = 0; label < NLABELS; label++)
     {
         _processed[label] = false;
-        _labelCnt[label] = 0;
+        _observedLabelCnt[label] = 0;
     }
 }
 
@@ -94,6 +94,15 @@ DSMArincSensor::~DSMArincSensor()
             delete tta;
         }
     }
+
+/* Debug output to show all labels that came from a sensor.
+
+    for (unsigned int label = 0; label < NLABELS; label++)
+        if (_observedLabelCnt[label] > 0)
+            std::cout << getName().c_str() << " (" << getDSMId() << ", " << getSensorId() + label
+              << ") \0" << std::oct << label << " : "
+              << std::dec << _observedLabelCnt[label] << std::endl;
+*/
 }
 
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
@@ -253,6 +262,7 @@ throw()
         //             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned int)0xffffff00) ));
 
         unsigned short label = pSamp[i].data & 0xff;
+        _observedLabelCnt[label]++;
         //     ILOG(("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label ));
 
         // Even if the user doesn't want to see a value (_processed[label] == false),
@@ -359,7 +369,7 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
         uint32_t data = pSamp[i].data;
         unsigned short label = ReverseBits[data & 0xff];
         data = (data & 0xffffff00) + label;
-_labelCnt[label]++;
+        _observedLabelCnt[label]++;
 
         // Even if the user doesn't want to see a value (_processed[label] == false),
         // we still want to process it.
