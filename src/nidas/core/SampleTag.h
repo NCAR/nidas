@@ -394,6 +394,7 @@ private:
 
     /**
      * How often to reset time tag adjustments.
+     * Initialized to -1.0.  Any value <= 0 means no time tag adjustments.
      */
     float _ttAdjustPeriod;
 

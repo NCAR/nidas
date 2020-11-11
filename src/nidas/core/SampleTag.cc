@@ -50,7 +50,7 @@ SampleTag::SampleTag():
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true),
-    _ttAdjustPeriod(0.0), _ttAdjustSampleGap(1.9)
+    _ttAdjustPeriod(-1.0), _ttAdjustSampleGap(1.9)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
@@ -61,7 +61,7 @@ SampleTag::SampleTag(const DSMSensor* sensor):
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true),
-    _ttAdjustPeriod(0.0), _ttAdjustSampleGap(1.9)
+    _ttAdjustPeriod(-1.0), _ttAdjustSampleGap(1.9)
 {
     setSensorId(_sensor->getId());
     setDSMId(_dsm->getId());
