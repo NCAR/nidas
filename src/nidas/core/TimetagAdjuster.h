@@ -136,7 +136,8 @@ public:
     /**
      * Log various statistics of the TimetagAdjuster.
      */
-    void log(int level, const DSMSensor* sensor, dsm_sample_id_t id);
+    void log(int level, const DSMSensor* sensor, dsm_sample_id_t id,
+            bool octalLable=true);
 
     /**
      * Return the number of times an adjustment to a time tag has
@@ -150,7 +151,9 @@ public:
      * delta-T (difference between a time tag and the previous)
      * is greater than sampleGap seconds.
      */
-    unsigned int getNumResets() const { return _nResets; }
+    unsigned int getNumBackwards() const { return _nBack; }
+
+    unsigned int getNumGaps() const { return _nGap; }
 
     /**
      * Return the configured sample rate, as passed to constructor.
@@ -247,7 +250,8 @@ private:
     double _dtUsecCorrSum;
     unsigned int _nCorrSum;
 
-    unsigned int _nResets;
+    unsigned int _nBack;
+    unsigned int _nGap;
 
     int _tadjMinUsec;
     int _tadjMaxUsec;

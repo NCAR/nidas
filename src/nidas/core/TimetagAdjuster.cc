@@ -42,7 +42,7 @@ using namespace std;
 
 TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
     float sampleGap):
-    _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
+    _tt0(0), _tlast(0),
     _dtUsec((unsigned int) ::lrint(USECS_PER_SEC / rate)),
     _dtUsecCorr(_dtUsec),
     // keep adjustSecs to less than 1/2 hour. It should be typically 
@@ -54,7 +54,8 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
     _dtGapUsec(::lrint(_dtUsec * sampleGap)),
     _nLargeAdjust(0),
     _dtUsecCorrMin(INT_MAX), _dtUsecCorrMax(0),
-    _dtUsecCorrSum(0.0), _nCorrSum(0), _nResets(0),
+    _dtUsecCorrSum(0.0), _nCorrSum(0),
+    _nBack(0), _nGap(0),
     _tadjMinUsec(INT_MAX), _tadjMaxUsec(INT_MIN),
     _ntotalPts(0)
 {
@@ -63,25 +64,30 @@ TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
 dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 {
 
+    if (_adjustUsec <= 0) return tt;
+
     int tdiff = tt - _tlast;
-    _tlast = tt;
     _ntotalPts++;
 #ifdef DEBUG
     cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
         " tdiff=" << tdiff <<
         " _tadjMaxUsec=" << _tadjMaxUsec << endl;
 #endif
-    if (tdiff < 0 || tdiff > _dtGapUsec) {
+    if (tdiff < 0) {
+        _nBack++;
+        return tt;
+    }
+    _tlast = tt;
+    if (tdiff > _dtGapUsec) {
         _tt0 = tt;
         _nDt = 0;
         _tdiffminUsec = INT_MAX;
         /* 10 points initially */
         _npts = 10;
-        _dtUsecCorr = _dtUsec;
-        _nResets++;
+        if (_ntotalPts == 1) _dtUsecCorr = _dtUsec;
+        _nGap++;
         return tt;
     }
-
     _nDt++;
 
     /* Expected time from _tt0, as an integral number of dt's.
@@ -168,17 +174,25 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 }
 
 void TimetagAdjuster::log(int level, const DSMSensor* sensor,
-        dsm_sample_id_t id)
+        dsm_sample_id_t id, bool octalLabel)
 {
-    // getNumResets() will be at least one if the adjuster
+    // getNumPoints() will be at least one if the adjuster
     // has been called.
-    if (getNumResets() > 0) {
+    if (getNumPoints() > 0) {
+        ostringstream ost;
+        ost << "ttadjust: " << sensor->getName() << '(' << GET_DSM_ID(id) <<
+            ',' << GET_SPS_ID(id);
+        if (octalLabel) {
+            int label = id - sensor->getId();
+            ost << " lab=" << setw(4) << setfill('0') << std::oct << label;
+        }
+        ost << ')';
         nidas::util::Logger::getInstance()->log(level, __FILE__, __PRETTY_FUNCTION__, __LINE__,
-            "ttadjust: %s (%d,%d): min,max: %8.4f,%8.4f, dt min,max,avg: %8.4f,%8.4f,%11.7f, rate cfg,obs,diff: %6.2f,%9.5f,%6.2f, nAdj > dt: %u, #resets: %u, #points: %u",
-            sensor->getName().c_str(), GET_DSM_ID(id), GET_SPS_ID(id),
+            "%s: min,max: %8.4f,%8.4f, dt min,max: %8.4f,%8.4f, rate cfg,obs,diff: %6.2f,%9.5f,%6.2f, nAdj > dt: %u, #back: %u, #gap: %u, #points: %u",
+            ost.str().c_str(),
             getAdjMin(), getAdjMax(),
-            getDtMin(), getDtMax(), getDtAvg(),
+            getDtMin(), getDtMax(),
             getRate(), 1.0 / getDtAvg(), getRate()- 1.0 / getDtAvg(),
-            getNumLargeAdjust(), getNumResets()-1, getNumPoints());
+            getNumLargeAdjust(), getNumBackwards(), getNumGaps()-1, getNumPoints());
     }
 }

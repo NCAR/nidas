@@ -90,7 +90,7 @@ DSMArincSensor::~DSMArincSensor()
         TimetagAdjuster* tta = tti->second;
         if (tta) {
             dsm_sample_id_t id = tti->first;
-            tta->log(nidas::util::LOGGER_INFO, this, id);
+            tta->log(nidas::util::LOGGER_INFO, this, id, true);
             delete tta;
         }
     }
@@ -208,11 +208,15 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
             }
             float ttper = ttadjustPeriod;
             float ttgap = ttadjustGap;
-            if (stag->getTimetagAdjustPeriod() > 0.0) {
+            /* The default value for stag->getTimetagAdjustPeriod() is -1.
+             * A value of 0 here means the user wants to override any
+             * value set by a ttadjust <parameter> for the sensor.
+             */
+            if (stag->getTimetagAdjustPeriod() >= 0.0) {
                 ttper = stag->getTimetagAdjustPeriod();
                 ttgap = stag->getTimetagAdjustSampleGap();
             }
-            if (ttper > 0.0 && stag->getRate() > 1.0) {
+            if (ttper > 0.0) {
                 _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getRate(), ttper, ttgap);
             }
         }
