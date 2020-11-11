@@ -30,6 +30,7 @@
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Parameter.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
@@ -71,7 +72,8 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters()
+    _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters(),
+    _ttadjusters()
 {
     for (unsigned int label = 0; label < NLABELS; label++)
     {
@@ -80,7 +82,18 @@ DSMArincSensor::DSMArincSensor() :
     }
 }
 
-DSMArincSensor::~DSMArincSensor() {
+DSMArincSensor::~DSMArincSensor()
+{
+    for (map<dsm_sample_id_t, TimetagAdjuster*>::const_iterator tti =
+            _ttadjusters.begin();
+        tti != _ttadjusters.end(); ++tti) {
+        TimetagAdjuster* tta = tti->second;
+        if (tta) {
+            dsm_sample_id_t id = tti->first;
+            tta->log(nidas::util::LOGGER_INFO, this, id);
+            delete tta;
+        }
+    }
 }
 
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
@@ -155,21 +168,44 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
 
+    float ttadjustPeriod = 0.0;
+    float ttadjustGap = 0.0;
+
+    const Parameter *parm = getParameter("ttadjust");
+    if (parm) {
+        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() != 2)
+            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length 2");
+        ttadjustPeriod = parm->getNumericValue(0);
+        ttadjustGap = parm->getNumericValue(1);
+    }
+
     list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
         SampleTag* stag = *si;
         unsigned short label = stag->getSampleId();
-        _processed[label] = stag->isProcessed();
-        if (stag->isProcessed() && getApplyVariableConversions()) {
-            for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
-                Variable& var = stag->getVariable(iv);
-                VariableConverter* vcon = var.getConverter();
-                if (vcon) {
-                    if (_converters.find(stag->getId()) != _converters.end())
-                        throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id, or init() is being called more than once");
-                    _converters[stag->getId()] = vcon;
+        // _processed[label] = stag->isProcessed();
+        _processed[label] = true;
+        if (true || stag->isProcessed()) {
+            if (getApplyVariableConversions()) {
+                for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
+                    Variable& var = stag->getVariable(iv);
+                    VariableConverter* vcon = var.getConverter();
+                    if (vcon) {
+                        if (_converters.find(stag->getId()) != _converters.end())
+                            throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id, or init() is being called more than once");
+                        _converters[stag->getId()] = vcon;
+                    }
                 }
+            }
+            float ttper = ttadjustPeriod;
+            float ttgap = ttadjustGap;
+            if (stag->getTimetagAdjustPeriod() > 0.0) {
+                ttper = stag->getTimetagAdjustPeriod();
+                ttgap = stag->getTimetagAdjustSampleGap();
+            }
+            if (ttper > 0.0 && stag->getRate() > 1.0) {
+                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getRate(), ttper, ttgap);
             }
         }
     }
@@ -261,6 +297,9 @@ throw()
         // sample id is sum of sensor id and label
         dsm_sample_id_t id = getId() + label;
 
+        TimetagAdjuster* ttadj = _ttadjusters[id];
+        if (ttadj) tt = ttadj->adjust(tt);
+
         // if there is a VariableConverter defined for this sample, apply it.
         if (_converters.find(id) != _converters.end())
             d = _converters[id]->convert(tt,d);
@@ -300,7 +339,6 @@ throw()
 
     return true;
 }
-
 
 bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results) throw()
 {
@@ -410,7 +448,6 @@ _labelCnt[label]++;
 
     return true;
 }
-
 
 void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 {
