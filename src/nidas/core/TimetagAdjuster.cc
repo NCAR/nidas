@@ -193,6 +193,6 @@ void TimetagAdjuster::log(int level, const DSMSensor* sensor,
             getAdjMin(), getAdjMax(),
             getDtMin(), getDtMax(),
             getRate(), 1.0 / getDtAvg(), getRate()- 1.0 / getDtAvg(),
-            getNumLargeAdjust(), getNumBackwards(), getNumGaps()-1, getNumPoints());
+            getNumLargeAdjust(), getNumBackwards(), getNumGaps(), getNumPoints());
     }
 }
