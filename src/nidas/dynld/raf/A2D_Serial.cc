@@ -311,13 +311,11 @@ bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 
     // Extract and compare with checksum sent.
     unsigned int ckSumSent;
-    sscanf((const char *)pos, "%x", &ckSumSent);
-    rc = (cksum == ckSumSent);
-    if (rc == false)
-            WLOG(("%s: bad SerialAnalog checksum at ", getName().c_str()) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-                ", #bad=" << ++_badCkSumCnt);
-
+    if (sscanf((const char *)pos, "%x", &ckSumSent) == 1) rc = (cksum == ckSumSent);
+    if (!rc)
+        WLOG(("%s: bad SerialAnalog checksum at ", getName().c_str()) <<
+            n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ", #bad=" << ++_badCkSumCnt);
     return rc;
 }
 
