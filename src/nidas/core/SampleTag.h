@@ -393,7 +393,7 @@ private:
     bool _enabled;
 
     /**
-     * How often to apply time tag adjustments.
+     * How often to reset time tag adjustments.
      */
     float _ttAdjustPeriod;
 

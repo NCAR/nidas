@@ -59,6 +59,10 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
 
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
+    if (_ttadjust) {
+	const SampleTag* tag = getSampleTags().front();
+        _ttadjust->log(nidas::util::LOGGER_INFO, this, tag->getId());
+    }
     delete _ttadjust;
 }
 

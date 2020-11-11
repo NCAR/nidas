@@ -75,6 +75,10 @@ CSAT3_Sonic::CSAT3_Sonic():
 
 CSAT3_Sonic::~CSAT3_Sonic()
 {
+    if (_ttadjuster) {
+	const SampleTag* tag = getSampleTags().front();
+        _ttadjuster->log(nidas::util::LOGGER_INFO, this, tag->getId());
+    }
     delete _ttadjuster;
 }
 

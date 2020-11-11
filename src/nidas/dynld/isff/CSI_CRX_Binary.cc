@@ -51,6 +51,10 @@ CSI_CRX_Binary::CSI_CRX_Binary():
 
 CSI_CRX_Binary::~CSI_CRX_Binary()
 {
+    if (_ttadjust) {
+	const SampleTag* tag = getSampleTags().front();
+        _ttadjust->log(nidas::util::LOGGER_INFO, this, tag->getId());
+    }
     delete _ttadjust;
 }
 
