@@ -184,9 +184,8 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
     for (si = tags.begin(); si != tags.end(); ++si) {
         SampleTag* stag = *si;
         unsigned short label = stag->getSampleId();
-        // _processed[label] = stag->isProcessed();
-        _processed[label] = true;
-        if (true || stag->isProcessed()) {
+        _processed[label] = stag->isProcessed();
+        if (stag->isProcessed()) {
             if (getApplyVariableConversions()) {
                 for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
                     Variable& var = stag->getVariable(iv);
