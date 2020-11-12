@@ -137,7 +137,7 @@ public:
      * Log various statistics of the TimetagAdjuster.
      */
     void log(int level, const DSMSensor* sensor, dsm_sample_id_t id,
-            bool octalLable=true);
+            bool octalLable=false);
 
     /**
      * Return the number of times an adjustment to a time tag has
