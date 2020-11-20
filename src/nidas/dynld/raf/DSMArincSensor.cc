@@ -177,15 +177,16 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
 
-    float ttadjustPeriod = 0.0;
     float ttadjustGap = 0.0;
+    float ttadjustPeriod = 0.0;
 
     const Parameter *parm = getParameter("ttadjust");
     if (parm) {
-        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() != 2)
-            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length 2");
-        ttadjustPeriod = parm->getNumericValue(0);
-        ttadjustGap = parm->getNumericValue(1);
+        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() > 2)
+            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length <=2");
+        ttadjustGap = parm->getNumericValue(0);
+        if (parm->getLength() > 1)
+            ttadjustPeriod = parm->getNumericValue(1);
     }
 
     list<SampleTag*>& tags = getSampleTags();
@@ -206,18 +207,18 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
                     }
                 }
             }
-            float ttper = ttadjustPeriod;
             float ttgap = ttadjustGap;
-            /* The default value for stag->getTimetagAdjustPeriod() is -1.
+            float ttper = ttadjustPeriod;
+            /* The default value for stag->getTimetagAdjustGap() is -1.
              * A value of 0 here means the user wants to override any
              * value set by a ttadjust <parameter> for the sensor.
              */
-            if (stag->getTimetagAdjustPeriod() >= 0.0) {
+            if (stag->getTimetagAdjustGap() >= 0.0) {
+                ttgap = stag->getTimetagAdjustGap();
                 ttper = stag->getTimetagAdjustPeriod();
-                ttgap = stag->getTimetagAdjustSampleGap();
             }
-            if (ttper > 0.0) {
-                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getRate(), ttper, ttgap);
+            if (ttgap > 0.0) {
+                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getRate(), ttgap, ttper);
             }
         }
     }

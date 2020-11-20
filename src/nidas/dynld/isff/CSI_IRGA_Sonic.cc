@@ -114,10 +114,10 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 
     const SampleTag* stag = tags.front();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
         _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+                stag->getTimetagAdjustGap(),
+                stag->getTimetagAdjustPeriod());
 
     _numOut = stag->getVariables().size();
 

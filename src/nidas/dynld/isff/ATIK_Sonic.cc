@@ -121,10 +121,10 @@ void ATIK_Sonic::checkSampleTags()
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
         _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+                stag->getTimetagAdjustGap(),
+                stag->getTimetagAdjustPeriod());
     /*
      * nvars
      * 7	u,v,w,tc,diag,spd,dir

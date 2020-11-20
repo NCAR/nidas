@@ -70,10 +70,10 @@ void CSI_CRX_Binary::validate()
     const SampleTag* stag = tags.front();
     _numOut = stag->getVariables().size();
     _sampleId = stag->getId();
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
         _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+                stag->getTimetagAdjustGap(),
+                stag->getTimetagAdjustPeriod());
 }
 
 unsigned short CSI_CRX_Binary::signature(const unsigned char* buf, const unsigned char* eob)

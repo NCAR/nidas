@@ -193,10 +193,10 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
 
-        if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0) {
+        if (tag->getTimetagAdjustGap() > 0.0 && tag->getRate() > 0.0) {
             _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
-                tag->getTimetagAdjustPeriod(),
-                tag->getTimetagAdjustSampleGap());
+                tag->getTimetagAdjustGap(),
+                tag->getTimetagAdjustPeriod());
         }
     }
 	
@@ -483,6 +483,6 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
     TimetagAdjuster* ttadj = _ttadjusters[stag];
     if (ttadj)
     {
-        outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
+        outs->setTimeTag(ttadj->adjust(outs->getTimeTag(),debug));
     }
 }

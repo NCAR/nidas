@@ -849,10 +849,10 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         if (_windSampleId == 0) {
             size_t nvars = stag->getVariables().size();
             _rate = (int)rint(stag->getRate());
-            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjustPeriod() > 0.0) 
+            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjustGap() > 0.0) 
                 _ttadjuster = new TimetagAdjuster(_rate,
-                        stag->getTimetagAdjustPeriod(),
-                        stag->getTimetagAdjustSampleGap());
+                        stag->getTimetagAdjustGap(),
+                        stag->getTimetagAdjustPeriod());
             _gapDtUsecs = 5 * USECS_PER_SEC;
 
             _windSampleId = stag->getId();

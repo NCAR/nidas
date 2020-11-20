@@ -40,39 +40,40 @@
 using namespace nidas::core;
 using namespace std;
 
-TimetagAdjuster::TimetagAdjuster(double rate, float adjustSecs,
-    float sampleGap):
+TimetagAdjuster::TimetagAdjuster(double rate, float sampleGap,
+    float adjustPeriod):
     _tt0(LONG_LONG_MIN), _tlast(LONG_LONG_MIN),
-    _dtUsec((unsigned int) ::lrint(USECS_PER_SEC / rate)),
+    _dtUsec((int) ::lrint(USECS_PER_SEC / rate)),
     _dtUsecCorr(_dtUsec),
-    // keep adjustSecs to less than 1/2 hour. It should be typically 
-    // less than 10 seconds.
-    _adjustUsec(::lrint(std::min(adjustSecs,1800.0f) * USECS_PER_SEC)),
+    // limit _dtGapUsec to less than an 1/2 hour
+    _dtGapUsec(::lrint(std::min(sampleGap, 1800.f) * USECS_PER_SEC)),
+    // limit _adjustUsec to less than an hour
+    _adjustUsec(std::max((int)::lrint(std::min(adjustPeriod,3600.f) * USECS_PER_SEC), _dtGapUsec*2)),
     _nDt(0),
     _npts(_adjustUsec / _dtUsec),
     _tdiffminUsec(INT_MAX),
-    _dtGapUsec(::lrint(_dtUsec * sampleGap)),
     _nLargeAdjust(0),
     _dtUsecCorrMin(INT_MAX), _dtUsecCorrMax(0),
     _dtUsecCorrSum(0.0), _nCorrSum(0),
     _nBack(0), _nGap(0),
     _tadjMinUsec(INT_MAX), _tadjMaxUsec(INT_MIN),
-    _ntotalPts(0)
+    _ntotalPts(0),
+    _ttEstLast(LONG_LONG_MIN),
+    _maxGap(0)
 {
 }
 
 dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
 {
-
-    if (_adjustUsec <= 0) return tt;
+    if (_dtGapUsec <= 0) return tt;
 
     _ntotalPts++;
 #ifdef DEBUG
     if (debug)
-        cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
-            ", " <<
+        cerr << "tt=" <<
+            nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+            ", _tlast=" <<
             nidas::util::UTime(_tlast).format(true, "%Y %m %d %H:%M:%S.%5f") <<
-            ", tt=" << tt << ", _tlast=" << _tlast <<
             ", _tadjMaxUsec=" << _tadjMaxUsec << endl;
 #endif
     if (tt < _tlast) {
@@ -81,49 +82,34 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
     }
     if (tt > _tlast + _dtGapUsec) {
         _tt0 = tt;
-        _tlast = tt;
         _nDt = 0;
         _tdiffminUsec = INT_MAX;
-        /* 10 points initially */
-        _npts = 10;
-        if (_ntotalPts == 1) _dtUsecCorr = _dtUsec;
-        _nGap++;
+        if (_ntotalPts > 1) {
+            _maxGap = std::max(_maxGap, tt - _tlast);
+            _nGap++;
+        }
+        _tlast = tt;
         return tt;
     }
     int tdiff = tt - _tlast;
     _tlast = tt;
     _nDt++;
 
-    /* Expected time from _tt0, as an integral number of dt's.
-     * The max time diff in toff (32 bit unsigned int) is 2^32/10^6 = 
-     * 4294 seconds, over an hour. So 32 bit unsigned int
-     * should be large enough.  _adjustUsec is limited to 1800 sec
-     * and so _nDt will be less than 1800 / _dtUsecCorr.
+    /* Compute estimated time, an integral number of dt's from _tt0.
+     * _adjustUsec is a maximum of 3600 sec and so _nDt * _dtUsecCorr
+     * will be less than 3600e6.  So toff as a 32 bit unsigned int
+     * should be large enough: 2^32 = 4294e6, over an hour.
      */
     unsigned int toff = _nDt * _dtUsecCorr;
 
-    /* Expected time */
-    dsm_time_t tt_est = _tt0 + toff;
+    /* Extimated time */
+    dsm_time_t ttEst = _tt0 + toff;
 
     /* time tag difference between actual and expected, the
      * correction that is being applied */
-    tdiff = tt - tt_est;
+    tdiff = tt - ttEst;
 
-    if (tdiff > (signed)_dtUsec) {
-        _nLargeAdjust++;
-
-#ifdef DEBUG
-        if (debug)
-            cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
-                " _npts=" << _npts << ", _nDt=" << _nDt <<
-                ", _dtUsecCorr=" << _dtUsecCorr <<
-                ", tdiff=" << tdiff << endl;
-#endif
-        // reduce the stats period by 10% since correction was large
-        _npts = std::max(10U, (unsigned int)::lrint(_npts * 0.9));
-    }
-
-    /* minimum difference in this adjustment period. */
+    /* smallest latency in this adjustment period. */
     _tdiffminUsec = std::min(tdiff, _tdiffminUsec);
 
     _tadjMinUsec = std::min(tdiff, _tadjMinUsec);
@@ -132,15 +118,25 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
     if (_nDt >= _npts) {
 #ifdef DEBUG
         if (debug)
-            cerr << nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+            cerr << "tt=" <<
+                nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+                ", _tt0=" <<
+                nidas::util::UTime(_tt0).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+                ", ttEst=" <<
+                nidas::util::UTime(ttEst).format(true, "%Y %m %d %H:%M:%S.%5f") <<
+                " _tdiffminUsec=" << _tdiffminUsec <<
                 " _dtUsecCorr=" << _dtUsecCorr << 
-                " _nDt=" << _nDt << 
-                " _tdiffminUsec=" << _tdiffminUsec <<  endl;
+                " _nDt=" << _nDt <<
+                endl;
 #endif
 
 	/* Adjust tt0 */
-	_tt0 = tt_est + _tdiffminUsec;
-        tt_est = _tt0;
+	_tt0 = ttEst + _tdiffminUsec;
+
+        ttEst = _tt0;
+
+        /* Don't allow backwards times */
+        if (ttEst < _ttEstLast) ttEst = _ttEstLast + 1;
 
         /* Tweak the sampling dt using the minimum difference between
          * the measured and the estimated time tags.
@@ -152,8 +148,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
          */
 
         _dtUsecCorr += (int) ::lrint(_tdiffminUsec / _nDt);
-        // at least 10 points
-        _npts = std::max(10U, (unsigned int)::lrint(_adjustUsec / _dtUsecCorr));
+        _dtUsecCorr = std::max(_dtUsecCorr, 1);
         _nDt = 0;
 	_tdiffminUsec = INT_MAX;
 
@@ -165,11 +160,11 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
 
     }
 
-#ifdef DEBUG
+#ifdef DEBUG2
     if (debug)
         cerr << std::fixed << std::setprecision(4) <<
             "tt=" << (tt % USECS_PER_DAY) * 1.e-6 <<
-            ", tt_est=" << (tt_est % USECS_PER_DAY) * 1.e-6 <<
+            ", ttEst=" << (ttEst % USECS_PER_DAY) * 1.e-6 <<
             ", tdiff=" << tdiff * 1.e-6 << 
             ", _tt0=" << (_tt0 % USECS_PER_DAY) * 1.e-6 <<
             ", toff=" << toff * 1.e-6 <<
@@ -177,7 +172,8 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt, bool debug)
             ", _tdiffmin=" << _tdiffminUsec * 1.e-6 << endl;
 #endif
 
-    return tt_est;
+    _ttEstLast = ttEst;
+    return ttEst;
 }
 
 void TimetagAdjuster::log(int level, const DSMSensor* sensor,
@@ -195,11 +191,12 @@ void TimetagAdjuster::log(int level, const DSMSensor* sensor,
         }
         ost << ')';
         nidas::util::Logger::getInstance()->log(level, __FILE__, __PRETTY_FUNCTION__, __LINE__,
-            "%s: min,max: %8.4f,%8.4f, dt min,max: %8.4f,%8.4f, rate cfg,obs,diff: %6.2f,%9.5f,%6.2f, nAdj > dt: %u, #back: %u, #gap: %u, #points: %u",
+            "%s: min,max: %8.4f,%8.4f, dt min,max: %9.5f,%9.5f, rate cfg,obs,diff: %6.2f,%9.5f,%6.2f, nAdj > dt: %u, #back: %u, #gap: %u, maxgap: %7.2f, #points: %u",
             ost.str().c_str(),
             getAdjMin(), getAdjMax(),
             getDtMin(), getDtMax(),
             getRate(), 1.0 / getDtAvg(), getRate()- 1.0 / getDtAvg(),
-            getNumLargeAdjust(), getNumBackwards(), getNumGaps(), getNumPoints());
+            getNumLargeAdjust(), getNumBackwards(), getNumGaps(), getMaxGap(),
+            getNumPoints());
     }
 }

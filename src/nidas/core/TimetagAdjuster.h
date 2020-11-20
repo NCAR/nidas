@@ -119,12 +119,12 @@ public:
     /**
      * Constructor
      * @param rate Sample rate in Hz, sec^-1.
-     * @param adjustSeconds Number of seconds to compute minimum
-     *      latency jitter.
-     * @param sampleGap Fractional number of sample time deltas
-     *      to consider a gap, and a reset of the adjustment.
+     * @param sampleGap Number of seconds to consider a gap.  Adjustments are
+     *  reset after a gap.
+     * @param adjustPeriod Adjust the base time and dt every adjust period.
+     *      If 0, defaults to sampleGap * 2.
      */
-    TimetagAdjuster(double rate, float adjustSecs, float sampleGap);
+    TimetagAdjuster(double rate, float sampleGap, float adjustPeriod);
 
     /**
      * Adjust a time tag.
@@ -191,6 +191,12 @@ public:
      */
     unsigned int getNumPoints() const { return _ntotalPts; }
 
+    /**
+     * Maximum data gap in seconds greater than the sampleGap parameter
+     * passed to the constructor.
+     */
+    float getMaxGap() const { return (float) _maxGap / USECS_PER_SEC; }
+
 private:
    
     /**
@@ -214,13 +220,19 @@ private:
     /**
      * Corrected delta-T in microseconds.
      */
-    unsigned int _dtUsecCorr;
+    int _dtUsecCorr;
+
+    /**
+     * A gap in the original time series more than this value
+     * causes a reset in the computation of estimated time tags.
+     */
+    int _dtGapUsec;
 
     /**
      * Adjustment period, how long to calculate the minimum
      * latency jitter before applying the correction.
      */
-    unsigned int _adjustUsec;
+    int _adjustUsec;
 
     /**
      * Current number of delta-Ts from tt0.
@@ -233,20 +245,15 @@ private:
     int _npts;
 
     /**
-     * Minimum diffence between actual time tags and expected.
+     * Minimum diffence between actual time tags and expected,
+     * over _adjustUsec or _npts.
      */
     int _tdiffminUsec;
 
-    /**
-     * A gap in the original time series more than this value
-     * causes a reset in the computation of estimated time tags.
-     */
-    int _dtGapUsec;
-
     unsigned int _nLargeAdjust;
 
-    unsigned int _dtUsecCorrMin;
-    unsigned int _dtUsecCorrMax;
+    int _dtUsecCorrMin;
+    int _dtUsecCorrMax;
     double _dtUsecCorrSum;
     unsigned int _nCorrSum;
 
@@ -257,6 +264,10 @@ private:
     int _tadjMaxUsec;
 
     unsigned int _ntotalPts;
+
+    dsm_time_t _ttEstLast;
+
+    long long _maxGap;
 
 };
 
