@@ -135,6 +135,8 @@ private:
 
     const n_u::EndianConverter* fromLittle;
 
+    dsm_time_t prev_tt;
+ 
     float warntime;
     bool showdeltat;
     bool showlen;
@@ -173,6 +175,7 @@ DumpClient::DumpClient(const SampleMatcher& matcher, format_t fmt,
     ostr(outstr),
     fromLittle(n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN)),
+    prev_tt(0),
     warntime(0.0),
     showdeltat(true),
     showlen(true),
@@ -228,7 +231,6 @@ DumpClient::setfield(std::ostream& out, const std::string& name, int width)
     }
     if (!csv)
     {
-        DLOG(("field ") << name << " width set to " << width);
         out << setw(width);
     }
     return out;
@@ -341,10 +343,7 @@ DumpClient::receive(const Sample* samp) throw()
     }
 
     dsm_time_t tt = samp->getTimeTag();
-    static dsm_time_t prev_tt = 0;
     dsm_sample_id_t sampid = samp->getId();
-
-    setfield(ostr, "datetime") << n_u::UTime(tt).format(true, timeformat);
 
     double tdiff = 0.0;
     if (prev_tt != 0)
@@ -357,6 +356,8 @@ DumpClient::receive(const Sample* samp) throw()
                  << endl;
         }
     }
+    setfield(ostr, "datetime") << n_u::UTime(tt).format(true, timeformat);
+
     ostr << setprecision(4);
     if (showdeltat)
     {
