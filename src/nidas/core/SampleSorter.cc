@@ -131,10 +131,11 @@ SampleSorter::~SampleSorter()
     }
     _samples.clear();
 
-    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec, discarded=%d",
-          getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
-          (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC,
-          _discardedSamples));
+    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec,"
+          " discarded=%d, early=%d",
+          getName().c_str(), (double)_maxSorterLengthUsec / USECS_PER_SEC,
+          (double)(_maxSorterLengthUsec - _sorterLengthUsec) / USECS_PER_SEC,
+          _discardedSamples, _earlySamples));
 }
 
 /**
