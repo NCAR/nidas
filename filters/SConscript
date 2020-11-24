@@ -13,11 +13,10 @@ a2dfilts = Split("""
     fir5KHz.cfg
 """)
 
-env.Install('$PREFIX/firmware', a2dfilts)
-
-env.Clean(['install','arm_install'], [
-    '$PREFIX/firmware/' + l for l in a2dfilts
-    ])
-
-
-                                                
+# Only install the firmware when linux modules are enabled.  LINUX_MODULES
+# is enabled by default.
+if env.get("LINUX_MODULES", True):
+    env.Install('$PREFIX/firmware', a2dfilts)
+    env.Clean(['install','arm_install'], [
+        '$PREFIX/firmware/' + l for l in a2dfilts
+        ])
