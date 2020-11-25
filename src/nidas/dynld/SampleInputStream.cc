@@ -437,7 +437,7 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
         // found.  Skip the header and consider it parsed if that is enabled.
         if (!_bsf.skipNidasHeader())
         {
-            throw n_u::IOException(getName(),"read header",e.what());
+            throw n_u::IOException(getName(), "read header", e.what());
         }
         ELOG(("skipping header: ") << e.what());
         _inputHeaderParsed = true;
@@ -488,8 +488,8 @@ handleNewInput()
     size_t offset = _iostream->getNumInputBytes();
     _iostream->backup();
     size_t start = _iostream->getNumInputBytes();
-    DLOG(("new input detected after reading ")
-        << offset << " bytes, backed up to offset " << start);
+    DLOG(("") << getName() << ": new input detected after reading "
+         << offset << " bytes, backed up to offset " << start);
     _inputHeaderParsed = false;
 }
 
@@ -765,6 +765,14 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
                 out = _sampPending;
                 _sampPending = 0;
                 return out;
+            }
+            // If the read of a sample header reached a new input, then we may
+            // have to try again to read an input header.
+            if (!_inputHeaderParsed && keepreading)
+            {
+                DLOG(("") << getName()
+                 << ": restarting sample read to read input header");
+                continue;
             }
 
             // We didn't get all of a header yet, keepreading must have been
