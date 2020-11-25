@@ -411,12 +411,12 @@ void NidsMerge::printHeader()
 }
 
 /**
-    receiveAllowedDsm writes the passed sample to the passed stream if the
-    DSM id of the sample is in allowed_dsms.  If allowed_dsms is empty, the
-    sample is written to the stream.  Returns whatever
-    stream.receive(sample) returns if the sample's DSM is in the correct
-    range, otherwise false,
-*/
+ * receiveAllowedDsm writes the passed sample to the stream if the DSM id of
+ * the sample is in allowed_dsms.  If allowed_dsms is empty, the sample is
+ * written to the stream.  Returns whatever stream.receive(sample) returns,
+ * or else true, so a return of false means the write to the output stream
+ * failed.
+ **/
 bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sample)
 {
     if (allowed_dsms.size() == 0)
@@ -430,7 +430,7 @@ bool NidsMerge::receiveAllowedDsm(SampleOutputStream &stream, const Sample * sam
         if (*i == want) 
             return stream.receive(sample);
     }
-    return false;
+    return true;
 }
 
 inline std::string
@@ -454,12 +454,11 @@ NidsMerge::flushSorter(dsm_time_t tcur,
 
     for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
         const Sample *s = *si;
-        // Not sure why the time needs to be checked again, since a
-        // sample is not inserted into the set if the time precedes
-        // the start time.
-        if (s->getTimeTag() >= startTime.toUsecs())
-            receiveAllowedDsm(outStream, s);
+        bool ok = receiveAllowedDsm(outStream, s);
         s->freeReference();
+        if (!ok)
+            throw n_u::IOException("send sample",
+                "Send failed, output disconnected.");
     }
 
     // remove samples from sorted set
