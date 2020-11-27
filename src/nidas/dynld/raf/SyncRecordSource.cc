@@ -158,7 +158,7 @@ void SyncInfo::addVariable(const Variable* var)
 {
     size_t vlen = var->getLength();
     varLengths.push_back(vlen);
-    varOffsets.push_back(0);
+    varOffsets.push_back(sampleLength);
     sampleLength += vlen * nSlots;
     variables.push_back(var);
 }
