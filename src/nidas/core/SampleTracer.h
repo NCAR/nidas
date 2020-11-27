@@ -22,7 +22,7 @@ namespace nidas { namespace core {
 class SampleTracer
 {
 public:
-    SampleTracer();
+    SampleTracer(int level, const char* file, const char* function, int line);
 
     inline bool
     active(const Sample* samp)
@@ -76,10 +76,9 @@ private:
 
 };
 
-
 SampleTracer::
-SampleTracer() :
-    _context(LOG_VERBOSE, "trace_samples"),
+SampleTracer(int level, const char* file, const char* function, int line):
+    _context(level, file, function, line, "trace_samples"),
     _msg(&_context),
     _matcher()
 {

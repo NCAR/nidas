@@ -197,7 +197,7 @@ int SampleSorter::run() throw(n_u::Exception)
 
     static n_u::LogContext sslog(LOG_VERBOSE, "sample_sorter");
     static n_u::LogMessage ssmsg(&sslog);
-    static SampleTracer st;
+    static SampleTracer st(LOG_VERBOSE);
     dsm_time_t tlast = 0;
 
     _sampleSetCond.lock();

@@ -25,7 +25,6 @@
 */
 
 #include "SyncRecordGenerator.h"
-#include "DSMArincSensor.h"
 
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Version.h>

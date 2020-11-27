@@ -35,8 +35,13 @@
 
 namespace nidas {
 
+namespace util {
+class LogContext;
+}
+
 namespace core {
 class Variable;
+class SampleTracer;
 }
 
 namespace dynld { namespace raf {
@@ -44,6 +49,146 @@ namespace dynld { namespace raf {
 using namespace nidas::core;
 
 class Aircraft;
+
+/*
+ * Whether to define an explicit copy constructor
+ * and assignment op for SyncInfo. Some care is taken
+ * in the code to avoid copy and assignment. Define
+ * this to detect how often they are called.
+ */
+// #define EXPLICIT_SYNCINFO_COPY_ASSIGN
+
+/**
+ * Parameters needed for each sample to assemble and
+ * write a sync record.
+ */
+class SyncInfo
+{
+public:
+
+    /**
+     * Constructor.  Note there is not a default, no-arg constuctor.
+     */
+    SyncInfo(dsm_sample_id_t i, float r);
+
+#ifdef EXPLICIT_SYNCINFO_COPY_ASSIGN
+    /**
+     * Copy constructor.
+     */
+    SyncInfo(const SyncInfo&);
+    static unsigned int ncopy;
+
+    /**
+     * Assignment
+     */
+    SyncInfo& operator=(const SyncInfo&);
+    static unsigned int nassign;
+#endif
+
+    void addVariable(const Variable* var);
+
+    void advanceRecord(int last);
+
+    dsm_sample_id_t id;
+
+    /**
+     * Sampling rate of the sample.
+     */
+    float rate;
+
+    /**
+     * Smallest integer not less than rate, computed as ceil(rate).
+     * The number of slots for the sample in the sync record.
+     * For example, 13 for a sample rate of 12.5.
+     */
+    int nSlots;
+
+    /**
+     * Number of microseconds per sample,
+     * 1000000/rate, rounded to an integer.
+     */
+    int dtUsec;
+
+    /**
+     * Index of next slot for the sample in the current sync record.
+     */
+    int inext;
+
+    /**
+     * Index of current sync record for this sample.
+     */
+    int isync;
+
+    /**
+     * The time offset  of the first sample in the sync record.
+     * Times associated with samples in the sync record are
+     *  time[I] = sync_rec_time + offsetUsec + I * dtUsec;
+     * For I from 0 to (rateCeil-1), where sync_rec_time is the
+     * start of the second.
+     */
+    int offsetUsec;
+
+    /**
+     * Time span of samples written to current sync record.
+     * Keeping this sum is only necessary for non-integral
+     * sample rates.
+     * As each sample is placed in the sync record, dtSum
+     * is incremented by dtUsec:
+     *      dtSum += dtUsec;
+     * When it becomes greater than USEC_PER_SEC, then
+     *      dtSum %= USEC_PER_SEC
+     * and the current sample will be written to the first slot of
+     * the next sync record, which may leave a NaN for the last
+     * value in the current sync record.
+     * For example, using this method for a sample rate of
+     * 3.125 = 3 1/8, where nSlot=4, seven out of eight sync records
+     * will have a 3 data values and one NaN, and one out of eight sync
+     * records will have 4 data values.
+     */
+    int dtSum;
+
+    /**
+     * Number of values for each variable in the sample.
+     */
+    std::vector<size_t> varLengths;
+
+    /**
+     * Number of data values in one second: nSlots times the sum of
+     * the varLengths for the variables in the sample plus one for
+     * the time offset.
+     */
+    size_t sampleLength;
+
+    /**
+     * Offset of this sample in the sync record.  The first
+     * value for the sample is the time offset within the second,
+     * followed by the data values for each variable.
+     */
+    size_t sampleOffset;
+
+    /**
+     * Variables in the sample.
+     */
+    std::list<const Variable*> variables;
+
+    /**
+     * Offsets of the each variable in the sync record.
+     */
+    std::vector<size_t> varOffsets;
+
+    unsigned int discarded;
+
+    unsigned int overWritten;
+
+    unsigned int nskips;
+
+    unsigned int skipped;
+
+    unsigned int total;
+
+private:
+
+};
 
 class SyncRecordSource: public Resampler
 {
@@ -64,93 +209,112 @@ class SyncRecordSource: public Resampler
      * N is the sampling rate (#/sec) of all the variables
      * in the sample, rounded up to the next highest integer if the
      * rate is not integral.
-     * var[i] are the vector of values of the variable at time i
-     * in the record.  The vector may have more then one element,
+     * var0[i] are the vector of values of a variable at time i
+     * in the record.  The vector may have more then one value,
      * if for example the variable is a histogram.
      *
      * So a sync record is a 4D ragged array with the
-     * following dimensions, where time varies most rapidly:
+     * following dimensions, where last dimension varies most rapidly:
      *
-     *      syncrec[sample][var][time][element]
+     *      syncrec[nsamples][nvars][nSlots][varlen]
      *
-     * The number of elements may vary with each variable. The
-     * time dimension can vary between samples.
+     * nsamples is the number of different sample IDs in the configuration.
+     * nvars is the number of variables in a sample.
+     * varlen is the number of values for a sample of a variable,
+     * usually 1.
+     * nSlots is the number of samples per second for a variable/sample,
+     * rounded up if necessary.
      * toffset is like an initial variable in the sample with a time
-     * and element dimension of 1.
+     * and nvalue dimension of 1.
      *
      * Typical sampling rates are:
      *
-     * rate	usec/sample     N
+     * rate	usec/sample     nSlots
      *	1000	1000            1000
      *	100	10000           100
      *	50	20000           50
-     *  12.5	80000           13 (next highest integer)
+     *  12.5	80000           13  ARINC (next highest integer)
      *  10	100000          10
      *  8       125000          8
+     *  6.25    160000          7   ARINC
+     *  3.125   320000          4   ARINC
      *  3       333333 in-exact 3
+     *  1.5625  640000          2   ARINC
      *	1	1000000         1
-     *
-     * When a sync record is read, the timetags of the variables
-     * are re-constructed with the following information:
-     *  1. sync record sample time, the time at beginning of the second
-     *  2. time offset into the second for each sample, in microseconds
-     *  3. timeIndex of the variable, from 0 to (N-1)
      *
      * The information to unpack a sync record is stored in the
      * header, which is passed first to clients.
      *
-     * The timetags for each sample of a variable are then:
-     *    sampleTime = syncTime + toffset + (timeIndex * usecsPerSamp)
-     * Inverting this to compute the timeIndex:
-     *    timeIndex = (sampleTime - syncTime - toffset) / usecsPerSamp
-     * So that all samples, plus or minus 1/2 sample delta-T, are given
-     * the same timeIndex, we use:
-     *    timeIndex =
-     *    (sampleTime - syncTime - toffset + usecsPerSamp/2) / usecsPerSamp
+     * When a sync record is read, the timetags corresponding to the
+     * time slot of each variable value are re-constructed from:
+     *  1. sync record sample time, the time at beginning of the second
+     *  2. time offset into the second for each sample, in microseconds
+     *  3. timeIndex of the variable, from 0 to (N-1)
+     *
+     * The slot time tags are then:
+     *    sampleTime = syncTime + toffset + (timeIndex * dt)
      *
      * If the samples are not actually evenly spaced, then exact time
-     * information is lost in resampling into the sync record.  Data can also
-     * be lost, if two samples are near in time and so have the same
-     * resulting timeIndex.
+     * information is lost in resampling into the sync record.  Data samples
+     * can be discarded, or slots skipped in the output, if a sample time tag is
+     * more than NSLOT_LIMIT*dt from the slot time. 
      *
      * For example, assume these timetags for a 10 Hz variable, with some
      * usual timetag jitter:
      *
-     * sample times
-     * 00:00:00.09
-     * 00:00:00.18
-     * 00:00:00.32
-     * 00:00:00.38
-     * 00:00:00.50
-     * 00:00:00.52  major timetag jitter
-     * 00:00:00.71
-     * 00:00:00.79
-     * 00:00:00.92
-     * 00:00:01.01
+     * sample times dataval
+     * 00:00:00.09  0
+     * 00:00:00.18  1
+     * 00:00:00.32  2
+     * 00:00:00.60  3 gap, followed by closely spaced samples, typically
+     * 00:00:00.62  4 due to DSM latency.
+     * 00:00:00.65  5
+     * 00:00:00.71  6
+     * 00:00:00.79  7
+     * 00:00:01.20  8 big gap 0.41 sec
+     * 00:00:01.22  9
      *
      * The corresponding values will be put into a row of a sync
      * record whose time is 00:00:00. The time offset for the sample row
      * will be .09 sec (the offset of the first sample).
      *
-     * Placing this data in the sync record looses time information
-     * for all but the first sample. The re-created timetags will be
+     * Placing this data in the sync record loses time information
+     * for all but the first sample. The slot times in the sync record are
      * (syncTime + toffset + N * dT), where N=[0,9], and dT=0.1 sec:
      *
-     * re-created times difference(sec)
-     * 00:00:00.09       0.0
-     * 00:00:00.19      +0.1
-     * 00:00:00.29      -0.3
-     * 00:00:00.39      +0.1
-     * 00:00:00.49      -0.3 will contain value from 00:00:00.52
-     * 00:00:00.59      data will be NaN, a loss of data
-     * 00:00:00.69      -0.2
-     * 00:00:00.79       0.0
-     * 00:00:00.89      -0.3
-     * 00:00:00.99      -0.2
+     * As each sample is received, it is placed in the next slot in the
+     * sync record, unless its time tag differs from the slot time by
+     * more than NSLOT_LIMIT time dt.
      *
-     * Note that the original time tag for the last value was in the
-     * next second, but is placed in the sync record for the previous
-     * second.
+     * syncrec      dataval   time difference from actual sample time
+     * 00:00:00.09  0         0.0
+     * 00:00:00.19  1        +0.1
+     * 00:00:00.29  2        -0.3
+     * 00:00:00.39  3        -0.21   value from 00:00:00.60
+     * 00:00:00.49  4        -0.13   value from 00:00:00.62
+     * 00:00:00.59  5        -0.03   value from 00:00:00.65
+     * 00:00:00.69  6        -0.2
+     * 00:00:00.79  7         0.0
+     * 00:00:00.89  NaN             result of gap, diff of 0.31 sec
+     * 00:00:00.99  8        -0.21  value from 00:00:01.20
+     * 00:00:01.10  9         0.0   next record, offset of 0.10 sec
+     *
+     * A previous version of SyncRecordSource computed a slot time index
+     * for each sample
+     *    timeIndex = (sampleTime - syncTime - toffset + dt/2) / dt
+     * This resulted in an more loss of samples over gaps and latency jitter:
+     * 00:00:00.09  0    0.0
+     * 00:00:00.19  1   +0.1
+     * 00:00:00.29  2   -0.3
+     * 00:00:00.39  NaN 
+     * 00:00:00.49  NaN
+     * 00:00:00.59  4   data from 0.62
+     * 00:00:00.69  NaN
+     * 00:00:00.79  7   data from 0.79
+     * 00:00:00.89  NaN
+     * 00:00:00.99  NaN
+     * 00:00:01.22  NaN
+     *
      * The received samples are sorted in time before they are
      * placed in the sync record, but because a sample from the
      * next second may be placed in the previous sync record, we have
@@ -274,11 +438,41 @@ public:
     void
     preLoadCalibrations(dsm_time_t sampleTime) throw();
 
+    /**
+     * Maximum number of delta-Ts allowed between a sample time tag
+     * and its slot in the sync record.
+     */
+    static const int NSLOT_LIMIT = 3;
+
 protected:
 
     void init();
 
 private:
+
+    /**
+     * Compute the first time offset of a sample in a sync record.
+     */
+    int computeFirstOffset(const Sample* samp, const SyncInfo& sinfo);
+
+    /**
+     * Which time slot should sample be placed.
+     */
+    int computeSlotIndex(const Sample* samp, SyncInfo& sinfo);
+
+    void checkIndex(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer);
+
+    /**
+     * @return: 0: no change to sinfo, 1: sinfo changed, -1: bad sample time, discard.
+     */
+    int checkTime(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer,
+            nidas::util::LogContext& lc, int warn_times);
+
+    void slog(SampleTracer& stracer, const std::string& msg,
+        const Sample* samp, const SyncInfo& sinfo);
+
+    void log(nidas::util::LogContext& lc, const std::string& msg,
+            const Sample* samp, const SyncInfo& sinfo);
 
     SampleSourceSupport _source;
 
@@ -305,9 +499,6 @@ private:
 
     int advanceRecord(dsm_time_t timetag);
 
-    int
-    sampleIndexFromId(dsm_sample_id_t sampleId);
-
     /**
      * Construct all the sync record layout artifacts from the list of
      * variables set in _variables.  The layout includes settings like
@@ -321,72 +512,19 @@ private:
     layoutSyncRecord();
 
     /**
-     * A vector, with each element being a list of variables from a
-     * sample. The order of elements in the vector is the order
-     * of the variables in the sync record. By definition, every
-     * variable in a sample has the same sampling rate.
+     * Info kept for each sample in order to assemble and write sync records.
+     * Note there is not a default, no-arg constuctor for SyncInfo.
+     * So you can't do:
+     *      SyncInfo& sinfo = _syncInfo[id];
+     * which would need the no-arg constructor if the element is not found.
+     * Instead, do:
+     *      map<dsm_sample_id_t, SyncInfo>::iterator si = _syncInfo.find(id);
+     *      if (si != _syncInfo.end()) {
+     *          SyncInfo& sinfo = si->second;  // use reference to avoid copy
+     *          ...
+     *      }
      */
-    std::vector<std::list<const Variable*> > _varsByIndex;
-
-    /**
-     * A mapping between sample ids and sample indices. Sample indices
-     * range from 0 to the total number of different input samples -1.
-     * When we receive a sample, what is its sampleIndex.
-     */
-    std::map<dsm_sample_id_t, int> _sampleIndices;
-
-    /**
-     * For each sample, by its index, the sampling rate, rounded up to an
-     * integer.
-     */
-    std::vector<int> _intSamplesPerSec;
-
-    /**
-     * For each sample, the sampling rate, in floats.
-     */
-    std::vector<float> _rates;
-
-    /**
-     * For each sample, number of microseconds per sample,
-     * 1000000/rate, truncated to an integer.
-     */
-    std::vector<int> _usecsPerSample;
-
-    int _halfMaxUsecsPerSample;
-
-    /**
-     * For the first sample of each variable, its time offset
-     * in microseconds into the second.
-     */
-    std::vector<int> _offsetUsec[2];
-
-    /**
-     * Number of values of each sample in the sync record.
-     * This will be the rate * the number of values in each sample.
-     */
-    std::vector<size_t> _sampleLengths;
-
-    /**
-     * For each sample, its offset into the whole record.
-     */
-    std::vector<size_t> _sampleOffsets;
-
-    /**
-     * Offsets into the sync record of each variable in a sample,
-     * indexed by sampleId.
-     */
-    std::vector<int*> _varOffsets;
-
-    /**
-     * Lengths of each variable in a sample,
-     * indexed by sampleId.
-     */
-    std::vector<size_t*> _varLengths;
-
-    /**
-     * Number of variables in each sample.
-     */
-    std::vector<size_t> _numVars;
+    std::map<dsm_sample_id_t, SyncInfo> _syncInfo;
 
     /**
      * List of all variables in the sync record.
@@ -408,6 +546,8 @@ private:
      */
     int _current;
 
+    int _halfMaxUsecsPerSample;
+
     SampleT<double>* _syncRecord[2];
 
     double* _dataPtr[2];
@@ -416,15 +556,13 @@ private:
 
     std::ostringstream _headerStream;
 
-    int _badLaterTimes;
-
-    int _badEarlierTimes;
-
     const Aircraft* _aircraft;
 
     bool _initialized;
 
     int _unknownSampleType;
+
+    unsigned int _badLaterSamples;
 
     /** No copying. */
     SyncRecordSource(const SyncRecordSource&);
