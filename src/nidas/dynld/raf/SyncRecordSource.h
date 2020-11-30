@@ -598,17 +598,50 @@ public:
 
     int minLate;
 
+    /**
+     * See the comment below about minDiff. The minimum difference will
+     * never be more than minDiffInit.
+     * For integral sample rates it is simply
+     *      minDiffInit = dtUsec
+     * For non-integral rates it can be either
+     *      minDiffInit = dtUsec
+     *  or
+     *      minDiffInit = (nSlots * dtUsec) % USECS_PER_SEC
+     *  The first value results in output sample tags that are closer to the original
+     *  samples with cleaner delta-Ts between non-nan values, but last slot time in
+     *  a sync record may be in the next second. We now believe this isn't
+     *  an issue with nimbus, so we'll go with minDiffInit = dtUsec.
+     */
+    int minDiffInit;
+
+    /**
+     * The minimum difference between the sample time tags and their
+     * corresponding slot times is computed over the second.
+     * This value is written into the sync record as the offset for the
+     * samples within that second.
+     */
     int minDiff;
 
     int secCount;
 
     /**
-     * Insert a NaN in output if  (secCount % keepCount) != 0.
-     * This is initialized to (int)(1.0 / (1 - (nSlots-rate)))
-     * For example, for a rate of 3.125  (3 1/8), nSlots will be 4,
-     * and keepCount will be 8, so that 1 out of 8 sync records
-     * will be full for this sample, the other 7 will have a NaN
-     * value.
+     * keepCount provides a way to insert NaNs in sync records
+     * with non-integral rates.
+     * Insert a NaN in the final slot in the output sync record if
+     *  (secCount % keepCount) != 0
+     *
+     * keepCount is initialized to (int)(1.0 / (1 - (nSlots-rate)))
+     *
+     * rate     keepCount   (secCount % keepCount) ! = 0
+     * integral 1           never true, no skips
+     * 12.5     2           skip slot every other second
+     * 6.25     4           skip slot in 3 out of 4 seconds
+     * 3.125    8           skip slot in 7 out of 8
+     * 1.5625   1           never true (algorithm breaks down)
+     * If the modulus of secCount % keepCount
+     * is non-zero, then the last slot in the record is skipped, leaving
+     * a NaN.  Here are the values for some expected rates, including
+     * non-integral ARINC rates.
      */
     int keepCount;
 

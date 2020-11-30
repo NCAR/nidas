@@ -90,25 +90,14 @@ SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     iCheck(0),
     nCheck(std::max(std::max(nSlots, 2), 20)),
     minLate(INT_MAX),
-    minDiff(dtUsec),
+    // minDiffInit((nSlots == rate) ? dtUsec : (nSlots * dtUsec) % USECS_PER_SEC),
+    minDiffInit(dtUsec),
+    minDiff(minDiffInit),
     secCount(0),
     keepCount((int)(1.0 / (1 - (nSlots-rate)))),
+
     _srs(srs)
 {
-    /*
-     * keepCount is a way to insert NaNs in sync records
-     * with non-integral rates.  If the modulus of secCount % keepCount
-     * is non-zero, then the last slot in the record is skipped, leaving
-     * a NaN.  Here are the values for some expected rates, including
-     * non-integral ARINC rates.
-     *
-     * rate     keepCount   (secCount % keepCount) ! = 0
-     * integral 1           never true, no skips
-     * 12.5     2           skip slot every other second
-     * 6.25     4           skip slot in 3 out of 4 seconds
-     * 3.125    8           skip slot in 7 out of 8
-     * 1.5625   1           never true (algorithm breaks down)
-     */
 }
 
 #ifdef EXPLICIT_SYNCINFO_COPY_ASSIGN
@@ -137,6 +126,7 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     iCheck(other.iCheck),
     nCheck(other.nCheck),
     minLate(other.minLate),
+    minDiffInit(other.minDiffInit),
     minDiff(other.minDiff),
     secCount(other.secCount),
     keepCount(other.keepCount),
@@ -170,6 +160,7 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->iCheck = other.iCheck;
     this->nCheck = other.nCheck;
     this->minLate = other.minLate;
+    this->minDiffInit = other.minDiffInit;
     this->minDiff = other.minDiff;
     this->secCount = other.secCount;
     this->keepCount = other.keepCount;
@@ -220,8 +211,8 @@ bool SyncInfo::checkNonIntRateIncrement()
     if (islot == nSlots - 1) {
         if (secCount % keepCount) return incrementSlot();
         // no increment, check if we should
-        if (minDiff + islot * dtUsec > USECS_PER_SEC) {
-            secCount++;
+        if (minDiff + islot * dtUsec >= USECS_PER_SEC) {
+            secCount = 0;
             return incrementSlot();
         }
     }
@@ -849,7 +840,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
     bool ret = true;
     slog(stracer, "before checkTime: ", samp, sinfo);
 
-    if (sinfo.getSlotIndex() == 0) sinfo.minDiff = sinfo.dtUsec;
+    if (sinfo.getSlotIndex() == 0) sinfo.minDiff = sinfo.minDiffInit;
 
     // slot time of next sample in sync record
     dsm_time_t tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
