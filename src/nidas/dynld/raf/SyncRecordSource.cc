@@ -779,9 +779,6 @@ bool SyncRecordSource::prevRecord(SyncInfo& sinfo)
     n = prevRecordIndex(n);
     assert(_syncRecord[n]);
     sinfo.decrementRecord();
-#ifdef OLD_JUNK
-    sinfo.dtSum -= sinfo.dtUsec;
-#endif
     return true;
 }
 
@@ -1067,7 +1064,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     // First of this sample encounters, or the last sample was in
     // previous sync record which was written out. Restart
-    if (sinfo.getRecordIndex() < 0) sinfo.computeSlotIndex(samp);
+    if (sinfo.getSlotIndex() < 0) sinfo.computeSlotIndex(samp);
     // normal case increment, report if you can't.
     else if (!sinfo.incrementSlot()) {
         slog(stracer, "no next sync record",
