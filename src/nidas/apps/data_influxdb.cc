@@ -212,6 +212,27 @@ public:
         _curl(0),
         _post()
     {
+        _data = &_data1;
+    }
+
+    inline bool
+    isOpen()
+    {
+        return _curl;
+    }
+
+    /**
+     * Initialize for http database connections.  No database actions can be
+     * performed before this initialization happens, but the initialization
+     * only happens once.  This will be called implicitly by other methods
+     * which need http.  Do not call it if the database will not actually be
+     * used, such as when echo is enabled.
+     **/
+    void
+    open()
+    {
+        if (isOpen())
+            return;
         _curl = curl_easy_init();
         if (! _curl)
         {
@@ -221,7 +242,6 @@ public:
         curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, writeInfluxResult);
         curl_easy_setopt(_curl, CURLOPT_WRITEDATA, &_result);
         curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_errors);
-        _data = &_data1;
     }
 
     void
@@ -240,6 +260,12 @@ public:
     setDatabase(const std::string& dbname)
     {
         _dbname = dbname;
+    }
+
+    std::string
+    getDatabase()
+    {
+        return _dbname;
     }
 
     /**
@@ -312,8 +338,11 @@ public:
 
     ~InfluxDB()
     {
-        curl_easy_cleanup(_curl);
-        _curl = 0;
+        if (_curl)
+        {
+            curl_easy_cleanup(_curl);
+            _curl = 0;
+        }
     }
 
     std::string
@@ -360,6 +389,8 @@ public:
     bool
     sendData()
     {
+        if (!_echo && !isOpen())
+            open();
         if (!_errs.empty())
         {
             // We're in an error state, meaning some previous attempt to
@@ -847,6 +878,7 @@ createInfluxDB()
 {
     CURLcode res;
 
+    open();
     string url = getHostURL() + "/query?" + getAuth();
     string createDB = "q=CREATE+DATABASE+" + _dbname;
     string full = url + "&" + createDB;
@@ -1188,15 +1220,15 @@ parseRunstring(int argc, char **argv)
         }
 
         _db.setURL(URL.getValue());
-        if (Database.getValue().length() == 0)
-        {
-            throw NidasAppException("Database name must be "
-                                    "specified with --db.");
-        }
         _db.setDatabase(Database.getValue());
         _db.setCount(_count);
         _db.setEcho(Echo.asBool());
         _db.setUser(User.getValue(), Password.getValue());
+        if (!Echo.asBool() && _db.getDatabase().empty())
+        {
+            throw NidasAppException("Database name must be "
+                                    "specified with --db.");
+        }
         if (Async.getValue() != "yes" && Async.getValue() != "no")
             throw NidasAppException("--async must be 'yes' or 'no'.");
         _db.setAsync(Async.getValue() == "yes");
@@ -1238,7 +1270,7 @@ main(int argc, char **argv)
 
 class AutoProject
 {
-  public:
+public:
     AutoProject() { Project::getInstance(); }
     ~AutoProject() { Project::destroyInstance(); }
 };
