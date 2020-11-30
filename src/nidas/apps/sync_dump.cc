@@ -323,11 +323,11 @@ int SyncDumper::run()
 	     << var->getLongName() << "\"" << endl;
     }
 
-    dsm_time_t tt, ttlast=LONG_LONG_MIN;
+    dsm_time_t tt0, ttlast=LONG_LONG_MIN;
     vector<double> rec(numValues);
     try {
 	for (;;) {
-	    size_t len = reader.read(&tt,&rec.front(),numValues);
+	    size_t len = reader.read(&tt0,&rec.front(),numValues);
 	    if (interrupted) {
 		// reader.interrupt();
 		break;
@@ -339,9 +339,16 @@ int SyncDumper::run()
 #ifdef SYNC_RECORD_JSON_OUTPUT
 	    if (_dumpJSON.length())
 	    {
-	        write_sync_record_as_json(json, tt, &rec.front(), len, _vars);
+	        write_sync_record_as_json(json, tt0, &rec.front(), len, _vars);
 	    }
 #endif
+
+            if (tt0 <= ttlast)
+            {
+                cerr << "timetag=" << time_format(tt0)
+                     << " is less than or equal to previous "
+                     << time_format(ttlast) << endl;
+            }
 
 	    for (it = _vars.begin(); it != _vars.end(); ++it)
 	    {
@@ -354,18 +361,12 @@ int SyncDumper::run()
 		int vlen = var->getLength();
 
 		cout << " === " << var->getName()
-		     << " @ record:" << time_format(tt)
+		     << " @ record:" << time_format(tt0)
 		     << " === " << endl;
 		// cout << "lag= " << rec[lagoffset] << endl;
 
+                dsm_time_t tt = tt0;
 		if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
-		if (tt <= ttlast && _vars.size() == 1)
-		{
-		    cerr << "timetag=" << time_format(tt)
-			 << " is less than or equal to previous "
-			 << time_format(ttlast) << endl;
-		}
-
 		for (int i = 0; i < irate; i++) {
 		    ttlast = tt;
 		    cout << time_format(tt);
