@@ -50,145 +50,7 @@ using namespace nidas::core;
 
 class Aircraft;
 
-/*
- * Whether to define an explicit copy constructor
- * and assignment op for SyncInfo. Some care is taken
- * in the code to avoid copy and assignment. Define
- * this to detect how often they are called.
- */
-// #define EXPLICIT_SYNCINFO_COPY_ASSIGN
-
-/**
- * Parameters needed for each sample to assemble and
- * write a sync record.
- */
-class SyncInfo
-{
-public:
-
-    /**
-     * Constructor.  Note there is not a default, no-arg constuctor.
-     */
-    SyncInfo(dsm_sample_id_t i, float r);
-
-#ifdef EXPLICIT_SYNCINFO_COPY_ASSIGN
-    /**
-     * Copy constructor.
-     */
-    SyncInfo(const SyncInfo&);
-    static unsigned int ncopy;
-
-    /**
-     * Assignment
-     */
-    SyncInfo& operator=(const SyncInfo&);
-    static unsigned int nassign;
-#endif
-
-    void addVariable(const Variable* var);
-
-    void advanceRecord(int last);
-
-    dsm_sample_id_t id;
-
-    /**
-     * Sampling rate of the sample.
-     */
-    float rate;
-
-    /**
-     * Smallest integer not less than rate, computed as ceil(rate).
-     * The number of slots for the sample in the sync record.
-     * For example, 13 for a sample rate of 12.5.
-     */
-    int nSlots;
-
-    /**
-     * Number of microseconds per sample,
-     * 1000000/rate, rounded to an integer.
-     */
-    int dtUsec;
-
-    /**
-     * Index of next slot for the sample in the current sync record.
-     */
-    int inext;
-
-    /**
-     * Index of current sync record for this sample.
-     */
-    int isync;
-
-    /**
-     * The time offset  of the first sample in the sync record.
-     * Times associated with samples in the sync record are
-     *  time[I] = sync_rec_time + offsetUsec + I * dtUsec;
-     * For I from 0 to (rateCeil-1), where sync_rec_time is the
-     * start of the second.
-     */
-    int offsetUsec;
-
-    /**
-     * Time span of samples written to current sync record.
-     * Keeping this sum is only necessary for non-integral
-     * sample rates.
-     * As each sample is placed in the sync record, dtSum
-     * is incremented by dtUsec:
-     *      dtSum += dtUsec;
-     * When it becomes greater than USEC_PER_SEC, then
-     *      dtSum %= USEC_PER_SEC
-     * and the current sample will be written to the first slot of
-     * the next sync record, which may leave a NaN for the last
-     * value in the current sync record.
-     * For example, using this method for a sample rate of
-     * 3.125 = 3 1/8, where nSlot=4, seven out of eight sync records
-     * will have a 3 data values and one NaN, and one out of eight sync
-     * records will have 4 data values.
-     */
-    int dtSum;
-
-    /**
-     * Number of values for each variable in the sample.
-     */
-    std::vector<size_t> varLengths;
-
-    /**
-     * Number of data values in one second: nSlots times the sum of
-     * the varLengths for the variables in the sample plus one for
-     * the time offset.
-     */
-    size_t sampleLength;
-
-    /**
-     * Offset of this sample in the sync record.  The first
-     * value for the sample is the time offset within the second,
-     * followed by the data values for each variable.
-     */
-    size_t sampleOffset;
-
-    /**
-     * Variables in the sample.
-     */
-    std::list<const Variable*> variables;
-
-    /**
-     * Offsets of the each variable in the sync record.
-     */
-    std::vector<size_t> varOffsets;
-
-    unsigned int discarded;
-
-    unsigned int overWritten;
-
-    unsigned int nskips;
-
-    unsigned int skipped;
-
-    unsigned int total;
-
-private:
-
-};
+class SyncInfo;
 
 class SyncRecordSource: public Resampler
 {
@@ -420,6 +282,17 @@ public:
     void disconnect(SampleSource* source) throw();
 
     /**
+     * Construct all the sync record layout artifacts from the list of
+     * variables set in _variables.  The layout includes settings like
+     * variable lengths, sample indices, sample sizes and offsets, and
+     * rates.
+     *
+     * SyncRecordSource first generates the list of variables with
+     * selectVariablesFromProject() prior to calling init().
+     **/
+    void init();
+
+    /**
      * Generate and send a sync record header sample.  The sync record
      * should have been laid out already, but that happens when a source is
      * connected with connect(SampleSource*).  Typically sendSyncHeader()
@@ -433,7 +306,7 @@ public:
 
     bool receive(const Sample*) throw();
 
-    static const int NSYNCREC = 2;
+    // static const int NSYNCREC = 2;
 
     void
     preLoadCalibrations(dsm_time_t sampleTime) throw();
@@ -444,9 +317,36 @@ public:
      */
     static const int NSLOT_LIMIT = 3;
 
-protected:
+    /**
+     * Return the index into the next sync record.
+     */
+    static int nextRecordIndex(int i);
 
-    void init();
+    /**
+     * Return the index into the previous sync record. Since
+     * currently NSYNCREC==2, this return the same value
+     * as nextRecordIndex().
+     */
+    static int prevRecordIndex(int i);
+
+    /**
+     * If the previous sync record is non-null, do
+     * sinfo.decrementRecord().
+     */
+    bool prevRecord(SyncInfo& sinfo);
+
+    /**
+     * If the next sync record is non-null, do
+     * sinfo.incrementRecord().
+     */
+    bool nextRecord(SyncInfo& sinfo);
+
+    static const int NSYNCREC = 2;
+
+    /**
+     * Which time slot should a sample be placed.
+     */
+    int computeSlotIndex(const Sample* samp, SyncInfo& sinfo);
 
 private:
 
@@ -455,17 +355,12 @@ private:
      */
     int computeFirstOffset(const Sample* samp, const SyncInfo& sinfo);
 
-    /**
-     * Which time slot should sample be placed.
-     */
-    int computeSlotIndex(const Sample* samp, SyncInfo& sinfo);
-
-    void checkIndex(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer);
+    // void checkIndex(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer);
 
     /**
-     * @return: 0: no change to sinfo, 1: sinfo changed, -1: bad sample time, discard.
+     * @return: true OK, false: cannot place sample in either sync record.
      */
-    int checkTime(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer,
+    bool checkTime(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer,
             nidas::util::LogContext& lc, int warn_times);
 
     void slog(SampleTracer& stracer, const std::string& msg,
@@ -473,6 +368,9 @@ private:
 
     void log(nidas::util::LogContext& lc, const std::string& msg,
             const Sample* samp, const SyncInfo& sinfo);
+
+    void log(nidas::util::LogContext& lc, const std::string& msg,
+            const SyncInfo& sinfo);
 
     SampleSourceSupport _source;
 
@@ -495,21 +393,10 @@ private:
     sendSyncRecord();
 
     void
-    allocateRecord(int isync, dsm_time_t timetag);
+    allocateRecord(int irec, dsm_time_t timetag);
 
     int advanceRecord(dsm_time_t timetag);
 
-    /**
-     * Construct all the sync record layout artifacts from the list of
-     * variables set in _variables.  The layout includes settings like
-     * variable lengths, sample indices, sample sizes and offsets, and
-     * rates.
-     *
-     * SyncRecordSource first generates the list of variables with
-     * selectVariablesFromProject() prior to calling layoutSyncRecord().
-     **/
-    void
-    layoutSyncRecord();
 
     /**
      * Info kept for each sample in order to assemble and write sync records.
@@ -535,7 +422,7 @@ private:
 
     SampleTag _syncRecordDataSampleTag;
 
-    int _recSize;
+    size_t _recSize;
 
     dsm_time_t _syncHeaderTime;
 
@@ -569,6 +456,166 @@ private:
 
     /** No assignment. */
     SyncRecordSource& operator=(const SyncRecordSource&);
+
+};
+
+/*
+ * Whether to define an explicit copy constructor
+ * and assignment op for SyncInfo. Some care is taken
+ * in the code to avoid copy and assignment. Define
+ * this to detect how often they are called.
+ */
+#define EXPLICIT_SYNCINFO_COPY_ASSIGN
+
+/**
+ * Parameters needed for each sample to assemble and
+ * write a sync record.
+ */
+class SyncInfo
+{
+public:
+
+    /**
+     * Constructor.  Note there is not a default, no-arg constuctor.
+     */
+    SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs);
+
+#ifdef EXPLICIT_SYNCINFO_COPY_ASSIGN
+    /**
+     * Copy constructor.
+     */
+    SyncInfo(const SyncInfo&);
+    static unsigned int ncopy;
+
+    /**
+     * Assignment
+     */
+    SyncInfo& operator=(const SyncInfo&);
+    static unsigned int nassign;
+#endif
+
+    void addVariable(const Variable* var);
+
+    void advanceRecord(int last);
+
+    dsm_sample_id_t id;
+
+    /**
+     * Sampling rate of the sample.
+     */
+    float rate;
+
+    /**
+     * Smallest integer not less than rate, computed as ceil(rate).
+     * The number of slots for the sample in the sync record.
+     * For example, 13 for a sample rate of 12.5.
+     */
+    int nSlots;
+
+    /**
+     * Number of microseconds per sample,
+     * 1000000/rate, rounded to an integer.
+     */
+    int dtUsec;
+
+private:
+    /**
+     * Index of next slot for the sample in the current sync record.
+     */
+    int islot;
+
+    /**
+     * Index of current sync record for this sample.
+     */
+    int irec;
+
+public:
+
+    int getSlotIndex() const { return islot; }
+
+    bool incrementSlot();
+
+    bool decrementSlot();
+
+    bool checkNonIntRateIncrement();
+
+    void computeSlotIndex(const Sample* samp);
+
+    int getRecordIndex() const { return irec; }
+
+    void incrementRecord()
+    {
+        irec = _srs->nextRecordIndex(irec);
+    }
+
+    void decrementRecord()
+    {
+        incrementRecord();
+    }
+
+    /**
+     * Number of values for each variable in the sample.
+     */
+    std::vector<size_t> varLengths;
+
+    /**
+     * Number of data values in one second: nSlots times the sum of
+     * the varLengths for the variables in the sample plus one for
+     * the time offset.
+     */
+    size_t sampleLength;
+
+    /**
+     * Offset of this sample in the sync record.  The first
+     * value for the sample is the time offset within the second,
+     * followed by the data values for each variable.
+     */
+    size_t sampleOffset;
+
+    /**
+     * Variables in the sample.
+     */
+    std::list<const Variable*> variables;
+
+    /**
+     * Offsets of the each variable in the sync record.
+     */
+    std::vector<size_t> varOffsets;
+
+    unsigned int discarded;
+
+    unsigned int overWritten;
+
+    unsigned int nskips;
+
+    unsigned int skipped;
+
+    unsigned int total;
+
+    int iCheck;
+
+    int nCheck;
+
+    int minLate;
+
+    int minDiff;
+
+    int secCount;
+
+    /**
+     * Insert a NaN in output if  (secCount % keepCount) != 0.
+     * This is initialized to (int)(1.0 / (1 - (nSlots-rate)))
+     * For example, for a rate of 3.125  (3 1/8), nSlots will be 4,
+     * and keepCount will be 8, so that 1 out of 8 sync records
+     * will be full for this sample, the other 7 will have a NaN
+     * value.
+     */
+    int keepCount;
+
+
+private:
+
+    SyncRecordSource* _srs;
 
 };
 

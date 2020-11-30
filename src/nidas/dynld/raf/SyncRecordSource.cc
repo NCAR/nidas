@@ -60,15 +60,9 @@ using nidas::util::LogMessage;
 #define COMPUTE_OFFSET
 
 /*
- * Define this to enable asserts to check that the slot indexing
- * is working as desired, but that aren't critical for success.
- */
-#define ENABLE_NONCRIT_ASSERTS
-
-/*
  * Whether to log the number of skipped slots.
  */
-#define LOG_SKIPS
+// #define LOG_SKIPS
 
 /*
  * Whether to log slot skips as they occur.
@@ -82,28 +76,45 @@ format_time(dsm_time_t tt, const std::string& fmt = "%Y %m %d %H:%M:%S.%3f")
     return n_u::UTime(tt).format(true, fmt);
 }
 
-SyncInfo::SyncInfo(dsm_sample_id_t i, float r):
+SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     id(i), rate(r),
     nSlots((int)::ceil(rate)),
     dtUsec((int)rint(USECS_PER_SEC / rate)),
-    inext(-1), isync(0),
-#ifdef COMPUTE_OFFSET
-    offsetUsec(-1),
-#else
-    offsetUsec(0),
-#endif
-    dtSum(0),
+    islot(-1), irec(0),
     varLengths(),
     sampleLength(1),   // initialize to one for timeOffset
     sampleOffset(0),
     variables(), varOffsets(),
     discarded(0), overWritten(0), nskips(0),
-    skipped(0), total(0)
+    skipped(0), total(0),
+    iCheck(0),
+    nCheck(std::max(std::max(nSlots, 2), 20)),
+    minLate(INT_MAX),
+    minDiff(dtUsec),
+    secCount(0),
+    keepCount((int)(1.0 / (1 - (nSlots-rate)))),
+    _srs(srs)
 {
+    /*
+     * keepCount is a way to insert NaNs in sync records
+     * with non-integral rates.  If the modulus of secCount % keepCount
+     * is non-zero, then the last slot in the record is skipped, leaving
+     * a NaN.  Here are the values for some expected rates, including
+     * non-integral ARINC rates.
+     *
+     * rate     keepCount   (secCount % keepCount) ! = 0
+     * integral 1           never true, no skips
+     * 12.5     2           skip slot every other second
+     * 6.25     4           skip slot in 3 out of 4 seconds
+     * 3.125    8           skip slot in 7 out of 8
+     * 1.5625   1           never true (algorithm breaks down)
+     */
 }
 
 #ifdef EXPLICIT_SYNCINFO_COPY_ASSIGN
+#ifdef DEBUG
 unsigned int SyncInfo::ncopy;
+#endif
 unsigned int SyncInfo::nassign;
 
 SyncInfo::SyncInfo(const SyncInfo& other):
@@ -111,10 +122,8 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     rate(other.rate),
     nSlots(other.nSlots),
     dtUsec(other.dtUsec),
-    inext(other.inext),
-    isync(other.isync),
-    offsetUsec(other.offsetUsec),
-    dtSum(other.dtSum),
+    islot(other.islot),
+    irec(other.irec),
     varLengths(other.varLengths),
     sampleLength(other.sampleLength),
     sampleOffset(other.sampleOffset),
@@ -123,10 +132,19 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     discarded(other.discarded),
     overWritten(other.overWritten),
     nskips(other.nskips),
-    skipped(other.skipped)
-    total(other.total)
+    skipped(other.skipped),
+    total(other.total),
+    iCheck(other.iCheck),
+    nCheck(other.nCheck),
+    minLate(other.minLate),
+    minDiff(other.minDiff),
+    secCount(other.secCount),
+    keepCount(other.keepCount),
+    _srs(other._srs)
 {
+#ifdef DEBUG
     cerr << "SyncInfo copy #" << ++ncopy << endl;
+#endif
 }
 
 SyncInfo& SyncInfo::operator = (const SyncInfo& other)
@@ -137,10 +155,8 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->rate = other.rate;
     this->nSlots = other.nSlots;
     this->dtUsec = other.dtUsec;
-    this->inext = other.inext;
-    this->isync = other.isync;
-    this->offsetUsec = other.offsetUsec;
-    this->dtSum = other.dtSum;
+    this->islot = other.islot;
+    this->irec = other.irec;
     this->varLengths = other.varLengths;
     this->sampleLength = other.sampleLength;
     this->sampleOffset = other.sampleOffset;
@@ -151,6 +167,13 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->nskips = other.nskips;
     this->skipped = other.skipped;
     this->total = other.total;
+    this->iCheck = other.iCheck;
+    this->nCheck = other.nCheck;
+    this->minLate = other.minLate;
+    this->minDiff = other.minDiff;
+    this->secCount = other.secCount;
+    this->keepCount = other.keepCount;
+    this->_srs = other._srs;
     return *this;
 }
 #endif
@@ -165,19 +188,60 @@ void SyncInfo::addVariable(const Variable* var)
 
 void SyncInfo::advanceRecord(int ilast)
 {
-    if (isync == ilast) {
+    if (irec == ilast) {
         // last slot for this sample was in the sync record
-        // that was just written. Need to reset
-        // inext and isync.
-	isync = (isync + 1) % SyncRecordSource::NSYNCREC;
-#ifdef COMPUTE_OFFSET
-	offsetUsec = -1;
-#else
-	offsetUsec = 0;
-#endif
-	dtSum = 0;
-        inext = 0;
+        // that was just written
+        irec = SyncRecordSource::nextRecordIndex(ilast);
+        islot = -1;
     }
+}
+
+bool SyncInfo::incrementSlot()
+{ 
+    if (++islot == nSlots) {
+        // There is no next sync record.
+        if (!_srs->nextRecord(*this)) {
+            islot = nSlots - 1;
+            return false;
+        }
+        islot = 0;
+    }
+    secCount++;
+    return checkNonIntRateIncrement();
+}
+
+bool SyncInfo::checkNonIntRateIncrement()
+{ 
+    if (rate == nSlots) return true;
+
+    // the best time to increment is when the last slot time rolls
+    // over to the next second:
+    //      minDiff + (nSlots-1) * dtUsec > USECS_PER_SEC
+    if (islot == nSlots - 1) {
+        if (secCount % keepCount) return incrementSlot();
+        // no increment, check if we should
+        if (minDiff + islot * dtUsec > USECS_PER_SEC) {
+            secCount++;
+            return incrementSlot();
+        }
+    }
+    return true;
+}
+
+bool SyncInfo::decrementSlot()
+{ 
+    if (islot == 0) {
+        if (!_srs->prevRecord(*this)) return false;
+        islot = nSlots;
+    } 
+    islot--;
+    secCount--;
+    return true;
+}
+
+void SyncInfo::computeSlotIndex(const Sample* samp)
+{
+    islot = _srs->computeSlotIndex(samp, *this);
 }
 
 SyncRecordSource::SyncRecordSource():
@@ -315,12 +379,17 @@ selectVariablesFromProject(Project* project,
 
 void
 SyncRecordSource::
-layoutSyncRecord()
+init()
 {
     // Traverse the variables list and lay out the sync record, including
     // all the sample sizes, variable offsets, and rates.  All the
     // non-counter, non-continuous variables have already been excluded by
     // selectVariablesFromSensor().
+    //
+    //
+    cerr << "init()" << endl;
+    if (_initialized) return;
+    _initialized = true;
 
     std::list<const Variable*>::iterator vi;
     for (vi = _variables.begin(); vi != _variables.end(); ++vi)
@@ -330,18 +399,22 @@ layoutSyncRecord()
 	dsm_sample_id_t id = tag->getId();
 	float rate = tag->getRate();
 
+        if (rate <= 0.0) continue;
+
         map<dsm_sample_id_t, SyncInfo>::iterator si =
             _syncInfo.find(id);
         if (si == _syncInfo.end()) {
             /* This should be the only place a SyncInfo copy constructor
-             * is used. Note that
-             *      _syncInfo[id] = SyncInfo(id, rate);
-             * requires a no-arg constructor, which we're trying to
-             * avoid, so use map::insert(pair<>).
+             * is used.
+             * Note that
+             *      _syncInfo[id] = SyncInfo(id, rate, srs);
+             * requires a no-arg constructor, though one would think
+             * it would only require an assignment operator.  We don't 
+             * have a no-arg constructor, so so use map::insert(pair<>).
              */
             _syncInfo.insert(
                 std::pair<dsm_sample_id_t,SyncInfo>(
-                    id, SyncInfo(id, rate)));
+                    id, SyncInfo(id, rate, this)));
         }
         si = _syncInfo.find(id);
 
@@ -356,38 +429,6 @@ layoutSyncRecord()
         _syncRecordHeaderSampleTag.addVariable(new Variable(*var));
         _syncRecordDataSampleTag.addVariable(new Variable(*var));
     }
-}
-
-void SyncRecordSource::connect(SampleSource* source) throw()
-{
-    DLOG(("SyncRecordSource::connect() ")
-         << "setting up variables and laying out sync record.");
-    source = source->getProcessedSampleSource();
-
-    Project* project = Project::getInstance();
-    // nimbus needs to know the aircraft
-    if (!_aircraft)
-    {
-        _aircraft = Aircraft::getAircraft(project);
-    }
-
-    selectVariablesFromProject(project, _variables);
-    layoutSyncRecord();
-
-    source->addSampleClient(this);
-    init();
-}
-
-void SyncRecordSource::disconnect(SampleSource* source) throw()
-{
-    source->removeSampleClient(this);
-}
-
-void SyncRecordSource::init()
-{
-
-    if (_initialized) return;
-    _initialized = true;
 
     int offset = 0;
     map<dsm_sample_id_t, SyncInfo>::iterator si = _syncInfo.begin();
@@ -404,6 +445,31 @@ void SyncRecordSource::init()
 	offset += sinfo.sampleLength;
     }
     _recSize = offset;
+}
+
+void SyncRecordSource::connect(SampleSource* source) throw()
+{
+    DLOG(("SyncRecordSource::connect() ")
+         << "setting up variables and laying out sync record.");
+    source = source->getProcessedSampleSource();
+
+    Project* project = Project::getInstance();
+    // nimbus needs to know the aircraft
+    if (!_aircraft)
+    {
+        _aircraft = Aircraft::getAircraft(project);
+    }
+
+    selectVariablesFromProject(project, _variables);
+
+    init();
+
+    source->addSampleClient(this);
+}
+
+void SyncRecordSource::disconnect(SampleSource* source) throw()
+{
+    source->removeSampleClient(this);
 }
 
 /* local utility function to replace one character in a string
@@ -580,13 +646,14 @@ void SyncRecordSource::flush() throw()
     DLOG(("SyncRecordSource::flush()"));
     for (int i = 0; i < NSYNCREC; i++) {
         sendSyncRecord();
-        _current = (_current + 1) % NSYNCREC;
+        _current = nextRecordIndex(_current);
     }
 }
 
 void
 SyncRecordSource::sendSyncRecord()
 {
+    assert(_current >= 0 && _current < NSYNCREC);
     if (_syncRecord[_current]) {
         static nidas::util::LogContext lp(LOG_DEBUG);
         if (lp.active())
@@ -598,30 +665,33 @@ SyncRecordSource::sendSyncRecord()
         }
         _source.distribute(_syncRecord[_current]);
         _syncRecord[_current] = 0;
+        _syncTime[_current] = LONG_LONG_MIN;
     }
 }
 
-void SyncRecordSource::allocateRecord(int isync, dsm_time_t timetag)
+void SyncRecordSource::allocateRecord(int irec, dsm_time_t timetag)
 {
-    dsm_time_t syncTime = timetag - (timetag % USECS_PER_SEC);    // beginning of second
+    if (!_syncRecord[irec]) {
+        dsm_time_t syncTime = timetag - (timetag % USECS_PER_SEC);    // beginning of second
 
-    SampleT<double>* sp = _syncRecord[isync] = getSample<double>(_recSize);
-    sp->setTimeTag(syncTime);
-    sp->setId(SYNC_RECORD_ID);
-    _dataPtr[isync] = sp->getDataPtr();
-    std::fill(_dataPtr[isync], _dataPtr[isync] + _recSize, doubleNAN);
+        SampleT<double>* sp = _syncRecord[irec] = getSample<double>(_recSize);
+        sp->setTimeTag(syncTime);
+        sp->setId(SYNC_RECORD_ID);
+        _dataPtr[irec] = sp->getDataPtr();
+        std::fill(_dataPtr[irec], _dataPtr[irec] + _recSize, doubleNAN);
 
-    _syncTime[isync] = syncTime;
+        _syncTime[irec] = syncTime;
 
-    static nidas::util::LogContext lp(LOG_DEBUG);
-    if (lp.active())
-    {
-        lp.log(nidas::util::LogMessage().format("")
-               << "SyncRecordSource::allocateRecord: timetag="
-               << n_u::UTime(timetag).format(true,"%Y %m %d %H:%M:%S.%3f")
-               << ", syncTime[" << isync << "]="
-               << n_u::UTime(_syncTime[isync]).format(true,
-                                                      "%Y %m %d %H:%M:%S.%3f"));
+        static nidas::util::LogContext lp(LOG_DEBUG);
+        if (lp.active())
+        {
+            lp.log(nidas::util::LogMessage().format("")
+                   << "SyncRecordSource::allocateRecord: timetag="
+                   << n_u::UTime(timetag).format(true,"%Y %m %d %H:%M:%S.%3f")
+                   << ", syncTime[" << irec << "]="
+                   << n_u::UTime(_syncTime[irec]).format(true,
+                                                          "%Y %m %d %H:%M:%S.%3f"));
+        }
     }
 }
 
@@ -635,8 +705,7 @@ int SyncRecordSource::advanceRecord(dsm_time_t timetag)
 
     int last = _current;
     sendSyncRecord();
-    _syncTime[_current] = LONG_LONG_MIN;
-    _current = (_current + 1) % NSYNCREC;
+    _current = nextRecordIndex(_current);
     if (!_syncRecord[_current]) allocateRecord(_current,timetag);
 
     map<dsm_sample_id_t, SyncInfo>::iterator si = _syncInfo.begin();
@@ -665,7 +734,7 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
         size_t outlen = varLen[i];
         size_t inlen = std::min((size_t)(ep-fp), outlen);
 
-        double* dp = dataPtr + varOffsets[i] + 1 + outlen * timeIndex;
+        double* dp = dataPtr + varOffsets[i] + outlen * timeIndex;
         if (0)
         {
             DLOG(("varOffsets[") << i << "]=" << varOffsets[i] <<
@@ -689,11 +758,60 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
     }
 }
 
+// static
+int SyncRecordSource::nextRecordIndex(int i)
+{
+    return (i + 1) % NSYNCREC;
+}
+
+// static
+int SyncRecordSource::prevRecordIndex(int i)
+{
+    return nextRecordIndex(i);
+}
+
+bool SyncRecordSource::prevRecord(SyncInfo& sinfo)
+{
+    // previous sync rec
+    // Can't go earlier than current sync record
+    int n = sinfo.getRecordIndex();
+    if (n == _current) return false;
+    n = prevRecordIndex(n);
+    assert(_syncRecord[n]);
+    sinfo.decrementRecord();
+#ifdef OLD_JUNK
+    sinfo.dtSum -= sinfo.dtUsec;
+#endif
+    return true;
+}
+
+bool SyncRecordSource::nextRecord(SyncInfo& sinfo)
+{
+    int i = sinfo.getRecordIndex();
+    // make sure sync record n exists, we needs its syncTime
+    assert(_syncRecord[i]);
+    if (i != _current) {
+        // sinfo.getRecordIndex() is already pointing to the second sync record,
+        sinfo.overWritten++;
+        return false;
+    }
+    dsm_time_t tnext = _syncTime[i] + USECS_PER_SEC;
+    int n = nextRecordIndex(i);
+    allocateRecord(n, tnext);
+    if (_syncTime[n] - _syncTime[i] != USECS_PER_SEC) {
+        nidas::util::LogContext lcerror(LOG_ERR);
+        log(lcerror, "bad syncTimes", sinfo);
+    }
+    assert(_syncTime[n] - _syncTime[i] == USECS_PER_SEC);
+    sinfo.incrementRecord();
+    return true;
+}
+
 int SyncRecordSource::computeFirstOffset(const Sample* samp,
         const SyncInfo& sinfo)
 {
 #ifdef COMPUTE_OFFSET
-    int off = (int)(samp->getTimeTag() % sinfo.dtUsec);
+    int off = (int)(samp->getTimeTag() % USECS_PER_SEC % sinfo.dtUsec);
     /* For a non-integral sampleRate, where
      * nSlots=ceil(sampleRate) is rounded
      * up, then (dtUsec * nSlots) is larger
@@ -711,119 +829,67 @@ int SyncRecordSource::computeFirstOffset(const Sample* samp,
 int SyncRecordSource::computeSlotIndex(const Sample* samp,
         SyncInfo& sinfo)
 {
-    if (sinfo.offsetUsec < 0)
-        sinfo.offsetUsec = computeFirstOffset(samp, sinfo);
-
-    if (samp->getTimeTag() >= _syncTime[sinfo.isync] + USECS_PER_SEC) {
-        sinfo.isync = (sinfo.isync + 1) % NSYNCREC;
-        if (!_syncRecord[sinfo.isync])
-            allocateRecord(sinfo.isync, samp->getTimeTag());
+    int n = sinfo.getRecordIndex();
+    if (!_syncRecord[n]) {
+        nidas::util::LogContext lcerror(LOG_ERR);
+        log(lcerror, "!_syncRecord[n]", samp, sinfo);
     }
+    assert (_syncRecord[n]); 
+
+    if (samp->getTimeTag() >= _syncTime[n] + USECS_PER_SEC)
+        nextRecord(sinfo);
+
     int ni = (int)std::max(
-        (int)(samp->getTimeTag() - _syncTime[sinfo.isync] -
-        sinfo.offsetUsec + sinfo.dtUsec/2) / sinfo.dtUsec,0);
+        (int)(samp->getTimeTag() - _syncTime[sinfo.getRecordIndex()]) / sinfo.dtUsec,0);
+
     return ni;
 }
     
-void SyncRecordSource::checkIndex(const Sample* samp,
-        SyncInfo& sinfo, SampleTracer& stracer)
-{
-    static nidas::util::LogContext lcdebug(LOG_DEBUG);
-    static nidas::util::LogContext lcerror(LOG_ERR);
-
-    slog(stracer, "before checkIndex: ", samp, sinfo);
-
-#ifdef ENABLE_NONCRIT_ASSERTS
-    assert(sinfo.inext <= sinfo.nSlots);
-    if (sinfo.inext == sinfo.nSlots)
-#else
-    if (sinfo.inext >= sinfo.nSlots)
-#endif
-    {
-        // inext points past end of current sync record, should increment
-        // sinfo.isync and set sinfo.inext=0.
-        if (sinfo.isync != _current) {
-            // However sinfo.isync is already pointing to the second sync record,
-            // When the actual reporting rate of a variable is more
-            // than the configured rate, or if samples come in bursts,
-            // then we may need to overwrite the last value in the current
-            // sync record.  Log the total number of overwritten samples,
-            // but do not routinely log the occurance here.
-            //
-            slog(stracer, "inext >= nSlots, isync!=_current",
-                    samp, sinfo);
-            sinfo.overWritten++;
-            sinfo.inext = sinfo.nSlots - 1;
-            if (sinfo.inext == 0)   // if nSlots==1
-                sinfo.offsetUsec = computeFirstOffset(samp, sinfo);
-
-            if (sinfo.dtSum < sinfo.dtUsec)
-                log(lcerror, "dtSum too small", samp, sinfo);
-            assert(sinfo.dtSum >= sinfo.dtUsec);
-            sinfo.dtSum -= sinfo.dtUsec;
-        }
-        else {
-            // usual case, advance to next sync record
-            int last = sinfo.isync;
-            sinfo.isync = (sinfo.isync + 1) % NSYNCREC;
-            if (!_syncRecord[sinfo.isync]) {
-                log(lcdebug, "allocateRecord", samp, sinfo);
-                allocateRecord(sinfo.isync,_syncTime[last]+USECS_PER_SEC);
-            }
-            if (sinfo.dtSum >= USECS_PER_SEC) {
-#ifdef ENABLE_NONCRIT_ASSERTS
-                assert(sinfo.inext == sinfo.nSlots);
-#endif
-                sinfo.dtSum %= USECS_PER_SEC;
-            }
-            sinfo.inext -= sinfo.nSlots;
-#ifdef ENABLE_NONCRIT_ASSERTS
-            assert(sinfo.inext < sinfo.nSlots);
-#else
-            sinfo.inext = std::min(sinfo.inext, sinfo.nSlots-1);
-#endif
-            if (sinfo.inext == 0)
-                sinfo.offsetUsec = computeFirstOffset(samp, sinfo);
-        }
-    }
-
-    slog(stracer, "after checkIndex: ", samp, sinfo);
-}
-
-int SyncRecordSource::checkTime(const Sample* samp,
+bool SyncRecordSource::checkTime(const Sample* samp,
         SyncInfo& sinfo, SampleTracer& stracer, LogContext& lc,
         int warn_times_interval)
 {
-    int ret = 0;
+    bool ret = true;
     slog(stracer, "before checkTime: ", samp, sinfo);
 
+    if (sinfo.getSlotIndex() == 0) sinfo.minDiff = sinfo.dtUsec;
+
     // slot time of next sample in sync record
-    dsm_time_t tn = _syncTime[sinfo.isync] + sinfo.offsetUsec + sinfo.inext * sinfo.dtUsec;
+    dsm_time_t tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
 
-    if (tn - samp->getTimeTag() > NSLOT_LIMIT * sinfo.dtUsec) {
-        // timetag is earlier than slot time by more than NSLOT_LIMIT sample dt.
-        // This happens if the configured rate of the sample is less than the
-        // actual reporting rate. It also happens when samples come in 
-        // bursts, even if the configured rate is close to the reporting rate.
-        if (!(sinfo.discarded++ % warn_times_interval)) {
-            ostringstream ost;
-            ost << "timetag < slot time=" <<
-                format_time(tn,"%H:%M:%S.%4f") <<
-                " by more than " << NSLOT_LIMIT << "*dt, discarding";
-	    log(lc, ost.str(), samp, sinfo);
+    int tdiff = samp->getTimeTag() - tn;
+    if (tdiff < 0) {    // sample time tag is earlier than slot time
+        sinfo.minLate = INT_MAX;
+        sinfo.iCheck = 0;
+        sinfo.minDiff = 0;
+        if (-tdiff > sinfo.dtUsec / 2) {
+            // timetag is earlier than slot time by more than 1/2 sample dt.
+            // This happens if the configured rate of the sample is less than the
+            // actual reporting rate. It also happens when samples come in 
+            // bursts, even if the configured rate is close to the reporting rate.
+            if (!sinfo.decrementSlot()) {
+                if (!(sinfo.discarded++ % warn_times_interval)) {
+                    ostringstream ost;
+                    ost << "timetag < slot time=" <<
+                        format_time(tn,"%H:%M:%S.%4f") <<
+                        " by more than " << 0.5 << "*dt, discarding";
+                    log(lc, ost.str(), samp, sinfo);
+                }
+                ret = false;
+            }
         }
-        ret = -1;
     }
-    else if (samp->getTimeTag() - tn > NSLOT_LIMIT * sinfo.dtUsec) {
-        // timetag is later than slot time by more than NSLOT_LIMIT sample dt.
-        // Need to skip some slots.  Compute index of this sample into
-        // the current sync record. This is the result of latency gaps or
-        // actual gaps, or if the configured rate of the sample is more than the
-        // actual reporting rate.
+    else if (tdiff > std::min(NSLOT_LIMIT * sinfo.dtUsec, USECS_PER_SEC)) {
+        // timetag is later than slot time by more than NSLOT_LIMIT
+        // sample dt. Need to skip some slots.  Compute index of this
+        // sample into the current sync record. This is the result of
+        // latency gaps or actual gaps, or if the configured rate of
+        // the sample is more than the actual reporting rate.
 
-        int ni = computeSlotIndex(samp, sinfo);
+        int ilast = sinfo.getSlotIndex();
+        sinfo.computeSlotIndex(samp);
 
-        int di = ni - sinfo.inext;
+        int di = sinfo.getSlotIndex() - ilast;
         if (di < 0) di += sinfo.nSlots;
         sinfo.skipped += di;
 
@@ -834,14 +900,36 @@ int SyncRecordSource::checkTime(const Sample* samp,
                 format_time(tn,"%H:%M:%S.%4f") <<
                 " by more than " << NSLOT_LIMIT << "*dt, skipping " <<
                 di << " slots";
-	    log(lc, ost.str(), samp, sinfo);
+            log(lc, ost.str(), samp, sinfo);
         }
 #endif
-        sinfo.inext = ni;
-        if (sinfo.inext == 0)
-            sinfo.offsetUsec = computeFirstOffset(samp, sinfo);
-        sinfo.dtSum += di * sinfo.dtUsec;
-        ret = 1;
+
+        ret = true;
+    }
+    else {
+        int ni = tdiff / sinfo.dtUsec;
+        sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
+        if (ni == 0) {
+            sinfo.iCheck = 0;
+            sinfo.minLate = INT_MAX;
+        }
+        else if (++sinfo.iCheck < sinfo.nCheck) {
+            sinfo.minLate = std::min(ni, sinfo.minLate);
+        }
+        else {
+            // more than nCheck samples all received more than
+            // one dt late
+            ostringstream ost;
+            ost << "checkTime, minLate=" << sinfo.minLate << ": ";
+            slog(stracer, ost.str(), samp, sinfo);
+
+            while (sinfo.minLate--) {
+                if (!sinfo.incrementSlot()) break;
+            }
+            sinfo.iCheck = 0;
+            sinfo.minLate = INT_MAX;
+            ret = true;
+        }
     }
     slog(stracer, "after checkTime: ", samp, sinfo);
     return ret;
@@ -857,13 +945,15 @@ void SyncRecordSource::slog(SampleTracer& stracer,const string& msg,
             format_time(_syncTime[0],"%H:%M:%S.%1f")) << ", " <<
             (_syncTime[1] < 0 ? "--:--:--.-" :
             format_time(_syncTime[1],"%H:%M:%S.%1f")) <<
-            ", dt=" << setprecision(3) << 1/sinfo.rate <<
-            ", inext=" << sinfo.inext <<
-            ", dtSum=" << (double)sinfo.dtSum / USECS_PER_SEC <<
-            ", isync=" << sinfo.isync <<
             ", _current=" << _current << 
-            ", offset=" << (double)sinfo.offsetUsec / USECS_PER_SEC <<
+            ", irec=" << sinfo.getRecordIndex() <<
+            ", islot=" << sinfo.getSlotIndex() <<
+            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
+            ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
+            ", dt=" << setprecision(3) << 1/sinfo.rate <<
             ", nSlots=" << sinfo.nSlots <<
+            ", keep=" << sinfo.keepCount <<
+            ", #sec=" << sinfo.secCount <<
             endlog;
     }
 }
@@ -883,13 +973,40 @@ void SyncRecordSource::log(LogContext& lc, const string& msg,
                 format_time(_syncTime[0],"%H:%M:%S.%1f")) << ", " <<
             (_syncTime[1] < 0 ? "--:--:--.-" :
             format_time(_syncTime[1],"%H:%M:%S.%1f")) <<
-            ", dt=" << setprecision(3) << 1/sinfo.rate <<
-            ", inext=" << sinfo.inext <<
-            ", dtSum=" << (double)sinfo.dtSum / USECS_PER_SEC <<
-            ", isync=" << sinfo.isync <<
             ", _current=" << _current << 
-            ", offset=" << (double)sinfo.offsetUsec / USECS_PER_SEC <<
-            ", nSlots=" << sinfo.nSlots;
+            ", irec=" << sinfo.getRecordIndex() <<
+            ", islot=" << sinfo.getSlotIndex() <<
+            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
+            ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
+            ", dt=" << setprecision(3) << 1/sinfo.rate <<
+            ", nSlots=" << sinfo.nSlots <<
+            ", keep=" << sinfo.keepCount <<
+            ", #sec=" << sinfo.secCount;
+        lc.log(lmsg);
+    }
+}
+
+void SyncRecordSource::log(LogContext& lc, const string& msg,
+        const SyncInfo& sinfo)
+{
+    if (lc.active())
+    {
+        n_u::LogMessage lmsg;
+        lmsg << msg <<
+            ": syncTimes=" << 
+            (_syncTime[0] < 0 ? "--:--:--.-" :
+                format_time(_syncTime[0],"%H:%M:%S.%1f")) << ", " <<
+            (_syncTime[1] < 0 ? "--:--:--.-" :
+            format_time(_syncTime[1],"%H:%M:%S.%1f")) <<
+            ", _current=" << _current << 
+            ", irec=" << sinfo.getRecordIndex() <<
+            ", islot=" << sinfo.getSlotIndex() <<
+            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
+            ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
+            ", dt=" << setprecision(3) << 1/sinfo.rate <<
+            ", nSlots=" << sinfo.nSlots <<
+            ", keep=" << sinfo.keepCount <<
+            ", #sec=" << sinfo.secCount;
         lc.log(lmsg);
     }
 }
@@ -908,6 +1025,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      *  --logfields level,message
      */
     static SampleTracer stracer(LOG_VERBOSE);
+    static nidas::util::LogContext lcerror(LOG_ERR);
     static nidas::util::LogContext lcwarn(LOG_WARNING);
     static nidas::util::LogContext lcinfo(LOG_INFO);
 
@@ -921,15 +1039,8 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     sinfo.total++;
 
-    // sync record indices for this sample
-    if (!_syncRecord[sinfo.isync]) {
-        // only before allocating the first sync record should
-        // _syncRecord[sinfo.isync] be NULL here. After that it is
-        // initialized when sinfo.isync is incremented
-        allocateRecord(sinfo.isync,tt);
-    }
-
-    slog(stracer, "SyncRecordSource::receive: ", samp, sinfo);
+    // first time
+    if (!_syncRecord[_current]) allocateRecord(_current, samp->getTimeTag());
 
     // Screen bad times.
     if (tt < _syncTime[_current]) {
@@ -952,60 +1063,50 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      */
     dsm_time_t triggertime = _syncTime[_current] + USECS_PER_SEC +
         std::max(_halfMaxUsecsPerSample, 250 * USECS_PER_MSEC);
-    if (tt >= triggertime) {
-        advanceRecord(tt);
+    if (tt >= triggertime) advanceRecord(tt);
+
+    // First of this sample encounters, or the last sample was in
+    // previous sync record which was written out. Restart
+    if (sinfo.getRecordIndex() < 0) sinfo.computeSlotIndex(samp);
+    // normal case increment, report if you can't.
+    else if (!sinfo.incrementSlot()) {
+        slog(stracer, "no next sync record",
+                samp, sinfo);
+        sinfo.overWritten++;
     }
 
-    if (sinfo.inext < 0) {
-        // first occurence of this sample
-        slog(stracer, "set offsetUsec: ", samp, sinfo);
-        // index in current sync record, 
-        sinfo.inext = computeSlotIndex(samp, sinfo);
-        sinfo.dtSum = sinfo.inext * sinfo.dtUsec;
-    }
+    slog(stracer, "SyncRecordSource::receive: ", samp, sinfo);
 
-    if (sinfo.dtSum >= USECS_PER_SEC &&
-            sinfo.inext < sinfo.nSlots) {
-        sinfo.dtSum -= USECS_PER_SEC;
-        sinfo.inext++;
-    }
+    if (!checkTime(samp, sinfo, stracer, lcinfo, warn_times_interval))
+        return false;    // discard sample
 
-    if (sinfo.offsetUsec < 0)
-        sinfo.offsetUsec = computeFirstOffset(samp, sinfo);
+    if (sinfo.getRecordIndex() < 0 || sinfo.getRecordIndex() >= NSYNCREC)
+        log(lcerror, "bad record index: ", samp, sinfo);
+    assert(sinfo.getRecordIndex() >= 0 && sinfo.getRecordIndex() < NSYNCREC);
 
-    checkIndex(samp, sinfo, stracer);
+    if (sinfo.getSlotIndex() < 0 || sinfo.getSlotIndex() >= sinfo.nSlots)
+        log(lcerror, "bad slot index: ", samp, sinfo);
 
-    switch (checkTime(samp, sinfo, stracer, lcinfo, warn_times_interval)) {
-    case -1:    // discard sample
-        return false;
-    case 0:     // no changes to index
-        break;
-    case 1:     // recheck index
-        checkIndex(samp, sinfo, stracer);
-        break;
-    }
+    assert(sinfo.getSlotIndex() >= 0 && sinfo.getSlotIndex() < sinfo.nSlots);
 
-    assert(sinfo.inext >= 0 && sinfo.inext < sinfo.nSlots);
+    assert(sinfo.sampleOffset < _recSize);
 
     // store offset into sync record
-    int offsetIndex = sinfo.sampleOffset;
-
-    if (isnan(_dataPtr[sinfo.isync][offsetIndex]))
-        _dataPtr[sinfo.isync][offsetIndex] = sinfo.offsetUsec;
+    _dataPtr[sinfo.getRecordIndex()][sinfo.sampleOffset] = sinfo.minDiff;
 
     switch (samp->getType()) {
 
     case UINT32_ST:
-        copy_variables_to_record<uint32_t>(samp, _dataPtr[sinfo.isync],
-		_recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.inext);
+        copy_variables_to_record<uint32_t>(samp, _dataPtr[sinfo.getRecordIndex()],
+		_recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     case FLOAT_ST:
-        copy_variables_to_record<float>(samp, _dataPtr[sinfo.isync],
-                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.inext);
+        copy_variables_to_record<float>(samp, _dataPtr[sinfo.getRecordIndex()],
+                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     case DOUBLE_ST:
-        copy_variables_to_record<double>(samp, _dataPtr[sinfo.isync],
-                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.inext);
+        copy_variables_to_record<double>(samp, _dataPtr[sinfo.getRecordIndex()],
+                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     default:
 	if (!(_unknownSampleType++ % 1000))
@@ -1013,13 +1114,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		"sample id %d is not a float, double or uint32 type",sampleId);
         break;
     }
-
-    sinfo.inext++;
-    sinfo.dtSum += sinfo.dtUsec;
-#ifdef COMPUTE_OFFSET
-    if (sinfo.inext >= sinfo.nSlots) 
-        sinfo.offsetUsec = -1;
-#endif
     slog(stracer, "returning: ", samp, sinfo);
     return true;
 }
