@@ -11,10 +11,7 @@
                 "-u",
                 "BUILDS=host"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "group": "build",
             "problemMatcher": [
                 {
                     "base": "$gcc",
@@ -36,7 +33,10 @@
                 "BUILDS=host",
                 "install"
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": [
                 {
                     "base": "$gcc",

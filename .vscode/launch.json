@@ -4,6 +4,26 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+    {
+        "name": "nidsmerge",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "/opt/local/nidas/bin/nidsmerge",
+        "args": ["--start", "2018 11 10 00:00:00", "--end", "2018 11 11 00:00:00", "-r", "600",
+                 "-o", "isfs_%Y%m%d_%H%M%S.dat.bz2@3600", "-I", "nidsmerge-auto-expanded-files.txt"],
+        "stopAtEntry": false,
+        "cwd": "/tmp",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "setupCommands": [
+            {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            }
+        ]
+    },
         {
             "name": "tgill",
             "type": "cppdbg",
