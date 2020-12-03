@@ -540,13 +540,13 @@ accumulateData(const Sample* samp)
 {
     dsm_time_t sampt = samp->getTimeTag();
 
-    // Only need sample times for JSON output.
-    if (enable_json)
+    // Only need sample times for JSON output with data.
+    if (enable_json && enable_data)
     {
         times.push_back(sampt);
     }
 
-    if (samp->getType() == CHAR_ST)
+    if (samp->getType() == CHAR_ST && enable_data)
     {
         const char* cp = (const char*)samp->getConstVoidDataPtr();
         size_t l = samp->getDataByteLength();
@@ -572,8 +572,8 @@ accumulateData(const Sample* samp)
     for (unsigned int i = 0; i < nvalues; ++i)
     {
         double value = samp->getDataValue(i);
-        // Only need data values for JSON output.
-        if (enable_json)
+        // Only need data values for JSON output with data.
+        if (enable_json && enable_data)
         {
             values[i].push_back(value);
         }
@@ -701,6 +701,10 @@ jsonData()
     Json::Value data;
 
     data["streamid"] = streamid;
+
+    // If individual values were not enabled, then we're done.
+    if (!enable_data)
+        return data;
 
     // Include every variable in the object, even if there are no samples.
     for (unsigned int i = 0; i < varnames.size(); ++i)
@@ -1012,9 +1016,14 @@ DataStats::DataStats():
                "Show statistics for all sample IDs, including those for which "
                "no samples are received."),
     ShowData("-D,--data", "",
-             "Print data for each sensor, either the last received message\n"
+             "Print data for each sample, either the last received message\n"
              "for raw samples, or data values averaged over the recording\n"
-             "period for processed samples."),
+             "period for processed samples.\n"
+             "When JSON output is enabled, this includes all the data values\n"
+             "in the JSON file and also writes the data as JSON to stdout, so\n"
+             "usually -D is only useful with --json for short periods of data.\n"
+             "JSON currently only includes processed data, not raw, so\n"
+             "usually -p is used with -D and JSON output."),
     SingleMote("--onemote", "",
                "Expect each wisard sensor type to come from a single mote,\n"
                "so mote IDs are not differentiated in sample tags for the same\n"
@@ -1035,7 +1044,9 @@ DataStats::DataStats():
                "newline-separated json stream, where each json line is\n"
                "an object with fields for each variable set to an array\n"
                "of values.  The 'streamid' in the data object relates to\n"
-               "the header with that streamid.")
+               "the header with that streamid.  Use with -p to compute stats\n"
+               "for individual variables.  Use with -D to include all the\n"
+               "sample data values as well.")
 #if NIDAS_JSONCPP_ENABLED
     ,streamWriter(),
     headerWriter()
@@ -1636,10 +1647,9 @@ jsonReport()
     Json::Value timeperiod(Json::arrayValue);
     timeperiod.append(iso_format(_period_start));
     timeperiod.append(iso_format(_period_end));
-    // Create three top-level objects.  They always exist,
-    // even if there are no streams or no data.
+    // Create three top-level objects, according to what has been enabled.
     Json::Value& stats = createObject(root["stats"]);
-    Json::Value& data = createObject(root["data"]);
+    Json::Value data;
     Json::Value& streams = createObject(root["stream"]);
     stats["timeperiod"] = timeperiod;
     stats["update"] = _update;
@@ -1665,9 +1675,15 @@ jsonReport()
         // and go, so writing them all together means they are
         // always in sync and consistent.  Every data object will
         // have a corresponding stream header in the same file.
-        data[stream->streamid] = stream->jsonData();
-        streamstats[stream->streamid] = stream->jsonStats();
+        if (stream->nsamps > 0 || _reportall)
+        {
+            if (_reportdata)
+                data[stream->streamid] = stream->jsonData();
+            streamstats[stream->streamid] = stream->jsonStats();
+        }
     }
+    if (_reportdata)
+        root["data"] = data;
     std::ofstream json;
     // Write to a temporary file first, then move into place.
     std::string jsonname(JsonOutput.getValue());
@@ -1682,18 +1698,21 @@ jsonReport()
     // Now move into place.
     ::rename(tmpname.c_str(), jsonname.c_str());
 
-    // Now stream the data to stdout.
-    for (si = _samples.begin(); si != _samples.end(); ++si)
+    if (_reportdata)
     {
-        SampleCounter* stream = &si->second;
-        if (stream->nsamps || AllSamples.asBool())
+        // Now stream the data to stdout.
+        for (si = _samples.begin(); si != _samples.end(); ++si)
         {
+            SampleCounter* stream = &si->second;
+            if (stream->nsamps > 0 || _reportall)
+            {
 #if !NIDAS_JSONCPP_STREAMWRITER
-            streamWriter->write(std::cout, stream->jsonData());
+                streamWriter->write(std::cout, stream->jsonData());
 #else
-            streamWriter->write(stream->jsonData(), &std::cout);
+                streamWriter->write(stream->jsonData(), &std::cout);
 #endif
-            std::cout << std::endl;
+                std::cout << std::endl;
+            }
         }
     }
 #endif
