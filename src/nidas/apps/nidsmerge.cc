@@ -251,7 +251,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
          "since it conflicts with the standard -l option for logging.\n"
          "Instead, use the @<seconds> output file name suffix to specify\n"
          "the output file length. The @ specifier takes precedence.\n"
-         "Output file length is required, there is no default.");
+         "Output file length is required if the output filename contains\n"
+         "time specifiers.");
     NidasAppArg DSMid
         ("-d,--dsm", "id",
          "DSM id to accept from the input data. By default,\n"
@@ -346,9 +347,11 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
             xmsg << "Output file name is required.";
             throw NidasAppException(xmsg.str());
         }
-        if (outputFileLength == 0)
+        if (outputFileLength == 0 &&
+            outputFileName.find('%') != string::npos)
         {
-            xmsg << "Output file length is required.";
+            xmsg << "Output file length is required for "
+                    "output filenames with time specifiers.";
             throw NidasAppException(xmsg.str());
         }
         if (requiretimes && (startTime.toUsecs() == LONG_LONG_MIN ||
