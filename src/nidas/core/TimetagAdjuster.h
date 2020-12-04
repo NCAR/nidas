@@ -212,6 +212,8 @@ private:
      */
     dsm_time_t _tlast;
 
+    dsm_time_t _ttNpt0;
+
     /**
      * Expected delta-T in microseconds.
      */
@@ -220,7 +222,7 @@ private:
     /**
      * Corrected delta-T in microseconds.
      */
-    int _dtUsecCorr;
+    unsigned int _dtUsecCorr;
 
     /**
      * A gap in the original time series more than this value
@@ -237,12 +239,12 @@ private:
     /**
      * Current number of delta-Ts from tt0.
      */
-    int _nDt;
+    unsigned int _nDt;
 
     /**
      * How many points to compute minimum time difference.
      */
-    int _npts;
+    unsigned int _npts;
 
     /**
      * Minimum diffence between actual time tags and expected,
@@ -253,7 +255,7 @@ private:
     unsigned int _nLargeAdjust;
 
     int _dtUsecCorrMin;
-    int _dtUsecCorrMax;
+    unsigned int _dtUsecCorrMax;
     double _dtUsecCorrSum;
     unsigned int _nCorrSum;
 
@@ -265,7 +267,7 @@ private:
 
     unsigned int _ntotalPts;
 
-    dsm_time_t _ttEstLast;
+    dsm_time_t _ttAdjLast;
 
     long long _maxGap;
 
