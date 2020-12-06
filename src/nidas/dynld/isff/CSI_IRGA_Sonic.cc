@@ -245,7 +245,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
         wsamptime = samp->getTimeTag();
         if (_ttadjust)
-            wsamptime = _ttadjust->adjust(wsamptime);
+            wsamptime = _ttadjust->adjust(wsamptime, _sampleId);
         wsamptime -= _timeDelay;
 
         bptr = buf;

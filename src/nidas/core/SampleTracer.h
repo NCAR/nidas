@@ -30,10 +30,22 @@ public:
         return _context.active() && _matcher.match(samp);
     }
 
+    inline bool
+    active(dsm_sample_id_t id)
+    {
+        return _context.active() && _matcher.match(id);
+    }
+
     inline static std::string
     format_time(dsm_time_t tt)
     {
         return nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f");
+    }
+
+    inline static std::string
+    format_time(dsm_time_t tt, const std::string& format)
+    {
+        return nidas::util::UTime(tt).format(true, format);
     }
 
     /**
@@ -69,24 +81,21 @@ public:
         return _msg;
     }
 
+    inline nidas::util::LogMessage&
+    msg(dsm_time_t tt, dsm_sample_id_t sid, const std::string& text = "")
+    {
+        _msg << text
+             << "[" << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << "]"
+             << "@" << format_time(tt);
+        return _msg;
+    }
+
 private:
     nidas::util::LogContext _context;
     nidas::util::LogMessage _msg;
     nidas::core::SampleMatcher _matcher;
 
 };
-
-SampleTracer::
-SampleTracer(int level, const char* file, const char* function, int line):
-    _context(level, file, function, line, "trace_samples"),
-    _msg(&_context),
-    _matcher()
-{
-    nidas::util::Logger* logger = nidas::util::Logger::getInstance();
-    nidas::util::LogScheme scheme = logger->getScheme();
-    std::string value = scheme.getParameter("trace_samples");
-    _matcher.addCriteria(value);
-}
 
 }}	// namespace nidas namespace core
 

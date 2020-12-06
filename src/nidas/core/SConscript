@@ -89,6 +89,7 @@ headers = Split("""
     SampleStats.h
     SampleTag.h
     SampleThread.h
+    SampleTracer.h
     SensorCatalog.h
     SensorHandler.h
     SensorOpener.h
@@ -186,6 +187,7 @@ sources = Split("""
     SampleSorter.cc
     SampleSourceSupport.cc
     SampleTag.cc
+    SampleTracer.cc
     SensorCatalog.cc
     SensorHandler.cc
     SensorOpener.cc

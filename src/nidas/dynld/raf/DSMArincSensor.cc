@@ -312,7 +312,7 @@ throw()
         dsm_sample_id_t id = getId() + label;
 
         TimetagAdjuster* ttadj = _ttadjusters[id];
-        if (ttadj) tt = ttadj->adjust(tt);
+        if (ttadj) tt = ttadj->adjust(tt, id);
 
         // if there is a VariableConverter defined for this sample, apply it.
         if (_converters.find(id) != _converters.end())

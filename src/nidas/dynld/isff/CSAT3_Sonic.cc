@@ -623,7 +623,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     dsm_time_t timetag = samp->getTimeTag();
 
     // Reduce latency jitter in time tags
-    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag);
+    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag, _windSampleId);
 
     /*
      * CSAT3 has an internal two sample buffer, so shift

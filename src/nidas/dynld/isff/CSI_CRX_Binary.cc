@@ -116,7 +116,7 @@ bool CSI_CRX_Binary::process(const Sample* samp,
 
     dsm_time_t timetag = samp->getTimeTag();
     if (_ttadjust)
-        timetag = _ttadjust->adjust(timetag);
+        timetag = _ttadjust->adjust(timetag, _sampleId);
 
 #ifdef CHECK_SIGNATURE
     if (len < 4) return false;  // at least the 2-byte signature and one word of data

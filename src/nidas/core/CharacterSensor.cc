@@ -483,6 +483,6 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
     TimetagAdjuster* ttadj = _ttadjusters[stag];
     if (ttadj)
     {
-        outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
+        outs->setTimeTag(ttadj->adjust(outs->getTimeTag(), stag->getId()));
     }
 }

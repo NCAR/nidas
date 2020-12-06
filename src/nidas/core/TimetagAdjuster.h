@@ -32,6 +32,8 @@
 
 namespace nidas { namespace core {
 
+class SampleTracer;
+
 /**
  * Adjust time tags of fixed delta-T time series to correct
  * for irregular latency in the assignments of the time tags
@@ -131,7 +133,7 @@ public:
      * @param tt NIDAS time tag to be adjusted.
      * @return Adjusted time tag.
      */
-    dsm_time_t adjust(dsm_time_t tt, bool debug=false);
+    dsm_time_t adjust(dsm_time_t tt, dsm_sample_id_t id);
 
     /**
      * Log various statistics of the TimetagAdjuster.
@@ -139,11 +141,8 @@ public:
     void log(int level, const DSMSensor* sensor, dsm_sample_id_t id,
             bool octalLable=false);
 
-    /**
-     * Return the number of times an adjustment to a time tag has
-     * been greater than the configured delta-T.
-     */
-    unsigned int getNumLargeAdjust() const { return _nLargeAdjust; }
+    void slog(SampleTracer& stracer, dsm_sample_id_t id,
+        const std::string& msg, dsm_time_t tt, dsm_time_t ttAdj);
 
     /**
      * Return the number of ttadjust results so far.
@@ -177,14 +176,14 @@ public:
     double getDtAvg() const { return _dtUsecCorrSum / _nCorrSum / USECS_PER_SEC; }
 
     /**
-     * Return the minimum adjustment to the measured time tags.
-     */
-    float getAdjMin() const { return (float)_tadjMinUsec / USECS_PER_SEC; }
-
-    /**
      * Return the maximum adjustment to the measured time tags.
      */
     float getAdjMax() const { return (float)_tadjMaxUsec / USECS_PER_SEC; }
+
+    /**
+     * Return the minimum adjustment to the measured time tags.
+     */
+    float getAdjMin() const { return (float)_tadjMinUsec / USECS_PER_SEC; }
 
     /**
      * Total number of time tags processed.
@@ -192,10 +191,16 @@ public:
     unsigned int getNumPoints() const { return _ntotalPts; }
 
     /**
-     * Maximum data gap in seconds greater than the sampleGap parameter
-     * passed to the constructor.
+     * Maximum data gap in seconds in the non-adjusted, raw, time tags.
      */
     float getMaxGap() const { return (float) _maxGap / USECS_PER_SEC; }
+
+    /**
+     * Return the maximum dt in the adjusted time tags.
+     */
+    float getMaxResultDt() const { return (float)_dtResultMax / USECS_PER_SEC; }
+
+    float getMinResultDt() const { return (float)_dtResultMin / USECS_PER_SEC; }
 
 private:
    
@@ -228,13 +233,13 @@ private:
      * A gap in the original time series more than this value
      * causes a reset in the computation of estimated time tags.
      */
-    int _dtGapUsec;
+    unsigned int _gapUsec;
 
     /**
      * Adjustment period, how long to calculate the minimum
      * latency jitter before applying the correction.
      */
-    int _adjustUsec;
+    unsigned int _adjustUsec;
 
     /**
      * Current number of delta-Ts from tt0.
@@ -252,8 +257,6 @@ private:
      */
     int _tdiffminUsec;
 
-    unsigned int _nLargeAdjust;
-
     int _dtUsecCorrMin;
     unsigned int _dtUsecCorrMax;
     double _dtUsecCorrSum;
@@ -263,13 +266,18 @@ private:
     unsigned int _nGap;
 
     int _tadjMinUsec;
-    int _tadjMaxUsec;
+    unsigned int _tadjMaxUsec;
 
     unsigned int _ntotalPts;
 
     dsm_time_t _ttAdjLast;
 
     long long _maxGap;
+
+    unsigned int _maxRecentGap;
+
+    int _dtResultMin;
+    int _dtResultMax;
 
 };
 

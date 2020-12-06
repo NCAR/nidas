@@ -234,6 +234,8 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         // result from base class parsing of ASCII
         const Sample* psamp = parseResults.front();
+
+        // base class runs ttadjust on the time tag
         timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
@@ -276,7 +278,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         timetag = samp->getTimeTag();
         if (_ttadjust)
-            timetag = _ttadjust->adjust(timetag);
+            timetag = _ttadjust->adjust(timetag, _sampleId);
 
         // Binary values for uvwt may need to be swapped.
         if (__BYTE_ORDER == __BIG_ENDIAN)
