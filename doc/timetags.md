@@ -56,11 +56,22 @@ Each raw sample is then archived, with its associated raw time tag, Traw.
 
 ## TimetagAdjuster
 
-If the configuration value of "ttadjust" is positive for a sample, and it is supported int the sensor class, then the TimetagAdjuster is used in post-processing to generate corrected time tags of processed samples.  
-Timetag adjusting is done in the nidas::core::CharacterSensor::process() method, and so any classes derived from CharacterSensor that do not override process() will use TimetagAdjuster.  The TimetagAdjustor has been added to the process() method of several sub-classes of CharacterSensor, including 
- ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary and CSI_IRGA_Sonic in the nidas::dynld::isff namespace.
+If the configuration value of "ttadjust" is positive for a sample, and TimetagAdjuster is
+supported in the sensor class, then the it is used in post-processing to generate
+corrected time tags of processed samples.  
 
-The archived, raw time tags, Traw[i], are passed one at a time to the TimetagAdjuster::adjust() method, as each sample is processed.
+In the XML, ttadjust is an attribute of \<sample\>:
+
+        <sample id="1" rate="50" scanfFormat="*%*2d%*2d%f" ttadjust="1">
+
+Timetag adjusting is done in the nidas::core::CharacterSensor::process() method, and so any
+classes derived from CharacterSensor that do not override process() can enable TimetagAdjuster.
+The TimetagAdjustor has been added to the process() method of several sub-classes of
+CharacterSensor, including ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary and CSI_IRGA_Sonic
+in the nidas::dynld::isff namespace.
+
+The archived, raw time tags, Traw[i], are passed one at a time to the
+TimetagAdjuster::adjust() method, as each sample is processed.
 
 Each time adjust() is called, it computes an adjusted time tag, Tadj[I], using a
 fixed time delta from a base time, T0:
@@ -105,7 +116,7 @@ computed:
 
         tdiff = Traw[i] - Tadj[I]
 
-tdiff is an estimate of the error in the estimate of Tadj[I].
+tdiff is an estimate of the error in Tadj[I].
 
 If tdiff is ever negative, then because we assume Traw[i] are never
 too early, then Tadj[I] and T0 must be too late, and are corrected
@@ -133,12 +144,11 @@ will give a better series of times for the next Npts.
 
 ## Periods of Bad Latency
 
-Sometimes a DSM will go "catatonic", such that serial port
-reads are blocked by some other system task. During these
-times there does not seem to be any lost data, the serial driver
-is filling its buffer with the received characters with no loss,
-but the buffers are not being read by the DSM user-space acquisition
-process.
+Sometimes a DSM goes "catatonic", such that serial port reads are blocked
+by some other system task. During these times there does not seem
+to be any lost data, the serial driver is filling its buffer with
+the received characters with no loss, but the buffers are not being
+read by the DSM user-space acquisition process.
 
 A good example of this problem is the Nov 11, 2020 Honeywell PPT data
 taken on the C-130 by dsm319 during WCR-TEST, variables QCF (sample id 19,111),
@@ -199,10 +209,10 @@ It is probably wise to increase the read buffer size, for example to 4096 bytes.
 ## Prompted Sensors
 
 After a prompt is sent the prompt thread uses the modulus of the current
-time (tnow) with the desired output delta-T, to compute the amount of time to sleep,
+time (Tnow) with the desired output delta-T, to compute the amount of time to sleep,
 before the next prompt is sent, at a precision (not accuracy) of nano-seconds:
 
-        sleeptime = dt - (tnow % dt)
+        sleeptime = dt - (Tnow % dt)
 
 During times that the input latency is bad, the expected number of samples are seen
 in the output, so it appears that the prompting thread is not being blocked to the
@@ -232,10 +242,12 @@ At the end of processing, an INFO log message is printed for every sample with a
  * #pos: number of tdiffs > dt/2
  * #tot: total number of points
 
-In the above message it appears that there was one or more latency gaps of at least 4.51s (max gap), which resulted time tags being adjusted earlier by as much as 4.5827s (max late). However the results look pretty good, the largest dt in the results, "outdt max",  was 0.12 seconds or 6 sample times.
+In the above message it appears that there was one or more latency gaps of at least 4.51s (max gap),
+which resulted time tags being adjusted earlier by as much as 4.5827s (max late). However the results
+look pretty good, the largest dt in the results, "outdt max",  was 0.12 seconds or 6 sample times.
 
-The most important field to check is probably "outdt max". A large value, more than a few sample dts, indicates
-a problem in adjusting the time tags, resulting in gaps in the output time tags.
+The most important field to check is probably "outdt max". A large value, more than a few sample dts,
+indicates a problem in adjusting the time tags, resulting in gaps in the output time tags.
 
 A signifant difference between dt min and dt max, indicates the code cannot figure out a good
 sample reporting rate.
@@ -274,3 +286,4 @@ where for each sample, its time tag, Traw, and ttadjust variables are printed:
     * tdiffUncorr: tdiff, but not set to 0 if negative
     * tdiffmin: minimum value of tdiff so far in the current set of points
     * nDt: the point count in the current set of points
+
