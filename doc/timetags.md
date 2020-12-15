@@ -52,7 +52,7 @@ of the first byte in a sample is estimated as:
 Where Noffset is the offset in the input buffer of the first byte
 of the sample.
  
-Each raw sample is then archived, with its associated raw time tag, Traw.
+Each raw sample is then archived, with its associated raw time tag, `Traw`.
 
 ## TimetagAdjuster
 
@@ -70,37 +70,37 @@ The TimetagAdjustor has been added to the process() method of several sub-classe
 CharacterSensor, including ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary and CSI_IRGA_Sonic
 in the nidas::dynld::isff namespace.
 
-The archived, raw time tags, Traw[i], are passed one at a time to the
-TimetagAdjuster::adjust() method, as each sample is processed.
+The archived, raw time tags, `Traw[i]`, are passed one at a time to the
+`TimetagAdjuster::adjust()` method, as each sample is processed.
 
-Each time adjust() is called, it computes an adjusted time tag, Tadj[I], using a
-fixed time delta from a base time, T0:
+Each time `adjust()` is called, it computes an adjusted time tag, `Tadj[I]`, using a
+fixed time delta from a base time, `T0`:
 
         I++
         Tadj[I] = T0 + I * dt
 
-This value of Tadj[I] is returned as the adjusted time tag for
-the next Npts input time tags.
+This value of `Tadj[I]` is returned as the adjusted time tag for
+the next `Npts` input time tags.
 
-The trick is to figure out good values for T0, dt and Npts.
+The trick is to figure out good values for `T0`, `dt` and `Npts`.
 
         Npts = max(5, rate)
 
-So Npts will be at least 5 samples, and for rates > 5, it will be
-the number of samples per second. In some cirumstances I is
-allowed to exceed Npts as discussed below.
+So `Npts` will be at least 5 samples, and for rates > 5, it will be
+the number of samples per second. In some cirumstances `I` is
+allowed to exceed `Npts` as discussed below.
 
 Initially
 
         dt = 1/rate
 
-as configured for the sensor.  Later dt is updated periodically
-using a running average of the observed dt's:
+as configured for the sensor.  Later `dt` is updated periodically
+using a running average of the observed value:
 
-        dtobs = Traw[i] - Traw[i-1]
+        dtobs = (Traw[Npts] - Traw[0]) / Npts
 
-Initially, and after any large gap exceeding BIG_GAP_SECONDS, T0 is
-reset to the original time tag passed to adjust():
+Initially, and after any large gap exceeding `BIG_GAP_SECONDS`, `T0` is
+reset to the original time tag passed to `adjust()`:
 
         T0 = Traw[i]
         I = 0
@@ -109,17 +109,17 @@ and the unadjusted time tag
 
         Tadj[0] = T0 + 0 * dt = Traw[i]
 
-is returned from adjust().
+is returned from `adjust()`.  The current value of `BIG_GAP_SECONDS` is 10.
 
 The difference between each measured and adjusted time tag is
 computed:
 
         tdiff = Traw[i] - Tadj[I]
 
-tdiff is an estimate of the error in Tadj[I].
+`tdiff` is an estimate of the error in `Tadj[I]`.
 
-If tdiff is ever negative, then because we assume Traw[i] are never
-too early, then Tadj[I] and T0 must be too late, and are corrected
+If `tdiff` is ever negative, then because we assume `Traw[i]` are never
+too early, then `Tadj[I]` and `T0` must be too late, and are corrected
 earlier:
 
         T0 += tdiff
@@ -127,20 +127,20 @@ earlier:
         tdiff = 0
 
 Note that since TimetagAdjuster does not buffer samples, it does not
-correct any previous Tadj[I] for this negative tdiff. 
+correct any previous `Tadj[I]` for this negative `tdiff`. 
 
-Over the next Npts input time tags, the minimum value of
-tdiff, which is now non-negative, is computed.  This tdiffmin is then an
-estimate of how much T0 was too early over that time.
+Over the next `Npts` input time tags, the minimum value of
+`tdiff`, which is now non-negative, is computed.  This `tdiffmin` is then an
+estimate of how much `T0` was too early over that time.
  
-The idea is that sometimes over the Npts the system latency
-is small, and for those times, the raw time tags, Traw[i],
+The idea is that sometimes over the `Npts` the system latency
+is small, and for those times, the raw time tags, `Traw[i]`,
 are quite close to the true sample time. Correcting
-T0 forward
+`T0` forward
 
         T0 = Tadj[Npts] + tdiffmin
 
-will give a better series of times for the next Npts.
+will give a better series of times for the next `Npts`.
 
 ## Periods of Bad Latency
 
@@ -154,7 +154,7 @@ A good example of this problem is the Nov 11, 2020 Honeywell PPT data
 taken on the C-130 by dsm319 during WCR-TEST, variables QCF (sample id 19,111),
 ADIFR (19,121), and BDIFR(19,131).
 
-As a result, for these times there will be a gap in the Traw[i],
+As a result, for these times there will be a gap in the `Traw[i]`,
 of perhaps several seconds, followed by many samples with time tags
 spaced very closely in time, differing by
 
@@ -174,18 +174,18 @@ As of Dec 2020, the read buffer size in the acquisition process was 2048 bytes.
 For a buffer length of 2048 bytes, there may be as many as 2048/15=136 samples
 after the gap with a delta-T of 0.0078 sec.
 
-In this case TimetagAdjuster will keep assigning time tags over the Npts as usual
-using the T0 determined from the of tdiffmin before the gap:
+In this case TimetagAdjuster will keep assigning time tags over the `Npts` as usual
+using the `T0` determined from the of `tdiffmin` before the gap, and the averaged `dt`:
 
         Tadj[I] = T0 + I * dt
 
-At the gap, tdiff jumps to a large value, and then steadily decreases over time, 
-but might still be large once Npts have been processed.
+At the gap, `tdiff` jumps to a large value, and then steadily decreases over time, 
+but might still be large once `Npts` have been processed.
 
-To handle this situation, ttdjust checks whether tdiff is decreasing
-(the current tdiff is smaller than the previous) and will "flywheel" after
-I > Npts, without changing T0, until tdiff starts to increase. At that point
-tdiffmin will likely be small, indicating the system has caught up, and the
+To handle this situation, ttdjust checks whether `tdiff` is decreasing
+(the current `tdiff` is smaller than the previous) and will "flywheel" after
+`I > Npts`, without changing `T0`, until `tdiff` starts to increase. At that point
+`tdiffmin` will likely be small, indicating the system has caught up, and the
 adjustment over the next set of points should be small.
 
 If there are more than 2048 bytes in the serial driver buffers, then two
@@ -199,10 +199,10 @@ the Tfirst for the next buffer may be earlier than the last sample time in the
 previous buffer.  The system does not allow backwards time tags, so the
 time tags of samples in the next buffer be set to the previous time tag plus
 one micro-second.  This will be seen as another gap in the data followed
-by one micro-second delta-Ts.
+by one micro-second delta-Tsaveraged
 
-To acount for this second situation, TimetagAdjuster will flywheel forward until
-tdiff increases twice in a row.
+To acount for this second situation, TimetagAdjuster flywheels forward until
+`tdiff` increases twice in a row.
 
 It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
@@ -254,24 +254,27 @@ sample reporting rate.
 
 A large number of #neg or #pos is also a concern.
 
-### Large Positive Tdiff
+### Large Positive tdiff
 
 During processing, TimetagAdjuster logs some warnings.
 
-When TimetagAdjuster is adding the minimum tdiff to T0 for the next set of adjusted points, and the value of
-tdiff is larger than dt/2, a warning is logged:
+When TimetagAdjuster is adding the minimum `tdiff` to `T0` for the next set of adjusted points, and the value of
+`tdiff` is larger than `dt/2`, a warning is logged:
 
     WARNING|ttadjust: tdiff > dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  0.02, #big=1
 
-### Large Negative Tdiff
+### Large Negative tdiff
 
-When TimetagAdjuster is finds a negative tdiff less than -dt/2, it logs the issue before applying it to T0 for the next set of adjusted points. This should be rare, hopefully only happening at startup, when there is significant latency jitter
+When TimetagAdjuster is finds a negative `tdiff` less than -dt/2, it logs the issue before applying
+it to T0 for the next set of adjusted points. This should be rare, hopefully only happening
+at startup and when there is significant latency jitter
 
     WARNING|ttadjust: tdiff < -dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  -0.02, #neg=1
 
 ## Debugging
 
-High rate log messages can be printed for each sample for a given id, by adding log parameters to NIDAS data processing programs.  For example:
+High rate log messages can be printed to stderr for each sample with a given id, by adding log parameters to
+NIDAS data processing programs.  For example:
 
     data_dump -i 20,131 -p --logconfig enable,level=verbose,function=TimetagAdjuster::adjust --logparam trace_samples=20,131 --logconfig enable,level=info --logfields level,message input.ads 2> output.err > output.out
 
@@ -279,11 +282,15 @@ This will result in VERBOSE log messages in output.err looking like:
 
     VERBOSE|HR [20,131]@2020 11 11 22:04:59.683, toff tdiff tdiffUncorr tdiffmin nDt: 0.80856 0.002243 0.002243 6.1e-05 40
 
-where for each sample, its time tag, Traw, and ttadjust variables are printed:
+where for each sample, `Traw`, and TimetagAdjuster variables are printed:
 
     * toff: I * dt
-    * tdiff = Traw[i] - Tadj[I], set to 0 if negative
-    * tdiffUncorr: tdiff, but not set to 0 if negative
+    * tdiff: Traw[i] - Tadj[I], set to 0 if negative
+    * tdiffUncorr: Traw[I] - Tadj[I], but not set to 0 if negative
     * tdiffmin: minimum value of tdiff so far in the current set of points
-    * nDt: the point count in the current set of points
+    * nDt: the value of `I`
+
+Here is a `sed` command to extract the time and variables from `output.err` above:
+
+    sed -r -n "/^VERBOSE|HR /s/[^@]+@([^,]+).*nDt:(.*)/\1 \2/p" output.err
 
