@@ -22,12 +22,15 @@ This last latency can sometimes be significant, several seconds or more, which w
 However, generally this latency is quite random, and for sensors with a known and consistent
 reporting rate, one can determine when the latency is the smallest.  Using an
 artificial sequence of time tags, starting with the first received sample time tag and
-differing by the fixed sensor reporting interval, dt, compute the difference of each raw, assigned
+differing by the fixed sensor reporting interval, dt, compute the difference of each raw
 time tag with the associated artificial time tag.  The most negative difference over a period
 of time gives one an estimate of when the system had the minimum latency for that period.
  One can shift the next artificial sequence of time tags by this difference, and continue
 the process.  In this way one can get a good idea of what the time tags would have been
 if the system latency was always at its minimum over that period.
+
+So this method does not remove a constant, systematic latency in the assignment of time tags, but
+appears to be effective in reducing the random latency jitter.
 
 ## Serial Sensor Samples
 
@@ -116,13 +119,12 @@ Note that since TimetagAdjuster does not buffer samples, it does not
 correct any previous Tadj[I] for this negative tdiff. 
 
 Over the next Npts input time tags, the minimum value of
-tdiff, which is now non-negative, is computed.
-This tdiffmin is then an best estimate of how much T0
-was too early over that time.
+tdiff, which is now non-negative, is computed.  This tdiffmin is then an
+estimate of how much T0 was too early over that time.
  
 The idea is that sometimes over the Npts the system latency
 is small, and for those times, the raw time tags, Traw[i],
-are quite close to the true sample time, Traw. Correcting
+are quite close to the true sample time. Correcting
 T0 forward
 
         T0 = Tadj[Npts] + tdiffmin
@@ -163,16 +165,18 @@ For a buffer length of 2048 bytes, there may be as many as 2048/15=136 samples
 after the gap with a delta-T of 0.0078 sec.
 
 In this case TimetagAdjuster will keep assigning time tags over the Npts as usual
+using the T0 determined from the of tdiffmin before the gap:
 
         Tadj[I] = T0 + I * dt
 
-since before the gap the value of tdiffmin was a good estimate.
-After the gap, the values of tdiff will be quite large, but they will be
-decreasing over time.
+At the gap, tdiff jumps to a large value, and then steadily decreases over time, 
+but might still be large once Npts have been processed.
 
 To handle this situation, ttdjust checks whether tdiff is decreasing
 (the current tdiff is smaller than the previous) and will "flywheel" after
-I > Npts, without changing T0, until tdiff increases.
+I > Npts, without changing T0, until tdiff starts to increase. At that point
+tdiffmin will likely be small, indicating the system has caught up, and the
+adjustment over the next set of points should be small.
 
 If there are more than 2048 bytes in the serial driver buffers, then two
 or more buffer reads may then happen in quick succession once the DSM system
@@ -202,7 +206,7 @@ before the next prompt is sent, at a precision (not accuracy) of nano-seconds:
 
 During times that the input latency is bad, the expected number of samples are seen
 in the output, so it appears that the prompting thread is not being blocked to the
-extent that an output prompt is skipped. The prompts might be buffered by the serial
+extent that output prompts are skipped. The prompts might be buffered by the serial
 driver, but the symptoms of the input latency indicate that the serial driver is not
 getting behind, since no characters are lost, indicating that the problem is with the
 user-side read process.  This also indicates that the serial driver is also
