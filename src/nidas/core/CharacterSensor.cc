@@ -79,8 +79,7 @@ CharacterSensor::~CharacterSensor() {
     	tti != _ttadjusters.end(); ++tti) {
         TimetagAdjuster* tta = tti->second;
         if (tta) {
-            const SampleTag* tag = tti->first;
-            tta->log(nidas::util::LOGGER_INFO, this, tag->getId());
+            tta->log(nidas::util::LOGGER_INFO, this);
         }
         delete tta;
     }
@@ -193,10 +192,8 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
 
-        if (tag->getTimetagAdjustGap() > 0.0 && tag->getRate() > 0.0) {
-            _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
-                tag->getTimetagAdjustGap(),
-                tag->getTimetagAdjustPeriod());
+        if (tag->getTimetagAdjust() > 0.0 && tag->getRate() > 0.0) {
+            _ttadjusters[tag] = new TimetagAdjuster(tag->getId(), tag->getRate());
         }
     }
 	
@@ -483,6 +480,6 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
     TimetagAdjuster* ttadj = _ttadjusters[stag];
     if (ttadj)
     {
-        outs->setTimeTag(ttadj->adjust(outs->getTimeTag(), stag->getId()));
+        outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
     }
 }

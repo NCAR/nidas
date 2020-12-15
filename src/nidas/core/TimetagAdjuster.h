@@ -39,80 +39,7 @@ class SampleTracer;
  * for irregular latency in the assignments of the time tags
  * at acquisition time.
  *
- * NIDAS basically assigns time tags to samples by reading the
- * system clock at the moment the sample is acquired. It is a
- * little more complicated than this for certain types of sensors,
- * such as SerialSensor, where the time tag is adjusted for an estimated
- * RS232 transmission time, but basically the time tag assigned to a
- * raw sample is the best estimate available of the moment the first
- * byte of the sample is acquired.
- *
- * This assignment suffers from system latency, such that in general
- * the time tags are later than they should be, with some jitter.
- * This adjuster reduces the jitter in the sampling latencies.
- *
- * The archived, original time tags, ttorig[i], are passed one
- * at a time to the adjust() method.
- *
- * Each time adjust() is called, it computes an estimated
- * time tag, tt[I], using a fixed time delta from a base time,
- * tt[0]:
- *      I++
- *      tt[I] = tt[0] + I * dt
- * This value of tt[I] is returned as the adjusted time tag
- * from the adjust() method.
- *
- * The trick is to figure out what tt[0] and dt are. To start off, and
- * after any gap or backwards time in the time series, tt[0] is
- * reset to the original time tag passed to adjust():
- *      I = 0
- *      tt[I] = ttorig[i]
- * and the unadjusted time tag, tt[I], is returned from
- * adjust().
- *
- * Then over the next adjustment period, the difference between
- * each measured and estimated time tag is computed:
- *      tdiff = ttorig[i] - tt[I]
- * tdiff is an estimate of any additional latency in the assignment
- * of the original time tag.  Over the adjustment period, the minimum
- * of these latencies is computed. This minimum latency is used to compute
- * the new value of tt[0] at the beginning of the next adjustment
- * period:
- *      I = 0
- *      tt[I] = tt[N] + tdiffmin
- * where tt[N] is the last estimated time generated in the previous
- * adjustment period.
- *
- * tdiff min is also used for a small correction to dt:
- *      dt = dt + tdiffmin / N
- * This correction to dt  corrects for a sensor clock that may
- * not be exactly correct, so that the measured dt is different
- * from what would be expected as dt=1/rate.
- *
- * Using this simple method one can account for a slowly drifting
- * sensor clock, where (hopefully small) step changes are made after
- * every adjustment period to correct the accumulated time tag error
- * when the actual time delta of the samples differs from the stated dt.
- *
- * This adjustment algorithm assumes that the system clock is much
- * more accurate than the variable sampling latency of the system,
- * which is generally true when the data system is synced to a
- * NTP stratum 1-3 server over a good network link, or to a directly
- * connected reference clock, such as a GPS with a PPS.
- *
- * This method works if there are times during the adjustment period
- * where the system is able to respond very quickly to the receipt
- * of a sample and assign its time tag. This minimum latency is
- * determined and used to compute the base time, tt[0], of the next
- * time series.
- *
- * The adjustment period is passed to the constructor, and is typically
- * something like one second for sample rates over 1, and perhaps 10 seconds
- * for a sample rate of 1 sps.
- *
- * The adjustment is reset as described above on a backwards time in
- * the original time series or on a data gap.
- *
+ * See nidas/doc/timetags.md for a discussion of the algorithm.
  */
 
 class TimetagAdjuster {
@@ -121,38 +48,34 @@ public:
     /**
      * Constructor
      * @param rate Sample rate in Hz, sec^-1.
-     * @param sampleGap Number of seconds to consider a gap.  Adjustments are
-     *  reset after a gap.
-     * @param adjustPeriod Adjust the base time and dt every adjust period.
-     *      If 0, defaults to sampleGap * 2.
      */
-    TimetagAdjuster(double rate, float sampleGap, float adjustPeriod);
+    TimetagAdjuster(dsm_sample_id_t id, double rate);
 
     /**
      * Adjust a time tag.
      * @param tt NIDAS time tag to be adjusted.
      * @return Adjusted time tag.
      */
-    dsm_time_t adjust(dsm_time_t tt, dsm_sample_id_t id);
+    dsm_time_t adjust(dsm_time_t tt);
 
     /**
-     * Log various statistics of the TimetagAdjuster.
+     * Log various statistics of the TimetagAdjuster, used by sensors classes
+     * on shutdown.
      */
-    void log(int level, const DSMSensor* sensor, dsm_sample_id_t id,
-            bool octalLable=false);
-
-    void slog(SampleTracer& stracer, dsm_sample_id_t id,
-        const std::string& msg, dsm_time_t tt, dsm_time_t ttAdj);
+    void log(int level, const DSMSensor* sensor, bool octalLable=false);
 
     /**
-     * Return the number of ttadjust results so far.
-     * A reset of the ttadjust algrorithm happens when a measured
-     * delta-T (difference between a time tag and the previous)
-     * is greater than sampleGap seconds.
+     * Log message for a traced sample. Used for high-rate messages containing
+     * each time tag and tdiff.
      */
-    unsigned int getNumBackwards() const { return _nBack; }
+    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt,
+        long long toff, int tdiff, int tdiffUncorr);
 
-    unsigned int getNumGaps() const { return _nGap; }
+    /**
+     * Log message for a traced sample. Used for lower-rate messages every
+     * _npts.
+     */
+    void slog(SampleTracer& stracer, const std::string& msg, dsm_time_t tt);
 
     /**
      * Return the configured sample rate, as passed to constructor.
@@ -160,7 +83,27 @@ public:
     float getRate() const { return USECS_PER_SEC / (float) _dtUsec; }
 
     /**
-     * Return the minimum calculated delta-T so far.
+     * Return the maximum dt in the adjusted time tags. This is the
+     * maximum difference between successive, adjusted time tags.
+     */
+    float getMaxResultDt() const { return (float)_dtResultMax / USECS_PER_SEC; }
+
+    /**
+     * Return the minimum dt in the adjusted time tags.
+     */
+    float getMinResultDt() const { return (float)_dtResultMin / USECS_PER_SEC; }
+
+    /**
+     * Return the current average input delta-T so far.
+     * 1.0 / getDtAvg() is the observed sample rate.
+     */
+    double getDtAvg() const { return _dtUsecCorrSum / _nCorrSum / USECS_PER_SEC; }
+
+    /**
+     * Return the minimum calculated delta-T so far.  The observed delta-T
+     * of the input raw time tags is averaged to get a better estimate
+     * of the actual dt , because it will not typically be exactly the
+     * inverse of the configured rate.
      */
     float getDtMin() const { return (float)_dtUsecCorrMin / USECS_PER_SEC; }
 
@@ -168,12 +111,6 @@ public:
      * Return the maximum calculated delta-T so far.
      */
     float getDtMax() const { return (float)_dtUsecCorrMax / USECS_PER_SEC; }
-
-    /**
-     * Return the average calculated delta-T so far.  1.0 / getDtAvg() is the
-     * calculated sample rate.
-     */
-    double getDtAvg() const { return _dtUsecCorrSum / _nCorrSum / USECS_PER_SEC; }
 
     /**
      * Return the maximum adjustment to the measured time tags.
@@ -186,21 +123,21 @@ public:
     float getAdjMin() const { return (float)_tadjMinUsec / USECS_PER_SEC; }
 
     /**
+     * Maximum data gap in the non-adjusted, raw, time tags, in seconds.
+     */
+    float getMaxGap() const { return (float) _maxGap / USECS_PER_SEC; }
+
+    /**
      * Total number of time tags processed.
      */
     unsigned int getNumPoints() const { return _ntotalPts; }
 
     /**
-     * Maximum data gap in seconds in the non-adjusted, raw, time tags.
+     * How many backwards input time tags have been encountered, typically zero.
      */
-    float getMaxGap() const { return (float) _maxGap / USECS_PER_SEC; }
+    unsigned int getNumBackwards() const { return _nBack; }
 
-    /**
-     * Return the maximum dt in the adjusted time tags.
-     */
-    float getMaxResultDt() const { return (float)_dtResultMax / USECS_PER_SEC; }
-
-    float getMinResultDt() const { return (float)_dtResultMin / USECS_PER_SEC; }
+    static const int BIG_GAP_SECONDS = 10;
 
 private:
    
@@ -217,10 +154,27 @@ private:
      */
     dsm_time_t _tlast;
 
-    dsm_time_t _ttNpt0;
+    /**
+     *
+     */
+    dsm_time_t _ttnDt0;
+
+    dsm_time_t _ttAdjLast;
+
+    long long _maxGap;
 
     /**
-     * Expected delta-T in microseconds.
+     * Sum for average of dt.
+     */
+    double _dtUsecCorrSum;
+
+    /**
+     * ID of samples that are adjusted, used in log messages.
+     */
+    dsm_sample_id_t _id;
+
+    /**
+     * Expected delta-T in microseconds, 1/rate.
      */
     unsigned int _dtUsec;
 
@@ -230,55 +184,56 @@ private:
     unsigned int _dtUsecCorr;
 
     /**
-     * A gap in the original time series more than this value
-     * causes a reset in the computation of estimated time tags.
-     */
-    unsigned int _gapUsec;
-
-    /**
-     * Adjustment period, how long to calculate the minimum
-     * latency jitter before applying the correction.
-     */
-    unsigned int _adjustUsec;
-
-    /**
      * Current number of delta-Ts from tt0.
      */
     unsigned int _nDt;
 
     /**
-     * How many points to compute minimum time difference.
+     * Minimum number of points to compute minimum time difference.
      */
     unsigned int _npts;
 
     /**
-     * Minimum diffence between actual time tags and expected,
-     * over _adjustUsec or _npts.
+     * Minimum diffence between actual time tags and expected, over _npts.
      */
     int _tdiffminUsec;
 
+    /**
+     * Minimum averaged dt so far.
+     */
     int _dtUsecCorrMin;
+
+    /**
+     * Maximum averaged dt so far.
+     */
     unsigned int _dtUsecCorrMax;
-    double _dtUsecCorrSum;
+
     unsigned int _nCorrSum;
 
     unsigned int _nBack;
-    unsigned int _nGap;
 
     int _tadjMinUsec;
     unsigned int _tadjMaxUsec;
 
     unsigned int _ntotalPts;
 
-    dsm_time_t _ttAdjLast;
-
-    long long _maxGap;
-
-    unsigned int _maxRecentGap;
 
     int _dtResultMin;
     int _dtResultMax;
 
+    int _tdiffLast;
+
+    unsigned int _nNegTdiff;
+
+    unsigned int _nBigTdiff;
+
+    int _nworsen;
+    int _nimprove;
+
+    /**
+     * Number of samples in 5 minutes, used for running average.
+     */
+    unsigned int _nSamp5Min;
 };
 
 }}	// namespace nidas namespace core

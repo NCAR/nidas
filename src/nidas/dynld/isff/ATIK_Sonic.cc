@@ -58,8 +58,7 @@ ATIK_Sonic::ATIK_Sonic():
 ATIK_Sonic::~ATIK_Sonic()
 {
     if (_ttadjust) {
-	const SampleTag* tag = getSampleTags().front();
-        _ttadjust->log(nidas::util::LOGGER_INFO, this, tag->getId());
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
     }
     delete _ttadjust;
 }
@@ -121,10 +120,8 @@ void ATIK_Sonic::checkSampleTags()
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustGap(),
-                stag->getTimetagAdjustPeriod());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
     /*
      * nvars
      * 7	u,v,w,tc,diag,spd,dir
@@ -278,7 +275,7 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         timetag = samp->getTimeTag();
         if (_ttadjust)
-            timetag = _ttadjust->adjust(timetag, _sampleId);
+            timetag = _ttadjust->adjust(timetag);
 
         // Binary values for uvwt may need to be swapped.
         if (__BYTE_ORDER == __BIG_ENDIAN)

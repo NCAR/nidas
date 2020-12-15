@@ -76,8 +76,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 CSAT3_Sonic::~CSAT3_Sonic()
 {
     if (_ttadjuster) {
-	const SampleTag* tag = getSampleTags().front();
-        _ttadjuster->log(nidas::util::LOGGER_INFO, this, tag->getId());
+        _ttadjuster->log(nidas::util::LOGGER_INFO, this);
     }
     delete _ttadjuster;
 }
@@ -623,7 +622,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     dsm_time_t timetag = samp->getTimeTag();
 
     // Reduce latency jitter in time tags
-    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag, _windSampleId);
+    if (_ttadjuster) timetag = _ttadjuster->adjust(timetag);
 
     /*
      * CSAT3 has an internal two sample buffer, so shift
@@ -849,10 +848,8 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         if (_windSampleId == 0) {
             size_t nvars = stag->getVariables().size();
             _rate = (int)rint(stag->getRate());
-            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjustGap() > 0.0) 
-                _ttadjuster = new TimetagAdjuster(_rate,
-                        stag->getTimetagAdjustGap(),
-                        stag->getTimetagAdjustPeriod());
+            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjust() > 0.0) 
+                _ttadjuster = new TimetagAdjuster(stag->getId(), _rate);
             _gapDtUsecs = 5 * USECS_PER_SEC;
 
             _windSampleId = stag->getId();

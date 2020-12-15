@@ -310,22 +310,14 @@ public:
     unsigned int getDataIndex(const Variable* var) const;
 
     /**
-     * Value passed to TimetagAdjuster to be used for the sample
-     * gap parameter, in seconds. A value of 0 means no ttadjust.
+     * Whether to enable TimetagAdjuster for this sample.
+     * A value of 0 means no ttadjust.
      * The default value of -1 means don't override the value set
      * for the sensor.
      */
-    float getTimetagAdjustGap() const { return _ttAdjustGap; }
+    float getTimetagAdjust() const { return _ttAdjustVal; }
 
-    void setTimetagAdjustGap(float val) { _ttAdjustGap = val; }
-
-    /**
-     * Value passed to TimetagAdjuster to be used for the adjust
-     * period, in seconds.
-     */
-    float getTimetagAdjustPeriod() const { return _ttAdjustPeriod; }
-
-    void setTimetagAdjustPeriod(float val) { _ttAdjustPeriod = val; }
+    void setTimetagAdjust(float val) { _ttAdjustVal = val; }
 
     VariableIterator getVariableIterator() const;
 
@@ -403,15 +395,9 @@ private:
     bool _enabled;
 
     /**
-     * Number of seconds to consider a data gap, used by TimetagAdjust.
+     * If positive, enable TimetagAdjustor for these samples.
      */
-    float _ttAdjustGap;
-
-    /**
-     * How often to reset time tag adjustments.
-     * Initialized to -1.0.  Any value <= 0 means no time tag adjustments.
-     */
-    float _ttAdjustPeriod;
+    float _ttAdjustVal;
 
 };
 

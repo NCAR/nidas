@@ -60,8 +60,7 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
     if (_ttadjust) {
-	const SampleTag* tag = getSampleTags().front();
-        _ttadjust->log(nidas::util::LOGGER_INFO, this, tag->getId());
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
     }
     delete _ttadjust;
 }
@@ -114,10 +113,8 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 
     const SampleTag* stag = tags.front();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustGap(),
-                stag->getTimetagAdjustPeriod());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
 
     _numOut = stag->getVariables().size();
 
@@ -245,7 +242,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
         wsamptime = samp->getTimeTag();
         if (_ttadjust)
-            wsamptime = _ttadjust->adjust(wsamptime, _sampleId);
+            wsamptime = _ttadjust->adjust(wsamptime);
         wsamptime -= _timeDelay;
 
         bptr = buf;

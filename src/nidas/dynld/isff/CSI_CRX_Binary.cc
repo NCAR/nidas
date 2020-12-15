@@ -52,8 +52,7 @@ CSI_CRX_Binary::CSI_CRX_Binary():
 CSI_CRX_Binary::~CSI_CRX_Binary()
 {
     if (_ttadjust) {
-	const SampleTag* tag = getSampleTags().front();
-        _ttadjust->log(nidas::util::LOGGER_INFO, this, tag->getId());
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
     }
     delete _ttadjust;
 }
@@ -70,10 +69,8 @@ void CSI_CRX_Binary::validate()
     const SampleTag* stag = tags.front();
     _numOut = stag->getVariables().size();
     _sampleId = stag->getId();
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustGap() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustGap(),
-                stag->getTimetagAdjustPeriod());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
 }
 
 unsigned short CSI_CRX_Binary::signature(const unsigned char* buf, const unsigned char* eob)
@@ -116,7 +113,7 @@ bool CSI_CRX_Binary::process(const Sample* samp,
 
     dsm_time_t timetag = samp->getTimeTag();
     if (_ttadjust)
-        timetag = _ttadjust->adjust(timetag, _sampleId);
+        timetag = _ttadjust->adjust(timetag);
 
 #ifdef CHECK_SIGNATURE
     if (len < 4) return false;  // at least the 2-byte signature and one word of data

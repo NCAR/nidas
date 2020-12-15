@@ -89,8 +89,7 @@ DSMArincSensor::~DSMArincSensor()
         tti != _ttadjusters.end(); ++tti) {
         TimetagAdjuster* tta = tti->second;
         if (tta) {
-            dsm_sample_id_t id = tti->first;
-            tta->log(nidas::util::LOGGER_INFO, this, id, true);
+            tta->log(nidas::util::LOGGER_INFO, this, true);
             delete tta;
         }
     }
@@ -177,16 +176,16 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
 
-    float ttadjustGap = 0.0;
-    float ttadjustPeriod = 0.0;
+    float ttadjustVal = 0.0;
 
     const Parameter *parm = getParameter("ttadjust");
     if (parm) {
-        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() > 2)
-            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length <=2");
-        ttadjustGap = parm->getNumericValue(0);
+        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() < 1)
+            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length 1");
         if (parm->getLength() > 1)
-            ttadjustPeriod = parm->getNumericValue(1);
+            WLOG(("%s: ttadjust with more than one value is deprecated, should be single valued: 0 (disable) or 1 (enable)",
+                getName().c_str()));
+        ttadjustVal = parm->getNumericValue(0);
     }
 
     list<SampleTag*>& tags = getSampleTags();
@@ -207,18 +206,16 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
                     }
                 }
             }
-            float ttgap = ttadjustGap;
-            float ttper = ttadjustPeriod;
-            /* The default value for stag->getTimetagAdjustGap() is -1.
+            float ttval = ttadjustVal;
+            /* The default value for stag->getTimetagAdjust() is -1.
              * A value of 0 here means the user wants to override any
              * value set by a ttadjust <parameter> for the sensor.
              */
-            if (stag->getTimetagAdjustGap() >= 0.0) {
-                ttgap = stag->getTimetagAdjustGap();
-                ttper = stag->getTimetagAdjustPeriod();
+            if (stag->getTimetagAdjust() >= 0.0) {
+                ttval = stag->getTimetagAdjust();
             }
-            if (ttgap > 0.0) {
-                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getRate(), ttgap, ttper);
+            if (ttval > 0.0) {
+                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getId(), stag->getRate());
             }
         }
     }
@@ -312,7 +309,7 @@ throw()
         dsm_sample_id_t id = getId() + label;
 
         TimetagAdjuster* ttadj = _ttadjusters[id];
-        if (ttadj) tt = ttadj->adjust(tt, id);
+        if (ttadj) tt = ttadj->adjust(tt);
 
         // if there is a VariableConverter defined for this sample, apply it.
         if (_converters.find(id) != _converters.end())
