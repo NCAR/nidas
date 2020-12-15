@@ -219,7 +219,7 @@ it doesn't seem to be as large as a sample delta-T.
 
 ### Summary Log Message
 
-When a sensor object is destroyed, it will generate a INFO log message for any TimetagAdjuster configured for a sample:
+At the end of processing, an INFO log message is printed for every sample with a TimetagAdjuster:
 
     INFO|ttadjust: dsm319:/dev/ttyS5(19,111): max late: 4.5827s, dt min,max:  0.02000,  0.02005, outdt min,max:  0.02,  0.12, rate cfg,obs,diff: 50.00, 49.99717,  0.00, maxgap:   4.51, #neg: 0, #pos: 2, #tot: 464986
 
@@ -232,18 +232,45 @@ When a sensor object is destroyed, it will generate a INFO log message for any T
  * #pos: number of tdiffs > dt/2
  * #tot: total number of points
 
-In the above message it appears that there was one or more latency gaps of at least 4.51s (max gap), which resulted time tags being adjusted earlier by as much as 4.5827s (max late). However the results look pretty good, the largest dt in the results was 0.12 seconds or 6 sample times.
+In the above message it appears that there was one or more latency gaps of at least 4.51s (max gap), which resulted time tags being adjusted earlier by as much as 4.5827s (max late). However the results look pretty good, the largest dt in the results, "outdt max",  was 0.12 seconds or 6 sample times.
+
+The most important field to check is probably "outdt max". A large value, more than a few sample dts, indicates
+a problem in adjusting the time tags, resulting in gaps in the output time tags.
+
+A signifant difference between dt min and dt max, indicates the code cannot figure out a good
+sample reporting rate.
+
+A large number of #neg or #pos is also a concern.
 
 ### Large Positive Tdiff
 
-During processing TimetagAdjuster logs some warnings.
+During processing, TimetagAdjuster logs some warnings.
 
-When TimetagAdjuster is adding the minimum tdiff to T0 for the next set of adjusted points, and the value of tdiff is larger than dt/2 a warning is logged:
+When TimetagAdjuster is adding the minimum tdiff to T0 for the next set of adjusted points, and the value of
+tdiff is larger than dt/2, a warning is logged:
 
     WARNING|ttadjust: tdiff > dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  0.02, #big=1
 
 ### Large Negative Tdiff
 
-When TimetagAdjuster is finds a negative tdiff less then -dt/2, it logs the issue before applying it to T0 for the next set of adjusted points. This should be rare, hopefully only happening at startup, with significant latency jitter
+When TimetagAdjuster is finds a negative tdiff less than -dt/2, it logs the issue before applying it to T0 for the next set of adjusted points. This should be rare, hopefully only happening at startup, when there is significant latency jitter
 
     WARNING|ttadjust: tdiff < -dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  -0.02, #neg=1
+
+## Debugging
+
+High rate log messages can be printed for each sample for a given id, by adding log parameters to NIDAS data processing programs.  For example:
+
+    data_dump -i 20,131 -p --logconfig enable,level=verbose,function=TimetagAdjuster::adjust --logparam trace_samples=20,131 --logconfig enable,level=info --logfields level,message input.ads 2> output.err > output.out
+
+This will result in VERBOSE log messages in output.err looking like:
+
+    VERBOSE|HR [20,131]@2020 11 11 22:04:59.683, toff tdiff tdiffUncorr tdiffmin nDt: 0.80856 0.002243 0.002243 6.1e-05 40
+
+where for each sample, its time tag, Traw, and ttadjust variables are printed:
+
+    * toff: I * dt
+    * tdiff = Traw[i] - Tadj[I], set to 0 if negative
+    * tdiffUncorr: tdiff, but not set to 0 if negative
+    * tdiffmin: minimum value of tdiff so far in the current set of points
+    * nDt: the point count in the current set of points
