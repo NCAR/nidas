@@ -168,8 +168,8 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
         _nimprove++;
         _nworsen = 0;
     }
-    else if (tdiffdiff > 0) {
-        // if more than two positive tdiffdiffs in a row, then we're
+    else if (tdiffdiff >= 0) {
+        // if more than two non-negative tdiffdiffs in a row, then we're
         // not improving.
         _nworsen++;
         if (_nworsen > 1) _nimprove = 0;
