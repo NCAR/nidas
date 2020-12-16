@@ -18,12 +18,12 @@ gathering the data. It is therefore important to monitor the state of the refere
 clock, which is typically either a network NTP server, a local reference clock, or both.
 
 Our sytems generally use `chrony` for NTP.  The chrony tracking log contains the
-stratum of the reference server and the local system clock's offset from the
-server, where a positive value means the system clock is ahead of the reference.
+stratum of the reference clock and the local system clock's offset from the
+reference, where a positive value means the system clock is ahead of the reference.
 See the `log tracking` directive in the chrony documentation, for example
 https://chrony.tuxfamily.org/doc/3.4/chrony.conf.html
 
-Assuming that tracking is being logged by chrony, NIDAS can archive it with the
+Assuming that tracking is being logged by chrony, NIDAS can archive and parse it with the
 following XML:
 
     <sensorcatalog>
@@ -57,7 +57,7 @@ Then for each DSM, where in this case a sample id of 6 was chosen:
     </dsm>
 
 The above will result in `Stratum` and `Timeoffset` variables for each DSM. The units of
-`TimeOffset` will be micro-seconds.
+`Timeoffset` will be micro-seconds.
 
 ## Latency
 
@@ -65,9 +65,9 @@ The assignment of time tags suffers from several sources of latency. With a
 highly accurate system clock, we can assume that the assigned time tags are always later,
 never earlier, than the representative time of the sample.  
 
-This latency has several sources:
+Some sources of latency include:
 
- * latency in responding to interrupts
+ * delay in system response to interrupts
  * interrupts may also be systematically late. For example a serial interrupt generally does
 not occur until the UART has detected inactivity on the serial line
  * acquisition system load causing delays in reading available data from buffers
@@ -204,21 +204,22 @@ will give a better series of times for the next `Npts`.
 Sometimes a DSM goes "catatonic", such that serial port reads are blocked
 by some other system task. During these times there does not seem
 to be any lost data, the serial driver is filling its buffer with
-the received characters with no loss, but the buffers are not being
-read by the DSM user-space acquisition process.
+the received characters with no loss, but the DSM user-space acquisition
+process is delayed in reading the buffers.
+
+As a result, for these situations there will be a gap in the `Traw[i]`,
+of perhaps several seconds. Then, NIDAS uses a delta-T of
+
+        Traw[i] - Traw[i-1] = samplen * Tbyte
+
+where samplen is the number of bytes in a sample, when assigning raw time tags to
+the remaining samples in the buffer.
 
 A good example of this problem is the Nov 11, 2020 Honeywell PPT data
 taken on the C-130 by dsm319 during WCR-TEST, variables QCF (sample id 19,111),
 ADIFR (19,121), and BDIFR(19,131).
 
-As a result, for these times there will be a gap in the `Traw[i]`,
-of perhaps several seconds, followed by many samples with time tags
-spaced very closely in time, differing by
-
-        Traw[i] - Traw[i-1] =  Nsamp * Tbyte
-
-where Nsamp is the number of bytes in a sample.
-So for sensor such as a Honeywell PPT, with a sample size of 15 bytes,
+For a sensor such as a Honeywell PPT, with a sample length of 15 bytes,
 at a baud rate of 19200 bits/sec, the differences between the raw
 time tags will be:
 
@@ -231,11 +232,11 @@ where
 As of Dec 2020, the read buffer length for serial sensors is 2048 bytes,
 as set by the default bufsize for MessageStreamScanner in SampleScanner.h.
 
-For this buffer length of 2048 bytes, there may be as many as 2048/15=136 samples
+For a buffer length of 2048 bytes, there may be as many as 2048/15=136 PPT samples
 after the gap with a delta-T of 0.0078 sec.
 
 In this case TimetagAdjuster will keep assigning time tags over the `Npts` as usual
-using the `T0` determined from the of `tdiffmin` before the gap, and the averaged `dt`:
+using the `T0` determined from `tdiffmin` before the gap, and the averaged `dt`:
 
         Tadj[I] = T0 + I * dt
 
@@ -243,10 +244,10 @@ At the gap, `tdiff` jumps to a large value, and then steadily decreases over tim
 but might still be large once `Npts` have been processed.
 
 To handle this situation, ttdjust checks whether `tdiff` is decreasing
-(the current `tdiff` is smaller than the previous) and will "flywheel" for
-`I > Npts`, without changing `T0`, until `tdiff` is no longer decreasing.
-At that point `tdiffmin` will likely be small, indicating the system has
-caught up, and the adjustment over the next set of points should be small.
+(the current `tdiff` is smaller than the previous) and will "flywheel" past
+`I == Npts` without changing `T0`, until `tdiff` is no longer decreasing.
+At that point `tdiffmin` should be small, indicating the system has
+caught up, and the adjustment over the next set of points should be reasonable.
 
 If there are more than 2048 bytes in the serial driver buffers, then two
 or more buffer reads may then happen in quick succession once the DSM system
@@ -257,7 +258,7 @@ in the buffer is estimated by
 
 the Tfirst for the next buffer may be earlier than the last sample time in the
 previous buffer.  The system does not allow backwards time tags, so the
-time tags of samples in the next buffer be set to the previous time tag plus
+time tags of samples in the next buffer are set to the previous time tag plus
 one micro-second.  This will be seen as another gap in the data followed
 by one micro-second delta-Tsaveraged
 
@@ -282,8 +283,12 @@ getting behind, since no characters are lost, indicating that the problem is wit
 user-side read process.  This also indicates that the serial driver is also
 not getting significantly behind in sending prompts, but more investigation would be good.
 
-There is, of course, some latency jitter in the sending of the time tags, but
-it doesn't seem to be as large as a sample delta-T.
+There is, of course, latency in the sending of the time tags, such as a systematic
+delay of
+
+        promptlag = promptlen * Tbyte
+
+for the full prompt to arrive at the sensor.
 
 ## Logs
 
