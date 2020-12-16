@@ -11,7 +11,57 @@ As samples are received from these sensors, the acquisition system assigns time 
 to the samples, using its own clock.  This system clock is typically conditioned with NTP,
 and so has a high accuracy, often better than 50 microseconds relative to an absolute GPS reference.
 
-However, the assignment of time tags suffers from several sources of latency. With a
+## Monitoring System Clock
+
+Time-tagging is essentially the second most critical job of NIDAS, after simply
+gathering the data. It is therefore important to monitor the state of the reference
+clock, which is typically either a network NTP server, a local reference clock, or both.
+
+Our sytems generally use `chrony` for NTP.  The chrony tracking log contains the
+stratum of the reference server and the local system clock's offset from the
+server, where a positive value means the system clock is ahead of the reference.
+See the `log tracking` directive in the chrony documentation, for example
+https://chrony.tuxfamily.org/doc/3.4/chrony.conf.html
+
+Assuming that tracking is being logged by chrony, NIDAS can archive it with the
+following XML:
+
+    <sensorcatalog>
+        <serialSensor ID="CHRONY_TRACKING_LOG" class="WatchedFileSensor"
+            devicename="/var/log/chrony/tracking.log">
+            <!-- see https://chrony.tuxfamily.org/doc/2.3/manual.html#tracking-log
+                  date       hms        IP         statum freq(ppm)     freqerr offset   leap
+                 2012-02-23 05:40:50 158.152.1.76     3    340.529      1.606  1.046e-03 N \
+                            sources offdev  remaining offset
+                             4  6.849e-03 -4.670e-04
+             -->
+            <sample id="1" scanfFormat="%*d-%*d-%*d %*d:%*d:%*d %*s%f%*f%*f%f">
+                <variable name="Stratum" units=""
+                    longname="NTP stratum" plotrange="0 10"/>
+                <variable name="Timeoffset" units="sec"
+                    longname="Clock offset, system-reference" plotrange="-100 100">
+                    <linear units="usec" slope="1.e6" intercept="0.0"/>
+                </variable>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+        ...
+    </sensorcatalog>
+
+Then for each DSM, where in this case a sample id of 6 was chosen:
+
+    <dsm ...>
+        ...
+        <serialSensor IDREF="CHRONY_TRACKING_LOG" id="6">
+        </serialSensor>
+    </dsm>
+
+The above will result in `Stratum` and `Timeoffset` variables for each DSM. The units of
+`TimeOffset` will be micro-seconds.
+
+## Latency
+
+The assignment of time tags suffers from several sources of latency. With a
 highly accurate system clock, we can assume that the assigned time tags are always later,
 never earlier, than the representative time of the sample.  
 
@@ -63,10 +113,10 @@ Each raw sample is then archived, with its associated raw time tag, `Traw`.
 ## TimetagAdjuster
 
 If the configuration value of "ttadjust" is positive for a sample, and TimetagAdjuster is
-supported in the sensor class, then the it is used in post-processing to generate
+supported in the sensor class, then it is used in post-processing to generate
 corrected time tags of processed samples.  
 
-In the XML, ttadjust is an attribute of \<sample\>:
+In the XML, ttadjust is an attribute of \<sample\>. Set it to "1" to enable:
 
         <sample id="1" rate="50" scanfFormat="*%*2d%*2d%f" ttadjust="1">
 
@@ -106,7 +156,7 @@ using a running average of the observed value:
         dtobs = (Traw[i] - Traw[i-Npts]) / Npts
 
 Initially, and after any large gap exceeding `BIG_GAP_SECONDS`, `T0` is
-set to the original time tag passed to `adjust()`:
+set to the raw time tag passed to `adjust()`:
 
         T0 = Traw[i]
         I = 0
@@ -169,7 +219,7 @@ spaced very closely in time, differing by
 
 where Nsamp is the number of bytes in a sample.
 So for sensor such as a Honeywell PPT, with a sample size of 15 bytes,
-at a baud rate of 19200 bits/sec, the differences between the original
+at a baud rate of 19200 bits/sec, the differences between the raw
 time tags will be:
 
         Traw[i] - Traw[i-1] =  15 * Tbyte = 0.0078 sec
@@ -178,8 +228,10 @@ where
 
         Tbyte = 10 / 19200 = 0.52 millisecond
 
-As of Dec 2020, the read buffer size in the acquisition process was 2048 bytes.
-For a buffer length of 2048 bytes, there may be as many as 2048/15=136 samples
+As of Dec 2020, the read buffer length for serial sensors is 2048 bytes,
+as set by the default bufsize for MessageStreamScanner in SampleScanner.h.
+
+For this buffer length of 2048 bytes, there may be as many as 2048/15=136 samples
 after the gap with a delta-T of 0.0078 sec.
 
 In this case TimetagAdjuster will keep assigning time tags over the `Npts` as usual
@@ -192,9 +244,9 @@ but might still be large once `Npts` have been processed.
 
 To handle this situation, ttdjust checks whether `tdiff` is decreasing
 (the current `tdiff` is smaller than the previous) and will "flywheel" for
-`I > Npts`, without changing `T0`, until `tdiff` starts to increase. At that point
-`tdiffmin` will likely be small, indicating the system has caught up, and the
-adjustment over the next set of points should be small.
+`I > Npts`, without changing `T0`, until `tdiff` is no longer decreasing.
+At that point `tdiffmin` will likely be small, indicating the system has
+caught up, and the adjustment over the next set of points should be small.
 
 If there are more than 2048 bytes in the serial driver buffers, then two
 or more buffer reads may then happen in quick succession once the DSM system
@@ -210,7 +262,7 @@ one micro-second.  This will be seen as another gap in the data followed
 by one micro-second delta-Tsaveraged
 
 To acount for this second situation, TimetagAdjuster flywheels forward until
-`tdiff` increases twice in a row.
+`tdiff` increases or stays the same twice in a row.
 
 It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
