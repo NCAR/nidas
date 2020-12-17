@@ -91,7 +91,7 @@ is effective in reducing the random latency jitter.
 ## Serial Sensor Samples
 
 For senors with a serial port interface, NIDAS assigns time tags to samples by reading
-the system clock right after the serial data is read. An estimate of the transmission
+the system clock right after the serial buffer is read. An estimate of the transmission
 time of the first byte in the buffer is computed as the read time minus the number of
 bytes read, times the transmission time of one byte: 
 
@@ -110,15 +110,30 @@ of the sample.
  
 Each raw sample is then archived, with its associated raw time tag, `Traw`.
 
+If there are more than one sample in the buffer, then unless the sensor has sent
+multiple samples in quick succession, the acquisition system is getting behind. 
+
+For any remaining samples in the buffer, NIDAS assigns raw time tags using a delta-T of
+
+        Traw[i] - Traw[i-1] = samplen * Tbyte
+
+where samplen is the number of bytes in a sample.  This delta-T will be smaller than
+the reporting interval of the sensor.
+
 ## TimetagAdjuster
 
-If the configuration value of "ttadjust" is positive for a sample, and TimetagAdjuster is
-supported in the sensor class, then it is used in post-processing to generate
-corrected time tags of processed samples.  
+If a rate is specified for a sample in the XML configuration, and "ttadjust" is positive,
+and TimetagAdjuster is supported in the sensor class, then it is used in post-processing
+to generate corrected time tags of processed samples.  
 
-In the XML, ttadjust is an attribute of \<sample\>. Set it to "1" to enable:
+In the XML, rate and ttadjust are attributes of \<sample\>. Set ttadjust to "1" to enable,
+   for example:
 
-        <sample id="1" rate="50" scanfFormat="*%*2d%*2d%f" ttadjust="1">
+        <sample id="1" rate="50" ttadjust="1" ...>
+
+The value for ttadjust can also be an environment variable
+
+        <sample id="1" rate="50" ttadjust="$DO_TTADJUST" ...>
 
 Timetag adjusting is done in the nidas::core::CharacterSensor::process() method, and so any
 classes derived from CharacterSensor that do not override process() can enable TimetagAdjuster.
@@ -182,8 +197,8 @@ earlier:
         Tadj[I] += tdiff
         tdiff = 0
 
-Note that since TimetagAdjuster does not buffer samples, it does not
-correct any previous `Tadj[I]` for this negative `tdiff`. 
+Note that since TimetagAdjuster does not buffer samples, it **does not**
+correct any previous output time tags for this negative `tdiff`. 
 
 Over the next `Npts` input time tags, the minimum value of
 `tdiff`, which is now non-negative, is computed.  This `tdiffmin` is
@@ -197,31 +212,30 @@ Correcting `T0` forward by `tdiffmin`:
 
         T0 = Tadj[Npts] + tdiffmin
 
-will give a better series of times for the next `Npts`.
+will give a better series of times for the **next** `Npts`. Note again, that this
+corrected tdiffmin is not applied to any earlier output time tags.
 
 ## Periods of Bad Latency
 
 Sometimes a DSM goes "catatonic", such that serial port reads are blocked
-by some other system task. During these times there does not seem
-to be any lost data, the serial driver is filling its buffer with
-the received characters with no loss, but the DSM user-space acquisition
-process is delayed in reading the buffers.
+by some other system task. During these times we do not generally see any
+data loss, indicating that the serial driver is reading from the UART
+FIFO before it overflows, but the DSM user-space acquisition process is
+being delayed in reading from the serial driver buffers.
 
 As a result, for these situations there will be a gap in the `Traw[i]`,
-of perhaps several seconds. Then, NIDAS uses a delta-T of
+of perhaps several seconds, followed by time tags with small delta-T:
 
         Traw[i] - Traw[i-1] = samplen * Tbyte
 
-where samplen is the number of bytes in a sample, when assigning raw time tags to
-the remaining samples in the buffer.
+as discussed above.
 
-A good example of this problem is the Nov 11, 2020 Honeywell PPT data
-taken on the C-130 by dsm319 during WCR-TEST, variables QCF (sample id 19,111),
-ADIFR (19,121), and BDIFR(19,131).
+A good example of this problem is the Nov 11, 2020 data from Honeywell PPTs
+that were prompted at 50 Hz (dt=0.02 sec) on the C-130 by dsm319 during WCR-TEST,
+variables QCF (sample id 19,111), ADIFR (19,121), and BDIFR(19,131).
 
-For a sensor such as a Honeywell PPT, with a sample length of 15 bytes,
-at a baud rate of 19200 bits/sec, the differences between the raw
-time tags will be:
+For a PPT, with a sample length of 15 bytes, at a baud rate of 19200 bits/sec,
+the differences between the raw time tags of multiple samples in a buffer will be:
 
         Traw[i] - Traw[i-1] =  15 * Tbyte = 0.0078 sec
 
@@ -290,7 +304,7 @@ delay of
 
 for the full prompt to arrive at the sensor.
 
-## Logs
+## TimetagAdjuster Logs
 
 ### Summary Log Message
 
@@ -340,7 +354,7 @@ at startup and when there is significant latency jitter
 
     WARNING|ttadjust: tdiff < -dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  -0.02, #neg=1
 
-## Debugging
+### Debugging
 
 High rate log messages can be printed to stderr for samples with a given id, by
 adding logging arguments to NIDAS data processing programs.  For example, to print
@@ -368,4 +382,74 @@ where for each sample, `Traw`, and several TimetagAdjuster variables are printed
 This `sed` command will extract the time and variables from `output.err` above:
 
     sed -r -n "/^VERBOSE|HR /s/[^@]+@([^,]+).*nDt:(.*)/\1 \2/p" output.err
+
+## Latency Mitigation
+
+### Multi-threading and Real-Time Priority
+
+In the dsm process, once a device associated with a sensor is opened,
+and any sensor initialization is done, the device descriptor is passed to a
+SensorHandler thread.  SensorHandler runs the `epoll` loop which waits
+for input on any of the sensor devices, reads the input, splits the input
+into samples, assigning time tags to serial data, and passes the samples
+on to a SampleSorter thread.
+
+The SensorHandler is scheduled to run at a real-time FIFO priority of 50,
+which is the highest priority of any thread in NIDAS.  If requesting this priority
+fails, this message will appear in the log:
+
+    SensorHandler: start: Operation not permitted. Trying again with non-real-time priority.
+
+Up to now this message has been logged at an INFO severity. I think it should be raised
+to WARNING or ERROR.
+
+Setting this priority requires the `CAP_SYS_NICE` capability.  If NIDAS is
+installed from a Debian or RPM package, the `/opt/nidas/bin/dsm` executable
+file is provided CAP_SYS_NICE with the `setcap` command.
+
+To check the capabilities on an executable, do:
+    
+     getcap /opt/nidas/bin/dsm
+
+If cap_sys_nice is not enabled, then install nidas from the package or enable it by hand:
+
+     setcap cap_sys_nice,cap_net_admin+p /opt/nidas/bin/dsm
+
+These bash aliases for ps will show the real time priority and policy of processes:
+
+    alias psrt='ps -eTo pid,user,%cpu,%mem,class,rtprio,comm'
+    alias psrtd='ps -Lo pid,user,%cpu,%mem,class,rtprio,comm -C dsm'
+    
+### CONFIG\_PREEMPT Kernel
+
+The Linux kernels on armel systems, Viper and Titan, have been built with CONFIG_PREEMPT 
+turned on.  See https://www.codeblueprint.co.uk/2019/12/23/linux-preemption-latency-throughput.html
+for some info on PREEMPT kernels.
+
+### Memory Locking
+
+This is **not** currently done in NIDAS, and may be worth looking into.
+
+See the check for `DO_MLOCKALL` in `nidas/core/NidasApp.c`.  There is a call to
+`\_app.lockMemory()` in `nidas/core/DSMEngine.cc`, but until DO_MLOCKALL is defined,
+it does nothing.
+
+### setserial low_latency
+
+The low_latency option in setserial would seem to be a good thing:
+
+    low_latency
+    Minimize the receive latency of the serial device at the cost of greater CPU utilization.
+    (Normally there is an average of 5-10ms latency before characters are handed off to the line
+    discpline to minimize overhead.) This is off by default, but certain real-time
+    applications may find this useful.
+
+However, support for serial port low_latency in the linux kernel is not really there.
+Looking at the source code for the 3.15 kernel (used on our Vipers/Titans) and a more
+recent kernel, 5.7.7, I do not see where the low_latency option is actually used.
+A critical place to look is in `drivers/tty/tty_buffer.c`.
+
+This mail thread discusses a recent attempt to get some low_latency support for serial I/O
+back in the kernel: https://www.spinics.net/lists/linux-serial/msg17782.html.
+It appears to have been rejected.
 

@@ -201,14 +201,14 @@
 <xsd:simpleType name="tttype">
     <xsd:annotation>
         <xsd:documentation>
-            Parameters for the time tag adjuster: the adjustment
-            period, and the number of sample delta-Ts to consider a
-            gap.  These are of the token type, so that they can
-            be a replacement variable of the form $TTGAP.
+            Boolean to enable the TimetagAdjuster. If 
+	    positive, the adjuster is enabled.
+            It is of the token type, so it can be a
+            replacement variable of the form $TTGAP.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:restriction base="ttval">
-        <xsd:maxLength value="2"/>
+        <xsd:maxLength value="1"/>
         <xsd:minLength value="1"/>
     </xsd:restriction>
 </xsd:simpleType>

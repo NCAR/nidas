@@ -438,7 +438,7 @@ Thread::start() throw(Exception)
 
             if (status != EPERM || (policy != NU_THREAD_FIFO && policy != NU_THREAD_RR))
                 break;
-            ILOG(("") << getName() << ": start: " <<
+            WLOG(("") << getName() << ": start: " <<
                     Exception::errnoToString(status) << ". Trying again with non-real-time priority.");
             setThreadSchedulerNolock(NU_THREAD_OTHER,0);
         }
