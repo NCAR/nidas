@@ -48,15 +48,16 @@ following XML:
         ...
     </sensorcatalog>
 
-Then for each DSM, where in this case a sample id of 6 was chosen:
+Then for each DSM, where in this case a sample id of 6 was chosen, and you probably want
+to add a suffix to make the variable names unique:
 
     <dsm ...>
         ...
-        <serialSensor IDREF="CHRONY_TRACKING_LOG" id="6">
+        <serialSensor IDREF="CHRONY_TRACKING_LOG" id="6" suffix="_X">
         </serialSensor>
     </dsm>
 
-The above will result in `Stratum` and `Timeoffset` variables for each DSM. The units of
+The above will result in `Stratum_X` and `Timeoffset_X` variables for the DSM. The units of
 `Timeoffset` will be micro-seconds.
 
 ## Latency
@@ -274,16 +275,43 @@ the Tfirst for the next buffer may be earlier than the last sample time in the
 previous buffer.  The system does not allow backwards time tags, so the
 time tags of samples in the next buffer are set to the previous time tag plus
 one micro-second.  This will be seen as another gap in the data followed
-by one micro-second delta-Tsaveraged
+by time tags spaced one micro-second apart.
 
 To acount for this second situation, TimetagAdjuster flywheels forward until
 `tdiff` increases or stays the same twice in a row.
 
 It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
+## Plots of TimetagAdjuster Results
+
+### PSFD
+
+PSFD on the C130 is a Paroscientific Digi-quartz barometer, configured for
+a reporting rate of 50 sps, unprompted. It cannot quite go that fast, and so the
+actual reporting rate is about 49.45 sps.
+
+These plots show results of TimetagAdjuster on the PSFD data during the first 20
+seconds of sampling after system start on Nov 11, 2020, prior to a WCR-TEST test flight.
+With `Npts=50` this 20 adjustment periods.
+
+![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/psfd_ttadjust.pdf)
+
+In the top plot, `tdiff` has a pronounced linear slope, which gradually decreases
+in later periods as the adjuster determines a better value for the actual sampling rate.
+By the third period the adjuster has also determined a better value
+for `tdiffmin`, which removes the offset in `tdiff`.  The second and third plots
+are the delta-T of the raw and adjusted time tags.  The histograms show the narrowing
+of the delta-T in the adjusted time tags.
+
+The plots can be generated with the following script.  It runs the whole flight, so it
+will take a few minutes. The R code uses the ISFS R package.
+![Script for generating above data and plotting with R](ttadjust/ttadjust.sh)
+
+![R code to plot](ttadjust/ttadjust.R)
+
 ## Prompted Sensors
 
-After a prompt is sent the prompt thread uses the modulus of the current
+After a prompt is sent the prompt, thread uses the modulus of the current
 time (Tnow) with the desired output delta-T, to compute the amount of time to sleep,
 before the next prompt is sent, at a precision (not accuracy) of nano-seconds:
 
@@ -387,12 +415,12 @@ This `sed` command will extract the time and variables from `output.err` above:
 
 ### Multi-threading and Real-Time Priority
 
-In the dsm process, once a device associated with a sensor is opened,
-and any sensor initialization is done, the device descriptor is passed to a
-SensorHandler thread.  SensorHandler runs the `epoll` loop which waits
-for input on any of the sensor devices, reads the input, splits the input
-into samples, assigning time tags to serial data, and passes the samples
-on to a SampleSorter thread.
+In the dsm acquistion process, once a device associated with a sensor
+is opened, and any sensor initialization is done, the device descriptor
+is passed to a SensorHandler thread.  SensorHandler runs the `epoll`
+loop which waits for input on any of the sensor devices, reads the input,
+splits the input into samples, assigning time tags to serial data, and
+passes the samples on to a SampleSorter thread.
 
 The SensorHandler is scheduled to run at a real-time FIFO priority of 50,
 which is the highest priority of any thread in NIDAS.  If requesting this priority
@@ -400,14 +428,14 @@ fails, this message will appear in the log:
 
     SensorHandler: start: Operation not permitted. Trying again with non-real-time priority.
 
-Up to now this message has been logged at an INFO severity. I think it should be raised
-to WARNING or ERROR.
+Previously this message was logged at an INFO severity, and has been raised to
+WARNING.
 
-Setting this priority requires the `CAP_SYS_NICE` capability.  If NIDAS is
-installed from a Debian or RPM package, the `/opt/nidas/bin/dsm` executable
-file is provided CAP_SYS_NICE with the `setcap` command.
+Setting this priority requires the `CAP_SYS_NICE` process capability.
+If NIDAS is installed from a Debian or RPM package, the `/opt/nidas/bin/dsm`
+executable file is provided CAP_SYS_NICE with the `setcap` command.
 
-To check the capabilities on an executable, do:
+To check the capabilities of the executable, do:
     
      getcap /opt/nidas/bin/dsm
 
@@ -420,6 +448,10 @@ These bash aliases for ps will show the real time priority and policy of process
     alias psrt='ps -eTo pid,user,%cpu,%mem,class,rtprio,comm'
     alias psrtd='ps -Lo pid,user,%cpu,%mem,class,rtprio,comm -C dsm'
     
+### Faster CPU, More Memory
+
+Duh.
+
 ### CONFIG\_PREEMPT Kernel
 
 The Linux kernels on armel systems, Viper and Titan, have been built with CONFIG_PREEMPT 
@@ -428,10 +460,11 @@ for some info on PREEMPT kernels.
 
 ### Memory Locking
 
-This is **not** currently done in NIDAS, and may be worth looking into.
+This is **not** currently done in NIDAS, and may be worth looking into, in case it
+reduces the bad latency periods.
 
 See the check for `DO_MLOCKALL` in `nidas/core/NidasApp.c`.  There is a call to
-`\_app.lockMemory()` in `nidas/core/DSMEngine.cc`, but until DO_MLOCKALL is defined,
+`_app.lockMemory()` in `nidas/core/DSMEngine.cc`, but unless DO_MLOCKALL is defined,
 it does nothing.
 
 ### setserial low_latency
@@ -446,10 +479,22 @@ The low_latency option in setserial would seem to be a good thing:
 
 However, support for serial port low_latency in the linux kernel is not really there.
 Looking at the source code for the 3.15 kernel (used on our Vipers/Titans) and a more
-recent kernel, 5.7.7, I do not see where the low_latency option is actually used.
-A critical place to look is in `drivers/tty/tty_buffer.c`.
+recent kernel, 5.7.7, I do not see where the low_latency option is actually used for
+normal serial ports.  A critical place to look is in `drivers/tty/tty_buffer.c`.
 
-This mail thread discusses a recent attempt to get some low_latency support for serial I/O
+This mail thread discusses an attempt to get some low_latency support for serial I/O
 back in the kernel: https://www.spinics.net/lists/linux-serial/msg17782.html.
-It appears to have been rejected.
+It appears to have been rejected.  That patch could be tested on our kernels.
 
+### Latency in FTDI Serial to USB Converter
+
+Apparently the FTDI chip waits for up to 16 ms of quiet time before sending data. This can
+be reduced via the sysfs interface. A value of 1 ms is the minimum.
+
+    cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+    16
+    echo 1 > /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+    cat /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+    1
+
+This may effect throughput.  See https://projectgus.com/2011/10/notes-on-ftdi-latency-with-arduino/.
