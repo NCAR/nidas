@@ -292,9 +292,9 @@ actual reporting rate is about 49.45 sps.
 
 These plots show results of TimetagAdjuster on the PSFD data during the first 20
 seconds of sampling after system start on Nov 11, 2020, prior to a WCR-TEST test flight.
-With `Npts=50` this 20 adjustment periods.
+With `Npts=50` this is 20 adjustment periods.
 
-![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/psfd_ttadjust.pdf)
+![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/PSFD_ttadjust.pdf)
 
 In the top plot, `tdiff` has a pronounced linear slope, which gradually decreases
 in later periods as the adjuster determines a better value for the actual sampling rate.
@@ -303,15 +303,25 @@ for `tdiffmin`, which removes the offset in `tdiff`.  The second and third plots
 are the delta-T of the raw and adjusted time tags.  The histograms show the narrowing
 of the delta-T in the adjusted time tags.
 
-The plots can be generated with the following script.  It runs the whole flight, so it
+If the rate for the Paroscientific is changed to 49.45 in the XML the adjustment is improved.
+
+Here is QCF, later in the flight showing the adjustment over the bad latency:
+
+![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted](ttadjust/QCF_ttadjust.pdf)
+
+The plots can be generated with the following script, which reads NIDAS archive files on
+/scr/raf_Raw_Data/projects/WCR-TEST.  It runs the whole flight for Nov 11, so it
 will take a few minutes. The R code uses the ISFS R package.
+
 ![Script for generating above data and plotting with R](ttadjust/ttadjust.sh)
 
 ![R code to plot](ttadjust/ttadjust.R)
 
+    ./ttadjust.sh PSFD /tmp
+
 ## Prompted Sensors
 
-After a prompt is sent the prompt, thread uses the modulus of the current
+After a prompt is sent, the prompt thread (Looper) uses the modulus of the current
 time (Tnow) with the desired output delta-T, to compute the amount of time to sleep,
 before the next prompt is sent, at a precision (not accuracy) of nano-seconds:
 
@@ -450,7 +460,7 @@ These bash aliases for ps will show the real time priority and policy of process
     
 ### Faster CPU, More Memory
 
-Duh.
+Vipers and Titans are old ARM systems, running at 400MHz and 520MHz, with 64 MB of RAM.
 
 ### CONFIG\_PREEMPT Kernel
 
