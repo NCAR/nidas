@@ -1,19 +1,20 @@
 gethr <- function(file="/scr/tmp/maclean/ttadjust_nov20_hr.txt")
 {
+    require("eolts")
     options(time.zone="UTC")
     x <- scan(file=file,what=list(y=1,m=1,d=1,hms="",
             toff= 1, tdiff=1, tdiffuncorr=1, tdiffmin=1, ndt=1))
     tx <- utime(paste(x$y,x$m,x$d,x$hms))
 
-    xt <- dat(nts(matrix(c(x$tdiff, x$tdiffuncorr, x$tdiffmin,x$ndt),ncol=4,
+    xt <- nts(matrix(c(x$tdiff, x$tdiffuncorr, x$tdiffmin,x$ndt),ncol=4,
             dimnames=list(NULL, c("tdiff", "tdiffuncorr", "tdiffmin", "I"))),
-                tx,units=c(rep("sec",3),"")))
+                tx,units=c(rep("sec",3),""))
     xt
 }
 
 plot_ttadj <- function(xhr, title="WCR-TEST", var="PSFD", ...) 
 {
-    Sys.setenv(PROJECT="WCR-TEST")
+    require("eolts")
 
     par(mfrow=c(3,1), mgp=c(2,0.5,0))
 
@@ -34,16 +35,20 @@ plot_ttadj <- function(xhr, title="WCR-TEST", var="PSFD", ...)
     ylim <- range(c(dtraw,dtadj))
     plot(0:(nr-1), c(NA,dtraw), xlab="I", ylab="dtraw (sec)", ylim=ylim)
     par(mar=c(3,3,2,1))
-    plot(0:(nr-1), c(NA,dtadj), xlab="I", ylab="dtadj (sec)", ylim=ylim)
-    # legend(x=9*nr/10,y=ylim[1] + .5 * diff(ylim), c("tdiff","dtraw"),
-    #     col=1:2, text.col=1:2, bty="n", pch=rep(1,2), yjust=0.5)
+    if (var == "PSFD") {
+        plot(0:(nr-1), c(NA,dtadj), xlab="I", ylab="dtadj (sec)", ylim=ylim)
+    } else {
+        plot(0:(nr-1), c(NA,dtadj), xlab="I", ylab="dtadj (sec)")
+    }
 
     par(mfrow=c(2,1), mgp=c(2,1,0), mar=c(3,3,3,1))
 
     hist(dtraw, xlim=ylim, breaks=100, main=paste0(var, ", dt raw, ", subt), xlab="sec")
     if (var == "PSFD") {
+        # use same xlimits for PSFD raw and adjusted
 	hist(dtadj, xlim=ylim, breaks=100, main=paste0(var, ", dt adj, ", subt), xlab="sec")
     } else {
+        # limits on QCF raw are huge, let adjusted have own scale
 	hist(dtadj, breaks=100, main=paste0(var, ", dt adj, ", subt), xlab="sec")
     }
 }

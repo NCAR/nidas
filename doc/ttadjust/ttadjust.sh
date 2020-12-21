@@ -63,7 +63,6 @@ opdf=$outdir/${var}_ttadjust.pdf
 R BATCH --vanilla << EOD
 source("ttadjust.R")
 options(time.zone="UTC")
-library("isfs")
 dx <- gethr("$outf")
 
 if ("$var" == "QCF") {
@@ -79,5 +78,3 @@ plot_ttadj(dx,nper=nper, title="WCR-TEST", var="$var")
 dev.off()
 q()
 EOD
-
-echo "status=$?"

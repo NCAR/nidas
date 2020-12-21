@@ -19,9 +19,9 @@ clock, which is typically either a network NTP server, a local reference clock, 
 
 Our sytems generally use `chrony` for NTP.  The chrony tracking log contains the
 stratum of the reference clock and the local system clock's offset from the
-reference, where a positive value means the system clock is ahead of the reference.
-See the `log tracking` directive in the chrony documentation, for example
-https://chrony.tuxfamily.org/doc/3.4/chrony.conf.html
+reference, each time the NTP server or reference clock is polled. A positive offset
+means the system clock is ahead of the reference.  See the `log tracking` directive
+in the chrony documentation, for example https://chrony.tuxfamily.org/doc/3.4/chrony.conf.html
 
 Assuming that tracking is being logged by chrony, NIDAS can archive and parse it with the
 following XML:
@@ -114,12 +114,13 @@ Each raw sample is then archived, with its associated raw time tag, `Traw`.
 If there are more than one sample in the buffer, then unless the sensor has sent
 multiple samples in quick succession, the acquisition system is getting behind. 
 
-For any remaining samples in the buffer, NIDAS assigns raw time tags using a delta-T of
+For any remaining samples in the buffer, their 'Noffset' will differ
+by `samplen`, the number of bytes in a sample, and the difference in the
+assigned, raw time tags:
 
         Traw[i] - Traw[i-1] = samplen * Tbyte
 
-where samplen is the number of bytes in a sample.  This delta-T will be smaller than
-the reporting interval of the sensor.
+will be smaller than the reporting interval of the sensor.
 
 ## TimetagAdjuster
 
@@ -294,7 +295,8 @@ These plots show results of TimetagAdjuster on the PSFD data during the first 20
 seconds of sampling after system start on Nov 11, 2020, prior to a WCR-TEST test flight.
 With `Npts=50` this is 20 adjustment periods.
 
-![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial](ttadjust/PSFD_ttadjust.pdf)
+[psfd_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
+![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial][psfd_plots]
 
 In the top plot, `tdiff` has a pronounced linear slope, which gradually decreases
 in later periods as the adjuster determines a better value for the actual sampling rate.
@@ -305,13 +307,18 @@ of the delta-T in the adjusted time tags.
 
 If the rate for the Paroscientific is changed to 49.45 in the XML the adjustment is improved.
 
-Here is QCF, later in the flight showing the adjustment over the bad latency:
+### QCF
 
-![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted](ttadjust/QCF_ttadjust.pdf)
+Plots of QCF, a 30 second period later in the flight, showing the adjustment over the bad latency:
+
+[qcf_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
+![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted][qcf_plots]
+
+### Generating Plots
 
 The plots can be generated with the following script, which reads NIDAS archive files on
 /scr/raf_Raw_Data/projects/WCR-TEST.  It runs the whole flight for Nov 11, so it
-will take a few minutes. The R code uses the ISFS R package.
+will take a few minutes. The R code uses the eolts R-eol package.
 
 ![Script for generating above data and plotting with R](ttadjust/ttadjust.sh)
 
@@ -341,6 +348,9 @@ delay of
         promptlag = promptlen * Tbyte
 
 for the full prompt to arrive at the sensor.
+
+The prompting Looper thread is scheduled to run at a real-time FIFO priority of 51,
+the highest priority in NIDAS.
 
 ## TimetagAdjuster Logs
 
@@ -433,8 +443,8 @@ splits the input into samples, assigning time tags to serial data, and
 passes the samples on to a SampleSorter thread.
 
 The SensorHandler is scheduled to run at a real-time FIFO priority of 50,
-which is the highest priority of any thread in NIDAS.  If requesting this priority
-fails, this message will appear in the log:
+which is second only to the Looper thread sending prompts.  If requesting
+this priority fails, this message will appear in the log:
 
     SensorHandler: start: Operation not permitted. Trying again with non-real-time priority.
 

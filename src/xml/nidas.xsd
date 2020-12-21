@@ -204,7 +204,7 @@
             Boolean to enable the TimetagAdjuster. If 
 	    positive, the adjuster is enabled.
             It is of the token type, so it can be a
-            replacement variable of the form $TTGAP.
+            replacement variable of the form $TTADJUST.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:restriction base="ttval">
