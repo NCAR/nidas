@@ -2,14 +2,23 @@
 
 2020, Copyright University Corporation for Atmospheric Research
 
+[psfd_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
+[qcf_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
+[csat3_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/CSAT3_ttadjust.pdf "Perdigao CSAT3"
+
 ## Introduction
 
 Many sensors sampled by NIDAS run asynchronously, with their own internal
-processor clock, which is not conditioned by any reference.
+processor clock, which is not conditioned by any reference.  As samples are
+received from these sensors, the acquisition system assigns time tags
+to the samples, using its own clock.
 
-As samples are received from these sensors, the acquisition system assigns time tags
-to the samples, using its own clock.  This system clock is typically conditioned with NTP,
-and so has a high accuracy, often better than 50 microseconds relative to an absolute GPS reference.
+A time tag is the number of non-leap seconds since the
+[UNIX Epoch](https://en.wikipedia.org/wiki/Unix_time), in units of
+microseconds, stored in an 8-byte integer.
+
+The system clock is typically conditioned with NTP, and so has a high accuracy,
+often better than 50 microseconds relative to an absolute GPS reference.
 
 ## Monitoring System Clock
 
@@ -58,7 +67,7 @@ to add a suffix to make the variable names unique:
     </dsm>
 
 The above will result in `Stratum_X` and `Timeoffset_X` variables for the DSM. The units of
-`Timeoffset` will be micro-seconds.
+`Timeoffset` will be microseconds.
 
 ## Latency
 
@@ -87,14 +96,15 @@ the process.  In this way one can get a good idea of what the time tags would ha
 if the system latency was always at its minimum over that period.
 
 This method does not remove a constant, systematic latency in the assignment of time tags, but
-is effective in reducing the random latency jitter.
+is effective in reducing the latency noise. Nor will it correct for time tag latency of sensors
+without a fixed reporting interval.
 
 ## Serial Sensor Samples
 
-For senors with a serial port interface, NIDAS assigns time tags to samples by reading
-the system clock right after the serial buffer is read. An estimate of the transmission
-time of the first byte in the buffer is computed as the read time minus the number of
-bytes read, times the transmission time of one byte: 
+For sensors with a serial port interface, NIDAS assigns time tags to samples by grabbing
+the value of the system clock right after the serial buffer is read. An estimate of
+the transmission time of the first byte in the buffer is computed as the read time minus
+the number of bytes read, times the transmission time of one byte: 
 
         Tfirst = Tread - Nbyte * Tbyte
         Tbyte = (Nd + Ns + Np) / baud
@@ -106,7 +116,7 @@ of the first byte in a sample is estimated as:
 
         Traw = Tfirst + Noffset * Tbyte
 
-Where Noffset is the offset in the input buffer of the first byte
+Where `Noffset` is the offset in the input buffer of the first byte
 of the sample.
  
 Each raw sample is then archived, with its associated raw time tag, `Traw`.
@@ -114,7 +124,7 @@ Each raw sample is then archived, with its associated raw time tag, `Traw`.
 If there are more than one sample in the buffer, then unless the sensor has sent
 multiple samples in quick succession, the acquisition system is getting behind. 
 
-For any remaining samples in the buffer, their 'Noffset' will differ
+For any remaining samples in the buffer, their `Noffset` will differ
 by `samplen`, the number of bytes in a sample, and the difference in the
 assigned, raw time tags:
 
@@ -137,11 +147,11 @@ The value for ttadjust can also be an environment variable
 
         <sample id="1" rate="50" ttadjust="$DO_TTADJUST" ...>
 
-Timetag adjusting is done in the nidas::core::CharacterSensor::process() method, and so any
-classes derived from CharacterSensor that do not override process() can enable TimetagAdjuster.
-The TimetagAdjustor has been added to the process() method of several sub-classes of
-CharacterSensor, including ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary and CSI_IRGA_Sonic
-in the nidas::dynld::isff namespace.
+Timetag adjusting is applied to processed samples in the nidas::core::CharacterSensor::process()
+method, and so any classes derived from CharacterSensor that do not override process()
+can enable TimetagAdjuster.  The TimetagAdjustor has been added to the process() method
+of several sub-classes of CharacterSensor, including ATIK_Sonic, CSAT3_Sonic, CSI_CRX_Binary
+and CSI_IRGA_Sonic in the nidas::dynld::isff namespace.
 
 The archived, raw time tags, `Traw[i]`, are passed one at a time to the
 `TimetagAdjuster::adjust()` method, as each sample is processed.
@@ -221,9 +231,10 @@ corrected tdiffmin is not applied to any earlier output time tags.
 
 Sometimes a DSM goes "catatonic", such that serial port reads are blocked
 by some other system task. During these times we do not generally see any
-data loss, indicating that the serial driver is reading from the UART
-FIFO before it overflows, but the DSM user-space acquisition process is
-being delayed in reading from the serial driver buffers.
+data loss, indicating that the serial driver is sufficiently quick in
+responding to interrupts, reading from the UART FIFO before it overflows,
+but the DSM user-space acquisition process is being delayed in reading
+from the serial driver buffers.
 
 As a result, for these situations there will be a gap in the `Traw[i]`,
 of perhaps several seconds, followed by time tags with small delta-T:
@@ -261,9 +272,10 @@ but might still be large once `Npts` have been processed.
 
 To handle this situation, ttdjust checks whether `tdiff` is decreasing
 (the current `tdiff` is smaller than the previous) and will "flywheel" past
-`I == Npts` without changing `T0`, until `tdiff` is no longer decreasing.
-At that point `tdiffmin` should be small, indicating the system has
-caught up, and the adjustment over the next set of points should be reasonable.
+`I == Npts` without changing `T0` or the averaged dt, until `tdiff` is
+no longer decreasing.  At that point `tdiffmin` should be small, indicating
+the system has caught up, and the adjustment over the next set of points
+should be reasonable.
 
 If there are more than 2048 bytes in the serial driver buffers, then two
 or more buffer reads may then happen in quick succession once the DSM system
@@ -275,8 +287,8 @@ in the buffer is estimated by
 the Tfirst for the next buffer may be earlier than the last sample time in the
 previous buffer.  The system does not allow backwards time tags, so the
 time tags of samples in the next buffer are set to the previous time tag plus
-one micro-second.  This will be seen as another gap in the data followed
-by time tags spaced one micro-second apart.
+one microsecond.  This will be seen as another gap in the data followed
+by time tags spaced one microsecond apart.
 
 To acount for this second situation, TimetagAdjuster flywheels forward until
 `tdiff` increases or stays the same twice in a row.
@@ -287,37 +299,57 @@ It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
 ### PSFD
 
-PSFD on the C130 is a Paroscientific Digi-quartz barometer, configured for
-a reporting rate of 50 sps, unprompted. It cannot quite go that fast, and so the
+PSFD on the C130 is a Paroscientific Digi-quartz barometer, running at its highest
+rate, with a configured rate of 50 sps, unprompted.  It cannot quite go that fast, the
 actual reporting rate is about 49.45 sps.
 
 These plots show results of TimetagAdjuster on the PSFD data during the first 20
-seconds of sampling after system start on Nov 11, 2020, prior to a WCR-TEST test flight.
-With `Npts=50` this is 20 adjustment periods.
+seconds of sampling after a data system start on Nov 11, 2020, prior to a
+WCR-TEST test flight.  With `Npts=50`, this is 20 adjustment periods.
 
-[psfd_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/PSFD_ttadjust.pdf "WCR-TEST PSFD"
 ![TimetagAdjuster, WCR-TEST, PSFD, 50 sps serial][psfd_plots]
 
-In the top plot, `tdiff` has a pronounced linear slope, which gradually decreases
-in later periods as the adjuster determines a better value for the actual sampling rate.
-By the third period the adjuster has also determined a better value
-for `tdiffmin`, which removes the offset in `tdiff`.  The second and third plots
-are the delta-T of the raw and adjusted time tags.  The histograms show the narrowing
-of the delta-T in the adjusted time tags.
+In the top plot, `tdiff` has a linear slope in each 50 point period, which
+gradually decreases in later periods as the adjuster determines a better value
+for the actual reporting rate.  By the third period the adjuster has also
+determined a better value for `tdiffmin`, removing most of the offset in `tdiff`.
+The second and third plots are the delta-T of the raw and adjusted time tags over
+time. The histograms show the narrowing in the spread of delta-T in the adjusted
+time tags.
 
-If the rate for the Paroscientific is changed to 49.45 in the XML the adjustment is improved.
+If the rate for the Paroscientific is changed to 49.45 in the XML, the
+adjustment is improved, with less slope in the initial values of `tdiff`.
 
 ### QCF
 
-Plots of QCF, a 30 second period later in the flight, showing the adjustment over the bad latency:
+QCF is a dynamic pressure from a Honeywell PPT pressure transducer, that is
+prompted by the data system at 50 Hz.  Plots of QCF later in the flight,
+covering 30 seconds, show the adjustment over a time of bad latency.
 
-[qcf_plots]: https://github.com/ncareol/nidas/wiki/ttadjust_plots/QCF_ttadjust.pdf "WCR-TEST QCF"
 ![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted][qcf_plots]
+
+The top trace shows the decreasing tdiff after two large latency gaps exceeding 4 seconds.
+The third trace of `dtadj` indicates, surprisingly, that no data was lost, since
+the maximum resulting delta-T was 0.0220 sec, just slightly larger than the expected
+value of `dt = 1/rate= 0.02 sec`.
+
+### CSAT3
+
+CSAT3 sonic aneometers are typically run at 20 sps by ISFS. The following plots are of data from
+the Perdigao project, where the sonic was interfaced using a FTDI USB/Serial converter chip,
+on a Raspberry Pi 2 Model B, data system "tse07". The plots are from an arbitrary hour of data,
+on Jan 19, 2017 from 01:00-02:00 UTC. Over this hour there were 3 latency gaps, of 0.7, 0.4 and
+0.1 seconds. The plots isolate the 0.7 sec gap, at 01:20:24.6 UTC.
+
+![TimetagAdjuster, Perdigao, CSAT3, 20 sps, FTDI Serial-USB][csat3_plots]
+
+The top trace shows the decreasing tdiff after the gap.  Again, the third trace of `dtadj`
+indicates that no data was lost, since the resulting delta-Ts are between 0.04990 and 0.05010.
 
 ### Generating Plots
 
-The plots can be generated with the following script, which reads NIDAS archive files on
-/scr/raf_Raw_Data/projects/WCR-TEST.  It runs the whole flight for Nov 11, so it
+The PSFD and QCF plots can be generated with the following script, which reads NIDAS archive
+files on /scr/raf_Raw_Data/projects/WCR-TEST.  It runs the whole flight for Nov 11, so it
 will take a few minutes. The R code uses the eolts R-eol package.
 
 ![Script for generating above data and plotting with R](ttadjust/ttadjust.sh)
@@ -330,7 +362,7 @@ will take a few minutes. The R code uses the eolts R-eol package.
 
 After a prompt is sent, the prompt thread (Looper) uses the modulus of the current
 time (Tnow) with the desired output delta-T, to compute the amount of time to sleep,
-before the next prompt is sent, at a precision (not accuracy) of nano-seconds:
+before the next prompt is sent, at a precision (not accuracy) of nanoseconds:
 
         tosleep = dt - (Tnow % dt)
 
@@ -338,16 +370,18 @@ During times that the input latency is bad, the expected number of samples are s
 in the output, so it appears that the prompting thread is not being blocked to the
 extent that output prompts are skipped. The prompts might be buffered by the serial
 driver, but the symptoms of the input latency indicate that the serial driver is not
-getting behind, since no characters are lost, indicating that the problem is with the
-user-side read process.  This also indicates that the serial driver is also
-not getting significantly behind in sending prompts, but more investigation would be good.
+getting behind, since no input characters are lost, suggesting that the problem
+is with the user-side read process.  This also suggests that the serial driver is also
+not getting significantly behind in sending prompts.
 
 There is, of course, latency in the sending of the time tags, such as a systematic
 delay of
 
         promptlag = promptlen * Tbyte
 
-for the full prompt to arrive at the sensor.
+for the full prompt to arrive at the sensor. Time tags of samples of prompted sensors
+are based on the receipt time of the sample, as discussed above, not on the time the
+prompt was sent.
 
 The prompting Looper thread is scheduled to run at a real-time FIFO priority of 51,
 the highest priority in NIDAS.
@@ -398,7 +432,7 @@ When TimetagAdjuster is adding the minimum `tdiff` to `T0` for the next set of a
 
 When TimetagAdjuster is finds a negative `tdiff` less than `-dt/2`, it logs the issue before applying
 it to 'T0` for the next set of adjusted points. This should be rare, hopefully only happening
-at startup and when there is significant latency jitter
+at startup when there is significant latency jitter
 
     WARNING|ttadjust: tdiff < -dt/2: 2020 11 11 19:30:02.166, id=20,131, tdiff=  0.01, dt=  -0.02, #neg=1
 
@@ -503,7 +537,7 @@ recent kernel, 5.7.7, I do not see where the low_latency option is actually used
 normal serial ports.  A critical place to look is in `drivers/tty/tty_buffer.c`.
 
 This mail thread discusses an attempt to get some low_latency support for serial I/O
-back in the kernel: https://www.spinics.net/lists/linux-serial/msg17782.html.
+back in the kernel using a real-time kernel thread: https://www.spinics.net/lists/linux-serial/msg17782.html.
 It appears to have been rejected.  That patch could be tested on our kernels.
 
 ### Latency in FTDI Serial to USB Converter
