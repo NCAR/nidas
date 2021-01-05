@@ -188,7 +188,7 @@ static int ir104_release(struct inode *inode, struct file *filp)
 
         /* If nobody's listening, discard the samples */
         if (atomic_dec_and_test(&brd->num_opened)) {
-                brd->relay_samples.head = ACCESS_ONCE(brd->relay_samples.tail);
+                brd->relay_samples.head = READ_ONCE(brd->relay_samples.tail);
         }
         mutex_unlock(&brd->mutex);
 

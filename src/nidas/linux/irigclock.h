@@ -255,12 +255,21 @@ extern int ReadClock;
  * The memory barrier ensures that the store of the clock value
  * is complete before the load.
  */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
 #define GET_TMSEC_CLOCK \
         ({\
-         int tmp = ReadClock;\
+         int tmp = smp_load_acquire(&ReadClock);\
+         TMsecClock[tmp];\
+         })
+#else
+#define GET_TMSEC_CLOCK \
+        ({\
+         int tmp = READ_ONCE(ReadClock);\
          smp_read_barrier_depends();\
          TMsecClock[tmp];\
          })
+#endif
 
 #define GET_MSEC_CLOCK (GET_TMSEC_CLOCK/10)
 

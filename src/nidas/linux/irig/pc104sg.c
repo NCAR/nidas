@@ -1787,13 +1787,9 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                  * read by external modules without needing a mutex.
                  */
                 TMsecClock[board.WriteClock] = board.TMsecClockTicker;
-
-                /* see comment about memory barrier in irigclock.h */
                 smp_wmb();
-                ic = ReadClock;
-                /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
-                ReadClock = board.WriteClock;
-                /* now TMsecClock[ReadClock=1] is still OK to read. */
+                ic = READ_ONCE(ReadClock);
+                WRITE_ONCE(ReadClock, board.WriteClock);
                 board.WriteClock = ic;
 
                 /* Near the end of the second, ask for next clock snapshot to be
