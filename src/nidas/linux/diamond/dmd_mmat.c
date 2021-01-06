@@ -937,7 +937,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                                  * so that the D2A and A2D buffering can get back in sync.
                                  */
                                 a2d->overflow = 1;
-                                a2d->fifo_samples.head = ACCESS_ONCE(a2d->fifo_samples.tail);
+                                a2d->fifo_samples.head = READ_ONCE(a2d->fifo_samples.tail);
                         }
                         a2d->start(a2d);
                         if (a2d->mode == A2D_WAVEFORM) {
@@ -2083,7 +2083,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                  * go through the motions, but discarding A2D values until the beginning
                                  * of the next waveform, so things don't get out-of-whack.
                                  */
-                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),a2d->samples.size) < a2d->nwaveformChannels) {
+                                if (CIRC_SPACE(a2d->samples.head,READ_ONCE(a2d->samples.tail),a2d->samples.size) < a2d->nwaveformChannels) {
                                         a2d->status.missedSamples += a2d->nwaveformChannels;
                                         KLOG_WARNING("%s: missedSamples=%d\n",
                                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
@@ -2127,8 +2127,8 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 // Since the sample queue may fill up before latencyJiffies have elapsed,
                                 // we also wake the read_queue if the output sample queue is half full.
                                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
-                                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                                        a2d->samples.size) < a2d->samples.size/2) {
+                                        CIRC_SPACE(a2d->samples.head, READ_ONCE(a2d->samples.tail),
+                                                a2d->samples.size) < a2d->samples.size/2) {
                                         wake_up_interruptible(&a2d->read_queue);
                                         a2d->lastWakeup = jiffies;
                                 }

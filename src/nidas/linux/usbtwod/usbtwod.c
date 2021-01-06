@@ -151,7 +151,7 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
 
         // there must be space, since TAIL was incremented before
         // when this urb was submitted.
-        BUG_ON(CIRC_SPACE(dev->tas_urb_q.head, dev->tas_urb_q.tail,
+        BUG_ON(CIRC_SPACE(dev->tas_urb_q.head, READ_ONCE(dev->tas_urb_q.tail),
                           TAS_URB_QUEUE_SIZE) == 0);
         INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
@@ -366,7 +366,7 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
                 /* there should always be space in this queue, because
                  * there are IMG_URB_QUEUE_SIZE-1 number of urbs
                  * in flight */
-                if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
+                if (CIRC_SPACE(dev->img_urb_q.head, READ_ONCE(dev->img_urb_q.tail),
                        IMG_URB_QUEUE_SIZE) == 0)
                     KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
                 else {
@@ -646,7 +646,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 
 #ifdef TRY_TO_BUFFER
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
-                        CIRC_SPACE(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) <
+                        CIRC_SPACE(dev->sampleq.head, READ_ONCE(dev->sampleq.tail), SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
                         wake_up_interruptible(&dev->read_wait);
                         dev->lastWakeup = jiffies;
@@ -834,7 +834,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 spin_unlock(&dev->sampqlock);
 #ifdef TRY_TO_BUFFER
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
-                        CIRC_SPACE(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) <
+                        CIRC_SPACE(dev->sampleq.head, READ_ONCE(dev->sampleq.tail), SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
                         wake_up_interruptible(&dev->read_wait);
                         dev->lastWakeup = jiffies;

@@ -1519,7 +1519,7 @@ unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
 #define BUFFER_POLL
 #ifdef BUFFER_POLL
 	if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
-		CIRC_SPACE(ACCESS_ONCE(fcntr->samples.head),fcntr->samples.tail,
+		CIRC_SPACE(READ_ONCE(fcntr->samples.head),fcntr->samples.tail,
 		GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
 		    GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
                 mask |= POLLIN | POLLRDNORM;    /* readable */
