@@ -246,14 +246,27 @@ int WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data
         float value = floatNAN;
         if (fi->substr(0, 2) == si->substr(0, 2))
         {
+            // This is always considered parsed, since the field
+            // identifiers match.  The only question is whether a number
+            // can be parsed using the full field specifier.
+            ++nparsed;
 	    string full = (*fi) + "%n";
 	    int n = 0;
 	    if (std::sscanf(si->c_str(), full.c_str(), &value, &n) >= 1 &&
 		(unsigned)n == si->length())
 	    {
-		++nparsed;
+                // Require n to equal the full sample field length, so a
+                // value will not be parsed if the units character after
+                // the number does not match, especially if it's a #
+                // indicating a bad value.
+                VLOG(("field scanned (") << *fi << "): " << *si << " = " << value);
 	    }
-	    VLOG(("field scanned (") << *fi << "): " << *si << " = " << value);
+            else
+            {
+                value = floatNAN;
+                VLOG(("field NOT scanned, set to NaN (") << *fi << "): " << *si
+                     << " = " << value);
+            }
             ++si;
 	}
 	else
