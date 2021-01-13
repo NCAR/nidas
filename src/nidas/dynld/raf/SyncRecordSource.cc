@@ -87,15 +87,12 @@ SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     variables(), varOffsets(),
     discarded(0), overWritten(0), nskips(0),
     skipped(0), total(0),
-    iCheck(0),
-    nCheck(std::max(std::max(nSlots, 2), 20)),
-    minLate(INT_MAX),
-    // minDiffInit((nSlots == rate) ? dtUsec : (nSlots * dtUsec) % USECS_PER_SEC),
     minDiffInit(dtUsec),
     minDiff(minDiffInit),
-    secCount(0),
-    keepCount((int)(1.0 / (1 - (nSlots-rate)))),
-
+    skipMod((int)(1.0 / (1 - (nSlots-rate)))),
+    skipModCount(0),
+    nEarlySamp(0), nLateSamp(0),
+    outOfSlotMax(std::max(3 * USECS_PER_SEC / dtUsec, 5)),
     _srs(srs)
 {
 }
@@ -123,13 +120,13 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     nskips(other.nskips),
     skipped(other.skipped),
     total(other.total),
-    iCheck(other.iCheck),
-    nCheck(other.nCheck),
-    minLate(other.minLate),
     minDiffInit(other.minDiffInit),
     minDiff(other.minDiff),
-    secCount(other.secCount),
-    keepCount(other.keepCount),
+    skipMod(other.skipMod),
+    skipModCount(other.skipModCount),
+    nEarlySamp(other.nEarlySamp),
+    nLateSamp(other.nLateSamp),
+    outOfSlotMax(other.outOfSlotMax),
     _srs(other._srs)
 {
 #ifdef DEBUG
@@ -157,13 +154,13 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->nskips = other.nskips;
     this->skipped = other.skipped;
     this->total = other.total;
-    this->iCheck = other.iCheck;
-    this->nCheck = other.nCheck;
-    this->minLate = other.minLate;
     this->minDiffInit = other.minDiffInit;
     this->minDiff = other.minDiff;
-    this->secCount = other.secCount;
-    this->keepCount = other.keepCount;
+    this->skipMod = other.skipMod;
+    this->skipModCount = other.skipModCount;
+    this->nEarlySamp = other.nEarlySamp;
+    this->nLateSamp = other.nLateSamp;
+    this->outOfSlotMax = other.outOfSlotMax;
     this->_srs = other._srs;
     return *this;
 }
@@ -197,7 +194,7 @@ bool SyncInfo::incrementSlot()
         }
         islot = 0;
     }
-    secCount++;
+    skipModCount++;
     return checkNonIntRateIncrement();
 }
 
@@ -209,10 +206,10 @@ bool SyncInfo::checkNonIntRateIncrement()
     // over to the next second:
     //      minDiff + (nSlots-1) * dtUsec > USECS_PER_SEC
     if (islot == nSlots - 1) {
-        if (secCount % keepCount) return incrementSlot();
+        if (skipModCount % skipMod) return incrementSlot();
         // no increment, check if we should
         if (minDiff + islot * dtUsec >= USECS_PER_SEC) {
-            secCount = 0;
+            skipModCount = 0;
             return incrementSlot();
         }
     }
@@ -221,18 +218,20 @@ bool SyncInfo::checkNonIntRateIncrement()
 
 bool SyncInfo::decrementSlot()
 { 
+    nLateSamp = 0;
     if (islot == 0) {
         if (!_srs->prevRecord(*this)) return false;
         islot = nSlots;
     } 
     islot--;
-    secCount--;
+    skipModCount--;
     return true;
 }
 
 void SyncInfo::computeSlotIndex(const Sample* samp)
 {
     islot = _srs->computeSlotIndex(samp, *this);
+    nEarlySamp = nLateSamp = 0;
 }
 
 SyncRecordSource::SyncRecordSource():
@@ -795,25 +794,6 @@ bool SyncRecordSource::nextRecord(SyncInfo& sinfo)
     return true;
 }
 
-int SyncRecordSource::computeFirstOffset(const Sample* samp,
-        const SyncInfo& sinfo)
-{
-#ifdef COMPUTE_OFFSET
-    int off = (int)(samp->getTimeTag() % USECS_PER_SEC % sinfo.dtUsec);
-    /* For a non-integral sampleRate, where
-     * nSlots=ceil(sampleRate) is rounded
-     * up, then (dtUsec * nSlots) is larger
-     * than a second. We don't want the offset to be more than
-     * USECS_PER_SEC - (dtUsec * (nSlots-1)
-     */
-    off = std::min(off,
-            USECS_PER_SEC - (sinfo.dtUsec * (sinfo.nSlots-1)));
-    return off;
-#else
-    return 0;
-#endif
-}
-
 int SyncRecordSource::computeSlotIndex(const Sample* samp,
         SyncInfo& sinfo)
 {
@@ -846,10 +826,42 @@ bool SyncRecordSource::checkTime(const Sample* samp,
     dsm_time_t tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
 
     int tdiff = samp->getTimeTag() - tn;
-    if (tdiff < 0) {    // sample time tag is earlier than slot time
-        sinfo.minLate = INT_MAX;
-        sinfo.iCheck = 0;
+    if (tdiff < 0) {
+
         sinfo.minDiff = 0;
+        sinfo.nLateSamp = 0;
+        // sample time tag is earlier than slot time
+        // could be due to an actual sample rate greater than configured.
+
+        if (-tdiff > sinfo.TDIFF_CHECK_USEC) {
+            sinfo.nEarlySamp++;
+
+            // If repeated early time tags, decrement the slot index, but
+            // only decrement if the result will be the zeroeth slot, so the
+            // minDiff offset will be right.
+            if (sinfo.nEarlySamp > sinfo.outOfSlotMax &&
+                    (sinfo.getSlotIndex() == 1 || sinfo.nSlots == 1)) {
+                if (!sinfo.decrementSlot()) {
+                    if (!(sinfo.discarded++ % warn_times_interval)) {
+                        ostringstream ost;
+                        ost << "timetag < slot time=" <<
+                            format_time(tn,"%H:%M:%S.%4f") <<
+                            " by more than " << 0.5 << "*dt, discarding";
+                        log(lc, ost.str(), samp, sinfo);
+                    }
+                    ret = false;
+                }
+                else sinfo.overWritten++;
+                if (sinfo.getSlotIndex() == 0) {
+                    tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
+                    tdiff = samp->getTimeTag() - tn;
+                    sinfo.minDiff = std::max(tdiff,0);
+                }
+                sinfo.nEarlySamp = 0;
+            }
+        }
+        else sinfo.nEarlySamp = 0;
+
         if (-tdiff > sinfo.dtUsec / 2) {
             // timetag is earlier than slot time by more than 1/2 sample dt.
             // This happens if the configured rate of the sample is less than the
@@ -865,6 +877,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                 }
                 ret = false;
             }
+            else sinfo.overWritten++;
         }
     }
     else if (tdiff > std::min(NSLOT_LIMIT * sinfo.dtUsec, USECS_PER_SEC)) {
@@ -891,32 +904,63 @@ bool SyncRecordSource::checkTime(const Sample* samp,
             log(lc, ost.str(), samp, sinfo);
         }
 #endif
-
         ret = true;
     }
     else {
-        int ni = tdiff / sinfo.dtUsec;
-        sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
-        if (ni == 0) {
-            sinfo.iCheck = 0;
-            sinfo.minLate = INT_MAX;
-        }
-        else if (++sinfo.iCheck < sinfo.nCheck) {
-            sinfo.minLate = std::min(ni, sinfo.minLate);
+        sinfo.nEarlySamp = 0;
+        if (tdiff > sinfo.dtUsec + sinfo.TDIFF_CHECK_USEC) {
+            sinfo.nLateSamp++;
+            if (sinfo.nLateSamp > sinfo.outOfSlotMax) {
+                // Repeated late time tags, increment the slot index
+                int ns = 0;
+                if (sinfo.incrementSlot()) ns++;
+                sinfo.skipped++;
+#ifdef LOG_ALL_SKIPS
+                if (!(sinfo.nskips++ % warn_times_interval)) {
+                    ostringstream ost;
+                    ost << "timetag > slot time=" <<
+                        format_time(tn,"%H:%M:%S.%4f") <<
+                        " by more than " << (double)sinfo.TDIFF_CHECK_USEC/ USECS_PER_SEC <<
+                        " sec, skipped " << ns << " slot";
+                    log(lc, ost.str(), samp, sinfo);
+                }
+#endif
+                tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
+                tdiff = samp->getTimeTag() - tn;
+                sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
+                if (tdiff < sinfo.TDIFF_CHECK_USEC) sinfo.nLateSamp = 0;
+            }
+
+            int ni = tdiff / sinfo.dtUsec;
+            if (ni > 1) {
+                ostringstream ost;
+                ost << "checkTime, tdiff=" << tdiff << ": ";
+                slog(stracer, ost.str(), samp, sinfo);
+                int ns;
+                for (ns = 0; ns < ni; ns++) {
+                    if (!sinfo.incrementSlot()) break;
+                }
+                sinfo.skipped += ni;
+#ifdef LOG_ALL_SKIPS
+                if (!(sinfo.nskips++ % warn_times_interval)) {
+                    ostringstream ost;
+                    ost << "timetag > slot time=" <<
+                        format_time(tn,"%H:%M:%S.%4f") <<
+                        " by " << (double)tdiff / USECS_PER_SEC <<
+                        " sec, skipped " << ns << " slots";
+                    log(lc, ost.str(), samp, sinfo);
+                }
+#endif
+                tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
+                tdiff = samp->getTimeTag() - tn;
+                sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
+                if (tdiff < sinfo.TDIFF_CHECK_USEC) sinfo.nLateSamp = 0;
+                ret = true;
+            }
         }
         else {
-            // more than nCheck samples all received more than
-            // one dt late
-            ostringstream ost;
-            ost << "checkTime, minLate=" << sinfo.minLate << ": ";
-            slog(stracer, ost.str(), samp, sinfo);
-
-            while (sinfo.minLate--) {
-                if (!sinfo.incrementSlot()) break;
-            }
-            sinfo.iCheck = 0;
-            sinfo.minLate = INT_MAX;
-            ret = true;
+            sinfo.nLateSamp = 0;
+            sinfo.minDiff = std::min(sinfo.minDiff, tdiff);
         }
     }
     slog(stracer, "after checkTime: ", samp, sinfo);
@@ -936,12 +980,11 @@ void SyncRecordSource::slog(SampleTracer& stracer,const string& msg,
             ", _current=" << _current << 
             ", irec=" << sinfo.getRecordIndex() <<
             ", islot=" << sinfo.getSlotIndex() <<
-            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
             ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
             ", dt=" << setprecision(3) << 1/sinfo.rate <<
             ", nSlots=" << sinfo.nSlots <<
-            ", keep=" << sinfo.keepCount <<
-            ", #sec=" << sinfo.secCount <<
+            ", skipMod=" << sinfo.skipMod <<
+            ", skipModCount=" << sinfo.skipModCount <<
             endlog;
     }
 }
@@ -964,12 +1007,11 @@ void SyncRecordSource::log(LogContext& lc, const string& msg,
             ", _current=" << _current << 
             ", irec=" << sinfo.getRecordIndex() <<
             ", islot=" << sinfo.getSlotIndex() <<
-            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
             ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
             ", dt=" << setprecision(3) << 1/sinfo.rate <<
             ", nSlots=" << sinfo.nSlots <<
-            ", keep=" << sinfo.keepCount <<
-            ", #sec=" << sinfo.secCount;
+            ", skipMod=" << sinfo.skipMod <<
+            ", skipModCount=" << sinfo.skipModCount;
         lc.log(lmsg);
     }
 }
@@ -989,12 +1031,11 @@ void SyncRecordSource::log(LogContext& lc, const string& msg,
             ", _current=" << _current << 
             ", irec=" << sinfo.getRecordIndex() <<
             ", islot=" << sinfo.getSlotIndex() <<
-            ", minLate=" << (sinfo.minLate == INT_MAX ? -1 : sinfo.minLate) <<
             ", minDiff=" << (double)sinfo.minDiff / USECS_PER_SEC <<
             ", dt=" << setprecision(3) << 1/sinfo.rate <<
             ", nSlots=" << sinfo.nSlots <<
-            ", keep=" << sinfo.keepCount <<
-            ", #sec=" << sinfo.secCount;
+            ", skipMod=" << sinfo.skipMod <<
+            ", skipModCount=" << sinfo.skipModCount;
         lc.log(lmsg);
     }
 }

@@ -315,7 +315,7 @@ public:
      * Maximum number of delta-Ts allowed between a sample time tag
      * and its slot in the sync record.
      */
-    static const int NSLOT_LIMIT = 3;
+    static const int NSLOT_LIMIT = 2;
 
     /**
      * Return the index into the next sync record.
@@ -349,13 +349,6 @@ public:
     int computeSlotIndex(const Sample* samp, SyncInfo& sinfo);
 
 private:
-
-    /**
-     * Compute the first time offset of a sample in a sync record.
-     */
-    int computeFirstOffset(const Sample* samp, const SyncInfo& sinfo);
-
-    // void checkIndex(const Sample* samp, SyncInfo& sinfo, SampleTracer& stracer);
 
     /**
      * @return: true OK, false: cannot place sample in either sync record.
@@ -592,12 +585,6 @@ public:
 
     unsigned int total;
 
-    int iCheck;
-
-    int nCheck;
-
-    int minLate;
-
     /**
      * See the comment below about minDiff. The minimum difference will
      * never be more than minDiffInit.
@@ -622,29 +609,55 @@ public:
      */
     int minDiff;
 
-    int secCount;
+    /**
+     * skipMod provides a way to insert NaNs in sync records
+     * with non-integral rates.
+     * In incrementCount(), if the next slot to be written is
+     * the last in the record and the modulus (sampCount % skipMod)
+     * is non-zero, then the last slot in the record is skipped, leaving
+     * a NaN.
+     *
+     * skipMod is initialized to (int)(1.0 / (1 - (nSlots-rate)))
+     * Here are the values for some expected rates, including
+     * non-integral ARINC rates.
+     *
+     * rate     skipMod   (skipModCount % skipMod) ! = 0
+     * integral 1         never true, no skips
+     * 12.5     2         skip slot every other second
+     * 6.25     4         skip slot in 3 out of 4 seconds
+     * 3.125    8         skip slot in 7 out of 8
+     * 1.5625   1         never true (algorithm breaks down)
+     *
+     */
+    int skipMod;
 
     /**
-     * keepCount provides a way to insert NaNs in sync records
-     * with non-integral rates.
-     * Insert a NaN in the final slot in the output sync record if
-     *  (secCount % keepCount) != 0
-     *
-     * keepCount is initialized to (int)(1.0 / (1 - (nSlots-rate)))
-     *
-     * rate     keepCount   (secCount % keepCount) ! = 0
-     * integral 1           never true, no skips
-     * 12.5     2           skip slot every other second
-     * 6.25     4           skip slot in 3 out of 4 seconds
-     * 3.125    8           skip slot in 7 out of 8
-     * 1.5625   1           never true (algorithm breaks down)
-     * If the modulus of secCount % keepCount
-     * is non-zero, then the last slot in the record is skipped, leaving
-     * a NaN.  Here are the values for some expected rates, including
-     * non-integral ARINC rates.
+     * Sample counter used for non-integral rates.
      */
-    int keepCount;
+    int skipModCount;
 
+    /**
+     * If sample time tag differs from the slot time by this much or more
+     * then increment nEarlySamp or nLateSamp.
+     */
+    static const int TDIFF_CHECK_USEC = 2 * USECS_PER_MSEC;
+
+    /**
+     * How many successive samples have been earlier than their slot time
+     * by more than TDIFF_CHECK_USEC.
+     */
+    unsigned int nEarlySamp;
+
+    /**
+     * How many successive samples have been later than their slot time
+     * by more than TDIFF_CHECK_USEC.
+     */
+    unsigned int nLateSamp;
+
+    /**
+     * Once nEarlySamp or nLateSamp exceed this value, adjust the slot index.
+     */
+    unsigned int outOfSlotMax;
 
 private:
 

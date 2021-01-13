@@ -23,8 +23,9 @@ often better than 50 microseconds relative to an absolute GPS reference.
 ## Monitoring System Clock
 
 Time-tagging is essentially the second most critical job of NIDAS, after simply
-gathering the data. It is therefore important to monitor the state of the reference
-clock, which is typically either a network NTP server, a local reference clock, or both.
+gathering the data. It is therefore important to monitor the agreement between
+the system clock and the reference clock, which is typically either a network NTP server,
+a local reference clock, or both.
 
 Our sytems generally use `chrony` for NTP.  The chrony tracking log contains the
 stratum of the reference clock and the local system clock's offset from the
@@ -178,9 +179,12 @@ Initially
         dt = 1/rate
 
 as configured for the sensor.  `dt` is updated periodically
-using a running average of the observed value:
+using a 5 minute running average of the observed value:
 
         dtobs = (Traw[i] - Traw[i-Npts]) / Npts
+        dt = (dt * (N5min - Npts) + dtobs * Npts) / N5min
+
+Where `N5min` is the number of points in 5 minutes.
 
 Initially, and after any large gap exceeding `BIG_GAP_SECONDS`, `T0` is
 set to the raw time tag passed to `adjust()`:
@@ -227,6 +231,8 @@ Correcting `T0` forward by `tdiffmin`:
 will give a better series of times for the **next** `Npts`. Note again, that this
 corrected tdiffmin is not applied to any earlier output time tags.
 
+At this time the running average of `dt` is also updated.
+
 ## Periods of Bad Latency
 
 Sometimes a DSM goes "catatonic", such that serial port reads are blocked
@@ -244,7 +250,7 @@ of perhaps several seconds, followed by time tags with small delta-T:
 as discussed above.
 
 A good example of this problem is the Nov 11, 2020 data from Honeywell PPTs
-that were prompted at 50 Hz (dt=0.02 sec) on the C-130 by dsm319 during WCR-TEST,
+that were prompted at 50 Hz (dt=0.02 sec) on the NCAR C-130 by dsm319 during WCR-TEST,
 variables QCF (sample id 19,111), ADIFR (19,121), and BDIFR(19,131).
 
 For a PPT, with a sample length of 15 bytes, at a baud rate of 19200 bits/sec,
@@ -299,7 +305,7 @@ It is probably wise to increase the read buffer size, for example to 4096 bytes.
 
 ### PSFD
 
-PSFD on the C130 is a Paroscientific Digi-quartz barometer, running at its highest
+PSFD on the C-130 is a Paroscientific Digi-quartz barometer, running at its highest
 rate, with a configured rate of 50 sps, unprompted.  It cannot quite go that fast, the
 actual reporting rate is about 49.45 sps.
 
@@ -329,17 +335,17 @@ covering 30 seconds, show the adjustment over a time of bad latency.
 ![TimetagAdjuster, WCR-TEST, QCF, 50 sps serial, prompted][qcf_plots]
 
 The top trace shows the decreasing tdiff after two large latency gaps exceeding 4 seconds.
-The third trace of `dtadj` indicates, surprisingly, that no data was lost, since
+The third trace of `dtadj` indicates, surprisingly, that no data were lost, since
 the maximum resulting delta-T was 0.0220 sec, just slightly larger than the expected
 value of `dt = 1/rate= 0.02 sec`.
 
 ### CSAT3
 
-CSAT3 sonic aneometers are typically run at 20 sps by ISFS. The following plots are of data from
-the Perdigao project, where the sonic was interfaced using a FTDI USB/Serial converter chip,
-on a Raspberry Pi 2 Model B, data system "tse07". The plots are from an arbitrary hour of data,
-on Jan 19, 2017 from 01:00-02:00 UTC. Over this hour there were 3 latency gaps, of 0.7, 0.4 and
-0.1 seconds. The plots isolate the 0.7 sec gap, at 01:20:24.6 UTC.
+CSAT3 sonic aneometers are typically run at 20 sps, `dt=0.5 sec`, by ISFS. The following
+plots are of data from the Perdigao project, where the sonic was interfaced using a
+FTDI USB/Serial converter chip, on a Raspberry Pi 2 Model B, data system "tse07". Selecting
+an arbitrary hour of data, on Jan 19, 2017 from 01:00-02:00 UTC, there were 3 latency gaps,
+of 0.7, 0.4 and 0.1 seconds. The plots show the adjustment over the 0.7 sec gap, at 01:20:24.6 UTC.
 
 ![TimetagAdjuster, Perdigao, CSAT3, 20 sps, FTDI Serial-USB][csat3_plots]
 
@@ -360,8 +366,8 @@ will take a few minutes. The R code uses the eolts R-eol package.
 
 ## Prompted Sensors
 
-After a prompt is sent, the prompt thread (Looper) uses the modulus of the current
-time (Tnow) with the desired output delta-T, to compute the amount of time to sleep,
+After a prompt is sent, the prompt thread (nidas::core::Looper) uses the modulus of the current
+time, `Tnow`, with the desired output delta-T, to compute the amount of time to sleep,
 before the next prompt is sent, at a precision (not accuracy) of nanoseconds:
 
         tosleep = dt - (Tnow % dt)
@@ -449,7 +455,7 @@ messages from data_dump for sample id 20,131:
         input_archive_file.dat \
         2> output.err > output.out
 
-This will result in VERBOSE log messages in output.err looking like:
+The log options will enable VERBOSE log messages for sample 20,131 in output.err looking like:
 
     VERBOSE|HR [20,131]@2020 11 11 22:04:59.683, toff tdiff tdiffUncorr tdiffmin nDt: 0.80856 0.002243 0.002243 6.1e-05 40
 
@@ -469,7 +475,7 @@ This `sed` command will extract the time and variables from `output.err` above:
 
 ### Multi-threading and Real-Time Priority
 
-In the dsm acquistion process, once a device associated with a sensor
+In the dsm acquisition process, once a device associated with a sensor
 is opened, and any sensor initialization is done, the device descriptor
 is passed to a SensorHandler thread.  SensorHandler runs the `epoll`
 loop which waits for input on any of the sensor devices, reads the input,
@@ -504,7 +510,7 @@ These bash aliases for ps will show the real time priority and policy of process
     
 ### Faster CPU, More Memory
 
-Vipers and Titans are old ARM systems, running at 400MHz and 520MHz, with 64 MB of RAM.
+Vipers and Titans are old ARM systems, single core, running at 400MHz and 520MHz, with 64 MB of RAM.
 
 ### CONFIG\_PREEMPT Kernel
 
