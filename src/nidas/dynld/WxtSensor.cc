@@ -205,6 +205,7 @@ int WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data
 	    *(dataptr++) = floatNAN;
             ++fi;
             ++vi;
+            continue;
         }
 
 	// Exact match, so no specifiers, just keep looking for the next
