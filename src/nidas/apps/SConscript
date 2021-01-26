@@ -80,7 +80,7 @@ else:
 
 programs = Split("""
 arl-ingest
-arinc_out
+raf/arinc_out
 ck_aout
 ck_calfile
 ck_xml
@@ -90,8 +90,8 @@ dmd_mmat_test
 dsc_a2d_ck
 dsm_server
 dsm
-extract2d
-extractDMT
+raf/extract2d
+raf/extractDMT
 ir104
 lidar_vel
 merge_verify
