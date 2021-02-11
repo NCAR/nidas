@@ -385,6 +385,8 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/data_stats
 %{nidas_prefix}/bin/datasets
 %{nidas_prefix}/bin/dmd_mmat_test
+%{nidas_prefix}/bin/dmd_mmat_vin_limit_test
+%{nidas_prefix}/bin/dmd_mmat_vout_const
 %{nidas_prefix}/bin/dsc_a2d_ck
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
