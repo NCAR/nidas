@@ -53,8 +53,10 @@ headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         _channels[i] = 0;
-        _gains[i] = 0;          // 1 or 2 is all we support at this time.
-        _polarity[i] = 0;       // not the same as bipolar or offset in previous
+        _gains[i] = 1;          // 1 or 2 is all we support at this time.
+        _ifsr[i] = 0;           // plus/minus 10
+        _polarity[i] = 1;       // Fixed 1 for this device
+        _ipol[i] = 0;
     }
 
     configStatus["PPS"] = 0;
@@ -127,7 +129,7 @@ void A2D_Serial::dumpConfig() const
 
     for (int i = 0; i < _nVars; ++i)
     {
-        cout << "ifsr=" << _gains[i] << ", ipol=" << _polarity[i] << ", cals=";
+        cout << "ifsr=" << _ifsr[i] << ", ipol=" << _ipol[i] << ", cals=";
         for (size_t j = 0; j < _polyCals[i].size(); ++j)
             cout << _polyCals[i].at(j) << ", ";
         cout << endl;
@@ -194,14 +196,14 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
             for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
                 const Parameter* param = *pi;
                 const string& pname = param->getName();
-                if (pname == "gain") {
+                if (pname == "ifsr") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
 
                     fgain = param->getNumericValue(0);
                 }
-                else if (pname == "polarity") {
+                else if (pname == "ipol") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
@@ -223,8 +225,9 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
 
             _channels[iv] = ichan;
-            _gains[ichan] = fgain;
-            _polarity[ichan] = ipol;
+            _ipol[ichan] = ipol;
+            _ifsr[ichan] = fgain;
+            _gains[ichan] = fgain + 1;  // this works for now, will not if moe gains are added
             prevChan = ichan;
         }
     }
@@ -445,20 +448,20 @@ void A2D_Serial::parseConfigLine(const char *data)
     if (strstr(data, "!IFSR")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (samplingChannel(channel) && _gains[channel] != value) {
+        if (samplingChannel(channel) && _ifsr[channel] != value) {
             configStatus["IFSR"] = false;
-            WLOG(("%s: SerialA2D config mismatch: gain chan=%d: xml=%d != dev=%d",
-                getName().c_str(), channel, _gains[channel], value ));
+            WLOG(("%s: SerialA2D config mismatch: ifsr chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _ifsr[channel], value ));
         }
     }
     else
     if (strstr(data, "!IPOL")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (samplingChannel(channel) && _polarity[channel] != value) {
+        if (samplingChannel(channel) && _ipol[channel] != value) {
             configStatus["IPOL"] = false;
-            WLOG(("%s: SerialA2D config mismatch: polarity chan=%d: xml=%d != dev=%d",
-                getName().c_str(), channel, _polarity[channel], value ));
+            WLOG(("%s: SerialA2D config mismatch: ipol chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _ipol[channel], value ));
         }
     }
     else
