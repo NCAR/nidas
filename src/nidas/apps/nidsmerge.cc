@@ -499,6 +499,8 @@ int NidsMerge::run() throw()
 
         vector<SampleInputStream*> inputs;
 
+        unsigned int neof = 0;
+
         for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
 
             const list<string>& inputFiles = inputFileNames[ii];
@@ -541,8 +543,6 @@ int NidsMerge::run() throw()
 
             lastTimes.push_back(LONG_LONG_MIN);
 
-            // input->init();
-
             try {
                 input->readInputHeader();
                 // save header for later writing to output
@@ -551,14 +551,15 @@ int NidsMerge::run() throw()
             catch (const n_u::EOFException& e) {
                 cerr << e.what() << endl;
                 lastTimes[ii] = LONG_LONG_MAX;
+                neof++;
             }
             catch (const n_u::IOException& e) {
                 if (e.getErrno() != ENOENT) throw e;
                 cerr << e.what() << endl;
                 lastTimes[ii] = LONG_LONG_MAX;
+                neof++;
             }
         }
-
 
         samplesRead = vector<size_t>(inputs.size(), 0);
         samplesUnique = vector<size_t>(inputs.size(), 0);
@@ -570,11 +571,10 @@ int NidsMerge::run() throw()
         }
         cout << "    before   after  output" << endl;
 
-        unsigned int neof = 0;
-
         dsm_time_t tcur;
         for (tcur = startTime.toUsecs();
-             neof < inputs.size() && tcur < endTime.toUsecs();
+             neof < inputs.size() && tcur < endTime.toUsecs() &&
+             !_app.interrupted();
              tcur += readAheadUsecs)
         {
             DLOG(("merge loop at step: ") << tformat(tcur));
