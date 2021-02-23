@@ -577,7 +577,9 @@ public:
 
     unsigned int discarded;
 
-    unsigned int overWritten;
+    bool overWritten;
+
+    unsigned int noverWritten;
 
     unsigned int nskips;
 

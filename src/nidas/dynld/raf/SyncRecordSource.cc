@@ -85,7 +85,7 @@ SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     sampleLength(1),   // initialize to one for timeOffset
     sampleOffset(0),
     variables(), varOffsets(),
-    discarded(0), overWritten(0), nskips(0),
+    discarded(0), overWritten(false), noverWritten(0), nskips(0),
     skipped(0), total(0),
     minDiffInit(dtUsec),
     minDiff(minDiffInit),
@@ -117,6 +117,7 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     varOffsets(other.varOffsets),
     discarded(other.discarded),
     overWritten(other.overWritten),
+    noverWritten(other.noverWritten),
     nskips(other.nskips),
     skipped(other.skipped),
     total(other.total),
@@ -151,6 +152,7 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->varOffsets = other.varOffsets;
     this->discarded = other.discarded;
     this->overWritten = other.overWritten;
+    this->noverWritten = other.noverWritten;
     this->nskips = other.nskips;
     this->skipped = other.skipped;
     this->total = other.total;
@@ -270,7 +272,7 @@ SyncRecordSource::~SyncRecordSource()
     map<dsm_sample_id_t,SyncInfo>::const_iterator si = _syncInfo.begin();
 
     for ( ; si != _syncInfo.end(); ++si) {
-        if (si->second.discarded + si->second.overWritten > 0)
+        if (si->second.discarded + si->second.noverWritten > 0)
             logIds.insert(si->first);
 #ifdef LOG_SKIPS
         if (si->second.skipped > 0)
@@ -287,11 +289,11 @@ SyncRecordSource::~SyncRecordSource()
 #ifdef LOG_SKIPS
         ILOG(("SyncRecordSource, sample id %2d,%4d, rate=%7.2f, #discarded=%4u, #overwritten=%4u, #skipped=%4u, #total=%8u", 
             GET_DSM_ID(id), GET_SPS_ID(id), sinfo.rate,
-            sinfo.discarded, sinfo.overWritten, sinfo.skipped, sinfo.total));
+            sinfo.discarded, sinfo.noverWritten, sinfo.skipped, sinfo.total));
 #else
         ILOG(("SyncRecordSource, sample id %2d,%4d, rate=%7.2f, #discarded=%4u, #overwritten=%4u, #total=%8u", 
             GET_DSM_ID(id), GET_SPS_ID(id), sinfo.rate,
-            sinfo.discarded, sinfo.overWritten, sinfo.total));
+            sinfo.discarded, sinfo.noverWritten, sinfo.total));
 #endif
     }
 }
@@ -775,16 +777,18 @@ bool SyncRecordSource::prevRecord(SyncInfo& sinfo)
 bool SyncRecordSource::nextRecord(SyncInfo& sinfo)
 {
     int i = sinfo.getRecordIndex();
-    // make sure sync record n exists, we needs its syncTime
+    // make sure sync record exists, we need its syncTime
     assert(_syncRecord[i]);
     if (i != _current) {
         // sinfo.getRecordIndex() is already pointing to the second sync record,
-        sinfo.overWritten++;
+        sinfo.overWritten = true;
         return false;
     }
     dsm_time_t tnext = _syncTime[i] + USECS_PER_SEC;
     int n = nextRecordIndex(i);
     allocateRecord(n, tnext);
+
+    // log the issue before the assert
     if (_syncTime[n] - _syncTime[i] != USECS_PER_SEC) {
         nidas::util::LogContext lcerror(LOG_ERR);
         log(lcerror, "bad syncTimes", sinfo);
@@ -798,6 +802,7 @@ int SyncRecordSource::computeSlotIndex(const Sample* samp,
         SyncInfo& sinfo)
 {
     int n = sinfo.getRecordIndex();
+    // log the issue before the assert
     if (!_syncRecord[n]) {
         nidas::util::LogContext lcerror(LOG_ERR);
         log(lcerror, "!_syncRecord[n]", samp, sinfo);
@@ -851,7 +856,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                     }
                     ret = false;
                 }
-                else sinfo.overWritten++;
+                else sinfo.overWritten = true;
                 if (sinfo.getSlotIndex() == 0) {
                     tn = _syncTime[sinfo.getRecordIndex()] + sinfo.getSlotIndex() * sinfo.dtUsec;
                     tdiff = samp->getTimeTag() - tn;
@@ -877,7 +882,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
                 }
                 ret = false;
             }
-            else sinfo.overWritten++;
+            else sinfo.overWritten = true;
         }
     }
     else if (tdiff > std::min(NSLOT_LIMIT * sinfo.dtUsec, USECS_PER_SEC)) {
@@ -1067,6 +1072,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     SyncInfo& sinfo = si->second;
 
     sinfo.total++;
+    sinfo.overWritten = false;
 
     // first time
     if (!_syncRecord[_current]) allocateRecord(_current, samp->getTimeTag());
@@ -1088,11 +1094,16 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     /*
      * If we have a time tag greater than the end of the current
      * sync record, plus half the maximum sample delta-T, then the
-     * current sync record is ready to ship.
+     * current sync record is ready to ship.  If there is
+     * a gap, one might have to send out both sync records.
      */
-    dsm_time_t triggertime = _syncTime[_current] + USECS_PER_SEC +
-        std::max(_halfMaxUsecsPerSample, 250 * USECS_PER_MSEC);
-    if (tt >= triggertime) advanceRecord(tt);
+
+    for (;;) {
+        dsm_time_t triggertime = _syncTime[_current] + USECS_PER_SEC +
+            std::max(_halfMaxUsecsPerSample, 250 * USECS_PER_MSEC);
+        if (tt >= triggertime) advanceRecord(tt);
+        else break;
+    }
 
     // First of this sample encounters, or the last sample was in
     // previous sync record which was written out. Restart
@@ -1101,7 +1112,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     else if (!sinfo.incrementSlot()) {
         slog(stracer, "no next sync record",
                 samp, sinfo);
-        sinfo.overWritten++;
+        sinfo.overWritten = true;
     }
 
     slog(stracer, "SyncRecordSource::receive: ", samp, sinfo);
@@ -1109,10 +1120,12 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (!checkTime(samp, sinfo, stracer, lcinfo, warn_times_interval))
         return false;    // discard sample
 
+    // log the issue before the assert
     if (sinfo.getRecordIndex() < 0 || sinfo.getRecordIndex() >= NSYNCREC)
         log(lcerror, "bad record index: ", samp, sinfo);
     assert(sinfo.getRecordIndex() >= 0 && sinfo.getRecordIndex() < NSYNCREC);
 
+    // log the issue before the assert
     if (sinfo.getSlotIndex() < 0 || sinfo.getSlotIndex() >= sinfo.nSlots)
         log(lcerror, "bad slot index: ", samp, sinfo);
 
@@ -1143,6 +1156,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		"sample id %d is not a float, double or uint32 type",sampleId);
         break;
     }
+    if (sinfo.overWritten) sinfo.noverWritten++;
     slog(stracer, "returning: ", samp, sinfo);
     return true;
 }
