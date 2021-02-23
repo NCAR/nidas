@@ -599,12 +599,20 @@ read(bool keepreading, char* ptr, size_t lentoread)
     // keepreading means read as much as we need from the stream, even if it
     // means more physical reads of the underlying device.  Otherwise read
     // only what is currently in the buffer.
+    VLOG(CNAME << "vvvvv entering SampleInputStream::read"
+         << "(keepreading=" << keepreading
+         << ", ptr=" << bool(ptr)
+         << ", lentoread=" << lentoread << ")");
     if (keepreading)
     {
         try {
             if (ptr)
             {
                 rr.len = _iostream->read(ptr, lentoread);
+                VLOG(CNAME << "read(ptr, " << lentoread
+                     << ") returned " << rr.len << " bytes read, "
+                     << _iostream->available()
+                     << " bytes available in buffer.");
             }
             else
             {
@@ -626,6 +634,10 @@ read(bool keepreading, char* ptr, size_t lentoread)
     else if (ptr)
     {
         rr.len = _iostream->readBuf(ptr, lentoread);
+        VLOG(CNAME << "readBuf() returned "
+                   << rr.len << " bytes read, "
+                   << _iostream->available()
+                   << " bytes available in buffer.");
     }
     rr.newinput = _iostream->isNewInput();
 
@@ -641,7 +653,7 @@ read(bool keepreading, char* ptr, size_t lentoread)
         // read.
         handleNewInput();
     }
-    VLOG(CNAME << "read(keepreading=" << keepreading
+    VLOG(CNAME << "^^^^^ read(keepreading=" << keepreading
          << ",lentoread=" << lentoread << ") returning read result: "
          << "len=" << rr.len << ",eof=" << rr.eof
          << ",newinput=" << rr.newinput);
@@ -739,15 +751,31 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
     throw(n_u::IOException)
 {
     Sample* out = 0;
-    // Check if EOF has been hit and there is still a sample pending.
-    if (_ateof)
-    {
-        return handleEOF(keepreading);
-    }
+
+    // This saves the state of the most recent read, so whenever eof or
+    // newinput occur the loop can be restarted and the event can be
+    // handled.
+    ReadResult rr;
 
     while (!out)
     {
-        ReadResult rr;
+        // Check if EOF has been hit and there is still a sample pending.
+        if (_ateof)
+        {
+            return handleEOF(keepreading);
+        }
+
+        if (rr.newinput && _sampPending)
+        {
+            // Hit end of a file, so we can send any currently pending
+            // sample.  Next call to this method will continue in the new
+            // input where we left off.  Note this happens whether
+            // keepreading is true or not.
+            DLOG(("switched to new input, returning pending sample"));
+            out = _sampPending;
+            _sampPending = 0;
+            return out;
+        }
 
         // If last time through we hit new input, then there may be an input
         // header to read first.  This forces a read of the iostream, even
@@ -760,35 +788,25 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
         // See if a sample header needs to be read.  As soon as the header
         // is read _headerToRead will be zero, and a Sample can be created
         // from the header.
-        if (_headerToRead > 0) {
-
+        if (_headerToRead > 0)
+        {
             rr = readBlock(keepreading, _hptr, _headerToRead);
-            if (rr.eof)
+            if (rr.eof || rr.newinput)
             {
-                return handleEOF(keepreading);
-            }
-            if (rr.newinput && _sampPending)
-            {
-                // Hit end of a file, so we can send any currently pending
-                // sample.  Next call to this method will continue in the
-                // new input where we left off.
-                DLOG(("switched to new input, returning pending sample"));
-                out = _sampPending;
-                _sampPending = 0;
-                return out;
-            }
-            // If the read of a sample header reached a new input, then we may
-            // have to try again to read an input header.
-            if (!_inputHeaderParsed && keepreading)
-            {
-                DLOG(CNAME << "restarting sample read to read input header");
+                // Start over.
+                DLOG(CNAME << "restarting from sample header read "
+                     << "to read input header");
                 continue;
             }
 
             // We didn't get all of a header yet, keepreading must have been
             // false.
             if (_headerToRead > 0)
+            {
+                VLOG(CNAME << "nextSample(keepreading=" << keepreading << ") "
+                     << "returning 0 because _headerToRead=" << _headerToRead);
                 return 0;
+            }
 
             if (__BYTE_ORDER == __BIG_ENDIAN)
             {
@@ -846,10 +864,22 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
         if (_samp)
         {
             rr = readBlock(keepreading, _dptr, _dataToRead);
-            if (rr.eof)
-                return handleEOF(keepreading);
+            if (rr.eof || rr.newinput)
+            {
+                // The current sample could not be read completely
+                // before hitting the end of a file.  Start over.
+                continue;
+            }
+
+            // If there is still data to read for the sample, but the
+            // current file has not eneded yet, then keepreading must be
+            // false and this should return no sample.
             if (_dataToRead > 0)
+            {
+                VLOG(CNAME << "nextSample(keepreading=" << keepreading << ") "
+                     << "returning 0 with _dataToRead=" << _dataToRead);
                 return 0;
+            }
         }
 
         // We now have a good (unfiltered) sample with complete data.
