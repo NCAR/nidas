@@ -605,6 +605,7 @@ int NidsMerge::run() throw()
                         else if (!sorter.insert(samp).second)
                         {
                             // duplicate of sample already in the sorter set.
+                            samp->freeReference();
                         }
                         else
                             nunique++;
