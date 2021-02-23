@@ -309,7 +309,7 @@ size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 
 void FileSet::initialize()
 {
-    DLOG(("openNextFile, fullpath=") << _fullpath);
+    DLOG(("FileSet::initialize(), fullpath=") << _fullpath);
     if (_fullpath.length() > 0) {
 
         _fileset = matchFiles(_startTime,_endTime);
