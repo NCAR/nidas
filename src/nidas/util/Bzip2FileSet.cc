@@ -268,10 +268,10 @@ size_t Bzip2FileSet::read(void* buf, size_t count) throw(IOException)
     {
         if (!_keepopening)
             throw ioe;
+        ELOG(("") << ioe.what() << "; keep going to next file...");
         // next read will open next file
         closeFile();
         res = 0;
-        ELOG(("") << ioe.what() << "; keep going to next file...");
     }
     return res;
 }

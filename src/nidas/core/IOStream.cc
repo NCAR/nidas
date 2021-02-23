@@ -96,7 +96,8 @@ size_t IOStream::read() throw(n_u::IOException)
         _newInput = true;
         _nbytesIn = 0;
     }
-    VLOG(("IOStream, read =") << l << ", avail=" << available());
+    VLOG(("IOStream::read() => ") << l << ", avail=" << available()
+         << "_newInput=" << _newInput);
     return l;
 }
 
