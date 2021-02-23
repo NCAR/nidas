@@ -50,6 +50,15 @@ using nidas::util::LogMessage;
 
 NIDAS_CREATOR_FUNCTION(SampleInputStream)
 
+
+/*
+ * Log message prefix macro includes the channel name, to help distinguish
+ * log messages when multiple SampleInputStream instances are in use,
+ * especially when merging.
+ */
+#define CNAME ("") << getName() << ": "
+
+
 inline std::string
 ftime(dsm_time_t tt)
 {
@@ -298,7 +307,7 @@ int SampleInputStream::getFd() const
 
 void SampleInputStream::flush() throw()
 {
-    VLOG(("") << getName() << " flush, #clients="
+    VLOG(CNAME << "flush, #clients="
         << _source.getClientCount());
     // process all samples in buffer
     for (;;) {
@@ -364,7 +373,7 @@ void SampleInputStream::closeBlocks()
         log->log() << _last_name << ": Total " << _goodSamples
                 << " good samples (" << (length - _badSamples) << " bytes)";
 
-        DLOG(("resetting block stats..."));
+        DLOG(CNAME << "resetting block stats...");
         _block = BlockStats();
         _badSamples = 0;
         _goodSamples = 0;
@@ -406,11 +415,11 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
         // cache the name of the current file, so it is available after
         // isNewInput() is detected.
         _last_name = getName();
-        DLOG(("set _last_name: ") << _last_name);
+        DLOG(CNAME << "set _last_name: " << _last_name);
         parseInputHeader();
     }
-    DLOG(("input header parsed, offset is now ")
-        << _iostream->getNumInputBytes() << " bytes.");
+    DLOG(CNAME << "input header parsed, offset is now "
+         << _iostream->getNumInputBytes() << " bytes.");
 }
 
 bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
@@ -418,7 +427,7 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
     // Since this presumably is happening at the start of a new file or
     // new stream, it seems natural to clear out any leftovers from a
     // previous input, even if _expectHeader is false.
-    DLOG(("attempting to parse input header"));
+    DLOG(CNAME << "attempting to parse input header");
     if (_samp) _samp->freeReference();
     _samp = 0;
     _headerToRead = _sheader.getSizeOf();
@@ -439,13 +448,14 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
         {
             throw n_u::IOException(getName(), "read header", e.what());
         }
-        ELOG(("skipping header: ") << e.what());
+        ELOG(CNAME << "skipping header: " << e.what());
         _inputHeaderParsed = true;
         // I don't think we know whether this will back up to the beginning
         // of the file or not, it only backups up to the beginning of the
         // buffer.
         _iostream->backup();
-        ELOG(("backed up iostream to offset ") << _iostream->getNumInputBytes());
+        ELOG(CNAME << "backed up iostream to offset "
+             << _iostream->getNumInputBytes());
     }
     return _inputHeaderParsed;
 }
@@ -483,12 +493,12 @@ void
 SampleInputStream::
 handleNewInput()
 {
-    VLOG(("entering handleNewInput()..."));
+    VLOG(CNAME << "entering handleNewInput()...");
     closeBlocks();
     size_t offset = _iostream->getNumInputBytes();
     _iostream->backup();
     size_t start = _iostream->getNumInputBytes();
-    DLOG(("") << getName() << ": new input detected after reading "
+    DLOG(CNAME << "new input detected after reading "
          << offset << " bytes, backed up to offset " << start);
     _inputHeaderParsed = false;
 }
@@ -509,8 +519,8 @@ bool SampleInputStream::readSamples() throw(n_u::IOException)
     // hit.  Then call into nextSample() in case there is a sample pending
     // which needs to be returned before throwing EOF.
     ReadResult rr = read(true, 0, 0);
-    VLOG(("readSamples(): read result: ") << "len=" << rr.len
-        << ",eof=" << rr.eof << ",newinput=" << rr.newinput);
+    VLOG(CNAME << "readSamples() read result: " << "len=" << rr.len
+         << ",eof=" << rr.eof << ",newinput=" << rr.newinput);
 
 #ifdef notdef
     // I'm not sure if this is needed.  nextSample() will only
@@ -549,13 +559,13 @@ checkUnexpectedEOF()
     if (0 < _headerToRead && _headerToRead < _sheader.getSizeOf())
     {
         // Part of a header was read, but not all of it.
-        WLOG(("unexpected EOF on ") << _last_name
+        WLOG(CNAME << "unexpected EOF on " << _last_name
         << ": needed " << _headerToRead << " more bytes "
         << "for sample header length " << _sheader.getSizeOf());
     }
     else if (_dataToRead > 0)
     {
-        WLOG(("unexpected EOF on ") << _last_name
+        WLOG(CNAME << "unexpected EOF on " << _last_name
         << ": expected " << _dataToRead << " more bytes "
         << "for sample data length " << _samp->getDataByteLength());
     }
@@ -599,15 +609,15 @@ read(bool keepreading, char* ptr, size_t lentoread)
             else
             {
                 rr.len = _iostream->read();
-                VLOG(("buffer read() returned ")
-                    << rr.len << " bytes read, "
-                    << _iostream->available()
-                    << " bytes available in buffer.");
+                VLOG(CNAME << "buffer read() returned "
+                     << rr.len << " bytes read, "
+                     << _iostream->available()
+                     << " bytes available in buffer.");
             }
         }
         catch (nidas::util::EOFException& eof)
         {
-            DLOG(("EOF caught in SampleInputStream::read()"));
+            DLOG(CNAME << "EOF caught in SampleInputStream::read()");
             _eofx = eof;
             _ateof = true;
             rr.eof = true;
@@ -631,10 +641,10 @@ read(bool keepreading, char* ptr, size_t lentoread)
         // read.
         handleNewInput();
     }
-    VLOG(("read(keepreading=") << keepreading
-        << ",lentoread=" << lentoread << ") returning read result: "
-        << "len=" << rr.len << ",eof=" << rr.eof
-        << ",newinput=" << rr.newinput);
+    VLOG(CNAME << "read(keepreading=" << keepreading
+         << ",lentoread=" << lentoread << ") returning read result: "
+         << "len=" << rr.len << ",eof=" << rr.eof
+         << ",newinput=" << rr.newinput);
     return rr;
 }
 
@@ -697,20 +707,21 @@ handleEOF(bool keepreading)
 {
     if (_sampPending)
     {
-        DLOG(("reached eof, returning pending sample"));
+        DLOG(CNAME << "reached eof, returning pending sample");
         Sample* out = _sampPending;
         _sampPending = 0;
         return out;
     }
     if (keepreading)
     {
-        DLOG(("handleEOF(): no sample pending, keepreading is true, "
-            "raising EOFException"));
+        DLOG(CNAME << "handleEOF(): no sample pending, keepreading is true, "
+             "raising EOFException");
         throw _eofx;
     }
     else
     {
-        DLOG(("handleEOF(): no sample pending, but keepreading is false"));
+        DLOG(CNAME << "handleEOF(): no sample pending, "
+             "but keepreading is false");
     }
     return 0;
 }
@@ -770,8 +781,7 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
             // have to try again to read an input header.
             if (!_inputHeaderParsed && keepreading)
             {
-                DLOG(("") << getName()
-                 << ": restarting sample read to read input header");
+                DLOG(CNAME << "restarting sample read to read input header");
                 continue;
             }
 
@@ -793,8 +803,8 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
                 // corrupt data and any pending sample needs to be dropped.
                 if (_sampPending)
                 {
-                    WLOG(("dropping unfiltered sample preceding a bad block: ")
-                        << *_sampPending);
+                    WLOG(CNAME << "dropping unfiltered sample preceding a bad block: "
+                         << *_sampPending);
                     _sampPending->freeReference();
                     _sampPending = 0;
                 }
@@ -822,7 +832,7 @@ nextSample(bool keepreading, bool searching, dsm_time_t search_time)
         if (!_skipSample &&
             searching && _samp->getTimeTag() >= search_time)
         {
-            DLOG(("searching for sample time >= ")
+            DLOG(CNAME << "searching for sample time >= "
                  << UTime(search_time).format(true)
                  << ", found sample at time: "
                  << UTime(_samp->getTimeTag()).format(true));
@@ -921,9 +931,9 @@ sampleFromHeader() throw()
                                       _sheader.getDataByteLength());
         if (!samp)
         {
-            WLOG(("getSample() failed!  ")
-                << "type=" << (int)_sheader.getType()
-                << "; len=" << _sheader.getDataByteLength());
+            WLOG(CNAME << "getSample() failed!  "
+                 << "type=" << (int)_sheader.getType()
+                 << "; len=" << _sheader.getDataByteLength());
         }
     }
 
@@ -934,15 +944,15 @@ sampleFromHeader() throw()
         ++_badSamples;
         if (log_count && !((_badSamples-1) % log_count))
         {
-            WLOG(("") << getName() << ": bad sample header: "
-            << "#bad=" << _badSamples << ","
-            << "filepos=" << offset << "," << _sheader);
+            WLOG(CNAME << "bad sample header: "
+                 << "#bad=" << _badSamples << ","
+                 << "filepos=" << offset << "," << _sheader);
         }
         if (_block.good && _block.nbytes)
         {
             // Log the good block which preceded the start of this bad
             // block.
-            WLOG(("") << _block);
+            WLOG(CNAME << _block);
             _block.startBadBlock(offset);
         }
         else
@@ -964,8 +974,8 @@ sampleFromHeader() throw()
         // However, since we still can't be sure the time is not corrupted
         // at the beginning of the sample, skip this sample.
         _skipSample = true;
-        WLOG(("skipping first unfiltered sample at end of bad block: "
-              "filepos=%lld", offset) << _sheader);
+        WLOG(CNAME << "skipping first unfiltered sample at end of bad block: "
+             "filepos=" << offset << _sheader);
     }
     else
     {
@@ -979,7 +989,7 @@ sampleFromHeader() throw()
         {
             _block.endBadBlock(samp, offset);
             // First good sample after a bad block, so log the bad block.
-            WLOG(("") << _block);
+            WLOG(CNAME << _block);
         }
         if (_block.addGoodSample(samp, offset))
         {
@@ -991,8 +1001,8 @@ sampleFromHeader() throw()
                 (_bsf.filterBadSamples() || _badSamples) ? &wlog : &dlog;
             if (log->active())
             {
-                log->log() << "setting good block start to "
-                        << ftime(_block.start_time);
+                log->log() << getName() << ": setting good block start to "
+                           << ftime(_block.start_time);
             }
         }
     }
@@ -1014,7 +1024,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
  */
 void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
 {
-    DLOG(("searching for sample time >= ") << tt.format(true));
+    DLOG(CNAME << "searching for sample time >= " << tt.format(true));
     nextSample(true, true, tt.toUsecs());
 }
 
