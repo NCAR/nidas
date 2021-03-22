@@ -147,7 +147,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
     if (tdiff < 0) {
         if (_ntotalPts > _npts && -tdiff > (signed)_dtUsecCorr / 2) {
             _nNegTdiff++;
-            WLOG(("ttadjust: tdiff < -dt/2: %s, id=%d,%d, tdiff=%6.2f, dt=%6.2f, #neg=%u",
+            DLOG(("ttadjust: tdiff < -dt/2: %s, id=%d,%d, tdiff=%6.2f, dt=%6.2f, #neg=%u",
                 nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                 GET_DSM_ID(_id), GET_SPS_ID(_id),
                 (double)tdiff/USECS_PER_SEC,
@@ -192,7 +192,7 @@ dsm_time_t TimetagAdjuster::adjust(dsm_time_t tt)
 
         if (_tdiffminUsec > (signed)_dtUsecCorr / 2) {
             _nBigTdiff++;
-            WLOG(("ttadjust: tdiff > dt/2: %s, id=%d,%d, tdiff=%6.2f, dt=%6.2f, #big=%u",
+            DLOG(("ttadjust: tdiff > dt/2: %s, id=%d,%d, tdiff=%6.2f, dt=%6.2f, #big=%u",
                 nidas::util::UTime(tt).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                 GET_DSM_ID(_id), GET_SPS_ID(_id),
                 (double)_tdiffminUsec/USECS_PER_SEC,
