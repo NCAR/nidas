@@ -37,7 +37,9 @@ if [ "$1" = "configure" ]; then
     setcap cap_sys_nice,cap_net_admin+p ${nidas_prefix}/bin/dsm_server
     setcap cap_sys_nice,cap_net_admin+p ${nidas_prefix}/bin/dsm
     setcap cap_sys_nice,cap_net_admin+p ${nidas_prefix}/bin/nidas_udp_relay
-    setcap cap_sys_nice+p ${nidas_prefix}/bin/tee_i2c
+    if [ -f  $nidas_prefix/bin/tee_i2c ]; then
+        setcap cap_sys_nice+p ${nidas_prefix}/bin/tee_i2c
+    fi
     setcap cap_sys_nice+p ${nidas_prefix}/bin/tee_tty
 fi
 
