@@ -20,6 +20,7 @@ headers = Split("""
     Bzip2FileSet.h
     CalFile.h
     CharacterSensor.h
+    ChronyStatus.h
     ConnectionInfo.h
     ConnectionRequester.h
     Datagrams.h
@@ -137,6 +138,7 @@ sources = Split("""
     Bzip2FileSet.cc
     CalFile.cc
     CharacterSensor.cc
+    ChronyStatus.cc
     DatagramSocket.cc
     Datasets.cc
     DerivedDataReader.cc

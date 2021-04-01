@@ -31,6 +31,7 @@
 #include "DSMService.h"
 #include "DSMConfig.h"
 #include "Datagrams.h"
+#include "ChronyStatus.h"
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/Logger.h>
@@ -45,12 +46,40 @@ namespace n_u = nidas::util;
 
 namespace {
 	const int COMPLETE_STATUS_CNT = 3;
+	const int CHRONY_STATUS_CNT = 4;
 }
 
 StatusThread::StatusThread(const std::string& name):Thread(name)
 {
     unblockSignal(SIGUSR1);
 }
+
+void StatusThread::sendStatus(n_u::DatagramSocket* dsock,
+    n_u::SocketAddress* saddr,
+    const string& statstr)
+{
+    dsock->sendto(statstr.c_str(), statstr.length()+1, 0, *saddr);
+}
+
+#ifdef SEND_ALL_INTERFACES
+void StatusThread::sendStatus(n_u::MulticastSocket* msock,
+    n_u::SocketAddress* saddr,
+    n_u::Inet4Address& mcaddr,
+    std::vector<n_u::Inet4NetworkInterface>& ifaces,
+    const string& statstr)
+{
+    // If multicast, loop over interfaces
+    if (!ifaces.empty()) {
+        for (unsigned int i=0; i < ifaces.size(); i++) {
+            n_u::Inet4NetworkInterface iface = ifaces[i];
+            msock->setInterface(mcaddr,iface);
+            msock->sendto(statstr.c_str(), statstr.length()+1, 0, *saddr);
+        }
+    }
+    else
+        msock->sendto(statstr.c_str(), statstr.length()+1, 0, *saddr);
+}
+#endif
 
 int DSMEngineStat::run() throw(n_u::Exception)
 {
@@ -96,7 +125,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
                    << "<name>" << dsm_name << "</name>"
                    << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>";
 
-        bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
+        bool completeStatus = ((tt + USECS_PER_SEC / 2) / USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
         // Send status at 00:00, 00:03, etc.
         if ( completeStatus ) {
 
@@ -127,7 +156,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
         statStream.str("");
 
         try {
-	    dsock.sendto(statstr.c_str(),statstr.length()+1,0,*_sockAddr);
+            sendStatus(&dsock, _sockAddr, statstr);
 	}
         catch(const n_u::IOException& e) {
             nerr++;
@@ -154,8 +183,8 @@ int DSMServerStat::run() throw(n_u::Exception)
     n_u::Inet4Address mcaddr;
 
     if (saddr->getFamily() == AF_INET) {
-    n_u::Inet4SocketAddress i4saddr =
-	n_u::Inet4SocketAddress((const struct sockaddr_in*)
+        n_u::Inet4SocketAddress i4saddr =
+            n_u::Inet4SocketAddress((const struct sockaddr_in*)
 		saddr->getConstSockAddrPtr());
 	mcaddr= i4saddr.getInet4Address();
     }
@@ -163,10 +192,7 @@ int DSMServerStat::run() throw(n_u::Exception)
     n_u::auto_ptr<n_u::DatagramSocket> dsock;
     n_u::MulticastSocket* msock = 0;
 
-// #define SEND_ALL_INTERFACES
-#ifdef SEND_ALL_INTERFACES
     std::vector<n_u::Inet4NetworkInterface> ifaces;
-#endif
 
     if (mcaddr.isMultiCastAddress()) {
 	msock = new n_u::MulticastSocket();
@@ -183,7 +209,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 	    }
 #ifdef SEND_ALL_INTERFACES
             // also can check IFF_POINTOPOINT
-	    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICASE | IFF_LOOPBACK))
+	    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICAST | IFF_LOOPBACK))
 		ifaces.push_back(iface);
 #endif
 	}
@@ -210,6 +236,14 @@ int DSMServerStat::run() throw(n_u::Exception)
     float deltat = _uSecPeriod / USECS_PER_SEC;
     const list<DSMService*>& svcs = _server->getServices();
 
+    list<ChronyStatusNode*> ssnodes;
+
+    for (SensorIterator si = _server->getSensorIterator(); si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+        ChronyStatusNode* node = dynamic_cast<ChronyStatusNode*>(sensor);
+        if (node) ssnodes.push_back(node);
+    }
+
     try {
         while (!amInterrupted()) {
             // sleep until the next interval...
@@ -220,7 +254,7 @@ int DSMServerStat::run() throw(n_u::Exception)
             nanosleep(&sleepTime,0);
 
             dsm_time_t tt = n_u::getSystemTime();
-            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
+            bool completeStatus = ((tt + USECS_PER_SEC / 2) / USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
             if (completeStatus) {
                 deltat = (float)(tt - lasttime) / USECS_PER_SEC;
                 lasttime = tt;
@@ -246,31 +280,55 @@ int DSMServerStat::run() throw(n_u::Exception)
 
                 // cerr << "pos1=" << pos1 << " pos2=" << pos2 << endl;
                 if (pos2 != pos1) {
-                    string statstr = statStream.str();
-#ifdef DEBUG
-                    cerr << "####################################" << endl;
-                    cerr << statstr;
-                    cerr << "####################################" << endl;
-#endif
-		    try {
+                    try {
 #ifdef SEND_ALL_INTERFACES
-			// If multicast, loop over interfaces
-			if (msock && !ifaces.empty()) {
-			    for (int i=0; i < ifaces.size(); i++) {
-				Inet4NetworkInterface iface = ifaces[i];
-				msock->setInterface(mcaddr,iface);
-				dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
-			    }
-			}
-			else
+                        if (msock)
+                            sendStatus(msock, saddr.get(), mcaddr, ifaces, statStream.str());
+                        else
 #endif
-			    dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
-			ni++;
-		    }
-		    catch(const n_u::IOException& e) {
-			WLOG(("%s: %s",dsock->getLocalSocketAddress().toAddressString().c_str(),
-				e.what()));
-		    }
+                            sendStatus(dsock.get(), saddr.get(), statStream.str());
+                        ni++;
+                    }
+                    catch(const n_u::IOException& e) {
+                        WLOG(("%s: %s",dsock->getLocalSocketAddress().toAddressString().c_str(),
+                                e.what()));
+                    }
+                }
+            }
+
+            bool chronyStatus = ((tt + USECS_PER_SEC / 2) / USECS_PER_SEC % CHRONY_STATUS_CNT) == 0;
+            if (chronyStatus) {
+
+                std::ostringstream statStream;
+                statStream << "<?xml version=\"1.0\"?><group>"
+                       << "<name>chrony</name>";
+                statStream << "<status><![CDATA[";
+
+                printChronyHeader(statStream);
+
+                list<ChronyStatusNode*>::const_iterator ssi = ssnodes.begin();
+                for ( ; ssi != ssnodes.end(); ++ssi) {
+                    ChronyStatusNode* ssnode = *ssi;
+                    std::ostringstream statStream;
+                    ssnode->printChronyStatus(statStream);
+                }
+
+                printChronyTrailer(statStream);
+                statStream << "]]></status>";
+                statStream << "</group>" << endl;
+
+                string statstr = statStream.str();
+                try {
+#ifdef SEND_ALL_INTERFACES
+                    if (msock)
+                        sendStatus(msock, saddr.get(), mcaddr, ifaces, statStream.str());
+                    else
+#endif
+                        sendStatus(dsock.get(), saddr.get(), statStream.str());
+                }
+                catch(const n_u::IOException& e) {
+                    WLOG(("%s: %s",dsock->getLocalSocketAddress().toAddressString().c_str(),
+                            e.what()));
                 }
             }
 	}
@@ -282,3 +340,4 @@ int DSMServerStat::run() throw(n_u::Exception)
     dsock->close();
     return RUN_OK;
 }
+

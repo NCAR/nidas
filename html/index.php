@@ -43,7 +43,7 @@ $dsmList = xu_rpc_http_concise( array( 'method' => 'GetDsmList',
 if ($dsmList == "")
   exit("<h5>DSM server not responding!</h5>");
 
-// measure the size of the DSM list
+// measure the size of the DSM list.
 $nDSMs = 0;
 $maxLen = 0;
 foreach ($dsmList as $key => $val) {
@@ -68,6 +68,8 @@ GetStatus = new Array();
 GetStatus['<?php echo $key?>'] =
   new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=<?php echo $key?>', '');
 <?php } ?>
+GetStatus['chrony'] =
+  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=chrony', '');
 GetStatus['dsm_server'] =
   new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=dsm_server', '');
 GetStatus['nimbus'] =
@@ -75,28 +77,28 @@ GetStatus['nimbus'] =
 
 var selectedDsm = '';
 function recvStat(content) {
-  document.getElementById('status').innerHTML = content;
+    document.getElementById('status').innerHTML = content;
 }
 function recvList(content) {
-  document.getElementById('list').innerHTML = content;
+    document.getElementById('list').innerHTML = content;
 }
 function recvResp(content) {
-  document.getElementById('response').innerHTML = content;
+    document.getElementById('response').innerHTML = content;
 }
 function selectDsm(content) {
-  if (is_periodic == false)
-    periodic.UpdateClocks();
-  selectedDsm = content;
-  if (selectedDsm)
-    recvStat( GetStatus[selectedDsm]() );
-  else
-    recvStat( "" );
+    if (is_periodic == false)
+	periodic.UpdateClocks();
+    selectedDsm = content;
+    if (selectedDsm)
+	recvStat( GetStatus[selectedDsm]() );
+    else
+	recvStat( "" );
 }
 function clicker(that) {
-  if (that.selectedIndex+1 > 0)
-    return that.options[that.selectedIndex].id;
-  else
-    return '';
+    if (that.selectedIndex+1 > 0)
+	return that.options[that.selectedIndex].id;
+    else
+	return '';
 }
 </script>
 
@@ -135,9 +137,9 @@ function clicker(that) {
 <p id="paraID"> </p>
 <script>
 if (is_periodic == false) {
-  mypara = document.getElementById("paraID");
-  mytext = document.createTextNode("to refresh click on an item:");
-  mypara.appendChild(mytext); 
+    mypara = document.getElementById("paraID");
+    mytext = document.createTextNode("to refresh click on an item:");
+    mypara.appendChild(mytext); 
 }
 </script>
 
@@ -157,20 +159,20 @@ if (is_periodic == false) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='host[]' size="<?php echo $nDSMs+3?>" multiple="multiple"
+<select name='host[]' size="<?php echo $nDSMs+3?>" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
     <option value='<?php echo $key?>' id='<?php echo $key?>' label='<?php echo $key?> <?php echo str_pad($val, $maxLen, '_')?>'>
        <?php echo $key?> <?php echo str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <?php } ?>
+    <option value='chrony'  id='chrony' label='______ <?php echo str_pad("chrony", $maxLen, '_')?>'>
     <option value='localhost'  id='dsm_server' label='______ <?php echo str_pad("dsm_server", $maxLen, '_')?>'>
        ______ <?php echo str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <option value='nimbus'     id='nimbus'     label='______ <?php echo str_pad("nimbus"    , $maxLen, '_')?>'>
        ______ <?php echo str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <option value='mtp-pc'     id='mtp-pc'     label='______ <?php echo str_pad("mtp-pc"    , $maxLen, '_')?>'>
        ______ <?php echo str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
-  </select><p>
-  </select><p>
+</select><p>
 
   action:&nbsp
   <select name=mthd>

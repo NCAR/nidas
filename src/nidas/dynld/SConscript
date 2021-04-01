@@ -20,6 +20,7 @@ headers = Split("""
     A2DSensor.h
     AsciiOutput.h
     Bzip2FileSet.h
+    ChronyLog.h
     DSC_A2DSensor.h
     DSC_AnalogOut.h
     DSC_Event.h
@@ -60,6 +61,7 @@ sources = Split("""
     A2DSensor.cc
     AsciiOutput.cc
     Bzip2FileSet.cc
+    ChronyLog.cc
     DSC_A2DSensor.cc
     DSC_AnalogOut.cc
     DSC_Event.cc
