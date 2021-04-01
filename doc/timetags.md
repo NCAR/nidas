@@ -37,14 +37,9 @@ Assuming that tracking is being logged by chrony, NIDAS can archive and parse it
 following XML:
 
     <sensorcatalog>
-        <serialSensor ID="CHRONY_TRACKING_LOG" class="WatchedFileSensor"
+        <serialSensor ID="CHRONY_TRACKING_LOG" class="ChronyLog"
             devicename="/var/log/chrony/tracking.log">
-            <!-- see https://chrony.tuxfamily.org/doc/2.3/manual.html#tracking-log
-                  date       hms        IP         statum freq(ppm)     freqerr offset   leap
-                 2012-02-23 05:40:50 158.152.1.76     3    340.529      1.606  1.046e-03 N \
-                            sources offdev  remaining offset
-                             4  6.849e-03 -4.670e-04
-             -->
+            <!-- see https://chrony.tuxfamily.org/doc/2.3/manual.html#tracking-log -->
             <sample id="1" scanfFormat="%*d-%*d-%*d %*d:%*d:%*d %*s%f%*f%*f%f">
                 <variable name="Stratum" units=""
                     longname="NTP stratum" plotrange="0 10"/>
@@ -55,8 +50,13 @@ following XML:
             </sample>
             <message separator="\n" position="end" length="0"/>
         </serialSensor>
-        ...
-    </sensorcatalog>
+
+The ChronyLog sensor class supports a printChronyStatus() method for generating
+an HTML table of values of the "Stratum" and "Timeoffset" variables. On aircraft
+deployments, this status can then be displayed on a web page.
+
+Otherwise, if this status capability is not needed, then a sensor class of
+"WatchedFileSensor" can be specified instead of "ChronyLog".
 
 Then for each DSM, where in this case a sample id of 6 was chosen, and you probably want
 to add a suffix to make the variable names unique:
@@ -74,7 +74,7 @@ The above will result in `Stratum_X` and `Timeoffset_X` variables for the DSM. T
 
 The assignment of time tags suffers from several sources of latency. With a
 highly accurate system clock, we can assume that the assigned time tags are always later,
-never earlier, than the representative time of the sample.  
+never earlier, than the actual time the sample was acquired.
 
 Some sources of latency include:
 
@@ -144,7 +144,7 @@ In the XML, rate and ttadjust are attributes of \<sample\>. Set ttadjust to "1" 
 
         <sample id="1" rate="50" ttadjust="1" ...>
 
-The value for ttadjust can also be an environment variable
+The value for ttadjust can also be a process environment variable
 
         <sample id="1" rate="50" ttadjust="$DO_TTADJUST" ...>
 
