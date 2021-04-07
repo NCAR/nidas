@@ -15,11 +15,10 @@
 <!-- ----------------------------------------------------------------------- -->
 <script>
 var is_periodic=(document.location.hostname == "localhost" ||
-                 document.location.hostname == "192.168.84.1" ||
-                 document.location.hostname == "192.168.184.1" ||
+                 document.location.hostname == "192.168.84.2" ||
                  document.location.hostname == "acserver" ||
                  document.location.hostname == "acserver.raf.ucar.edu" ||
-                 document.location.hostname == "hyper.guest.ucar.edu");
+                 document.location.hostname == "hyper.raf-guest.ucar.edu");
 
 if (is_periodic == false)
   document.title = document.title + " (static page)";
