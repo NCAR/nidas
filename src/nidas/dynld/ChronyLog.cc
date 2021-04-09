@@ -160,15 +160,15 @@ void ChronyLog::printChronyStatus(std::ostream& ostr) throw()
 
     chronyZebra = !chronyZebra;
 
-    ostr << "<tr class=" << oe << "><td align=left>" << getDSMName() << "</td>";
+    ostr << "<tr class=" << oe << "><td>" << getDSMName() << "</td>";
     /*
-     * stratum: print value: "unk" if nan, print in red if > 1
+     * stratum: print value: "unk" if nan, print in red if > 2
      */
     if (isnan(_stratum))
         ostr << "<td><font color=red><b>unk</b></font>";
     else {
         ostr << fixed << setprecision(0);
-        if (_stratum > 1)
+        if (_stratum > 2)
             ostr << "<td><font color=red><b>" << _stratum << "</b></font>";
         else
             ostr << "<td>" << _stratum;

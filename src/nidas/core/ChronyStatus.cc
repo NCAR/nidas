@@ -46,7 +46,7 @@ void nidas::core::printChronyHeader(std::ostream& ostr) throw()
 <th>offset(usec)</th>\
 <th>age(sec)</th>\
 </tr></thead>\
-<tbody align=center>" << endl;	// default alignment in table body
+<tbody>" << endl;
 }
 
 void nidas::core::printChronyTrailer(std::ostream& ostr) throw()
