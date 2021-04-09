@@ -95,10 +95,10 @@ private:
  * encloses a <name> element with the dsm name, and <status>, <clock>
  * or <samplepool> elements.  For example:
  *
- *      <?xml version=\"1.0\"?><group>"
+ *      <?xml version=\"1.0\"?><group>
  *          <name>dsm303</name>
  *          <clock>
-                current time formatted with "%Y-%m-%d %H:%M:%S.%1f"
+ *              current time formatted with "%Y-%m-%d %H:%M:%S.%1f"
  *          </clock>
  *          <samplepool>
  *             samplepool statistics
@@ -141,10 +141,10 @@ private:
  * As with the DSMEngine, the <status> elements will be enclosed
  * in a <group>, with an associated <name>, for example:
  *
- *      <?xml version=\"1.0\"?><group>"
+ *      <?xml version=\"1.0\"?><group>
  *          <name>dsm_server</name>
  *          <clock>
-                current time formatted with "%Y-%m-%d %H:%M:%S.%1f"
+ *              current time formatted with "%Y-%m-%d %H:%M:%S.%1f"
  *          </clock>
  *          <status><![CDATA[
  *              html table of dsm_server info

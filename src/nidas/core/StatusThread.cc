@@ -243,6 +243,8 @@ int DSMServerStat::run() throw(n_u::Exception)
         ChronyStatusNode* node = dynamic_cast<ChronyStatusNode*>(sensor);
         if (node) ssnodes.push_back(node);
     }
+    ILOG(("DSMServerStat, number of ChronyStatusNodes=%u",
+                ssnodes.size()));
 
     try {
         while (!amInterrupted()) {
@@ -309,7 +311,6 @@ int DSMServerStat::run() throw(n_u::Exception)
                 list<ChronyStatusNode*>::const_iterator ssi = ssnodes.begin();
                 for ( ; ssi != ssnodes.end(); ++ssi) {
                     ChronyStatusNode* ssnode = *ssi;
-                    std::ostringstream statStream;
                     ssnode->printChronyStatus(statStream);
                 }
 
