@@ -54,12 +54,6 @@ using nidas::util::LogContext;
 using nidas::util::LogMessage;
 
 /*
- * Whether to compute a time offset of each sample in the sync record,
- * otherwise leave it as 0.0.
- */
-#define COMPUTE_OFFSET
-
-/*
  * Whether to log the number of skipped slots.
  */
 // #define LOG_SKIPS
@@ -83,8 +77,8 @@ SyncInfo::SyncInfo(dsm_sample_id_t i, float r, SyncRecordSource* srs):
     islot(-1), irec(0),
     varLengths(),
     sampleLength(1),   // initialize to one for timeOffset
-    sampleOffset(0),
-    variables(), varOffsets(),
+    sampleSRIndex(0),
+    variables(), varSRIndex(),
     discarded(0), overWritten(false), noverWritten(0), nskips(0),
     skipped(0), total(0),
     minDiffInit(dtUsec),
@@ -112,9 +106,9 @@ SyncInfo::SyncInfo(const SyncInfo& other):
     irec(other.irec),
     varLengths(other.varLengths),
     sampleLength(other.sampleLength),
-    sampleOffset(other.sampleOffset),
+    sampleSRIndex(other.sampleSRIndex),
     variables(other.variables),
-    varOffsets(other.varOffsets),
+    varSRIndex(other.varSRIndex),
     discarded(other.discarded),
     overWritten(other.overWritten),
     noverWritten(other.noverWritten),
@@ -147,9 +141,9 @@ SyncInfo& SyncInfo::operator = (const SyncInfo& other)
     this->irec = other.irec;
     this->varLengths = other.varLengths;
     this->sampleLength = other.sampleLength;
-    this->sampleOffset = other.sampleOffset;
+    this->sampleSRIndex = other.sampleSRIndex;
     this->variables = other.variables;
-    this->varOffsets = other.varOffsets;
+    this->varSRIndex = other.varSRIndex;
     this->discarded = other.discarded;
     this->overWritten = other.overWritten;
     this->noverWritten = other.noverWritten;
@@ -171,7 +165,7 @@ void SyncInfo::addVariable(const Variable* var)
 {
     size_t vlen = var->getLength();
     varLengths.push_back(vlen);
-    varOffsets.push_back(sampleLength);
+    varSRIndex.push_back(sampleLength);
     sampleLength += vlen * nSlots;
     variables.push_back(var);
 }
@@ -374,12 +368,10 @@ SyncRecordSource::
 init()
 {
     // Traverse the variables list and lay out the sync record, including
-    // all the sample sizes, variable offsets, and rates.  All the
+    // all the sample sizes, variable indices, and rates.  All the
     // non-counter, non-continuous variables have already been excluded by
     // selectVariablesFromSensor().
-    //
-    //
-    cerr << "init()" << endl;
+
     if (_initialized) return;
     _initialized = true;
 
@@ -422,21 +414,21 @@ init()
         _syncRecordDataSampleTag.addVariable(new Variable(*var));
     }
 
-    int offset = 0;
+    int index = 0;
     map<dsm_sample_id_t, SyncInfo>::iterator si = _syncInfo.begin();
 
     for ( ; si != _syncInfo.end(); ++si) {
         SyncInfo& sinfo = si->second;
 
-        sinfo.sampleOffset = offset;
+        sinfo.sampleSRIndex = index;
 	for (size_t i = 0; i < sinfo.variables.size(); i++) {
-            sinfo.varOffsets[i] += offset;
+            sinfo.varSRIndex[i] += index;
 	}
         // cerr << "sinfo.sampleLength=" << sinfo.sampleLength <<
-        //     ", offset=" << offset << endl;
-	offset += sinfo.sampleLength;
+        //     ", index=" << index << endl;
+	index += sinfo.sampleLength;
     }
-    _recSize = offset;
+    _recSize = index;
 }
 
 void SyncRecordSource::connect(SampleSource* source) throw()
@@ -716,7 +708,7 @@ int SyncRecordSource::advanceRecord(dsm_time_t timetag)
 template <typename ST>
 void
 copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
-                 const vector<size_t>& varOffsets, const vector<size_t>& varLen,
+                 const vector<size_t>& varSRIndex, const vector<size_t>& varLen,
                  int timeIndex)
 {
     const ST* fp = (const ST*)samp->getConstVoidDataPtr();
@@ -726,16 +718,16 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
         size_t outlen = varLen[i];
         size_t inlen = std::min((size_t)(ep-fp), outlen);
 
-        double* dp = dataPtr + varOffsets[i] + outlen * timeIndex;
+        double* dp = dataPtr + varSRIndex[i] + outlen * timeIndex;
         if (0)
         {
-            DLOG(("varOffsets[") << i << "]=" << varOffsets[i] <<
+            DLOG(("varSRIndex[") << i << "]=" << varSRIndex[i] <<
                  " outlen=" << outlen << " timeIndex=" << timeIndex <<
                  " recSize=" << recSize);
         cerr << " recSize=" << recSize <<
             ", inlen=" << inlen <<
             ", outlen=" << outlen <<
-            ", varOffsets[" << i << "]=" << varOffsets[i] <<
+            ", varSRIndex[" << i << "]=" << varSRIndex[i] <<
             ", timeIndex" << timeIndex << 
             ", recSize=" << recSize << endl;
         }
@@ -843,7 +835,7 @@ bool SyncRecordSource::checkTime(const Sample* samp,
 
             // If repeated early time tags, decrement the slot index, but
             // only decrement if the result will be the zeroeth slot, so the
-            // minDiff offset will be right.
+            // minDiff time offset will be right.
             if (sinfo.nEarlySamp > sinfo.outOfSlotMax &&
                     (sinfo.getSlotIndex() == 1 || sinfo.nSlots == 1)) {
                 if (!sinfo.decrementSlot()) {
@@ -1131,24 +1123,24 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     assert(sinfo.getSlotIndex() >= 0 && sinfo.getSlotIndex() < sinfo.nSlots);
 
-    assert(sinfo.sampleOffset < _recSize);
+    assert(sinfo.sampleSRIndex < _recSize);
 
-    // store offset into sync record
-    _dataPtr[sinfo.getRecordIndex()][sinfo.sampleOffset] = sinfo.minDiff;
+    // store time offset into sync record
+    _dataPtr[sinfo.getRecordIndex()][sinfo.sampleSRIndex] = sinfo.minDiff;
 
     switch (samp->getType()) {
 
     case UINT32_ST:
         copy_variables_to_record<uint32_t>(samp, _dataPtr[sinfo.getRecordIndex()],
-		_recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
+		_recSize, sinfo.varSRIndex, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     case FLOAT_ST:
         copy_variables_to_record<float>(samp, _dataPtr[sinfo.getRecordIndex()],
-                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
+                _recSize, sinfo.varSRIndex, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     case DOUBLE_ST:
         copy_variables_to_record<double>(samp, _dataPtr[sinfo.getRecordIndex()],
-                _recSize, sinfo.varOffsets, sinfo.varLengths, sinfo.getSlotIndex());
+                _recSize, sinfo.varSRIndex, sinfo.varLengths, sinfo.getSlotIndex());
 	break;
     default:
 	if (!(_unknownSampleType++ % 1000))

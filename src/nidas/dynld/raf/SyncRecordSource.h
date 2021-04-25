@@ -282,10 +282,8 @@ public:
     void disconnect(SampleSource* source) throw();
 
     /**
-     * Construct all the sync record layout artifacts from the list of
-     * variables set in _variables.  The layout includes settings like
-     * variable lengths, sample indices, sample sizes and offsets, and
-     * rates.
+     * Create the SyncInfo objects for all samples and their variables
+     * that will go in the sync record.
      *
      * SyncRecordSource first generates the list of variables with
      * selectVariablesFromProject() prior to calling init().
@@ -318,12 +316,12 @@ public:
     static const int NSLOT_LIMIT = 2;
 
     /**
-     * Return the index into the next sync record.
+     * Return the index of the next sync record.
      */
     static int nextRecordIndex(int i);
 
     /**
-     * Return the index into the previous sync record. Since
+     * Return the index of the previous sync record. Since
      * currently NSYNCREC==2, this return the same value
      * as nextRecordIndex().
      */
@@ -389,7 +387,6 @@ private:
     allocateRecord(int irec, dsm_time_t timetag);
 
     int advanceRecord(dsm_time_t timetag);
-
 
     /**
      * Info kept for each sample in order to assemble and write sync records.
@@ -559,11 +556,11 @@ public:
     size_t sampleLength;
 
     /**
-     * Offset of this sample in the sync record.  The first
-     * value for the sample is the time offset within the second,
-     * followed by the data values for each variable.
+     * Index of this sample in the sync record array of doubles.
+     * The first value for the sample is the time offset within
+     * the second, followed by the data values for each variable.
      */
-    size_t sampleOffset;
+    size_t sampleSRIndex;
 
     /**
      * Variables in the sample.
@@ -571,9 +568,10 @@ public:
     std::list<const Variable*> variables;
 
     /**
-     * Offsets of the each variable in the sync record.
+     * Indices of the each variable in the sync record
+     * array of doubles.
      */
-    std::vector<size_t> varOffsets;
+    std::vector<size_t> varSRIndex;
 
     unsigned int discarded;
 
@@ -606,7 +604,7 @@ public:
     /**
      * The minimum difference between the sample time tags and their
      * corresponding slot times is computed over the second.
-     * This value is written into the sync record as the offset for the
+     * This value is written into the sync record as the time offset for the
      * samples within that second.
      */
     int minDiff;
