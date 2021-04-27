@@ -349,8 +349,7 @@ DumpClient::receive(const Sample* samp) throw()
     if (prev_tt != 0)
     {
         tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
-        if ((warntime < 0 && tdiff < warntime) ||
-            (warntime > 0 && tdiff > warntime))
+        if (warntime > 0 && std::abs(tdiff) >= warntime)
         {
             cerr << "Warning: Sample time skips " << tdiff << " seconds."
                  << endl;
@@ -539,9 +538,7 @@ DataDump::DataDump():
     app("data_dump"),
     WarnTime(
         "-w,--warntime", "<seconds>",
-        "Warn when sample time succeeds the previous more than <seconds>.\n"
-        "If <seconds> is negative, then warn when the succeeding time skips\n"
-        "backwards.\n",
+        "Warn when successive sample times differ more than <seconds>.\n",
         "0"),
     NoDeltaT("--nodeltat", "",
              "Do not include the time delta between samples in the output."),
@@ -582,7 +579,7 @@ DataDump::parseRunstring(int argc, char** argv)
     {
         return usage(argv[0]);
     }
-    warntime = WarnTime.asFloat();
+    warntime = std::abs(WarnTime.asFloat());
 
     NidasAppArgv left(argv[0], args);
     int opt_char; /* option character */
