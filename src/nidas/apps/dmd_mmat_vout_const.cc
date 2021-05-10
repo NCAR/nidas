@@ -78,7 +78,7 @@ DMD_MMAT_test::DMD_MMAT_test():
 
 int DMD_MMAT_test::usage(const char * argv0)
 {
-    cerr << "\n\--- Output Constant Voltage from DAC Device ---\n\ 
+    cerr << "\n--- Output Constant Voltage from DAC Device ---\n\ 
     usage: [-h] [-v] [-a] -w chan,vout -d devicename\n\
     -v                        : verbose status, results\n\
     -a                        : perform autocalibration sequence\n\
