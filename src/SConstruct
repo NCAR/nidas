@@ -91,8 +91,8 @@ MACHS = Split(env['MACHS'])
 if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', '\n'
         '  path to linux kernel headers for building modules.\n'
-        '  Use $KERNELDIRDEFAULT to use the path found by the kmake tool.',
-	'$KERNELDIRDEFAULT')
+        '  Use $KERNELDIR_FOUND to use the path found by the kmake tool.',
+	'$KERNELDIR_FOUND')
 
 if 'arm' in BUILDS:
     opts.Add('KERNELDIR_viper_arm', 'path to linux kernel headers for Viper:',
