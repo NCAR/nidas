@@ -9,7 +9,6 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/util/UTime.h>
 #include <cmath> // isnan
 
-using std::isnan;
 using namespace nidas::util;
 using namespace nidas::core;
 using namespace nidas::dynld;

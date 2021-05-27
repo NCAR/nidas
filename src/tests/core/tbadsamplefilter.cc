@@ -5,7 +5,6 @@ using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/BadSampleFilter.h>
 
-using std::isnan;
 using namespace nidas::util;
 using namespace nidas::core;
 

@@ -11,7 +11,6 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/util/UTime.h>
 #include <cmath> // isnan
 
-using std::isnan;
 using namespace nidas::util;
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -108,8 +107,8 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
     outs = static_cast<const SampleT<float>*>(results.front());
     BOOST_CHECK(outs);
     fp = outs->getConstDataPtr();
-    BOOST_CHECK(isnan(fp[1]));
-    BOOST_CHECK(isnan(fp[2]));
+    BOOST_CHECK(std::isnan(fp[1]));
+    BOOST_CHECK(std::isnan(fp[2]));
     BOOST_CHECK_EQUAL(fp[4], Traw);
     BOOST_CHECK_EQUAL(fp[5], RHraw);
 
