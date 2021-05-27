@@ -2,8 +2,6 @@
 #include "metek.h"
 #include <cmath>
 
-using std::isnan;
-
 /*namespace metek holds some metek specific corrections*/
 
 namespace nidas { namespace dynld { namespace isff { namespace metek {
@@ -65,7 +63,7 @@ namespace nidas { namespace dynld { namespace isff { namespace metek {
 
     //If u, v, or w are NAN, go ahead and NAN out all the parameters
     // including temperature which does depending quite heavily on u, v, & w
-    if (isnan(x.u) || isnan(x.v) || isnan(x.w)) {
+    if (std::isnan(x.u) || std::isnan(x.v) || std::isnan(x.w)) {
         x.u = NAN;
         x.v = NAN;
         x.w = NAN;

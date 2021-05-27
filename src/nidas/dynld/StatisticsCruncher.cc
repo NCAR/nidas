@@ -1363,7 +1363,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     else if (_crossTerms) {
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if(vi < nvsamp && !isnan(samp->getDataValue(vi))) nonNANs++;
+	    if(vi < nvsamp && !std::isnan(samp->getDataValue(vi))) nonNANs++;
 	}
     }
 
@@ -1385,7 +1385,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     case STATS_MINIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
+	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		if (x < _xMin[vo]) _xMin[vo] = x;
 		_nSamples[vo]++;
@@ -1395,7 +1395,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     case STATS_MAXIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
+	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		if (x > _xMax[vo]) _xMax[vo] = x;
 		_nSamples[vo]++;
@@ -1406,7 +1406,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     case STATS_SUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
+	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		_xSum[vo] += x;
 		_nSamples[vo]++;
@@ -1419,7 +1419,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
             double u = samp->getDataValue(vi);
             vi = vindices[1][0];
             double v = samp->getDataValue(vi);
-            if (!isnan(u) && !isnan(v)) {
+            if (!std::isnan(u) && !std::isnan(v)) {
                 _xSum[0] += u;
                 _xSum[1] += v;
 		_nSamples[0]++;
@@ -1429,7 +1429,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     case STATS_VAR:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
+	    if (vi < nvsamp && !std::isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		_xSum[vo] += x;
 		_xySum[vo][vo] += x * x;

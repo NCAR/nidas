@@ -366,7 +366,7 @@ int SyncDumper::run()
 		// cout << "lag= " << rec[lagoffset] << endl;
 
                 dsm_time_t tt = tt0;
-		if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
+		if (!std::isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
 		for (int i = 0; i < irate; i++) {
 		    ttlast = tt;
 		    cout << time_format(tt);

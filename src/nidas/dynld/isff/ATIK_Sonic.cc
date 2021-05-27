@@ -32,6 +32,7 @@
 #include <nidas/core/TimetagAdjuster.h>
 
 #include <byteswap.h>
+#include <cmath>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
@@ -170,7 +171,7 @@ void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()
      * whether some values were not being shadow corrected. So we'll
      * let one NAN "spoil the barrel".
      */
-    if (isnan(spd)) {
+    if (std::isnan(spd)) {
         for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
         return;
     }

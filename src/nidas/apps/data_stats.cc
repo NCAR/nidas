@@ -577,7 +577,7 @@ accumulateData(const Sample* samp)
         {
             values[i].push_back(value);
         }
-        if (isnan(value))
+        if (std::isnan(value))
         {
             nnans[i] += 1;
         }
