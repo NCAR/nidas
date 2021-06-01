@@ -448,13 +448,13 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
         {
             throw n_u::IOException(getName(), "read header", e.what());
         }
-        ELOG(CNAME << "skipping header: " << e.what());
+        PLOG(CNAME << "skipping header: " << e.what());
         _inputHeaderParsed = true;
         // I don't think we know whether this will back up to the beginning
         // of the file or not, it only backups up to the beginning of the
         // buffer.
         _iostream->backup();
-        ELOG(CNAME << "backed up iostream to offset "
+        PLOG(CNAME << "backed up iostream to offset "
              << _iostream->getNumInputBytes());
     }
     return _inputHeaderParsed;

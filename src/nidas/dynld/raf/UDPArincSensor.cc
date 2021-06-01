@@ -96,7 +96,7 @@ void UDPArincSensor::open(int flags)
 
     if (_ctrl_pid == -1)
     {
-        ELOG(("UDPArincSensor: error forking errno = %d", errno));
+        PLOG(("UDPArincSensor: error forking errno = %d", errno));
     }
     else
     if (_ctrl_pid == 0)
@@ -223,7 +223,7 @@ bool UDPArincSensor::process(const Sample * samp,
             _prevRXPseqNum[channel] = seqNum;
         }
         else
-            ELOG(( "%s: received channel number %d, outside 0-3, ignoring.", getName().c_str(), channel ));
+            WLOG(( "%s: received channel number %d, outside 0-3, ignoring.", getName().c_str(), channel ));
     }
 
     for (int i = 0; i < MAX_CHANNELS; i++) {

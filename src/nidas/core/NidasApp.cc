@@ -1550,7 +1550,7 @@ getHostName()
       else
       {
         string estring(strerror(errno));
-        ELOG(("gethostname: ") << estring);
+        PLOG(("gethostname: ") << estring);
         hostnamechr[0] = 0;
       }
     }
