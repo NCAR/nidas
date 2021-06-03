@@ -1325,7 +1325,7 @@ setupDaemon()
   n_u::LogScheme logscheme(getName());
   if (! DebugDaemon.asBool())
   {
-    lc.level = n_u::LOGGER_DEBUG;
+    lc.level = n_u::LOGGER_INFO;
     // fork to background, chdir to /, send stdout/stderr to /dev/null
     if (daemon(0,0) < 0)
     {
@@ -1337,7 +1337,7 @@ setupDaemon()
   }
   else
   {
-    lc.level = n_u::LOGGER_INFO;
+    lc.level = n_u::LOGGER_DEBUG;
     logger = n_u::Logger::createInstance(&std::cerr);
   }
   logscheme.addConfig(lc);
