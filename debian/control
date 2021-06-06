@@ -75,7 +75,7 @@ Description: NIDAS Linux kernel modules
 Package: nidas-daq
 Architecture: all
 Depends: ${misc:Depends}, nidas
-Description: Package for doing data acquistion with NIDAS
+Description: Package for doing data acquisition with NIDAS
  Some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*,
  /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /etc/default/nidas-daq.
 

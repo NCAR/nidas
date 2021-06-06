@@ -13,3 +13,14 @@
 #
 # Script to run to start dsm process
 # START_DSM=$HOME/$DAQ_USER/bin/start_dsm
+#
+# On aircraft, DSMs are booted before each flight, and
+# that is a good time to rotate the logs and do other routine
+# system stuff, rather than in /etc/cron.{hourly,daily,weekly,monthly}.
+# In the postinst script of ads-daq, if DISABLE_CRONS is true (the default),
+# then the execution of the /etc/cron.* scripts is disabled in /etc/crontab,
+# and they are executed instead in /etc/rc.local. For lab DSMs with the
+# ads-daq package installed, which aren't routinely rebooted, uncomment this
+# and set to false to enable the cron.* scripts in /etc/crontab.
+#
+# DISABLE_CRONS=true
