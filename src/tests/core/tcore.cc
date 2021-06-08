@@ -850,4 +850,17 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
     BOOST_CHECK_EQUAL(Logger::getScheme().getShowFieldsString(),
                       "level,message");
   }
+  // Finally, since this is a common use case, make sure logging can be
+  // restricted to lower log levels in daemon mode.
+  {
+    DaemonApp app;
+    ArgVector cmdline = strm_vector<std::string>() << "-l" << "5";
+    ArgVector args = app.parseArgs(cmdline);
+    BOOST_CHECK_EQUAL(Logger::getScheme().logLevel(), LOGGER_NOTICE);
+    BOOST_CHECK_EQUAL(Logger::getScheme().getConfigs().size(), 1);
+    app.setupDaemonLogging();
+    BOOST_CHECK_EQUAL(Logger::getScheme().getShowFieldsString(),
+                      "level,message");
+    BOOST_CHECK_EQUAL(app.DebugDaemon.asBool(), false);
+  }
 }
