@@ -1324,9 +1324,17 @@ void
 NidasApp::
 setupDaemonLogging()
 {
+  setupDaemonLogging(! DebugDaemon.asBool());
+}
+
+
+void
+NidasApp::
+setupDaemonLogging(bool daemon_mode)
+{
   // If DebugDaemon was specified, then debugging was already added to the
   // logging scheme.
-  if (! DebugDaemon.asBool())
+  if (daemon_mode)
   {
     // Replace showfields if not already set by a user argument.
     if (! LogShow.specified())
@@ -1347,8 +1355,16 @@ void
 NidasApp::
 setupDaemon()
 {
-  setupDaemonLogging();
-  if (! DebugDaemon.asBool())
+  setupDaemon(! DebugDaemon.asBool());
+}
+
+
+void
+NidasApp::
+setupDaemon(bool daemon_mode)
+{
+  setupDaemonLogging(daemon_mode);
+  if (daemon_mode)
   {
     // fork to background, chdir to /, send stdout/stderr to /dev/null
     if (daemon(0,0) < 0)

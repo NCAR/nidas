@@ -1318,12 +1318,26 @@ public:
      * not disabled).
      **/
     void
+    setupDaemonLogging(bool daemon_mode);
+
+    /**
+     * Call setupDaemonLogging(daemon_mode), where daemon_mode is true only
+     * if DebugDaemon is false.
+     */
+    void
     setupDaemonLogging();
 
     /**
-     * Call setupDaemonLogger(), then switch this process to daemon mode
-     * unless the DebugDaemon argument has been enabled.
+     * Call setupDaemonLogging(), then switch this process to daemon mode
+     * if @p daemon_mode is true.
      **/
+    void
+    setupDaemon(bool daemon_mode);
+
+    /**
+     * Call setupDaemon(daemon_mode), where daemon_mode is true only if
+     * DebugDaemon is false.
+     */
     void
     setupDaemon();
 
