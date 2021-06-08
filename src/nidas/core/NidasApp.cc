@@ -889,12 +889,9 @@ parseNext() throw (NidasAppException)
   }
   else if (arg == &DebugDaemon)
   {
-    // Apply this argument to the logging scheme, but only as a fallback, if no other
-    // logging has been configured by user arguments.
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_DEBUG;
-    _logscheme.addFallback(lc);
-    Logger::setScheme(_logscheme);
+    // Apply this argument to the logging scheme, but only as a fallback, if
+    // no other logging has been configured by user arguments.
+    Logger::setScheme(_logscheme.addFallback("debug"));
   }
   else if (arg == &Help)
   {
