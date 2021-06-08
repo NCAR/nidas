@@ -546,11 +546,8 @@ int main(int argc, char** argv)
 
     app.setApplicationInstance();
 
-    // Set a default for warnings only.
-    Logger* logger = Logger::getInstance();
-    LogScheme scheme = logger->getScheme("ck_xml_default");
-    scheme.addConfig(LogConfig("level=warning"));
-    logger->setScheme(scheme);
+    // Make sure the default is warnings only.
+    Logger::setScheme(LogScheme("ck_xml").addConfig("level=warning"));
 
     try {
         if (pconfig.parseRunstring(app, argc, argv))

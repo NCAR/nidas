@@ -42,7 +42,7 @@ using nidas::core::NidasAppException;
 namespace n_u = nidas::util;
 
 using nidas::dynld::raf::SyncServer;
-
+using nidas::util::Logger;
 
 int usage(const std::string& argv0)
 {
@@ -74,8 +74,7 @@ int parseRunstring(SyncServer& sync, ArgVector& args)
 
     // We want the default showfields to be just message, but set it now so
     // it can be overridden by log options on the command line.
-    n_u::Logger* logger = n_u::Logger::getInstance();
-    logger->setScheme(logger->getScheme().setShowFields("message"));
+    Logger::setScheme(Logger::getScheme().setShowFields("message"));
 
     app.allowUnrecognized(true);
     args = app.parseArgs(args);
