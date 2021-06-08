@@ -55,9 +55,55 @@ typedef map<string,LogScheme> log_schemes_t;
 
 Mutex Logger::mutex;
 
+/// Vector of pointers to all the LogContext instances initialized so far.
 static log_points_v log_points;
+/// Map of all the known LogScheme instances.
 static log_schemes_t log_schemes;
-static LogScheme current_scheme;
+
+static LogScheme get_scheme(const std::string& name);
+
+// Keep a copy of the current scheme separate from the scheme map, so it
+// does not need to be looked up every time a message needs to be logged.
+static LogScheme current_scheme = get_scheme("");
+
+
+/**
+ * This must be called while the mutex is locked, since it accesses the
+ * shared LogScheme map, and it returns a pointer which might change once
+ * the lock is released.
+ */
+static LogScheme*
+lookup_scheme(const std::string& name)
+{
+  log_schemes_t::iterator it = log_schemes.find(name);
+  if (it == log_schemes.end())
+    return 0;
+  return &(it->second);
+}
+
+/**
+ * Get a scheme with the name, or return a default.  Must be called with
+ * the mutex locked.
+ */
+static LogScheme
+get_scheme(const std::string& name)
+{
+  LogScheme* lsp = lookup_scheme(name);
+  if (!lsp)
+  {
+    LogScheme df(name);
+    // May as well make it a fallback config, in case an app ever wants to
+    // be able to override the default config.  Just in case level_strings
+    // has not been initialized yet, do not try to parse level as a string,
+    // just set the int level directly.
+    LogConfig lc;
+    lc.level = LOGGER_WARNING;
+    df.addFallback(lc);
+    log_schemes[name] = df;
+  }
+  return log_schemes[name];
+}
+
 
 using std::cerr;
 
@@ -94,12 +140,11 @@ struct LoggerPrivate
   // Return the appropriate setting for the given context's active flag
   // according to all the current log configs.
   static bool
-  get_active_flag(LogContext* lc, bool& matched)
+  get_active_flag(LogScheme& scheme, LogContext* lc, bool& matched)
   {
     bool active = false;
     matched = false;
-
-    LogScheme::log_configs_v& log_configs = current_scheme.log_configs;
+    LogScheme::log_configs_v& log_configs = scheme.log_configs;
     LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
     LogScheme::log_configs_v::iterator ic;
 
@@ -127,29 +172,29 @@ struct LoggerPrivate
   }
 
   static void
-  reconfig (log_points_v::iterator firstpoint)
+  reconfig(LogScheme& scheme, log_points_v::iterator firstpoint)
   {
     if (DEBUG_LOGGER)
     {
       stream_backtrace (cerr);
-      cerr << "current scheme: " << current_scheme.getName() << "\n";
-      cerr << " - " << current_scheme.log_configs.size() << " configs\n"
+      cerr << "current scheme: " << scheme.getName() << "\n";
+      cerr << " - " << scheme.log_configs.size() << " configs\n"
            << " - showfields: " 
-           << current_scheme.getShowFieldsString() << "\n";
+           << scheme.getShowFieldsString() << "\n";
       cerr << "currently " << log_points.size() << " log points.\n";
     }
     log_points_v::iterator it;
     for (it = firstpoint ; it != log_points.end(); ++it)
     {
       bool matched;
-      bool active = get_active_flag((*it), matched);
+      bool active = get_active_flag(scheme, (*it), matched);
       (*it)->_active = active;
     }
   }
 };
 
 }} // nidas::util
-  
+
 
 //================================================================
 // Logger
@@ -395,15 +440,9 @@ void
 Logger::
 setScheme(const std::string& name)
 {
-  if (name.length() > 0)
-  {
-    Synchronized sync(Logger::mutex);
-    // This might actually create a new scheme, and so we have
-    // to make sure we set the name on it.
-    log_schemes[name].setName(name);
-    current_scheme = log_schemes[name];
-    LoggerPrivate::reconfig(log_points.begin());
-  }
+  Synchronized sync(Logger::mutex);
+  current_scheme = get_scheme(name);
+  LoggerPrivate::reconfig(current_scheme, log_points.begin());
 }
 
 
@@ -414,19 +453,34 @@ setScheme(const LogScheme& scheme)
   Synchronized sync(Logger::mutex);
   log_schemes[scheme.getName()] = scheme;
   current_scheme = scheme;
-  LoggerPrivate::reconfig(log_points.begin());
+  LoggerPrivate::reconfig(current_scheme, log_points.begin());
 }
 
 
 LogScheme
 Logger::
-getScheme(const std::string& name) const
+getScheme(const std::string& name)
 {
   Synchronized sync(Logger::mutex);
-  if (name.length() == 0)
-    return current_scheme;
-  log_schemes[name].setName(name);
-  return log_schemes[name];
+  return get_scheme(name);
+}
+
+
+LogScheme
+Logger::
+getScheme()
+{
+  Synchronized sync(Logger::mutex);
+  return current_scheme;
+}
+
+
+bool
+Logger::
+knownScheme(const std::string& name)
+{
+  Synchronized sync(Logger::mutex);
+  return bool(lookup_scheme(name));
 }
 
 
@@ -439,10 +493,20 @@ updateScheme(const LogScheme& scheme)
   if (current_scheme.getName() == scheme.getName())
   {
     current_scheme = scheme;
-    LoggerPrivate::reconfig(log_points.begin());
+    LoggerPrivate::reconfig(current_scheme, log_points.begin());
   }
 }
-  
+
+
+void
+Logger::
+clearSchemes()
+{
+  Synchronized sync(Logger::mutex);
+  log_schemes.clear();
+  current_scheme = get_scheme("");
+}
+
 
 //================================================================
 // LogMessage
@@ -632,24 +696,11 @@ namespace {
 }
 
 
-LogScheme
-LogScheme::
-current()
-{
-  return nidas::util::Logger::getInstance()->getScheme();
-}
-
-
 LogScheme::
 LogScheme(const std::string& name) :
   _name(name), log_configs(), log_fields(), _parameters(),
-  _showlogpoints(false)
+  _showlogpoints(false), _fallbacks(false)
 {
-  // Force an empty name to the default, non-empty name.
-  if (name.length() == 0)
-  {
-    _name = LogScheme().getName();
-  }
   setShowFields("time,level,message");
 }
 
@@ -713,8 +764,42 @@ LogScheme&
 LogScheme::
 addConfig(const LogConfig& lc)
 {
+  if (_fallbacks)
+  {
+    log_configs.clear();
+    _fallbacks = false;
+  }
   log_configs.push_back(lc);
   return *this;
+}
+
+
+LogScheme&
+LogScheme::
+addConfig(const std::string& config)
+{
+  return addConfig(LogConfig(config));
+}
+
+
+LogScheme&
+LogScheme::
+addFallback(const LogConfig& lc)
+{
+  if (_fallbacks || log_configs.empty())
+  {
+    log_configs.push_back(lc);
+    _fallbacks = true;
+  }
+  return *this;
+}
+
+
+LogScheme&
+LogScheme::
+addFallback(const std::string& config)
+{
+  return addFallback(LogConfig(config));
 }
 
 
@@ -898,7 +983,7 @@ LogContext (int level, const char* file, const char* function, int line,
     // should be set before showing it.  And it seemed excessive to release
     // the lock just to set the flag and then lock again to show the log
     // point.
-    _active = LoggerPrivate::get_active_flag(this, matched);
+    _active = LoggerPrivate::get_active_flag(current_scheme, this, matched);
     if (current_scheme.getShowLogPoints())
     {
       current_scheme.show_log_point(*this);
@@ -966,6 +1051,9 @@ stringToLogLevel(const std::string& slevel)
   level_strings_t::iterator it = level_strings.find(s);
   if (it != level_strings.end())
     return it->second;
+  // Accept shorter form for warning.
+  if (s == "warn")
+    return LOGGER_WARNING;
   return LOGGER_NONE;
 }
 

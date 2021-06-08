@@ -644,24 +644,17 @@ namespace nidas { namespace util {
         fieldToString(LogScheme::LogField lf);
 
         /**
-         * Return the LogScheme currently in effect for the global Logger
-         * instance.
-         **/
-        static LogScheme
-        current();
-
-        /**
-         * The default LogScheme has show fields set to "time,level,message" and
-         * a single LogConfig to enable all messages with level LOGGER_WARNING
-         * and above.  The default name is "default".  Explicitly passing an
-         * empty name will also force a name of "default", since a LogScheme is
-         * prohibited from having an empty name.
-         *
-         * Initially a LogScheme has no LogConfig entries, and so a
-         * default scheme does not enable any log messages, 
+         * Construct a LogScheme with no LogConfig entries and show fields
+         * set to "time,level,message".  Name is set to @p name.  A scheme
+         * with no configs does not enable any log messages.  This is not
+         * the LogScheme used by default if an application does not setup
+         * the logging configuration itself.  See @ref LoggerSchemes.  A
+         * LogScheme can have an empty name, but there can be only one
+         * scheme with any given name installed through setScheme() and
+         * updateScheme().
          **/
         explicit
-        LogScheme(const std::string& name = "default");
+        LogScheme(const std::string& name = "");
 
         /**
          * LogScheme names must not be empty, so this method has no effect
@@ -689,19 +682,51 @@ namespace nidas { namespace util {
         clearConfigs();
 
         /**
-         * Push a new LogConfig onto the list of existing configs.  This config
-         * will be applied to any log points which it matches.  For example, if
-         * the @c activate flag of this config is false, then any matching log
-         * points will be disabled.  The configurations are cumulative, so the
-         * latest config on the list will take precedence.  For example, if an
-         * earlier config enables all points, then further configs can disable a
-         * subset of log points.
+         * Push a new LogConfig onto the list of existing configs.  When
+         * this scheme is active, this config will be applied to any log
+         * points which it matches.  For example, if the @c activate flag of
+         * this config is false, then any matching log points will be
+         * disabled.  The configurations are cumulative, so the latest
+         * config on the list will take precedence.  For example, if an
+         * earlier config enables all points, then further configs can
+         * disable a subset of log points.
+         *
+         * If this scheme had any fallback configs, they will be erased
+         * first before adding this config.
          *
          * @param lc The LogConfig to be added to this scheme.
          * @returns This scheme.
          **/
         LogScheme&
         addConfig(const LogConfig& lc);
+
+        /**
+         * @brief Add a LogConfig constructed from string @p config.
+         * 
+         * @param config Text to be parsed into a LogConfig.
+         * @return LogScheme& 
+         */
+        LogScheme&
+        addConfig(const std::string& config);
+
+        /**
+         * @brief Add a fallback LogConfig.
+         *
+         * Since a LogScheme does not enable any logs if it has no configs,
+         * it can be useful to add configs which will only be used as a
+         * fallback, when no other configs are added.  This method adds a
+         * LogConfig as a fallback only if the scheme has no configs yet or
+         * the existing configs were also added as fallbacks.  When a config
+         * is added with addConfig(), it replaces all the fallback configs.
+         *
+         * @param lc 
+         * @return LogScheme& 
+         */
+        LogScheme&
+        addFallback(const LogConfig& lc);
+
+        LogScheme&
+        addFallback(const std::string& config);
 
         /**
          * Return a copy of the LogConfig instances added to this
@@ -779,14 +804,15 @@ namespace nidas { namespace util {
          * converted, then return @p dvalue.
          *
          * Below is an example of using a log parameter to throttle the
-         * frequency of a log message.  The first section retrieves the value,
-         * the second logs the message.
+         * frequency of a log message.  The first section retrieves the
+         * value from the currently active LogScheme, the second logs the
+         * message.
          *
          * @code
          * _discardWarningCount = 1000;
          * _discardWarningCount =
-         * LogScheme::current().getParameterT("_discard_warning_count",
-         *                                    _discardWarningCount);
+         *   Logger::getScheme().getParameterT("_discard_warning_count",
+         *                                     _discardWarningCount);
          * @endcode
          *
          * Then use the parameter value like so:
@@ -838,6 +864,7 @@ namespace nidas { namespace util {
         std::vector<LogField> log_fields;
         std::map<std::string, std::string> _parameters;
         bool _showlogpoints;
+        bool _fallbacks;
 
         friend class nidas::util::LoggerPrivate;
         friend class nidas::util::Logger;
@@ -1024,11 +1051,14 @@ namespace nidas { namespace util {
     }
 
     /**
-     * Simple logging class, based on UNIX syslog interface.  The Logger is a
-     * singleton through which all log messages are sent.  It determines
-     * whether messages are sent to syslog or written to an output stream
-     * provided by the application, such as std::cerr, or a file output stream,
-     * or an ostringstream.
+     * Simple logging class, based on UNIX syslog interface.  The Logger is
+     * a singleton instance through which all log messages are sent.  It
+     * determines whether messages are sent to syslog or written to an
+     * output stream provided by the application, such as std::cerr, or a
+     * file output stream, or an ostringstream.  The Logger class contains
+     * static methods to manage active and available LogSchemes, but those
+     * are completely separate from the current Logger instance.  Replacing
+     * the Logger instance does not change the active LogScheme.
      */
     class Logger {
     protected:
@@ -1063,7 +1093,9 @@ namespace nidas { namespace util {
         static Logger* createInstance(std::ostream* out);
 
         /**
-         * Return a pointer to the currently active Logger singleton.
+         * Return a pointer to the currently active Logger singleton, and
+         * create a default if it does not exist.  The default writes log
+         * messages to std::cerr.
          **/
         static Logger* getInstance();
 
@@ -1118,53 +1150,83 @@ namespace nidas { namespace util {
 
         /**
          * @defgroup LoggerSchemes Logging Configuration Schemes
-         * 
-         * The @ref Logging facility can store multiple logging configuration
-         * schemes, each with a particular name.  Each scheme is a list of
-         * LogConfig objects.  These methods are used to manipulate the set of
-         * schemes known by the Logger.  At any time the logging configuration
-         * can switch schemes by calling setScheme().  The first time a new
-         * scheme name is referenced, a default LogScheme is created with that
-         * name.
+         *
+         * The @ref Logging facility can store multiple logging
+         * configuration schemes, each with a particular name.  The Logger
+         * class provides static methods to update the schemes and switch
+         * the active scheme.  At any time the logging configuration can
+         * switch schemes by calling setScheme().  The first time a new
+         * scheme name is referenced, a default LogScheme is created with
+         * that name.  A default LogScheme contains a single LogConfig to
+         * enable all messages with level LOGGER_WARNING and above.  This is
+         * different than the empty LogScheme created by the default
+         * LogScheme constructor.  If no LogScheme is set by an application,
+         * then a default LogScheme is used, with an empty name.
          **/
         /**@{*/
 
-
         /**
-         * Set the current scheme.  If a scheme named @p name does not exist and
-         * @p name is non-empty, a default scheme is created with this name.
-         * Trying to set the current scheme to an empty name has no effect.
+         * Set the current scheme.  If a scheme named @p name does not exist
+         * and @p name is non-empty, a default scheme is created with this
+         * name.  The name can be empty, and like for any other name, the
+         * set scheme will replace any existing scheme with that name.
          **/
-        void
+        static void
         setScheme(const std::string& name);
 
         /**
          * Set the current scheme to the given @p scheme.  The scheme is first
          * added with updateScheme(), then it becomes the current scheme.
          **/
-        void
+        static void
         setScheme(const LogScheme& scheme);
 
         /**
-         * Update or insert this scheme in the collection of log configuration
-         * schemes.  If a scheme already exists with the same name, this scheme
-         * will replace it.  If the given scheme has the same name as the
-         * Logger's current scheme, then the Logger's scheme will be updated
-         * also.
+         * Update or insert this scheme in the collection of log schemes.
+         * If a scheme already exists with the same name, this scheme will
+         * replace it.  If the given scheme has the same name as the current
+         * scheme, then all the log points will be reconfigured according to
+         * the new scheme.
          **/
-        void
+        static void
         updateScheme(const LogScheme& scheme);
 
         /**
-         * Get a copy of the scheme with the given @p name.  If the name does not
-         * exist, a default scheme is returned.  If the name is empty, then
-         * the current scheme is returned.
+         * Get the scheme with the given @p name.  If the name does not
+         * exist, a default scheme is created, added to the known schemes,
+         * then returned.  There is no default for @p name, pass an empty
+         * string to lookup a scheme with an empty name.  See @ref
+         * getScheme().
          **/
-        LogScheme
-        getScheme(const std::string& name = "") const;
+        static LogScheme
+        getScheme(const std::string& name);
+
+        /**
+         * Return the current LogScheme, creating the default LogScheme if
+         * it has not been set yet.
+         **/
+        static LogScheme
+        getScheme();
+
+        /**
+         * Return true if the scheme with the given name is known, false
+         * otherwise.  Applications can use this to create a specific
+         * default scheme by name if it has not been setup yet.  This does
+         * not change the current scheme, and it does not create a scheme if
+         * the name does not exist yet.  There is no default for @p name.
+         * Pass an empty string to lookup a scheme with an empty name.
+         */
+        static bool
+        knownScheme(const std::string& name);
+
+        /**
+         * Erase all known schemes and reset the active scheme to the name
+         * initialized at application start.
+         */
+        static void
+        clearSchemes();
 
         /**@}*/
-
 
     protected:
         /**
