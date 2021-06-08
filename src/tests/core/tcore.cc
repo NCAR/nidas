@@ -5,7 +5,7 @@ using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
 
-#include "NidasApp.h"
+#include <nidas/core/NidasApp.h>
 
 #include <sys/types.h>
 #include <signal.h>
@@ -781,4 +781,73 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_parse_float)
   args = strm_vector<std::string>() << "--period" << "1.2x345";
   app.Period.parse(args);
   BOOST_CHECK_THROW(app.Period.asFloat(), NidasAppException);
+}
+
+
+class DaemonApp : public NidasApp
+{
+public:
+  DaemonApp() :
+    NidasApp("daemon")
+  {
+    enableArguments(Help | ConfigsArg |
+                    Username | Hostname | DebugDaemon |
+                    DatasetName |
+                    loggingArgs() | Version);
+  }
+};
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_daemon_debug)
+{
+  // Make sure debug-daemon mode is false unless specified, but logging
+  // config can still change.
+  {
+    DaemonApp app;
+    ArgVector cmdline = strm_vector<std::string>() << "--log" << "debug";
+    ArgVector args = app.parseArgs(cmdline);
+    BOOST_CHECK(args.empty());
+    BOOST_CHECK(!app.DebugDaemon.asBool());
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+  }
+  // Likewise we should be able to disable daemon mode but change the
+  // logging from debug.
+  {
+    DaemonApp app;
+    ArgVector cmdline = strm_vector<std::string>() << "-d" << "--log" << "info";
+    ArgVector args = app.parseArgs(cmdline);
+    BOOST_CHECK(args.empty());
+    BOOST_CHECK(app.DebugDaemon.asBool());
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_INFO);
+  }
+  // Order does not matter, because the daemon debug is a fallback.
+  {
+    DaemonApp app;
+    ArgVector cmdline = strm_vector<std::string>() << "--log" << "info" << "-d";
+    ArgVector args = app.parseArgs(cmdline);
+    BOOST_CHECK(args.empty());
+    BOOST_CHECK(app.DebugDaemon.asBool());
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_INFO);
+  }
+  // Log fields is set for daemon mode unless set by a user argument.
+  {
+    DaemonApp app;
+    ArgVector cmdline = strm_vector<std::string>()
+     << "-d" << "--logfields" << LogScheme().getShowFieldsString();
+    ArgVector args = app.parseArgs(cmdline);
+    app.setupDaemonLogging();
+    BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
+    BOOST_CHECK_EQUAL(Logger::getScheme().getShowFieldsString(),
+                      LogScheme().getShowFieldsString());
+  }
+  // Make sure the log level for daemons defaults to INFO and removes time
+  // from the fields.
+  {
+    DaemonApp app;
+    BOOST_CHECK(! app.DebugDaemon.asBool());
+    app.setupDaemonLogging();
+    BOOST_CHECK_EQUAL(Logger::getScheme().logLevel(), LOGGER_INFO);
+    BOOST_CHECK_EQUAL(Logger::getScheme().getShowFieldsString(),
+                      "level,message");
+  }
 }
