@@ -72,6 +72,8 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
+using nidas::util::Logger;
+using nidas::util::LogScheme;
 
 /**
  * Simple char buffer class to provide memory into which C strings can be
@@ -1202,9 +1204,7 @@ parseRunstring(int argc, char **argv)
 {
     // Setup a default log scheme which will get replaced if any logging is
     // configured on the command line.
-    n_u::Logger *logger = n_u::Logger::getInstance();
-    n_u::LogConfig lc("notice");
-    logger->setScheme(logger->getScheme("default").addConfig(lc));
+    Logger::setScheme(LogScheme("data_influxdb").addConfig("notice"));
 
     try
     {

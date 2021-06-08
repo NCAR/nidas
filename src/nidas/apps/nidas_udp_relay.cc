@@ -94,8 +94,6 @@ public:
 
     int getTCPPort() const { return _tcpport; }
 
-    bool debug() const { return _debug; }
-
     int getMaxPacketSize() const { return _packetsize; }
 
     void checkPacket(n_u::DatagramPacket&);
@@ -109,7 +107,6 @@ private:
     string _header;
     deque<n_u::DatagramPacket*> _packets;
     nidas::util::Cond _dataReady;
-    bool _debug;
     static const int DEFAULT_PACKET_SIZE = 16384;
 
     size_t _rejectedPackets;
@@ -128,7 +125,7 @@ private:
 PacketReader::PacketReader():
     _udpport(-1),_tcpport(-1),
     _packetsize(DEFAULT_PACKET_SIZE),_header(),
-    _packets(),_dataReady(),_debug(false),
+    _packets(),_dataReady(),
     _rejectedPackets(0),
     _minSampleTime(n_u::UTime().toUsecs() - USECS_PER_SEC * 3600LL),
     _maxSampleTime(_minSampleTime + USECS_PER_DAY * 365LL),
@@ -166,7 +163,6 @@ int PacketReader::usage(const char* argv0)
         "\n"
         "Usage: " << argv0
          << " [-d] -h header_file [-p packetsize] -u port [-t port]\n"
-        " -d   debug, don't run in background\n"
         " -h header_file:\n"
         "      the name of a file containing a NIDAS header:\n"
         "      beginning with \"NIDAS (ncar.ucar.edu)...\"\n"
@@ -186,24 +182,12 @@ int PacketReader::usage(const char* argv0)
 int PacketReader::parseRunstring(int argc, char** argv)
 {
     _app.enableArguments(_app.loggingArgs() |
+                         _app.DebugDaemon |
                          _app.Version | 
                          _app.Help);
     // conflicts with header file.
     _app.Help.acceptShortFlag(false);
     _app.allowUnrecognized(true);
-
-    // The default logging scheme logs to syslog.  Set it here so it can be
-    // overridden by command-line options.  Note things are a little broken
-    // here because the NidasApp logging options are applied first, even if
-    // they appear after the nidas_udp_relay -d option.  Not sure what can
-    // be done about that until the new API is merged which allows
-    // sequential option handling.
-    Logger* logger = Logger::createInstance("nidas_udp_relay",
-                                            LOG_PID, LOG_LOCAL5);
-    LogScheme logscheme("syslog");
-    logscheme.setShowFields("level,message");
-    logscheme.addConfig(LogConfig("level=info"));
-    logger->setScheme(logscheme);
 
     ArgVector args = _app.parseArgs(ArgVector(argv+1, argv+argc));
     if (_app.helpRequested())
@@ -221,17 +205,8 @@ int PacketReader::parseRunstring(int argc, char** argv)
 
     argc = left.argc;
     argv = left.argv;
-    while ((opt_char = getopt(argc, argv, "dh:p:t:u:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "h:p:t:u:")) != -1) {
         switch(opt_char) {
-        case 'd':
-            _debug = true;
-            logger = n_u::Logger::createInstance(&std::cerr);
-            {
-                LogScheme current = logger->getScheme();
-                current.addConfig(LogConfig("level=debug"));
-                logger->setScheme(current);
-            }
-            break;
         case 'h':
             headerFileName = optarg;
             break;
@@ -274,10 +249,10 @@ int PacketReader::parseRunstring(int argc, char** argv)
     fclose(fp);
 
     _packetReadInterval = 
-        LogScheme::current().getParameterT("udp_relay_packet_interval",
+        Logger::getScheme().getParameterT("udp_relay_packet_interval",
                                            _packetReadInterval);
     _rejectPacketInterval = 
-        LogScheme::current().getParameterT("udp_relay_reject_interval",
+        Logger::getScheme().getParameterT("udp_relay_reject_interval",
                                            _rejectPacketInterval);
     return 0;
 }
@@ -428,9 +403,8 @@ WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
     _packetWriterInterval(100)
 {
     _packetWriterInterval = 
-        LogScheme::current().getParameterT("udp_relay_write_interval",
-                                           _packetWriterInterval);
-
+        Logger::getScheme().getParameterT("udp_relay_write_interval",
+                                          _packetWriterInterval);
 }
 
 int WriterThread::run() throw(n_u::Exception)
@@ -562,14 +536,7 @@ int main(int argc, char** argv)
     int res = reader.parseRunstring(argc,argv);
     if (res) return res;
 
-    if (!reader.debug())
-    {
-        // fork to background
-        if (daemon(0,0) < 0) {
-            n_u::IOException e("nidas_udp_relay", "daemon", errno);
-            cerr << "Warning: " << e.toString() << endl;
-        }
-    }
+    NidasApp::getApplicationInstance()->setupDaemon();
     NLOG(("nidas_udp_relay starting"));
 
 #ifdef CAP_SYS_NICE

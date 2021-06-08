@@ -1,7 +1,7 @@
 // -*- c-basic-offset: 4; -*-
 #define BOOST_TEST_DYN_LINK
 #define BOOST_AUTO_TEST_MAIN
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/Project.h>

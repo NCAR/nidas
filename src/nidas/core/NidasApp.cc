@@ -532,7 +532,8 @@ NidasApp(const std::string& name) :
   _argi(0),
   _hasException(false),
   _exception(""),
-  _allowUnrecognized(false)
+  _allowUnrecognized(false),
+  _logscheme()
 {
   // Build configs usage here from the settings above.
   std::ostringstream configsmsg;
@@ -545,25 +546,32 @@ NidasApp(const std::string& name) :
     "   " << ISFSXML << "\n"
     "   " << ISFFXML << "\n";
   ConfigsArg.setUsageString(configsmsg.str());
-
-  // We want to setup a "default" LogScheme which will be overridden if any
-  // other log configs are explicitly added through this NidasApp.  So
-  // create our own scheme with a reserved name, and then that scheme will
-  // be replaced if a new one is created with the app name of this NidasApp
-  // instance.  If a named scheme has already been set as the current
-  // scheme, then do not replace it.
-  n_u::LogConfig lc;
-  Logger* logger = Logger::getInstance();
-  // Fetch the scheme instead of creating it from scratch in case one was
-  // already installed and modified.
-  LogScheme scheme = logger->getScheme("NidasAppDefault");
-  lc.level = n_u::LOGGER_INFO;
-  scheme.addConfig(lc);
-  if (logger->getScheme().getName() == n_u::LogScheme().getName())
-  {
-    logger->setScheme(scheme);
-  }
+  setupLogScheme();
   PidFile.setDefault("/tmp/run/nidas/" + getName() + ".pid");
+}
+
+
+void
+NidasApp::
+setupLogScheme()
+{
+  // Setup a local LogScheme for this instance of NidasApp.  The initial
+  // scheme is a default, and will not be set as the current scheme if a
+  // named scheme has already been set by the app, ie, in case the app has
+  // set its own default.  If any logging arguments are parsed, meaning the
+  // user wants to override the default scheme explicitly, then the NidasApp
+  // scheme is set to the current scheme.
+
+  _logscheme = LogScheme("NidasApp");
+  n_u::LogConfig lc;
+  lc.level = n_u::LOGGER_INFO;
+  _logscheme.addFallback(lc);
+  Logger::updateScheme(_logscheme);
+  // Add the scheme, and make it current if there is not a named scheme yet.
+  if (Logger::getScheme().getName().empty())
+  {
+    Logger::setScheme(_logscheme);
+  }
 }
 
 
@@ -687,16 +695,16 @@ NidasApp::
 parseLogConfig(const std::string& optarg) throw (NidasAppException)
 {
   // Create a LogConfig from this argument and add it to the current scheme.
+  // This replaces any fallback config in the local NidasApp scheme, and
+  // then that scheme explicitly replaces the current log scheme, whether
+  // that was this scheme or an app default.
   n_u::LogConfig lc;
-  Logger* logger = Logger::getInstance();
-  LogScheme scheme = logger->getScheme(getName());
-
   if (!lc.parse(optarg))
   {
     throw NidasAppException("error parsing log level: " + string(optarg));
   }
-  scheme.addConfig(lc);
-  logger->setScheme(scheme);
+  _logscheme.addConfig(lc);
+  Logger::setScheme(_logscheme);
 }
 
 
@@ -835,24 +843,18 @@ parseNext() throw (NidasAppException)
   }
   else if (arg == &LogFields)
   {
-    Logger* logger = Logger::getInstance();
-    LogScheme scheme = logger->getScheme(getName());
-    scheme.setShowFields(LogFields.getValue());
-    logger->setScheme(scheme);
+    _logscheme.setShowFields(LogFields.getValue());
+    Logger::setScheme(_logscheme);
   }
   else if (arg == &LogParam)
   {
-    Logger* logger = Logger::getInstance();
-    LogScheme scheme = logger->getScheme(getName());
-    scheme.parseParameter(LogParam.getValue());
-    logger->setScheme(scheme);
+    _logscheme.parseParameter(LogParam.getValue());
+    Logger::setScheme(_logscheme);
   }
   else if (arg == &LogShow)
   {
-    Logger* logger = Logger::getInstance();
-    LogScheme scheme = logger->getScheme(getName());
-    scheme.showLogPoints(true);
-    logger->setScheme(scheme);
+    _logscheme.showLogPoints(true);
+    Logger::setScheme(_logscheme);
   }
   else if (arg == &ProcessData)
   {
@@ -884,6 +886,15 @@ parseNext() throw (NidasAppException)
   else if (arg == &Username)
   {
     parseUsername(Username.getValue());
+  }
+  else if (arg == &DebugDaemon)
+  {
+    // Apply this argument to the logging scheme, but only as a fallback, if no other
+    // logging has been configured by user arguments.
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_DEBUG;
+    _logscheme.addFallback(lc);
+    Logger::setScheme(_logscheme);
   }
   else if (arg == &Help)
   {
@@ -1278,10 +1289,9 @@ int
 NidasApp::
 logLevel()
 {
-  Logger* logger = Logger::getInstance();
   // Just return the logLevel() of the current scheme, whether that's
   // the default scheme or one set explicitly through this NidasApp.
-  return logger->getScheme().logLevel();
+  return Logger::getScheme().logLevel();
 }
 
 
@@ -1305,14 +1315,39 @@ void
 NidasApp::
 resetLogging()
 {
-  // Reset logging to the NidasApp default scheme (with the default log
-  // level) and reset the user-configured scheme too.
-  LogScheme scheme = n_u::LogScheme("NidasAppDefault");
-  n_u::LogConfig lc;
-  lc.level = n_u::LOGGER_INFO;
-  scheme.addConfig(lc);
-  Logger::getInstance()->updateScheme(LogScheme(getName()));
-  Logger::getInstance()->setScheme(scheme);
+  Logger::clearSchemes();
+  setupLogScheme();
+}
+
+
+void
+NidasApp::
+setupDaemonLogging()
+{
+  setupDaemonLogging(! DebugDaemon.asBool());
+}
+
+
+void
+NidasApp::
+setupDaemonLogging(bool daemon_mode)
+{
+  // If DebugDaemon was specified, then debugging was already added to the
+  // logging scheme.
+  if (daemon_mode)
+  {
+    // Replace showfields if not already set by a user argument.
+    if (! LogShow.specified())
+    {
+      _logscheme.setShowFields("level,message");
+      Logger::updateScheme(_logscheme);
+    }
+    Logger::createInstance(getName().c_str(), LOG_PID, LOG_LOCAL5);
+  }
+  else
+  {
+    Logger::createInstance(&std::cerr);
+  }
 }
 
 
@@ -1320,30 +1355,25 @@ void
 NidasApp::
 setupDaemon()
 {
-  nidas::util::Logger* logger = 0;
-  n_u::LogConfig lc;
-  n_u::LogScheme logscheme(getName());
-  if (! DebugDaemon.asBool())
+  setupDaemon(! DebugDaemon.asBool());
+}
+
+
+void
+NidasApp::
+setupDaemon(bool daemon_mode)
+{
+  setupDaemonLogging(daemon_mode);
+  if (daemon_mode)
   {
-    lc.level = n_u::LOGGER_INFO;
     // fork to background, chdir to /, send stdout/stderr to /dev/null
     if (daemon(0,0) < 0)
     {
       n_u::IOException e(getProcessName(), "daemon", errno);
       cerr << "Warning: " << e.toString() << endl;
     }
-    logger = n_u::Logger::createInstance(getName().c_str(), LOG_PID, LOG_LOCAL5);
-    logscheme.setShowFields("level,message");
   }
-  else
-  {
-    lc.level = n_u::LOGGER_DEBUG;
-    logger = n_u::Logger::createInstance(&std::cerr);
-  }
-  logscheme.addConfig(lc);
-  logger->setScheme(logscheme);
 }
-
 
 
 void

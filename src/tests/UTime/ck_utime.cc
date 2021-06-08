@@ -51,8 +51,7 @@ using namespace std;
 
 int main(int, char** argv)
 {
-    Logger::createInstance(&cerr)->setScheme
-        (LogScheme().addConfig(LogConfig("debug")));
+    Logger::setScheme(LogScheme("ck_utime").addConfig("debug"));
     DLOG(("debug enabled."));
 
     time_t now = ::time(0);       // current time

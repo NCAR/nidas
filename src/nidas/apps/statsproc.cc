@@ -53,6 +53,9 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
+using nidas::util::Logger;
+using nidas::util::LogScheme;
+
 namespace n_u = nidas::util;
 
 class StatsProcess
@@ -151,12 +154,6 @@ int StatsProcess::main(int argc, char** argv) throw()
     StatsProcess stats;
 
     int res;
-    
-    // We want default log files of "level,message", so modify the default
-    // scheme before parsing any log configs which might override it.
-    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
-    ls.setShowFields("level,message");
-    n_u::Logger::getInstance()->setScheme(ls);
 
     try {
         res = stats.parseRunstring(argc,argv);
@@ -168,16 +165,6 @@ int StatsProcess::main(int argc, char** argv) throw()
     }
     if (res)
         return res;
-
-    if (stats._daemonMode) {
-        // fork to background, send stdout/stderr to /dev/null
-        if (daemon(0,0) < 0) {
-            n_u::IOException e("statsproc","daemon",errno);
-            cerr << "Warning: " << e.toString() << endl;
-        }
-        n_u::Logger::createInstance("statsproc",LOG_PID,LOG_LOCAL5);
-    }
-    else n_u::Logger::createInstance(&cerr);
 
     if (stats._doListOutputSamples) return stats.listOutputSamples();
 
@@ -470,6 +457,8 @@ Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException,
 
 int StatsProcess::run() throw()
 {
+    _app.setupDaemon(_daemonMode);
+
     if (_niceValue > 0 && nice(_niceValue) < 0)
     {
         WLOG(("") << _app.getProcessName()
