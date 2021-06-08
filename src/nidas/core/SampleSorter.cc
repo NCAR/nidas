@@ -77,7 +77,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 using nidas::util::endlog;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 
 SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
@@ -96,10 +96,10 @@ SampleSorter::SampleSorter(const std::string& name,bool raw) :
 {
     // Allow the discard warning count to be overridden.
     _discardWarningCount =
-        LogScheme::current().getParameterT("sample_sorter_discard_warning_count",
+        Logger::getScheme().getParameterT("sample_sorter_discard_warning_count",
                                            _discardWarningCount);
     _earlyWarningCount =
-        LogScheme::current().getParameterT("sample_sorter_early_warning_count",
+        Logger::getScheme().getParameterT("sample_sorter_early_warning_count",
                                            _earlyWarningCount);
 }
 

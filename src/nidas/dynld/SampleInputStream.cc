@@ -43,7 +43,7 @@ using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 using nidas::util::UTime;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
@@ -928,7 +928,7 @@ sampleFromHeader() throw()
     // Logging blocks could be overwhelming too, but seems more likely to
     // be useful.
     static unsigned int log_count =
-        LogScheme::current().getParameterT
+        Logger::getScheme().getParameterT
         ("sample_input_stream_bad_sample_log_count", 0);
     Sample* samp = 0;
 

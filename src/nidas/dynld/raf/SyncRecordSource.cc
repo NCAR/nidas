@@ -49,7 +49,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 using nidas::util::endlog;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 
@@ -322,7 +322,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
 
         // check if this sample id has already been seen (shouldn't happen)
         if (gi != idmap.end()) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
+	    Logger::getInstance()->log(LOG_WARNING,
 		"Sample id %d,%d is not unique",
                     GET_DSM_ID(sampleId),GET_SPS_ID(sampleId));
             continue;
@@ -1040,8 +1040,8 @@ void SyncRecordSource::log(LogContext& lc, const string& msg,
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
     static int warn_times_interval =
-        LogScheme::current().getParameterT("sync_warn_times_interval",
-                                           1000);
+        Logger::getScheme().getParameterT("sync_warn_times_interval",
+                                          1000);
 
     /*
      * To enable the SampleTracer for a given sample id, add these arguments
@@ -1144,7 +1144,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	break;
     default:
 	if (!(_unknownSampleType++ % 1000))
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
+	    Logger::getInstance()->log(LOG_WARNING,
 		"sample id %d is not a float, double or uint32 type",sampleId);
         break;
     }

@@ -274,10 +274,10 @@ int PacketReader::parseRunstring(int argc, char** argv)
     fclose(fp);
 
     _packetReadInterval = 
-        LogScheme::current().getParameterT("udp_relay_packet_interval",
+        Logger::getScheme().getParameterT("udp_relay_packet_interval",
                                            _packetReadInterval);
     _rejectPacketInterval = 
-        LogScheme::current().getParameterT("udp_relay_reject_interval",
+        Logger::getScheme().getParameterT("udp_relay_reject_interval",
                                            _rejectPacketInterval);
     return 0;
 }
@@ -428,9 +428,8 @@ WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
     _packetWriterInterval(100)
 {
     _packetWriterInterval = 
-        LogScheme::current().getParameterT("udp_relay_write_interval",
-                                           _packetWriterInterval);
-
+        Logger::getScheme().getParameterT("udp_relay_write_interval",
+                                          _packetWriterInterval);
 }
 
 int WriterThread::run() throw(n_u::Exception)

@@ -36,7 +36,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 
 #if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
@@ -67,8 +67,8 @@ GPS_NMEA_Serial::GPS_NMEA_Serial():SerialSensor(),
 
     // Allow the bad checksum reporting interval to be overridden.
     _badChecksumsCount =
-        LogScheme::current().getParameterT("gps_nmea_bad_checksums_count",
-                                           _badChecksumsCount);
+        Logger::getScheme().getParameterT("gps_nmea_bad_checksums_count",
+                                          _badChecksumsCount);
 }
 
 void GPS_NMEA_Serial::validate()
