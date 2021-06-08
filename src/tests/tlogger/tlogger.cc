@@ -102,19 +102,19 @@ BOOST_AUTO_TEST_CASE(test_log_format)
 {
   errno = 1;
   BOOST_CHECK_EQUAL(LogMessage().format("%s: xx%m--",
-					"fake error").getMessage(),
-		    "fake error: xxOperation not permitted--");
+          "fake error").getMessage(),
+        "fake error: xxOperation not permitted--");
 
   errno = 1;
   // Now test stream output operator.
   LogMessage lf;
   lf.format("%s: xx%m", "fake error") << "-*-" << 42;
   BOOST_CHECK_EQUAL(lf.getMessage(), 
-		    "fake error: xxOperation not permitted-*-42");
+        "fake error: xxOperation not permitted-*-42");
 
   BOOST_CHECK_EQUAL((LogMessage().format("no parms, ") 
-		     << "more parms").getMessage(),
-		    "no parms, more parms");
+         << "more parms").getMessage(),
+        "no parms, more parms");
 
   errno = 0;
 }
@@ -130,14 +130,14 @@ BOOST_AUTO_TEST_CASE(test_logger)
   Logger* log = Logger::createInstance(&oss);
   log->setScheme(LogScheme().addConfig(lc));
 
-  log->log (LOG_DEBUG, "%s", "test log message");
+  log->log(LOG_DEBUG, "%s", "test log message");
   BOOST_CHECK(regex_match(oss.str(), regex(".*DEBUG.*test log message\n")));
   oss.str("");
 
   // Now make sure a LogContext created after the scheme was set still
   // gets enabled.
   LogContext loghere(LOG_DEBUG);
-  BOOST_CHECK (loghere.active());
+  BOOST_CHECK(loghere.active());
 
   // Now make sure the log point above is enabled when it first gets
   // logged.
@@ -145,8 +145,8 @@ BOOST_AUTO_TEST_CASE(test_logger)
   BOOST_CHECK(regex_match(oss.str(), regex(".*DEBUG.*x = 42, e = 1\n")));
   oss.str("");
   
-  // Now disable logging and check that nothing is logged.
-  log->setScheme(LogScheme().clearConfigs());
+  // Disable logging with an empty scheme and check that nothing is logged.
+  log->setScheme(LogScheme());
   log_things_here();
   BOOST_CHECK_EQUAL(oss.str(), "");
   oss.str("");
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(test_logger)
   log_things_here();
   log_things_there();
   BOOST_CHECK(regex_match(oss.str(), regex(".*Houston, we have a problem.\n"
-					   ".*Going, going, gone.\n")));
+             ".*Going, going, gone.\n")));
 
   oss.str("");
   static LogContext lp(LOG_INFO);
@@ -188,7 +188,39 @@ BOOST_AUTO_TEST_CASE(test_logger)
     lp.log(msg);
   }
   BOOST_CHECK(regex_match(oss.str(), 
-			  regex(".*INFO.*complicated info output...\n")));
+        regex(".*INFO.*complicated info output...\n")));
+}
+
+
+BOOST_AUTO_TEST_CASE(test_default_log_scheme)
+{
+  // Make sure that an application will get a default logging scheme with
+  // level WARNING if nothing else is set.
+  Logger::clearSchemes();
+  // The default scheme is always initialized and set as the current scheme.
+  BOOST_CHECK(Logger::knownScheme(""));
+  LogScheme ls = Logger::getScheme();
+  BOOST_CHECK_EQUAL(ls.logLevel(), LOGGER_WARNING);
+  BOOST_CHECK_EQUAL(ls.getName(), "");
+  BOOST_CHECK(! Logger::knownScheme("default"));
+}
+
+
+BOOST_AUTO_TEST_CASE(test_log_scheme_fallback)
+{
+  // Add two configs as fallbacks, and make sure they get replaced.
+  LogScheme ls = LogScheme().addFallback("info");
+  LogScheme::log_configs_v configs = ls.getConfigs();
+  BOOST_CHECK_EQUAL(configs.size(), 1);
+  BOOST_CHECK_EQUAL(configs[0].level, LOGGER_INFO);
+  ls.addFallback("debug");
+  configs = ls.getConfigs();
+  BOOST_CHECK_EQUAL(configs.size(), 2);
+  BOOST_CHECK_EQUAL(configs[1].level, LOGGER_DEBUG);
+  ls.addConfig("warning");
+  configs = ls.getConfigs();
+  BOOST_CHECK_EQUAL(configs.size(), 1);
+  BOOST_CHECK_EQUAL(configs[0].level, LOGGER_WARNING);
 }
 
 
@@ -208,34 +240,34 @@ BOOST_AUTO_TEST_CASE(test_object_logging)
   BOOST_CHECK_EQUAL(oss.str(), "");
   oss.str("");
   lc.function_match = "LogObject::";
-  log->setScheme(LogScheme().addConfig (lc));
+  log->setScheme(LogScheme().addConfig(lc));
   {
     LogObject lo;
     lo.process_something();
     lo.finish_something();
   }
   BOOST_CHECK(regex_match(oss.str(), regex(".*in the constructor\n"
-					   ".*started processing something\n"
-					   ".*finished processing something\n"
-					   ".*being destroyed\n")));
+              ".*started processing something\n"
+              ".*finished processing something\n"
+              ".*being destroyed\n")));
 
   // Now test that we can disable a log message.
   oss.str("");
   lc.function_match = "LogObject::finish_";
   lc.activate = false;
-  log->setScheme(log->getScheme().addConfig (lc));
+  log->setScheme(log->getScheme().addConfig(lc));
   {
     LogObject lo;
     lo.process_something();
     lo.finish_something();
   }
   BOOST_CHECK(!regex_match(oss.str(), regex(".*in the constructor\n"
-					    ".*started processing something\n"
-					    ".*finished processing something\n"
-					    ".*being destroyed\n")));
+              ".*started processing something\n"
+              ".*finished processing something\n"
+              ".*being destroyed\n")));
   BOOST_CHECK(regex_match(oss.str(), regex(".*in the constructor\n"
-					   ".*started processing something\n"
-					   ".*being destroyed\n")));
+             ".*started processing something\n"
+             ".*being destroyed\n")));
 }
 
 
@@ -244,7 +276,9 @@ BOOST_AUTO_TEST_CASE(test_level_strings)
   BOOST_CHECK_EQUAL(logLevelToString(LOGGER_EMERGENCY),"emergency");
   BOOST_CHECK_EQUAL(logLevelToString(LOGGER_DEBUG),"debug");
   BOOST_CHECK_EQUAL(logLevelToString(LOGGER_INFO),"info");
+  BOOST_CHECK_EQUAL(logLevelToString(LOGGER_WARNING),"warning");
 
+  BOOST_CHECK_EQUAL(stringToLogLevel("warn"),LOGGER_WARNING);
   BOOST_CHECK_EQUAL(stringToLogLevel("info"),LOGGER_INFO);
   BOOST_CHECK_EQUAL(stringToLogLevel("INFO"),LOGGER_INFO);
   BOOST_CHECK_EQUAL(stringToLogLevel("problem"),LOGGER_ERROR);
@@ -261,16 +295,16 @@ BOOST_AUTO_TEST_CASE(test_log_fields)
   BOOST_CHECK_EQUAL(LogScheme::stringToField("time"),LogScheme::TimeField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("level"),LogScheme::LevelField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("function"),
-		    LogScheme::FunctionField);
+        LogScheme::FunctionField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("file"),LogScheme::FileField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("message"),
-		    LogScheme::MessageField);
+        LogScheme::MessageField);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("all"), LogScheme::AllFields);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("x"), LogScheme::NoneField);
 
   LogScheme ts;
-  ts.setShowFields ("level,time,function,message");
-  BOOST_CHECK_EQUAL (ts.getShowFieldsString(), "level,time,function,message");
+  ts.setShowFields("level,time,function,message");
+  BOOST_CHECK_EQUAL(ts.getShowFieldsString(), "level,time,function,message");
 
   LogConfig lc;
   Logger* log = Logger::createInstance(&oss);
@@ -302,29 +336,37 @@ BOOST_AUTO_TEST_CASE(test_log_fields)
   // Changing the replacement of course should change nothing.
   BOOST_CHECK_EQUAL(log->getScheme().getShowFieldsString(), "file,function");
   // Adding it back makes the change.
-  log->updateScheme (replacement);
+  log->updateScheme(replacement);
   BOOST_CHECK_EQUAL(log->getScheme().getShowFieldsString(), "all");
 }
 
 
-
 BOOST_AUTO_TEST_CASE(test_scheme_names)
 {
-  LogScheme scheme("");
-  BOOST_CHECK (scheme.getName().length() > 0);
+  // It used to be that scheme names could not be empty...
+  LogScheme scheme;
+  BOOST_CHECK (scheme.getName().length() == 0);
   scheme.setName("");
-  BOOST_CHECK (scheme.getName().length() > 0);
-  scheme = LogScheme();
-  BOOST_CHECK (scheme.getName().length() > 0);
+  BOOST_CHECK (scheme.getName().length() == 0);
   scheme.setName("orange");
-  BOOST_CHECK_EQUAL (scheme.getName(), "orange");
+  BOOST_CHECK_EQUAL(scheme.getName(), "orange");
 
   // If we set the scheme with a non-existent name, the name
-  // had still better be preserved.
-  Logger* log = Logger::createInstance(&oss);
-  log->setScheme("boo");
-  BOOST_CHECK_EQUAL (log->getScheme().getName(), "boo");
+  // had better be preserved.
+  Logger::setScheme("boo");
+  BOOST_CHECK_EQUAL(Logger::getScheme().getName(), "boo");
+  // Likewise fetching a non-existent scheme returns 
+  // the default scheme with log level warning, but does not
+  // change the active scheme.
+  Logger::clearSchemes();
+  BOOST_CHECK_EQUAL(Logger::getScheme("boohoo").logLevel(), LOGGER_WARNING);
+  BOOST_CHECK_EQUAL(Logger::getScheme().getName(), "");
+  BOOST_CHECK(Logger::knownScheme("boohoo"));
+  BOOST_CHECK(! Logger::knownScheme("boo"));
+  // Checking for a scheme does not create it:
+  BOOST_CHECK(! Logger::knownScheme("boo"));
 }
+
 
 BOOST_AUTO_TEST_CASE(test_scheme_parameters)
 {
