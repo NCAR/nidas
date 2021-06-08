@@ -102,3 +102,12 @@
    fun:_ZN11xercesc_3_017MemoryManagerImpl8allocateEm
    fun:_ZN11xercesc_3_07XMemorynwEmPNS_13MemoryManagerE
 }
+{
+   fedora 34 gcc TLS looks like possible leak to valgrind
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:UnknownInlinedFun
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+}
