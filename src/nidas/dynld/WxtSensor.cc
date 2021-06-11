@@ -69,10 +69,10 @@ WxtSensor::init() throw(nidas::util::InvalidParameterException)
 
     static struct ParamSet
     {
-        const char* name; // parameter name
+        /// parameter name
+        const char* name;
+        /// ptr to setXXX member function for setting parameter.
         void (WxtSensor::*setFunc)(const string&);
-        // ptr to setXXX member function
-        // for setting parameter.
     } paramSet[] = {
         { "u", &WxtSensor::setUName },
         { "v", &WxtSensor::setVName },
@@ -160,7 +160,6 @@ WxtSensor::init() throw(nidas::util::InvalidParameterException)
             if (fi->find("%f") != string::npos &&
                 fi->rfind("%f") == fi->find("%f"))
             {
-
                 if (fi->length() > 3)
                 {
                     // look for Dm= field, which is wind direction mean
@@ -194,6 +193,7 @@ WxtSensor::init() throw(nidas::util::InvalidParameterException)
             "Sm and/or Dm fields are not found in scanfFormat. "
             "Cannot derive wind U and V from speed and direction");
     }
+    wxtValidateSscanfs();
 }
 
 int
@@ -327,7 +327,6 @@ WxtSensor::process(const Sample* samp,
     std::list<const Sample*>::const_iterator si = results.begin();
     for (; si != results.end(); ++si)
     {
-
         // result from base class parsing of ASCII, and correction of any cal
         // file
         const Sample* csamp = *si;
@@ -348,16 +347,76 @@ WxtSensor::process(const Sample* samp,
         float u = -spd * ::sin(dir * M_PI / 180.0);
         float v = -spd * ::cos(dir * M_PI / 180.0);
 
-        SampleT<float>* news = getSample<float>(_uvlen);
-        news->setTimeTag(csamp->getTimeTag());
-        news->setId(_uvId);
-
+        // If the uv sample id is the same as the spd dir sample, then just
+        // set uv in the current sample.  Conventional practice has been to
+        // create a new sample and copy data values from the original
+        // sample, but that seems excessive if all we need is to fill in
+        // data values in the current sample.  Unfortunately it requires
+        // casting away constness, but there's no getting around the
+        // assumption that the sample type is float.
+        SampleT<float>* news = 0;
+        if (_uvId == _speedDirId)
+        {
+            Sample* samp = const_cast<Sample*>(csamp);
+            news = dynamic_cast<SampleT<float>*>(samp);
+            if (!news)
+                break;
+        }
+        else
+        {
+            news = getSample<float>(_uvlen);
+            news->setTimeTag(csamp->getTimeTag());
+            news->setId(_uvId);
+            results.push_back(news);
+        }
         float* nfptr = news->getDataPtr();
         nfptr[_uIndex] = u;
         nfptr[_vIndex] = v;
-
-        results.push_back(news);
         break;
     }
     return true;
+}
+
+// We have to override this from CharacterSensor to account for additional
+// wind variables that are not in the scanf fields.  Since this is called
+// from the base class init(), it has to be postponed until after the
+// WxtSensor class finishes it's own init() implementation.
+void
+WxtSensor::validateSscanfs() throw(nidas::util::InvalidParameterException)
+{
+}
+
+void
+WxtSensor::wxtValidateSscanfs()
+{
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
+
+    for (; si != sscanfers.end(); ++si)
+    {
+        AsciiSscanf* sscanf = *si;
+        const SampleTag* tag = sscanf->getSampleTag();
+        dsm_sample_id_t sid = tag->getId();
+        DLOG(("WxtSensor(")
+             << getName() << "): validating sscanfs for sample "
+             << GET_DSM_ID(sid) << ',' << GET_SHORT_ID(sid)
+             << ", uvid=" << GET_DSM_ID(_uvId) << ',' << GET_SHORT_ID(_uvId)
+             << "; uindex=" << _uIndex << "; vindex=" << _vIndex);
+        int nexpected = tag->getVariables().size();
+        int nscanned = sscanf->getNumberOfFields();
+
+        if (sid == _uvId)
+        {
+            if (_uIndex >= nscanned)
+                nexpected--;
+            if (_vIndex >= nscanned)
+                nexpected--;
+        }
+        if (nscanned != nexpected)
+        {
+            WLOG(("%s: number of scanf fields (%d) differs "
+                  "from number of variable values (%d)",
+                  getName().c_str(), nscanned, nexpected));
+        }
+    }
 }
