@@ -104,7 +104,7 @@ void SampleArchiver::connect(SampleSource* source) throw()
     	_connectedOutputs.begin();
     for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-        cerr << "SampleArchiver: connecting " << output->getName() << endl;
+        // cerr << "SampleArchiver: connecting " << output->getName() << endl;
         source->addSampleClient(output);
     }
     _connectedSources.insert(source);
@@ -135,8 +135,7 @@ void SampleArchiver::disconnect(SampleSource* source) throw()
  
 void SampleArchiver::connect(SampleOutput* output) throw()
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-        "SampleArchiver: connection from %s", output->getName().c_str());
+    ILOG(("SampleArchiver: connect from %s", output->getName().c_str()));
 
     VLOG(("SampleArchiver::connnect(SampleOutput*), #sources=")
          << _connectedSources.size());
@@ -170,6 +169,7 @@ void SampleArchiver::connect(SampleOutput* output) throw()
 void SampleArchiver::disconnect(SampleOutput* output) throw()
 {
     // disconnect the output from my sources.
+    ILOG(("SampleArchiver: disconnect from %s", output->getName().c_str()));
 
     _connectionMutex.lock();
     set<SampleSource*>::const_iterator si = _connectedSources.begin();
