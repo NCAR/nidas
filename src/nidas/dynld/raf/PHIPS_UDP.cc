@@ -66,6 +66,9 @@ bool PHIPS_UDP::process(const Sample * samp,
                            list < const Sample * >&results) throw()
 {
     const char *input = (const char*) samp->getConstVoidDataPtr();
+    // Because of scanner->setNullTerminate(true), the input
+    // is null terminated, assuming no data was archived
+    // without that setting.
     const char *eoi = input + samp->getDataByteLength();
     char sep = ',';
 

@@ -3,10 +3,10 @@ ARG hostarch=armel
 FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
-ARG user=ads
-ARG uid=12900
-ARG group=eol
-ARG gid=1342
+# ARG user=ads
+# ARG uid=12900
+# ARG group=eol
+# ARG gid=1342
 
 # FROM line above "consumes" hostarch arg, unless we re-declare it header
 # But don't re-assign it!!!
@@ -50,11 +50,11 @@ RUN apt-get -y install --no-install-recommends reprepro xmlto rsync
 
 ENV CROSS_ARCH=$hostarch
 
-RUN addgroup --gid $gid $group || echo "add group failed"
-RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+# RUN addgroup --gid $gid $group || echo "add group failed"
+# RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
-USER $user
-WORKDIR /home/$user
+# USER $user
+# WORKDIR /home/$user
 
 # RUN mkdir -p libftdi
 # COPY ./build-libftdi-pkg.sh libftdi

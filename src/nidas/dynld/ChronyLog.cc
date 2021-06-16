@@ -183,13 +183,19 @@ void ChronyLog::printChronyStatus(std::ostream& ostr) throw()
     if (isnan(_toffset))
         ostr << "<td><font color=red><b>unk</b></font>";
     else {
-        ostr << fixed << setprecision(1);
-        if (_toffset > 5.e+5)  // greater than half second, print in red
-            ostr << "<td><font color=red><b>" << _toffset << "</b></font>";
-        else if (_toffset > 1.e+4)  // greater than 10 milliseconds, print in orange
-            ostr << "<td><font color=orange><b>" << _toffset << "</b></font>";
-        else
+        ostr << fixed;
+        if (_toffset > 5.e+5) {
+            // greater than half second, print in red
+            ostr << "<td><font color=red><b>" << setprecision(0) << _toffset << "</b></font>";
+        }
+        else if (_toffset > 1.e+4) {
+            // greater than 10 milliseconds, print in orange
+            ostr << "<td><font color=orange><b>" << setprecision(0) << _toffset << "</b></font>";
+        }
+        else {
+            ostr << setprecision(3);
             ostr << "<td>" << _toffset;
+        }
     }
     ostr << "</td>";
 

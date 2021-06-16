@@ -12,10 +12,10 @@ set -e
 # the docker push
 dockuser=ncar
 
-user=ads
-uid=12900
-group=eol
-gid=1342
+# user=ads
+# uid=12900
+# group=eol
+# gid=1342
 version=2
 tag=jessie_v$version
 
@@ -32,17 +32,17 @@ image=nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
+#    --build-arg user=$user \
+#    --build-arg uid=$uid \
+#    --build-arg group=$group \
+#    --build-arg gid=$gid \
 docker build $cacheFlag -t $image \
-    --build-arg user=$user \
-    --build-arg uid=$uid \
-    --build-arg group=$group \
-    --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
 # Only tag and push if the build worked
 if [[ "$?" -eq 0 ]] ; then
     docker tag  $image $dockuser/$image:$tag
-    docker push $dockuser/$image:$tag
+    # docker push $dockuser/$image:$tag
 fi
 
 exit
@@ -52,11 +52,11 @@ image=nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
+#    --build-arg user=$user \
+#    --build-arg uid=$uid \
+#    --build-arg group=$group \
+#    --build-arg gid=$gid \
 docker build $cacheFlag -t $image \
-    --build-arg user=$user \
-    --build-arg uid=$uid \
-    --build-arg group=$group \
-    --build-arg gid=$gid \
     --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
 # Only tag and push if the build worked

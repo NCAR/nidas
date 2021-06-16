@@ -4,15 +4,16 @@
 set -e
 
 key='<eol-prog@eol.ucar.edu>'
+eolrepo=/net/ftp/pub/archive/software/debian
 
 usage() {
     echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
-    echo "-c: build in a chroot"
+    echo "-c: build in a chroot (not necessary with docker or podman)"
     echo "-i: install packages with reprepro to the repository"
-    echo "-I codename: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>"
+    echo "-I codename: install packages to $eolrepo/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
     echo "arch is armel, armhf, amd64 or i386"
-    echo "codename is jessie, xenial or whatever distribution has been enabled on the repo"
+    echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
 }
 
@@ -32,7 +33,7 @@ while [ $# -gt 0 ]; do
     -I)
         shift
         codename=$1
-        repo=/net/ftp/pub/archive/software/debian/codename-$codename
+        repo=$eolrepo/codename-$codename
         ;;
     -c)
         use_chroot=true

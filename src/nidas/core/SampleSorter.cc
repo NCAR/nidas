@@ -484,6 +484,10 @@ void SampleSorter::flush() throw()
         DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
              " SampleSorter interrupted, samples may not have drained.");
     }
+
+    if (!_samples.empty())
+        WLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+         " flush(): sample list not empty, size=" << _samples.size());
     
     // may want to call flush on the SampleClients.
 
