@@ -354,7 +354,7 @@ inline int sample_remains(const struct sample_read_state* state)
  *
  * If no data is available for reading this function will do a
  * wait_event_interruptible on the readq until data are available,
- * or in interrupt is received.
+ * or the read is interrupted.
  * Then this function will copy all samples which are available
  * in the circular buffer into the user's buffer, until
  * the count limit is reached, or until no samples are left.

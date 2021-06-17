@@ -71,8 +71,12 @@ selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
 dir=$(dirname $0)
 cd $dir/..
 
-nowrite=$(find . \( \! -perm /020 -o \! -group $group \) -print -quit)
-[ -n "$nowrite" ] && echo "Warning, some files in $PWD don't have $group group write access. Do \"chgrp -R $group $PWD; chmod -R g+ws $PWD\""
+# Get name of the uid on this system, may not exist
+# hostuser=$(id -un $user 2> /dev/null)
+hostuser=$(id -un $user)
+
+[ -n "$hostuser" ] && nowrite=$(find . \! -user $hostuser \! \( -perm /020 -group $group \) -print -quit)
+[ -n "$nowrite" ] && echo "Warning, some files in $PWD are not owned by $hostuser and don't have $group group write access. Do \"chgrp -R $group $PWD; chmod -R g+ws $PWD\""
 
 # If the image is not already loaded, docker run should(?) pull the
 # image from the Docker Hub.
@@ -100,10 +104,6 @@ ncsdir=$PWD/../nc-server
 
 repo=/net/ftp/pub/archive/software/debian
 [ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
-
-# Get name of the uid on this system
-# hostuser=$(id -un $user 2> /dev/null)
-hostuser=$(id -un $user)
 
 # If local user has a .gnupg, mount it in the container
 gnupg=$(eval realpath ~${hostuser})/.gnupg
