@@ -1339,7 +1339,7 @@ setupDaemonLogging(bool daemon_mode)
       _logscheme.setShowFields("level,message");
       Logger::updateScheme(_logscheme);
     }
-    Logger::createInstance(getName().c_str(), LOG_PID, LOG_LOCAL5);
+    Logger::createInstance(getName(), LOG_PID, LOG_LOCAL5);
   }
   else
   {

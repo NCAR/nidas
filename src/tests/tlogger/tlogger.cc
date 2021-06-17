@@ -32,6 +32,7 @@ using boost::unit_test_framework::test_suite;
 
 #include "nidas/util/Logger.h"
 #include "nidas/util/Thread.h"
+#include "nidas/util/UTime.h"
 #include "math.h"
 #include "sstream"
 #include "errno.h"
@@ -493,4 +494,46 @@ BOOST_AUTO_TEST_CASE(test_multithread)
     delete threads[i];
   }
 
+}
+
+std::string
+get_ident(const std::string& text, int n)
+{
+  if (n > 0)
+    return get_ident(text + ".", n-1);
+  return text;
+}
+
+BOOST_AUTO_TEST_CASE(test_syslog_cmd)
+{
+  // Create a syslog logger and make sure the name sticks.
+  Logger::clearSchemes();
+  Logger* logger;
+  logger = Logger::createInstance(get_ident("test_cmd", 10).c_str(),
+                                  LOG_CONS, LOG_LOCAL5);
+  // For some reason, when running this test under valgrind, the log messages
+  // sometimes are not reported in /var/log/messages or with journalctl -f.  The
+  // messages are all different to make sure the problem is not some kind of
+  // duplicate suppression.  Either all the messages are reported or none of
+  // them.  There are no error messages on the console from syslog saying the
+  // messages could not be logged, so I don't know where they go... The messages
+  // all appear in the system logs when not running under valgrind.
+  UTime ut;
+  for (int ntest = 1; ntest <= 5; ++ntest)
+  {
+    ut += USECS_PER_SEC;
+    logger->log(LOG_ERR, "test #%d @ %s", ntest, ut.format().c_str());
+  }
+  // Sanity check on destroyInstance().  When this code was written to use a
+  // public destructor, there were memory errors.  Somehow logger->_ident was
+  // being accessed by syslog after the Logger had been destroyed and _ident
+  // deleted.  That led to the realization that the destructor was not
+  // protecting access to the _instance pointer like all the createInstance()
+  // methods, so the destructor is no longer public.  Now the Logger instance
+  // can be destroyed without valgrind reporting errors about _ident access.
+  BOOST_CHECK_EQUAL(logger, Logger::getInstance());
+  Logger::destroyInstance();
+  // Turns out this is not so helpful a check, because the next Logger instance
+  // is likely to be allocated in the same place as the previous.  Oh well.
+  // BOOST_CHECK_NE(logger, Logger::getInstance());
 }

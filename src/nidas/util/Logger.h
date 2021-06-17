@@ -1062,13 +1062,12 @@ namespace nidas { namespace util {
      */
     class Logger {
     protected:
-        Logger(const char *ident, int logopt, int facility, const char *TZ);
+        Logger(const std::string& ident, int logopt, int facility,
+               const char *TZ = 0);
         Logger(std::ostream* );
         Logger();
 
     public:
-
-        ~Logger();
 
         /** 
          * Create a syslog-type Logger. See syslog(2) man page.
@@ -1079,7 +1078,7 @@ namespace nidas { namespace util {
          *        If NULL(0), use default timezone.
          */
         static Logger* 
-        createInstance(const char *ident, int logopt, int facility,
+        createInstance(const std::string& ident, int logopt, int facility,
                        const char *TZ = 0);
 
         /**
@@ -1093,11 +1092,38 @@ namespace nidas { namespace util {
         static Logger* createInstance(std::ostream* out);
 
         /**
-         * Return a pointer to the currently active Logger singleton, and
-         * create a default if it does not exist.  The default writes log
-         * messages to std::cerr.
+         * @brief Retrieve the current Logger singleton instance.
+         *
+         * Return a pointer to the currently active Logger singleton, and create
+         * a default if it does not exist.  The default writes log messages to
+         * std::cerr.
+         *
+         * Note this method is not thread-safe.  The createInstance() and
+         * destroyInstance() methods are thread-safe, in that the pointer to the
+         * singleton instance is modified only while a mutex is locked. However,
+         * once an application has the instance pointer, nothing prevents that
+         * instance from being destroyed and recreated.  The application should
+         * take care to not change the Logger instance while other threads might
+         * be writing log messages.  Typically the Logger instance is created at
+         * the beginning of the application and then never changed.
+         *
+         * Every log message being written must call this method, so the locking
+         * overhead is not worth it, and it would not be effective without also
+         * locking all existing code which calls getInstance() directly.  
+         * A more correct approach would not provide access to the global
+         * singleton pointer outside logging methods which have locked the
+         * logging mutex.
          **/
         static Logger* getInstance();
+
+        /**
+         * Destroy any existing Logger instance.  New log messages will create a
+         * default Logger instance unless one is created explicitly with
+         * createInstance().  The Logger singleon no longer has a public
+         * destructor, it must be destroyed through this static method.
+         */
+        static void
+        destroyInstance();
 
         /**
          * Build a message from a printf-format string and variable args, and log
@@ -1248,6 +1274,8 @@ namespace nidas { namespace util {
 
         char* loggerTZ;
         char* saveTZ;
+        char* _ident;
+
     private:
 
         /**
@@ -1261,6 +1289,8 @@ namespace nidas { namespace util {
         friend class nidas::util::LogScheme;
 
         static nidas::util::Mutex mutex;
+
+        ~Logger();
 
         /** No copying */
         Logger(const Logger&);

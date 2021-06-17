@@ -200,19 +200,33 @@ struct LoggerPrivate
 // Logger
 //================================================================
 
-Logger::Logger(const char *ident, int logopt, int facility, const char *TZ):
-	output(0),syslogit(true),loggerTZ(0),saveTZ(0) {
+Logger::Logger(const std::string& ident, int logopt, int facility,
+               const char *TZ):
+	output(0), syslogit(true), loggerTZ(0), saveTZ(0), _ident(0)
+{
+  // Stash the identity in a char array tied to the lifetime of the Logger.
+  _ident = new char[ident.size() + 1];
+  strcpy(_ident, ident.c_str());
+
+  // To test the test that tests the memory tests:
+  // _ident = const_cast<char*>(ident.c_str());
+
   // open syslog connection
-  ::openlog(ident,logopt,facility);
+  ::openlog(_ident, logopt, facility);
   setTZ(TZ);
 }
 
 Logger::Logger(std::ostream* out) : 
-  output(out),syslogit(false),loggerTZ(0),saveTZ(0) 
+  output(out), syslogit(false), loggerTZ(0), saveTZ(0), _ident(0)
 {
 }
 
-Logger::Logger() : output(&cerr),syslogit(false),loggerTZ(0),saveTZ(0) 
+Logger::Logger():
+    output(&cerr),
+    syslogit(false),
+    loggerTZ(0),
+    saveTZ(0),
+    _ident(0)
 {
 }
 
@@ -221,8 +235,20 @@ Logger::~Logger() {
   if (output) output->flush();
   delete [] loggerTZ;
   delete [] saveTZ;
+  delete [] _ident;
+}
+
+
+/* static */
+void
+Logger::
+destroyInstance()
+{
+  Synchronized sync(Logger::mutex);
+  delete _instance;
   _instance = 0;
 }
+
 
 /* static */
 Logger* Logger::_instance = 0;
@@ -230,11 +256,12 @@ Logger* Logger::_instance = 0;
 /* static */
 Logger* 
 Logger::
-createInstance(const char *ident, int logopt, int facility, const char *TZ) 
+createInstance(const std::string& ident, int logopt, int facility,
+               const char *TZ)
 {
   Synchronized sync(Logger::mutex);
   delete _instance;
-  _instance = new Logger(ident,logopt,facility,TZ);
+  _instance = new Logger(ident, logopt, facility, TZ);
   return _instance;
 }
 
