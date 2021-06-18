@@ -266,17 +266,33 @@ createInstance(const std::string& ident, int logopt, int facility,
 }
 
 /* static */
-Logger* Logger::createInstance(std::ostream* out) 
+Logger*
+Logger::
+get_instance_locked(std::ostream* out)
 {
-  Synchronized sync(Logger::mutex);
-  delete _instance;
-  _instance = new Logger(out);
+  if (!_instance)
+  {
+    if (!out)
+      out = &cerr;
+    _instance = new Logger(out);
+  }
   return _instance;
 }
 
 /* static */
-Logger* Logger::getInstance() {
-  if (!_instance) createInstance(&cerr);
+Logger* Logger::createInstance(std::ostream* out) 
+{
+  Synchronized sync(Logger::mutex);
+  delete _instance;
+  _instance = 0;
+  return get_instance_locked(out);
+}
+
+/* static */
+Logger* Logger::getInstance()
+{
+  if (!_instance)
+    createInstance();
   return _instance;
 }
 
@@ -569,10 +585,7 @@ LogConfig(const std::string& text) :
   level(LOGGER_DEBUG),
   activate(true)
 {
-  if (!parse(text))
-  {
-    throw std::runtime_error("LogConfig error parsing: " + text);
-  }
+  parse(text);
 }
 
 
@@ -617,14 +630,11 @@ parse_log_level(int& level_out, const std::string& text)
   return true;
 }
 
-bool
+
+LogConfig&
 LogConfig::
 parse(const std::string& fields)
 {
-  // An empty string is specifically allowed, but it changes nothing.
-  if (fields.empty())
-    return true;
-
   // Break the string at commas, then parse the fields as <field>=<value>.
   string::size_type at = 0;
   do {
@@ -636,14 +646,18 @@ parse(const std::string& fields)
     at = comma+1;
 
     string::size_type equal = field.find('=');
-    string value;
+    string value = field;
     if (equal != string::npos)
     {
       ++equal;
       value = field.substr(equal, field.length()-equal);
       field = field.substr(0, equal-1);
     }
-    if (field == "enable")
+    if (field == "")
+    {
+      // Allow an empty string or field, but nothing changes.
+    }
+    else if (field == "enable")
     {
       this->activate = true;
     }
@@ -651,17 +665,14 @@ parse(const std::string& fields)
     {
       this->activate = false;
     }
-    else if (equal == string::npos)
+    else if (equal == string::npos || field == "level")
     {
       // No equal sign and not enable or disable, so this must be a log
       // level.
-      if (!parse_log_level(this->level, field))
-        return false;
-    }
-    else if (field == "level")
-    {
       if (!parse_log_level(this->level, value))
-        return false;
+      {
+        throw std::runtime_error("unknown log level: " + value);
+      }
     }
     else if (field == "file")
     {
@@ -679,16 +690,19 @@ parse(const std::string& fields)
     {
       int line = atoi(value.c_str());
       if (line < 1)
-        return false;
+      {
+        throw std::runtime_error("log config line number must be "
+                                 "positive: " + value);
+      }
       this->line = line;
     }
     else
     {
-      return false;
+      throw std::runtime_error("unknown log config field: " + field);
     }
   }
   while (at < fields.length());
-  return true;
+  return *this;
 }
 
 
@@ -723,12 +737,23 @@ namespace {
 }
 
 
+static LogScheme::LogField
+default_fields[] = { 
+  LogScheme::TimeField,
+  LogScheme::LevelField,
+  LogScheme::MessageField
+};
+
+
 LogScheme::
 LogScheme(const std::string& name) :
-  _name(name), log_configs(), log_fields(), _parameters(),
-  _showlogpoints(false), _fallbacks(false)
+  _name(name),
+  log_configs(),
+  log_fields(default_fields, default_fields+3),
+  _parameters(),
+  _showlogpoints(false),
+  _fallbacks(false)
 {
-  setShowFields("time,level,message");
 }
 
 
@@ -745,22 +770,25 @@ LogScheme&
 LogScheme::
 setShowFields(const std::string& fields)
 {
-  // Parse the string for field names and construct a vector from them.
+  // Parse the string for field names and construct a vector from them. If the
+  // string is empty, no fields are shown.
   std::vector<LogField> fv;
   string::size_type at = 0;
-  do {
+  while (at < fields.length())
+  {
     string::size_type comma = fields.find(',', at);
     if (comma == string::npos) 
       comma = fields.length();
-    LogField f = stringToField(fields.substr(at, comma-at));
-    if (f)
+    string field = fields.substr(at, comma-at);
+    LogField f = stringToField(field);
+    if (f == NoneField)
     {
-      fv.push_back(f);
+      throw std::runtime_error("unknown log message field: " + field);
     }
+    fv.push_back(f);
     at = comma+1;
   }
-  while (at < fields.length());
-  return setShowFields (fv);
+  return setShowFields(fv);
 }
 
 
@@ -860,7 +888,6 @@ LogScheme::LogField
 LogScheme::
 stringToField(const std::string& sin)
 {
-  //  init_level_map();
   string s = sin; 
   for (unsigned int i = 0; i < s.length(); ++i)
     s[i] = tolower(s[i]);
@@ -964,7 +991,7 @@ show_log_point(LogContext& lp)
     << " in " << lp.function() << "@"
     << lp.filename() << ":" << lp.line()
     << " is" << (lp.active() ? "" : " not") << " active";
-  Logger::getInstance()->msg_locked(show_point, buf.str());
+  Logger::get_instance_locked()->msg_locked(show_point, buf.str());
 }
 
 

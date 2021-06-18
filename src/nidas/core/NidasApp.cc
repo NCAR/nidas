@@ -699,9 +699,13 @@ parseLogConfig(const std::string& optarg) throw (NidasAppException)
   // then that scheme explicitly replaces the current log scheme, whether
   // that was this scheme or an app default.
   n_u::LogConfig lc;
-  if (!lc.parse(optarg))
+  try {
+    lc.parse(optarg);
+  }
+  catch (const std::runtime_error& err)
   {
-    throw NidasAppException("error parsing log level: " + string(optarg));
+    throw NidasAppException("failed to parse log config: " +
+                            string(err.what()));
   }
   _logscheme.addConfig(lc);
   Logger::setScheme(_logscheme);
@@ -843,7 +847,13 @@ parseNext() throw (NidasAppException)
   }
   else if (arg == &LogFields)
   {
-    _logscheme.setShowFields(LogFields.getValue());
+    try {
+      _logscheme.setShowFields(LogFields.getValue());
+    }
+    catch (const std::runtime_error& err)
+    {
+      throw NidasAppException(err.what());
+    }
     Logger::setScheme(_logscheme);
   }
   else if (arg == &LogParam)

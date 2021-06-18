@@ -303,6 +303,14 @@ BOOST_AUTO_TEST_CASE(test_log_fields)
   BOOST_CHECK_EQUAL(LogScheme::stringToField("all"), LogScheme::AllFields);
   BOOST_CHECK_EQUAL(LogScheme::stringToField("x"), LogScheme::NoneField);
 
+  LogScheme ls;
+  BOOST_CHECK_THROW(ls.setShowFields("level,x"), std::runtime_error);
+  BOOST_CHECK_THROW(ls.setShowFields("x"), std::runtime_error);
+  BOOST_CHECK_THROW(ls.setShowFields("x,level"), std::runtime_error);
+  // field is file not filename
+  BOOST_CHECK_THROW(ls.setShowFields("level,filename"), std::runtime_error);
+  BOOST_CHECK_THROW(ls.setShowFields("level,fn"), std::runtime_error);
+
   LogScheme ts;
   ts.setShowFields("level,time,function,message");
   BOOST_CHECK_EQUAL(ts.getShowFieldsString(), "level,time,function,message");
@@ -325,6 +333,8 @@ BOOST_AUTO_TEST_CASE(test_log_fields)
   houston();
   BOOST_CHECK_EQUAL(oss.str(), "EMERGENCY|Houston, we have a problem.\n");
   oss.str("");
+  // This actually sets no fields to be shown.  Not sure if this is really an
+  // intuitive result, but that is the current behavior...
   log->setScheme(log->getScheme().setShowFields(""));
   houston();
   BOOST_CHECK_EQUAL(oss.str(), "");
@@ -396,20 +406,23 @@ BOOST_AUTO_TEST_CASE(test_logconfig_parse)
   BOOST_CHECK_EQUAL(lc.level, LOGGER_DEBUG);
   BOOST_CHECK_EQUAL(lc.filename_match, "");
 
-  BOOST_CHECK_EQUAL(lc.parse(""), true);
-  BOOST_CHECK_EQUAL(lc.parse("info"), true);
+  lc.parse("");
+  lc.parse("info");
   BOOST_CHECK_EQUAL(lc.level, LOGGER_INFO);
 
-  BOOST_CHECK_EQUAL(lc.parse("file=dynld"), true);
+  lc.parse("file=dynld");
   BOOST_CHECK_EQUAL(lc.level, LOGGER_INFO);
   BOOST_CHECK_EQUAL(lc.filename_match, "dynld");
 
-  BOOST_CHECK_EQUAL(lc.parse("line=99,tag=slices"), true);
+  lc.parse("line=99,tag=slices,level=verbose");
   BOOST_CHECK_EQUAL(lc.line, 99);
   BOOST_CHECK_EQUAL(lc.tag_match, "slices");
+  BOOST_CHECK_EQUAL(lc.level, LOGGER_VERBOSE);
 
-  BOOST_CHECK_EQUAL(lc.parse("x"), false);
-  BOOST_CHECK_EQUAL(lc.parse("x=y"), false);
+  BOOST_CHECK_THROW(lc.parse("x"), std::runtime_error);
+  BOOST_CHECK_THROW(lc.parse("x=y"), std::runtime_error);
+  BOOST_CHECK_THROW(lc.parse("line=-1"), std::runtime_error);
+  BOOST_CHECK_THROW(lc.parse("line=0"), std::runtime_error);
 }
 
 
@@ -537,3 +550,15 @@ BOOST_AUTO_TEST_CASE(test_syslog_cmd)
   // is likely to be allocated in the same place as the previous.  Oh well.
   // BOOST_CHECK_NE(logger, Logger::getInstance());
 }
+
+
+BOOST_AUTO_TEST_CASE(test_logpoints_no_deadlock)
+{
+  // Make sure show log points does not deadlock if a Logger instance has not
+  // been created yet.
+  LogContext loghere(LOG_DEBUG);
+  Logger::destroyInstance();
+  // This should create a default logger instance without deadlocking.
+  LogScheme().showLogPoints(true);
+}
+

@@ -568,36 +568,40 @@ namespace nidas { namespace util {
 
         /**
          * Parse LogConfig settings from a string specifier, using
-         * comma-separated fields to assign to each of the config fields.
-         * Return true if the parse is successful, otherwise return false
-         * and leave the config in an indeterminate state.
+         * comma-separated fields to assign to each of the config fields. Throws
+         * std::runtime_error if the text fails to parse.  Passing an empty
+         * string has no effect.
+         *
+         * Return a reference to this LogConfig, so it can chained to construct
+         * a LogConfig from a string like so:
+         *
+         *     LogScheme().addConfig(LogConfig().parse(text))
          *
          * Here are the fields:
          *
-         * <loglevelint>|<loglevelname>
-         * tag=<tag>
-         * file=<file>
-         * function=<function>
-         * line=<line>
-         * enable|disable
+         *  - <loglevelint>|<loglevelname>
+         *  - tag=<tag>
+         *  - file=<file>
+         *  - function=<function>
+         *  - line=<line>
+         *  - enable|disable
          *
-         * This example enables all log messages for filenames which
-         * contain the string 'TwoD':
+         * This example enables all log messages for filenames which contain the
+         * string 'TwoD':
          *
-         * verbose,file=TwoD
+         *     verbose,file=TwoD
          *
          * Enable all debug messages in the core library:
          *
-         * debug,file=nidas/core
+         *     debug,file=nidas/core
          **/
-        bool
+        LogConfig&
         parse(const std::string& text);
 
         /**
-         * Construct a default LogConfig which matches and enables every
-         * log point with level DEBUG or higher, then configure it further
-         * by calling parse() on the passed text string.  Throws
-         * std::runtime_error if the text fails to parse.
+         * Construct a default LogConfig which matches and enables every log
+         * point with level DEBUG or higher.  Then call parse() on the given
+         * text.
          **/
         LogConfig(const std::string& text = "");
     };
@@ -761,8 +765,9 @@ namespace nidas { namespace util {
         setShowFields(const std::vector<LogField>& fields);
 
         /**
-         * Parse a comma-separated string of field names, with no spaces,
-         * into a vector of LogField values, and pass that to setShowFields().
+         * Parse a comma-separated string of field names, with no spaces, into a
+         * vector of LogField values, and pass that to setShowFields(). Throw
+         * std::runtime_error if the string fails to parse.
          *
          * Valid fields: thread,function,file,level,time,message
          **/
@@ -1082,14 +1087,13 @@ namespace nidas { namespace util {
                        const char *TZ = 0);
 
         /**
-         * Create a logger to the given output stream.  The output stream
-         * should remain valid as long as this logger exists.  This Logger
-         * does not take responsibility for closing or destroying the
-         * stream.
+         * Create a logger to the given output stream.  The output stream should
+         * remain valid as long as this logger exists.  This Logger does not
+         * take responsibility for closing or destroying the stream.
          *
-         * @param out Pointer to the output stream.
+         * @param out Pointer to the output stream, or null to default to cerr.
          **/
-        static Logger* createInstance(std::ostream* out);
+        static Logger* createInstance(std::ostream* out = 0);
 
         /**
          * @brief Retrieve the current Logger singleton instance.
@@ -1284,6 +1288,15 @@ namespace nidas { namespace util {
          **/
         void
         msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
+
+        /**
+         * @brief Return the current instance or create a default, without locking.
+         * 
+         * @param out If null, use std::cerr as the output stream.
+         * @return Logger* 
+         */
+        static Logger*
+        get_instance_locked(std::ostream* out = 0);
 
         friend class nidas::util::LogContext;
         friend class nidas::util::LogScheme;

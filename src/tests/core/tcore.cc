@@ -278,8 +278,11 @@ BOOST_AUTO_TEST_CASE(test_log_level_parse)
   BOOST_CHECK_EQUAL(app.logLevel(), last);
   BOOST_CHECK_THROW(app.parseLogLevel("idebug"), NidasAppException);
   BOOST_CHECK_EQUAL(app.logLevel(), last);
+  // function, not fn
+  BOOST_CHECK_THROW(app.parseLogLevel("fn=x"), NidasAppException);
+  // file, not filename
+  BOOST_CHECK_THROW(app.parseLogLevel("filename=x"), NidasAppException);
 }
-
 
 
 BOOST_AUTO_TEST_CASE(test_nidas_app_args)
