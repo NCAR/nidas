@@ -53,13 +53,13 @@ Prefix: %{nidas_prefix}
 NCAR In-Situ Data Acquistion Software programs
 
 %package min
-Summary: Minimal NIDAS run-time configuration, and pkg-config file.
+Summary: Minimal NIDAS run-time configuration.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0, nidas-run <= 1.0
 Requires: xerces-c xmlrpc++
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
-that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
+that NFS mount %{nidas_prefix}, or do their own builds.
 
 # It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
 # does not work to name /sbin/selinuxenabled, even though rpm figures it
