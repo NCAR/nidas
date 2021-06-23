@@ -17,7 +17,6 @@ Depends: ${misc:Depends}
 Description: NCAR In-Situ Data Acquistion Software
  Minimal run-time setup for NIDAS, namely /etc/ld.so.conf.d/nidas.conf.
  Useful on systems that NFS mount /opt/nidas, or do their own builds.
- Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
 Package: nidas
 Architecture: any
