@@ -266,7 +266,7 @@ int main (int argc, char **argv)
 
     if (rtn_read < 0)
     {
-        printf("ERROR: read A2D, rtn=%d errno=%d\n", rtn_read, errno);
+        printf("ERROR: read A2D, rtn=%ld errno=%d\n", rtn_read, errno);
         exit(1);
     }
     else if (verbose_enabled)
