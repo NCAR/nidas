@@ -113,7 +113,6 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
 }
 
 void CVIProcessor::connectSource(SampleSource* source)
-    throw(n_u::InvalidParameterException,n_u::IOException)
 {
     /*
      * In the typical usage on a DSM, this connection will

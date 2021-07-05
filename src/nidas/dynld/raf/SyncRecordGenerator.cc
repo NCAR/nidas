@@ -77,7 +77,7 @@ SyncRecordGenerator::~SyncRecordGenerator()
     _connectionMutex.unlock();
 }
 
-void SyncRecordGenerator::connectSource(SampleSource* source) throw()
+void SyncRecordGenerator::connectSource(SampleSource* source)
 {
     n_u::Autolock alock(_connectionMutex);
     // on first SampleSource connection, request output connections.

@@ -76,7 +76,7 @@ SampleArchiver::~SampleArchiver()
     _connectionMutex.unlock();
 }
 
-void SampleArchiver::connect(SampleSource* source) throw()
+void SampleArchiver::connectSource(SampleSource* source)
 {
     n_u::Autolock alock(_connectionMutex);
 
@@ -111,7 +111,7 @@ void SampleArchiver::connect(SampleSource* source) throw()
 
 }
  
-void SampleArchiver::disconnect(SampleSource* source) throw()
+void SampleArchiver::disconnectSource(SampleSource* source) throw()
 {
     n_u::Autolock alock(_connectionMutex);
     set<SampleOutput*>::const_iterator oi =

@@ -136,7 +136,7 @@ void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
                 // load the current calibration coefficients which go in its header.
                 // Typically other processors do nothing in their init function.
                 proc->init(tnow.toUsecs());
-		proc->connect(_pipeline);
+		proc->connectSource(_pipeline);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
@@ -163,7 +163,7 @@ void RawSampleService::interrupt() throw()
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
         // Note: proc may not have been connected to begin with
-        proc->disconnect(_pipeline);
+        proc->disconnectSource(_pipeline);
     }
     DSMService::interrupt();
 }

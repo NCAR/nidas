@@ -68,13 +68,13 @@ public:
      * initialization necessary before invoking this
      * StatisticsProcessor::connect().
      */
-    void connect(SampleSource*) throw();
+    void connectSource(SampleSource*) override;
 
     /**
      * Disconnect a SampleInput from this StatisticsProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    void disconnect(SampleSource*) throw();
+    void disconnectSource(SampleSource*) throw();
 
     /**
      * Implementation of SampleConnectionRequester::connect.

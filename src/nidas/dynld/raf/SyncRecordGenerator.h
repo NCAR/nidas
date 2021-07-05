@@ -48,8 +48,8 @@ public:
     /**
      * Implementation of SampleIOProcessor::connectSource(SampleSource*).
      */
-    void connectSource(SampleSource* source) throw();
-    
+    void connectSource(SampleSource* source) override;
+
     /**
      * Implementation of SampleIOProcessor::disconnectSource(SampleSource*).
      */

@@ -64,7 +64,7 @@ public:
 
     StatsProcess();
 
-    int parseRunstring(int argc, char** argv) throw();
+    int parseRunstring(int argc, char** argv);
 
     int run() throw();
 
@@ -234,7 +234,7 @@ namespace {
     }
 }
 
-int StatsProcess::parseRunstring(int argc, char** argv) throw()
+int StatsProcess::parseRunstring(int argc, char** argv)
 {
     NidasApp& app = _app;
 
@@ -690,7 +690,7 @@ int StatsProcess::run() throw()
                 sproc->setEndTime(_endTime);
 
             pipeline.connect(&sis);
-            sproc->connect(&pipeline);
+            sproc->connectSource(&pipeline);
             // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
             if (_app.socketAddress())
@@ -720,7 +720,7 @@ int StatsProcess::run() throw()
             sis.close();
             pipeline.flush();
             pipeline.join();
-            sproc->disconnect(&pipeline);
+            sproc->disconnectSource(&pipeline);
             throw e;
         }
         pipeline.disconnect(&sis);
@@ -728,7 +728,7 @@ int StatsProcess::run() throw()
         pipeline.flush();
         pipeline.interrupt();
         pipeline.join();
-        sproc->disconnect(&pipeline);
+        sproc->disconnectSource(&pipeline);
     }
     catch (n_u::Exception& e) {
         // caution, don't use PLOG((e.what())), because e.what() may

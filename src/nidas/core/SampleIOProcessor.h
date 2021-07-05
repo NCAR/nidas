@@ -109,8 +109,7 @@ public:
      * Connect a SampleSource to this SampleIOProcessor. SampleIOProcessor
      * does not own the SampleSource.
      */
-    virtual void connectSource(SampleSource*)
-        throw(nidas::util::InvalidParameterException,nidas::util::IOException) = 0;
+    virtual void connectSource(SampleSource*) = 0;
 
     /**
      * Disconnect a SampleSource from this SampleIOProcessor.

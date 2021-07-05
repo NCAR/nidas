@@ -66,8 +66,7 @@ public:
      * initialization necessary before invoking this
      * CVIProcessor::connect().
      */
-    void connectSource(SampleSource*)
-        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
+    void connectSource(SampleSource*) override;
 
     /**
      * Disconnect a SampleSource from this CVIProcessor.

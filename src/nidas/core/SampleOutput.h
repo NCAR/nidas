@@ -233,7 +233,7 @@ public:
      * header.
      */
     size_t write(const void* buf, size_t len)
-    	throw(nidas::util::IOException);
+    	throw(nidas::util::IOException) override;
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
