@@ -402,11 +402,11 @@ public:
         throw(nidas::util::InvalidParameterException);
 
     xercesc::DOMElement*
-        toDOMParent(xercesc::DOMElement* parent)
+        toDOMParent(xercesc::DOMElement* parent, bool complete) const
                 throw(xercesc::DOMException);
 
     xercesc::DOMElement*
-        toDOMElement(xercesc::DOMElement* node)
+        toDOMElement(xercesc::DOMElement* node, bool complete) const
                 throw(xercesc::DOMException);
 
     class ConnectionThread: public nidas::util::Thread
