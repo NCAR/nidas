@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_UDPSOCKETSENSOR_H_
+#ifndef NIDAS_DYNLD_UDPSOCKETSENSOR_H
 #define NIDAS_DYNLD_UDPSOCKETSENSOR_H
 
 #include <nidas/core/CharacterSensor.h>

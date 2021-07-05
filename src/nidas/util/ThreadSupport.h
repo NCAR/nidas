@@ -319,7 +319,7 @@ public:
      * Restart all threads waiting on the condition variable.
      * @see lock().
      */
-    void broadcast() throw()
+    void broadcast()
     {
         int res;
         // only fails with EINVAL if _p_cond is not initialized.

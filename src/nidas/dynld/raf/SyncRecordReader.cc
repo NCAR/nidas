@@ -204,7 +204,7 @@ private:
 };
 }
 
-void SyncRecordReader::scanHeader(const Sample* samp) throw()
+void SyncRecordReader::scanHeader(const Sample* samp)
 {
     size_t offset = 0;
     size_t lagoffset = 0;

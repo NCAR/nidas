@@ -839,7 +839,7 @@ void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameter
     // establish connections for processors
     for ( ; pi.hasNext(); ) {
         SampleIOProcessor* proc = pi.next();
-        proc->connect(_pipeline);
+        proc->connectSource(_pipeline);
     }
 }
 
@@ -849,7 +849,7 @@ void DSMEngine::disconnectProcessors() throw()
         ProcessorIterator pi = _dsmConfig->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            proc->disconnect(_pipeline);
+            proc->disconnectSource(_pipeline);
             proc->flush();
         }
     }

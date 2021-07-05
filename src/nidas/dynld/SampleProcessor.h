@@ -42,9 +42,9 @@ public:
 
     void flush() throw();
 
-    void connect(SampleSource*) throw();
+    void connectSource(SampleSource*) override;
 
-    void disconnect(SampleSource*) throw();
+    void disconnectSource(SampleSource*) throw();
 
     void connect(SampleOutput* output) throw();
 

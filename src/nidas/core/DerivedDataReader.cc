@@ -142,7 +142,7 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
 #endif
                 NLOG(("%s: POLLHUP",usock.getLocalSocketAddress().toAddressString().c_str()));
 
-            if (!fds.revents & POLLIN) continue;
+            if (! (fds.revents & POLLIN)) continue;
 #else
             int fd = usock.getFd();
             FD_SET(fd,&readfds);

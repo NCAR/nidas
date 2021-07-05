@@ -203,7 +203,7 @@ stop()
     // locking to enforce thread exclusive access to its state, so a flush()
     // can mess up the handling of samples in its receive() method.
     DLOG(("Disconnecting pipeline processed sample source from sync gen..."));
-    _syncGen.disconnect(_pipeline.getProcessedSampleSource());
+    _syncGen.disconnectSource(_pipeline.getProcessedSampleSource());
 
     // If we weren't interrupted, do a _syncGen flush, so any cached
     // samples in _syncGen are sent on to outputs or clients.
@@ -317,7 +317,7 @@ init() throw(n_u::Exception)
     // is called, the sorter threads are running and will need to be
     // stopped.
     _pipeline.connect(_inputStream);
-    _syncGen.connect(_pipeline.getProcessedSampleSource());
+    _syncGen.connectSource(_pipeline.getProcessedSampleSource());
 
     // The SyncRecordGenerator::init() method pre-loads calibrations into
     // the project variable converters, but it must be called *after* the
