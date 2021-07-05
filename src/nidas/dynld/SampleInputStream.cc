@@ -182,6 +182,9 @@ namespace nidas {
         // resolved by logging templates in nidas::util.
         using ::operator<<;
     }
+    namespace dynld {
+        using ::operator<<;
+    }
 }
 
 /*
