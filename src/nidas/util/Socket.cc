@@ -312,7 +312,7 @@ Socket* SocketImpl::accept() throw(IOException)
 #endif
                     NLOG(("ServerSocket %s: accept: POLLHUP",_localaddr->toAddressString().c_str()));
 
-                if (!fds.revents & POLLIN) continue;
+                if (! (fds.revents & POLLIN)) continue;
 #else
                 assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
                 FD_SET(_fd,&fds);

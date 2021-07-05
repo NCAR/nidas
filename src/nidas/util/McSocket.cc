@@ -374,7 +374,7 @@ int McSocketListener::run() throw(Exception)
 #endif
                 WLOG(("%s POLLHUP",_readsock->getLocalSocketAddress().toString().c_str()));
 
-        if (!fds.revents & POLLIN) continue;
+        if (! (fds.revents & POLLIN)) continue;
 
 #else
         int fd = _readsock->getFd();
