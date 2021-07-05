@@ -2,6 +2,8 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os, re
+from SCons.Script import Environment, SConscript, BoolVariable
+from SCons.Script import Configure
 import eol_scons
 
 # eol_scons.debug.SetDebug("true")
@@ -93,8 +95,8 @@ env.MergeFlags('-pthread')
 if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
-BUILDS = Split(env['BUILDS'])
-MACHS = Split(env['MACHS'])
+BUILDS = env.Split(env['BUILDS'])
+MACHS = env.Split(env['MACHS'])
 
 if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', '\n'
@@ -178,8 +180,17 @@ env['ARCHPREFIX'] = '$PREFIX'
 # print('CXXFLAGS=' + str(env['CXXFLAGS']))
 # print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
+env['CXX'] = 'clang++'
 env['CFLAGS'] = [ '-Wall','-O2' ]
 env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated' ]
+if env['CXX'] == 'clang++':
+    # Someday it might be nice to refactor the remaining overloaded virtual
+    # functions, but for now they're working and haven't seemed to bite us yet.
+    env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
+    # Ignore inconsistent overrides to add them piecemeal.
+    env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
+    # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
+    # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
 
 env['CCFLAGS'] = [ ]
 
@@ -227,17 +238,17 @@ def SConscriptVariant(arch, archenv):
         SConscript('nidas/SConscript',
                    variant_dir=vdir,
                    duplicate=0, exports={'env':archenv})
-        Alias(arch, vdir)
-        Clean(vdir, vdir)
+        env.Alias(arch, vdir)
+        env.Clean(vdir, vdir)
         if arch == 'x86':
-            Alias('host', vdir)
+            env.Alias('host', vdir)
         elif arch == 'host':
-            Alias('x86', vdir)
+            env.Alias('x86', vdir)
     else:
         SConscript('nidas/SConscript', exports={'env':archenv})
-        Alias(arch, 'nidas')
+        env.Alias(arch, 'nidas')
         if arch == 'host':
-            Alias('host', 'nidas')
+            env.Alias('host', 'nidas')
 
 
 def getMachineTypes(arch, mspecs):
@@ -386,22 +397,22 @@ if 'armhf' in BUILDS:
     SConscriptVariant('armhf', armhf_env)
 
 
-Default([BUILDS])
+env.Default([BUILDS])
 
 # Install the schema where it can be referenced globally on the system.
-Alias('install',
-      Alias('xml_install',
-            env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
+env.Alias('install',
+          env.Alias('xml_install',
+                  env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
 dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
               'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
-Alias('dox', dox)
-AlwaysBuild(dox)
+env.Alias('dox', dox)
+env.AlwaysBuild(dox)
 
 # Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
 # a target, and the other install targets this rule to create $PREFIX
-Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+env.Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of
