@@ -9,9 +9,13 @@
                 "-C",
                 "${workspaceFolder}/src",
                 "-u",
-                "BUILDS=host"
+                "BUILDS=host",
+                "-j", "4",
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": [
                 {
                     "base": "$gcc",
@@ -33,10 +37,7 @@
                 "BUILDS=host",
                 "install"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "group": "build",
             "problemMatcher": [
                 {
                     "base": "$gcc",
