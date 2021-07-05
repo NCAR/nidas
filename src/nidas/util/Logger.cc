@@ -133,8 +133,9 @@ stream_backtrace (std::ostream& out)
 
 namespace nidas { namespace util { 
 
-struct LoggerPrivate
+class LoggerPrivate
 {
+public:
   static const int DEFAULT_LOGLEVEL = LOGGER_NOTICE;
 
   // Return the appropriate setting for the given context's active flag
