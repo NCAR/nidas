@@ -974,7 +974,9 @@ getEnvParameter(const std::string& name, const std::string& dvalue)
 }
 
 
-static LogContext show_point(LOG_INFO, "show_log_points");
+static LogContext
+show_point(LOG_STATIC_CONTEXT(LOGGER_INFO), "show_log_points");
+
 
 void
 LogScheme::

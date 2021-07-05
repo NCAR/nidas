@@ -191,6 +191,15 @@ namespace nidas { namespace util {
 #define LOG_CONTEXT(LEVEL) \
     nidas::util::LEVEL, __FILE__, __PRETTY_FUNCTION__, __LINE__
 
+/**
+ * @brief Expand to LogContext tuple outside function scope.
+ *
+ * Use this macro to expand to the LogContext arguments when not inside a
+ * function, when __PRETTY_FUNCTION__ is not valid.
+ */
+#define LOG_STATIC_CONTEXT(LEVEL) \
+    nidas::util::LEVEL, __FILE__, "file_static_scope", __LINE__
+
     // Redefine the log levels to be a full LogContext instance.
 #define LOG_EMERG LOG_CONTEXT(LOGGER_EMERG)
 #define	LOG_ALERT LOG_CONTEXT(LOGGER_ALERT)
