@@ -10,6 +10,14 @@ import eol_scons
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
 env = Environment(tools=['default', 'gitinfo'])
 
+# This passes all settings from the calling environment.  This was a quick fix
+# for supercomputer builds (casper) which use modules to setup the environment,
+# to pull in specific sets and versions of tools and libraries. It is left here
+# disabled as a placeholder until it's needed again and a less heavy-handed
+# approach can be found.
+if False:
+    env.PassEnv('')
+
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
 opts = eol_scons.GlobalVariables('nidas.conf')

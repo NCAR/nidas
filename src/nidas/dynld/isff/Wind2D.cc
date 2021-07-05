@@ -37,7 +37,10 @@
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
 using namespace nidas::core;
-using namespace std;
+
+using std::vector;
+using std::ostringstream;
+using std::string;
 
 namespace n_u = nidas::util;
 

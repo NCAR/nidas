@@ -253,7 +253,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         for (i = 0; i < 3 && pdata < pend; i++) {
             float f = counts[i] = *pdata++;
             int c = 0;
-            if (!isnan(f)) c = (int) f;
+            if (!std::isnan(f)) c = (int) f;
             miss_sum += std::min(_expectedCounts - c,0);
             // cerr << "c=" << c << " expected=" << _expectedCounts << ", sum=" << miss_sum << endl;
         }

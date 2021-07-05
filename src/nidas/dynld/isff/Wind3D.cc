@@ -39,7 +39,10 @@
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
-using namespace std;
+using std::vector;
+using std::string;
+using std::list;
+using std::ostringstream;
 
 namespace n_u = nidas::util;
 
@@ -617,7 +620,7 @@ bool Wind3D::process(const Sample* samp,
 
     // Do not copy more than will fit into the output sample nor more than
     // exists in the uvwtd array.
-    int nvals = ::min(_noutVals, (unsigned int)(sizeof(uvwtd)/sizeof(uvwtd[0])));
+    int nvals = std::min(_noutVals, (unsigned int)(sizeof(uvwtd)/sizeof(uvwtd[0])));
 
     memcpy(dptr, uvwtd, sizeof(float) * nvals);
 
