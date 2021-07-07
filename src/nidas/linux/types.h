@@ -54,6 +54,10 @@ typedef unsigned int dsm_sample_length_t;
  * A data sample as it is passed from kernel-level drivers
  * to user space.
  *
+ * The time tag is a 4-byte time, relative to 00:00 UTC, which
+ * is converted to an 8-byte absolute time after the sample
+ * is read in real-time.
+ *
  * The data member array length is 0, allowing one to create
  * varying length samples.
  * In actual use one will create and use a dsm_sample
@@ -77,7 +81,7 @@ typedef unsigned int dsm_sample_length_t;
 
 typedef struct dsm_sample {
 
-        /** timetag of sample */
+        /** 4-byte relative timetag of sample */
         dsm_sample_time_t timetag;
 
         /** number of bytes in data */
@@ -98,6 +102,11 @@ typedef struct dsm_sample {
 #define NSECS_PER_MSEC 1000000
 #endif
 
+/* TMSEC is a tenth of a millisecond */
+#ifndef NSECS_PER_TMSEC
+#define NSECS_PER_TMSEC 100000
+#endif
+
 #ifndef NSECS_PER_USEC
 #define NSECS_PER_USEC 1000
 #endif
@@ -106,7 +115,6 @@ typedef struct dsm_sample {
 #define USECS_PER_MSEC 1000
 #endif
 
-/* TMSEC is a tenth of a millisecond */
 #ifndef USECS_PER_TMSEC
 #define USECS_PER_TMSEC 100
 #endif

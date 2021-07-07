@@ -30,6 +30,7 @@
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Parameter.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
@@ -71,16 +72,36 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters()
+    _altaEnetDevice(false), _speed(AR_HIGH), _parity(AR_ODD),_converters(),
+    _ttadjusters()
 {
     for (unsigned int label = 0; label < NLABELS; label++)
     {
         _processed[label] = false;
-        _labelCnt[label] = 0;
+        _observedLabelCnt[label] = 0;
     }
 }
 
-DSMArincSensor::~DSMArincSensor() {
+DSMArincSensor::~DSMArincSensor()
+{
+    for (map<dsm_sample_id_t, TimetagAdjuster*>::const_iterator tti =
+            _ttadjusters.begin();
+        tti != _ttadjusters.end(); ++tti) {
+        TimetagAdjuster* tta = tti->second;
+        if (tta) {
+            tta->log(nidas::util::LOGGER_INFO, this, true);
+            delete tta;
+        }
+    }
+
+/* Debug output to show all labels that came from a sensor.
+
+    for (unsigned int label = 0; label < NLABELS; label++)
+        if (_observedLabelCnt[label] > 0)
+            std::cout << getName().c_str() << " (" << getDSMId() << ", " << getSensorId() + label
+              << ") \0" << std::oct << label << " : "
+              << std::dec << _observedLabelCnt[label] << std::endl;
+*/
 }
 
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
@@ -155,21 +176,46 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
 
+    float ttadjustVal = 0.0;
+
+    const Parameter *parm = getParameter("ttadjust");
+    if (parm) {
+        if (parm->getType() == Parameter::STRING_PARAM || parm->getLength() < 1)
+            throw n_u::InvalidParameterException(getName(),"ttadjust", "is not numeric of length 1");
+        if (parm->getLength() > 1)
+            WLOG(("%s: ttadjust with more than one value is deprecated, should be single valued: 0 (disable) or 1 (enable)",
+                getName().c_str()));
+        ttadjustVal = parm->getNumericValue(0);
+    }
+
     list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
         SampleTag* stag = *si;
         unsigned short label = stag->getSampleId();
         _processed[label] = stag->isProcessed();
-        if (stag->isProcessed() && getApplyVariableConversions()) {
-            for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
-                Variable& var = stag->getVariable(iv);
-                VariableConverter* vcon = var.getConverter();
-                if (vcon) {
-                    if (_converters.find(stag->getId()) != _converters.end())
-                        throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id, or init() is being called more than once");
-                    _converters[stag->getId()] = vcon;
+        if (stag->isProcessed()) {
+            if (getApplyVariableConversions()) {
+                for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
+                    Variable& var = stag->getVariable(iv);
+                    VariableConverter* vcon = var.getConverter();
+                    if (vcon) {
+                        if (_converters.find(stag->getId()) != _converters.end())
+                            throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id, or init() is being called more than once");
+                        _converters[stag->getId()] = vcon;
+                    }
                 }
+            }
+            float ttval = ttadjustVal;
+            /* The default value for stag->getTimetagAdjust() is -1.
+             * A value of 0 here means the user wants to override any
+             * value set by a ttadjust <parameter> for the sensor.
+             */
+            if (stag->getTimetagAdjust() >= 0.0) {
+                ttval = stag->getTimetagAdjust();
+            }
+            if (ttval > 0.0) {
+                _ttadjusters[stag->getId()] = new TimetagAdjuster(stag->getId(), stag->getRate());
             }
         }
     }
@@ -218,6 +264,7 @@ throw()
         //             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned int)0xffffff00) ));
 
         unsigned short label = pSamp[i].data & 0xff;
+        _observedLabelCnt[label]++;
         //     ILOG(("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label ));
 
         // Even if the user doesn't want to see a value (_processed[label] == false),
@@ -261,6 +308,9 @@ throw()
         // sample id is sum of sensor id and label
         dsm_sample_id_t id = getId() + label;
 
+        TimetagAdjuster* ttadj = _ttadjusters[id];
+        if (ttadj) tt = ttadj->adjust(tt);
+
         // if there is a VariableConverter defined for this sample, apply it.
         if (_converters.find(id) != _converters.end())
             d = _converters[id]->convert(tt,d);
@@ -301,7 +351,6 @@ throw()
     return true;
 }
 
-
 bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results) throw()
 {
     const txp *pSamp = (const txp*) input;
@@ -322,7 +371,7 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
         uint32_t data = pSamp[i].data;
         unsigned short label = ReverseBits[data & 0xff];
         data = (data & 0xffffff00) + label;
-_labelCnt[label]++;
+        _observedLabelCnt[label]++;
 
         // Even if the user doesn't want to see a value (_processed[label] == false),
         // we still want to process it.
@@ -411,12 +460,11 @@ _labelCnt[label]++;
     return true;
 }
 
-
 void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
         return;
     }
 
@@ -431,10 +479,10 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
             ", overflow="  << stat.overflow <<
             ", underflow=" << stat.underflow <<
             ", nosync=" << stat.nosync <<
-            "</td>" << endl;
+            "</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
         n_u::Logger::getInstance()->log(LOG_ERR,
                 "%s: printStatus: %s",getName().c_str(),
                 ioe.what());

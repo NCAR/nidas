@@ -25,7 +25,6 @@
 */
 
 #include "SyncRecordGenerator.h"
-#include "DSMArincSensor.h"
 
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Version.h>
@@ -78,7 +77,7 @@ SyncRecordGenerator::~SyncRecordGenerator()
     _connectionMutex.unlock();
 }
 
-void SyncRecordGenerator::connect(SampleSource* source) throw()
+void SyncRecordGenerator::connectSource(SampleSource* source)
 {
     n_u::Autolock alock(_connectionMutex);
     // on first SampleSource connection, request output connections.
@@ -105,8 +104,8 @@ void SyncRecordGenerator::connect(SampleSource* source) throw()
 
     _syncRecSource.connect(source);
 }
-
-void SyncRecordGenerator::disconnect(SampleSource* source) throw()
+ 
+void SyncRecordGenerator::disconnectSource(SampleSource* source) throw()
 {
     n_u::Autolock alock(_connectionMutex);
     _syncRecSource.disconnect(source);
@@ -116,6 +115,7 @@ void SyncRecordGenerator::disconnect(SampleSource* source) throw()
 
 void SyncRecordGenerator::connect(SampleOutput* output) throw()
 {
+    ILOG(("SyncRecordGenerator: connect from %s", output->getName().c_str()));
 
     _connectionMutex.lock();
     _syncRecSource.addSampleClient(output);
@@ -126,6 +126,8 @@ void SyncRecordGenerator::connect(SampleOutput* output) throw()
 
 void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
 {
+
+    ILOG(("SyncRecordGenerator: disconnect from %s", output->getName().c_str()));
 
    _connectionMutex.lock();
     output->setHeaderSource(0);
@@ -154,7 +156,6 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     // submit connection request on original output
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
-
 
 void SyncRecordGenerator::addSampleClient(SampleClient* client) throw()
 {

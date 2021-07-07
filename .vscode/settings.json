@@ -1,0 +1,3 @@
+{
+    "catch2TestExplorer.executables": [ "src/tests/**/t*" ]
+}

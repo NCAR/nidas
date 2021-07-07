@@ -217,12 +217,13 @@ static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
         return n;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -240,20 +241,19 @@ static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
+/*
+ * No spin_locks are held.
+ */
 static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
 {
         unsigned char regval;
-        unsigned long flags;
 
-        spin_lock_irqsave(&brd->reglock,flags);
         /*
          * Set counter/timer 1 input rate, in base + 10.
          */
@@ -270,11 +270,9 @@ static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
         default:
                 KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
                                 brd->num,rate);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 return -EINVAL;
         }
         outb(regval,brd->addr + 10);
-        spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
 }
 
@@ -939,7 +937,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                                  * so that the D2A and A2D buffering can get back in sync.
                                  */
                                 a2d->overflow = 1;
-                                a2d->fifo_samples.head = ACCESS_ONCE(a2d->fifo_samples.tail);
+                                a2d->fifo_samples.head = READ_ONCE(a2d->fifo_samples.tail);
                         }
                         a2d->start(a2d);
                         if (a2d->mode == A2D_WAVEFORM) {
@@ -2085,7 +2083,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                  * go through the motions, but discarding A2D values until the beginning
                                  * of the next waveform, so things don't get out-of-whack.
                                  */
-                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),a2d->samples.size) < a2d->nwaveformChannels) {
+                                if (CIRC_SPACE(a2d->samples.head,READ_ONCE(a2d->samples.tail),a2d->samples.size) < a2d->nwaveformChannels) {
                                         a2d->status.missedSamples += a2d->nwaveformChannels;
                                         KLOG_WARNING("%s: missedSamples=%d\n",
                                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
@@ -2129,8 +2127,8 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 // Since the sample queue may fill up before latencyJiffies have elapsed,
                                 // we also wake the read_queue if the output sample queue is half full.
                                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
-                                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                                        a2d->samples.size) < a2d->samples.size/2) {
+                                        CIRC_SPACE(a2d->samples.head, READ_ONCE(a2d->samples.tail),
+                                                a2d->samples.size) < a2d->samples.size/2) {
                                         wake_up_interruptible(&a2d->read_queue);
                                         a2d->lastWakeup = jiffies;
                                 }
@@ -2308,6 +2306,7 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
                         outb(0x07,brd->addr + 8);	// set page 7
                         outb(lsb,brd->addr + 12);
                         outb(msb,brd->addr + 13);
+                        outb(lsb, brd->addr + 4);
 
                         outb(0x00,brd->addr + 8);	// set page 0
                         outb(chn,brd->addr + 5);        // channel number
@@ -2448,7 +2447,7 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
         struct DMMAT* brd = d2a->brd; 
 
         int ipt,ichan;
-        unsigned char lsb, msb;
+        unsigned char lsb, msb, chan;
         unsigned long flags;
         int bufaddr;
         int depth30;
@@ -2507,17 +2506,21 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
                          * 0x10 = DAGEN bit, so that D2A value is latched to internal memory
                          * and not to the DAC chip.
                          */
-                        msb = (wave->channel << 6) + 0x10 + ((wave->point[ipt] >> 8) & 0x0F);
+                        chan = (wave->channel << 6) + 0x10;
+                        msb = (wave->point[ipt] >> 8) & 0xFF; //16-bit msb
 
                         // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
                         // Cannot do a process sleep since we hold a spin_lock.
                         for (i = 0; inb(brd->addr + 4) & 0x80; i++);
 
-                        // Write LSB and MSB
-                        outb(lsb, brd->addr + 4);
-                        outb(msb, brd->addr + 5); 
+                        // Write 16-bit LSB and MSB
+                        outb(0x07, brd->addr + 8); // set to page 7
+                        outb(lsb, brd->addr + 12);
+                        outb(msb, brd->addr + 13);
+                        outb(chan, brd->addr + 5); 
 
                         //Store D2A value into the buffer.
+                        outb(0x05, brd->addr + 8); // set to page 5
                         outb(bufaddr & 0xFF, brd->addr + 12);
                         outb((bufaddr >> 8) & 0x3, brd->addr + 13);
                         bufaddr++;
@@ -4128,6 +4131,33 @@ static void cleanup_cntr(struct DMMAT* brd)
         brd->cntr = 0;
 }
 
+/*
+ * Check D2A resolution on a MM32DXAT
+ */
+static int checkD2A_MM32DXAT(struct DMMAT_D2A* d2a)
+{
+        unsigned long flags;
+        unsigned char d2aconfig_reg;
+        int bits = 16;
+        struct DMMAT* brd = d2a->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        outb(0x07,brd->addr + 8);	// set page 7
+
+        d2aconfig_reg = inb(brd->addr + 14);
+        outb(0x00,brd->addr + 8);	// set back to page 0
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        if (d2aconfig_reg & 0x40) bits = 12;
+
+        KLOG_INFO("%s, board %d, has a %d bit D/A, config=%#02x\n",
+                d2a->deviceName, brd->num, 
+                bits, (unsigned int) d2aconfig_reg);
+        return bits;
+}
+
 static int __init init_d2a(struct DMMAT* brd)
 {
         int result = -ENOMEM;
@@ -4190,6 +4220,7 @@ static int __init init_d2a(struct DMMAT* brd)
                 d2a->startWaveforms = startWaveforms_MM32XAT;
                 d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 d2a->cmax = 65535;
+                checkD2A_MM32DXAT(d2a);
                 break;
         }
 
@@ -4201,6 +4232,10 @@ static int __init init_d2a(struct DMMAT* brd)
         case DMMAT_D2A_UNI_10:
                 d2a->vmin = 0;
                 d2a->vmax = 10;
+                break;
+        case DMMAT_D2A_BI_2P5:
+                d2a->vmin = -2.5;
+                d2a->vmax = 2.5;
                 break;
         case DMMAT_D2A_BI_5:
                 d2a->vmin = -5;
@@ -4227,7 +4262,6 @@ static int __init init_d2a(struct DMMAT* brd)
         }
         return result;
 }
-
 
 /* Don't add __exit macro to the declaration of this cleanup function
  * since it is also called at init time, if init fails. */

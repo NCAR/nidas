@@ -43,7 +43,7 @@ namespace nidas { namespace core {
 
 class Dictionary;
 
-class Parameter: public DOMable
+class Parameter
 {
 public:
 

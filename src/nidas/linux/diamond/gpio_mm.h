@@ -54,7 +54,7 @@
  * 0 frequency counters, 9 pulse counters, 1 dio
  *
  * Support for the pulse counters, dio and events has not been added yet....
- *      
+ *
  * Board #0: Device table:
  * device        devname                minor number
  * freq cntr 0:  /dev/gpiomm_fcntr0     0
@@ -202,7 +202,7 @@ struct gpio_timer_callback
 extern struct gpio_timer_callback *register_gpio_timer_callback(
         gpio_timer_callback_func_t callback,unsigned int usecs,
         void *privateData, int *errp);
-    
+
 /**
  * Exposed function to un-register a callback.
  * A callback function can unregister itself, or other callback functions.

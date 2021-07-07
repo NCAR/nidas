@@ -28,6 +28,7 @@
 
 #include <nidas/linux/arinc/arinc.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/TimetagAdjuster.h>
 #include <nidas/core/VariableConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -154,7 +155,7 @@ protected:
 
     /// A list of which samples are processed.
     int _processed[NLABELS];
-    int _labelCnt[NLABELS];
+    int _observedLabelCnt[NLABELS];
 
     bool _altaEnetDevice;
 
@@ -165,6 +166,9 @@ private:
     unsigned int _parity;
 
     std::map<dsm_sample_id_t,VariableConverter*> _converters;
+
+    std::map<dsm_sample_id_t, TimetagAdjuster*> _ttadjusters;
+
 };
 
 // typedef SampleT<unsigned int> ArincSample;

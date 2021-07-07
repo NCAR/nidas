@@ -32,11 +32,15 @@
 #include <nidas/util/Logger.h>
 
 #include <sstream>
+#include <cmath>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
 using namespace nidas::core;
-using namespace std;
+
+using std::vector;
+using std::ostringstream;
+using std::string;
 
 namespace n_u = nidas::util;
 
@@ -222,8 +226,8 @@ bool Wind2D::process(const Sample* samp,
 
         // If U or V have been parsed, don't derive them.
         if ((signed) slen > _vIndex &&
-            (!isnan(csamp->getDataValue(_uIndex)) ||
-                !isnan(csamp->getDataValue(_vIndex)))) return true;
+            (!std::isnan(csamp->getDataValue(_uIndex)) ||
+                !std::isnan(csamp->getDataValue(_vIndex)))) return true;
 
         float spd = csamp->getDataValue(_speedIndex);
         // dir has had cal file applied
@@ -261,8 +265,8 @@ bool Wind2D::process(const Sample* samp,
 
         // If dir or speed have been parsed, don't derive them.
         if (((signed)slen > _dirIndex && (signed)slen > _speedIndex) &&
-            (!isnan(csamp->getDataValue(_speedIndex)) ||
-                !isnan(csamp->getDataValue(_dirIndex)))) return true;
+            (!std::isnan(csamp->getDataValue(_speedIndex)) ||
+                !std::isnan(csamp->getDataValue(_dirIndex)))) return true;
 
         float u = csamp->getDataValue(_uIndex);
         float v = csamp->getDataValue(_vIndex);

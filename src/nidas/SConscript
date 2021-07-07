@@ -10,7 +10,7 @@ Import('env')
 arch = env['ARCH']  # empty string for native builds
 
 # Use the OTHER_ prefix only if it exists and is different than PREFIX
-if env.get('OTHER_PREFIX') and env['PREFIX'] != env.subst(env['OTHER_PREFIX']):
+if env.get('OTHER_PREFIX'):
     import os
     other_include = env.subst("$OTHER_PREFIX/include")
     other_lib = env.subst("$OTHER_PREFIX/lib")

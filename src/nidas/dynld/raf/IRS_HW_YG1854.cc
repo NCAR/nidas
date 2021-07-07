@@ -54,6 +54,7 @@ double IRS_HW_YG1854::processLabel(const int data,sampleType* stype)
 
     case 0011:  // BCD - pos longitude        (deg)
         carry = ((data & (0x1<<28)) >> 28) *  100.0;
+        // FALLTHRU
     case 0010:  // BCD - pos latitude         (deg)
         if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
         if ((data & SSM) == SSM) sign = -1;
@@ -78,7 +79,9 @@ double IRS_HW_YG1854::processLabel(const int data,sampleType* stype)
                ) * KTS_MS; // no sign
 
     case 0013:  // BCD - trk angle true       (deg)
+        // FALLTHRU
     case 0014:  // BCD - mag heading          (deg)
+        // FALLTHRU
     case 0044:  // BCD - true heading         (deg)
         if (((data & SSM) == NCD) || ((data & SSM) == TST)) break;
         if ((data & SSM) == SSM) {sign = -1; carry = 360.0;}
@@ -112,7 +115,9 @@ double IRS_HW_YG1854::processLabel(const int data,sampleType* stype)
 
     case 0314:  // BNR - true_heading         (rad)
         carry = _irs_thdg_corr;
+        // FALLTHRU
     case 0313:  // BNR - track_angle_true     (rad)
+        // FALLTHRU
     case 0316:  // BNR - wind_dir_true        (rad)
         if ((data & SSM) != SSM) break;
         value = (data<<3>>11) * 1.0/(1<<20) * 180.0 + carry;  // 21 bits
@@ -127,21 +132,31 @@ double IRS_HW_YG1854::processLabel(const int data,sampleType* stype)
 
     case 0324:  // BNR - pitch_angle          (rad)
         carry = _irs_ptch_corr; goto corr;
+        // FALLTHRU
     case 0325:  // BNR - roll_angle           (rad)
         carry = _irs_roll_corr; goto corr;
+        // FALLTHRU
     case 0310:  // BNR - pos_latitude         (rad)
+        // FALLTHRU
     case 0311:  // BNR - pos_longitude        (rad)
+        // FALLTHRU
     case 0317:  // BNR - wtrack_angle_mag     (rad)
+        // FALLTHRU
     case 0320:  // BNR - mag_heading          (rad)
+        // FALLTHRU
     case 0321:  // BNR - drift_angle          (rad)
+        // FALLTHRU
     case 0322:  // BNR - flight_path_angle    (rad)
+        // FALLTHRU
     case 0334:  // BNR - platform_heading     (rad)
 corr:
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 1.0/(1<<20) * 180.0 + carry;  // 21 bits
 
     case 0312:  // BNR - ground_speed         (knot)
+        // FALLTHRU
     case 0366:  // BNR - velocity_ns          (knot)
+        // FALLTHRU
     case 0367:  // BNR - velocity_ew          (knot)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 1.0/(1<<8) * KTS_MS; // no sign
@@ -151,11 +166,17 @@ corr:
         return (data<<3>>11) * 1.0/(1<<13) * KTS_MS;
 
     case 0323:  // BNR - flight_path_accel    (G)
+        // FALLTHRU
     case 0331:  // BNR - long_accel           (G)
+        // FALLTHRU
     case 0332:  // BNR - lat_accel            (G)
+        // FALLTHRU
     case 0333:  // BNR - normal_accel         (G)
+        // FALLTHRU
     case 0362:  // BNR - along trk accel      (G)
+        // FALLTHRU
     case 0363:  // BNR - cross trk accel      (G)
+        // FALLTHRU
     case 0370:  // BNR - norm_accel           (G)
         if ((data & SSM) != SSM) break;
         return (data<<3>>16) * 1.0/(1<<13);
@@ -165,9 +186,13 @@ corr:
         return (data<<3>>16) * 1.0/(1<<13) * G_MPS2;
 
     case 0326:  // BNR - pitch_rate           (deg/s)
+        // FALLTHRU
     case 0327:  // BNR - roll_rate            (deg/s)
+        // FALLTHRU
     case 0330:  // BNR - yaw_rate             (deg/s)
+        // FALLTHRU
     case 0336:  // BNR - pitch_att_rate       (deg/s)
+        // FALLTHRU
     case 0337:  // BNR - roll_att_rate        (deg/s)
         if ((data & SSM) != SSM) break;
         return (data<<3>>16) * 1.0/(1<<8);
@@ -199,7 +224,9 @@ corr:
         return (data<<3>>11) * 1.0/(1<<5) * FPM_MPS;
 
     case 0270:  // DIS - irs_discretes        ()
+        // FALLTHRU
     case 0350:  // DIS - irs_maint_discretes  ()
+        // FALLTHRU
     case 0371:  // DIS - equipment_id         ()
     default:
         // unrecognized label type, return raw data

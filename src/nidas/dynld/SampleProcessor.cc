@@ -76,7 +76,7 @@ SampleProcessor::~SampleProcessor()
     _connectionMutex.unlock();
 }
 
-void SampleProcessor::connect(SampleSource* source) throw()
+void SampleProcessor::connectSource(SampleSource* source)
 {
     source = source->getProcessedSampleSource();
 
@@ -103,7 +103,7 @@ void SampleProcessor::connect(SampleSource* source) throw()
     _connectedSources.insert(source);
 }
 
-void SampleProcessor::disconnect(SampleSource* source)
+void SampleProcessor::disconnectSource(SampleSource* source)
         throw()
 {
     source = source->getProcessedSampleSource();

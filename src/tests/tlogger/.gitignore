@@ -1,1 +1,3 @@
 tlogger
+vg.memcheck.log
+vg.threadcheck.log

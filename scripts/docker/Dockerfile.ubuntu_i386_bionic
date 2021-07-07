@@ -1,0 +1,70 @@
+FROM docker.io/i386/ubuntu:bionic
+LABEL organization="NCAR EOL"
+
+# We need linux-headers that match the running kernel (4.4.6) on
+# the vortex. However linux-headers-4.4.6 is not available from
+# ubuntu repos. Instead, repackage it on a vortex:
+# cd /tmp
+# dpkg-repack linux-headers-4.4.6
+# Copy to system with docker installed, e.g. steam, start a container.
+# Note that the container could be an earlier version (e.g. xenial) of ubuntu.
+# nidas/scripts/run_docker.sh vortex
+# From within the container
+# reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.4.6_4.4.6-1_i386.deb
+
+ARG user=ads
+ARG uid=12900
+ARG group=eol
+ARG gid=1342
+ARG dolocal=no
+
+RUN apt-get update
+# kmod provides modinfo command for querying modules
+# In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
+RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
+    build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
+    git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
+    devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
+    libcap-dev libxerces-c-dev libbluetooth-dev libnetcdf-dev \
+    libxmlrpcpp-dev libjsoncpp-dev xmlto libxerces-c-dev kmod rsync quilt \
+    libfl-dev
+
+# debhelper in bionic is 11.1.6ubuntu2, which fails when
+# in building nidas in a container, when it tries a cross-device rename
+# of a file residing on a mounted volume (nidas) to the parent of the
+# nidas directory. debhelper on bionic-backports is
+# 12.1.1ubuntu1~ubuntu18.04.1# which falls back to a regular mv if the
+# rename fails.
+RUN apt-get -t bionic-backports install -y --no-install-recommends debhelper
+
+# Add EOL repository for local packages
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/codename-bionic bionic main" > /etc/apt/sources.list.d/eol.list 
+RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+# Force override of libxerces-c3.2 from the EOL repo
+RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' > /etc/apt/preferences.d/libxerces-c
+
+RUN addgroup --gid $gid $group
+RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
+
+RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+
+USER $user
+WORKDIR /home/$user
+
+# GPG_TTY is needed for package signing
+RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
+
+RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
+
+# Install local packages once they are ready in the repo.
+# You have to do "apt-get update && apt-get install", so that if you
+# add a package to the list, the update will be performed.
+# We're now running as a non-root user, so use sudo.
+# Get linux-headers-4.4.6 from EOL repo. 
+# Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
+# will be fetched and possibly downgraded from EOL repository.
+RUN [ $dolocal = yes ] && sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends --allow-downgrades \
+    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2
+

@@ -1,6 +1,7 @@
 .sconf_temp/
 .sconsign.dblite
 /TAGS
+/tags
 /nidas.conf
 build*
 config*.log

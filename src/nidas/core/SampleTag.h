@@ -309,13 +309,15 @@ public:
      */
     unsigned int getDataIndex(const Variable* var) const;
 
-    float getTimetagAdjustPeriod() const { return _ttAdjustPeriod; }
+    /**
+     * Whether to enable TimetagAdjuster for this sample.
+     * A value of 0 means no ttadjust.
+     * The default value of -1 means don't override the value set
+     * for the sensor.
+     */
+    float getTimetagAdjust() const { return _ttAdjustVal; }
 
-    void setTimetagAdjustPeriod(float val) { _ttAdjustPeriod = val; }
-
-    float getTimetagAdjustSampleGap() const { return _ttAdjustSampleGap; }
-
-    void setTimetagAdjustSampleGap(float val) { _ttAdjustSampleGap = val; }
+    void setTimetagAdjust(float val) { _ttAdjustVal = val; }
 
     VariableIterator getVariableIterator() const;
 
@@ -393,14 +395,9 @@ private:
     bool _enabled;
 
     /**
-     * How often to apply time tag adjustments.
+     * If positive, enable TimetagAdjustor for these samples.
      */
-    float _ttAdjustPeriod;
-
-    /**
-     * How many sample sample delta-Ts are considered a data gap.
-     */
-    float _ttAdjustSampleGap;
+    float _ttAdjustVal;
 
 };
 

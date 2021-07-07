@@ -4,8 +4,9 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildraf=true
+buildraf=false
 buildarinc=true
+buildmodules=true
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -15,11 +16,16 @@ while [ $# -gt 0 ]; do
         -noarinc)
             buildarinc=false
             ;;
-	-*)
-	    echo "Usage: $0 [-nr] [-noarinc] [spec-file]"
-	    exit 1
-	    ;;
-
+        --no-modules)
+            buildmodules=false
+            ;;
+        --modules)
+            buildmodules=true
+            ;;
+        -*)
+            echo "Usage: $0 [-nr] [-noarinc] [--[no-]modules] [spec-file]"
+            exit 1
+            ;;
         *)
             dopkg=$1
             ;;
@@ -60,11 +66,19 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     fi
 
     if $buildarinc; then
-	args="$args BUILD_ARINC=yes"
-	witharinc="--with arinc"
+        args="$args BUILD_ARINC=yes"
+        witharinc="--with arinc"
     else
-	args="$args BUILD_ARINC=no"
-	witharinc=
+        args="$args BUILD_ARINC=no"
+        witharinc=
+    fi
+
+    if $buildmodules; then
+        args="$args LINUX_MODULES=yes"
+        withmodules="--with modules"
+    else
+        args="$args LINUX_MODULES=no"
+        withmodules=
     fi
 
     # In the RPM changelog, copy most recent commit subject lines
@@ -80,7 +94,7 @@ if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
     fi
     # example output of git describe: v2.0-14-gabcdef123
     gitdesc=${gitdesc/#v}       # remove leading v
-    version=${gitdesc%%-*}       # 2.0
+    version=${gitdesc%%-*}      # 2.0
 
     release=${gitdesc#*-}       # 14-gabcdef123
     release=${release%-*}       # 14
@@ -109,10 +123,10 @@ EOD
     # Delete the date lines for a few commits with bad timestamps, else rpmbuild
     # aborts because the change log is not chronological.
     git log --max-count=100 --date-order --format="%H%n* %cd %aN%n- %s%n" --date=local $excludes ${sincetag}.. | \
-	sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
-	awk --re-interval -f $awkcom | \
-	sed -e '/g8ea1e5f/d' -e '/ga1e79ab/d' -e '/g45a0f80/d' -e '/g51f0946/d' | \
-	cat rpm/${dopkg}.spec - > $tmpspec
+    sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' | sed -r 's/(^- .{,60}).*/\1/' | \
+    awk --re-interval -f $awkcom | \
+    sed -e '/g8ea1e5f/d' -e '/ga1e79ab/d' -e '/g45a0f80/d' -e '/g51f0946/d' | \
+    cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
         # If $JLOCAL/include/raf or /opt/local/include/raf exists then
@@ -122,11 +136,11 @@ EOD
         # If moc-qt4 is in PATH, build autocal
         $buildraf && type -p moc-qt4 > /dev/null && withac="--with autocal"
 
-	# Don't build nidas source package.  We cannot release the source
-	# if it contains the Condor code, and no one uses it anyway.
+    # Don't build nidas source package.  We cannot release the source
+    # if it contains the Condor code, and no one uses it anyway.
         buildopt=-bb
     else
-	# Don't build source for nidas-doxygen.
+    # Don't build source for nidas-doxygen.
         buildopt=-bb
     fi
 
@@ -158,7 +172,7 @@ EOD
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild $buildopt $witharinc $withraf $withce $withac \
+    rpmbuild $buildopt $withmodules $witharinc $withraf $withce $withac \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \

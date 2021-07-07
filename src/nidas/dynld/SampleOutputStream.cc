@@ -128,7 +128,7 @@ void SampleOutputStream::flush() throw()
         // Don't log an EPIPE error on flush(). It has very likely been
         // logged when writing samples in the receive(const Sample*) method.
         if (ioe.getErrno() != EPIPE)
-            ELOG(("%s: %s", getName().c_str(), ioe.what()));
+            WLOG(("%s: %s", getName().c_str(), ioe.what()));
     }
 }
 
@@ -163,7 +163,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
         if (ioe.getErrno() == EPIPE)
             NLOG(("%s: %s, disconnecting", getName().c_str(), ioe.what()));
         else
-            ELOG(("%s: %s, disconnecting", getName().c_str(), ioe.what()));
+            WLOG(("%s: %s, disconnecting", getName().c_str(), ioe.what()));
         // this disconnect will schedule this object to be deleted
         // in another thread, so don't do anything after the
         // disconnect except return;

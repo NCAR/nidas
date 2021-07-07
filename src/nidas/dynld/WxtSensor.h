@@ -103,7 +103,11 @@ public:
 
     void setVName(const std::string& val) { _vName = val; }
 
+    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+
 private:
+
+    void wxtValidateSscanfs();
 
     /**
      * For each `<sample>` with an scanfFormat, the parse format

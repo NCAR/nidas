@@ -112,8 +112,7 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
     addSampleTag(_outputSampleTag);
 }
 
-void CVIProcessor::connect(SampleSource* source)
-    throw(n_u::InvalidParameterException,n_u::IOException)
+void CVIProcessor::connectSource(SampleSource* source)
 {
     /*
      * In the typical usage on a DSM, this connection will
@@ -163,7 +162,7 @@ void CVIProcessor::connect(SampleSource* source)
     _averager.connect(source);
 }
 
-void CVIProcessor::disconnect(SampleSource* source) throw()
+void CVIProcessor::disconnectSource(SampleSource* source) throw()
 {
     source = source->getProcessedSampleSource();
 

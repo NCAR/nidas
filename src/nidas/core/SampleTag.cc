@@ -50,7 +50,7 @@ SampleTag::SampleTag():
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true),
-    _ttAdjustPeriod(0), _ttAdjustSampleGap(1.9)
+     _ttAdjustVal(-1.0)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
@@ -61,7 +61,7 @@ SampleTag::SampleTag(const DSMSensor* sensor):
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(), _promptOffset(0.0),
     _parameters(), _constParameters(),_enabled(true),
-    _ttAdjustPeriod(0), _ttAdjustSampleGap(1.9)
+     _ttAdjustVal(-1.0)
 {
     setSensorId(_sensor->getId());
     setDSMId(_dsm->getId());
@@ -81,8 +81,7 @@ SampleTag::SampleTag(const SampleTag& x):
     _promptString(x._promptString),
     _promptOffset(x._promptOffset),
     _parameters(), _constParameters(),_enabled(x._enabled),
-    _ttAdjustPeriod(x._ttAdjustPeriod),
-    _ttAdjustSampleGap(x._ttAdjustSampleGap)
+    _ttAdjustVal(x._ttAdjustVal)
 {
     const vector<const Variable*>& vars = x.getVariables();
     vector<const Variable*>::const_iterator vi;
@@ -376,17 +375,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                     ost << "sample id=" << getDSMId() << ',' << getSpSId();
                     throw n_u::InvalidParameterException(ost.str(),aname,sval);
                 }
-                setTimetagAdjustPeriod(val);
-
-		ist >> val;
-                if (ist.fail()) {
-                    if (!ist.eof()) {
-                        ostringstream ost;
-                        ost << "sample id=" << getDSMId() << ',' << getSpSId();
-                        throw n_u::InvalidParameterException(ost.str(),aname,sval);
-                    }
-                }
-                else setTimetagAdjustSampleGap(val);
+                setTimetagAdjust(val);
 	    }
             else {
                 ostringstream ost;

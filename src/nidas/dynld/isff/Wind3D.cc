@@ -39,7 +39,10 @@
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
-using namespace std;
+using std::vector;
+using std::string;
+using std::list;
+using std::ostringstream;
 
 namespace n_u = nidas::util;
 
@@ -104,7 +107,7 @@ void Wind3D::despike(dsm_time_t tt,
         if (tt - _ttlast[i] > DATA_GAP_USEC) _despiker[i].reset();
 
         /* Despike status, 1=despiked, 0=not despiked */
-        spikeOrMissing[i] = isnan(uvwt[i]);
+        spikeOrMissing[i] = std::isnan(uvwt[i]);
         duvwt[i] = _despiker[i].despike(uvwt[i],spikeOrMissing+i);
         if (!spikeOrMissing[i]) _ttlast[i] = tt;
     }
@@ -124,7 +127,7 @@ void Wind3D::setBias(int b, double val)
     for (int i = 0; i < 3; i++)
     {
         if (b == i) _bias[i] = val;
-        if (isnan(_bias[i])) nnan++;
+        if (std::isnan(_bias[i])) nnan++;
     }
     _allBiasesNaN = (nnan == 3);
 }
@@ -419,7 +422,8 @@ void Wind3D::validateSscanfs() throw(n_u::InvalidParameterException)
 #ifdef HAVE_LIBGSL
 void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 {
-    if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
+    if (!_atCalFile || _shadowFactor == 0.0 || std::isnan(_atMatrix[0][0]))
+        return;
 
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 
@@ -429,7 +433,7 @@ void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
      * whether some values were not being shadow corrected. So we'll
      * let one NAN "spoil the barrel".
      */
-    if (isnan(spd2)) {
+    if (std::isnan(spd2)) {
         for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
         return;
     }
@@ -573,7 +577,7 @@ bool Wind3D::process(const Sample* samp,
 
     if (_diagIndex >= 0 && (unsigned) _diagIndex < sizeof(uvwtd)/sizeof(uvwtd[0])) {
         diagval = uvwtd[_diagIndex];
-        diagOK = !isnan(diagval) && diagval == 0.0;
+        diagOK = !std::isnan(diagval) && diagval == 0.0;
     }
 
     if (getDespike()) {
@@ -616,7 +620,7 @@ bool Wind3D::process(const Sample* samp,
 
     // Do not copy more than will fit into the output sample nor more than
     // exists in the uvwtd array.
-    int nvals = ::min(_noutVals, (unsigned int)(sizeof(uvwtd)/sizeof(uvwtd[0])));
+    int nvals = std::min(_noutVals, (unsigned int)(sizeof(uvwtd)/sizeof(uvwtd[0])));
 
     memcpy(dptr, uvwtd, sizeof(float) * nvals);
 

@@ -189,20 +189,35 @@ void
 SyncServer::
 stop()
 {
+
     // This should not throw any exceptions since it gets called from
     // within exception handlers.
     DLOG(("SyncServer::stop():"));
 
-    // If we have a client with a stop callback, ie a SyncRecordReader,
-    // call it so it stops handling sync records and more importantly does
-    // not block anywhere.
-    signalStop();
+    DLOG(("Disconnecting pipeline from input stream and closing input..."));
+    _pipeline.disconnect(_inputStream);
+    _inputStream->close();
 
-    // Work backwards disconnecting the processing chain that was created
-    // in init().  This avoids deadlocks caused by the SyncRecordGenerator
-    // trying to flush() samples from the SyncRecordSource to a
-    // SyncRecordReader client, which in turn may fill up its queue and
-    // block because nothing is reading sync records anymore.
+    // The pipeline is disconnected from _syncGen before _syncGen.flush().
+    // Currently the SyncRecordSource within _syncGen does not do any
+    // locking to enforce thread exclusive access to its state, so a flush()
+    // can mess up the handling of samples in its receive() method.
+    DLOG(("Disconnecting pipeline processed sample source from sync gen..."));
+    _syncGen.disconnectSource(_pipeline.getProcessedSampleSource());
+
+    // If we weren't interrupted, do a _syncGen flush, so any cached
+    // samples in _syncGen are sent on to outputs or clients.
+    //
+    // There could be issues in the doing the _syncGen.flush() if the
+    // sample client or output stream of _syncGen are no longer handling
+    // samples, and the flush may block, hence we only flush if not
+    // interrupted.
+    if (!isInterrupted()) {
+        DLOG(("SyncServer EOF, flushing sync record generator..."));
+        _syncGen.flush();
+    }
+
+    // disconnect syncGen outputs after the flush
     if (_sampleClient)
     {
         _syncGen.removeSampleClient(_sampleClient);
@@ -211,14 +226,13 @@ stop()
     {
         _syncGen.disconnect(_outputStream);
     }
+
+    // Call stop() on a client if it has requested it via setStopSignal().
+    // It has been disconnected above, so shouldn't be receiving sync records.
+    signalStop();
+
     SampleOutputRequestThread::destroyInstance();
 
-    DLOG(("Disconnecting pipeline processed sample source from sync gen..."));
-    _syncGen.disconnect(_pipeline.getProcessedSampleSource());
-
-    DLOG(("Disconnecting pipeline from input stream and closing input..."));
-    _pipeline.disconnect(_inputStream);
-    _inputStream->close();
     DLOG(("Interrupt() and join() SamplePipeline..."));
     _pipeline.interrupt();
     _pipeline.join();
@@ -234,7 +248,6 @@ stop()
     _inputStream = 0;
     _outputStream = 0;
 }
-
 
 void
 SyncServer::
@@ -304,7 +317,7 @@ init() throw(n_u::Exception)
     // is called, the sorter threads are running and will need to be
     // stopped.
     _pipeline.connect(_inputStream);
-    _syncGen.connect(_pipeline.getProcessedSampleSource());
+    _syncGen.connectSource(_pipeline.getProcessedSampleSource());
 
     // The SyncRecordGenerator::init() method pre-loads calibrations into
     // the project variable converters, but it must be called *after* the
@@ -437,14 +450,9 @@ read(bool once) throw(n_u::IOException)
     {
         DLOG(("SyncServer EOF, flushing pipeline..."));
         _pipeline.flush();
-        // Flush the generator also, so the rest of the samples make it out
-        // of the SyncRecordSource to its SampleOutputStream or
-        // SampleClient.
-        DLOG(("SyncServer EOF, flushing sync record generator..."));
-        _syncGen.flush();
         stop();
     }
-    // If explicitly interrupted, just stop without flushing anything.
+    // If explicitly interrupted, just stop without flushing pipeline
     else if (isInterrupted())
     {
         stop();

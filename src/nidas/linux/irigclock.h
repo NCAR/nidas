@@ -36,7 +36,7 @@
 
 #if defined(__KERNEL__)
 #  include <linux/time.h>
-#  include <nidas/linux/util.h>
+#  include "util.h"
 #else
 #  include <sys/time.h>
 #endif
@@ -88,7 +88,8 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 
 /*
  * fields in struct timeval on 64 bit machine are 64 bits,
- * so declare our own 2x32 bit timeval struct.
+ * so declare our own 2x32 bit timeval struct, for backward
+ * compatibility of old samples and IRIG_GET/SET_CLOCK ioctls.
  */
 struct timeval32 {
         int tv_sec;
@@ -98,6 +99,7 @@ struct timeval32 {
 struct dsm_clock_data {
         struct timeval32 tval;
         unsigned char status;
+        char end[];
 };
 
 struct dsm_clock_data_2 {
@@ -108,6 +110,32 @@ struct dsm_clock_data_2 {
         unsigned char syncToggles;
         unsigned char clockAdjusts;
         unsigned char max100HzBacklog;
+        char end[];
+};
+
+/**
+ * Note that a int64_t has the same size, 8 bytes, as a timeval32.
+ * In order to diffentiate this new IRIG sample type from a
+ * dsm_clock_data_2 we place a dummy status with a value of 0xff in the
+ * same location as status in dsm_clock_data_2.
+ * The size of the sample should be one byte larger then dsm_clock_data_2,
+ * and a status should never have the value 0xff.
+ * Note that these are archived in raw form, and so should have the same
+ * format, independent of machine type or kernel version. So we can't use
+ * timespec64, since the long tv_nsec member can be 8 or 4 bytes depending
+ * on the machine. Two timespec64s on a 32 bit machine may also
+ * be subject to alignment padding. So for samples we'll use int64_t.
+ */
+struct dsm_clock_data_3 {
+        int64_t irigt;
+        int64_t unixt;
+        unsigned char dummystatus;
+        unsigned char status;
+        unsigned char seqnum;
+        unsigned char syncToggles;
+        unsigned char clockAdjusts;
+        unsigned char max100HzBacklog;
+        char end[];
 };
 
 struct dsm_clock_sample {
@@ -120,10 +148,16 @@ struct dsm_clock_sample {
 struct dsm_clock_sample_2 {
         dsm_sample_time_t timetag;		/* timetag of sample */
         dsm_sample_length_t length;		/* number of bytes in data */
-        struct dsm_clock_data_2 data;	/* must be no padding between
-                                         * length and data! */
+        struct dsm_clock_data_2 data;           /* must be no padding between
+                                                 * length and data! */
 };
 
+struct dsm_clock_sample_3 {
+        dsm_sample_time_t timetag;		/* timetag of sample */
+        dsm_sample_length_t length;		/* number of bytes in data */
+        struct dsm_clock_data_3 data;           /* must be no padding between
+                                                 * length and data! */
+};
 /**
  * Limits for how many ticks the 100Hz software clock can disagree
  * with the hardware clock before a reset is done. If the
@@ -183,6 +217,8 @@ struct pc104sg_status {
 #define IRIG_GET_CLOCK		_IOR(IRIG_IOC_MAGIC, 3, struct timeval32)
 #define IRIG_SET_CLOCK		_IOW(IRIG_IOC_MAGIC, 4, struct timeval32)
 #define IRIG_OVERRIDE_CLOCK	_IOW(IRIG_IOC_MAGIC, 5, struct timeval32)
+#define IRIG_GET_CLOCK64	_IOR(IRIG_IOC_MAGIC, 6, int64_t)
+#define IRIG_SET_CLOCK64	_IOW(IRIG_IOC_MAGIC, 7, int64_t)
 
 /**********  Start of symbols used by kernel modules **********/
 
@@ -219,12 +255,21 @@ extern int ReadClock;
  * The memory barrier ensures that the store of the clock value
  * is complete before the load.
  */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
 #define GET_TMSEC_CLOCK \
         ({\
-         int tmp = ReadClock;\
+         int tmp = smp_load_acquire(&ReadClock);\
+         TMsecClock[tmp];\
+         })
+#else
+#define GET_TMSEC_CLOCK \
+        ({\
+         int tmp = READ_ONCE(ReadClock);\
          smp_read_barrier_depends();\
          TMsecClock[tmp];\
          })
+#endif
 
 #define GET_MSEC_CLOCK (GET_TMSEC_CLOCK/10)
 
@@ -240,7 +285,7 @@ extern int get_msec_clock_resolution(void);
  * Precision is better than 1 microsecond; the accuracy is
  * unknown and affected by ISA contention and interrupt activity.
  */
-extern void irig_clock_gettime(struct timespec* tp);
+extern void irig_clock_gettime(thiskernel_timespec_t* tp);
 
 typedef void irig_callback_func(void* privateData);
 

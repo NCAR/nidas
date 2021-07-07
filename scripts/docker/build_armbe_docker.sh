@@ -2,13 +2,16 @@
 
 set -e
 
-# image will have a "builder" user, and a group eol:1342
+# A --build-arg overrides an ARG in the Dockerfile
+user=builder
+uid=1000
 group=eol
 gid=1342
 
 image=fedora25-armbe-cross:ael
 
-docker build --volume=$PWD:/tmp/docker-files:ro,Z -t $image \
+docker build -t $image \
+    --build-arg=user=$user --build-arg=uid=$uid \
     --build-arg=group=$group --build-arg=gid=$gid \
     -f Dockerfile.cross_ael_armeb .
 

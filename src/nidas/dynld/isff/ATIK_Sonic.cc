@@ -32,6 +32,7 @@
 #include <nidas/core/TimetagAdjuster.h>
 
 #include <byteswap.h>
+#include <cmath>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
@@ -57,6 +58,9 @@ ATIK_Sonic::ATIK_Sonic():
 
 ATIK_Sonic::~ATIK_Sonic()
 {
+    if (_ttadjust) {
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
+    }
     delete _ttadjust;
 }
 
@@ -117,10 +121,8 @@ void ATIK_Sonic::checkSampleTags()
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
     /*
      * nvars
      * 7	u,v,w,tc,diag,spd,dir
@@ -169,7 +171,7 @@ void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()
      * whether some values were not being shadow corrected. So we'll
      * let one NAN "spoil the barrel".
      */
-    if (isnan(spd)) {
+    if (std::isnan(spd)) {
         for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
         return;
     }
@@ -230,6 +232,8 @@ bool ATIK_Sonic::process(const Sample* samp,
 
         // result from base class parsing of ASCII
         const Sample* psamp = parseResults.front();
+
+        // base class runs ttadjust on the time tag
         timetag = psamp->getTimeTag();
 
         unsigned int nvals = psamp->getDataLength();
@@ -249,7 +253,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         for (i = 0; i < 3 && pdata < pend; i++) {
             float f = counts[i] = *pdata++;
             int c = 0;
-            if (!isnan(f)) c = (int) f;
+            if (!std::isnan(f)) c = (int) f;
             miss_sum += std::min(_expectedCounts - c,0);
             // cerr << "c=" << c << " expected=" << _expectedCounts << ", sum=" << miss_sum << endl;
         }

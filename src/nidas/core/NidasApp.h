@@ -379,17 +379,17 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
 
 
 /**
- * Handle common options for NIDAS applications.  The application specifies
- * which of the options are valid and it can specify defaults if necessary,
- * and then command-line arguments can be parsed and their settings
- * retrieved through this instance.  This class allows for consistent
- * option letters and syntax across NIDAS applications.  Applications can
- * extend this class with their own options, either as a subclass or by
- * delegation to an instance.
+ * NidasApp handles common options for NIDAS applications.  The application
+ * specifies which of the options are valid and it can specify defaults if
+ * necessary, then command-line arguments can be parsed and their settings
+ * retrieved through this instance.  This class allows for consistent option
+ * letters and syntax across NIDAS applications.  Applications can extend
+ * this class with their own options, either as a subclass or by delegation
+ * to an instance.
  *
  * There are several NIDAS applications with common options that can be
  * consolidated in this class:
- * 
+ *
  * - data_dump
  * - data_stats
  * - nidsmerge
@@ -402,8 +402,8 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * - sync_server
  * - nimbus
  *
- * The goal is to keep syntax for common arguments consistent across
- * applications.
+ * The goal is to keep syntax and meaning for common arguments consistent
+ * across applications.
  *
  * <table>
 <tr>
@@ -510,7 +510,6 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  *
  * The default log level when a NidasApp is created is *info*.
  * 
- * 
  * ### --logshow ###
  *
  * Show log points as they are encountered while the code is running.  This
@@ -542,7 +541,7 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  * ### -d,--debug debug mode ###
  *
  * The dsm and dsm_server applications both support a debug mode which runs
- * in the foreground instead of as a daemon, by default sends all log
+ * in the foreground instead of as a daemon, and by default sends all log
  * messages to standard output.  The long form is --debug.
  *
  * ### -u,--user <username> ###
@@ -554,6 +553,21 @@ operator|(nidas_app_arglist_t arglist1, nidas_app_arglist_t arglist2);
  *
  * Run as if on the given host instead of using current system hostname.
  *
+ * ## Logging ##
+ *
+ * When a NidasApp is constructed, it sets up its own default logging scheme
+ * with a fallback log level of INFO.  That log scheme is set as the current
+ * scheme only if there is not already a scheme with a non-empty name.  That
+ * allows an app to install its own default LogScheme before creating a
+ * NidasApp, but the app of course can also install its own scheme after
+ * creating NidasApp.  When NidasApp parses logging arguments, it updates
+ * and explicitly installs its LogScheme, so the user arguments always
+ * override the app and NidasApp defaults.
+ *
+ * Since the default INFO log level is a fallback, that will be replaced by
+ * the first log config provided as an argument.  So a log argument of
+ * "warning" will set the log scheme to only show messages at or more
+ * critical than warnings.
  **/
 class NidasApp
 {
@@ -677,11 +691,8 @@ public:
     loggingArgs();
 
     /**
-     * Give the NidasApp instance a name, to be used for the usage info and
-     * the logging scheme.  When a NidasApp is created, it replaces an
-     * existing default logging scheme to set the default log level to
-     * INFO.  If there is already a logging scheme without the default
-     * name, then it will not be changed.
+     * Construct a NidasApp instance and give it a name to be used for the
+     * usage info.
      **/
     NidasApp(const std::string& name);
 
@@ -992,9 +1003,9 @@ public:
     logLevel();
 
     /**
-     * Reset the logging configuration to the NidasApp default, meaning any
-     * current log scheme is cleared of configs and the default scheme is
-     * set to log level INFO.
+     * Reset logging to the NidasApp default.  This erases all log schemes,
+     * then sets up the default NidasApp log scheme same as happens in the
+     * NidasApp constructor.
      **/
     void
     resetLogging();
@@ -1297,11 +1308,36 @@ public:
      **/
     void
     setupProcess();
-    
+
     /**
-     * Switch this process to daemon mode unless the DebugDaemon argument
-     * has been enabled.
+     * @brief Setup logging according to daemon mode.
+     *
+     * Setup the logging scheme and create a Logger according to the daemon
+     * mode.  Usually an application just calls setupDaemon(), since that
+     * method calls setupDaemonLogging() before switching to a daemon (if
+     * not disabled).
      **/
+    void
+    setupDaemonLogging(bool daemon_mode);
+
+    /**
+     * Call setupDaemonLogging(daemon_mode), where daemon_mode is true only
+     * if DebugDaemon is false.
+     */
+    void
+    setupDaemonLogging();
+
+    /**
+     * Call setupDaemonLogging(), then switch this process to daemon mode
+     * if @p daemon_mode is true.
+     **/
+    void
+    setupDaemon(bool daemon_mode);
+
+    /**
+     * Call setupDaemon(daemon_mode), where daemon_mode is true only if
+     * DebugDaemon is false.
+     */
     void
     setupDaemon();
 
@@ -1330,6 +1366,9 @@ public:
     checkPidFile();
 
 private:
+
+    void
+    setupLogScheme();
 
     static NidasApp* application_instance;
 
@@ -1377,6 +1416,9 @@ private:
     nidas::util::Exception _exception;
 
     bool _allowUnrecognized;
+
+    /// NidasApp keeps track of the LogScheme built up from arguments.
+    nidas::util::LogScheme _logscheme;
 };
 
 

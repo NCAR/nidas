@@ -75,6 +75,9 @@ CSAT3_Sonic::CSAT3_Sonic():
 
 CSAT3_Sonic::~CSAT3_Sonic()
 {
+    if (_ttadjuster) {
+        _ttadjuster->log(nidas::util::LOGGER_INFO, this);
+    }
     delete _ttadjuster;
 }
 
@@ -845,10 +848,8 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
         if (_windSampleId == 0) {
             size_t nvars = stag->getVariables().size();
             _rate = (int)rint(stag->getRate());
-            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjustPeriod() > 0.0) 
-                _ttadjuster = new TimetagAdjuster(_rate,
-                        stag->getTimetagAdjustPeriod(),
-                        stag->getTimetagAdjustSampleGap());
+            if (!_ttadjuster && _rate > 0.0 && stag->getTimetagAdjust() > 0.0) 
+                _ttadjuster = new TimetagAdjuster(stag->getId(), _rate);
             _gapDtUsecs = 5 * USECS_PER_SEC;
 
             _windSampleId = stag->getId();

@@ -232,7 +232,7 @@ void CalFile::setPath(const std::string& val)
 
     // _path = _path.replace('\\',File.separatorChar);
     // _path = _path.replace('/',File.separatorChar);
-    
+
     // _path = _path.replace(';',File.pathSeparatorChar);
     // _path = _path.replace(':',File.pathSeparatorChar);
 }
@@ -391,7 +391,7 @@ n_u::UTime CalFile::parseTime()
 
     string saveTZ;
     bool changeTZ = !_utcZone &&
-        (saveTZ = n_u::UTime::getTZ()) != _timeZone; 
+        (saveTZ = n_u::UTime::getTZ()) != _timeZone;
     if (changeTZ) n_u::UTime::setTZ(_timeZone.c_str());
 
     int nchars = 0;
@@ -412,7 +412,7 @@ n_u::UTime CalFile::parseTime()
 }
 
 n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
-{ 
+{
     readLine();
     if (eof())
     {
@@ -570,7 +570,7 @@ int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata,
     char* pound = strchr(_curline + _curpos, '#');
     if (pound)
         *pound = '\0';
-        
+
     // Now check if this record is an include directive, and if so, recurse
     // into the include file looking for the next cal record.
     if (parseInclude())
@@ -609,7 +609,7 @@ getFields(int begin, int end, float* data,
     if (!fields_in)
         fields_in = &_currentFields;
     const std::vector<std::string>& fields = *fields_in;
-    
+
     // For as many data elements as need to be filled, try to parse a
     // number out of the field.
     int id = 0;
@@ -709,9 +709,9 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
         }
 
         // cerr << getCurrentFileName() << ": line=" << _curline << endl;
-        if (_fin.bad()) 
+        if (_fin.bad())
             throw n_u::IOException(getCurrentFileName(),"read",errno);
-        
+
         _nline++;
 
         _curpos = 0;

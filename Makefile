@@ -42,6 +42,15 @@
 #     deb (nidas-modules-rpi2): 
 #	/lib/modules/$(uname -r)/nidas
 #	e.g.: /lib/modules/4.4.9-v7+/nidas (RPi2, May 2016)
+# i386, vortex
+#   libs:
+#     scons: $DESTDIR/$PREFIX/lib
+#     deb (nidas-libs,nidas-dev): $PREFIX/lib/i386-linux-gnu
+#   modules:
+#     scons: $DESTDIR/$PREFIX/modules
+#     deb (nidas-modules-vortex): 
+#	/lib/modules/$(uname -r)/nidas
+#	e.g.: /lib/modules/4.4.6/nidas (vortex, Oct 2020)
 # arm (old, non-EABI): viper, titan (not built from this Makefile)
 #   libs:
 #     scons: $DESTDIR/$PREFIX/arm/lib
@@ -79,9 +88,9 @@ BUILDS ?= "host"
 REPO_TAG ?= v1.2
 PREFIX=/opt/nidas
 
-LDCONF := $(DESTDIR)/etc/ld.so.conf.d/nidas-$(DEB_HOST_GNU_TYPE).conf
+LDCONF := $(DESTDIR)/etc/ld.so.conf.d/nidas-$(DEB_HOST_MULTIARCH).conf
 
-ARCHLIBDIR := lib/$(DEB_HOST_GNU_TYPE)
+ARCHLIBDIR := lib/$(DEB_HOST_MULTIARCH)
 
 MODDIR := $(DESTDIR)/lib/modules
 
@@ -102,13 +111,15 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
        # We don't really need linux modules on Pi, so do not try to build them if headers not installed.
         LINUX_MODULES := off
     endif
+else ifeq ($(DEB_HOST_GNU_TYPE),i686-linux-gnu)
+    VORTEX_KERN := 4.4.6
 endif
 
 # Where to find pkg-configs of other software
-PKG_CONFIG_PATH := /usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+PKG_CONFIG_PATH := /usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
 # Copy nidas.pc from $(PREFIX) to /usr/lib
-PKGCONFIG := $(DESTDIR)/usr/lib/$(DEB_HOST_GNU_TYPE)/pkgconfig/nidas.pc
+PKGCONFIG := $(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/nidas.pc
 SCONSPKGCONFIG := $(DESTDIR)$(PREFIX)/$(ARCHLIBDIR)/pkgconfig/nidas.pc
 
 .PHONY : build clean scons_install $(LDCONF)
@@ -116,6 +127,7 @@ SCONSPKGCONFIG := $(DESTDIR)$(PREFIX)/$(ARCHLIBDIR)/pkgconfig/nidas.pc
 $(info DESTDIR=$(DESTDIR))
 $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
 $(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
+$(info DEB_HOST_MULTIARCH=$(DEB_HOST_MULTIARCH))
 
 build:
 	cd src; $(SCONS) --config=force -j 4 BUILDS=$(BUILDS) \
@@ -127,7 +139,7 @@ build:
 
 $(LDCONF):
 	@mkdir -p $(@D); \
-	echo "/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)" > $@
+	echo "/opt/nidas/lib/$(DEB_HOST_MULTIARCH)" > $@
 
 scons_install:
 	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) \
@@ -160,6 +172,10 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	if [ -n "$(X86_64_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(X86_64_KERN)/nidas;\
 	    mv $(SCONSMODDIR)/* $(MODDIR)/$(X86_64_KERN)/nidas;\
+	fi
+	if [ -n "$(VORTEX_KERN)" ]; then\
+	    mkdir -p $(MODDIR)/$(VORTEX_KERN)/nidas;\
+	    mv $(SCONSMODDIR)/* $(MODDIR)/$(VORTEX_KERN)/nidas;\
 	fi
 
 clean:

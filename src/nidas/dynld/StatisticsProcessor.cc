@@ -274,7 +274,7 @@ void StatisticsProcessor::selectRequestedSampleTags(const vector<unsigned int>& 
     }
 }
 
-void StatisticsProcessor::connect(SampleSource* source) throw()
+void StatisticsProcessor::connectSource(SampleSource* source)
 {
 // #define DEBUG
 #ifdef DEBUG
@@ -462,7 +462,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     _cruncherListMutex.unlock();
 }
 
-void StatisticsProcessor::disconnect(SampleSource* source) throw()
+void StatisticsProcessor::disconnectSource(SampleSource* source) throw()
 {
     source = source->getProcessedSampleSource();
     if (!source) return;

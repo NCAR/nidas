@@ -1,6 +1,7 @@
 /* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
 /* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
+
 /*
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
@@ -26,8 +27,70 @@
 */
 /* pc104sg.c
  *
- * driver for Brandywine's PC104-SG IRIG card
+ * Driver for Brandywine's PC104-SG IRIG card
  *
+ * 1. Enables a 10 KHz output, on P10 pin 10, used by other cards in the PC104 stack
+ * 2. Enables a 100/sec heartbeat which is output on P10, pin 8, and also
+ *    generates an interrupt on the ISA/PC104 bus.
+ * 3. Allows other driver modules to register callbacks, to be
+ *    called at desired rates from 0.1/sec to 100/sec.
+ *    a. registers its own 1/sec callback function, oneHzFunction.
+ * 4. Attaches an ISR, function pc104sg_isr, to the 100/sec interrupt, which:
+ *    a. Reads the extended status value from DPRAM, issues request
+ *       for next extended status. In this way, by issuing DPRAM requests
+ *       0.01 seconds apart, one doesn't have to wait for the DPRAM
+ *       to be ready.
+ *    b. If doSnapShot is true, takes a snapshot of the software clock counter,
+ *       the IRIG clock, the UNIX system clock, the board synchronization state,
+ *       and the status of the IRIG and PPS inputs.
+ *    c. schedules a software tasklet to run
+ * 5. The 100Hz software tasklet, function pc104sg_bh_100Hz:
+ *    a. maintains a 4 byte unsigned int software clock, in units of
+ *       1/10ths of milliseconds, rolling over at 00:00 UTC. This clock
+ *       can be read by other modules.
+ *    b. calls the registered callbacks at the requested rates,
+ *       including its own callback at 1/sec.
+ *    c. If near the end of the current second, sets doSnapShot, so that
+ *       the ISR will take a clock snapshot on the next run.
+ * 6. The 1 Hz callback, oneHzFunction:
+ *    a. Uses the last snapshot to determine the quality of the software
+ *       clock counter.
+ *       * If the board is in sync with IRIG and PPS inputs, the
+ *         agreement between the software clock and the IRIG hardware clock
+ *         is checked. If the clocks disagree it is probably due to a
+ *         missed interrupt, and the 100Hz tasklet is asked to catch up,
+ *         by changing the value of pending100Hz.
+ *       * If the  board is not in sync with the inputs, the agreement
+ *         between the software clock and the UNIX system clock is checked.
+ *       * If there is significant difference between the reference clock
+ *         (IRIG if in sync, UNIX otherwise) and the software clock, then
+ *         the software clock is simply reset. Callback clients may have
+ *         registered a resync-callback, and if so, that is called.
+ *         At this point no drivers have resync-callbacks, this capability
+ *         has not been tested, probably could be removed.
+ *    b. Places the snapshot values in a NIDAS sample and queues it for read.
+ * 7. Provides a open/close/poll/read/ioctl device interface.
+ *    a. ioctls: GET_STATUS, GET_CLOCK, SET_CLOCK.
+ *       SET_CLOCK allows the user to initialize parts of the IRIG clock, namely
+ *       the year and major time (1 second or greater) fields.
+ *       Setting the major time is necessary if IRIG time codes are not being
+ *       received by the card.
+ *    b. Supports polling and reads of the 1/sec NIDAS samples.
+ *
+ * A large portion of this code attempts to deal with error conditions:
+ * the lack of synchronization of this card with the input PPS,
+ * and with missed interrupts.
+ *
+ * year 2038 issues:
+ * According to quote from Arnd Bergmann on the web, 5.6 is the first kernel
+ * compatible with year 2038 on 32 bit machines.
+ *
+ * Use ktime_get_real_ts*() functions to get the system real time, and a
+ * compatible time type: thiskernel_timespec_t. See comments in ../util.h.
+ *
+ * On 32 bit machines, try to limit the use of 64 bit integer math.
+ * 64 bit times are calculated once per second for output samples, and for ioctls
+ * which are not used at a high rate.
  */
 
 #include <linux/kernel.h>
@@ -154,27 +217,11 @@ EXPORT_SYMBOL(ReadClock);
 /**
  * What to do with the with the software clock and loop counter
  * in the bottom-half tasklet.
- *
- * For USER_SET_REQUESTED, the software clock will be set once
- * from a time provided by the user if the card does not have sync,
- * and then adjusted from either the IRIG clock or unix clock.
- * This is not currently used.
- *
- * If USER_OVERRIDE_REQUESTED the software clock will be set once
- * from a time provided by the user in an ioctl and not thereafter
- * adjusted. USER_OVERRIDE_REQUESTED is not currently used and
- * could probably be removed.
  */
 enum clockAction
 {
         RESET_COUNTERS,
         NO_ACTION,
-#ifdef SUPPORT_USER_SET
-        USER_SET_REQUESTED,     /* user has requested to set the clock via ioctl */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE_REQUESTED /* user has requested override of clock */
-#endif
 };
 
 /**
@@ -184,12 +231,6 @@ enum clockState
 {
         SYNCD_SET,              /* good state, clock set from irig clock */
         UNSYNCD_SET,            /* card does not have sync, set from unix clock */
-#ifdef SUPPORT_USER_SET
-        USER_SET,               /* software clock set from value provided by user */
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        USER_OVERRIDE           /* clock has been overridden */
-#endif
 };
 
 /**
@@ -210,12 +251,12 @@ struct clockSnapShot
         /**
          * The current time from the IRIG registers
          */
-        struct timeval32 irig_time;
+        thiskernel_timespec_t irig_time;
 
         /**
          * current unix time
          */
-        struct timeval32 unix_time;
+        thiskernel_timespec_t unix_time;
 
         /**
          * value of the software clock
@@ -463,13 +504,6 @@ struct pc104sg_board
          */
         wait_queue_head_t callbackWaitQ;
 
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-        /**
-         * value passed by user via ioctl who wants to set the IRIG clock.
-         */
-        struct timeval32 userClock;
-#endif
-
         int max100HzBacklog;
 
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
@@ -534,14 +568,6 @@ static const char *clockStateString(void)
                 return "SYNCD_SET";
         case UNSYNCD_SET:
                 return "UNSYNCD_SET";
-#ifdef SUPPORT_USER_SET
-        case USER_SET:
-                return "USER_SET";
-#endif
-#ifdef SUPPORT_USER_OVERRIDE
-        case USER_OVERRIDE:
-                return "USER_OVERRIDE";
-#endif
         default:
                 break;
         }
@@ -931,6 +957,7 @@ static inline void getRequestedDPRAM(unsigned char *val)
 /**
  * Set a value in dual port RAM.
  * @param addr	dual-port RAM address to write
+ * Note that it disables interrupts.
  *
  * Called by:
  *      setHeartBeatOutput(int rate)
@@ -1041,7 +1068,6 @@ static int writeDPRAM(unsigned char addr, unsigned char value)
         spin_unlock_irqrestore(&board.lock, flags);
         return ret;
 }
-
 
 /* This controls COUNTER 1 on the PC104SG card */
 static int setHeartBeatOutput(int rate)
@@ -1173,22 +1199,6 @@ static int counterRejam(void)
         return writeDPRAM(DP_Command, Command_Rejam);
 }
 
-/* convenience function to read current unix time into a struct timeval32 */
-static void do_gettimeofday_tv32(struct timeval32* tv32)
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        struct timeval tv;
-        do_gettimeofday(&tv);
-        tv32->tv_sec = tv.tv_sec;
-        tv32->tv_usec = tv.tv_usec;
-#else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        tv32->tv_sec = tv.tv_sec;
-        tv32->tv_usec = tv.tv_nsec / 1000;
-#endif
-}
-
 /**
  * Read time from the registers.
  * Set offset to 0 to read main clock.
@@ -1198,17 +1208,15 @@ static void do_gettimeofday_tv32(struct timeval32* tv32)
  * hundreds value for the respective time fields.
  *
  * Called by:
- *     get_irig_time(&ti);
- *         ISR
- *     ioctl
- *         user space
+ *     get_irig_time_nolock(&ti) from the ISR
+ *     ioctls, from user space
  *     irig_clock_gettime(struct timespec* tp)
  *         other modules
  *
  * Since reading the Usec1_Nsec100 value latches the other digits,
- * all these calls hold a spin_lock before calling getTimeFields().
+ * all these calls hold a spin_lock before calling getTimeRegisters().
  */
-static void getTimeFields(struct irigTime *ti, int offset)
+static void getTimeRegisters(struct irigTime *ti, int offset)
 {
         unsigned char us0ns2, us2us1, ms1ms0, sec0ms2, min0sec1, hour0min1;
         unsigned char day0hour1, day2day1, year1year0;
@@ -1287,48 +1295,22 @@ int getTimeUsec()
 }
 
 /**
- * Get main clock.
- */
-static void get_irig_time(struct irigTime *ti)
-{
-        getTimeFields(ti, 0);
-#ifdef DEBUG
-        {
-                int td, hr, mn, sc;
-                // unsigned char status = inb(board.addr + Status_Port);
-                dsm_sample_time_t tt = GET_TMSEC_CLOCK;
-                struct timespec ts;
-                irigTotimespec(ti, &ts);
-                // clock difference
-                td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                    ts.tv_nsec / NSECS_PER_TMSEC - tt;
-                hr = (tt / 3600 / TMSECS_PER_SEC);
-                tt %= (3600 * TMSECS_PER_SEC);
-                mn = (tt / 60 / TMSECS_PER_SEC);
-                tt %= (60 * TMSECS_PER_SEC);
-                sc = tt / TMSECS_PER_SEC;
-                tt %= TMSECS_PER_SEC;
-                KLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
-                           "clk=%02d:%02d:%02d.%04d, diff=%d tmsec, estat=0x%x, state=%d\n",
-                           ti->year, ti->yday, ti->hour, ti->min, ti->sec,
-                           ti->msec, ti->usec, ti->nsec, hr, mn, sc,
-                           (int) tt, td, board.lastStatus,
-                           board.clockState);
-        }
-#endif
-}
-
-/**
- * Break a struct timeval32 into the fields of a struct irigTime.
+ * Break a timespec into the fields of a struct irigTime.
  * This uses some code from glibc/time routines.
  */
-static void timespecToirig(const struct timespec *ts, struct irigTime *ti)
+static void timespecToirig(const thiskernel_timespec_t *ts, struct irigTime *ti)
 {
         int days, rem, y;
-        unsigned int t = ts->tv_sec;
 
-        days = t / SECS_PER_DAY;
-        rem = t % SECS_PER_DAY;
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes dividend in place, returns remainder */
+        int64_t sec = ts->tv_sec;
+        rem = do_div(sec, SECS_PER_DAY);
+        days = sec;
+#else
+        days = ts->tv_sec / SECS_PER_DAY;
+        rem = ts->tv_sec % SECS_PER_DAY;
+#endif
         ti->hour = rem / SECS_PER_HOUR;
         rem %= SECS_PER_HOUR;
         ti->min = rem / 60;
@@ -1355,26 +1337,10 @@ static void timespecToirig(const struct timespec *ts, struct irigTime *ti)
         ti->nsec = rem;
 }
 
-static void timeval32Toirig(const struct timeval32 *tv, struct irigTime *ti)
-{
-        struct timespec ts;
-        ts.tv_sec = tv->tv_sec;
-        ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
-        timespecToirig(&ts, ti);
-}
-
-static void timevalToirig(const struct timeval *tv, struct irigTime *ti)
-{
-        struct timespec ts;
-        ts.tv_sec = tv->tv_sec;
-        ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
-        timespecToirig(&ts, ti);
-}
-
 /**
- * Convert a struct irigTime into a struct timespec.
+ * Convert a struct irigTime into a thiskernel_timespec_t.
  */
-static void irigTotimespec(const struct irigTime *ti, struct timespec *ts)
+static void irigTotimespec(const struct irigTime *ti, thiskernel_timespec_t *ts)
 {
         int y = ti->year;
         int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
@@ -1383,54 +1349,107 @@ static void irigTotimespec(const struct irigTime *ti, struct timespec *ts)
             ti->msec * NSECS_PER_MSEC + ti->usec * NSECS_PER_USEC +
             ti->nsec;
 
-        ts->tv_sec = (y - 1970) * 365 * SECS_PER_DAY +
+        ts->tv_sec = (int64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
             ti->hour * 3600 + ti->min * 60 + ti->sec;
 }
 
 /**
- * Convert a struct irigTime into a struct timeval32
+ * Convert a struct irigTime to a int64_t time in microseconds
  */
-static void irigTotimeval32(const struct irigTime *ti, struct timeval32* tv)
+static int64_t irigTousec(const struct irigTime *ti)
 {
         int y = ti->year;
         int nleap = LEAPS_THRU_END_OF(y - 1) - LEAPS_THRU_END_OF(1969);
+        int64_t val;
 
-        tv->tv_usec =
-            ti->msec * USECS_PER_MSEC + ti->usec +
-            (ti->nsec + NSECS_PER_USEC / 2) / NSECS_PER_USEC;
-
-        tv->tv_sec = (y - 1970) * 365 * SECS_PER_DAY +
+        val = ((int64_t)(y - 1970) * 365 * SECS_PER_DAY +
             (nleap + ti->yday - 1) * SECS_PER_DAY +
-            ti->hour * 3600 + ti->min * 60 + ti->sec;
-
-        if (tv->tv_usec > USECS_PER_SEC)
-                KLOG_INFO("sec=%d,usec=%d\n",tv->tv_sec,tv->tv_usec);
+            ti->hour * 3600 + ti->min * 60 + ti->sec) * USECS_PER_SEC +
+            ti->msec * USECS_PER_MSEC + ti->usec;
+        return val;
 }
 
-/* convenience function to read current irig time into a struct timeval32 */
-static void get_irig_time_tv32(struct timeval32* tv32)
+/**
+ * Convert a struct irigTime into a struct timeval32.
+ * Not 2038 compatible.
+ */
+static void irigTotimeval32(const struct irigTime *ti, struct timeval32 *tv)
+{
+        thiskernel_timespec_t ts;
+        irigTotimespec(ti, &ts);
+
+        tv->tv_sec = ts.tv_sec;
+        tv->tv_usec = ts.tv_nsec / NSECS_PER_USEC;
+}
+
+/**
+ * Get value of on-board clock.
+ */
+static void get_irig_time_nolock(struct irigTime *ti)
+{
+        getTimeRegisters(ti, 0);
+#ifdef DEBUG
+        {
+                int td, hr, mn, sc;
+                // unsigned char status = inb(board.addr + Status_Port);
+                dsm_sample_time_t tt = GET_TMSEC_CLOCK;
+                thiskernel_timespec_t ts;
+                irigTotimespec(ti, &ts);
+                // clock difference
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+		/* do_div changes dividend in place, returns remainder */
+		td = do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+                    ts.tv_nsec / NSECS_PER_TMSEC;
+#else
+                td = (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                    ts.tv_nsec / NSECS_PER_TMSEC;
+#endif
+                hr = (tt / 3600 / TMSECS_PER_SEC);
+                tt %= (3600 * TMSECS_PER_SEC);
+                mn = (tt / 60 / TMSECS_PER_SEC);
+                tt %= (60 * TMSECS_PER_SEC);
+                sc = tt / TMSECS_PER_SEC;
+                tt %= TMSECS_PER_SEC;
+                KLOG_DEBUG("%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
+                           "clk=%02d:%02d:%02d.%04d, diff=%d tmsec, estat=0x%x, state=%d\n",
+                           ti->year, ti->yday, ti->hour, ti->min, ti->sec,
+                           ti->msec, ti->usec, ti->nsec, hr, mn, sc,
+                           (int) tt, td, board.lastStatus,
+                           board.clockState);
+        }
+#endif
+}
+
+
+/*
+ * convenience function to read current irig time into a struct timespec
+ * Interrupts are not disabled.
+ * */
+static void get_irig_timespec_nolock(thiskernel_timespec_t* ts)
 {
         struct irigTime ti;
-        get_irig_time(&ti);
-        irigTotimeval32(&ti,tv32);
+        get_irig_time_nolock(&ti);
+        irigTotimespec(&ti,ts);
 }
 
 /**
  * This function is available for use by external modules.
  * Note that it disables interrupts.
  */
-void irig_clock_gettime(struct timespec *tp)
+void irig_clock_gettime(thiskernel_timespec_t *tp)
 {
         struct irigTime it;
         unsigned long flags;
 
         spin_lock_irqsave(&board.lock, flags);
-        get_irig_time(&it);
+        get_irig_time_nolock(&it);
         spin_unlock_irqrestore(&board.lock, flags);
 
         irigTotimespec(&it, tp);
 }
+
+EXPORT_SYMBOL(irig_clock_gettime);
 
 /* this function is available for external use */
 int get_msec_clock_resolution()
@@ -1438,13 +1457,14 @@ int get_msec_clock_resolution()
         return MSEC_PER_INTERRUPT;
 }
 
-// /**
-//  * Get external event time.
-//  */
-// static void 
-// getExtEventTime(struct irigTime* ti) {
-//     return getTimeFields(ti, 0x10);
-// }
+#ifdef CHECK_EXT_EVENT
+/**
+ * Get external event time.
+ */
+static void getExtEventTime(struct irigTime* ti) {
+        return getTimeRegisters(ti, 0x10);
+}
+#endif
 
 /**
  * set the year fields in Dual Port RAM.
@@ -1515,7 +1535,7 @@ static int setMajorTime(struct irigTime *ti)
 
 /**
  * Set the software clock and the tasklet loop counter based on a clock
- * value in a timeval struct.
+ * value in a timespec struct.
  *
  * This function is called by the bottom half tasklet if clockAction==RESET_COUNTERS.
  *
@@ -1523,15 +1543,22 @@ static int setMajorTime(struct irigTime *ti)
  * register clocks and the system clock (conditioned by NTP),
  * with a GPS-conditioned timeserver providing the IRIG and NTP references.
  *
- * This function sets TMsecClockTicker from the timeval.
+ * This function sets TMsecClockTicker from the timespec.
  *
  */
-static int setSoftTickers(struct timeval32 *tv,int round)
+static int setSoftTickers(const thiskernel_timespec_t *ts,int round)
 {
         int counter, newClock;
 
-        newClock = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-            tv->tv_usec / USECS_PER_TMSEC;
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes dividend in place, returns remainder */
+        int64_t sec = ts->tv_sec;
+        newClock = do_div(sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+            ts->tv_nsec / NSECS_PER_TMSEC;
+#else
+        newClock = (ts->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+            ts->tv_nsec / NSECS_PER_TMSEC;
+#endif
         if (round) newClock += TMSEC_PER_SOFT_TIC / 2;
         newClock -= newClock % TMSEC_PER_SOFT_TIC;
         newClock %= TMSECS_PER_DAY;
@@ -1641,10 +1668,7 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                                     ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
                                      board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
                                 spin_lock_irqsave(&board.lock, flags);
-#ifdef SUPPORT_USER_OVERRIDE
-                                if (board.clockState != USER_OVERRIDE)
-#endif
-                                        board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
+                                board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
                                 spin_unlock_irqrestore(&board.lock, flags);
                         }
                 }
@@ -1733,32 +1757,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
 
                 atomic_dec(&board.pending100Hz);
 
-#if defined(SUPPORT_USER_SET) || defined(SUPPORT_USER_OVERRIDE)
-                switch (board.clockAction) {
-#ifdef SUPPORT_USER_OVERRIDE
-                case USER_OVERRIDE_REQUESTED:
-                        count100Hz = setSoftTickers(&board.userClock,1);
-                        board.clockState = USER_OVERRIDE;
-                        break;
-#endif
-#ifdef SUPPORT_USER_SET
-                case USER_SET_REQUESTED:
-                        // has requested to set the clock, and we
-                        // have no time sync, then set the clock counters
-                        // to the user clock, and then run normally.
-                        if ((board.lastStatus & DP_Extd_Sts_Nosync)) {
-                                count100Hz = setSoftTickers(&board.userClock,1);
-                                board.clockACTION = NO_ACTION;
-                        }
-                        // set to irig clock since we have time sync
-                        else board.clockAction = RESET_COUNTERS;
-                        break;
-#endif
-                default:
-                        break;
-                }
-#endif
-
                 /* fix the clock and loop counter if requested */
                 if (unlikely(board.clockAction == RESET_COUNTERS) && board.resetSnapshotDone) {
                         // If current sync is OK and was OK over last second
@@ -1789,13 +1787,9 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                  * read by external modules without needing a mutex.
                  */
                 TMsecClock[board.WriteClock] = board.TMsecClockTicker;
-
-                /* see comment about memory barrier in setSoftwareTickers */
                 smp_wmb();
-                ic = ReadClock;
-                /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
-                ReadClock = board.WriteClock;
-                /* now TMsecClock[ReadClock=1] is still OK to read. */
+                ic = READ_ONCE(ReadClock);
+                WRITE_ONCE(ReadClock, board.WriteClock);
                 board.WriteClock = ic;
 
                 /* Near the end of the second, ask for next clock snapshot to be
@@ -1893,17 +1887,29 @@ static void oneHzFunction(void *ptr)
 {
         unsigned long flags;
 
-        struct timeval32 ti;
-        struct timeval32 tu;
+        thiskernel_timespec_t ti;
+        thiskernel_timespec_t tu;
         int currClock;
         unsigned char statusOR;
         unsigned char lastStatus;
         int doSnapShot;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        int64_t lltime;
+#endif
 
         int newClock;
 
         struct irig_device* dev;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        struct dsm_clock_sample_3 *osamp;
+#else
         struct dsm_clock_sample_2 *osamp;
+#endif
+
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        int64_t sec64;
+#endif
 
         /* copy the snapshot */
         spin_lock_irqsave(&board.lock, flags);
@@ -1919,11 +1925,7 @@ static void oneHzFunction(void *ptr)
         spin_unlock_irqrestore(&board.lock, flags);
 
         /* check if snapshot was taken */
-        if (!doSnapShot
-#ifdef SUPPORT_USER_OVERRIDE
-                        && board.clockState != USER_OVERRIDE
-#endif
-                ) {
+        if (!doSnapShot) {
                 int syncDiff = 0;
                 if (board.lastSyncTime > 0)
                         syncDiff = GET_TMSEC_CLOCK - board.lastSyncTime;
@@ -1935,15 +1937,29 @@ static void oneHzFunction(void *ptr)
                 if (!(statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                         if (syncDiff > MAX_TMSEC_SINCE_LAST_SYNC) {
                                 /* first sync after a long time of no sync */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+				/* do_div changes dividend in place, returns remainder */
+                                sec64 = ti.tv_sec;
+                                newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                                    ti.tv_usec / USECS_PER_TMSEC;
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 /* use 1/2 the tick tolerances */
                                 checkSoftTicker(newClock,currClock,2,NOTIFY_CLIENTS);
                         }
                         else if (board.clockState == SYNCD_SET) {
                                 /* good situation, sync'd */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+				/* do_div changes dividend in place, returns remainder */
+                                sec64 = ti.tv_sec;
+                                newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                                    ti.tv_usec / USECS_PER_TMSEC;
+                                    ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 checkSoftTicker(newClock,currClock,1,NOTIFY_CLIENTS);
                         }
                         else {
@@ -1960,8 +1976,15 @@ static void oneHzFunction(void *ptr)
                                  * consistently sync'd */
                                 if (board.clockState == UNSYNCD_SET) {
                                         /* check against unix clock */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes dividend in place, returns remainder */
+                                        sec64 = tu.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                                            tu.tv_usec / USECS_PER_TMSEC;
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                         checkSoftTicker(newClock,currClock,1,NOTIFY_CLIENTS);
                                 }
                                 else {
@@ -1978,13 +2001,27 @@ static void oneHzFunction(void *ptr)
                                  * since last full second of sync */
                                 if (!(lastStatus & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                                         /* currently sync'd, check against irig time */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes dividend in place, returns remainder */
+                                        sec64 = ti.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            ti.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                                            ti.tv_usec / USECS_PER_TMSEC;
+                                            ti.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 }
                                 else {
                                         /* currently not sync'd, check against unix time */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+					/* do_div changes dividend in place, returns remainder */
+                                        sec64 = tu.tv_sec;
+                                        newClock = do_div(sec64, SECS_PER_DAY) * TMSECS_PER_SEC +
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#else
                                         newClock = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                                            tu.tv_usec / USECS_PER_TMSEC;
+                                            tu.tv_nsec / NSECS_PER_TMSEC;
+#endif
                                 }
                                 checkSoftTicker(newClock,currClock,1,NO_NOTIFY);
                         }
@@ -1992,6 +2029,13 @@ static void oneHzFunction(void *ptr)
         }
 
         /* if device is open, send the snapshot as a sample. */
+
+        /* Note this is locking dev_lock, which is not used in the ISR,
+         * so we don't need to use spin_lock_irqsave. This is the only
+         * use of dev_lock in software interrupt context. Users
+         * of dev_lock outside of software interrupt context
+         * need to use spin_lock_bh.
+         */
         spin_lock(&board.dev_lock);
         dev = board.dev;
         if (!dev) {
@@ -2001,8 +2045,13 @@ static void oneHzFunction(void *ptr)
 
         dev->seqnum++;      // will rollover
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        osamp = (struct dsm_clock_sample_3 *)
+            GET_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
+#else
         osamp = (struct dsm_clock_sample_2 *)
             GET_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
+#endif
         if (!osamp) {           // no output sample available
                 if (!(dev->skippedSamples++ % 10))
                     KLOG_WARNING("%s: skippedSamples=%d\n",
@@ -2018,7 +2067,6 @@ static void oneHzFunction(void *ptr)
         osamp->timetag = GET_TMSEC_CLOCK;
         // osamp->timetag = currClock / TMSECS_PER_MSEC;
 
-        osamp->length = 2 * sizeof(osamp->data.irigt) + 5;
 
         /*
          * The irig and unix times will not be exactly on the second,
@@ -2026,14 +2074,27 @@ static void oneHzFunction(void *ptr)
          * exactly at the end, of the previous second.
          */
 
-        /* snapshot irig time. Convert to little endian */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        osamp->length = offsetof(struct dsm_clock_data_3, end);
+        /* snapshot of irig time. Convert to little endian */
+        lltime = (int64_t)ti.tv_sec * USECS_PER_SEC + ti.tv_nsec / NSECS_PER_USEC;
+        osamp->data.irigt = cpu_to_le64(lltime);
+
+        /* snapshot of unix system time. Convert to little endian */
+        lltime = (int64_t)tu.tv_sec * USECS_PER_SEC + tu.tv_nsec / NSECS_PER_USEC;
+        osamp->data.unixt = cpu_to_le64(lltime);
+
+        osamp->data.dummystatus = 0xff;
+#else
+        osamp->length = offsetof(struct dsm_clock_data_2, end);
+        /* snapshot of irig system time. Convert to little endian */
         osamp->data.irigt.tv_sec = cpu_to_le32(ti.tv_sec);
-        osamp->data.irigt.tv_usec = cpu_to_le32(ti.tv_usec);
+        osamp->data.irigt.tv_usec = cpu_to_le32(ti.tv_nsec / NSECS_PER_USEC);
 
-        /* snapshot unix system time. Convert to little endian */
+        /* snapshot of unix system time. Convert to little endian */
         osamp->data.unixt.tv_sec = cpu_to_le32(tu.tv_sec);
-        osamp->data.unixt.tv_usec = cpu_to_le32(tu.tv_usec);
-
+        osamp->data.unixt.tv_usec = cpu_to_le32(tu.tv_nsec / NSECS_PER_USEC);
+#endif
         osamp->data.status = statusOR;
         osamp->data.seqnum = dev->seqnum;
         osamp->data.syncToggles = board.status.syncToggles;
@@ -2117,15 +2178,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
                 board.statusOR |= board.lastStatus;
 
-                /* returned by IRIG_GET_STATUS ioctl, and zeroed after the call */
-                board.status.statusOR |= board.lastStatus;
+                /* queried by user with IRIG_GET_STATUS ioctl */
+                board.status.statusOR = board.lastStatus;
 
                 if (unlikely(board.doSnapShot) ||
                                 unlikely(board.clockAction == RESET_COUNTERS)) {
-                        struct timeval32 itv32;
-                        struct timeval32 utv32;
-                        do_gettimeofday_tv32(&utv32);
-                        get_irig_time_tv32(&itv32);
+                        thiskernel_timespec_t its;
+                        thiskernel_timespec_t uts;
+                        getSystemTimeTs(&uts);
+                        get_irig_timespec_nolock(&its);
 
                         if (board.doSnapShot) {
                                 /* Note that the software clock will be behind
@@ -2135,15 +2196,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                                  * This off-by-one is accounted for in checkSoftTicker().
                                  */
                                 board.snapshot.clock_time = board.TMsecClockTicker;
-                                board.snapshot.irig_time = itv32;
-                                board.snapshot.unix_time = utv32;
+                                board.snapshot.irig_time = its;
+                                board.snapshot.unix_time = uts;
                                 board.snapshot.statusOR = board.statusOR;
                                 board.statusOR = 0;
                                 board.doSnapShot = 0;
                         }
                         if (board.clockAction == RESET_COUNTERS) {
-                                board.resetSnapshot.irig_time = itv32;
-                                board.resetSnapshot.unix_time = utv32;
+                                board.resetSnapshot.irig_time = its;
+                                board.resetSnapshot.unix_time = uts;
                                 /* value of the 1 Hz snapshot statusOR */
                                 board.resetSnapshot.statusOR = board.statusOR;
                                 board.resetSnapshotDone = 1;
@@ -2167,8 +2228,8 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         }
 #ifdef CHECK_EXT_EVENT
         if ((status & Ext_Ready) && (board.IntMask & Ext_Ready_Int_Enb)) {
-                ret = IRQ_HANDLED;
                 struct irigTime ti;
+                ret = IRQ_HANDLED;
                 getExtEventTime(&ti);
                 KLOG_DEBUG
                     ("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
@@ -2238,9 +2299,15 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
                 memset(dev, 0, sizeof(struct irig_device));
 
                 init_waitqueue_head(&dev->rwaitq);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+                result = realloc_dsm_circ_buf(&dev->samples,
+                                   sizeof(struct dsm_clock_data_3),
+                                   PC104SG_SAMPLE_QUEUE_SIZE);
+#else
                 result = realloc_dsm_circ_buf(&dev->samples,
                                    sizeof(struct dsm_clock_data_2),
                                    PC104SG_SAMPLE_QUEUE_SIZE);
+#endif
                 if (result) {
                         kfree(dev);
                         spin_unlock_bh(&board.dev_lock);
@@ -2305,6 +2372,45 @@ pc104sg_read(struct file *filp, char __user * buf, size_t count,
                                   &dev->rwaitq);
 }
 
+/**
+ * Set the IRIG hardware clock fields in DPRAM.
+ * Interrupts are disabled when writing to DPRAM.
+ */
+static long setIRIGclock(int64_t usec)
+{
+        unsigned long flags;
+        thiskernel_timespec_t ts;
+        struct irigTime ti;
+        int ret = -EINVAL;
+
+        spin_lock_irqsave(&board.lock, flags);
+        board.DP_RamExtStatusEnabled = 0;
+        board.DP_RamExtStatusRequested = 0;
+        spin_unlock_irqrestore(&board.lock, flags);
+
+#if BITS_PER_LONG == 32
+	/* do_div changes dividend in place, returns remainder */
+        ts.tv_nsec = do_div(usec, USECS_PER_SEC) * NSECS_PER_USEC;
+        ts.tv_sec = usec;
+#else
+        ts.tv_sec = usec / USECS_PER_SEC;
+        ts.tv_nsec = (usec % USECS_PER_SEC) * NSECS_PER_USEC;
+#endif
+
+        timespecToirig(&ts, &ti);
+
+        if (board.lastStatus & (DP_Extd_Sts_NoMajT | DP_Extd_Sts_Nocode))
+                ret = setMajorTime(&ti);
+        else
+                ret = setYear(ti.year);
+
+        spin_lock_irqsave(&board.lock, flags);
+        board.DP_RamExtStatusEnabled = 1;
+        spin_unlock_irqrestore(&board.lock, flags);
+
+        board.clockAction = RESET_COUNTERS;
+        return ret;
+}
 static long
 pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 {
@@ -2312,7 +2418,8 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
         int len = _IOC_SIZE(cmd);
         int ret = -EINVAL;
         struct irigTime ti;
-        struct timeval32 tv;
+        int64_t usec;
+        struct timeval32 tv32;
         unsigned long flags;
 
 #ifdef DEBUG
@@ -2345,76 +2452,52 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                         break;
                 ret =
                     copy_to_user(userptr, &board.status,len) ? -EFAULT : len;
-                board.status.statusOR = 0;
                 break;
         case IRIG_GET_CLOCK:
-                if (len != sizeof(tv))
+                if (len != sizeof(tv32))
                         break;
                 spin_lock_irqsave(&board.lock, flags);
-                get_irig_time(&ti);
+                get_irig_time_nolock(&ti);
                 spin_unlock_irqrestore(&board.lock, flags);
-                irigTotimeval32(&ti, &tv);
+                irigTotimeval32(&ti, &tv32);
+                /* Note no endian conversion is done, since it is
+                 * read by processes on the same machine, and not archived.
+                 */
                 ret =
-                    copy_to_user(userptr, &tv, sizeof(tv)) ? -EFAULT : len;
+                    copy_to_user(userptr, &tv32, sizeof(tv32)) ? -EFAULT : len;
+                break;
+        case IRIG_GET_CLOCK64:
+                if (len != sizeof(usec))
+                        break;
+                spin_lock_irqsave(&board.lock, flags);
+                get_irig_time_nolock(&ti);
+                spin_unlock_irqrestore(&board.lock, flags);
+                usec = irigTousec(&ti);
+                /* Note no endian conversion is done, since it is
+                 * read by processes on the same machine, and not archived.
+                 */
+                ret =
+                    copy_to_user(userptr, &usec, sizeof(usec)) ? -EFAULT : len;
+                break;
+        case IRIG_SET_CLOCK64:
+                if (len != sizeof(usec))
+                        break;
+                /* No endian conversion */
+                ret =
+                    copy_from_user(&usec, userptr, sizeof(usec)) ? -EFAULT : len;
+                if (ret < 0) break;
+                ret = setIRIGclock(usec);
                 break;
         case IRIG_SET_CLOCK:
-                if (len != sizeof(tv))
+                if (len != sizeof(tv32))
                         break;
-
+                /* No endian conversion */
                 ret =
-                    copy_from_user(&tv, userptr, sizeof(tv)) ? -EFAULT : len;
+                    copy_from_user(&tv32, userptr, sizeof(tv32)) ? -EFAULT : len;
                 if (ret < 0) break;
-
-                spin_lock_irqsave(&board.lock, flags);
-                board.DP_RamExtStatusEnabled = 0;
-                board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                timeval32Toirig(&tv, &ti);
-
-                if (board.lastStatus & (DP_Extd_Sts_NoMajT | DP_Extd_Sts_Nocode))
-                        ret = setMajorTime(&ti);
-                else
-                        ret = setYear(ti.year);
-
-                spin_lock_irqsave(&board.lock, flags);
-                board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                board.clockAction = RESET_COUNTERS;
+                usec = (int64_t) tv32.tv_sec * USECS_PER_SEC + tv32.tv_usec;
+                ret = setIRIGclock(usec);
                 break;
-#ifdef SUPPORT_USER_OVERRIDE
-        case IRIG_OVERRIDE_CLOCK:
-                if (len != sizeof(board.userClock))
-                        break;
-
-                spin_lock_irqsave(&board.lock, flags);
-                ret =
-                    copy_from_user(&board.userClock, userptr,
-                                   sizeof(board.userClock)) ? -EFAULT : len;
-                if (ret < 0) {
-                        spin_unlock_irqrestore(&board.lock, flags);
-                        break;
-                }
-                board.DP_RamExtStatusEnabled = 0;
-                board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                timeval32Toirig(&board.userClock, &ti);
-
-                if (board.lastStatus & DP_Extd_Sts_Nosync)
-                        ret = setMajorTime(&ti);
-                else
-                        ret = setYear(ti.year);
-
-                spin_lock_irqsave(&board.lock, flags);
-                board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.lock, flags);
-
-                board.clockState = USER_OVERRIDE_REQUESTED;
-                ret = len;
-                break;
-#endif
         default:
                 KLOG_WARNING
                     ("%s: Unrecognized ioctl %d (number %d, size %d)\n",
@@ -2488,10 +2571,11 @@ static int __init pc104sg_init(void)
         int i;
         int errval = 0;
         int irq;
-        struct timeval unix_timeval;
-        struct timeval32 irig_timeval;
+        thiskernel_timespec_t unix_timespec;
+        thiskernel_timespec_t irig_timespec;
         struct irigTime irig_time;
-        int tdiff;
+        int tdiffms;
+        unsigned char status;
 
         KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
@@ -2558,7 +2642,6 @@ static int __init pc104sg_init(void)
         board.clockAction = RESET_COUNTERS;
         board.notifyClients = NO_NOTIFY;
 
-
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
         if (!request_region(IoPort, PC104SG_IOPORT_WIDTH,driver_name)) {
@@ -2569,6 +2652,14 @@ static int __init pc104sg_init(void)
 
         board.ioport = IoPort;
         board.addr = board.ioport + SYSTEM_ISA_IOPORT_BASE;
+
+        /* get initial value of sync state from status port */
+        status = inb(board.addr + Status_Port);
+        if (!(status & Sync_OK))
+                board.lastStatus |= (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        else
+                board.lastStatus &= ~(CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC);
+        board.status.statusOR = board.lastStatus;
 
         board.class = class_create(THIS_MODULE, "irig");
         if (IS_ERR(board.class)) {
@@ -2621,22 +2712,13 @@ static int __init pc104sg_init(void)
          * Set the major time from the unix clock if the IRIG
          * time disagrees with the unix time.
          */
+        getSystemTimeTs(&unix_timespec);
+        get_irig_timespec_nolock(&irig_timespec);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        do_gettimeofday(&unix_timeval);
-#else
-        {
-                struct timespec64 tv;
-                ktime_get_real_ts64(&tv);
-                unix_timeval.tv_sec = tv.tv_sec;
-                unix_timeval.tv_usec = tv.tv_nsec / 1000;
-        }
-#endif
-        get_irig_time_tv32(&irig_timeval);
-        tdiff = (unix_timeval.tv_sec - irig_timeval.tv_sec) * MSECS_PER_SEC +
-                (unix_timeval.tv_usec - irig_timeval.tv_usec) / USECS_PER_MSEC;
-        if (abs(tdiff) > 10) {
-                timevalToirig(&unix_timeval, &irig_time);
+        tdiffms = (unix_timespec.tv_sec - irig_timespec.tv_sec) * MSECS_PER_SEC +
+                (unix_timespec.tv_nsec - irig_timespec.tv_nsec) / NSECS_PER_MSEC;
+        if (abs(tdiffms) > 10) {
+                timespecToirig(&unix_timespec, &irig_time);
                 if ((errval = setMajorTime(&irig_time)) < 0) goto err0;
         }
 
@@ -2711,6 +2793,9 @@ static int __init pc104sg_init(void)
 		errval = PTR_ERR(board.device);
 		goto err0;
 	}
+
+        KLOG_INFO("%s init done: IRQ=%d, ioport=%#03x\n",
+                board.deviceName, board.irq, board.ioport);
 
         return 0;
 

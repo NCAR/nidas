@@ -77,7 +77,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 using nidas::util::endlog;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 
 SampleSorter::SampleSorter(const std::string& name,bool raw) :
     SampleThread(name),_source(raw),
@@ -96,10 +96,10 @@ SampleSorter::SampleSorter(const std::string& name,bool raw) :
 {
     // Allow the discard warning count to be overridden.
     _discardWarningCount =
-        LogScheme::current().getParameterT("sample_sorter_discard_warning_count",
+        Logger::getScheme().getParameterT("sample_sorter_discard_warning_count",
                                            _discardWarningCount);
     _earlyWarningCount =
-        LogScheme::current().getParameterT("sample_sorter_early_warning_count",
+        Logger::getScheme().getParameterT("sample_sorter_early_warning_count",
                                            _earlyWarningCount);
 }
 
@@ -131,10 +131,11 @@ SampleSorter::~SampleSorter()
     }
     _samples.clear();
 
-    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec, discarded=%d",
-          getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
-          (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC,
-          _discardedSamples));
+    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec,"
+          " discarded=%d, early=%d",
+          getName().c_str(), (double)_maxSorterLengthUsec / USECS_PER_SEC,
+          (double)(_maxSorterLengthUsec - _sorterLengthUsec) / USECS_PER_SEC,
+          _discardedSamples, _earlySamples));
 }
 
 /**
@@ -196,7 +197,7 @@ int SampleSorter::run() throw(n_u::Exception)
 
     static n_u::LogContext sslog(LOG_VERBOSE, "sample_sorter");
     static n_u::LogMessage ssmsg(&sslog);
-    static SampleTracer st;
+    static SampleTracer st(LOG_VERBOSE);
     dsm_time_t tlast = 0;
 
     _sampleSetCond.lock();
@@ -483,6 +484,10 @@ void SampleSorter::flush() throw()
         DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
              " SampleSorter interrupted, samples may not have drained.");
     }
+
+    if (!_samples.empty())
+        WLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+         " flush(): sample list not empty, size=" << _samples.size());
     
     // may want to call flush on the SampleClients.
 

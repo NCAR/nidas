@@ -191,6 +191,15 @@ namespace nidas { namespace util {
 #define LOG_CONTEXT(LEVEL) \
     nidas::util::LEVEL, __FILE__, __PRETTY_FUNCTION__, __LINE__
 
+/**
+ * @brief Expand to LogContext tuple outside function scope.
+ *
+ * Use this macro to expand to the LogContext arguments when not inside a
+ * function, when __PRETTY_FUNCTION__ is not valid.
+ */
+#define LOG_STATIC_CONTEXT(LEVEL) \
+    nidas::util::LEVEL, __FILE__, "file_static_scope", __LINE__
+
     // Redefine the log levels to be a full LogContext instance.
 #define LOG_EMERG LOG_CONTEXT(LOGGER_EMERG)
 #define	LOG_ALERT LOG_CONTEXT(LOGGER_ALERT)
@@ -568,36 +577,40 @@ namespace nidas { namespace util {
 
         /**
          * Parse LogConfig settings from a string specifier, using
-         * comma-separated fields to assign to each of the config fields.
-         * Return true if the parse is successful, otherwise return false
-         * and leave the config in an indeterminate state.
+         * comma-separated fields to assign to each of the config fields. Throws
+         * std::runtime_error if the text fails to parse.  Passing an empty
+         * string has no effect.
+         *
+         * Return a reference to this LogConfig, so it can chained to construct
+         * a LogConfig from a string like so:
+         *
+         *     LogScheme().addConfig(LogConfig().parse(text))
          *
          * Here are the fields:
          *
-         * <loglevelint>|<loglevelname>
-         * tag=<tag>
-         * file=<file>
-         * function=<function>
-         * line=<line>
-         * enable|disable
+         *  - <loglevelint>|<loglevelname>
+         *  - tag=<tag>
+         *  - file=<file>
+         *  - function=<function>
+         *  - line=<line>
+         *  - enable|disable
          *
-         * This example enables all log messages for filenames which
-         * contain the string 'TwoD':
+         * This example enables all log messages for filenames which contain the
+         * string 'TwoD':
          *
-         * verbose,file=TwoD
+         *     verbose,file=TwoD
          *
          * Enable all debug messages in the core library:
          *
-         * debug,file=nidas/core
+         *     debug,file=nidas/core
          **/
-        bool
+        LogConfig&
         parse(const std::string& text);
 
         /**
-         * Construct a default LogConfig which matches and enables every
-         * log point with level DEBUG or higher, then configure it further
-         * by calling parse() on the passed text string.  Throws
-         * std::runtime_error if the text fails to parse.
+         * Construct a default LogConfig which matches and enables every log
+         * point with level DEBUG or higher.  Then call parse() on the given
+         * text.
          **/
         LogConfig(const std::string& text = "");
     };
@@ -644,24 +657,17 @@ namespace nidas { namespace util {
         fieldToString(LogScheme::LogField lf);
 
         /**
-         * Return the LogScheme currently in effect for the global Logger
-         * instance.
-         **/
-        static LogScheme
-        current();
-
-        /**
-         * The default LogScheme has show fields set to "time,level,message" and
-         * a single LogConfig to enable all messages with level LOGGER_WARNING
-         * and above.  The default name is "default".  Explicitly passing an
-         * empty name will also force a name of "default", since a LogScheme is
-         * prohibited from having an empty name.
-         *
-         * Initially a LogScheme has no LogConfig entries, and so a
-         * default scheme does not enable any log messages, 
+         * Construct a LogScheme with no LogConfig entries and show fields
+         * set to "time,level,message".  Name is set to @p name.  A scheme
+         * with no configs does not enable any log messages.  This is not
+         * the LogScheme used by default if an application does not setup
+         * the logging configuration itself.  See @ref LoggerSchemes.  A
+         * LogScheme can have an empty name, but there can be only one
+         * scheme with any given name installed through setScheme() and
+         * updateScheme().
          **/
         explicit
-        LogScheme(const std::string& name = "default");
+        LogScheme(const std::string& name = "");
 
         /**
          * LogScheme names must not be empty, so this method has no effect
@@ -689,19 +695,51 @@ namespace nidas { namespace util {
         clearConfigs();
 
         /**
-         * Push a new LogConfig onto the list of existing configs.  This config
-         * will be applied to any log points which it matches.  For example, if
-         * the @c activate flag of this config is false, then any matching log
-         * points will be disabled.  The configurations are cumulative, so the
-         * latest config on the list will take precedence.  For example, if an
-         * earlier config enables all points, then further configs can disable a
-         * subset of log points.
+         * Push a new LogConfig onto the list of existing configs.  When
+         * this scheme is active, this config will be applied to any log
+         * points which it matches.  For example, if the @c activate flag of
+         * this config is false, then any matching log points will be
+         * disabled.  The configurations are cumulative, so the latest
+         * config on the list will take precedence.  For example, if an
+         * earlier config enables all points, then further configs can
+         * disable a subset of log points.
+         *
+         * If this scheme had any fallback configs, they will be erased
+         * first before adding this config.
          *
          * @param lc The LogConfig to be added to this scheme.
          * @returns This scheme.
          **/
         LogScheme&
         addConfig(const LogConfig& lc);
+
+        /**
+         * @brief Add a LogConfig constructed from string @p config.
+         * 
+         * @param config Text to be parsed into a LogConfig.
+         * @return LogScheme& 
+         */
+        LogScheme&
+        addConfig(const std::string& config);
+
+        /**
+         * @brief Add a fallback LogConfig.
+         *
+         * Since a LogScheme does not enable any logs if it has no configs,
+         * it can be useful to add configs which will only be used as a
+         * fallback, when no other configs are added.  This method adds a
+         * LogConfig as a fallback only if the scheme has no configs yet or
+         * the existing configs were also added as fallbacks.  When a config
+         * is added with addConfig(), it replaces all the fallback configs.
+         *
+         * @param lc 
+         * @return LogScheme& 
+         */
+        LogScheme&
+        addFallback(const LogConfig& lc);
+
+        LogScheme&
+        addFallback(const std::string& config);
 
         /**
          * Return a copy of the LogConfig instances added to this
@@ -736,8 +774,9 @@ namespace nidas { namespace util {
         setShowFields(const std::vector<LogField>& fields);
 
         /**
-         * Parse a comma-separated string of field names, with no spaces,
-         * into a vector of LogField values, and pass that to setShowFields().
+         * Parse a comma-separated string of field names, with no spaces, into a
+         * vector of LogField values, and pass that to setShowFields(). Throw
+         * std::runtime_error if the string fails to parse.
          *
          * Valid fields: thread,function,file,level,time,message
          **/
@@ -779,14 +818,15 @@ namespace nidas { namespace util {
          * converted, then return @p dvalue.
          *
          * Below is an example of using a log parameter to throttle the
-         * frequency of a log message.  The first section retrieves the value,
-         * the second logs the message.
+         * frequency of a log message.  The first section retrieves the
+         * value from the currently active LogScheme, the second logs the
+         * message.
          *
          * @code
          * _discardWarningCount = 1000;
          * _discardWarningCount =
-         * LogScheme::current().getParameterT("_discard_warning_count",
-         *                                    _discardWarningCount);
+         *   Logger::getScheme().getParameterT("_discard_warning_count",
+         *                                     _discardWarningCount);
          * @endcode
          *
          * Then use the parameter value like so:
@@ -838,6 +878,7 @@ namespace nidas { namespace util {
         std::vector<LogField> log_fields;
         std::map<std::string, std::string> _parameters;
         bool _showlogpoints;
+        bool _fallbacks;
 
         friend class nidas::util::LoggerPrivate;
         friend class nidas::util::Logger;
@@ -1024,21 +1065,23 @@ namespace nidas { namespace util {
     }
 
     /**
-     * Simple logging class, based on UNIX syslog interface.  The Logger is a
-     * singleton through which all log messages are sent.  It determines
-     * whether messages are sent to syslog or written to an output stream
-     * provided by the application, such as std::cerr, or a file output stream,
-     * or an ostringstream.
+     * Simple logging class, based on UNIX syslog interface.  The Logger is
+     * a singleton instance through which all log messages are sent.  It
+     * determines whether messages are sent to syslog or written to an
+     * output stream provided by the application, such as std::cerr, or a
+     * file output stream, or an ostringstream.  The Logger class contains
+     * static methods to manage active and available LogSchemes, but those
+     * are completely separate from the current Logger instance.  Replacing
+     * the Logger instance does not change the active LogScheme.
      */
     class Logger {
     protected:
-        Logger(const char *ident, int logopt, int facility, const char *TZ);
+        Logger(const std::string& ident, int logopt, int facility,
+               const char *TZ = 0);
         Logger(std::ostream* );
         Logger();
 
     public:
-
-        ~Logger();
 
         /** 
          * Create a syslog-type Logger. See syslog(2) man page.
@@ -1049,23 +1092,51 @@ namespace nidas { namespace util {
          *        If NULL(0), use default timezone.
          */
         static Logger* 
-        createInstance(const char *ident, int logopt, int facility,
+        createInstance(const std::string& ident, int logopt, int facility,
                        const char *TZ = 0);
 
         /**
-         * Create a logger to the given output stream.  The output stream
-         * should remain valid as long as this logger exists.  This Logger
-         * does not take responsibility for closing or destroying the
-         * stream.
+         * Create a logger to the given output stream.  The output stream should
+         * remain valid as long as this logger exists.  This Logger does not
+         * take responsibility for closing or destroying the stream.
          *
-         * @param out Pointer to the output stream.
+         * @param out Pointer to the output stream, or null to default to cerr.
          **/
-        static Logger* createInstance(std::ostream* out);
+        static Logger* createInstance(std::ostream* out = 0);
 
         /**
-         * Return a pointer to the currently active Logger singleton.
+         * @brief Retrieve the current Logger singleton instance.
+         *
+         * Return a pointer to the currently active Logger singleton, and create
+         * a default if it does not exist.  The default writes log messages to
+         * std::cerr.
+         *
+         * Note this method is not thread-safe.  The createInstance() and
+         * destroyInstance() methods are thread-safe, in that the pointer to the
+         * singleton instance is modified only while a mutex is locked. However,
+         * once an application has the instance pointer, nothing prevents that
+         * instance from being destroyed and recreated.  The application should
+         * take care to not change the Logger instance while other threads might
+         * be writing log messages.  Typically the Logger instance is created at
+         * the beginning of the application and then never changed.
+         *
+         * Every log message being written must call this method, so the locking
+         * overhead is not worth it, and it would not be effective without also
+         * locking all existing code which calls getInstance() directly.  
+         * A more correct approach would not provide access to the global
+         * singleton pointer outside logging methods which have locked the
+         * logging mutex.
          **/
         static Logger* getInstance();
+
+        /**
+         * Destroy any existing Logger instance.  New log messages will create a
+         * default Logger instance unless one is created explicitly with
+         * createInstance().  The Logger singleon no longer has a public
+         * destructor, it must be destroyed through this static method.
+         */
+        static void
+        destroyInstance();
 
         /**
          * Build a message from a printf-format string and variable args, and log
@@ -1118,53 +1189,83 @@ namespace nidas { namespace util {
 
         /**
          * @defgroup LoggerSchemes Logging Configuration Schemes
-         * 
-         * The @ref Logging facility can store multiple logging configuration
-         * schemes, each with a particular name.  Each scheme is a list of
-         * LogConfig objects.  These methods are used to manipulate the set of
-         * schemes known by the Logger.  At any time the logging configuration
-         * can switch schemes by calling setScheme().  The first time a new
-         * scheme name is referenced, a default LogScheme is created with that
-         * name.
+         *
+         * The @ref Logging facility can store multiple logging
+         * configuration schemes, each with a particular name.  The Logger
+         * class provides static methods to update the schemes and switch
+         * the active scheme.  At any time the logging configuration can
+         * switch schemes by calling setScheme().  The first time a new
+         * scheme name is referenced, a default LogScheme is created with
+         * that name.  A default LogScheme contains a single LogConfig to
+         * enable all messages with level LOGGER_WARNING and above.  This is
+         * different than the empty LogScheme created by the default
+         * LogScheme constructor.  If no LogScheme is set by an application,
+         * then a default LogScheme is used, with an empty name.
          **/
         /**@{*/
 
-
         /**
-         * Set the current scheme.  If a scheme named @p name does not exist and
-         * @p name is non-empty, a default scheme is created with this name.
-         * Trying to set the current scheme to an empty name has no effect.
+         * Set the current scheme.  If a scheme named @p name does not exist
+         * and @p name is non-empty, a default scheme is created with this
+         * name.  The name can be empty, and like for any other name, the
+         * set scheme will replace any existing scheme with that name.
          **/
-        void
+        static void
         setScheme(const std::string& name);
 
         /**
          * Set the current scheme to the given @p scheme.  The scheme is first
          * added with updateScheme(), then it becomes the current scheme.
          **/
-        void
+        static void
         setScheme(const LogScheme& scheme);
 
         /**
-         * Update or insert this scheme in the collection of log configuration
-         * schemes.  If a scheme already exists with the same name, this scheme
-         * will replace it.  If the given scheme has the same name as the
-         * Logger's current scheme, then the Logger's scheme will be updated
-         * also.
+         * Update or insert this scheme in the collection of log schemes.
+         * If a scheme already exists with the same name, this scheme will
+         * replace it.  If the given scheme has the same name as the current
+         * scheme, then all the log points will be reconfigured according to
+         * the new scheme.
          **/
-        void
+        static void
         updateScheme(const LogScheme& scheme);
 
         /**
-         * Get a copy of the scheme with the given @p name.  If the name does not
-         * exist, a default scheme is returned.  If the name is empty, then
-         * the current scheme is returned.
+         * Get the scheme with the given @p name.  If the name does not
+         * exist, a default scheme is created, added to the known schemes,
+         * then returned.  There is no default for @p name, pass an empty
+         * string to lookup a scheme with an empty name.  See @ref
+         * getScheme().
          **/
-        LogScheme
-        getScheme(const std::string& name = "") const;
+        static LogScheme
+        getScheme(const std::string& name);
+
+        /**
+         * Return the current LogScheme, creating the default LogScheme if
+         * it has not been set yet.
+         **/
+        static LogScheme
+        getScheme();
+
+        /**
+         * Return true if the scheme with the given name is known, false
+         * otherwise.  Applications can use this to create a specific
+         * default scheme by name if it has not been setup yet.  This does
+         * not change the current scheme, and it does not create a scheme if
+         * the name does not exist yet.  There is no default for @p name.
+         * Pass an empty string to lookup a scheme with an empty name.
+         */
+        static bool
+        knownScheme(const std::string& name);
+
+        /**
+         * Erase all known schemes and reset the active scheme to the name
+         * initialized at application start.
+         */
+        static void
+        clearSchemes();
 
         /**@}*/
-
 
     protected:
         /**
@@ -1186,6 +1287,8 @@ namespace nidas { namespace util {
 
         char* loggerTZ;
         char* saveTZ;
+        char* _ident;
+
     private:
 
         /**
@@ -1195,10 +1298,21 @@ namespace nidas { namespace util {
         void
         msg_locked(const nidas::util::LogContext& lc, const std::string& msg);
 
+        /**
+         * @brief Return the current instance or create a default, without locking.
+         * 
+         * @param out If null, use std::cerr as the output stream.
+         * @return Logger* 
+         */
+        static Logger*
+        get_instance_locked(std::ostream* out = 0);
+
         friend class nidas::util::LogContext;
         friend class nidas::util::LogScheme;
 
         static nidas::util::Mutex mutex;
+
+        ~Logger();
 
         /** No copying */
         Logger(const Logger&);

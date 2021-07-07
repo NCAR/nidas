@@ -61,8 +61,12 @@ echo "Using port=$SYNC_REC_PORT_TCP"
 # data_dump -i 4,4072 -p data/dsm_20060908_200303.ads
  
 echo "running sync_server in the background"
-valgrind --leak-check=full --suppressions=suppressions.txt --gen-suppressions=all sync_server -p $SYNC_REC_PORT_TCP data/dsm_20060908_200303.ads \
-    > sync_server.log 2>&1 &
+valgrind --leak-check=full --suppressions=suppressions.txt --gen-suppressions=all \
+    sync_server -p $SYNC_REC_PORT_TCP \
+    --logconfig enable,level=verbose,function=SyncRecordSource::receive \
+    --logfields level,message \
+    --logparam trace_samples=4,4072 --logconfig enable,level=info \
+    data/dsm_20060908_200303.ads > sync_server.log 2>&1 &
 
 echo "waiting for port $SYNC_REC_PORT_TCP to open, then run sync_dump"
 
@@ -85,6 +89,7 @@ cat << EOD > $tmp1
 2006 09 08 20:03:05.000 nan
 2006 09 08 20:03:06.484 39.9121
 2006 09 08 20:03:07.376 39.9121
+2006 09 08 20:03:08.000 nan
 EOD
 
 egrep "^2006 09" sync_dump.log > $tmp2

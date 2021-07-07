@@ -1,6 +1,7 @@
 *.log
 *substvars
 *.debhelper
+debhelper-build-stamp
 nidas/
 nidas-build/
 nidas-buildeol/
@@ -14,8 +15,10 @@ nidas-modules/
 nidas-modules-titan/
 nidas-modules-viper/
 nidas-modules-amd64/
+nidas-modules-vortex/
 nidas-titan/
 nidas-viper/
+nidas-vortex/
 nidas-modules-rpi2/
 nidas-rpi2/
 tmp/

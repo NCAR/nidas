@@ -158,35 +158,51 @@ long long FileSet::getFileSize() const throw(IOException)
         struct stat statbuf;
         if (::fstat(_fd,&statbuf) < 0) {
             _lastErrno = errno;
-	    throw IOException(_currname,"fstat",errno);
+        throw IOException(_currname,"fstat",errno);
         }
-	return statbuf.st_size;
+    return statbuf.st_size;
     }
     return 0;
 }
 
 /* static */
-void FileSet::createDirectory(const string& name, mode_t mode) throw(IOException)
+void FileSet::createDirectory(const string& name, mode_t mode)
 {
     DLOG(("FileSet::createDirectory, name=") << name);
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
 
+    bool exists = true;
     struct stat statbuf;
-    if (::stat(name.c_str(),&statbuf) < 0) {
-        if (errno != ENOENT) throw IOException(name,"open",errno);
+    if (::stat(name.c_str(), &statbuf) < 0)
+    {
+        if (errno != ENOENT)
+            throw IOException(name, "stat", errno);
+        exists = false;
 
         // create parent directory if it doesn't exist
-	string tmpname = getDirPortion(name);
-	if (tmpname != ".") createDirectory(tmpname,mode);  // recursive
+        string tmpname = getDirPortion(name);
+        if (tmpname != ".")
+            createDirectory(tmpname, mode); // recursive
 
         ILOG(("creating: ") << name);
-        if (::mkdir(name.c_str(),mode) < 0) throw IOException(name,"mkdir",errno);
+        if (::mkdir(name.c_str(), mode) < 0)
+        {
+            // It's ok if the entry is created (such as by another nidas
+            // process) between the stat() and the mkdir() call.
+            if (errno != EEXIST)
+                throw IOException(name, "mkdir", errno);
+            // Set the flag to confirm the existing entry is a directory, and
+            // refresh the stat buffer.
+            exists = true;
+            if (::stat(name.c_str(), &statbuf) < 0)
+                throw IOException(name, "stat", errno);
+        }
     }
-    else if (!S_ISDIR(statbuf.st_mode)) {
+    if (exists && !S_ISDIR(statbuf.st_mode))
+    {
         errno = ENOTDIR;
-        throw IOException(name,"createDirectory",errno);
+        throw IOException(name, "createDirectory", errno);
     }
-
 }
 
 void
@@ -207,13 +223,13 @@ openFileForWriting(const std::string& filename) throw(IOException)
 UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 {
     DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=",this)
-	 << ftime.format(true,"%c"));
+     << ftime.format(true,"%c"));
     closeFile();
 
     UTime ntime = ftime;
 
     if (!exact && _fileLength < LONG_LONG_MAX)
-	ntime -= ntime.toUsecs() % _fileLength;
+    ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
     _currname = ntime.format(true,_fullpath);
@@ -265,7 +281,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
         nextFileTime = LONG_LONG_MAX;
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
-	 << nextFileTime.format(true,"%c"));
+     << nextFileTime.format(true,"%c"));
     _newFile = true;
 
     return nextFileTime;
@@ -309,7 +325,7 @@ size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 
 void FileSet::initialize()
 {
-    DLOG(("openNextFile, fullpath=") << _fullpath);
+    DLOG(("FileSet::initialize(), fullpath=") << _fullpath);
     if (_fullpath.length() > 0) {
 
         _fileset = matchFiles(_startTime,_endTime);
@@ -429,12 +445,12 @@ string FileSet::formatName(const UTime& t1)
 void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException)
 {
     if (_fullpath.find("%b") != string::npos) {
-	string m1 = t1.format(true,"%b");
-	string m2 = t2.format(true,"%b");
-	if (::llabs(t1-t2) > 31 * USECS_PER_DAY || m1 != m2) 
-	    throw IOException(
-		string("FileSet: ") + _fullpath,"search",
-		"%b (alpha month) does not sort to time order");
+    string m1 = t1.format(true,"%b");
+    string m2 = t2.format(true,"%b");
+    if (::llabs(t1-t2) > 31 * USECS_PER_DAY || m1 != m2) 
+        throw IOException(
+        string("FileSet: ") + _fullpath,"search",
+        "%b (alpha month) does not sort to time order");
     }
 
     vector<string::size_type> dseq;
@@ -466,8 +482,8 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOExceptio
 
     for (unsigned int i = 1; i < dseq.size(); i++)
         if (dseq[i] < dseq[i-1]) throw IOException(
-		string("FileSet: ") + _fullpath,"search",
-		"file names do not sort to time order");
+        string("FileSet: ") + _fullpath,"search",
+        "file names do not sort to time order");
 }
 #endif
 
@@ -507,16 +523,16 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // Check if file name has changed via the above time formatting,
     // therefore there must be % fields in it.
     if (tmpPath != openedDir) {
-	if (openedDir.find("%H") != string::npos) dirDeltat = USECS_PER_HOUR;
-	else if (openedDir.find("%d") != string::npos)
-		dirDeltat = USECS_PER_DAY;
-	else if (openedDir.find("%m") != string::npos)
-		dirDeltat = 28 * USECS_PER_DAY;
-	else if (openedDir.find("%y") != string::npos)
-		dirDeltat = 365 * USECS_PER_DAY;
-	else if (openedDir.find("%Y") != string::npos)
-		dirDeltat = 365 * USECS_PER_DAY;
-	else dirDeltat = USECS_PER_HOUR;	// wierd
+    if (openedDir.find("%H") != string::npos) dirDeltat = USECS_PER_HOUR;
+    else if (openedDir.find("%d") != string::npos)
+        dirDeltat = USECS_PER_DAY;
+    else if (openedDir.find("%m") != string::npos)
+        dirDeltat = 28 * USECS_PER_DAY;
+    else if (openedDir.find("%y") != string::npos)
+        dirDeltat = 365 * USECS_PER_DAY;
+    else if (openedDir.find("%Y") != string::npos)
+        dirDeltat = 365 * USECS_PER_DAY;
+    else dirDeltat = USECS_PER_HOUR;	// wierd
     }
     openedDir.clear();
 
@@ -528,84 +544,84 @@ list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOExcep
     // but in the last iteration, time should be == t2.
     DIR *dirp = 0;
     for (UTime ftime = t1; ftime <= t2; ) {
-	// currpath is the full path name of a file with a name
-	// corresponding to time ftime
-	string currpath = ftime.format(true,_fullpath);
-	DLOG(("currpath=") << currpath);
+    // currpath is the full path name of a file with a name
+    // corresponding to time ftime
+    string currpath = ftime.format(true,_fullpath);
+    DLOG(("currpath=") << currpath);
 
-	// currdir is the directory portion of currpath
-	string currdir = getDirPortion(currpath);
+    // currdir is the directory portion of currpath
+    string currdir = getDirPortion(currpath);
 
-	struct dirent *dp;
-	if (currdir != openedDir) {
-	    if (dirp) closedir(dirp);
-	    if ((dirp = opendir(currdir.c_str())) == NULL)
-		throw IOException(currdir,"opendir",errno);
-	    openedDir = currdir;
-	}
-	else rewinddir(dirp);
+    struct dirent *dp;
+    if (currdir != openedDir) {
+        if (dirp) closedir(dirp);
+        if ((dirp = opendir(currdir.c_str())) == NULL)
+        throw IOException(currdir,"opendir",errno);
+        openedDir = currdir;
+    }
+    else rewinddir(dirp);
 
-	DLOG(("fullpath=") << _fullpath);
-	// now take file portion of input path, and create regular expression
-	string fileregex = 
-	    string("^") + getFilePortion(_fullpath) + string("$");
-	    
-	DLOG(("fileregex=") << fileregex);
+    DLOG(("fullpath=") << _fullpath);
+    // now take file portion of input path, and create regular expression
+    string fileregex = 
+        string("^") + getFilePortion(_fullpath) + string("$");
+        
+    DLOG(("fileregex=") << fileregex);
 
-	// replace time fields with corresponding regular expressions
+    // replace time fields with corresponding regular expressions
 
-	// This ensures that if we jump across a month when incrementing
-	// by dirDeltat that we match files for the intermediate month.
-	// dirDeltat is never more than a year, so we don't have to
-	// substitute for %y or %Y.
-	if (requestDeltat > 28 * USECS_PER_DAY) {
-	    replaceChars(fileregex,"%m","[0-1][0-9]");
-	    replaceChars(fileregex,"%b","[a-zA-Z][a-zA-Z][a-zA-Z]");
-	}
-	if (requestDeltat > USECS_PER_DAY)
-	    replaceChars(fileregex,"%d","[0-3][0-9]");
-	replaceChars(fileregex,"%H","[0-2][0-9]");
-	replaceChars(fileregex,"%M","[0-5][0-9]");
-	replaceChars(fileregex,"%S","[0-5][0-9]");
-	DLOG(("fileregex=") << fileregex);
+    // This ensures that if we jump across a month when incrementing
+    // by dirDeltat that we match files for the intermediate month.
+    // dirDeltat is never more than a year, so we don't have to
+    // substitute for %y or %Y.
+    if (requestDeltat > 28 * USECS_PER_DAY) {
+        replaceChars(fileregex,"%m","[0-1][0-9]");
+        replaceChars(fileregex,"%b","[a-zA-Z][a-zA-Z][a-zA-Z]");
+    }
+    if (requestDeltat > USECS_PER_DAY)
+        replaceChars(fileregex,"%d","[0-3][0-9]");
+    replaceChars(fileregex,"%H","[0-2][0-9]");
+    replaceChars(fileregex,"%M","[0-5][0-9]");
+    replaceChars(fileregex,"%S","[0-5][0-9]");
+    DLOG(("fileregex=") << fileregex);
 
-	fileregex = ftime.format(true,fileregex);
-	DLOG(("fileregex=") << fileregex);
+    fileregex = ftime.format(true,fileregex);
+    DLOG(("fileregex=") << fileregex);
 
-	// compile into regular expression
-	regex_t preg;
-	int regstatus;
-	if ((regstatus = regcomp(&preg,fileregex.c_str(),0)) != 0) {
-	    char regerrbuf[64];
-	    regerror(regstatus,&preg,regerrbuf,sizeof regerrbuf);
-	    throw IOException(fileregex,"regcomp",string(regerrbuf));
-	}
+    // compile into regular expression
+    regex_t preg;
+    int regstatus;
+    if ((regstatus = regcomp(&preg,fileregex.c_str(),0)) != 0) {
+        char regerrbuf[64];
+        regerror(regstatus,&preg,regerrbuf,sizeof regerrbuf);
+        throw IOException(fileregex,"regcomp",string(regerrbuf));
+    }
 
-	// search directory
-	while ((dp = readdir(dirp))) {
-	    DLOG(("dp->d_name=") << dp->d_name);
-	    if ((regstatus = regexec(&preg,dp->d_name,0,0,0)) == 0) {
-		string matchfile = makePath(currdir,dp->d_name);
-		DLOG(("regexec matchfile=") << matchfile);
-	        if (t1path.compare(matchfile) <= 0) {
-		    if (t2path.compare(matchfile) > 0 ||
-		    	(t1path_eq_t2path && t2path.compare(matchfile) >= 0)) {
-			DLOG(("regexec & time matchfile=") << matchfile);
-			matchedFiles.insert(matchfile);
-		    }
-		}
-	    }
-	    else if (regstatus != REG_NOMATCH) {
-		char regerrbuf[64];
-		regerror(regstatus,&preg,regerrbuf,sizeof regerrbuf);
-		throw IOException(fileregex,"regexec",string(regerrbuf));
-	    }
+    // search directory
+    while ((dp = readdir(dirp))) {
+        DLOG(("dp->d_name=") << dp->d_name);
+        if ((regstatus = regexec(&preg,dp->d_name,0,0,0)) == 0) {
+        string matchfile = makePath(currdir,dp->d_name);
+        DLOG(("regexec matchfile=") << matchfile);
+            if (t1path.compare(matchfile) <= 0) {
+            if (t2path.compare(matchfile) > 0 ||
+                (t1path_eq_t2path && t2path.compare(matchfile) >= 0)) {
+            DLOG(("regexec & time matchfile=") << matchfile);
+            matchedFiles.insert(matchfile);
+            }
         }
-	regfree(&preg);
+        }
+        else if (regstatus != REG_NOMATCH) {
+        char regerrbuf[64];
+        regerror(regstatus,&preg,regerrbuf,sizeof regerrbuf);
+        throw IOException(fileregex,"regexec",string(regerrbuf));
+        }
+        }
+    regfree(&preg);
 
-	if (ftime == t2) break;
-	ftime += dirDeltat;
-	if (ftime > t2) ftime = t2;
+    if (ftime == t2) break;
+    ftime += dirDeltat;
+    if (ftime > t2) ftime = t2;
     }
     if (dirp) closedir(dirp);
     DLOG(("matchedFiles.size()=") << matchedFiles.size());
@@ -617,7 +633,7 @@ void FileSet::replaceChars(string& in,const string& pat, const string& rep)
 {
     string::size_type patpos;
     while ((patpos = in.find(pat,0)) != string::npos)
-    	in.replace(patpos,pat.length(),rep);
+        in.replace(patpos,pat.length(),rep);
 }
 
 

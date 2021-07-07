@@ -76,7 +76,13 @@ CharacterSensor::~CharacterSensor() {
 
     for (map<const SampleTag*, TimetagAdjuster*>::const_iterator tti =
             _ttadjusters.begin();
-    	tti != _ttadjusters.end(); ++tti) delete tti->second;
+    	tti != _ttadjusters.end(); ++tti) {
+        TimetagAdjuster* tta = tti->second;
+        if (tta) {
+            tta->log(nidas::util::LOGGER_INFO, this);
+        }
+        delete tta;
+    }
 }
 
 void CharacterSensor::setMessageParameters(unsigned int len, const std::string& sep, bool eom)
@@ -186,10 +192,8 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
 
-        if (tag->getTimetagAdjustPeriod() > 0.0 && tag->getRate() > 0.0) {
-            _ttadjusters[tag] = new TimetagAdjuster(tag->getRate(),
-                tag->getTimetagAdjustPeriod(),
-                tag->getTimetagAdjustSampleGap());
+        if (tag->getTimetagAdjust() > 0.0 && tag->getRate() > 0.0) {
+            _ttadjusters[tag] = new TimetagAdjuster(tag->getId(), tag->getRate());
         }
     }
 	
@@ -442,7 +446,6 @@ searchSampleScanners(const Sample* samp, SampleTag** stag_out) throw()
     return outs;
 }
 
-
 bool
 CharacterSensor::
 process(const Sample* samp, list<const Sample*>& results) throw()
@@ -467,14 +470,12 @@ process(const Sample* samp, list<const Sample*>& results) throw()
     return true;
 }
 
-
-
 void
 CharacterSensor::
 adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
 {                                 
-    // If requested, reduce latency jitter in the time tags.
-    // Then correct for a known sampling or sensor response lag.
+    // Correct for a known sampling or sensor response lag.
+    // Then, if requested, reduce latency jitter in the time tags.
     outs->setTimeTag(outs->getTimeTag() - getLagUsecs());
     TimetagAdjuster* ttadj = _ttadjusters[stag];
     if (ttadj)
@@ -482,4 +483,3 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
         outs->setTimeTag(ttadj->adjust(outs->getTimeTag()));
     }
 }
-

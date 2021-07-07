@@ -46,9 +46,10 @@ public:
 
     /**
      * Return true if bad sample filtering has been enabled.  See
-     * setFilterBadSamples().
+     * setFilterBadSamples().  Enable inline to make it faster to check over
+     * and over.
      **/
-    bool filterBadSamples() const
+    inline bool filterBadSamples() const
     {
         return _filterBadSamples;
     }
@@ -141,6 +142,22 @@ public:
     setDefaultTimeRange(const UTime& start, const UTime& end);
 
     /**
+     * Set the single acceptable sample type, all others will be filtered out as bad.
+     * If set to UNKNOWN_ST, then all valid sample types are accepted.
+     **/
+    void
+    setSampleTypeLimit(nidas::core::sampleType stype);
+
+    /**
+     * Return the current sampleType setting.
+     **/
+    nidas::core::sampleType
+    sampleTypeLimit() const
+    {
+        return _sampleType;
+    }
+
+    /**
      * Parse the filter rule string and throw NidasAppException if it does
      * not parse.  An empty rule changes nothing.
      *
@@ -199,6 +216,10 @@ private:
     dsm_time_t _maxSampleTime;
 
     bool _skipNidasHeader;
+
+    // Set the acceptable sample type.  Defaults to UNKNOWN_ST, meaning all
+    // valid sample types are accepted.
+    nidas::core::sampleType _sampleType;
 };
 
 
@@ -207,33 +228,6 @@ private:
  **/
 std::ostream&
 operator<<(std::ostream& out, const BadSampleFilter& bsf);
-
-
-
-inline bool
-BadSampleFilter::
-invalidSampleHeader(const SampleHeader& sheader)
-{
-    if (_filterBadSamples)
-    {
-        // If filtering enabled but no max time set, use now plus 1 day.
-        if (_maxSampleTime == LONG_LONG_MAX)
-            _maxSampleTime = UTime().toUsecs() + 24*USECS_PER_HOUR;
-        // Likewise if no min time set, use within 20 years of max time.
-        if (_minSampleTime == LONG_LONG_MIN)
-            _minSampleTime = _maxSampleTime - 20*365*USECS_PER_DAY;
-    }
-
-    // screen bad headers.
-    return _filterBadSamples &&
-        (sheader.getType() >= UNKNOWN_ST ||
-         GET_DSM_ID(sheader.getId()) < _minDsmId ||
-         GET_DSM_ID(sheader.getId()) > _maxDsmId ||
-         sheader.getDataByteLength() < _minSampleLength ||
-         sheader.getDataByteLength() > _maxSampleLength ||
-         sheader.getTimeTag() < _minSampleTime ||
-         sheader.getTimeTag() > _maxSampleTime);
-}
 
 
 /**

@@ -1,0 +1,8 @@
+pkg_files/root/etc/default/emerald etc/default
+pkg_files/root/etc/default/pcmcom8 etc/default
+# See the value of XXX_KERN (e.g. VORTEX_KERN or TITAN_KERN)
+# in ../Makefile.  The Makefile install target copies the
+# modules to to $(MODDIR)/$(XXX_KERN)/nidas, which should match
+# this path:
+lib/modules/4.4.6/nidas/*.ko
+opt/nidas/firmware/*

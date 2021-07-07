@@ -9,7 +9,8 @@
                 "-C",
                 "${workspaceFolder}/src",
                 "-u",
-                "BUILDS=host"
+                "BUILDS=host",
+                "-j", "4",
             ],
             "group": {
                 "kind": "build",

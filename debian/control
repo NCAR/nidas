@@ -2,7 +2,10 @@ Source: nidas
 Section: science
 Priority: optional
 Maintainer: Gordon Maclean <maclean@ucar.edu>
-Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl, libgsl0-dev, libcap-dev, eol-scons, xmlrpc++-dev
+# This Build-Depends is being parsed (a syntax error causes a failure) but it doesn't
+# seem to have any effect in the debuild.  If a non-existent package is specified, the build
+# still succeeds
+Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[i386], libcap-dev, eol-scons, xmlrpc++-dev[armel], libxmlrpcpp-dev[i386 amd64]
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git
@@ -10,11 +13,10 @@ Vcs-Git: git://github.com/ncareol/nidas.git
 
 Package: nidas-min
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}
 Description: NCAR In-Situ Data Acquistion Software
  Minimal run-time setup for NIDAS, namely /etc/ld.so.conf.d/nidas.conf.
  Useful on systems that NFS mount /opt/nidas, or do their own builds.
- Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
 Package: nidas
 Architecture: any
@@ -55,6 +57,13 @@ Provides: nidas-modules
 Description: NIDAS Linux kernel modules
  NIDAS kernel modules, built for Intel 64
 
+Package: nidas-modules-vortex
+Architecture: i386
+Depends: ${misc:Depends}
+Provides: nidas-modules
+Description: NIDAS Linux kernel modules
+ NIDAS kernel modules, built for VortexDX3 Viper
+
 # Package: nidas-modules-rpi2
 # Architecture: armhf
 # Depends: ${misc:Depends}
@@ -65,7 +74,7 @@ Description: NIDAS Linux kernel modules
 Package: nidas-daq
 Architecture: all
 Depends: ${misc:Depends}, nidas
-Description: Package for doing data acquistion with NIDAS
+Description: Package for doing data acquisition with NIDAS
  Some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*,
  /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /etc/default/nidas-daq.
 
@@ -96,6 +105,12 @@ Architecture: armel
 Depends:  nidas, nidas-modules-viper, pxaregs
 Description: Meta-package for installation of NIDAS onto a Eurotech Viper
  Metapackage with sufficient dependencies to run NIDAS on a Eurotech Viper.
+
+Package: nidas-vortex
+Architecture: i386
+Depends:  nidas, nidas-modules-vortex
+Description: Meta-package for installation of NIDAS onto a VortexDX3
+ Metapackage with sufficient dependencies to run NIDAS on a VortexDX3
 
 Package: nidas-rpi2
 Architecture: armhf

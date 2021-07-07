@@ -2,6 +2,8 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os, re
+from SCons.Script import Environment, SConscript, BoolVariable
+from SCons.Script import Configure
 import eol_scons
 
 # eol_scons.debug.SetDebug("true")
@@ -9,6 +11,14 @@ import eol_scons
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
 env = Environment(tools=['default', 'gitinfo'])
+
+# This passes all settings from the calling environment.  This was a quick fix
+# for supercomputer builds (casper) which use modules to setup the environment,
+# to pull in specific sets and versions of tools and libraries. It is left here
+# disabled as a placeholder until it's needed again and a less heavy-handed
+# approach can be found.
+if False:
+    env.PassEnv('')
 
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
@@ -85,22 +95,23 @@ env.MergeFlags('-pthread')
 if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
-BUILDS = Split(env['BUILDS'])
-MACHS = Split(env['MACHS'])
+BUILDS = env.Split(env['BUILDS'])
+MACHS = env.Split(env['MACHS'])
 
 if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', '\n'
-             '  path to linux kernel source for build host,\n'
-             '  (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:', '*')
+        '  path to linux kernel headers for building modules.\n'
+        '  Use $KERNELDIR_FOUND to use the path found by the kmake tool.',
+	'$KERNELDIR_FOUND')
 
 if 'arm' in BUILDS:
-    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel source for Viper:',
+    opts.Add('KERNELDIR_viper_arm', 'path to linux kernel headers for Viper:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-viper')
-    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel source for Titan:',
+    opts.Add('KERNELDIR_titan_arm', 'path to linux kernel headers for Titan:',
              '/opt/arcom/src/linux-source-2.6.35.9-ael1-titan')
 
 if 'armbe' in BUILDS:
-    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel source for Vulcan:',
+    opts.Add('KERNELDIR_vulcan_armbe', 'path to linux kernel headers for Vulcan:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
 
 if 'armel' in BUILDS:
@@ -169,8 +180,17 @@ env['ARCHPREFIX'] = '$PREFIX'
 # print('CXXFLAGS=' + str(env['CXXFLAGS']))
 # print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
+# env['CXX'] = 'clang++'
 env['CFLAGS'] = [ '-Wall','-O2' ]
 env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated' ]
+if env['CXX'] == 'clang++':
+    # Someday it might be nice to refactor the remaining overloaded virtual
+    # functions, but for now they're working and haven't seemed to bite us yet.
+    env.AppendUnique(CXXFLAGS=['-Wno-overloaded-virtual'])
+    # Ignore inconsistent overrides to add them piecemeal.
+    env.AppendUnique(CXXFLAGS=['-Wno-inconsistent-missing-override'])
+    # env.AppendUnique(CXXFLAGS=['-stdlib=libstdc++'])
+    # env.AppendUnique(LDFLAGS=['-rtlib=libgcc'])
 
 env['CCFLAGS'] = [ ]
 
@@ -218,17 +238,17 @@ def SConscriptVariant(arch, archenv):
         SConscript('nidas/SConscript',
                    variant_dir=vdir,
                    duplicate=0, exports={'env':archenv})
-        Alias(arch, vdir)
-        Clean(vdir, vdir)
+        env.Alias(arch, vdir)
+        env.Clean(vdir, vdir)
         if arch == 'x86':
-            Alias('host', vdir)
+            env.Alias('host', vdir)
         elif arch == 'host':
-            Alias('x86', vdir)
+            env.Alias('x86', vdir)
     else:
         SConscript('nidas/SConscript', exports={'env':archenv})
-        Alias(arch, 'nidas')
+        env.Alias(arch, 'nidas')
         if arch == 'host':
-            Alias('host', 'nidas')
+            env.Alias('host', 'nidas')
 
 
 def getMachineTypes(arch, mspecs):
@@ -266,6 +286,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
             '-Wformat', '-Werror=format-security',
             '-D_FORTIFY_SOURCE=2'])
     host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', '-I/usr/include/libftdi1', '-I/usr/include/libusb-1.0'])
+    host_env.AppendUnique(CXXFLAGS=['-std=c++11'])
     CheckStackProtectorOptions(host_env)
 
 # hardening option "-pie" in LINKFLAGS results in this error:
@@ -320,6 +341,8 @@ if 'armbe' in BUILDS:
         ARCHPREFIX='$PREFIX/armbe')
 
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+    # clock_gettime is in librt on vulcans
+    armbe_env.AppendUnique(LIBS = 'rt')
     CheckStackProtectorOptions(armbe_env)
 
     if re.search("^3",armbe_env['CXXVERSION']):
@@ -374,22 +397,22 @@ if 'armhf' in BUILDS:
     SConscriptVariant('armhf', armhf_env)
 
 
-Default([BUILDS])
+env.Default([BUILDS])
 
 # Install the schema where it can be referenced globally on the system.
-Alias('install',
-      Alias('xml_install',
-            env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
+env.Alias('install',
+          env.Alias('xml_install',
+                  env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
 dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
               'cd .. && rm -rf doc/doxygen && ( cat $SOURCE; echo PROJECT_NUMBER=$REPO_TAG ) | doxygen -')
-Alias('dox', dox)
-AlwaysBuild(dox)
+env.Alias('dox', dox)
+env.AlwaysBuild(dox)
 
 # Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
 # a target, and the other install targets this rule to create $PREFIX
-Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+env.Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of

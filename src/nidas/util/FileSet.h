@@ -197,8 +197,7 @@ public:
 
     static const char pathSeparator;
 
-    static void createDirectory(const std::string& name,mode_t mode)
-        throw(IOException);
+    static void createDirectory(const std::string& name,mode_t mode);
 
     /**
      * Utility function to return the directory portion of a

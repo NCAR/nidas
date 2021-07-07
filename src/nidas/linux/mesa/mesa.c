@@ -97,9 +97,9 @@ static void read_counter(void *ptr)
 
         samp = GET_HEAD(brd->cntr_samples,MESA_CNTR_SAMPLE_QUEUE_SIZE);
         if (!samp) {                // no output sample available
-                brd->status.missedSamples++;
-                KLOG_WARNING("%s: missedSamples=%d\n",
-                        brd->devName,brd->status.missedSamples);
+                if (!(brd->status.missedSamples++ % 100))
+                        KLOG_WARNING("%s: missedSamples=%d\n",
+                                brd->devName,brd->status.missedSamples);
                 // read and discard data
                 read_address_offset = COUNT0_READ_OFFSET;
                 for (i = 0; i < brd->nCounters; i++) {
@@ -162,9 +162,9 @@ static void read_radar(void *ptr)
         if (++rstate->npoll == rstate->NPOLL) {
                 samp = GET_HEAD(brd->radar_samples,MESA_RADAR_SAMPLE_QUEUE_SIZE);
                 if (!samp) {                // no output sample available
-                        brd->status.missedSamples++;
-                        KLOG_WARNING("%s: missedSamples=%d\n",
-                                brd->devName,brd->status.missedSamples);
+                        if (!(brd->status.missedSamples++ % 100))
+                                KLOG_WARNING("%s: missedSamples=%d\n",
+                                        brd->devName,brd->status.missedSamples);
                         rstate->ngood = 0;
                         rstate->npoll = 0;
                         return;
@@ -218,9 +218,9 @@ static void read_260x(void *ptr)
 
         samp = GET_HEAD(brd->p260x_samples,MESA_P260X_SAMPLE_QUEUE_SIZE);
         if (!samp) {                // no output sample available
-                brd->status.missedSamples++;
-                KLOG_WARNING("%s: missedSamples=%d\n",
-                        brd->devName,brd->status.missedSamples);
+                if (!(brd->status.missedSamples++ % 100))
+                        KLOG_WARNING("%s: missedSamples=%d\n",
+                                brd->devName,brd->status.missedSamples);
                 inw_16o(brd->addr + STROBES_OFFSET);
                 inw_16o(brd->addr + TWOSIXTY_RESETS_OFFSET);
                 for (i = 0; i < TWO_SIXTY_BINS; ++i)

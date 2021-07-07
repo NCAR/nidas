@@ -83,9 +83,14 @@ protected:
     int _tasIdx;
     float *_tasWeight;
 
+    // Ambient Temp and Statuc Press from DerivedDataReader
+    float _at, _ps;
+
     int _Qmin, _Qmax;
 
     float _Qfac;
+
+    static const float Tstd;
 
 private:
 

@@ -37,6 +37,7 @@ DEBVERSION := $(shell debver="$(DEBVER)"; echo "$${debver%-*}")
 
 $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
 $(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
+$(info DEB_HOST_MULTIARCH=$(DEB_HOST_MULTIARCH))
 
 ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
     $(info native build)
@@ -62,7 +63,7 @@ override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
 
 override_dh_shlibdeps:
-	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)
+	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_MULTIARCH):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_MULTIARCH)
 	# didn't work: dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
 	# didn't work: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE)
 	# worked, but "-Lnidas-libs" is unnecessary: dh_shlibdeps -Lnidas-libs -l/opt/nc_server/lib/$(DEB_HOST_GNU_TYPE):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_GNU_TYPE)

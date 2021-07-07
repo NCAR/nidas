@@ -41,7 +41,7 @@
 #include <linux/fs.h>
 
 #include <linux/circ_buf.h>
-#include <linux/time.h>
+#include <linux/ktime.h>
 #include <linux/version.h>
 
 /**
@@ -54,43 +54,64 @@
  * locks. To make sure things are coherent, memory barriers are used.
  *
  * For information on using circular buffers in kernel code, refer to
- * the linux kernel documentation, contained in the kernel-doc RPM.
- * kernel-doc places the documentation in
+ * the Documentation directory of the linux kernel.
+ * The RPM kernel-doc places the documentation in
  * /usr/share/doc/kernel-doc-x.y.z/Documentation, where x.y.z is the
  * kernel version of your system.
  *
  * These doc files have useful information on circular buffers:
- *    circular-buffers.txt
+ *    core-api/circular-buffers.rst
  *    memory-barriers.txt (after a strong cup of coffee)
- *    volatile-considered-harmful.txt 
+ *    process/volatile-considered-harmful.txt 
  *
- * If anyone masters a real firm understanding of all this, hats off to them...
+ * If anyone masters a real firm understanding of all this, especially
+ * memory-barriers.txt, hats off to them!
+ *
+ * Access to a circular buffer using these macros should performed
+ * only by code whose threads do not combine the following roles:
+ *   a producer puts objects into the buffer, only incrementing the head pointer
+ *   a consumer reads objects from the buffer, only incrementing the tail pointer
+ * One consumer and one producer can run concurrently.
  */
 
-/** ACCESS_ONCE is not defined in older kernels */
-#ifndef ACCESS_ONCE
-#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+/* 
+ * https://elixir.bootlin.com/linux/latest/source is a useful site for searching
+ * through kernel versions for an indentifier.
+ *
+ * Vulcans are running 2.6.21 kernel, ACCESS_ONCE and READ_ONCE are not defined
+ * Vipers/titans: 3.16.0, ACCESS_ONCE is defined, but READ_ONCE is not
+ * 3.18.13: first appearance of READ_ONCE
+ */
+#ifndef READ_ONCE
+#ifdef ACCESS_ONCE
+#define READ_ONCE(x) ACCESS_ONCE(x)
+#else
+/* def of ACCESS_ONCE in include/linux/compiler.h in 3.16 */
+#define READ_ONCE(x) (*(volatile typeof(x) *)&(x))
+#endif
+#endif
+
+#ifndef WRITE_ONCE
+#ifdef ACCESS_ONCE
+#define WRITE_ONCE(x,val) ACCESS_ONCE(x) = (val)
+#else
+#define WRITE_ONCE(x,val) (*(volatile typeof(x) *)&(x)) = (val)
+#endif
 #endif
 
 /**
  * A circular buffer of time-tagged data samples.
  *
  * There is a temptation to declare head and tail volatile, to prevent
- * the compiler from temporarily caching the values somewhere, so that
+ * the compiler from temporarily caching the values, so that
  * changes to head or tail are known immediately to all threads.
  * Read volatile-considered-harmful.txt in the kernel documentation.
  *
- * We do use the ACCESS_ONCE macro when reading the "opposition"
- * index (head pointer in the consumer, tail pointer in the producer),
- * which ironically casts the argument to (volatile *) :-).
- * According to circular-buffers.txt:
- * ACCESS_ONCE "prevents the compiler from discarding and reloading
- * its cached value - which some compilers will do across
- * smp_read_barrier_depends().  This isn't strictly needed if you
- * can be sure that the opposition index will _only_ be used the once."
- *
- * Since we're providing macros here, and the user may call them
- * multiples times in a function, we'll use ACCESS_ONCE.
+ * Instead we use READ_ONCE or similar macros
+ * when accessing the "opposition" index (head pointer in the consumer,
+ * tail pointer in a producer), and memory barriers to ensure
+ * memory stores have completed.
+ * READ_ONCE ironically casts the argument to (volatile *) :-).
  */
 struct dsm_sample_circ_buf {
         struct dsm_sample **buf;
@@ -102,10 +123,10 @@ struct dsm_sample_circ_buf {
 };
 
 /**
- * GET_HEAD accesses the head index twice.  The idea is that
- * the space will only stay the same or get bigger between
- * the CIRC_SPACE check and the return of buf[head] element,
- * because only the calling thread should be changing head.
+ * GET_HEAD is used by a producer, and accesses the head index twice.
+ * The idea is that space in the buffer will only stay the same or
+ * get bigger between the CIRC_SPACE check and the return of buf[head]
+ * element, because only the calling thread should be changing head.
  * If a separate consumer thread is messing with tail, CIRC_SPACE
  * will only stay the same or get bigger, not smaller, and
  * and the head element will not become invalid.
@@ -116,68 +137,95 @@ struct dsm_sample_circ_buf {
  */
 #define GET_HEAD(cbuf,size) \
         ({\
-         (CIRC_SPACE((cbuf).head,ACCESS_ONCE((cbuf).tail),size) > 0 ? \
+         (CIRC_SPACE((cbuf).head,READ_ONCE((cbuf).tail),(size)) > 0 ? \
           (cbuf).buf[(cbuf).head] : 0);\
          })
 
 /**
- * use smp_wmb() memory barrier before incrementing the head pointer 
- * to make sure the item at the head is committed before the increment
- * and store of head, so that readers are sure to get a completed item.
+ * Used by a producer.  Use smp_wmb or smp_store_release memory barrier
+ * before incrementing the head pointer to make sure the item at the
+ * head is committed before the increment and store of head, so that
+ * readers are sure to get a completed item.
+ *
+ * smp_store_release() and smp_load_acquire() first appear in 3.12.47
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+#define INCREMENT_HEAD(cbuf,size) \
+        smp_store_release(&(cbuf).head, ((cbuf).head + 1) & ((size) - 1))
+#else
 #define INCREMENT_HEAD(cbuf,size) \
         do { smp_wmb(); (cbuf).head = ((cbuf).head + 1) & ((size) - 1); } while (0)
+#endif
+
+#define NEXT_HEAD(cbuf,size) \
+        (INCREMENT_HEAD(cbuf,size), GET_HEAD(cbuf,size))
 
 /**
- * GET_TAIL accesses the tail index twice.  The idea is that
- * the count will only stay the same or get bigger between
- * the CIRC_CNT check and the return of buf[tail] element,
+ * GET_TAIL is used by a consumer, accessing the tail index twice.
+ * The count of items in the buffer will only stay the same or get
+ * bigger between the CIRC_CNT check and the return of buf[tail] element,
  * because only the calling thread should be changing tail.
  * If a separate producer thread is messing with head, CIRC_CNT
  * will only stay the same or get bigger, not smaller, and
  * and the tail element will not become invalid.
  *
- * Use of smp_read_barrier_depends() ensures that:
- * (quote from memory-barriers.txt):
+ * Use barriers in smp_load_acquire() or the explicit
+ * smp_read_barrier_depends(), depending on the kernel version.
+ * smp_read_barrier_depends() has been completely removed
+ * from 5.9 kernels.
+ *
+ * A useful quote from memory-barriers.txt describing the
+ * function of smp_read_barrier_depends():
  * "for any load preceding it, if that load touches
  * one of a sequence of stores from another CPU, then
  * by the time the barrier completes, the effects of all
  * the stores prior to that touched by the load will be
  * perceptible to any loads issued after the data dependency
  * barrier".
- * In GET_TAIL, we load the tail index, and if another CPU (the producer)
+ * In GET_TAIL, we load the tail index, and if another CPU (a producer)
  * has stored buf[tail], then the barrier between the load of
  * tail and the load of buf[tail] will ensure that the store of
  * buf[tail] is perceptible to the calling CPU.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
 #define GET_TAIL(cbuf,size) \
         ({\
-         int tmp = CIRC_CNT(ACCESS_ONCE((cbuf).head),(cbuf).tail,size);\
+         int tmp = CIRC_CNT(smp_load_acquire(&(cbuf).head),(cbuf).tail,size);\
+         (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
+         })
+#else
+#define GET_TAIL(cbuf,size) \
+        ({\
+         int tmp = CIRC_CNT(READ_ONCE((cbuf).head),(cbuf).tail,size);\
          smp_read_barrier_depends();\
          (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
          })
+#endif
 
 /**
- * Us smp_mb barrier to ensure the item is fully read
- * before the tail is incremented and stored.
- * After the increment of the tail the producer is free
+ * Used by a consumer.
+ * Use smp_mb or smp_store_release barriers to ensure the item
+ * is fully read before the tail is incremented and stored.
+ * After the increment of the tail a producer is free
  * to start writing into the element, so we make
  * sure we have finished reading it. The example in
  * circular-buffers.txt uses smp_mb(), when it seems
  * to me that smp_rmb() is sufficient.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+#define INCREMENT_TAIL(cbuf,size) \
+        smp_store_release(&(cbuf).tail, ((cbuf).tail + 1) & ((size) - 1))
+
+#else
 #define INCREMENT_TAIL(cbuf,size) \
         do { smp_mb(); (cbuf).tail = ((cbuf).tail + 1) & ((size) - 1); } while(0)
-
-#define NEXT_HEAD(cbuf,size) \
-        (INCREMENT_HEAD((cbuf),size), GET_HEAD((cbuf),size))
+#endif
 
 /**
  * zero the head and tail and throw in a full memory barrier.
  */
 #define EMPTY_CIRC_BUF(cbuf) \
         do { (cbuf).tail = (cbuf).head = 0; smp_mb(); } while(0)
-
 
 /**
  * kmalloc, with flags = GFP_KERNEL, the buffer within a
@@ -216,40 +264,72 @@ extern int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int bl
  */
 extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
 
+/**
+ * Define a thiskernel_timespec_t, the natural timespec
+ * for this machine and kernel.  It is what is used by the
+ * ktime_get_*_*() functions. It is only defined in __KERNEL__ space.
+ * timespec64 first appears in 3.17, include/linux/time64.h.
+ * 
+ * The typedef of thiskernel_timespec_t has the following member sizes,
+ * where a 4 byte tv_sec field is not year 2038 compatible.
+ *
+ * 32 bit machine, kernel < 3.17:  4 byte tv_sec and 4 byte tv_nsec
+ * 32 bit machine, kernel >= 3.17: 8 byte tv_sec and 4 byte tv_nsec
+ * 64 bit machine, most any kernel?: 8 byte tv_sec and 8 byte tv_nsec
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
+typedef struct timespec thiskernel_timespec_t;
+#else
+typedef struct timespec64 thiskernel_timespec_t;
+#endif
+
+/*
+ * Return system time in a thiskernel_timespec_t.
+ * ktime_get_real_ts64 first appears in 3.17
+ */
+inline void getSystemTimeTs(thiskernel_timespec_t *ts)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
+        ktime_get_real_ts(ts);
+#else
+        ktime_get_real_ts64(ts);
+#endif
+}
+
 /*
  * Return time in milliseconds since 00:00 UTC.
  */
 inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        struct timeval tv;
-        do_gettimeofday(&tv);
-        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
-                tv.tv_usec / USECS_PER_MSEC;
+        thiskernel_timespec_t ts;
+        getSystemTimeTs(&ts);
+        /* BITS_PER_LONG seems to be defined in all kernels, but
+         * __BITS_PER_LONG isn't defined in 2.6 kernels.
+         * Use __BITS_PER_LONG if exporting a .h to user space. */
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes dividend in place, returns remainder */
+        return do_div(ts.tv_sec, SECS_PER_DAY) * MSECS_PER_SEC +
+		ts.tv_nsec / NSECS_PER_MSEC;
 #else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
-                tv.tv_nsec / NSECS_PER_MSEC;
+        return (ts.tv_sec % SECS_PER_DAY) * MSECS_PER_SEC +
+                ts.tv_nsec / NSECS_PER_MSEC;
 #endif
 }
-
 
 /*
  * Return time in tenths of milliseconds since 00:00 UTC.
  */
 inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-        struct timeval tv;
-        do_gettimeofday(&tv);
-        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
-                tv.tv_usec / USECS_PER_TMSEC;
+        thiskernel_timespec_t ts;
+        getSystemTimeTs(&ts);
+#if BITS_PER_LONG == 32 && LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+	/* do_div changes dividend in place, returns remainder */
+        return do_div(ts.tv_sec, SECS_PER_DAY) * TMSECS_PER_SEC +
+		ts.tv_nsec / NSECS_PER_TMSEC;
 #else
-        struct timespec64 tv;
-        ktime_get_real_ts64(&tv);
-        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
-                tv.tv_nsec / 1000 / USECS_PER_TMSEC;
+        return (ts.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                ts.tv_nsec / NSECS_PER_TMSEC;
 #endif
 }
 
@@ -274,7 +354,7 @@ inline int sample_remains(const struct sample_read_state* state)
  *
  * If no data is available for reading this function will do a
  * wait_event_interruptible on the readq until data are available,
- * or in interrupt is received.
+ * or the read is interrupted.
  * Then this function will copy all samples which are available
  * in the circular buffer into the user's buffer, until
  * the count limit is reached, or until no samples are left.

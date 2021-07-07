@@ -736,7 +736,7 @@
         </serialSensor>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="200">
-            <calfile path="${PROJ_DIR}/Configuration/raf/cal_files/A2D/" file="A2D007.dat"/>
+            <calfile path="${PROJ_DIR}/Configuration/cal_files/A2D/" file="A2D007.dat"/>
             <parameter name="rate" value="500" type="int"/>
             <sample id="1" rate="100">
                 <parameter name="filter" value="boxcar" type="string"/>
@@ -792,7 +792,7 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
 -->
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="300">
-            <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D1606.dat"/>
+            <calfile path="$PROJ_DIR/Configuration/cal_files/A2D" file="A2D1606.dat"/>
             <parameter name="rate" value="500" type="int"/>
             <sample id="1" rate="10">
                 <parameter name="filter" value="boxcar" type="string"/>
@@ -824,7 +824,7 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
          </sensor>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d1" id="320">
-            <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D1605.dat"/>
+            <calfile path="$PROJ_DIR/Configuration/cal_files/A2D" file="A2D1605.dat"/>
             <parameter name="rate" value="500" type="int"/>
             <sample id="1" rate="10">
                 <parameter name="filter" value="boxcar" type="string"/>
@@ -873,7 +873,7 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
         <serialSensor IDREF="TDLH2O" devicename="/dev/ttyS7" id="160" suffix="_CSD"/>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="200">
-            <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D1609.dat"/>
+            <calfile path="$PROJ_DIR/Configuration/cal_files/A2D" file="A2D1609.dat"/>
             <parameter name="rate" value="500" type="int"/>
 <!-- 
      Tom Changed sample rate from 25 to 10 and numpoints value to 50
@@ -939,7 +939,7 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
         </sensor>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="200">
-            <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D006.dat"/>
+            <calfile path="$PROJ_DIR/Configuration/cal_files/A2D" file="A2D006.dat"/>
             <parameter name="rate" value="500" type="int"/>
             <sample id="1" rate="100">
                 <parameter name="filter" value="boxcar" type="string"/>
@@ -972,7 +972,7 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
         </serialSensor>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="200">
-            <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D019.dat"/>
+            <calfile path="$PROJ_DIR/Configuration/cal_files/A2D" file="A2D019.dat"/>
             <parameter name="rate" value="500" type="int"/>
             <sample id="1" rate="100">
                 <parameter name="filter" value="boxcar" type="string"/>

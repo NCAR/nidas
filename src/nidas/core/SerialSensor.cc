@@ -61,7 +61,7 @@ SerialSensor::~SerialSensor()
 }
 
 SampleScanner* SerialSensor::buildSampleScanner()
-	throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr = CharacterSensor::buildSampleScanner();
     DLOG(("%s: usec/byte=%d",getName().c_str(),getUsecsPerByte()));
@@ -188,7 +188,7 @@ void SerialSensor::startPrompting() throw(n_u::IOException)
                     prompter->getPromptPeriodMsec(),
                     prompter->getPromptOffsetMsec());
         }
-	_prompting = true;
+    _prompting = true;
     }
 }
 
@@ -201,7 +201,7 @@ void SerialSensor::stopPrompting() throw(n_u::IOException)
             Prompter* prompter = *pi;
             getLooper()->removeClient(prompter);
         }
-	_prompting = false;
+    _prompting = false;
     }
 }
 
@@ -210,30 +210,30 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
     DSMSensor::printStatus(ostr);
 
     try {
-	ostr << "<td align=left>" << _termios.getBaudRate() <<
-		_termios.getParityString().substr(0,1) <<
-		_termios.getDataBits() << _termios.getStopBits();
-	if (getReadFd() < 0) {
-	    ostr << ",<font color=red><b>not active</b></font>";
-	    if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	    ostr << "</td>" << endl;
-	    return;
-	}
-	if (getTimeoutMsecs() > 0)
-	    	ostr << ",timeouts=" << getTimeoutCount();
-	ostr << "</td>" << endl;
+    ostr << "<td align=left>" << _termios.getBaudRate() <<
+        _termios.getParityString().substr(0,1) <<
+        _termios.getDataBits() << _termios.getStopBits();
+    if (getReadFd() < 0) {
+        ostr << ",<font color=red><b>not active</b></font>";
+        if (getTimeoutMsecs() > 0)
+        ostr << ",timeouts=" << getTimeoutCount();
+        ostr << "</td></tr>" << endl;
+        return;
+    }
+    if (getTimeoutMsecs() > 0)
+        ostr << ",timeouts=" << getTimeoutCount();
+    ostr << "</td></tr>" << endl;
     }
     catch(const n_u::IOException& ioe) {
-        ostr << "<td>" << ioe.what() << "</td>" << endl;
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: printStatus: %s",getName().c_str(),
-	    ioe.what());
+        ostr << "<td>" << ioe.what() << "</td></tr>" << endl;
+    n_u::Logger::getInstance()->log(LOG_ERR,
+        "%s: printStatus: %s",getName().c_str(),
+        ioe.what());
     }
 }
 
 void SerialSensor::fromDOMElement(
-	const xercesc::DOMElement* node)
+    const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
 
@@ -243,57 +243,57 @@ void SerialSensor::fromDOMElement(
 
     if(node->hasAttributes()) {
     // get all the attributes of the node
-	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
-	int nSize = pAttributes->getLength();
-	for(int i=0;i<nSize;++i) {
-	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
-	    // get attribute name
-	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
+    xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+    int nSize = pAttributes->getLength();
+    for(int i=0;i<nSize;++i) {
+        XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+        // get attribute name
+        const std::string& aname = attr.getName();
+        const std::string& aval = attr.getValue();
 
-	    if (aname == "ID");
-	    else if (aname == "IDREF");
-	    else if (aname == "class");
-	    else if (aname == "devicename");
-	    else if (aname == "id");
-	    else if (aname == "baud") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail() || !_termios.setBaudRate(val))
-		    throw n_u::InvalidParameterException(
-		    	string("SerialSensor:") + getName(),
-			aname,aval);
-	    }
-	    else if (aname == "parity") {
-		if (aval == "odd") _termios.setParity(n_u::Termios::ODD);
-		else if (aval == "even") _termios.setParity(n_u::Termios::EVEN);
-		else if (aval == "none") _termios.setParity(n_u::Termios::NONE);
-		else throw n_u::InvalidParameterException(
-		    string("SerialSensor:") + getName(),
-		    aname,aval);
-	    }
-	    else if (aname == "databits") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-			string("SerialSensor:") + getName(),
-		    	aname, aval);
-		_termios.setDataBits(val);
-	    }
-	    else if (aname == "stopbits") {
-		istringstream ist(aval);
-		int val;
-		ist >> val;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(
-			string("SerialSensor:") + getName(),
-		    	aname, aval);
-		_termios.setStopBits(val);
-	    }
-	    else if (aname == "rts485") {
+        if (aname == "ID");
+        else if (aname == "IDREF");
+        else if (aname == "class");
+        else if (aname == "devicename");
+        else if (aname == "id");
+        else if (aname == "baud") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail() || !_termios.setBaudRate(val))
+            throw n_u::InvalidParameterException(
+                string("SerialSensor:") + getName(),
+            aname,aval);
+        }
+        else if (aname == "parity") {
+        if (aval == "odd") _termios.setParity(n_u::Termios::ODD);
+        else if (aval == "even") _termios.setParity(n_u::Termios::EVEN);
+        else if (aval == "none") _termios.setParity(n_u::Termios::NONE);
+        else throw n_u::InvalidParameterException(
+            string("SerialSensor:") + getName(),
+            aname,aval);
+        }
+        else if (aname == "databits") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail())
+            throw n_u::InvalidParameterException(
+            string("SerialSensor:") + getName(),
+                aname, aval);
+        _termios.setDataBits(val);
+        }
+        else if (aname == "stopbits") {
+        istringstream ist(aval);
+        int val;
+        ist >> val;
+        if (ist.fail())
+            throw n_u::InvalidParameterException(
+            string("SerialSensor:") + getName(),
+                aname, aval);
+        _termios.setStopBits(val);
+        }
+        else if (aname == "rts485") {
             if (aval == "true" || aval == "1") {
                 _rts485 = 1;
             }
@@ -309,39 +309,40 @@ void SerialSensor::fromDOMElement(
                     aname, aval);
             }
         }
-	    else if (aname == "nullterm");
-	    else if (aname == "init_string");
-	    else if (aname == "suffix");
-	    else if (aname == "height");
-	    else if (aname == "depth");
-	    else if (aname == "duplicateIdOK");
-	    else if (aname == "timeout");
-	    else if (aname == "readonly");
-	    else if (aname == "station");
-            else if (aname == "xml:base" || aname == "xmlns") {}
-	    else throw n_u::InvalidParameterException(
-		string("SerialSensor:") + getName(),
-		"unknown attribute",aname);
+        else if (aname == "nullterm");
+        else if (aname == "init_string");
+        else if (aname == "suffix");
+        else if (aname == "height");
+        else if (aname == "depth");
+        else if (aname == "duplicateIdOK");
+        else if (aname == "timeout");
+        else if (aname == "readonly");
+        else if (aname == "station");
+        else if (aname == "location");
+        else if (aname == "xml:base" || aname == "xmlns") {}
+        else throw n_u::InvalidParameterException(
+        string("SerialSensor:") + getName(),
+        "unknown attribute",aname);
 
-	}
+    }
     }
 
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
-	    child=child->getNextSibling())
+        child=child->getNextSibling())
     {
-	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-	XDOMElement xchild((xercesc::DOMElement*) child);
-	const string& elname = xchild.getNodeName();
+    if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+    XDOMElement xchild((xercesc::DOMElement*) child);
+    const string& elname = xchild.getNodeName();
 
-	if (elname == "message");
-	else if (elname == "prompt");
-	else if (elname == "sample");
-	else if (elname == "parameter");
-	else if (elname == "calfile");
-	else throw n_u::InvalidParameterException(
-	    string("SerialSensor:") + getName(),
-	    "unknown element",elname);
+    if (elname == "message");
+    else if (elname == "prompt");
+    else if (elname == "sample");
+    else if (elname == "parameter");
+    else if (elname == "calfile");
+    else throw n_u::InvalidParameterException(
+        string("SerialSensor:") + getName(),
+        "unknown element",elname);
     }
 }
 
@@ -374,12 +375,12 @@ void SerialSensor::Prompter::looperNotify() throw()
 {
     if (!_prompt) return;
     try {
-	_sensor->write(_prompt,_promptLen);
+    _sensor->write(_prompt,_promptLen);
     }
     catch(const n_u::IOException& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: write prompt: %s",_sensor->getName().c_str(),
-	    e.what());
+    n_u::Logger::getInstance()->log(LOG_ERR,
+        "%s: write prompt: %s",_sensor->getName().c_str(),
+        e.what());
     }
 }
 

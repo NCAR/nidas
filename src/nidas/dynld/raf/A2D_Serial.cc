@@ -45,16 +45,18 @@ NIDAS_CREATOR_FUNCTION_NS(raf, A2D_Serial)
 
 A2D_Serial::A2D_Serial() :
     SerialSensor(),
-    _nVars(0), _sampleRate(0), _deltaT(0), _boardID(0), _haveCkSum(true),
-    _calFile(0), _outputMode(Engineering), _havePPS(false),
+    _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
+    _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
 {
 headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         _channels[i] = 0;
-        _gains[i] = 0;          // 1 or 2 is all we support at this time.
-        _polarity[i] = 0;       // not the same as bipolar or offset in previous
+        _gains[i] = 1;          // 1 or 2 is all we support at this time.
+        _ifsr[i] = 0;           // plus/minus 10
+        _polarity[i] = 1;       // Fixed 1 for this device
+        _ipol[i] = 0;
     }
 
     configStatus["PPS"] = 0;
@@ -92,12 +94,14 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
             // process all samples in buffer
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
 
-                distributeRaw(samp);        // send it on to the clients
 
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;   // last line of config
                 parseConfigLine(msg);
+
+                // send it on to the clients and freeReference
+                distributeRaw(samp);
             }
             if (nsamp > 50) {
                 WLOG(("%s: A2D_Serial open(): expected !EOC, not received",
@@ -125,7 +129,7 @@ void A2D_Serial::dumpConfig() const
 
     for (int i = 0; i < _nVars; ++i)
     {
-        cout << "gain=" << _gains[i] << ", ipol=" << _polarity[i] << ", cals=";
+        cout << "ifsr=" << _ifsr[i] << ", ipol=" << _ipol[i] << ", cals=";
         for (size_t j = 0; j < _polyCals[i].size(); ++j)
             cout << _polyCals[i].at(j) << ", ";
         cout << endl;
@@ -192,14 +196,14 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
             for (pi = vparams.begin(); pi != vparams.end(); ++pi) {
                 const Parameter* param = *pi;
                 const string& pname = param->getName();
-                if (pname == "gain") {
+                if (pname == "ifsr") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
 
                     fgain = param->getNumericValue(0);
                 }
-                else if (pname == "polarity") {
+                else if (pname == "ipol") {
                     if (param->getLength() != 1)
                         throw n_u::InvalidParameterException(getName(),
                             pname,"no value");
@@ -221,8 +225,9 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
 
 
             _channels[iv] = ichan;
-            _gains[ichan] = fgain;
-            _polarity[ichan] = ipol;
+            _ipol[ichan] = ipol;
+            _ifsr[ichan] = fgain;
+            _gains[ichan] = fgain + 1;  // this works for now, will not if moe gains are added
             prevChan = ichan;
         }
     }
@@ -240,6 +245,7 @@ void A2D_Serial::init() throw(n_u::InvalidParameterException)
 
 
     _deltaT = (int)rint(USECS_PER_SEC / _sampleRate);
+    _staticLag = _deltaT;   // This can be affected by FILT.
 
     const map<string,CalFile*>& cfs = getCalFiles();
     // Just use the first file. If, for some reason a second calibration
@@ -253,7 +259,7 @@ void A2D_Serial::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
         return;
     }
 
@@ -262,28 +268,28 @@ void A2D_Serial::printStatus(std::ostream& ostr) throw()
     bool firstPass = true;
     for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
     {
-        bool red = false;
+        bool iwarn = false;
         if (!firstPass) ostr << ',';
 
-        ostr << "<font";
         if ((it->first).compare("BID") == 0) {
             if (it->second != _boardID)
-                red = true;
+                iwarn = true;
         }
         else
         if ((it->first).compare("PPS") == 0) {
             if (it->second < 2)
-                red = true;
+                iwarn = true;
         }
         else
         if (it->second == false)
-            red = true;
+            iwarn = true;
 
-        if (red) ostr << " color=red";
-        ostr << "><b>" << it->first << "</b></font>";
+        if (iwarn) ostr << "<font color=red><b>";
+        ostr << it->first;
+        if (iwarn) ostr << "</b></font>";
         firstPass = false;
     }
-    ostr << "</td>";
+    ostr << "</td></tr>";
 }
 
 
@@ -308,13 +314,11 @@ bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 
     // Extract and compare with checksum sent.
     unsigned int ckSumSent;
-    sscanf((const char *)pos, "%x", &ckSumSent);
-    rc = (cksum == ckSumSent);
-    if (rc == false)
-            WLOG(("%s: bad SerialAnalog checksum at ", getName().c_str()) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-                ", #bad=" << ++_badCkSumCnt);
-
+    if (sscanf((const char *)pos, "%x", &ckSumSent) == 1) rc = (cksum == ckSumSent);
+    if (!rc)
+        WLOG(("%s: bad SerialAnalog checksum at ", getName().c_str()) <<
+            n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ", #bad=" << ++_badCkSumCnt);
     return rc;
 }
 
@@ -367,7 +371,7 @@ bool A2D_Serial::process(const Sample * samp,
     if (_haveCkSum && checkCkSum(samp, input) == false) return false;
 
     SampleT<float>* outs = getSample<float>(_nVars);
-    outs->setTimeTag(samp->getTimeTag());
+    outs->setTimeTag(samp->getTimeTag() - _staticLag);
     outs->setId(getId() + 2);
 
     int hz_counter;
@@ -396,7 +400,7 @@ bool A2D_Serial::process(const Sample * samp,
             if (usec < 100000) offset -= USECS_PER_SEC;
         }
 
-        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset;
+        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset - _staticLag;
         outs->setTimeTag(timeoffix);
     }
 
@@ -435,27 +439,29 @@ bool A2D_Serial::process(const Sample * samp,
 void A2D_Serial::parseConfigLine(const char *data)
 {
     int channel, value;
-    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]); else
-    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]); else
-    if (strstr(data, "!FILT"))  configStatus["FILT"] = atoi(&data[6]); else
 
+
+    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
+    else
+    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
+    else
     if (strstr(data, "!IFSR")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (samplingChannel(channel) && _gains[channel] != value) {
+        if (samplingChannel(channel) && _ifsr[channel] != value) {
             configStatus["IFSR"] = false;
-            WLOG(("%s: SerialA2D config mismatch: gain chan=%d: xml=%d != dev=%d",
-                getName().c_str(), channel, _gains[channel], value ));
+            WLOG(("%s: SerialA2D config mismatch: ifsr chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _ifsr[channel], value ));
         }
     }
     else
     if (strstr(data, "!IPOL")) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
-        if (samplingChannel(channel) && _polarity[channel] != value) {
+        if (samplingChannel(channel) && _ipol[channel] != value) {
             configStatus["IPOL"] = false;
-            WLOG(("%s: SerialA2D config mismatch: polarity chan=%d: xml=%d != dev=%d",
-                getName().c_str(), channel, _polarity[channel], value ));
+            WLOG(("%s: SerialA2D config mismatch: ipol chan=%d: xml=%d != dev=%d",
+                getName().c_str(), channel, _ipol[channel], value ));
         }
     }
     else
@@ -478,9 +484,13 @@ void A2D_Serial::parseConfigLine(const char *data)
                 getName().c_str(), value ));
         }
     }
+    else
     if (strstr(data, "!FILT")) {
         configStatus["FILT"] = true;
         value = atoi(&data[6]);
+        if (value == 10)
+            _staticLag *= 5;   // TempDACQ shifts 5 samples.
+
         if ((value == 0 || value == 5) && _sampleRate != 250)
             configStatus["FILT"] = false;
         if ((value == 1 || value == 6 || value == 10) && _sampleRate != 100)
@@ -492,7 +502,6 @@ void A2D_Serial::parseConfigLine(const char *data)
         if ((value == 4 || value == 9) && _sampleRate != 10)
             configStatus["FILT"] = false;
     }
-std::cerr << "SampleRate = " << _sampleRate << std::endl;
 }
 
 

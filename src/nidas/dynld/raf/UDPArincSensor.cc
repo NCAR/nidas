@@ -96,7 +96,7 @@ void UDPArincSensor::open(int flags)
 
     if (_ctrl_pid == -1)
     {
-        ELOG(("UDPArincSensor: error forking errno = %d", errno));
+        PLOG(("UDPArincSensor: error forking errno = %d", errno));
     }
     else
     if (_ctrl_pid == 0)
@@ -223,7 +223,7 @@ bool UDPArincSensor::process(const Sample * samp,
             _prevRXPseqNum[channel] = seqNum;
         }
         else
-            ELOG(( "%s: received channel number %d, outside 0-3, ignoring.", getName().c_str(), channel ));
+            WLOG(( "%s: received channel number %d, outside 0-3, ignoring.", getName().c_str(), channel ));
     }
 
     for (int i = 0; i < MAX_CHANNELS; i++) {
@@ -279,7 +279,7 @@ void UDPArincSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
-        ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
+        ostr << "<td align=left><font color=red><b>not active</b></font></td></tr>" << endl;
         return;
     }
 
@@ -288,10 +288,27 @@ void UDPArincSensor::printStatus(std::ostream& ostr) throw()
     bool firstPass = true;
     for (map<string,int>::iterator it = configStatus.begin(); it != configStatus.end(); ++it)
     {
-        bool red = false;
+        bool iwarn = false;
         if (!firstPass) ostr << ',';
 
+        if ((it->first).compare("PBIT") == 0) {
+            if (it->second != 0)
+                iwarn = true;
+        }
+        else
+        if ((it->first).compare("PPS") == 0) {
+            if (it->second != 0)
+                iwarn = true;
+        }
+        else
+        if (it->second == false)
+            iwarn = true;
+
+        if (iwarn) ostr << "<font color=red><b>";
+        ostr << it->first;
+        if (iwarn) ostr << "</b></font>";
+        firstPass = false;
     }
-    ostr << "</td>";
+    ostr << "</td></tr>";
 }
 

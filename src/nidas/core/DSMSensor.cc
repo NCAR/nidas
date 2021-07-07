@@ -383,6 +383,17 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
     return exhausted;
 }
 
+Sample* DSMSensor::readSample() throw(nidas::util::IOException)
+{
+    Sample* samp = nextSample();
+
+    while (!samp) {
+        readBuffer();
+        samp = nextSample();
+    }
+    return samp;
+}
+
 bool DSMSensor::receive(const Sample *samp) throw()
 {
     list<const Sample*> results;
@@ -491,6 +502,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
     ostr <<
 "<table id=status>\
 <caption>"+dsm_lctn+" ("+dsm_name+") "+glyph[anim]+"</caption>\
+<thead>\
 <tr>\
 <th>name</th>\
 <th>samp/sec</th>\
@@ -499,6 +511,7 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 <th>max&nbsp;samp<br>length</th>\
 <th>bad<br>timetags</th>\
 <th>extended&nbsp;status</th>\
+</tr></thead>\
 <tbody align=center>" << endl;	// default alignment in table body
 }
 

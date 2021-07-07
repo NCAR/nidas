@@ -156,7 +156,18 @@ protected:
     int _nVars;
 
     size_t _sampleRate;
-    size_t _deltaT;
+
+    /**
+     * Number of usecs between two samples (i.e. 1000000/sampleRate).
+     */
+    size_t _deltaT;     // in usecs
+
+    /**
+     * Offset caused by DIR filtering onboard the A2D device.
+     * This is defined as 5 samples where FILT=10, and one sample in all
+     * other cases.
+     */
+    size_t _staticLag;  // in usecs.
 
     int _boardID;   // serial number
     bool _haveCkSum;    // Will packets have checksum
@@ -188,8 +199,14 @@ protected:
      *  in case we ever want to change support positive only voltage range.
      */
     int _channels[NUM_A2D_CHANNELS];
-    int _gains[NUM_A2D_CHANNELS];
-    int _polarity[NUM_A2D_CHANNELS];
+
+    // read these in from XML, use to validate against
+    int _ifsr[NUM_A2D_CHANNELS];        // 0 = +-10, 1 = +-5 Vdc
+    int _ipol[NUM_A2D_CHANNELS];
+
+    // We will need these to map to cal files.
+    int _gains[NUM_A2D_CHANNELS];       // map _ifsr to this; 0->1, 1->2
+    int _polarity[NUM_A2D_CHANNELS];    // true
 
 
     /**

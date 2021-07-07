@@ -1,11 +1,12 @@
 %define nidas_prefix /opt/nidas
 
-# Command line switches:  --with configedit --with autocal --with arinc
+# Command line switches:  --with configedit --with autocal --with arinc --with modules
 # If not specified, configedit or autocal package will not be built
 %bcond_with configedit
 %bcond_with autocal
 %bcond_with raf
 %bcond_with arinc
+%bcond_with modules
 
 %if %{with raf}
 %define buildraf BUILD_RAF=yes
@@ -17,6 +18,12 @@
 %define buildarinc BUILD_ARINC=yes
 %else
 %define buildarinc BUILD_ARINC=no
+%endif
+
+%if %{with modules}
+%define buildmodules LINUX_MODULES=yes
+%else
+%define buildmodules LINUX_MODULES=no
 %endif
 
 %define has_systemd 0
@@ -33,10 +40,8 @@ Vendor: UCAR
 Source: https://github.com/ncareol/%{name}/archive/master.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons
-%if 0%{?fedora} > 28
 Requires: jsoncpp
 BuildRequires: jsoncpp-devel
-%endif
 
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
@@ -48,13 +53,13 @@ Prefix: %{nidas_prefix}
 NCAR In-Situ Data Acquistion Software programs
 
 %package min
-Summary: Minimal NIDAS run-time configuration, and pkg-config file.
+Summary: Minimal NIDAS run-time configuration.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0, nidas-run <= 1.0
 Requires: xerces-c xmlrpc++
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
-that NFS mount %{nidas_prefix}, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
+that NFS mount %{nidas_prefix}, or do their own builds.
 
 # It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
 # does not work to name /sbin/selinuxenabled, even though rpm figures it
@@ -92,6 +97,7 @@ Prefix: %{nidas_prefix}
 %description libs
 NIDAS shareable libraries
 
+%if %{with modules}
 %package modules
 Summary: NIDAS kernel modules
 Group: Applications/Engineering
@@ -99,6 +105,7 @@ Requires: nidas
 Prefix: %{nidas_prefix}
 %description modules
 NIDAS kernel modules.
+%endif
 
 %if %{with autocal}
 
@@ -189,7 +196,7 @@ scns=scons-3
 %endif
 
 cd src
-$scns -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} PREFIX=%{nidas_prefix}
+$scns -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} %{buildmodules} PREFIX=%{nidas_prefix}
  
 
 %install
@@ -202,7 +209,7 @@ scns=scons-3
 %endif
 
 cd src
-$scns -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} REPO_TAG=v%{version} install
+$scns -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} %{buildmodules} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
@@ -378,11 +385,15 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/data_stats
 %{nidas_prefix}/bin/datasets
 %{nidas_prefix}/bin/dmd_mmat_test
+%{nidas_prefix}/bin/dmd_mmat_vin_limit_test
+%{nidas_prefix}/bin/dmd_mmat_vout_const
+%{nidas_prefix}/bin/dsc_a2d_ck
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/nidas_udp_relay
 %caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_tty
 %{nidas_prefix}/bin/extract2d
+%{nidas_prefix}/bin/extractDMT
 %{nidas_prefix}/bin/ir104
 %{nidas_prefix}/bin/lidar_vel
 %{nidas_prefix}/bin/merge_verify
@@ -402,9 +413,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
-%if 0%{?fedora} > 28
 %{nidas_prefix}/bin/data_influxdb
-%endif
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
@@ -421,6 +430,7 @@ rm -rf $RPM_BUILD_ROOT
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_TiltSensor.so.*
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 
+%if %{with modules}
 %files modules
 %defattr(0775,root,root,2775)
 %if %{with arinc}
@@ -439,6 +449,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
 %{nidas_prefix}/firmware
+%endif
 
 %if %{with autocal}
 %files autocal

@@ -1,12 +1,11 @@
 
 #define BOOST_TEST_DYN_LINK
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/CalFile.h>
 #include <cmath> // isnan
 
-using std::isnan;
 using namespace nidas::util;
 using namespace nidas::core;
 
@@ -99,8 +98,8 @@ BOOST_AUTO_TEST_CASE(test_trh_raw_calfile)
   BOOST_CHECK_EQUAL(fields[1], "nan");
   n = cfile.getFields(0, 2, data, &fields);
   BOOST_CHECK_EQUAL(n, 2);
-  BOOST_CHECK(isnan(data[0]));
-  BOOST_CHECK(isnan(data[1]));
+  BOOST_CHECK(std::isnan(data[0]));
+  BOOST_CHECK(std::isnan(data[1]));
 }
 
 
@@ -157,7 +156,7 @@ BOOST_AUTO_TEST_CASE(test_calfile_na)
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 1);
   BOOST_CHECK_EQUAL(data[0], 100.0);
-  BOOST_CHECK(isnan(data[1]));
+  BOOST_CHECK(std::isnan(data[1]));
 
   BOOST_REQUIRE_EQUAL(fields.size(), 1);
   BOOST_CHECK_EQUAL(fields[0], "100.00");
@@ -166,16 +165,16 @@ BOOST_AUTO_TEST_CASE(test_calfile_na)
   when = cfile.nextTime();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 0);
-  BOOST_CHECK(isnan(data[0]));
-  BOOST_CHECK(isnan(data[1]));
+  BOOST_CHECK(std::isnan(data[0]));
+  BOOST_CHECK(std::isnan(data[1]));
   BOOST_CHECK_EQUAL(fields.size(), 0);
 
   // A line with explicit nans.
   when = cfile.nextTime();
   n = cfile.readCF(when, data, ndata, &fields);
   BOOST_CHECK_EQUAL(n, 2);
-  BOOST_CHECK(isnan(data[0]));
-  BOOST_CHECK(isnan(data[1]));
+  BOOST_CHECK(std::isnan(data[0]));
+  BOOST_CHECK(std::isnan(data[1]));
   BOOST_CHECK_EQUAL(fields.size(), 3);
   BOOST_CHECK_EQUAL(fields[0], "nan");
   BOOST_CHECK_EQUAL(fields[1], "NA");

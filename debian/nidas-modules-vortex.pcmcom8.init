@@ -1,0 +1,299 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          pcmcom8
+# Required-Start:    $local_fs $network $syslog
+# Required-Stop:     $local_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Load kernel module for WinSystems PCM-COM8 serial card, create its device files
+# Description:       WinSystems PCM-COM8 is an 8-port PC104 serial communications card.
+#    The pcmcom8 kernel module provides a device interface for each card.
+#    On load the kernel module creates a device /dev/pcmcom8_N for each board.
+#    This script executes set_pcmcom8 from /opt/nidas/bin on each board
+#    to set the ISA ioport and interrupts for each serial port on the card, and then
+#    runs setserial to configure the 8 serial ports, /dev/ttySn,
+#    for the stock 8250 serial driver.
+### END INIT INFO
+
+# Note we're using the evil bash!  This script uses bash arrays.
+
+# Author: Gordon Maclean <maclean@ucar.edu>
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/opt/nidas/bin
+DESC="pcmcom8 initialization"
+NAME=pcmcom8
+MODULE=pcmcom8
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -e "/lib/modules/$(uname -r)/nidas/$NAME.ko" ] || exit 0
+[ -x "/opt/nidas/bin/set_pcmcom8" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+# On some PXA CPUs the ISA interrupts are mapped to other numbers,
+# in which case these should be the actual IRQs for the ISA interrupts, 0-15.
+isairqs=(0 0 0 3 4 5 6 7 0 9 10 11 12 0 14 15)
+
+baud_base=115200
+
+# default configuration of first 4 boards
+defports=(0x100 0x140 0x180 0x1c0)
+defirqs=(11 11 11 11)
+
+# First TTY port on this card, can be set in /etc/default/$NAME
+FIRST_TTY=${FIRST_TTY:-5}
+
+MODULE_ARGS=
+
+boardevs=()
+#
+# load the pcmcom8 kernel module
+#
+modprobe_pcmcom8()
+{
+        # returns 0 if already loaded
+
+        if ! modprobe $NAME $MODULE_ARGS; then
+            depmod
+            modprobe $NAME $MODULE_ARGS || return 2
+        fi
+
+        RETVAL="$?"
+        boardevs=(/dev/pcmcom8_[0-9])
+        return "$RETVAL"
+}
+
+#
+# unload the pcmcom8 kernel module
+#
+rmmod_pcmcom8()
+{
+        lsmod | fgrep -q $NAME || return 1
+        rmmod $NAME
+        RETVAL="$?"
+        return "$RETVAL"
+}
+
+get_isabase() {
+        # ISA base address on system.
+        # Titan kernel has been updated so that this is 0, 
+        set_pcmcom8 -b ${boardevs[0]} || echo -1
+}
+
+check_ports() {
+        local result=0
+        local -a ports=()
+        local -a irqs=()
+        for (( brd = 0; brd < ${#boardevs[*]}; brd++ )); do
+                local brddev=${boardevs[$brd]}
+                local birq=-1
+
+                # read ioport and irq configuration
+                while read portstr port irqstr irq; do
+                        case "$irqstr" in
+                        irq)
+                                portval=$(( $port ))
+                                # valid port addresses are 0x100 to 0x3f8 (256-1016)
+                                # If not in this range then there isn't a board at this
+                                # address.
+                                if [ $portval -ge 256 -a $portval -le 1016 ]; then
+                                        # If a duplicate ioport address is found, report the error.
+                                        if echo ${ports[*]} | fgrep -q $port; then
+                                            echo "Duplicate port=$port on $brddev"
+                                            result=1
+                                            break
+                                        fi
+                                        # Warn about shared interrupts across boards
+                                        # (but if there are repeated values in defirqs, this script
+                                        # doesn't do anything about it...)
+                                        if echo ${irqs[*]} | fgrep -q $irq; then
+                                            echo "Duplicate irq=$irq on $brddev, port $port"
+                                            result=1
+                                            break
+                                        fi
+                                        # irq is set with jumper and resistor in board, so force it
+                                        # to the defaults.
+                                        if [ $irq -ne ${defirqs[$brd]} ]; then
+                                            echo "irq=$irq on $brddev, port $port does not match default irq=${defirqs[$brd]}"
+                                            result=1
+                                            break
+                                        fi
+                                        irqs[$brd]=$irq
+                                        ports=(${ports[*]} $port)
+                                else
+                                    # bad port number
+                                    result=1
+                                fi
+                                # echo ${ports[*]}
+                                ;;
+                        esac
+                done < <(set_pcmcom8 $brddev)
+        done
+        return $result
+}
+
+# Set register configuration on PCM-COM8 board to default values
+default_config()
+{
+        for (( brd = 0; brd < ${#boardevs[*]}; brd++ )); do
+                local brddev=${boardevs[$brd]}; 
+                echo "doing: set_pcmcom8 $brddev ${defports[$brd]} ${defirqs[$brd]}"
+                set_pcmcom8 $brddev ${defports[$brd]} ${defirqs[$brd]} > /dev/null
+        done
+}
+
+create_ports()
+{
+        baseaddr=$((`get_isabase`)) # convert to numeric
+        if [ $baseaddr -lt 0 ]; then
+            echo "ISA base address not known"
+            return 1
+        fi
+        # Create /dev/ttySN files and do setserial on them
+        # First available ttyS port on Viper
+        ttynum=$FIRST_TTY
+        # major and minor number of ttyS5
+        tmajor=4
+        tminor=$((64 + $FIRST_TTY))
+        for (( brd = 0; brd < ${#boardevs[*]}; brd++ )); do
+                local brddev=${boardevs[$brd]}; 
+
+                # read ioport and irq configuration
+                while read portstr port irqstr irq; do
+                        case "$irqstr" in
+                        irq)
+                                portval=$(($port))
+                                if [ $portval -ge 256 -a $portval -le 1016 ]; then
+                                        ttydev=/dev/ttyS$ttynum
+                                        if ! [ -c $ttydev ]; then
+                                            mknod $ttydev c $tmajor $tminor
+                                            chmod 0666 $ttydev
+                                        fi
+
+                                        portstr=`printf "%#x" $(( $baseaddr + $port ))`
+                                        nirq=${isairqs[$irq]}
+                                        setserial -zvb $ttydev port $portstr irq $nirq baud_base $baud_base autoconfig
+                                        let tminor++
+                                        let ttynum++
+                                fi
+                                ;;
+                        esac
+                done < <(set_pcmcom8 $brddev)
+        done
+        return 0
+}
+
+do_start()
+{
+        # Return
+        #   0 if daemon has been started
+        #   1 if daemon was already running
+        #   2 if daemon could not be started
+        modprobe_pcmcom8
+        RETVAL="$?"
+        [ $RETVAL -eq 2 ] && return "$RETVAL"
+        check_ports || default_config || return 2
+        create_ports || return 2
+        return 0
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+        rmmod_pcmcom8
+        RETVAL="$?"
+        return "$RETVAL"
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+	#
+	# If the daemon can reload its configuration without
+	# restarting (for example, when it is sent a SIGHUP),
+	# then implement that here.
+	#
+	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	return 0
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+        modprobe $NAME $MODULE_ARGS && exit 0 || exit $?
+	;;
+  #reload|force-reload)
+	#
+	# If do_reload() is not implemented then leave this commented out
+	# and leave 'force-reload' as an alias for 'restart'.
+	#
+	#log_daemon_msg "Reloading $DESC" "$NAME"
+	#do_reload
+	#log_end_msg $?
+	#;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:

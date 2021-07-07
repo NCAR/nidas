@@ -59,6 +59,9 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
 
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
+    if (_ttadjust) {
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
+    }
     delete _ttadjust;
 }
 
@@ -110,10 +113,8 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 
     const SampleTag* stag = tags.front();
 
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
 
     _numOut = stag->getVariables().size();
 

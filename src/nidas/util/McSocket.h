@@ -941,8 +941,8 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             else {
                 _requestSocket->send(dgram);
             }
-            if (!(numCasts % 10)) {
-                WLOG(("") << "sent " << numCasts << " dgrams" <<
+            if (!(numCasts % 300)) {
+                ILOG(("") << "sent " << numCasts << " dgrams" <<
                      ", requestType=" << dgram.getRequestType() <<
                      ", port=" << dgram.getRequesterListenPort() <<
                      ", socketType=" << dgram.getSocketType() <<

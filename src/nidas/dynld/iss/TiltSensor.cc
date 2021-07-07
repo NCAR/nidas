@@ -35,7 +35,7 @@ using namespace nidas::core;
 
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
-using nidas::util::LogScheme;
+using nidas::util::Logger;
 using nidas::util::InvalidParameterException;
 
 NIDAS_CREATOR_FUNCTION_NS(iss,TiltSensor)
@@ -46,8 +46,8 @@ TiltSensor::TiltSensor() :
     sampleId(0)
 {
     checksumReportInterval =
-        LogScheme::current().getParameterT("_tilt_checksum_interval",
-                                           checksumReportInterval);
+        Logger::getScheme().getParameterT("_tilt_checksum_interval",
+                                          checksumReportInterval);
 }
 
 TiltSensor::~TiltSensor()

@@ -273,7 +273,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    WLOG(("Fast2D") << getSuffix() << " overload at : "
+                    DLOG(("Fast2D") << getSuffix() << " overload at : "
                          << PTime(samp->getTimeTag())
                          << ", duration "
                          << (thisTimeWord - _prevTimeWord) / 1000);

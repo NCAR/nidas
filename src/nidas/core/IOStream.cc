@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -95,7 +96,8 @@ size_t IOStream::read() throw(n_u::IOException)
         _newInput = true;
         _nbytesIn = 0;
     }
-    VLOG(("IOStream, read =") << l << ", avail=" << available());
+    VLOG(("IOStream::read() => ") << l << ", avail=" << available()
+         << "_newInput=" << _newInput);
     return l;
 }
 
@@ -174,7 +176,6 @@ size_t IOStream::readUntil(void* buf, size_t len,char term)
 size_t IOStream::backup(size_t len) throw()
 {
     size_t maxbackup = _tail - _buffer;
-    // cerr << "IOStream::backup, len=" << len << " maxbackup=" << maxbackup << endl;
     if (len > maxbackup)
     {
         WLOG(("backup(") << len << "): capped at " << maxbackup << " bytes.");
@@ -182,6 +183,12 @@ size_t IOStream::backup(size_t len) throw()
     }
     _tail -= len;
     _nbytesIn -= len;
+    DLOG(("") << getName() << ": backed up " << len << " bytes,"
+        << " buffer now has " << (_head - _tail) << " bytes: "
+        << "'"
+        << n_u::addBackslashSequences(
+            std::string(_tail, std::min(_head, _tail + 80)))
+        << "'");
     return len;
 }
 

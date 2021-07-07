@@ -49,7 +49,7 @@ if first_mach:
 apps = Split("""
 """)
 
-if arch == 'arm' or arch == "armbe":
+if arch == 'arm' or arch == "armel":
     archapps=Split("""
         test_irig.c
     """)

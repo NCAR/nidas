@@ -71,14 +71,14 @@ public:
     }
 
     /**
-     * Implementation of SampleIOProcessor::connect(SampleSource*).
+     * Implementation of SampleIOProcessor::connectSource(SampleSource*).
      */
-    void connect(SampleSource*) throw();
+    void connectSource(SampleSource*) override;
 
     /**
-     * Implementation of SampleIOProcessor::disconnect(SampleSource*).
+     * Implementation of SampleIOProcessor::disconnectSource(SampleSource*).
      */
-    void disconnect(SampleSource*) throw();
+    void disconnectSource(SampleSource*) throw();
 
     /**
      * Implementation of SampleConnectionRequester::connect(SampleOutput*).

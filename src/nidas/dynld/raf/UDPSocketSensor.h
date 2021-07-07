@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H_
+#ifndef NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H
 #define NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H
 
 #include <nidas/dynld/UDPSocketSensor.h>

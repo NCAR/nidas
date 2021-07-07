@@ -51,6 +51,9 @@ CSI_CRX_Binary::CSI_CRX_Binary():
 
 CSI_CRX_Binary::~CSI_CRX_Binary()
 {
+    if (_ttadjust) {
+        _ttadjust->log(nidas::util::LOGGER_INFO, this);
+    }
     delete _ttadjust;
 }
 
@@ -66,10 +69,8 @@ void CSI_CRX_Binary::validate()
     const SampleTag* stag = tags.front();
     _numOut = stag->getVariables().size();
     _sampleId = stag->getId();
-    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjustPeriod() > 0.0)
-        _ttadjust = new nidas::core::TimetagAdjuster(stag->getRate(),
-                stag->getTimetagAdjustPeriod(),
-                stag->getTimetagAdjustSampleGap());
+    if (!_ttadjust && stag->getRate() > 0.0 && stag->getTimetagAdjust() > 0.0)
+        _ttadjust = new nidas::core::TimetagAdjuster(stag->getId(), stag->getRate());
 }
 
 unsigned short CSI_CRX_Binary::signature(const unsigned char* buf, const unsigned char* eob)

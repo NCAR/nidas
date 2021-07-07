@@ -184,7 +184,7 @@ private:
 
     void init();
 
-    void scanHeader(const Sample* samp) throw();
+    void scanHeader(const Sample* samp);
 
     const Sample*
     nextSample();

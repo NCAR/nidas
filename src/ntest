@@ -7,7 +7,37 @@ export LD_LIBRARY_PATH=$dir/build/util:$dir/build/core:$dir/build/dynld
 
 PATH=$dir/build/apps:$dir/build/apps/isff:$dir/build/apps/auto_cal:$PATH
 
-app=$1
+usage() {
+    echo "$0 [-v] [-V] app args
+    -v: run with valgrind
+    -V: run with valgrind --leak-check=full
+    app args: nidas app and arguments"
+    exit 1
+}
+
+[ $# -lt 1 ] && usage
+
+valg=false
+
+case $1 in
+-v)
+    valg=true
+    shift
+    [ $# -lt 1 ] && usage
+    app=$1
+    ;;
+-V)
+    valg=true
+    valargs=--leak-check=full
+    shift
+    [ $# -lt 1 ] && usage
+    app=$1
+    ;;
+*)
+    app=$1
+    ;;
+esac
+
 shift
 
 # Display the shared libraries so user can be certain the ones 
@@ -16,7 +46,9 @@ shift
 [ -x $dir/build/apps/isff/$app ] && ldd $dir/build/apps/isff/$app
 [ -x $dir/build/apps/auto_cal/$app ] && ldd $dir/build/apps/auto_cal/$app
 
-# valgrind --leak-check=full $app "$@"
-valgrind $app "$@"
-# $app "$@"
+if $valg; then
+    valgrind $valargs $app "$@"
+else
+    nice $app "$@"
+fi
 

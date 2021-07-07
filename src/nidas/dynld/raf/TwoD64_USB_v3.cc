@@ -122,6 +122,8 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 {
     const char * input = (const char*) samp->getConstVoidDataPtr();
     unsigned int slen = samp->getDataByteLength();
+    // note, the input is likely not null-terminated. To use sscanf,
+    // copy to a null terminated char array first.
 
     if (slen < 5 || memcmp(input, "SOR,", 4)){
         cout<<"Twod64v3 processSOR returning false. slen = "<<slen<<endl;
@@ -129,6 +131,10 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
     }
 
     char in_str[slen+1];
+    ::memcpy(in_str, input, slen);
+    in_str[slen] = 0;
+    input = in_str;
+
     char sep = ',';
     SampleT<float>* outs = getSample<float>(_nHskp);
     float * dout = outs->getDataPtr();
@@ -137,7 +143,7 @@ bool TwoD64_USB_v3::processSOR(const Sample * samp,
 
     outs->setTimeTag(samp->getTimeTag());
     outs->setId(_sorID);
-    const char * cp = ::strchr(input,sep);
+    const char * cp = ::strchr(input, sep);
     for (size_t ifield = 0; ifield < _nHskp && cp; ifield++){
         input = cp + 1;
 	cp = ::strchr(input, sep);

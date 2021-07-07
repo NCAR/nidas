@@ -8,6 +8,8 @@ using nidas::core::BadSampleFilter;
 using nidas::core::BadSampleFilterArg;
 using nidas::util::UTime;
 using nidas::core::NidasAppException;
+using nidas::util::LogContext;
+using nidas::util::LogMessage;
 using std::string;
 using std::mem_fun;
 using std::bind1st;
@@ -21,7 +23,8 @@ BadSampleFilter() :
     _maxSampleLength(32768),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
-    _skipNidasHeader(false)
+    _skipNidasHeader(false),
+    _sampleType(UNKNOWN_ST)
 {
 }
 
@@ -87,6 +90,13 @@ setSkipNidasHeader(bool enable)
     _skipNidasHeader = enable;
 }
 
+void
+BadSampleFilter::
+setSampleTypeLimit(nidas::core::sampleType stype)
+{
+    _sampleType = stype;
+    setFilterBadSamples(true);
+}
 
 void
 BadSampleFilter::
@@ -102,6 +112,52 @@ setDefaultTimeRange(const UTime& start, const UTime& end)
     {
         _maxSampleTime = end.toUsecs() + USECS_PER_DAY;
     }
+}
+
+
+bool
+BadSampleFilter::
+invalidSampleHeader(const SampleHeader& sheader)
+{
+    static LogContext lp(LOG_VERBOSE);
+
+    if (!_filterBadSamples)
+        return false;
+
+    // screen bad headers.
+    bool bad =
+        ((_sampleType != UNKNOWN_ST && sheader.getType() != _sampleType) ||
+         sheader.getType() >= UNKNOWN_ST ||
+         GET_DSM_ID(sheader.getId()) < _minDsmId ||
+         GET_DSM_ID(sheader.getId()) > _maxDsmId ||
+         sheader.getDataByteLength() < _minSampleLength ||
+         sheader.getDataByteLength() > _maxSampleLength ||
+         sheader.getTimeTag() < _minSampleTime ||
+         sheader.getTimeTag() > _maxSampleTime);
+
+    // if verbose logging enabled, provide details on why the header is
+    // invalid.
+    if (bad && lp.active())
+    {
+        LogMessage msg;
+
+        if (_sampleType != UNKNOWN_ST && sheader.getType() != _sampleType)
+            msg << "header type not accepted: " << (int)sheader.getType() << "; ";
+        if (sheader.getType() >= UNKNOWN_ST)
+            msg << "header type invalid: " << (int)sheader.getType() << "; ";
+        if (GET_DSM_ID(sheader.getId()) < _minDsmId || GET_DSM_ID(sheader.getId()) > _maxDsmId)
+            msg << "dsmid out of range: " << GET_DSM_ID(sheader.getId()) << "; ";
+        if (sheader.getDataByteLength() < _minSampleLength || sheader.getDataByteLength() > _maxSampleLength)
+            msg << "datalen out of range: " << sheader.getDataByteLength() << "; ";
+        if (sheader.getTimeTag() < _minSampleTime || sheader.getTimeTag() > _maxSampleTime)
+        {
+            UTime tt(sheader.getTimeTag());
+            msg << "time out of range: "
+                << tt.format(true, "%Y-%m-%dT%H:%M:%S.%f") << ";";
+        }
+        lp.log(msg);
+    }
+    return bad;
 }
 
 
@@ -193,7 +249,7 @@ setRule(const std::string& rule)
     string::size_type equal = rule.find('=');
     string field = rule;
     string value;
-    if (rule == "on" || rule == "off")
+    if (rule == "on" || rule == "off" || rule == "raw")
     {
         value = rule;
     }
@@ -203,7 +259,11 @@ setRule(const std::string& rule)
         ++equal;
         value = rule.substr(equal, rule.length()-equal);
     }
-    if (!value.empty() &&
+    if (value == "raw")
+    {
+        setSampleTypeLimit(CHAR_ST);
+    }
+    else if (!value.empty() &&
         (check_rule<unsigned int>
          ("mindsm", field, value,
           bind1st(mem_fun(&BadSampleFilter::setMinDsmId), this)) ||
@@ -230,10 +290,13 @@ setRule(const std::string& rule)
          ("off", field, value,
           bind1st(mem_fun(&BadSampleFilter::setFilterBadSamples), this))))
     {
-        return;
+        // all good.
     }
-    throw NidasAppException("Filter rule must be on, off, or "
-                            "<field>=<value>.  Could not parse: " + rule);
+    else
+    {
+        throw NidasAppException("Filter rule must be on, off, raw or "
+                                "<field>=<value>.  Could not parse: " + rule);
+    }
 }
 
 
@@ -274,7 +337,8 @@ operator==(const BadSampleFilter& right) const
         _maxSampleLength == right._maxSampleLength &&
         _minSampleTime == right._minSampleTime &&
         _maxSampleTime == right._maxSampleTime &&
-        _skipNidasHeader == right._skipNidasHeader;
+        _skipNidasHeader == right._skipNidasHeader &&
+        _sampleType == right._sampleType;
 }
 
 
@@ -290,6 +354,10 @@ operator<<(std::ostream& out, const BadSampleFilter& bsf)
         << "maxdsm=" << bsf.maxDsmId() << ","
         << "minlen=" << bsf.minSampleLength() << ","
         << "maxlen=" << bsf.maxSampleLength();
+    if (bsf.sampleTypeLimit() != UNKNOWN_ST)
+        out << "," << "type=" << (int)bsf.sampleTypeLimit();
+    else
+        out << "," << "type=valid";
     if (bsf.minSampleTime().toUsecs() != LONG_LONG_MIN)
         out << "," << "mintime="
             << bsf.minSampleTime().format(true, "%Y-%m-%dT%H:%M:%S.%f");
@@ -316,9 +384,12 @@ BadSampleFilterArg() :
    "--filter <rules>\n"
    "  Enable sample filtering and modify the valid ranges according to <rules>.\n"
    "  Rules are a comma-separated list of key=value settings using these keys:\n"
-   "    skipnidasheader,maxdsm,mindsm,maxtime,mintime,maxlen,minlen\n"
+   "    skipnidasheader,raw,maxdsm,mindsm,maxtime,mintime,maxlen,minlen\n"
    "  Any of the keys may be specified in any order.  Here is the default rule:\n"
    "    skipnidasheader=off,maxdsm=1024,mindsm=1,maxlen=32768,minlen=1\n"
+   "  Specify raw to accept only char sample types, like '--filter raw'.\n"
+   "  Samples will always be rejected if the length is not a multiple of the\n"
+   "  size of the sample type.\n"
    "If any sample fails any criteria, assume the sample header is corrupt\n"
    "and scan ahead for a good header.  Use only on corrupt data files."),
     _bsf()

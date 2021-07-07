@@ -10,9 +10,11 @@ firmwares = Split("""
     mesa_fpga_file.bit
 """)
 
-inst = env.Install('$PREFIX/firmware', firmwares)
-env.Alias('install', ['$PREFIX/firmware'])
-
-env.Clean(inst, [
-    '$PREFIX/firmware/' + l for l in firmwares
-    ])
+# Only install the firmware when linux modules are enabled.  LINUX_MODULES
+# is enabled by default.
+if env.get("LINUX_MODULES", True):
+    inst = env.Install('$PREFIX/firmware', firmwares)
+    env.Alias('install', ['$PREFIX/firmware'])
+    env.Clean(inst, [
+        '$PREFIX/firmware/' + l for l in firmwares
+        ])

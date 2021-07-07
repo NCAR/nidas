@@ -91,6 +91,8 @@
  */
 //#define USE_IRIG_CALLBACK
 
+#define TIMESYNC_SECS 10
+
 #ifdef USE_IRIG_CALLBACK
 #include <nidas/linux/irigclock.h>
 #endif
@@ -248,8 +250,9 @@ static void arinc_timesync(struct timer_list* _tlist)
         spin_unlock(&board.lock);
 
 #ifndef USE_IRIG_CALLBACK
-        /* schedule this function to run at the even second */
-        msecs %= MSECS_PER_SEC; /* milliseconds after the second */
+        /* schedule this function to run at the next even TIMESYNC_SECS */
+        /* milliseconds after the second */
+        msecs %= TIMESYNC_SECS * MSECS_PER_SEC;
         mod_timer(&board.syncer,
                 jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC);
 #endif
@@ -289,9 +292,9 @@ static void arinc_sweep(struct timer_list* tlist)
 
         sample = GET_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         if (!sample) {           // no output sample available
-                dev->skippedSamples++;
-                KLOG_WARNING("%s: skippedSamples=%d\n",
-                             dev->deviceName, dev->skippedSamples);
+                if (!(dev->skippedSamples++ % 100))
+                        KLOG_WARNING("%s: skippedSamples=%d\n",
+                                     dev->deviceName, dev->skippedSamples);
                 goto resched;
         }
 
@@ -1120,14 +1123,18 @@ static int __init arinc_init(void)
 #else
         timer_setup(&board.syncer, arinc_timesync, 0);
 #endif
-        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
 
         /* schedule arinc_timesync to run at the even second */
         /* milliseconds after the second */
         msecs = getSystemTimeMsecs() % MSECS_PER_SEC;
 
-        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
+        /* first sync within a second */
+        board.syncer.expires = jiffies + HZ - msecs * HZ / MSECS_PER_SEC;
+
         add_timer(&board.syncer);
+
+        /* schedule every TIMESYNC_SECS */
+        board.sync_jiffies = TIMESYNC_SECS * HZ;
 #endif
 
         // Initialize and add user-visible devices

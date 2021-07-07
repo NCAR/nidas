@@ -204,8 +204,10 @@ bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     switch (_nvars) {
     case 3:
         fp[2] = floatNAN;
+        // FALLTHRU
     case 2:
         fp[1] = USECS_PER_SEC / usec;
+        // FALLTHRU
     case 1:
         fp[0] = (float) usec;
         break;

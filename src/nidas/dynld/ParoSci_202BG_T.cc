@@ -83,8 +83,8 @@ void ParoSci_202BG_T::init() throw(n_u::InvalidParameterException)
 
 float ParoSci_202BG_T::getPeriodUsec(dsm_time_t tt)
 {
-    if (::abs((int)(tt - _lastSampleTime)/USECS_PER_MSEC <
-        getSamplePeriodMsec() / 2)) return _periodUsec;
+    if (::abs((int)((tt - _lastSampleTime)/USECS_PER_MSEC)) <
+        getSamplePeriodMsec() / 2) return _periodUsec;
     return floatNAN;
 }
 

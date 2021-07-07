@@ -197,10 +197,10 @@ nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
                 struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
                 wait_queue_head_t* readq)
 {
-        while(state->bytesLeft == 0 && ACCESS_ONCE(cbuf->head) == cbuf->tail) {
+        while(state->bytesLeft == 0 && READ_ONCE(cbuf->head) == cbuf->tail) {
                 if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
                 KLOG_DEBUG("waiting for data,head=%d,tail=%d\n",cbuf->head,cbuf->tail);
-                if (wait_event_interruptible(*readq,(ACCESS_ONCE(cbuf->head) != cbuf->tail)))
+                if (wait_event_interruptible(*readq,(READ_ONCE(cbuf->head) != cbuf->tail)))
                         return -ERESTARTSYS;
                 KLOG_DEBUG("woken\n");
         }

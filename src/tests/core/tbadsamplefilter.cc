@@ -1,11 +1,10 @@
 
 #define BOOST_TEST_DYN_LINK
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/BadSampleFilter.h>
 
-using std::isnan;
 using namespace nidas::util;
 using namespace nidas::core;
 
@@ -75,7 +74,7 @@ BOOST_AUTO_TEST_CASE(test_bad_sample_stream)
   std::ostringstream buf;
   buf << bsf;
   BOOST_CHECK_EQUAL(buf.str(), "on,skipnidasheader=off,"
-		    "mindsm=1,maxdsm=1024,minlen=1,maxlen=4096");
+		    "mindsm=1,maxdsm=1024,minlen=1,maxlen=4096,type=valid");
 
   bsf.setRules("mintime=2019-07-04 12:34:56.1");
   bsf.setRules("maxtime=2019-10-15 02:04:06.1");
@@ -83,7 +82,7 @@ BOOST_AUTO_TEST_CASE(test_bad_sample_stream)
   std::ostringstream buf2;
   buf2 << bsf;
   BOOST_CHECK_EQUAL(buf2.str(), "on,skipnidasheader=off,"
-		    "mindsm=1,maxdsm=1024,minlen=1,maxlen=4096,"
+		    "mindsm=1,maxdsm=1024,minlen=1,maxlen=4096,type=valid,"
 		    "mintime=2019-07-04T12:34:56.100,"
 		    "maxtime=2019-10-15T02:04:06.100");
 }
