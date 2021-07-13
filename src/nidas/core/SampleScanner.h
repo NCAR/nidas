@@ -424,7 +424,7 @@ class MessageStreamScanner: public SampleScanner
 {
 public:
     
-    MessageStreamScanner(int bufsize=2048);
+    MessageStreamScanner(int bufsize=4096);
 
     void setMessageParameters(unsigned int len, const std::string& val, bool eom)
     	throw(nidas::util::InvalidParameterException);
@@ -582,7 +582,7 @@ class DatagramSampleScanner: public SampleScanner
 {
 public:
     
-    DatagramSampleScanner(int bufsize=8192);
+    DatagramSampleScanner(int bufsize=16384);
 
     /**
      * setMessageSeparator is not implemented in DatagramSampleScanner.
