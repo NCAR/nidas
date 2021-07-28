@@ -230,6 +230,7 @@ void DSMArincSensor::registerWithUDPArincSensor()
         for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
             DSMSensor* snsr = *si;
             if (snsr->getClassName().compare("raf.UDPArincSensor") == 0) {
+DLOG(( "raf.UDPArincSensor id() = %d", snsr->getId() ));
                 std::string tmp = getDeviceName().substr(5, std::string::npos);
                 int channel = atoi(tmp.c_str());
                 dynamic_cast<UDPArincSensor *>(snsr)->registerArincSensor(channel, this);

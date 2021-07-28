@@ -60,6 +60,10 @@ public:
 
     virtual void close() throw(nidas::util::IOException);
 
+    /**
+     * Over-ride default nextSample() so we can extract some status bits as
+     * the data passes through.  This is used in real-time for the status page.
+     */
     virtual Sample* nextSample()
     {
         Sample *samp = UDPSocketSensor::nextSample();
@@ -100,7 +104,11 @@ protected:
     unsigned int    _badStatusCnt;
 //@}
 
+    /// IP address of the Alta ARINC ENET appliance
     std::string     _ipAddr;
+
+    /// Status port number for the alta_ctrl program.
+    unsigned int    _statusPort;
 
     static const int MAX_CHANNELS;
 

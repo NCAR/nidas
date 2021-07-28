@@ -48,7 +48,7 @@ const int UDPArincSensor::MAX_CHANNELS = 8;
 
 
 UDPArincSensor::UDPArincSensor() :
-    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
+    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _statusPort(0), _ctrl_pid(0), _arincSensors()
 {
     for (int i = 0; i < MAX_CHANNELS; ++i)
         _prevRXPseqNum[i] = _badRXPseqCnt[i] = 0;
@@ -85,6 +85,11 @@ void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
           "IP", "not found");
     _ipAddr = p->getStringValue(0);
 
+    p = getParameter("status_port"); // Status port for ARINCSTATUS
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "status_port", "not found");
+    _statusPort = (unsigned int)p->getNumericValue(0);
+
 }
 
 void UDPArincSensor::open(int flags)
@@ -101,7 +106,7 @@ void UDPArincSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        char *args[20];
+        char *args[20], port[32];
         int argc = 0;
 
         args[argc++] = (char *)"arinc_ctrl";
@@ -110,7 +115,6 @@ void UDPArincSensor::open(int flags)
             args[argc++] = (char *)_ipAddr.c_str();
         }
 
-        std::string port;
         std::string dev = getDeviceName();
         size_t pos = dev.find("::");
         if (pos != std::string::npos) {
@@ -125,6 +129,12 @@ void UDPArincSensor::open(int flags)
             sp << it->first << "," << (it->second)->Speed();
             args[argc] = new char[sp.str().size()+1];
             strcpy(args[argc++], sp.str().c_str());
+        }
+
+        if (_statusPort > 0) {
+            sprintf(port, "%u", _statusPort);
+            args[argc++] = (char *)"-u";
+            args[argc++] = (char *)port;
         }
 
         args[argc] = (char *)0;
