@@ -226,15 +226,20 @@ void DSMArincSensor::registerWithUDPArincSensor()
     // If we are the Alta:Enet device, then locate UDPArincSensor and register ourselves.
     if (_altaEnetDevice && getDeviceName().length() > 5)
     {
+        /* Since we fly two of these, we need to know which UDPArincSensor this goes with.
+         * This is entered as the refID in the overloaded devicename.
+         */
+        unsigned int channel, refID;
+        sscanf(getDeviceName().c_str(), "Alta:%u:%u", &refID, &channel);
+
         const std::list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
-        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
+        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si)
+        {
             DSMSensor* snsr = *si;
-            if (snsr->getClassName().compare("raf.UDPArincSensor") == 0) {
-DLOG(( "raf.UDPArincSensor id() = %d", snsr->getId() ));
-                std::string tmp = getDeviceName().substr(5, std::string::npos);
-                int channel = atoi(tmp.c_str());
+            if (snsr->getClassName().compare("raf.UDPArincSensor") == 0 && snsr->getSensorId() == refID)
+            {
                 dynamic_cast<UDPArincSensor *>(snsr)->registerArincSensor(channel, this);
-                DLOG(( "Registering DSMArincSensor with UDPArincSensor, channel=%d.", channel ));
+                DLOG(( "Registering DSMArincSensor with UDPArincSensor id=%d, channel=%d.", refID, channel ));
             }
         }
     }
