@@ -81,7 +81,7 @@ set -x
 
 [ -z $image ] && usage
 
-$dopull && podman pull $image
+$dopull && podman pull docker.io/$image
 
 # alpha name of image user
 
