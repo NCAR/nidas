@@ -6,25 +6,19 @@
 
 set -e
 
-# images will have a "builder" user, and a group eol:1342
-
-# You must do a "docker login $dockuser" before doing
+# You must do a "podman login $dockuser" before doing
 # the docker push
 dockuser=ncar
 
-# user=ads
-# uid=12900
-# group=eol
-# gid=1342
 version=2
 tag=jessie_v$version
 
-cacheFlag="--no-cache"
-if [[ "$1" == "--use-cache"  ]] ; then
-    cacheFlag=""
-    echo "Using docker cache for build"
+if [[ "$1" == "--no-cache"  ]] ; then
+    cacheFlag="--no-cache"
+    echo "NOT using podman cache for build"
 else
-    echo "NOT using docker cache for build"
+    cacheFlag=""
+    echo "Using podman cache for build"
 fi
 
 hostarch=armel
@@ -32,35 +26,28 @@ image=nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
-#    --build-arg user=$user \
-#    --build-arg uid=$uid \
-#    --build-arg group=$group \
-#    --build-arg gid=$gid \
-docker build $cacheFlag -t $image \
+podman build $cacheFlag -t $image \
     --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
 # Only tag and push if the build worked
 if [[ "$?" -eq 0 ]] ; then
-    docker tag  $image $dockuser/$image:$tag
-    # docker push $dockuser/$image:$tag
+    podman tag  $image $dockuser/$image:$tag
+    podman push $dockuser/$image:$tag
 fi
 
 exit
+# If we want the armhf RPi2 image
 
 hostarch=armhf
 image=nidas-build-debian-$hostarch
 echo "arch is $hostarch"
 echo "image is $image"
 echo "tagged image is $dockuser/$image:$tag"
-#    --build-arg user=$user \
-#    --build-arg uid=$uid \
-#    --build-arg group=$group \
-#    --build-arg gid=$gid \
-docker build $cacheFlag -t $image \
+podman build $cacheFlag -t $image \
     --build-arg hostarch=$hostarch \
     -f Dockerfile.cross_arm .
 # Only tag and push if the build worked
 if [[ "$?" -eq 0 ]] ; then
-    docker tag  $image $dockuser/$image:$tag
-    # docker push $dockuser/$image:$tag
+    podman tag  $image $dockuser/$image:$tag
+    podman push $dockuser/$image:$tag
 fi

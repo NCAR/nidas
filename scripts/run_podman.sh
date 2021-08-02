@@ -16,47 +16,53 @@
 
 
 usage() {
-    echo "usage: ${0##*/} [ armel | armhf | armbe | xenial | bionic | fedora ]
+    echo "usage: ${0##*/} [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ]
+
+    -p: pull image from docker.io
 
     viper and titan are armel, rpi2 is armhf and vulcan is armbe
 
     xenial (Ubuntu 16) and bionic (Ubuntu 18) are i386 images for the vortex
 
-    fedora: run a fedora image for testing"
+    fedora: run a fedora image for testing
+    
+    busybox: run a busybox image for testing (a small image containing many useful commands)"
 
     exit 1
 }
+
+dopull=false
+grpopt="--group-add=keep-groups"
 
 while [ $# -gt 0 ]; do
 
 case $1 in
     armel | viper | titan)
-        image=nidas-build-debian-armel:jessie_v3
-        # useropt="--userns=keep-id"
+        image=nidas-build-debian-armel:jessie_v2
         ;;
     armhf | rpi2)
         image=ncar/nidas-build-debian-armhf:jessie_v1
-        # useropt="--user $duser"
         ;;
     armbe | vulcan)
         image=maclean/fedora25-armbe-cross:ael
-        # useropt="--user $duser"
         ;;
     xenial)
         image=ncar/nidas-build-ubuntu-i386:xenial
-        # useropt="--user $duser"
         ;;
     bionic)
         image=ncar/nidas-build-ubuntu-i386:bionic
-        # useropt="--userns=keep-id"
         ;;
     fedora)
-        image=fedora:latest
-        # useropt="--user $duser"
+        image=$1:latest
+        ;;
+    busybox)
+        image=$1:latest
         ;;
     debian)
-        image=debian:latest
-        # useropt="--user $duser"
+        image=$1:latest
+        ;;
+    -p)
+        dopull=true
         ;;
     -u)
         shift
@@ -75,6 +81,8 @@ set -x
 
 [ -z $image ] && usage
 
+$dopull && podman pull $image
+
 # alpha name of image user
 
 iuser=$(podman inspect $image --format "{{.User}}")
@@ -86,12 +94,13 @@ if [ -z "$iuser" -o "$iuser" == root ]; then
     destmnt=/root
 else
     destmnt=/home/$iuser
-    useropt="--userns=keep-id"
+    useropt="--user=0:0"
 fi
 
 echo "host file systems will be mounted to $destmnt in the container"
 
-selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
+# selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
+selinuxenabled && zopt=,Z
 
 # The nidas tree is the parent of the directory containing this script.
 # It will be bind mounted to $destmnt/nidas in the Docker container.
@@ -159,9 +168,9 @@ echo "Volumes will be mounted to $destmnt in the container"
 set -x
 # --rm: remove container when it exits
 
-exec podman run --rm $useropt $keepopt \
+exec podman run -it --rm $useropt $grpopt $keepopt \
     --volume $PWD:$destmnt/nidas:rw$zopt \
     $repoopt $embopt $gpgopt $daqopt $cmig3opt $esconsopt \
     $ncsopt \
-    -i -t $image /bin/bash
+    $image /bin/bash
 

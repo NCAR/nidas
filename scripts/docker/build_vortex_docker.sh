@@ -23,24 +23,19 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# A --build-arg overrides an ARG in the Dockerfile
-user=ads
-uid=12900
-group=eol
-gid=1342
 
-# Must do a #docker login" with your personal docker account.
+# Must do a #podman login" with your personal docker account.
 # this account must be registered with ncar organization as an
 # administor.  Call Gary.
 docuser=ncar
 
 image=nidas-build-ubuntu-i386:$release
 
-docker build -t $image \
-    --build-arg=user=$user --build-arg=uid=$uid \
-    --build-arg=group=$group --build-arg=gid=$gid \
+podman build -t $image \
     --build-arg=dolocal=$dolocal \
     -f Dockerfile.ubuntu_i386_$release .
 
-docker tag $image $docuser/$image
-docker push $docuser/$image
+    # --build-arg=user=$user --build-arg=uid=$uid \
+    # --build-arg=group=$group --build-arg=gid=$gid \
+podman tag $image $docuser/$image
+podman push $docuser/$image

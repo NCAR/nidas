@@ -1,4 +1,6 @@
 FROM docker.io/i386/ubuntu:bionic
+# FROM registry.redhat.io/i386/ubuntu:bionic
+# FROM registry.fedoraproject.org/i386/ubuntu:latest
 LABEL organization="NCAR EOL"
 
 # We need linux-headers that match the running kernel (4.4.6) on
@@ -12,10 +14,6 @@ LABEL organization="NCAR EOL"
 # From within the container
 # reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.4.6_4.4.6-1_i386.deb
 
-ARG user=ads
-ARG uid=12900
-ARG group=eol
-ARG gid=1342
 ARG dolocal=no
 
 RUN apt-get update
@@ -44,27 +42,21 @@ RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.ke
 # Force override of libxerces-c3.2 from the EOL repo
 RUN printf 'Package: libxerces-c3.2\nPin: release l=EOL\nPin-Priority: 1001\n' > /etc/apt/preferences.d/libxerces-c
 
-RUN addgroup --gid $gid $group
-RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
-
-RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
-
-USER $user
-WORKDIR /home/$user
-
 # GPG_TTY is needed for package signing
 RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 
-RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
+# We'll use the package instead of a local site_scons
+# RUN mkdir .scons && cd .scons && git clone https://github.com/NCAR/eol_scons site_scons
 
 # Install local packages once they are ready in the repo.
 # You have to do "apt-get update && apt-get install", so that if you
 # add a package to the list, the update will be performed.
-# We're now running as a non-root user, so use sudo.
 # Get linux-headers-4.4.6 from EOL repo. 
 # Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
 # will be fetched and possibly downgraded from EOL repository.
-RUN [ $dolocal = yes ] && sudo apt-get update && \
-    sudo apt-get install -y --no-install-recommends --allow-downgrades \
+RUN [ $dolocal = yes ] && apt-get update && \
+    apt-get install -y --no-install-recommends --allow-downgrades \
     linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2
+
+WORKDIR /root
 
