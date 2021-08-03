@@ -2,19 +2,26 @@
 
 set -e
 
+dockuser=ncar
+
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 [-n] release
+    echo "Usage: $0 [-n] [-p] release
     -n: don't install local EOL packages, in case they don't exist yet
+    -p: push image to docker.io/$dockuser. You may need to do: podman login docker.io
     for example:  $0 bionic"
     exit 1
 fi
 
+dopush=false
 dolocal=yes
 
 while [ $# -gt 0 ]; do
     case $1 in
     -n)
         dolocal=no
+        ;;
+    -p)
+        dopush=true
         ;;
     *)
         release=$1
@@ -23,13 +30,15 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-
-# Must do a #podman login" with your personal docker account.
-# this account must be registered with ncar organization as an
-# administor.  Call Gary.
-docuser=ncar
+usage() {
+    echo "${0##*/} [-p]
+    "
+    exit 1
+}
 
 image=nidas-build-ubuntu-i386:$release
+
+set -x
 
 podman build -t $image \
     --build-arg=dolocal=$dolocal \
@@ -37,5 +46,7 @@ podman build -t $image \
 
     # --build-arg=user=$user --build-arg=uid=$uid \
     # --build-arg=group=$group --build-arg=gid=$gid \
-podman tag $image $docuser/$image
-podman push $docuser/$image
+if [[ "$?" -eq 0 ]] ; then
+    podman tag $image $dockuser/$image
+    $dopush && podman push docker.io/$dockuser/$image
+fi

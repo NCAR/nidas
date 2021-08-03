@@ -1,6 +1,4 @@
 FROM docker.io/i386/ubuntu:bionic
-# FROM registry.redhat.io/i386/ubuntu:bionic
-# FROM registry.fedoraproject.org/i386/ubuntu:latest
 LABEL organization="NCAR EOL"
 
 # We need linux-headers that match the running kernel (4.4.6) on
@@ -19,7 +17,7 @@ ARG dolocal=no
 RUN apt-get update
 # kmod provides modinfo command for querying modules
 # In ubuntu 18 bionic, you need libfl-dev for /usr/include/FlexLexer.h
-RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl \
+RUN apt-get install -y --no-install-recommends apt-utils vim curl \
     build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
     git ssh scons doxygen graphviz gnupg2 reprepro flex gawk \
     devscripts lintian pkg-config libbz2-dev libgsl23 libgsl-dev \
@@ -51,12 +49,12 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # Install local packages once they are ready in the repo.
 # You have to do "apt-get update && apt-get install", so that if you
 # add a package to the list, the update will be performed.
-# Get linux-headers-4.4.6 from EOL repo. 
+# Get linux-headers-4.4.6 from EOL repo.
 # Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
 # will be fetched and possibly downgraded from EOL repository.
-RUN [ $dolocal = yes ] && apt-get update && \
+RUN if [ $dolocal = yes ]; then && apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
-    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2
+    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2; fi
 
 WORKDIR /root
 

@@ -14,20 +14,15 @@
 # /etc/containers/registries.conf   unqualified-search-registries
 # /etc/containers/registries.conf.d/shortnames.conf 
 
+dockuser=ncar
 
 usage() {
     echo "usage: ${0##*/} [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ]
-
-    -p: pull image from docker.io
-
+    -p: pull image from docker.io/$dockuser. You may need to do: podman login docker.io
     viper and titan are armel, rpi2 is armhf and vulcan is armbe
-
     xenial (Ubuntu 16) and bionic (Ubuntu 18) are i386 images for the vortex
-
     fedora: run a fedora image for testing
-    
     busybox: run a busybox image for testing (a small image containing many useful commands)"
-
     exit 1
 }
 
@@ -81,11 +76,11 @@ set -x
 
 [ -z $image ] && usage
 
-$dopull && podman pull docker.io/$image
+$dopull && podman pull docker.io/$dockuser/$image
 
 # alpha name of image user
 
-iuser=$(podman inspect $image --format "{{.User}}")
+iuser=$(podman inspect $image --format "{{.User}}" | cut -f 1 -d :)
 
 # user name on host
 user=$(id -un)
