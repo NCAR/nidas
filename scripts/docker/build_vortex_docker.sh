@@ -36,7 +36,7 @@ usage() {
     exit 1
 }
 
-image=nidas-build-ubuntu-i386:$release
+image=nidas-build-ubuntu-i386
 
 set -x
 
@@ -47,6 +47,9 @@ podman build -t $image \
     # --build-arg=user=$user --build-arg=uid=$uid \
     # --build-arg=group=$group --build-arg=gid=$gid \
 if [[ "$?" -eq 0 ]] ; then
-    podman tag $image $dockuser/$image
-    $dopush && podman push docker.io/$dockuser/$image
+    podman tag $image $image:$release
+    if $dopush; then
+        echo "Pushing $image:$release docker://docker.io/$dockuser/$image:$release" 
+        podman push $image:$release docker://docker.io/$dockuser/$image:$release && echo "push success"
+    fi
 fi

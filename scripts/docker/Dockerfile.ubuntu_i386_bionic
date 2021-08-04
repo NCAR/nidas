@@ -52,7 +52,7 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # Get linux-headers-4.4.6 from EOL repo.
 # Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
 # will be fetched and possibly downgraded from EOL repository.
-RUN if [ $dolocal = yes ]; then && apt-get update && \
+RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
     linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2; fi
 
