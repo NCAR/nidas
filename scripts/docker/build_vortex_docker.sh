@@ -2,12 +2,12 @@
 
 set -e
 
-dockuser=ncar
+dockerns=ncar   # namespace on docker.io
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 [-n] [-p] release
     -n: don't install local EOL packages, in case they don't exist yet
-    -p: push image to docker.io/$dockuser. You may need to do: podman login docker.io
+    -p: push image to docker.io/$dockerns. You may need to do: podman login docker.io
     for example:  $0 bionic"
     exit 1
 fi
@@ -49,7 +49,7 @@ podman build -t $image \
 if [[ "$?" -eq 0 ]] ; then
     podman tag $image $image:$release
     if $dopush; then
-        echo "Pushing $image:$release docker://docker.io/$dockuser/$image:$release" 
-        podman push $image:$release docker://docker.io/$dockuser/$image:$release && echo "push success"
+        echo "Pushing $image:$release docker://docker.io/$dockerns/$image:$release" 
+        podman push $image:$release docker://docker.io/$dockerns/$image:$release && echo "push success"
     fi
 fi

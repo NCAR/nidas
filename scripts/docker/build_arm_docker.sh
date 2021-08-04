@@ -1,11 +1,11 @@
 #!/bin/sh
 
-dockuser=ncar
+dockerns=ncar   # namespace on docker.io
 
 usage() {
     echo "${0##*/} [--no-cache] [-p] [armel] [armhf]
     --no-cache: dont' use podman cache when building images
-    -p: push image to docker.io/$dockuser. You may need to do: podman login docker.io
+    -p: push image to docker.io/$dockerns. You may need to do: podman login docker.io
     "
     exit 1
 }
@@ -55,8 +55,8 @@ for arch in ${arches[*]}; do
     if [[ "$?" -eq 0 ]] ; then
         podman tag  $image $image:$tag
         if $dopush; then
-            echo "Pushing $image:$tag docker://docker.io/$dockuser/$image:$tag"
-            podman push $image:$tag docker://docker.io/$dockuser/$image:$tag && echo "push success"
+            echo "Pushing $image:$tag docker://docker.io/$dockerns/$image:$tag"
+            podman push $image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
         fi
     fi
 

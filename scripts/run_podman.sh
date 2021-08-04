@@ -14,11 +14,9 @@
 # /etc/containers/registries.conf   unqualified-search-registries
 # /etc/containers/registries.conf.d/shortnames.conf 
 
-dockuser=ncar
-
 usage() {
     echo "usage: ${0##*/} [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ]
-    -p: pull image from docker.io/$dockuser. You may need to do: podman login docker.io
+    -p: pull image from docker.io. You may need to do: podman login docker.io
     viper and titan are armel, rpi2 is armhf and vulcan is armbe
     xenial (Ubuntu 16) and bionic (Ubuntu 18) are i386 images for the vortex
     fedora: run a fedora image for testing
@@ -28,6 +26,7 @@ usage() {
 
 dopull=false
 grpopt="--group-add=keep-groups"
+dockerns=ncar   # namespace on docker.io
 
 while [ $# -gt 0 ]; do
 
@@ -36,16 +35,17 @@ case $1 in
         image=nidas-build-debian-armel:jessie_v2
         ;;
     armhf | rpi2)
-        image=ncar/nidas-build-debian-armhf:jessie_v1
+        image=nidas-build-debian-armhf:jessie_v2
         ;;
     armbe | vulcan)
-        image=maclean/fedora25-armbe-cross:ael
+        dockerns=maclean
+        image=fedora25-armbe-cross:ael
         ;;
     xenial)
-        image=ncar/nidas-build-ubuntu-i386:xenial
+        image=nidas-build-ubuntu-i386:xenial
         ;;
     bionic)
-        image=ncar/nidas-build-ubuntu-i386:bionic
+        image=nidas-build-ubuntu-i386:bionic
         ;;
     fedora)
         image=$1:latest
@@ -72,11 +72,9 @@ esac
     shift
 done
 
-set -x
-
 [ -z $image ] && usage
 
-$dopull && podman pull docker.io/$dockuser/$image
+$dopull && podman pull docker.io/$dockerns/$image
 
 # alpha name of image user
 
