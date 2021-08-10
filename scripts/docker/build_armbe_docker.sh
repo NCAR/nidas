@@ -1,19 +1,58 @@
 #!/bin/sh
 
+dockerns=ncar   # namespace on docker.io
+
+usage() {
+    echo "${0##*/} [--no-cache] [-p]
+    --no-cache: dont' use podman cache when building images
+    -p: push image to docker.io/$dockerns. You may need to do: podman login docker.io
+    "
+    exit 1
+}
+
+cacheFlag=""
+dopush=false
+arches=(armbe)
+while [ $# -gt 0 ]; do
+    case $1 in
+        --no-cache)
+            cacheFlag="--no-cache"
+            ;;
+        -p)
+            dopush=true
+            ;;
+        *)
+            usage
+            ;;
+    esac
+    shift
+done
+
+# Build a docker image of Debian Jessie for doing C/C++ debian builds for
+# various targets, such as armel and armhf (RPi).
+# The image is built from the Dockerfile.cross_arm in this directory.
+
 set -e
 
-# A --build-arg overrides an ARG in the Dockerfile
-user=builder
-uid=1000
-group=eol
-gid=1342
+for arch in ${arches[*]}; do
 
-image=fedora25-armbe-cross:ael
+    version=1
+    tag=ael_v$version
 
-docker build -t $image \
-    --build-arg=user=$user --build-arg=uid=$uid \
-    --build-arg=group=$group --build-arg=gid=$gid \
-    -f Dockerfile.cross_ael_armeb .
+    image=nidas-build-ael-$arch
+    echo "arch is $arch"
+    echo "image is $image"
+    echo "tagged image is $dockerns/$image:$tag"
 
-docker tag $image maclean/$image
-docker push maclean/$image
+    podman build $cacheFlag -t $dockerns/$image:$tag \
+        -f Dockerfile.cross_ael_armbe .
+
+    # Only push if the build worked
+    if [[ "$?" -eq 0 ]] ; then
+        if $dopush; then
+            echo "Pushing $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag"
+            podman push $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
+        fi
+    fi
+
+done

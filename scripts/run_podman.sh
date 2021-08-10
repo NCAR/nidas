@@ -32,20 +32,20 @@ while [ $# -gt 0 ]; do
 
 case $1 in
     armel | viper | titan)
-        image=nidas-build-debian-armel:jessie_v2
+        image=$dockerns/nidas-build-debian-armel:jessie_v2
         ;;
     armhf | rpi2)
-        image=nidas-build-debian-armhf:jessie_v2
+        image=$dockerns/nidas-build-debian-armhf:jessie_v2
         ;;
     armbe | vulcan)
         dockerns=maclean
-        image=fedora25-armbe-cross:ael
+        image=$dockerns/nidas-build-ael-armbe:ael_v1
         ;;
     xenial)
-        image=nidas-build-ubuntu-i386:xenial
+        image=$dockerns/nidas-build-ubuntu-i386:xenial
         ;;
     bionic)
-        image=nidas-build-ubuntu-i386:bionic
+        image=$dockerns/nidas-build-ubuntu-i386:bionic
         ;;
     fedora)
         image=$1:latest
@@ -74,7 +74,7 @@ done
 
 [ -z $image ] && usage
 
-$dopull && podman pull docker.io/$dockerns/$image
+$dopull && podman pull docker.io/$image
 
 # alpha name of image user
 

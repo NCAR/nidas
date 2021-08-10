@@ -24,7 +24,7 @@ while [ $# -gt 0 ]; do
         dopush=true
         ;;
     *)
-        release=$1
+        tag=$1
         ;;
     esac
     shift
@@ -40,16 +40,16 @@ image=nidas-build-ubuntu-i386
 
 set -x
 
-podman build -t $image \
-    --build-arg=dolocal=$dolocal \
-    -f Dockerfile.ubuntu_i386_$release .
+echo "image is $image"
+echo "tagged image is $dockerns/$image:$tag"
 
-    # --build-arg=user=$user --build-arg=uid=$uid \
-    # --build-arg=group=$group --build-arg=gid=$gid \
+podman build -t $dockerns/$image:$tag \
+    --build-arg=dolocal=$dolocal \
+    -f Dockerfile.ubuntu_i386_$tag .
+
 if [[ "$?" -eq 0 ]] ; then
-    podman tag $image $image:$release
     if $dopush; then
-        echo "Pushing $image:$release docker://docker.io/$dockerns/$image:$release" 
-        podman push $image:$release docker://docker.io/$dockerns/$image:$release && echo "push success"
+        echo "Pushing $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag" 
+        podman push $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
     fi
 fi

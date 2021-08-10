@@ -46,17 +46,17 @@ for arch in ${arches[*]}; do
     image=nidas-build-debian-$arch
     echo "arch is $arch"
     echo "image is $image"
-    echo "tagged image is $image:$tag"
+    echo "tagged image is $dockerns/$image:$tag"
 
-    podman build $cacheFlag -t $image \
+    podman build $cacheFlag -t $dockerns/$image:$tag \
         --build-arg hostarch=$arch \
         -f Dockerfile.cross_arm .
-    # Only tag and push if the build worked
+
+    # Only push if the build worked
     if [[ "$?" -eq 0 ]] ; then
-        podman tag  $image $image:$tag
         if $dopush; then
-            echo "Pushing $image:$tag docker://docker.io/$dockerns/$image:$tag"
-            podman push $image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
+            echo "Pushing $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag"
+            podman push $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
         fi
     fi
 
