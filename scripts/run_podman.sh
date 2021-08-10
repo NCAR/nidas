@@ -38,7 +38,6 @@ case $1 in
         image=$dockerns/nidas-build-debian-armhf:jessie_v2
         ;;
     armbe | vulcan)
-        dockerns=maclean
         image=$dockerns/nidas-build-ael-armbe:ael_v1
         ;;
     xenial)
