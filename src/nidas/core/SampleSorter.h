@@ -276,8 +276,10 @@ private:
 
     /**
      * Thread run function.
-     */
-    int run() throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
     /**
      * Length of SampleSorter, in micro-seconds.

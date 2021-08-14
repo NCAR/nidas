@@ -172,7 +172,7 @@ list<DSMSensor*> SensorHandler::getOpenedSensors() const
 }
 
 SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
-        SensorHandler* handler) throw(n_u::IOException): 
+        SensorHandler* handler):
     _sensor(sensor),_handler(handler),
     _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0)
 {
@@ -202,7 +202,7 @@ SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
 #endif
 }
 
-void SensorHandler::PolledDSMSensor::close() throw(n_u::IOException)
+void SensorHandler::PolledDSMSensor::close()
 {
     if (getFd() >= 0) {
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
@@ -415,7 +415,7 @@ void SensorHandler::NotifyPipe::notify() throw()
 /**
  * Thread function, epoll loop.
  */
-int SensorHandler::run() throw(n_u::Exception)
+int SensorHandler::run()
 {
 
     // This run method must respond to two events from outside threads:
@@ -724,7 +724,7 @@ void SensorHandler::interrupt()
 /*
  * Join this thread and join the SensorOpener.
  */
-int SensorHandler::join() throw(nidas::util::Exception)
+int SensorHandler::join()
 {
     if (!_opener.isJoined())
          _opener.join();

@@ -53,7 +53,7 @@ DSC_AnalogOut::~DSC_AnalogOut()
     catch(const n_u::IOException& e) {}
 }
 
-void DSC_AnalogOut::open() throw(n_u::IOException)
+void DSC_AnalogOut::open()
 {
 
     if ((_fd = ::open(_devName.c_str(),O_RDWR)) < 0)
@@ -67,7 +67,7 @@ void DSC_AnalogOut::open() throw(n_u::IOException)
 
 }
 
-void DSC_AnalogOut::close() throw(n_u::IOException)
+void DSC_AnalogOut::close()
 {
     // don't bother checking for error.
     if (_fd >= 0) ::close(_fd);
@@ -88,9 +88,7 @@ float DSC_AnalogOut::getMaxVoltage(int i) const
 }
 
 void DSC_AnalogOut::setVoltages(const vector<int>& which,
-    const vector<float>& val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
+                                const vector<float>& val)
 {
     if (which.size() != val.size()) {
         ostringstream ost;
@@ -134,9 +132,7 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
         throw n_u::IOException(_devName,"ioctl SET_OUTPUT",errno);
 }
 
-void DSC_AnalogOut::setVoltage(int which,float val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
+void DSC_AnalogOut::setVoltage(int which, float val)
 {
     vector<int> whiches;
     whiches.push_back(which);

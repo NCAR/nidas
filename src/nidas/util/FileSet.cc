@@ -119,7 +119,7 @@ void FileSet::setFileName(const std::string& val)
 }
 
 
-void FileSet::closeFile() throw(IOException)
+void FileSet::closeFile()
 {
     if (_fd >= 0) {
         /*
@@ -152,7 +152,7 @@ void FileSet::closeFile() throw(IOException)
     }
 }
 
-long long FileSet::getFileSize() const throw(IOException)
+long long FileSet::getFileSize() const
 {
     if (_fd >= 0) {
         struct stat statbuf;
@@ -207,7 +207,7 @@ void FileSet::createDirectory(const string& name, mode_t mode)
 
 void
 FileSet::
-openFileForWriting(const std::string& filename) throw(IOException)
+openFileForWriting(const std::string& filename)
 {
     if ((_fd = ::open(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
         _lastErrno = errno;
@@ -220,7 +220,7 @@ openFileForWriting(const std::string& filename) throw(IOException)
  * Create a file using a time to create the name.
  * Return the time of the next file.
  */
-UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
+UTime FileSet::createFile(const UTime ftime,bool exact)
 {
     DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=",this)
      << ftime.format(true,"%c"));
@@ -287,7 +287,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
     return nextFileTime;
 }
 
-size_t FileSet::read(void* buf, size_t count) throw(IOException)
+size_t FileSet::read(void* buf, size_t count)
 {
     _newFile = false;
     if (_fd < 0) openNextFile();		// throws EOFException
@@ -302,7 +302,7 @@ size_t FileSet::read(void* buf, size_t count) throw(IOException)
     return res;
 }
 
-size_t FileSet::write(const void* buf, size_t count) throw(IOException)
+size_t FileSet::write(const void* buf, size_t count)
 {
     ssize_t res = ::write(_fd,buf,count);
     if (res < 0) {
@@ -312,7 +312,7 @@ size_t FileSet::write(const void* buf, size_t count) throw(IOException)
     return res;
 }
 
-size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
+size_t FileSet::write(const struct iovec* iov, int iovcnt)
 {
     ssize_t res = ::writev(_fd,iov,iovcnt);
     if (res < 0) {
@@ -375,7 +375,7 @@ void FileSet::initialize()
 }
 
 
-void FileSet::openNextFile() throw(IOException)
+void FileSet::openNextFile()
 {
     DLOG(("") << "openNextFile()");
     if (!_initialized) {
@@ -442,7 +442,7 @@ string FileSet::formatName(const UTime& t1)
 }
 
 #if !defined(NIDAS_EMBEDDED)
-void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOException)
+void FileSet::checkPathFormat(const UTime& t1, const UTime& t2)
 {
     if (_fullpath.find("%b") != string::npos) {
     string m1 = t1.format(true,"%b");
@@ -487,7 +487,7 @@ void FileSet::checkPathFormat(const UTime& t1, const UTime& t2) throw(IOExceptio
 }
 #endif
 
-list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2) throw(IOException)
+list<string> FileSet::matchFiles(const UTime& t1, const UTime& t2)
 {
 
     set<string> matchedFiles;

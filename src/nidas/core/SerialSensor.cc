@@ -61,7 +61,6 @@ SerialSensor::~SerialSensor()
 }
 
 SampleScanner* SerialSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr = CharacterSensor::buildSampleScanner();
     DLOG(("%s: usec/byte=%d",getName().c_str(),getUsecsPerByte()));
@@ -69,7 +68,7 @@ SampleScanner* SerialSensor::buildSampleScanner()
     return scanr;
 }
 
-IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
+IODevice* SerialSensor::buildIODevice()
 {
     if (getDeviceName().find("inet:") == 0)
         return new TCPSocketIODevice();
@@ -96,7 +95,6 @@ int SerialSensor::getUsecsPerByte() const
 }
 
 void SerialSensor::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     flags |= O_NOCTTY;
     CharacterSensor::open(flags);
@@ -122,8 +120,8 @@ void SerialSensor::open(int flags)
     initPrompting();
 }
 
-void SerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
-    throw(n_u::InvalidParameterException, n_u::IOException)
+void SerialSensor::setMessageParameters(unsigned int len, const string& sep,
+                                        bool eom)
 {
     CharacterSensor::setMessageParameters(len,sep,eom);
 
@@ -135,13 +133,13 @@ void SerialSensor::setMessageParameters(unsigned int len, const string& sep, boo
     // time-tagging.
 }
 
-void SerialSensor::close() throw(n_u::IOException)
+void SerialSensor::close()
 {
     shutdownPrompting();
     DSMSensor::close();
 }
 
-void SerialSensor::applyTermios() throw(nidas::util::IOException)
+void SerialSensor::applyTermios()
 {
     if (_serialDevice) {
         _serialDevice->termios() = _termios;
@@ -149,7 +147,7 @@ void SerialSensor::applyTermios() throw(nidas::util::IOException)
     }
 }
 
-void SerialSensor::initPrompting() throw(n_u::IOException)
+void SerialSensor::initPrompting()
 {
     if (isPrompted()) {
         const list<Prompt>& prompts = getPrompts();
@@ -169,7 +167,7 @@ void SerialSensor::initPrompting() throw(n_u::IOException)
     }
 }
 
-void SerialSensor::shutdownPrompting() throw(n_u::IOException)
+void SerialSensor::shutdownPrompting()
 {
     stopPrompting();
     list<Prompter*>::const_iterator pi = _prompters.begin();
@@ -177,7 +175,7 @@ void SerialSensor::shutdownPrompting() throw(n_u::IOException)
     _prompters.clear();
 }
 
-void SerialSensor::startPrompting() throw(n_u::IOException)
+void SerialSensor::startPrompting()
 {
     if (isPrompted()) {
         list<Prompter*>::const_iterator pi;
@@ -192,7 +190,7 @@ void SerialSensor::startPrompting() throw(n_u::IOException)
     }
 }
 
-void SerialSensor::stopPrompting() throw(n_u::IOException)
+void SerialSensor::stopPrompting()
 {
     if (isPrompted()) {
         list<Prompter*>::const_iterator pi;
@@ -232,9 +230,7 @@ void SerialSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-void SerialSensor::fromDOMElement(
-    const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+void SerialSensor::fromDOMElement(const xercesc::DOMElement* node)
 {
 
     CharacterSensor::fromDOMElement(node);

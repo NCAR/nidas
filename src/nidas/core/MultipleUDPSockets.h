@@ -43,31 +43,46 @@ public:
 
     MultipleUDPSockets* clone() const;
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IOChannel* connect();
 
     void connected(nidas::util::DatagramSocket* sock,
         const nidas::util::Inet4PacketInfoX& pktinfo) throw();
 
     size_t getBufferSize() const throw();
 
-    size_t read(void*, size_t) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void*, size_t)
     {
         assert(false);
 	return 0;
     }
 
-    size_t write(const void* buf, size_t len)
-            throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void* buf, size_t len);
 
-    size_t write(const struct iovec* iov, int iovcnt)
-            throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec* iov, int iovcnt);
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     int getFd() const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     /**
      * From the Inet4PacketInfoX associated with the received

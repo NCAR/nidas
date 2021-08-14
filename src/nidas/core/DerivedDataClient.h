@@ -47,8 +47,10 @@ public:
    * The implementation of this method in a client should
    * run quickly, to reduce the delay in calling successive clients
    * in the list.
+   *
+   * @throw()
    */
-  virtual void derivedDataNotify(const DerivedDataReader * s) throw() = 0;
+  virtual void derivedDataNotify(const DerivedDataReader * s) = 0;
 
 };
 

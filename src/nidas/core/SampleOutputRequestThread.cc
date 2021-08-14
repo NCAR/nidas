@@ -124,7 +124,7 @@ void SampleOutputRequestThread::interrupt()
     _requestCond.signal();
 }
 
-int SampleOutputRequestThread::run() throw(nidas::util::Exception)
+int SampleOutputRequestThread::run()
 {
     int tdiffmin = 0;
     _requestCond.lock();

@@ -76,8 +76,7 @@ std::string Parameter::getStringValue(int i) const
 
 
 Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
-        const Dictionary* dict)
-    throw(n_u::InvalidParameterException)
+                                      const Dictionary* dict)
 {
     XDOMElement xnode(node);
     Parameter* parameter = 0;
@@ -134,14 +133,13 @@ void ParameterT<T>::assign(const Parameter& x)
 
 template<class T>
 void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     fromDOMElement(node,0);
 }
 
 template<class T>
-void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node, const Dictionary* dict)
-    throw(n_u::InvalidParameterException)
+void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node,
+                                   const Dictionary* dict)
 {
 
     XDOMElement xnode(node);

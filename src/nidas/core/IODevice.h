@@ -63,9 +63,11 @@ public:
      * Open the device. This operation should not block - it should
      * either fail or succeed in a reasonable amount of time, typically
      * less than 1 or 2 seconds.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException) = 0;
+    virtual void open(int flags) = 0;
 
     /**
      * The file descriptor used when reading from this sensor.
@@ -79,13 +81,17 @@ public:
 
     /**
      * Read from the sensor.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;	
+    virtual size_t read(void *buf, size_t len) = 0;
 
     /**
      * Read from the sensor with a millisecond timeout.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t read(void *buf, size_t len,int msecTimeout) throw(nidas::util::IOException) = 0;	
+    virtual size_t read(void *buf, size_t len,int msecTimeout) = 0;
 
     /**
      * Return how many bytes are available to read on this IODevice.
@@ -110,8 +116,10 @@ public:
      * available, one read at least should be done, just in case a
      * sensor sends a datagram of length 0, otherwise it will never
      * be consumed.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t getBytesAvailable() const throw(nidas::util::IOException)
+    virtual size_t getBytesAvailable() const
     {
         int nbytes;
         int err = ::ioctl(getReadFd(),FIONREAD,&nbytes);
@@ -122,21 +130,26 @@ public:
 
     /**
      * Write to the sensor.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual size_t write(const void *buf, size_t len) throw(nidas::util::IOException) = 0;
+    virtual size_t write(const void *buf, size_t len) = 0;
 
     /*
      * Perform an ioctl on the device. request is an integer
      * value which must be supported by the device. Normally
      * this is a value from a header file for the device.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual void ioctl(int request, void* buf, size_t len)
-    	throw(nidas::util::IOException) = 0;
+    virtual void ioctl(int request, void* buf, size_t len) = 0;
 
     /**
      * Close the device.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual void close() throw(nidas::util::IOException) = 0;
+    virtual void close() = 0;
 
     /**
      * Whether to reopen this sensor on an IOException.

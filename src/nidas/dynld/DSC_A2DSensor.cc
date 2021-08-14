@@ -52,19 +52,17 @@ DSC_A2DSensor::~DSC_A2DSensor()
 {
 }
 
-IODevice* DSC_A2DSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_A2DSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_A2DSensor::buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException)
 {
     return new DriverSampleScanner(16384);
 }
 
 void DSC_A2DSensor::validate()
-        throw(n_u::InvalidParameterException)
 {
     A2DSensor::validate();
     // clock on Diamond cards is 10 MHz. It is divided
@@ -78,7 +76,6 @@ void DSC_A2DSensor::validate()
 }
 
 void DSC_A2DSensor::open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     A2DSensor::open(flags);
 
@@ -115,7 +112,7 @@ void DSC_A2DSensor::open(int flags)
 }
 
 
-void DSC_A2DSensor::close() throw(n_u::IOException)
+void DSC_A2DSensor::close()
 {
     ioctl(DMMAT_STOP,0,0);
     A2DSensor::close();
@@ -146,8 +143,7 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
-            throw(n_u::InvalidParameterException)
+void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
 {
     if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
         ostringstream ost;

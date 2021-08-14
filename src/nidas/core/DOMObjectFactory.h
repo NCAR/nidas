@@ -118,9 +118,10 @@ public:
      * After being created by this method, then the attributes
      * of the object are typically filled in from an XML DOM element
      * via virtual nidas::core::DOMable::fromDOMElement() method.
+     *
+     * @throws nidas::util::Exception
      */
-    static DOMable* createObject(const std::string& classname)
-    	throw(nidas::util::Exception);
+    static DOMable* createObject(const std::string& classname);
 
     /**
      * Prototype of the creator function.

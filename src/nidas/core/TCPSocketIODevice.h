@@ -49,17 +49,19 @@ public:
      * Open the socket, which does a socket connect to the remote address
      * which is parsed from the contents of getName().
      * See SocketIODevice::open() and SocketIODevice::parseAddress().
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
      */
-    void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /**
      * The file descriptor used when reading from this SocketIODevice.
      */
     int getReadFd() const
     {
-	if (_socket) return _socket->getFd();
-	return -1;
+        if (_socket) return _socket->getFd();
+        return -1;
     }
 
     /**
@@ -72,49 +74,68 @@ public:
 
     /**
      * Read from the device.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t read(void *buf, size_t len) throw(nidas::util::IOException)
+    size_t read(void *buf, size_t len)
     {
         return _socket->recv(buf,len);
     }
 
     /**
      * Read from the device with a timeout in milliseconds.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t read(void *buf, size_t len, int msecTimeout)
-        throw(nidas::util::IOException);
+    size_t read(void *buf, size_t len, int msecTimeout);
 
     /**
      * Write to the device.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
+    size_t write(const void *buf, size_t len)
     {
         return _socket->send(buf,len);
     }
 
     /**
      * close the device.
+     *
+     * @throws nidas::util::IOException
      */
-    void close() throw(nidas::util::IOException);
+    void close();
 
-    void setTcpNoDelay(bool val) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setTcpNoDelay(bool val)
     {
         _tcpNoDelay = val;
     }
 
-    bool getTcpNoDelay() throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool getTcpNoDelay()
     {
-	return _tcpNoDelay;
+        return _tcpNoDelay;
     }
 
-    void setKeepAliveIdleSecs(int val) throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setKeepAliveIdleSecs(int val)
     {
-	_keepAliveIdleSecs = val;
+        _keepAliveIdleSecs = val;
     }
 
-    int getKeepAliveIdleSecs() const throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    int getKeepAliveIdleSecs() const
     {
-	return _keepAliveIdleSecs;
+        return _keepAliveIdleSecs;
     }
 
 protected:

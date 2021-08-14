@@ -117,7 +117,6 @@ Project::~Project()
 void
 Project::
 parseXMLConfigFile(const std::string& xmlfilepath) 
-    throw(nidas::core::XMLException)
 {
     {
         n_u::auto_ptr<xercesc::DOMDocument> 
@@ -220,7 +219,7 @@ VariableIterator Project::getVariableIterator() const
 /**
  * Initialize all sensors for a Project.
  */
-void Project::initSensors() throw(n_u::IOException)
+void Project::initSensors()
 {
     const list<Site*>& sites = getSites();
     list<Site*>::const_iterator si;
@@ -233,7 +232,7 @@ void Project::initSensors() throw(n_u::IOException)
 /**
  * Initialize all sensors for a Site.
  */
-void Project::initSensors(Site* site) throw(n_u::IOException)
+void Project::initSensors(Site* site)
 {
     const list<Site*>& sites = getSites();
     list<Site*>::const_iterator si;
@@ -246,7 +245,7 @@ void Project::initSensors(Site* site) throw(n_u::IOException)
 /**
  * Initialize all sensors for a given dsm.
  */
-void Project::initSensors(DSMConfig* dsm) throw(n_u::IOException)
+void Project::initSensors(DSMConfig* dsm)
 {
     const list<Site*>& sites = getSites();
     list<Site*>::const_iterator si;
@@ -563,7 +562,7 @@ list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets(const 
     return anysets;
 }
 
-list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() const throw(nidas::util::Exception)
+list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() const
 {
     struct utsname utsbuf;
     if (::uname(&utsbuf) < 0)
@@ -845,7 +844,6 @@ void Project::removeAutoConfig(xercesc::DOMNode* node, bool bumpRecursion)
 
 
 void Project::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     if (_disableAutoconfig) {
         ILOG(("Project::fromDOMElement(): _disableAutoconfig is true. "
@@ -1001,8 +999,8 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 
 }
 
-xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,
+                                          bool complete) const
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -1012,8 +1010,8 @@ xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,bool compl
     return toDOMElement(elem,complete);
 }
 
-xercesc::DOMElement* Project::toDOMElement(xercesc::DOMElement* elem,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* Project::toDOMElement(xercesc::DOMElement* elem,
+                                           bool complete) const
 {
     if (complete) return 0; // not supported yet
 

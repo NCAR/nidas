@@ -35,7 +35,7 @@ namespace n_u = nidas::util;
 DynamicLoader* DynamicLoader::_instance = 0;
 n_u::Mutex DynamicLoader::_instanceLock;
 
-DynamicLoader* DynamicLoader::getInstance() throw(n_u::Exception) {
+DynamicLoader* DynamicLoader::getInstance() {
     if (!_instance) {
 	n_u::Synchronized autosync(_instanceLock);
 	if (!_instance) _instance = new DynamicLoader();
@@ -43,7 +43,7 @@ DynamicLoader* DynamicLoader::getInstance() throw(n_u::Exception) {
     return _instance;
 }
 
-DynamicLoader::DynamicLoader() throw(n_u::Exception): _defhandle(0),_libhandles()
+DynamicLoader::DynamicLoader(): _defhandle(0),_libhandles()
 {
     // default handle for loading symbols from the program and
     // libraries that are already linked or loaded into the program.
@@ -60,7 +60,7 @@ DynamicLoader::~DynamicLoader()
 
 void *
 DynamicLoader::
-lookup(const std::string& name) throw(n_u::Exception) 
+lookup(const std::string& name) 
 {
     n_u::Synchronized autosync(_instanceLock);
 
@@ -91,8 +91,7 @@ lookup(const std::string& name) throw(n_u::Exception)
 
 void *
 DynamicLoader::
-lookup(const std::string& library,const std::string& name)
-    throw(n_u::Exception) 
+lookup(const std::string& library, const std::string& name)
 {
 
     // dlerror() returns a readable string describing the most recent error that

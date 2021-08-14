@@ -44,7 +44,10 @@ public:
 
     GPS_NMEA_Serial();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     /**
      * Virtual method that is called to convert a raw sample containing
@@ -97,9 +100,10 @@ public:
      * one newline terminated NMEA message in each UDP packet. So,
      * instead we want to scan with a MessageStreamScanner(),
      * breaking up the packet into separate samples.
-     */
-    SampleScanner* buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
         throw();

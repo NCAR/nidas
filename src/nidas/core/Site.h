@@ -192,13 +192,17 @@ public:
 
     /**
      * Initialize all sensors for a Site.
+     *
+     * @throws nidas::util::IOException
      */
-    void initSensors() throw(nidas::util::IOException);
+    void initSensors();
 
     /**
      * Initialize all sensors for a given dsm.
+     *
+     * @throws nidas::util::IOException
      */
-    void initSensors(DSMConfig* dsm) throw(nidas::util::IOException);
+    void initSensors(DSMConfig* dsm);
 
     /**
      * Add a parameter to this Site. Site
@@ -265,19 +269,27 @@ public:
 
     VariableIterator getVariableIterator() const;
 
-    void validate()
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent, bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
 private:
 

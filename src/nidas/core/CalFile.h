@@ -252,8 +252,10 @@ public:
      * Open the file. It is not necessary to call open().
      * If the user has not done an open() it will
      * be done in the first readCF(), or search().
+     *
+     * @throws nidas::util::IOException
      */
-    void open() throw(nidas::util::IOException);
+    void open();
 
     /**
      * Close file. An opened CalFile is closed in the destructor,
@@ -296,9 +298,11 @@ public:
      * in the file with a time less than or equal to tsearch.
      * The time is available by calling nextTime().
      * The next call to readCF() will return that record.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::ParseException
      */
-    nidas::util::UTime search(const nidas::util::UTime& tsearch)
-        throw(nidas::util::IOException,nidas::util::ParseException);
+    nidas::util::UTime search(const nidas::util::UTime& tsearch);
 
     /**
      * Read the time and data from the current record, and return the
@@ -342,10 +346,12 @@ public:
      * current record are also stashed in this CalFile and can be retrieved
      * with getCurrentFields().  The fields are not valid except after
      * calling readCF().
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::ParseException
      */
     int readCF(nidas::util::UTime& time, float* data, int ndata,
-               std::vector<std::string>* fields=0)
-        throw(nidas::util::IOException,nidas::util::ParseException);
+               std::vector<std::string>* fields=0);
 
     /**
      * Return the time and fields of the current record, the one last read
@@ -414,12 +420,17 @@ public:
 
     const DSMSensor* getDSMSensor() const;
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
 
-    nidas::util::UTime parseTime() throw(nidas::util::ParseException);
+    /**
+     * @throws nidas::util::ParseException
+     **/
+    nidas::util::UTime parseTime();
 
     /**
      * Read forward to next non-comment line in CalFile.  Place result in
@@ -429,8 +440,11 @@ protected:
      *
      *    # dateFormat = "xxxxx"
      *    # timeZone = "xxx"
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::ParseException
      */
-    void readLine() throw(nidas::util::IOException,nidas::util::ParseException);
+    void readLine();
 
     /**
      * Check the current line for special comments with timezone and
@@ -450,8 +464,10 @@ protected:
     int
     parseInclude();
 
-    void openInclude(const std::string& name)
-        throw(nidas::util::IOException,nidas::util::ParseException);
+    /**
+     * @throws nidas::util::IOException,nidas::util::ParseException
+     **/
+    void openInclude(const std::string& name);
 
     /**
      * Internal version of readCF() which reads records from the current
@@ -473,13 +489,18 @@ private:
      * an EOFException on EOF.  After parsing the time from a record,
      * curline contains that record, and curpos points to the character
      * after the datetime field.  Also sets _nextTime to the returned time.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::ParseException
      */
-    nidas::util::UTime readTime()
-        throw(nidas::util::IOException,nidas::util::ParseException);
+    nidas::util::UTime readTime();
 
+    /**
+     * @throws nidas::util::IOException
+     * @throws nidas::util::ParseException
+     **/
     int readCFNoLock(nidas::util::UTime& time, float* data, int ndata,
-                     std::vector<std::string>* fields)
-        throw(nidas::util::IOException,nidas::util::ParseException);
+                     std::vector<std::string>* fields);
 
     std::string _name;
 
@@ -547,7 +568,10 @@ private:
 
     static void freeREs();
 
-    static void compileREs() throw(nidas::util::ParseException);
+    /**
+     * @throws nidas::util::ParseException
+     **/
+    static void compileREs();
 
     static std::vector<std::string> _allPaths;
 

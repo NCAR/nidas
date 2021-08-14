@@ -42,7 +42,7 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-void SerialPortIODevice::open(int flags) throw(n_u::IOException)
+void SerialPortIODevice::open(int flags)
 {
     UnixIODevice::open(flags);
     applyTermios();
@@ -85,7 +85,7 @@ int SerialPortIODevice::getUsecsPerByte() const
     return usecs;
 }
 
-void SerialPortIODevice::setRTS485(int val) throw(nidas::util::IOException)
+void SerialPortIODevice::setRTS485(int val)
 {
     _rts485 = val;
     if (_rts485 && _fd >= 0) {
@@ -107,7 +107,7 @@ void SerialPortIODevice::setRTS485(int val) throw(nidas::util::IOException)
 /**
  * Write to the device.
  */
-size_t SerialPortIODevice::write(const void *buf, size_t len) throw(nidas::util::IOException)
+size_t SerialPortIODevice::write(const void *buf, size_t len)
 {
     ssize_t result;
     int bits;

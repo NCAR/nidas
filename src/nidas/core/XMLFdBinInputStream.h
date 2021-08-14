@@ -64,6 +64,8 @@ public:
 
     /**
      * return number of bytes read, or 0 on EOF.
+     *
+     * @throws nidas::util::IOException
      */
 #if XERCES_VERSION_MAJOR < 3
     unsigned int
@@ -77,7 +79,6 @@ public:
     	const XMLSize_t maxToRead
 #endif
     )
-throw(nidas::util::IOException)
     {
         if (_eof) return 0;
 	// std::cerr << "XMLFdBinInputStream reading " << maxToRead << std::endl;

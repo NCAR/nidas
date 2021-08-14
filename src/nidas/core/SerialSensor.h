@@ -89,9 +89,10 @@ public:
      * Calls CharacterSensor::buildSampleScanner(), and then sets the 
      * per-byte transmission delay for that scanner:
      * SampleScanner::setUsecsPerByte().
-     */
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * Creates an IODevice depending on the device name prefix:
@@ -104,34 +105,43 @@ public:
      *
      * If a SerialPortIODevice is created, the Termios of this SerialSensor is
      * copied to the device, which will then be applied when the device is opened.
-     */
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
     /**
      * Open the device connected to the sensor. This calls
      * CharacterSensor::open(), and then sets up the port
      * prompting if it is required.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /*
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * If the underlying IODevice is a SerialPortIODevice, update
      * the current Termios to the device.
-     */
-    void applyTermios() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void applyTermios();
 
     /**
      * Set message separator and message length parameters, which are used to
      * parse and time-tag samples from the IODevice.
-     */
-    void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
-        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
+     *
+     * @throws nidas::util::InvalidParameterException,nidas::util::IOException
+     **/
+    void setMessageParameters(unsigned int len,const std::string& sep, bool eom);
 
     void printStatus(std::ostream& ostr) throw();
 
@@ -144,13 +154,20 @@ public:
     /**
      * Start the prompters. They can be started and stopped multiple
      * times once a SerialSensor is opened.
-     */
-    void startPrompting() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void startPrompting();
 
-    void stopPrompting() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void stopPrompting();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     /**
      * If the underlying IODevice is a SerialPortIODevice,
@@ -165,16 +182,22 @@ protected:
     /**
      * Perform whatever is necessary to initialize prompting right
      * after the device is opened.
-     */
-    void initPrompting() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void initPrompting();
 
     /**
      * Shutdown prompting, typically done when a device is closed.
-     */
-    void shutdownPrompting() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void shutdownPrompting();
 
-    void unixDevInit(int flags)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void unixDevInit(int flags);
 
 private:
 

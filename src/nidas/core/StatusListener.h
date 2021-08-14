@@ -52,7 +52,10 @@ public:
     StatusListener();
     ~StatusListener();
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
 private:
     /// provide mutually exclusive access to these maps.

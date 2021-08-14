@@ -95,7 +95,7 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
     sensor->executeXmlRpc(params,result);
 }
 
-int DSMEngineIntf::run() throw(n_u::Exception)
+int DSMEngineIntf::run()
 {
 
     // DEBUG - set verbosity of the xmlrpc server

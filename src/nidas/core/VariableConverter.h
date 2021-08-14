@@ -133,17 +133,21 @@ public:
      */
     virtual std::string toString() const = 0;
 
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
     virtual void fromString(const std::string&)
-    	throw(nidas::util::InvalidParameterException) {
+    {
         throw nidas::util::InvalidParameterException(
             "fromString() not supported in this VariableConverter");
     }
 
-    static VariableConverter* createVariableConverter(
-    	XDOMElement& child);
+    static VariableConverter* createVariableConverter(XDOMElement& child);
 
-    static VariableConverter* createFromString(const std::string&)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException 
+     **/
+    static VariableConverter* createFromString(const std::string&);
 
     /**
      * Add a parameter to this VariableConverter. VariableConverter
@@ -167,8 +171,10 @@ public:
      */
     const Parameter* getParameter(const std::string& name) const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     void setCalFile(CalFile*);
 
@@ -241,11 +247,15 @@ public:
 
     std::string toString() const;
 
-    void fromString(const std::string&)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromString(const std::string&);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
 private:
 
@@ -283,11 +293,15 @@ public:
 
     std::string toString() const;
 
-    void fromString(const std::string&)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromString(const std::string&);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     /**
      * This is static and defined inline below so the implementation can be

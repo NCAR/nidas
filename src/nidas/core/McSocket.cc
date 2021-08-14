@@ -63,7 +63,6 @@ McSocket* McSocket::clone() const
 }
 
 IOChannel* McSocket::connect()
-    throw(n_u::IOException)
 {
     n_u::Socket* sock;
     n_u::Inet4PacketInfoX pktinfo;
@@ -85,7 +84,6 @@ IOChannel* McSocket::connect()
 }
 
 void McSocket::requestConnection(IOChannelRequester* requester)
-    throw(n_u::IOException)
 {
     _iochanRequester = requester;
     if (isRequester()) _mcsocket.request();	// starts requester thread
@@ -110,7 +108,7 @@ void McSocket::connected(n_u::Socket* sock,const n_u::Inet4PacketInfoX& pktinfo)
     _iochanRequester->connected(ncSock);
 }
 
-void McSocket::close() throw (n_u::IOException)
+void McSocket::close()
 {
     // cerr << "McSocket::close" << endl;
     _mcsocket.close();
@@ -122,7 +120,6 @@ int McSocket::getFd() const
 }
 
 void McSocket::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     string saddr;
     string sport;

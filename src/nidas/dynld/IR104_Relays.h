@@ -50,22 +50,31 @@ public:
 
     ~IR104_Relays();
 
-    nidas::core::IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    nidas::core::IODevice* buildIODevice();
 
-    nidas::core::SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    nidas::core::SampleScanner* buildSampleScanner();
 
     /**
      * Open the IR104 device.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /**
      * Process a raw sample of the relay bit settings.
+     *
+     * @throw()
      */
-    bool process(const nidas::core::Sample*,std::list<const nidas::core::Sample*>& result)
-                throw();
+    bool process(const nidas::core::Sample*,
+                 std::list<const nidas::core::Sample*>& result);
 
     /**
      * Return number of DOUT pins on this device (8).
@@ -89,36 +98,43 @@ public:
 
     /**
      * Unset relays as selected by bits 0-19 of which.
-     */
-    void clearOutputs(const nidas::util::BitArray& which) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void clearOutputs(const nidas::util::BitArray& which);
 
     /**
      * Set relays as selected by bits 0-19 of which.
-     */
-    void setOutputs(const nidas::util::BitArray& which) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setOutputs(const nidas::util::BitArray& which);
 
     /**
      * Set relays, selected by bits 0-19 of which,
      * to 0(low) or high(1) based on bits 0-19 of val
-     */
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setOutputs(const nidas::util::BitArray& which,
-        const nidas::util::BitArray& val) 
-        throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+                    const nidas::util::BitArray& val);
 
     /**
      * Get current settings of relays.
-     */ 
-    nidas::util::BitArray getOutputs() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::util::BitArray getOutputs();
 
     /**
      * get current settings of inputs.
-     */
-    nidas::util::BitArray getInputs() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::util::BitArray getInputs();
 
 private:
 

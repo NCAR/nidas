@@ -136,33 +136,45 @@ public:
      * Closes any file currently open.  The base implementation
      * closes the file descriptor.  Subclasses override this method
      * to close alternate resources.
+     *
+     * @throws IOException
      **/
-    void closeFile() throw(IOException);
+    void closeFile();
 
     /**
      * Open a new file for writing.  The @p filename is the path for the
      * new file as generated from the filename template and a time.  The
      * base implementation calls open64() and sets the file descriptor.
+     *
+     * @throws IOException
      **/
-    void openFileForWriting(const std::string& filename) throw(IOException);
+    void openFileForWriting(const std::string& filename);
 
     /**
      * Open the next file to be read.
+     *
+     * @throws IOException
      **/
-    void openNextFile() throw(IOException);
-
+    void openNextFile();
 
     /**
      * Read from current file.
-     */
-    size_t read(void* buf, size_t count) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    size_t read(void* buf, size_t count);
 
     /**
      * Write to current file.
-     */
-    size_t write(const void* buf, size_t count) throw(IOException);
+     *
+     * @throws IOException
+     **/
+    size_t write(const void* buf, size_t count);
 
-    size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    size_t write(const struct iovec* iov, int iovcnt);
 
 private:
 

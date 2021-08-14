@@ -153,8 +153,8 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansV
 
     addSampleTag(&_outSample);
 }
+
 void NearestResampler::connect(SampleSource* source)
-	throw(n_u::InvalidParameterException)
 {
 
     vector<bool> matched(_reqVars.size());

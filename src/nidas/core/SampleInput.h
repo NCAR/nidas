@@ -58,7 +58,10 @@ public:
 
     // virtual void init() throw(nidas::util::IOException) = 0;
 
-    virtual void requestConnection(DSMService*) throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void requestConnection(DSMService*) = 0;
 
     virtual SampleInput* getOriginal() const = 0;
 
@@ -71,20 +74,33 @@ public:
      * @return false: no data available for physical read, likely the result of
      *  doing a non-blocking read on an empty file descriptor.
      *  true: physical read did not necessarily consume all available data.
-     */
-    virtual bool readSamples() throw(nidas::util::IOException) = 0;
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual bool readSamples() = 0;
 
     /**
      * Blocking read of the next sample from the buffer. The caller must
      * call freeReference on the sample when they're done with it.
-     */
-    virtual Sample* readSample() throw(nidas::util::IOException) = 0;
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual Sample* readSample() = 0;
 
-    virtual void close() throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void close() = 0;
 
-    virtual void setNonBlocking(bool val) throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void setNonBlocking(bool val) = 0;
 
-    virtual bool isNonBlocking() const throw(nidas::util::IOException) = 0;
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual bool isNonBlocking() const = 0;
 
     virtual int getFd() const = 0;
 

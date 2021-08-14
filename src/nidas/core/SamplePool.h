@@ -112,7 +112,7 @@ public:
     /**
      * Get a sample of at least len elements from the pool.
      */
-    SampleType *getSample(unsigned int len) throw(SampleLengthException);
+    SampleType *getSample(unsigned int len);
 
     /**
      * Return a sample to the pool.
@@ -139,8 +139,7 @@ private:
 
     static nidas::util::Mutex _instanceLock;
 
-    SampleType *getSample(SampleType** vec,int *veclen, unsigned int len)
-        throw(SampleLengthException);
+    SampleType *getSample(SampleType** vec,int *veclen, unsigned int len);
     void putSample(const SampleType *,SampleType*** vecp,int *veclen, int* nalloc);
 
     SampleType** _smallSamples;
@@ -256,7 +255,6 @@ SamplePool<SampleType>::~SamplePool() {
 
 template<class SampleType>
 SampleType* SamplePool<SampleType>::getSample(unsigned int len)
-throw(SampleLengthException)
 {
 
     nidas::util::Synchronized pooler(_poolLock);
@@ -285,7 +283,7 @@ throw(SampleLengthException)
 
 template<class SampleType>
 SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
-        int *n, unsigned int len) throw(SampleLengthException)
+        int *n, unsigned int len)
 {
 
     SampleType *sample;

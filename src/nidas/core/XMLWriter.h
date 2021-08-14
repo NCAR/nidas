@@ -41,8 +41,10 @@ public:
 
     /**
      * Constructor.
-     */
-    XMLWriter() throw(nidas::core::XMLException);
+     *
+     * @throws nidas::core::XMLException
+     **/
+    XMLWriter();
 
     /**
      * Nuke the XMLWriter. This does a release() (delete) of the
@@ -145,15 +147,21 @@ public:
     void setFilter(xercesc::DOMLSSerializerFilter* filter);
 #endif
 
-    virtual void write(xercesc::DOMDocument*doc, const std::string& fileName)
-    	throw(nidas::core::XMLException,nidas::util::IOException);
+    /**
+     * @throws nidas::core::XMLException,nidas::util::IOException
+     **/
+    virtual void write(xercesc::DOMDocument*doc, const std::string& fileName);
 
+    /**
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::IOException
+     **/
 #if XERCES_VERSION_MAJOR < 3
-    virtual void writeNode(xercesc::XMLFormatTarget* const dest, const xercesc::DOMNode& node)
-        throw(nidas::core::XMLException,nidas::util::IOException);
+    virtual void writeNode(xercesc::XMLFormatTarget* const dest,
+                           const xercesc::DOMNode& node);
 #else
-    virtual void writeNode(xercesc::DOMLSOutput* const dest, const xercesc::DOMNode& node)
-        throw(nidas::core::XMLException,nidas::util::IOException);
+    virtual void writeNode(xercesc::DOMLSOutput* const dest,
+                           const xercesc::DOMNode& node);
 #endif
 
 private:

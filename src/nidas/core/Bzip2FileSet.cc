@@ -45,7 +45,6 @@ Bzip2FileSet::Bzip2FileSet(const Bzip2FileSet& x):
 }
 
 void Bzip2FileSet::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     FileSet::fromDOMElement(node);
 

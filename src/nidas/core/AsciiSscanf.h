@@ -81,8 +81,10 @@ public:
      * Example:   "%*2c%f%f%*5c%x" skips two characters,
      * converts 2 float fields, skips five characters, converts
      * a hex value.
-     */
-    void setFormat(const std::string& val) throw(nidas::util::ParseException);
+     *
+     * @throws nidas::util::ParseException
+     **/
+    void setFormat(const std::string& val);
 
     const std::string& getFormat() const { return _format; }
 

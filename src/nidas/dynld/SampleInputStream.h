@@ -208,17 +208,25 @@ public:
 
     /**
      * Read archive information at beginning of input stream or file.
-     */
-    void readInputHeader() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void readInputHeader();
 
-    bool parseInputHeader() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool parseInputHeader();
 
     const nidas::core::SampleInputHeader& getInputHeader() const
     {
         return _inputHeader;
     }
 
-    void requestConnection(nidas::core::DSMService*) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(nidas::core::DSMService*);
 
     virtual nidas::core::SampleInput* getOriginal() const
     {
@@ -233,9 +241,15 @@ public:
      */
     nidas::core::SampleInput* connected(nidas::core::IOChannel* iochan) throw();
 
-    void setNonBlocking(bool val) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val);
 
-    bool isNonBlocking() const throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const;
 
     /**
      * What DSM am I connnected to? May be NULL if it cannot be determined.
@@ -343,24 +357,30 @@ public:
      * @return false: no data available for physical read, likely the result of
      *  an EAGAIN from a non-blocking read on a file descriptor.
      *  true: physical read did not necessarily consume all available data.
-     */
-    bool readSamples() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    bool readSamples();
 
     /**
      * Search forward until a sample header is read whose time is 
      * greater than or equal to tt.  Leaves the InputStream
      * positioned so that the next call to readSample() or
      * readSamples() will read the rest of the sample.
-     */
-    void search(const nidas::util::UTime& tt) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void search(const nidas::util::UTime& tt);
 
     /**
      * Read the next sample from the InputStream. The caller must
      * call freeReference on the sample when they're done with it.
      * This method may perform zero or more reads of the IOChannel.
      * @return pointer to a sample, never NULL.
-     */
-    nidas::core::Sample* readSample() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    nidas::core::Sample* readSample();
 
 
     /**
@@ -374,7 +394,10 @@ public:
 
     size_t getBadSamples() const { return _badSamples; }
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Replace the bad sample filter rules for this stream with @p bsf.
@@ -440,8 +463,10 @@ public:
         _bsf.setMaxSampleTime(val);
     }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     void setExpectHeader(bool val) { _expectHeader = val; }
 
@@ -461,23 +486,24 @@ protected:
 private:
 
     /**
-     * Unpack the next sample from the InputStream.
-     * This method does not perform any physical reads.
-     * @return pointer to a sample if there is one available in the
-     * buffer, else NULL.
+     * Unpack the next sample from the InputStream. This method does not perform
+     * any physical reads, so it should not throw EOFException or IOException.
+     * @return pointer to a sample if there is one available in the buffer, else
+     * NULL.
      */
-    nidas::core::Sample* nextSample() throw();
+    nidas::core::Sample* nextSample();
 
     /**
      * Unpack the next sample from the InputStream buffer or by reading
      * more data if @p keepreading is true.  If @p searching is set, then
      * reading stops after the first sample header found whose time tag is
      * after @p search_time, as described in the search() method.
+     * 
+     * @throws nidas::util::IOException
      **/
     nidas::core::Sample* nextSample(bool keepreading,
                                     bool searching=false,
-                                    dsm_time_t search_time=LONG_LONG_MIN)
-        throw(nidas::util::IOException);
+                                    dsm_time_t search_time=LONG_LONG_MIN);
 
     void checkUnexpectedEOF();
 

@@ -57,15 +57,19 @@ public:
      * If the name contains a IP hostname and the
      * IP address of that host is not available, then an InvalidParameterException
      * is thrown.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
      */
-    void open(int flags)
-	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /*
     * Perform an ioctl on the device. This is supported on sockets,
     * and will throw an IOException.
+    *
+    * @throws nidas::util::IOException
     */
-    void ioctl(int /* request */, void* /* buf */, size_t /* len */) throw(nidas::util::IOException)
+    void ioctl(int /* request */, void* /* buf */, size_t /* len */)
     {
         throw nidas::util::IOException(getName(),
 		"ioctl","not supported on SocketIODevice");
@@ -84,9 +88,12 @@ public:
      * "unix" indicates a Unix socket connection, where address is the
      * path name of the unix socket, for process to process communications.
      * The port value is not used by unix sockets.
+     *
+     * @throws nidas::util::ParseException
      */
-    static void parseAddress(const std::string& name, int& addrtype,std::string& hostname,
-        int& port,std::string& bindaddr) throw(nidas::util::ParseException);
+    static void parseAddress(const std::string& name, int& addrtype,
+                             std::string& hostname,
+                             int& port, std::string& bindaddr);
 
 protected:
 

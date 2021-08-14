@@ -61,7 +61,11 @@ public:
 
     void requestConnection(SampleConnectionRequester* requester) throw();
 
-    void connect(nidas::core::SampleSource* ) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void connect(nidas::core::SampleSource* );
+
     /**
      * Set the format for character samples. Raw sensor samples
      * are character samples.
@@ -71,7 +75,10 @@ public:
         _format = val;
     }
 
-    bool receive(const Sample* samp) throw();
+    /**
+     * @throw()
+     **/
+    bool receive(const Sample* samp);
 
 protected:
 
@@ -82,7 +89,10 @@ protected:
      */
     AsciiOutput(AsciiOutput&,IOChannel*);
 
-    void printHeader() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void printHeader();
 
 private:
 

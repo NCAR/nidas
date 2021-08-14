@@ -136,8 +136,10 @@ public:
 
     static void setupSignals();
 
-    void sendHeader(dsm_time_t,SampleOutput* out)
-        throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void sendHeader(dsm_time_t,SampleOutput* out);
 
 protected:
 

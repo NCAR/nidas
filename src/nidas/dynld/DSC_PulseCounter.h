@@ -50,33 +50,53 @@ public:
     DSC_PulseCounter();
     ~DSC_PulseCounter();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
-    void validate() throw(nidas::util::InvalidParameterException);
-    void init() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
+
+    /**
+     * @throws nidas::util::InvalidParameterException)
+     **/
+    void init();
                                                                                 
-    /*
+    /**
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    void printStatus(std::ostream& ostr) throw();
+    /**
+     * @throw()
+     **/
+    void printStatus(std::ostream& ostr);
 
     /**
      * Process a raw sample, which in this case means 
      * convert the input counts to a float.
+     *
+     * @throw()
      */
-    bool process(const Sample*,std::list<const Sample*>& result)
-        throw();
+    bool process(const Sample*,std::list<const Sample*>& result);
 
 private:
 

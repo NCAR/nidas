@@ -68,10 +68,11 @@ public:
      * Convenient method to fill this Project instance from the
      * configuration in the XML file at @p xmlfilepath, using the
      * nidas::core::parseXMLConfigFile() function.
+     *
+     * @throws nidas::core::XMLException
      **/
     void
-    parseXMLConfigFile(const std::string& xmlfilepath) 
-        throw(nidas::core::XMLException);
+    parseXMLConfigFile(const std::string& xmlfilepath);
 
 #ifdef ACCESS_AS_SINGLETON
     /**
@@ -167,8 +168,10 @@ public:
     /**
      * Call findServerSampleOutputStreamFileSets(name) passing
      * the nodename returned by uname(2).
+     *
+     * @throws nidas::util::Exception
      */
-    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets() const throw(nidas::util::Exception);
+    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets() const;
 
     /**
      * Find SampleOutputStreamFileSets belonging to the given DSM.
@@ -232,31 +235,43 @@ public:
 
     /**
      * Initialize all sensors for a Project.
+     *
+     * @throws nidas::util::IOException
      */
-    void initSensors() throw(nidas::util::IOException);
+    void initSensors();
 
     /**
      * Initialize all sensors for a given Site.
+     *
+     * @throws nidas::util::IOException
      */
-    void initSensors(Site* site) throw(nidas::util::IOException);
+    void initSensors(Site* site);
 
     /**
      * Initialize all sensors for a given dsm.
+     *
+     * @throws nidas::util::IOException
      */
-    void initSensors(DSMConfig* dsm) throw(nidas::util::IOException);
+    void initSensors(DSMConfig* dsm);
 
     const Parameter* getParameter(const std::string& name) const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent,bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node,bool complete) const;
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields

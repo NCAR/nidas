@@ -61,17 +61,19 @@ public:
 
     /**
      * Construct from an opened serial port.
-     */
-    Termios(int fd,const std::string& devname)
-        throw(IOException);
+     *
+     * @throws IOException
+     **/
+    Termios(int fd, const std::string& devname);
 
     virtual ~Termios() {}
 
     /**
      * Set the termios options on a serial port.
-     */
-    void apply(int fd,const std::string& devname)
-        throw(IOException);
+     *
+     * @throws IOException
+     **/
+    void apply(int fd, const std::string& devname);
 
     /**
      * Set all Termios parameters from the contents of struct termios.

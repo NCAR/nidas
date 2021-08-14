@@ -104,7 +104,7 @@ VariableIterator Site::getVariableIterator() const
 /**
  * Initialize all sensors for a Site.
  */
-void Site::initSensors() throw(n_u::IOException)
+void Site::initSensors()
 {
     const list<DSMConfig*>& dsms = getDSMConfigs();
     list<DSMConfig*>::const_iterator di;
@@ -117,7 +117,7 @@ void Site::initSensors() throw(n_u::IOException)
 /**
  * Initialize all sensors for a given dsm.
  */
-void Site::initSensors(DSMConfig* dsm) throw(n_u::IOException)
+void Site::initSensors(DSMConfig* dsm)
 {
     const list<DSMConfig*>& dsms = getDSMConfigs();
     list<DSMConfig*>::const_iterator di;
@@ -151,7 +151,6 @@ const list<const Parameter*>& Site::getParameters() const
 }
 
 void Site::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if (xnode.getNodeName() != "site" &&
@@ -260,7 +259,6 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void Site::validate()
-	throw(n_u::InvalidParameterException)
 {
     // Check that variables are unique. Loop over dsms and
     // sensors so that you can report the dsm and sensor name
@@ -337,7 +335,6 @@ void Site::validate()
 xercesc::DOMElement*
 Site::
 toDOMParent(xercesc::DOMElement* parent, bool complete) const
-    throw(xercesc::DOMException)
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -347,8 +344,8 @@ toDOMParent(xercesc::DOMElement* parent, bool complete) const
     return toDOMElement(elem,complete);
 }
 
-xercesc::DOMElement* Site::toDOMElement(xercesc::DOMElement* elem,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* Site::toDOMElement(xercesc::DOMElement* elem,
+                                        bool complete) const
 {
     if (complete) return 0; // not supported yet
 

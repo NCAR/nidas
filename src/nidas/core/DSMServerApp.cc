@@ -312,7 +312,7 @@ int DSMServerApp::run() throw()
     return res;
 }
 
-void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
+void DSMServerApp::startXmlRpcThread()
 {
     if (!_externalControl) return;
     if (_xmlrpcThread) return;
@@ -320,7 +320,7 @@ void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
     _xmlrpcThread->start();
 }
 
-void DSMServerApp::killXmlRpcThread() throw()
+void DSMServerApp::killXmlRpcThread()
 {
     if (!_xmlrpcThread) return;
     _xmlrpcThread->interrupt();
@@ -337,7 +337,7 @@ void DSMServerApp::killXmlRpcThread() throw()
    _xmlrpcThread = 0;
 }
 
-void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
+void DSMServerApp::startStatusThread(DSMServer* server)
 {
     if (_statusThread) return;
     if (server->getStatusSocketAddr().getPort() != 0) {
@@ -346,7 +346,7 @@ void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
     }
 }
 
-void DSMServerApp::killStatusThread() throw()
+void DSMServerApp::killStatusThread()
 {
     if (!_statusThread) return;
 
@@ -423,8 +423,7 @@ void DSMServerApp::waitForSignal(int timeoutSecs)
     }
 }
 
-void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project)
-        throw(nidas::core::XMLException,n_u::InvalidParameterException,n_u::IOException)
+void DSMServerApp::parseXMLConfigFile(const string& xmlFileName, Project& project)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
     // throws nidas::core::XMLException

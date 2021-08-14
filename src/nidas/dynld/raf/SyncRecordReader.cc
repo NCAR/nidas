@@ -539,7 +539,6 @@ string SyncRecordReader::getQuotedString(istringstream& istr)
 }
 
 void SyncRecordReader::readKeyedQuotedValues(istringstream& header)
-	throw(SyncRecHeaderException)
 {
 
     for (;;) {
@@ -565,8 +564,7 @@ void SyncRecordReader::readKeyedQuotedValues(istringstream& header)
     }
 }
 
-size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
-    throw(n_u::IOException)
+size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len) 
 {
     for (;;) {
         // The next sample either comes from the SampleInputStream or from
@@ -631,7 +629,7 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
 
 const list<const SyncRecordVariable*>
 SyncRecordReader::
-getVariables() throw(n_u::Exception)
+getVariables()
 {
     if (headException) throw *headException;
     return variables;
@@ -727,7 +725,7 @@ endOfStream()
 
 int
 SyncRecordReader::
-getLagOffset(const nidas::core::Variable* var) throw (SyncRecHeaderException)
+getLagOffset(const nidas::core::Variable* var)
 
 {
 #ifdef notdef
@@ -758,7 +756,6 @@ getLagOffset(const nidas::core::Variable* var) throw (SyncRecHeaderException)
 int
 SyncRecordReader::
 getSyncRecOffset(const nidas::core::Variable* var)
-    throw (SyncRecHeaderException)
 {
     const SyncRecordVariable* sv = getVariable(var->getName());
     if (!sv)

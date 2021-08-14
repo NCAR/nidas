@@ -61,10 +61,11 @@ public:
      * Since the system nanosleep function is only precise
      * to about 10 milliseconds, and to reduce system load,
      * this value is rounded to the nearest 10 milliseconds.
-     */
-    void addClient(LooperClient *clnt,unsigned int msecPeriod,
-            unsigned int msecOffset)
-    	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException)   
+     **/
+    void addClient(LooperClient *clnt, unsigned int msecPeriod,
+                   unsigned int msecOffset);
 
     /**
      * Remove a client from the Looper.
@@ -73,8 +74,10 @@ public:
 
     /**
      * Thread function.
-     */
-    virtual int run() throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    virtual int run();
 
     /**
      * Utility function for finding greatest common divisor.

@@ -184,7 +184,7 @@ void Process::closeErr()
 Process Process::spawn(const std::string& cmd,
                        const std::vector<std::string>& args,
                        const std::map<std::string,std::string>& env,
-                       int niceval) throw(IOException)
+                       int niceval)
 {
     int pid;
     int infd[2];
@@ -275,14 +275,14 @@ Process Process::spawn(const std::string& cmd,
 /* static */
 Process Process::spawn(const std::string& cmd,
                        const std::vector<std::string>& args,
-                       int niceval) throw(IOException)
+                       int niceval)
 {
     map<string,string> env = map<string,string>();
     return spawn(cmd,args,env,niceval);
 }
 
 /* static */
-Process Process::spawn(const std::string& cmd) throw(IOException)
+Process Process::spawn(const std::string& cmd)
 {
     int pid;
     int infd[2];
@@ -349,7 +349,7 @@ Process Process::spawn(const std::string& cmd) throw(IOException)
     return proc;
 }
 
-void Process::kill(int sig) throw(IOException)
+void Process::kill(int sig)
 {
     // ESRCH The  pid or process group does not exist.  Note that an existing
     //   process might be a zombie, a  process  which  already  committed
@@ -361,7 +361,7 @@ void Process::kill(int sig) throw(IOException)
     }
 }
 
-int Process::wait(bool hang,int* status) throw(IOException)
+int Process::wait(bool hang,int* status)
 {
 
     if (_pid <= 0) return -1;
@@ -384,7 +384,6 @@ int Process::wait(bool hang,int* status) throw(IOException)
 
 /* static */
 pid_t Process::checkPidFile(const string& pidFile)
-    throw(IOException)
 {
     int fd;
     if ((fd = ::open(pidFile.c_str(),O_RDWR|O_CREAT,0666)) < 0)
@@ -458,7 +457,7 @@ void Process::addEffectiveCapability(int
 #ifdef HAVE_SYS_CAPABILITY_H 
  cap
 #endif
-) throw(Exception)
+)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 
@@ -497,7 +496,7 @@ void Process::clearEffectiveCapability(int
 #ifdef HAVE_SYS_CAPABILITY_H 
  cap
 #endif
-) throw(Exception)
+)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 
@@ -534,7 +533,7 @@ bool Process::getEffectiveCapability(int
 #ifdef HAVE_SYS_CAPABILITY_H 
  cap
 #endif
-) throw(Exception)
+)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 

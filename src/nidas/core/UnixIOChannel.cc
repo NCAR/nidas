@@ -28,7 +28,7 @@
 
 using namespace nidas::core;
 
-void UnixIOChannel::setNonBlocking(bool val) throw (nidas::util::IOException)
+void UnixIOChannel::setNonBlocking(bool val)
 {
     if (_fd >= 0) {
         int flags;
@@ -45,7 +45,7 @@ void UnixIOChannel::setNonBlocking(bool val) throw (nidas::util::IOException)
 /**
  * Do fcntl to determine value of O_NONBLOCK flag.
  */
-bool UnixIOChannel::isNonBlocking() const throw (nidas::util::IOException)
+bool UnixIOChannel::isNonBlocking() const
 {
     if (_fd >= 0) {
         int flags;

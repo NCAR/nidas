@@ -66,14 +66,19 @@ public:
      */
     IOStream* getIOStream() { return _iostream; }
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     bool receive(const Sample *s) throw();
 
     void flush() throw();
 
-    size_t write(const void* buf, size_t len, bool streamFlush)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+    **/
+    size_t write(const void* buf, size_t len, bool streamFlush);
 
     /**
      * Outgoing data is buffered in an IOStream.
@@ -82,9 +87,10 @@ public:
      * This is a useful parameter for real-time applications.
      * @param val Number of seconds between physical writes.
      *        Default is set in SampleOutputBase.
-     */
-    void setLatency(float val)
-    	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setLatency(float val);
 
 protected:
 
@@ -95,7 +101,10 @@ protected:
      */
     SampleOutputStream(SampleOutputStream&,IOChannel*);
 
-    size_t write(const Sample* samp, bool streamFlush) throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const Sample* samp, bool streamFlush);
 
     IOStream* _iostream;
 

@@ -100,44 +100,65 @@ public:
     DSMArincSensor();
     ~DSMArincSensor();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
-    /** This opens the associated device. */
-    void open(int flags) throw(nidas::util::IOException,
-            nidas::util::InvalidParameterException);
+    /** 
+     * This opens the associated device.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     */
+    void open(int flags);
 
-    /** This closes the associated device. */
-    void close() throw(nidas::util::IOException);
+    /** 
+     * This closes the associated device.
+     *
+     * @throws nidas::util::IOException
+     */
+    void close();
 
     /**
      * Perform any initialization necessary for process method.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
-    /** Process a raw sample, which in this case means create
-     * a list of samples with each sample containing a timetag. */
-    bool process(const Sample*, std::list<const Sample*>& result)
-        throw();
+    /** 
+     * Process a raw sample, which in this case means create a list of
+     * samples with each sample containing a timetag.
+     */
+    bool process(const Sample*, std::list<const Sample*>& result);
 
-    virtual bool processAlta(const dsm_time_t, unsigned char *, int, std::list<const Sample*> &result)
-        throw();
+    virtual bool processAlta(const dsm_time_t, unsigned char *, int, std::list<const Sample*> &result);
 
     /** Display some status information gathered by the driver. */
-    void printStatus(std::ostream& ostr) throw();
+    void printStatus(std::ostream& ostr);
 
-    /** This contains a switch case for processing all labels. */
-    virtual double processLabel(const int data,sampleType* stype) = 0;
+    /** 
+     * This contains a switch case for processing all labels.
+     */
+    virtual double processLabel(const int data, sampleType* stype) = 0;
 
-    /** Extract the ARINC configuration elements from the XML header. */
-    /// example XML:
-    /// @code
-    ///  <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low" parity="odd">
-    /// @endcode
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * Extract the ARINC configuration elements from the XML header.
+     *
+     * Example XML:
+     * @code
+     * <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low" parity="odd">
+     * @endcode
+     *
+     * @throws nidas::util::InvalidParameterException
+     */
+    void fromDOMElement(const xercesc::DOMElement*);
 
     int getInt32TimeTagUsecs() const
     {

@@ -57,7 +57,7 @@ GPS_Novatel_Serial::GPS_Novatel_Serial() : GPS_NMEA_Serial(),
     _allowedSampleIds[BESTVEL_SAMPLE_ID] = "BESTVEL";
 }
 
-void GPS_Novatel_Serial::validate() throw(n_u::InvalidParameterException)
+void GPS_Novatel_Serial::validate()
 {
     GPS_NMEA_Serial::validate();
 

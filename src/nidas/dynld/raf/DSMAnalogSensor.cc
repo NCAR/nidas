@@ -76,20 +76,18 @@ DSMAnalogSensor::~DSMAnalogSensor()
 
 const float DSMAnalogSensor::DEGC_PER_CNT = 0.0625;
 
-IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSMAnalogSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();
 }
 
 void DSMAnalogSensor::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
     init();
@@ -190,12 +188,12 @@ void DSMAnalogSensor::open(int flags)
     DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
-void DSMAnalogSensor::close() throw(n_u::IOException)
+void DSMAnalogSensor::close()
 {
     DSMSensor::close();
 }
 
-void DSMAnalogSensor::init() throw(nidas::util::InvalidParameterException)
+void DSMAnalogSensor::init()
 {
     const map<string,CalFile*>& cfs = getCalFiles();
     // Just use the first file. If, for some reason a second calibration
@@ -244,8 +242,7 @@ int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int
     return ncoef;
 }
 
-void DSMAnalogSensor::setA2DParameters(int ichan,int gain,int bipolar)
-            throw(n_u::InvalidParameterException)
+void DSMAnalogSensor::setA2DParameters(int ichan, int gain, int bipolar)
 {
     switch (gain) {
     case 1:
@@ -333,7 +330,7 @@ void DSMAnalogSensor::getBasicConversion(int ichan,
 }
 
 void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
-    float corSlope) throw(n_u::InvalidParameterException)
+                                              float corSlope)
 {
     if (getOutputMode() == Counts) {
         corSlope = 1.0;
@@ -354,7 +351,7 @@ void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
     }
 }
 
-float DSMAnalogSensor::getTemp() throw(n_u::IOException)
+float DSMAnalogSensor::getTemp()
 {
     short tval;
     ioctl(NCAR_A2D_GET_TEMP, &tval, sizeof(tval));
@@ -618,7 +615,7 @@ float DSMAnalogSensor::voltageActual(float voltageMeasured)
 }
 
 
-void DSMAnalogSensor::validate() throw(n_u::InvalidParameterException)
+void DSMAnalogSensor::validate()
 {
     A2DSensor::validate();
 

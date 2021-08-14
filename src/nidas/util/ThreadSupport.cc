@@ -68,7 +68,7 @@ MutexAttributes::~MutexAttributes()
     ::pthread_mutexattr_destroy(&_attrs);
 }
 
-void MutexAttributes::setType(int val) throw(Exception)
+void MutexAttributes::setType(int val)
 {
     if (::pthread_mutexattr_settype(&_attrs,val)) {
         switch(errno) {
@@ -141,7 +141,7 @@ int MutexAttributes::getProtocol() const
 }
 #endif
 
-void MutexAttributes::setPShared(int val) throw(Exception)
+void MutexAttributes::setPShared(int val)
 {
     if (::pthread_mutexattr_setpshared(&_attrs,val)) {
         switch(errno) {
@@ -186,7 +186,7 @@ RWLockAttributes::~RWLockAttributes()
     ::pthread_rwlockattr_destroy(&_attrs);
 }
 
-void RWLockAttributes::setPShared(int val) throw(Exception)
+void RWLockAttributes::setPShared(int val)
 {
     if (::pthread_rwlockattr_setpshared(&_attrs,val)) {
         switch(errno) {
@@ -223,7 +223,7 @@ Mutex::Mutex(int type) throw(): _p_mutex(),_attrs()
     ::pthread_mutex_init (&_p_mutex,_attrs.ptr());
 }
 
-Mutex::Mutex(const MutexAttributes& attrs) throw(Exception) : _p_mutex(),_attrs(attrs)
+Mutex::Mutex(const MutexAttributes& attrs) : _p_mutex(),_attrs(attrs)
 {
     if (::pthread_mutex_init (&_p_mutex,_attrs.ptr()))
         throw Exception("Mutex(attrs) constructor",errno);
@@ -303,7 +303,7 @@ namespace {
     }
 }
 
-void Cond::wait() throw(Exception)
+void Cond::wait()
 {
     int res;
     
@@ -330,7 +330,7 @@ RWLock::RWLock() throw(): _p_rwlock(),_attrs()
     ::pthread_rwlock_init (&_p_rwlock, _attrs.ptr());
 }
 
-RWLock::RWLock(const RWLockAttributes& attrs) throw(Exception) :
+RWLock::RWLock(const RWLockAttributes& attrs) :
     _p_rwlock(),_attrs(attrs)
 {
     if (::pthread_rwlock_init (&_p_rwlock,_attrs.ptr()))

@@ -80,7 +80,6 @@ CVIProcessor::~CVIProcessor()
 }
 
 void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
-	throw(n_u::InvalidParameterException)
 {
     if (getSampleTags().size() > 1)
         throw n_u::InvalidParameterException("CVIProcessor","sample","cannot have more than one sample");
@@ -178,7 +177,6 @@ void CVIProcessor::disconnectSource(SampleSource* source) throw()
 }
 
 void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)
-    throw(n_u::IOException)
 {
     // cerr << "CVIProcessor::attachLVInput: sensor=" <<
       //   _lvSensor->getName() << endl;
@@ -332,7 +330,6 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
 }
 
 void CVIProcessor::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     SampleIOProcessor::fromDOMElement(node);

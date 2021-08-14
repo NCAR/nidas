@@ -104,20 +104,18 @@ DSMArincSensor::~DSMArincSensor()
 */
 }
 
-IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSMArincSensor::buildIODevice()
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new UnixIODevice();
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
-throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
 void DSMArincSensor::open(int flags)
-    throw(n_u::IOException, n_u::InvalidParameterException)
 {
     // If Alta device then open/scanning handled by UDPArincSensor
     if (_altaEnetDevice)
@@ -164,7 +162,7 @@ void DSMArincSensor::open(int flags)
     ioctl(ARINC_OPEN, &archn, sizeof(archn_t));
 }
 
-void DSMArincSensor::close() throw(n_u::IOException)
+void DSMArincSensor::close()
 {
     DSMSensor::close();
 }
@@ -172,7 +170,7 @@ void DSMArincSensor::close() throw(n_u::IOException)
 /*
  * Initialize anything needed for process method.
  */
-void DSMArincSensor::init() throw(n_u::InvalidParameterException)
+void DSMArincSensor::init()
 {
     DSMSensor::init();
 
@@ -244,8 +242,7 @@ void DSMArincSensor::registerWithUDPArincSensor()
  * since 00:00 GMT. The input sample's time tag is
  * used to set the date portion of the output sample timetags.
  */
-bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
-throw()
+bool DSMArincSensor::process(const Sample* samp, list<const Sample*>& results)
 {
     const tt_data_t *pSamp = (const tt_data_t*) samp->getConstVoidDataPtr();
     int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
@@ -351,7 +348,7 @@ throw()
     return true;
 }
 
-bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results) throw()
+bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results)
 {
     const txp *pSamp = (const txp*) input;
 
@@ -460,7 +457,7 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
     return true;
 }
 
-void DSMArincSensor::printStatus(std::ostream& ostr) throw()
+void DSMArincSensor::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
@@ -490,7 +487,6 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 }
 
 void DSMArincSensor::fromDOMElement(const xercesc::DOMElement* node)
-throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
     XDOMElement xnode(node);
