@@ -48,37 +48,34 @@ public:
 
     ~PSI9116_Sensor() { }
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    IODevice* buildIODevice();
 
-    void open(int flags)
-	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-	throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
     /**
      * Stop data streams, set valve position to PURGE.
      */
-    void startPurge() throw(nidas::util::IOException);
+    void startPurge();
 
     /**
      * Set valve position back to RUN from PURGE,
      * then restart data streams.
      */
-    void stopPurge() throw(nidas::util::IOException);
+    void stopPurge();
 
-    void startStreams() throw(nidas::util::IOException);
+    void startStreams();
 
-    void stopStreams() throw(nidas::util::IOException);
+    void stopStreams();
 
-    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
 
 protected:
 
-    std::string sendCommand(const std::string& cmd,int readlen = 0)
-	throw(nidas::util::IOException);
+    std::string sendCommand(const std::string& cmd,int readlen = 0);
 
     int _msecPeriod;
 

@@ -59,7 +59,7 @@ RemoteSerialConnection::~RemoteSerialConnection()
     delete _socket;
 }
 
-void RemoteSerialConnection::close() throw(n_u::IOException)
+void RemoteSerialConnection::close()
 {
     if (_sensor) {
         if (_sensor->getTimeoutMsecs() != _timeoutMsecs) {
@@ -82,7 +82,7 @@ void RemoteSerialConnection::close() throw(n_u::IOException)
     }
 }
 
-void RemoteSerialConnection::readSensorName() throw(n_u::IOException)
+void RemoteSerialConnection::readSensorName()
 {
     /*
     * the first message will have the device name in it.
@@ -98,7 +98,6 @@ void RemoteSerialConnection::readSensorName() throw(n_u::IOException)
 }
 
 void RemoteSerialConnection::sensorNotFound()
-	throw(n_u::IOException)
 {
     ostringstream ost;
     ost << "ERROR: sensor " << getSensorName() << " not found.";
@@ -110,7 +109,6 @@ void RemoteSerialConnection::sensorNotFound()
 }
 
 void RemoteSerialConnection::setSensor(CharacterSensor* val)
-	throw(n_u::IOException)
 {
     _sensor = val;
     _serSensor = dynamic_cast<SerialSensor*>(val);
@@ -219,7 +217,6 @@ void RemoteSerialConnection::nlTocrnl(string& input)
 }
 
 string RemoteSerialConnection::doEscCmds(const string& inputstr)
-	throw(n_u::IOException)
 {
     _input += inputstr;
     string output;

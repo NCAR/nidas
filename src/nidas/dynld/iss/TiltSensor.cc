@@ -55,7 +55,6 @@ TiltSensor::~TiltSensor()
 }
 
 void TiltSensor::addSampleTag(SampleTag* stag)
-throw(InvalidParameterException)
 {
     if (getSampleTags().size() > 1)
         throw InvalidParameterException(getName() +
@@ -154,7 +153,7 @@ decode_angle(const signed char* dp)
 
 bool
 TiltSensor::
-process(const Sample* samp, std::list<const Sample*>& results) throw()
+process(const Sample* samp, std::list<const Sample*>& results)
 {
     size_t inlen = samp->getDataByteLength();
     if (inlen < 6) return false;	// bogus amount of data
@@ -213,7 +212,6 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
 void
 TiltSensor::
 fromDOMElement(const xercesc::DOMElement* node)
-throw(InvalidParameterException)
 {
     SerialSensor::fromDOMElement(node);
 }

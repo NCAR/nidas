@@ -93,7 +93,6 @@ SampleTagIterator DSMServer::getSampleTagIterator() const
 }
 
 void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
 
@@ -180,7 +179,7 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-void DSMServer::scheduleServices(bool optionalProcessing) throw(n_u::Exception)
+void DSMServer::scheduleServices(bool optionalProcessing)
 {
     assert(_project);
     _project->initSensors();

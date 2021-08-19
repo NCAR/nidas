@@ -111,11 +111,9 @@ public:
 
     std::string toString() const;
 
-    void fromString(const std::string&) 
-    	throw(nidas::util::InvalidParameterException);
+    void fromString(const std::string&);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement*);
 
 protected:
 

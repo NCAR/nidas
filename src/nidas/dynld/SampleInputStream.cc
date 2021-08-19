@@ -286,12 +286,12 @@ void SampleInputStream::setIOChannel(IOChannel* val)
     }
 }
 
-void SampleInputStream::setNonBlocking(bool val) throw(n_u::IOException)
+void SampleInputStream::setNonBlocking(bool val)
 {
     if (_iochan) _iochan->setNonBlocking(val);
 }
 
-bool SampleInputStream::isNonBlocking() const throw(n_u::IOException)
+bool SampleInputStream::isNonBlocking() const
 {
     if (_iochan) return _iochan->isNonBlocking();
     return false;
@@ -321,7 +321,6 @@ void SampleInputStream::flush() throw()
 }
 
 void SampleInputStream::requestConnection(DSMService* requester)
-            throw(n_u::IOException)
 {
     _service = requester;
     _iochan->requestConnection(this);
@@ -384,7 +383,7 @@ void SampleInputStream::closeBlocks()
 }
 
 
-void SampleInputStream::close() throw(n_u::IOException)
+void SampleInputStream::close()
 {
     closeBlocks();
     if (_iostream)
@@ -401,7 +400,7 @@ const DSMConfig* SampleInputStream::getDSMConfig() const
     return _dsm;
 }
 
-void SampleInputStream::readInputHeader() throw(n_u::IOException)
+void SampleInputStream::readInputHeader()
 {
     while (!_inputHeaderParsed)
     {
@@ -425,7 +424,7 @@ void SampleInputStream::readInputHeader() throw(n_u::IOException)
          << _iostream->getNumInputBytes() << " bytes.");
 }
 
-bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
+bool SampleInputStream::parseInputHeader()
 {
     // Since this presumably is happening at the start of a new file or
     // new stream, it seems natural to clear out any leftovers from a
@@ -516,7 +515,7 @@ handleNewInput()
  * DSMSenors.  This will perform only one physical
  * read of the underlying device.
  */
-bool SampleInputStream::readSamples() throw(n_u::IOException)
+bool SampleInputStream::readSamples()
 {
     // Use read() to fill the buffer, handle new input, and record if EOF is
     // hit.  Then call into nextSample() in case there is a sample pending
@@ -695,7 +694,7 @@ readBlock(bool keepreading, char* &ptr, size_t& lentoread)
  * Use nextSample(keepreading=false) to return the next sample from the
  * buffer, if any.
  */
-Sample* SampleInputStream::nextSample() throw()
+Sample* SampleInputStream::nextSample()
 {
     try {
         return nextSample(false);
@@ -751,7 +750,6 @@ handleEOF(bool keepreading)
  */
 Sample* SampleInputStream::
 nextSample(bool keepreading, bool searching, dsm_time_t search_time)
-    throw(n_u::IOException)
 {
     Sample* out = 0;
 
@@ -1047,7 +1045,7 @@ sampleFromHeader() throw()
  * Read the next full sample. The caller must call freeReference on the
  * sample when they're done with it.
  */
-Sample* SampleInputStream::readSample() throw(n_u::IOException)
+Sample* SampleInputStream::readSample()
 {
     return nextSample(true);
 }
@@ -1055,7 +1053,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 /*
  * Search for a sample with timetag >= tt.
  */
-void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
+void SampleInputStream::search(const UTime& tt)
 {
     DLOG(CNAME << "searching for sample time >= " << tt.format(true));
     nextSample(true, true, tt.toUsecs());
@@ -1065,7 +1063,6 @@ void SampleInputStream::search(const UTime& tt) throw(n_u::IOException)
  * process <input> element
  */
 void SampleInputStream::fromDOMElement(const xercesc::DOMElement* node)
-        throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
 

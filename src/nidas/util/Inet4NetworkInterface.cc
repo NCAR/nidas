@@ -35,7 +35,6 @@ using namespace std;
 
 /* static */
 Inet4NetworkInterface Inet4NetworkInterface::getInterface(const Inet4Address& addr)
-        throw (IOException)
 {
     list<Inet4NetworkInterface> ifaces;
 

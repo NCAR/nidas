@@ -148,7 +148,6 @@ SampleTag::~SampleTag()
 }
 
 void SampleTag::addVariable(Variable* var)
-	throw(n_u::InvalidParameterException)
 {
     _variables.push_back(var);
     _constVariables.push_back(var);
@@ -260,7 +259,6 @@ const Parameter* SampleTag::getParameter(const string& name) const
 }
 
 void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     const Site* site = 0;
@@ -468,8 +466,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
     if (suffix.length() > 0) setSuffix(suffix);
 }
 
-xercesc::DOMElement* SampleTag::toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* SampleTag::toDOMParent(xercesc::DOMElement* parent,
+                                            bool complete) const
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS(
@@ -479,8 +477,8 @@ xercesc::DOMElement* SampleTag::toDOMParent(xercesc::DOMElement* parent,bool com
     return toDOMElement(elem,complete);
 }
 
-xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* elem,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* elem,
+                                             bool complete) const
 {
     if (complete) return 0; // not supported yet
 

@@ -633,7 +633,7 @@ getProcessName()
 
 ArgVector
 NidasApp::
-parseArgs(int argc, const char* const argv[]) throw (NidasAppException)
+parseArgs(int argc, const char* const argv[])
 {
   if (_argv0.empty())
   {
@@ -692,7 +692,7 @@ getArguments()
 
 void
 NidasApp::
-parseLogConfig(const std::string& optarg) throw (NidasAppException)
+parseLogConfig(const std::string& optarg)
 {
   // Create a LogConfig from this argument and add it to the current scheme.
   // This replaces any fallback config in the local NidasApp scheme, and
@@ -747,7 +747,7 @@ startArgs(const ArgVector& args)
 
 void
 NidasApp::
-startArgs(int argc, const char* const argv[]) throw (NidasAppException)
+startArgs(int argc, const char* const argv[])
 {
   if (_argv0.empty())
   {
@@ -774,7 +774,7 @@ nextArg(std::string& arg)
 
 NidasAppArg*
 NidasApp::
-parseNext() throw (NidasAppException)
+parseNext()
 {
   NidasAppArg* arg = 0;
   while (!arg && _argi < (int)_argv.size())
@@ -913,7 +913,7 @@ parseNext() throw (NidasAppException)
 
 ArgVector
 NidasApp::
-parseArgs(const ArgVector& args) throw (NidasAppException)
+parseArgs(const ArgVector& args)
 {
   startArgs(args);
   NidasAppArg* arg = parseNext();
@@ -929,7 +929,7 @@ void
 NidasApp::
 parseInputs(const std::vector<std::string>& inputs_,
 	    std::string default_input,
-	    int default_port) throw (NidasAppException)
+	    int default_port)
 {
   std::vector<std::string> inputs(inputs_);
   if (default_input.length() == 0)
@@ -995,7 +995,7 @@ parseInputs(const std::vector<std::string>& inputs_,
 
 void
 NidasApp::
-parseOutput(const std::string& optarg) throw (NidasAppException)
+parseOutput(const std::string& optarg)
 {
   std::string output = optarg;
   std::string slen;
@@ -1523,7 +1523,6 @@ namespace
 Dataset
 NidasApp::
 getDataset(const std::string& datasetname)
-  throw(n_u::InvalidParameterException, XMLException)
 {
   string XMLName;
   const char* ndptr = getenv("NIDAS_DATASETS");

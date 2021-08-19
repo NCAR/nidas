@@ -80,7 +80,6 @@ void SampleScanner::init()
 }
 
 size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted)
-	throw (n_u::IOException)
 {
     // shift data down. If the user has read all samples in the
     // previous buffer, there shouldn't be anything to move.
@@ -114,8 +113,8 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted)
     return rlen;
 }
 
-size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted, int msecTimeout)
-	throw (n_u::IOException)
+size_t SampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted,
+                                 int msecTimeout)
 {
     if (msecTimeout > 0) {
 
@@ -285,8 +284,8 @@ const string MessageSampleScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
-void MessageSampleScanner::setMessageParameters(unsigned int len, const std::string& sep,bool eom)
-    throw(n_u::InvalidParameterException)
+void MessageSampleScanner::setMessageParameters(unsigned int len,
+                                                const std::string& sep, bool eom)
 {
     string sepexp = n_u::replaceBackslashSequences(sep);
     int slen = sepexp.length();
@@ -317,8 +316,8 @@ const string MessageStreamScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
-void MessageStreamScanner::setMessageParameters(unsigned int len, const std::string& sep,bool eom)
-    throw(n_u::InvalidParameterException)
+void MessageStreamScanner::setMessageParameters(unsigned int len,
+                                                const std::string& sep, bool eom)
 {
     string sepexp = n_u::replaceBackslashSequences(sep);
     int slen = sepexp.length();
@@ -412,7 +411,6 @@ Sample* MessageStreamScanner::requestBiggerSample(unsigned int nc)
 }
 
 size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
-    throw(n_u::IOException)
 {
     // grab the current time. This is a best estimate of the receipt
     // time of the last character in the buffer.
@@ -428,8 +426,8 @@ size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     return rlen;
 }
 
-size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted, int msecTimeout)
-    throw(n_u::IOException)
+size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted,
+                                        int msecTimeout)
 {
     // grab the current time. This is a best estimate of the receipt
     // time of the last character in the buffer.
@@ -885,7 +883,6 @@ DatagramSampleScanner::DatagramSampleScanner(int bufsize):
 }
 
 size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
-	throw (n_u::IOException)
 {
 
     bool exhstd = true;

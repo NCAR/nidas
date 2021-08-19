@@ -37,7 +37,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(TSI_CPC3772)
 
-void TSI_CPC3772::validate() throw(n_u::InvalidParameterException)
+void TSI_CPC3772::validate()
 {
     SerialSensor::validate();
 

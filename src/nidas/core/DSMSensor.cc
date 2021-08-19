@@ -101,7 +101,6 @@ void DSMSensor::setDSMConfig(const DSMConfig* val)
 }
 
 void DSMSensor::addSampleTag(SampleTag* val)
-    throw(n_u::InvalidParameterException)
 {
     if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end()) {
         _sampleTags.push_back(val);
@@ -117,7 +116,7 @@ void DSMSensor::addSampleTag(SampleTag* val)
     }
 }
 
-void DSMSensor::removeSampleTag(SampleTag* val) throw()
+void DSMSensor::removeSampleTag(SampleTag* val)
 {
     list<SampleTag*>::iterator si = find(_sampleTags.begin(),_sampleTags.end(),val);
     if (si != _sampleTags.end()) {
@@ -128,12 +127,11 @@ void DSMSensor::removeSampleTag(SampleTag* val) throw()
 }
 
 void DSMSensor::addSampleTag(const SampleTag*)
-    throw(n_u::InvalidParameterException)
 {
     assert(false);
 }
 
-void DSMSensor::removeSampleTag(const SampleTag*) throw()
+void DSMSensor::removeSampleTag(const SampleTag*)
 {
     assert(false);
 }
@@ -332,7 +330,6 @@ const Parameter* DSMSensor::getParameter(const std::string& name) const
  * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
  */
 void DSMSensor::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     if (!_iodev) _iodev = buildIODevice();
     _iodev->setName(getDeviceName());
@@ -344,18 +341,18 @@ void DSMSensor::open(int flags)
     _scanner->init();
 }
 
-void DSMSensor::close() throw(n_u::IOException)
+void DSMSensor::close()
 {
     NLOG(("closing: %s, #timeouts=%d",
         getDeviceName().c_str(),getTimeoutCount()));
     if (_iodev) _iodev->close();
 }
 
-void DSMSensor::init() throw(n_u::InvalidParameterException)
+void DSMSensor::init()
 {
 }
 
-bool DSMSensor::readSamples() throw(nidas::util::IOException)
+bool DSMSensor::readSamples()
 {
     bool exhausted = readBuffer();
 
@@ -383,7 +380,7 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
     return exhausted;
 }
 
-Sample* DSMSensor::readSample() throw(nidas::util::IOException)
+Sample* DSMSensor::readSample()
 {
     Sample* samp = nextSample();
 
@@ -394,7 +391,7 @@ Sample* DSMSensor::readSample() throw(nidas::util::IOException)
     return samp;
 }
 
-bool DSMSensor::receive(const Sample *samp) throw()
+bool DSMSensor::receive(const Sample *samp)
 {
     list<const Sample*> results;
     process(samp,results);
@@ -489,7 +486,7 @@ bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) c
     return false;
 }
 
-void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
+void DSMSensor::printStatusHeader(std::ostream& ostr)
 {
   static const char *glyph[] = {"\\","|","/","-"};
   static int anim=0;
@@ -515,11 +512,11 @@ void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
 <tbody align=center>" << endl;	// default alignment in table body
 }
 
-void DSMSensor::printStatusTrailer(std::ostream& ostr) throw()
+void DSMSensor::printStatusTrailer(std::ostream& ostr)
 {
     ostr << "</tbody></table>" << endl;
 }
-void DSMSensor::printStatus(std::ostream& ostr) throw()
+void DSMSensor::printStatus(std::ostream& ostr)
 {
     string oe(zebra?"odd":"even");
     zebra = !zebra;
@@ -543,8 +540,8 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 }
 
 /* static */
-const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Project* project)
-    throw(n_u::InvalidParameterException)
+const string DSMSensor::getClassName(const xercesc::DOMElement* node,
+                                     const Project* project)
 {
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");
@@ -569,7 +566,6 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
 }
 
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     /*
@@ -830,7 +826,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 #endif
 }
 
-void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
+void DSMSensor::validate()
 {
     if (getDeviceName().length() == 0)
 	throw n_u::InvalidParameterException(getName(),
@@ -872,8 +868,8 @@ findVariableIndex(const std::string& vprefix)
 }
 
 
-xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool complete) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,
+                                            bool complete) const
 {
     xercesc::DOMElement* elem = 0;
     if (complete) {
@@ -892,8 +888,8 @@ xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool com
     return elem;
 }
 
-xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* /* elem */,bool /* complete */) const
-    throw(xercesc::DOMException)
+xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* /* elem */,
+                                             bool /* complete */) const
 {
     return 0; // not supported yet
 }

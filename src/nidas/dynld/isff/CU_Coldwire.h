@@ -47,11 +47,9 @@ public:
 
     ~CU_Coldwire();
 
-    void validate()
-            throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    bool process(const Sample* samp,std::list<const nidas::core::Sample*>& results)
-    	throw();
+    bool process(const Sample* samp,std::list<const nidas::core::Sample*>& results);
 
     /**
      * Calculate the checksum of a data record.

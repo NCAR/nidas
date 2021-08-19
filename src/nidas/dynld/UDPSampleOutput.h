@@ -68,11 +68,11 @@ public:
 
     bool receive(const nidas::core::Sample *s) throw();
 
-    size_t write(const struct iovec* iov,int iovcnt) throw (nidas::util::IOException);
+    size_t write(const struct iovec* iov,int iovcnt);
 
     // void init() throw();
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
     /**
      * Total number of bytes written with this IOStream.
@@ -81,8 +81,7 @@ public:
 
     void addNumOutputBytes(int val) { _nbytesOut += val; }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
 
@@ -104,7 +103,7 @@ private:
      * acquires a read lock on the DOM, and must call releaseProjectDOM()
      * when they are finised.
      */
-    xercesc::DOMDocument* getProjectDOM() throw(xercesc::DOMException);
+    xercesc::DOMDocument* getProjectDOM();
 
     void releaseProjectDOM();
 
@@ -121,7 +120,7 @@ private:
         VariableListWorker(UDPSampleOutput* output,
             nidas::util::Socket* sock,bool keepOpen);
         ~VariableListWorker();
-        int run() throw(nidas::util::Exception);
+        int run();
         void interrupt();
     private:
         UDPSampleOutput* _output;
@@ -143,7 +142,7 @@ private:
 
         ~ConnectionMonitor();
 
-        int run() throw(nidas::util::Exception);
+        int run();
 
         /**
          * A TCP connection has been made.
@@ -185,11 +184,11 @@ private:
         XMLSocketListener(UDPSampleOutput* output,
             int xmlPortNumber,ConnectionMonitor* monitor);
         ~XMLSocketListener();
-        int run() throw(nidas::util::Exception);
+        int run();
         void interrupt();
     private:
-        void checkWorkers() throw();
-        void fireWorkers() throw();
+        void checkWorkers();
+        void fireWorkers();
         UDPSampleOutput* _output;
         nidas::util::ServerSocket* _sock;
         ConnectionMonitor* _monitor;

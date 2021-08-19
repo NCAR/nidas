@@ -53,7 +53,6 @@ CU_Coldwire::~CU_Coldwire()
 }
 
 void CU_Coldwire::validate()
-    throw(n_u::InvalidParameterException)
 {
 
     std::list<SampleTag*>& tags = getSampleTags();
@@ -82,7 +81,7 @@ bool CU_Coldwire::reportBadChecksum()
 }
 
 bool CU_Coldwire::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
     const unsigned char* buf0 = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();

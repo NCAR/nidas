@@ -43,7 +43,7 @@ UDPSocketIODevice::~UDPSocketIODevice()
     close();
 }
 
-void UDPSocketIODevice::close() throw(n_u::IOException)
+void UDPSocketIODevice::close()
 {
     if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -55,7 +55,6 @@ void UDPSocketIODevice::close() throw(n_u::IOException)
 }
 
 void UDPSocketIODevice::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SocketIODevice::open(flags);
 
@@ -81,7 +80,6 @@ void UDPSocketIODevice::open(int flags)
 }
 
 size_t UDPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
-    throw(nidas::util::IOException)
 {
     size_t l = 0;
     try {

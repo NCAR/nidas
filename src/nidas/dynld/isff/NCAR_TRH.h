@@ -55,10 +55,10 @@ public:
 
     ~NCAR_TRH();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
     bool process(const nidas::core::Sample* samp,
-                 std::list<const nidas::core::Sample*>& results) throw();
+                 std::list<const nidas::core::Sample*>& results);
 
     void
     ifanFilter(std::list<const nidas::core::Sample*>& results);

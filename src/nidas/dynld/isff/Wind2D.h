@@ -60,9 +60,9 @@ public:
 
     ~Wind2D();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+    void validateSscanfs();
 
     const std::string& getSpeedName() const { return _speedName; }
 
@@ -83,8 +83,7 @@ public:
     bool process(const nidas::core::Sample* samp,
         std::list<const nidas::core::Sample*>& results) throw();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement* node);
 
 private:
 

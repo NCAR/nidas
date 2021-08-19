@@ -51,8 +51,7 @@ public:
 
     ~CSI_CRX_Binary();
 
-    void validate()
-            throw(nidas::util::InvalidParameterException);
+    void validate();
 
     bool process(const Sample* samp,std::list<const nidas::core::Sample*>& results)
     	throw();

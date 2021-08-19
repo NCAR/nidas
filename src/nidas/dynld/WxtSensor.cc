@@ -63,7 +63,7 @@ WxtSensor::WxtSensor():
 WxtSensor::~WxtSensor() {}
 
 void
-WxtSensor::init() throw(nidas::util::InvalidParameterException)
+WxtSensor::init()
 {
     CharacterSensor::init();
 
@@ -382,7 +382,7 @@ WxtSensor::process(const Sample* samp,
 // from the base class init(), it has to be postponed until after the
 // WxtSensor class finishes it's own init() implementation.
 void
-WxtSensor::validateSscanfs() throw(nidas::util::InvalidParameterException)
+WxtSensor::validateSscanfs()
 {
 }
 

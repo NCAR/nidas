@@ -51,22 +51,38 @@ public:
     DSC_FreqCounter();
     ~DSC_FreqCounter();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open a GPIO-MM frequency counter.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
-    void init() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void init();
 
-    void printStatus(std::ostream& ostr) throw();
+    /**
+     * @throw()
+     **/
+    void printStatus(std::ostream& ostr);
 
     /**
      * Calculate the input pulse period in microseconds.
@@ -98,8 +114,10 @@ public:
 
 protected:
 
-    virtual void readParams(const std::list<const Parameter*>& params)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void readParams(const std::list<const Parameter*>& params);
 
     dsm_sample_id_t _sampleId;
 

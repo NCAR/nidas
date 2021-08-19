@@ -64,7 +64,6 @@ const xercesc::DOMElement* DSMCatalog::find(const std::string& id) const
 }
 
 void DSMCatalog::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     

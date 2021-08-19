@@ -54,7 +54,6 @@ map<string,BluetoothAddress> BluetoothAddress::_addrMap;
 
 /* static */
 BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
-    throw(UnknownHostException)
 {
     {
         n_u::Autolock autolock(_staticMutex);
@@ -150,7 +149,7 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
 }
 
 /* static */
-std::string BluetoothAddress::getHostName(const BluetoothAddress& addr) throw()
+std::string BluetoothAddress::getHostName(const BluetoothAddress& addr)
 {
     char straddr[32];
     ::ba2str(&addr._bdaddr,straddr);

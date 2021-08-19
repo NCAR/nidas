@@ -49,15 +49,13 @@ public:
 
     ~CSI_IRGA_Sonic();
 
-    void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
-    void parseParameters() throw(nidas::util::InvalidParameterException);
+    void parseParameters();
 
-    void checkSampleTags() throw(nidas::util::InvalidParameterException);
+    void checkSampleTags();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
     /**
      * Calculate the CRC signature of a data record. From EC150 manual.

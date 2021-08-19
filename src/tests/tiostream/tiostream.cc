@@ -50,12 +50,12 @@ class DummyChannel : public nidas::core::UnixIOChannel
 {
 public:
   DummyChannel(const std::string& name) : 
-    UnixIOChannel(name, 0)
+    UnixIOChannel(name, 0),
+    _buffer(0),
+    _buflen(0),
+    _partial(false), // turn on partial writes
+    _nwrites(0)
   {
-    _buffer = 0;
-    _buflen = 0;
-    _partial = false; // turn on partial writes
-    _nwrites = 0;
   }
 
   ~DummyChannel()
@@ -64,7 +64,7 @@ public:
   }
 
   virtual size_t
-  write(const void* buf, size_t len) throw (nidas::util::IOException)
+  write(const void* buf, size_t len)
   {
     if (_partial)
       len = len / 2;
@@ -95,6 +95,9 @@ public:
   unsigned int _buflen;
   bool _partial;
   int _nwrites;
+
+  DummyChannel(const DummyChannel&) = delete;
+  DummyChannel& operator=(const DummyChannel&) = delete;
 };
 
 

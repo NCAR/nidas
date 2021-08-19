@@ -49,31 +49,40 @@ public:
      * You must either do Socket::close() to close it, or
      * make a copy of Socket, and close the copy, since
      * the new copy will own the file descriptor.
+     *
+     * @throws IOException
      */
-    BluetoothRFCommSocket() throw(IOException);
+    BluetoothRFCommSocket();
 
     /**
      * Create a stream socket connected to a remote address and channel.
+     *
+     * @throws IOException
      */
-    BluetoothRFCommSocket(const BluetoothAddress& addr,int channel)
-    	throw(IOException);
+    BluetoothRFCommSocket(const BluetoothAddress& addr, int channel);
 
     /**
      * Create a stream socket connected to a remote host and channel.
+     *
+     * @throws UnknownHostException
+     * @throws IOException
      */
-    BluetoothRFCommSocket(const std::string& addr,int channel)
-    	throw(UnknownHostException,IOException);
+    BluetoothRFCommSocket(const std::string& addr, int channel);
 
     /**
      * Create a stream socket connected to a remote address.
+     *
+     * @throws IOException
      */
-    BluetoothRFCommSocket(const SocketAddress& addr) throw(IOException);
+    BluetoothRFCommSocket(const SocketAddress& addr);
 
     /**
      * Called by ServerSocket after a connection is
      * accepted.
+     *
+     * @throws IOException
      */
-    BluetoothRFCommSocket(int fd, const SocketAddress& raddr) throw(IOException);
+    BluetoothRFCommSocket(int fd, const SocketAddress& raddr);
 
     /**
      * Copy constructor.
@@ -90,7 +99,10 @@ public:
      */
     ~BluetoothRFCommSocket() throw();
 
-    void close() throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    void close();
 
     /**
      * Set the timeout for receive(), recv(), and recvfrom()
@@ -107,10 +119,15 @@ public:
      * Do fcntl system call to set O_NONBLOCK file descriptor flag on 
      * the socket.
      * @param val true=set O_NONBLOCK, false=unset O_NONBLOCK.
+     *
+     * @throws IOException
      */
-    void setNonBlocking(bool val) throw(IOException);
+    void setNonBlocking(bool val);
 
-    bool isNonBlocking() const throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    bool isNonBlocking() const;
 
     /**
      * Connect to a given remote address and channel.
@@ -123,21 +140,25 @@ public:
      * If the device has a pin which isn't matched, or an agent
      * is not available the IOException will be
      * ECONNREFUSED, connection refused.
+     *
+     * @throws UnknownHostException
+     * @throws IOException
      */
-    void connect(const std::string& addr,int channel)
-	throw(UnknownHostException,IOException);
+    void connect(const std::string& addr, int channel);
 
     /**
      * Connect to a given remote host address and channel.
+     *
+     * @throws IOException
      */
-    void connect(const BluetoothAddress& addr, int channel)
-	throw(IOException);
+    void connect(const BluetoothAddress& addr, int channel);
 
     /**
      * Connect to a given remote socket address.
+     *
+     * @throws IOException
      */
-    void connect(const SocketAddress& addr)
-	throw(IOException);
+    void connect(const SocketAddress& addr);
 
     /**
      * Bind to a local Bluetooth device. For Bluetooth sockets, one must use
@@ -151,37 +172,55 @@ public:
      * associated with the local interface.
      * If the remote device doesn't require a PIN, then the bind is not
      * necessary before doing a connect(), but doesn't hurt.
+     *
+     * @throws IOException
      */
-    void bind(int channel) throw(IOException);
+    void bind(int channel);
 
-    void bind(const BluetoothAddress& addr,int channel)
-        throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    void bind(const BluetoothAddress& addr, int channel);
 
-    void bind(const SocketAddress& sockaddr) throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    void bind(const SocketAddress& sockaddr);
 
-    void listen() throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    void listen();
 
-    BluetoothRFCommSocket* accept() throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    BluetoothRFCommSocket* accept();
 
     /**
      * Fetch the file descriptor associated with this socket.
      */
     int getFd() const { return _fd; }
 
-    size_t recv(void* buf, size_t len, int flags = 0)
-	throw(IOException);
+    /**
+     * @throws IOException
+     **/
+    size_t recv(void* buf, size_t len, int flags = 0);
 
     /**
      * send data on socket, see man page for send system function.
      * @param buf pointer to buffer.
      * @param len number of bytes to send.
      * @flags bitwise OR of flags for send. Default: 0.
+     *
+     * @throws IOException
      */
-    size_t send(const void* buf, size_t len, int flags=0)
-	throw(IOException);
+    size_t send(const void* buf, size_t len, int flags=0);
 
-    size_t send(const struct iovec* iov, int iovcnt, int flags=MSG_NOSIGNAL)
-	throw(IOException);
+    /**
+     * @throws IOException
+     */
+    size_t send(const struct iovec* iov, int iovcnt, int flags=MSG_NOSIGNAL);
 
     /**
      * send all data in buffer on socket, repeating send()
@@ -193,31 +232,40 @@ public:
      * @flags bitwise OR of flags for send. Default: MSG_NOSIGNAL.
      * It is not recommended to use this method if using 
      * non-blocking IO.
+     *
+     * @throws IOException
      */
-    void sendall(const void* buf, size_t len, int flags=MSG_NOSIGNAL)
-	throw(IOException);
+    void sendall(const void* buf, size_t len, int flags=MSG_NOSIGNAL);
 
     /**
      * Get remote address of this socket
+     *
+     * @throw()
      */
-    const SocketAddress& getRemoteSocketAddress() const throw();
+    const SocketAddress& getRemoteSocketAddress() const;
 
     /**
      * Get remote port number of this socket, which
      * for BluetoothRFCommSockets is the channel number.
+     *
+     * @throw()
      */
-    int getRemotePort() const throw();
+    int getRemotePort() const;
 
     /**
      * Get local address of this socket
+     *
+     * @throw()
      */
-    const SocketAddress& getLocalSocketAddress() const throw();
+    const SocketAddress& getLocalSocketAddress() const;
 
     /**
      * Get local port number of this socket, which
      * for BluetoothRFCommSockets is the channel number.
+     *
+     * @throw()
      */
-    int getLocalPort() const throw();
+    int getLocalPort() const;
 
     int getDomain() const { return AF_BLUETOOTH; }
 
@@ -225,13 +273,17 @@ private:
 
     /**
      * Do system call to determine local address of this socket.
+     *
+     * @throws IOException
      */
-    void getLocalAddr() throw(IOException);
+    void getLocalAddr();
 
     /**
      * Do system call to determine address of remote end.
+     *
+     * @throws IOException
      */
-    void getRemoteAddr() throw(IOException);
+    void getRemoteAddr();
 
     int _fd;
 

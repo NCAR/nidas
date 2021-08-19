@@ -89,20 +89,28 @@ public:
 
     /**
      * @param project: the project, by reference.
-     */
-    void initProject(Project& project) const throw(nidas::core::XMLException,
-		nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void initProject(Project& project) const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
-    
-    xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent) const
-    		throw(xercesc::DOMException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent) const;
+
+    /**
+     * @throws xercesc::DOMException
+     **/
+    xercesc::DOMElement*
+    toDOMElement(xercesc::DOMElement* node) const;
 
 private:
 
@@ -139,11 +147,15 @@ public:
     ProjectConfigs();
     ~ProjectConfigs();
 
-    const ProjectConfig* getConfig(const nidas::util::UTime& begin) const
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    const ProjectConfig* getConfig(const nidas::util::UTime& begin) const;
 
-    const ProjectConfig* getConfig(const std::string& name) const
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    const ProjectConfig* getConfig(const std::string& name) const;
 
     const std::list<const ProjectConfig*>& getConfigs() const;
 
@@ -156,9 +168,10 @@ public:
      * configuration, the existing configuration is replaced.
      * Exceptions are thrown if project configuration times
      * are overlapping.
-     */
-    void addConfigByTime(ProjectConfig* val)
-        throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addConfigByTime(ProjectConfig* val);
 
     /**
      * Add a project configuration, replacing an existing
@@ -170,24 +183,34 @@ public:
 
     void removeConfig(const ProjectConfig* val);
 
-    void parseXML(const std::string& xmlFileName)
-        throw(nidas::core::XMLException,
-		nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void parseXML(const std::string& xmlFileName);
 
-    void writeXML(const std::string& xmlFileName)
-        throw(nidas::core::XMLException,nidas::util::IOException);
+    /**
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::IOException
+     **/
+    void writeXML(const std::string& xmlFileName);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
     
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node) const
-    		throw(xercesc::DOMException);
-
+    toDOMElement(xercesc::DOMElement* node) const;
 
 private:
 

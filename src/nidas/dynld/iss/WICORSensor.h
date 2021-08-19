@@ -52,12 +52,11 @@ public:
         ~WICORSensor();
 
     virtual void
-        addSampleTag(nidas::core::SampleTag* stag)
-        throw (nidas::util::InvalidParameterException);
+        addSampleTag(nidas::core::SampleTag* stag);
 
     virtual bool
         process(const nidas::core::Sample*,
-                std::list<const nidas::core::Sample*>& result) throw ();
+                std::list<const nidas::core::Sample*>& result);
 
 private:
     std::vector<std::string> _patterns;

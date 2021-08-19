@@ -151,13 +151,17 @@ public:
         return _sensorStatsInterval / USECS_PER_MSEC;
     }
 
-    void handleRemoteSerial(int fd, DSMSensor * sensor)
-     throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void handleRemoteSerial(int fd, DSMSensor * sensor);
 
     /**
      * Thread function.
-     */
-    int run() throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
     std::list<DSMSensor*> getAllSensors() const;
 
@@ -170,8 +174,10 @@ public:
 
     /**
      * Join this thread and join the SensorOpener.
-     */
-    int join() throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    int join();
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     int getEpollFd() const { return _epollfd; }
@@ -197,8 +203,10 @@ private:
     class PolledDSMSensor : public Polled
     {
     public:
-        PolledDSMSensor(DSMSensor* sensor,SensorHandler* handler)
-            throw(nidas::util::IOException);
+        /**
+         * @throws nidas::util::IOException
+         **/
+        PolledDSMSensor(DSMSensor* sensor,SensorHandler* handler);
 
         /**
          * Destructor does not close().
@@ -248,8 +256,10 @@ private:
         /**
          * Remove this DSMSensor from those being polled,
          * then call its close() method.
-         */
-        void close() throw(nidas::util::IOException);
+         *
+         * @throws nidas::util::IOException
+         **/
+        void close();
 
     private:
         DSMSensor* _sensor;
@@ -286,20 +296,20 @@ private:
     class NotifyPipe: public Polled
     {
     public:
-        NotifyPipe(SensorHandler* handler) throw(nidas::util::IOException);
+        NotifyPipe(SensorHandler* handler);
 
         ~NotifyPipe();
 
-        bool handlePollEvents(uint32_t events) throw();
+        bool handlePollEvents(uint32_t events);
 
-        void close() throw(nidas::util::IOException);
+        void close();
 
         /**
          * Used in public methods of SensorHandler which are called
          * from other threads to notify the SensorHandler that
          * the collection of polled objects has changed.
          */
-        void notify() throw();
+        void notify();
 
         int getFd() const { return _fds[0]; }
 

@@ -160,7 +160,6 @@ int NetcdfRPCChannel::getRPCBatchPeriod() const
 }
 
 void NetcdfRPCChannel::requestConnection(IOChannelRequester* rqstr)
-       throw(n_u::IOException)
 {
     connect();
     rqstr->connected(this);
@@ -168,7 +167,6 @@ void NetcdfRPCChannel::requestConnection(IOChannelRequester* rqstr)
 
 
 IOChannel* NetcdfRPCChannel::connect()
-       throw(n_u::IOException)
 {
     // expand the file and directory names.
 
@@ -443,9 +441,7 @@ NcVarGroupFloat* NetcdfRPCChannel::getNcVarGroupFloat(
 }
 
 void NetcdfRPCChannel::write(const Sample* samp) 
-    throw(n_u::IOException)
 {
-
     dsm_sample_id_t sampid = samp->getId();
 
     map<dsm_sample_id_t,NcVarGroupFloat*>::const_iterator gi =
@@ -466,9 +462,8 @@ void NetcdfRPCChannel::write(const Sample* samp)
     g->write(this,samp,stationIndex);
 }
 
-void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
+void NetcdfRPCChannel::write(datarec_float *rec)
 {
-
     /*
      * Every so often in batch mode check if nc_server actually responds.
      */
@@ -492,7 +487,7 @@ void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
 	throw n_u::IOException(getName(),"write",clnt_sperror(_clnt,""));
 }
 
-void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
+void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec)
 {
     int result = 0;
     enum clnt_stat clnt_stat;
@@ -535,7 +530,6 @@ void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
 }
 
 void NetcdfRPCChannel::writeGlobalAttr(const string& name, const string& value)
-    throw(n_u::IOException)
 {
     int result = 0;
     enum clnt_stat clnt_stat;
@@ -580,7 +574,6 @@ void NetcdfRPCChannel::writeGlobalAttr(const string& name, const string& value)
 }
 
 void NetcdfRPCChannel::writeGlobalAttr(const string& name, int value)
-    throw(n_u::IOException)
 {
     int result = 0;
     enum clnt_stat clnt_stat;
@@ -623,9 +616,8 @@ void NetcdfRPCChannel::writeGlobalAttr(const string& name, int value)
         _lastNonBatchWrite = time((time_t*)0);
     }
 }
-void NetcdfRPCChannel::checkError() throw(n_u::IOException)
+void NetcdfRPCChannel::checkError()
 {
-
     VLOG(("NetcdfRPRChannel::checkError ")
          << n_u::UTime().format(true,"%Y %m %d %H:%M:%S.%3f "));
 
@@ -665,9 +657,8 @@ void NetcdfRPCChannel::checkError() throw(n_u::IOException)
     }
 }
 
-void NetcdfRPCChannel::close() throw(n_u::IOException)
+void NetcdfRPCChannel::close()
 {
-
     list<NcVarGroupFloat*>::const_iterator gi = _groups.begin();
     for ( ; gi != _groups.end(); ++gi) delete *gi;
     _groups.clear();
@@ -692,7 +683,6 @@ void NetcdfRPCChannel::close() throw(n_u::IOException)
 }
 
 void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -788,7 +778,6 @@ NcVarGroupFloat::~NcVarGroupFloat()
 }
 
 void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
-	throw(n_u::IOException)
 {
     datadef ddef; 
     ddef.connectionId = conn->getConnectionId(); 
@@ -936,7 +925,7 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
 }
 
 void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
-	int stationIndex) throw(n_u::IOException)
+                            int stationIndex)
 {
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
    

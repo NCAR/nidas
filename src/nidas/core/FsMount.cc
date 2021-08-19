@@ -87,7 +87,6 @@ void FsMount::setDir(const std::string& val)
 }
 
 void FsMount::mount()
-       throw(n_u::IOException)
 {
     if (isMounted()) return;
     ILOG(("Mounting: %s at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
@@ -137,7 +136,6 @@ void FsMount::mount()
  * will likely fail for a normal user on a server.
  */
 void FsMount::autoMount()
-       throw(n_u::IOException)
 {
     if (isMounted()) return;
     ILOG(("Automounting: %s",_dirMsg.c_str()));
@@ -173,7 +171,6 @@ void FsMount::autoMount()
 
 /* asynchronous mount request. finished() method is called when done */
 void FsMount::mount(FileSet* fset)
-       throw(n_u::IOException)
 {
     _fileset = fset;
     if (isMounted()) {
@@ -261,7 +258,6 @@ void FsMount::finished()
 }
 
 void FsMount::unmount()
-       throw(n_u::IOException)
 {
     if (!isMounted()) return;
 
@@ -301,7 +297,6 @@ bool FsMount::isMounted() {
 }
 
 void FsMount::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -329,7 +324,7 @@ FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
     unblockSignal(SIGUSR1);
 }
 
-int FsMountWorkerThread::run() throw(n_u::Exception)
+int FsMountWorkerThread::run()
 {
     int sleepsecs = 30;
     for (int i = 0;; i++) {

@@ -51,32 +51,45 @@ public:
 
     ~IRIGSensor();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the device connected to the sensor.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /**
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Get the current time from the IRIG card.
      * This is not meant to be used for frequent use.
-     */
-    dsm_time_t getIRIGTime() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    dsm_time_t getIRIGTime();
 
     /**
      * Set the time on the IRIG card.
-     */
-    void setIRIGTime(dsm_time_t val) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setIRIGTime(dsm_time_t val);
 
     static std::string statusString(unsigned char status,bool xml=false);
 
@@ -90,8 +103,10 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& result)
 	throw();
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     /**
      * Return the IRIG time in an IRIG sample.
@@ -115,7 +130,10 @@ public:
     static const nidas::util::EndianConverter* lecvtr;
 private:
 
-    void checkClock() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void checkClock();
 
     dsm_sample_id_t _sampleId;
 

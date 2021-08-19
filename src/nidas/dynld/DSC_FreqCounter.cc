@@ -56,19 +56,17 @@ DSC_FreqCounter::~DSC_FreqCounter()
 {
 }
 
-IODevice* DSC_FreqCounter::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_FreqCounter::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_FreqCounter::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
-void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void DSC_FreqCounter::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -79,7 +77,7 @@ void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
     ioctl(GPIO_MM_FCNTR_START,&cfg,sizeof(cfg));
 }
 
-void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
+void DSC_FreqCounter::validate()
 {
     DSMSensor::validate();
 
@@ -110,7 +108,7 @@ void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
     readParams(stag->getParameters());
 }
 
-void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
+void DSC_FreqCounter::init()
 {
     DSMSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
@@ -118,7 +116,6 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
 }
 
 void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
-    throw(n_u::InvalidParameterException)
 {
     list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
@@ -139,7 +136,7 @@ void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
     }
 }
 
-void DSC_FreqCounter::printStatus(std::ostream& ostr) throw()
+void DSC_FreqCounter::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
@@ -182,6 +179,19 @@ double DSC_FreqCounter::calculatePeriodUsec(unsigned int pulses, unsigned int ti
     if (tics == 0) return 0.0;
     return (double) tics / pulses / _clockRate * USECS_PER_SEC;
 }
+
+// As of GCC 7, -Wextra enables -Wimplicit-fallthrough which warns when
+// case statements fall through.  Use the GCC null statement attribute to
+// disable the warning until the C++17 [[fallthrough]] standard syntax is
+// available.  GCC can also use comments to detect when fall through code
+// should not warn.  See here:
+// https://developers.redhat.com/blog/2017/03/10/wimplicit-fallthrough-in-gcc-7/
+
+#if __GNUC__
+#define FALLTHROUGH __attribute__((fallthrough))
+#else
+#define FALLTHROUGH
+#endif
 
 bool DSC_FreqCounter::process(const Sample* insamp,list<const Sample*>& results)
     throw()

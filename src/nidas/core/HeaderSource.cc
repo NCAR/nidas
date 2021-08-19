@@ -53,7 +53,6 @@ setDefaults(SampleInputHeader& header)
 
 /* static */
 void HeaderSource::sendDefaultHeader(SampleOutput* output)
-	throw(n_u::IOException)
 {
     // cerr << "ConnectionRequester::sendHeader" << endl;
     SampleInputHeader header;

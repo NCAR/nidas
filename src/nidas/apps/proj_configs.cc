@@ -54,14 +54,11 @@ public:
 
     int run();
 
-    void listConfigs(bool allinfo) throw(nidas::core::XMLException,
-        n_u::InvalidParameterException);
+    void listConfigs(bool allinfo);
 
-    void addConfigByTime() throw(nidas::core::XMLException,
-        n_u::InvalidParameterException,n_u::IOException);
+    void addConfigByTime();
 
-    void termConfig() throw(nidas::core::XMLException,
-        n_u::InvalidParameterException,n_u::IOException);
+    void termConfig();
 
     void getConfig();
 
@@ -304,8 +301,6 @@ int ProjConfigIO::run()
 }
 
 void ProjConfigIO::listConfigs(bool allinfo)
-    throw(nidas::core::XMLException,
-        n_u::InvalidParameterException)
 {
 
     if (timeformat.length() > 0) cout << n_u::setTZ<char>("GMT") <<
@@ -381,8 +376,6 @@ void ProjConfigIO::getConfigForTime()
 }
 
 void ProjConfigIO::addConfigByTime()
-    throw(nidas::core::XMLException,
-        n_u::InvalidParameterException,n_u::IOException)
 {
 
     ProjectConfig* ncfg = new ProjectConfig;
@@ -406,8 +399,6 @@ void ProjConfigIO::addConfigByTime()
 }
 
 void ProjConfigIO::termConfig()
-    throw(nidas::core::XMLException,
-        n_u::InvalidParameterException,n_u::IOException)
 {
     const list<const ProjectConfig*>& cfgs = configs.getConfigs();
 

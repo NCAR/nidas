@@ -134,8 +134,10 @@ public:
 
     /**
      * Connect a SamplePipeline to the cruncher.
-     */
-    void connect(SampleSource* source) throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void connect(SampleSource* source);
 
     void disconnect(SampleSource* source) throw();
 
@@ -146,8 +148,10 @@ public:
 
     void disconnect(SampleOutput* output);
 
-    static statisticsType getStatisticsType(const std::string& type)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    static statisticsType getStatisticsType(const std::string& type);
 
     void setStartTime(const nidas::util::UTime& val);
 
@@ -190,7 +194,10 @@ public:
 
 protected:
 
-    void attach(SampleSource* source) throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void attach(SampleSource* source);
 
     /**
      * Split input variable names at periods.
@@ -211,15 +218,19 @@ protected:
 
     std::string makeUnits(const std::vector<std::string>&);
 
-    void createCombinations()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void createCombinations();
 
     void setupMoments(unsigned int nvars, unsigned int moment);
 
     void setupMinMax(const std::string&);
 
-    void setupWindDir()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setupWindDir();
 
     void setupCovariances();
 

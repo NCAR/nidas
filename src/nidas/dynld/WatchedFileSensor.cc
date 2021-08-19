@@ -59,7 +59,6 @@ WatchedFileSensor::~WatchedFileSensor()
 }
 
 void WatchedFileSensor::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     _flags = flags;
 
@@ -88,7 +87,6 @@ void WatchedFileSensor::open(int flags)
 }
 
 void WatchedFileSensor::close()
-    throw(n_u::IOException)
 {
     if (_inotifyfd >= 0) {
         int wd = _watchd;
@@ -104,7 +102,7 @@ void WatchedFileSensor::close()
     CharacterSensor::close();
 }
 
-void WatchedFileSensor::reopen() throw(n_u::IOException)
+void WatchedFileSensor::reopen()
 {
     _iodev->close();
 
@@ -132,7 +130,7 @@ void WatchedFileSensor::reopen() throw(n_u::IOException)
     getFileStatus();
 }
 
-void WatchedFileSensor::getFileStatus() throw(n_u::IOException)
+void WatchedFileSensor::getFileStatus()
 {
     struct stat statbuf;
     if (::fstat(_iodev->getReadFd(),&statbuf) < 0)
@@ -142,7 +140,7 @@ void WatchedFileSensor::getFileStatus() throw(n_u::IOException)
     _size = statbuf.st_size;
 }
 
-void WatchedFileSensor::getPathStatus(dev_t& dev, ino_t& inode) throw(n_u::IOException)
+void WatchedFileSensor::getPathStatus(dev_t& dev, ino_t& inode)
 {
     struct stat statbuf;
     if (::stat(getDeviceName().c_str(),&statbuf) < 0)
@@ -151,7 +149,7 @@ void WatchedFileSensor::getPathStatus(dev_t& dev, ino_t& inode) throw(n_u::IOExc
     inode = statbuf.st_ino;
 }
 
-bool WatchedFileSensor::differentInode() throw(n_u::IOException)
+bool WatchedFileSensor::differentInode()
 {
     dev_t dev;
     ino_t inode;
@@ -163,7 +161,7 @@ bool WatchedFileSensor::differentInode() throw(n_u::IOException)
     return false;
 }
 
-bool WatchedFileSensor::readSamples() throw(n_u::IOException)
+bool WatchedFileSensor::readSamples()
 {
     // called when select/poll indicates something has happened
     // on the file I am monitoring.

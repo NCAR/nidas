@@ -63,17 +63,24 @@ public:
 
     DatagramSocket* clone() const;
 
-    void requestConnection(IOChannelRequester* service)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void requestConnection(IOChannelRequester* service);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IOChannel* connect();
 
     bool isNewInput() const { return false; }
 
     bool writeNidasHeader() const { return false; }
 
+    /**
+     * @throws nidas::util::IOException
+     **/
     std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
-        throw(nidas::util::IOException)
     {
         if (_nusocket) return _nusocket->getInterfaces();
         return std::list<nidas::util::Inet4NetworkInterface>();
@@ -81,17 +88,21 @@ public:
 
     /**
      * Do setNonBlocking(val) on underlying socket.
-     */
-    void setNonBlocking(bool val) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void setNonBlocking(bool val)
     {
-	_nonBlocking = val;
-	if (_nusocket) _nusocket->setNonBlocking(val);
+        _nonBlocking = val;
+        if (_nusocket) _nusocket->setNonBlocking(val);
     }
 
     /**
      * Return isNonBlocking() of underlying socket.
-     */
-    bool isNonBlocking() const throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    bool isNonBlocking() const
     {
 	if (_nusocket) return _nusocket->isNonBlocking();
 	return _nonBlocking;
@@ -101,29 +112,38 @@ public:
 
     /**
      * Do the actual hardware read.
-     */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void* buf, size_t len)
     {
         return _nusocket->recv(buf,len);
     }
 
     /**
      * Do the actual hardware write.
-     */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void* buf, size_t len)
     {
         return _nusocket->send(buf,len,0);
     }
 
     /**
      * Do the actual hardware write.
-     */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec* iov, int iovcnt)
     {
         return _nusocket->send(iov,iovcnt,0);
     }
 
-    void close() throw (nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close()
     {
         if (_nusocket) _nusocket->close();
     }
@@ -161,8 +181,10 @@ public:
      */
     void setSocketAddress(const nidas::util::SocketAddress& val);
 
-    const nidas::util::SocketAddress& getSocketAddress()
-        throw(nidas::util::UnknownHostException);
+    /**
+     * @throws nidas::util::UnknownHostException
+     **/
+    const nidas::util::SocketAddress& getSocketAddress();
 
     /**
      * Set the hostname and port of the remote connection. This
@@ -189,8 +211,10 @@ public:
         return _port;
     }
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
 private:
 

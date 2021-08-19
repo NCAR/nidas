@@ -55,7 +55,7 @@ public:
     float getTrueHeading() const		{ return _thdg; }
     float getGroundSpeed() const		{ return _grndSpd; }
 
-    int run() throw(nidas::util::Exception);
+    int run();
 
     /**
      * Add a client to DerivedDataReader.  The derivedDataNotify method of the

@@ -177,8 +177,7 @@ int DSMService::checkSubThreads() throw()
 
 /* static */
 const string DSMService::getClassName(const xercesc::DOMElement* node,
-    const Project* project)
-    throw(n_u::InvalidParameterException)
+                                      const Project* project)
 {
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");
@@ -203,7 +202,6 @@ const string DSMService::getClassName(const xercesc::DOMElement* node,
 }
 
 void DSMService::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");

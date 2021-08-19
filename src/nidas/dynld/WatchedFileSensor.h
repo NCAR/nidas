@@ -102,27 +102,26 @@ public:
     /**
      * Start monitoring the file.
      */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /*
      * Stop monitoring the file.
      */
-    void close() throw(nidas::util::IOException);
+    void close();
 
     /**
      * Called by SensorHandler when there is activity on
      * my read file descriptor, indicating that inotify
      * has detected a watched event on the file.
      */
-    bool readSamples() throw(nidas::util::IOException);
+    bool readSamples();
 
 private:
 
     /**
      * Set the device id and inode from the opened file descriptor.
      */
-    void getFileStatus() throw(nidas::util::IOException);
+    void getFileStatus();
 
     /**
      * Fetch the device id and inode of the file with name getDeviceName(),
@@ -130,13 +129,13 @@ private:
      * that is currently opened.
      *
      */
-    void getPathStatus(dev_t& dev, ino_t& inode) throw(nidas::util::IOException);
+    void getPathStatus(dev_t& dev, ino_t& inode);
 
     /**
      * Does file with name getDeviceName() point to a different inode than
      * the currently opened file?
      */
-    bool differentInode() throw(nidas::util::IOException);
+    bool differentInode();
 
     /**
      * Close the currently opened file, start a new watch
@@ -147,7 +146,7 @@ private:
      * a seek to the end is not performed, so reads will start
      * at the beginning.
      */
-    void reopen() throw(nidas::util::IOException);
+    void reopen();
 
     /**
      * File descriptor returned from inotify_init in the open method.

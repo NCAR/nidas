@@ -72,7 +72,6 @@ GPS_NMEA_Serial::GPS_NMEA_Serial():SerialSensor(),
 }
 
 void GPS_NMEA_Serial::validate()
-  throw(n_u::InvalidParameterException)
 {
 
     SerialSensor::validate();
@@ -668,7 +667,6 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 }
 
 SampleScanner* GPS_NMEA_Serial::buildSampleScanner()
-  throw(n_u::InvalidParameterException)
 {
     MessageStreamScanner* scanr = new MessageStreamScanner();
     scanr->setNullTerminate(doesAsciiSscanfs());

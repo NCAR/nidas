@@ -69,11 +69,17 @@ public:
 
     virtual std::string getStringValue(int i) const;
 
-    static Parameter* createParameter(const xercesc::DOMElement*, const Dictionary* d = 0)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    static Parameter*
+    createParameter(const xercesc::DOMElement*, const Dictionary* d = 0);
 
-    virtual void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict)
-        throw(nidas::util::InvalidParameterException) = 0;
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void
+    fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict) = 0;
                                                                                 
 protected:
 
@@ -82,8 +88,6 @@ protected:
     std::string _name;
 
     parType _type;
-
-
 };
 
 /**
@@ -152,11 +156,15 @@ public:
 
     T getValue(int i) const { return _values[i]; }
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
-    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException;
+     **/
+    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict);
                                                                                 
 protected:
 

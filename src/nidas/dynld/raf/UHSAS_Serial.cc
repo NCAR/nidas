@@ -188,7 +188,6 @@ UHSAS_Serial::~UHSAS_Serial()
 
 
 void UHSAS_Serial::open(int flags)
-	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     const Parameter *p;
     p = getParameter("sendInit");
@@ -203,7 +202,7 @@ void UHSAS_Serial::open(int flags)
 }
 
 
-void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
+void UHSAS_Serial::init()
 {
     CharacterSensor::init();
 
@@ -292,7 +291,7 @@ void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
     }
 }
 
-void UHSAS_Serial::sendInitString() throw(n_u::IOException)
+void UHSAS_Serial::sendInitString()
 {
     if (!getSendInitBlock()) return;
     ILOG(("sending Init block"));
@@ -335,7 +334,6 @@ unsigned const char* UHSAS_Serial::findMarker(unsigned const char* ip,unsigned c
 }
 
 bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
-	throw()
 {
     static unsigned char marker0[] = { 0xff, 0xff, 0x00 };
     static unsigned char marker1[] = { 0xff, 0xff, 0x01 };

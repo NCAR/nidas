@@ -43,8 +43,7 @@ Looper::Looper():
 }
 
 void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod,
-        unsigned int msecOffset)
-	throw(n_u::InvalidParameterException)
+                       unsigned int msecOffset)
 {
 
     if (msecPeriod < 5) throw n_u::InvalidParameterException(
@@ -153,7 +152,7 @@ void Looper::setupClientMaps()
 /*
  * Thread function, the loop.
  */
-int Looper::run() throw(n_u::Exception)
+int Looper::run()
 {
     if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
 

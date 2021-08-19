@@ -43,18 +43,16 @@ public:
 
     ~DAUSensor();
     
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     void
-    addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException);
+    addSampleTag(SampleTag* stag);
 
     bool
-    process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    process(const Sample* samp,std::list<const Sample*>& results);
 
     void
-    fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
     const nidas::util::EndianConverter* _cvtr;

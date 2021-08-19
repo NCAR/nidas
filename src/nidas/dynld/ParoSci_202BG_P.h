@@ -46,7 +46,10 @@ public:
 
     ParoSci_202BG_P();
 
-    void init() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void init();
 
     /**
      * Process a raw sample, which in this case means convert the
@@ -64,9 +67,10 @@ public:
 
 private:
 
-    void readParams(const std::list<const Parameter*>& params)
-        throw(nidas::util::InvalidParameterException);
-
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void readParams(const std::list<const Parameter*>& params);
 
     float _periodUsec;
 

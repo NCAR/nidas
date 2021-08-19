@@ -87,9 +87,11 @@ public:
 
     /**
      * Set the parameters associated with scanning of character messages.
-     */
-    virtual void setMessageParameters(unsigned int len, const std::string& val, bool eom)
-    	throw(nidas::util::InvalidParameterException) = 0;
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void setMessageParameters(unsigned int len, const std::string& val,
+                                      bool eom) = 0;
 
     /**
      * Returns an empty string.
@@ -142,18 +144,20 @@ public:
     /**
      * Read from the sensor into the internal buffer of this
      * SampleScanner.
-     */
-    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted)
-        throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted);
 
     /**
      * Read from the sensor into the internal buffer of this
      * SampleScanner, providing a timeout in milliseconds.
      * This will throw nidas::util::IOTimeoutException
      * if the read fails due to a timeout.
-     */
-    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout)
-        throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted, int msecTimeout);
 
     virtual void clearBuffer();
 
@@ -306,9 +310,10 @@ public:
     /**
      * setMessageSeparator is not implemented in DriverSampleScanner.
      * Throws nidas::util::InvalidParameterException.
-     */
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setMessageParameters(unsigned int, const std::string&, bool)
-    	throw(nidas::util::InvalidParameterException)
     {
     	throw nidas::util::InvalidParameterException(
 		"setMessageSeparator not supported");
@@ -375,9 +380,10 @@ public:
      *        the timetag of a sample is the receipt time of the
      *        first byte of the messageSeparator.
      * @see * nidas::util::replaceBackslashSequences()
-     */
-    void setMessageParameters(unsigned int len, const std::string& val, bool eom)
-    	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setMessageParameters(unsigned int len, const std::string& val, bool eom);
 
     /**
      * Get message separator string. Any backslash sequences will have
@@ -426,8 +432,10 @@ public:
     
     MessageStreamScanner(int bufsize=4096);
 
-    void setMessageParameters(unsigned int len, const std::string& val, bool eom)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setMessageParameters(unsigned int len, const std::string& val, bool eom);
 
     /**
      * Get message separator string. Any backslash sequences will have
@@ -468,11 +476,15 @@ public:
         return (this->*_nextSampleFunc)(sensor);
     }
 
-    size_t readBuffer(DSMSensor* sensor, bool& exhausted)
-        throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted);
 
-    size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout)
-        throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout);
 
     /**
      * Issue warning log message about a non-forward time tag
@@ -587,9 +599,10 @@ public:
     /**
      * setMessageSeparator is not implemented in DatagramSampleScanner.
      * Throws nidas::util::InvalidParameterException.
-     */
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setMessageParameters(unsigned int, const std::string&, bool)
-    	throw(nidas::util::InvalidParameterException)
     {
     	throw nidas::util::InvalidParameterException(
 		"setMessageParameters not supported");
@@ -598,9 +611,10 @@ public:
     /**
      * Read from the sensor into the internal buffer of this
      * SampleScanner.
-     */
-    size_t readBuffer(DSMSensor* sensor, bool& exhausted)
-        throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted);
 
     /**
      * Extract the next sample from the buffer. Returns

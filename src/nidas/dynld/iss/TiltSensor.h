@@ -43,16 +43,14 @@ public:
     ~TiltSensor();
 
     void
-    addSampleTag(nidas::core::SampleTag* stag)
-        throw(nidas::util::InvalidParameterException);
+    addSampleTag(nidas::core::SampleTag* stag);
 
     bool
     process(const nidas::core::Sample* samp,
-            std::list<const nidas::core::Sample*>& results) throw();
+            std::list<const nidas::core::Sample*>& results);
 
     void
-    fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
 

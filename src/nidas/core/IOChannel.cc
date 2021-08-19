@@ -41,7 +41,6 @@ IOChannel::IOChannel(): _dsm(0),_conInfo()
 
 /* static */
 IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
-            throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& elname = xnode.getNodeName();

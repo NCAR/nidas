@@ -71,7 +71,7 @@ A2D_Serial::~A2D_Serial()
 }
 
 
-void A2D_Serial::open(int flags) throw(n_u::IOException)
+void A2D_Serial::open(int flags)
 {
     SerialSensor::open(flags);
 
@@ -79,7 +79,7 @@ void A2D_Serial::open(int flags) throw(n_u::IOException)
 // @TODO Need to set gain/offset/cals if read in....
 }
 
-void A2D_Serial::readConfig() throw(n_u::IOException)
+void A2D_Serial::readConfig()
 {
     int nsamp = 0;
     bool done = false;
@@ -137,7 +137,7 @@ void A2D_Serial::dumpConfig() const
 }
 
 
-void A2D_Serial::validate() throw(n_u::InvalidParameterException)
+void A2D_Serial::validate()
 {
     SerialSensor::validate();
 
@@ -233,7 +233,7 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
     }
 }
 
-void A2D_Serial::init() throw(n_u::InvalidParameterException)
+void A2D_Serial::init()
 {
     CharacterSensor::init();
 
@@ -323,7 +323,7 @@ bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 }
 
 bool A2D_Serial::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                         list < const Sample * >&results)
 {
     const char *cp = (const char*)samp->getConstVoidDataPtr();
 
@@ -568,7 +568,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
 }
 
 void A2D_Serial::setConversionCorrection(int ichan, const float d[],
-    int n) throw(n_u::InvalidParameterException)
+    int n)
 {
     _polyCals[ichan].clear();
     if (getOutputMode() == Counts) {

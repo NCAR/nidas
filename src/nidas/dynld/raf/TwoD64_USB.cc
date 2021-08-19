@@ -70,7 +70,6 @@ TwoD64_USB::~TwoD64_USB()
 }
 
 void TwoD64_USB::init_parameters()
-    throw(n_u::InvalidParameterException)
 {
     TwoD_USB::init_parameters();
 
@@ -99,7 +98,7 @@ void TwoD64_USB::init_parameters()
 }
 
 bool TwoD64_USB::processSOR(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                           list < const Sample * >&results)
 {
     if (samp->getDataByteLength() < 2 * sizeof (int32_t))
         return false;
@@ -145,7 +144,7 @@ operator<<(std::ostream& out, const PTime& ptime)
 
 
 bool TwoD64_USB::processImageRecord(const Sample * samp,
-                             list < const Sample * >&results, int stype) throw()
+                             list < const Sample * >&results, int stype)
 {
     unsigned int slen = samp->getDataByteLength();
     const int wordSize = 8;
@@ -486,7 +485,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 }
 
 bool TwoD64_USB::process(const Sample * samp,
-                        list < const Sample * >&results) throw()
+                         list < const Sample * >&results)
 {
     assert(sizeof (long long) == 8);
 

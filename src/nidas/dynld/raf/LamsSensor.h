@@ -52,29 +52,25 @@ class LamsSensor : public DSMSensor, public DerivedDataClient
 public:
   LamsSensor();
 
-  void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
+  void fromDOMElement(const xercesc::DOMElement* node);
 
-  void printStatus(std::ostream& ostr) throw();
+  void printStatus(std::ostream& ostr);
 
   virtual void
-  derivedDataNotify(const nidas::core:: DerivedDataReader * s)
-        throw();
+  derivedDataNotify(const nidas::core:: DerivedDataReader * s);
 
-  bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+  bool process(const Sample* samp,std::list<const Sample*>& results);
 
-  IODevice* buildIODevice() throw(n_u::IOException);
+  IODevice* buildIODevice();
 
-  SampleScanner* buildSampleScanner() throw(n_u::InvalidParameterException);
+  SampleScanner* buildSampleScanner();
 
   /**
    * Open the device connected to the sensor.
    */
-  void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+  void open(int flags);
 
-  void close() throw(nidas::util::IOException);
+  void close();
 
 private:
 

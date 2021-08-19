@@ -48,30 +48,44 @@ public:
     DSC_A2DSensor();
     ~DSC_A2DSensor();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    SampleScanner* buildSampleScanner();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     /**
      * Open the device connected to the sensor.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
     /*
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     void printStatus(std::ostream& ostr) throw();
 
     int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
 
-    void setA2DParameters(int ichan,int gain,int bipolar)
-               throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setA2DParameters(int ichan, int gain, int bipolar);
 
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 

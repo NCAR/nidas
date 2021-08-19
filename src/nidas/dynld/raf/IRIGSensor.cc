@@ -60,20 +60,18 @@ IRIGSensor::IRIGSensor():
 IRIGSensor::~IRIGSensor() {
 }
 
-IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
+IODevice* IRIGSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* IRIGSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
 
-void IRIGSensor::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void IRIGSensor::open(int flags)
 {
 
     DSMSensor::open(flags);
@@ -95,7 +93,7 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
  * Get the current time from the IRIG card via ioctl.
  * This is not meant to be used for frequent use.
  */
-dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
+dsm_time_t IRIGSensor::getIRIGTime()
 {
     dsm_time_t val;
 #if BITS_PER_LONG == 64
@@ -117,7 +115,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
     return val;
 }
 
-void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
+void IRIGSensor::setIRIGTime(dsm_time_t val)
 {
 #if BITS_PER_LONG == 64
     ioctl(IRIG_SET_CLOCK64,&val,sizeof(val));
@@ -129,7 +127,7 @@ void IRIGSensor::setIRIGTime(dsm_time_t val) throw(n_u::IOException)
 #endif
 }
 
-void IRIGSensor::checkClock() throw(n_u::IOException)
+void IRIGSensor::checkClock()
 {
     dsm_time_t unixTime,unixTimeLast=0;
     dsm_time_t irigTime,irigTimeLast=0;
@@ -213,7 +211,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
             "IRIG: %s",it.format(true,timeFormat).c_str());
 }
 
-void IRIGSensor::close() throw(n_u::IOException)
+void IRIGSensor::close()
 {
     DSMSensor::close();
 }
@@ -410,7 +408,6 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 }
 
 void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
     int ntags = getSampleTags().size();

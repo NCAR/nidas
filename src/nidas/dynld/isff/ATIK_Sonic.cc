@@ -65,7 +65,6 @@ ATIK_Sonic::~ATIK_Sonic()
 }
 
 void ATIK_Sonic::parseParameters()
-    throw(n_u::InvalidParameterException)
 {
     Wind3D::parseParameters();
 
@@ -107,9 +106,7 @@ void ATIK_Sonic::parseParameters()
 }
 
 void ATIK_Sonic::checkSampleTags()
-    throw(n_u::InvalidParameterException)
 {
-
     Wind3D::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
@@ -157,7 +154,7 @@ void ATIK_Sonic::checkSampleTags()
     _numParsed =  7;    // u,v,w,tc,ucount,vcount,wcount
 
 }
-void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw) throw()
+void ATIK_Sonic::transducerShadowCorrection(dsm_time_t, float* uvw)
 {
     if (_shadowFactor == 0.0) return;
 
@@ -216,7 +213,7 @@ namespace {
 
 
 bool ATIK_Sonic::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
 
     float uvwt[4];

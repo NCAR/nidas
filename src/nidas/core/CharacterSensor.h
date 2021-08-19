@@ -62,8 +62,10 @@ public:
      * usock:           UDPSocketIODevice
      * btspp:           BluetoothRFCommSocketIODevice
      * all others       UnixIODevice
+     *
+     * @throws nidas::util::IOException
      */
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    IODevice* buildIODevice();
 
     /**
      * Creates a SampleScanner for this DSMSensor depending on the
@@ -71,38 +73,48 @@ public:
      * name prefix      type of SampleScanner
      * usock:           DatagramSampleScanner
      * all others       MessageStreamScanner
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    SampleScanner* buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException);
+    SampleScanner* buildSampleScanner();
 
     /**
      * Open the sensor device port for real-time sampling.
      * This should only be done after the CharacterSensor
      * has been initialized with fromDOMElement.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
      */
-    void open(int flags) throw(nidas::util::IOException,
-    	nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /**
      * Implementation of DSMSensor::validate for a Character Sensor.
-     * Currently initializes all the prompts for this sensor
+     * Currently initializes all the prompts for this sensor.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
     /**
      * Initialize the CharacterSensor instance for post-processing.
      * This should only be done after the CharacterSensor
      * has been initialized with fromDOMElement.
      * Calls validateSscanfs.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     /**
      * The messageSeparator is the string of bytes that sensor
      * generates to separate messages.
-      */
-    virtual void setMessageParameters(unsigned int length, const std::string& val, bool eom)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void setMessageParameters(unsigned int length, const std::string& val,
+                                      bool eom);
 
     /**
      * Get message separator with backslash sequences replaced by their
@@ -165,22 +177,31 @@ public:
      */
     virtual bool isPrompting() const { return false; }
 
-    virtual void startPrompting() throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void startPrompting()
     {
         throw nidas::util::IOException(getName(),
 		"startPrompting","not supported");
     }
 
-    virtual void stopPrompting() throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void stopPrompting()
     {
         throw nidas::util::IOException(getName(),
 		"stopPrompting","not supported");
     }
 
-    virtual void togglePrompting() throw(nidas::util::IOException)
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void togglePrompting()
     {
-	if (isPrompting()) stopPrompting();
-	else startPrompting();
+        if (isPrompting()) stopPrompting();
+        else startPrompting();
     }
 
     /**
@@ -192,12 +213,15 @@ public:
 
     const std::string& getInitString() const { return _initString; }
 
-    virtual void sendInitString() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    virtual void sendInitString();
 
     bool getNullTerminated() const 
     {
         if (!getSampleScanner()) return false;
-	return getSampleScanner()->getNullTerminate();
+        return getSampleScanner()->getNullTerminate();
     }
 
     /**
@@ -205,14 +229,18 @@ public:
      * nothing parsed, because the sensor messages do not
      * correspond to the sscanf format.
      */
-    int getNumScanfFailures() const { return _scanfFailures; }
+    int getNumScanfFailures() const {
+        return _scanfFailures;
+    }
 
     /**
      * How many samples have been partially scanned, because
      * a character in the middle of a message conflicts
      * with the sscanf format.
      */
-    int getNumScanfPartials() const { return _scanfPartials; }
+    int getNumScanfPartials() const {
+        return _scanfPartials;
+    }
 
     /**
      * Return the list of AsciiSscanfs requested for this CharacterSensor.
@@ -235,19 +263,24 @@ public:
      * are OK.  The default implementation checks that the number of parse
      * fields in each sscanf parser matches the number of variables in
      * the associated output sample.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void validateSscanfs() throw(nidas::util::InvalidParameterException);
+    virtual void validateSscanfs();
 
     /**
      * Process a raw sample, which in this case means do
      * a sscanf on the character string contents, creating
      * a processed sample of binary floating point data.
+     *
+     * @throw()
      */
-    virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw();
+    virtual bool process(const Sample*,std::list<const Sample*>& result);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
     /**
      * @return: true if this CharacterSensor as been configured to

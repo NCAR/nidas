@@ -59,7 +59,7 @@ Licor7500::~Licor7500()
 {
 }
 
-void Licor7500::validate() throw(n_u::InvalidParameterException)
+void Licor7500::validate()
 {
     list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator ti = tags.begin();
@@ -102,9 +102,8 @@ void Licor7500::validate() throw(n_u::InvalidParameterException)
 }
 
 bool Licor7500::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
-
     nidas::core::SerialSensor::process(samp,results);
 
     if (results.empty()) return false;

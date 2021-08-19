@@ -84,7 +84,10 @@ public:
 
     void addThread(nidas::util::Thread* thrd);
 
-    void scheduleServices(bool optionalProcessing) throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void scheduleServices(bool optionalProcessing);
 
     void interruptServices() throw();
 
@@ -101,8 +104,10 @@ public:
         return *_statusSocketAddr;
     }
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
 private:
 

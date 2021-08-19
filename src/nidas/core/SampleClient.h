@@ -49,14 +49,18 @@ public:
    *     warning-type situation - like a socket not
    *     being available temporarily.  True errors
    *     will be thrown as an IOException.
+   *
+   * @throw()
    */
-  virtual bool receive(const Sample *s) throw() = 0;
+  virtual bool receive(const Sample *s) = 0;
 
   /**
    * Ask that this SampleClient send out any buffered Samples that it
    * may be holding.
+   *
+   * @throw()
    */
-  virtual void flush() throw() = 0;
+  virtual void flush() = 0;
 
 };
 

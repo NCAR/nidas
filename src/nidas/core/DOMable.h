@@ -58,23 +58,26 @@ public:
 
     /**
      * Initialize myself from a xercesc::DOMElement.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void fromDOMElement(const xercesc::DOMElement*)
-    	throw(nidas::util::InvalidParameterException) = 0;
+    virtual void fromDOMElement(const xercesc::DOMElement*) = 0;
 
     /**
      * Create a DOMElement and append it to the parent.
+     *
+     * @throws xercesc::DOMException
      */
     virtual xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent,bool complete) const
-		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent, bool complete) const;
 
     /**
      * Add my content into a DOMElement.
+     *
+     * @throws xercesc::DOMException
      */
     virtual xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node,bool complete) const
-		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
     static const XMLCh* getNamespaceURI() {
 	if (!namespaceURI) namespaceURI =

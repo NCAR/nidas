@@ -93,7 +93,7 @@ void DerivedDataReader::interrupt()
     }
 }
 
-int DerivedDataReader::run() throw(nidas::util::Exception)
+int DerivedDataReader::run()
 {
     char buffer[1024];
     n_u::DatagramPacket packet(buffer,sizeof(buffer)-1);

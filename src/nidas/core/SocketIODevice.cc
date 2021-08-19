@@ -49,11 +49,11 @@ SocketIODevice::~SocketIODevice()
 
 /* static */
 void SocketIODevice::parseAddress(const string& name, int& addrtype,
-    string& desthost, int& port, string& 
+                                  string& desthost, int& port, string& 
 #ifdef HAVE_BLUETOOTH_RFCOMM_H
-bindaddr
+                                  bindaddr
 #endif
-) throw(n_u::ParseException)
+)
 {
     string::size_type idx = name.find(':');
     addrtype = -1;
@@ -158,7 +158,6 @@ bindaddr
 }
 
 void SocketIODevice::open(int /* flags */)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     if (_addrtype < 0) {
 	try {

@@ -54,7 +54,6 @@ Datasets::Datasets(): _xmlName(),_datasetsByName()
 }
 
 void Datasets::addDataset(const Dataset& val)
-    throw(n_u::InvalidParameterException)
 {
     _datasetsByName[val.getName()] = val;
 }
@@ -67,7 +66,6 @@ void Datasets::removeDataset(const Dataset& val)
 }
 
 const Dataset& Datasets::getDataset(const string& name) const
-    throw(n_u::InvalidParameterException)
 {
     std::map<std::string, Dataset>::const_iterator di;
     if ((di = _datasetsByName.find(name)) == _datasetsByName.end())
@@ -85,9 +83,7 @@ std::list<Dataset> Datasets::getDatasets() const
     return dsets;
 }
 
-void Datasets::parseXML(const std::string& xmlFileName,bool verbose)
-    throw(nidas::core::XMLException,
-	 nidas::util::InvalidParameterException)
+void Datasets::parseXML(const std::string& xmlFileName, bool verbose)
 {
     _xmlName = xmlFileName;
 
@@ -106,8 +102,8 @@ void Datasets::parseXML(const std::string& xmlFileName,bool verbose)
     }
     doc->release();
 }
+
 void Datasets::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
 
     xercesc::DOMNode* child;
@@ -126,7 +122,6 @@ void Datasets::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void Datasets::writeXML(const std::string& xmlFileName)
-    throw(nidas::core::XMLException,n_u::IOException)
 {
     /*
      * From www.w3.org Dom level 3 docs:
@@ -179,7 +174,6 @@ void Datasets::writeXML(const std::string& xmlFileName)
 }
 
 xercesc::DOMElement* Datasets::toDOMParent(xercesc::DOMElement* parent) const
-    throw(xercesc::DOMException)
 {
 
     // cerr << "datasets, start toDOMParent" << endl;
@@ -191,8 +185,8 @@ xercesc::DOMElement* Datasets::toDOMParent(xercesc::DOMElement* parent) const
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
+
 xercesc::DOMElement* Datasets::toDOMElement(xercesc::DOMElement* elem) const
-    throw(xercesc::DOMException)
 {
     // cerr << "datasets, start toDOMElement" << endl;
     std::list<Dataset> datasets = getDatasets();
@@ -221,7 +215,6 @@ void Dataset::putenv() const
 }
 
 void Dataset::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if (xnode.getNodeName() != "dataset")
@@ -287,7 +280,6 @@ void Dataset::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 xercesc::DOMElement* Dataset::toDOMParent(xercesc::DOMElement* parent) const
-    throw(xercesc::DOMException)
 {
     // cerr << "dataset, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
@@ -297,8 +289,8 @@ xercesc::DOMElement* Dataset::toDOMParent(xercesc::DOMElement* parent) const
     parent->appendChild(elem);
     return toDOMElement(elem);
 }
+
 xercesc::DOMElement* Dataset::toDOMElement(xercesc::DOMElement* elem) const
-throw(xercesc::DOMException)
 {
     // cerr << "dataset, start toDOMElement" << endl;
     XDOMElement xelem(elem);

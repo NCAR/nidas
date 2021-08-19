@@ -66,13 +66,17 @@ public:
 
     /**
      * Open the D2A.
-     */
-    void open() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void open();
 
     /**
      * Close the D2A.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
     /**
      * Return number of VOUT pins on this device.
@@ -102,10 +106,11 @@ public:
      *      be changed to the corresponding limit value.
      * Throws nidas::util::InvalidParameterException if "which"
      * is out of range.
-     */
-    void setVoltage(int which,float val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void setVoltage(int which, float val);
 
     /**
      * Set one or more outputs.
@@ -115,11 +120,12 @@ public:
      *      be changed to the corresponding limit value.
      * Throws nidas::util::InvalidParameterException if "which"
      * is out of range.
-     */
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
     void setVoltages(const std::vector<int>& which,
-        const std::vector<float>& val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException);
+                     const std::vector<float>& val);
 
 private:
 

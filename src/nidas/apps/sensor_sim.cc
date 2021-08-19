@@ -73,8 +73,10 @@ public:
 
     /**
      * Implement this to send a message from the simulated sensor.
+     * 
+     * @throws nidas::util::IOException
      */
-    virtual void sendMessage() throw(n_u::IOException) = 0;
+    virtual void sendMessage() = 0;
 
     /**
      * Subclasses generate the message to send, then call writeMessage()
@@ -82,17 +84,17 @@ public:
      */
     virtual
     void
-    writeMessage(const std::string& msg) throw(n_u::IOException)
+    writeMessage(const std::string& msg)
     {
-	_port->write(msg.c_str(), msg.length());
+        _port->write(msg.c_str(), msg.length());
     }
 
     /** overloaded function useful for writing binary data */
     virtual
     void
-    writeMessage(const char* buf,std::streamsize l) throw(n_u::IOException)
+    writeMessage(const char* buf,std::streamsize l)
     {
-	_port->write(buf,l);
+        _port->write(buf,l);
     }
 
     /**
@@ -101,7 +103,7 @@ public:
      * the sensor is not prompted.  run() will return when
      * isInterrupted() is true.
      */
-    virtual void run() throw(n_u::Exception);
+    virtual void run();
 
     /**
      * Stop the simulation.
@@ -115,8 +117,8 @@ public:
 protected:
     Looper* getLooper();
 
-    void looperNotify() throw();
-    void readPrompts() throw(n_u::IOException);
+    void looperNotify() override;
+    void readPrompts();
 
     n_u::SerialPort* _port;
     bool _prompted;
@@ -139,7 +141,7 @@ Looper* SensorSimulator::getLooper()
     return _looper;
 }
 
-void SensorSimulator::looperNotify() throw()
+void SensorSimulator::looperNotify()
 {
     if (_interrupted) {
         _looper->removeClient(this);
@@ -155,7 +157,7 @@ void SensorSimulator::looperNotify() throw()
     }
 }
 
-void SensorSimulator::readPrompts() throw(n_u::IOException)
+void SensorSimulator::readPrompts()
 {
     const char* sop = _prompt.c_str();
     const char* eop = sop + _prompt.length();
@@ -175,7 +177,7 @@ void SensorSimulator::readPrompts() throw(n_u::IOException)
     }
 }
 
-void SensorSimulator::run() throw(n_u::Exception)
+void SensorSimulator::run()
 {
     if (_prompted) {
         readPrompts();
@@ -199,7 +201,7 @@ class FixedSim: public SensorSimulator
 public:
     FixedSim(n_u::SerialPort* p,const string& m,enum sep_type septype, string sep,
         bool prompted, string prompt, float rate,int nmessages);
-    void sendMessage() throw(n_u::IOException);
+    void sendMessage();
 private:
     string _msg;
     enum sep_type _septype;
@@ -224,7 +226,7 @@ FixedSim::FixedSim(n_u::SerialPort* p,const string& msg,
     }
 }
 
-void FixedSim::sendMessage() throw(n_u::IOException)
+void FixedSim::sendMessage()
 {
     writeMessage(_msg);
 }
@@ -331,9 +333,9 @@ public:
 	}
     }
 
-    void sendMessage() throw(n_u::IOException);
-    void sendASCIIMessage() throw(n_u::IOException);
-    void sendBinaryMessage() throw(n_u::IOException);
+    void sendMessage();
+    void sendASCIIMessage();
+    void sendBinaryMessage();
 
 private:
     string _path;
@@ -350,13 +352,13 @@ private:
     FileSim& operator=(const FileSim&);
 };
 
-void FileSim::sendMessage() throw(n_u::IOException)
+void FileSim::sendMessage()
 {
     if (_binary) sendBinaryMessage();
     else sendASCIIMessage();
 }
 
-void FileSim::sendBinaryMessage() throw(n_u::IOException)
+void FileSim::sendBinaryMessage()
 {
     // Grab the next chunk of input. 
     char buf[128];
@@ -370,7 +372,7 @@ void FileSim::sendBinaryMessage() throw(n_u::IOException)
     writeMessage(buf,l);
 }
 
-void FileSim::sendASCIIMessage() throw(n_u::IOException)
+void FileSim::sendASCIIMessage()
 {
     // Grab the next line from input.  If the standard input has finished,
     // repeat the last message forever, otherwise loop over the file.
@@ -420,13 +422,13 @@ public:
     Csat3Sim(n_u::SerialPort* p,float rate,int nmessages):
        SensorSimulator(p,false,"",rate,nmessages),_cntr(0)
        {}
-    void run() throw(n_u::Exception);
-    void sendMessage() throw(n_u::IOException);
+    void run();
+    void sendMessage();
 private:
     int _cntr;
 };
 
-void Csat3Sim::sendMessage() throw(n_u::IOException)
+void Csat3Sim::sendMessage()
 {
     if (_cntr % 64 == 99) {
         // every once in a while send a bunch of junk
@@ -444,7 +446,7 @@ void Csat3Sim::sendMessage() throw(n_u::IOException)
     _cntr++;
 }
 
-void Csat3Sim::run() throw(n_u::Exception)
+void Csat3Sim::run()
 {
     fd_set rfds;
     FD_ZERO(&rfds);

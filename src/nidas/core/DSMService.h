@@ -89,8 +89,10 @@ public:
 
     /**
      * schedule this service to run.
-     */
-    virtual void schedule(bool optionalProcessing) throw(nidas::util::Exception) = 0;
+     *
+     * @throws nidas::util::Exception
+     **/
+    virtual void schedule(bool optionalProcessing) = 0;
 
     virtual int checkSubThreads() throw();
 
@@ -100,12 +102,16 @@ public:
 
     virtual int join() throw();
 
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
     static const std::string getClassName(const xercesc::DOMElement* node,
-        const Project*)
-	throw(nidas::util::InvalidParameterException);
+                                          const Project*);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     nidas::util::Thread::SchedPolicy getSchedPolicy() const
     {

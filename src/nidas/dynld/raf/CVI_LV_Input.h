@@ -45,10 +45,16 @@ public:
 
     CVI_LV_Input();
 
-    void open(int flags)
-	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    IODevice* buildIODevice();
 
     /**
      * Adjust the processing of samples which come back from LabView.

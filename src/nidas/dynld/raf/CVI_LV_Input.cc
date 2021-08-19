@@ -40,13 +40,12 @@ CVI_LV_Input::CVI_LV_Input(): _tt0(0), prevCVTdiff(0)
 }
 
 void CVI_LV_Input::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     CharacterSensor::open(flags);
     init();
 }
 
-IODevice* CVI_LV_Input::buildIODevice() throw(n_u::IOException)
+IODevice* CVI_LV_Input::buildIODevice()
 {
     ServerSocketIODevice* dev = new ServerSocketIODevice();
     dev->setTcpNoDelay(true);

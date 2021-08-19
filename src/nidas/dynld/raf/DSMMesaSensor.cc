@@ -55,22 +55,20 @@ DSMMesaSensor::~DSMMesaSensor()
 {
 }
 
-IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSMMesaSensor::buildIODevice()
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new UnixIODevice();
 }
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()
-throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
 
 /*---------------------------------------------------------------------------*/
-void DSMMesaSensor::open(int flags) throw(n_u::IOException,
-        n_u::InvalidParameterException)
+void DSMMesaSensor::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -93,7 +91,6 @@ void DSMMesaSensor::open(int flags) throw(n_u::IOException,
 
 /*---------------------------------------------------------------------------*/
 bool DSMMesaSensor::process(const Sample * samp, list<const Sample *>& results)
-throw()
 {
     // pointer to 16 bit raw data
     const unsigned short * sp =
@@ -181,7 +178,6 @@ throw()
 
 /*---------------------------------------------------------------------------*/
 void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
-throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
 
@@ -246,7 +242,7 @@ throw(n_u::InvalidParameterException)
 }
 
 /*---------------------------------------------------------------------------*/
-void DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
+void DSMMesaSensor::sendFPGACodeToDriver()
 {
     vector<string> fnames;
     const Parameter* pparm = getParameter("firmware");
@@ -315,7 +311,6 @@ void DSMMesaSensor::sendFPGACodeToDriver() throw(n_u::IOException)
 
 /*---------------------------------------------------------------------------*/
 void DSMMesaSensor::selectfiletype(FILE * fp,const string& fname)
-throw(n_u::IOException)
 {
     unsigned char b[14];
 

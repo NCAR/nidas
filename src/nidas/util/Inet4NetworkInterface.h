@@ -86,9 +86,10 @@ public:
      * This static method will throw an IOException if a temporary TCP Socket
      * cannot be created on this host, or if the system call to fetch its
      * interfaces fails.
+     *
+     * @throws nidas::util::IOException
      */
-    static Inet4NetworkInterface getInterface(const Inet4Address& addr)
-        throw (nidas::util::IOException);
+    static Inet4NetworkInterface getInterface(const Inet4Address& addr);
 
 private:
     std::string _name;

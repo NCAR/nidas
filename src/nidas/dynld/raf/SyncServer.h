@@ -78,21 +78,26 @@ public:
      * Between calling this method and entering run(), no samples have been
      * processed, so the calibrations can be replaced and will take effect
      * when processing starts.
+     *
+     * @throws nidas::util::Exception
      **/
     void
-    init() throw(nidas::util::Exception);
+    init();
 
     /**
      * This method implements the Runnable interface for Threads, but it
      * can also be called synchronously when run from main().
      **/
     int
-    run() throw(nidas::util::Exception);
+    run();
 
     virtual void interrupt();
 
+    /**
+     * @throws nidas::util::IOException
+     **/
     void
-    read(bool once = false) throw(nidas::util::IOException);
+    read(bool once = false);
 
     void
     setSorterLengthSeconds(float sorter_secs)

@@ -52,7 +52,7 @@
 using namespace nidas::util;
 using namespace std;
 
-BluetoothRFCommSocket::BluetoothRFCommSocket() throw(IOException):
+BluetoothRFCommSocket::BluetoothRFCommSocket():
     _fd(-1),_localaddr(0),_remoteaddr(0),
     _hasTimeout(false),_timeout()
 {
@@ -62,8 +62,7 @@ BluetoothRFCommSocket::BluetoothRFCommSocket() throw(IOException):
     _remoteaddr = _localaddr->clone();	// not connected yet
 }
 
-BluetoothRFCommSocket::BluetoothRFCommSocket(int fda, const SocketAddress& raddr)
-	throw(IOException) :
+BluetoothRFCommSocket::BluetoothRFCommSocket(int fda, const SocketAddress& raddr):
     _fd(fda),_localaddr(0),_remoteaddr(raddr.clone()),
     _hasTimeout(false),_timeout()
 {
@@ -111,7 +110,7 @@ int BluetoothRFCommSocket::getTimeout() const
     return _timeout.tv_sec * MSECS_PER_SEC + _timeout.tv_nsec / NSECS_PER_MSEC;
 }
 
-void BluetoothRFCommSocket::close() throw(IOException) 
+void BluetoothRFCommSocket::close()
 {
 
 #ifdef DEBUG
@@ -125,21 +124,18 @@ void BluetoothRFCommSocket::close() throw(IOException)
 }
 
 void BluetoothRFCommSocket::connect(const std::string& host, int port)
-	throw(UnknownHostException,IOException)
 {
     BluetoothAddress addr = BluetoothAddress::getByName(host);
     connect(addr,port);
 }
 
-void BluetoothRFCommSocket::connect(const BluetoothAddress& addr,int port)
-	throw(IOException)
+void BluetoothRFCommSocket::connect(const BluetoothAddress& addr, int port)
 {
     BluetoothRFCommSocketAddress sockaddr(addr,port);
     connect(sockaddr);
 }
 
 void BluetoothRFCommSocket::connect(const SocketAddress& addr)
-	throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(AF_BLUETOOTH,SOCK_STREAM, BTPROTO_RFCOMM)) < 0)
 	throw IOException("BluetoothRFCommSocket","open",errno);
@@ -152,21 +148,19 @@ void BluetoothRFCommSocket::connect(const SocketAddress& addr)
 }
 
 
-void BluetoothRFCommSocket::bind(int port) throw(IOException)
+void BluetoothRFCommSocket::bind(int port)
 {
     BluetoothAddress addr;	// default
     bind(addr,port);
 }
 
-void BluetoothRFCommSocket::bind(const BluetoothAddress& addr,int port)
-	throw(IOException)
+void BluetoothRFCommSocket::bind(const BluetoothAddress& addr, int port)
 {
     BluetoothRFCommSocketAddress sockaddr(addr,port);
     bind(sockaddr);
 }
 
 void BluetoothRFCommSocket::bind(const SocketAddress& sockaddr)
-	throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(AF_BLUETOOTH,SOCK_STREAM,BTPROTO_RFCOMM)) < 0)
 	throw IOException("BluetoothRFCommSocket","open",errno);
@@ -179,7 +173,7 @@ void BluetoothRFCommSocket::bind(const SocketAddress& sockaddr)
     getLocalAddr();
 }
 
-void BluetoothRFCommSocket::listen() throw(IOException)
+void BluetoothRFCommSocket::listen()
 {
     if (_fd < 0)
 	throw IOException("BluetoothRFCommSocket","listen",EBADF);
@@ -188,7 +182,7 @@ void BluetoothRFCommSocket::listen() throw(IOException)
 	throw IOException(_localaddr->toAddressString(),"listen",errno);
 }
 
-BluetoothRFCommSocket* BluetoothRFCommSocket::accept() throw(IOException)
+BluetoothRFCommSocket* BluetoothRFCommSocket::accept()
 {
     if (_fd < 0)
 	throw IOException("BluetoothRFCommSocket","accept",EBADF);
@@ -255,7 +249,7 @@ BluetoothRFCommSocket* BluetoothRFCommSocket::accept() throw(IOException)
     return 0;
 }
 
-void BluetoothRFCommSocket::getLocalAddr() throw(IOException)
+void BluetoothRFCommSocket::getLocalAddr()
 {
     SocketAddress* newaddr;
     struct sockaddr_rc tmpaddr;
@@ -267,7 +261,7 @@ void BluetoothRFCommSocket::getLocalAddr() throw(IOException)
     _localaddr = newaddr;
 }
 
-void BluetoothRFCommSocket::getRemoteAddr() throw(IOException)
+void BluetoothRFCommSocket::getRemoteAddr()
 {
     SocketAddress* newaddr;
     struct sockaddr_rc tmpaddr;
@@ -279,7 +273,7 @@ void BluetoothRFCommSocket::getRemoteAddr() throw(IOException)
     _remoteaddr = newaddr;
 }
 
-void BluetoothRFCommSocket::setNonBlocking(bool val) throw(IOException)
+void BluetoothRFCommSocket::setNonBlocking(bool val)
 {
     int flags;
     /* set io to non-blocking, so network jams don't hang us up */
@@ -298,7 +292,7 @@ void BluetoothRFCommSocket::setNonBlocking(bool val) throw(IOException)
 	(val ? "true" : "false")));
 }
 
-bool BluetoothRFCommSocket::isNonBlocking() const throw(IOException)
+bool BluetoothRFCommSocket::isNonBlocking() const
 {
     int flags;
     /* set io to non-blocking, so network jams don't hang us up */
@@ -310,7 +304,6 @@ bool BluetoothRFCommSocket::isNonBlocking() const throw(IOException)
 }
 
 size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
-	throw(IOException)
 {
     ssize_t res;
     if (_hasTimeout) {
@@ -374,7 +367,6 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
 }
 
 size_t BluetoothRFCommSocket::send(const void* buf, size_t len, int flags)
-	throw(IOException)
 {
     ssize_t res;
     if ((res = ::send(_fd,buf,len,flags)) < 0) {
@@ -385,7 +377,6 @@ size_t BluetoothRFCommSocket::send(const void* buf, size_t len, int flags)
 }
 
 size_t BluetoothRFCommSocket::send(const struct iovec* iov, int iovcnt, int flags)
-	throw(IOException)
 {
     ssize_t res;
     struct msghdr msghdr;
@@ -400,7 +391,6 @@ size_t BluetoothRFCommSocket::send(const struct iovec* iov, int iovcnt, int flag
 }
 
 void BluetoothRFCommSocket::sendall(const void* buf, size_t len, int flags)
-	throw(IOException)
 {
     const char* cbuf = (const char*)buf;
     const char* eob = cbuf + len;

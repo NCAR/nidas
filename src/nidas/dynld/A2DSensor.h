@@ -51,18 +51,28 @@ public:
 
     /**
      * Open the device connected to the sensor.
-     */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void open(int flags);
 
-    void init() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void init();
 
     /*
      * Close the device connected to the sensor.
-     */
-    void close() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     void setScanRate(int val) { _scanRate = val; }
 
@@ -84,9 +94,10 @@ public:
      * values. If the values are OK, they should call base class
      * A2DSensor::setA2DParameters().
      * @param bipolar: 0=unipolar, 1=bipolar
-     */
-    virtual void setA2DParameters(int ichan,int gain,int bipolar)
-        throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void setA2DParameters(int ichan, int gain, int bipolar);
 
     /**
      * Get the current gain and bipolar parameters for a channel.
@@ -116,10 +127,10 @@ public:
      * Set the values for a linear correction to the basic conversion.
      * An intercept of 0. and a slope of 1. would result in no
      * additional correction.
-     */
-    virtual void setConversionCorrection(int ichan,float intercept,
-        float slope) throw(nidas::util::InvalidParameterException);
-
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void setConversionCorrection(int ichan, float intercept, float slope);
 
     /**
      * Get the values for a linear correction to the basic conversion.

@@ -181,8 +181,8 @@ env['ARCHPREFIX'] = '$PREFIX'
 # print('SHCXXFLAGS=' + str(env['SHCXXFLAGS']))
 
 # env['CXX'] = 'clang++'
-env['CFLAGS'] = [ '-Wall','-O2' ]
-env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated' ]
+env['CFLAGS'] = ['-Wall','-O2']
+env['CXXFLAGS'] = ['-Wall', '-O2']
 if env['CXX'] == 'clang++':
     # Someday it might be nice to refactor the remaining overloaded virtual
     # functions, but for now they're working and haven't seemed to bite us yet.

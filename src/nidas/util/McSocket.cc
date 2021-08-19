@@ -93,7 +93,6 @@ McSocketDatagram& McSocketDatagram::operator=(const McSocketDatagram& rhs)
 
 /* static */
 void McSocketListener::accept(McSocket<Socket>* mcsocket)
-    throw(Exception)
 {
     const Inet4SocketAddress& mcAddr = mcsocket->getInet4McastSocketAddress();
 
@@ -121,7 +120,6 @@ void McSocketListener::accept(McSocket<Socket>* mcsocket)
 
 /* static */
 void McSocketListener::accept(McSocket<DatagramSocket>* mcsocket)
-    throw(Exception)
 {
     const Inet4SocketAddress& mcAddr = mcsocket->getInet4McastSocketAddress();
 
@@ -149,7 +147,6 @@ void McSocketListener::accept(McSocket<DatagramSocket>* mcsocket)
 
 /* static */
 void McSocketListener::close(McSocket<Socket>* mcsocket)
-    throw(Exception)
 {
     const Inet4SocketAddress& mcAddr = mcsocket->getInet4McastSocketAddress();
 
@@ -180,7 +177,6 @@ void McSocketListener::close(McSocket<Socket>* mcsocket)
 
 /* static */
 void McSocketListener::close(McSocket<DatagramSocket>* mcsocket)
-    throw(Exception)
 {
     const Inet4SocketAddress& mcAddr = mcsocket->getInet4McastSocketAddress();
 
@@ -307,7 +303,7 @@ void McSocketListener::interrupt()
     }
 }
 
-int McSocketListener::run() throw(Exception)
+int McSocketListener::run()
 {
     if (_mcastAddr.getInet4Address().isMultiCastAddress())
     {

@@ -57,8 +57,10 @@ public:
      * Read IOStream until the SampleInputHeader has been
      * fully read.  This will perform one or more
      * iostream->read()s.
-     */
-    void read(IOStream* iostream) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void read(IOStream* iostream);
 
     /**
      * Parse the current contents of the IOStream for the
@@ -66,8 +68,10 @@ public:
      * @return true: SampleInputHeader has been fully parsed.
      *      false: SampleInputHeader not completely parsed yet,
      *          another iostream->read() is necessary.
-     */
-    bool parse(IOStream* iostream) throw(nidas::util::ParseException);
+     *
+     * @throws nidas::util::ParseException
+     **/
+    bool parse(IOStream* iostream);
 
     /**
      * Get length in bytes of the header.
@@ -79,9 +83,15 @@ public:
      */
     std::string toString() const;
 
-    size_t write(SampleOutput* output) const throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(SampleOutput* output) const;
 
-    size_t write(IOStream* iostream) const throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(IOStream* iostream) const;
 
     void setArchiveVersion(const std::string& val) { _archiveVersion = val; }
     const std::string& getArchiveVersion() const { return _archiveVersion; }
@@ -103,11 +113,20 @@ public:
 
 protected:
 
-    bool parseMagic(IOStream* iostream) throw(nidas::util::ParseException);
+    /**
+     * @throws nidas::util::ParseException
+     **/
+    bool parseMagic(IOStream* iostream);
 
-    bool parseTag(IOStream* iostream) throw(nidas::util::ParseException);
+    /**
+     * @throws nidas::util::ParseException
+     **/
+    bool parseTag(IOStream* iostream);
 
-    bool parseValue(IOStream* iostream) throw(nidas::util::ParseException);
+    /**
+     * @throws nidas::util::ParseException
+     **/
+    bool parseValue(IOStream* iostream);
 
 private:
 

@@ -52,7 +52,10 @@ public:
      */
     static void destroyInstance();
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
     /**
      * Interrupt the thread. It will delete itself.

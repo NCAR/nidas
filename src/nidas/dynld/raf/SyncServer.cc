@@ -127,7 +127,7 @@ initSensors(SampleInputStream& sis)
 
 int
 SyncServer::
-run() throw(n_u::Exception)
+run()
 {
     DLOG(("SyncServer::run() started."));
     try {
@@ -290,7 +290,7 @@ openStream()
 
 void
 SyncServer::
-init() throw(n_u::Exception)
+init()
 {
     DLOG(("SyncServer::init() starting."));
     openStream();
@@ -408,7 +408,7 @@ handleSample(Sample* sample)
 
 void
 SyncServer::
-read(bool once) throw(n_u::IOException)
+read(bool once)
 {
     DLOG(("SyncServer::read() entered."));
     bool eof = false;

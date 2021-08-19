@@ -44,7 +44,7 @@ TCPSocketIODevice::~TCPSocketIODevice()
     close();
 }
 
-void TCPSocketIODevice::close() throw(n_u::IOException)
+void TCPSocketIODevice::close()
 {
     if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -56,7 +56,6 @@ void TCPSocketIODevice::close() throw(n_u::IOException)
 }
 
 void TCPSocketIODevice::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SocketIODevice::open(flags);
 
@@ -68,7 +67,6 @@ void TCPSocketIODevice::open(int flags)
 }
 
 size_t TCPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
-    throw(nidas::util::IOException)
 {
     size_t l = 0;
     try {

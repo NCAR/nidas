@@ -403,7 +403,7 @@ Thread::pRun()
 }
 
 void
-Thread::start() throw(Exception)
+Thread::start()
 {
     Synchronized sync(_mutex);
     if (!_id)
@@ -466,7 +466,7 @@ Thread::start() throw(Exception)
  * Perhaps one doesn't really need to know.
  */
 int
-Thread::join() throw(Exception)
+Thread::join()
 {
     int status;
     void* thread_return = (void *)RUN_OK;
@@ -492,7 +492,7 @@ Thread::join() throw(Exception)
 }
 
 void
-Thread::kill(int sig) throw(Exception)
+Thread::kill(int sig)
 {
     int status;
     Synchronized sync(_mutex);
@@ -507,7 +507,7 @@ Thread::kill(int sig) throw(Exception)
  * Queue a cancel request to this thread.
  */
 void
-Thread::cancel() throw(Exception)
+Thread::cancel()
 {
     int status;
     Synchronized sync(_mutex);
@@ -604,29 +604,29 @@ Thread::interrupt()
 }
 
 
-bool Thread::setRealTimeRoundRobinPriority(int val) throw(Exception) {
+bool Thread::setRealTimeRoundRobinPriority(int val) {
     // if (getuid() != 0) != 0) return false;
     setThreadScheduler(NU_THREAD_RR,val);
     return true;
 }
 
-bool Thread::setRealTimeFIFOPriority(int val) throw(Exception) {
+bool Thread::setRealTimeFIFOPriority(int val) {
     // if (geteuid() != 0) != 0) return false;
     setThreadScheduler(NU_THREAD_FIFO,val);
     return true;
 }
 
-bool Thread::setNonRealTimePriority() throw(Exception) {
+bool Thread::setNonRealTimePriority() {
     setThreadScheduler(NU_THREAD_OTHER,0);
     return true;
 }
 
-void Thread::setThreadScheduler(enum SchedPolicy policy,int val) throw(Exception) {
+void Thread::setThreadScheduler(enum SchedPolicy policy,int val) {
     Synchronized autolock(_mutex);
     setThreadSchedulerNolock(policy,val);
 }
 
-void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exception)
+void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val)
 {
     int status;
     sched_param param = sched_param();
@@ -694,7 +694,7 @@ int Thread::test(int, char**)
         }
         ~ThreadTest1() { std::cerr << getName() << " dtor, running=" << isRunning() <<
             " joined=" << isJoined() << std::endl; }
-        int run() throw(Exception)
+        int run()
         {
             // std::cerr << getFullName() << " run starting" << std::endl;
             struct timespec ts;
@@ -719,7 +719,7 @@ int Thread::test(int, char**)
             DetachedThread(name) {}
         ~ThreadTestD() { std::cerr << getName() << " dtor, running=" << isRunning() <<
             " joined=" << isJoined() << std::endl; }
-        int run() throw(Exception)
+        int run()
         {
             std::cerr << getFullName() << " run starting" << std::endl;
             struct timespec ts;
@@ -743,7 +743,7 @@ int Thread::test(int, char**)
             Thread(name,detached) {}
         ~ThreadTestE() { std::cerr << getName() << " dtor, running=" << isRunning() <<
             " joined=" << isJoined() << std::endl; }
-        int run() throw(Exception)
+        int run()
         {
             std::cerr << getFullName() << " run starting" << std::endl;
             struct timespec ts;

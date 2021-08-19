@@ -106,31 +106,42 @@ public:
 
     /**
      * Synchronous mount request (on return the file system is mounted).
+     *
+     * @throws nidas::util::IOException
      */
-    void mount() throw(nidas::util::IOException);
+    void mount();
 
     /**
      * Just issue a "mount /dir" command. If /dir is automounted
      * then it may work, whereas  "mount /dev/sdXn -o blahblah /dir"
      * may fail for the user on a server.
+     *
+     * @throws nidas::util::IOException
      */
-    void autoMount() throw(nidas::util::IOException);
+    void autoMount();
 
     /**
      * Asynchronous mount request. finished() method will
      * be called when mount is done. Does not own
      * the FileSet pointer.
+     *
+     * @throws nidas::util::IOException
      */
-    void mount(FileSet*) throw(nidas::util::IOException);
+    void mount(FileSet*);
 
-    void unmount() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void unmount();
 
     void cancel();
 
     void finished();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
 
@@ -169,7 +180,10 @@ class FsMountWorkerThread : public nidas::util::Thread
 {
 public:
     FsMountWorkerThread(FsMount* fsm);
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
 private:
     FsMount* fsmount;

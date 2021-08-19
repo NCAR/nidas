@@ -42,7 +42,7 @@ const char* SerialOptions::_regexpression =
     /*                                   modem  cntl   cook */
         "^([0-9]+)([neo])([78])([12])([lm])([nhs])([rc])([ncdx][ncx])?$";
 
-SerialOptions::SerialOptions() throw(ParseException) :
+SerialOptions::SerialOptions() :
     _compRegex(),_compileResult(),_nmatch(0), _termios()
 {
     int cflags = REG_EXTENDED;	// REG_EXTENDED, REG_ICASE, REG_NOSUB, REG_NEWLINE
@@ -81,7 +81,7 @@ const char* SerialOptions::usage() {
         cooked, convert input CR->NL, output NL->CR (unix terminal)\n";
 }
 
-void SerialOptions::parse(const string& input) throw(ParseException)
+void SerialOptions::parse(const string& input)
 {
     if (_compileResult != 0) {
         size_t i = regerror(_compileResult,&_compRegex,0,0);

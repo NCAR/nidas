@@ -45,8 +45,10 @@ public:
     /**
      * The method which will run in its own thread.  This method must
      * be supplied by the Runnable or Thread subclass.
+     *
+     * @throws Exception
      **/
-    virtual int run() throw(Exception) = 0;
+    virtual int run() = 0;
 
     /**
      * Interrupt this run method.  This sets a flag which can be tested with
@@ -151,8 +153,10 @@ public:
     /**
      * Start the thread running, meaning execute the run method in a
      * separate thread.
+     *
+     * @throws Exception
      */
-    virtual void start() throw(Exception);
+    virtual void start();
 
     /**
      * The calling thread joins this thread, waiting until the thread
@@ -161,18 +165,24 @@ public:
      * The return value is the int return value of the run method,
      * or PTHREAD_CANCELED (-1).  If the run method threw an Exception,
      * it will be caught and then re-thrown by join.
+     *
+     * @throws Exception
      */
-    virtual int join() throw(Exception);
+    virtual int join();
 
     /**
      * Send a signal to this thread.
+     *
+     * @throws Exception
      */
-    virtual void kill(int sig) throw(Exception);
+    virtual void kill(int sig);
 
     /**
      * Cancel this thread.
+     *
+     * @throws Exception
      */
-    virtual void cancel() throw(Exception);
+    virtual void cancel();
 
     /**
      * Interrupt this thread.  This sets a boolean which can be tested with
@@ -316,11 +326,25 @@ public:
     enum SchedPolicy { NU_THREAD_OTHER=SCHED_OTHER,
         NU_THREAD_FIFO=SCHED_FIFO, NU_THREAD_RR=SCHED_RR};
 
-    bool setRealTimeRoundRobinPriority(int val) throw(Exception);
-    bool setRealTimeFIFOPriority(int val) throw(Exception);
-    bool setNonRealTimePriority() throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    bool setRealTimeRoundRobinPriority(int val);
 
-    void setThreadScheduler(enum SchedPolicy policy, int priority) throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    bool setRealTimeFIFOPriority(int val);
+
+    /**
+     * @throws Exception
+     **/
+    bool setNonRealTimePriority();
+
+    /**
+     * @throws Exception
+     **/
+    void setThreadScheduler(enum SchedPolicy policy, int priority);
 
     /**
      * Block a signal in this thread. This method is usually called
@@ -454,7 +478,10 @@ private:
 
     virtual int pRun ();
 
-    void setThreadSchedulerNolock(enum SchedPolicy policy, int priority) throw(Exception);
+    /**
+     * @throws Exception
+     **/
+    void setThreadSchedulerNolock(enum SchedPolicy policy, int priority);
 
     void makeFullName();		// add thread id to name once we know it
 
@@ -545,12 +572,12 @@ public:
     }
 
     int
-        run () throw(Exception)
-        {
-            if (_target)
-                return _target->run();
-            return NOT_RUNNING;
-        }
+    run ()
+    {
+        if (_target)
+            return _target->run();
+        return NOT_RUNNING;
+    }
 
 private:
     Runnable *_target;

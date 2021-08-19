@@ -130,9 +130,10 @@ public:
     /**
      * Add a request for a SampleTag from this SampleIOProcessor.
      * This SampleIOProcessor will own the SampleTag.
-     */
-    virtual void addRequestedSampleTag(SampleTag* tag)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void addRequestedSampleTag(SampleTag* tag);
 
     virtual std::list<const SampleTag*> getRequestedSampleTags() const;
 
@@ -220,9 +221,10 @@ public:
      * will then own the pointer and will delete it
      * in its destructor. If a Parameter exists with the
      * same name, it will be replaced with the new Parameter.
-     */
-    void addParameter(Parameter* val)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addParameter(Parameter* val);
 
     /**
      * Get list of parameters.
@@ -232,8 +234,10 @@ public:
 	return _constParameters;
     }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     virtual void printStatus(std::ostream&,float,int&) throw() {}
 

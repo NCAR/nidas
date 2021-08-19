@@ -89,7 +89,6 @@ WisardMote::~WisardMote()
 }
 
 void WisardMote::validate()
-    throw (n_u::InvalidParameterException)
 {
     // Since WisardMote data has internal identifiers (mote ids and
     // sensor types), multiple WisardMote sensors can be instantiated on
@@ -158,7 +157,6 @@ void WisardMote::validate()
 }
 
 void WisardMote::createSampleTags(const SampleTag* stag,const vector<int>& sensorMotes,list<SampleTag*>& newtags)
-    throw (n_u::InvalidParameterException)
 {
 
     // The stag must contain a Parameter, called "stypes", specifing one or
@@ -359,9 +357,7 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
 }
 
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
-throw ()
 {
-
     if (_processorSensor != this) return false;
 
     /* unpack a WisardMote packet, consisting of binary integer data from a variety

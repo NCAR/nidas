@@ -52,7 +52,7 @@ ViperDIO::~ViperDIO()
     catch(const n_u::IOException& e) {}
 }
 
-void ViperDIO::open() throw(n_u::IOException)
+void ViperDIO::open()
 {
 
     if ((_fd = ::open(_devName.c_str(),O_RDWR)) < 0)
@@ -66,7 +66,7 @@ void ViperDIO::open() throw(n_u::IOException)
 }
 
 
-void ViperDIO::close() throw(n_u::IOException)
+void ViperDIO::close()
 {
     // don't bother checking for error.
     if (_fd >= 0) ::close(_fd);
@@ -74,8 +74,6 @@ void ViperDIO::close() throw(n_u::IOException)
 }
 
 void ViperDIO::setOutputs(const n_u::BitArray& which)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
 {
     if (which.getLength() > _noutputs) {
         ostringstream ost;
@@ -88,8 +86,6 @@ void ViperDIO::setOutputs(const n_u::BitArray& which)
 }
 
 void ViperDIO::clearOutputs(const n_u::BitArray& which)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
 {
 
     if (which.getLength() > _noutputs) {
@@ -102,9 +98,7 @@ void ViperDIO::clearOutputs(const n_u::BitArray& which)
         throw n_u::IOException(_devName,"ioctl VIPER_DIO_SET",errno);
 }
 
-void ViperDIO::setOutputs(const n_u::BitArray& which,const n_u::BitArray& val)
-            throw(nidas::util::IOException,
-                nidas::util::InvalidParameterException)
+void ViperDIO::setOutputs(const n_u::BitArray& which, const n_u::BitArray& val)
 {
     if (which.getLength() > _noutputs || val.getLength() > _noutputs) {
         ostringstream ost;
@@ -119,7 +113,6 @@ void ViperDIO::setOutputs(const n_u::BitArray& which,const n_u::BitArray& val)
 }
 
 n_u::BitArray ViperDIO::getOutputs()
-            throw(nidas::util::IOException)
 {
     unsigned char bits;
     if (::ioctl(_fd,VIPER_DIO_GET_DOUT,&bits) < 0)
@@ -130,7 +123,6 @@ n_u::BitArray ViperDIO::getOutputs()
 }
 
 n_u::BitArray ViperDIO::getInputs()
-            throw(nidas::util::IOException)
 {
     unsigned char bits;
     if (::ioctl(_fd,VIPER_DIO_GET_DIN,&bits) < 0)
