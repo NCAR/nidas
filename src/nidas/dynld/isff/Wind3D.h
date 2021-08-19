@@ -60,7 +60,7 @@ public:
      * orientation corrections, bias, tilts and horizontal rotations, as configured.
      */
     bool process(const nidas::core::Sample* samp, 
-        std::list<const nidas::core::Sample*>& results) throw();
+        std::list<const nidas::core::Sample*>& results);
 
     void setBias(int i, double val);
 
@@ -214,14 +214,13 @@ public:
      * Validate the configuration of this sensor. Calls the base class
      * validate(), parseParameters(), and checkSampleTags().
      */
-    void validate()
-	throw(nidas::util::InvalidParameterException);
+    void validate();
 
     /**
      * Warn user if number of scanf fields does not match
      * number expected from variables in sample.
      */
-    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+    void validateSscanfs();
 
     /**
      * Parse the list of nidas::core::Parameter that are associated with this sensor.
@@ -230,12 +229,12 @@ public:
      * singleton, calls setDoTiltCorrection() and setDoHorizontalRotation()
      * accordingly.
      */
-    virtual void parseParameters() throw(nidas::util::InvalidParameterException);
+    virtual void parseParameters();
 
     /**
      * Check the SampleTags that are defined for this sensor.
      */
-    virtual void checkSampleTags() throw(nidas::util::InvalidParameterException);
+    virtual void checkSampleTags();
 
 #ifdef HAVE_LIBGSL
     /**
@@ -243,9 +242,9 @@ public:
      * transducer coordinates to orthoganal UVW coordinates. These values are typically
      * in a CalFile.
      */
-    virtual void getTransducerRotation(nidas::core::dsm_time_t tt) throw();
+    virtual void getTransducerRotation(nidas::core::dsm_time_t tt);
 
-    virtual void transducerShadowCorrection(nidas::core::dsm_time_t, float *) throw();
+    virtual void transducerShadowCorrection(nidas::core::dsm_time_t, float *);
 #endif
 
 protected:

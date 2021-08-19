@@ -57,12 +57,11 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags);
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
 
 protected:

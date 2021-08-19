@@ -52,7 +52,7 @@ AlicatSDI::~AlicatSDI()
 }
 
 
-void AlicatSDI::validate() throw(n_u::InvalidParameterException)
+void AlicatSDI::validate()
 {
     SerialSensor::validate();
 
@@ -95,7 +95,7 @@ void AlicatSDI::validate() throw(n_u::InvalidParameterException)
     _Qfac = 100.0 * M_PI * pow(tipDiam / 2.0, 2.0) * 60.0 / 1000.0;
 }
 
-void AlicatSDI::open(int flags) throw(n_u::IOException)
+void AlicatSDI::open(int flags)
 {
     SerialSensor::open(flags);
 
@@ -128,7 +128,7 @@ void AlicatSDI::open(int flags) throw(n_u::IOException)
 }
 
 
-void AlicatSDI::close() throw(n_u::IOException)
+void AlicatSDI::close()
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
@@ -136,7 +136,7 @@ void AlicatSDI::close() throw(n_u::IOException)
 }
 
 
-void AlicatSDI::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+void AlicatSDI::derivedDataNotify(const nidas::core::DerivedDataReader * s)
 {
     try {
         if ( !isnan(s->getTrueAirspeed()) ) {
@@ -178,7 +178,7 @@ float AlicatSDI::computeFlow()
 }
 
 
-void AlicatSDI::sendFlow(float flow) throw(n_u::IOException)
+void AlicatSDI::sendFlow(float flow)
 {
     char tmp[128];
     sprintf(tmp, "<AS>%.1f\r", flow);

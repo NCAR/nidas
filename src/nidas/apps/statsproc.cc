@@ -76,7 +76,7 @@ public:
 
     int listOutputSamples();
 
-    Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
+    Dataset getDataset();
 
     void
     requireConfigsXML()
@@ -420,8 +420,7 @@ int StatsProcess::usage(const char* argv0)
 }
 
 
-Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException,
-                                         XMLException)
+Dataset StatsProcess::getDataset()
 {
     string XMLName;
     const char* ndptr = getenv("NIDAS_DATASETS");

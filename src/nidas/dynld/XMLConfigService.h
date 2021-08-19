@@ -50,7 +50,7 @@ public:
     void connect(SampleInput*) throw() { assert(false); }
     void disconnect(SampleInput*) throw() { assert(false); }
 
-    void schedule(bool optionalProcessing) throw(nidas::util::Exception);
+    void schedule(bool optionalProcessing);
 
     virtual McSocketRequest getRequestType() const 
     {
@@ -69,7 +69,7 @@ protected:
         public:
             Worker(XMLConfigService* svc,IOChannel* iochan,const DSMConfig* dsm = 0);
             ~Worker();
-            int run() throw(nidas::util::Exception);
+            int run();
             void interrupt();
         private:
             XMLConfigService* _svc;

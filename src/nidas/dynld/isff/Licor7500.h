@@ -45,10 +45,9 @@ public:
 
     ~Licor7500();
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    bool process(const nidas::core::Sample* samp,std::list<const nidas::core::Sample*>& results)
-    	throw();
+    bool process(const nidas::core::Sample* samp,std::list<const nidas::core::Sample*>& results);
 
 private:
 

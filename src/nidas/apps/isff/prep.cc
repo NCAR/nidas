@@ -153,8 +153,7 @@ public:
 
     map<double, vector<const Variable*> >
     matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
-                   set<DSMSensor*>& activeSensors)
-        throw (n_u::InvalidParameterException);
+                   set<DSMSensor*>& activeSensors);
 
     // default initialization values, which are displayed in usage() method.
     static const int defaultNCInterval = 1;
@@ -694,7 +693,7 @@ int DataPrep::main(int argc, char** argv)
 map<double, vector<const Variable*> >
 DataPrep::matchVariables(const Project& project,
     set<const DSMConfig*>& activeDsms,
-    set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
+    set<DSMSensor*>& activeSensors)
 {
     map<double, vector<const Variable*> > variables;
 

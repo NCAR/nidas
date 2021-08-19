@@ -63,7 +63,7 @@ public:
     DMD_MMAT_test();
     int usage(const char* argv0);
     int parseRunstring(int argc, char* argv[]);
-    void run() throw(n_u::IOException);
+    void run();
 private:
     string _deviceName;
     vector<const_out> _const_out;
@@ -78,7 +78,7 @@ DMD_MMAT_test::DMD_MMAT_test():
 
 int DMD_MMAT_test::usage(const char *)
 {
-    cerr << "\n--- Output Constant Voltage from DAC Device ---\n\ 
+    cerr << "\n--- Output Constant Voltage from DAC Device ---\n\
     usage: [-h] [-v] [-a] -w chan,vout -d devicename\n\
     -v                        : verbose status, results\n\
     -a                        : perform autocalibration sequence\n\
@@ -129,7 +129,7 @@ int DMD_MMAT_test::parseRunstring(int argc, char * argv[])
     return 0;
 }
 
-void DMD_MMAT_test::run() throw(n_u::IOException)
+void DMD_MMAT_test::run()
 {
     int res;
     int fd;

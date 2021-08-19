@@ -55,7 +55,7 @@ public:
      */
     ~XMLFdFormatTarget();
                                                                                 
-    void flush() throw(nidas::util::IOException);
+    void flush();
                                                                                 
     /**
      * Implemention of virtual write method of xercesc::XMLFormatTarget.
@@ -67,10 +67,10 @@ public:
 #else
     	const XMLSize_t count,
 #endif
-        xercesc::XMLFormatter *const ) throw(nidas::util::IOException);
+        xercesc::XMLFormatter *const );
 
 private:
-    void insureCapacity(unsigned int count) throw(nidas::util::IOException);
+    void insureCapacity(unsigned int count);
 
     std::string name;
     int fd;

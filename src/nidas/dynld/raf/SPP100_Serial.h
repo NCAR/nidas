@@ -41,13 +41,11 @@ public:
 
     SPP100_Serial();
 
-    void validate()
-        throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    void sendInitString() throw(nidas::util::IOException);
+    void sendInitString();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
 
     // Packet to initialize probe with.

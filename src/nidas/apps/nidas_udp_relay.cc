@@ -382,7 +382,7 @@ class WriterThread: public n_u::DetachedThread
 {
 public:
     WriterThread(n_u::Socket* sock,PacketReader& reader);
-    int run() throw(n_u::Exception);
+    int run();
 private:
     PacketReader& _reader;
     string _header;
@@ -407,7 +407,7 @@ WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
                                           _packetWriterInterval);
 }
 
-int WriterThread::run() throw(n_u::Exception)
+int WriterThread::run()
 {
     try {
 
@@ -455,7 +455,7 @@ class ServerThread: public n_u::DetachedThread
 {
 public:
     ServerThread(PacketReader& reader);
-    int run() throw(n_u::Exception);
+    int run();
 private:
     PacketReader& _reader;
     string _header;
@@ -491,7 +491,7 @@ static bool serverSocketRetry(int err)
     }
 }
 
-int ServerThread::run() throw(n_u::Exception)
+int ServerThread::run()
 {
     try {
         for ( ; !isInterrupted(); ) {

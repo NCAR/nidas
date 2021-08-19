@@ -77,7 +77,7 @@ SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
     _nHskp = 7;
 }
 
-void SPP200_Serial::validate() throw(n_u::InvalidParameterException)
+void SPP200_Serial::validate()
 {
     SppSerial::validate();
 
@@ -95,7 +95,7 @@ void SPP200_Serial::validate() throw(n_u::InvalidParameterException)
 }
 
 
-void SPP200_Serial::sendInitString() throw(n_u::IOException)
+void SPP200_Serial::sendInitString()
 {
     // zero initialize
     Init200_blk setup_pkt = Init200_blk();
@@ -126,7 +126,6 @@ void SPP200_Serial::sendInitString() throw(n_u::IOException)
 }
 
 bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
-	throw()
 {
     if (! appendDataAndFindGood(samp))
       return false;

@@ -227,7 +227,7 @@ public:
      * return a clone of itself if the IOChannel is a new
      * instance.
      */
-    SampleOutput* connected(IOChannel* ochan) throw();
+    SampleOutput* connected(IOChannel* ochan);
 
     /**
      * Base class implementation. If setReconnectDelaySecs() has been

@@ -86,7 +86,6 @@ PIP_Serial::PIP_Serial(): SppSerial("PIP"),
 
 /*---------------------------------------------------------------------------*/
 void PIP_Serial::validate()
-    throw(n_u::InvalidParameterException)
 {
     // Need this if fixed record delimiter, to ensure
     // it doesn't try to check the checksum at packetLen()-2
@@ -118,7 +117,7 @@ void PIP_Serial::validate()
     SppSerial::validate();
 }
 
-void PIP_Serial::sendTimePacket() throw(n_u::IOException)
+void PIP_Serial::sendTimePacket()
 {
     //send time to probe.
     SetAbsoluteTime setTime_pkt = SetAbsoluteTime();
@@ -149,7 +148,7 @@ void PIP_Serial::sendTimePacket() throw(n_u::IOException)
 }
 
 /*---------------------------------------------------------------------------*/
-void PIP_Serial::sendInitString() throw(n_u::IOException)
+void PIP_Serial::sendInitString()
 {
     // zero initialize
     InitPIP_blk setup_pkt = InitPIP_blk();
@@ -187,11 +186,9 @@ void PIP_Serial::sendInitString() throw(n_u::IOException)
 }
 
 bool PIP_Serial::process(const Sample* samp,list<const Sample*>& results)
-	throw()
 {
     if (! appendDataAndFindGood(samp))
         return false;
-
 
     // Copy the good record into our PIP_blk struct.
     PIP_blk inRec;
@@ -338,7 +335,6 @@ int PIP_Serial::appendDataAndFindGood(const Sample* samp)
 /*---------------------------------------------------------------------------*/
 
 void PIP_Serial::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
 cerr<<"PIP_Serial Open"<<endl;
     DSMSerialSensor::open(flags);
@@ -353,7 +349,7 @@ cerr<<"DSMSErial:: open done "<<endl;
                 "no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 }
 
-void PIP_Serial::close() throw(n_u::IOException)
+void PIP_Serial::close()
 {
     if (DerivedDataReader::getInstance())
             DerivedDataReader::getInstance()->removeClient(this);

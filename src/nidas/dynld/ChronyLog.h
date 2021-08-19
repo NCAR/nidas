@@ -80,7 +80,7 @@ public:
      * Save the sample id and variable indices of the stratum
      * and offset.
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     /**
      * Call WatchedFileSensor::process, then check for

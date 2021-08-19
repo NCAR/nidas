@@ -70,26 +70,24 @@ public:
      * notified via SampleConnectionRequester interface when the connection
      * has been made.
      */
-    void requestConnection(SampleConnectionRequester*) throw(nidas::util::IOException);
+    void requestConnection(SampleConnectionRequester*);
 
-    SampleOutput* connected(IOChannel* ioc) throw();
+    SampleOutput* connected(IOChannel* ioc);
 
     /**
     * Raw write not supported.
     */
     size_t write(const void*, size_t)
-    	throw (nidas::util::IOException)
     {
-	throw nidas::util::IOException(getName(),"default write","not supported");
+        throw nidas::util::IOException(getName(),"default write","not supported");
     }
 
     /**
      * Send a data record to the RPC server.
      */
-    bool receive(const Sample*) throw ();
+    bool receive(const Sample*);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     /**
      * The NetcdfRPCOutput can have a time window which clips the samples

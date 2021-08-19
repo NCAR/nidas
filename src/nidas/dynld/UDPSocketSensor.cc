@@ -44,14 +44,13 @@ UDPSocketSensor::UDPSocketSensor()
 {
 }
 
-IODevice* UDPSocketSensor::buildIODevice() throw(n_u::IOException)
+IODevice* UDPSocketSensor::buildIODevice()
 {
     UDPSocketIODevice* dev = new UDPSocketIODevice();
     return dev;
 }
 
 SampleScanner* UDPSocketSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     DatagramSampleScanner* scanner = new DatagramSampleScanner();
     scanner->setNullTerminate(doesAsciiSscanfs());

@@ -56,14 +56,14 @@ DAUSensor::~DAUSensor()
 {
 }
 
-void DAUSensor::init() throw(InvalidParameterException)
+void DAUSensor::init()
 {
     SerialSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_BIG_ENDIAN);
 }
+
 void DAUSensor::addSampleTag(SampleTag* stag)
-throw(InvalidParameterException)
 {
     SerialSensor::addSampleTag(stag);
 }
@@ -71,7 +71,7 @@ throw(InvalidParameterException)
 
 bool
 DAUSensor::
-process(const Sample* samp, std::list<const Sample*>& results) throw()
+process(const Sample* samp, std::list<const Sample*>& results)
 {
     size_t sampLength = samp->getDataByteLength();
     if (sampLength != 50){
@@ -173,7 +173,6 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
 void
 DAUSensor::
 fromDOMElement(const xercesc::DOMElement* node)
-throw(InvalidParameterException)
 {
     SerialSensor::fromDOMElement(node);
 }

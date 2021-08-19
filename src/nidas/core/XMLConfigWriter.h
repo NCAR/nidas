@@ -90,9 +90,9 @@ private:
 class XMLConfigWriter: public XMLWriter {
 public:
 
-    XMLConfigWriter() throw(nidas::core::XMLException);
+    XMLConfigWriter();
 
-    XMLConfigWriter(const DSMConfig* dsm) throw(nidas::core::XMLException);
+    XMLConfigWriter(const DSMConfig* dsm);
 
     ~XMLConfigWriter();
 

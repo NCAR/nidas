@@ -99,9 +99,9 @@ class Sender: public n_u::Thread
 public:
     Sender(bool ascii,int dsize);
     ~Sender();
-    int run() throw(n_u::Exception);
-    void send() throw(n_u::IOException);
-    void flush() throw(n_u::IOException);
+    int run();
+    void send();
+    void flush();
     unsigned int getNout() const { return _nout; }
 
     float getKbytePerSec() const
@@ -141,7 +141,7 @@ class Receiver
 public:
     Receiver(int timeoutSecs,const Sender*);
 
-    void run() throw(n_u::IOException);
+    void run();
     void report();
 
     float getKbytePerSec() const
@@ -194,14 +194,14 @@ class ModemLineSetter: public n_u::Thread
 {
 public:
     ModemLineSetter():Thread("ModemLineSetter") {}
-    int run() throw(n_u::Exception);
+    int run();
 };
 
 class ModemLineMonitor: public n_u::Thread
 {
 public:
     ModemLineMonitor():Thread("ModemLineMonitor") {}
-    int run() throw(n_u::Exception);
+    int run();
 };
 
 /* cksum -- calculate and print POSIX checksums and sizes of files
@@ -353,7 +353,7 @@ Sender::~Sender()
     delete [] _dbuf;
 }
 
-int Sender::run() throw(n_u::Exception)
+int Sender::run()
 {
     for (;_nout < nPacketsOut;) {
         if (isInterrupted() || interrupted) break;
@@ -366,7 +366,7 @@ int Sender::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-void Sender::flush() throw(n_u::IOException)
+void Sender::flush()
 {
     int len = _hptr - _tptr;
     if (len == 0) return;
@@ -376,7 +376,7 @@ void Sender::flush() throw(n_u::IOException)
         _hptr = _tptr = _buf;
 }
 
-void Sender::send() throw(n_u::IOException)
+void Sender::send()
 {
     struct timeval tv;
     gettimeofday(&tv,0);
@@ -463,7 +463,7 @@ void Receiver::reallocateBuffer(int len)
     _buflen = len;
 }
 
-void Receiver::run() throw(n_u::IOException)
+void Receiver::run()
 {
     fd_set readfds;
     FD_ZERO(&readfds);
@@ -623,7 +623,7 @@ void Receiver::report()
     cout << endl;
 }
 
-int ModemLineSetter::run() throw(n_u::Exception)
+int ModemLineSetter::run()
 {
     int dtebits = TIOCM_DTR | TIOCM_RTS;
 
@@ -655,7 +655,7 @@ int ModemLineSetter::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-int ModemLineMonitor::run() throw(n_u::Exception)
+int ModemLineMonitor::run()
 {
     int val = 0;
 
@@ -772,7 +772,7 @@ int parseRunstring(int argc, char** argv)
     return 0;
 }
 
-void openPort() throw(n_u::IOException, n_u::ParseException)
+void openPort()
 {
     n_u::SerialOptions options;
     options.parse(termioOpts);

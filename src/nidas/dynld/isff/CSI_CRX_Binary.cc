@@ -58,7 +58,6 @@ CSI_CRX_Binary::~CSI_CRX_Binary()
 }
 
 void CSI_CRX_Binary::validate()
-    throw(n_u::InvalidParameterException)
 {
     std::list<SampleTag*>& tags = getSampleTags();
 

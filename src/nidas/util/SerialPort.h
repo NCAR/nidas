@@ -64,7 +64,7 @@ public:
     /**
      * For serial port that is already open (stdin for example).
      * */
-    SerialPort(const std::string& name, int fd) throw (IOException);
+    SerialPort(const std::string& name, int fd);
 
     /**
      * close the file descriptor if is is open.
@@ -86,7 +86,7 @@ public:
     /**
      * Apply the Termios settings to an opened serial port.
      */
-    void applyTermios() throw(IOException);
+    void applyTermios();
 
     /**
      * Get device name of the SerialPort.
@@ -102,7 +102,7 @@ public:
      * open the serial port. The current Termios settings
      * are also applied to the port.
      */
-    virtual int open(int mode = O_RDONLY) throw (IOException);
+    virtual int open(int mode = O_RDONLY);
 
     /**
      * close the file descriptor.
@@ -132,49 +132,49 @@ public:
      TIOCM_DSR       DSR (data set ready)
      * @endcode
      */
-    int getModemStatus() throw (IOException);
+    int getModemStatus();
 
     /**
      * Set the current state of the modem bits.
      */
-    void setModemStatus(int val) throw (IOException);
+    void setModemStatus(int val);
 
     /**
      * Clear the indicated modem bits.
      */
-    void clearModemBits(int val) throw (IOException);
+    void clearModemBits(int val);
 
     /**
      * Set the indicated modem bits.
      */
-    void setModemBits(int val) throw (IOException);
+    void setModemBits(int val);
 
-    bool getCarrierDetect() throw (IOException);
+    bool getCarrierDetect();
 
     static std::string modemFlagsToString(int modem);
 
-    void setBlocking(bool val) throw(IOException);
-    bool getBlocking() throw(IOException);
+    void setBlocking(bool val);
+    bool getBlocking();
 
     /**
      * Do a tcdrain() system call on the device. According to the tcdrain man page, it
      * "waits until all output written to the object referred to by fd has been transmitted".
      */
-    void drain() throw(IOException);
+    void drain();
 
     /**
      * Do a tcflush() system call on the device. According to the tcflush man page, it
      * "discards data received but not read".
      */
-    void flushInput() throw(IOException);
+    void flushInput();
 
     /**
      * Do a tcflush() system call on the device. According to the tcflush man page, it
      * "discards data written to the object referred to by fd but not transmitted".
      */
-    void flushOutput() throw(IOException);
+    void flushOutput();
 
-    void flushBoth() throw(IOException);
+    void flushBoth();
 
     int timeoutOrEOF() const { return _state == TIMEOUT_OR_EOF; }
 
@@ -183,18 +183,18 @@ public:
      * of characters have been read. buf will be null terminated.
      *
      */
-    virtual int readUntil(char *buf,int len,char term) throw(IOException);
+    virtual int readUntil(char *buf,int len,char term);
 
     /**
      * Do a readUntil with a newline terminator.
      */
-    virtual int readLine(char *buf,int len) throw(IOException);
+    virtual int readLine(char *buf,int len);
 
-    virtual int read(char *buf,int len) throw(IOException);
+    virtual int read(char *buf,int len);
 
-    virtual char readchar() throw(IOException);
+    virtual char readchar();
 
-    virtual int write(const void *buf,int len) throw(IOException);
+    virtual int write(const void *buf,int len);
 
     /**
      * Static utility that creates a pseudo-terminal, returning the
@@ -213,7 +213,7 @@ public:
      * different process, like sshd. Opening and reading/writing to the symbolic
      * link would then effect the other process, if the open was permitted.
      */
-    static int createPtyLink(const std::string& linkname) throw(IOException);
+    static int createPtyLink(const std::string& linkname);
 
 private:
 

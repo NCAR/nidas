@@ -52,7 +52,7 @@ XMLFdFormatTarget::~XMLFdFormatTarget()
     delete [] fDataBuf;
 }
                                                                                 
-void XMLFdFormatTarget:: flush() throw(n_u::IOException)
+void XMLFdFormatTarget:: flush()
 {
     XMLByte* eob = fDataBuf + fIndex;
     for (XMLByte* bp = fDataBuf; bp < eob; ) {
@@ -78,7 +78,6 @@ void  XMLFdFormatTarget::writeChars(const XMLByte *const toWrite,
     	const XMLSize_t count,
 #endif
 	xercesc::XMLFormatter *const )
-	    throw(n_u::IOException)
 {
     if (count) {
 	insureCapacity(count);
@@ -87,7 +86,7 @@ void  XMLFdFormatTarget::writeChars(const XMLByte *const toWrite,
     }
     return;
 }
-void  XMLFdFormatTarget::insureCapacity(unsigned int count) throw(n_u::IOException) {
+void  XMLFdFormatTarget::insureCapacity(unsigned int count) {
     if (fIndex + count <= fCapacity) return;
 									    
     flush();

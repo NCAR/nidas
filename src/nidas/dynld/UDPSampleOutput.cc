@@ -205,7 +205,7 @@ SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
     return SampleOutputBase::connected(_mochan);
 }
 
-void UDPSampleOutput::close() throw(n_u::IOException)
+void UDPSampleOutput::close()
 {
     if (_listener && _listener->isRunning()) {
         _listener->interrupt();
@@ -266,7 +266,7 @@ bool UDPSampleOutput::receive(const Sample* samp) throw()
     return true;
 }
 
-size_t UDPSampleOutput::write(const struct iovec* iov,int iovcnt) throw (n_u::IOException)
+size_t UDPSampleOutput::write(const struct iovec* iov,int iovcnt)
 {
     size_t l;
     int ibuf;
@@ -335,7 +335,7 @@ size_t UDPSampleOutput::write(const struct iovec* iov,int iovcnt) throw (n_u::IO
     return tlen;
 }
 
-xercesc::DOMDocument* UDPSampleOutput::getProjectDOM() throw(xercesc::DOMException)
+xercesc::DOMDocument* UDPSampleOutput::getProjectDOM()
 {
 
     /*
@@ -369,7 +369,6 @@ void UDPSampleOutput::releaseProjectDOM()
 }
 
 void UDPSampleOutput::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     SampleOutputBase::fromDOMElement(node);
     if (getIOChannel()->getRequestType() < 0)
@@ -550,7 +549,7 @@ void UDPSampleOutput::ConnectionMonitor::updatePollfds()
     _changed = false;
 }
 
-int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
+int UDPSampleOutput::ConnectionMonitor::run()
 {
 
     for (;!amInterrupted();) {
@@ -593,7 +592,7 @@ UDPSampleOutput::XMLSocketListener::~XMLSocketListener()
     fireWorkers();
 }
 
-int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
+int UDPSampleOutput::XMLSocketListener::run()
 {
     _sock = new n_u::ServerSocket(_xmlPortNumber);
 
@@ -679,7 +678,7 @@ int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-void UDPSampleOutput::XMLSocketListener::checkWorkers() throw()
+void UDPSampleOutput::XMLSocketListener::checkWorkers()
 {
     // check on my workers sending XML.
     list<VariableListWorker*>::iterator wi = _workers.begin();
@@ -699,7 +698,7 @@ void UDPSampleOutput::XMLSocketListener::checkWorkers() throw()
     }
 }
 
-void UDPSampleOutput::XMLSocketListener::fireWorkers() throw()
+void UDPSampleOutput::XMLSocketListener::fireWorkers()
 {
     list<VariableListWorker*>::iterator wi = _workers.begin();
     for ( ; wi != _workers.end(); ) {
@@ -738,7 +737,7 @@ void UDPSampleOutput::VariableListWorker::interrupt()
     _sock->close();
 }
 
-int UDPSampleOutput::VariableListWorker::run() throw(n_u::Exception)
+int UDPSampleOutput::VariableListWorker::run()
 {
 
 #ifdef READ_DSMS

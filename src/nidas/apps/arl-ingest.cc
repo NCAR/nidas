@@ -90,7 +90,7 @@ public:
     /**
 	 * sendHeader does something I still dont understand
 	*/
-    void sendHeader(dsm_time_t thead,SampleOutput* out) throw(n_u::IOException);
+    void sendHeader(dsm_time_t thead,SampleOutput* out);
     
     /**
      * printHeader dumps out header information (for debugging)
@@ -106,7 +106,7 @@ private:
 	* writeLine writes a single sample line to the passed output stream applying the needed offset UTime
 	*/
 	void writeLine(SampleOutputStream &, string &, n_u::UTime);
-    void prepareHeaderIds(string xmlfilename, string dsmName, string height) throw(n_u::Exception);
+    void prepareHeaderIds(string xmlfilename, string dsmName, string height);
 
     list<string> inputFileNames; //input files
     string outputFileName; //output sample file
@@ -219,7 +219,7 @@ int ARLIngest::parseRunstring(int argc, char** argv) throw() {
 * it loads proper values into the stored header which is attached to samples when
 * sendHeader is called
 */
-void ARLIngest::prepareHeaderIds(string xmlfilename, string dsmName, string height)  throw(n_u::Exception){
+void ARLIngest::prepareHeaderIds(string xmlfilename, string dsmName, string height) {
     //easy peasy
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());
@@ -271,7 +271,7 @@ void ARLIngest::prepareHeaderIds(string xmlfilename, string dsmName, string heig
 
 /*sendHeader conforms to nidas::core::HeaderSource interface and should write useful pieces of
 metadata to the output header stream*/
-void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) throw(n_u::IOException) {
+void ARLIngest::sendHeader(dsm_time_t,SampleOutput* out) {
     header.write(out);
 }
 

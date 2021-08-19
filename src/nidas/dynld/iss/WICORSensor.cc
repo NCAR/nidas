@@ -81,7 +81,7 @@ namespace
 }
 
 void
-    WICORSensor::addSampleTag(SampleTag* stag) throw (InvalidParameterException)
+    WICORSensor::addSampleTag(SampleTag* stag)
     {
         if (!getSampleTags().empty())
         {
@@ -134,7 +134,6 @@ void
 
 bool
     WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
-    throw ()
     {
         // WICOR messages embed field IDs in the message, so we can use regular
         // expressions to extract some subset of the fields without requiring a

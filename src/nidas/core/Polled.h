@@ -118,7 +118,7 @@ public:
      * with epoll, since a read event won't be re-triggered on
      * a file descriptor until all available data is read.
      */
-    virtual bool handlePollEvents(uint32_t events) throw() = 0;
+    virtual bool handlePollEvents(uint32_t events) = 0;
 };
 
 }}	// namespace nidas namespace core

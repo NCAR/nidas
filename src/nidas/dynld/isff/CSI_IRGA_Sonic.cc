@@ -66,12 +66,11 @@ CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 }
 
 void CSI_IRGA_Sonic::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SerialSensor::open(flags);
 }
 
-void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
+void CSI_IRGA_Sonic::parseParameters()
 {
     CSAT3_Sonic::parseParameters();
 
@@ -98,7 +97,7 @@ void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
                     getName().c_str()));
 }
 
-void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
+void CSI_IRGA_Sonic::checkSampleTags()
 {
 
     // Don't call CSAT3_Sonic::checkSampleTags, as it makes different
@@ -189,7 +188,7 @@ bool CSI_IRGA_Sonic::reportBadCRC()
 }
 
 bool CSI_IRGA_Sonic::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
 
     const char* buf = (const char*) samp->getConstVoidDataPtr();

@@ -46,7 +46,12 @@ class SerialOptions {
 
 public:
 
-    SerialOptions() throw(ParseException);
+    /**
+     * @brief Construct a new Serial Options object
+     * 
+     * @throws ParseException
+     */
+    SerialOptions();
 
     ~SerialOptions();
 
@@ -78,8 +83,10 @@ public:
      *  Example:
      *  9600n81lncnc : 9600 baud, no parity, local, no flow control
      *      cooked, convert input CR->NL, output NL->CR (unix terminal)
+     * 
+     * @throws ParseException
      */
-    void parse(const std::string& input) throw(ParseException);
+    void parse(const std::string& input);
 
     const Termios& getTermios() const { return _termios; }
 

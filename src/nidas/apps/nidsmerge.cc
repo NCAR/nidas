@@ -65,9 +65,8 @@ public:
 
     int usage(const char* argv0);
 
-    void sendHeader(dsm_time_t thead,SampleOutput* out)
-        throw(n_u::IOException);
-    
+    void sendHeader(dsm_time_t thead,SampleOutput* out);
+
     /**
      * for debugging.
      */
@@ -395,7 +394,6 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 
 
 void NidsMerge::sendHeader(dsm_time_t,SampleOutput* out)
-    throw(n_u::IOException)
 {
     if (configName.length() > 0)
         header.setConfigName(configName);

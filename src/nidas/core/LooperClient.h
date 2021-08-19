@@ -47,7 +47,7 @@ public:
    * If much work is to be done, this method should
    * post a semaphore for another worker thread to proceed.
    */
-  virtual void looperNotify() throw() = 0;
+  virtual void looperNotify() = 0;
 
 };
 

@@ -441,13 +441,13 @@ public:
      * Implementation of SampleClient::flush(). This is where a DSMSensor's process()
      * method could send out any buffered results that might be ready.
      */
-    void flush() throw() {}
+    void flush() {}
 
     /**
      * Distribute a raw sample which has been read from my
      * file descriptor in real time.
      */
-    void distributeRaw(const Sample* s) throw()
+    void distributeRaw(const Sample* s)
     {
         _rawSource.distribute(s);
     }
@@ -920,7 +920,7 @@ public:
      * The default base class method does nothing.
      */
     virtual void executeXmlRpc(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue&)
-        throw() {}
+    {}
 
     static void deleteLooper();
 

@@ -58,12 +58,12 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags);
 
     /**
      * Setup whatever is necessary for process method to work.
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     virtual Sample* nextSample()
     {
@@ -82,10 +82,9 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
     int getMaxNumChannels() const { return NUM_A2D_CHANNELS; }
 
@@ -105,7 +104,7 @@ public:
      * and a slope of 1. would result in no additional correction.
      */
     virtual void setConversionCorrection(int ichan, const float d[],
-        int n) throw(nidas::util::InvalidParameterException);
+        int n);
 
     void setOutputMode(OutputMode mode) { _outputMode = mode; }
 
@@ -116,7 +115,7 @@ protected:
     /**
      * Read configuration from sensor, this is on the DSM called from open().
      */
-    void readConfig() throw(nidas::util::IOException);
+    void readConfig();
 
     /**
      * Parse a configuration line from from either open() or process().

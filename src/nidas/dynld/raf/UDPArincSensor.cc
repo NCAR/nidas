@@ -75,7 +75,7 @@ UDPArincSensor::~UDPArincSensor()
                  << i << " = " << _badRXPseqCnt[i]-1 << std::endl;
 }
 
-void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
+void UDPArincSensor::validate()
 {
     UDPSocketSensor::validate();
 
@@ -88,7 +88,6 @@ void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
 }
 
 void UDPArincSensor::open(int flags)
-        throw(n_u::IOException,n_u::InvalidParameterException)
 {
     UDPSocketSensor::open(flags);
 
@@ -133,7 +132,6 @@ void UDPArincSensor::open(int flags)
 }
 
 void UDPArincSensor::close()
-        throw(n_u::IOException)
 {
     UDPSocketSensor::close();
 
@@ -146,7 +144,7 @@ void UDPArincSensor::close()
 }
 
 bool UDPArincSensor::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                           list < const Sample * >&results)
 {
     const unsigned char *input = (const unsigned char *)samp->getConstVoidDataPtr();
     const APMP_hdr *hSamp = (const APMP_hdr *)input;

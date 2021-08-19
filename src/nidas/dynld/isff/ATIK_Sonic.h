@@ -44,20 +44,17 @@ public:
 
     ~ATIK_Sonic();
 
-    void parseParameters()
-            throw(nidas::util::InvalidParameterException);
+    void parseParameters();
 
-    void checkSampleTags()
-            throw(nidas::util::InvalidParameterException);
+    void checkSampleTags();
 
-    bool process(const nidas::core::Sample* samp,std::list<const nidas::core::Sample*>& results)
-    	throw();
+    bool process(const nidas::core::Sample* samp,std::list<const nidas::core::Sample*>& results);
 
     /**
      * Apply the path shadow correction and described in the comments
      * for _maxShadowAngle, and _shadowFactor.
      */
-    void transducerShadowCorrection(nidas::core::dsm_time_t tt, float* uvwt) throw();
+    void transducerShadowCorrection(nidas::core::dsm_time_t tt, float* uvwt);
 
     /**
      * Placeholder for a method to remove a shadow correction that 

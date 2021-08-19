@@ -53,12 +53,11 @@ public:
     UDPArincSensor();
     virtual ~UDPArincSensor();
 
-    virtual void validate() throw(nidas::util::InvalidParameterException);
+    virtual void validate();
 
-    virtual void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    virtual void open(int flags);
 
-    virtual void close() throw(nidas::util::IOException);
+    virtual void close();
 
     virtual Sample* nextSample()
     {
@@ -77,9 +76,7 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
-
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
     void registerArincSensor(int channel, DSMArincSensor* sensor)
     { _arincSensors[channel] = sensor; }

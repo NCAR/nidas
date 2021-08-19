@@ -83,7 +83,7 @@ void NCAR_TRH::convertNext(const VariableIndex& vi)
 }
 
 
-void NCAR_TRH::validate() throw(n_u::InvalidParameterException)
+void NCAR_TRH::validate()
 {
     nidas::core::SerialSensor::validate();
 
@@ -342,7 +342,7 @@ convertVariable(SampleT<float>* outs, Variable* var, float* fp)
 
 bool
 NCAR_TRH::
-process(const Sample* samp, std::list<const Sample*>& results) throw()
+process(const Sample* samp, std::list<const Sample*>& results)
 {
     // Try to scan the variables of a sample tag from the raw sensor
     // message.

@@ -45,11 +45,9 @@ public:
     PHIPS_UDP();
     ~PHIPS_UDP();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    SampleScanner* buildSampleScanner();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
 
 protected:

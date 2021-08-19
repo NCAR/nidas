@@ -55,7 +55,7 @@ class IOChannelRequester
 {
 public:
     virtual ~IOChannelRequester() {}
-    virtual IOChannelRequester* connected(IOChannel*) throw() = 0;
+    virtual IOChannelRequester* connected(IOChannel*) = 0;
 };
 
 /**
@@ -163,7 +163,7 @@ public:
     /**
      * Return suggested buffer length.
      */
-    virtual size_t getBufferSize() const throw() { return 8192; }
+    virtual size_t getBufferSize() const { return 8192; }
 
     /**
      * Physical read method which must be implemented in derived

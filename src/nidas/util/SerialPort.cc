@@ -53,7 +53,7 @@ SerialPort::SerialPort():
 {
 }
 
-SerialPort::SerialPort(const std::string& name, int fd) throw(IOException):
+SerialPort::SerialPort(const std::string& name, int fd):
     _termios(fd,name),_fd(fd),_name(name),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),
     _savealloc(0),_blocking(true)
@@ -86,7 +86,7 @@ SerialPort::close()
 }
 
 int
-SerialPort::open(int mode) throw(IOException) 
+SerialPort::open(int mode)
 {
     ILOG(("opening: ") << getName());
 
@@ -97,13 +97,13 @@ SerialPort::open(int mode) throw(IOException)
     return _fd;
 }
 
-void SerialPort::applyTermios() throw(IOException)
+void SerialPort::applyTermios()
 {
     _termios.apply(_fd,_name);
 }
 
 void
-SerialPort::setBlocking(bool val) throw(IOException)
+SerialPort::setBlocking(bool val)
 {
     if (_fd < 0) {
         _blocking = val;
@@ -122,7 +122,7 @@ SerialPort::setBlocking(bool val) throw(IOException)
 }
 
 bool
-SerialPort::getBlocking() throw(IOException) {
+SerialPort::getBlocking() {
     if (_fd < 0) return _blocking;
 
     int flags;
@@ -134,7 +134,7 @@ SerialPort::getBlocking() throw(IOException) {
 }
 
 int
-SerialPort::getModemStatus() throw(IOException)
+SerialPort::getModemStatus()
 {
     int modem=0;
     if (::ioctl(_fd, TIOCMGET, &modem) < 0)
@@ -143,28 +143,28 @@ SerialPort::getModemStatus() throw(IOException)
 }
 
 void
-SerialPort::setModemStatus(int val) throw(IOException)
+SerialPort::setModemStatus(int val)
 {
     if (::ioctl(_fd, TIOCMSET, &val) < 0)
         throw IOException(_name,"ioctl TIOCMSET",errno);
 }
 
 void
-SerialPort::clearModemBits(int bits) throw(IOException)
+SerialPort::clearModemBits(int bits)
 {
     if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
         throw IOException(_name,"ioctl TIOCMBIC",errno);
 }
 
 void
-SerialPort::setModemBits(int bits) throw(IOException)
+SerialPort::setModemBits(int bits)
 {
     if (::ioctl(_fd, TIOCMBIS, &bits) < 0)
         throw IOException(_name,"ioctl TIOCMBIS",errno);
 }
 
 bool
-SerialPort::getCarrierDetect() throw(IOException)
+SerialPort::getCarrierDetect()
 {
     return (getModemStatus() & TIOCM_CAR) != 0;
 }
@@ -198,35 +198,35 @@ SerialPort::modemFlagsToString(int modem)
 }
 
 void
-SerialPort::drain() throw(IOException)
+SerialPort::drain()
 {
     if (tcdrain(_fd) < 0)
         throw IOException(_name,"tcdrain",errno);
 }
 
 void
-SerialPort::flushOutput() throw(IOException)
+SerialPort::flushOutput()
 {
     if (tcflush(_fd,TCOFLUSH) < 0)
         throw IOException(_name,"tcflush TCOFLUSH",errno);
 }
 
 void
-SerialPort::flushInput() throw(IOException)
+SerialPort::flushInput()
 {
     if (tcflush(_fd,TCIFLUSH) < 0)
         throw IOException(_name,"tcflush TCIFLUSH",errno);
 }
 
 void
-SerialPort::flushBoth() throw(IOException)
+SerialPort::flushBoth()
 {
     if (tcflush(_fd,TCIOFLUSH) < 0)
         throw IOException(_name,"tcflush TCIOFLUSH",errno);
 }
 
 int
-SerialPort::readUntil(char *buf, int len,char term) throw(IOException)
+SerialPort::readUntil(char *buf, int len,char term)
 {
     len--;		// allow for trailing null
     int toread = len;
@@ -293,13 +293,13 @@ SerialPort::readUntil(char *buf, int len,char term) throw(IOException)
 }
 
 int
-SerialPort::readLine(char *buf, int len) throw(IOException)
+SerialPort::readLine(char *buf, int len)
 {
     return readUntil(buf,len,'\n');
 }
 
 int
-SerialPort::write(const void *buf, int len) throw(IOException)
+SerialPort::write(const void *buf, int len)
 {
     if ((len = ::write(_fd,buf,len)) < 0) {
         if (!_blocking && errno == EAGAIN) return 0;
@@ -309,7 +309,7 @@ SerialPort::write(const void *buf, int len) throw(IOException)
 }
 
 int
-SerialPort::read(char *buf, int len) throw(IOException)
+SerialPort::read(char *buf, int len)
 {
     if ((len = ::read(_fd,buf,len)) < 0)
         throw IOException(_name,"read",errno);
@@ -327,7 +327,7 @@ SerialPort::read(char *buf, int len) throw(IOException)
  * to see if the basic read returned 0.
  */
 char
-SerialPort::readchar() throw(IOException)
+SerialPort::readchar()
 {
     if (_savelen == 0) {
         if (_savealloc == 0) {
@@ -348,7 +348,7 @@ SerialPort::readchar() throw(IOException)
 }
 
 /* static */
-int SerialPort::createPtyLink(const std::string& link) throw(IOException)
+int SerialPort::createPtyLink(const std::string& link)
 {
     int fd;
     const char* ptmx = "/dev/ptmx";

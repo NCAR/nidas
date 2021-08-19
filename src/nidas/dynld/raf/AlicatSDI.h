@@ -50,16 +50,16 @@ public:
     /**
      * open the sensor and perform any intialization to the instrument.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags);
 
     /**
      * read XML for specific parameters.
      */
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
-    void derivedDataNotify(const nidas::core:: DerivedDataReader * s) throw();
+    void derivedDataNotify(const nidas::core:: DerivedDataReader * s);
 
 
 protected:
@@ -69,7 +69,7 @@ protected:
      * @param psx is the static pressure to send.
      */
     float computeFlow();
-    void sendFlow(float flow) throw(nidas::util::IOException);
+    void sendFlow(float flow);
 
     /**
      * maintain a running average of tas.  nTASav comes from XML.

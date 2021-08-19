@@ -67,7 +67,7 @@ public:
     DMD_MMAT_test();
     int usage(const char* argv0);
     int parseRunstring(int argc, char* argv[]);
-    void run() throw(n_u::IOException);
+    void run();
 
 private:
     float _rate;
@@ -144,7 +144,7 @@ int DMD_MMAT_test::parseRunstring(int argc, char * argv[])
     return 0;
 }
 
-void DMD_MMAT_test::run() throw(n_u::IOException)
+void DMD_MMAT_test::run()
 {
     int res;
     int fd = ::open(_deviceName.c_str(),O_RDWR);

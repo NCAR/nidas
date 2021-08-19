@@ -50,15 +50,14 @@ public:
 
     virtual float Tap2DToTAS(const Tap2D * t2d) const;
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
 private:
     /// Number of houeskeeping variables in sample 1.
     size_t _nHskp;
 
 protected:
-    virtual void init_parameters()
-        throw(nidas::util::InvalidParameterException);
+    virtual void init_parameters();
 
     /**
      * Process the Shadow-OR sample from the probe.

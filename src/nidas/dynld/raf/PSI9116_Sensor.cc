@@ -53,7 +53,7 @@ PSI9116_Sensor::PSI9116_Sensor():
 {
 }
 
-IODevice* PSI9116_Sensor::buildIODevice() throw(n_u::IOException)
+IODevice* PSI9116_Sensor::buildIODevice()
 {
     TCPSocketIODevice* dev = new TCPSocketIODevice();
     dev->setTcpNoDelay(true);   // don't combine packets
@@ -62,9 +62,7 @@ IODevice* PSI9116_Sensor::buildIODevice() throw(n_u::IOException)
 }
 
 string PSI9116_Sensor::sendCommand(const string& cmd,int readlen)
-	throw(n_u::IOException)
 {
-
     char ibuf[32];
     DLOG(("sending cmd=") << cmd);
 
@@ -111,13 +109,13 @@ string PSI9116_Sensor::sendCommand(const string& cmd,int readlen)
 }
 
 /* start the stream, only read back 1 char, after that it's data */
-void PSI9116_Sensor::startStreams() throw(n_u::IOException)
+void PSI9116_Sensor::startStreams()
 {
     sendCommand("c 01 0",1);
     _sequenceNumber = 0;
 }
 
-void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
+void PSI9116_Sensor::stopStreams()
 {
     try {
         sendCommand("c 02 0");
@@ -144,7 +142,6 @@ void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 }
 
 void PSI9116_Sensor::open(int flags)
-        throw(n_u::IOException,n_u::InvalidParameterException)
 {
     // Update the message length based on number of channels requested
     setMessageParameters((_nchannels + 1) * sizeof(int),
@@ -196,7 +193,7 @@ void PSI9116_Sensor::open(int flags)
 }
 
 /* Stop data streams, set valve position to PURGE */
-void PSI9116_Sensor::startPurge() throw(n_u::IOException)
+void PSI9116_Sensor::startPurge()
 {
     // flip valves to PURGE (via LEAK/CHECK)
     stopStreams();
@@ -205,7 +202,7 @@ void PSI9116_Sensor::startPurge() throw(n_u::IOException)
 }
 
 /* Set valve position back to RUN from PURGE, then restart data streams */
-void PSI9116_Sensor::stopPurge() throw(n_u::IOException)
+void PSI9116_Sensor::stopPurge()
 {
     // flip valves back to RUN (via LEAK/CHECK)
     sendCommand("w0C00",1);
@@ -213,7 +210,7 @@ void PSI9116_Sensor::stopPurge() throw(n_u::IOException)
     startStreams();
 }
 
-void PSI9116_Sensor::validate() throw(n_u::InvalidParameterException)
+void PSI9116_Sensor::validate()
 {
     CharacterSensor::validate();
 
@@ -250,7 +247,6 @@ void PSI9116_Sensor::validate() throw(n_u::InvalidParameterException)
 }
 
 bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
-	throw()
 {
     assert(samp->getType() == CHAR_ST);
     int slen = samp->getDataLength();
@@ -465,7 +461,6 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 }
 
 void PSI9116_Sensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-        throw()
 {
     string action = "null";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {

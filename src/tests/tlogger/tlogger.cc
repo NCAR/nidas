@@ -444,7 +444,7 @@ public:
   {}
 
   virtual int
-  run() throw(Exception)
+  run()
   {
     return _function();
   }

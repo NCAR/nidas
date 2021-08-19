@@ -87,7 +87,7 @@ public:
     /**
      * Polling loop, reading and writing from stdin/stdout and socket.
      */
-    void run() throw(n_u::IOException);
+    void run();
 
     /**
      * It's time to quit.
@@ -105,16 +105,16 @@ private:
         _stdinfd = -1;
     }
 
-    void setupSignals() throw(n_u::IOException);
+    void setupSignals();
 
-    void setupStdinout() throw(n_u::IOException);
+    void setupStdinout();
 
-    void restoreStdin() throw(n_u::IOException);
+    void restoreStdin();
 
     void openConnection(n_u::Inet4SocketAddress saddr,
-	const string& sensorName) throw(n_u::IOException);
+                        const string& sensorName);
 
-    string socketReadLine() throw(n_u::IOException);
+    string socketReadLine();
 
     enum output { HEX, ASCII, BOTH };
 
@@ -237,7 +237,7 @@ void RemoteSerial::signalCatcher(int isig)
     }
 }
 
-void RemoteSerial::setupSignals() throw(n_u::IOException)
+void RemoteSerial::setupSignals()
 {
     struct sigaction action;
     memset(&action,0,sizeof action);
@@ -253,7 +253,7 @@ void RemoteSerial::setupSignals() throw(n_u::IOException)
 }
 
 void RemoteSerial::openConnection(n_u::Inet4SocketAddress saddr,
-	const string& sensorName) throw(n_u::IOException)
+                                  const string& sensorName)
 {
     // if in background and no stdin, don't log these info messages
 
@@ -316,7 +316,7 @@ void RemoteSerial::openConnection(n_u::Inet4SocketAddress saddr,
     	nidas::util::replaceBackslashSequences(messageSeparator);
 }
 
-string RemoteSerial::socketReadLine() throw(n_u::IOException)
+string RemoteSerial::socketReadLine()
 {
     size_t rlen;      
     const char* nl;
@@ -349,7 +349,7 @@ string RemoteSerial::socketReadLine() throw(n_u::IOException)
     return res;
 }
 
-void RemoteSerial::setupStdinout() throw(n_u::IOException)
+void RemoteSerial::setupStdinout()
 {
     // turn off buffering of stdout
     if (setvbuf(stdout,0,_IONBF,0) != 0)
@@ -406,7 +406,7 @@ void RemoteSerial::setupStdinout() throw(n_u::IOException)
 
 }
 
-void RemoteSerial::restoreStdin() throw(n_u::IOException)
+void RemoteSerial::restoreStdin()
 {
     /* reset terminal to earlier state */
     if (_stdinfd < 0 || !isatty(_stdinfd) || !stdinAltered) return;
@@ -534,7 +534,7 @@ To terminate a connection, do ctrl-c or ctrl-d\n\
     return 1;
 }
 
-void RemoteSerial::run() throw(n_u::IOException)
+void RemoteSerial::run()
 {
 
     int events = POLLIN;

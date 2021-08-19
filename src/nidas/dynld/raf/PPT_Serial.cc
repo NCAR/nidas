@@ -44,13 +44,13 @@ PPT_Serial::~PPT_Serial()
 }
 
 
-void PPT_Serial::open(int flags) throw(n_u::IOException)
+void PPT_Serial::open(int flags)
 {
     SerialSensor::open(flags);
 }
 
 
-void PPT_Serial::close() throw(n_u::IOException)
+void PPT_Serial::close()
 {
     if (_numPromptsBack > 0)  {
         n_u::Logger::getInstance()->log(LOG_ERR,
@@ -63,7 +63,7 @@ void PPT_Serial::close() throw(n_u::IOException)
 
 
 bool PPT_Serial::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                         list < const Sample * >&results)
 {
     unsigned int nc = samp->getDataByteLength();
     if (nc == 0) return false;

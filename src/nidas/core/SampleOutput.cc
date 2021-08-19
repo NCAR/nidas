@@ -197,7 +197,7 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
  * implementation of IOChannelRequester::connected().
  * How an IOChannel notifies a SampleOutput that it is connected.
  */
-SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
+SampleOutput* SampleOutputBase::connected(IOChannel* ioc)
 {
     if (_iochan && _iochan != ioc) {
 	// This is a new IOChannel, probably a connected socket.
