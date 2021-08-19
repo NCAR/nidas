@@ -127,20 +127,19 @@ check_rnet(){
 
 check_line(){ #send appropriate numbers to their type of checker (based on unit)
     shift 6 #get rid of times, time elapsed, length
-    if [ $# -eq 9 ]; then #ignore header line w/ field labels
-	check_rain $9 
-	#check_rh $1 $5
-	#check_temp $2 $3 $4 $6
-	#check_pres $7
-	#check_rnet $8
-    fi
+    check_rain $9
+    #check_rh $1 $5
+    #check_temp $2 $3 $4 $6
+    #check_pres $7
+    #check_rnet $8
 }
 
 data_dump -p -H -i 1,21 -x config/moxa.xml data/testdata_20161121_00.dat > outputs/check_val.txt 2>outputs/check_val.txt.stderr #generate file to read over for sanity checking.
 
+egrep -v deltaT outputs/check_val.txt |
 while read p; do
     check_line $p
-done < outputs/check_val.txt
+done
 
 echo "DAUSensor tests done."
 exit 0
