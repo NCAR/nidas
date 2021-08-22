@@ -40,9 +40,6 @@ case $1 in
     armbe | vulcan)
         image=$dockerns/nidas-build-ael-armbe:ael_v1
         ;;
-    xenial)
-        image=$dockerns/nidas-build-ubuntu-i386:xenial
-        ;;
     bionic)
         image=$dockerns/nidas-build-ubuntu-i386:bionic
         ;;
@@ -58,12 +55,6 @@ case $1 in
     -p)
         dopull=true
         ;;
-    -u)
-        shift
-        [ $# -lt 1 ] && usage
-        duser=$1
-        useropt="--user $duser"
-        ;;
     *)
         usage
         ;;
@@ -75,39 +66,22 @@ done
 
 $dopull && podman pull docker.io/$image
 
-# alpha name of image user
+destmnt=/root
 
+# If USER in the image is not root (i.e. one of our old docker-style images),
+# then run it podman-style by adding a --user=0:0 option
+
+# alpha name of user in image
 iuser=$(podman inspect $image --format "{{.User}}" | cut -f 1 -d :)
+[ -z "$iuser" -o "$iuser" == root ] || useropt="--user=0:0"
 
-# user name on host
-user=$(id -un)
-
-if [ -z "$iuser" -o "$iuser" == root ]; then
-    destmnt=/root
-else
-    destmnt=/home/$iuser
-    useropt="--user=0:0"
-fi
-
-echo "host file systems will be mounted to $destmnt in the container"
-
-# selinuxenabled && [ $(getenforce) == Enforcing ] && zopt=,Z
 selinuxenabled && zopt=,Z
 
 # The nidas tree is the parent of the directory containing this script.
 # It will be bind mounted to $destmnt/nidas in the Docker container.
-# The username in the container is "ads".
 
 dir=$(dirname $0)
 cd $dir/..
-
-nowrite=$(find . \! -writable -print -quit)
-if [ -n "$nowrite" ]; then
-    echo "Warning, some files in $PWD are not writeable by $user
-Do
-    find $PWD \! -writable -ls
-on the host to list them"
-fi
 
 # if embedded-linux is cloned next to nidas then mount that in the container
 # for building kernels
@@ -158,9 +132,9 @@ fi
 echo "Volumes will be mounted to $destmnt in the container"
 
 set -x
-# --rm: remove container when it exits
 
-exec podman run -it --rm $useropt $grpopt $keepopt \
+# --rm: remove container when it exits
+exec podman run -i --tty --rm $useropt $grpopt \
     --volume $PWD:$destmnt/nidas:rw$zopt \
     $repoopt $embopt $gpgopt $daqopt $cmig3opt $esconsopt \
     $ncsopt \

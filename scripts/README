@@ -6,10 +6,13 @@ and armhf (RaspberryPi 2).
 The builds can be done from a full Debian system (which can of course be virtual)
 or from within a docker/podman container.
 
+For information on creating and running docker/podman images see the
+"Using Podman/Docker" wiki page at
+https://wiki.ucar.edu/pages/viewpage.action?pageId=458588376
+
 Several scripts are used for building Debian packages.
 
-Builds are simpler from a container, so using a chroot is
-no longer recommended.
+Builds are simpler from a container, so using a chroot is no longer recommended.
 
 If you still want to use a chroot, see https://wiki.debian.org/HowToPackageForDebian.
 sbuild is used to create the necessary chroots, one for
@@ -37,7 +40,8 @@ cd docker
 # a shell prompt:
 cd ..
 
-run_podman.sh [ armel | armhf | armbe | xenial | bionic ]
+run_podman.sh [-p] [ armel | armhf | armbe | xenial | bionic ]
+    -p: pull image from docker.io
 
     # If you have started a bionic image for building i386 vortex packages,
     # once the container shell is running, do:
