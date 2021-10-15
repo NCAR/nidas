@@ -26,10 +26,9 @@
 */
 /* pio.cc
 
-    User space code that uses libusb and libftdi to bit bang the two FT4243 devices in
-    the DSM which are reserved for GPIO. It uses these devices to programmatically manage
-    the power state of the sensor serial ports, and other power controllable entities in
-    the DSM.
+    User space code that uses libusb and libftdi to bit bang specific FT4243 devices in the DSM.
+    It uses these devices to programmatically manage the power state of the sensor serial ports, 
+    as well as other power controllable entities in the DSM.
 
     Original Author: Paul Ourada
 
@@ -64,10 +63,10 @@ DeviceArgMapType deviceArgMap;
 
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<blank>|0-7|28V|aux|bank1|bank2|btcon|default_sw|wifi_sw",
+NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|btcon|default_sw|wifi_sw",
         		 "DSM devices for which power setting is managed - \n"
 		         "     0-7         - Sensors 0-7 port power \n"
-                 "     28V         - 28 volt power port\n"
+                 "     dcdc|DCDC   - programmable DC power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
                  "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
                  "     bank2|BANK2 - bank2 12V power port - resets the RPi\n"
@@ -89,14 +88,15 @@ int usage(const char* argv0)
 {
     std::cerr
 << argv0 << " is a utility to control the power of various DSM devices." << std::endl
-<< "It detects the presence of the FTDI USB Serial Interface board and used it if " << std::endl
+<< "It detects the presence of the FTDI USB Serial Interface board and uses it if " << std::endl
 << "it is available. Otherwise, it attempts to use the Rpi GPIO script to do the same " << std::endl
 << "function. If the utility is not executed on a Rpi device, it will exit with an error." << std::endl
 << std::endl
-<< "Usage: " << argv0 << "-d <device ID> -p <power state> -l <log level>" << std::endl
-<< "       " << argv0 << "-d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << "-d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << "-m -l <log level>" << std::endl << std::endl
+<< "Usage: " << argv0 << " -d <device ID> -p <power state> -l <log level>" << std::endl
+<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
+<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
+<< "       " << argv0 << " -m -l <log level>" << std::endl
+<< "       " << argv0 << " # same as " << argv0 << " --view" << std::endl << std::endl
 << app.usage();
 
     return 1;
@@ -108,10 +108,24 @@ int parseRunString(int argc, char* argv[])
     		            | Device | Map | View | Power);
 
     ArgVector args = app.parseArgs(argc, argv);
-    if (app.helpRequested() || argc < 2)
+    if (app.helpRequested())
     {
         return usage(argv[0]);
     }
+
+    if (argc == 1) {
+        View.parse(ArgVector{"-v"});
+    }
+
+    // implement positional arguments, as per Jira ticket ISFS-410
+    if ( !(Map.specified() || View.specified() || Device.specified() || Power.specified()) ) {
+        ArgVector unknowns = app.unparsedArgs();
+        if (unknowns.size() >= 2) {
+            Device.parse(ArgVector{"-d", unknowns[0]});
+            Power.parse(ArgVector{"-p", unknowns[1]});
+        }
+    }
+
     return 0;
 }
 
@@ -158,7 +172,7 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
     deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
     deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("28V"), PWR_28V));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("DCDC"), PWR_28V));
     deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
