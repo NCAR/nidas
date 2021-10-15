@@ -153,7 +153,7 @@ int shutdown(int code)
     calFileLog.close();
 
     if (pTRHSensor) {
-        pTRHSensor->pwrOff();
+        // pTRHSensor->pwrOff();
         pTRHSensor->close();
         delete pTRHSensor;
     }
@@ -577,7 +577,10 @@ int main(int argc, char* argv[])
             DLOG(("") << setDeviceName);
             calFileLog << setDeviceName << std::endl;
 
-            pTRHSensor->pwrOff();
+            // There should not be any need to turn off the sensor before
+            // turning it back on when it is opened.
+            //
+            // pTRHSensor->pwrOff();
             pTRHSensor->setAutoConfigEnabled();
 
             std::string openingSensor = 
