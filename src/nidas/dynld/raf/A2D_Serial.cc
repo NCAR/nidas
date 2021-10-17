@@ -328,12 +328,12 @@ bool A2D_Serial::process(const Sample * samp,
     const char *cp = (const char*)samp->getConstVoidDataPtr();
 
     // Process non-data lines (i.e. process header).
-    if (cp[0] == '!')
+    if (cp[0] == '!')   // Startup device configuration.
     {
         parseConfigLine(cp);
         return false;
     }
-    if (cp[0] != '#')
+    if (cp[0] != '#')   // Header line at start of each second.
     {
         // Decode the data with the standard ascii scanner.
         bool rc = SerialSensor::process(samp, results);
@@ -371,7 +371,7 @@ bool A2D_Serial::process(const Sample * samp,
     if (_haveCkSum && checkCkSum(samp, input) == false) return false;
 
     SampleT<float>* outs = getSample<float>(_nVars);
-    outs->setTimeTag(samp->getTimeTag() - _staticLag);
+    dsm_time_t ttag = samp->getTimeTag() - getLagUsecs() - _staticLag;
     outs->setId(getId() + 2);
 
     int hz_counter;
@@ -400,13 +400,16 @@ bool A2D_Serial::process(const Sample * samp,
             if (usec < 100000) offset -= USECS_PER_SEC;
         }
 
-        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset - _staticLag;
+        dsm_time_t timeoffix = ttag - usec + offset;
         outs->setTimeTag(timeoffix);
+    }
+    else
+    {   // apply standard
+        outs->setTimeTag(ttag);
     }
 
 
-
-    readCalFile(samp->getTimeTag());    // A2D Cals
+    readCalFile(ttag);    // A2D Cals
     float * dout = outs->getDataPtr();
     int data, ival = 0;
     const char *p = ::strchr(input, ',');
