@@ -73,16 +73,17 @@ kill_sims() {
     done
 }
 
-
+# Iterate through ip_local_port_range looking for UDP ports which are not
+# reported in netstat.
 find_udp_port() {
-    local -a inuse=$((`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`))
+    inuse=`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`
     local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
     for (( port=$port1; ; port--)); do
-        echo ${inuse[*]} | fgrep -q $port || break
+        echo ${inuse} | fgrep -wq $port || break
     done
     echo $port
 }
-        
+
 kill_dsm
 
 for f in /tmp/run/nidas/dsm.pid; do
