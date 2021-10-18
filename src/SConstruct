@@ -189,7 +189,7 @@ env['CFLAGS'] = [ '-Wall','-O2' ]
 #
 # I don't believe that NIDAS will have this problem since it is compiled as a whole. So the -Wno-psabi 
 # option is added to CXXFLAGS for everyone.
-env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated', '-Wno-psabi']
+env['CXXFLAGS'] = [ '-Wall','-O2','-Wno-deprecated', '-Wno-psabi', '-std=c++11', '-Wno-deprecated']
 
 env['CCFLAGS'] = [ ]
 

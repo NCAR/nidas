@@ -482,8 +482,8 @@ public:
             << "; towMS: " << comms::units::getMilliseconds<uint32_t>(msg.field_towMS())
             << "; towNS: " << comms::units::getNanoseconds<uint32_t>(msg.field_towSubMS())
             << "; qErr: " << msg.field_qErr().value() << " pS"
-            << "; isUTC: " << (msg.field_flags().field_bits().getBitValue_utc() ? "Y" : "N")
-            << "; timebase: " << (msg.field_flags().field_bits().getBitValue_timeBase() ? "UTC" : "GNSS")
+            << "; isUTC: " << (msg.field_flags().field_bitsLow().getBitValue_utc() ? "Y" : "N")
+            << "; timebase: " << (msg.field_flags().field_bitsLow().getBitValue_timeBase() ? "UTC" : "GNSS")
             << "; raim: " << (raim == RaimVal::NotAvailable ? "no info" 
                               : (raim < RaimVal::Active ? "not active" : "active")));
 

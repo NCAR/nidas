@@ -514,7 +514,7 @@ static const char* HUMD_CAL_4_CMD_STR =         "HA0";  // humidity cal value 4 
 static const char* CLEAR_EEPROM_CMD_STR =       "EEC";  // clear EEPROM contents
 static const char* DEFAULT_EEPROM_CMD_STR =     "DEF";  // set EEPROM contents to default values
 static const char* SHOW_CMDS_CMD_STR =          "CMD";  // print out this list of commands
-static const char* SHOW_SETTINGS_CMD_STR =      "SET";  // print out all values which can be assigned
+static const char* SHOW_SETTINGS_CMD_STR =      "PAR";  // print out all values which can be assigned
 static const char* EXIT_EEPROM_MENU_CMD_STR =   "EXT";  // Exit EEPROM menu and reset
 
 static const char* cmdTable[NUM_SENSOR_CMDS] =
