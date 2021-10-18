@@ -77,6 +77,8 @@
 #include <unistd.h>
 #include <ftdi.h>
 
+#include <stdlib.h>
+
 int
 main(int argc, char* argv[])
 {
@@ -90,6 +92,8 @@ main(int argc, char* argv[])
     const int DEBUG = (argc > 1 && !strcmp(argv[1], "-d")) ? 1 : 0;
     const int facPrior = LOG_MAKEPRI(LOG_USER, LOG_ERR);
     if (DEBUG) openlog(argv[0], 0, 0);
+
+    if (DEBUG) syslog(facPrior, "ACTION=%s\n", getenv("ACTION")); 
 
     if ((ftdi = ftdi_new()) == 0) {
         if (DEBUG) syslog(facPrior, "ftdi_new failed\n");
@@ -113,7 +117,14 @@ main(int argc, char* argv[])
             int status_rp = ftdi_read_pins(ftdi, &pins);
 
             unsigned char pinMask = 0xff;   // set all pins for write
-if (dev == 3 && iface == 2) pinMask = 0xcf;
+
+            /* INTERFACE_C on I2C is special: leave the 2 switch pins as inputs, and force the  
+             * LEDs to be off.
+             */
+            if (dev == 3 && iface == 2) {
+                pinMask = 0xcf;
+                pins = pins & 0x0f;
+            }
             int status_sb = ftdi_set_bitmode(ftdi, pinMask, BITMODE_BITBANG);
 
             int status_wd = ftdi_write_data(ftdi, &pins, 1); 
