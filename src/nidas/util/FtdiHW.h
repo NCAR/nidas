@@ -297,8 +297,8 @@ FtdiGpio<DEVICE, IFACE>::FtdiGpio(const std::string manufStr, const std::string 
                                 // Used for UBLOX serial port
                                 break;
                             case INTERFACE_C:
-                                // incoming GPIO for switch inputs come in on bits 6 & 7
-                                // outgoing GPIO for LED indicators on bits 4 and 5, 
+                                // outgoing GPIO for LED indicators on bits 6 and 7, 
+                                // incoming GPIO for switch inputs come in on bits 4 & 5
                                 // outgoing GPIO for power board control on bits 0-3
                                 _pinDirection = 0xCF;
                                 break;
