@@ -34,7 +34,7 @@
   interfaces of all 4 FTDI chips in the DSM3 serial board. Intended
   for diagnostic purposes. 
 
-/********************************************************************
+********************************************************************/
 
 #include <stdio.h>
 #include <unistd.h>
