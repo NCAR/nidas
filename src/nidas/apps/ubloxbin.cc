@@ -51,6 +51,13 @@ using namespace nidas::util;
 
 using namespace boost::asio;
 
+#if BOOST_VERSION >= 107000
+#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
+#else
+#define GET_IO_SERVICE(s) ((s).get_io_service())
+#endif
+
+
 enum NMEA_MsgId : std::uint16_t
 {
     MsgId_GGA = 0xF000,        // GPS fix data
@@ -313,8 +320,8 @@ public:
 
     ~Session()
     {
-        if (!m_serial.get_io_service().stopped()) {
-            m_serial.get_io_service().stop();
+        if (!GET_IO_SERVICE(m_serial).stopped()) {
+            GET_IO_SERVICE(m_serial).stop();
         }
 
         if (m_serial.is_open()) {
@@ -766,7 +773,7 @@ private:
 
                 if (ec) {
                     std::cerr << "ERROR: write failed with message: " << ec.message() << std::endl;
-                    m_serial.get_io_service().stop();
+                    GET_IO_SERVICE(m_serial).stop();
                     return false;
                 }
 
