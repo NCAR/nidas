@@ -28,7 +28,6 @@
 
 #include <string>
 #include <memory>
-#include <libusb-1.0/libusb.h>
 #include <ftdi.h>
 
 #include "Logger.h"
@@ -38,8 +37,6 @@
 #include "Logger.h"
 #include "InvalidParameterException.h"
 #include "GpioIF.h"
-
-struct libusb_device;
 
 namespace nidas { namespace util {
 

@@ -27,7 +27,6 @@
 #define NIDAS_UTIL_GPIOIF_H
 
 #include <string>
-#include <libusb-1.0/libusb.h>
 #include <ftdi.h>
 
 #include "Logger.h"
@@ -36,8 +35,6 @@
 #include "IOException.h"
 #include "Logger.h"
 #include "InvalidParameterException.h"
-
-struct libusb_device;
 
 namespace nidas { namespace util {
 
