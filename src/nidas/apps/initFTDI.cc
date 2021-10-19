@@ -105,7 +105,7 @@ main(int argc, char* argv[])
      */
     for (int dev=0; dev<DILEN; dev++) {
         for (int iface=0; iface<DILEN; iface++) {
-            int status = ftdi_set_interface(ftdi, ifaces[iface]);
+            ftdi_set_interface(ftdi, ifaces[iface]);
             int f = ftdi_usb_open_desc(ftdi, (int)0x0403, (int)0x6011, devices[dev], 0);
             if (f<0) {
                 if (DEBUG) syslog(facPrior, "\nUnable to open device/iface %s/%d: (%s)\n", devices[dev], ifaces[iface], 

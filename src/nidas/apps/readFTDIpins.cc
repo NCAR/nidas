@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     struct ftdi_context *ftdi;
 
     // enumerate our devices/interfaces...
-    char* devices[4] = {"P0-P3", "P4-P7", "GPIO", "I2C"};
+    const char* devices[4] = {"P0-P3", "P4-P7", "GPIO", "I2C"};
     enum ftdi_interface ifaces[4] = {INTERFACE_A, INTERFACE_B, INTERFACE_C, INTERFACE_D};
 
     if ((ftdi = ftdi_new()) == 0) {

@@ -94,6 +94,7 @@ dsm_server
 dsm
 extract2d
 extractDMT
+initFTDI
 ir104
 lidar_vel
 merge_verify
@@ -102,6 +103,7 @@ nidsmerge
 n_hdr_util
 pio
 proj_configs
+readFTDIpins
 rserial
 sensor_extract
 sensor_sim
