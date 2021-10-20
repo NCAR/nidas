@@ -282,8 +282,9 @@ void SerialSensor::applyTermios() throw(nidas::util::IOException)
 
 void SerialSensor::applyPortConfig() 
 {
-    if (Logger::getInstance()->getScheme().logLevel() >= LOGGER_DEBUG) {
-        DLOG(("SerialSensor::applyPortConfig(): Initial power state."));
+    static LogContext lp(LOG_DEBUG);
+    if (lp.active()) {
+        lp.log() << "SerialSensor::applyPortConfig(): Initial power state.";
         printPowerState();
     }
 
@@ -297,8 +298,8 @@ void SerialSensor::applyPortConfig()
                  " which has no need of a PortConfig."));
     }
 
-    if (Logger::getInstance()->getScheme().logLevel() >= LOGGER_DEBUG) {
-        DLOG(("SerialSensor::applyPortConfig(): Current power state."));
+    if (lp.active()) {
+        lp.log() << "SerialSensor::applyPortConfig(): Current power state.";
         printPowerState();
     }
 }

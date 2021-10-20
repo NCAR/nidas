@@ -204,11 +204,11 @@ void SerialPortIODevice::printPortConfig(bool readFirst)
 
 void SerialPortIODevice::applyPortConfig()
 {
-    Logger& rLogger = *Logger::getInstance();
-    if (rLogger.getScheme().logLevel() >= LOGGER_DEBUG) {
-        DLOG(("SerialPortIODevice::applyPortConfig(): desired port config..."));
+    static LogContext lp(LOG_DEBUG);
+    if (lp.active()) {
+        lp.log() << "SerialPortIODevice::applyPortConfig(): desired port config...";
         printPortConfig();
-        DLOG(("SerialPortIODevice::applyPortConfig(): current installed port config..."));
+        lp.log() << "SerialPortIODevice::applyPortConfig(): current installed port config...";
         printPortConfig(true);
     }
     applyTermios();
@@ -223,11 +223,10 @@ void SerialPortIODevice::applyPortConfig()
 
     setPortConfigApplied();
 
-    if (rLogger.getScheme().logLevel() >= LOGGER_DEBUG) {
-        DLOG(("SerialPortIODevice::applyPortConfig(): newly installed port config..."));
+    if (lp.active()) {
+        lp.log() << "SerialPortIODevice::applyPortConfig(): newly installed port config...";
         printPortConfig(true);
     }
-
 }
 
 int SerialPortIODevice::getUsecsPerByte() const
@@ -571,8 +570,10 @@ int SerialPortIODevice::read(char *buf, int len, int timeout) throw(nidas::util:
     if (timeout == 0) {
         DLOG(("SerialPortIODevice::read(): timeout is 0, read directly."));
         if ((charsRead = UnixIODevice::read(buf,len)) < 0)
+        {
             ELOG(("SerialPortIODevice::read(): no timeout read fail."));
             throw IOException(getName(),"read",errno);
+        }
     }
     else if ((charsRead = UnixIODevice::read(buf,len,timeout)) < 0) {
         ELOG(("SerialPortIODevice::read(): timeout > 0, read with poll fail."));
@@ -662,5 +663,29 @@ int SerialPortIODevice::createPtyLink(const std::string& link)
     }
     return fd;
 }
+
+
+void
+PortConfig::
+update_termios()
+{
+    if (!termios.getLocal()) {
+        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
+        termios.setLocal(true);
+    }
+    else {
+        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
+    }
+
+    if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
+        VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
+        termios.setFlowControl(Termios::NOFLOWCONTROL);
+    }
+    else {
+        VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
+    }
+}
+
+
 
 }} // namespace nidas { namespace core
