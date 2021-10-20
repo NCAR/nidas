@@ -85,6 +85,26 @@ stream_backtrace (std::ostream& out)
 #define DEBUG_LOGGER 0
 #endif
 
+#if DEBUG_LOGGER
+struct log_debug_sentry
+{
+  log_debug_sentry() : count(1)
+  {
+    cerr << "log_debug_sentry constructed..." << std::endl;
+  }
+
+  ~log_debug_sentry()
+  {
+    --count;
+    cerr << "log_debug_sentry destroyed." << std::endl;
+  }
+
+  int count;
+};
+
+static log_debug_sentry _sentry;
+#endif
+
 namespace nidas { namespace util { 
 
 struct LoggerPrivate
@@ -929,11 +949,23 @@ threadName() const
 LogContext::
 ~LogContext()
 {
+  if (DEBUG_LOGGER)
+  {
+    cerr << "destroying log context: "
+         << this->_file << ":" << this->_line
+         << ":" << this->_function << endl;
+  }
   Synchronized sync(Logger::mutex);
   log_points_v::iterator it;
   it = find(log_points.begin(), log_points.end(), this);
   if (it != log_points.end())
+  {
     log_points.erase(it);
+    if (DEBUG_LOGGER)
+    {
+      cerr << "...and removed from log points." << endl;
+    }
+  }
 }
 
 namespace {
