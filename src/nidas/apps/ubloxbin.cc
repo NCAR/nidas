@@ -664,7 +664,7 @@ public:
         int count = 0;
         // ILOG(("Testing message count for: ") << name);
         if (msgEnabled(name)) {
-            count = m_enabledMsgs.find(name)->second;
+            count = m_enabledMsgs[name];
         }
 
         return count;
@@ -1117,8 +1117,7 @@ private:
         bool defaultMsgsEnabled = sendMessage(msg);
 
         if (defaultMsgsEnabled) {
-            std::pair<std::string, int> NavPvt(InNavPvt().doName(), 0);
-            m_enabledMsgs.insert(NavPvt);
+            m_enabledMsgs[InNavPvt().doName()] = 0;
 
             ILOG(("Session::enableDefaultMessages(): Enabling TIM TP Message..."));
             msg.field_msgId().value() = ublox::MsgId_TimTp;
@@ -1127,8 +1126,7 @@ private:
         defaultMsgsEnabled &= sendMessage(msg);
 
         if (defaultMsgsEnabled) {
-            std::pair<std::string, int> TimTp(InTimTp().doName(), 0);
-            m_enabledMsgs.insert(TimTp);
+            m_enabledMsgs[InTimTp().doName()] = 0;
 
             ILOG(("Session::enableDefaultMessages(): Enabling NAV SOL Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavSol;
@@ -1137,8 +1135,7 @@ private:
         defaultMsgsEnabled &= sendMessage(msg);
 
         if (defaultMsgsEnabled) {
-            std::pair<std::string, int> NavSol(InNavSol().doName(), 0);
-            m_enabledMsgs.insert(NavSol);
+            m_enabledMsgs[InNavSol().doName()] = 0;
 
             ILOG(("Session::enableDefaultMessages(): Enabling NAV DOP Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavDop;
@@ -1147,8 +1144,7 @@ private:
         defaultMsgsEnabled &= sendMessage(msg);
 
         if (defaultMsgsEnabled) {
-            std::pair<std::string, int> NavDop(InNavDop().doName(), 0);
-            m_enabledMsgs.insert(NavDop);
+            m_enabledMsgs[InNavDop().doName()] = 0;
 
             ILOG(("Session::enableDefaultMessages(): Enabling NAV Timegps Message..."));
             msg.field_msgId().value() = ublox::MsgId_NavTimegps;
@@ -1157,8 +1153,7 @@ private:
         defaultMsgsEnabled &= sendMessage(msg);
 
         if (defaultMsgsEnabled) {
-            std::pair<std::string, int> NavTimegps(InNavTimegps().doName(), 0);
-            m_enabledMsgs.insert(NavTimegps);
+            m_enabledMsgs[InNavTimegps().doName()] = 0;
         }
 
         return defaultMsgsEnabled;
