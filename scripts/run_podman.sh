@@ -104,15 +104,13 @@ daqdir=$PWD/../embedded-daq
 ncsdir=$PWD/../nc-server
 [ -d $ncsdir ] && ncsopt="--volume $ncsdir:$destmnt/${ncsdir##*/}:rw$zopt"
 
+# check for EOL Debian repo
 repo=/net/ftp/pub/archive/software/debian
 [ -d $repo ] && repoopt="--volume $repo:$repo:rw$zopt"
 
 # If local user has a .gnupg, mount it in the container
 gnupg=$(eval realpath ~)/.gnupg
-# Note [ -d $gnupg ] may fail due to lack of group or world
-# execute and read perms on the user's HOME directory.
-# Docker can still mount it however.
-gpgopt="--volume $gnupg:$destmnt/${gnupg##*/}:rw$zopt"
+[ -d $gnupg ] && gpgopt="--volume $gnupg:$destmnt/${gnupg##*/}:rw$zopt"
 
 # Avoid version mismatch between gpg2/reprepro
 # in the container and gpg-agent on the host.
