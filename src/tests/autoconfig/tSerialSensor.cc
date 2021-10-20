@@ -23,6 +23,7 @@ using boost::unit_test_framework::test_suite;
 #include "nidas/dynld/DSMSerialSensor.h"
 #include "MockSerialSensor.h"
 #include "nidas/util/SerialPort.h"
+#include "nidas/core/NidasApp.h"
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -70,15 +71,6 @@ void cleanup(int /*signal*/)
 struct Fixture {
     Fixture()
     {
-	if (UNIT_TEST_DEBUG_LOG)
-	{
-	    Logger* logger = Logger::getInstance();
-	    LogScheme scheme = logger->getScheme("autoconfig_default");
-	    LogConfig lc("level=verbose");
-	    scheme.addConfig(lc);
-	    logger->setScheme(scheme);
-	}
-
         // Needs to be set up same as SerialSensor::SerialSensor() ctors
         // in order for mocked checkResponse() to work.
         _defaultPortConfig.termios.setRaw(true);
@@ -107,7 +99,14 @@ bool init_unit_test()
 // entry point:
 int main(int argc, char* argv[])
 {
-    int retval = boost::unit_test::unit_test_main( &init_unit_test, argc, argv );
+    nidas::core::NidasApp napp(argv[0]);
+    napp.enableArguments(napp.loggingArgs());
+    napp.allowUnrecognized(true);
+    ArgVector args = napp.parseArgs(argc, argv);
+    DLOG(("main entered, args parsed, debugging enabled..."));
+
+    nidas::core::NidasAppArgv left(argv[0], args);
+    int retval = boost::unit_test::unit_test_main( &init_unit_test, left.argc, left.argv );
 
     return retval;
 }

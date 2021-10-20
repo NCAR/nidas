@@ -22,7 +22,6 @@ env.Alias('test', runtest)
 env.ValgrindLog('memcheck', 
                 env.Command('vg.memcheck.log', tests,
                             "cd ${SOURCE.dir} && "
-                            ". ./libs.sh && "
                             "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all"
                             " --gen-suppressions=all --suppressions=vg.memcheck.supp"
                             " ./${SOURCE.file} --log_level=message"
@@ -31,7 +30,6 @@ env.ValgrindLog('memcheck',
 env.ValgrindLog('threadcheck', 
                 env.Command('vg.threadcheck.log', tests,
                             "cd ${SOURCE.dir} && "
-                            ". ./libs.sh && "
                             "${VALGRIND_PATH} --tool=helgrind"
                             " --gen-suppressions=all --suppressions=vg.threadcheck.supp"
                             " ./${SOURCE.file} --log_level=message"
