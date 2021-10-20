@@ -163,9 +163,10 @@ def libftdi(env):
     hdir = env.Dir("/usr/include/libftdi1").abspath
     if os.path.exists(hdir):
         env.Append(CPPPATH=[hdir])
+    env.Require([libusb1])
 
 # Required to build nidas_util
-deps = [libusb1, libftdi, 'boost_system', 'boost_filesystem']
+deps = [libftdi, 'boost_system', 'boost_filesystem']
 env.Require(deps)
 env.Append(LIBS=['pthread'])
 arch = env['ARCH']
