@@ -47,9 +47,10 @@ A2D_Serial::A2D_Serial() :
     SerialSensor(),
     _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
     _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
-    _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
+    configStatus(),
+    _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0),
+    headerLines(0)
 {
-headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         _channels[i] = 0;
@@ -94,11 +95,10 @@ void A2D_Serial::readConfig()
             // process all samples in buffer
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
 
-
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;   // last line of config
-                parseConfigLine(msg);
+                parseConfigLine(msg, samp->getDataByteLength());
 
                 // send it on to the clients and freeReference
                 distributeRaw(samp);
@@ -330,7 +330,7 @@ bool A2D_Serial::process(const Sample * samp,
     // Process non-data lines (i.e. process header).
     if (cp[0] == '!')   // Startup device configuration.
     {
-        parseConfigLine(cp);
+        parseConfigLine(cp, samp->getDataByteLength());
         return false;
     }
     if (cp[0] != '#')   // Header line at start of each second.
@@ -338,7 +338,7 @@ bool A2D_Serial::process(const Sample * samp,
         // Decode the data with the standard ascii scanner.
         bool rc = SerialSensor::process(samp, results);
         if (results.empty()) return false;
-++headerLines;
+        ++headerLines;
         // Extract PPS/IRIG status from 'H' header values.
         list<const Sample *>::const_iterator it = results.begin();
         for (; it != results.end(); ++it)
@@ -439,16 +439,17 @@ bool A2D_Serial::process(const Sample * samp,
 }
 
 
-void A2D_Serial::parseConfigLine(const char *data)
+void A2D_Serial::parseConfigLine(const char *data, unsigned int len)
 {
     int channel, value;
 
+    // data is terminated with a NULL char
 
-    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
+    if (strstr(data, "!OCHK") && len > 6) _haveCkSum = atoi(&data[6]);
     else
-    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
+    if (strstr(data, "!BID") && len > 5)  configStatus["BID"] = atoi(&data[5]);
     else
-    if (strstr(data, "!IFSR")) {
+    if (strstr(data, "!IFSR") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && _ifsr[channel] != value) {
@@ -458,7 +459,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!IPOL")) {
+    if (strstr(data, "!IPOL") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && _ipol[channel] != value) {
@@ -468,7 +469,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!ISEL")) {
+    if (strstr(data, "!ISEL") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && value != 0) {
@@ -478,7 +479,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!OSEL")) {
+    if (strstr(data, "!OSEL") && len > 6) {
         configStatus["OSEL"] = true;
         value = atoi(&data[6]);
         if (value != 0) {
@@ -488,7 +489,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!FILT")) {
+    if (strstr(data, "!FILT") && len > 6) {
         configStatus["FILT"] = true;
         value = atoi(&data[6]);
         if (value == 10)
@@ -510,18 +511,15 @@ void A2D_Serial::parseConfigLine(const char *data)
 
 void A2D_Serial::extractStatus(const char *msg, int len)
 {
+    // msg is terminated with a NULL char
     const char *p = msg;
     int cnt = 0;
 
     for (int i = 0; i < len && cnt < 2; ++i)
         if (*p++ == ',')
             ++cnt;
-    if (cnt == 2) {
-        char s[len+1];
-        len -= (p-msg);
-        ::memcpy(s, p, len); s[len]=0;
-        configStatus["PPS"] = atoi(s);
-    }
+    if (cnt == 2 && p-msg < len)
+        configStatus["PPS"] = atoi(p);
 }
 
 

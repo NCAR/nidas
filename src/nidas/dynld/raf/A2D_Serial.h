@@ -120,7 +120,7 @@ protected:
     /**
      * Parse a configuration line from from either open() or process().
      */
-    void parseConfigLine(const char *data);
+    void parseConfigLine(const char *data, unsigned int len);
 
     void dumpConfig() const;
 
@@ -224,7 +224,7 @@ protected:
     size_t _badCkSumCnt;
     size_t _largeTimeStampOffset;
 
-int headerLines;
+    int headerLines;
 
 private:
 
