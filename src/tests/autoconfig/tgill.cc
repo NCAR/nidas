@@ -1,7 +1,7 @@
 // -*- mode: C++; c-basic-offset: 4 -*-
 // Test Gill 2D auto-config features.
 
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/dynld/isff/GILL2D.h>

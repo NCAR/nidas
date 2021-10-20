@@ -1,6 +1,6 @@
 
 #define BOOST_TEST_DYN_LINK
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/CalFile.h>
