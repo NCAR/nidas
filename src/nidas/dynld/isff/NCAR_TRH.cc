@@ -25,20 +25,62 @@
 */
 
 #include "NCAR_TRH.h"
+
+#include <boost/regex.hpp>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/AsciiSscanf.h>
+#include <nidas/util/util.h>
 
-#include <sstream>
 #include <limits>
 
+using boost::regex;
+using boost::regex_replace;
+using boost::cmatch;
+
 using namespace nidas::dynld::isff;
-using namespace std;
+using std::string;
+using std::numeric_limits;
+using std::list;
+using std::vector;
+
+using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,NCAR_TRH)
+
+/* 
+ *  AutoConfig: TRH Commands
+ */
+enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
+{
+    NULL_CMD,
+    ENTER_EEPROM_MENU_CMD,
+    FW_VERSION_CMD,
+    RESOLUTION_CMD,
+    SENSOR_ID_CMD,
+    DATA_RATE_CMD,
+    FAN_DUTY_CYCLE_CMD,
+    FAN_MIN_RPM_CMD,
+    EEPROM_INIT_STATE_CMD,
+    TEMP_CAL_0_CMD,
+    TEMP_CAL_1_CMD,
+    TEMP_CAL_2_CMD,
+    HUMD_CAL_0_CMD,
+    HUMD_CAL_1_CMD,
+    HUMD_CAL_2_CMD,
+    HUMD_CAL_3_CMD,
+    HUMD_CAL_4_CMD,
+    CLEAR_EEPROM_CMD,
+    DEFAULT_EEPROM_CMD,
+    SHOW_CMDS_CMD,
+    SHOW_SETTINGS_CMD,
+    EXIT_EEPROM_MENU_CMD,
+    NUM_SENSOR_CMDS,
+};
+
 
 /* 
  *  Autoconfig port defintions
@@ -573,53 +615,90 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
 
 //input command format: cmd [value] [[value] [value] ...]
 
-static string ENTER_EEPROM_MENU_CMD_RESP_SPEC("[[:space:]]+EEprom:");
-static regex ENTER_EEPROM_MENU_CMD_RESP(ENTER_EEPROM_MENU_CMD_RESP_SPEC, std::regex_constants::extended);
-static string EXIT_EEPROM_MENU_CMD_RESP_SPEC("Exit EEPROM LOADER - reset will take place");
-static regex EXIT_EEPROM_MENU_CMD_RESP(EXIT_EEPROM_MENU_CMD_RESP_SPEC, std::regex_constants::extended);
-static string SET_DATA_REGEX_SPEC(
-    "TRH Code Version:  ([0-9]+[.][0-9]+)"
-    "[[:space:]]+Sensor ID([0-9]+)    data rate:   ([0-9]+[.][0-9]+) \\(secs\\)  fan PWM duty cycle \\(%\\): ([0-9]+)   fan min RPM: (-*[0-9]+)"
-    "[[:space:]]+resolution: ([0-9]+) bits" 
-    "[[:space:]]+calibration coefficients:"
-    "[[:space:]]+Ta0[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ta1[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ta2[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ha0[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ha1[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ha2[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ha3[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-    "[[:space:]]+Ha4[[:blank:]]+=[[:blank:]]+(-*[0-9]+[.][0-9]+)"
-);
-static regex SET_DATA(SET_DATA_REGEX_SPEC, std::regex_constants::extended); 
-                                        //    | std::regex_constants::ECMAScript);
+static regex ENTER_EEPROM_MENU_CMD_RESP("[[:space:]]+EEprom:");
+static regex EXIT_EEPROM_MENU_CMD_RESP("Exit EEPROM LOADER - reset will take place");
 
-static const int TRH_FW_VERSION_IDX = 1;
-static const int SENSOR_ID_IDX = 2;
-static const int DATA_RATE_IDX = 3;
-static const int FAN_DUTY_CYCLE_IDX = 4;
-static const int FAN_MIN_RPM_IDX = 5;
-static const int ADC_RESOLUTION_IDX = 6;
-static const int TCAL_COEFF_0_IDX = 7;
-static const int TCAL_COEFF_1_IDX = 8;
-static const int TCAL_COEFF_2_IDX = 9;
-static const int HCAL_COEFF_0_IDX = 10;
-static const int HCAL_COEFF_1_IDX = 11;
-static const int HCAL_COEFF_2_IDX = 12;
-static const int HCAL_COEFF_3_IDX = 13;
-static const int HCAL_COEFF_4_IDX = 14;
+
+/**
+ * @brief Replace type specifiers with a regex pattern to match them.
+ *
+ * The specifiers are %f for floats, %d for integers, and %v for version
+ * strings.
+ *
+ * The float pattern should match floats in fixed decimal or scientific notation
+ * form, with or without a leading sign, and with or without a decimal point.
+ * Not all strings matched by the pattern will be valid floats, but it should
+ * match all strings which look like they were supposed to be floats.
+ *
+ * The integer pattern matches a sequence of digits with or without a leading
+ * sign character.
+ *
+ * The version pattern is for any sequence of numbers with interleaved dots,
+ * but it must start with at least one digit.
+ */
+std::string
+replace_specifiers(const std::string& s)
+{
+    static const regex fprx("%f");
+    static const regex intrx("%d");
+    static const regex vrx("%v");
+
+    auto interp = regex_replace(s, vrx, "\\\\d+[\\\\d.]*");
+    interp = regex_replace(interp, intrx, "[+-]?\\\\d+");
+    interp = regex_replace(interp, fprx, "[+-]?\\\\d+\\\\.?\\\\d*[eE]?[+-]?\\\\d*");
+    return interp;
+}
+
+const std::string codeversion{"codeversion"};
+const std::string boardversion{"boardversion"};
+const std::string trhid{"trhid"};
+const std::string fandutycycle{"fandutycycle"};
+const std::string fanminrpm{"fanminrpm"};
+const std::string Ta0{"Ta0"};
+const std::string Ta1{"Ta1"};
+const std::string Ta2{"Ta2"};
+const std::string Ha0{"Ha0"};
+const std::string Ha1{"Ha1"};
+const std::string Ha2{"Ha2"};
+const std::string Ha3{"Ha3"};
+const std::string Ha4{"Ha4"};
+
+
+const regex trh_parameters_rx(replace_specifiers(
+"TRH Code Version:\\s+(?<"+codeversion+">%v),\\s+"
+"Board Version: (?<"+boardversion+">%v)\\s+"
+"Sensor ID(?<"+trhid+">%d)\\s+"
+"fan PWM duty cycle \\(%\\):\\s+(?<"+fandutycycle+">%f)\\s+"
+"fan min RPM: (?<"+fanminrpm+">%f)\\s+"
+"SHT85 ID \\S+\\s+"
+"calibration coefficients:\\s+"
+"Ta0 = (?<"+Ta0+">%f)\\s+"
+"Ta1 = (?<"+Ta1+">%f)\\s+"
+"Ta2 = (?<"+Ta2+">%f)\\s+"
+"Ha0 = (?<"+Ha0+">%f)\\s+"
+"Ha1 = (?<"+Ha1+">%f)\\s+"
+"Ha2 = (?<"+Ha2+">%f)\\s+"
+"Ha3 = (?<"+Ha3+">%f)\\s+"
+"Ha4 = (?<"+Ha4+">%f)\\s+"
+), boost::regex_constants::ECMAScript);
+
 
 // Typical TRH output
 //
 // TRH w/fan
 // TRH70 23.35 50.87 0 0 1578 94 0
-static string TRH_OUTPUT_SPEC("TRH[0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[.][0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+[[:blank:]]+[0-9]+");
-static regex TRH_OUTPUT(TRH_OUTPUT_SPEC, std::regex_constants::extended);
+static regex TRH_OUTPUT(
+    "TRH[0-9]+[[:blank:]]+"
+    "[0-9]+[.][0-9]+[[:blank:]]+"
+    "[0-9]+[.][0-9]+[[:blank:]]+"
+    "[0-9]+[[:blank:]]+"
+    "[0-9]+[[:blank:]]+"
+    "[0-9]+[[:blank:]]+"
+    "[0-9]+[[:blank:]]+"
+    "[0-9]+");
 
-static string INT_CMD_RESPONSE_SPEC("[[:space:]]*([0-9]+)");
-static regex INT_CMD_RESPONSE(INT_CMD_RESPONSE_SPEC, std::regex_constants::extended);
-static string FLOAT_CMD_RESPONSE_SPEC("[[:space:]]*([0-9]+[.][0-9]+)");
-static regex FLOAT_CMD_RESPONSE(FLOAT_CMD_RESPONSE_SPEC, std::regex_constants::extended);
+static regex INT_CMD_RESPONSE("[[:space:]]*([0-9]+)");
+static regex FLOAT_CMD_RESPONSE("[[:space:]]*([0-9]+[.][0-9]+)");
 
 void cleanupUnprintables(char* buf, int buflen)
 {
@@ -702,10 +781,8 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
 /*
  *  Metadata 
  */
-static const string DATA_RATE_DESC("Data Rate");
 static const string FAN_DUTY_CYCLE_DESC("Fan Duty Cycle");
 static const string FAN_MIN_RPM_DESC("Fan Min RPM");
-static const string ADC_RES_DESC("ADC Resolution");
 static const string TA0_COEFF_DESC("Ta0");
 static const string TA1_COEFF_DESC("Ta1");
 static const string TA2_COEFF_DESC("Ta2");
@@ -719,8 +796,8 @@ void
 NCAR_TRH::
 initCustomMetadata()
 {
-    addMetaDataItem(MetaDataItem(DATA_RATE_DESC, ""));
-    addMetaDataItem(MetaDataItem(ADC_RES_DESC, ""));
+    addMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, ""), false);
+    addMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, ""), false);
     addMetaDataItem(MetaDataItem(TA0_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(TA1_COEFF_DESC, ""));
     addMetaDataItem(MetaDataItem(TA2_COEFF_DESC, ""));
@@ -735,71 +812,29 @@ bool
 NCAR_TRH::
 captureEepromMetaData(const char* buf)
 {
-    // TODO DLOG(("NCAR_TRH::captureEepromMetaData(): regex: ") << SENSOR_RESET_METADATA_REGEX_SPEC);
-    DLOG(("NCAR_TRH::captureEepromMetaData(): matching:") << std::string(buf));
+    DLOG(("NCAR_TRH::captureEepromMetaData(): matching:\n")
+         << n_u::addBackslashSequences(buf)
+         << "\n...against...\n"
+         << trh_parameters_rx);
     cmatch results;
-    bool regexFound = regex_search(buf, results, SET_DATA);
-    if (regexFound && results[0].matched) {
-        if (results[SENSOR_ID_IDX].matched) {
-            setSerialNumber(results[SENSOR_ID_IDX].str());
-        }
-    
-        if (results[TRH_FW_VERSION_IDX].matched) {
-            setFwVersion(results[TRH_FW_VERSION_IDX].str());
-        }
-    
-        if (results[DATA_RATE_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(DATA_RATE_DESC, results.str(DATA_RATE_IDX)));
-        }
-    
-        if (results[FAN_DUTY_CYCLE_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, results.str(FAN_DUTY_CYCLE_IDX)));
-        }
-    
-        if (results[FAN_MIN_RPM_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, results.str(FAN_MIN_RPM_IDX)));
-        }
-    
-        if (results[ADC_RESOLUTION_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(ADC_RES_DESC, results.str(ADC_RESOLUTION_IDX)));
-        }
-    
-        if (results[TCAL_COEFF_0_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(TA0_COEFF_DESC, results.str(TCAL_COEFF_0_IDX)));
-        }
-    
-        if (results[TCAL_COEFF_1_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(TA1_COEFF_DESC, results.str(TCAL_COEFF_1_IDX)));
-        }
-    
-        if (results[TCAL_COEFF_2_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(TA2_COEFF_DESC, results.str(TCAL_COEFF_2_IDX)));
-        }
-    
-        if (results[HCAL_COEFF_0_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(HA0_COEFF_DESC, results.str(HCAL_COEFF_0_IDX)));
-        }
-    
-        if (results[HCAL_COEFF_1_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(HA1_COEFF_DESC, results.str(HCAL_COEFF_1_IDX)));
-        }
-    
-        if (results[HCAL_COEFF_2_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(HA2_COEFF_DESC, results.str(HCAL_COEFF_2_IDX)));
-        }
-    
-        if (results[HCAL_COEFF_3_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(HA3_COEFF_DESC, results.str(HCAL_COEFF_3_IDX)));
-        }
-    
-        if (results[HCAL_COEFF_4_IDX].matched) {
-            updateMetaDataItem(MetaDataItem(HA4_COEFF_DESC, results.str(HCAL_COEFF_4_IDX)));
-        }
-    }
-    else {
+    bool regexFound = regex_search(buf, results, trh_parameters_rx);
+    if (! regexFound) {
         DLOG(("NCAR_TRH::captureEepromMetaData(): Didn't find overall match to string as expected."));
+        return regexFound;
     }
 
+    setSerialNumber(results[trhid].str());
+    setFwVersion(results[codeversion].str());
+    updateMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, results[fandutycycle].str()), false);
+    updateMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, results[fanminrpm].str()), false);
+    updateMetaDataItem(MetaDataItem(TA0_COEFF_DESC, results[Ta0].str()));
+    updateMetaDataItem(MetaDataItem(TA1_COEFF_DESC, results[Ta1].str()));
+    updateMetaDataItem(MetaDataItem(TA2_COEFF_DESC, results[Ta2].str()));
+    updateMetaDataItem(MetaDataItem(HA0_COEFF_DESC, results[Ha0].str()));
+    updateMetaDataItem(MetaDataItem(HA1_COEFF_DESC, results[Ha1].str()));
+    updateMetaDataItem(MetaDataItem(HA2_COEFF_DESC, results[Ha2].str()));
+    updateMetaDataItem(MetaDataItem(HA3_COEFF_DESC, results[Ha3].str()));
+    updateMetaDataItem(MetaDataItem(HA4_COEFF_DESC, results[Ha4].str()));
     return regexFound;
 }
 
@@ -830,7 +865,7 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
             break;
     }
 
-    auto_ptr<char> respBuf(new char[BUF_SIZE]);
+    std::auto_ptr<char> respBuf(new char[BUF_SIZE]);
     char* buf = respBuf.get();
     memset(buf, 0, BUF_SIZE);
     int numCharsRead = readEntireResponse(buf, BUF_SIZE-1, selectTimeout,
@@ -846,7 +881,7 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
 
     if (numCharsRead > 0) {
         cleanupUnprintables(buf, BUF_SIZE);
-        
+
         DLOG(("NCAR_TRH::checkCmdRepsonse(): Number of chars read - %i", numCharsRead));
         DLOG(("NCAR_TRH::checkCmdRepsonse(): chars read - %s", buf));
 

@@ -1,10 +1,10 @@
 // -*- c-basic-offset: 4; -*-
 #define BOOST_TEST_DYN_LINK
-#define BOOST_AUTO_TEST_MAIN
 #include <boost/test/unit_test.hpp>
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/Project.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/Process.h>
 #include <nidas/dynld/isff/NCAR_TRH.h>
 #include <nidas/util/auto_ptr.h>
@@ -22,11 +22,8 @@ using namespace nidas::dynld::isff;
 
 BOOST_AUTO_TEST_CASE(test_raw_trh)
 {
-    Logger* logger = Logger::createInstance(&std::cerr);
-    logger->setScheme(LogScheme().addConfig(LogConfig()));
-
     nidas::util::auto_ptr<xercesc::DOMDocument>
-	doc(parseXMLConfigFile("test_trh.xml"));
+        doc(parseXMLConfigFile("test_trh.xml"));
 
     Project* project = Project::getInstance();
     project->fromDOMElement(doc->getDocumentElement());
@@ -144,3 +141,70 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
     nidas::util::Process::clearEnv();
 }
 
+
+const std::string mdbuf{
+"TRH Code Version:  6.060, Board Version: 1\r"
+"Sensor ID25    fan PWM duty cycle (%): 40   fan min RPM: -1\r"
+"SHT85 ID 7D33595\r"
+"calibration coefficients:\r"
+"Ta0 = -45.3449\r"
+"Ta1 = 0.002665\r"
+"Ta2 = 9.34885e-11\r"
+"Ha0 = 0\r"
+"Ha1 = 0.001526\r"
+"Ha2 = 4\r"
+"Ha3 = 6\r"
+"Ha4 = 8\r"
+};
+
+
+
+BOOST_AUTO_TEST_CASE(test_trh_metadata)
+{
+    NCAR_TRH* trh = new NCAR_TRH();
+
+    // Verify hard-coded metadata.
+    BOOST_CHECK_EQUAL(trh->getManufacturer(), "NCAR");
+    BOOST_CHECK_EQUAL(trh->getModel(), "TRH");
+
+    BOOST_CHECK(trh->captureEepromMetaData(mdbuf.c_str()));
+
+    BOOST_CHECK_EQUAL(trh->getFwVersion(), "6.060");
+    BOOST_CHECK_EQUAL(trh->getSerialNumber(), "25");
+
+    auto mmd = trh->getSensorManufMetaData();
+    BOOST_CHECK_EQUAL(mmd.findCustomMetaData("Fan Duty Cycle")->second, "40");
+    BOOST_CHECK_EQUAL(mmd.findCustomMetaData("Fan Min RPM")->second, "-1");
+
+    auto cmd = trh->getSensorConfigMetaData();
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta0")->second, "-45.3449");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta1")->second, "0.002665");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ta2")->second, "9.34885e-11");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha1")->second, "0.001526");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha2")->second, "4");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha3")->second, "6");
+    BOOST_CHECK_EQUAL(cmd.findCustomMetaData("Ha4")->second, "8");
+
+    delete trh;
+}
+
+
+bool init_unit_test()
+{
+    return true;
+}
+
+
+int main(int argc, char* argv[])
+{
+    nidas::core::NidasApp napp(argv[0]);
+    napp.enableArguments(napp.loggingArgs());
+    napp.allowUnrecognized(true);
+    ArgVector args = napp.parseArgs(argc, argv);
+    DLOG(("main entered, args parsed, debugging enabled..."));
+
+    nidas::core::NidasAppArgv left(argv[0], args);
+    int retval = boost::unit_test::unit_test_main(&init_unit_test, left.argc, left.argv);
+
+    return retval;
+}

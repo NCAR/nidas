@@ -5,16 +5,16 @@ env = env.Clone(tools = ['nidasutil', 'nidas', 'valgrind'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
+env.Append(LIBS = ['boost_unit_test_framework'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
 tests = env.Program('ttrh', ["ttrh.cc"])
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file"]))
+                      env.ChdirActions(["./$SOURCE.file --log debug --log_level=all"]))
 env.Precious(runtest)
-AlwaysBuild(runtest)
-Alias('test', runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
 
 env.ValgrindLog('memcheck', 
                 env.Command('vg.memcheck.log', tests,

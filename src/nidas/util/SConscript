@@ -166,7 +166,7 @@ def libftdi(env):
     env.Require([libusb1])
 
 # Required to build nidas_util
-deps = [libftdi, 'boost_system', 'boost_filesystem']
+deps = [libftdi, 'boost_system', 'boost_filesystem', 'boost_regex']
 env.Require(deps)
 env.Append(LIBS=['pthread'])
 arch = env['ARCH']
