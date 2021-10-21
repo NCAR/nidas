@@ -115,6 +115,13 @@ public:
     bool captureEepromMetaData(const char* buf);
     void updateMetaData();
 
+    /**
+     * @brief Tell the TRH sensor to enter eeprom menu mode.
+     * 
+     * @return true if successful, false otherwise.
+     */
+    bool enterMenuMode();
+
 protected:
     /*
      *  AutoConfig - Virtual overrides of SerialSensor methods.

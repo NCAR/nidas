@@ -1138,3 +1138,11 @@ updateMetaData()
 {
     sendAndCheckSensorCmd(SHOW_SETTINGS_CMD);
 }
+
+
+bool
+NCAR_TRH::
+enterMenuMode()
+{
+    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD);
+}
