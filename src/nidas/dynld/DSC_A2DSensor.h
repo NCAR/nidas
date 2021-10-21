@@ -38,6 +38,8 @@ namespace nidas { namespace dynld {
 
 using namespace nidas::core;
 
+class DSC_AnalogOut;
+
 /**
  * One or more sensors connected to a Diamond Systems Corp A2D.
  */
@@ -89,7 +91,22 @@ public:
 
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
+
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
 private:
+
+    /**
+     * Used for auto_cal, diagnostic voltages output.
+     */
+    DSC_AnalogOut *d2a;
 
     /**
      * Each card can only support one gain value.

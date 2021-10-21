@@ -55,7 +55,6 @@ DSC_AnalogOut::~DSC_AnalogOut()
 
 void DSC_AnalogOut::open()
 {
-
     if ((_fd = ::open(_devName.c_str(),O_RDWR)) < 0)
         throw n_u::IOException(_devName,"open",errno);
 
@@ -64,7 +63,6 @@ void DSC_AnalogOut::open()
 
     if (::ioctl(_fd,DMMAT_D2A_GET_CONVERSION,&_conv) < 0)
         throw n_u::IOException(_devName,"ioctl GET_CONVERSION",errno);
-
 }
 
 void DSC_AnalogOut::close()
@@ -140,4 +138,3 @@ void DSC_AnalogOut::setVoltage(int which, float val)
     vals.push_back(val);
     setVoltages(whiches,vals);
 }
-

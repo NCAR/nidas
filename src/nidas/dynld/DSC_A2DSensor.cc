@@ -25,6 +25,8 @@
 */
 
 #include "DSC_A2DSensor.h"
+#include "DSC_AnalogOut.h"
+#include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 
@@ -43,13 +45,19 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(),_gain(-1),_bipolar(false)
+    A2DSensor(), d2a(0), _gain(-1), _bipolar(false)
 {
     setLatency(0.1);
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 DSC_A2DSensor::~DSC_A2DSensor()
 {
+    if (d2a) {
+        d2a->close();
+        delete d2a;
+    }
 }
 
 IODevice* DSC_A2DSensor::buildIODevice()
@@ -94,7 +102,7 @@ void DSC_A2DSensor::open(int flags)
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
         struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
-    
+
         for (int j = 0; j < scfg.nvars; j++) {
             if (scfg.channels[j] >= nchan) {
                 ostringstream ost;
@@ -182,7 +190,7 @@ void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
     if (_bipolar != bipolar)
         throw n_u::InvalidParameterException(getName(),
             "gain","board does not support multiple polarities");
-        
+
     A2DSensor::setA2DParameters(ichan,gain,bipolar);
 
 }
@@ -194,10 +202,10 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
      * DSC returns (32767) for maximum voltage of range and -32768 for
      * minimum voltage.
      *
-     * For bipolar=T 
+     * For bipolar=T
      *	cnts = ((V * gain / 20) * 65535 =
      *	So:   V = cnts / 65535 * 20 / gain
-     * For bipolar=F 
+     * For bipolar=F
      *	cnts = ((V * gain / 20) * 65535 - 32768
      *	So:   V = (cnts + 32768) / 65535 * 20 / gain
      *              = cnts / 65535 * 20 / gain + 10 / gain
@@ -209,3 +217,118 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
     if (getBipolar(ichan)) intercept = 0.0;
     else intercept = 10.0 / getGain(ichan);
 }
+
+
+
+void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    if (d2a == 0) {
+        string dev = getDeviceName();
+        size_t start = dev.find("a2d");
+        if (start == string::npos)  // not found
+        {
+            PLOG(("Error: executeXmlRpc devicename does not contain 'a2d'."));
+            return;
+        }
+        dev.replace(start, 3, "d2a");
+
+        d2a = new DSC_AnalogOut();
+        d2a->setDeviceName(dev);
+        d2a->open();
+    }
+
+
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if      (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+}
+
+void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    // extract the current channel setup
+    dmmat_a2d_setup setup;
+    try {
+//        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
+        // populate the setup.
+        memset(&setup, 0, sizeof(setup));
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: getA2DSetup: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
+        result["gain"][i]   = _gain;    //setup.gain[i];
+        result["offset"][i] = _bipolar; //setup.offset[i];
+        result["calset"][i] = setup.calset[i];
+    }
+    result["vcal"]      = setup.vcal;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    struct dmmat_a2d_cal_config calConf;
+    int voltage = 0;
+    int calset  = 0;
+    int state   = 0;
+
+    string errmsg = "XmlRpc error: testVoltage: " + getName();
+
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        voltage = params["voltage"];
+        calset  = params["calset"];
+        state   = params["state"];
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        voltage = params[0]["voltage"];
+        calset  = params[0]["calset"];
+        state   = params[0]["state"];
+    }
+    if (calset < 0 || 0xff < calset) {
+        char hexstr[50];
+        sprintf(hexstr, "0x%x", calset);
+        errmsg += ": invalid calset: " + string(hexstr);
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+    calConf.vcal = voltage;
+    calConf.state = state;
+
+    for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++)
+        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
+
+    // set the test voltage and channel(s)
+    try {
+        // ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(dmmat_a2d_cal_config));
+        ;//do something d2a, set output voltage.
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
