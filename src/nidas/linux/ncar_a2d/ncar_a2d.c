@@ -109,7 +109,7 @@ static const int WAITING_FOR_RESET = 1;
  */
 static int IoPort[MAX_A2D_BOARDS] = { 0x3a0, 0, 0, 0 };
 
-/* 
+/*
  * Which A2D chip is the master? (-1 causes the first requested channel to
  * be the master)
  */
@@ -159,7 +159,7 @@ static struct A2DBoard *BoardInfo = 0;
 
 static struct workqueue_struct *work_queue = 0;
 
-/* 
+/*
  * Address for a specific channel on a board: board base address + 2 * channel.
  * These addresses are always used for 16 bit transfers.
  */
@@ -952,7 +952,7 @@ static int A2DStart(struct A2DBoard *brd, int channel, unsigned int nloop)
         int ntry;
         const int NTRY=8;
         unsigned short status;
-        unsigned short instr = AD7725_READDATA; 
+        unsigned short instr = AD7725_READDATA;
         unsigned short expected = AD7725StatusInstrBits(instr);
 
         if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
@@ -976,7 +976,7 @@ static int A2DStart(struct A2DBoard *brd, int channel, unsigned int nloop)
                 if ((status & A2DSTAT_INSTR_MASK) == expected) break;
                 if (ntry == 0 && !(nloop % 1000)) {
                         /* disable this test */
-                        if (dtestnum == 99) 
+                        if (dtestnum == 99)
                                 KLOG_INFO(
 "%s: A2DStart: outb(A2DIO_CS_CMD_WR=%#X,base+0XF);outw(%#4hX,base+%d);"
 "outb(A2DIO_CS_CMD_RD=%#X,base+0XF);inw(base+%d)=%#04hX failed: "
@@ -1241,7 +1241,7 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
 
         brd->OffCal = 0x0;
 
-        // HACK! the CPLD logic needs to be fixed!  
+        // HACK! the CPLD logic needs to be fixed! 
         for (repeat = 0; repeat < 3; repeat++) {
                 for (i = 0; i < numa2ds; i++) {
                         int chan = a2dchans[i];
@@ -1366,7 +1366,7 @@ static int addSampleConfig(struct A2DBoard *brd,
 
         return ret;
 }
-        
+
 static void freeFilters(struct A2DBoard *brd)
 {
         int i;
@@ -1542,40 +1542,40 @@ static void a2d_bottom_half(void *work)
                  *   scanRate = 500Hz (rate that A2D is scanning all 8 channels)
                  * Each FIFO poll then downloads 500/20 = 25 A2D scans.
                  * In the sample of 25 scans * 8 channels = 200 short integers
-                 * from the A2D FIFO which was assigned a time tag 00:00.050, 
+                 * from the A2D FIFO which was assigned a time tag 00:00.050,
                  * we assume the individual 25 scans have timetags of:
                  * 00:00.000, 00:00.002, 00:00.004, 00:00.010, ... , 00:00.048
                  *
                  * ndt = # of deltaT to back up for first timetag
                  */
-                 
+
                 /*
                  * Test March 4, 2012, with PPS signal into channel 0 of an A2D.
                  * PPS from a Symmetricom S250 in the lab.
                  * IRIG was sync'd to the Symmetricom.  A2D sampled at 500 Hz.
                  *
                  * If an additional 3 delta-Ts are subtracted from the time tags,
-                 * then the beginning of the PPS rise happens is time-tagged 
+                 * then the beginning of the PPS rise happens is time-tagged
                  * on the exact second, in the data_dump output:
                  *
-                 * 2012 03 05 00:02:14.9880   0.002       4      0    147 
-                 * 2012 03 05 00:02:14.9900   0.002       4      0    149 
-                 * 2012 03 05 00:02:14.9920   0.002       4      0    148 
-                 * 2012 03 05 00:02:14.9940   0.002       4      0    147 
-                 * 2012 03 05 00:02:14.9960   0.002       4      0    148 
-                 * 2012 03 05 00:02:14.9980   0.002       4      0    147 
-                 * 2012 03 05 00:02:15.0000   0.002       4      0    -13 
-                 * 2012 03 05 00:02:15.0020   0.002       4      0    279 
-                 * 2012 03 05 00:02:15.0040   0.002       4      0   -124 
-                 * 2012 03 05 00:02:15.0060   0.002       4      0    360 
-                 * 2012 03 05 00:02:15.0080   0.002       4      0   -229 
-                 * 2012 03 05 00:02:15.0100   0.002       4      0    479 
-                 * 2012 03 05 00:02:15.0120   0.002       4      0   -406 
-                 * 2012 03 05 00:02:15.0140   0.002       4      0   1236 
-                 * 2012 03 05 00:02:15.0160   0.002       4      0  14285 
-                 * 2012 03 05 00:02:15.0180   0.002       4      0  16645 
-                 * 2012 03 05 00:02:15.0200   0.002       4      0  15507 
-                 * 2012 03 05 00:02:15.0220   0.002       4      0  16357 
+                 * 2012 03 05 00:02:14.9880   0.002       4      0    147
+                 * 2012 03 05 00:02:14.9900   0.002       4      0    149
+                 * 2012 03 05 00:02:14.9920   0.002       4      0    148
+                 * 2012 03 05 00:02:14.9940   0.002       4      0    147
+                 * 2012 03 05 00:02:14.9960   0.002       4      0    148
+                 * 2012 03 05 00:02:14.9980   0.002       4      0    147
+                 * 2012 03 05 00:02:15.0000   0.002       4      0    -13
+                 * 2012 03 05 00:02:15.0020   0.002       4      0    279
+                 * 2012 03 05 00:02:15.0040   0.002       4      0   -124
+                 * 2012 03 05 00:02:15.0060   0.002       4      0    360
+                 * 2012 03 05 00:02:15.0080   0.002       4      0   -229
+                 * 2012 03 05 00:02:15.0100   0.002       4      0    479
+                 * 2012 03 05 00:02:15.0120   0.002       4      0   -406
+                 * 2012 03 05 00:02:15.0140   0.002       4      0   1236
+                 * 2012 03 05 00:02:15.0160   0.002       4      0  14285
+                 * 2012 03 05 00:02:15.0180   0.002       4      0  16645
+                 * 2012 03 05 00:02:15.0200   0.002       4      0  15507
+                 * 2012 03 05 00:02:15.0220   0.002       4      0  16357
                  */
                 ndt = nval / NUM_NCAR_A2D_CHANNELS + 3;
                 tt0 = insamp->timetag - ndt * brd->scanDeltatMsec;
@@ -1589,7 +1589,7 @@ static void a2d_bottom_half(void *work)
                 // We wake up the read queue here so that the filters
                 // don't have to know about it.  How often the
                 // queue is woken depends on the requested latency.
-                // 
+                //
                 // Since the sample queue may fill up before
                 // latencyJiffies have elapsed, we also wake the
                 // read queue if the output sample queue is half full.
@@ -1649,7 +1649,7 @@ static void readA2DFifo(struct A2DBoard *brd)
 		brd->discardNextScan = 0;
 		return;
         }
-		
+
 	samp = GET_HEAD(brd->fifo_samples, brd->fifo_samples.size);
         if (!samp) {            // no output sample available
                 discardA2DFifo(brd);
@@ -1847,7 +1847,7 @@ static int stopBoard(struct A2DBoard *brd)
         return ret;
 }
 
-/* 
+/*
  * Reset the A2D.
  */
 static int resetBoard(struct A2DBoard *brd)
@@ -2234,7 +2234,6 @@ ncar_a2d_read(struct file *filp, char __user * buf, size_t count,
 #ifdef USE_RESET_WORKER
         if (brd->errorState && brd->errorState != WAITING_FOR_RESET)
 		return brd->errorState;
-                
 #else
         if (brd->errorState) return brd->errorState;
 #endif
@@ -2507,7 +2506,7 @@ ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 /*
  * 16 bit writes of alternating 0x5555 and 0xaaaa to a channel,
  * with a 1/2 second sleep between.
- */ 
+ */
 static int test_ISA_Writes(struct A2DBoard *brd,int ioport)
 {
         unsigned short instr = 0x5555;
@@ -2520,8 +2519,8 @@ static int test_ISA_Writes(struct A2DBoard *brd,int ioport)
                         dtestnum,ioport,dtestchan,ntry,dtestcnt);
                 outw(instr, CHAN_ADDR16(brd, dtestchan));
                 instr ^= 0xffff;
-                msleep(500);            
-        } 
+                msleep(500);
+        }
         KLOG_INFO("test %d finished, returning -EINVAL\n",dtestnum);
         return -EINVAL;
 }
@@ -2679,7 +2678,7 @@ static int __init ncar_a2d_init(void)
 
                 nconfirmed = 0;
 
-                /* If requested, run ISA write test.  */ 
+                /* If requested, run ISA write test.  */
                 if (dtestnum == 1) {
                         error = test_ISA_Writes(brd,IoPort[ib]);
                         goto err;
@@ -2687,8 +2686,8 @@ static int __init ncar_a2d_init(void)
 
                 for (ic=0; ic < numa2ds; ic++) {
                         int chan = a2dchans[ic];
-                        unsigned short instr = AD7725_ABORT; 
-                        // unsigned short instr = AD7725_READDATA; 
+                        unsigned short instr = AD7725_ABORT;
+                        // unsigned short instr = AD7725_READDATA;
                         unsigned short expected = AD7725StatusInstrBits(instr);
 
                         for (ntry = 0; ntry < 20; ntry++) {

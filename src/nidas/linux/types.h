@@ -70,7 +70,7 @@ typedef unsigned int dsm_sample_length_t;
  samp->length = len;
  memcpy(samp->data,buffer,len);
  ...
- * 
+ *
  * When sample is read on the user side:
  struct dsm_sample header;
  read(fd,&header,SIZEOF_DSM_SAMPLE_HEADER);

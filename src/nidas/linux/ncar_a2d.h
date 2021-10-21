@@ -27,7 +27,7 @@
 
 */
 
-/* 
+/*
  * This header is shared from user-side code that wants to get the
  * values of the ioctl commands.
  */
@@ -38,7 +38,7 @@
 #include "types.h"              // get nidas typedefs
 #include "a2d.h"
 
-/* 
+/*
  * User programs need these for the _IO macros, but kernel modules get
  * theirs elsewhere.
  */

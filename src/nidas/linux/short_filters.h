@@ -44,4 +44,3 @@ enum nidas_short_filter {
 };
 
 #endif
-    
