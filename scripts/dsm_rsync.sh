@@ -89,18 +89,17 @@ fi
 source="$1"
 target="$2"
 
-dsm="$source/bin/dsm"
-if [ ! -f "$dsm" ]; then
-    echo "$dsm does not exist."
-    exit 1
-fi
-
 # file /opt/local/nidas/bin/data_stats 
 # /opt/local/nidas/bin/data_stats: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=ce4f51f04f0c3dc53028669ad5300315cc9007af, for GNU/Linux 3.2.0, with debug_info, not stripped
 # file /home/granger/code/nidas/install/pi3/bin/data_stats 
 # /home/granger/code/nidas/install/pi3/bin/data_stats: ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (GNU/Linux), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, for GNU/Linux 3.2.0, BuildID[sha1]=43fa258887395a46d834bf65d2c29786ca178f5c, with debug_info, not stripped
 
 if [ -z "$arch" ]; then
+    dsm="$source/bin/dsm"
+    if [ ! -f "$dsm" ]; then
+	echo "$dsm does not exist, cannot detect arch."
+	exit 1
+    fi
     arch=$(file $dsm)
 fi
 case "$arch" in
