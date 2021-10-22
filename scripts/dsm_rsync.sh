@@ -133,8 +133,10 @@ fi
 
 echo "Now running rsync ops..."
 set -x
+# Need to rsync to top-level target first, in case it does not exist yet,
+# before copying to the library subdirectory.
+rsync $opts "$source/bin" "$source/firmware" "$source/include" "$source/share" "$target"
 # First create the lib subdirectory with rsync, then copy the source lib
 # into the archlib directory.
 rsync $opts --exclude="**" "$source/lib/" "$target/lib"
 rsync $opts "$source/lib/" "$target/lib/$archlib"
-rsync $opts "$source/bin" "$source/firmware" "$source/include" "$source/share" "$target"
