@@ -61,7 +61,12 @@
 usage()
 {
     cat <<EOF
-Usage: $0 [--source <path>] [--tag <tag>] [--work <path>] {list|build|run|package|push}
+Usage: $0 [options] <alias> {list|build|clone|run|scons|package|push}
+
+Options:
+  --source <path>
+  --tag <tag>
+  --work <path>
 
 These operations use the current source directory, ignoring --source
 and --tag:
@@ -71,7 +76,7 @@ and --tag:
     architecture targets.  This does not list the existing containers,
     only what this script can build and run.
 
-  build <alias>
+  build
     Build a local container image for the given alias and tag it.
 
 These operations can use the --source, --tag, and --work options.
@@ -85,18 +90,22 @@ that source:
     with the --tag and --source options.  The clone will be 
     in <work>/clones/nidas-<tag>.
 
-  run <alias> [command args ...]
+  run [command args ...]
     Run the image for the given alias, mounting the source, install,
     and ~/.scons paths into the container.  The install path is
     <work>/install/<alias>, mounted as /opt/nidas in the container.
     The packages directory <work>/install/<alias> is mounted as
     /packages in the container.
 
-  package <alias> [<dest>]
-    Run the script which builds packages for the alias, and copy the
-    packages into <dest>, or else <source>/packages/<alias>.
+  scons [scons args ...]
+    Run scons inside the container, passing BUILDS and PREFIX
+    on the command line, with any additional arguments.
 
-  push <alias>
+  package
+    Run the script which builds packages for the alias, and copy the
+    packages into <work>/packages/<alias>.
+
+  push
     Push packages to the cloud for alias from the given path.  The
     packages must be in <work>/packages/<alias>.
 
@@ -122,11 +131,31 @@ EOF
 
 targets=(centos7 centos8 vulcan titan pi2 pi3)
 
+# Return the arch for passing to build_dpkg
 get_arch() # alias
 {
     case "$1" in
 	centos*)
 	    echo x86_64
+	    ;;
+	pi*)
+	    echo armhf
+	    ;;
+	titan)
+	    echo armel
+	    ;;
+	vulcan)
+	    echo armbe
+	    ;;
+    esac
+}
+
+# Return the BUILDS setting for the given alias
+get_builds() # alias
+{
+    case "$1" in
+	centos*)
+	    echo host
 	    ;;
 	pi*)
 	    echo armhf
@@ -195,10 +224,8 @@ build_image() # alias
 # Run the image to mount the source tree containing this script as /nidas,
 # the user .scons directory, and the given install path as /opt/nidas.  If
 # no install path, then default to nidas/install/<alias>.
-run_image() # alias command...
+run_image() # command...
 {
-    alias="$1"
-    shift
     echo "Top of nidas source tree: $source"
     # Create packagepath under workpath.
     packagepath="$workpath/packages/$alias"
@@ -239,29 +266,32 @@ run_image() # alias command...
       $imagetag "$@"
 }
 
-build_packages() # alias
+run_scons() # [scons args ...]
 {
-    alias="$1"
-    if [ "$1" -eq "-h" -o -z "$alias" -o $# -ne 1 ]; then
-	echo "build_packages {alias}"
+    run_image scons -C /nidas/src PREFIX=/opt/nidas BUILDS=`get_builds $alias` "$@"
+}
+
+build_packages()
+{
+    if [ "$1" -eq "-h" -o -z "$alias" -o $# -ne 0 ]; then
+	echo "build_packages"
 	echo "Packages will be copied to $workpath/packages/$alias."
 	exit 1
     fi
-    run_image "$alias" /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /packages
+    run_image /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /packages
 }
 
 
 # Push packages to the cloud for the given alias located in the given
 # path.  Explicitly avoid uploading dbgsym packages.
 
-push_packages() # alias path
+push_packages() # path
 {
     # list the specific package files that need to be uploaded, ie, not
     # debug symbols
-    alias="$1"
-    path="$2"
-    if [ -z "$alias" -o -z "$path" ]; then
-	echo "push <alias> <path>"
+    path="$1"
+    if [ -z "$path" ]; then
+	echo "push <path>"
 	exit 1
     fi
     packages=`ls "$path"/*.deb | egrep -v dbgsym`
@@ -354,26 +384,62 @@ clone_local() # tag source dest
 # scripts is the directory from which we're running and in which the build
 # scripts and Dockerfiles are found, while source is the source tree that
 # will actually be built.
-scripts=$(cd `dirname $0`/.. && pwd)
+scripts=$(realpath `dirname $0`/..)
 scripts="$scripts/scripts"
 
-source=$(cd `dirname $0`/.. && pwd)
+source=$(realpath `dirname $0`/..)
 tag=""
-
-if [ "$1" == "--source" ]; then
-    source="$2"
-    source=$(cd "$source" && pwd)
-    shift; shift
-fi
-if [ "$1" == "--tag" ]; then
-    tag="$2"
-    shift; shift
-fi
 workpath=""
-if [ "$1" == "--work" ]; then
-    workpath="$2"
-    shift; shift
-fi
+alias=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+
+	--source)
+	    source="$2"
+	    source=$(realpath "$source")
+	    shift; shift
+	    ;;
+
+	--tag)
+	    tag="$2"
+	    shift; shift
+	    ;;
+
+	--work)
+	    workpath="$2"
+	    shift; shift
+	    ;;
+
+	list)
+	    break
+	    ;;
+
+	build|run|scons|package|clone|push)
+	    if [ -z "$alias" ]; then
+		echo "Alias is required for $1."
+		exit 1
+	    fi
+	    break
+	    ;;
+
+	-*)
+	    echo "Unrecognized option: $1"
+	    exit 1
+	    ;;
+
+	*)
+	    itag=`get_image_tag "$1"`
+	    if [ -z "$itag" ]; then
+		echo "Unrecognized alias: $1"
+		exit 1
+	    fi
+	    alias="$1"
+	    shift
+	    ;;
+    esac
+done
+
 if [ -z "$workpath" ]; then
     workpath="/tmp/cnidas"
     mkdir -p "$workpath"
@@ -392,12 +458,18 @@ fi
 case "$1" in
 
     build)
-	build_image "$2"
+	shift
+	build_image "$@"
 	;;
 
     run)
 	shift
 	run_image "$@"
+	;;
+
+    scons)
+	shift
+	run_scons "$@"
 	;;
 
     package)
