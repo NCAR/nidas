@@ -59,9 +59,7 @@ enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
     NULL_CMD,
     ENTER_EEPROM_MENU_CMD,
     FW_VERSION_CMD,
-    RESOLUTION_CMD,
     SENSOR_ID_CMD,
-    DATA_RATE_CMD,
     FAN_DUTY_CYCLE_CMD,
     FAN_MIN_RPM_CMD,
     EEPROM_INIT_STATE_CMD,
@@ -114,19 +112,7 @@ static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS
                                              DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
                                              DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
 
-/* 
- *  AutoConfig: TRH Commands
- */
-static const SensorCmdData DEFAULT_SCIENCE_PARAMETERS[] =
-{
-    SensorCmdData((int)ENTER_EEPROM_MENU_CMD, SensorCmdArg()),
-    SensorCmdData(DATA_RATE_CMD, SensorCmdArg(10)),
-    SensorCmdData(EXIT_EEPROM_MENU_CMD, SensorCmdArg())
-};
-
-const int NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAMETERS)/sizeof(SensorCmdData);
-
-// default message parameters for the PB210
+// default message parameters for the TRH
 static const int DEFAULT_MESSAGE_LENGTH = 0;
 static const bool DEFAULT_MSG_SEP_EOM = true;
 static const char* DEFAULT_MSG_SEP_CHARS = "\n";
@@ -145,9 +131,7 @@ NCAR_TRH::NCAR_TRH():
     _Ha(),
     _raw_t_handler(0),
     _raw_rh_handler(0),
-    _compute_order(),
-    _desiredScienceParameters(0),
-    _scienceParametersOk(false)
+    _compute_order()
 {
     _raw_t_handler = makeCalFileHandler
         (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
@@ -171,11 +155,6 @@ NCAR_TRH::NCAR_TRH():
     	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
     }
 
-    _desiredScienceParameters = new SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
-    for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        _desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
-    }
-
     setManufacturer("NCAR");
     setModel("TRH");
     initCustomMetadata();
@@ -186,7 +165,6 @@ NCAR_TRH::~NCAR_TRH()
 {
     delete _raw_t_handler;
     delete _raw_rh_handler;
-    delete [] _desiredScienceParameters;
 }
 
 
@@ -539,9 +517,7 @@ ifanFilter(std::list<const Sample*>& results)
 static const char* ENTER_EEPROM_MENU_CMD_STR =  "\x15";
 // Available once in the EEPROM menu     
 static const char* FW_VERSION_CMD_STR =         "VER";  // print out the firmware version
-static const char* DATA_RESOLUTION_CMD_STR =    "RES";  // arg is 0=14bits or 1=12bits
 static const char* SENSOR_ID_CMD_STR =          "SID";  // set the instrument ID
-static const char* DATA_RATE_CMD_STR =          "RAT";  // Integrals of 0.1 seconds between sample messages
 static const char* FAN_DUTY_CYCLE_CMD_STR =     "DUT";  // Fan motor duty cycle in % (0-100)
 static const char* MIN_FAN_DUTY_CYCLE_CMD_STR = "Rmin"; // Minimum fan motor duty cycle (not implemented)
 static const char* EEPROM_INIT_STATE_CMD_STR =  "STA";  // 1 = initialized, 255 = uninitialized
@@ -564,9 +540,7 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
     0,
     ENTER_EEPROM_MENU_CMD_STR, 
     FW_VERSION_CMD_STR,
-    DATA_RESOLUTION_CMD_STR, 
     SENSOR_ID_CMD_STR,  
-    DATA_RATE_CMD_STR,       
     FAN_DUTY_CYCLE_CMD_STR,  
     MIN_FAN_DUTY_CYCLE_CMD_STR,
     EEPROM_INIT_STATE_CMD_STR,
@@ -582,7 +556,7 @@ static const char* cmdTable[NUM_SENSOR_CMDS] =
     DEFAULT_EEPROM_CMD_STR,
     SHOW_CMDS_CMD_STR,
     SHOW_SETTINGS_CMD_STR,
-    EXIT_EEPROM_MENU_CMD_STR,
+    EXIT_EEPROM_MENU_CMD_STR
 };
 
 /* 
@@ -732,8 +706,6 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
         // these commands all take an argument...
     	// these take integers...
         case SENSOR_ID_CMD:
-        case DATA_RATE_CMD:
-        case RESOLUTION_CMD:
         case FAN_DUTY_CYCLE_CMD:
         case FAN_MIN_RPM_CMD:
         case EEPROM_INIT_STATE_CMD:
@@ -891,7 +863,6 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
                 matchStr = ENTER_EEPROM_MENU_CMD_RESP;
                 break;
 
-            case DATA_RATE_CMD:
             case FAN_DUTY_CYCLE_CMD:
             case FAN_MIN_RPM_CMD:
                 matchStr = INT_CMD_RESPONSE;
@@ -1013,32 +984,6 @@ sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
     return checkCmdResponse(cmd, arg);
 }
 
-void 
-NCAR_TRH::
-sendScienceParameters() {
-    bool desiredIsDefault = true;
-    _scienceParametersOk = true;
-
-    DLOG(("Check for whether the desired science parameters are the same as the default"));
-    for (int i=0; i< NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if ((_desiredScienceParameters[i].cmd != DEFAULT_SCIENCE_PARAMETERS[i].cmd)
-            || (_desiredScienceParameters[i].arg != DEFAULT_SCIENCE_PARAMETERS[i].arg)) {
-            desiredIsDefault = false;
-            break;
-        }
-    }
-
-    if (desiredIsDefault) NLOG(("Base class did not modify the default science parameters for this TRH sensor"));
-    else NLOG(("Base class modified the default science parameters for this TRH"));
-
-    DLOG(("Sending science parameters"));
-    for (int j=0; j<NUM_DEFAULT_SCIENCE_PARAMETERS && _scienceParametersOk; ++j) {
-            _scienceParametersOk = _scienceParametersOk 
-                                   && sendAndCheckSensorCmd(static_cast<TRH_SENSOR_COMMANDS>(_desiredScienceParameters[j].cmd), 
-                                                            _desiredScienceParameters[j].arg);
-    }
-}
-
 bool 
 NCAR_TRH::
 handleEepromExit(const char* buf, const int /* bufSize */)
@@ -1057,22 +1002,12 @@ handleEepromExit(const char* buf, const int /* bufSize */)
 
     return success;
 }
+
 CFG_MODE_STATUS 
 NCAR_TRH::
 enterConfigMode()
 {
     return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD) ? ENTERED : NOT_ENTERED;
-}
-
-void 
-NCAR_TRH::
-updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg) {
-    for(int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
-        if (cmd == _desiredScienceParameters[i].cmd) {
-            _desiredScienceParameters[i].arg.intArg = arg;
-            break;
-        }
-    }
 }
 
 void 
@@ -1124,7 +1059,7 @@ fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterExcep
                                                                     aname, aval);
                     }
 
-                    updateDesiredScienceParameter(DATA_RATE_CMD, dataRate);
+                    // updateDesiredScienceParameter(DATA_RATE_CMD, dataRate);
                 }
             }
         }

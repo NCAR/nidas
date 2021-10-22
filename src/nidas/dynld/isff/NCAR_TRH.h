@@ -129,9 +129,10 @@ protected:
     virtual void fromDOMElement(const xercesc::DOMElement* node)
                     throw(nidas::util::InvalidParameterException);
     virtual bool checkResponse();
-    virtual void sendScienceParameters();
-    virtual bool checkScienceParameters() {return _scienceParametersOk;};
     virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
+
+    // No need to override sendScienceParameters() and checkScienceParameters()
+    // because there are none, so the default implementations suffice.
 
 private:
 
@@ -189,10 +190,6 @@ private:
     /*
      * Autoconfig 
      */
-    nidas::core::SensorCmdData* _desiredScienceParameters;
-    bool _scienceParametersOk;
-
-    void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
     bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
                                  const boost::regex& matchStr, int matchGroup, 
                                  const char* buf);
