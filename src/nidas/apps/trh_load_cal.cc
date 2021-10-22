@@ -67,6 +67,12 @@ using namespace nidas::core;
 using namespace nidas::dynld::isff;
 using namespace nidas::util;
 
+using std::regex;
+using std::cmatch;
+using std::cout;
+using std::string;
+
+
 static const char* CAL_DATE_REGEX_SPEC = 
     // "-(([[digit:]]{4}(-[[:digit:]]{2}){2})T[[:digit:]]{2}(_[[:digit:]]{2}){2}(\\.[[:digit:]]{1,6}){0,1})-";
     // "-(([0-9]{4}(-[0-9]{2}){2})T[0-9]{2}(_[0-9]{2}){2}(\\.[0-9]]{1,6}){0,1})-";
@@ -170,7 +176,7 @@ bool enterMenu()
         "Putting TRH into EEPROM Menu";
     NLOG(("") << enteringEEPROMMenu);
     calFileLog << enteringEEPROMMenu << std::endl;
-    if (pTRHSensor->sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD)) {
+    if (pTRHSensor->enterMenuMode()) {
         retval = true;
     }
     else {

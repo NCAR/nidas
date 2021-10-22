@@ -28,49 +28,18 @@
 #define NIDAS_DYNLD_ISFF_NCAR_TRH_H
 
 #include <vector>
-#include <regex>
 #include <string>
+#include <boost/regex.hpp>
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/VariableConverter.h>
-
-using namespace nidas::core;
-using namespace std;
 
 namespace nidas { namespace dynld { namespace isff {
 
 class HandleRawT;
 class HandleRawRH;
 
-/* 
- *  AutoConfig: TRH Commands
- */
-enum TRH_SENSOR_COMMANDS  
-{
-    NULL_CMD,
-    ENTER_EEPROM_MENU_CMD,
-    FW_VERSION_CMD,
-    RESOLUTION_CMD,
-    SENSOR_ID_CMD,
-    DATA_RATE_CMD,
-    FAN_DUTY_CYCLE_CMD,
-    FAN_MIN_RPM_CMD,
-    EEPROM_INIT_STATE_CMD,
-    TEMP_CAL_0_CMD,
-    TEMP_CAL_1_CMD,
-    TEMP_CAL_2_CMD,
-    HUMD_CAL_0_CMD,
-    HUMD_CAL_1_CMD,
-    HUMD_CAL_2_CMD,
-    HUMD_CAL_3_CMD,
-    HUMD_CAL_4_CMD,
-    CLEAR_EEPROM_CMD,
-    DEFAULT_EEPROM_CMD,
-    SHOW_CMDS_CMD,
-    SHOW_SETTINGS_CMD,
-    EXIT_EEPROM_MENU_CMD,
-    NUM_SENSOR_CMDS,
-};
+enum TRH_SENSOR_COMMANDS : unsigned short;
 
 /**
  * Sensor class for the NCAR hygrothermometer, built at EOL.
@@ -134,15 +103,24 @@ public:
     std::vector<float>
     getRawRHCoefficients();
 
+    typedef nidas::core::SensorCmdArg SensorCmdArg;
+
     /*
      *  AutoConfig - TRH-specific methods.
      */
-    void sendSensorCmd(int cmd, SensorCmdArg arg=SensorCmdArg(), bool resetNow=false);
+    void sendSensorCmd(int cmd, nidas::core::SensorCmdArg arg=SensorCmdArg(), bool resetNow=false);
     bool sendAndCheckSensorCmd(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg=SensorCmdArg());
     bool checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg);
     void initCustomMetadata();
     bool captureEepromMetaData(const char* buf);
     void updateMetaData();
+
+    /**
+     * @brief Tell the TRH sensor to enter eeprom menu mode.
+     * 
+     * @return true if successful, false otherwise.
+     */
+    bool enterMenuMode();
 
 protected:
     /*
@@ -151,9 +129,10 @@ protected:
     virtual void fromDOMElement(const xercesc::DOMElement* node)
                     throw(nidas::util::InvalidParameterException);
     virtual bool checkResponse();
-    virtual void sendScienceParameters();
-    virtual bool checkScienceParameters() {return _scienceParametersOk;};
-    virtual CFG_MODE_STATUS enterConfigMode();
+    virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
+
+    // No need to override sendScienceParameters() and checkScienceParameters()
+    // because there are none, so the default implementations suffice.
 
 private:
 
@@ -211,12 +190,8 @@ private:
     /*
      * Autoconfig 
      */
-    SensorCmdData* _desiredScienceParameters;
-    bool _scienceParametersOk;
- 
-    void updateDesiredScienceParameter(TRH_SENSOR_COMMANDS cmd, int arg);
     bool _checkSensorCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg, 
-                                 const regex& matchStr, int matchGroup, 
+                                 const boost::regex& matchStr, int matchGroup, 
                                  const char* buf);
     bool handleEepromExit(const char* buf, const int bufSize);
 
