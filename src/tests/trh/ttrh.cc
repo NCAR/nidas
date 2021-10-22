@@ -143,18 +143,18 @@ BOOST_AUTO_TEST_CASE(test_raw_trh)
 
 
 const std::string mdbuf{
-"TRH Code Version:  6.060, Board Version: 1\r"
-"Sensor ID25    fan PWM duty cycle (%): 40   fan min RPM: -1\r"
-"SHT85 ID 7D33595\r"
-"calibration coefficients:\r"
-"Ta0 = -45.3449\r"
-"Ta1 = 0.002665\r"
-"Ta2 = 9.34885e-11\r"
-"Ha0 = 0\r"
-"Ha1 = 0.001526\r"
-"Ha2 = 4\r"
-"Ha3 = 6\r"
-"Ha4 = 8\r"
+"TRH Code Version:  6.060, Board Version: 1\r\n"
+"Sensor ID25    fan PWM duty cycle (%): 40   fan min RPM: -1\r\n"
+"SHT85 ID 7D33595\r\n"
+"calibration coefficients:\r\n"
+"Ta0 = -45.3449\r\n"
+"Ta1 = 0.002665\r\n"
+"Ta2 = 9.34885e-11\r\n"
+"Ha0 = 0\r\n"
+"Ha1 = 0.001526\r\n"
+"Ha2 = 4\r\n"
+"Ha3 = 6\r\n"
+"Ha4 = 8\r\n"
 };
 
 
