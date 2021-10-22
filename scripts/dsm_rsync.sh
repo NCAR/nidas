@@ -50,7 +50,9 @@ arch=""
 source=""
 target=""
 
-opts="-azrvh"
+# -a without group and owner, plus (D)evices, (H)ard links, (z)compression,
+# and (h)uman-readable numbers.
+opts="-zhvrlptDH"
 
 while true; do
     case "$1" in 
