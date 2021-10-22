@@ -194,11 +194,11 @@ get_image_tag() # alias
 }
 
 
-build_image() # alias
+build_image()
 {
-    tag=`get_image_tag "$1"`
+    tag=`get_image_tag "$alias"`
     set -x
-    case "$1" in
+    case "$alias" in
 	centos8)
 	    podman build -t $tag -f docker/Dockerfile.centos8
 	    ;;
