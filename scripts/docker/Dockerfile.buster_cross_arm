@@ -110,10 +110,6 @@ RUN apt-get -y install valgrind net-tools
 
 RUN apt-get -y install libjsoncpp-dev:${hostarch}
 
-# Need Ruby to install packagecloud crossbuild
-#RUN apt-get -y --no-install-recommends install ruby ruby-dev
-#RUN sudo gem install package_cloud
-
 ENV CROSS_ARCH=$hostarch
 
 WORKDIR /
@@ -126,3 +122,8 @@ RUN cd ublox && ./build-ublox.sh
 RUN mkdir -p xmlrpc-build
 COPY ./build-xmlrpc.sh xmlrpc-build
 RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
+
+# It can be helpful to have package_cloud available in the container.
+RUN apt-get -y --no-install-recommends install ruby ruby-dev
+RUN gem install rake
+RUN gem install package_cloud
