@@ -87,7 +87,10 @@ that source:
 
   run <alias> [command args ...]
     Run the image for the given alias, mounting the source, install,
-    and ~/.scons paths into the container.
+    and ~/.scons paths into the container.  The install path is
+    <work>/install/<alias>, mounted as /opt/nidas in the container.
+    The packages directory <work>/install/<alias> is mounted as
+    /packages in the container.
 
   package <alias> [<dest>]
     Run the script which builds packages for the alias, and copy the
@@ -197,11 +200,11 @@ run_image() # alias command...
     alias="$1"
     shift
     echo "Top of nidas source tree: $source"
-    # If packagepath not set, then default to a subdirectory of the source.
+    # Create packagepath under workpath.
     packagepath="$workpath/packages/$alias"
     mkdir -p "$packagepath"
     # Make sure packagepath is absolute to mount it into container.
-    packagepath=$(cd "$packagepath" && pwd)
+    packagepath=$(realpath "$packagepath")
     # If a tag has been requested, clone it and use that for the source.
     dest="$source"
     if [ -n "$tag" ]; then
@@ -209,11 +212,9 @@ run_image() # alias command...
 	clone_local "$tag" "$source" "$dest"
     fi
     imagetag=`get_image_tag "$alias"`
-    install=""
-    if [ -z "$install" ]; then
-	install="$dest/install/$alias"
-	mkdir -p "$install"
-    fi
+    # install path is also under workpath
+    install="$workpath/install/$alias"
+    mkdir -p "$install"
     if [ -z "$1" ]; then
 	set /bin/bash
     fi
@@ -232,7 +233,7 @@ run_image() # alias command...
       --volume "$dest":/nidas:rw,Z \
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
-      --volume "$packagepath":/nidas/packages:rw,Z \
+      --volume "$packagepath":/packages:rw,Z \
       --volume "$scripts":/nidas/scripts \
       $repomount \
       $imagetag "$@"
@@ -241,11 +242,12 @@ run_image() # alias command...
 build_packages() # alias
 {
     alias="$1"
-    if [ -z "$alias" ]; then
+    if [ "$1" -eq "-h" -o -z "$alias" -o $# -ne 1 ]; then
 	echo "build_packages {alias}"
+	echo "Packages will be copied to $workpath/packages/$alias."
 	exit 1
     fi
-    run_image "$alias" /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /nidas/packages
+    run_image "$alias" /nidas/scripts/build_dpkg.sh `get_arch $alias` -d /packages
 }
 
 
