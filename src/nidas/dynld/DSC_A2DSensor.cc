@@ -48,8 +48,6 @@ DSC_A2DSensor::DSC_A2DSensor() :
     A2DSensor(), d2a(0), _gain(-1), _bipolar(false)
 {
     setLatency(0.1);
-
-    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 DSC_A2DSensor::~DSC_A2DSensor()
@@ -117,6 +115,8 @@ void DSC_A2DSensor::open(int flags)
     }
 
     ioctl(DMMAT_START,0,0);
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 

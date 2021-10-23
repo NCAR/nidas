@@ -65,8 +65,6 @@ A2D_Serial::A2D_Serial() :
     configStatus["IFSR"] = true;
     configStatus["IPOL"] = true;
     configStatus["ISEL"] = true;
-
-    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 A2D_Serial::~A2D_Serial()
@@ -81,6 +79,8 @@ void A2D_Serial::open(int flags)
 
     readConfig();
 // @TODO Need to set gain/offset/cals if read in....
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 void A2D_Serial::readConfig()

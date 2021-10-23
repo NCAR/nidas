@@ -211,20 +211,6 @@ struct D2A_Waveform
 	int point[0];
 };
 
-/* This structure is used to copy a brief description of the current board
- * configuration back to user space via the NCAR_A2D_GET_SETUP ioctl.
- *
- * This structure were copied in from ncar_a2d to enable auto_cal to work.
- */
-struct dmmat_a2d_setup
-{
-    int gain[MAX_DMMAT_A2D_CHANNELS];   // gain settings
-    int offset[MAX_DMMAT_A2D_CHANNELS]; // Offset flags
-    int calset[MAX_DMMAT_A2D_CHANNELS]; // cal voltage channels
-    int vcal;                           // cal voltage
-};
-
-
 #ifdef __cplusplus
 
 #include <cstdlib>
