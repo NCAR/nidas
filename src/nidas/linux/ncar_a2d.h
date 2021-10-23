@@ -101,7 +101,7 @@ struct ncar_a2d_status
  */
 struct ncar_a2d_setup
 {
-    int   gain[NUM_NCAR_A2D_CHANNELS];  // gain settings
+    int gain[NUM_NCAR_A2D_CHANNELS];    // gain settings
     int offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
     int calset[NUM_NCAR_A2D_CHANNELS];  // cal voltage channels
     int vcal;                           // cal voltage
