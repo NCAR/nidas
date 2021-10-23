@@ -652,10 +652,12 @@ void A2D_Serial::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue&
 void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
         throw()
 {
+    result["card"] = "gpDAQ";
+    result["nChannels"] = NUM_A2D_CHANNELS;
     for (int i = 0; i < NUM_A2D_CHANNELS; i++) {
         result["gain"][i]   = _gains[i];    //setup.gain[i];
         result["offset"][i] = _polarity[i]; //setup.offset[i];
-//        result["calset"][i] = setup.calset[i];
+        result["calset"][i] = 0;
     }
     result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
@@ -665,8 +667,8 @@ void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& r
         throw()
 {
     int voltage = 0;
-    int calset  = 0;
-    int state   = 0;
+    int calset  = 0;    // each bit represents that channel
+    int state   = 0;    // 0 = turn off, 1 = turn on
 
     string errmsg = "XmlRpc error: testVoltage: " + getName();
 
@@ -689,13 +691,18 @@ void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& r
         return;
     }
 
-    for (int i = 0; i < NUM_A2D_CHANNELS; i++)
-        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
-
     // set the test voltage and channel(s)
     try {
-        // ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(dmmat_a2d_cal_config));
-        ;//do something write to serial port
+        write("#RST\n", 5);        // reset device to turn off existing
+        if (state != 0) {
+            char cmd[32];
+            for (int i = 0; i < NUM_A2D_CHANNELS; i++) {
+                if ((calset>>i) & 0x0001) {
+                    sprintf(cmd, "#ISEL,%d,%d", i, voltage);  // not accurate yet.
+                    write(cmd, strlen(cmd));
+                }
+            }
+        }
     }
     catch(const n_u::IOException& e) {
         string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();

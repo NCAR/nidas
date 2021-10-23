@@ -260,6 +260,8 @@ void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
 void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
         throw()
 {
+    result["card"] = "dmmat";
+    result["nChannels"] = MAX_DMMAT_A2D_CHANNELS;
     for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
         result["gain"][i]   = _gain;    //setup.gain[i];
         result["offset"][i] = _bipolar; //setup.offset[i];

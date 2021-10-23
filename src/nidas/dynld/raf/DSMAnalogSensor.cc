@@ -676,6 +676,8 @@ void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& res
         return;
     }
 
+    result["card"] = "ncar";
+    result["nChannels"] = NUM_NCAR_A2D_CHANNELS;
     for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
         result["gain"][i]   = setup.gain[i];
         result["offset"][i] = setup.offset[i];
