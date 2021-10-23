@@ -118,6 +118,11 @@ private:
      */
     bool _bipolar;
 
+    /**
+     * Voltage set by auto_cal for diagnostics.
+     */
+    int _voltage;
+
 };
 
 }}	// namespace nidas namespace dynld

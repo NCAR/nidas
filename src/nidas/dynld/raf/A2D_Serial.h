@@ -207,6 +207,7 @@ protected:
     int _gains[NUM_A2D_CHANNELS];       // map _ifsr to this; 0->1, 1->2
     int _polarity[NUM_A2D_CHANNELS];    // true
 
+    int _voltage;       // Diagnostic (auto_cal) voltage
 
     /**
      * This contains the status of config verification between what we read
@@ -225,6 +226,16 @@ protected:
     size_t _largeTimeStampOffset;
 
     int headerLines;
+
+
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
 
 private:
 

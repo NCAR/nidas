@@ -260,33 +260,18 @@ void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
 void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    // extract the current channel setup
-    dmmat_a2d_setup setup;
-    try {
-//        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
-        // populate the setup.
-        memset(&setup, 0, sizeof(setup));
-    }
-    catch(const n_u::IOException& e) {
-        string errmsg = "XmlRpc error: getA2DSetup: " + getName() + ": " + e.what();
-        PLOG(("") << errmsg);
-        result = errmsg;
-        return;
-    }
-
     for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
         result["gain"][i]   = _gain;    //setup.gain[i];
         result["offset"][i] = _bipolar; //setup.offset[i];
-        result["calset"][i] = setup.calset[i];
+//        result["calset"][i] = _calSet;
     }
-    result["vcal"]      = setup.vcal;
+    result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
 }
 
 void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    struct dmmat_a2d_cal_config calConf;
     int voltage = 0;
     int calset  = 0;
     int state   = 0;
@@ -311,16 +296,11 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
         result = errmsg;
         return;
     }
-    calConf.vcal = voltage;
-    calConf.state = state;
-
-    for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++)
-        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
 
     // set the test voltage and channel(s)
     try {
-        // ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(dmmat_a2d_cal_config));
-        ;//do something d2a, set output voltage.
+        // For this, calset is either 0 or 1.
+        d2a->setVoltage(calset, voltage);
     }
     catch(const n_u::IOException& e) {
         string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
@@ -331,4 +311,3 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
     result = "success";
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
 }
-

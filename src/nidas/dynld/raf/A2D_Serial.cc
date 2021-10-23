@@ -27,6 +27,7 @@
 #include "A2D_Serial.h"
 
 #include <nidas/core/CalFile.h>
+#include <nidas/core/DSMEngine.h>
 #include <nidas/util/UTime.h>
 #include <nidas/core/Variable.h>
 
@@ -64,6 +65,8 @@ A2D_Serial::A2D_Serial() :
     configStatus["IFSR"] = true;
     configStatus["IPOL"] = true;
     configStatus["ISEL"] = true;
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 A2D_Serial::~A2D_Serial()
@@ -625,3 +628,81 @@ float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) 
     return out;
 }
 
+void A2D_Serial::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if      (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+}
+
+void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    for (int i = 0; i < NUM_A2D_CHANNELS; i++) {
+        result["gain"][i]   = _gains[i];    //setup.gain[i];
+        result["offset"][i] = _polarity[i]; //setup.offset[i];
+//        result["calset"][i] = setup.calset[i];
+    }
+    result["vcal"]      = _voltage;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    int voltage = 0;
+    int calset  = 0;
+    int state   = 0;
+
+    string errmsg = "XmlRpc error: testVoltage: " + getName();
+
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        voltage = params["voltage"];
+        calset  = params["calset"];
+        state   = params["state"];
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        voltage = params[0]["voltage"];
+        calset  = params[0]["calset"];
+        state   = params[0]["state"];
+    }
+    if (calset < 0 || 0xff < calset) {
+        char hexstr[50];
+        sprintf(hexstr, "0x%x", calset);
+        errmsg += ": invalid calset: " + string(hexstr);
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    for (int i = 0; i < NUM_A2D_CHANNELS; i++)
+        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
+
+    // set the test voltage and channel(s)
+    try {
+        // ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(dmmat_a2d_cal_config));
+        ;//do something write to serial port
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
