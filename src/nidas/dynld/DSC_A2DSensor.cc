@@ -263,8 +263,9 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
     result["card"] = "dmmat";
     result["nChannels"] = getMaxNumChannels();
     for (int i = 0; i < getMaxNumChannels(); i++) {
-        result["gain"][i]   = _gain;        //setup.gain[i];
-        result["offset"][i] = !_bipolar;    // send opposite...for some reason.
+        result["gain"][i]   = _gain;
+        // Offset of 0 is bipolar true, offset of 1 is bipolar false
+        result["offset"][i] = _bipolar ? 0 : 1;
 //        result["calset"][i] = _calSet;
     }
     result["vcal"]      = _voltage;

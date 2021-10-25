@@ -200,12 +200,12 @@ protected:
     int _channels[NUM_GPDAQ_A2D_CHANNELS];
 
     // read these in from XML, use to validate against
-    int _ifsr[NUM_GPDAQ_A2D_CHANNELS];        // 0 = +-10, 1 = +-5 Vdc
+    int _ifsr[NUM_GPDAQ_A2D_CHANNELS];      // 0 = +-10, 1 = +-5 Vdc
     int _ipol[NUM_GPDAQ_A2D_CHANNELS];
 
     // We will need these to map to cal files.
-    int _gains[NUM_GPDAQ_A2D_CHANNELS];       // map _ifsr to this; 0->1, 1->2
-    int _polarity[NUM_GPDAQ_A2D_CHANNELS];    // true
+    int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
+    int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
 
     int _voltage;       // Diagnostic (auto_cal) voltage
 

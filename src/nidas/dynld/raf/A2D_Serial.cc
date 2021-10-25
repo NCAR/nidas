@@ -57,7 +57,7 @@ A2D_Serial::A2D_Serial() :
         _channels[i] = 0;
         _gains[i] = 1;          // 1 or 2 is all we support at this time.
         _ifsr[i] = 0;           // plus/minus 10
-        _polarity[i] = 1;       // Fixed 1 for this device
+        _bipolar[i] = 1;       // Fixed 1 for this device
         _ipol[i] = 0;
     }
 
@@ -602,7 +602,7 @@ int A2D_Serial::getGain(int ichan) const
 int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
-    return _polarity[ichan];
+    return _bipolar[ichan];
 }
 
 bool A2D_Serial::samplingChannel(int channel) const
@@ -656,7 +656,7 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
     result["nChannels"] = getMaxNumChannels();
     for (int i = 0; i < getMaxNumChannels(); i++) {
         result["gain"][i]   = _gains[i];    //setup.gain[i];
-        result["offset"][i] = _polarity[i]; //setup.offset[i];
+        result["offset"][i] = _bipolar[i]; //setup.offset[i];
         result["calset"][i] = 0;
     }
     result["vcal"]      = _voltage;
