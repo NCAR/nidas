@@ -266,7 +266,7 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
         result["gain"][i]   = _gain;
         // Offset of 0 is bipolar true, offset of 1 is bipolar false
         result["offset"][i] = _bipolar ? 0 : 1;
-//        result["calset"][i] = _calSet;
+        result["calset"][i] = 0; //_calSet;
     }
     result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());

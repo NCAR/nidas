@@ -655,8 +655,8 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
     result["card"] = "gpDAQ";
     result["nChannels"] = getMaxNumChannels();
     for (int i = 0; i < getMaxNumChannels(); i++) {
-        result["gain"][i]   = _gains[i];    //setup.gain[i];
-        result["offset"][i] = _bipolar[i]; //setup.offset[i];
+        result["gain"][i]   = _gains[i];
+        result["offset"][i] = _bipolar[i] ? 0 : 1;
         result["calset"][i] = 0;
     }
     result["vcal"]      = _voltage;
