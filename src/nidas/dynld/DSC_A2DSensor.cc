@@ -153,7 +153,7 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
 
 void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
 {
-    if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
+    if (ichan < 0 || ichan >= getMaxNumChannels()) {
         ostringstream ost;
         ost << "value=" << ichan << " doesn't exist";
         throw n_u::InvalidParameterException(getName(), "channel",ost.str());
@@ -261,10 +261,10 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
         throw()
 {
     result["card"] = "dmmat";
-    result["nChannels"] = MAX_DMMAT_A2D_CHANNELS;
-    for (int i = 0; i < MAX_DMMAT_A2D_CHANNELS; i++) {
-        result["gain"][i]   = _gain;    //setup.gain[i];
-        result["offset"][i] = _bipolar; //setup.offset[i];
+    result["nChannels"] = getMaxNumChannels();
+    for (int i = 0; i < getMaxNumChannels(); i++) {
+        result["gain"][i]   = _gain;        //setup.gain[i];
+        result["offset"][i] = !_bipolar;    // send opposite...for some reason.
 //        result["calset"][i] = _calSet;
     }
     result["vcal"]      = _voltage;

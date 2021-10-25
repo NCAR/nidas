@@ -672,7 +672,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 
     _project->disableAutoconfig(_disableAutoconfig);
 
-     _project->fromDOMElement(projectDoc->getDocumentElement());
+    _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
     if (_configFile.length() > 0)
 	_project->setConfigName(_configFile);

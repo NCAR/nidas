@@ -653,8 +653,8 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
         throw()
 {
     result["card"] = "gpDAQ";
-    result["nChannels"] = NUM_A2D_CHANNELS;
-    for (int i = 0; i < NUM_A2D_CHANNELS; i++) {
+    result["nChannels"] = getMaxNumChannels();
+    for (int i = 0; i < getMaxNumChannels(); i++) {
         result["gain"][i]   = _gains[i];    //setup.gain[i];
         result["offset"][i] = _polarity[i]; //setup.offset[i];
         result["calset"][i] = 0;
@@ -696,7 +696,7 @@ void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& r
         write("#RST\n", 5);        // reset device to turn off existing
         if (state != 0) {
             char cmd[32];
-            for (int i = 0; i < NUM_A2D_CHANNELS; i++) {
+            for (int i = 0; i < getMaxNumChannels(); i++) {
                 if ((calset>>i) & 0x0001) {
                     sprintf(cmd, "#ISEL,%d,%d", i, voltage);  // not accurate yet.
                     write(cmd, strlen(cmd));
