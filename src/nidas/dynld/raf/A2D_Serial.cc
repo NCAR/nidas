@@ -227,10 +227,13 @@ void A2D_Serial::validate()
             }
 
 
+            // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
+            var->setA2dChannel(ichan);
+
             _channels[iv] = ichan;
             _ipol[ichan] = ipol;
             _ifsr[ichan] = fgain;
-            _gains[ichan] = fgain + 1;  // this works for now, will not if moe gains are added
+            _gains[ichan] = fgain + 1;  // this works for now, will not if more gains are added
             prevChan = ichan;
         }
     }

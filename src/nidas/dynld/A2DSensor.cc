@@ -329,7 +329,7 @@ void A2DSensor::validate()
                 setScanRate((int)param->getNumericValue(0));
         }
         if (pname == "latency") {
-        	if (param->getLength() != 1)
+                if (param->getLength() != 1)
 			throw n_u::InvalidParameterException(getName(),"parameter",
                         "bad latency  parameter");
                 setLatency((int)param->getNumericValue(0));
