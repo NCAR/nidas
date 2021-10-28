@@ -1,7 +1,5 @@
-FROM docker.io/library/centos:7
+FROM library/centos:7
 LABEL organization="NCAR EOL"
-
-USER root:root
 
 RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-3.noarch.rpm
 
@@ -19,7 +17,16 @@ RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-3.noarch.rpm
 # package.
 
 RUN yum install -y epel-release
-RUN yum install -y python2-scons git flex glibc.i686
+RUN yum install -y scons git flex glibc.i686 nidas-ael ael-base
 
-# These are the EOL packages from eol-epel.
-RUN yum install -y nidas-ael xmlrpc++ ael-base
+# install some i686 stuff needed by old /opt/arcom/bin binaries.
+# The intent is to make this command run without failing due to
+# missing library dependencies:
+# PATH=$PATH:/opt/arcom/bin; LD_LIBRARY_PATH=/usr/lib fakeroot /opt/arcom/bin/dpkg
+# RUN yum install -y fakeroot-libs.i686 zlib.i686
+
+# If we need fakeroot and dnf can't find the i686 version:
+# RUN rpm -ihv --nodeps --force /tmp/docker-files/fakeroot-1.20.2-4.fc24.i686.rpm
+
+WORKDIR /root
+

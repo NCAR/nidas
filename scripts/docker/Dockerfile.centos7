@@ -1,0 +1,19 @@
+FROM docker.io/centos:7
+LABEL organization="NCAR EOL"
+
+RUN yum -y update
+RUN yum -y install epel-release
+RUN yum -y install gcc-c++ git scons doxygen graphviz
+
+RUN yum -y install gsl-devel libpcap-devel bzip2-devel bzip2-libs bzip2 bluez-libs-devel jsoncpp-devel libcurl-devel xerces-c-devel
+
+RUN rpm -ihv http://www.eol.ucar.edu/software/rpms/eol-repo-epel-1-3.noarch.rpm
+
+# Someday this step can be replaced with a checkout and build of the rpm
+# and local install, to bootstrap a container without needing this rpm to
+# be already built.
+
+RUN yum -y install xmlrpc++
+
+WORKDIR /root
+

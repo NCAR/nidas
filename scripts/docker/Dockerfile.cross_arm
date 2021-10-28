@@ -3,37 +3,31 @@ ARG hostarch=armel
 FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
-# ARG user=ads
-# ARG uid=12900
-# ARG group=eol
-# ARG gid=1342
-
 # FROM line above "consumes" hostarch arg, unless we re-declare it header
 # But don't re-assign it!!!
 ARG hostarch
 
 RUN echo "hostarch == $hostarch"
 
-RUN sudo dpkg --add-architecture ${hostarch}
+USER root
 
-# Rip out jessie updates repos as they no longer exist. 
-# See https://www.lucas-nussbaum.net/blog/?p=947
+RUN dpkg --add-architecture ${hostarch}
 
 # We're using podman, so set USER to root:root
 USER root:root
 
+# Rip out jessie updates repos as they no longer exist. 
+# See https://www.lucas-nussbaum.net/blog/?p=947
 RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that
 RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
 RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
 
-# Used for some build stuff in container
-#ENV CROSS_ARCH $hostarch
-#RUN echo "CROSS_ARCH == $CROSS_ARCH"
+# The emdebian repo is no longer reachable, so disable it.
+RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
 
-# RUN apt-get -y update || echo "failed"
-RUN apt-get -y update || echo "update failed" && apt-get --force-yes -y --no-install-recommends install eol-scons
+RUN apt-get -y update || echo "update failed"
 
 # add boost-regex/filesystem
 RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
@@ -43,24 +37,14 @@ RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch
 # in a single header.
 RUN apt-get -y install libi2c-dev
 
-# install ftdi and depends libusb-1.0
-RUN apt-get -y install wget
-# RUN apt-get -y install cmake
-# RUN apt-get -y install libusb-1.0:${hostarch}
+RUN apt-get -y install libjsoncpp-dev:${hostarch}
+
 # reprepro is a debian repo maintenance command
-RUN apt-get -y install --no-install-recommends reprepro xmlto rsync
+RUN apt-get -y install --no-install-recommends reprepro
 
 ENV CROSS_ARCH=$hostarch
 
-# RUN addgroup --gid $gid $group || echo "add group failed"
-# RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
-
 WORKDIR /root
-
-# RUN mkdir -p libftdi
-# COPY ./build-libftdi-pkg.sh libftdi
-# COPY ./crosstoolchain-$hostarch.cmake libftdi
-# RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
 
 # Everything commented out below should already be in the image in the FROM line above
 #RUN apt-get update
@@ -86,8 +70,6 @@ RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch
 
 # viper, titan headers
 RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
-
-#RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
 
 # GPG_TTY is needed for package signing
 RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc

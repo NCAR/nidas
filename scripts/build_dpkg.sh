@@ -12,6 +12,7 @@ usage() {
     echo "-i: install packages with reprepro to the repository"
     echo "-I codename: install packages to $eolrepo/codename-<codename>"
     echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
+    echo "-d: move the final packages in the given directory"
     echo "arch is armel, armhf, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
@@ -23,6 +24,7 @@ fi
 
 arch=amd64
 args="--no-tgz-check -sa"
+dest=""
 use_chroot=false
 while [ $# -gt 0 ]; do
     case $1 in
@@ -34,6 +36,10 @@ while [ $# -gt 0 ]; do
         shift
         codename=$1
         repo=$eolrepo/codename-$codename
+        ;;
+    -d)
+        shift
+        dest=$1
         ;;
     -c)
         use_chroot=true
@@ -156,6 +162,12 @@ args="$args -us -uc"
 rm -f ../nidas_*.tar.xz ../nidas_*.dsc
 rm -f $(echo ../nidas\*_{$arch,all}.{deb,build,changes})
 
+# I think the way this works is that debuild will tar up the source to
+# build the package from, but the scons clean will not catch *all* the
+# build directories that might exist, so just make a point of removing all
+# of them here.
+rm -rf src/build*
+
 # export DEBUILD_DPKG_BUILDPACKAGE_OPTS="$args"
 
 if $use_chroot; then
@@ -171,12 +183,19 @@ if $use_chroot; then
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args \
-        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
+    (set -x; debuild $args \
+        --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames)
 fi
 
 # debuild puts results in parent directory
 cd ..
+chngs=nidas_*_$arch.changes
+archdebs=nidas*$arch.deb
+
+# get the debian release codename.  buster conviently provides
+# VERSION_CODENAME, but on jessie it is only available embedded in
+# VERSION.
+codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
 
 if [ -n "$repo" ]; then
     umask 0002
@@ -191,13 +210,11 @@ if [ -n "$repo" ]; then
     ls
     echo ""
 
-    chngs=nidas_*_$arch.changes 
     # display changes file
     echo "Contents of $chngs"
     cat $chngs
     echo ""
 
-    archdebs=nidas*$arch.deb
 
     # Grab all the package names from the changes file
     pkgs=($(awk '/Checksums-Sha1/,/Checksums-Sha256/ { if (NF > 2) print $3 }' $chngs | grep ".*\.deb" | sed "s/_.*_.*\.deb//"))
@@ -294,8 +311,12 @@ if [ -n "$repo" ]; then
     else
         echo "saving results in $PWD"
     fi
+fi
 
+# Dispatch the packages unless neither -d nor -i were specified.
+if [ -n "$dest" ]; then
+    echo "moving results to $dest"
+    mv -f nidas_*_$arch.build nidas_*.dsc nidas_*.tar.xz nidas*_all.deb nidas*_$arch.deb $chngs $dest
 else
     echo "build results are in $PWD"
 fi
-
