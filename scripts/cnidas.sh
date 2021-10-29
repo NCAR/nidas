@@ -135,18 +135,18 @@ targets=(centos7 centos8 vulcan titan pi2 pi3)
 get_arch() # alias
 {
     case "$1" in
-	centos*)
-	    echo x86_64
-	    ;;
-	pi*)
-	    echo armhf
-	    ;;
-	titan)
-	    echo armel
-	    ;;
-	vulcan)
-	    echo armbe
-	    ;;
+        centos*)
+            echo x86_64
+            ;;
+        pi*)
+            echo armhf
+            ;;
+        titan)
+            echo armel
+            ;;
+        vulcan)
+            echo armbe
+            ;;
     esac
 }
 
@@ -154,42 +154,42 @@ get_arch() # alias
 get_builds() # alias
 {
     case "$1" in
-	centos*)
-	    echo host
-	    ;;
-	pi*)
-	    echo armhf
-	    ;;
-	titan)
-	    echo armel
-	    ;;
-	vulcan)
-	    echo armbe
-	    ;;
+        centos*)
+            echo host
+            ;;
+        pi*)
+            echo armhf
+            ;;
+        titan)
+            echo armel
+            ;;
+        vulcan)
+            echo armbe
+            ;;
     esac
 }
 
 get_image_tag() # alias
 {
     case "$1" in
-	centos8)
-	    echo nidas-build-centos-x86_64:centos8
-	    ;;
-	centos7)
-	    echo nidas-build-centos-x86_64:centos7
-	    ;;
-	pi2)
-	    echo nidas-build-debian-armhf:jessie
-	    ;;
-	pi3)
-	    echo nidas-build-debian-armhf:buster
-	    ;;
-	titan)
-	    echo nidas-build-debian-armel:jessie
-	    ;;
-	vulcan)
-	    echo nidas-build-debian-armbe:jessie
-	    ;;
+        centos8)
+            echo nidas-build-centos-x86_64:centos8
+            ;;
+        centos7)
+            echo nidas-build-centos-x86_64:centos7
+            ;;
+        pi2)
+            echo nidas-build-debian-armhf:jessie
+            ;;
+        pi3)
+            echo nidas-build-debian-armhf:buster
+            ;;
+        titan)
+            echo nidas-build-debian-armel:jessie
+            ;;
+        vulcan)
+            echo nidas-build-debian-armbe:jessie
+            ;;
     esac
 }
 
@@ -199,24 +199,24 @@ build_image()
     tag=`get_image_tag "$alias"`
     set -x
     case "$alias" in
-	centos8)
-	    podman build -t $tag -f docker/Dockerfile.centos8
-	    ;;
-	centos7)
-	    podman build -t $tag -f docker/Dockerfile.centos7
-	    ;;
-	pi2)
-	    podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf
-	    ;;
-	pi3)
-	    podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
-	    ;;
-	titan)
-	    podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
-	    ;;
-	vulcan)
-	    podman build -t $tag -f docker/Dockerfile.cross_ael_armbe
-	    ;;
+        centos8)
+            podman build -t $tag -f docker/Dockerfile.centos8
+            ;;
+        centos7)
+            podman build -t $tag -f docker/Dockerfile.centos7
+            ;;
+        pi2)
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armhf
+            ;;
+        pi3)
+            podman build -t $tag -f docker/Dockerfile.buster_cross_arm --build-arg hostarch=armhf
+            ;;
+        titan)
+            podman build -t $tag -f docker/Dockerfile.cross_arm --build-arg hostarch=armel
+            ;;
+        vulcan)
+            podman build -t $tag -f docker/Dockerfile.cross_ael_armbe
+            ;;
     esac
 }
 
@@ -235,22 +235,22 @@ run_image() # command...
     # If a tag has been requested, clone it and use that for the source.
     dest="$source"
     if [ -n "$tag" ]; then
-	dest="$workpath/clones/nidas-$tag"
-	clone_local "$tag" "$source" "$dest"
+        dest="$workpath/clones/nidas-$tag"
+        clone_local "$tag" "$source" "$dest"
     fi
     imagetag=`get_image_tag "$alias"`
     # install path is also under workpath
     install="$workpath/install/$alias"
     mkdir -p "$install"
     if [ -z "$1" ]; then
-	set /bin/bash
+        set /bin/bash
     fi
     # If the repository is available on this host, then mount that
     # too.
     DEBIAN_REPOSITORY=/net/ftp/pub/archive/software/debian
     repomoun=""
     if [ -d $DEBIAN_REPOSITORY ]; then
-	repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
+        repomount="--volume ${DEBIAN_REPOSITORY}:/debian:rw,Z"
     fi
     set -x
     # Mount the local scripts directory over top of the source, so the
@@ -297,32 +297,32 @@ push_packages() # path
     packages=`ls "$path"/*.deb | egrep -v dbgsym`
     echo $packages
     case "$alias" in
-	pi3)
-	    repo="ncareol/isfs-testing/raspbian/buster"
-	    (set -x
-	     package_cloud push $repo $packages)
-	    ;;
-	pi2)
-	    # This code runs in the debian container with the repo and
-	    # packages mounted.
-	    codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
-	    repo=/debian
-	    arch=armhf
-	    tmplog=$(mktemp)
-	    trap "{ rm -f $tmplog; }" EXIT
-	    status=0
-	    set -x
+        pi3)
+            repo="ncareol/isfs-testing/raspbian/buster"
+            (set -x
+            package_cloud push $repo $packages)
+            ;;
+        pi2)
+            # This code runs in the debian container with the repo and
+            # packages mounted.
+            codename=$(source /etc/os-release ; echo "$VERSION" | sed -e 's/.*(//' -e 's/).*//')
+            repo=/debian
+            arch=armhf
+            tmplog=$(mktemp)
+            trap "{ rm -f $tmplog; }" EXIT
+            status=0
+            set -x
             flock $repo sh -c "reprepro -V -b $repo -C main -A $arch --keepunreferencedfiles includedeb $codename $packages" 2> $tmplog || status=$?
-	    set +x
-	    if [ $status -ne 0 ]; then
-		cat $tmplog
-		if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
-		    echo "One or more package versions are already present in the repository. Continuing"
-		else
-		    exit $status
-		fi
-	    fi
-	    ;;
+            set +x
+            if [ $status -ne 0 ]; then
+                cat $tmplog
+            if grep -E -q "(can only be included again, if they are the same)|(is already registered with different checksums)" $tmplog; then
+                echo "One or more package versions are already present in the repository. Continuing"
+            else
+                exit $status
+            fi
+            fi
+            ;;
     esac
 }
 
@@ -344,32 +344,31 @@ clone_local() # tag source dest
     source="$2"
     dest="$3"
     if [ -z "$tag" -o -z "$source" -o -z "$dest" ]; then
-	echo 'clone_local {tag} {source} {dest}'
-	exit 1
+        echo 'clone_local {tag} {source} {dest}'
+        exit 1
     fi
     (cd "$source"
      absource=$(pwd)
      set -x
      if [ -d "$dest" ]; then
-	 echo "Clone already exists: $dest"
-	 echo "Pulling instead of cloning..."
-	 (cd "$dest" && git pull) || exit 1
+        echo "Clone already exists: $dest"
+        echo "Pulling instead of cloning..."
+        (cd "$dest" && git pull) || exit 1
      else
-	 git clone . "$dest" || exit 1
+         git clone . "$dest" || exit 1
      fi
      if [ ! -d "$dest" ]; then
-	 echo "Destination directory not found: $dest"
-	 exit 1
+        echo "Destination directory not found: $dest"
+        exit 1
      fi
      (cd "$dest"; git checkout "$tag")
      git submodule --quiet foreach 'echo $sm_path' | while read path ; do
-	 (cd "$dest"
-	  git submodule init "$path"
-	  git config --local submodule."$path".url "$absource"/.git/modules/"$path"
-	  git submodule update "$path")
+        (cd "$dest"
+        git submodule init "$path"
+        git config --local submodule."$path".url "$absource"/.git/modules/"$path"
+        git submodule update "$path")
      done)
 }
-
 
 
 # To build armhf jessie packages:
@@ -395,48 +394,48 @@ alias=""
 while [ $# -gt 0 ]; do
     case "$1" in
 
-	--source)
-	    source="$2"
-	    source=$(realpath "$source")
-	    shift; shift
-	    ;;
+        --source)
+            source="$2"
+            source=$(realpath "$source")
+            shift; shift
+            ;;
 
-	--tag)
-	    tag="$2"
-	    shift; shift
-	    ;;
+        --tag)
+            tag="$2"
+            shift; shift
+            ;;
 
-	--work)
-	    workpath="$2"
-	    shift; shift
-	    ;;
+        --work)
+            workpath="$2"
+            shift; shift
+            ;;
 
-	list)
-	    break
-	    ;;
+        list)
+            break
+            ;;
 
-	build|run|scons|package|clone|push)
-	    if [ -z "$alias" ]; then
-		echo "Alias is required for $1."
-		exit 1
-	    fi
-	    break
-	    ;;
+        build|run|scons|package|clone|push)
+            if [ -z "$alias" ]; then
+            echo "Alias is required for $1."
+            exit 1
+            fi
+            break
+            ;;
 
-	-*)
-	    echo "Unrecognized option: $1"
-	    exit 1
-	    ;;
+        -*)
+            echo "Unrecognized option: $1"
+            exit 1
+            ;;
 
-	*)
-	    itag=`get_image_tag "$1"`
-	    if [ -z "$itag" ]; then
-		echo "Unrecognized alias: $1"
-		exit 1
-	    fi
-	    alias="$1"
-	    shift
-	    ;;
+        *)
+            itag=`get_image_tag "$1"`
+            if [ -z "$itag" ]; then
+            echo "Unrecognized alias: $1"
+            exit 1
+            fi
+            alias="$1"
+            shift
+            ;;
     esac
 done
 
@@ -458,46 +457,46 @@ fi
 case "$1" in
 
     build)
-	shift
-	build_image "$@"
-	;;
+        shift
+        build_image "$@"
+        ;;
 
     run)
-	shift
-	run_image "$@"
-	;;
+        shift
+        run_image "$@"
+        ;;
 
     scons)
-	shift
-	run_scons "$@"
-	;;
+        shift
+        run_scons "$@"
+        ;;
 
     package)
-	shift
-	build_packages "$@"
-	;;
+        shift
+        build_packages "$@"
+        ;;
 
     list)
-	shift
-	# list all the target aliases and their container image tags
-	for target in ${targets[*]}; do
-	    echo "$target" `get_image_tag "$target"`
-	done
-	;;
+        shift
+        # list all the target aliases and their container image tags
+        for target in ${targets[*]}; do
+            echo "$target" `get_image_tag "$target"`
+        done
+        ;;
 
     clone)
-	shift
-	clone_local "$tag" "$source" "$workpath/clones/nidas-$tag"
-	;;
+        shift
+        clone_local "$tag" "$source" "$workpath/clones/nidas-$tag"
+        ;;
 
     push)
-	shift
-	push_packages "$@"
-	;;
+        shift
+        push_packages "$@"
+        ;;
 
     *)
-	usage
-	exit 0
-	;;
+        usage
+        exit 0
+        ;;
 
 esac
