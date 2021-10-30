@@ -14,6 +14,7 @@
 # jessie armhf Raspberry Pi 2B (cross)
 # jessie armel Viper Titan (cross)
 # buster armhf Raspberry Pi 3B (cross)
+# ubuntu amd64
 #
 # Here is the naming convention for NIDAS build container images:
 #
@@ -33,6 +34,7 @@
 # titan    nidas-build-debian-armel:jessie     Dockerfile.cross_arm hostarch=armel
 # pi2      nidas-build-debian-armhf:jessie     Dockerfile.cross_arm hostarch=armhf
 # pi3      nidas-build-debian-armhf:buster     Dockerfile.buster_cross_arm hostarch=armhf (on the buster branch)
+# ubuntu   nidas-build-ubuntu-amd64:latest     Dockerfile.ubuntu_amd64
 #
 # I think Titan is equivalent to Viper, except for the
 # nidas-modules-titan and nidas-modules-viper packages, since the
@@ -129,7 +131,7 @@ is named, then the current repo is used.
 EOF
 }
 
-targets=(centos7 centos8 vulcan titan pi2 pi3)
+targets=(centos7 centos8 vulcan titan pi2 pi3 ubuntu)
 
 # Return the arch for passing to build_dpkg
 get_arch() # alias
@@ -154,7 +156,7 @@ get_arch() # alias
 get_builds() # alias
 {
     case "$1" in
-        centos*)
+        centos*|ubuntu*)
             echo host
             ;;
         pi*)
@@ -190,6 +192,9 @@ get_image_tag() # alias
         vulcan)
             echo nidas-build-debian-armbe:jessie
             ;;
+        ubuntu)
+            echo nidas-build-ubuntu-amd64:latest
+            ;;
     esac
 }
 
@@ -216,6 +221,9 @@ build_image()
             ;;
         vulcan)
             podman build -t $tag -f docker/Dockerfile.cross_ael_armbe
+            ;;
+        ubuntu)
+            podman build -t $tag -f docker/Dockerfile.ubuntu_amd64
             ;;
     esac
 }

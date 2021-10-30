@@ -1,9 +1,0 @@
-FROM docker.io/ncar/nidas-ubuntu-base:latest
-LABEL organization="NCAR EOL"
-
-RUN git clone https://github.com:/NCAR/xmlrpcpp
-RUN cd xmlrpcpp && ./build_dpkg_std.sh results amd64
-RUN cd xmlrpcpp/results && sudo dpkg -i xmlrpc++-dev_0.7-3_amd64.deb xmlrpc++_0.7-3_amd64.deb
-
-RUN git clone https://github.com:/ncareol/nidas
-RUN cd nidas && scripts/build_dpkg.sh amd64
