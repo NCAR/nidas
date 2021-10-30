@@ -15,15 +15,19 @@ RUN dpkg --add-architecture ${hostarch}
 
 # sudo is not technically needed, but there are other scripts which expect it,
 # like build-xmlrpc.
-RUN apt-get -y update
-RUN apt-get install -y --no-install-recommends gnupg wget cmake apt-utils sudo \
-    vim nano curl git ca-certificates build-essential fakeroot libncurses-dev bc dh-make \
-    quilt rsync
-RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch} \
-    flex libfl-dev gawk devscripts pkg-config 
-RUN apt-get install -y --no-install-recommends scons libbz2-dev:${hostarch} \
-    libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
-    libnetcdf-dev:${hostarch}
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends gnupg wget cmake apt-utils \
+    sudo vim nano curl git ca-certificates build-essential fakeroot \
+    libncurses-dev bc dh-make quilt rsync crossbuild-essential-${hostarch} \
+    flex libfl-dev gawk devscripts pkg-config scons libbz2-dev:${hostarch} \
+    libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
+    libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
+    libnetcdf-dev:${hostarch} reprepro \
+    libjsoncpp-dev:${hostarch} lsb-release \
+    libxml2-dev \
+    libi2c-dev \
+    valgrind net-tools
+
 # libgsl0ldbl is now in libgsl0-dev??
 #RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
 
@@ -36,16 +40,9 @@ RUN apt-get install -y --no-install-recommends scons libbz2-dev:${hostarch} \
 # RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ buster main" > /etc/apt/sources.list.d/eol.list
 # RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
-USER root
-
 # Also, backports has moved to archive, so fix that -- PEO still true for stretch??
-RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
+# RUN echo "deb http://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 #RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
-
-RUN apt-get -y update
-
-# Need reprepro to add packages to debian repo.
-RUN apt-get -y install reprepro
 
 # Even though container builds can use a locally mounted eol_scons, it is
 # still a build dependency, and it would be required if building nidas on a
@@ -58,61 +55,56 @@ RUN apt-get -y install reprepro
 # RUN apt-get -y install eol-scons
 
 # add boost-system,filesystem,asio, thread
-RUN apt-get -y install libboost-all-dev:amd64
-RUN apt-get -y install libboost-dev:${hostarch} \
-                       libboost-tools-dev:${hostarch} \
-                       libboost-atomic-dev:${hostarch} \
-                       libboost-chrono-dev:${hostarch} \
-                       libboost-container-dev:${hostarch} \
-                       libboost-context-dev:${hostarch} \
-                       libboost-coroutine-dev:${hostarch} \
-                       libboost-date-time-dev:${hostarch} \
-                       libboost-exception-dev:${hostarch} \
-                       libboost-fiber-dev:${hostarch} \
-                       libboost-filesystem-dev:${hostarch} \
-                       libboost-graph-dev:${hostarch} \
-                       libboost-iostreams-dev:${hostarch} \
-                       libboost-locale-dev:${hostarch} \
-                       libboost-log-dev:${hostarch} \
-                       libboost-math-dev:${hostarch} \
-                       libboost-program-options-dev:${hostarch} \
-                       libboost-random-dev:${hostarch} \
-                       libboost-regex-dev:${hostarch} \
-                       libboost-serialization-dev:${hostarch} \
-                       libboost-signals-dev:${hostarch} \
-                       libboost-stacktrace-dev:${hostarch} \
-                       libboost-system-dev:${hostarch} \
-                       libboost-test-dev:${hostarch} \
-                       libboost-thread-dev:${hostarch} \
-                       libboost-timer-dev:${hostarch} \
-                       libboost-type-erasure-dev:${hostarch} \
-                       libboost-wave-dev:${hostarch}
+RUN apt-get -y update && apt-get -y --no-install-recommends install \
+    libboost-dev:${hostarch} \
+    libboost-tools-dev:${hostarch} \
+    libboost-atomic-dev:${hostarch} \
+    libboost-chrono-dev:${hostarch} \
+    libboost-container-dev:${hostarch} \
+    libboost-context-dev:${hostarch} \
+    libboost-coroutine-dev:${hostarch} \
+    libboost-date-time-dev:${hostarch} \
+    libboost-exception-dev:${hostarch} \
+    libboost-fiber-dev:${hostarch} \
+    libboost-filesystem-dev:${hostarch} \
+    libboost-graph-dev:${hostarch} \
+    libboost-iostreams-dev:${hostarch} \
+    libboost-locale-dev:${hostarch} \
+    libboost-log-dev:${hostarch} \
+    libboost-math-dev:${hostarch} \
+    libboost-program-options-dev:${hostarch} \
+    libboost-random-dev:${hostarch} \
+    libboost-regex-dev:${hostarch} \
+    libboost-serialization-dev:${hostarch} \
+    libboost-signals-dev:${hostarch} \
+    libboost-stacktrace-dev:${hostarch} \
+    libboost-system-dev:${hostarch} \
+    libboost-test-dev:${hostarch} \
+    libboost-thread-dev:${hostarch} \
+    libboost-timer-dev:${hostarch} \
+    libboost-type-erasure-dev:${hostarch} \
+    libboost-wave-dev:${hostarch}
 
 # Add libxml2 for the ublox build below.
-RUN apt-get -y install libxml2-dev
+#RUN apt-get -y install 
 
 # add libi2c-dev as original docker image didn't have correct one
 # don't need an ${hostarch} variant, as all the functions are in-line
 # in a single header.
-RUN apt-get -y install libi2c-dev
+#RUN apt-get -y install
 
 # get and install ftdi 1.4 and depends libusb-1.0
-RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
-RUN apt-get -y remove libftdi1=0.20-4
-RUN apt-get -y -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:armhf
-
-# will also be building for x86_64 host for unit testing, so add these libs
-# NOTE: re-adding libxerces for $hostarch as adding for host takes it out
-RUN apt-get -y install libxerces-c-dev
-RUN apt-get -y install libxerces-c-dev:${hostarch}
-
-RUN apt-get -y install valgrind net-tools
-
-RUN apt-get -y install libjsoncpp-dev:${hostarch}
+#RUN apt-get -y install libusb-1.0:amd64 libusb-1.0:${hostarch} libusb-1.0-0-dev 
+#RUN apt-get -y remove libftdi1=0.20-4
+RUN apt-get -y update && apt-get -y --no-install-recommends \
+    -o Dpkg::Options::="--force-overwrite" install libftdi1-dev:${hostarch}
 
 ENV CROSS_ARCH=$hostarch
 
-WORKDIR /
+# This is consistent with the other dockerfiles, but I don't think it matters
+# for cnidas.sh, as long as it executes scripts inside the container with
+# absolute paths.
+WORKDIR /root
 
 # Local packages
 RUN mkdir -p ublox
@@ -125,5 +117,8 @@ RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
 
 # It can be helpful to have package_cloud available in the container.
 RUN apt-get -y --no-install-recommends install ruby ruby-dev
+
+# The rake gem has to be installed first, else the package_cloud install gets an
+# error.
 RUN gem install rake
 RUN gem install package_cloud
