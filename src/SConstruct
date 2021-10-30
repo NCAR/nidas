@@ -4,8 +4,9 @@
 import os, re
 from SCons.Script import Environment, SConscript, BoolVariable
 from SCons.Script import Configure
-import platform
 import eol_scons
+import subprocess as sp
+import platform
 
 # eol_scons.debug.SetDebug("true")
 #
@@ -229,14 +230,43 @@ def CheckStackProtectorOptions(env):
     for opt in ['-fstack-protector-strong', '-fstack-protector']:
         if add_stack_option(env, opt):
             break
-    add_stack_option(env, '-fstack-check')
+    # On ubuntu20 adding this option causes this warning:
+    # cc1plus: warning: '-fstack-check=' and '-fstack-clash_protection' are mutually exclusive.  Disabling '-fstack-check='
+    # So leave it out.
+    #add_stack_option(env, '-fstack-check')
+
+
+def getoutput(cmd):
+    "Like subprocess.getoutput() in Python 3."
+    try:
+        output = sp.check_output(cmd, shell=True, universal_newlines=True)
+        return output.strip()
+    except sp.CalledProcessError:
+        pass
+    return None
+
+def get_os():
+    """
+    Return a string identifying host OS.  The string is empty if lsb_release
+    """
+    os_id = getoutput("lsb_release -s -i")
+    os_release = getoutput("lsb_release -s -r").split('.')[0]
+    return (os_id + os_release).lower()
 
 
 def get_variant_dir(arch):
+    """
+    Generate a variant directory which is specific to the target arch and the
+    host OS.  This allows the same source tree to be built by containers used
+    for native builds which differ only in host OS, not in architecture.
+    """
     mach = arch
     if mach == 'host':
         mach = platform.machine()
-    vdir = "build_" + mach + "_" + "_".join(platform.dist()[0:2])
+    vdir = "build_" + mach
+    os_release = get_os()
+    if os_release:
+        vdir += "_" + os_release
     return vdir
 
 
@@ -250,17 +280,19 @@ def SConscriptVariant(arch, archenv):
         SConscript('nidas/SConscript',
                    variant_dir=vdir,
                    duplicate=0, exports={'env':archenv})
-        env.Alias(arch, vdir)
         env.Clean(vdir, vdir)
-        if arch == 'x86':
-            env.Alias('host', vdir)
-        elif arch == 'host':
-            env.Alias('x86', vdir)
+        # I don't think anyone uses these aliases, and they are problematic if there
+        # is more than one variant for native or for an arch, so deprecate them.
+        # env.Alias(arch, vdir)
+        # if arch == 'x86':
+        #     env.Alias('host', vdir)
+        # elif arch == 'host':
+        #     env.Alias('x86', vdir)
     else:
         SConscript('nidas/SConscript', exports={'env':archenv})
-        env.Alias(arch, 'nidas')
-        if arch == 'host':
-            env.Alias('host', 'nidas')
+        # env.Alias(arch, 'nidas')
+        # if arch == 'host':
+        #     env.Alias('host', 'nidas')
 
 
 def getMachineTypes(arch, mspecs):
@@ -411,8 +443,10 @@ if 'armhf' in BUILDS:
 
     SConscriptVariant('armhf', armhf_env)
 
-
-env.Default([BUILDS])
+# This default relied on the aliases for the architectures, which in turn just
+# resolved to the variant dir, causing everything under the variant to be built,
+# even if we want to put tests under the variant.
+# env.Default([BUILDS])
 
 # Install the schema where it can be referenced globally on the system.
 env.Alias('install',

@@ -188,3 +188,5 @@ if arch != '':
     env.NidasUtilProgram('garmin.cc')
 
 env.Alias('install', ['$PREFIX/bin'])
+
+env.Default(['.'])
