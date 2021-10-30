@@ -9,12 +9,14 @@ ARG hostarch
 
 RUN echo "hostarch == $hostarch"
 
-USER root
-
 RUN dpkg --add-architecture ${hostarch}
 
 # We're using podman, so set USER to root:root
 USER root:root
+
+ENV CROSS_ARCH=$hostarch
+
+WORKDIR /root
 
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
@@ -27,24 +29,24 @@ RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid
 # The emdebian repo is no longer reachable, so disable it.
 RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
 
-RUN apt-get -y update || echo "update failed"
+# ---------------------------------------------------------------------
+# Install packages in as few commands as possible, to optimize the
+# number of intermediate container images.
 
 # add boost-regex/filesystem
-RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
 
 # add libi2c-dev as original docker image didn't have correct one
 # don't need an ${hostarch} variant, as all the functions are in-line
 # in a single header.
-RUN apt-get -y install libi2c-dev
-
-RUN apt-get -y install libjsoncpp-dev:${hostarch}
 
 # reprepro is a debian repo maintenance command
-RUN apt-get -y install --no-install-recommends reprepro
 
-ENV CROSS_ARCH=$hostarch
+# redhat-lsb-core gets the lsb_release command
 
-WORKDIR /root
+RUN apt-get -y update && \
+  apt-get -y --no-install-recommends install \
+  libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch} \
+  libi2c-dev libjsoncpp-dev:${hostarch} reprepro redhat-lsb-core
 
 # Everything commented out below should already be in the image in the FROM line above
 #RUN apt-get update
@@ -61,12 +63,15 @@ WORKDIR /root
 #RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
 
 #RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
+# ---------------------------------------------------------------------
 
 # Local packages
 # hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
 # finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). Need to fix xmlrpc++ to add
 # a correct pkg-config file for cross building.
-RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends eol-scons \
+    xmlrpc++-dev:${hostarch} xmlrpc++-dev
 
 # viper, titan headers
 RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
@@ -77,4 +82,3 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # with host. gpg-agent returns value for GPG_AGENT_INFO which has the name
 # of the socket.  .profile is not sourced on startup, only .bashrc.
 RUN printf 'gpg-connect-agent /bye 2>/dev/null || eval $(gpg-agent --daemon --no-use-standard-socket)\n' >> .bashrc
-
