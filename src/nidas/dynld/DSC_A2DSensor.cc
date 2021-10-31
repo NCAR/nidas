@@ -45,7 +45,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(), d2a(0), _gain(-1), _bipolar(false)
+    A2DSensor(), d2a(0), _gain(-1), _bipolar(false), _voltage(-99)
 {
     setLatency(0.1);
 }

@@ -48,7 +48,7 @@ A2D_Serial::A2D_Serial() :
     SerialSensor(),
     _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
     _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
-    configStatus(),
+    _voltage(-99), configStatus(),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0),
     headerLines(0)
 {
@@ -227,7 +227,7 @@ void A2D_Serial::validate()
             }
 
 
-            // cerr << "ichan=" << ichan << " gain=" << gain << " bipolar=" << bipolar << endl;
+            // cerr << "A2D_Serial: ichan=" << ichan << " gain=" << fgain << " bipolar=" << ipol << endl;
             var->setA2dChannel(ichan);
 
             _channels[iv] = ichan;
