@@ -698,11 +698,11 @@ void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& r
     // set the test voltage and channel(s)
     try {
         write("#RST\n", 5);        // reset device to turn off existing
-        if (_voltage >= 0) {
+        if (state == 1 && _voltage >= 0) {
             char cmd_str[32];
-            int cmd = 3;
+            int cmd = 3;    // default to 2.5 vdc.
             if (_voltage == 0)
-                cmd = 2;
+                cmd = 2;    // zero vdc
             for (int i = 0; i < getMaxNumChannels(); i++) {
                 if ((_calset>>i) & 0x0001) {
                     sprintf(cmd_str, "#ISEL,%d,%d\n", i, cmd);
