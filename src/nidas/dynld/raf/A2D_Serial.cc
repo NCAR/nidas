@@ -48,7 +48,7 @@ A2D_Serial::A2D_Serial() :
     SerialSensor(),
     _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
     _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
-    _voltage(-99), configStatus(),
+    _calset(0), _voltage(-99), configStatus(),
     _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0),
     headerLines(0)
 {
@@ -660,7 +660,7 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
     for (int i = 0; i < getMaxNumChannels(); i++) {
         result["gain"][i]   = _gains[i];
         result["offset"][i] = _bipolar[i] ? 0 : 1;
-        result["calset"][i] = 0;
+        result["calset"][i] = (_calset & (1 << i)) ? 1 : 0;
     }
     result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
@@ -669,40 +669,44 @@ void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
 void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    int voltage = 0;
-    int calset  = 0;    // each bit represents that channel
     int state   = 0;    // 0 = turn off, 1 = turn on
+    _calset  = 0;       // each bit represents that channel
+    _voltage = 0;
 
     string errmsg = "XmlRpc error: testVoltage: " + getName();
 
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-        voltage = params["voltage"];
-        calset  = params["calset"];
+        _voltage = params["voltage"];
+        _calset  = params["calset"];
         state   = params["state"];
     }
     else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
-        voltage = params[0]["voltage"];
-        calset  = params[0]["calset"];
+        _voltage = params[0]["voltage"];
+        _calset  = params[0]["calset"];
         state   = params[0]["state"];
     }
-    if (calset < 0 || 0xff < calset) {
+    if (_calset < 0 || 0xff < _calset) {
         char hexstr[50];
-        sprintf(hexstr, "0x%x", calset);
+        sprintf(hexstr, "0x%x", _calset);
         errmsg += ": invalid calset: " + string(hexstr);
         PLOG(("") << errmsg);
         result = errmsg;
         return;
     }
 
+
     // set the test voltage and channel(s)
     try {
         write("#RST\n", 5);        // reset device to turn off existing
-        if (state != 0) {
-            char cmd[32];
+        if (_voltage >= 0) {
+            char cmd_str[32];
+            int cmd = 3;
+            if (_voltage == 0)
+                cmd = 2;
             for (int i = 0; i < getMaxNumChannels(); i++) {
-                if ((calset>>i) & 0x0001) {
-                    sprintf(cmd, "#ISEL,%d,%d", i, voltage);  // not accurate yet.
-                    write(cmd, strlen(cmd));
+                if ((_calset>>i) & 0x0001) {
+                    sprintf(cmd_str, "#ISEL,%d,%d\n", i, cmd);
+                    write(cmd_str, strlen(cmd_str));
                 }
             }
         }

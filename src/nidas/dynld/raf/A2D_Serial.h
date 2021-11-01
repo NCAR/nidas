@@ -168,7 +168,7 @@ protected:
      */
     size_t _staticLag;  // in usecs.
 
-    int _boardID;   // serial number
+    int _boardID;       // serial number
     bool _haveCkSum;    // Will packets have checksum
 
     /**
@@ -207,7 +207,8 @@ protected:
     int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
     int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
 
-    int _voltage;       // Diagnostic (auto_cal) voltage
+    int _calset;        // Diagnostic (auto_cal) channels, toggle bit per channel.
+    int _voltage;       // Diagnostic (auto_cal) voltage, -99 = normal operation.
 
     /**
      * This contains the status of config verification between what we read
