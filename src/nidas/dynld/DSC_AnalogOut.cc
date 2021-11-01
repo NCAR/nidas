@@ -48,7 +48,13 @@ DSC_AnalogOut::DSC_AnalogOut():
 DSC_AnalogOut::~DSC_AnalogOut()
 {
     try {
-        if (_fd >= 0) close();
+        if (_fd >= 0) {
+            vector<int> w;
+            vector<float> v;
+
+            setVoltages(w, v);
+            close();
+        }
     }
     catch(const n_u::IOException& e) {}
 }
