@@ -266,7 +266,7 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
         result["gain"][i]   = _gain;
         // Offset of 0 is bipolar true, offset of 1 is bipolar false
         result["offset"][i] = _bipolar ? 0 : 1;
-        result["calset"][i] = 0; //_calSet;
+        result["calset"][i] = _calset;
     }
     result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
@@ -275,25 +275,25 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
 void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    int voltage = 0;
-    int calset  = 0;
     int state   = 0;
+//    _voltage    = 0;
+//    _calset     = 0;
 
     string errmsg = "XmlRpc error: testVoltage: " + getName();
 
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-        voltage = params["voltage"];
-        calset  = params["calset"];
+        _voltage = params["voltage"];
+        _calset  = params["calset"];
         state   = params["state"];
     }
     else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
-        voltage = params[0]["voltage"];
-        calset  = params[0]["calset"];
+        _voltage = params[0]["voltage"];
+        _calset  = params[0]["calset"];
         state   = params[0]["state"];
     }
-    if (calset < 0 || 0xff < calset) {
+    if (_calset < 0 || 0xff < _calset) {
         char hexstr[50];
-        sprintf(hexstr, "0x%x", calset);
+        sprintf(hexstr, "0x%x", _calset);
         errmsg += ": invalid calset: " + string(hexstr);
         PLOG(("") << errmsg);
         result = errmsg;
@@ -302,8 +302,14 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
 
     // set the test voltage and channel(s)
     try {
-        // For this, calset is either 0 or 1.
-        d2a->setVoltage(calset, voltage);
+        if (state) {
+            // For this, calset is either 0 or 1.
+            d2a->setVoltage(_calset, _voltage);
+        }
+        else {
+            delete d2a;
+            d2a = 0;
+        }
     }
     catch(const n_u::IOException& e) {
         string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();

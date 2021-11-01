@@ -119,6 +119,11 @@ private:
     bool _bipolar;
 
     /**
+     * Channels to engage by auto_cal
+     */
+    int _calset;
+
+    /**
      * Voltage set by auto_cal for diagnostics.
      */
     int _voltage;
