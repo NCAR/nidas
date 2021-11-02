@@ -45,7 +45,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(), d2a(0), _gain(-1), _bipolar(false), _voltage(-99)
+    A2DSensor(), d2a(0), _gain(-1), _bipolar(false), _calset(0), _voltage(-99)
 {
     setLatency(0.1);
 }
@@ -266,7 +266,7 @@ void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& resul
         result["gain"][i]   = _gain;
         // Offset of 0 is bipolar true, offset of 1 is bipolar false
         result["offset"][i] = _bipolar ? 0 : 1;
-        result["calset"][i] = _calset;
+        result["calset"][i] = (_calset & (1 << i)) ? 1 : 0;;
     }
     result["vcal"]      = _voltage;
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
@@ -291,7 +291,7 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
         _calset  = params[0]["calset"];
         state   = params[0]["state"];
     }
-    if (_calset < 0 || 0xff < _calset) {
+    if (_calset < 0 || 0xffff < _calset) {
         char hexstr[50];
         sprintf(hexstr, "0x%x", _calset);
         errmsg += ": invalid calset: " + string(hexstr);
@@ -300,11 +300,17 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
         return;
     }
 
+    // Loopback cable is 1 d2a to 8 a2d
+    if (_calset & 0x00ff) _calset |= 0x00ff;
+    if (_calset & 0xff00) _calset |= 0xff00;
+
     // set the test voltage and channel(s)
     try {
         if (state) {
-            // For this, calset is either 0 or 1.
-            d2a->setVoltage(_calset, _voltage);
+	    if (_calset & 0x00ff)
+              d2a->setVoltage(0, _voltage);
+	    if (_calset & 0xff00)
+              d2a->setVoltage(1, _voltage);
         }
         else {
             delete d2a;
