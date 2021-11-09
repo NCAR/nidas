@@ -1003,12 +1003,6 @@ handleEepromExit(const char* buf, const int /* bufSize */)
     return success;
 }
 
-CFG_MODE_STATUS 
-NCAR_TRH::
-enterConfigMode()
-{
-    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD) ? ENTERED : NOT_ENTERED;
-}
 
 void 
 NCAR_TRH::
@@ -1071,7 +1065,27 @@ void
 NCAR_TRH::
 updateMetaData()
 {
+    // This is called by SerialSensor::doAutoConfig() from within
+    // SerialSensor::open(), but after checkResponse() is called.
+    // checkResponse() puts the TRH in menu mode, so that is not needed here,
+    // but menu mode still needs to be exited.  If there were science parameters
+    // to set, then those would be done next and the EXT could happen after
+    // that, but there no longer are any science parameters to set. SerialSensor
+    // will call exitConfigMode() when it calls sendInitString(), so the
+    // implementation of that method in this class should be enough.  But it's
+    // not. Some callers like trh_load_cal may only want to update meta data and
+    // then resume measurements, so go ahead and explicitly exit menu mode here.
     sendAndCheckSensorCmd(SHOW_SETTINGS_CMD);
+    sendAndCheckSensorCmd(EXIT_EEPROM_MENU_CMD);
+    // exitConfigMode();
+}
+
+
+void
+NCAR_TRH::
+exitConfigMode()
+{
+    // sendAndCheckSensorCmd(EXIT_EEPROM_MENU_CMD);
 }
 
 
@@ -1079,5 +1093,15 @@ bool
 NCAR_TRH::
 enterMenuMode()
 {
-    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD);
+    return enterConfigMode() == ENTERED;
+}
+
+
+// This is the protected method declared by the SerialSensor class, so the
+// public entry point is enterMenuMode().
+CFG_MODE_STATUS 
+NCAR_TRH::
+enterConfigMode()
+{
+    return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD) ? ENTERED : NOT_ENTERED;
 }

@@ -130,6 +130,7 @@ protected:
                     throw(nidas::util::InvalidParameterException);
     virtual bool checkResponse();
     virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
+    virtual void exitConfigMode();
 
     // No need to override sendScienceParameters() and checkScienceParameters()
     // because there are none, so the default implementations suffice.
