@@ -177,7 +177,8 @@ void SerialSensor::sendInitString() throw(nidas::util::IOException)
     if (getAutoConfigEnabled()) {
         exitConfigMode();
     }
-
+    // XXXXX This looks suspicious.  Why can't an "autoconfig" sensor also send
+    // an init string before sampling?
     else {
         if (getInitString().length() != 0) {
             CharacterSensor::sendInitString();
