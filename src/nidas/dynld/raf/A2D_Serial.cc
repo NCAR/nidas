@@ -694,6 +694,10 @@ void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& r
         return;
     }
 
+    if (state == 0) {
+        _calset = 0;
+        _voltage = -99;
+    }
 
     // set the test voltage and channel(s)
     try {

@@ -313,6 +313,8 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
               d2a->setVoltage(1, _voltage);
         }
         else {
+            _calset = 0;
+            _voltage = -99;
             delete d2a;
             d2a = 0;
         }
