@@ -49,10 +49,7 @@ DSC_AnalogOut::~DSC_AnalogOut()
 {
     try {
         if (_fd >= 0) {
-            vector<int> w;
-            vector<float> v;
-
-            setVoltages(w, v);
+            clearVoltages();
             close();
         }
     }
@@ -89,6 +86,16 @@ float DSC_AnalogOut::getMaxVoltage(int i) const
 {
     if (i < 0 || i >= _noutputs) return 0.0;
     return _conv.vmax[i];
+}
+
+void DSC_AnalogOut::clearVoltages()
+{
+    DMMAT_D2A_Outputs out;
+    out.nout = _noutputs;
+    for (int i = 0; i < _noutputs; i++) { out.active[i] = 1; out.counts[i] = 0; }
+
+    if (::ioctl(_fd,DMMAT_D2A_SET,&out) < 0)
+        throw n_u::IOException(_devName,"ioctl SET_OUTPUT",errno);
 }
 
 void DSC_AnalogOut::setVoltages(const vector<int>& which,

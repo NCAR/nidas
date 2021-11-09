@@ -127,6 +127,9 @@ public:
     void setVoltages(const std::vector<int>& which,
                      const std::vector<float>& val);
 
+    void clearVoltages();
+
+
 private:
 
     std::string _devName;
