@@ -307,10 +307,14 @@ void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue
     // set the test voltage and channel(s)
     try {
         if (state) {
-	    if (_calset & 0x00ff)
-              d2a->setVoltage(0, _voltage);
-	    if (_calset & 0xff00)
-              d2a->setVoltage(1, _voltage);
+           if (_calset & 0x00ff) {
+                d2a->setVoltage(0, _voltage);
+                d2a->setVoltage(1, 0);
+           }
+           if (_calset & 0xff00) {
+                d2a->setVoltage(0, 0);
+                d2a->setVoltage(1, _voltage);
+           }
         }
         else {
             _calset = 0;
