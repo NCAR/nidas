@@ -158,10 +158,12 @@ if [ $setup_nidas_error -eq 0 ]; then
     case "$setup_nidas_eval" in
 
         sh)
-            echo export PATH=\'"${PATH}"\' LD_LIBRARY_PATH=\'"${LD_LIBRARY_PATH}"\'
+            echo export PATH=\'"${PATH}"\' ';'
+            echo export LD_LIBRARY_PATH=\'"${LD_LIBRARY_PATH}"\'
             ;;
         csh)
-            echo setenv PATH \'"${PATH}"\' ';' setenv LD_LIBRARY_PATH \'"${LD_LIBRARY_PATH}"\'
+            echo setenv PATH \'"${PATH}"\' ';'
+            echo setenv LD_LIBRARY_PATH \'"${LD_LIBRARY_PATH}"\'
             ;;
 
     esac
