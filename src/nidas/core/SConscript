@@ -17,13 +17,12 @@ def nidas_xmlrpcpp(env):
     # nidas tool includes xmlrpc tool, but we're linking
     # that in statically now, so pull out xmlrpc for arm cross builds
     arch = env['ARCH']
-    if arch in ["armhf", "armel"]:
-        if 'xmlrpcpp' in env['LIBS']:
-            env['LIBS'].remove('xmlrpcpp')
+    if arch in ["armhf"]:
         # Force link xmlrpc.a.
-        static_xmlrpcpp = File('#../../xmlrpc-build/xmlrpcpp/' + arch +
-                               '/libxmlrpcpp.a')
-        env.Append(LIBS=[static_xmlrpcpp])
+        libpath = '/usr/lib/arm-linux-gnueabihf/libXmlRpcpp.a'
+        env.Append(LIBS=[env.File(libpath)])
+    else:
+        env.Append(LIBS=['xmlrpcpp'])
 
 ##
 ##  List of header files
