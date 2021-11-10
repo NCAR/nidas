@@ -101,9 +101,14 @@ RUN apt-get -y update && apt-get -y --no-install-recommends \
 
 ENV CROSS_ARCH=$hostarch
 
-# This is consistent with the other dockerfiles, but I don't think it matters
-# for cnidas.sh, as long as it executes scripts inside the container with
-# absolute paths.
+# It can be helpful to have package_cloud available in the container.
+RUN apt-get -y --no-install-recommends install ruby ruby-dev
+
+# The rake gem has to be installed first, else the package_cloud install gets an
+# error.
+RUN gem install rake
+RUN gem install package_cloud
+
 WORKDIR /root
 
 # Local packages
@@ -114,11 +119,3 @@ RUN cd ublox && ./build-ublox.sh
 RUN mkdir -p xmlrpc-build
 COPY ./build-xmlrpc.sh xmlrpc-build
 RUN cd xmlrpc-build && ./build-xmlrpc.sh ${hostarch}
-
-# It can be helpful to have package_cloud available in the container.
-RUN apt-get -y --no-install-recommends install ruby ruby-dev
-
-# The rake gem has to be installed first, else the package_cloud install gets an
-# error.
-RUN gem install rake
-RUN gem install package_cloud

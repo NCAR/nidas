@@ -15,18 +15,13 @@ hostarch=$1
 # 
 git clone https://github.com/NCAR/xmlrpcpp.git
 cd xmlrpcpp
-# We also hack the build script to not sign the packages built, as we don't have 
-# have access to the private key.
-sed -i 's/\-k/#\-k/' build_dpkg_std.sh
-sed -i 's/cd \.\./pwd \&\& ls -alg \&\& cp libXmlRpcpp.a ${dest}\/libxmlrpcpp.a \&\& cd \.\./' build_dpkg_std.sh
-cat build_dpkg_std.sh
-./build_dpkg_std.sh ./amd64 amd64
-./build_dpkg_std.sh ./${hostarch} ${hostarch}
+./build_dpkg_std.sh --no-sign ./amd64 amd64
+./build_dpkg_std.sh --no-sign ./${hostarch} ${hostarch}
 echo "Checking out build artifacts in ./amd64"
 ls -alg ./amd64
 echo "Checking out build artifacts in ./${hostarch}"
 ls -alg ./${hostarch}
 # It looks like installing with dpkg -i is not enough to satisfy the build
 # dependency check run by debuild, but it does work to install with apt.
-apt install ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
-apt install ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
+apt-get install ./amd64/xmlrpc++_0.7-3_amd64.deb ./amd64/xmlrpc++-dev_0.7-3_amd64.deb
+apt-get install ./${hostarch}/xmlrpc++_0.7-3_${hostarch}.deb ./${hostarch}/xmlrpc++-dev_0.7-3_${hostarch}.deb
