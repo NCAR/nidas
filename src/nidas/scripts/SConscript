@@ -1,0 +1,7 @@
+
+
+Import('env')
+
+env.Install("$PREFIX/bin", "setup_nidas.sh")
+
+env.Alias('install', ['$PREFIX/bin'])
