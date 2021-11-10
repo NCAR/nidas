@@ -97,6 +97,10 @@ prepend() # epath edir
 
 setup_nidas_unset() # topdir
 {
+    if [ -z "$1" ]; then
+        echo "usage: setup_nidas_unset {topdir}"
+        return
+    fi
     topdir="$1"
     # Make sure to include a trailing slash since these must match the full top
     # directory.
@@ -108,6 +112,10 @@ setup_nidas_unset() # topdir
 
 setup_nidas_set() # topdir
 {
+    if [ -z "$1" ]; then
+        echo "usage: setup_nidas_set {topdir}"
+        return
+    fi
     topdir="$1"
     bindir="$topdir/bin"
     libutil=`find "$topdir"/lib* -name "libnidas_util.so" 2> /dev/null`
@@ -124,6 +132,10 @@ setup_nidas_set() # topdir
         setup_nidas_error=1
     fi
 }
+
+# If this is sourced, then the functions are available as aliases.
+alias snset=setup_nidas_set
+alias snunset=setup_nidas_unset
 
 if [ $setup_nidas_error -eq 0 ]; then
 
