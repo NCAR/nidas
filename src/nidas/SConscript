@@ -136,7 +136,7 @@ env.Install('$ARCHPREFIX/include/nidas/linux',info2)
 #   -Ibuild/include
 env.PrependUnique(CPPPATH = ['#', Dir('.').Dir('include')])
 
-subdirs=Split("""util core dynld apps linux""")
+subdirs=Split("""util core dynld apps scripts linux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
