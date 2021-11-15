@@ -167,9 +167,13 @@ env.NidasUtilProgram('utime.cc')
 
 usbenv = env.Clone()
 usbconf = usbenv.Configure()
-if usbconf.CheckLib('libusb-1.0'):
-    usbenv.NidasPlainProgram('usb_pmusb02_loopback_test.cc')
-usbconf.Finish()
+libusb_enabled = usbconf.CheckLib('libusb-1.0')
+usbenv = usbconf.Finish()
+uplt = 'usb_pmusb02_loopback_test'
+if libusb_enabled:
+    env.Alias(uplt, usbenv.NidasPlainProgram(uplt + '.cc'))
+else:
+    print("not building " + uplt + ": libusb-1.0 not found.")
 
 if 'viper' in machs:
     # controls DIO pins on a Viper
