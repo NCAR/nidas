@@ -1187,13 +1187,13 @@ NidasAppArg NoBreak("-n,--no-break", "",
 NidasAppArg Device("-d,--device", "/dev/gps[0-9]",
         "Device to which a u-blox GPS receiver is connected, and which this program uses.\n" 
         "May differ from the example given.", "/dev/gps0");
-NidasAppArg Timer("-t, --timer", "", 
+NidasAppArg Timer("-t,--timer", "", 
         "Causes the utility to determine the time from end of configuration, or \n"
         "restart, to the first TIM-TP message.", "");
-NidasAppArg ResetConfig("-r, --reset", "", 
+NidasAppArg ResetConfig("-r,--reset", "", 
         "Causes the utility to reset the device configuration which is \n"
         "held in battery backed RAM", "");
-NidasAppArg SyncMsgCount("-s, --sync", "<int>", 
+NidasAppArg SyncMsgCount("-s,--sync", "<int>", 
         "Causes the utility to run until the count of the number of each enabled message \n"
         "reaches the value specified.", "1");
 NidasApp app("ubloxbin");
@@ -1265,7 +1265,9 @@ int main(int argc, char** argv)
 
             Session session(io, Device.getValue());
             if (!session.start()) {
-                return usage(argv[0]);
+                std::cerr << "could not open device "
+                          << Device.getValue() << std::endl;
+                exit(2);
             }
 
             boost::asio::io_service readSvc;
@@ -1281,7 +1283,9 @@ int main(int argc, char** argv)
 
             // spyOnCapturedInput = true;
             if (!session.findBaudRate()) {
-                return usage(argv[0]);
+                std::cerr << "no response from " << Device.getValue()
+                          << " at any baud rate." << std::endl;
+                exit(3);
             }
             // spyOnCapturedInput = false;
 
@@ -1378,4 +1382,3 @@ int main(int argc, char** argv)
     }
     return 0;
 }
-
