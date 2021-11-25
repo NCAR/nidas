@@ -29,6 +29,7 @@
 #include <nidas/util/GPS.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/GPS.h>
 
 #include <sstream>
 
@@ -597,12 +598,9 @@ appendChecksum(char* rec, int len, int maxlen)
         sprintf(rec+len, "*%2X", cksum);
 }
 
-
-
 bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
 {
-    char cksum;
-    return findChecksum(cksum, rec, len) && cksum == calcChecksum(rec, len);
+    return n_u::NMEAchecksumOK(rec, len);
 }
 
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
