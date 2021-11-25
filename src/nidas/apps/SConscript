@@ -133,15 +133,14 @@ elif bool(not arch and jsoncpp_enabled and
 dbconf.Finish()
 
 sdconf = env.Configure()
-# It exists on RedHat systems, but does not contain
-# macros such as i2c_smbus_read_byte_data
+
+# check for existence of i2c_smbus_read_byte, typically a macro in
+# linux/i2c-dev.h
 has_i2c = False
-if sdconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
-        'i2c_smbus_read_byte_data(0,0);'):
+if sdconf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C'):
     has_i2c = True
-    has_old_i2c = False
-# check if i2c API has 3(old) or 4(new) arguments in
-# i2c_smbus_read_i2c_block_data
+    # check if i2c API has 3(old) or 4(new) arguments in
+    # i2c_smbus_read_i2c_block_data
     if not sdconf.CheckLibWithHeader('', 'linux/i2c-dev.h', 'C',
             'i2c_smbus_read_i2c_block_data(0,0,0,0);'):
         env.Append(CPPDEFINES="OLD_I2C_API")
@@ -159,8 +158,13 @@ ncenv.NidasProgram('isff/prep.cc')
 # Programs which only use libnidas_util.so, not libnidas.
 env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
+
+# tee_i2c has a read-from-text-file test mode which doesn't
+# require the I2C API, so always build it
+env.NidasProgram('tee_i2c.cc')
+
+# ublox requires the I2C API
 if has_i2c:
-    env.Alias('tee_i2c', env.NidasProgram('tee_i2c.cc'))
     env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
 
 env.NidasUtilProgram('utime.cc')

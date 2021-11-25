@@ -86,6 +86,11 @@ conf.CheckFunc("ppoll")
 
 conf.CheckFunc("epoll_pwait")
 
+# linux/i2c-dev.h exists on RedHat systems, but does not contain
+# macros such as i2c_smbus_read_byte_data
+conf.CheckCHeader('linux/i2c-dev.h')
+conf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C')
+
 # It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
 # accordingly, or maybe the path to pkg-config needs to be set, such as
 # /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
