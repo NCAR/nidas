@@ -196,7 +196,7 @@ private:
 };
 
 TeeI2C::TeeI2C():
-    progname(),_i2cname(),_i2caddr(0), _i2cfd(-1),
+    progname(),_i2cname(),_i2caddr((unsigned)LONG_MAX), _i2cfd(-1),
     _ptynames(), _filterGPS(), _doFilterGPS(false),
     _fbhead(_filterBuffer), _fbtail(_fbhead),
     _fbend(_fbhead + sizeof(_filterBuffer)),
@@ -259,6 +259,8 @@ int TeeI2C::parseRunstring(int argc, char** argv)
                          Priority | Foreground | KeepMSB | BlockingWrites |
                          OutputToFile);
 
+    _app.allowUnrecognized(true);
+
     ArgVector args = _app.parseArgs(argc, argv);
 
     if (_app.helpRequested())
@@ -277,7 +279,7 @@ int TeeI2C::parseRunstring(int argc, char** argv)
     bool filterGPS = false;
     for (int iarg = 0; iarg < (signed)args.size(); iarg++) {
         string arg = args[iarg];
-        if (arg == "-G") {
+        if (arg == "-N") {
             filterGPS = true;
             _doFilterGPS = true;
         }
@@ -285,8 +287,14 @@ int TeeI2C::parseRunstring(int argc, char** argv)
         else {
             if (_i2cname.length() == 0)
                 _i2cname = arg;
-            else if (_i2caddr == 0)
-                _i2caddr = strtol(arg.c_str(), NULL, 0);
+            else if (_i2caddr == (unsigned)LONG_MAX) {
+                char* endptr;
+                _i2caddr = strtol(arg.c_str(), &endptr, 0);
+                if (endptr == arg.c_str()) {
+                    cerr << "Cannot parse i2caddr: " << arg << endl;
+                    return usage();
+                }
+            }
             else {
                 // user will only read from this pty
                 _ptynames.push_back(arg);
@@ -323,7 +331,7 @@ int TeeI2C::parseRunstring(int argc, char** argv)
 int TeeI2C::usage()
 {
     cerr << "\
-Usage: " << _app.getName() << "[-f] [-p priority] input i2caddr [-G] ptyname [-G] ptyname ...\n"
+Usage: " << _app.getName() << "[-f] [-p priority] input i2caddr [-N] ptyname [-N] ptyname ...\n"
          << _app.usage() << 
 #ifdef HAVE_I2C_SMBUS_READ_BYTE
 "  input: name of I2C bus to open, e.g. /dev/i2c-1, or name of NMEA text file\n"
@@ -332,9 +340,10 @@ Usage: " << _app.getName() << "[-f] [-p priority] input i2caddr [-G] ptyname [-G
 "  input: name of NMEA text file\n"
 "  i2caddr: 0 for input from file\n"
 #endif
-"  -G: messages to the following pty will be screened for invalid checksums and NMEA fields\n"
+"  -N: NMEA messages to the following pty will be screened for bad checksums and invalid NMEA fields\n"
 "  ptyname: name of a read-only pseudo-terminal\n\n"
-"  Reading NMEA messages from a file is useful for testing the screen of invalid NMEA messasges.\n"
+"  Reading NMEA messages from a text file is useful for testing the screening of invalid NMEA messasges.\n"
+"  If you read from a text file and output to ptys, using blocking mode (-b) will prevent \"NOT writable\" messages\n"
 	<< endl;
     return 1;
 }
