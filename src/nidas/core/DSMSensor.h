@@ -1710,9 +1710,9 @@ private:
     uint32_t _nSamplesGood;
 
     /*
-     * Default period between surveillances = 1 hour in microseconds.
+     * Default period between surveillances.
      */
-    static const dsm_time_t DEFAULT_QC_CHECK_PERIOD = (uint64_t)USECS_PER_SEC * 60; //SECS_PER_HOUR;
+    static const dsm_time_t DEFAULT_QC_CHECK_PERIOD;
 
     /*
      * Actual qc check period in microseconds

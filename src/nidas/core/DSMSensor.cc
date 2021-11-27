@@ -85,6 +85,9 @@ void MetaDataBase::addMetaDataItem(const MetaDataItem& rItem)
     }
 }
 
+/* static */
+const dsm_time_t DSMSensor::DEFAULT_QC_CHECK_PERIOD =
+    (uint64_t)USECS_PER_SEC * 3660; //SECS_PER_HOUR;
 
 /* static */
 bool DSMSensor::zebra = false;
@@ -416,7 +419,10 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
     bool exhausted = readBuffer();
 
-    testCheckHealthInterval();
+    // Disable sensor health checks, until we can actually do something useful
+    // with them, if ever.  See JIRA DSM3 issue.
+    if (false)
+        testCheckHealthInterval();
 
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
@@ -984,7 +990,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     _rawSampleTag.setRate(rawRate);
     _rawSource.addSampleTag(&_rawSampleTag);
 
-    calcNumQCSamples(rawRate);
+    // Not useful if sensor health checks are disabled.
+    if (false)
+        calcNumQCSamples(rawRate);
 
 #ifdef DEBUG
     cerr << getName() << ", suffix=" << getSuffix() << ": ";
