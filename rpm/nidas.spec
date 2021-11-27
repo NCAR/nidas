@@ -392,6 +392,7 @@ rm -rf $RPM_BUILD_ROOT
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/nidas_udp_relay
 %caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_tty
+%caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_i2c
 %{nidas_prefix}/bin/extract2d
 %{nidas_prefix}/bin/extractDMT
 %{nidas_prefix}/bin/ir104
