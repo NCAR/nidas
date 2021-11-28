@@ -799,6 +799,8 @@ public:
 
     void readSamples(SampleInputStream& sis);
 
+    void setupPeriod();
+
     int parseRunstring(int argc, char** argv);
 
     static int main(int argc, char** argv);
@@ -1204,22 +1206,6 @@ readSamples(SampleInputStream& sis)
 {
     // Read samples until an alarm signals the end of a reporting period or
     // an interruption occurs.
-    _alarm = false;
-    if (_update > 0 && _realtime)
-    {
-        // Add some slack to the alarm to allow samples to arrive within the
-        // period, rounded up.
-        int delay = 1; // seconds of lag
-        UTime when;
-        if (when < _period_end)
-        {
-            when = _period_end - when.toUsecs();
-            delay += when.toSecs();
-        }
-        DLOG(("alarm(") << delay << ") seconds until period ends at "
-                        << iso_format(_period_end));
-        alarm(delay);
-    }
     while (!_alarm && !_app.interrupted())
     {
         try {
@@ -1699,6 +1685,87 @@ jsonReport()
 }
 
 
+/**
+ * @brief Setup the reporting period and update alarm.
+ *
+ * Initialize the reporting period, then keep advancing it.  If there is an
+ * update interval, then setup the alarm to interrupt sample reads and trigger
+ * the next report.
+ */
+void
+DataStats::
+setupPeriod()
+{
+    if (!_realtime)
+    {
+        // Nothing to do if just spinning over samples from a non-realtime
+        // input.
+        return;
+    }
+    // If realtime, set the period being covered now.  The first period starts
+    // now, since that is when data starts being collected.  The end always
+    // advances by the update, which may or may not be the same as the period.
+    // Update tells how much to move the report period each time, the Period
+    // tells how much data to collect each time.
+    UTime now;
+    if (_period_start == time_t(0))
+    {
+        // first period starts now.
+        _period_start = now;
+        _period_end = _period_start;
+        _start_time = _period_start;
+        if (_period > 0)
+        {
+            ILOG(("") << "... Reporting stats over "
+                      << _period << " seconds, "
+                      << "updating " << _update
+                      << " seconds, " << iso_format(_period_start)
+                      << " ...");
+        }
+    }
+    // Now advance the end.
+    _period_end += _update * USECS_PER_SEC;
+
+    // The end needs to keep up with system time, in case the system time has
+    // advanced or else the read loop just stalls.  This would not be needed
+    // if the reporting interval was adjusted with the sample times instead of
+    // the system time, but that will have to wait.  Because of the alarm
+    // logic below, this could cause a very short alarm, but the next time
+    // through the end should advance by update.
+    if (_period_end < now)
+    {
+        NLOG(("advancing period end time from ") << iso_format(_period_end)
+             << " to system time " << iso_format(now));
+        _period_end = now;
+    }
+
+    // Make sure start stays within period seconds of end.
+    UTime start2 = _period_end - _period * USECS_PER_SEC;
+    if (_period_start < start2)
+    {
+        _period_start = start2;
+    }
+
+    // The period is set.  If there will be an update, set an alarm to
+    // interrupt sample reads at the right time.
+    _alarm = false;
+    if (_update > 0)
+    {
+        // Add some slack to the alarm to allow samples to arrive within
+        // the period, rounded up.  Since _period_end is always at least
+        // now, the alarm deley should never be more than update+1.
+        int delay = 1; // seconds of lag
+        if (now < _period_end)
+        {
+            delay += (_period_end - now.toUsecs()).toSecs();
+        }
+        DLOG(("alarm(") << delay << ") seconds until period ends at "
+                        << iso_format(_period_end));
+        alarm(delay);
+    }
+}
+
+
 int DataStats::run()
 {
     int result = 0;
@@ -1784,47 +1851,16 @@ int DataStats::run()
 
     try
     {
-        // If realtime, set the period being covered now.  The period starts
-        // now, since that is when data starts being collected, and it goes
-        // until the next update or next period, whichever is shorter.  If
-        // period is shorter, then the first update comes when a whole
-        // period has filled, and then every update seconds after that.  If
-        // update is shorter, then the period does not fill until enough
-        // updates have passed.
-        if (_realtime)
-        {
-            _period_start = UTime();
-            _period_end = _period_start + _period * USECS_PER_SEC;
-            if (_update < _period)
-            {
-                _period_end = _period_start + _update * USECS_PER_SEC;
-            }
-            _start_time = _period_start;
-        }
-        if (_period > 0 && _realtime)
-        {
-            ILOG(("") << "... Reporting stats over "
-                      << _period << " seconds, "
-                      << "updating " << _update
-                      << " seconds, " << iso_format(_period_start)
-                      << " ...");
-        }
         while (!_app.interrupted() && !reportsExhausted(++_nreports))
         {
-            readSamples(sis);
-            report();
+            setupPeriod();
+            // Reset statistics to accumulate for the current time period.
             if (_realtime && _period > 0)
             {
-                // Advance the period end by the update time, but do not
-                // advance the period start until the period is long enough.
-                _period_end += _update * USECS_PER_SEC;
-                if (_period_end - _period * USECS_PER_SEC > _period_start)
-                {
-                    _period_start = _period_end - _period * USECS_PER_SEC;
-                }
-                // Reset statistics to start accumulating for the new time period.
                 restartStats(_period_start, _period_end);
             }
+            readSamples(sis);
+            report();
         }
     }
     catch (n_u::EOFException& e)
