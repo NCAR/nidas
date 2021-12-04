@@ -50,7 +50,7 @@
 #     scons: $DESTDIR/$PREFIX/modules
 #     deb (nidas-modules-vortex): 
 #	/lib/modules/$(uname -r)/nidas
-#	e.g.: /lib/modules/4.4.6/nidas (vortex, Oct 2020)
+#	e.g.: /lib/modules/4.15.18-vortex86dx3/nidas (vortex, Oct 2020)
 # arm (old, non-EABI): viper, titan (not built from this Makefile)
 #   libs:
 #     scons: $DESTDIR/$PREFIX/arm/lib
@@ -112,7 +112,7 @@ else ifeq ($(DEB_HOST_GNU_TYPE),arm-linux-gnueabihf)
         LINUX_MODULES := off
     endif
 else ifeq ($(DEB_HOST_GNU_TYPE),i686-linux-gnu)
-    VORTEX_KERN := 4.4.6
+    VORTEX_KERN := 4.15.18-vortex86dx3
 endif
 
 # Where to find pkg-configs of other software

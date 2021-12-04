@@ -4,5 +4,5 @@ pkg_files/root/etc/default/pcmcom8 etc/default
 # in ../Makefile.  The Makefile install target copies the
 # modules to to $(MODDIR)/$(XXX_KERN)/nidas, which should match
 # this path:
-lib/modules/4.4.6/nidas/*.ko
+lib/modules/4.15.18-vortex86dx3/nidas/*.ko
 opt/nidas/firmware/*

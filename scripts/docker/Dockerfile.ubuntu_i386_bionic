@@ -1,16 +1,16 @@
 FROM docker.io/i386/ubuntu:bionic
 LABEL organization="NCAR EOL"
 
-# We need linux-headers that match the running kernel (4.4.6) on
-# the vortex. However linux-headers-4.4.6 is not available from
+# We need linux-headers that match the running kernel (4.15.18-vortex86dx3) on
+# the vortex. However linux-headers-4.15.18-vortex86dx3 is not available from
 # ubuntu repos. Instead, repackage it on a vortex:
 # cd /tmp
-# dpkg-repack linux-headers-4.4.6
+# dpkg-repack linux-headers-4.15.18-vortex86dx3
 # Copy to system with docker installed, e.g. steam, start a container.
 # Note that the container could be an earlier version (e.g. xenial) of ubuntu.
 # nidas/scripts/run_docker.sh vortex
 # From within the container
-# reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.4.6_4.4.6-1_i386.deb
+# reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
 
 ARG dolocal=no
 
@@ -49,12 +49,12 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # Install local packages once they are ready in the repo.
 # You have to do "apt-get update && apt-get install", so that if you
 # add a package to the list, the update will be performed.
-# Get linux-headers-4.4.6 from EOL repo.
+# Get linux-headers-4.15.18-vortex86dx3 from EOL repo.
 # Due to above Pin in /etc/apt/preferences.d/libxerces-c, libxerces-c3.2
 # will be fetched and possibly downgraded from EOL repository.
 RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
-    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2; fi
+    linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
 
 WORKDIR /root
 
