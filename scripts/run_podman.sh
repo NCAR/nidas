@@ -15,45 +15,74 @@
 # /etc/containers/registries.conf.d/shortnames.conf 
 
 usage() {
-    echo "usage: ${0##*/} [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ]
+    echo "usage: ${0##*/} [-h] [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ] [ cmd args ]
+    -h: display this usage
     -p: pull image from docker.io. You may need to do: podman login docker.io
     viper and titan are armel, rpi2 is armhf and vulcan is armbe
     xenial (Ubuntu 16) and bionic (Ubuntu 18) are i386 images for the vortex
     fedora: run a fedora image for testing
-    busybox: run a busybox image for testing (a small image containing many useful commands)"
+    busybox: run a busybox image for testing (a small image containing many useful commands)
+
+    cmd args: command and arguments to run, default: /bin/bash
+
+    Examples:
+    # Run shell under Ubuntu bionic
+    ./${0##*/} bionic 
+    # Run package build script
+    ./${0##*/} bionic /root/nidas/script/build_dpkg.sh -I bionic i386
+    "
+
     exit 1
 }
 
 dopull=false
 grpopt="--group-add=keep-groups"
 dockerns=ncar   # namespace on docker.io
+cmd=/bin/bash
 
 while [ $# -gt 0 ]; do
 
 case $1 in
     armel | viper | titan)
         image=$dockerns/nidas-build-debian-armel:jessie_v2
+        shift
+        break
         ;;
     armhf | rpi2)
         image=$dockerns/nidas-build-debian-armhf:jessie_v2
+        shift
+        break
         ;;
     armbe | vulcan)
         image=$dockerns/nidas-build-ael-armbe:ael_v1
+        shift
+        break
         ;;
     bionic)
         image=$dockerns/nidas-build-ubuntu-i386:bionic
+        shift
+        break
         ;;
     fedora)
         image=$1:latest
+        shift
+        break
         ;;
     busybox)
         image=$1:latest
+        shift
+        break
         ;;
     debian)
         image=$1:latest
+        shift
+        break
         ;;
     -p)
         dopull=true
+        ;;
+    -h)
+        usage
         ;;
     *)
         usage
@@ -63,6 +92,8 @@ esac
 done
 
 [ -z $image ] && usage
+
+[ $# -gt 0 ] && cmd="$@"
 
 $dopull && podman pull docker.io/$image
 
@@ -132,9 +163,10 @@ echo "Volumes will be mounted to $destmnt in the container"
 set -x
 
 # --rm: remove container when it exits
-exec podman run -i --tty --rm $useropt $grpopt \
+interops="-i --tty"
+exec podman run $interops --rm $useropt $grpopt \
     --volume $PWD:$destmnt/nidas:rw$zopt \
     $repoopt $embopt $gpgopt $daqopt $cmig3opt $esconsopt \
     $ncsopt \
-    $image /bin/bash
+    $image $cmd
 
