@@ -27,9 +27,9 @@ usage() {
 
     Examples:
     # Run shell under Ubuntu bionic
-    ./${0##*/} bionic 
+    $0 bionic 
     # Run package build script
-    ./${0##*/} bionic /root/nidas/script/build_dpkg.sh -I bionic i386
+    $0 bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
     "
 
     exit 1
