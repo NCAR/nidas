@@ -54,7 +54,9 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # will be fetched and possibly downgraded from EOL repository.
 RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
-    linux-headers-4.4.6 eol-scons eol-repo libxerces-c3.2; fi
+    linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
+
+# old header package:  linux-headers-4.4.6
 
 WORKDIR /root
 
