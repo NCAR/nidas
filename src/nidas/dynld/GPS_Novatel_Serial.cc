@@ -169,7 +169,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             else dout[iout++] = doubleNAN;
             break;
 
-        case 20:        // Solution age in seconds - GGDAGE
+        case 19:        // Solution age in seconds - GGDAGE
             if (sscanf(input,"%f",&sol_age) == 1) dout[iout++] = double(sol_age);
             else dout[iout++] = doubleNAN;
             break;
