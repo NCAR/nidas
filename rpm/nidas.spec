@@ -240,6 +240,8 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 
+install -m 0664 pkg_files%{nidas_prefix}/bin/start_podman $RPM_BUILD_ROOT%{nidas_prefix}/bin
+
 %post min
 
 /sbin/ldconfig
@@ -491,6 +493,7 @@ rm -rf $RPM_BUILD_ROOT
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
+%attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
 %files build
 %defattr(-,root,root,-)
