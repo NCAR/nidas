@@ -8,7 +8,7 @@
 Import('env')
 arch = env['ARCH']  # empty string for native builds
 
-if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
+if 'PSQL_ENABLE' in env and env['PSQL_ENABLE']:
 
     myenv = env.Clone()
 

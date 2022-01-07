@@ -52,7 +52,7 @@ first_mach = True
 vdirs = []
 for mach in machs:
 
-    if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
+    if not "LINUX_MODULES" in env or env['LINUX_MODULES']:
         # If LINUX_MODULES is undefined, or is True, then the
         # user wants to build the linux modules. If so,
         # redefine it to be where the modules are to be installed.
@@ -65,11 +65,11 @@ for mach in machs:
         # If not found, look for KERNELDIR.
         kdir = ''
         kkey = 'KERNELDIR_' + mach + '_' + arch
-        if env.has_key(kkey):
+        if kkey in env:
             kdir = env[kkey]
         else:
             kkey = 'KERNELDIR'
-            if env.has_key(kkey):
+            if kkey in env:
                 kdir = env[kkey]
 
         modpath='$ARCHPREFIX/modules/' + mach

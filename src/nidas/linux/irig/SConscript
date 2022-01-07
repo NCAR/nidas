@@ -23,8 +23,8 @@ headers = Split("""
 pc104sg.h
 """)
 
-if env.has_key("LINUX_MODULES_INST_PATH") and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+if "LINUX_MODULES_INST_PATH" in env and \
+    'KERNELDIR' in env and env['KERNELDIR'] != '':
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
     utilsyms = Dir('./../util_' + mach).File('Module.symvers')
