@@ -49,7 +49,6 @@ DSC_AnalogOut::~DSC_AnalogOut()
 {
     try {
         if (_fd >= 0) {
-            clearVoltages();
             close();
         }
     }
@@ -128,7 +127,7 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
         out.nout = std::max(out.nout,ic+1);
         out.active[ic] = 1;
         int cout = _conv.cmin[i] +
-            (int)rint(val[i] /
+            (int)rint((val[i] - _conv.vmin[i]) /
                 (_conv.vmax[i] - _conv.vmin[i]) * (_conv.cmax[i] - _conv.cmin[i]));
         cout = std::max(cout,_conv.cmin[i]);
         cout = std::min(cout,_conv.cmax[i]);
