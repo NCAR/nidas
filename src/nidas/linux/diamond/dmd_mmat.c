@@ -2263,7 +2263,7 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
         // Check if setting more than one output
         for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++)
                 if (outputs->active[i+iout]) nout++;
-        KLOG_DEBUG("nout=%d\n",nout);
+        KLOG_DEBUG("iout=%d, nout=%d\n",iout, nout);
 
         spin_lock_irqsave(&brd->reglock,flags);
 
@@ -2295,7 +2295,7 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
 
                         if (nset > 1) {
                                 // Check DAC busy if we have already set an output
-                                // Took nwait=3 on 400MHz viper without udelay
+                                // On a Vortex, DACBUSY was clear on first check, nwait=0
                                 nwait = 0;
                                 // according to manual DACBUSY=1 for 10usec
                                 while(inb(brd->addr + 4) & 0x80 && nwait++ < 5)
@@ -2306,7 +2306,6 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
                         outb(0x07,brd->addr + 8);	// set page 7
                         outb(lsb,brd->addr + 12);
                         outb(msb,brd->addr + 13);
-                        outb(lsb, brd->addr + 4);
 
                         outb(0x00,brd->addr + 8);	// set page 0
                         outb(chn,brd->addr + 5);        // channel number
@@ -2318,9 +2317,9 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
         // This check for nset>0 is unnecessary since this function shouldn't be
         // called if no outputs were to be changed, but might as well check it.
         if (nset > 0) {
-            nwait = 0;
-            while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
-            KLOG_DEBUG("nwait=%d\n",nwait);
+                nwait = 0;
+                while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
+                KLOG_DEBUG("nwait=%d\n",nwait);
         }
 
         // trigger the update
