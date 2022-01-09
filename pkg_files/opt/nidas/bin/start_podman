@@ -187,13 +187,13 @@ fi
 
 echo "Volumes will be mounted to $destmnt in the container"
 
-set -x
-
 # --rm: remove container when it exits
 
 # Every keystroke is logged to systemd on the host!!!!!
 # Set --log-driver=none to suppress this
 logopts=--log-driver=none
+
+set -x
 
 exec podman run $interops --rm $logopts $useropt $grpopt \
     $cwdvol $repovol $embvol $gpgvol $gpgsock \
