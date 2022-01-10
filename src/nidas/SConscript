@@ -26,32 +26,6 @@ if env.get('OTHER_PREFIX'):
 # See "man dlopen" for more info.
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
-#############################################################################
-# These comments apply to the arm-linux-ld and armbe-linux-ld that we are using,
-# version 2.16.1.  Versions of ld for x86 in EL5 and Fedora are able to find
-# libnidas with a -Ldir when linking against libnidas_dynld.so, and do not
-# need the -rpath-link option. But we'll leave it in anyhow for x86.
-#
-# When ld is resolving these internal dependencies between
-# shared libraries it does not search the -Ldir (LIBPATH) directories.
-# Instead it searches these paths: -rpath-link, -rpath, $LD_RUN_PATH,
-# $LD_LIBRARY_PATH, $DT_RUN_PATH,$DT_RPATH,/lib,/usr/lib and ld.so.conf.
-# See man ld, under -rpath-link.
-#
-# Hence these -rpath-link options to search the build directories
-# at link time.  Note that the run-time linker does not use
-# -rpath-link, it uses -rpath
-#
-# Here's an example of the error that occurs when linking an executable
-# program from nidas/apps:
-# /opt/arcom/lib/gcc/arm-linux/3.4.4/../../../../arm-linux/bin/ld:
-# warning: libnidas.so, needed by build_arm/build_dynld/libnidas_dynld.so, not found (try using -rpath or -rpath-link)
-#############################################################################
-#
-env.Append(LINKFLAGS=
-    ['-Xlinker','-rpath-link=' + env.Dir('util').path + ':' + env.Dir('core').path])
-# ['-Xlinker','-rpath=' + env.Dir('$PREFIX').path])
-
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
@@ -101,12 +75,10 @@ if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
         'nc_server_rpc', 'nc_server_rpc.h','C++',
         'xdr_connection(0,0);'):
     # append nc_server library to build environment
-    # I don't grok all the issues related to using RPATH. Debian
-    # advises against it in most, but not all situations. We'll
-    # enable it here and see what happens...
+    # Removed RPATH=conf.env['LIBPATH'] setting here.  Both RedHat and Debian
+    # advise against it, and an rpmbuild now fails in Fedora 35.
     env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
-    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'],
-                     RPATH=conf.env['LIBPATH'])
+    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
 
 pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
 if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
