@@ -80,6 +80,8 @@ if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
     env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
     env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
 
+conf.CheckLib('modbus')
+
 pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
 if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
         'gsl', 'gsl/gsl_linalg.h','C',
