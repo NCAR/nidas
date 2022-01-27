@@ -56,6 +56,8 @@ RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
     linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
 
+RUN apt-get install -y --no-install-recommends debmake libmodbus-dev
+
 # old header package:  linux-headers-4.4.6
 
 WORKDIR /root
