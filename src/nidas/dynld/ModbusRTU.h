@@ -26,17 +26,17 @@
 
 #include <nidas/Config.h>
 
-#ifdef HAVE_LIBMODBUS
 
 #ifndef NIDIS_DYNLD_MODBUSRTU_H
 #define NIDIS_DYNLD_MODBUSRTU_H
 
+#ifdef HAVE_LIBMODBUS
 #include <modbus/modbus.h>
+#endif
+
 #include <unistd.h>     // pipe
-                        //
+
 #include <nidas/core/SerialSensor.h>
-#include <nidas/core/TimetagAdjuster.h>
-#include <nidas/core/VariableConverter.h>
 #include <nidas/util/Thread.h>
 
 namespace nidas { namespace dynld {
@@ -47,19 +47,24 @@ namespace nidas { namespace dynld {
  * A class for data from a modbus RTU sensor, connected to a serial 
  * port.
  *
- * This class uses libmodbus, and so the package libmodbus-devel
- * should be installed on build systems, and package libmodbus
- * on run systems.
+ * To read modbus data from the port, this class uses libmodbus,
+ * and so the package libmodbus-devel should be installed on build systems,
+ * and package libmodbus on run systems.
+ *
+ * libmodbus is not needed on systems which only process the archived data
+ * from a libmodbus sensor.
  *
  * An XML configuration for this sensor looks like the following, for
- * a temperature sensor at RS485 slaveID=1, reading from register 0.
+ * a temperature sensor at RS485 slaveID=1, reading one value
+ * from register 0.
  *
- * This example is for a DS18B20 temperature probe interfaced through
+ * This example works for a DS18B20 temperature probe interfaced through
  * a Eletechsup R46CA01, as a RS485 device connected to /dev/ttyS2.
- * The temperature values a converted to degC by a 0.1 linear conversion.
+ * 2 byte word values are treated as signed integers and converted to
+ * temperature values by a 0.1 degC/count linear conversion.
  *
  *  <serialSensor class="ModbusRTU" devicename="/dev/ttyS2" id="100" 
- *      baud="9600" databits="8" parity="none" stopbits="1" id="100" >
+ *      baud="9600" databits="8" parity="none" stopbits="1">
  *      <parameter name="slaveID" type="int" value="1"/>
  *      <parameter name="regaddr" type="int" value="0"/>
  *      <sample id="1" rate="1">
@@ -72,7 +77,7 @@ namespace nidas { namespace dynld {
  *  The file descriptor is hidden in an opaque structure in libmodbus.
  *  The Nidas read loop does a poll on filedescriptors.  In order to read
  *  a modbus sensor with Nidas, this class spawns a thread to do the
- *  modbus_read_registers, and the thread feeds the data to nidas via
+ *  modbus_read_registers, and the thread feeds the data to Nidas via
  *  a pipe.
  */
 class ModbusRTU: public SerialSensor
@@ -90,11 +95,14 @@ public:
 
     void open(int flags);
 
+#ifdef HAVE_LIBMODBUS
     void close();
 
     IODevice* buildIODevice();
 
     SampleScanner* buildSampleScanner();
+#endif
+
     /**
      * Virtual method that is called to convert a raw sample containing
      * an ASCII NMEA message to a processed floating point sample.
@@ -105,13 +113,14 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
+#ifdef HAVE_LIBMODBUS
     class ModbusThread: public nidas::util::Thread
     {
     public:
         ModbusThread(const std::string& devname, modbus_t* mb, int regaddr,
-                int nvars, int pipefd):
-            Thread(devname, false), _devname(devname), _mb(mb), _regaddr(regaddr),
-            _nvars(nvars), _pipefd(pipefd)
+                int nvars, int pipefd, float rate):
+            Thread(devname+ "_modbus_thread", false), _devname(devname), _mb(mb), _regaddr(regaddr),
+            _nvars(nvars), _pipefd(pipefd), _rate(rate)
         {}
         int run() throw();
     private:
@@ -120,15 +129,18 @@ public:
         int _regaddr;
         uint16_t _nvars;
         int _pipefd;
+        float _rate;
 
         // no copying
         ModbusThread(const ModbusThread&);
         // no assignment
         ModbusThread& operator=(const ModbusThread&);
     };
+#endif
 
 protected:
 
+#ifdef HAVE_LIBMODBUS
     modbus_t* _modbusrtu;
 
     int _slaveID;
@@ -138,12 +150,11 @@ protected:
     ModbusThread *_thread;
 
     int _pipefds[2];
+#endif
 
     uint16_t _nvars;
 
     SampleTag* _stag;
-
-    std::vector<nidas::core::VariableConverter*> _converters;
 
 private:
     // no copying
@@ -154,5 +165,4 @@ private:
 
 }}	// namespace nidas namespace dynld
 
-#endif
 #endif

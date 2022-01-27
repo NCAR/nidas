@@ -26,16 +26,6 @@
 
 #include <nidas/Config.h>
 
-#ifdef HAVE_LIBMODBUS
-/*
- * device name, baud, parity, data, stop, 485
- * parameters:
- *  slave id, default 1
- *  register address, default 0
- *
- *  read as many uint16's as there are variables in the sample
- *      conversion:  treat data as signed, unsigned?
- */
  
 #include "ModbusRTU.h"
 #include <nidas/core/Variable.h>
@@ -71,9 +61,11 @@ static const n_u::EndianConverter *toHost = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::getHostEndianness());
 
 ModbusRTU::ModbusRTU():SerialSensor(),
+#ifdef HAVE_LIBMODBUS
     _modbusrtu(0), _slaveID(1), _regaddr(0),
-    _thread(0), _pipefds(),
-    _nvars(0), _stag(0), _converters()
+    _thread(0), _pipefds{-1,-1},
+#endif
+    _nvars(0), _stag(0)
 {
 }
 
@@ -84,30 +76,25 @@ void ModbusRTU::validate()
     if (getSampleTags().size() != 1)
         throw n_u::InvalidParameterException(getName(), "sample",
             "must have exactly one sample");
-    const SampleTag* stag = *getSampleTags().begin();
+    _stag = *getSampleTags().begin();
+    _nvars = (uint16_t) _stag->getVariables().size();
 
-    _nvars = (uint16_t) stag->getVariables().size();
+    const vector<Variable*>& vars = _stag->getVariables();
+    vector<Variable*>::const_iterator iv = vars.begin();
 
+    for ( ; iv != vars.end(); ++iv) {
+        if ((*iv)->getLength() > 1)
+            throw n_u::InvalidParameterException(getName(), "variable",
+                "cannot have length > 1");
+    }
 }
 
 void ModbusRTU::init()
 {
-    _stag = *getSampleTags().begin();
-
-    // get the converters
-    const vector<Variable*>& vars = _stag->getVariables();
-    vector<Variable*>::const_iterator iv = vars.begin();
-
-    _converters.resize(vars.size());
-
-    for (int i = 0; iv != vars.end(); ++iv, i++) {
-        Variable* var = *iv;
-        _converters[i] = var->getConverter();
-    }
-
     SerialSensor::init();
 }
 
+#ifdef HAVE_LIBMODBUS
 class MyIODevice: public UnixIODevice {
 public:
     MyIODevice(int fd): UnixIODevice() { _fd = fd; }
@@ -117,9 +104,6 @@ public:
 
 IODevice* ModbusRTU::buildIODevice()
 {
-    if (::pipe(_pipefds) < 0)
-        throw n_u::IOException(getDeviceName(), "pipe", errno);
-
     return new MyIODevice(_pipefds[0]);
 }
 
@@ -139,9 +123,22 @@ SampleScanner* ModbusRTU::buildSampleScanner()
     scanner->setMessageParameters(_nvars * sizeof(uint16_t), sepstr, false);
     return scanner;
 }
+#endif
 
+#ifdef HAVE_LIBMODBUS
 void ModbusRTU::open(int flags)
+#else
+void ModbusRTU::open(int)
+#endif
 {
+
+#ifndef HAVE_LIBMODBUS
+    throw n_u::IOException(getDeviceName(), "open", "built without libmodbus-dev");
+#else
+
+    if (::pipe(_pipefds) < 0)
+        throw n_u::IOException(getDeviceName(), "pipe", errno);
+
     const n_u::Termios& termios = getTermios();
 
     int baud = termios.getBaudRate();
@@ -177,34 +174,67 @@ void ModbusRTU::open(int flags)
         _regaddr = (int) param->getNumericValue(0);
     }
 
+    float rate = _stag->getRate();
+    if (rate == 0.0) rate = 1.0;
+
+    int dtusec = USECS_PER_SEC / rate;
+
+    struct timeval tvold;
+    modbus_get_response_timeout(_modbusrtu, &tvold);
+
+    cerr << "old timeout, sec=" << tvold.tv_sec << ", usec=" << tvold.tv_usec << endl;
+    cerr << "dtusec=" << dtusec << endl;
+
+#ifdef SET_MODBUS_TIMEOUT
+    struct timeval tvnew;
+    tvnew.tv_sec = dtusec / USECS_PER_SEC;
+    tvnew.tv_usec = dtusec % USECS_PER_SEC;
+    modbus_set_response_timeout(_modbusrtu, &tvnew);
+    cerr << "new timeout, sec=" << tvnew.tv_sec << ", usec=" << tvnew.tv_usec << endl;
+#endif
+
+    setTimeoutMsecs((dtusec * 5) / USECS_PER_MSEC);
+
     if (modbus_set_slave(_modbusrtu, _slaveID) < 0) 
         throw n_u::IOException(getDeviceName(), "modbus_set_slave", errno);
 
     if (modbus_connect(_modbusrtu) < 0) 
         throw n_u::IOException(getDeviceName(), "modbus_connect", errno);
 
-    _thread = new ModbusThread(getDeviceName() + " read thread", 
-            _modbusrtu, _regaddr, _nvars, _pipefds[1]);
+    // must be connected before setting mode
+#ifdef DO_485
+    // But, on Vortex, /dev/ttyS2 this fails with "Inappropriate ioctl for device"
+    // Apparently the 485 ioctl doesn't exist.
+    if (modbus_rtu_set_serial_mode(_modbusrtu, MODBUS_RTU_RS485) < 0)
+        throw n_u::IOException(getDeviceName(), "modbus_rtu_set_serial_mode", errno);
+#endif
+
+    _thread = new ModbusThread(getDeviceName(), _modbusrtu, _regaddr, _nvars, _pipefds[1], rate);
 
     _thread->setRealTimeFIFOPriority(40);
 
     try {
+        _thread->unblockSignal(SIGUSR1);
         _thread->start();
     }
     catch(n_u::Exception& e) {
     }
 
     SerialSensor::open(flags);
+#endif
 }
 
+#ifdef HAVE_LIBMODBUS
 void ModbusRTU::close()
 {
     _thread->interrupt();
     
-    if (_pipefds[0] > 0) ::close(_pipefds[0]);
-    if (_pipefds[1] > 0) ::close(_pipefds[1]);
+    if (_pipefds[0] >= 0) ::close(_pipefds[0]);
+    if (_pipefds[1] >= 0) ::close(_pipefds[1]);
+    _pipefds[0] = _pipefds[1] = -1;
 
-    _thread->cancel();
+    // _thread->cancel();
+    _thread->kill(SIGUSR1);
     _thread->join();
 
     modbus_close(_modbusrtu);
@@ -220,7 +250,6 @@ int ModbusRTU::ModbusThread::run() throw()
         int nreg = modbus_read_registers(_mb, _regaddr, _nvars, data + 1);
         if (nreg < 0) {
             n_u::IOException e(_devname, "modbus_read_registers", errno);
-
             PLOG(("Error: ") << e.what());
             return RUN_EXCEPTION;
          }
@@ -237,6 +266,7 @@ int ModbusRTU::ModbusThread::run() throw()
     }
     return RUN_OK;
 }
+#endif
 
 bool ModbusRTU::process(const Sample* samp,list<const Sample*>& results)
   throw()
@@ -263,15 +293,18 @@ bool ModbusRTU::process(const Sample* samp,list<const Sample*>& results)
     if (nvarsin != nwords-1)
         WLOG(("%s: ",getDeviceName()) << "nvarsin=" << nvarsin << ", nwords=" << nwords);
 
-    for (int i = 0; i < std::min(std::min((int)nvarsin, (int)_nvars), (int)nwords - 1); i++) {
-        float val = (float) toHost->uint16Value(inwords[i+1]);
-        VariableConverter* conv = _converters[i];
+    const vector<Variable*>& vars = _stag->getVariables();
 
-        if (!conv) outsamp->getDataPtr()[i] = val;
-        else outsamp->getDataPtr()[i] =
-            conv->convert(outsamp->getTimeTag(),val);
+    for (int i = 0; i < std::min(std::min((int)nvarsin, (int)_nvars), (int)nwords - 1); i++) {
+        // treat value as signed int16
+        float val = (float) toHost->int16Value(inwords[i+1]);
+
+        // var->convert screens for missing values, converts, then
+        // screens for min and max values
+        Variable* var = vars[i];
+        var->convert(outsamp->getTimeTag(), &val, 1, &val);
+        outsamp->getDataPtr()[i] = val;
     }
     results.push_back(outsamp);
     return true;
 }
-#endif
