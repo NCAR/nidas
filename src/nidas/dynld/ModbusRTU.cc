@@ -26,7 +26,6 @@
 
 #include <nidas/Config.h>
 
- 
 #include "ModbusRTU.h"
 #include <nidas/core/Variable.h>
 #include <nidas/util/UTime.h>
@@ -112,7 +111,7 @@ SampleScanner* ModbusRTU::buildSampleScanner()
     MessageStreamScanner* scanner = new MessageStreamScanner();
 
     // Format of data written by writer thread is a simple buffer,
-    // consisting of all little-endian, words of uint16_t. 
+    // consisting of all little-endian, words of uint16_t.
     // The first word is the number of values, nvars, followed by nvars of data.
     //
     // Use the little endian uint16_t nvars at the beginning of the
@@ -195,10 +194,10 @@ void ModbusRTU::open(int)
 
     setTimeoutMsecs((dtusec * 5) / USECS_PER_MSEC);
 
-    if (modbus_set_slave(_modbusrtu, _slaveID) < 0) 
+    if (modbus_set_slave(_modbusrtu, _slaveID) < 0)
         throw n_u::IOException(getDeviceName(), "modbus_set_slave", errno);
 
-    if (modbus_connect(_modbusrtu) < 0) 
+    if (modbus_connect(_modbusrtu) < 0)
         throw n_u::IOException(getDeviceName(), "modbus_connect", errno);
 
     // must be connected before setting mode
@@ -228,7 +227,7 @@ void ModbusRTU::open(int)
 void ModbusRTU::close()
 {
     _thread->interrupt();
-    
+
     if (_pipefds[0] >= 0) ::close(_pipefds[0]);
     if (_pipefds[1] >= 0) ::close(_pipefds[1]);
     _pipefds[0] = _pipefds[1] = -1;
@@ -288,10 +287,10 @@ bool ModbusRTU::process(const Sample* samp,list<const Sample*>& results)
 
     uint16_t nvarsin = toHost->uint16Value(inwords[0]);
     if (nvarsin != _nvars)
-        WLOG(("%s: ",getDeviceName()) << "nvarsin=" << nvarsin << ", _nvars=" << _nvars);
+        WLOG(("%s: ",getDeviceName().c_str()) << "nvarsin=" << nvarsin << ", _nvars=" << _nvars);
 
     if (nvarsin != nwords-1)
-        WLOG(("%s: ",getDeviceName()) << "nvarsin=" << nvarsin << ", nwords=" << nwords);
+        WLOG(("%s: ",getDeviceName().c_str()) << "nvarsin=" << nvarsin << ", nwords=" << nwords);
 
     const vector<Variable*>& vars = _stag->getVariables();
 
