@@ -149,6 +149,8 @@ public:
         return (( _deltaT == 0) ? 0.0 : _byteSum / (float)_deltaT);
     }
 
+    unsigned int nBad;
+
 private:
 
     void reallocateBuffer(int len);
@@ -427,7 +429,7 @@ void Sender::send()
 }
 
 Receiver::Receiver(int timeoutSecs,const Sender*s):
-    RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
+    nBad(0), RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
     _timeoutSecs(timeoutSecs), _last10(), _last100(), _msec100(),
     _msec100ago(0),_ngood10(0),_ngood100(0),
     _Npack(0),_Nlast(0),_dsize(0),_dsizeTrusted(0),
@@ -517,8 +519,8 @@ int Receiver::scanBuffer()
 #ifdef DEBUG
                 cerr << "Npack=" << _Npack << " _msec=" << _msec << " _dsize=" << _dsize << endl;
 #endif
-                // if missing packets
                 if (_Npack != EOF_NPACK) {
+                    // check for missing packets, _Npack exceeds _Nlast by more than 1
                     for (unsigned int n = _Nlast + 1; n < _Npack; n++) {
                         int iout = n % 10;
                         if (_ngood10 > 0 && _last10[iout] > 0) _ngood10--;
@@ -527,6 +529,7 @@ int Receiver::scanBuffer()
                         if (_ngood100 > 0 && _last100[iout] > 0) _ngood100--;
                         _byteSum -= _last100[iout];
                         _last100[iout] = 0;
+                        nBad++;
                     }
                     _Nlast = _Npack;
                 }
@@ -587,6 +590,7 @@ int Receiver::scanBuffer()
         if (!goodPacket) {
             // bad packet, look for ETX to try to make some sense of this junk
             for ( ; _rptr < _wptr && *_rptr++ != ETX; );
+            nBad++;
         }
         else report();
     }
@@ -702,6 +706,10 @@ Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-
   -t timeout: receive timeout in seconds. Default=0 (forever)\n\
   -v: verbose, display sent and received data packets to stderr\n\
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
+  Return value:\n\
+    0: success\n\
+    1: I/O error\n\
+    2: at least one packet error: a packet lost or a checksum error\n\n\
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
   Note that the port is always opened in raw mode, overriding what\n\
   the user specifies in ttyopts\n\n\
@@ -902,11 +910,13 @@ int main(int argc, char**argv)
     Receiver rcvr(timeoutSecs,sender.get());
     try {
         rcvr.run();
+        if (rcvr.nBad > 0) status = 2;
     }
     catch(const n_u::IOException &e) {
         cerr << "Error: " << e.what() << endl;
         status = 1;
     }
+
 
     if (sender.get()) {
         sender->interrupt();
