@@ -141,7 +141,7 @@ class Receiver
 public:
     Receiver(int timeoutSecs,const Sender*);
 
-    void run();
+    int run();
     void report();
 
     float getKbytePerSec() const
@@ -465,7 +465,7 @@ void Receiver::reallocateBuffer(int len)
     _buflen = len;
 }
 
-void Receiver::run()
+int Receiver::run()
 {
     fd_set readfds;
     FD_ZERO(&readfds);
@@ -481,14 +481,14 @@ void Receiver::run()
         int nfd = select(nfds,&fds,0,0,(timeoutSecs > 0 ? &timeout : 0));
 
         if (nfd < 0) {
-            if (errno == EINTR) return;
+            if (errno == EINTR) return 0;
             throw n_u::IOException(device,"select",errno);
         }
         if (nfd == 0) {
+            report();
             cerr << device << ": timeout " << timeoutSecs <<
                 " seconds" << endl;
-            report();
-            return;
+            return 1;
         }
         int len = _eob - _wptr;
         assert(len > 0);
@@ -499,6 +499,7 @@ void Receiver::run()
         _wptr += l;
         if (scanBuffer()) break;
     }
+    return 0;
 }
 
 /**
@@ -708,7 +709,7 @@ Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
   Return value:\n\
     0: success\n\
-    1: I/O error\n\
+    1: I/O error or timeout\n\
     2: at least one packet error: a packet lost or a checksum error\n\n\
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
   Note that the port is always opened in raw mode, overriding what\n\
@@ -909,8 +910,8 @@ int main(int argc, char**argv)
     int status = 0;
     Receiver rcvr(timeoutSecs,sender.get());
     try {
-        rcvr.run();
-        if (rcvr.nBad > 0) status = 2;
+        status = rcvr.run();
+        if (!status && rcvr.nBad > 0) status = 2;
     }
     catch(const n_u::IOException &e) {
         cerr << "Error: " << e.what() << endl;
