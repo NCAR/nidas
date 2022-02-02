@@ -13,9 +13,6 @@
 # /etc/containers/registries.conf   unqualified-search-registries
 # /etc/containers/registries.conf.d/shortnames.conf 
 
-# TODO: maybe add -d dir options to mount specified directories
-# to the container rather than just the current directory
-
 usage() {
     echo "usage: ${0##*/} [-h] [-p] [ armel | armhf | armbe | xenial | bionic | fedora | busybox ] [ cmd args ]
     -h: display this usage
@@ -31,9 +28,9 @@ usage() {
 
     Examples:
     # Run shell under Ubuntu bionic
-    $0 bionic 
+    ${0##*/} bionic 
     # Run package build script, non-interactive
-    $0 bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
+    ${0##*/} bionic /root/nidas/scripts/build_dpkg.sh -I bionic i386
     "
 
     exit 1
@@ -142,14 +139,14 @@ repo=/net/ftp/pub/archive/software/debian
 gnupg=$(eval realpath ~)/.gnupg
 [ -d $gnupg ] && gpgvol="--volume $gnupg:$destmnt/${gnupg##*/}:rw$zopt"
 
-# Get location of gpg-agent socket on the host:
-hostsock=$(gpgconf --list-dirs agent-socket)
+# Use gpgconf to get location of gpg-agent socket on the host.
 # For RedHat servers it is:
 #   /run/user/<uid>/gnupg/S.gpg-agent
-# It may be the same on Debian servers.  But in containers, perhaps
-# because /run is a tmpfs and /run/user/<uid> doesn't exist in the container
-# the socket is on the $HOME directory, for both RedHat and Debian:
+# It may be the same on Debian servers.  In containers however, perhaps
+# because /run is a tmpfs and /run/user/<uid> doesn't exist in the container,
+# gpg2 looks in the $HOME/.gnupg directory, for both RedHat and Debian:
 #   $HOME/.gnupg/S.gpg-agent
+hostsock=$(gpgconf --list-dirs agent-socket)
 
 # start gpg-agent on the host if the socket doesn't exist
 [ -S $hostsock ] || gpg-connect-agent /bye
@@ -177,8 +174,10 @@ contsock=.gnupg/S.gpg-agent
 # Request a bind mount of the host socket to the container socket
 gpgsock=
 if $gpgsockbind; then
-    [ "$hostsock" != "$HOME/$contsock" ] && \
+    if [ "$hostsock" != "$HOME/$contsock" ]; then
         gpgsock="--volume $hostsock:$destmnt/$contsock:rw$zopt"
+        rm -f $HOME/$contsock
+    fi
 else
     # Remove $HOME/.gnupg/S.gpg-agent so as not to confuse
     # old versions of gpg2 v2.0

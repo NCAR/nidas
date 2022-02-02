@@ -11,6 +11,7 @@ LABEL organization="NCAR EOL"
 # nidas/scripts/run_docker.sh vortex
 # From within the container
 # reprepro -b /net/ftp/pub/archive/software/debian/codename-bionic includedeb bionic linux-headers-4.15.18-vortex86dx3_i386.deb
+# old header package:  linux-headers-4.4.6
 
 ARG dolocal=no
 
@@ -56,9 +57,9 @@ RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
     linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
 
-RUN apt-get install -y --no-install-recommends debmake libmodbus-dev
+RUN apt-get install -y --no-install-recommends debmake libmodbus-dev libusb-1.0-0-dev
 
-# old header package:  linux-headers-4.4.6
+RUN if [ $dolocal = yes ]; then apt-get install -y --no-install-recommends nidas-dev; fi
 
 WORKDIR /root
 
