@@ -486,6 +486,9 @@ int Receiver::run()
         }
         if (nfd == 0) {
             report();
+            // without flush here the timieout message to cerr will likely appear
+            // before the report(). We want it last.
+            cout << flush;
             cerr << device << ": timeout " << timeoutSecs <<
                 " seconds" << endl;
             return 1;

@@ -86,9 +86,7 @@ ck_calfile
 ck_xml
 data_dump
 data_stats
-dmd_mmat_test
 dmd_mmat_vin_limit_test
-dmd_mmat_vout_const
 dsc_a2d_ck
 dsm_server
 dsm
@@ -168,16 +166,6 @@ if has_i2c:
     env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
 
 env.NidasUtilProgram('utime.cc')
-
-usbenv = env.Clone()
-usbconf = usbenv.Configure()
-libusb_enabled = usbconf.CheckLib('libusb-1.0')
-usbenv = usbconf.Finish()
-uplt = 'usb_pmusb02_loopback_test'
-if libusb_enabled:
-    env.Alias(uplt, usbenv.NidasPlainProgram(uplt + '.cc'))
-else:
-    print("not building " + uplt + ": libusb-1.0 not found.")
 
 if 'viper' in machs:
     # controls DIO pins on a Viper
