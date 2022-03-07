@@ -106,6 +106,7 @@ statsproc
 status_listener
 sync_dump
 sync_server
+test_irig
 xml_dump
 isff/datasets
 """)

@@ -28,13 +28,17 @@
 # include <errno.h>
 # include <time.h>
 # include <sys/ioctl.h>
-# include <sys/time.h>
+# include <nidas/util/UTime.h>
+# include <nidas/dynld/raf/IRIGSensor.h>
 # include <nidas/linux/irigclock.h>
+
+using nidas::util::UTime;
+using nidas::dynld::raf::IRIGSensor;
 
 int
 main() 
 {
-    char *devname = "/dev/irig0";
+    const char *devname = "/dev/irig0";
     FILE *irig = fopen(devname, "r");
     int status;
     struct timeval tv;
@@ -57,28 +61,44 @@ main()
 	return 1;
     }
     printf("done.\n");
+
+    UTime irigt;
+    irigt.setFormat("%Y %m %d %H:%M:%S.%3f");
+
+    UTime unixt;
+    unixt.setFormat("%Y %m %d %H:%M:%S.%3f");
+
+    bool onereadOK = false;
+
     /*
      * Now just read and print times from the IRIG, which should come
      * every second.
      */
-    while (1) 
+    for (int i = 0; i < 10; i++) 
     {
-	struct dsm_clock_sample samp;
-	int nread;
-	char buf[128];
-	time_t tsec;
-	
-	if ((nread = fread(&samp, sizeof(samp), 1, irig)) != 1) 
+	struct dsm_clock_sample_3 samp;
+	unsigned int nread;
+
+	if ((nread = fread(&samp, 1, sizeof(samp), irig)) != 1) 
 	{
-	    fprintf(stderr, "Bad read size (%d != %d)!\n", nread, 
+	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
 		    sizeof(samp));
 	    continue;
 	}
+
+        onereadOK = true;
+
+        unsigned char status = samp.data.status;
 	
-	tsec = samp.data.tval.tv_sec;
-	strftime(buf, sizeof(buf), "%F %T", gmtime(&tsec));
-	printf("%s.%06ld status 0x%x\n", buf, 
-	       (unsigned long)samp.data.tval.tv_usec, 
-	       samp.data.status);
+	irigt = samp.data.irigt;
+	unixt = samp.data.unixt;
+        double i_minus_u = (double)(irigt - unixt) / USECS_PER_SEC;
+
+	printf("irig: %s, irig-unix: %g sec, status 0x%x, %s\n",
+            irigt.format(true).c_str(),
+            i_minus_u, status,
+            IRIGSensor::shortStatusString(status).c_str());
     }
+
+    return onereadOK ? 0 : 1;
 }
