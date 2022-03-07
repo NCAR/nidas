@@ -23,10 +23,14 @@
  **
  ********************************************************************
 */
-# include <stdio.h>
-# include <string.h>
-# include <errno.h>
-# include <time.h>
+
+#include <linux/version.h>
+
+# include <cstdio>
+# include <cstring>
+# include <cerrno>
+# include <cstddef>
+# include <ctime>
 # include <sys/ioctl.h>
 # include <nidas/util/UTime.h>
 # include <nidas/dynld/raf/IRIGSensor.h>
@@ -36,7 +40,7 @@ using nidas::util::UTime;
 using nidas::dynld::raf::IRIGSensor;
 
 int
-main() 
+main()
 {
     const char *devname = "/dev/irig0";
     FILE *irig = fopen(devname, "r");
@@ -74,38 +78,42 @@ main()
      * Now just read and print times from the IRIG, which should come
      * every second.
      */
-    for (int i = 0; i < 10; i++) 
+    for (int i = 0; i < 10; i++)
     {
 	struct dsm_clock_sample_3 samp;
-	unsigned int nread;
+	size_t nread;
 
         dsm_sample_time_t timetag;
-	if ((nread = fread(&timetag, 1, sizeof(timetag), irig)) != 1) 
+	if ((nread = fread(&timetag, 1, sizeof(timetag), irig)) != 1)
 	{
-	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
+	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread,
 		    sizeof(timetag));
 	    continue;
 	}
         dsm_sample_length_t length;
-	if ((nread = fread(&length, 1, sizeof(length), irig)) != 1) 
+	if ((nread = fread(&length, 1, sizeof(length), irig)) != 1)
 	{
-	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
+	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread,
 		    sizeof(length));
 	    continue;
 	}
 
-        unsigned int slen = offsetof(dsm_clock_data_3,end);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+        size_t slen = offsetof(struct dsm_clock_data_3, end);
+#else
+        size_t slen = offsetof(struct dsm_clock_data_2, end);
+#endif
 
-	if ((nread = fread(&samp, 1, slen, irig)) != 1) 
+	if ((nread = fread(&samp, 1, slen, irig)) != 1)
 	{
-	    fprintf(stderr, "Bad read size (%u != %u)!\n", nread, slen);
+	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread, slen);
 	    continue;
 	}
 
         onereadOK = true;
 
         unsigned char status = samp.data.status;
-	
+
 	irigt = samp.data.irigt;
 	unixt = samp.data.unixt;
         double i_minus_u = (double)(irigt - unixt) / USECS_PER_SEC;
