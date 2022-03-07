@@ -79,6 +79,21 @@ main()
 	struct dsm_clock_sample_3 samp;
 	unsigned int nread;
 
+        dsm_sample_time_t timetag;
+	if ((nread = fread(&timetag, 1, sizeof(timetag), irig)) != 1) 
+	{
+	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
+		    sizeof(timetag));
+	    continue;
+	}
+        dsm_sample_length_t length;
+	if ((nread = fread(&length, 1, sizeof(length), irig)) != 1) 
+	{
+	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
+		    sizeof(length));
+	    continue;
+	}
+
 	if ((nread = fread(&samp, 1, sizeof(samp), irig)) != 1) 
 	{
 	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
