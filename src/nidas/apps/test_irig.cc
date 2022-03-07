@@ -94,10 +94,11 @@ main()
 	    continue;
 	}
 
-	if ((nread = fread(&samp, 1, sizeof(samp), irig)) != 1) 
+        unsigned int slen = offsetof(dsm_clock_data_3,end);
+
+	if ((nread = fread(&samp, 1, slen, irig)) != 1) 
 	{
-	    fprintf(stderr, "Bad read size (%u != %lu)!\n", nread, 
-		    sizeof(samp));
+	    fprintf(stderr, "Bad read size (%u != %u)!\n", nread, slen);
 	    continue;
 	}
 
