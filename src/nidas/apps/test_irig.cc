@@ -94,8 +94,8 @@ main()
 	unixt = samp.data.unixt;
         double i_minus_u = (double)(irigt - unixt) / USECS_PER_SEC;
 
-	printf("irig: status %s (%#04x), time: %s, irig-unix: %10.3g sec\n",
-            IRIGSensor::shortStatusString(status).c_str(), status,
+	printf("irig: %s (%#04x), time: %s, irig-unix: %10.3g sec\n",
+            IRIGSensor::statusString(status).c_str(), status,
             irigt.format(true).c_str(),
             i_minus_u);
     }
