@@ -618,7 +618,7 @@
         <message separator="\r\n" position="end" length="0"/>
     </serialSensor>
 
-    <sensor ID="ACDFO3" class="raf.UDPSocketSensor" devicename="inet::5555">
+    <sensor ID="ACDFO3" class="UDPSocketSensor" devicename="inet::5555">
         <sample id="1" rate="10" scanfFormat="O3,%f">
             <variable name="FO3" units="ppbv" longname="Fast Response Ozone Mixing Ratio"/>
         </sample>
