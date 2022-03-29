@@ -427,18 +427,13 @@ bool DSMSensor::readSamples() throw(nidas::util::IOException)
     // process all data in buffer, pass samples onto clients
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
         _rawSource.distribute(samp);
-#ifdef DEBUG
-        const Project* project = getDSMConfig()->getProject();
-        assert(project);
-        if (project->getName() == "test" &&
-            getDSMId() == 1 && getSensorId() == 10) {
-            DLOG(("%s: ",getName().c_str()) << ", samp=" <<
-                string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
-        }
-#endif
         _nSamplesRead++;
 
-        if ((_nSamplesRead > 0) && ((_nSamplesRead %100) == 0)) {
+        // These messages are too verbose for INFO logging, and probably not
+        // useful for debug either, especially since the interval is based on
+        // sample number rather than time, and sensors can report at vastly
+        // different rates.
+        if (false && (_nSamplesRead > 0) && ((_nSamplesRead %100) == 0)) {
         	ILOG(("%s:%s collected %lu samples...", getName().c_str(), getClassName().c_str(), _nSamplesRead));
         }
     }
