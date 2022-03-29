@@ -1,6 +1,8 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+import os
+from SCons.Script import Import, Environment, Configure, Split
 
 ##
 ##  Import the cross-build environment.
@@ -8,15 +10,9 @@
 Import('env')
 arch = env['ARCH']  # empty string for native builds
 
-if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
+if env.get('PSQL_ENABLE'):
 
     myenv = env.Clone()
-
-    ##
-    ## Look for PostgreSQL library.
-    ## It looks like this check needs to be at the top of this file,
-    ## just after the env.Copy(), otherwise it hangs forever.
-    ##
     conf = Configure(myenv)
     has_psql = conf.CheckLibWithHeader('pq','libpq-fe.h','c',
                                        'PQconnectdb("");')
@@ -30,7 +26,7 @@ if env.has_key('PSQL_ENABLE') and env['PSQL_ENABLE']:
         myenv.Install('$ARCHPREFIX/lib', so)
 
         env.Clean('install',[
-            ('$ARCHPREFIX/lib/' + os.path.basename(File(l).path) for l in so)
+            ('$ARCHPREFIX/lib/' + os.path.basename(env.File(l).path) for l in so)
         ])
 
         myenv.Install('$ARCHPREFIX/include/nidas/dynld/psql', headers)

@@ -1,6 +1,7 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Import, Return, Environment
 
 ##
 ##  Import the build environment.
@@ -9,7 +10,7 @@ Import('env')
 arch = env['ARCH']  # empty string for native builds
 machs = env['MACHS']
 
-headers = Split("""
+headers = env.Split("""
     a2d.h
     isa_bus.h
     irigclock.h
@@ -21,7 +22,7 @@ headers = Split("""
     util.h
 """)
 
-subdirs=Split("""
+subdirs = env.Split("""
     arinc
     diamond
     filters
@@ -34,6 +35,9 @@ subdirs=Split("""
     usbtwod
     util
 """)
+
+if not env.get("LINUX_MODULES", True):
+    Return()
 
 #
 # Invoke SConscripts in subdirs to create linux modules.
@@ -52,7 +56,7 @@ first_mach = True
 vdirs = []
 for mach in machs:
 
-    if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
+    if env.get("LINUX_MODULES", True):
         # If LINUX_MODULES is undefined, or is True, then the
         # user wants to build the linux modules. If so,
         # redefine it to be where the modules are to be installed.
@@ -65,11 +69,11 @@ for mach in machs:
         # If not found, look for KERNELDIR.
         kdir = ''
         kkey = 'KERNELDIR_' + mach + '_' + arch
-        if env.has_key(kkey):
+        if kkey in env:
             kdir = env[kkey]
         else:
             kkey = 'KERNELDIR'
-            if env.has_key(kkey):
+            if kkey in env:
                 kdir = env[kkey]
 
         modpath='$ARCHPREFIX/modules/' + mach
@@ -79,7 +83,7 @@ for mach in machs:
 # Dir('./../include').path will then be build_arm/include
 # Dir('./../include').abspath will be the absolute path
 
-        kflags = '-I' + Dir('./../include').abspath + ' -I' + Dir('#').abspath
+        kflags = '-I' + env.Dir('./../include').abspath + ' -I' + env.Dir('#').abspath
 
         mach_env = env.Clone(MACH=mach,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])
@@ -109,4 +113,3 @@ for mach in machs:
 submodules = env.Dir('$ARCHPREFIX/modules').glob('*')
 if submodules:
     env.Alias('install', submodules)
-

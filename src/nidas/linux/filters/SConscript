@@ -17,8 +17,7 @@ Import(['env', 'first_mach'])
 # so that make can find them and do its work outside of the
 # source tree.
 
-if env.has_key("LINUX_MODULES_INST_PATH") and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+if "LINUX_MODULES_INST_PATH" in env and env.get('KERNELDIR'):
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
 
