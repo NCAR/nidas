@@ -24,8 +24,6 @@
  ********************************************************************
 */
 
-#include <linux/version.h>
-
 # include <cstdio>
 # include <cstring>
 # include <cerrno>
@@ -43,36 +41,48 @@ int
 main()
 {
     const char *devname = "/dev/irig0";
-    FILE *irig = fopen(devname, "r");
-    int status;
     struct timeval tv;
+
     /*
      * Open the IRIG device
      */
+    FILE *irig = fopen(devname, "r");
     if (! irig)
     {
 	fprintf(stderr, "Error opening '%s': %s\n", devname, strerror(errno));
 	return 1;
     }
+
+    struct pc104sg_status status;
+
+    if (ioctl(fileno(irig), IRIG_GET_STATUS, &status) < 0)
+    {
+	fprintf(stderr, "%s: IRIG_GET_STATUS error: %s\n",
+            devname, strerror(errno));
+	return 1;
+    }
+    unsigned char statusOR = status.statusOR;
+    printf("%s status: %s (%#04x)\n",
+	devname, IRIGSensor::statusString(statusOR).c_str(), statusOR);
+
     /*
      * Kick the IRIG time to now
      */
     gettimeofday(&tv, NULL);
-    printf("Kicking IRIG clock...\n");
-    if ((status = ioctl(fileno(irig), IRIG_SET_CLOCK, &tv)) != sizeof(tv))
+    printf("Setting IRIG clock...");
+    if (ioctl(fileno(irig), IRIG_SET_CLOCK, &tv) < 0)
     {
-	fprintf(stderr, "IRIG_SET_CLOCK error: %s\n", strerror(-status));
+	fprintf(stderr, "\n%s: IRIG_SET_CLOCK error: %s\n",
+            devname, strerror(errno));
 	return 1;
     }
     printf("done.\n");
 
     UTime irigt;
-    irigt.setFormat("%Y %m %d %H:%M:%S.%3f");
+    irigt.setFormat("%Y %m %d %H:%M:%S.%6f");
 
     UTime unixt;
-    unixt.setFormat("%Y %m %d %H:%M:%S.%3f");
-
-    bool onereadOK = false;
+    unixt.setFormat("%H:%M:%S.%6f");
 
     /*
      * Now just read and print times from the IRIG, which should come
@@ -80,49 +90,69 @@ main()
      */
     for (int i = 0; i < 10; i++)
     {
-	struct dsm_clock_sample_3 samp;
-	size_t nread;
+	dsm_clock_data_3 samp3;
+	dsm_clock_data_2 samp2;
+	int seqnum;
+
+	size_t lread;
 
         dsm_sample_time_t timetag;
-	if ((nread = fread(&timetag, 1, sizeof(timetag), irig)) != 1)
+        lread = sizeof(timetag);
+	if (fread(&timetag, lread, 1, irig) != 1)
 	{
-	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread,
-		    sizeof(timetag));
-	    continue;
+	    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+                    devname, lread);
+	    return 1;
 	}
-        dsm_sample_length_t length;
-	if ((nread = fread(&length, 1, sizeof(length), irig)) != 1)
+        dsm_sample_length_t slen;
+        lread = sizeof(slen);
+	if (fread(&slen, lread, 1, irig) != 1)
 	{
-	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread,
-		    sizeof(length));
-	    continue;
-	}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-        size_t slen = offsetof(struct dsm_clock_data_3, end);
-#else
-        size_t slen = offsetof(struct dsm_clock_data_2, end);
-#endif
-
-	if ((nread = fread(&samp, 1, slen, irig)) != 1)
-	{
-	    fprintf(stderr, "Bad read size (%zu != %zu)!\n", nread, slen);
-	    continue;
+	    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+                    devname, lread);
+	    return 1;
 	}
 
-        onereadOK = true;
+	if (slen == offsetof(dsm_clock_data_3, end)) {
+		if (fread(&samp3, slen, 1, irig) != 1)
+		{
+		    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+			    devname, slen);
+		    return 1;
+		}
+		irigt = samp3.irigt;
+		unixt = samp3.unixt;
+		statusOR = samp3.status;
+		seqnum = samp3.seqnum;
+	}
+	else if (slen == offsetof(dsm_clock_data_2, end)) {
+		if (fread(&samp2, slen, 1, irig) != 1)
+		{
+		    fprintf(stderr, "%s: Failed to read %zu bytes\n",
+			    devname, slen);
+		    continue;
+		}
+		irigt = (long long) samp2.irigt.tv_sec * USECS_PER_SEC +
+			samp2.irigt.tv_usec;
+		unixt = (long long) samp2.unixt.tv_sec * USECS_PER_SEC +
+			samp2.unixt.tv_usec;
+		statusOR = samp2.status;
+		seqnum = samp2.seqnum;
+	}
+	else {
+	    fprintf(stderr,"%s: unrecognized sample length=%zu\n",
+		devname, slen);
+	    return 1;
+	}
 
-        unsigned char status = samp.data.status;
+	double i_minus_u = (double)(irigt - unixt) / USECS_PER_MSEC;
 
-	irigt = samp.data.irigt;
-	unixt = samp.data.unixt;
-        double i_minus_u = (double)(irigt - unixt) / USECS_PER_SEC;
-
-	printf("irig: %s (%#04x), time: %s, irig-unix: %10.3g sec\n",
-            IRIGSensor::statusString(status).c_str(), status,
+	printf("status: %s (%#04x), irig: %s, unix: %s, irig-unix: %10.3g msec, seq=%d\n",
+            IRIGSensor::statusString(statusOR).c_str(), statusOR,
             irigt.format(true).c_str(),
-            i_minus_u);
+            unixt.format(true).c_str(),
+            i_minus_u, seqnum);
     }
 
-    return onereadOK ? 0 : 1;
+    return 0;
 }
