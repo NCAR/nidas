@@ -51,7 +51,6 @@ apps = Split("""
 
 if arch == 'arm' or arch == "armel":
     archapps=Split("""
-        test_irig.c
     """)
 else:
     archapps=Split("""
