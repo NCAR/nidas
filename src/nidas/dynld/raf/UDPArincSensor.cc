@@ -27,6 +27,7 @@
 #include "UDPArincSensor.h"
 #include "DSMArincSensor.h"
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
 #include <csignal>
@@ -171,14 +172,17 @@ bool UDPArincSensor::process(const Sample * samp,
 
     if (bigEndian->uint32Value(hSamp->alta) != 0x414c5441)
     {
-      WLOG(("bad magic cookie 0x%08x, should be 0x414c5441\n", bigEndian->uint32Value(hSamp->alta)));
+      WLOG(("%s %s : bad magic cookie 0x%08x, should be 0x414c5441\n", getName().c_str(),
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f"),
+        bigEndian->uint32Value(hSamp->alta)));
       return false;
     }
 
     if (bigEndian->uint32Value(hSamp->mode) != 1 || (bigEndian->uint32Value(hSamp->status) & 0xFFFF) != 0)
     {
       _badStatusCnt++;
-      WLOG(("bad packet received mode = %d, status = %u\n",
+      WLOG(("%s %s : bad packet received mode = %d, status = %u\n", getName().c_str(),
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f"),
         bigEndian->uint32Value(hSamp->mode), bigEndian->uint32Value(hSamp->status) & 0xffff));
       return false;
     }
@@ -192,9 +196,10 @@ bool UDPArincSensor::process(const Sample * samp,
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
-    DLOG(( "APMP: nFields=%3u seqNum=%u, pSize=%u - PE %lld IRIG julianDay=%x %s", nFields,
-                seqNum, payloadSize, PE,
-                bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
+    DLOG(( "%s : APMP: nFields=%3u seqNum=%u, pSize=%u - PE %lld IRIG julianDay=%x %s",
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f"),
+        nFields, seqNum, payloadSize, PE,
+        bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
 
     if (seqNum != _prevAPMPseqNum+1)
         _badAPMPseqCnt++;
@@ -224,9 +229,10 @@ bool UDPArincSensor::process(const Sample * samp,
             if (seqNum % 256 != (_prevRXPseqNum[channel]+1) % 256)
             {
                 _badRXPseqCnt[channel]++;
-                WLOG(( "RXP out of seq, channel = %d, APMP seq # = %d, RXP# in APMP = %d/%d, data = %u, prevSeq = %d, thisSeq = %d",
-                       channel, _prevAPMPseqNum, i, nFields, (packet.data & 0x000000ff),
-                       _prevRXPseqNum[channel], seqNum ));
+                WLOG(( "%s : RXP out of seq, channel=%d, APMP seq #%d, RXP# in APMP=%d/%d, data=%u, prevSeq=%d, thisSeq=%d",
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f").c_str(),
+                    channel, _prevAPMPseqNum, i, nFields, (packet.data & 0x000000ff),
+                    _prevRXPseqNum[channel], seqNum ));
             }
             _prevRXPseqNum[channel] = seqNum;
         }
