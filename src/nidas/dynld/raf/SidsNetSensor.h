@@ -89,7 +89,7 @@ protected:
     /**
      * Called by post-processing code 
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     /**
      * Look at particle stats/info and decide whether to accept or reject.

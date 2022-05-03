@@ -23,8 +23,8 @@
  **
  ********************************************************************
 */
+
 /*
-									      
   Macros needed for ISA drivers to get the right ioport addresses
   and IRQs on various processors.
 */
@@ -163,7 +163,7 @@
 #define insw_16o(a,p,n)   insw((a) + ISA_16BIT_ADDR_OFFSET ,p,n)
 #define outw_16o(v,a)     outw(v,(a) + ISA_16BIT_ADDR_OFFSET )
 
-/* 
+/*
  * On the Mercury/Vulcan, most of the ISA interrupts are routed to GPIO
  * pins on the processor.  Handle those mappings here.
  * Return -1 if interrupt is not available.

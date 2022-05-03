@@ -65,7 +65,6 @@ const xercesc::DOMElement* SensorCatalog::find(const string& id) const
 }
 
 void SensorCatalog::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     

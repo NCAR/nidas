@@ -78,13 +78,17 @@ public:
 
     /**
      * open the device.
-     */
-    void open(int flags) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void open(int flags);
 
     /**
      * Apply the current Termios to an opened port.
-     */
-    void applyTermios() throw(nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void applyTermios()
     {
         _termios.apply(_fd,getName());
     }
@@ -161,13 +165,16 @@ public:
      * control is not great, 485  is best used for read-only devices.
      * Use 232 or 422 if you need read/write.
      *
-     */
-    void setRTS485(int val) throw(nidas::util::IOException);
+     * @throws nidas::util::IOException
+     **/
+    void setRTS485(int val);
 
     /**
      * Write to the device.
-     */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void *buf, size_t len);
 
 protected:
 

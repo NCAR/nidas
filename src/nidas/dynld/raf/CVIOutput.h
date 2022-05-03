@@ -57,14 +57,25 @@ public:
 
     CVIOutput* clone(IOChannel* iochannel=0);
 
-    void addRequestedSampleTag(SampleTag*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addRequestedSampleTag(SampleTag*);
 
-    void requestConnection(SampleConnectionRequester* requester) throw();
+    /**
+     * @throw()
+     **/
+    void requestConnection(SampleConnectionRequester* requester);
 
-    bool receive(const Sample* samp) throw();
+    /**
+     * @throw()
+     **/
+    bool receive(const Sample* samp);
 
-    void derivedDataNotify(const DerivedDataReader * s) throw();
+    /**
+     * @throw()
+     **/
+    void derivedDataNotify(const DerivedDataReader * s);
 
     void setIOChannel(IOChannel* val);
 

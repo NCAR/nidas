@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2008, Copyright University Corporation for Atmospheric Research
+ ** 2005, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -24,24 +24,34 @@
  ********************************************************************
 */
 
-#ifndef NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H
-#define NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H
+#include "GPS.h"
 
-#include <nidas/dynld/UDPSocketSensor.h>
+#include <stdlib.h>
+#include <ctype.h>
 
-namespace nidas { namespace dynld { namespace raf {
-
-/**
- * nidas::dynld::raf::UPDSocketSensor is the same as a nidas::dynld::UDPSocketSensor,
- * but kept around for legacy reasons - it's in quite a few XMLs.
- * At some point we might define a fromDOMElement() method here that gives a
- * "deprecated" message, indicating that one can use nidas::dynld::UDPSocketSensor.
- */
-class UDPSocketSensor: public nidas::dynld::UDPSocketSensor
+bool nidas::util::NMEAchecksumOK(const char* rec,int len)
 {
+    if (len <= 0) return false;
 
-};
+    const char* eor = rec + len - 1;
+    if (*rec == '$') rec++;
 
-}}}	// namespace nidas namespace dynld namespace raf
+    if (*eor == '\0') eor--;    // null termination
 
-#endif
+    for ( ; eor >= rec && ::isspace(*eor); eor--);  // NL, CR
+
+    // eor should now point to second digit of checksum
+    // eor-2 should point to '*'
+    if (eor < rec + 2 || *(eor - 2) != '*') return false;
+
+    eor--;  // first digit of checksum
+    char* cp;
+    char cksum = ::strtol(eor,&cp,16);
+    if (cp != eor + 2) return false;    // invalid checksum field length
+
+    char calcsum = 0;
+    for ( ; rec < eor-1; ) calcsum ^= *rec++;
+
+    return cksum == calcsum;
+}
+

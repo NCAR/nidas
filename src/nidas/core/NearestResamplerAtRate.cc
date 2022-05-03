@@ -167,7 +167,7 @@ void NearestResamplerAtRate::setRate(double val)
     _deltatUsecD2 = _deltatUsec / 2;
 }
 
-void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidParameterException)
+void NearestResamplerAtRate::connect(SampleSource* source)
 {
 
     vector<bool> matched(_reqVars.size());

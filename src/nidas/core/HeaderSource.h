@@ -46,15 +46,18 @@ public:
 
     static void setDefaults(SampleInputHeader& header);
 
-    static void sendDefaultHeader(SampleOutput* output)
-    	throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    static void sendDefaultHeader(SampleOutput* output);
 
     /**
      * Method called to write a header to an SampleOutput.
      * Derived classes implement as they see fit.
-     */
-    virtual void sendHeader(dsm_time_t,SampleOutput* output)
-    	throw(nidas::util::IOException) = 0;
+     *
+     * @throws nidas::util::IOException
+     **/
+    virtual void sendHeader(dsm_time_t,SampleOutput* output) = 0;
 };
 
 }}	// namespace nidas namespace core

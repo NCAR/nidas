@@ -44,7 +44,6 @@ MOSMote::MOSMote():_tsyncPeriodSecs(3600),_ncallBack(0),_mosSyncher(this)
 }
 
 void MOSMote::open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     SerialSensor::open(flags);
 
@@ -60,14 +59,14 @@ void MOSMote::open(int flags)
     }
 
 }
-void MOSMote::close() throw(nidas::util::IOException)
+void MOSMote::close()
 {
     if (_tsyncPeriodSecs > 0) getLooper()->removeClient(&_mosSyncher);
     SerialSensor::close();
 }
 
 bool MOSMote::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
     unsigned int nc = samp->getDataByteLength();
     if (nc == 0) return false;

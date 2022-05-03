@@ -50,28 +50,25 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags);
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
     int getATXRate() const { return _atxRate; }
 
     void setATXRate(int val) { _atxRate = val; }
 
     virtual void
-    derivedDataNotify(const nidas::core:: DerivedDataReader * s)
-        throw();
+    derivedDataNotify(const nidas::core:: DerivedDataReader * s);
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
-
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
 protected:
     /**
      * Send the ambient temperature up to the VCSEL.
      * @param atx is the ambient temperature to send.
      */
-    virtual void sendAmbientTemperature(float atx) throw(nidas::util::IOException);
+    virtual void sendAmbientTemperature(float atx);
 
     /**
      * How often to send ATX to the VCSEL.

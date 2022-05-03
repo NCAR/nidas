@@ -130,9 +130,9 @@ public:
     virtual ~ WisardMote();
 
     bool process(const Sample* insamp,
-                 std::list<const Sample*>& results) throw();
+                 std::list<const Sample*>& results);
 
-    void validate() throw (nidas::util::InvalidParameterException);
+    void validate();
 
     /**
      * Extracted fields from the initial portion of a Wisard message.
@@ -163,8 +163,7 @@ private:
      * actual SampleTags should be created for each mote and sample type.
      * @param motes: vector of mote numbers from the "motes" sensor parameter.
      */
-    void createSampleTags(const SampleTag* stag,const std::vector<int>& motes,std::list<SampleTag*>& newtags)
-        throw (nidas::util::InvalidParameterException);
+    void createSampleTags(const SampleTag* stag,const std::vector<int>& motes,std::list<SampleTag*>& newtags);
 
     /**
      * Add processed sample tags for all sensor types indicated

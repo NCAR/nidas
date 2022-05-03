@@ -26,8 +26,10 @@
 
 #include "GPS_NMEA_Serial.h"
 #include <nidas/core/PhysConstants.h>
+#include <nidas/util/GPS.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/GPS.h>
 
 #include <sstream>
 
@@ -72,7 +74,6 @@ GPS_NMEA_Serial::GPS_NMEA_Serial():SerialSensor(),
 }
 
 void GPS_NMEA_Serial::validate()
-  throw(n_u::InvalidParameterException)
 {
 
     SerialSensor::validate();
@@ -542,7 +543,6 @@ dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int,
         return _ttgps;
 }
 
-
 bool
 GPS_NMEA_Serial::
 findChecksum(char& checksum, const char* rec, int len)
@@ -598,14 +598,10 @@ appendChecksum(char* rec, int len, int maxlen)
         sprintf(rec+len, "*%2X", cksum);
 }
 
-
-
 bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
 {
-    char cksum;
-    return findChecksum(cksum, rec, len) && cksum == calcChecksum(rec, len);
+    return n_u::NMEAchecksumOK(rec, len);
 }
-
 
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
   throw()
@@ -619,7 +615,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
     if (slen < 7) return false;
 
-    if (!checksumOK(input, slen))
+    if (!n_u::NMEAchecksumOK(input, slen))
     {
         if (!(_badChecksums++ % _badChecksumsCount))
         {
@@ -668,7 +664,6 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 }
 
 SampleScanner* GPS_NMEA_Serial::buildSampleScanner()
-  throw(n_u::InvalidParameterException)
 {
     MessageStreamScanner* scanr = new MessageStreamScanner();
     scanr->setNullTerminate(doesAsciiSscanfs());

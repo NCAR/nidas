@@ -2,13 +2,17 @@
 
 set -e
 
+dockerns=ncar   # namespace on docker.io
+
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 [-n] release
+    echo "Usage: $0 [-n] [-p] release
     -n: don't install local EOL packages, in case they don't exist yet
+    -p: push image to docker.io/$dockerns. You may need to do: podman login docker.io
     for example:  $0 bionic"
     exit 1
 fi
 
+dopush=false
 dolocal=yes
 
 while [ $# -gt 0 ]; do
@@ -16,31 +20,36 @@ while [ $# -gt 0 ]; do
     -n)
         dolocal=no
         ;;
+    -p)
+        dopush=true
+        ;;
     *)
-        release=$1
+        tag=$1
         ;;
     esac
     shift
 done
 
-# A --build-arg overrides an ARG in the Dockerfile
-user=ads
-uid=12900
-group=eol
-gid=1342
+usage() {
+    echo "${0##*/} [-p]
+    "
+    exit 1
+}
 
-# Must do a #docker login" with your personal docker account.
-# this account must be registered with ncar organization as an
-# administor.  Call Gary.
-docuser=ncar
+image=nidas-build-ubuntu-i386
 
-image=nidas-build-ubuntu-i386:$release
+set -x
 
-docker build -t $image \
-    --build-arg=user=$user --build-arg=uid=$uid \
-    --build-arg=group=$group --build-arg=gid=$gid \
+echo "image is $image"
+echo "tagged image is $dockerns/$image:$tag"
+
+podman build -t $dockerns/$image:$tag \
     --build-arg=dolocal=$dolocal \
-    -f Dockerfile.ubuntu_i386_$release .
+    -f Dockerfile.ubuntu_i386_$tag .
 
-docker tag $image $docuser/$image
-docker push $docuser/$image
+if [[ "$?" -eq 0 ]] ; then
+    if $dopush; then
+        echo "Pushing $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag" 
+        podman push $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
+    fi
+fi

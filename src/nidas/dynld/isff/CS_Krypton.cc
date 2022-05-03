@@ -53,8 +53,7 @@ std::string CS_Krypton::toString() const
     return "CS_Krypton::toString() unsupported";
 }
 
-void CS_Krypton::fromString(const std::string&) 
-    	throw(n_u::InvalidParameterException)
+void CS_Krypton::fromString(const std::string&)
 {
     throw n_u::InvalidParameterException(
     	"CS_Krypton::fromString() not supported yet");
@@ -100,7 +99,6 @@ double CS_Krypton::convert(dsm_time_t t,double volts)
 }
 
 void CS_Krypton::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     VariableConverter::fromDOMElement(node);

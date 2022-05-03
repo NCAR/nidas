@@ -358,14 +358,15 @@ public:
      * For this reason, it is wise to wait to scan the SampleTags
      * of a DSMSensor in the validate(), init() or open() methods,
      * which are invoked after fromDOMElement.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void addSampleTag(SampleTag* val)
-        throw(nidas::util::InvalidParameterException);
+    virtual void addSampleTag(SampleTag* val);
 
     /**
      * Remove val from the list of SampleTags, and delete it.
      */
-    virtual void removeSampleTag(SampleTag* val) throw();
+    virtual void removeSampleTag(SampleTag* val);
 
     /**
      * Implementation of SampleSource::getSampleTags().
@@ -440,13 +441,13 @@ public:
      * Implementation of SampleClient::flush(). This is where a DSMSensor's process()
      * method could send out any buffered results that might be ready.
      */
-    void flush() throw() {}
+    void flush() {}
 
     /**
      * Distribute a raw sample which has been read from my
      * file descriptor in real time.
      */
-    void distributeRaw(const Sample* s) throw()
+    void distributeRaw(const Sample* s)
     {
         _rawSource.distribute(s);
     }
@@ -502,10 +503,11 @@ public:
      * data in the driver for a 1/10 sec, then send the data
      * to user space. Generally it should be
      * set before doing a sensor open().
+     *
      * @param val Latency, in seconds.
+     * @throws nidas::util::InvalidParameterException
      */
     virtual void setLatency(float val)
-        throw(nidas::util::InvalidParameterException)
     {
         _latency = val;
     }
@@ -566,8 +568,10 @@ public:
     /**
      * Factory method for an IODevice for this DSMSensor.
      * Must be implemented by derived classes.
+     *
+     * @throws nidas::util::IOException
      */
-    virtual IODevice* buildIODevice() throw(nidas::util::IOException) = 0;
+    virtual IODevice* buildIODevice() = 0;
 
     /**
      * Set the IODevice for this sensor. DSMSensor then
@@ -581,9 +585,10 @@ public:
     /**
      * Factory method for a SampleScanner for this DSMSensor.
      * Must be implemented by derived classes.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException) = 0;
+    virtual SampleScanner* buildSampleScanner() = 0;
 
     /**
      * Set the SampleScanner for this sensor. DSMSensor then
@@ -597,14 +602,17 @@ public:
     /**
      * validate() is called once on a DSMSensor after it has been
      * configured, but before open() or init() are called.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void validate() throw(nidas::util::InvalidParameterException);
+    virtual void validate();
 
     /**
      * Open the device. flags are a combination of O_RDONLY, O_WRONLY.
+     *
+     * @throws nidas::util::IOException,nidas::util::InvalidParameterException
      */
-    virtual void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    virtual void open(int flags);
 
     /**
      * Initialize the DSMSensor. This method is called on a
@@ -614,8 +622,10 @@ public:
      * used by the process() method.  If processed samples
      * are not requested from this DSMSensor, then NIDAS apps
      * typically do not call init().
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    virtual void init() throw(nidas::util::InvalidParameterException);
+    virtual void init();
 
     /**
      * How do I want to be opened.  The user can ignore it if they want to.
@@ -634,9 +644,10 @@ public:
     /**
      * How many bytes are available to read on this sensor.
      * @see IODevice::getBytesAvailable().
+     *
+     * @throws nidas::util::IOException
      */
     virtual size_t getBytesAvailable() const
-        throw(nidas::util::IOException)
     {
         return _iodev->getBytesAvailable();
     }
@@ -644,18 +655,20 @@ public:
     /**
      * Read from the device (duh). Behaves like the read(2) system call,
      * without a file descriptor argument, and with an IOException.
+     *
+     * @throws nidas::util::IOException
      */
     virtual size_t read(void *buf, size_t len)
-        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len);
     }
 
     /**
      * Read from the device with a timeout.
+     *
+     * @throws nidas::util::IOException
      */
     virtual size_t read(void *buf, size_t len,int msecTimeout)
-        throw(nidas::util::IOException)
     {
         return _iodev->read(buf,len,msecTimeout);
     }
@@ -663,9 +676,10 @@ public:
     /**
      * Write to the device (duh). Behaves like write(2) system call,
      * without a file descriptor argument, and with an IOException.
+     *
+     * @throws nidas::util::IOException
      */
     virtual size_t write(const void *buf, size_t len)
-        throw(nidas::util::IOException)
     {
         return _iodev->write(buf,len);
     }
@@ -674,17 +688,20 @@ public:
      * Perform an ioctl on the device. request is an integer
      * value which must be supported by the device. Normally
      * this is a value from a header file for the device.
+     *
+     * @throws nidas::util::IOException
      */
     virtual void ioctl(int request, void* buf, size_t len)
-        throw(nidas::util::IOException)
     {
         _iodev->ioctl(request,buf,len);
     }
 
     /**
      * close my associated device.
+     *
+     * @throws nidas::util::IOException;
      */
-    virtual void close() throw(nidas::util::IOException);
+    virtual void close();
 
     /**
      * Read samples from my associated file descriptor,
@@ -696,9 +713,10 @@ public:
      * readBuffer() to read available data from the DSMSensor
      * into a buffer, and then repeatedly calls nextSample()
      * to extract all samples out of that buffer.
+     *
+     * @throws nidas::util::IOException;
      */
-    virtual bool readSamples()
-        throw(nidas::util::IOException);
+    virtual bool readSamples();
 
     /**
      * Extract the next sample from the buffer. Returns a
@@ -711,9 +729,10 @@ public:
 
     /**
      * Return the next sample. Buffer(s) will be read if necessary.
+     * 
+     * @throws nidas::util::IOException
      */
-    virtual Sample* readSample()
-        throw(nidas::util::IOException);
+    virtual Sample* readSample();
 
     /**
      * A DSMSensor can be used as a SampleClient,
@@ -725,7 +744,7 @@ public:
      * receive() then applies further processing via the process()
      * method.
      */
-    bool receive(const Sample *s) throw();
+    bool receive(const Sample *s);
 
     /**
      * Apply further necessary processing to a raw sample
@@ -733,12 +752,11 @@ public:
      * in result.  The default implementation
      * of process() simply puts the input Sample into result.
      */
-    virtual bool process(const Sample*,std::list<const Sample*>& result)
-        throw() = 0;
+    virtual bool process(const Sample*,std::list<const Sample*>& result) = 0;
 
-    void printStatusHeader(std::ostream& ostr) throw();
-    virtual void printStatus(std::ostream&) throw();
-    void printStatusTrailer(std::ostream& ostr) throw();
+    void printStatusHeader(std::ostream& ostr);
+    virtual void printStatus(std::ostream&);
+    void printStatusTrailer(std::ostream& ostr);
 
     /**
      * Update the sensor sampling statistics.  Should be called
@@ -786,21 +804,28 @@ public:
      * Crawl through the DOM tree for a DSMSensor to find
      * the class name - scanning the catalog entry if
      * necessary.
+     *
+     * @throws nidas::util::InvalidParameterException
      */
     static const std::string getClassName(const xercesc::DOMElement* node,
-        const Project* project)
-        throw(nidas::util::InvalidParameterException);
+                                          const Project* project);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-        toDOMParent(xercesc::DOMElement* parent,bool complete) const
-                throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent, bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException;
+     **/
     xercesc::DOMElement*
-        toDOMElement(xercesc::DOMElement* node,bool complete) const
-                throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
     /**
      * Set the type name of this sensor, e.g.:
@@ -895,7 +920,7 @@ public:
      * The default base class method does nothing.
      */
     virtual void executeXmlRpc(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue&)
-        throw() {}
+    {}
 
     static void deleteLooper();
 
@@ -917,8 +942,10 @@ public:
 
     /**
      * Read into my SampleScanner's buffer.
+     *
+     * @throws nidas::util::IOException
      */
-    bool readBuffer() throw(nidas::util::IOException)
+    bool readBuffer()
     {
         bool exhausted;
         _scanner->readBuffer(this,exhausted);
@@ -927,9 +954,10 @@ public:
 
     /**
      * Read into my SampleScanner's buffer.
+     *
+     * @throws nidas::util::IOException 
      */
     bool readBuffer(int msecTimeout)
-       throw(nidas::util::IOException)
     {
         bool exhausted;
         _scanner->readBuffer(this,exhausted, msecTimeout);
@@ -1083,15 +1111,18 @@ private:
     /**
      * DSMSensor does provide public support for
      * SampleSource::addSampleTag(const SampleTag* val).
+     *
+     * @throws nidas::util::InvalidParameterException
      */
-    void addSampleTag(const SampleTag* val)
-        throw(nidas::util::InvalidParameterException);
+    void addSampleTag(const SampleTag* val);
 
     /**
      * DSMSensor does not provide public support for
      * SampleSource::removeSampleTag(const SampleTag* val)
+     *
+     * @throw()
      */
-    void removeSampleTag(const SampleTag* val) throw();
+    void removeSampleTag(const SampleTag* val);
 
     std::string _devname;
 

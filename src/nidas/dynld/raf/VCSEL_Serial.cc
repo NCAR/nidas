@@ -45,7 +45,7 @@ VCSEL_Serial::~VCSEL_Serial()
 }
 
 
-void VCSEL_Serial::open(int flags) throw(n_u::IOException)
+void VCSEL_Serial::open(int flags)
 {
     SerialSensor::open(flags);
 
@@ -58,7 +58,7 @@ void VCSEL_Serial::open(int flags) throw(n_u::IOException)
 }
 
 
-void VCSEL_Serial::close() throw(n_u::IOException)
+void VCSEL_Serial::close()
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
@@ -66,7 +66,7 @@ void VCSEL_Serial::close() throw(n_u::IOException)
 }
 
 
-void VCSEL_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+void VCSEL_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s)
 {
     // std::cerr << "atx " << s->getAmbientTemperature() << std::endl;
     if (!::isnan(s->getAmbientTemperature())) {
@@ -81,7 +81,7 @@ void VCSEL_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) t
 }
 
 
-void VCSEL_Serial::sendAmbientTemperature(float atx) throw(n_u::IOException)
+void VCSEL_Serial::sendAmbientTemperature(float atx)
 {
     char tmp[128];
     sprintf(tmp, "%d\n", (int)(atx * 100));
@@ -89,7 +89,7 @@ void VCSEL_Serial::sendAmbientTemperature(float atx) throw(n_u::IOException)
 }
 
 bool VCSEL_Serial::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                           list < const Sample * >&results)
 {
     bool rc = SerialSensor::process(samp, results);
 

@@ -33,7 +33,7 @@
 
 
 // change this later to a const or something
-#define NUM_A2D_CHANNELS    4
+#define NUM_GPDAQ_A2D_CHANNELS    4
 
 
 namespace nidas { namespace dynld { namespace raf {
@@ -58,12 +58,12 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags) throw(nidas::util::IOException);
+    void open(int flags);
 
     /**
      * Setup whatever is necessary for process method to work.
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     virtual Sample* nextSample()
     {
@@ -82,12 +82,11 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
-    int getMaxNumChannels() const { return NUM_A2D_CHANNELS; }
+    int getMaxNumChannels() const { return NUM_GPDAQ_A2D_CHANNELS; }
 
     /**
      * Get the current gain for a channel.
@@ -105,7 +104,7 @@ public:
      * and a slope of 1. would result in no additional correction.
      */
     virtual void setConversionCorrection(int ichan, const float d[],
-        int n) throw(nidas::util::InvalidParameterException);
+        int n);
 
     void setOutputMode(OutputMode mode) { _outputMode = mode; }
 
@@ -116,12 +115,12 @@ protected:
     /**
      * Read configuration from sensor, this is on the DSM called from open().
      */
-    void readConfig() throw(nidas::util::IOException);
+    void readConfig();
 
     /**
      * Parse a configuration line from from either open() or process().
      */
-    void parseConfigLine(const char *data);
+    void parseConfigLine(const char *data, unsigned int len);
 
     void dumpConfig() const;
 
@@ -169,7 +168,7 @@ protected:
      */
     size_t _staticLag;  // in usecs.
 
-    int _boardID;   // serial number
+    int _boardID;       // serial number
     bool _haveCkSum;    // Will packets have checksum
 
     /**
@@ -198,16 +197,18 @@ protected:
      * -10 to +10 Vdc.  So bipolar will always be true, I am leaving it in
      *  in case we ever want to change support positive only voltage range.
      */
-    int _channels[NUM_A2D_CHANNELS];
+    int _channels[NUM_GPDAQ_A2D_CHANNELS];
 
     // read these in from XML, use to validate against
-    int _ifsr[NUM_A2D_CHANNELS];        // 0 = +-10, 1 = +-5 Vdc
-    int _ipol[NUM_A2D_CHANNELS];
+    int _ifsr[NUM_GPDAQ_A2D_CHANNELS];      // 0 = +-10, 1 = +-5 Vdc
+    int _ipol[NUM_GPDAQ_A2D_CHANNELS];
 
     // We will need these to map to cal files.
-    int _gains[NUM_A2D_CHANNELS];       // map _ifsr to this; 0->1, 1->2
-    int _polarity[NUM_A2D_CHANNELS];    // true
+    int _gains[NUM_GPDAQ_A2D_CHANNELS];     // map _ifsr to this; 0->1, 1->2
+    int _bipolar[NUM_GPDAQ_A2D_CHANNELS];   // true
 
+    int _calset;        // Diagnostic (auto_cal) channels, toggle bit per channel.
+    int _voltage;       // Diagnostic (auto_cal) voltage, -99 = normal operation.
 
     /**
      * This contains the status of config verification between what we read
@@ -219,13 +220,23 @@ protected:
     std::map<std::string, int> configStatus;
 
     // A/D calibration coefficients
-    std::vector<float> _polyCals[NUM_A2D_CHANNELS];
+    std::vector<float> _polyCals[NUM_GPDAQ_A2D_CHANNELS];
 
     size_t _shortPacketCnt;
     size_t _badCkSumCnt;
     size_t _largeTimeStampOffset;
 
-int headerLines;
+    int headerLines;
+
+
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
 
 private:
 

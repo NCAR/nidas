@@ -70,8 +70,10 @@ public:
      * @return number of bytes read.
      * If there is still data in the IOStream buffer, then no physical
      * read will be done, and a length of 0 is returned.
-     */
-    size_t read() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read();
 
     /**
      * Copy available bytes from the internal buffer to buf, returning
@@ -96,15 +98,19 @@ public:
      *     if an end of file is encountered, or if the IOChannel
      *     is configured for non-blocking reads and no data is available.
      * This method may perform 0 or more physical reads of the IOChannel.
-     */
-    size_t read(void* buf, size_t len) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void* buf, size_t len);
 
     /**
      * If the internal buffer is empty, do an IOChannel::read
      * into the buffer. Then skip over len bytes in the user buffer.
      * @return number of bytes skipped. May be less than the user asked for.
-     */
-    size_t skip(size_t len) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t skip(size_t len);
 
     /**
      * Move the read buffer pointer backwards by len number of bytes,
@@ -136,8 +142,10 @@ public:
      * then any previous contents of the buffer are discarded
      * and the reading proceeds with the new input.
      * @todo throw an exception if used with a non-blocking physical device.
-     */
-    size_t readUntil(void* buf, size_t len,char term) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t readUntil(void* buf, size_t len, char term);
 
     /**
      * Write data.  This supports an atomic write of
@@ -153,18 +161,24 @@ public:
      *    false: no data copied because the buffer was full and the
      *    physical device is bogged down. Typically one must
      *    chuck the data and proceed.
-     */
-    size_t write(const struct iovec* iov, int nbufs,bool flush)
-  	throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const struct iovec* iov, int nbufs, bool flush);
 
-    size_t write(const void*buf,size_t len,bool flush) throw (nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    size_t write(const void*buf,size_t len,bool flush);
 
     /**
      * Flush buffer to physical device.
      * This is not done automatically by the destructor - the user
      * must call flush before destroying this IOStream.
-     */
-    void flush() throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    void flush();
 
     /**
      * Request that IOChannel object open a new file, with a name
@@ -173,29 +187,41 @@ public:
      * @param exact Use exact time when creating file name, else
      *        the time is truncated down to an even time interval.
      * @return Start time of next file.
-     */
-    dsm_time_t createFile(dsm_time_t t,bool exact) throw(nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    dsm_time_t createFile(dsm_time_t t, bool exact)
     {
-	// std::cerr << "IOStream::createFile, doing flush" << std::endl;
-	flush();
-	return _iochannel.createFile(t,exact);
+        // std::cerr << "IOStream::createFile, doing flush" << std::endl;
+        flush();
+        return _iochannel.createFile(t,exact);
     }
 
-    const std::string& getName() const { return _iochannel.getName(); }
+    const std::string& getName() const {
+        return _iochannel.getName();
+    }
 
     /**
      * Number of bytes read with this IOStream.
      */
-    long long getNumInputBytes() const { return _nbytesIn; }
+    long long getNumInputBytes() const {
+        return _nbytesIn;
+    }
 
-    void addNumInputBytes(int val) { _nbytesIn += val; }
+    void addNumInputBytes(int val) {
+        _nbytesIn += val;
+    }
 
     /**
      * Total number of bytes written with this IOStream.
      */
-    long long getNumOutputBytes() const { return _nbytesOut; }
+    long long getNumOutputBytes() const {
+        return _nbytesOut;
+    }
 
-    void addNumOutputBytes(int val) { _nbytesOut += val; }
+    void addNumOutputBytes(int val) {
+        _nbytesOut += val;
+    }
 
 protected:
 

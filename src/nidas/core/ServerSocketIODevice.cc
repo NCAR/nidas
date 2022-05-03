@@ -47,7 +47,7 @@ ServerSocketIODevice::~ServerSocketIODevice()
     close();
 }
 
-void ServerSocketIODevice::close() throw(n_u::IOException)
+void ServerSocketIODevice::close()
 {
     if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -58,16 +58,15 @@ void ServerSocketIODevice::close() throw(n_u::IOException)
     _socket = 0;
 }
 
-void ServerSocketIODevice::closeServerSocket() throw(n_u::IOException)
+void ServerSocketIODevice::closeServerSocket()
 {
     if (_serverSocket && _serverSocket->getFd() >= 0)
-	_serverSocket->close();
+        _serverSocket->close();
     delete _serverSocket;
     _serverSocket = 0;
 }
 
 void ServerSocketIODevice::open(int)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     close();
 

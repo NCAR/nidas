@@ -62,7 +62,6 @@ MultipleUDPSockets* MultipleUDPSockets::clone() const
 }
 
 IOChannel* MultipleUDPSockets::connect()
-    throw(n_u::IOException)
 {
     n_u::DatagramSocket* sock;
     n_u::Inet4PacketInfoX pktinfo;
@@ -295,7 +294,6 @@ void MultipleUDPSockets::handleChangedSockets()
 }
 
 size_t MultipleUDPSockets::write(const void* buf, size_t len)
-            throw(n_u::IOException)
 {
     size_t res = 0;
     if (_socketsChanged) handleChangedSockets();
@@ -317,7 +315,6 @@ size_t MultipleUDPSockets::write(const void* buf, size_t len)
 }
 
 size_t MultipleUDPSockets::write(const struct iovec* iov, int iovcnt)
-            throw(n_u::IOException)
 {
     size_t res = 0;
     if (_socketsChanged) handleChangedSockets();
@@ -339,7 +336,6 @@ size_t MultipleUDPSockets::write(const struct iovec* iov, int iovcnt)
 }
 
 void MultipleUDPSockets::close()
-            throw(n_u::IOException)
 {
     if (_socketsChanged) {
         _socketMutex.lock();
@@ -365,7 +361,6 @@ int MultipleUDPSockets::getFd() const
 }
 
 void MultipleUDPSockets::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     string sport;
     int port = NIDAS_SVC_REQUEST_PORT_UDP;

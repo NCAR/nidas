@@ -91,13 +91,12 @@ TwoD_USB::~TwoD_USB()
     delete [] _saveBuffer;
 }
 
-IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
+IODevice *TwoD_USB::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner *TwoD_USB::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner((4104 + 8) * 4);
 }
@@ -105,7 +104,6 @@ SampleScanner *TwoD_USB::buildSampleScanner()
 
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
     init_parameters();
@@ -124,7 +122,7 @@ void TwoD_USB::open(int flags)
 		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 }
 
-void TwoD_USB::close() throw(n_u::IOException)
+void TwoD_USB::close()
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
@@ -137,7 +135,7 @@ void TwoD_USB::close() throw(n_u::IOException)
  * is *only* needed during post-processing (the idea is to
  * save memory on DSMs).
  */
-void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
+void TwoD_USB::init_parameters()
 {
     const Parameter *p;
 
@@ -157,7 +155,7 @@ void TwoD_USB::init_parameters() throw(n_u::InvalidParameterException)
 /*---------------------------------------------------------------------------*/
 /* Stuff that is necessary when post-processing.
  */
-void TwoD_USB::init() throw(n_u::InvalidParameterException)
+void TwoD_USB::init()
 {
     DSMSensor::init();
     init_parameters();
@@ -194,7 +192,7 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+void TwoD_USB::derivedDataNotify(const nidas::core::DerivedDataReader * s)
 {
     // std::cerr << "tas " << s->getTrueAirspeed() << std::endl;
     _trueAirSpeed = s->getTrueAirspeed();   // save it to display in printStatus
@@ -283,7 +281,7 @@ float TwoD_USB::Tap2DToTAS(const Tap2Dv1 * t2d) const
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
+void TwoD_USB::sendTrueAirspeed(float tas)
 {
     Tap2D tx_tas;
     if (TASToTap2D(&tx_tas, tas))
@@ -295,7 +293,7 @@ void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::printStatus(std::ostream& ostr) throw()
+void TwoD_USB::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {

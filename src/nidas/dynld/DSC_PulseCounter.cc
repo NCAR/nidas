@@ -53,19 +53,17 @@ DSC_PulseCounter::~DSC_PulseCounter()
 {
 }
 
-IODevice* DSC_PulseCounter::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_PulseCounter::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_PulseCounter::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
-void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void DSC_PulseCounter::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -77,13 +75,13 @@ void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
 }
 
 
-void DSC_PulseCounter::close() throw(n_u::IOException)
+void DSC_PulseCounter::close()
 {
     ioctl(DMMAT_CNTR_STOP,0,0);
     DSMSensor::close();
 }
 
-void DSC_PulseCounter::validate() throw(n_u::InvalidParameterException)
+void DSC_PulseCounter::validate()
 {
     DSMSensor::validate();
 
@@ -101,7 +99,7 @@ void DSC_PulseCounter::validate() throw(n_u::InvalidParameterException)
     _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
 }
-void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
+void DSC_PulseCounter::init()
 {
     DSMSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
@@ -109,7 +107,7 @@ void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
 
 }
 
-void DSC_PulseCounter::printStatus(std::ostream& ostr) throw()
+void DSC_PulseCounter::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
@@ -133,8 +131,7 @@ void DSC_PulseCounter::printStatus(std::ostream& ostr) throw()
     }
 }
 
-bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results)
-    throw()
+bool DSC_PulseCounter::process(const Sample* insamp, list<const Sample*>& results)
 {
     // count is a four byte, little endian integer.
     if (insamp->getDataByteLength() != sizeof(int)) return false;

@@ -48,10 +48,15 @@ public:
     /**
      * Check the endianness, count the number of variables and get the sample tag
      * for this sensor.
-     */
-    void validate() throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
-    void init() throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void init();
 
     /**
      * Convert a raw sample containing IEEE floats into an output sample.

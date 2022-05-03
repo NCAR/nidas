@@ -48,18 +48,16 @@ public:
 
     ~UHSAS_Serial();
 
-    void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /**
      * Setup whatever is necessary for process method to work.
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
-    void sendInitString() throw(nidas::util::IOException);
+    void sendInitString();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-          throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
     void setSendInitBlock(bool val)
     {

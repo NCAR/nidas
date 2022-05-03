@@ -178,7 +178,6 @@ struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
 
 /* static */
 UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
-    throw(ParseException)
 {
     char cmon[32];
     int year,mon,day,hour,min;
@@ -304,12 +303,13 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     return UTime(utc,year,mon,day,hour,min,dsec);
 }
 
-void UTime::set(bool utc, const std::string& str,int* nparsed) throw(ParseException)
+void UTime::set(bool utc, const std::string& str,int* nparsed)
 {
     *this = UTime::parse(utc,str,nparsed);
 }
 
-void UTime::set(bool utc,const std::string& str,const std::string& format,int* nparsed) throw(ParseException)
+void UTime::set(bool utc, const std::string& str,
+                const std::string& format, int* nparsed)
 {
     *this = UTime::parse(utc,str,format,nparsed);
 }
@@ -317,7 +317,6 @@ void UTime::set(bool utc,const std::string& str,const std::string& format,int* n
 /* static */
 UTime UTime::parse(bool utc, const std::string& str, const std::string& fmt,
                    int *ncharp)
-	throw(ParseException)
 {
     // Try parsing, and throw an exception if it fails.
     UTime ut(0L);
@@ -687,8 +686,7 @@ template<class charT, class Traits>
 }
 #endif
 
-bool nidas::util::sleepUntil(unsigned int periodMsec,unsigned int offsetMsec)
-    throw(IOException)
+bool nidas::util::sleepUntil(unsigned int periodMsec, unsigned int offsetMsec)
 {
     struct timespec sleepTime;
     /*

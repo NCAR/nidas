@@ -44,7 +44,7 @@ VCSEL2_Serial::~VCSEL2_Serial()
 }
 
 
-void VCSEL2_Serial::open(int flags) throw(n_u::IOException)
+void VCSEL2_Serial::open(int flags)
 {
     SerialSensor::open(flags);
 
@@ -57,7 +57,7 @@ void VCSEL2_Serial::open(int flags) throw(n_u::IOException)
 }
 
 
-void VCSEL2_Serial::close() throw(n_u::IOException)
+void VCSEL2_Serial::close()
 {
     if (DerivedDataReader::getInstance())
 	    DerivedDataReader::getInstance()->removeClient(this);
@@ -65,7 +65,7 @@ void VCSEL2_Serial::close() throw(n_u::IOException)
 }
 
 
-void VCSEL2_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+void VCSEL2_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s)
 {
     // std::cerr << "atx " << s->getAmbientTemperature() << std::endl;
     try {
@@ -78,7 +78,7 @@ void VCSEL2_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) 
 }
 
 
-void VCSEL2_Serial::sendTemperaturePressure(float atx, float psx) throw(n_u::IOException)
+void VCSEL2_Serial::sendTemperaturePressure(float atx, float psx)
 {
     char tmp[128];
     sprintf(tmp, "%d,%d\n", (int)(atx * 100), (int)(psx * 100));

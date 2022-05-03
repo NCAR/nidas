@@ -45,7 +45,7 @@ public:
     {
     }
 
-    void validate() throw(nidas::util::InvalidParameterException);
+    void validate();
 
     /**
      * The CPC3772 puts out a 1 Hz sample of 10 values, which

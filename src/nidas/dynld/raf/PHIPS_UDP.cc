@@ -45,7 +45,6 @@ PHIPS_UDP::~PHIPS_UDP()
 }
 
 SampleScanner* PHIPS_UDP::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     DatagramSampleScanner* scanner = new DatagramSampleScanner();
     scanner->setNullTerminate(true);
@@ -63,7 +62,7 @@ float PHIPS_UDP::scanValue(const char *input)
 }
 
 bool PHIPS_UDP::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                        list < const Sample * >&results)
 {
     const char *input = (const char*) samp->getConstVoidDataPtr();
     // Because of scanner->setNullTerminate(true), the input

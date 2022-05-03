@@ -172,7 +172,7 @@ list<DSMSensor*> SensorHandler::getOpenedSensors() const
 }
 
 SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
-        SensorHandler* handler) throw(n_u::IOException): 
+        SensorHandler* handler):
     _sensor(sensor),_handler(handler),
     _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0)
 {
@@ -202,7 +202,7 @@ SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
 #endif
 }
 
-void SensorHandler::PolledDSMSensor::close() throw(n_u::IOException)
+void SensorHandler::PolledDSMSensor::close()
 {
     if (getFd() >= 0) {
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
@@ -317,10 +317,10 @@ void SensorHandler::PolledDSMSensor::setupTimeouts(int checkIntervalMsecs)
 
 #ifdef USE_NOTIFY_PIPE
 
-SensorHandler::NotifyPipe::NotifyPipe(SensorHandler* handler)
-    throw(n_u::IOException) : _fds(),_handler(handler)
+SensorHandler::NotifyPipe::NotifyPipe(SensorHandler* handler):
+    _fds(),
+    _handler(handler)
 {
-
     if (::pipe(_fds) < 0)
         throw n_u::IOException("SensorHandler", "pipe", errno);
 
@@ -354,7 +354,7 @@ SensorHandler::NotifyPipe::~NotifyPipe()
     }
 }
 
-void SensorHandler::NotifyPipe::close() throw(n_u::IOException)
+void SensorHandler::NotifyPipe::close()
 {
     int fd0= _fds[0];
     _fds[0] = -1;
@@ -378,7 +378,7 @@ void SensorHandler::NotifyPipe::close() throw(n_u::IOException)
 }
 
 bool
-SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
+SensorHandler::NotifyPipe::handlePollEvents(uint32_t events)
 {
     bool exhausted = false;
     if (events & N_POLLIN) {
@@ -402,7 +402,7 @@ SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
     return exhausted;
 }
 
-void SensorHandler::NotifyPipe::notify() throw()
+void SensorHandler::NotifyPipe::notify()
 {
     if (::write(_fds[1],this,1) < 0) {
         n_u::IOException e("SensorHandler::NotifyPipe","write",errno);
@@ -415,7 +415,7 @@ void SensorHandler::NotifyPipe::notify() throw()
 /**
  * Thread function, epoll loop.
  */
-int SensorHandler::run() throw(n_u::Exception)
+int SensorHandler::run()
 {
 
     // This run method must respond to two events from outside threads:
@@ -724,7 +724,7 @@ void SensorHandler::interrupt()
 /*
  * Join this thread and join the SensorOpener.
  */
-int SensorHandler::join() throw(nidas::util::Exception)
+int SensorHandler::join()
 {
     if (!_opener.isJoined())
          _opener.join();

@@ -103,6 +103,7 @@ headers = Split("""
     UHSAS_Serial.h
     UDPArincStatus.h
     UDPSocketSensor.h
+    UDPArincSensor.h
     VCSEL_Serial.h
     VCSEL2_Serial.h
     WatlowCLS208.h

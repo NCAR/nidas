@@ -47,13 +47,11 @@ public:
 
     MOSMote();
 
-    void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
 private:
     unsigned int _tsyncPeriodSecs;

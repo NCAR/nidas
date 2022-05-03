@@ -64,8 +64,7 @@ public:
      * change, then this method, or the stopSonic(),querySonic() or startSonic() methods
      * will likely need to be changed.
      */
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    void open(int flags);
 
     /**
      * No correction for path curvature is needed on the CSAT,
@@ -74,10 +73,9 @@ public:
     float correctTcForPathCurvature(float tc,
             float u, float v, float w);
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
-    void parseParameters() throw(nidas::util::InvalidParameterException);
+    void parseParameters();
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
@@ -108,19 +106,19 @@ public:
 
 protected:
 
-    void checkSampleTags() throw(nidas::util::InvalidParameterException);
+    void checkSampleTags();
 
 private:
 
     /**
      * @return: true=successful, '>' prompt received, and then no data.
      */
-    bool terminalMode() throw(nidas::util::IOException);
+    bool terminalMode();
 
     /**
      * @return: true=data received, false=no or invalid data received.
      */
-    bool dataMode() throw(nidas::util::IOException);
+    bool dataMode();
 
     /**
      * Send a "??CR" string, and read the response, parsing out the
@@ -137,13 +135,11 @@ private:
      * section 12 of the CSAT3 manual.
      */
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
-        std::string& revsion, int& rtsIndep, int& recSep)
-        throw(nidas::util::IOException);
+        std::string& revsion, int& rtsIndep, int& recSep);
 
     const char* getRateCommand(int rate,bool overSample) const;
 
-    std::string sendRateCommand(const char* cmd)
-        throw(nidas::util::IOException);
+    std::string sendRateCommand(const char* cmd);
 
     /**
      * expected input sample length of basic CSAT3 record.

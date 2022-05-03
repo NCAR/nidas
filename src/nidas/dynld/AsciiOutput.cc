@@ -79,13 +79,12 @@ void AsciiOutput::requestConnection(SampleConnectionRequester* requester)
 }
 
 void AsciiOutput::connect(SampleSource* source)
-	throw(n_u::IOException)
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
     source->addSampleClient(this);
 }
 
-void AsciiOutput::printHeader() throw(n_u::IOException)
+void AsciiOutput::printHeader()
 {
     _ostr << "|- id --| |--- date time -------| deltaT    bytes" << endl;
     getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
@@ -94,7 +93,7 @@ void AsciiOutput::printHeader() throw(n_u::IOException)
     _headerOut = true;
 }
 
-bool AsciiOutput::receive(const Sample* samp) throw()
+bool AsciiOutput::receive(const Sample* samp)
 {
     if (!getIOChannel()) return false;
 

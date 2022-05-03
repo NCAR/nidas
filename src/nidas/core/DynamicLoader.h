@@ -44,14 +44,18 @@ public:
 
     /**
      * Get a pointer to the singleton instance of DynamicLoader.
-     */
-    static DynamicLoader* getInstance() throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    static DynamicLoader* getInstance();
 
     /**
      * Search the main program itself, and its currently loaded
      * libraries for a symbol. Throws an exception if the lookup fails.
-     */
-    void *lookup(const std::string& name) throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    void *lookup(const std::string& name);
 
     /**
      * Return a pointer to a symbol from the given library.
@@ -71,12 +75,16 @@ public:
      * If the symbol is found, the library will remain loaded, and
      * symbols in that library can then be found via lookup(name),
      * or by specifying an emptry string for the library.
-     */
-    void *lookup(const std::string& library,const std::string& name)
-    	throw(nidas::util::Exception);
+     *
+     * @throws nidas::util::Exception
+     **/
+    void *lookup(const std::string& library, const std::string& name);
 
 private:
-    DynamicLoader() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    DynamicLoader();
 
     /** No copy. */
     DynamicLoader(const DynamicLoader&);

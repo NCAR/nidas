@@ -64,7 +64,6 @@ XMLConfigService::~XMLConfigService()
 }
 
 void XMLConfigService::schedule(bool /* optionalProcessing */)
-throw(n_u::Exception)
 {
     list<const SampleTag*> dummy;
     list<IOChannel*>::iterator oi = _ochans.begin();
@@ -135,7 +134,7 @@ void XMLConfigService::Worker::interrupt()
     catch (const n_u::Exception& e) {}
 }
 
-int XMLConfigService::Worker::run() throw(n_u::Exception)
+int XMLConfigService::Worker::run() 
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
 

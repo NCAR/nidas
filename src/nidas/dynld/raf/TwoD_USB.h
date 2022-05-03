@@ -50,18 +50,16 @@ public:
     TwoD_USB();
     ~TwoD_USB();
 
-    IODevice *buildIODevice() throw(nidas::util::IOException);
+    IODevice *buildIODevice();
 
-    SampleScanner *buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    SampleScanner *buildSampleScanner();
 
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
     int getTASRate() const { return _tasRate; }
 
@@ -93,14 +91,15 @@ public:
 
     /**
      * Called by post-processing code
+     * 
+     * @throws  nidas::util::InvalidParameterException
      */
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     virtual void
-    derivedDataNotify(const nidas::core:: DerivedDataReader * s)
-        throw();
+    derivedDataNotify(const nidas::core:: DerivedDataReader * s);
 
-    void printStatus(std::ostream& ostr) throw();
+    void printStatus(std::ostream& ostr);
 
     /**
      * Build the struct above from the true airspeed (in m/s).  Encodes
@@ -171,14 +170,13 @@ protected:
     /**
      * Initialize parameters for real-time and post-processing.
      */
-    virtual void init_parameters()
-        throw(nidas::util::InvalidParameterException);
+    virtual void init_parameters();
 
     /**
      * Encode and send the true airspeed to the USB driver, which will
      * in turn send it to the probe.
      */
-    virtual void sendTrueAirspeed(float tas) throw(nidas::util::IOException);
+    virtual void sendTrueAirspeed(float tas);
 
     /**
      * Process a slice and update the Particle struct area, edgeTouch, width

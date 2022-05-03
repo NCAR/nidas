@@ -61,7 +61,6 @@ TwoD64_USB_v3::~TwoD64_USB_v3()
 }
 
 void TwoD64_USB_v3::init_parameters()
-    throw(n_u::InvalidParameterException)
 {
     TwoD_USB::init_parameters();
     float sorRate = 0.0;
@@ -98,7 +97,7 @@ float TwoD64_USB_v3::Tap2DToTAS(const Tap2D * t2d) const
     return (float)p[0]/10.0;
 }
 
-void TwoD64_USB_v3::validate() throw(n_u::InvalidParameterException)
+void TwoD64_USB_v3::validate()
 {
     TwoD64_USB::validate();
 

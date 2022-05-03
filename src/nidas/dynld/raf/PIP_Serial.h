@@ -43,13 +43,11 @@ public:
 
   PIP_Serial();
 
-  void validate()
-        throw(nidas::util::InvalidParameterException);
+  void validate();
 
-  void sendInitString() throw(nidas::util::IOException);
+  void sendInitString();
 
-  bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+  bool process(const Sample* samp,std::list<const Sample*>& results);
 
   static const size_t N_PIP_CHANNELS = 62;
   static const size_t N_PIP_HSKP = 16;
@@ -139,10 +137,9 @@ public:
     /**
      * open the sensor and perform any intialization to the driver.
      */
-    void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    void open(int flags);
 
-    void close() throw(nidas::util::IOException);
+    void close();
 
 protected:
 
@@ -153,7 +150,7 @@ protected:
     /**
      * Set probe time.
      */
-    void sendTimePacket()throw(nidas::util::IOException);
+    void sendTimePacket();
 
     int appendDataAndFindGood(const Sample* sample);
 

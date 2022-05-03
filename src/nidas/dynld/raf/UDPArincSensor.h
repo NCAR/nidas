@@ -53,13 +53,16 @@ public:
     UDPArincSensor();
     virtual ~UDPArincSensor();
 
-    virtual void validate() throw(nidas::util::InvalidParameterException);
+    virtual void validate();
 
-    virtual void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+    virtual void open(int flags);
 
-    virtual void close() throw(nidas::util::IOException);
+    virtual void close();
 
+    /**
+     * Over-ride default nextSample() so we can extract some status bits as
+     * the data passes through.  This is used in real-time for the status page.
+     */
     virtual Sample* nextSample()
     {
         Sample *samp = UDPSocketSensor::nextSample();
@@ -75,9 +78,7 @@ public:
     void printStatus(std::ostream& ostr) throw();
 
 
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
-
+    bool process(const Sample* samp,std::list<const Sample*>& results);
 
     void registerArincSensor(int channel, DSMArincSensor* sensor)
     { _arincSensors[channel] = sensor; }
@@ -100,7 +101,11 @@ protected:
     unsigned int    _badStatusCnt;
 //@}
 
+    /// IP address of the Alta ARINC ENET appliance
     std::string     _ipAddr;
+
+    /// Status port number for the alta_ctrl program.
+    unsigned int    _statusPort;
 
     static const int MAX_CHANNELS;
 

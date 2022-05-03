@@ -65,7 +65,6 @@ const xercesc::DOMElement* ServiceCatalog::find(const std::string& id) const
 }
 
 void ServiceCatalog::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     

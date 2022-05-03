@@ -46,7 +46,6 @@ ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
 }
 
 void ParoSci_202BG_T::readParams(const list<const Parameter*>& params)
-    throw(n_u::InvalidParameterException)
 {
     DSC_FreqCounter::readParams(params);
     list<const Parameter*>::const_iterator pi;
@@ -65,7 +64,7 @@ void ParoSci_202BG_T::readParams(const list<const Parameter*>& params)
     }
 }
 
-void ParoSci_202BG_T::init() throw(n_u::InvalidParameterException)
+void ParoSci_202BG_T::init()
 {
     DSC_FreqCounter::init();
     _presSensor = dynamic_cast<ParoSci_202BG_P*>

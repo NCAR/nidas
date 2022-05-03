@@ -109,7 +109,7 @@ bool SampleBuffer::emptyNoLock() const
 /**
  * Thread function.
  */
-int SampleBuffer::run() throw(n_u::Exception)
+int SampleBuffer::run()
 {
 #ifdef DEBUG
     dsm_time_t tlast;

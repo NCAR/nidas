@@ -95,7 +95,6 @@ void SampleAverager::addVariable(const Variable *var)
 }
 
 void SampleAverager::connect(SampleSource* source)
-        throw(n_u::InvalidParameterException)
 {
     // make a copy of source's SampleTags collection.
     list<const SampleTag*> intags = source->getSampleTags();

@@ -52,19 +52,17 @@ DSC_Event::~DSC_Event()
 {
 }
 
-IODevice* DSC_Event::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_Event::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_Event::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
-void DSC_Event::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void DSC_Event::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -76,13 +74,13 @@ void DSC_Event::open(int flags) throw(n_u::IOException,
 }
 
 
-void DSC_Event::close() throw(n_u::IOException)
+void DSC_Event::close()
 {
     DSMSensor::close();
 }
 
 
-void DSC_Event::init() throw(n_u::InvalidParameterException)
+void DSC_Event::init()
 {
     DSMSensor::init();
     if (getSampleTags().size() != 1)
@@ -99,7 +97,7 @@ void DSC_Event::init() throw(n_u::InvalidParameterException)
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
 }
 
-void DSC_Event::printStatus(std::ostream& ostr) throw()
+void DSC_Event::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {

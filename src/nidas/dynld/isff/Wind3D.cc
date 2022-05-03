@@ -222,7 +222,7 @@ void Wind3D::offsetsTiltAndRotate(dsm_time_t tt, float* uvwt) throw()
     if (_horizontalRotation) _rotator.rotate(uvwt,uvwt+1);
 }
 
-void Wind3D::validate() throw(n_u::InvalidParameterException)
+void Wind3D::validate()
 {
     SerialSensor::validate();
 
@@ -232,7 +232,6 @@ void Wind3D::validate() throw(n_u::InvalidParameterException)
 }
 
 void Wind3D::parseParameters()
-    throw(n_u::InvalidParameterException)
 {
     const Parameter* parameter =
         Project::getInstance()->getParameter("wind3d_horiz_rotation");
@@ -355,9 +354,7 @@ void Wind3D::parseParameters()
 }
 
 void Wind3D::checkSampleTags()
-    throw(n_u::InvalidParameterException)
 {
-
     list<SampleTag*>& tags= getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
@@ -397,7 +394,7 @@ void Wind3D::checkSampleTags()
     }
 }
 
-void Wind3D::validateSscanfs() throw(n_u::InvalidParameterException)
+void Wind3D::validateSscanfs()
 {
     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
 
@@ -420,7 +417,7 @@ void Wind3D::validateSscanfs() throw(n_u::InvalidParameterException)
 }
 
 #ifdef HAVE_LIBGSL
-void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
+void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw)
 {
     if (!_atCalFile || _shadowFactor == 0.0 || std::isnan(_atMatrix[0][0]))
         return;
@@ -481,7 +478,7 @@ void Wind3D::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
     // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
 }
 
-void Wind3D::getTransducerRotation(dsm_time_t tt) throw()
+void Wind3D::getTransducerRotation(dsm_time_t tt)
 {
     if (_atCalFile) {
         while(tt >= _atCalFile->nextTime().toUsecs()) {
@@ -541,9 +538,8 @@ void Wind3D::getTransducerRotation(dsm_time_t tt) throw()
 #endif
 
 bool Wind3D::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+	std::list<const Sample*>& results)
 {
-
     std::list<const Sample*> parseResults;
 
     SerialSensor::process(samp,parseResults);

@@ -42,16 +42,23 @@ class RemoteSerialListener: public Polled
 {
 public:
 
-    RemoteSerialListener(unsigned short port, SensorHandler*)
-        throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    RemoteSerialListener(unsigned short port, SensorHandler*);
 
     ~RemoteSerialListener();
 
     bool handlePollEvents(uint32_t events) throw();
 
-    void close() throw(nidas::util::IOException);
+    /**
+     * @throws nidas::util::IOException
+     **/
+    void close();
 
-    int getFd() const { return _socket.getFd(); }
+    int getFd() const {
+        return _socket.getFd();
+    }
 
     const std::string getName() const
     {

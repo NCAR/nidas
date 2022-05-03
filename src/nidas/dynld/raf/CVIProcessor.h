@@ -54,8 +54,10 @@ public:
      */
     void flush() throw();
 
-    void addRequestedSampleTag(SampleTag* tag)
-	    throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addRequestedSampleTag(SampleTag* tag);
     /**
      * Do common operations necessary when a input has connected:
      * 1. Copy the DSMConfig information from the input to the
@@ -65,7 +67,10 @@ public:
      * connect() methods in subclasses should do whatever
      * initialization necessary before invoking this
      * CVIProcessor::connect().
-     */
+     *
+     * @throws nidas::util::InvalidParameterException
+     * @throws nidas::util::IOException
+     **/
     void connectSource(SampleSource*) override;
 
     /**
@@ -116,15 +121,17 @@ public:
      */
     bool receive(const Sample*s) throw();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
 protected:
 
     /**
-     */
-    void attachLVInput(SampleSource* src, const SampleTag* tag)
-        throw(nidas::util::IOException);
+     * @throws nidas::util::IOException
+     **/
+    void attachLVInput(SampleSource* src, const SampleTag* tag);
 
 private:
 

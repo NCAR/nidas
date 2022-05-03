@@ -56,12 +56,17 @@ public:
 
     void disconnect(nidas::core::SampleInput*) throw();
 
-    void schedule(bool optionalProcessing) throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void schedule(bool optionalProcessing);
 
     void interrupt() throw();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     void printClock(std::ostream& ostr) throw();
 
@@ -189,7 +194,7 @@ private:
         public:
             Worker(RawSampleService* svc,nidas::core::SampleInput *input);
             ~Worker();
-            int run() throw(nidas::util::Exception);
+            int run();
             void interrupt();
         private:
             RawSampleService* _svc;

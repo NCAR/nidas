@@ -146,7 +146,7 @@ LETTER	[a-zA-Z]
 
 
 AsciiSscanf::AsciiSscanf(): 
-	MAX_OUTPUT_VALUES(120),_format(),_charfmt(0),
+	MAX_OUTPUT_VALUES(130),_format(),_charfmt(0),
         _lexpos(0),_currentField(0),_fields(),_allFloats(true),
         _databuf0(0),_bufptrs(new char*[MAX_OUTPUT_VALUES]),
 	_sampleTag(0), _lexer(0)
@@ -181,7 +181,6 @@ int nidas::core::AsciiSscanfAdapter::LexerInput(char* buf, int max_size)
 }
 
 void AsciiSscanf::setFormat(const std::string& val)
-	  throw(nidas::util::ParseException)
 {
 
     _format = val;
@@ -305,7 +304,7 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
      * to increase MAX_OUTPUT_VALUES, then one must add more
      * _bufptrs[XX] here to the sscanf.
      */
-    assert(MAX_OUTPUT_VALUES <= 120);
+    assert(MAX_OUTPUT_VALUES <= 130);
 
     int nparsed = ::sscanf(input,_charfmt,
 	_bufptrs[ 0],_bufptrs[ 1],_bufptrs[ 2],_bufptrs[ 3],_bufptrs[ 4],
@@ -331,7 +330,9 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
         _bufptrs[100],_bufptrs[101],_bufptrs[102],_bufptrs[103],_bufptrs[104],
         _bufptrs[105],_bufptrs[106],_bufptrs[107],_bufptrs[108],_bufptrs[109],
         _bufptrs[110],_bufptrs[111],_bufptrs[112],_bufptrs[113],_bufptrs[114],
-        _bufptrs[115],_bufptrs[116],_bufptrs[117],_bufptrs[118],_bufptrs[119]);
+        _bufptrs[115],_bufptrs[116],_bufptrs[117],_bufptrs[118],_bufptrs[119],
+        _bufptrs[120],_bufptrs[121],_bufptrs[122],_bufptrs[123],_bufptrs[124],
+        _bufptrs[125],_bufptrs[126],_bufptrs[127],_bufptrs[128],_bufptrs[129]);
 
     /*
     std::cerr << "nparsed=" << nparsed << " fmt=" << charfmt <<

@@ -75,8 +75,10 @@ extern std::string replaceChars(const std::string& in,const std::string& pat, co
 /**
  * Run "svn status -v --depth empty" on a path and return a concatentated
  * string of revision + flags, where flags are the first 8 characters.
+ *
+ * @throws IOException
  */
-extern std::string svnStatus(const std::string& path) throw (IOException);
+extern std::string svnStatus(const std::string& path);
 
 /**
  * Calculate wind direction in degrees from U and V wind components,

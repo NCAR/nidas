@@ -43,8 +43,10 @@ public:
 
     ParoSci_202BG_Calibration();
 
-    void readCalFile(nidas::core::CalFile* cf, dsm_time_t tt)
-        throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    void readCalFile(nidas::core::CalFile* cf, dsm_time_t tt);
 
     void setU0(float val) { _U0 = val; }
 

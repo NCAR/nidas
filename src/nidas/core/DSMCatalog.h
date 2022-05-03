@@ -63,9 +63,10 @@ public:
     /**
      * Build this DSMCatalog from a catalog element.
      * The DSMCatalog does not own the DOM elements.
-     */
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
 private:
 

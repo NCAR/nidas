@@ -152,7 +152,6 @@ SampleInputHeader::~SampleInputHeader()
  * Return: true: finished parsing input header, false: more to parse
  */
 bool SampleInputHeader::parse(IOStream* iostream)
-	throw(n_u::ParseException)
 {
     for (;;) {
         switch (_stage) {
@@ -179,7 +178,6 @@ bool SampleInputHeader::parse(IOStream* iostream)
 }
 
 void SampleInputHeader::read(IOStream* iostream)
-	throw(n_u::IOException)
 {
     try {
         while(!parse(iostream)) {
@@ -195,7 +193,6 @@ void SampleInputHeader::read(IOStream* iostream)
  * Return: true: done parsing magic string, false: not done, need to read more
  */
 bool SampleInputHeader::parseMagic(IOStream* iostream)
-	throw(n_u::ParseException)
 {
     int len;
     int rlen;
@@ -241,7 +238,6 @@ bool SampleInputHeader::parseMagic(IOStream* iostream)
 }
 
 bool SampleInputHeader::parseTag(IOStream* iostream)
-	throw(n_u::ParseException)
 {
     _tagMatch = -1;
     int ncbuf = _headPtr - _buf;
@@ -299,7 +295,6 @@ bool SampleInputHeader::parseTag(IOStream* iostream)
 }
 
 bool SampleInputHeader::parseValue(IOStream* iostream)
-	throw(n_u::ParseException)
 {
     if (_tagMatch == _endTag) return true;
     assert(_tagMatch >= 0 && _tagMatch < _ntags);
@@ -360,14 +355,12 @@ string SampleInputHeader::toString() const
 }
 
 size_t SampleInputHeader::write(SampleOutput* output) const
-	throw(n_u::IOException)
 {
     string hdr = toString();
     return output->write(hdr.c_str(),hdr.length());
 }
 
 size_t SampleInputHeader::write(IOStream* output) const
-	throw(n_u::IOException)
 {
     string hdr = toString();
     return output->write(hdr.c_str(),hdr.length(),true);

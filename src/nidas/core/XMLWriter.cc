@@ -36,7 +36,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-XMLWriter::XMLWriter() throw(nidas::core::XMLException):
+XMLWriter::XMLWriter():
     _impl(XMLImplementation::getImplementation()),
 #if XERCES_VERSION_MAJOR < 3
     _writer(((xercesc::DOMImplementationLS*)_impl)->createDOMWriter()),
@@ -149,7 +149,6 @@ void XMLWriter::writeNode(xercesc::XMLFormatTarget* const dest,
 void XMLWriter::writeNode(xercesc::DOMLSOutput* const dest,
     const xercesc::DOMNode& node)
 #endif
-    throw (nidas::core::XMLException,n_u::IOException)
 {
     //reset error count first
     _errorHandler.resetErrors();
@@ -164,7 +163,6 @@ void XMLWriter::writeNode(xercesc::DOMLSOutput* const dest,
 }
 
 void XMLWriter::write(xercesc::DOMDocument*doc, const std::string& fileName)
-        throw(nidas::core::XMLException,n_u::IOException)
 {
     XMLStringConverter convname(fileName);
     xercesc::LocalFileFormatTarget xmlfile((const XMLCh*)convname);

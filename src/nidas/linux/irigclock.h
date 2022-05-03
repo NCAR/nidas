@@ -82,8 +82,8 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-        static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};    
-        return rate[value];       
+        static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};
+        return rate[value];
 }
 
 /*
@@ -199,7 +199,7 @@ struct pc104sg_status {
          * 4: 1=Year not set
          *
          * The status is read from the board 100 times a second.
-         * This status value returned by the IRIG_GET_STATUS ioctl is 
+         * This status value returned by the IRIG_GET_STATUS ioctl is
          * an OR of these bits since the last call to the
          * IRIG_GET_STATUS ioctl.
          */

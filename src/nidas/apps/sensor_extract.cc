@@ -73,9 +73,8 @@ public:
 
     static int usage(const char* argv0);
 
-    void sendHeader(dsm_time_t,SampleOutput*)
-        throw(n_u::IOException);
-    
+    void sendHeader(dsm_time_t,SampleOutput*);
+
     /**
      * for debugging.
      */
@@ -432,7 +431,6 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
 }
 
 void SensorExtract::sendHeader(dsm_time_t,SampleOutput* out)
-    throw(n_u::IOException)
 {
     printHeader();
     header.write(out);

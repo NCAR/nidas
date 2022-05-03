@@ -110,8 +110,10 @@ public:
 
     unsigned short computeCheckSum(const unsigned char *pkt, int len);
 
-    void validate()
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void validate();
 
     /**
      * Max # for array sizing.  Valid number of channels are 10, 20, 30 and 40.
@@ -131,9 +133,11 @@ protected:
      * @parameter packet is the pre-populated intialization packet to send.
      * @parameter len is the length in bytes of the above packet.
      * @parameter return_len is the length of the return packet from the probe.
-     */
+     *
+     * @throws nidas::util::IOException
+     **/
     virtual void
-        sendInitPacketAndCheckAck(void * packet, int len, int return_len = 2) throw(nidas::util::IOException);
+    sendInitPacketAndCheckAck(void * packet, int len, int return_len = 2);
 
     /**
      * Append _packetLen bytes of data to _waitingData, and find the earliest

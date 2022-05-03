@@ -81,7 +81,7 @@ CSAT3_Sonic::~CSAT3_Sonic()
     delete _ttadjuster;
 }
 
-bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
+bool CSAT3_Sonic::dataMode()
 {
     clearBuffer();
 
@@ -162,7 +162,6 @@ string CSAT3_Sonic::getSerialNumber(const string& str,
 
 string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber,
         string& revision, int& rtsIndep, int& recSep)
-throw(n_u::IOException)
 {
     string result;
 
@@ -295,7 +294,6 @@ throw(n_u::IOException)
 }
 
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
-throw(n_u::IOException)
 {
     DLOG(("%s: sending %s",getName().c_str(),cmd));
     write(cmd,2);
@@ -357,7 +355,6 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 }
 
 void CSAT3_Sonic::open(int flags)
-throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SerialSensor::open(flags);
 
@@ -534,7 +531,7 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     }
 }
 
-bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
+bool CSAT3_Sonic::terminalMode()
 {
 
     // in terminal mode, sonic sends ">" prompts
@@ -588,9 +585,8 @@ float CSAT3_Sonic::correctTcForPathCurvature(float tc, float, float, float)
 }
 
 bool CSAT3_Sonic::process(const Sample* samp,
-        std::list<const Sample*>& results) throw()
+        std::list<const Sample*>& results)
 {
-
     size_t inlen = samp->getDataByteLength();
     if (inlen < _windInLen) return false;	// not enough data
     if (inlen > _totalInLen + 2) return false;  // exclude wacko records
@@ -770,7 +766,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     return true;
 }
 
-void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
+void CSAT3_Sonic::parseParameters()
 {
 
     Wind3D::parseParameters();
@@ -822,7 +818,7 @@ void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 #endif
 }
 
-void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
+void CSAT3_Sonic::checkSampleTags()
 {
 
     Wind3D::checkSampleTags();

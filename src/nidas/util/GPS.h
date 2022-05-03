@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2008, Copyright University Corporation for Atmospheric Research
+ ** 2005, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -24,6 +24,20 @@
  ********************************************************************
 */
 
-#include "UDPSocketSensor.h"
+#ifndef NIDIS_UTIL_GPS_H
+#define NIDIS_UTIL_GPS_H
 
-NIDAS_CREATOR_FUNCTION_NS(raf,UDPSocketSensor)
+/**
+ * GPS utility functions.
+ */
+
+namespace nidas { namespace util {
+    /**
+     * Calculate the checksum of a NMEA message and return a logical
+     * indicating whether it is equal to the checksum at the end of the message.
+     */
+    bool NMEAchecksumOK(const char* rec,int len);
+
+}}	// namespace nidas namespace util
+
+#endif

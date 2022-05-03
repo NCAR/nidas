@@ -59,7 +59,7 @@ Wind2D::~Wind2D()
 {
 }
 
-void Wind2D::validate() throw(n_u::InvalidParameterException)
+void Wind2D::validate()
 {
     SerialSensor::validate();
 
@@ -117,7 +117,7 @@ void Wind2D::validate() throw(n_u::InvalidParameterException)
     }
 }
 
-void Wind2D::validateSscanfs() throw(n_u::InvalidParameterException)
+void Wind2D::validateSscanfs()
 {
     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
     std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
@@ -313,9 +313,7 @@ bool Wind2D::process(const Sample* samp,
 }
 
 void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
-
     SerialSensor::fromDOMElement(node);
 
     static struct ParamSet {

@@ -56,8 +56,10 @@ public:
 
     const xercesc::DOMElement* find(const std::string& id) const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
 private:
 

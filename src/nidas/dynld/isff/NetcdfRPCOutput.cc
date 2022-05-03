@@ -71,7 +71,6 @@ NetcdfRPCOutput::~NetcdfRPCOutput()
 }
 
 void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
-	throw(n_u::IOException)
 {
     // NetcdfRPCChannel needs to know the SampleTags before it connects.
     list<const SampleTag*> tags = getSourceSampleTags();
@@ -80,7 +79,7 @@ void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
     SampleOutputBase::requestConnection(requester);
 }
 
-SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc) throw()
+SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc)
 {
     SampleOutput* so = SampleOutputBase::connected(ioc);
     if (so == this && !_ncChannel) setIOChannel(ioc);
@@ -95,8 +94,7 @@ void NetcdfRPCOutput::setIOChannel(IOChannel* val)
     _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
-bool NetcdfRPCOutput::receive(const Sample* samp) 
-    throw()
+bool NetcdfRPCOutput::receive(const Sample* samp)
 {
     dsm_time_t tt = samp->getTimeTag();
     if (_startTime && tt < _startTime)
@@ -116,7 +114,6 @@ bool NetcdfRPCOutput::receive(const Sample* samp)
 }
 
 void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
-        throw(n_u::InvalidParameterException)
 {
     // process <ncserver> tag
     int niochan = 0;

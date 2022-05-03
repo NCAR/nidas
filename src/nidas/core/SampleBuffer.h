@@ -254,7 +254,7 @@ private:
     /**
      * Thread run function.
      */
-    int run() throw(nidas::util::Exception);
+    int run();
 
 // #define USE_DEQUE
 #ifdef USE_DEQUE

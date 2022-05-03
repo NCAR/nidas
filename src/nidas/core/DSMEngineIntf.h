@@ -46,7 +46,10 @@ class DSMEngineIntf : public XmlRpcThread
 public:
     DSMEngineIntf();
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
     /**
      * Register a sensor to have its executeXmlRpc() method called

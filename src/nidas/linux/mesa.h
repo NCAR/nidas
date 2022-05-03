@@ -191,9 +191,9 @@ struct MESA_Board
         struct irig_callback *radarCallback;
         struct irig_callback *p260xCallback;
 
-        struct dsm_sample_circ_buf cntr_samples;  
-        struct dsm_sample_circ_buf radar_samples;  
-        struct dsm_sample_circ_buf p260x_samples;  
+        struct dsm_sample_circ_buf cntr_samples;
+        struct dsm_sample_circ_buf radar_samples;
+        struct dsm_sample_circ_buf p260x_samples;
 
         struct sample_read_state cntr_read_state;
         struct sample_read_state radar_read_state;
@@ -209,7 +209,7 @@ struct MESA_Board
         struct mesa_status status;
 
         // available for open. Used to enforce exclusive access
-        atomic_t available;                    
+        atomic_t available;
 };
 
 #endif                          /* __KERNEL__ */

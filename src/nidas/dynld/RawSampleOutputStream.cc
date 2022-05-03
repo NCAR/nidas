@@ -66,7 +66,6 @@ RawSampleOutputStream* RawSampleOutputStream::clone(IOChannel* iochannel)
 }
 
 void RawSampleOutputStream::fromDOMElement(const xercesc::DOMElement* node)
-        throw(n_u::InvalidParameterException)
 {
     SampleOutputStream::fromDOMElement(node);
     if (getIOChannel()->getRequestType() < 0)

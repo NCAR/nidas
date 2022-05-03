@@ -58,7 +58,7 @@ string replace_util(const string& str,const string& s1, const string& s2) {
 
 DOMable* 
 DOMObjectFactory::
-createObject(const string& classname) throw(n_u::Exception)
+createObject(const string& classname)
 {
     nidas::core::DOMable* (*ctor)() = 0;
 

@@ -165,7 +165,6 @@ const Parameter* VariableConverter::getParameter(const std::string& name) const
 }
 
 VariableConverter* VariableConverter::createFromString(const std::string& str)
-	throw(n_u::InvalidParameterException)
 {
     istringstream ist(str);
 
@@ -210,7 +209,6 @@ VariableConverter* VariableConverter::createVariableConverter(
 }
 
 void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     XDOMElement xnode(node);
@@ -390,7 +388,6 @@ std::string Linear::toString() const
 }
 
 void Linear::fromString(const std::string& str)
-	throw(n_u::InvalidParameterException)
 {
     istringstream ist(str);
     string which;
@@ -432,7 +429,6 @@ void Linear::fromString(const std::string& str)
 }
 
 void Linear::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
 
     // do base class fromDOMElement
@@ -554,7 +550,6 @@ std::string Polynomial::toString() const
 }
 
 void Polynomial::fromString(const std::string& str)
-	throw(n_u::InvalidParameterException)
 {
     istringstream ist(str);
     string which;
@@ -592,7 +587,6 @@ void Polynomial::fromString(const std::string& str)
 }
 
 void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     // do base class fromDOMElement
     VariableConverter::fromDOMElement(node);

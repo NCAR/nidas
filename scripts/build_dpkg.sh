@@ -22,7 +22,16 @@ if [ $# -lt 1 ]; then
 fi
 
 arch=amd64
+
+# For some reason on my Fedora laptop, dpkg_build.sh takes forever 
+# from within a podman container, sitting at the
+#   "dpkg-source: info: building nidas in nidas_1.2+xxxx.tar.xz"
+# step for 30 minutes or so.  top shows "xz" is using a bunch of
+# CPU time, but very little memory.
+# Have tried adding -J and -I options, no effect.
+
 args="--no-tgz-check -sa"
+
 use_chroot=false
 while [ $# -gt 0 ]; do
     case $1 in
@@ -62,17 +71,17 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ -n "$repo" ]; then
+if [ -n "$repo" -a -d "$repo" ]; then
     distconf=$repo/conf/distributions
     if [ -r $distconf ]; then
-        codename=$(fgrep Codename: $distconf | cut -d : -f 2)
+        distcodename=$(fgrep Codename: $distconf | cut -d : -f 2)
         key=$(fgrep SignWith: $distconf | cut -d : -f 2)
         # first architecture listed
         primarch=$(fgrep Architectures: $distconf | cut -d : -f 2 | awk '{print $1}')
     fi
 
-    if [ -z "$codename" ]; then
-        echo "Cannot determine codename of repository at $repo"
+    if [ -z "$distcodename" ]; then
+        echo "Cannot determine codename of repository configuration $distconf"
         exit 1
     fi
     export GPG_TTY=$(tty)
@@ -171,7 +180,7 @@ if $use_chroot; then
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
-    debuild $args \
+    time debuild $args \
         --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 fi
 

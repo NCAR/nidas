@@ -58,7 +58,6 @@ ChronyLog::ChronyLog():
 }
 
 void ChronyLog::init()
-    throw(n_u::InvalidParameterException)
 {
 
     WatchedFileSensor::init();

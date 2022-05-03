@@ -180,9 +180,10 @@ public:
      * parse(false,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
      * @param nparsed: number of characters parsed.
+     *
+     * @throws ParseException
      */
-    static UTime parse(bool utc, const std::string& string, int* nparsed=0)
-    	throw(ParseException);
+    static UTime parse(bool utc, const std::string& string, int* nparsed=0);
 
     /**
      * Parse a character string into a UTime.
@@ -195,22 +196,26 @@ public:
      * @param nparsed: number of characters parsed.
      * Example:
      * UTime ut = UTime::parse(true,timestr,"%Y %m %d %H:%M:%S.%2f");
+     *
+     * @throws ParseException
      */
     static UTime parse(bool utc, const std::string& string,
-                       const std::string& format, int* nparsed=0)
-        throw(ParseException);
+                       const std::string& format, int* nparsed=0);
 
     /**
      * Updates the value of a UTime by doing a parse(utc,string,nparsed).
+     *
+     * @throws ParseException
      */
-    void set(bool utc,const std::string& string,int* nparsed=0) 
-    	throw(ParseException);
+    void set(bool utc,const std::string& string,int* nparsed=0);
 
     /**
      * Updates the value of a UTime by doing a parse(utc,string,format,nparsed).
+     *
+     * @throws ParseException
      */
-    void set(bool utc,const std::string& string,const std::string& format,int* nparsed=0) 
-    	throw(ParseException);
+    void set(bool utc,const std::string& string, const std::string& format,
+             int* nparsed=0);
 
     /**
      * Format a UTime into a string.
@@ -631,10 +636,10 @@ inline long long timeFloor(long long t,long long delta) {
 /**
  * Utility function, sleeps until the next even period + offset.
  * Returns true if interrupted.
+ *
+ * @throws IOException
  */
-extern bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
-    throw(IOException);
-
+extern bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0);
 
 }}	// namespace nidas namespace util
 

@@ -27,6 +27,7 @@
 #include "UDPArincSensor.h"
 #include "DSMArincSensor.h"
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
 #include <csignal>
@@ -48,7 +49,7 @@ const int UDPArincSensor::MAX_CHANNELS = 8;
 
 
 UDPArincSensor::UDPArincSensor() :
-    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _ctrl_pid(0), _arincSensors()
+    _prevAPMPseqNum(0), _badAPMPseqCnt(0), _badStatusCnt(0), _statusPort(0), _ctrl_pid(0), _arincSensors()
 {
     for (int i = 0; i < MAX_CHANNELS; ++i)
         _prevRXPseqNum[i] = _badRXPseqCnt[i] = 0;
@@ -75,7 +76,7 @@ UDPArincSensor::~UDPArincSensor()
                  << i << " = " << _badRXPseqCnt[i]-1 << std::endl;
 }
 
-void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
+void UDPArincSensor::validate()
 {
     UDPSocketSensor::validate();
 
@@ -85,10 +86,14 @@ void UDPArincSensor::validate() throw(nidas::util::InvalidParameterException)
           "IP", "not found");
     _ipAddr = p->getStringValue(0);
 
+    p = getParameter("status_port"); // Status port for ARINCSTATUS
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "status_port", "not found");
+    _statusPort = (unsigned int)p->getNumericValue(0);
+
 }
 
 void UDPArincSensor::open(int flags)
-        throw(n_u::IOException,n_u::InvalidParameterException)
 {
     UDPSocketSensor::open(flags);
 
@@ -101,7 +106,7 @@ void UDPArincSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        char *args[20];
+        char *args[20], port[32];
         int argc = 0;
 
         args[argc++] = (char *)"arinc_ctrl";
@@ -110,7 +115,6 @@ void UDPArincSensor::open(int flags)
             args[argc++] = (char *)_ipAddr.c_str();
         }
 
-        std::string port;
         std::string dev = getDeviceName();
         size_t pos = dev.find("::");
         if (pos != std::string::npos) {
@@ -127,13 +131,18 @@ void UDPArincSensor::open(int flags)
             strcpy(args[argc++], sp.str().c_str());
         }
 
+        if (_statusPort > 0) {
+            sprintf(port, "%u", _statusPort);
+            args[argc++] = (char *)"-u";
+            args[argc++] = (char *)port;
+        }
+
         args[argc] = (char *)0;
         execvp(args[0], args);
     }
 }
 
 void UDPArincSensor::close()
-        throw(n_u::IOException)
 {
     UDPSocketSensor::close();
 
@@ -146,7 +155,7 @@ void UDPArincSensor::close()
 }
 
 bool UDPArincSensor::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                           list < const Sample * >&results)
 {
     const unsigned char *input = (const unsigned char *)samp->getConstVoidDataPtr();
     const APMP_hdr *hSamp = (const APMP_hdr *)input;
@@ -163,14 +172,17 @@ bool UDPArincSensor::process(const Sample * samp,
 
     if (bigEndian->uint32Value(hSamp->alta) != 0x414c5441)
     {
-      WLOG(("bad magic cookie 0x%08x, should be 0x414c5441\n", bigEndian->uint32Value(hSamp->alta)));
+      WLOG(("%s %s : bad magic cookie 0x%08x, should be 0x414c5441\n", getName().c_str(),
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f").c_str(),
+        bigEndian->uint32Value(hSamp->alta)));
       return false;
     }
 
     if (bigEndian->uint32Value(hSamp->mode) != 1 || (bigEndian->uint32Value(hSamp->status) & 0xFFFF) != 0)
     {
       _badStatusCnt++;
-      WLOG(("bad packet received mode = %d, status = %u\n",
+      WLOG(("%s %s : bad packet received mode = %d, status = %u\n", getName().c_str(),
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f").c_str(),
         bigEndian->uint32Value(hSamp->mode), bigEndian->uint32Value(hSamp->status) & 0xffff));
       return false;
     }
@@ -184,9 +196,10 @@ bool UDPArincSensor::process(const Sample * samp,
 
     uint32_t startTime = (decodeIRIG((unsigned char *)&hSamp->IRIGtimeLow) * 1000) + 1000;
 
-    DLOG(( "APMP: nFields=%3u seqNum=%u, pSize=%u - PE %lld IRIG julianDay=%x %s", nFields,
-                seqNum, payloadSize, PE,
-                bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
+    DLOG(( "%s : APMP: nFields=%3u seqNum=%u, pSize=%u - PE %lld IRIG julianDay=%x %s",
+        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f").c_str(),
+        nFields, seqNum, payloadSize, PE,
+        bigEndian->uint32Value(hSamp->IRIGtimeHigh), irigHHMMSS ));
 
     if (seqNum != _prevAPMPseqNum+1)
         _badAPMPseqCnt++;
@@ -216,9 +229,10 @@ bool UDPArincSensor::process(const Sample * samp,
             if (seqNum % 256 != (_prevRXPseqNum[channel]+1) % 256)
             {
                 _badRXPseqCnt[channel]++;
-                WLOG(( "RXP out of seq, channel = %d, APMP seq # = %d, RXP# in APMP = %d/%d, data = %u, prevSeq = %d, thisSeq = %d",
-                       channel, _prevAPMPseqNum, i, nFields, (packet.data & 0x000000ff),
-                       _prevRXPseqNum[channel], seqNum ));
+                WLOG(( "%s : RXP out of seq, channel=%d, APMP seq #%d, RXP# in APMP=%d/%d, data=%u, prevSeq=%d, thisSeq=%d",
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f").c_str(),
+                    channel, _prevAPMPseqNum, i, nFields, (packet.data & 0x000000ff),
+                    _prevRXPseqNum[channel], seqNum ));
             }
             _prevRXPseqNum[channel] = seqNum;
         }

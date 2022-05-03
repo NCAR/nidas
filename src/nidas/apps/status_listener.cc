@@ -50,8 +50,8 @@ static int usage(const char* argv0)
 
 int main(int argc, char** argv)
 {
-    // extern char *optarg;       /* set by getopt() */
-    // extern int optind;       /* "  "     "     */
+    // extern char *optarg;       // set by getopt()
+    // extern int optind;       // "  "     "
     int opt_char;     /* option character */
     bool debug = false;
 

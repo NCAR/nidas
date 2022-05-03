@@ -99,9 +99,9 @@ class Sender: public n_u::Thread
 public:
     Sender(bool ascii,int dsize);
     ~Sender();
-    int run() throw(n_u::Exception);
-    void send() throw(n_u::IOException);
-    void flush() throw(n_u::IOException);
+    int run();
+    void send();
+    void flush();
     unsigned int getNout() const { return _nout; }
 
     float getKbytePerSec() const
@@ -141,13 +141,15 @@ class Receiver
 public:
     Receiver(int timeoutSecs,const Sender*);
 
-    void run() throw(n_u::IOException);
+    int run();
     void report();
 
     float getKbytePerSec() const
     {
         return (( _deltaT == 0) ? 0.0 : _byteSum / (float)_deltaT);
     }
+
+    unsigned int nBad;
 
 private:
 
@@ -194,14 +196,14 @@ class ModemLineSetter: public n_u::Thread
 {
 public:
     ModemLineSetter():Thread("ModemLineSetter") {}
-    int run() throw(n_u::Exception);
+    int run();
 };
 
 class ModemLineMonitor: public n_u::Thread
 {
 public:
     ModemLineMonitor():Thread("ModemLineMonitor") {}
-    int run() throw(n_u::Exception);
+    int run();
 };
 
 /* cksum -- calculate and print POSIX checksums and sizes of files
@@ -353,7 +355,7 @@ Sender::~Sender()
     delete [] _dbuf;
 }
 
-int Sender::run() throw(n_u::Exception)
+int Sender::run()
 {
     for (;_nout < nPacketsOut;) {
         if (isInterrupted() || interrupted) break;
@@ -366,7 +368,7 @@ int Sender::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-void Sender::flush() throw(n_u::IOException)
+void Sender::flush()
 {
     int len = _hptr - _tptr;
     if (len == 0) return;
@@ -376,7 +378,7 @@ void Sender::flush() throw(n_u::IOException)
         _hptr = _tptr = _buf;
 }
 
-void Sender::send() throw(n_u::IOException)
+void Sender::send()
 {
     struct timeval tv;
     gettimeofday(&tv,0);
@@ -427,7 +429,7 @@ void Sender::send() throw(n_u::IOException)
 }
 
 Receiver::Receiver(int timeoutSecs,const Sender*s):
-    RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
+    nBad(0), RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
     _timeoutSecs(timeoutSecs), _last10(), _last100(), _msec100(),
     _msec100ago(0),_ngood10(0),_ngood100(0),
     _Npack(0),_Nlast(0),_dsize(0),_dsizeTrusted(0),
@@ -463,7 +465,7 @@ void Receiver::reallocateBuffer(int len)
     _buflen = len;
 }
 
-void Receiver::run() throw(n_u::IOException)
+int Receiver::run()
 {
     fd_set readfds;
     FD_ZERO(&readfds);
@@ -479,14 +481,17 @@ void Receiver::run() throw(n_u::IOException)
         int nfd = select(nfds,&fds,0,0,(timeoutSecs > 0 ? &timeout : 0));
 
         if (nfd < 0) {
-            if (errno == EINTR) return;
+            if (errno == EINTR) return 0;
             throw n_u::IOException(device,"select",errno);
         }
         if (nfd == 0) {
+            report();
+            // without flush here the timieout message to cerr will likely appear
+            // before the report(). We want it last.
+            cout << flush;
             cerr << device << ": timeout " << timeoutSecs <<
                 " seconds" << endl;
-            report();
-            return;
+            return 1;
         }
         int len = _eob - _wptr;
         assert(len > 0);
@@ -497,6 +502,7 @@ void Receiver::run() throw(n_u::IOException)
         _wptr += l;
         if (scanBuffer()) break;
     }
+    return 0;
 }
 
 /**
@@ -517,8 +523,8 @@ int Receiver::scanBuffer()
 #ifdef DEBUG
                 cerr << "Npack=" << _Npack << " _msec=" << _msec << " _dsize=" << _dsize << endl;
 #endif
-                // if missing packets
                 if (_Npack != EOF_NPACK) {
+                    // check for missing packets, _Npack exceeds _Nlast by more than 1
                     for (unsigned int n = _Nlast + 1; n < _Npack; n++) {
                         int iout = n % 10;
                         if (_ngood10 > 0 && _last10[iout] > 0) _ngood10--;
@@ -527,6 +533,7 @@ int Receiver::scanBuffer()
                         if (_ngood100 > 0 && _last100[iout] > 0) _ngood100--;
                         _byteSum -= _last100[iout];
                         _last100[iout] = 0;
+                        nBad++;
                     }
                     _Nlast = _Npack;
                 }
@@ -587,6 +594,7 @@ int Receiver::scanBuffer()
         if (!goodPacket) {
             // bad packet, look for ETX to try to make some sense of this junk
             for ( ; _rptr < _wptr && *_rptr++ != ETX; );
+            nBad++;
         }
         else report();
     }
@@ -623,7 +631,7 @@ void Receiver::report()
     cout << endl;
 }
 
-int ModemLineSetter::run() throw(n_u::Exception)
+int ModemLineSetter::run()
 {
     int dtebits = TIOCM_DTR | TIOCM_RTS;
 
@@ -655,7 +663,7 @@ int ModemLineSetter::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-int ModemLineMonitor::run() throw(n_u::Exception)
+int ModemLineMonitor::run()
 {
     int val = 0;
 
@@ -702,6 +710,10 @@ Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-
   -t timeout: receive timeout in seconds. Default=0 (forever)\n\
   -v: verbose, display sent and received data packets to stderr\n\
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
+  Return value:\n\
+    0: success\n\
+    1: I/O error or timeout\n\
+    2: at least one packet error: a packet lost or a checksum error\n\n\
 ttyopts:\n  " << n_u::SerialOptions::usage() << "\n\
   Note that the port is always opened in raw mode, overriding what\n\
   the user specifies in ttyopts\n\n\
@@ -772,7 +784,7 @@ int parseRunstring(int argc, char** argv)
     return 0;
 }
 
-void openPort() throw(n_u::IOException, n_u::ParseException)
+void openPort()
 {
     n_u::SerialOptions options;
     options.parse(termioOpts);
@@ -901,12 +913,14 @@ int main(int argc, char**argv)
     int status = 0;
     Receiver rcvr(timeoutSecs,sender.get());
     try {
-        rcvr.run();
+        status = rcvr.run();
+        if (!status && rcvr.nBad > 0) status = 2;
     }
     catch(const n_u::IOException &e) {
         cerr << "Error: " << e.what() << endl;
         status = 1;
     }
+
 
     if (sender.get()) {
         sender->interrupt();

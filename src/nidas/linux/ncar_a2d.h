@@ -27,7 +27,7 @@
 
 */
 
-/* 
+/*
  * This header is shared from user-side code that wants to get the
  * values of the ioctl commands.
  */
@@ -38,7 +38,7 @@
 #include "types.h"              // get nidas typedefs
 #include "a2d.h"
 
-/* 
+/*
  * User programs need these for the _IO macros, but kernel modules get
  * theirs elsewhere.
  */
@@ -101,7 +101,7 @@ struct ncar_a2d_status
  */
 struct ncar_a2d_setup
 {
-    int   gain[NUM_NCAR_A2D_CHANNELS];  // gain settings
+    int gain[NUM_NCAR_A2D_CHANNELS];    // gain settings
     int offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
     int calset[NUM_NCAR_A2D_CHANNELS];  // cal voltage channels
     int vcal;                           // cal voltage

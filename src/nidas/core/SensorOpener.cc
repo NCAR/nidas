@@ -107,7 +107,7 @@ void SensorOpener::interrupt()
 /**
  * Thread function, open sensors.
  */
-int SensorOpener::run() throw(n_u::Exception)
+int SensorOpener::run()
 {
 
     // If cancel() is used in the interrupt() method,

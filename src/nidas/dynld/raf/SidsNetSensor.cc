@@ -54,7 +54,7 @@ SidsNetSensor::SidsNetSensor() :
 /*---------------------------------------------------------------------------*/
 /* Stuff that is necessary when post-processing.
  */
-void SidsNetSensor::init() throw(n_u::InvalidParameterException)
+void SidsNetSensor::init()
 {
     DSMSensor::init();
 

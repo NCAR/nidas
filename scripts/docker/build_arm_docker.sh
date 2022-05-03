@@ -1,66 +1,64 @@
 #!/bin/sh
 
+dockerns=ncar   # namespace on docker.io
+
+usage() {
+    echo "${0##*/} [--no-cache] [-p] [armel] [armhf]
+    --no-cache: dont' use podman cache when building images
+    -p: push image to docker.io/$dockerns. You may need to do: podman login docker.io
+    "
+    exit 1
+}
+
+cacheFlag=""
+dopush=false
+arches=()
+while [ $# -gt 0 ]; do
+    case $1 in
+        --no-cache)
+            cacheFlag="--no-cache"
+            ;;
+        -p)
+            dopush=true
+            ;;
+        arm*)
+            arches=(${arches[*]} $1)
+            ;;
+
+        *)
+            usage
+            ;;
+    esac
+    shift
+done
+
 # Build a docker image of Debian Jessie for doing C/C++ debian builds for
 # various targets, such as armel and armhf (RPi).
 # The image is built from the Dockerfile.cross_arm in this directory.
 
 set -e
 
-# images will have a "builder" user, and a group eol:1342
+for arch in ${arches[*]}; do
 
-# You must do a "docker login $dockuser" before doing
-# the docker push
-dockuser=ncar
+    version=2
+    tag=jessie_v$version
 
-# user=ads
-# uid=12900
-# group=eol
-# gid=1342
-version=2
-tag=jessie_v$version
+    image=nidas-build-debian-$arch
+    echo "arch is $arch"
+    echo "image is $image"
+    echo "tagged image is $dockerns/$image:$tag"
 
-cacheFlag="--no-cache"
-if [[ "$1" == "--use-cache"  ]] ; then
-    cacheFlag=""
-    echo "Using docker cache for build"
-else
-    echo "NOT using docker cache for build"
-fi
+    podman build $cacheFlag -t $dockerns/$image:$tag \
+        --build-arg hostarch=$arch \
+        -f Dockerfile.cross_arm .
 
-hostarch=armel
-image=nidas-build-debian-$hostarch
-echo "arch is $hostarch"
-echo "image is $image"
-echo "tagged image is $dockuser/$image:$tag"
-#    --build-arg user=$user \
-#    --build-arg uid=$uid \
-#    --build-arg group=$group \
-#    --build-arg gid=$gid \
-docker build $cacheFlag -t $image \
-    --build-arg hostarch=$hostarch \
-    -f Dockerfile.cross_arm .
-# Only tag and push if the build worked
-if [[ "$?" -eq 0 ]] ; then
-    docker tag  $image $dockuser/$image:$tag
-    # docker push $dockuser/$image:$tag
-fi
+    # Only push if the build worked
+    if [[ "$?" -eq 0 ]] ; then
+        if $dopush; then
+            echo "Pushing $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag"
+            podman push $dockerns/$image:$tag docker://docker.io/$dockerns/$image:$tag && echo "push success"
+        fi
+    fi
 
-exit
+done
 
-hostarch=armhf
-image=nidas-build-debian-$hostarch
-echo "arch is $hostarch"
-echo "image is $image"
-echo "tagged image is $dockuser/$image:$tag"
-#    --build-arg user=$user \
-#    --build-arg uid=$uid \
-#    --build-arg group=$group \
-#    --build-arg gid=$gid \
-docker build $cacheFlag -t $image \
-    --build-arg hostarch=$hostarch \
-    -f Dockerfile.cross_arm .
-# Only tag and push if the build worked
-if [[ "$?" -eq 0 ]] ; then
-    docker tag  $image $dockuser/$image:$tag
-    # docker push $dockuser/$image:$tag
-fi

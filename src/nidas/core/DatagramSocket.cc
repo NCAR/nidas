@@ -135,7 +135,6 @@ void DatagramSocket::setUnixPath(const string& unixpath)
 }
 
 const n_u::SocketAddress& DatagramSocket::getSocketAddress()
-    throw(n_u::UnknownHostException)
 {
     // lookup up address on every call.
     if (_host.length() > 0) {
@@ -158,7 +157,7 @@ const n_u::SocketAddress& DatagramSocket::getSocketAddress()
     return *_sockAddr.get();
 }
 
-IOChannel* DatagramSocket::connect() throw(n_u::IOException)
+IOChannel* DatagramSocket::connect()
 {
     try {
         const n_u::SocketAddress& saddr = getSocketAddress();
@@ -192,7 +191,6 @@ IOChannel* DatagramSocket::connect() throw(n_u::IOException)
 }
 
 void DatagramSocket::requestConnection(IOChannelRequester* requester)
-	throw(n_u::IOException)
 {
     _iochanRequester = requester;
     connect();
@@ -200,7 +198,6 @@ void DatagramSocket::requestConnection(IOChannelRequester* requester)
 }
 
 void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     int port = 0;
     string unixPath;

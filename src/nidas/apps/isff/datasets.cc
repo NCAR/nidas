@@ -55,7 +55,7 @@ public:
 
     void listDatasetNames();
 
-    void showEnv() throw(nidas::util::InvalidParameterException);
+    void showEnv();
 
     enum tasks { NUTTIN_TO_DO, LIST_DATASET_NAMES, SHOW_BASH_ENV, SHOW_CSH_ENV };
 
@@ -188,7 +188,6 @@ void DatasetsApp::listDatasetNames()
 }
 
 void DatasetsApp::showEnv()
-    throw(nidas::util::InvalidParameterException)
 {
 
     const Dataset& dataset = _datasets.getDataset(_datasetName);

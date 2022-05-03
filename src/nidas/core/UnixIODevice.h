@@ -81,44 +81,52 @@ public:
 
     /**
      * open the device.
+     *
+     * @throws nidas::util::IOException
      */
-    void open(int flags) throw(nidas::util::IOException)
+    void open(int flags)
     {
         if ((_fd = ::open(getName().c_str(),flags)) < 0)
-		throw nidas::util::IOException(getName(),"open",errno);
+            throw nidas::util::IOException(getName(),"open",errno);
     }
 
     /**
      * Read from the device.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t read(void *buf, size_t len) throw(nidas::util::IOException)
+    size_t read(void *buf, size_t len)
     {
-	ssize_t result;
+        ssize_t result;
         if ((result = ::read(_fd,buf,len)) < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
             throw nidas::util::IOException(getName(),"read",errno);
         }
-	if (result == 0) 
-		throw nidas::util::EOFException(getName(),"read");
-	return result;
+        if (result == 0)
+            throw nidas::util::EOFException(getName(),"read");
+        return result;
     }
 
     /**
      * Read from the device with a timeout in milliseconds.
-     */
-    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException);
+     *
+     * @throws nidas::util::IOException
+     **/
+    size_t read(void *buf, size_t len, int msecTimeout);
 
     /**
      * Write to the device.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException)
+    size_t write(const void *buf, size_t len)
     {
-	ssize_t result;
+        ssize_t result;
         if ((result = ::write(_fd,buf,len)) < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
             throw nidas::util::IOException(getName(),"write",errno);
         }
-	return result;
+        return result;
     }
 
     /*
@@ -126,22 +134,26 @@ public:
      * value which must be supported by the device. Normally
      * this is a value from a header file for the device.
      * size_t len parameter is not used.
+     *
+     * @throws nidas::util::IOException
      */
-    void ioctl(int request, void* buf, size_t) throw(nidas::util::IOException)
+    void ioctl(int request, void* buf, size_t)
     {
         if (::ioctl(_fd,request,buf) < 0)
-		throw nidas::util::IOException(getName(),"ioctl",errno);
+            throw nidas::util::IOException(getName(),"ioctl",errno);
     }
 
     /**
      * close the device
-    */
-    void close() throw(nidas::util::IOException)
+     *
+     * @throws nidas::util::IOException
+     **/
+    void close()
     {
         int fd = _fd;
         _fd = -1;
         if (fd >= 0 && ::close(fd) < 0)
-		throw nidas::util::IOException(getName(),"close",errno);
+            throw nidas::util::IOException(getName(),"close",errno);
     }
 
 protected:

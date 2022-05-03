@@ -52,55 +52,63 @@ public:
     ~BluetoothRFCommSocketIODevice();
 
     /**
-    * open the RFComm.
-    */
-    void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+     * open the RFComm.
+     *
+     * @throws nidas::util::IOException
+     * @throws nidas::util::InvalidParameterException
+     */
+    void open(int flags);
 
     /**
      * The file descriptor used when reading from this SocketIODevice.
      */
     int getReadFd() const
     {
-	if (_socket) return _socket->getFd();
-	return -1;
+        if (_socket) return _socket->getFd();
+        return -1;
     }
 
     /**
      * The file descriptor used when writing to this device.
      */
     int getWriteFd() const {
-	if (_socket) return _socket->getFd();
+        if (_socket) return _socket->getFd();
     	return -1;
     }
 
     /**
      * Read from the device.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t read(void *buf, size_t len) throw(nidas::util::IOException)
+    size_t read(void *buf, size_t len)
     {
         return _socket->recv(buf,len);
     }
 
     /**
      * Read from the device with a timeout in milliseconds.
+     *
+     * @throws nidas::util::IOException
      */
-    size_t read(void *buf, size_t len, int msecTimeout)
-        throw(nidas::util::IOException);
+    size_t read(void *buf, size_t len, int msecTimeout);
 
     /**
      * Write to the device.
+     *
+     * @throws nidas::util::IOException 
      */
-    size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
+    size_t write(const void *buf, size_t len)
     {
         return _socket->send(buf,len);
     }
 
     /**
      * close the device.
+     *
+     * @throws nidas::util::IOException
      */
-    void close() throw(nidas::util::IOException);
-
+    void close();
 
 private:
 

@@ -91,7 +91,7 @@ public:
     int
     scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data_ptr);
 
-    void init() throw(nidas::util::InvalidParameterException);
+    void init();
 
     bool process(const Sample* samp, std::list<const Sample*>& results) throw();
 
@@ -103,7 +103,7 @@ public:
 
     void setVName(const std::string& val) { _vName = val; }
 
-    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+    void validateSscanfs();
 
 private:
 

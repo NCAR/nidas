@@ -51,7 +51,7 @@ n_u::Mutex XMLImplementation::_lock;
 
 /* static */
 xercesc::DOMImplementation*
-XMLImplementation::getImplementation() throw(nidas::core::XMLException)
+XMLImplementation::getImplementation()
 {
     if (!_impl) {
 	n_u::Synchronized autosync(_lock);
@@ -86,7 +86,7 @@ void XMLImplementation::terminate()
 }
     
 
-XMLParser::XMLParser() throw (nidas::core::XMLException):
+XMLParser::XMLParser():
     _impl(XMLImplementation::getImplementation()),
     _parser(0),_errorHandler()
 {
@@ -213,8 +213,7 @@ XMLParser::~XMLParser()
 }
 
 
-xercesc::DOMDocument* XMLParser::parse(const std::string& xmlFile,bool verbose) 
-    throw (nidas::core::XMLException)
+xercesc::DOMDocument* XMLParser::parse(const std::string& xmlFile, bool verbose) 
 {
     if (verbose) NLOG(("parsing: ") << xmlFile);
 
@@ -242,7 +241,6 @@ xercesc::DOMDocument* XMLParser::parse(const std::string& xmlFile,bool verbose)
 }
 
 xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source) 
-    throw (nidas::core::XMLException)
 {
 
     //reset error count first
@@ -266,8 +264,8 @@ xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source)
     return doc;
 }
 
-xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const std::string& xmlFileName)
-	throw(nidas::core::XMLException)
+xercesc::DOMDocument*
+nidas::core::parseXMLConfigFile(const std::string& xmlFileName)
 {
     // NLOG(("parsing: ") << xmlFileName);
 
@@ -343,7 +341,6 @@ n_u::Mutex XMLCachingParser::_instanceLock;
 
 /* static */
 XMLCachingParser* XMLCachingParser::getInstance()
-    throw(nidas::core::XMLException)
 {
     if (!_instance) {
         n_u::Synchronized autosync(_instanceLock);
@@ -362,7 +359,7 @@ void XMLCachingParser::destroyInstance()
     }
 }
 
-XMLCachingParser::XMLCachingParser() throw(nidas::core::XMLException):
+XMLCachingParser::XMLCachingParser():
 	XMLParser(),_modTimeCache(),_docCache(),_cacheLock()
 {
 }
@@ -378,7 +375,6 @@ XMLCachingParser::~XMLCachingParser()
 }
 
 xercesc::DOMDocument* XMLCachingParser::parse(const string& xmlFile) 
-    throw (nidas::core::XMLException,nidas::util::IOException)
 {
     // synchronize access to the cache
     n_u::Synchronized autosync(_cacheLock);
@@ -404,7 +400,7 @@ xercesc::DOMDocument* XMLCachingParser::parse(const string& xmlFile)
 }
 
 /* static */
-time_t XMLCachingParser::getFileModTime(const string&  name) throw(n_u::IOException)
+time_t XMLCachingParser::getFileModTime(const string&  name)
 {
     struct stat filestat;
     if (::stat(name.c_str(),&filestat) < 0)

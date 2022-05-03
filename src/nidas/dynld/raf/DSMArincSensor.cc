@@ -104,20 +104,18 @@ DSMArincSensor::~DSMArincSensor()
 */
 }
 
-IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSMArincSensor::buildIODevice()
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new UnixIODevice();
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
-throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
 
 void DSMArincSensor::open(int flags)
-    throw(n_u::IOException, n_u::InvalidParameterException)
 {
     // If Alta device then open/scanning handled by UDPArincSensor
     if (_altaEnetDevice)
@@ -164,7 +162,7 @@ void DSMArincSensor::open(int flags)
     ioctl(ARINC_OPEN, &archn, sizeof(archn_t));
 }
 
-void DSMArincSensor::close() throw(n_u::IOException)
+void DSMArincSensor::close()
 {
     DSMSensor::close();
 }
@@ -172,7 +170,7 @@ void DSMArincSensor::close() throw(n_u::IOException)
 /*
  * Initialize anything needed for process method.
  */
-void DSMArincSensor::init() throw(n_u::InvalidParameterException)
+void DSMArincSensor::init()
 {
     DSMSensor::init();
 
@@ -226,14 +224,20 @@ void DSMArincSensor::registerWithUDPArincSensor()
     // If we are the Alta:Enet device, then locate UDPArincSensor and register ourselves.
     if (_altaEnetDevice && getDeviceName().length() > 5)
     {
+        /* Since we fly two of these, we need to know which UDPArincSensor this goes with.
+         * This is entered as the refID in the overloaded devicename.
+         */
+        unsigned int channel, refID;
+        sscanf(getDeviceName().c_str(), "Alta:%u:%u", &refID, &channel);
+
         const std::list<DSMSensor*>& sensors = getDSMConfig()->getSensors();
-        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
+        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si)
+        {
             DSMSensor* snsr = *si;
-            if (snsr->getClassName().compare("raf.UDPArincSensor") == 0) {
-                std::string tmp = getDeviceName().substr(5, std::string::npos);
-                int channel = atoi(tmp.c_str());
+            if (snsr->getClassName().compare("raf.UDPArincSensor") == 0 && snsr->getSensorId() == refID)
+            {
                 dynamic_cast<UDPArincSensor *>(snsr)->registerArincSensor(channel, this);
-                DLOG(( "Registering DSMArincSensor with UDPArincSensor, channel=%d.", channel ));
+                DLOG(( "Registering DSMArincSensor with UDPArincSensor id=%d, channel=%d.", refID, channel ));
             }
         }
     }
@@ -244,8 +248,7 @@ void DSMArincSensor::registerWithUDPArincSensor()
  * since 00:00 GMT. The input sample's time tag is
  * used to set the date portion of the output sample timetags.
  */
-bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
-throw()
+bool DSMArincSensor::process(const Sample* samp, list<const Sample*>& results)
 {
     const tt_data_t *pSamp = (const tt_data_t*) samp->getConstVoidDataPtr();
     int nfields = samp->getDataByteLength() / sizeof(tt_data_t);
@@ -351,7 +354,7 @@ throw()
     return true;
 }
 
-bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results) throw()
+bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input, int nfields, std::list<const Sample*> &results)
 {
     const txp *pSamp = (const txp*) input;
 
@@ -460,7 +463,7 @@ bool DSMArincSensor::processAlta(const dsm_time_t timeTag, unsigned char *input,
     return true;
 }
 
-void DSMArincSensor::printStatus(std::ostream& ostr) throw()
+void DSMArincSensor::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
     if (getReadFd() < 0) {
@@ -490,7 +493,6 @@ void DSMArincSensor::printStatus(std::ostream& ostr) throw()
 }
 
 void DSMArincSensor::fromDOMElement(const xercesc::DOMElement* node)
-throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
     XDOMElement xnode(node);

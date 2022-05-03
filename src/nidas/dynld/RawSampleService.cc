@@ -80,7 +80,7 @@ RawSampleService::~RawSampleService()
 /*
  * Initial schedule request.
  */
-void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
+void RawSampleService::schedule(bool optionalProcessing)
 {
     DSMServer* server = getDSMServer();
     if (!_pipeline) _pipeline = new SamplePipeline();
@@ -298,7 +298,7 @@ void RawSampleService::Worker::interrupt()
     catch (const n_u::Exception& e) {}
 }
 
-int RawSampleService::Worker::run() throw(n_u::Exception)
+int RawSampleService::Worker::run()
 {
 
     // get the existing signal mask
@@ -577,7 +577,6 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
  * process <service class="RawSampleService"> element
  */
 void RawSampleService::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
 
     DSMService::fromDOMElement(node);

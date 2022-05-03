@@ -66,10 +66,9 @@ public:
 
     virtual ~UDPSocketSensor() { }
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
+    IODevice* buildIODevice();
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
+    SampleScanner* buildSampleScanner();
 
 private:
 

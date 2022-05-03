@@ -400,16 +400,22 @@ public:
 
     bool isDynamic() const { return _dynamic; }
 
-    void fromDOMElement(const xercesc::DOMElement*)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    toDOMParent(xercesc::DOMElement* parent,bool complete) const
-        throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent, bool complete) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    toDOMElement(xercesc::DOMElement* node,bool complete) const
-        throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node, bool complete) const;
 
 private:
 

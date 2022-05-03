@@ -73,20 +73,19 @@ public:
     /**
      * Request a connection.
      */
-    void requestConnection(IOChannelRequester* rqstr)
-    	throw(nidas::util::IOException);
+    void requestConnection(IOChannelRequester* rqstr);
 
     /**
      * 
      */
-    IOChannel* connect() throw(nidas::util::IOException);
+    IOChannel* connect();
 
-    void setNonBlocking(bool val __attribute__ ((unused))) throw(nidas::util::IOException)
+    void setNonBlocking(bool val __attribute__ ((unused)))
     {
         // ignore for now.
     }
 
-    bool isNonBlocking() const throw(nidas::util::IOException)
+    bool isNonBlocking() const override
     {
         return true;
     }
@@ -96,7 +95,7 @@ public:
     /**
      * Basic read is not implemented. Always throws IOException.
      */
-    size_t read(void*, size_t) throw (nidas::util::IOException)
+    size_t read(void*, size_t)
     {
 	throw nidas::util::IOException(getName(),"read","not supported");
     }
@@ -104,7 +103,7 @@ public:
     /**
      * Basic write is not implemented. Always throws IOException.
     */
-    size_t write(const void*, size_t) throw (nidas::util::IOException)
+    size_t write(const void*, size_t)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");
     }
@@ -112,7 +111,7 @@ public:
     /**
      * Basic write is not implemented. Always throws IOException.
      */
-    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
+    size_t write(const struct iovec*, int)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");
     }
@@ -120,14 +119,14 @@ public:
     /**
      * Send a data record to the RPC server.
     */
-    void write(const Sample*) throw (nidas::util::IOException);
+    void write(const Sample*);
 
     /**
      * Send a data record to the RPC server.
     */
-    void write(datarec_float*) throw (nidas::util::IOException);
+    void write(datarec_float*);
 
-    void close() throw (nidas::util::IOException);
+    void close();
 
     int getFd() const
     {
@@ -186,7 +185,7 @@ public:
      * Do an RPC call to fetch the last error string from the
      * nc_server.
      */
-    void checkError() throw(nidas::util::IOException);
+    void checkError();
 
     void setRPCTimeout(int secs);
 
@@ -199,8 +198,7 @@ public:
 
     int getRPCBatchPeriod() const;
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement* node);
 
     /**
      * Add a sample tag. This NetcdfRPCChannel will send samples
@@ -213,11 +211,9 @@ public:
         return _constSampleTags;
     }
 
-    void writeGlobalAttr(const std::string& name, const std::string& value)
-        throw(nidas::util::IOException);
+    void writeGlobalAttr(const std::string& name, const std::string& value);
 
-    void writeGlobalAttr(const std::string& name, int value)
-        throw(nidas::util::IOException);
+    void writeGlobalAttr(const std::string& name, int value);
 
 private:
 
@@ -240,9 +236,9 @@ protected:
      */
     NetcdfRPCChannel(const NetcdfRPCChannel&);
 
-    void writeHistory(const std::string&) throw (nidas::util::IOException);
+    void writeHistory(const std::string&);
 
-    void nonBatchWrite(datarec_float*) throw (nidas::util::IOException);
+    void nonBatchWrite(datarec_float*);
 
     NcVarGroupFloat* getNcVarGroupFloat(
     	const std::vector<ParameterT<int> >& dims,
@@ -334,11 +330,10 @@ protected:
 
     friend class NetcdfRPCChannel;
 
-    void connect(NetcdfRPCChannel* conn,float fillValue)
-	  throw(nidas::util::IOException);
+    void connect(NetcdfRPCChannel* conn,float fillValue);
 
     void write(NetcdfRPCChannel* conn,const Sample* samp,
-    	int stationNumber) throw(nidas::util::IOException);
+               int stationNumber);
 
 private:
 

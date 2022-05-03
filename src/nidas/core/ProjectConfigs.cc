@@ -47,8 +47,7 @@ ProjectConfig::ProjectConfig(): _name(),_xmlName(),
     setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
 }
 
-void ProjectConfig::initProject(Project& project) const throw(nidas::core::XMLException,
-		n_u::InvalidParameterException)
+void ProjectConfig::initProject(Project& project) const
 {
     string xmlFileName2 = n_u::Process::expandEnvVars(getXMLName());
 
@@ -97,7 +96,6 @@ string configErrorMsg(const ProjectConfig* c1,const ProjectConfig* c2)
 }
 
 void ProjectConfigs::addConfigByTime(ProjectConfig* val)
-    throw(n_u::InvalidParameterException)
 {
     list<ProjectConfig*>::iterator ci = _configs.begin();
     list<const ProjectConfig*>::iterator cci = _constConfigs.begin();
@@ -168,7 +166,6 @@ void ProjectConfigs::removeConfig(const ProjectConfig* val)
 }
 
 const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
-    throw(n_u::InvalidParameterException)
 {
     list<const ProjectConfig*>::const_iterator ci = _constConfigs.begin();
     for ( ; ci != _constConfigs.end(); ++ci) {
@@ -186,7 +183,6 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
 }
 
 const ProjectConfig* ProjectConfigs::getConfig(const std::string& name) const
-    throw(n_u::InvalidParameterException)
 {
     list<const ProjectConfig*>::const_iterator ci = _constConfigs.begin();
     for ( ; ci != _constConfigs.end(); ++ci) {
@@ -203,8 +199,6 @@ const std::list<const ProjectConfig*>& ProjectConfigs::getConfigs() const
 }
 
 void ProjectConfigs::parseXML(const std::string& xmlFileName)
-    throw(nidas::core::XMLException,
-	 nidas::util::InvalidParameterException)
 {
     _xmlName = xmlFileName;
 
@@ -224,7 +218,6 @@ void ProjectConfigs::parseXML(const std::string& xmlFileName)
     doc->release();
 }
 void ProjectConfigs::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
 
     xercesc::DOMNode* child;
@@ -243,7 +236,6 @@ void ProjectConfigs::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void ProjectConfigs::writeXML(const std::string& xmlFileName)
-    throw(nidas::core::XMLException,n_u::IOException)
 {
     /*
      * From www.w3.org Dom level 3 docs:
@@ -296,7 +288,6 @@ void ProjectConfigs::writeXML(const std::string& xmlFileName)
 }
 
 xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) const
-    throw(xercesc::DOMException)
 {
 
     // cerr << "configs, start toDOMParent" << endl;
@@ -309,7 +300,6 @@ xercesc::DOMElement* ProjectConfigs::toDOMParent(xercesc::DOMElement* parent) co
     return toDOMElement(elem);
 }
 xercesc::DOMElement* ProjectConfigs::toDOMElement(xercesc::DOMElement* elem) const
-    throw(xercesc::DOMException)
 {
     // cerr << "configs, start toDOMElement" << endl;
     const std::list<const ProjectConfig*>& cfgs = getConfigs();
@@ -339,7 +329,6 @@ void ProjectConfig::putenv() const
 }
 
 void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     if (xnode.getNodeName() != "config")
@@ -419,7 +408,6 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) const
-    throw(xercesc::DOMException)
 {
     // cerr << "config, start toDOMParent" << endl;
     xercesc::DOMElement* elem =
@@ -430,7 +418,6 @@ xercesc::DOMElement* ProjectConfig::toDOMParent(xercesc::DOMElement* parent) con
     return toDOMElement(elem);
 }
 xercesc::DOMElement* ProjectConfig::toDOMElement(xercesc::DOMElement* elem) const
-throw(xercesc::DOMException)
 {
     // cerr << "config, start toDOMElement" << endl;
     XDOMElement xelem(elem);

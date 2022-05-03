@@ -39,16 +39,14 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-XMLConfigWriter::XMLConfigWriter()
-    throw (nidas::core::XMLException):
+XMLConfigWriter::XMLConfigWriter():
     _filter(0)
 {
     setFilter(0);
 }
 
 
-XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm)
-    throw (nidas::core::XMLException):
+XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm):
     _filter(new XMLConfigWriterFilter(dsm))
 {
     setFilter(_filter);

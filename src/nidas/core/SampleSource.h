@@ -71,11 +71,15 @@ public:
     /**
      * Add a SampleTag to this SampleSource. This SampleSource
      * does not own the SampleTag.
-     */
-    virtual void addSampleTag(const SampleTag*)
-        throw (nidas::util::InvalidParameterException) = 0;
+     *
+     * @throws nidas::util::InvalidParameterException
+     **/
+    virtual void addSampleTag(const SampleTag*) = 0;
 
-    virtual void removeSampleTag(const SampleTag*) throw () = 0;
+    /**
+     * @throw()
+     **/
+    virtual void removeSampleTag(const SampleTag*) = 0;
 
     /**
      * What SampleTags am I a SampleSource for?
@@ -88,31 +92,41 @@ public:
      * Add a SampleClient of all Samples to this SampleSource.
      * The pointer to the SampleClient must remain valid, until after
      * it is removed.
+     *
+     * @throw()
      */
-    virtual void addSampleClient(SampleClient* c) throw() = 0;
+    virtual void addSampleClient(SampleClient* c) = 0;
 
     /**
      * Remove a SampleClient from this SampleSource.
+     *
+     * @throw()
      */
-    virtual void removeSampleClient(SampleClient* c) throw() = 0;
+    virtual void removeSampleClient(SampleClient* c) = 0;
 
     /**
      * Add a SampleClient to this SampleSource.  The pointer
      * to the SampleClient must remain valid, until after
      * it is removed.
+     *
+     * @throw()
      */
-    virtual void addSampleClientForTag(SampleClient* c,const SampleTag*) throw() = 0;
+    virtual void addSampleClientForTag(SampleClient* c,const SampleTag*) = 0;
     /**
      * Remove a SampleClient for a given SampleTag from this SampleSource.
      * The pointer to the SampleClient must remain valid, until after
      * it is removed.
+     *
+     * @throw()
      */
-    virtual void removeSampleClientForTag(SampleClient* c,const SampleTag*) throw() = 0;
+    virtual void removeSampleClientForTag(SampleClient* c,const SampleTag*) = 0;
 
     /**
      * How many SampleClients are currently in my list.
+     *
+     * @throw()
      */
-    virtual int getClientCount() const throw() = 0;
+    virtual int getClientCount() const = 0;
 
     /**
      * Request that this SampleSource flush it's samples.
@@ -120,8 +134,10 @@ public:
      * SampleClients of this SampleSource. A SampleClient may
      * have multiple SampleSources and a flush() of it
      * when one SampleSource() is done may not be what is wanted.
+     *
+     * @throw()
      */
-    virtual void flush() throw() = 0;
+    virtual void flush() = 0;
 
     virtual const SampleStats& getSampleStats() const = 0;
 

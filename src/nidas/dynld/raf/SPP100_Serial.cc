@@ -74,7 +74,7 @@ SPP100_Serial::SPP100_Serial(): SppSerial("SPP100"),
 }
 
 
-void SPP100_Serial::validate() throw(n_u::InvalidParameterException)
+void SPP100_Serial::validate()
 {
     SppSerial::validate();
 
@@ -111,7 +111,7 @@ void SPP100_Serial::validate() throw(n_u::InvalidParameterException)
     _ctMethod = (unsigned short)p->getNumericValue(0);
 }
 
-void SPP100_Serial::sendInitString() throw(n_u::IOException)
+void SPP100_Serial::sendInitString()
 {
     // zero initialize
     Init100_blk setup_pkt = Init100_blk();
@@ -146,7 +146,6 @@ void SPP100_Serial::sendInitString() throw(n_u::IOException)
 }
 
 bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
-	throw()
 {
     if (! appendDataAndFindGood(samp))
         return false;

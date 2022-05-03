@@ -240,6 +240,8 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 
+install -m 0664 pkg_files%{nidas_prefix}/bin/start_podman $RPM_BUILD_ROOT%{nidas_prefix}/bin
+
 %post min
 
 /sbin/ldconfig
@@ -384,14 +386,13 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/data_dump
 %{nidas_prefix}/bin/data_stats
 %{nidas_prefix}/bin/datasets
-%{nidas_prefix}/bin/dmd_mmat_test
 %{nidas_prefix}/bin/dmd_mmat_vin_limit_test
-%{nidas_prefix}/bin/dmd_mmat_vout_const
 %{nidas_prefix}/bin/dsc_a2d_ck
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
 %caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/nidas_udp_relay
 %caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_tty
+%caps(cap_sys_nice+p) %{nidas_prefix}/bin/tee_i2c
 %{nidas_prefix}/bin/extract2d
 %{nidas_prefix}/bin/extractDMT
 %{nidas_prefix}/bin/ir104
@@ -490,6 +491,7 @@ rm -rf $RPM_BUILD_ROOT
 # %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
+%attr(0775,-,-) %{nidas_prefix}/bin/start_podman
 
 %files build
 %defattr(-,root,root,-)

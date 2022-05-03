@@ -49,7 +49,7 @@ BluetoothRFCommSocketIODevice::~BluetoothRFCommSocketIODevice()
     close();
 }
 
-void BluetoothRFCommSocketIODevice::close() throw(n_u::IOException)
+void BluetoothRFCommSocketIODevice::close()
 {
     if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -61,7 +61,6 @@ void BluetoothRFCommSocketIODevice::close() throw(n_u::IOException)
 }
 
 void BluetoothRFCommSocketIODevice::open(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     // parses the device name into the _sockAddr
     SocketIODevice::open(flags);
@@ -90,7 +89,6 @@ void BluetoothRFCommSocketIODevice::open(int flags)
 }
 
 size_t BluetoothRFCommSocketIODevice::read(void *buf, size_t len, int msecTimeout)
-    throw(nidas::util::IOException)
 {
     size_t l = 0;
     try {

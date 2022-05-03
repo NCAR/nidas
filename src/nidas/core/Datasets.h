@@ -82,16 +82,22 @@ public:
      */
     void putenv() const;
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
     
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node) const
-    		throw(xercesc::DOMException);
+    toDOMElement(xercesc::DOMElement* node) const;
 
 private:
 
@@ -114,34 +120,48 @@ class Datasets {
 public:
     Datasets();
 
-    const Dataset& getDataset(const std::string& name) const
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    const Dataset& getDataset(const std::string& name) const;
 
     std::list<Dataset> getDatasets() const;
 
-    void addDataset(const Dataset& val)
-        throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void addDataset(const Dataset& val);
 
     void removeDataset(const Dataset& val);
 
-    void parseXML(const std::string& xmlFileName,bool verbose=true)
-        throw(nidas::core::XMLException,
-		nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void parseXML(const std::string& xmlFileName, bool verbose=true);
 
-    void writeXML(const std::string& xmlFileName)
-        throw(nidas::core::XMLException,nidas::util::IOException);
+    /**
+     * @throws nidas::core::XMLException
+     * @throws nidas::util::IOException
+     **/
+    void writeXML(const std::string& xmlFileName);
 
-    void fromDOMElement(const xercesc::DOMElement*)
-	throw(nidas::util::InvalidParameterException);
+    /**
+     * @throws nidas::util::InvalidParameterException
+     **/
+    void fromDOMElement(const xercesc::DOMElement*);
     
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMParent(xercesc::DOMElement* parent) const
-    		throw(xercesc::DOMException);
+    toDOMParent(xercesc::DOMElement* parent) const;
 
+    /**
+     * @throws xercesc::DOMException
+     **/
     xercesc::DOMElement*
-    	toDOMElement(xercesc::DOMElement* node) const
-    		throw(xercesc::DOMException);
-
+    toDOMElement(xercesc::DOMElement* node) const;
 
 private:
 

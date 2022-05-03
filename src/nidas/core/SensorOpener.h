@@ -71,7 +71,10 @@ public:
      */
     void reopenSensor(DSMSensor *sensor);
 
-    int run() throw(nidas::util::Exception);
+    /**
+     * @throws nidas::util::Exception
+     **/
+    int run();
 
     void interrupt();
 

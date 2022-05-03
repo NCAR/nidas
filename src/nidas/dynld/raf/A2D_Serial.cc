@@ -27,6 +27,7 @@
 #include "A2D_Serial.h"
 
 #include <nidas/core/CalFile.h>
+#include <nidas/core/DSMEngine.h>
 #include <nidas/util/UTime.h>
 #include <nidas/core/Variable.h>
 
@@ -47,15 +48,16 @@ A2D_Serial::A2D_Serial() :
     SerialSensor(),
     _nVars(0), _sampleRate(0), _deltaT(0), _staticLag(0), _boardID(0),
     _haveCkSum(true), _calFile(0), _outputMode(Engineering), _havePPS(false),
-    _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0)
+    _calset(0), _voltage(-99), configStatus(),
+    _shortPacketCnt(0), _badCkSumCnt(0), _largeTimeStampOffset(0),
+    headerLines(0)
 {
-headerLines = 0;
     for (int i = 0; i < getMaxNumChannels(); ++i)
     {
         _channels[i] = 0;
         _gains[i] = 1;          // 1 or 2 is all we support at this time.
         _ifsr[i] = 0;           // plus/minus 10
-        _polarity[i] = 1;       // Fixed 1 for this device
+        _bipolar[i] = 1;       // Fixed 1 for this device
         _ipol[i] = 0;
     }
 
@@ -71,15 +73,17 @@ A2D_Serial::~A2D_Serial()
 }
 
 
-void A2D_Serial::open(int flags) throw(n_u::IOException)
+void A2D_Serial::open(int flags)
 {
     SerialSensor::open(flags);
 
     readConfig();
 // @TODO Need to set gain/offset/cals if read in....
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
-void A2D_Serial::readConfig() throw(n_u::IOException)
+void A2D_Serial::readConfig()
 {
     int nsamp = 0;
     bool done = false;
@@ -94,11 +98,10 @@ void A2D_Serial::readConfig() throw(n_u::IOException)
             // process all samples in buffer
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
 
-
                 nsamp++;
                 const char* msg = (const char*) samp->getConstVoidDataPtr();
                 if (strstr(msg, "!EOC")) done = true;   // last line of config
-                parseConfigLine(msg);
+                parseConfigLine(msg, samp->getDataByteLength());
 
                 // send it on to the clients and freeReference
                 distributeRaw(samp);
@@ -137,7 +140,7 @@ void A2D_Serial::dumpConfig() const
 }
 
 
-void A2D_Serial::validate() throw(n_u::InvalidParameterException)
+void A2D_Serial::validate()
 {
     SerialSensor::validate();
 
@@ -224,16 +227,19 @@ void A2D_Serial::validate() throw(n_u::InvalidParameterException)
             }
 
 
+            // cerr << "A2D_Serial: ichan=" << ichan << " gain=" << fgain << " bipolar=" << ipol << endl;
+            var->setA2dChannel(ichan);
+
             _channels[iv] = ichan;
             _ipol[ichan] = ipol;
             _ifsr[ichan] = fgain;
-            _gains[ichan] = fgain + 1;  // this works for now, will not if moe gains are added
+            _gains[ichan] = fgain + 1;  // this works for now, will not if more gains are added
             prevChan = ichan;
         }
     }
 }
 
-void A2D_Serial::init() throw(n_u::InvalidParameterException)
+void A2D_Serial::init()
 {
     CharacterSensor::init();
 
@@ -323,22 +329,22 @@ bool A2D_Serial::checkCkSum(const Sample * samp, const char *data)
 }
 
 bool A2D_Serial::process(const Sample * samp,
-                           list < const Sample * >&results) throw()
+                         list < const Sample * >&results)
 {
     const char *cp = (const char*)samp->getConstVoidDataPtr();
 
     // Process non-data lines (i.e. process header).
-    if (cp[0] == '!')
+    if (cp[0] == '!')   // Startup device configuration.
     {
-        parseConfigLine(cp);
+        parseConfigLine(cp, samp->getDataByteLength());
         return false;
     }
-    if (cp[0] != '#')
+    if (cp[0] != '#')   // Header line at start of each second.
     {
         // Decode the data with the standard ascii scanner.
         bool rc = SerialSensor::process(samp, results);
         if (results.empty()) return false;
-++headerLines;
+        ++headerLines;
         // Extract PPS/IRIG status from 'H' header values.
         list<const Sample *>::const_iterator it = results.begin();
         for (; it != results.end(); ++it)
@@ -371,7 +377,7 @@ bool A2D_Serial::process(const Sample * samp,
     if (_haveCkSum && checkCkSum(samp, input) == false) return false;
 
     SampleT<float>* outs = getSample<float>(_nVars);
-    outs->setTimeTag(samp->getTimeTag() - _staticLag);
+    dsm_time_t ttag = samp->getTimeTag() - getLagUsecs() - _staticLag;
     outs->setId(getId() + 2);
 
     int hz_counter;
@@ -400,13 +406,16 @@ bool A2D_Serial::process(const Sample * samp,
             if (usec < 100000) offset -= USECS_PER_SEC;
         }
 
-        dsm_time_t timeoffix = samp->getTimeTag() - usec + offset - _staticLag;
+        dsm_time_t timeoffix = ttag - usec + offset;
         outs->setTimeTag(timeoffix);
+    }
+    else
+    {   // apply standard
+        outs->setTimeTag(ttag);
     }
 
 
-
-    readCalFile(samp->getTimeTag());    // A2D Cals
+    readCalFile(ttag);    // A2D Cals
     float * dout = outs->getDataPtr();
     int data, ival = 0;
     const char *p = ::strchr(input, ',');
@@ -436,16 +445,17 @@ bool A2D_Serial::process(const Sample * samp,
 }
 
 
-void A2D_Serial::parseConfigLine(const char *data)
+void A2D_Serial::parseConfigLine(const char *data, unsigned int len)
 {
     int channel, value;
 
+    // data is terminated with a NULL char
 
-    if (strstr(data, "!OCHK")) _haveCkSum = atoi(&data[6]);
+    if (strstr(data, "!OCHK") && len > 6) _haveCkSum = atoi(&data[6]);
     else
-    if (strstr(data, "!BID"))  configStatus["BID"] = atoi(&data[5]);
+    if (strstr(data, "!BID") && len > 5)  configStatus["BID"] = atoi(&data[5]);
     else
-    if (strstr(data, "!IFSR")) {
+    if (strstr(data, "!IFSR") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && _ifsr[channel] != value) {
@@ -455,7 +465,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!IPOL")) {
+    if (strstr(data, "!IPOL") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && _ipol[channel] != value) {
@@ -465,7 +475,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!ISEL")) {
+    if (strstr(data, "!ISEL") && len > 8) {
         channel = atoi(&data[6]);
         value = atoi(&data[8]);
         if (samplingChannel(channel) && value != 0) {
@@ -475,7 +485,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!OSEL")) {
+    if (strstr(data, "!OSEL") && len > 6) {
         configStatus["OSEL"] = true;
         value = atoi(&data[6]);
         if (value != 0) {
@@ -485,7 +495,7 @@ void A2D_Serial::parseConfigLine(const char *data)
         }
     }
     else
-    if (strstr(data, "!FILT")) {
+    if (strstr(data, "!FILT") && len > 6) {
         configStatus["FILT"] = true;
         value = atoi(&data[6]);
         if (value == 10)
@@ -507,18 +517,15 @@ void A2D_Serial::parseConfigLine(const char *data)
 
 void A2D_Serial::extractStatus(const char *msg, int len)
 {
+    // msg is terminated with a NULL char
     const char *p = msg;
     int cnt = 0;
 
     for (int i = 0; i < len && cnt < 2; ++i)
         if (*p++ == ',')
             ++cnt;
-    if (cnt == 2) {
-        char s[len+1];
-        len -= (p-msg);
-        ::memcpy(s, p, len); s[len]=0;
-        configStatus["PPS"] = atoi(s);
-    }
+    if (cnt == 2 && p-msg < len)
+        configStatus["PPS"] = atoi(p);
 }
 
 
@@ -568,7 +575,7 @@ void A2D_Serial::readCalFile(dsm_time_t tt) throw()
 }
 
 void A2D_Serial::setConversionCorrection(int ichan, const float d[],
-    int n) throw(n_u::InvalidParameterException)
+    int n)
 {
     _polyCals[ichan].clear();
     if (getOutputMode() == Counts) {
@@ -598,7 +605,7 @@ int A2D_Serial::getGain(int ichan) const
 int A2D_Serial::getBipolar(int ichan) const
 {
     if (ichan < 0 || ichan >= getMaxNumChannels()) return -1;
-    return _polarity[ichan];
+    return _bipolar[ichan];
 }
 
 bool A2D_Serial::samplingChannel(int channel) const
@@ -624,3 +631,96 @@ float A2D_Serial::applyCalibration(float value, const std::vector<float> &cals) 
     return out;
 }
 
+void A2D_Serial::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if      (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+}
+
+void A2D_Serial::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    result["card"] = "gpDAQ";
+    result["nChannels"] = getMaxNumChannels();
+    for (int i = 0; i < getMaxNumChannels(); i++) {
+        result["gain"][i]   = _gains[i];
+        result["offset"][i] = _bipolar[i] ? 0 : 1;
+        result["calset"][i] = (_calset & (1 << i)) ? 1 : 0;
+    }
+    result["vcal"]      = _voltage;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void A2D_Serial::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    int state   = 0;    // 0 = turn off, 1 = turn on
+    _calset  = 0;       // each bit represents that channel
+    _voltage = 0;
+
+    string errmsg = "XmlRpc error: testVoltage: " + getName();
+
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        _voltage = params["voltage"];
+        _calset  = params["calset"];
+        state   = params["state"];
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        _voltage = params[0]["voltage"];
+        _calset  = params[0]["calset"];
+        state   = params[0]["state"];
+    }
+    if (_calset < 0 || 0xff < _calset) {
+        char hexstr[50];
+        sprintf(hexstr, "0x%x", _calset);
+        errmsg += ": invalid calset: " + string(hexstr);
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    if (state == 0) {
+        _calset = 0;
+        _voltage = -99;
+    }
+
+    // set the test voltage and channel(s)
+    try {
+        write("#RST\n", 5);        // reset device to turn off existing
+        if (state == 1 && _voltage >= 0) {
+            char cmd_str[32];
+            int cmd = 3;    // default to 2.5 vdc.
+            if (_voltage == 0)
+                cmd = 2;    // zero vdc
+            for (int i = 0; i < getMaxNumChannels(); i++) {
+                if ((_calset>>i) & 0x0001) {
+                    sprintf(cmd_str, "#ISEL,%d,%d\n", i, cmd);
+                    write(cmd_str, strlen(cmd_str));
+                }
+            }
+        }
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}

@@ -4,28 +4,68 @@ amd64 builds and cross-builds for armel (namely Eurotech viper and titan),
 and armhf (RaspberryPi 2).
 
 The builds can be done from a full Debian system (which can of course be virtual)
-or from within a Docker container.
+or from within a docker/podman container.
+
+For information on creating and running docker/podman images see the
+"Using Podman/Docker" wiki page at
+https://wiki.ucar.edu/pages/viewpage.action?pageId=458588376
 
 Several scripts are used for building Debian packages.
-When building Debian packages, one should either use a chroot on a
-Debian system, or build from a Docker container.
-See https://wiki.debian.org/HowToPackageForDebian.
 
+Builds are simpler from a container, so using a chroot is no longer recommended.
+
+If you still want to use a chroot, see https://wiki.debian.org/HowToPackageForDebian.
 sbuild is used to create the necessary chroots, one for
 each architecture, and schroot or sbuild-shell to execute commands
 in the chroots.
 
 The docker directory contains scripts and Dockerfiles for creating
-docker images for cross-building.
+docker/podman images for cross-building.
 
 Scripts:
 
-build_dpkg.sh [-c] [-i repo] arch
+# To build docker/podman images:
+
+cd docker
+
+# build an Ubuntu i386 image for the specified release. Currently we're building for
+# the bionic release.
+./build_vortex_docker.sh release
+
+# build images of Debian jessie in order to do cross-builds for armel (viper,titan)
+# and armhf (RPi2)
+./build_arm_docker.sh
+
+# To run a container from podman for building nidas packages, providing
+# a shell prompt:
+cd ..
+
+run_podman.sh [-p] [ armel | armhf | armbe | xenial | bionic ]
+    -p: pull image from docker.io
+
+    # If you have started a bionic image for building i386 vortex packages,
+    # once the container shell is running, do:
+
+    cd /root/nidas/scripts
+    ./build_dpkg.sh -I bionic i386
+
+    # If you have started an armel image for cross-building viper/titan packages,
+    # once the container shell is running, do:
+
+    cd /root/nidas/scripts
+    ./build_dpkg.sh -I jessie armel
+
+build_dpkg.sh [-c] [-I codename] [-i repo] arch
     Build debian packages of NIDAS for the specified architecture
-    -c: build package under a chroot.  Recommended
-    -i repo: install debian packages to the given repository, using
-        the Debian reprepro command.
-    This script, without the -c or -i options can be run from a docker container.
+    -c: build package under a chroot.  Not necessary from within docker/podman containers
+    -I codename: install packages to /net/ftp/pub/archive/software/debian/codename-<codename>
+    -i repo: install debian packages to the given repository
+    arch is armel, armhf, amd64 or i386 (vortex)
+    codename is jessie (for armel), bionic (for vortex) or whatever distribution has been enabled
+	/net/ftp/pub/archive/software/debian
+
+
+Old scripts for chroots:
 
 sbuild_setup.sh
     Create chroots for amd64, armel and armhf architectures,
@@ -53,6 +93,4 @@ build_nidas.sh arch
     sets the PKG_CONFIG_PATH environment variable so that
     pkgconfig files specific to the architecture are found.
 
-run_docker_build.sh arch
-    Download and run a docker image to do cross builds.
 

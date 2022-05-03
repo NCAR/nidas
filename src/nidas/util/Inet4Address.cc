@@ -64,7 +64,7 @@ string Inet4Address::getHostName() const throw() {
 }
 
 /* static */
-string Inet4Address::getHostName(const Inet4Address& addr) throw()
+string Inet4Address::getHostName(const Inet4Address& addr)
 {
 
     if (addr._inaddr.s_addr == INADDR_ANY) {
@@ -131,7 +131,6 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 
 /* static */
 list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
-  	throw(UnknownHostException)
 {
 
     list<Inet4Address> addrlist;
@@ -174,7 +173,6 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
 
 /* static */
 Inet4Address Inet4Address::getByName(const string& hostname)
-  	throw(UnknownHostException)
 {
     list<Inet4Address> addrs = getAllByName(hostname);
     if (addrs.size() > 0) return addrs.front();

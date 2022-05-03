@@ -18,8 +18,10 @@ RUN sudo dpkg --add-architecture ${hostarch}
 
 # Rip out jessie updates repos as they no longer exist. 
 # See https://www.lucas-nussbaum.net/blog/?p=947
-# These ops require an explicit root user
-USER root
+
+# We're using podman, so set USER to root:root
+USER root:root
+
 RUN sed -i "/updates/d" /etc/apt/sources.list
 
 # Also, backports has moved to archive, so fix that
@@ -53,8 +55,7 @@ ENV CROSS_ARCH=$hostarch
 # RUN addgroup --gid $gid $group || echo "add group failed"
 # RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
-# USER $user
-# WORKDIR /home/$user
+WORKDIR /root
 
 # RUN mkdir -p libftdi
 # COPY ./build-libftdi-pkg.sh libftdi
@@ -81,10 +82,10 @@ ENV CROSS_ARCH=$hostarch
 # hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
 # finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). Need to fix xmlrpc++ to add
 # a correct pkg-config file for cross building.
-#RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
+RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
 
 # viper, titan headers
-#RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
+RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
 
 #RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
 

@@ -54,19 +54,17 @@ LamsSensor::LamsSensor() :
 {
 }
 
-IODevice* LamsSensor::buildIODevice() throw(n_u::IOException)
+IODevice* LamsSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 SampleScanner* LamsSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
 
 void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
 
@@ -94,9 +92,8 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     nSKIP = (int)p->getNumericValue(0);
 }
 
-bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
+bool LamsSensor::process(const Sample* samp,list<const Sample*>& results)
 {
-
     unsigned int len = samp->getDataByteLength();
     const unsigned int   * iAvrg;
     const unsigned short * iPeak;
@@ -175,8 +172,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     return true;
 }
 
-void LamsSensor::open(int flags) throw(n_u::IOException,
-    n_u::InvalidParameterException)
+void LamsSensor::open(int flags)
 {
     DSMSensor::open(flags);
 
@@ -198,14 +194,14 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
 		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
 }
 
-void LamsSensor::close() throw(n_u::IOException)
+void LamsSensor::close()
 {
     if (DerivedDataReader::getInstance())
             DerivedDataReader::getInstance()->removeClient(this);
     DSMSensor::close();
 }
 
-void LamsSensor::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+void LamsSensor::derivedDataNotify(const nidas::core::DerivedDataReader * s)
 {
     // Generate a fake True Heading that changes over time.
     if (tas_step) {
@@ -240,7 +236,7 @@ void LamsSensor::derivedDataNotify(const nidas::core::DerivedDataReader * s) thr
     }
 }
 
-void LamsSensor::printStatus(std::ostream& ostr) throw()
+void LamsSensor::printStatus(std::ostream& ostr)
 {
     DSMSensor::printStatus(ostr);
 

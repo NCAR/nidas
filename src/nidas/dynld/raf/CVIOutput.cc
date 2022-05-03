@@ -91,7 +91,6 @@ void CVIOutput::setIOChannel(IOChannel* val)
 }
 
 void CVIOutput::addRequestedSampleTag(SampleTag* tag)
-    throw(n_u::InvalidParameterException)
 {
 
     VariableIterator vi = tag->getVariableIterator();
@@ -102,7 +101,7 @@ void CVIOutput::addRequestedSampleTag(SampleTag* tag)
     SampleOutputBase::addRequestedSampleTag(tag);
 }
 
-void CVIOutput::requestConnection(SampleConnectionRequester* requester) throw()
+void CVIOutput::requestConnection(SampleConnectionRequester* requester)
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
     if (DerivedDataReader::getInstance())
@@ -111,13 +110,12 @@ void CVIOutput::requestConnection(SampleConnectionRequester* requester) throw()
 }
 
 void CVIOutput::derivedDataNotify(const DerivedDataReader * rdr)
-    throw()
 {
     _tas = rdr->getTrueAirspeed();
     // cerr << "got true air speed=" << _tas << endl;
 }
 
-bool CVIOutput::receive(const Sample* samp) throw()
+bool CVIOutput::receive(const Sample* samp)
 {
 
     /*

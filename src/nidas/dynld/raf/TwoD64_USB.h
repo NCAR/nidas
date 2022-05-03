@@ -43,8 +43,7 @@ public:
     TwoD64_USB();
     ~TwoD64_USB();
 
-    bool process(const Sample * samp, std::list < const Sample * >&results)
-        throw();
+    bool process(const Sample * samp, std::list < const Sample * >&results);
 
     /**
      * Return bits-per-slice; same as the number of diodes in the probe.
@@ -53,14 +52,12 @@ public:
 
 protected:
 
-    virtual void init_parameters()
-        throw(nidas::util::InvalidParameterException);
+    virtual void init_parameters();
 
     /**
      * Process the Shadow-OR sample from the probe.
      */
-    virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results)
-        throw();
+    virtual bool processSOR(const Sample * samp, std::list < const Sample * >&results);
 
     void scanForMissalignedSyncWords(const Sample * samp, const unsigned char * sp) const;
 
@@ -79,7 +76,7 @@ protected:
      * @returns whether samples were output.
      */
     bool processImageRecord(const Sample * samp,
-	std::list < const Sample * >&results, int stype) throw();
+	std::list < const Sample * >&results, int stype);
 
     /* probe clock rate 12 MHz for v2
      * v3 is 33.333 MHz

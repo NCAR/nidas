@@ -635,7 +635,7 @@ void DSMEngine::waitForSignal(int timeoutSecs)
     }
 }
 
-void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
+void DSMEngine::startXmlRpcThread()
 {
     // start the xmlrpc control thread
     if (_externalControl) {
@@ -644,7 +644,7 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
     }
 }
 
-void DSMEngine::killXmlRpcThread() throw()
+void DSMEngine::killXmlRpcThread()
 {
     if (!_xmlrpcThread) return;
     _xmlrpcThread->interrupt();
@@ -667,13 +667,12 @@ void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* s
 }
 
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
-	throw(n_u::InvalidParameterException)
 {
     _project = new Project();
 
     _project->disableAutoconfig(_disableAutoconfig);
 
-     _project->fromDOMElement(projectDoc->getDocumentElement());
+    _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;
     if (_configFile.length() > 0)
 	_project->setConfigName(_configFile);
@@ -687,7 +686,7 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     }
 }
 
-void DSMEngine::openSensors() throw(n_u::IOException)
+void DSMEngine::openSensors()
 {
     _selector = new SensorHandler(_dsmConfig->getRemoteSerialSocketPort());
 
@@ -716,7 +715,7 @@ void DSMEngine::openSensors() throw(n_u::IOException)
     _dsmConfig->openSensors(_selector);
 }
 
-void DSMEngine::connectOutputs() throw(n_u::IOException)
+void DSMEngine::connectOutputs()
 {
     // request connection for outputs
     const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
@@ -823,7 +822,7 @@ void DSMEngine::closeOutputs() throw()
     SampleOutputRequestThread::getInstance()->clear();
 }
 
-void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
+void DSMEngine::connectProcessors()
 {
     ProcessorIterator pi = _dsmConfig->getProcessorIterator();
 

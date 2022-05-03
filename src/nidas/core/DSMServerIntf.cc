@@ -91,7 +91,7 @@ void GetAdsFileName::execute(XmlRpcValue&, XmlRpcValue& result)
     result = filename.substr(fn+1);
 }
 
-int DSMServerIntf::run() throw(n_u::Exception)
+int DSMServerIntf::run()
 {
     // Create an XMLRPC server
     _xmlrpc_server = new XmlRpcServer;

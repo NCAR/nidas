@@ -25,6 +25,8 @@
 */
 
 #include "DSC_A2DSensor.h"
+#include "DSC_AnalogOut.h"
+#include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 
@@ -43,28 +45,31 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(),_gain(-1),_bipolar(false)
+    A2DSensor(), d2a(0), _gain(-1), _bipolar(false), _calset(0), _voltage(-99)
 {
     setLatency(0.1);
 }
 
 DSC_A2DSensor::~DSC_A2DSensor()
 {
+    if (d2a) {
+        d2a->clearVoltages();
+        d2a->close();
+        delete d2a;
+    }
 }
 
-IODevice* DSC_A2DSensor::buildIODevice() throw(n_u::IOException)
+IODevice* DSC_A2DSensor::buildIODevice()
 {
     return new UnixIODevice();
 }
 
 SampleScanner* DSC_A2DSensor::buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException)
 {
     return new DriverSampleScanner(16384);
 }
 
 void DSC_A2DSensor::validate()
-        throw(n_u::InvalidParameterException)
 {
     A2DSensor::validate();
     // clock on Diamond cards is 10 MHz. It is divided
@@ -78,7 +83,6 @@ void DSC_A2DSensor::validate()
 }
 
 void DSC_A2DSensor::open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     A2DSensor::open(flags);
 
@@ -97,7 +101,7 @@ void DSC_A2DSensor::open(int flags)
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
         struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
-    
+
         for (int j = 0; j < scfg.nvars; j++) {
             if (scfg.channels[j] >= nchan) {
                 ostringstream ost;
@@ -112,10 +116,12 @@ void DSC_A2DSensor::open(int flags)
     }
 
     ioctl(DMMAT_START,0,0);
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 
-void DSC_A2DSensor::close() throw(n_u::IOException)
+void DSC_A2DSensor::close()
 {
     ioctl(DMMAT_STOP,0,0);
     A2DSensor::close();
@@ -146,10 +152,9 @@ void DSC_A2DSensor::printStatus(std::ostream& ostr) throw()
     }
 }
 
-void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
-            throw(n_u::InvalidParameterException)
+void DSC_A2DSensor::setA2DParameters(int ichan, int gain, int bipolar)
 {
-    if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
+    if (ichan < 0 || ichan >= getMaxNumChannels()) {
         ostringstream ost;
         ost << "value=" << ichan << " doesn't exist";
         throw n_u::InvalidParameterException(getName(), "channel",ost.str());
@@ -186,7 +191,7 @@ void DSC_A2DSensor::setA2DParameters(int ichan,int gain,int bipolar)
     if (_bipolar != bipolar)
         throw n_u::InvalidParameterException(getName(),
             "gain","board does not support multiple polarities");
-        
+
     A2DSensor::setA2DParameters(ichan,gain,bipolar);
 
 }
@@ -198,10 +203,10 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
      * DSC returns (32767) for maximum voltage of range and -32768 for
      * minimum voltage.
      *
-     * For bipolar=T 
+     * For bipolar=T
      *	cnts = ((V * gain / 20) * 65535 =
      *	So:   V = cnts / 65535 * 20 / gain
-     * For bipolar=F 
+     * For bipolar=F
      *	cnts = ((V * gain / 20) * 65535 - 32768
      *	So:   V = (cnts + 32768) / 65535 * 20 / gain
      *              = cnts / 65535 * 20 / gain + 10 / gain
@@ -212,4 +217,120 @@ void DSC_A2DSensor::getBasicConversion(int ichan,
     slope = 20.0 / 65535.0 / getGain(ichan);
     if (getBipolar(ichan)) intercept = 0.0;
     else intercept = 10.0 / getGain(ichan);
+}
+
+
+
+void DSC_A2DSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    if (d2a == 0) {
+        string dev = getDeviceName();
+        size_t start = dev.find("a2d");
+        if (start == string::npos)  // not found
+        {
+            PLOG(("Error: executeXmlRpc devicename does not contain 'a2d'."));
+            return;
+        }
+        dev.replace(start, 3, "d2a");
+
+        d2a = new DSC_AnalogOut();
+        d2a->setDeviceName(dev);
+        d2a->open();
+    }
+
+
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if      (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+}
+
+void DSC_A2DSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    result["card"] = "dmmat";
+    result["nChannels"] = getMaxNumChannels();
+    for (int i = 0; i < getMaxNumChannels(); i++) {
+        result["gain"][i]   = _gain;
+        // Offset of 0 is bipolar true, offset of 1 is bipolar false
+        result["offset"][i] = _bipolar ? 0 : 1;
+        result["calset"][i] = (_calset & (1 << i)) ? 1 : 0;;
+    }
+    result["vcal"]      = _voltage;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void DSC_A2DSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    int state   = 0;
+//    _voltage    = 0;
+//    _calset     = 0;
+
+    string errmsg = "XmlRpc error: testVoltage: " + getName();
+
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        _voltage = params["voltage"];
+        _calset  = params["calset"];
+        state   = params["state"];
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        _voltage = params[0]["voltage"];
+        _calset  = params[0]["calset"];
+        state   = params[0]["state"];
+    }
+    if (_calset < 0 || 0xffff < _calset) {
+        char hexstr[50];
+        sprintf(hexstr, "0x%x", _calset);
+        errmsg += ": invalid calset: " + string(hexstr);
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    // Loopback cable is 1 d2a to 8 a2d
+    if (_calset & 0x00ff) _calset |= 0x00ff;
+    if (_calset & 0xff00) _calset |= 0xff00;
+
+    // set the test voltage and channel(s)
+    try {
+        if (state) {
+           if (_calset & 0x00ff) {
+                d2a->setVoltage(0, _voltage);
+                d2a->setVoltage(1, 0);
+           }
+           if (_calset & 0xff00) {
+                d2a->setVoltage(0, 0);
+                d2a->setVoltage(1, _voltage);
+           }
+        }
+        else {
+            _calset = 0;
+            _voltage = -99;
+            d2a->clearVoltages();
+            delete d2a;
+            d2a = 0;
+        }
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
 }

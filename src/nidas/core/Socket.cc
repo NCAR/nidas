@@ -122,7 +122,7 @@ Socket* Socket::clone() const
     return new Socket(*this);
 }
 
-void Socket::close() throw (nidas::util::IOException)
+void Socket::close()
 {
     if (_nusocket) _nusocket->close();
 }
@@ -160,7 +160,6 @@ void Socket::setRemoteUnixPath(const string& unixpath)
 }
 
 const n_u::SocketAddress& Socket::getRemoteSocketAddress()
-    throw(n_u::UnknownHostException)
 {
     if (!_remoteSockAddr.get()) {
         if (_remoteHost.length() > 0) {
@@ -198,7 +197,7 @@ n_u::Inet4Address Socket::getRemoteInet4Address()
     return n_u::Inet4Address();
 }
 
-IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
+IOChannel* Socket::connect()
 {
     const n_u::SocketAddress& saddr = getRemoteSocketAddress();
 
@@ -234,7 +233,6 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
 }
 
 void Socket::requestConnection(IOChannelRequester* requester)
-	throw(n_u::IOException)
 {
     _iochanRequester = requester;
     n_u::Autolock alock(_connectionMutex);
@@ -306,7 +304,7 @@ ServerSocket* ServerSocket::clone() const
     return new ServerSocket(*this);
 }
 
-void ServerSocket::close() throw (nidas::util::IOException)
+void ServerSocket::close()
 {
     // The _connectionThread is likely doing a n_u::ServerSocket::accept(),
     // which is doing a ppoll on the file descriptor and catching SIGUSR1.
@@ -320,7 +318,7 @@ void ServerSocket::close() throw (nidas::util::IOException)
     if (_servSock) _servSock->close();
 }
 
-IOChannel* ServerSocket::connect() throw(n_u::IOException)
+IOChannel* ServerSocket::connect()
 {
     if (!_servSock) {
         // delete AF_UNIX sockets if they exist
@@ -349,7 +347,6 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
 }
 
 void ServerSocket::requestConnection(IOChannelRequester* requester)
-	throw(n_u::IOException)
 {
     _iochanRequester = requester;
     if (!_servSock) {
@@ -390,7 +387,7 @@ void ServerSocket::ConnectionThread::interrupt()
     kill(SIGUSR1);
 }
 
-int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
+int ServerSocket::ConnectionThread::run()
 {
     for (;!isInterrupted();) {
 
@@ -434,7 +431,7 @@ void Socket::ConnectionThread::interrupt()
     if (_socket->_nusocket) _socket->_nusocket->close();
 }
 
-int Socket::ConnectionThread::run() throw(n_u::IOException)
+int Socket::ConnectionThread::run()
 {
     for (; !isInterrupted(); ) {
 
@@ -488,7 +485,6 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
 
 /* static */
 IOChannel* Socket::createSocket(const xercesc::DOMElement* node)
-            throw(n_u::InvalidParameterException)
 {
     IOChannel* channel = 0;
     XDOMElement xnode(node);
@@ -518,7 +514,6 @@ IOChannel* Socket::createSocket(const xercesc::DOMElement* node)
 }
 
 void Socket::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     int port = 0;
     string unixPath;
@@ -598,7 +593,6 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
 {
     int port = -1;
     string path;
@@ -671,7 +665,6 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
 xercesc::DOMElement*
 ServerSocket::
 toDOMParent(xercesc::DOMElement* parent, bool complete) const
-    throw(xercesc::DOMException)
 {
     xercesc::DOMElement* elem =
         parent->getOwnerDocument()->createElementNS
@@ -684,7 +677,6 @@ toDOMParent(xercesc::DOMElement* parent, bool complete) const
 xercesc::DOMElement*
 ServerSocket::
 toDOMElement(xercesc::DOMElement* node, bool) const
-    throw(xercesc::DOMException)
 {
     return node;
 }

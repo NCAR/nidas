@@ -498,7 +498,7 @@
 -->
     </sensor>
 
-    <sensor ID="NOAAUCATS" class="raf.UDPSocketSensor" devicename="inet::38807">
+    <sensor ID="NOAAUCATS" class="UDPSocketSensor" devicename="inet::38807">
         <sample id="1" rate="1" scanfFormat="UWV:%f">
             <variable name="H2OMR" units="ppmv" longname="NOAA UCATS Water Vapor Mixing Ratio"/> 
         </sample>
@@ -511,7 +511,7 @@
         </sample>
     </sensor>
 
-    <sensor ID="NOAAPANTHER"  class="raf.UDPSocketSensor" devicename="inet::28808">
+    <sensor ID="NOAAPANTHER"  class="UDPSocketSensor" devicename="inet::28808">
         <sample id="1" rate="1" scanfFormat="PAN:%f,%f">
             <variable name="PresLN2" units="psi" longname="NOAA PANTHER Press N2 Low"/>
             <variable name="PresLHe" units="psi" longname="NOAA PANTHER Press He Low"/>
@@ -534,7 +534,7 @@
         <message separator="\r\n" position="end" length="0"/>
     </serialSensor>
 
-    <sensor ID="NOAASP2"  class="raf.UDPSocketSensor" devicename="inet::32011">
+    <sensor ID="NOAASP2"  class="UDPSocketSensor" devicename="inet::32011">
         <sample id="1" rate="1" scanfFormat="NOAA_SP2,%*dT%*d,%f,%f,%f,%f,%f">
 <!--            <variable name="Time_s"   units="seconds" longname="NOAA SP2 Time"/-->  <!-- Tom do %*d and skip the time - only know floating point -->
             <variable name="BCPC" units="#/cm3" longname="NOAA SP2 Back Carbon Particle Concentration"/>
