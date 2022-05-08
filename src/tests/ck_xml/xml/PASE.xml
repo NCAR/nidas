@@ -361,7 +361,7 @@
             <variable name="REJDOF" units="count" longname="SPP-100 Particles Rejected (Outside Depth-of-Field))"/>
             <variable name="REJAT" units="" longname="SPP-100 Average Transit Rejected Particles"/>
             <variable name="OVFLW" units="" longname="SPP-100 AtoD Converter Overflow/Overrange"/>
-            <variable name="AS100" length="31" units="count" longname="FSSP-100 Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS100" length="30" units="count" longname="FSSP-100 Raw Accumulation (per cell) - DMT"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
     </serialSensor>
@@ -389,7 +389,7 @@
                 <poly coefs="-729.57 0.87564 -3.5197e-4 4.750368e-8" units="std cm3/s"/>
             </variable>
             <variable name="PTMP" units="deg_C" longname="SPP-200 Detector Temperature"/>
-            <variable name="AS200" length="31" units="count" longname="SPP-200 (PCASP) Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS200" length="30" units="count" longname="SPP-200 (PCASP) Raw Accumulation (per cell) - DMT"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
         <message length="154"/>
@@ -411,7 +411,7 @@
         <sample id="1">
             <variable name="FREF3" units="V" longname="FSSP-300 Laser Reference Voltage"/>
             <variable name="FTMP3" units="deg_C" longname="FSSP-300 Housekeeping Data"/>
-            <variable name="AS300" length="31" units="count" longname="SPP-300 (FSSP-300) Raw Accumulation (per cell) - DMT"/>
+            <variable name="AS300" length="30" units="count" longname="SPP-300 (FSSP-300) Raw Accumulation (per cell) - DMT"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
     </serialSensor>
