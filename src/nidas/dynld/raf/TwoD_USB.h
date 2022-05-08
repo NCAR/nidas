@@ -35,6 +35,12 @@
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 
+//
+// Add a bogus zeroth bin to the data to match historical behavior.
+// Remove all traces of this after the netCDF file refactor.
+//
+// #define ZERO_BIN_HACK
+
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
