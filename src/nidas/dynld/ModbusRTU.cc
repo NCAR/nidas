@@ -261,6 +261,7 @@ int ModbusRTU::ModbusThread::run() throw()
                 }
                 n_u::IOException e(_devname, "modbus_read_registers", "checksum error");
                 WLOG(("") << e.what());
+                continue;
             }
             else {
                 n_u::IOException e(_devname, "modbus_read_registers", errno);
