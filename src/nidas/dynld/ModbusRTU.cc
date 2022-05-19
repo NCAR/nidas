@@ -181,8 +181,8 @@ void ModbusRTU::open(int)
     struct timeval tvold;
     modbus_get_response_timeout(_modbusrtu, &tvold);
 
-    cerr << "old timeout, sec=" << tvold.tv_sec << ", usec=" << tvold.tv_usec << endl;
-    cerr << "dtusec=" << dtusec << endl;
+    // cerr << "old timeout, sec=" << tvold.tv_sec << ", usec=" << tvold.tv_usec << endl;
+    // cerr << "dtusec=" << dtusec << endl;
 
 #ifdef SET_MODBUS_TIMEOUT
     struct timeval tvnew;
@@ -245,13 +245,31 @@ int ModbusRTU::ModbusThread::run() throw()
     uint16_t data[_nvars + 1];
     data[0] = toLittle->uint16Value(_nvars);
 
+    int nCRCError = 0;
+    int sampleMsec = MSECS_PER_SEC / _rate;
+
     for (; !isInterrupted(); ) {
+        errno = 0;
         int nreg = modbus_read_registers(_mb, _regaddr, _nvars, data + 1);
         if (nreg < 0) {
-            n_u::IOException e(_devname, "modbus_read_registers", errno);
-            PLOG(("Error: ") << e.what());
-            return RUN_EXCEPTION;
-         }
+            if (errno == 0) {
+                if (nCRCError++ > 5) {
+                    // When this thread exits the Nidas sensor handler
+                    // will get a timeout reading from the pipe, which will
+                    // then re-open the sensor.
+                    return RUN_EXCEPTION;
+                }
+                n_u::IOException e(_devname, "modbus_read_registers", "checksum error");
+                WLOG(("") << e.what());
+            }
+            else {
+                n_u::IOException e(_devname, "modbus_read_registers", errno);
+                PLOG(("") << e.what());
+                // Another thread exit, resulting in sensor timeout
+                return RUN_EXCEPTION;
+            }
+        }
+        nCRCError = 0;
 
         // convert to little-endian
         for (int i = 0; i < _nvars; i++)
@@ -261,7 +279,8 @@ int ModbusRTU::ModbusThread::run() throw()
             n_u::IOException e(_devname + " pipe", "write", errno);
             PLOG(("Error: ") << e.what());
         }
-        ::sleep(1);
+
+        n_u::sleepUntil(sampleMsec);
     }
     return RUN_OK;
 }
