@@ -78,6 +78,10 @@ size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout)
     if (fds.revents & POLLERR)
         throw nidas::util::IOException(getName(),"read",errno);
 
+    if (fds.revents & POLLNVAL)
+        throw nidas::util::IOException(getName(),"read","device closed");
+
+
 #ifdef POLLRDHUP
     if (fds.revents & (POLLHUP | POLLRDHUP)) return 0;
 #else

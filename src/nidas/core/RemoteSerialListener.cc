@@ -102,6 +102,9 @@ RemoteSerialListener::handlePollEvents(uint32_t events) throw()
             PLOG(("RemoteSerialListener accept: %s", ioe.what()));
         }
     }
+    if (events & N_POLLNVAL) {
+        PLOG(("RemoteSerialListener POLLNVAL"));
+    }
     if (events & N_POLLRDHUP) {
         PLOG(("RemoteSerialListener POLLRDHUP"));
     }

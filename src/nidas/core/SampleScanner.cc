@@ -154,6 +154,10 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted,
 
         if (fds.revents & POLLERR)
             throw n_u::IOException(sensor->getName(),"readBuffer",errno);
+
+        if (fds.revents & POLLNVAL)
+            throw n_u::IOException(sensor->getName(),"readBuffer","sensor closed");
+
 #ifdef POLLRDHUP
         if (fds.revents & (POLLHUP | POLLRDHUP))
 #else

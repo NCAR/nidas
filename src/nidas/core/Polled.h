@@ -82,6 +82,7 @@
 #define N_POLLIN POLLIN
 #define N_POLLERR POLLERR
 #define N_POLLHUP POLLHUP
+#define N_POLLNVAL POLLNVAL
 
 // POLLRDHUP is somewhat new (Linux 2.6.17)
 #ifdef POLLRDHUP

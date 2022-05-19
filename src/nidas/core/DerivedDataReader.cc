@@ -135,6 +135,9 @@ int DerivedDataReader::run()
             }
             if (fds.revents & POLLERR)
                 throw n_u::IOException(usock.getLocalSocketAddress().toAddressString(),"POLLERR",errno);
+ 
+            if (fds.revents & POLLNVAL)
+                throw n_u::IOException(usock.getLocalSocketAddress().toAddressString(),"POLLERR","socket closed");
 #ifdef POLLRDHUP
             if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
