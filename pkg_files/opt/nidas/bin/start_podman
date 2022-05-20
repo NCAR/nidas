@@ -184,13 +184,25 @@ else
     [ "$hostsock" != "$HOME/$contsock" ] && rm -f $HOME/$contsock
 fi
 
-echo "Volumes will be mounted to $destmnt in the container"
+echo "$PWD will be mounted to $destmnt/current in the container"
+
+# By default in an interactive session, every keystroke is logged
+# to systemd on the host!  Set --log-driver=none to suppress this
+logopts=--log-driver=none
+
+# Raising the --log-level seems to have no effect on the logging of
+# keystrokes
+# logopts="$logopts --log-level=panic"
+
+# This results in the interactive keystrokes going to the file and not
+# to journald
+# logopts="--log-driver=k8s-file --log-opt path=/tmp/podman.json"
+
+# The input logging happens as a result of the -i option.  If you pipe
+# to stdin, omitting --tty, stdin is still logged:
+# echo exit | exec podman run -i ...
 
 # --rm: remove container when it exits
-
-# Every keystroke is logged to systemd on the host!!!!!
-# Set --log-driver=none to suppress this
-logopts=--log-driver=none
 
 set -x
 
