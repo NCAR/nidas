@@ -135,10 +135,10 @@ void ModbusRTU::open(int)
     throw n_u::IOException(getDeviceName(), "open", "built without libmodbus-dev");
 #else
 
-    SerialSensor::open(flags);
-
     if (::pipe(_pipefds) < 0)
         throw n_u::IOException(getDeviceName(), "pipe", errno);
+
+    SerialSensor::open(flags);
 
     const n_u::Termios& termios = getTermios();
 
