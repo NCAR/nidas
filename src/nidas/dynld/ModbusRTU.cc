@@ -108,7 +108,7 @@ IODevice* ModbusRTU::buildIODevice()
 
 SampleScanner* ModbusRTU::buildSampleScanner()
 {
-    MessageStreamScanner* scanner = new MessageStreamScanner();
+    SampleScanner* scanner = SerialSensor::buildSampleScanner();
 
     // Format of data written by writer thread is a simple buffer,
     // consisting of all little-endian, words of uint16_t.
@@ -135,22 +135,33 @@ void ModbusRTU::open(int)
     throw n_u::IOException(getDeviceName(), "open", "built without libmodbus-dev");
 #else
 
+    SerialSensor::open(flags);
+
     if (::pipe(_pipefds) < 0)
         throw n_u::IOException(getDeviceName(), "pipe", errno);
 
     const n_u::Termios& termios = getTermios();
 
     int baud = termios.getBaudRate();
+    int data = termios.getDataBits();
+    int stop = termios.getStopBits();
+    int bits = data + stop + 1;
+
     char parity = 'N';
 
     switch (termios.getParity()) {
-        case termios.NONE: parity = 'N'; break;
-        case termios.ODD: parity = 'O'; break;
-        case termios.EVEN: parity = 'E'; break;
+        case termios.NONE:
+            parity = 'N'; break;
+        case termios.ODD:
+            parity = 'O'; bits++; break;
+        case termios.EVEN:
+            parity = 'E'; bits++; break;
         default: break;
     }
-    int data = termios.getDataBits();
-    int stop = termios.getStopBits();
+
+    int usecs = (bits * USECS_PER_SEC + termios.getBaudRate() / 2) /
+        termios.getBaudRate();
+    getSampleScanner()->setUsecsPerByte(usecs);
 
     _modbusrtu = modbus_new_rtu(getDeviceName().c_str(), baud, parity,
             data, stop);
@@ -212,14 +223,18 @@ void ModbusRTU::open(int)
 
     _thread->setRealTimeFIFOPriority(40);
 
+#ifdef IGNORE_THREAD_ERROR
     try {
         _thread->unblockSignal(SIGUSR1);
         _thread->start();
     }
     catch(n_u::Exception& e) {
     }
+#else
+    _thread->unblockSignal(SIGUSR1);
+    _thread->start();
+#endif
 
-    SerialSensor::open(flags);
 #endif
 }
 
@@ -243,6 +258,10 @@ void ModbusRTU::close()
 int ModbusRTU::ModbusThread::run() throw()
 {
     uint16_t data[_nvars + 1];
+
+    // These toLittle conversions are here just in case this code
+    // is run on a big-endian system (not likely now without armbe
+    // machines). They do don't swap anything on a little-endian system.
     data[0] = toLittle->uint16Value(_nvars);
 
     int nCRCError = 0;
@@ -272,7 +291,6 @@ int ModbusRTU::ModbusThread::run() throw()
         }
         nCRCError = 0;
 
-        // convert to little-endian
         for (int i = 0; i < _nvars; i++)
             data[i+1] = toLittle->uint16Value(data[i+1]);
 
