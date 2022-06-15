@@ -243,7 +243,7 @@ if [ -n "$repo" ]; then
         # For the first architecture listed in confg/distributions, install
         # all the packages listed in the changes file, including source and
         # "all" packages.
-        if [ $arch == $primarch ]; then
+        if [ $arch == "$primarch" ]; then
             echo "Installing ${pkgs[*]}"
             if [ $i -gt 0 ]; then
                 for pkg in ${pkgs[*]}; do
