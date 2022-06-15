@@ -189,19 +189,32 @@ void ModbusRTU::open(int)
 
     int dtusec = USECS_PER_SEC / rate;
 
+/* Evaluates to True if the version is greater than @major, @minor and @micro */
+#if LIBMODBUS_VERSION_CHECK(3,0,6)
+    uint32_t to_sec, to_usec;
+    modbus_get_response_timeout(_modbusrtu, &to_sec, &to_usec);
+    DLOG(("old timeout, sec=") << to_sec << ", usec=" << to_usec);
+#ifdef SET_MODBUS_TIMEOUT
+    to_sec = dtusec / USECS_PER_SEC;
+    to_usec = dtusec % USECS_PER_SEC;
+    modbus_set_response_timeout(_modbusrtu, &to_sec, &to_sec);
+    DLOG(("new timeout, sec=") << to_sec << ", usec=" << to_usec);
+#endif
+
+#else
     struct timeval tvold;
     modbus_get_response_timeout(_modbusrtu, &tvold);
-
-    // cerr << "old timeout, sec=" << tvold.tv_sec << ", usec=" << tvold.tv_usec << endl;
-    // cerr << "dtusec=" << dtusec << endl;
-
+    DLOG(("old timeout, sec=") << tvold.tv_sec << ", usec=" << tvold.tv_usec);
 #ifdef SET_MODBUS_TIMEOUT
     struct timeval tvnew;
     tvnew.tv_sec = dtusec / USECS_PER_SEC;
     tvnew.tv_usec = dtusec % USECS_PER_SEC;
     modbus_set_response_timeout(_modbusrtu, &tvnew);
-    cerr << "new timeout, sec=" << tvnew.tv_sec << ", usec=" << tvnew.tv_usec << endl;
+    DLOG(("new timeout, sec=") << tvnew.tv_sec << ", usec=" << tvnew.tv_usec);
 #endif
+#endif
+
+    DLOG(("dtusec=") << dtusec);
 
     setTimeoutMsecs((dtusec * 5) / USECS_PER_MSEC);
 
@@ -339,7 +352,7 @@ bool ModbusRTU::process(const Sample* samp,list<const Sample*>& results)
         // var->convert screens for missing values, converts, then
         // screens for min and max values
         Variable* var = vars[i];
-        var->convert(outsamp->getTimeTag(), &val, 1, &val);
+        var->convert(outsamp->getTimeTag(), &val);
         outsamp->getDataPtr()[i] = val;
     }
     results.push_back(outsamp);
