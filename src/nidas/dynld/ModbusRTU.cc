@@ -189,8 +189,9 @@ void ModbusRTU::open(int)
 
     int dtusec = USECS_PER_SEC / rate;
 
-/* Evaluates to True if the version is greater than @major, @minor and @micro */
-#if LIBMODBUS_VERSION_CHECK(3,0,6)
+/* Evaluates to True if the version is greater than @major, @minor and @micro
+   (Actually does a >= on micro, if major and minor are the same) */
+#if LIBMODBUS_VERSION_CHECK(3,1,0)
     uint32_t to_sec, to_usec;
     modbus_get_response_timeout(_modbusrtu, &to_sec, &to_usec);
     DLOG(("old timeout, sec=") << to_sec << ", usec=" << to_usec);
