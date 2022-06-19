@@ -31,19 +31,14 @@
 
 #include <nidas/util/InvalidParameterException.h>
 
-//
-// Add a bogus zeroth bin to the data to match historical behavior.
-// Remove all traces of this after the netCDF file refactor.
-//
-// #define ZERO_BIN_HACK
-
 namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 
 /**
- * Base class for PMS 2D particle probes on a USB interface.  Covers
- * both the Fast2DC and the white converter box for older 2D probes.
+ * Base class for SPEC 2DS optical array probe on a USB interface. 
+ * Perhaps can be split out into a base class and sub-classes for
+ * 2DS & HVPS.
  */
 class TwoDS : public UDPSocketSensor
 {
