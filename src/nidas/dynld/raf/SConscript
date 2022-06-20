@@ -42,6 +42,7 @@ sources = Split("""
     SyncRecordSource.cc
     SyncServer.cc
     TwoD_House.cc
+    TwoD_Processing.cc
     TwoD_USB.cc
     TwoD64_USB.cc
     TwoD64_USB_v3.cc
@@ -95,6 +96,7 @@ headers = Split("""
     SyncRecordVariable.h
     SyncServer.h
     TwoD_House.h
+    TwoD_Processing.h
     TwoD_USB.h
     TwoD64_USB.h
     TwoD64_USB_v3.h
