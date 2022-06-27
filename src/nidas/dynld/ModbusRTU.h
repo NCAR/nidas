@@ -24,11 +24,11 @@
  ********************************************************************
 */
 
-#include <nidas/Config.h>
-
 
 #ifndef NIDIS_DYNLD_MODBUSRTU_H
 #define NIDIS_DYNLD_MODBUSRTU_H
+
+#include <nidas/Config.h>
 
 #ifdef HAVE_LIBMODBUS
 #include <modbus/modbus.h>
@@ -72,6 +72,7 @@ namespace nidas { namespace dynld {
  *              <linear units="degC" slope="0.1" intercept="0.0"/>
  *          </variable>
  *      </sample>
+ *      <message separator="0" length="0" eom="false"/>
  *  </serialSensor>
  *
  *  The file descriptor is hidden in an opaque structure in libmodbus.
@@ -96,11 +97,13 @@ public:
     void open(int flags);
 
 #ifdef HAVE_LIBMODBUS
+
     void close();
 
     IODevice* buildIODevice();
 
     SampleScanner* buildSampleScanner();
+
 #endif
 
     /**
@@ -113,7 +116,18 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
+
+protected:
 #ifdef HAVE_LIBMODBUS
+
+    modbus_t* _modbusrtu;
+
+    int _slaveID;
+
+    int _regaddr;
+
+    int _pipefds[2];
+
     class ModbusThread: public nidas::util::Thread
     {
     public:
@@ -136,20 +150,20 @@ public:
         // no assignment
         ModbusThread& operator=(const ModbusThread&);
     };
-#endif
-
-protected:
-
-#ifdef HAVE_LIBMODBUS
-    modbus_t* _modbusrtu;
-
-    int _slaveID;
-
-    int _regaddr;
 
     ModbusThread *_thread;
 
-    int _pipefds[2];
+    class MyIODevice: public UnixIODevice {
+    public:
+        MyIODevice(): UnixIODevice() {}
+        // pipe is opened by sensor open method.
+        void open(int) {}
+
+        void setFd(int val) { _fd = val; }
+    };
+
+    MyIODevice *_iodevice;
+
 #endif
 
     uint16_t _nvars;

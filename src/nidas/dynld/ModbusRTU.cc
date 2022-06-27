@@ -24,8 +24,6 @@
  ********************************************************************
 */
 
-#include <nidas/Config.h>
-
 #include "ModbusRTU.h"
 #include <nidas/core/Variable.h>
 #include <nidas/util/UTime.h>
@@ -61,8 +59,8 @@ static const n_u::EndianConverter *toHost = n_u::EndianConverter::getConverter(
 
 ModbusRTU::ModbusRTU():SerialSensor(),
 #ifdef HAVE_LIBMODBUS
-    _modbusrtu(0), _slaveID(1), _regaddr(0),
-    _thread(0), _pipefds{-1,-1},
+    _modbusrtu(0), _slaveID(1), _regaddr(0), _pipefds{-1,-1},
+    _thread(0), _iodevice(0),
 #endif
     _nvars(0), _stag(0)
 {
@@ -94,16 +92,13 @@ void ModbusRTU::init()
 }
 
 #ifdef HAVE_LIBMODBUS
-class MyIODevice: public UnixIODevice {
-public:
-    MyIODevice(int fd): UnixIODevice() { _fd = fd; }
-    // pipe is already open
-    void open(int) {}
-};
 
 IODevice* ModbusRTU::buildIODevice()
 {
-    return new MyIODevice(_pipefds[0]);
+    if (!_iodevice)
+        _iodevice = new MyIODevice();   // deleted in DSMSensor dtor
+
+    return _iodevice;
 }
 
 SampleScanner* ModbusRTU::buildSampleScanner()
@@ -137,6 +132,9 @@ void ModbusRTU::open(int)
 
     if (::pipe(_pipefds) < 0)
         throw n_u::IOException(getDeviceName(), "pipe", errno);
+
+    buildIODevice();
+    _iodevice->setFd(_pipefds[0]);   // nidas reads from the IODevice
 
     SerialSensor::open(flags);
 
@@ -261,12 +259,17 @@ void ModbusRTU::close()
     if (_pipefds[1] >= 0) ::close(_pipefds[1]);
     _pipefds[0] = _pipefds[1] = -1;
 
+    // _iodevice->close() will do nothing if its fd is < 0
+    _iodevice->setFd(-1);       
+
     // _thread->cancel();
     _thread->kill(SIGUSR1);
     _thread->join();
 
     modbus_close(_modbusrtu);
     modbus_free(_modbusrtu);
+
+    SerialSensor::close();
 }
 
 int ModbusRTU::ModbusThread::run() throw()
