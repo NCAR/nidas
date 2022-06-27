@@ -188,7 +188,7 @@ while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
 done
 
 if [ $sleep -ge $sleepmax ]; then
-    echo "Cannot find \"opened\" messages in dsm output."
+    echo "Cannot find $nsensors \"opened\" messages in dsm output. ndone=$ndone"
     echo "dsm process is apparently not running successfully."
     echo "Perhaps a firewall is blocking the configuration multicast?"
     echo "${0##*/}: serial_sensor test failed"

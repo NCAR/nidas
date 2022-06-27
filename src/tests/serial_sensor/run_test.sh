@@ -152,7 +152,7 @@ done
 
 # look for "opening" messages in dsm output
 sleep=0
-sleepmax=30
+sleepmax=40
 ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
@@ -172,7 +172,7 @@ while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
 done
 
 if [ $sleep -ge $sleepmax ]; then
-    echo "Cannot find \"opening\" messages in dsm output."
+    echo "Cannot find $nsensors \"opening\" messages in dsm output. ndone=$ndone"
     echo "dsm process is apparently not running successfully."
     echo "${0##*/}: serial_sensor test failed"
     kill_sims
