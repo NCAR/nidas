@@ -52,6 +52,8 @@ public:
 
     void setTailNumber(const std::string& val);
 
+    void addParameter(Parameter* val);
+
     /**
      * Search the Project for the Aircraft site and return a pointer to it,
      * or return null if there are no Aircraft sites.

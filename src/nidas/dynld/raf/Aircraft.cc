@@ -41,11 +41,11 @@ Aircraft::Aircraft()
     /*
      * Do we want DSMSensor::process methods at this site to apply
      * variable conversions? This can be changed with the
-     * "applyCals" boolean parameter in the XML.  Let it default
-     * to false, the original behaviour, until things are settled
-     * in this area.
+     * "applyCals" boolean attribute in the XML.
+     * When NIDAS was first being integrated with NIMBUS, it defaulted
+     * to false, but now NIMBUS expects NIDAS to do the calibrations.
      */
-    _applyCals = false;
+    _applyCals = true;
 }
 
 Aircraft::~Aircraft()
@@ -69,6 +69,13 @@ void Aircraft::setTailNumber(const string& val) {
     addParameter(param);
 }
 
+void Aircraft::addParameter(Parameter* val)
+{
+    if (val->getName() == "applyCals")
+        throw nidas::util::InvalidParameterException("Site::fromDOMElement", getName(),
+                "applyCals should be an attribute, not a <parameter>");
+    Site::addParameter(val);
+}
 
 Aircraft*
 Aircraft::
