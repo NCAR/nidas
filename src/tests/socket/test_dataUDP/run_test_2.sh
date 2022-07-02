@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm and dsm_server process, sampling serial sensors, via pseudo-terminals
 
@@ -45,7 +45,7 @@ valgrind_errors() {
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm -d"`
+    dsmpid=`pgrep -f "valgrind.* dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -64,7 +64,7 @@ kill_dsm() {
 kill_dsm_server() {
     # send a TERM signal to dsm_server process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm_server"`
+    dsmpid=`pgrep -f "valgrind.* dsm_server"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then

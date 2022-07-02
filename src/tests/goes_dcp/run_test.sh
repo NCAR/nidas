@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for checking results of pdecode on GOES DCP data.
 

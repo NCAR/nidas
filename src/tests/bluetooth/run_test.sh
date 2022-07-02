@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # test script for bluetooth. This is not an integrated scons test
 # since one must install the necessary bluetooth hardware on a
@@ -48,7 +48,7 @@ valgrind_errors() {
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind .*dsm -d"`
+    dsmpid=`pgrep -f "valgrind.* dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then

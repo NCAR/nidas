@@ -1,8 +1,9 @@
 {
    pthread allocate_tls memory loss
    Memcheck:Leak
+   ...
    fun:calloc
-   fun:_dl_allocate_tls
+   ...
    fun:pthread_create@@GLIBC_2*
 }
 
@@ -21,15 +22,4 @@
    fun:_ZN11xercesc_3_07XMemorynwEmPNS_13MemoryManagerE
    ...
    fun:_ZN11xercesc_3_015DOMLSParserImpl8parseURIEPKt
-}
-
-{
-   pthread_create possible memory loss
-   Memcheck:Leak
-   ...
-   fun:calloc
-   fun:allocate_dtv
-   fun:_dl_allocate_tls
-   fun:allocate_stack
-   fun:pthread_create@@GLIBC_2.2.5
 }

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script which runs ck_calfile on some sample cal files and compares
 # results against previous runs
@@ -85,9 +85,9 @@ for cf in $cwd/caldir1/*.dat; do
         save=/tmp/ck_calfile_$$.diff
         diff -u $saveout $checkfile > $save
         echo "test of '$cmd' failed, result copied to $saveout, diff copied to $save"
+        echo "If differences look like time zone offsets, check that tzdata package is installed"
         exit 1
     fi
 
 done
-
 

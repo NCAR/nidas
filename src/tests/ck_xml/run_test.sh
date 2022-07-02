@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script which runs ck_xml on a bunch of project configurations.
 

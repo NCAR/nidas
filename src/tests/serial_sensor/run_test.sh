@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm process, sampling serial sensors, via pseudo-terminals
 
@@ -49,7 +49,7 @@ valgrind_errors() {
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind .*dsm -d"`
+    dsmpid=`pgrep -f "valgrind.* dsm -d"`
     if [ -n "$dsmpid" ]; then
         echo "Doing kill -TERM $dsmpid"
         kill -TERM $dsmpid
@@ -75,6 +75,7 @@ kill_sims() {
 
 
 find_udp_port() {
+    which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
     for (( port = $port1; ; port--)); do
@@ -82,7 +83,7 @@ find_udp_port() {
     done
     echo $port
 }
-        
+
 kill_dsm
 
 for f in /tmp/run/nidas/dsm.pid; do
@@ -197,9 +198,11 @@ while true; do
             sleep 1
         fi
     done
+    echo "ndone=$ndone, nsensors=$nsensors"
     [ $ndone -eq $nsensors ] && break
 done
 
+echo "doing kill_dsm"
 kill_dsm
 
 # check output data file for the expected number of samples

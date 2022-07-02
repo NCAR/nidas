@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Script for testing the processing of sonic anemometer data.
 
@@ -86,6 +86,7 @@ diff_warn() {
         echo "Second diff failed also"
         exit 1
     fi
+    echo "Second diff succeeded"
 
     # Uncomment to create a "truth" file.
     # [ -f $3 ] || cat $4 | gzip -c > $3

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #This runs some basic tests on the nidsmerge binary to check for valid operation
 

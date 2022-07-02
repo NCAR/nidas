@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #Test script for DAUSensor, checking message reassembly and data processing.
 echo "Beginning DAUSensor tests."

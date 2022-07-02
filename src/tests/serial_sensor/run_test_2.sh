@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Test script for a dsm and dsm_server process, sampling serial sensors, via pseudo-terminals
 
@@ -50,11 +50,11 @@ valgrind_errors() {
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind .*dsm -d"`
+    dsmpid=`pgrep -f "valgrind.* dsm -d"`
     if [ -n "$dsmpid" ]; then
         echo "Doing kill -TERM $dsmpid"
         kill -TERM $dsmpid
-        while ps -p $dsmpid > /dev/null; do
+        while ps -p $dsmpid -f; do
             if [ $nkill -gt 10 ]; then
                 echo "Doing kill -9 $dsmpid"
                 kill -9 $dsmpid
@@ -68,11 +68,11 @@ kill_dsm() {
 kill_dsm_server() {
     # send a TERM signal to valgrind dsm_server process
     nkill=0
-    dsmpid=`pgrep -f "valgrind .*dsm_server"`
+    dsmpid=`pgrep -f "valgrind.* dsm_server"`
     if [ -n "$dsmpid" ]; then
         echo "Doing kill -TERM $dsmpid"
         kill -TERM $dsmpid
-        while ps -p $dsmpid > /dev/null; do
+        while ps -p $dsmpid -f; do
             if [ $nkill -gt 10 ]; then
                 echo "Doing kill -9 $dsmpid"
                 kill -9 $dsmpid
@@ -93,6 +93,7 @@ kill_sims() {
 }
 
 find_udp_port() {
+    which netstat >& /dev/null || { echo "netstat not found, install net-tools" && exit 1; }
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1 ))
     for (( port = $port1; ; port--)); do
@@ -150,10 +151,19 @@ echo "Using port=$NIDAS_SVC_PORT_UDP"
 # ( valgrind dsm_server -d config/test.xml 2>&1 | tee $TEST/dsm_server.log ) &
 # valgrind dsm_server -d -l 6 config/test.xml > $TEST/dsm_server.log 2>&1 &
 
+# The version of xmlrpc we're using on bionic debian does not do a pselect/ppoll
+# when it waits for connections, meaning that it can't atomically detect
+# a signal and exit.  So on these systems don't start xmlrpc thread with
+# the -r option, because dsm_server won't shut down with a simple TERM signal,
+# and has to be killed with -9, which causes the test to fail.
+source /etc/os-release
+[ "$ID" != ubuntu ] && xmlrpcopt=-r
+
 export NIDAS_CONFIGS=config/configs.xml
 # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
 # --gen-suppressions=all
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 -r -c > $TEST/dsm_server.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 $xmlrpcopt -c > $TEST/dsm_server.log 2>&1 &
+# dsm_server -d -l 6 $xmlrpcopt -c > $TEST/dsm_server.log 2>&1 &
 
 sleep 10
 
@@ -349,8 +359,8 @@ if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "${0##*/}: serial_sensor test OK"
     exit 0
 else
-    [ $dsm_errs -gt 0 ] || cat $TEST/dsm.log
-    [ $svr_errs -gt 0 ] || cat $TEST/dsm_server.log
+    [ $dsm_errs -gt 0 ] && cat $TEST/dsm.log
+    [ $svr_errs -gt 0 ] && cat $TEST/dsm_server.log
     echo "${0##*/}: serial_sensor test failed"
     badexit
 fi
