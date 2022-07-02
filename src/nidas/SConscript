@@ -65,6 +65,11 @@ conf.CheckFunc("epoll_pwait")
 conf.CheckCHeader('linux/i2c-dev.h')
 conf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C')
 
+# uio48.h is a header file with ioctl definitions for a UIO48
+# digital I/O chip, as found on a PCM-C418 Vortex.
+if conf.CheckCHeader('uio48.h'):
+    env["HAVE_UIO48"] = True
+
 # It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
 # accordingly, or maybe the path to pkg-config needs to be set, such as
 # /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to

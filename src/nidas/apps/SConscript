@@ -158,6 +158,9 @@ ncenv.NidasProgram('isff/prep.cc')
 env.NidasUtilProgram('sing.cc')
 env.NidasUtilProgram('tee_tty.cc')
 
+if 'HAVE_UIO48' in env:
+    env.NidasProgram('uio48.cc')
+
 # tee_i2c has a read-from-text-file test mode which doesn't
 # require the I2C API, so always build it
 env.NidasProgram('tee_i2c.cc')
