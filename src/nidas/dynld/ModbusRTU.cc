@@ -96,14 +96,16 @@ void ModbusRTU::init()
 IODevice* ModbusRTU::buildIODevice()
 {
     if (!_iodevice)
-        _iodevice = new MyIODevice();   // deleted in DSMSensor dtor
+        _iodevice = new ModbusIODevice();   // deleted in DSMSensor dtor
 
     return _iodevice;
 }
 
 SampleScanner* ModbusRTU::buildSampleScanner()
 {
-    SampleScanner* scanner = SerialSensor::buildSampleScanner();
+    ModbusMessageStreamScanner* scanr = new ModbusMessageStreamScanner();
+    scanr->setNullTerminate(false);
+    scanr->setUsecsPerByte(getUsecsPerByte());
 
     // Format of data written by writer thread is a simple buffer,
     // consisting of all little-endian, words of uint16_t.
@@ -114,8 +116,19 @@ SampleScanner* ModbusRTU::buildSampleScanner()
     // The message length (which doesn't include the separator) is then 2 * nvars.
     uint16_t nvars_le = toLittle->uint16Value(_nvars);
     string sepstr((const char*) &nvars_le, 2);
-    scanner->setMessageParameters(_nvars * sizeof(uint16_t), sepstr, false);
-    return scanner;
+    scanr->setMessageParameters(_nvars * sizeof(uint16_t), sepstr, false);
+
+    return scanr;
+}
+
+Sample* ModbusRTU::ModbusMessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
+{
+    Sample* samp = MessageStreamScanner::nextSampleSepBOM(sensor);
+    if (samp)
+        // Adjust time tag earlier by number of bytes that were discarded
+        // between the libmodbus read and the data sent over the pipe.
+        samp->setTimeTag(samp->getTimeTag() - _nbytesDiscarded * getUsecsPerByte());
+    return samp;
 }
 #endif
 

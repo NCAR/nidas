@@ -118,6 +118,41 @@ public:
 
 
 protected:
+    /**
+     * A subclass of MessageStreamScanner, with a modified
+     * nextSampleSepBOM() method that adjusts the sample
+     * time tag by the tranmission time of the number of bytes
+     * that were discarded between the libmodbus read and the data
+     * sent over the pipe.
+     *
+     * From an email from Josh Carnes:
+     * A ModbusRTU response includes
+     *  1-byte address
+     *  1- byte function
+     *  1-byte Byte Count (X)
+     *  X-byte data
+     *  2-byte CRC
+     * So, the response transmission length is 5-bytes longer than the data.
+     * In this application, that's 7 Bytes total.
+     *
+     * The samples on the pipe after the modbus read consist of a 2-byte
+     * length and then the 2 byte sample word.  So we need to adjust
+     * the sample time earlier by the transmission time of 3 bytes.
+     */
+
+    class ModbusMessageStreamScanner: public MessageStreamScanner
+    {
+    public:
+        ModbusMessageStreamScanner(): MessageStreamScanner(),
+             _nbytesDiscarded(3)
+        {
+        }
+        Sample* nextSampleSepBOM(DSMSensor* sensor);
+
+    private:
+        int _nbytesDiscarded;
+    };
+        
 #ifdef HAVE_LIBMODBUS
 
     modbus_t* _modbusrtu;
@@ -153,16 +188,16 @@ protected:
 
     ModbusThread *_thread;
 
-    class MyIODevice: public UnixIODevice {
+    class ModbusIODevice: public UnixIODevice {
     public:
-        MyIODevice(): UnixIODevice() {}
+        ModbusIODevice(): UnixIODevice() {}
         // pipe is opened by sensor open method.
         void open(int) {}
 
         void setFd(int val) { _fd = val; }
     };
 
-    MyIODevice *_iodevice;
+    ModbusIODevice *_iodevice;
 
 #endif
 
