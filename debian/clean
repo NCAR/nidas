@@ -1,0 +1,8 @@
+# remove directories created for packages of specific architectures
+debian/nidas-titan/
+debian/nidas-modules-titan/
+debian/nidas-viper/
+debian/nidas-modules-viper/
+debian/nidas-vortex/
+debian/nidas-modules-vortex/
+debian/nidas-modules-amd64/

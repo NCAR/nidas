@@ -8,10 +8,12 @@ eolrepo=/net/ftp/pub/archive/software/debian
 
 usage() {
     echo "Usage: ${1##*/} [-i repository ] [ -I codename ] arch"
+    echo "-b: just build binary, not source (faster)"
     echo "-c: build in a chroot (not necessary with docker or podman)"
-    echo "-i: install packages with reprepro to the repository"
+    echo "-f: faster, i.e. don't do scons --config=force"
+    echo "-i repo: install packages with reprepro to repo"
     echo "-I codename: install packages to $eolrepo/codename-<codename>"
-    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage"
+    echo "-n: don't clean source tree, passing -nc to dpkg-buildpackage, implies -b"
     echo "arch is armel, armhf, amd64 or i386"
     echo "codename is jessie, xenial or whatever distribution has been enabled on $eolrepo"
     exit 1
@@ -29,10 +31,19 @@ arch=amd64
 # step for 30 minutes or so.  top shows "xz" is using a bunch of
 # CPU time, but very little memory.
 # Have tried adding -J and -I options, no effect.
+# Also --compression-level=1 seems to have no effect
+# The only solution found is not to build source packages, -b
 
-args="--no-tgz-check -sa"
+# args="--no-tgz-check"
 
 use_chroot=false
+binary=false
+
+# hack: pass the scons --config option using GCJFLAGS, which are the java flags :-)
+# Otherwise I don't know how to pass options through to debian/rules and the
+# Makefile from debuild
+export DEB_GCJFLAGS_MAINT_SET=--config=force
+
 while [ $# -gt 0 ]; do
     case $1 in
     -i)
@@ -44,11 +55,18 @@ while [ $# -gt 0 ]; do
         codename=$1
         repo=$eolrepo/codename-$codename
         ;;
+    -b)
+        binary=true
+        ;;
     -c)
         use_chroot=true
         ;;
+    -f)
+        export DEB_GCJFLAGS_MAINT_SET=
+        ;;
     -n)
-        args="$args -nc -F"
+        args="$args -nc"
+        binary=true
         ;;
     armel)
         export CC=arm-linux-gnueabi-gcc
@@ -70,6 +88,13 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+
+if $binary; then
+    args="$args -b"
+else
+    # args="$args -sa --no-tgz-check"
+    args="$args -sa"
+fi
 
 if [ -n "$repo" -a -d "$repo" ]; then
     distconf=$repo/conf/distributions
@@ -180,6 +205,8 @@ if $use_chroot; then
             --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 EOD
 else
+    # To test cleans, do: debuild -- clean
+    # DEB_BUILD_MAINT_OPTIONS
     time debuild $args \
         --lintian-opts --suppress-tags dir-or-file-in-opt,package-modifies-ld.so-search-path,package-name-doesnt-match-sonames
 fi

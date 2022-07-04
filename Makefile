@@ -129,8 +129,12 @@ $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
 $(info DEB_HOST_GNU_TYPE=$(DEB_HOST_GNU_TYPE))
 $(info DEB_HOST_MULTIARCH=$(DEB_HOST_MULTIARCH))
 
+# hack: scons --config option is passed using GCJFLAGS
+$(info DEB_GCJFLAGS_MAINT_SET= $(DEB_GCJFLAGS_MAINT_SET))
+$(info GCJFLAGS= $(GCJFLAGS))
+
 build:
-	cd src; $(SCONS) --config=force -j 4 BUILDS=$(BUILDS) \
+	cd src; $(SCONS) $(GCJFLAGS) -j 4 BUILDS=$(BUILDS) \
 		REPO_TAG=$(REPO_TAG) \
 		PREFIX=$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
@@ -179,6 +183,5 @@ install: scons_install $(LDCONF) $(PKGCONFIG)
 	fi
 
 clean:
-	cd src; $(SCONS) -c BUILDS="$(BUILDS)" \
-		ARCHLIBDIR=$(ARCHLIBDIR) PREFIX=$(DESTDIR)$(PREFIX)
+	cd src; $(SCONS) -c BUILDS="$(BUILDS)"
 
