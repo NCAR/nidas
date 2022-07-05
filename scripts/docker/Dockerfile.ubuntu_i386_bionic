@@ -57,8 +57,8 @@ RUN if [ $dolocal = yes ]; then apt-get update && \
     apt-get install -y --no-install-recommends --allow-downgrades \
     linux-headers-4.15.18-vortex86dx3 eol-scons eol-repo libxerces-c3.2; fi
 
-# net-tools is for netstat, used in tests
-RUN apt-get install -y --no-install-recommends debmake libmodbus-dev libusb-1.0-0-dev net-tools libboost-regex-dev libboost-test-dev
+# net-tools is for netstat, used in tests, also valgrind
+RUN apt-get install -y --no-install-recommends debmake libmodbus-dev libusb-1.0-0-dev net-tools libboost-regex-dev libboost-test-dev valgrind
 
 # installation of tzdata wants to ask user for the time zone.  We have to be noninterative
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
