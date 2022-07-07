@@ -66,7 +66,6 @@ override_dh_auto_build:
          -o debian/ \
 http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl\
         debian/uio48.1.xml
-	dh_auto_build
 
 override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
