@@ -52,43 +52,59 @@ int main(int argc, char** argv)
 {
     Uio48 dio;
 
+    int ret = 0;
+
     if (argc < 2) return usage(argv[0]);
 
-    dio.open(argv[1]);
+    int iarg = 1;
 
-    int npins = dio.getNumPins();
+    string devname = "/dev/uio48a";
+    if (argv[iarg][0] == '/') devname = argv[iarg++];
 
-    // query state of digital pin.
-    if (argc == 3) {
-        int io = atoi(argv[2]);
-        if (io < 0 || io >= npins) {
-            cerr << "pin number " << io << " is out of range: " << 0 << '-' << (npins-1) << endl;
-            return usage(argv[0]);
+    try {
+
+        dio.open(devname.c_str());
+
+        int npins = dio.getNumPins();
+
+        // query state of digital pin.
+        if (argc == 3) {
+            int io = atoi(argv[iarg++]);
+            if (io < 0 || io >= npins) {
+                cerr << "pin number " << io << " is out of range: " << 0 << '-' << (npins-1) << endl;
+                return usage(argv[0]);
+            }
+            // n_u::BitArray vals = dio.getInputs();
+            n_u::BitArray vals = dio.getPins();
+            cout << vals.getBit(io) << endl;
+            return 0;
         }
-        // n_u::BitArray vals = dio.getInputs();
-        n_u::BitArray vals = dio.getPins();
-        cout << vals.getBit(io) << endl;
+
+        // cout << "num pins=" << npins << endl;
+        // cout << "num inputs=" << nin << endl;
+
+        n_u::BitArray which(npins);
+        n_u::BitArray vals(npins);
+        for ( ; iarg < argc - 1; ) {
+            int io = atoi(argv[iarg++]);
+
+            if (io < 0 || io >= npins) {
+                cerr << "pin number " << io << " is out of range: " << 0 << '-' << (npins-1) << endl;
+                return usage(argv[0]);
+            }
+            int val = atoi(argv[iarg++]);
+            which.setBit(io,1);
+            vals.setBit(io,val!=0);
+            // cout << "setting DOUT pin " << io << " to " << val << endl;
+        }
+        dio.setPins(which,vals);
         return 0;
     }
-
-    // cout << "num pins=" << npins << endl;
-    // cout << "num inputs=" << nin << endl;
-
-    n_u::BitArray which(npins);
-    n_u::BitArray vals(npins);
-    for (int i = 2; i < argc - 1;  ) {
-        int io = atoi(argv[i++]);
-
-        if (io < 0 || io >= npins) {
-            cerr << "pin number " << io << " is out of range: " << 0 << '-' << (npins-1) << endl;
-            return usage(argv[0]);
-        }
-        int val = atoi(argv[i++]);
-        which.setBit(io,1);
-        vals.setBit(io,val!=0);
-        // cout << "setting DOUT pin " << io << " to " << val << endl;
+    catch (const n_u::IOException & e) {
+        cerr << e.what() << endl;
+        ret = 1;
     }
-    dio.setPins(which,vals);
-    return 0;
+    return ret;
 }
+
 
