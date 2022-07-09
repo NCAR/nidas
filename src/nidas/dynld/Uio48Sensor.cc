@@ -69,7 +69,7 @@ void Uio48::close()
  *  IOCTL_READ_PORT  port: 0-5, reads a byte
  *  IOCTL_WRITE_PORT  port: 0-5, writes a byte
  *  IOCTL_READ_BIT   bit numbered 1-48
- *  IOCTL_WRITE_BIT
+ *  IOCTL_WRITE_BIT, but numbered 1-48
  *  IOCTL_SET_BIT   bit numbered 1-48
  *  IOCTL_CLR_BIT
  *  IOCTL_LOCK_PORT  port: 0-5
@@ -86,7 +86,7 @@ void Uio48::clearPins(const nidas::util::BitArray& which)
 	     * effectively pulling it low.
 	     */
 	    unsigned long ival = 1;
-	    ival |= bit << 8;
+	    ival |= (bit + 1) << 8;
 	    int ret = ::ioctl(_fd, IOCTL_WRITE_BIT, ival);
 	    if (ret < 0)
 		throw n_u::IOException(getName(), "IOCTL_WRITE_BIT", errno);
@@ -104,7 +104,7 @@ void Uio48::setPins(const nidas::util::BitArray& which)
 	     * which allows it to be used as an input.
 	     */
 	    unsigned long ival = 0;
-	    ival |= bit << 8;
+	    ival |= (bit + 1) << 8;
 	    int ret = ::ioctl(_fd, IOCTL_WRITE_BIT, ival);
 	    if (ret < 0)
 		throw n_u::IOException(getName(), "IOCTL_WRITE_BIT", errno);
@@ -119,7 +119,7 @@ void Uio48::setPins(const nidas::util::BitArray& which,
 	if (which.getBit(bit)) {
 	    /* Again note the inverted logic. */
 	    unsigned long ival = !val.getBit(bit);
-	    ival |= bit << 8;
+	    ival |= (bit + 1) << 8;
 	    int ret = ::ioctl(_fd, IOCTL_WRITE_BIT, ival);
 	    if (ret < 0)
 		throw n_u::IOException(getName(), "IOCTL_WRITE_BIT", errno);
@@ -130,16 +130,27 @@ void Uio48::setPins(const nidas::util::BitArray& which,
 nidas::util::BitArray Uio48::getPins()
 {
     nidas::util::BitArray pins(_npins);
+
+    // both IOCTL_READ_PORT and IOCTL_READ_BIT work. We'll use READ_PORT
+#define USE_READ_PORT
+#ifdef USE_READ_PORT
     for (int port = 0; port < 6; port++) {
         int ret = ::ioctl(_fd, IOCTL_READ_PORT, (unsigned long) port);
 	if (ret < 0)
 	    throw n_u::IOException(getName(), "IOCTL_READ_PORT", errno);
 
-	// cerr << "port=" << port << ", ret=" << std::hex << ret << std::dec << endl;
 	ret = (ret ^ 0xff) & 0xff;	// flip bits
-	// cerr << "port=" << port << ", final ret=" << std::hex << ret << std::dec << endl;
         pins.setBits(port*8, (port+1)*8, (unsigned) ret);
     }
+#else
+    for (int bit = 0; bit < _npins; bit++) {
+        int ret = ::ioctl(_fd, IOCTL_READ_BIT, (unsigned long) (bit + 1));
+	if (ret < 0)
+	    throw n_u::IOException(getName(), "IOCTL_READ_BIT", errno);
+	ret ^= 1;
+        pins.setBit(bit, ret);
+    }
+#endif
     return pins;
 }
 #endif

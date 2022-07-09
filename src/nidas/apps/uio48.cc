@@ -68,7 +68,7 @@ int main(int argc, char** argv)
         int npins = dio.getNumPins();
 
         // query state of digital pin.
-        if (argc == 3) {
+        if (argc - iarg == 1) {
             int io = atoi(argv[iarg++]);
             if (io < 0 || io >= npins) {
                 cerr << "pin number " << io << " is out of range: " << 0 << '-' << (npins-1) << endl;
@@ -106,5 +106,4 @@ int main(int argc, char** argv)
     }
     return ret;
 }
-
 
