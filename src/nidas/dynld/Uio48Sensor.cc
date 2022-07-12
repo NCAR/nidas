@@ -55,7 +55,6 @@ void Uio48::open(const std::string& device)
     _devName = device;
     if ((_fd = ::open(device.c_str(), O_RDWR)) < 0)
         throw n_u::IOException(device, "open", errno);
-    getPins();
 }
 
 void Uio48::close()
@@ -134,8 +133,8 @@ nidas::util::BitArray Uio48::getPins()
     // both IOCTL_READ_PORT and IOCTL_READ_BIT work. We'll use READ_PORT
 #define USE_READ_PORT
 #ifdef USE_READ_PORT
-    for (int port = 0; port < 6; port++) {
-        int ret = ::ioctl(_fd, IOCTL_READ_PORT, (unsigned long) port);
+    for (long port = 0; port < 6; port++) {
+        int ret = ::ioctl(_fd, IOCTL_READ_PORT, port);
 	if (ret < 0)
 	    throw n_u::IOException(getName(), "IOCTL_READ_PORT", errno);
 
@@ -144,7 +143,8 @@ nidas::util::BitArray Uio48::getPins()
     }
 #else
     for (int bit = 0; bit < _npins; bit++) {
-        int ret = ::ioctl(_fd, IOCTL_READ_BIT, (unsigned long) (bit + 1));
+        long ival = bit + 1;
+        int ret = ::ioctl(_fd, IOCTL_READ_BIT, ival);
 	if (ret < 0)
 	    throw n_u::IOException(getName(), "IOCTL_READ_BIT", errno);
 	ret ^= 1;
@@ -157,7 +157,7 @@ nidas::util::BitArray Uio48::getPins()
 
 Uio48Sensor::Uio48Sensor(): _nvars(0), _stag(0)
 #ifdef HAVE_UIO48_H
-    , _uio48(), _pipefds{-1, -1},
+    , _uio48(24), _pipefds{-1, -1},
     _iodevice(0), _looperClient(*this, _uio48, _pipefds[1])
 #endif
 {
@@ -229,7 +229,8 @@ IODevice* Uio48Sensor::buildIODevice()
     return 0;
 #else
     if (!_iodevice)
-        _iodevice = new MyIODevice();   // deleted in DSMSensor dtor
+        _iodevice = new Uio48IODevice();   // deleted in DSMSensor dtor
+    _iodevice->setFd(_pipefds[0]);   // nidas reads from the IODevice
     return _iodevice;
 #endif
 }
@@ -271,7 +272,7 @@ void Uio48Sensor::open(int)
 #endif
 {
 #ifndef HAVE_UIO48_H
-    throw n_u::IOException(getDeviceName(), "open", "built without uio48-dev");
+    throw n_u::IOException(getDeviceName(), "open", "NIDAS was built without uio48.h, install uio48-dev");
 #else
 
     if (_uio48.getFd() < 0) _uio48.open(getDeviceName());
@@ -279,13 +280,11 @@ void Uio48Sensor::open(int)
     if (::pipe(_pipefds) < 0)
         throw n_u::IOException(getDeviceName(), "pipe", errno);
 
-    Looper* looper = getLooper();
-
-    _looperClient.setFd(_pipefds[1]);
-
-    looper->addClient(&_looperClient, MSECS_PER_SEC, 0);
-
     DSMSensor::open(flags);
+
+    Looper* looper = getLooper();
+    _looperClient.setFd(_pipefds[1]);
+    looper->addClient(&_looperClient, MSECS_PER_SEC, 0);
 #endif
 }
 
@@ -304,25 +303,32 @@ void Uio48Sensor::close()
     DSMSensor::close();
 }
 
-Uio48Sensor::MyLooperClient::MyLooperClient(const DSMSensor& sensor,
+Uio48Sensor::Uio48LooperClient::Uio48LooperClient(const DSMSensor& sensor,
         Uio48& uio, int pipefd) :
     _sensor(sensor), _uio(uio), _pipefd(pipefd), _buffer()
 {
-    unsigned char* buf = new unsigned char[_uio.getNumPins() / 8 + 1];
-    buf[0] = (unsigned char) _uio.getNumPins() / 8;
-    _buffer.reset(buf);
+    _buffer.resize((_uio.getNumPins() + 7) / 8 + 1);
+    _buffer[0] = (unsigned char) (_uio.getNumPins() + 7) / 8;
+
 }
-void Uio48Sensor::MyLooperClient::looperNotify()
+void Uio48Sensor::Uio48LooperClient::looperNotify()
 {
     // read pins
     n_u::BitArray bits = _uio.getPins();
 
     // store in buffer
-    for (int i = 0; i < bits.getLengthInBytes(); i++)
-        _buffer.get()[i+1] = bits.getBits(i*8, (i+1) * 8);
+    // unsigned int nb = std::min(_uio.getNumPins() / 8, bits.getLengthInBytes());
+    unsigned int nb = bits.getLengthInBytes();
+    nb = std::min(nb, _buffer.size() - 1);
+    unsigned int i;
+    for (i = 0; i < nb; i++)
+        _buffer[i+1] = bits.getBits(i*8, (i+1) * 8);
+
+    for (i++; i < _buffer.size(); i++)
+        _buffer[i] = 0;
 
     // write to pipe
-    if (::write(_pipefd, _buffer.get(), _uio.getNumPins() / 8 + 1) < 0) {
+    if (::write(_pipefd, &_buffer.front(), _buffer.size()) < 0) {
         n_u::IOException e(_sensor.getName() + " pipe", "write", errno);
         PLOG(("%s", e.what()));
     }

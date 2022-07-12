@@ -32,8 +32,6 @@
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/LooperClient.h>
 
-#include <memory>
-
 #ifdef HAVE_UIO48_H
 #include <uio48.h>
 #include <nidas/util/BitArray.h>
@@ -121,6 +119,13 @@ private:
     std::string _devName;
     int _fd;
     int _npins;
+
+    /** No copying */
+    Uio48(const Uio48&);
+
+    /** No assignment */
+    Uio48& operator=(const Uio48&);
+
 };
 #endif
 
@@ -166,18 +171,18 @@ public:
      **/
     void close();
 
-    class MyIODevice: public UnixIODevice {
+    class Uio48IODevice: public UnixIODevice {
     public:
-        MyIODevice(): UnixIODevice() {}
+        Uio48IODevice(): UnixIODevice() {}
         // pipe is opened by sensor open method.
         void open(int) {}
 
         void setFd(int val) { _fd = val; }
     };
 
-    class MyLooperClient : public LooperClient {
+    class Uio48LooperClient : public LooperClient {
     public:
-        MyLooperClient(const DSMSensor& sensor, Uio48& uio, int pipefd);
+        Uio48LooperClient(const DSMSensor& sensor, Uio48& uio, int pipefd);
 
         void looperNotify();
 
@@ -186,7 +191,14 @@ public:
         const DSMSensor& _sensor;
         Uio48& _uio;
         int _pipefd;
-        std::unique_ptr<unsigned char> _buffer;
+        std::vector<unsigned char> _buffer;
+
+        /** No copying */
+        Uio48LooperClient(const Uio48LooperClient&);
+
+        /** No assignment */
+        Uio48LooperClient& operator=(const Uio48LooperClient&);
+
     };
 
 #endif
@@ -203,9 +215,9 @@ private:
 
     int _pipefds[2];
 
-    MyIODevice *_iodevice;
+    Uio48IODevice *_iodevice;
 
-    MyLooperClient _looperClient;
+    Uio48LooperClient _looperClient;
 #endif
 
     /** No copying */
