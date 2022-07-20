@@ -61,9 +61,6 @@ TwoD_USB::TwoD_USB() : _tasRate(1), _tasOutOfRange(0), _sorID(0), _trueAirSpeed(
 
 TwoD_USB::~TwoD_USB()
 {
-    delete [] _size_dist_1D;
-    delete [] _size_dist_2D;
-
     if (_totalRecords > 0) {
         std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
@@ -75,7 +72,6 @@ TwoD_USB::~TwoD_USB()
         std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
         std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
     }
-    delete [] _saveBuffer;
 }
 
 IODevice *TwoD_USB::buildIODevice()

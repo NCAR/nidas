@@ -95,6 +95,7 @@ protected:
      */
     bool processImageRecord(const Sample * samp, std::list < const Sample * >&results);
 
+    static const unsigned char _blankString[];
 
 
 private:

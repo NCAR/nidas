@@ -43,6 +43,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf, TwoDS)
 
+const unsigned char TwoDS::_blankString[] =
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 TwoDS::TwoDS()
 {
@@ -51,9 +53,6 @@ TwoDS::TwoDS()
 
 TwoDS::~TwoDS()
 {
-    delete [] _size_dist_1D;
-    delete [] _size_dist_2D;
-
     if (_totalRecords > 0) {
         std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
         std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
@@ -64,7 +63,6 @@ TwoDS::~TwoDS()
         std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
         std::cerr << "Number of suspect slices = " << _suspectSlices << std::endl;
     }
-    delete [] _saveBuffer;
 }
 
 
@@ -133,6 +131,79 @@ bool TwoDS::processHousekeeping(const Sample * samp, list < const Sample * >&res
 
 bool TwoDS::processImageRecord(const Sample * samp, list < const Sample * >&results)
 {
+    unsigned slen = samp->getDataByteLength();
+    const int wordSize = 16;
+//    if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
+
+    _totalRecords++;
+    _recordsPerSecond++;
+return false;  // Remove when ready.
+
+    // slen is coming in as 4121 bytes.  Actual record is 4114 [ts|image|cksum]
+    // We can only print this if we are getting the same record as written to disk.
+    unsigned short *ts = (unsigned short *)samp->getConstVoidDataPtr();
+    std::cout << "TwoDS::processImageRecord, len = " << slen << " - " <<
+                ts[0] << "/" << std::setw(2) << std::setfill('0') <<
+                ts[1] << "/" << ts[3] << "  " <<
+                ts[4] << ":" << ts[5] << ":" << ts[6] << "." << ts[7] << "\n";
+
+    dsm_time_t startTime = _prevTime;
+    _prevTime = samp->getTimeTag();
+
+    if (startTime == 0) return false;
+
+    const unsigned char * cp = (const unsigned char *) samp->getConstVoidDataPtr();
+    const unsigned char * eod = cp + slen;
+
+//    cp += sizeof(int16_t) * 8; // Move past timestamp?
+
+    setupBuffer(&cp, &eod);
+
+    // Loop through all slices in record.
+    long long firstTimeWord = 0;        // First timing word in this record.
+    for (; cp < eod - (wordSize - 1); )
+    {
+        /* Four cases, syncWord, overloadWord, blank or legitimate slice.
+         * sync & overload words come at the end of the particle.  In the
+         * case of the this probe, the time word is embedded in the sync
+         * and overload word.
+         */
+
+        // possible start of particle slice if it isn't a sync or overload word
+        const unsigned char* sos = cp;
+
+        /* Scan next 8 bytes starting at current pointer, cp, for
+         * a possible syncWord or overloadWord */
+        const unsigned char* eow = cp + wordSize;
+
+        for (; cp < eow; ) {
+            switch (*cp) {
+            case 0x55:  // start of possible overload string
+                if (cp + wordSize > eod) {
+                    createSamples(samp->getTimeTag(), results);
+                    saveBuffer(cp,eod);
+                    return !results.empty();
+                }
+            default:
+                cp++;
+                break;
+            }
+        }
+        if (sos) {
+            // scan 8 bytes of particle
+            // If a blank string, then next word should be sync, otherwise discard it
+            if (::memcmp(sos,_blankString,sizeof(_blankString)) != 0) {
+                processParticleSlice(_particle, sos);
+            }
+            cp = sos + wordSize;
+        }
+    }
+
+    createSamples(samp->getTimeTag(), results);
+
+    /* Data left in image block, save it in order to pre-pend to next image block */
+    saveBuffer(cp,eod);
+
     return false;
 }
 
