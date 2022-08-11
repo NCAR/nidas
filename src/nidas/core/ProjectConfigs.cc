@@ -381,7 +381,7 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
         const string& elname = xchild.getNodeName();
         if (elname == "envvar") {
             string ename;
-            string evalue;
+            string evalue("_NOTSET_");
             if(child->hasAttributes()) {
                 // get all the attributes of the node
                 xercesc::DOMNamedNodeMap *pAttributes = child->getAttributes();
@@ -396,10 +396,10 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
                         atname,"unknown attribute");
                 }
             }
-            if (ename.length() == 0 || evalue.length() == 0)
+            if (ename.length() == 0 || evalue == "_NOTSET_")
                 throw n_u::InvalidParameterException(
                     string("config ") + getName(),
-                    "envvar element","must have a name and value attribute");
+                    "envvar element","must have a non-empty name and a value attribute");
             _envVars.insert(make_pair(ename,evalue));
 	}
         else throw n_u::InvalidParameterException("config",
