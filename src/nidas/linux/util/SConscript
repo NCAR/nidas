@@ -18,8 +18,7 @@ mach = env['MACH']
 # so that make can find them and do its work outside of the
 # source tree.
 
-if "LINUX_MODULES_INST_PATH" in env and \
-    'KERNELDIR' in env and env['KERNELDIR'] != '':
+if env.get("LINUX_MODULES_INST_PATH") and env.get("KERNELDIR"):
 
     modules = ['nidas_util.ko']
 

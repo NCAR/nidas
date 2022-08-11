@@ -8,9 +8,10 @@ import eol_scons
 
 # eol_scons.debug.SetDebug("true")
 #
-# Don't load tools that perform compiler or pkg-config checks
-# until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default', 'gitinfo'])
+# Don't load tools that perform compiler or pkg-config checks until the cross
+# tool is loaded, PKG_CONFIG_PATH is set, and the custom config filename
+# nidas.conf can be set.
+env = Environment(tools=['default'])
 
 # This passes all settings from the calling environment.  This was a quick fix
 # for supercomputer builds (casper) which use modules to setup the environment,
@@ -88,6 +89,7 @@ opts.Add('ARCHLIBDIR', '\n'
 opts.Add(BoolVariable('BUILD_RAF', 
                       'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
 opts.Update(env)
+env.Tool('gitinfo')
 
 # Threads
 env.MergeFlags('-pthread')

@@ -52,7 +52,7 @@ first_mach = True
 vdirs = []
 for mach in machs:
 
-    if not "LINUX_MODULES" in env or env['LINUX_MODULES']:
+    if env.get("LINUX_MODULES", True):
         # If LINUX_MODULES is undefined, or is True, then the
         # user wants to build the linux modules. If so,
         # redefine it to be where the modules are to be installed.

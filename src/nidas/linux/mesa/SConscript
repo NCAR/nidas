@@ -21,8 +21,7 @@ mach = env['MACH']
 headers = Split("""
 """)
 
-if "LINUX_MODULES_INST_PATH" in env and \
-    'KERNELDIR' in env and env['KERNELDIR'] != '':
+if env.get("LINUX_MODULES_INST_PATH") and env.get("KERNELDIR"):
 
     revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
     utilsyms = Dir('./../util_' + mach).File('Module.symvers')
