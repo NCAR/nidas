@@ -1,4 +1,5 @@
 %define nidas_prefix /opt/nidas
+%define scons scons-3
 
 # Command line switches:  --with configedit --with autocal --with arinc --with modules
 # If not specified, configedit or autocal package will not be built
@@ -161,9 +162,9 @@ Group: Applications/Engineering
 
 Requires: gcc-c++ xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel eol_scons rpm-build
 %if 0%{?rhel} < 8
-Requires: scons qt-devel
+Requires: qt-devel
 %else
-Requires: python3-scons qt5-devel elfutils-libelf-devel
+Requires: qt5-devel elfutils-libelf-devel
 %endif
 
 Obsoletes: nidas-builduser <= 1.2-189
@@ -189,27 +190,15 @@ Sets BUILD_GROUP=eol in /etc/default/nidas-build so that %{nidas_prefix} will be
 
 %build
 
-%if 0%{?rhel} < 8
-scns=scons
-%else
-scns=scons-3
-%endif
-
 cd src
-$scns -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} %{buildmodules} PREFIX=%{nidas_prefix}
- 
+%{scons} -j 4 --config=force BUILDS=host REPO_TAG=v%{version} %{buildraf} %{buildarinc} %{buildmodules} PREFIX=%{nidas_prefix}
+
 
 %install
 rm -rf $RPM_BUILD_ROOT
 
-%if 0%{?rhel} < 8
-scns=scons
-%else
-scns=scons-3
-%endif
-
 cd src
-$scns -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} %{buildmodules} REPO_TAG=v%{version} install
+%{scons} -j 4 BUILDS=host PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildraf} %{buildarinc} %{buildmodules} REPO_TAG=v%{version} install
 cd -
 
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
