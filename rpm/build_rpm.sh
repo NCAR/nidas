@@ -4,15 +4,11 @@ script=`basename $0`
 dir=`dirname $0`
 
 dopkg=nidas
-buildraf=false
 buildarinc=true
 buildmodules=true
 
 while [ $# -gt 0 ]; do
     case $1 in
-        -nr)
-            buildraf=false
-            ;;
         -noarinc)
             buildarinc=false
             ;;
@@ -56,14 +52,6 @@ trap "{ rm -f $log $tmpspec $awkcom; }" EXIT
 set -o pipefail
 
 if [ $dopkg == nidas -o $dopkg == nidas-doxygen ]; then
-
-    if $buildraf; then
-        args=
-        withraf="--with raf"
-    else
-        withraf=
-        args='BUILD_RAF=no'
-    fi
 
     if $buildarinc; then
         args="$args BUILD_ARINC=yes"
@@ -129,23 +117,16 @@ EOD
     cat rpm/${dopkg}.spec - > $tmpspec
 
     if [ $dopkg == nidas ]; then
-        # If $JLOCAL/include/raf or /opt/local/include/raf exists then
-        # build configedit package
-        $buildraf && [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
-
-        # If moc-qt4 is in PATH, build autocal
-        $buildraf && type -p moc-qt4 > /dev/null && withac="--with autocal"
-
-    # Don't build nidas source package.  We cannot release the source
-    # if it contains the Condor code, and no one uses it anyway.
+        # Don't build nidas source package.  We cannot release the source
+        # if it contains the Condor code, and no one uses it anyway.
         buildopt=-bb
     else
-    # Don't build source for nidas-doxygen.
+        # Don't build source for nidas-doxygen.
         buildopt=-bb
     fi
 
     cd src   # to src
-    scons BUILDS=host $args build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
+    scons BUILDS=host $args versionfiles
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
@@ -172,7 +153,7 @@ EOD
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild $buildopt $withmodules $witharinc $withraf $withce $withac \
+    rpmbuild $buildopt $withmodules $witharinc \
         --define "gitversion $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \

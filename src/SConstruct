@@ -4,7 +4,10 @@
 import os, re
 from SCons.Script import Environment, SConscript, BoolVariable
 from SCons.Script import Configure
+from SCons.Script import COMMAND_LINE_TARGETS
 import eol_scons
+
+eol_scons.EnableInstallAlias(False)
 
 # eol_scons.debug.SetDebug("true")
 #
@@ -86,8 +89,6 @@ opts.Add('PKG_CONFIG_PATH', '\n'
 opts.Add('ARCHLIBDIR', '\n'
          '  Where to install NIDAS libraries relative to $PREFIX')
 
-opts.Add(BoolVariable('BUILD_RAF', 
-                      'Build nidas/apps/auto_cal and nidas/apps/config.', 'on'))
 opts.Update(env)
 env.Tool('gitinfo')
 
@@ -221,7 +222,7 @@ def CheckStackProtectorOptions(env):
         test_env = env.Clone()
         test_env.AppendUnique(CCFLAGS = [opt])
         conf = Configure(test_env)
-        print('Checking gcc option ' + opt + '...')
+        env.PrintProgress('Checking gcc option ' + opt + '...')
         ok = conf.CheckCC()
         conf.Finish()
         if ok:
@@ -282,7 +283,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
         hostarch = 'x86'
     print("Setting up for host builds...")
     host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
-        ARCH = '', MACHS=[''])
+                         ARCH='', ARCHLIBDIR='lib64', MACHS=[''])
 
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-Wformat', '-Werror=format-security',
@@ -438,9 +439,12 @@ dox = env.Command('#/../doc/doxygen',
 env.Alias('dox', dox)
 env.AlwaysBuild(dox)
 
-# Use InstallAs to $PREFIX/doxygen. Otherwise $PREFIX becomes
-# a target, and the other install targets this rule to create $PREFIX
-env.Alias('doxinstall', env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
+# Use InstallAs to $PREFIX/doxygen.  Do not install docs unless explicitly
+# requested, so that --install-sandbox does not automatically install the docs
+# with the other install targets.
+if 'doxinstall' in COMMAND_LINE_TARGETS:
+    env.Alias('doxinstall',
+              env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of

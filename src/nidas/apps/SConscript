@@ -22,7 +22,8 @@ import eol_scons.parseconfig as pc
 
 def check_pkg_config(env, pkg):
     found = pc.ParseConfig(env, 'pkg-config %s --libs --cflags' % (pkg))
-    print("pkg-config found for %s: %s" % (pkg, ["no", "yes"][int(found)]))
+    env.PrintProgress("pkg-config found for %s: %s" %
+                      (pkg, ["no", "yes"][int(found)]))
     return found
 
 
@@ -72,10 +73,10 @@ else:
 # Add jsoncpp to the environment for all now that a few apps use it.
 jsoncpp_enabled = ('armbe' not in arch) and check_pkg_config(env, 'jsoncpp')
 if jsoncpp_enabled:
-    print("jsoncpp enabled for data_stats and sync_dump.")
+    env.PrintProgress("jsoncpp enabled for data_stats and sync_dump.")
     env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
 else:
-    print("jsoncpp not enabled.")
+    env.PrintProgress("jsoncpp not enabled.")
     env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=0'])
 
 programs = Split("""
@@ -121,10 +122,11 @@ for prog in programs:
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
 if not dbconf.CheckCpp11():
-    print("No C++11 support, data_influxdb will not be built.")
+    env.PrintProgress("No C++11 support, data_influxdb will not be built.")
 elif bool(not arch and jsoncpp_enabled and
           check_pkg_config(didbenv, 'libcurl')):
-    print("C++11, jsoncpp, and libcurl found, building data_influxdb.")
+    env.PrintProgress("C++11, jsoncpp, and libcurl found, "
+                      "building data_influxdb.")
     didbenv.AppendUnique(CXXFLAGS='-std=c++11')
     didbenv.Append(CXXFLAGS='-Wno-effc++')
     didb = didbenv.NidasProgram('data_influxdb.cc')

@@ -113,9 +113,9 @@ slib = env.StaticLibrary('nidas_util' , objects)
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
-nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR',slib)
-nodes += env.Install('$ARCHPREFIX/include/nidas/util',headers)
+nodes += env.SharedLibrary3Install('$ARCHPREFIX', lib)
+nodes += env.Install('$ARCHPREFIX/$ARCHLIBDIR', slib)
+nodes += env.Install('$ARCHPREFIX/include/nidas/util', headers)
 
 # Build nidas.pc from the top level. It is done here since we know
 # ARCHLIBDIR and REPO_TAG
@@ -124,7 +124,8 @@ env.Command('nidas.pc', '#nidas.pc.in',
             "-e 's,@ARCHLIBDIR@,$ARCHLIBDIR,' "
             "-e 's,@REPO_TAG@,$REPO_TAG,' < $SOURCE > $TARGET")
 
-Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig', 'nidas.pc'))
+Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig',
+                             'nidas.pc'))
 
-Alias('install',nodes)
+Alias('install', nodes)
 env.Clean('install', nodes)
