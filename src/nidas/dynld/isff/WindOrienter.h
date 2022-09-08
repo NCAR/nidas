@@ -48,10 +48,26 @@ public:
     WindOrienter();
 
     /**
-     * Apply orientation changes to the wind components.
+     * Apply orientation changes to the wind components.  @param uvwt is a
+     * float array of the three components, u, v, w.  The components are
+     * transformed and then written back into uvwt.
      **/
     void
     applyOrientation(float* uvwt);
+
+    /**
+     * Apply the current orientation to 2D components.  This is like
+     * applyOrientation(), except only the u and v components are transformed.
+     * A 2D transformation is the same as 3D where w is zero, but this is more
+     * convenient to call for 2D instruments.  Note this only works for
+     * orientations where the result is in the same plane, such as flipped.
+     * Use applyOrientation() with a zero w component to transform a 2D vector
+     * into 3D.
+     * 
+     * @return true if a transformation was applied, false otherwise.
+     */
+    bool
+    applyOrientation2D(float* u, float *v);
 
     /**
      * Parse the orientation parameter and set the vectors which translate
