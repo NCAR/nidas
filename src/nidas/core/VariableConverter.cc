@@ -383,7 +383,7 @@ std::string Linear::toString() const
     ostringstream ost;
 
     ost << "linear slope=" << _slope << " intercept=" << _intercept <<
-    	" units=\"" << getUnits() << "\"" << endl;
+    	" units=\"" << getUnits() << "\"";
     return ost.str();
 }
 
@@ -530,7 +530,7 @@ parseFields(CalFile* cf)
     if (n > 0) setCoefficients(d, n);
 }
 
-   
+
 double Polynomial::convert(dsm_time_t t,double val)
 {
     readCalFile(t);
@@ -545,7 +545,7 @@ std::string Polynomial::toString() const
     ost << "poly coefs=";
     for (size_t i = 0; i < _coefs.size(); i++)
 	ost << _coefs[i] << ' ';
-    ost << " units=\"" << getUnits() << "\"" << endl;
+    ost << " units=\"" << getUnits() << "\"";
     return ost.str();
 }
 
