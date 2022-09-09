@@ -56,6 +56,8 @@ class Wind2D: public nidas::core::SerialSensor
 {
 public:
 
+    using WindOrienter = nidas::dynld::isff::WindOrienter;
+
     Wind2D();
 
     ~Wind2D();
@@ -80,10 +82,40 @@ public:
 
     void setVName(const std::string& val) { _vName = val; }
 
+    /**
+     * @brief Provide access to the orienter, mostly for testing.
+     * 
+     * @return WindOrienter& 
+     */
+    WindOrienter&
+    getOrienter() { return _orienter; }
+
     bool process(const nidas::core::Sample* samp,
         std::list<const nidas::core::Sample*>& results) throw();
 
     void fromDOMElement(const xercesc::DOMElement* node);
+
+    /**
+     * Normalize dir, then derive u and v from spd and direction.
+     *
+     * u, v are the components of wind direction, positive u in the north
+     * direction, positive v in east direction, where "north" can be the
+     * instrument's reference azimuth in instrument coordinate space, or north
+     * can be geographic north. If spd is zero, then u and v are set to zero
+     * regardless of direction.  @see derive_spd_dir_from_uv().
+     */
+    static void
+    derive_uv_from_spd_dir(float& u, float& v, float& spd, float& dir);
+
+    /**
+     * Derive speed and direction from wind components u, v.
+     *
+     * Unlike u, v which are positive in the direction the wind is blowing
+     * towards, direction is where the wind is blowing from.  If both u and v
+     * are zero, then dir is set to nan.
+     */
+    static void
+    derive_spd_dir_from_uv(float& spd, float& dir, float& u, float& v);
 
 private:
 
@@ -142,8 +174,6 @@ private:
      * U,V are re-computed from the direction and corrected speed.
      */
     nidas::core::VariableConverter* _speedConverter;
-
-    typedef nidas::dynld::isff::WindOrienter WindOrienter;
 
     WindOrienter _orienter;
 

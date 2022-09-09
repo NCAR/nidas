@@ -69,27 +69,34 @@ namespace
     {
         return vname.find(prefix) == 0;
     }
+}
 
-    /**
-     * @brief Normalize dir, then derive u and v from spd and direction.
-     */
-    void
-    derive_uv_from_spd_dir(float& u, float&v, float& spd, float& dir)
+
+void
+Wind2D::
+derive_uv_from_spd_dir(float& u, float& v, float& spd, float& dir)
+{
+    dir = fmod(dir, 360.0);
+    if (dir < 0.0)
+        dir += 360.0;
+    if (spd == 0)
     {
-        dir = fmod(dir, 360.0);
-        if (dir < 0.0)
-            dir += 360.0;
-
+        u = v = 0;
+    }
+    else
+    {
         u = -spd * ::sin(dir * M_PI / 180.0);
         v = -spd * ::cos(dir * M_PI / 180.0);
     }
+}
 
-    void
-    derive_spd_dir_from_uv(float& spd, float& dir, float& u, float& v)
-    {
-        dir = n_u::dirFromUV(u, v);
-        spd = ::sqrt(u*u + v*v);
-    }
+
+void
+Wind2D::
+derive_spd_dir_from_uv(float& spd, float& dir, float& u, float& v)
+{
+    dir = n_u::dirFromUV(u, v);
+    spd = ::sqrt(u*u + v*v);
 }
 
 
@@ -138,11 +145,13 @@ void Wind2D::validate()
             {
                 _speedIndex = i;
                 _speedConverter = var->getConverter();
+                DLOG(("spd converter is ") << (_speedConverter ? _speedConverter->toString() : "null"));
             }
             else if (match_prefix(vname, getDirName()))
             {
                 _dirIndex = i;
                 _dirConverter = var->getConverter();
+                DLOG(("dir converter is ") << (_dirConverter ? _dirConverter->toString() : "null"));
             }
         }
         if (_speedIndex < 0 || _dirIndex < 0)
@@ -349,13 +358,8 @@ void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
         const Parameter* param = *pi;
         const std::string& pname = param->getName();
 
-        if (_orienter.handleParameter(param, getName()))
-        {
-            throw n_u::InvalidParameterException(getName(), "parameter",
-                string("Wind2D sensors do not yet support orientation "
-                       "changes: ") + pname);
-        }
-        else if (paramset.find(pname) != paramset.end())
+        if (!_orienter.handleParameter(param, getName()) &&
+            paramset.find(pname) != paramset.end())
         {
             if (param->getLength() != 1)
             {
