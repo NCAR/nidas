@@ -4,14 +4,6 @@
 ##
 ## Copyright 2005 UCAR, NCAR, All Rights Reserved
 ##
-## $LastChangedDate$
-##
-## $LastChangedRevision$
-##
-## $LastChangedBy$
-##
-## $HeadURL$
-##
 
 renice +20 -p $$ > /dev/null
 
