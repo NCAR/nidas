@@ -27,11 +27,6 @@
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedRevision$
-        $LastChangedDate$
-          $LastChangedBy$
-                $HeadURL$
-
     Laser Air Motion Sensor (LAMS) driver for the ADS3 DSM.
 
             Description of the LAMS data, from Mike Spowart

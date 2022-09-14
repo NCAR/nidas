@@ -28,13 +28,7 @@
    Header for the NCAR/EOL Laser Air Motion Sensor (LAMS) interface.
    Original Author: Mike Spowart
    Copyright by the National Center for Atmospheric Research 2004
-   
-   Revisions:
-     $LastChangedRevision$
-         $LastChangedDate$
-           $LastChangedBy$
-                 $HeadURL$
-*/
+ */
 
 #ifndef NIDAS_LAMS_LAMSX_H
 #define NIDAS_LAMS_LAMSX_H
