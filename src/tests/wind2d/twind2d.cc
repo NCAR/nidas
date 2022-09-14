@@ -174,14 +174,18 @@ BOOST_AUTO_TEST_CASE(test_wind2d_normal)
     BOOST_CHECK(wind.getSensorId() == 4);
 
     std::list<const Sample*> results;
-    SampleChar samp("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
-    BOOST_CHECK(wind.process(&samp, results));
+    SampleT<char>* samp = 
+        getSample("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
+    BOOST_CHECK(wind.process(samp, results));
+    samp->freeReference();
     BOOST_CHECK(results.size() == 1);
     const Sample* csamp = results.front();
     BOOST_CHECK_CLOSE_FRACTION(csamp->getDataValue(0), 324, 0.001);
     BOOST_CHECK_CLOSE_FRACTION(csamp->getDataValue(1), 1.28, 0.001);
     BOOST_CHECK_CLOSE_FRACTION(csamp->getDataValue(2), 8.1, 0.001);
     BOOST_CHECK_EQUAL(csamp->getDataValue(3), 0);
+    csamp->freeReference();
+    SamplePools::deleteInstance();
 }
 
 
@@ -235,11 +239,14 @@ BOOST_AUTO_TEST_CASE(test_wind2d_flipped)
     BOOST_CHECK(v == -2);
 
     std::list<const Sample*> results;
-    SampleChar samp("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
-    BOOST_CHECK(samp.getDataLength() == 32);
+    SampleT<char>* samp = 
+        getSample("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
+    // SampleChar samp("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
+    BOOST_CHECK(samp->getDataLength() == 32);
     // SampleT<char> samp;
     // samp << "\x02""A,324,001.28,M,+008.10,00,\x03""10\r";
-    BOOST_CHECK(wind.process(&samp, results));
+    BOOST_CHECK(wind.process(samp, results));
+    samp->freeReference();
     BOOST_CHECK(results.size() == 1);
 
     const Sample* csamp = results.front();
@@ -247,6 +254,8 @@ BOOST_AUTO_TEST_CASE(test_wind2d_flipped)
     // Given raw direction of 324, flipped vector direction would be 36,
     // then wind from direction is 36+180 = 216.
     BOOST_CHECK_CLOSE_FRACTION(csamp->getDataValue(0), 216, 0.1);
+    csamp->freeReference();
+    SamplePools::deleteInstance();
 }
 
 BOOST_AUTO_TEST_CASE(test_wind2d_flipped_offset)
@@ -258,8 +267,11 @@ BOOST_AUTO_TEST_CASE(test_wind2d_flipped_offset)
     setup_wind2d(wind, true, 45);
 
     std::list<const Sample*> results;
-    SampleChar samp("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
-    BOOST_CHECK(wind.process(&samp, results));
+    SampleT<char>* samp = 
+        getSample("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
+
+    BOOST_CHECK(wind.process(samp, results));
+    samp->freeReference();
     BOOST_CHECK(results.size() == 1);
     const Sample* csamp = results.front();
 
@@ -267,4 +279,6 @@ BOOST_AUTO_TEST_CASE(test_wind2d_flipped_offset)
     // wind from direction is 36+180 = 216, plus the offset of 45 is
     // 261.
     BOOST_CHECK_CLOSE_FRACTION(csamp->getDataValue(0), 261, 0.1);
+    csamp->freeReference();
+    SamplePools::deleteInstance();
 }
