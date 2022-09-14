@@ -42,14 +42,29 @@ namespace nidas { namespace core {
 class SamplePoolInterface
 {
 public:
-    virtual ~SamplePoolInterface() {}
     virtual int getNSamplesAlloc() const = 0;
     virtual int getNSamplesOut() const = 0;
     virtual int getNSmallSamplesIn() const = 0;
-
     virtual int getNMediumSamplesIn() const = 0;
-
     virtual int getNLargeSamplesIn() const = 0;
+
+    /**
+     * SamplePool singletons for various types and sizes are created and added
+     * to the SamplePools class through their getInstance() method.  Those
+     * instances must be deleted through the corresponding deleteInstance(),
+     * otherwise the global instance pointer is not reset when a pool
+     * singleton is deleted.
+     */
+    virtual void deletePoolInstance() = 0;
+
+protected:
+    /**
+     * Define a virtual but protected desctructor, so a SamplePoolInterface
+     * subclass cannot be deleted through a SamplePoolInterface pointer.  The
+     * subclasses are all singleton classes and thus their destructors are
+     * private.
+     */
+    virtual ~SamplePoolInterface() {}
 
 };
 
@@ -108,6 +123,15 @@ public:
      * Singleton cleanup on program exit.
      */
     static void deleteInstance();
+
+    /**
+     * Implementation from SamplePoolInterface which deletes the instance for
+     * this particular SamplePoolInterface subclass.
+     */
+    void deletePoolInstance()
+    {
+        SamplePool::deleteInstance();
+    }
 
     /**
      * Get a sample of at least len elements from the pool.
