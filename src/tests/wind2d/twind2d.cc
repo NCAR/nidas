@@ -8,12 +8,15 @@ using boost::unit_test_framework::test_suite;
 #include <nidas/core/Project.h>
 #include <xercesc/framework/MemBufInputSource.hpp>
 #include <memory>
+#include <nidas/util/util.h>
 
 using namespace nidas::util;
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace nidas::dynld::isff;
 
+using nidas::util::derive_spd_dir_from_uv;
+using nidas::util::derive_uv_from_spd_dir;
 
 // Typical XML to describe a Gill sensor.
 const char* gill_xml = R"XML(
@@ -70,9 +73,6 @@ parseString(const std::string& xml)
     xercesc::DOMDocument* doc = parser.parse(mbis);
     return doc;
 }
-
-
-
 
 
 template <typename T, typename V>
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(test_uv)
     float dir = 45;
     float spd = 1;
 
-    Wind2D::derive_uv_from_spd_dir(u, v, spd, dir);
+    derive_uv_from_spd_dir(u, v, spd, dir);
     BOOST_CHECK_CLOSE_FRACTION(u, -sqrt(2)/2, 0.001);
     BOOST_CHECK_CLOSE_FRACTION(v, -sqrt(2)/2, 0.001);
 }
@@ -209,12 +209,12 @@ BOOST_AUTO_TEST_CASE(test_uv_spd_dir)
     float v = 0;
     float dir = 45;
     float spd = 1;
-    Wind2D::derive_spd_dir_from_uv(spd, dir, u, v);
+    derive_spd_dir_from_uv(spd, dir, u, v);
     BOOST_CHECK(isnanf(dir));
     BOOST_CHECK_EQUAL(spd, 0);
     u = 1;
     v = 1;
-    Wind2D::derive_uv_from_spd_dir(u, v, spd, dir);
+    derive_uv_from_spd_dir(u, v, spd, dir);
     BOOST_CHECK_EQUAL(u, 0);
     BOOST_CHECK_EQUAL(v, 0);
 }

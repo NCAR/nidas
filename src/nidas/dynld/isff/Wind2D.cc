@@ -30,6 +30,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 #include <sstream>
 #include <cmath>
@@ -45,7 +46,10 @@ using std::string;
 using std::map;
 using std::list;
 
-namespace n_u = nidas::util;
+using nidas::util::derive_spd_dir_from_uv;
+using nidas::util::derive_uv_from_spd_dir;
+using nidas::util::InvalidParameterException;
+using nidas::util::LogContext;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,Wind2D)
 
@@ -69,34 +73,6 @@ namespace
     {
         return vname.find(prefix) == 0;
     }
-}
-
-
-void
-Wind2D::
-derive_uv_from_spd_dir(float& u, float& v, float& spd, float& dir)
-{
-    dir = fmod(dir, 360.0);
-    if (dir < 0.0)
-        dir += 360.0;
-    if (spd == 0)
-    {
-        u = v = 0;
-    }
-    else
-    {
-        u = -spd * ::sin(dir * M_PI / 180.0);
-        v = -spd * ::cos(dir * M_PI / 180.0);
-    }
-}
-
-
-void
-Wind2D::
-derive_spd_dir_from_uv(float& spd, float& dir, float& u, float& v)
-{
-    dir = n_u::dirFromUV(u, v);
-    spd = ::sqrt(u*u + v*v);
 }
 
 
@@ -155,7 +131,7 @@ void Wind2D::validate()
             }
         }
         if (_speedIndex < 0 || _dirIndex < 0)
-            throw n_u::InvalidParameterException(getName() +
+            throw InvalidParameterException(getName() +
               " Wind2D cannot find speed or direction variables");
 
         _outlen = stag->getVariables().size();
@@ -192,7 +168,7 @@ void Wind2D::validateSscanfs()
             ostringstream ost;
             ost << "number of scanf fields (" << nscanned <<
                 ") is not the number expected (" << nexpected << ')';
-            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
+            throw InvalidParameterException(getName(),"scanfFormat",ost.str());
         }
     }
 }
@@ -244,7 +220,7 @@ bool Wind2D::process(const Sample* samp,
     unsigned int slen = csamp->getDataLength();
     bool iswindsample = (csamp->getId() == _wind_sample_id);
 
-    static n_u::LogContext lp(LOG_DEBUG);
+    static LogContext lp(LOG_DEBUG);
     if (lp.active())
     {
         lp.log()
@@ -363,7 +339,7 @@ void Wind2D::fromDOMElement(const xercesc::DOMElement* node)
         {
             if (param->getLength() != 1)
             {
-                throw n_u::InvalidParameterException(getName(),
+                throw InvalidParameterException(getName(),
                     "parameter", string("bad length for ") + pname);
             }
             // invoke setXXX member function

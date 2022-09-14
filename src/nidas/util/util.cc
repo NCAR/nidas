@@ -33,7 +33,11 @@
 
 using namespace std;
 
-std::string nidas::util::replaceBackslashSequences(const std::string& str)
+
+namespace nidas { namespace util {
+
+
+std::string replaceBackslashSequences(const std::string& str)
 {
     string::size_type bs;
     string res = str;
@@ -99,7 +103,7 @@ std::string nidas::util::replaceBackslashSequences(const std::string& str)
 }
 
 /* static */
-std::string nidas::util::addBackslashSequences(const std::string& str)
+std::string addBackslashSequences(const std::string& str)
 {
     string res;
     for (unsigned int ic = 0; ic < str.length(); ic++) {
@@ -131,7 +135,8 @@ std::string nidas::util::addBackslashSequences(const std::string& str)
 	    if (::isprint(c)) res.push_back(c);
 	    else {
 		ostringstream ost;
-		ost << "\\x" << hex << setw(2) << setfill('0') << (int)(unsigned char) c;
+		ost << "\\x" << hex << setw(2)
+			<< setfill('0') << (int)(unsigned char) c;
 		res.append(ost.str());
 	    }
 	        
@@ -141,7 +146,7 @@ std::string nidas::util::addBackslashSequences(const std::string& str)
     return res;
 }
 
-void nidas::util::trimString(std::string& str)
+void trimString(std::string& str)
 {
     for (string::iterator si = str.end(); si != str.begin(); ) {
         --si;
@@ -150,21 +155,21 @@ void nidas::util::trimString(std::string& str)
     }
 }
 
-void nidas::util::replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep)
+void replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep)
 {
     string::size_type patpos;
     while ((patpos = in.find(pat,0)) != string::npos)
         in.replace(patpos,pat.length(),rep);
 }
 
-std::string nidas::util::replaceChars(const std::string& in,const std::string& pat, const std::string& rep)
+std::string replaceChars(const std::string& in,const std::string& pat, const std::string& rep)
 {
     string res = in;
     replaceCharsIn(res,pat,rep);
     return res;
 }
 
-std::string nidas::util::svnStatus(const std::string& path)
+std::string svnStatus(const std::string& path)
 {
 
     const string& cmd = "svn";
@@ -179,7 +184,7 @@ std::string nidas::util::svnStatus(const std::string& path)
     args.push_back("empty");
     args.push_back(path);
 
-    nidas::util::Process proc = Process::spawn(cmd,args);
+    Process proc = Process::spawn(cmd,args);
 
     istream& outst = proc.outStream();
     string strout;
@@ -214,7 +219,7 @@ std::string nidas::util::svnStatus(const std::string& path)
     return strout;
 }
 
-float nidas::util::dirFromUV(float u, float v){
+float dirFromUV(float u, float v){
     float dir = nanf("");
     if (!(u==0 && v==0)){
         dir = atan2f(-u, -v) * 180.0 / M_PI;
@@ -222,3 +227,32 @@ float nidas::util::dirFromUV(float u, float v){
     }
     return dir;
 }
+
+
+void
+derive_uv_from_spd_dir(float& u, float& v, float& spd, float& dir)
+{
+    dir = fmod(dir, 360.0);
+    if (dir < 0.0)
+        dir += 360.0;
+    if (spd == 0)
+    {
+        u = v = 0;
+    }
+    else
+    {
+        u = -spd * ::sin(dir * M_PI / 180.0);
+        v = -spd * ::cos(dir * M_PI / 180.0);
+    }
+}
+
+
+void
+derive_spd_dir_from_uv(float& spd, float& dir, float& u, float& v)
+{
+    dir = dirFromUV(u, v);
+    spd = ::sqrt(u*u + v*v);
+}
+
+
+}} // namespace nidas::util
