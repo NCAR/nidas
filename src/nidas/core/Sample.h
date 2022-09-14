@@ -675,6 +675,15 @@ SampleT<T>* getSample(unsigned int len)
 }
 
 /**
+ * Get a char sample from the pool filled with the given null-terminated
+ * string data.
+ *
+ * @param data null-terminated string
+ * @return SampleT<char>* 
+ */
+SampleT<char>* getSample(const char* data);
+
+/**
  * Free a reference to a sample. Return it to its pool if
  * no-one is using it.
  */

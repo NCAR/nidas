@@ -126,3 +126,13 @@ Sample* nidas::core::getSample(sampleType type, unsigned int len)
     }
     return samp;
 }
+
+
+SampleT<char>* nidas::core::getSample(const char* data)
+{
+    unsigned int len = strlen(data)+1;
+    SampleT<char>* samp = 
+        SamplePool<SampleT<char> >::getInstance()->getSample(len);
+    strcpy(samp->getDataPtr(), data);
+    return samp;
+}
