@@ -17,7 +17,9 @@ sonic
 prep
 dausensor
 trh
-gps""")
+gps
+wind2d
+""")
 
 Import('env')
 SConscript(dirs=dirs, exports='env')

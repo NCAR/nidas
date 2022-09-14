@@ -186,6 +186,20 @@ applyOrientation(float* uvwt)
     }
 }
 
+bool
+WindOrienter::
+applyOrientation2D(float* u, float* v)
+{
+    if (_unusualOrientation)
+    {
+        float dn[3] = { *u, *v, 0 };
+        applyOrientation(dn);
+        *u = dn[0];
+        *v = dn[1];
+        return true;
+    }
+    return false;
+}
 
 bool
 WindOrienter::
