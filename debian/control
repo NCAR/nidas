@@ -5,7 +5,7 @@ Maintainer: Gordon Maclean <maclean@ucar.edu>
 # This Build-Depends is being parsed (a syntax error causes a failure) but it doesn't
 # seem to have any effect in the debuild.  If a non-existent package is specified, the build
 # still succeeds
-Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[i386], libcap-dev, eol-scons, xmlrpc++-dev[armel], libxmlrpcpp-dev[i386 amd64]
+Build-Depends: debhelper (>= 9), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[i386], libcap-dev, xmlrpc++-dev[armel], libxmlrpcpp-dev[i386 amd64]
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git
@@ -80,7 +80,7 @@ Description: Package for doing data acquisition with NIDAS
 
 Package: nidas-build
 Architecture: all
-Depends: ${misc:Depends}, scons (>= 2.3), libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev, eol-scons
+Depends: ${misc:Depends}, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0-dev, libcap-dev
 Breaks: nidas-builduser (<= 1.2+189)
 Replaces: nidas-builduser (<= 1.2+189)
 Description: Package for building NIDAS by hand

@@ -23,7 +23,7 @@ if [ $# -lt 1 ]; then
 fi
 
 arch=amd64
-args="--no-tgz-check -sa"
+args="--prepend-path /usr/local/bin --no-tgz-check -sa"
 dest=""
 use_chroot=false
 while [ $# -gt 0 ]; do

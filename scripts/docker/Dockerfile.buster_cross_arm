@@ -19,14 +19,18 @@ RUN apt-get -y update && \
     apt-get install -y --no-install-recommends gnupg wget cmake apt-utils \
     sudo vim nano curl git ca-certificates build-essential fakeroot \
     libncurses-dev bc dh-make quilt rsync crossbuild-essential-${hostarch} \
-    flex libfl-dev gawk devscripts pkg-config scons libbz2-dev:${hostarch} \
+    flex libfl-dev gawk devscripts pkg-config libbz2-dev:${hostarch} \
     libgsl0-dev:${hostarch} libcap-dev:${hostarch} \
     libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} \
     libnetcdf-dev:${hostarch} reprepro \
     libjsoncpp-dev:${hostarch} lsb-release \
     libxml2-dev \
     libi2c-dev \
-    valgrind net-tools
+    valgrind net-tools \
+    python3 python3-pip
+
+# SCons 4 based on python3 not available as a buster package
+RUN pip3 install scons
 
 # libgsl0ldbl is now in libgsl0-dev??
 #RUN apt-get install -y --no-install-recommends libgsl0ldbl:${hostarch} 
