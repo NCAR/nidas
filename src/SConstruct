@@ -278,7 +278,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     if hostarch not in BUILDS:
         hostarch = 'x86'
     print("Setting up for host builds...")
-    host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
+    host_env = env.Clone(tools = ['symlink', 'sharedlibrary'],
         ARCH = '', MACHS=[''])
 
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
@@ -348,7 +348,7 @@ if 'armel' in BUILDS:
     print("Setting up for armel build ...")
     machs = getMachineTypes('armel', MACHS)
     armel_env = env.Clone(tools = ['armelcross', 'symlink',
-                                   'sharedlibrary', 'xmlrpc'],
+                                   'sharedlibrary'],
         ARCH = 'armel', MACHS=machs)
 
     if 'ARCHLIBDIR' not in armel_env:
