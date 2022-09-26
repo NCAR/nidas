@@ -41,6 +41,8 @@
 #include "InvalidParameterException.h"
 #include "util.h"
 
+#include <map>
+
 using namespace std;
 namespace bf = boost::filesystem;
 
@@ -264,52 +266,27 @@ void SysfsGpio::write(unsigned char pins)
 
 RPI_PWR_GPIO gpioPort2RpiGpio(GPIO_PORT_DEFS gpio)
 {
-    RPI_PWR_GPIO rpiGpio = static_cast<RPI_PWR_GPIO>(-1);
+    static std::map<GPIO_PORT_DEFS, RPI_PWR_GPIO> names
+    {
+        { SER_PORT0, RPI_PWR_SER_0 },
+        { SER_PORT1, RPI_PWR_SER_1 },
+        { SER_PORT2, RPI_PWR_SER_2 },
+        { SER_PORT3, RPI_PWR_SER_3 },
+        { SER_PORT4, RPI_PWR_SER_4 },
+        { SER_PORT5, RPI_PWR_SER_5 },
+        { SER_PORT6, RPI_PWR_SER_6 },
+        { SER_PORT7, RPI_PWR_SER_7 },
+        { PWR_28V, RPI_PWR_28V },
+        { PWR_AUX, RPI_PWR_AUX },
+        { PWR_BANK1, RPI_PWR_BANK1 },
+        { PWR_BANK2, RPI_PWR_BANK2 },
+    };
 
-    switch (gpio) {
-    case SER_PORT0:
-        rpiGpio = RPI_PWR_SER_0;
-        break;
-    case SER_PORT1:
-        rpiGpio = RPI_PWR_SER_1;
-        break;
-    case SER_PORT2:
-        rpiGpio = RPI_PWR_SER_2;
-        break;
-    case SER_PORT3:
-        rpiGpio = RPI_PWR_SER_3;
-        break;
-    case SER_PORT4:
-        rpiGpio = RPI_PWR_SER_4;
-        break;
-    case SER_PORT5:
-        rpiGpio = RPI_PWR_SER_5;
-        break;
-    case SER_PORT6:
-        rpiGpio = RPI_PWR_SER_6;
-        break;
-    case SER_PORT7:
-        rpiGpio = RPI_PWR_SER_7;
-        break;
-    case PWR_28V:
-        rpiGpio = RPI_PWR_28V;
-        break;
-    case PWR_AUX:
-        rpiGpio = RPI_PWR_AUX;
-        break;
-    case PWR_BANK1:
-        rpiGpio = RPI_PWR_BANK1;
-        break;
-    case PWR_BANK2:
-        rpiGpio = RPI_PWR_BANK2;
-        break;
-    case ILLEGAL_PORT:
-    default:
-        DLOG(("gpioPort2RpiPwrGpio(): unknown GPIO_PORT_DEFS value: ") << gpio);
-        break;
-    }
-
-    return rpiGpio;
+    auto iter = names.find(gpio);
+    if (iter != names.end())
+        return iter->second;
+    DLOG(("gpioPort2RpiPwrGpio(): unknown GPIO_PORT_DEFS value: ") << gpio);
+    return static_cast<RPI_PWR_GPIO>(-1);
 }
 
 
