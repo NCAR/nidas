@@ -8,7 +8,7 @@ import eol_scons
 #
 # Don't load tools that perform compiler or pkg-config checks
 # until the cross tool is loaded, and PKG_CONFIG_PATH is set.
-env = Environment(tools=['default', 'gitinfo'])
+env = Environment(tools=['default'])
 
 # Don't rely on host environment to warp /bin/sh to /bin/bash
 env['SHELL']='/bin/bash'
@@ -81,6 +81,7 @@ opts.Add('ARCHLIBDIR', '\n'
 opts.Add(BoolVariable('BUILD_RAF',
                       'Build nidas/apps/auto_cal and nidas/apps/config.', 'off'))
 opts.Update(env)
+env.Tool('gitinfo')
 
 # Threads
 env.MergeFlags('-pthread')
