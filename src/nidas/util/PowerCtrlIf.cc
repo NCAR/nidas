@@ -23,54 +23,55 @@
  **
  ********************************************************************
 */
-#ifndef NIDAS_UTIL_GPIOIF_H
-#define NIDAS_UTIL_GPIOIF_H
 
-#include <string>
+#include "PowerCtrlIf.h"
 
+#include <algorithm>
+#include <sstream>
 
 namespace nidas { namespace util {
 
-/*
- * This enum specifies all the ports in the DSM which are controlled in some way by GPIO.
- */
-enum GPIO_PORT_DEFS {ILLEGAL_PORT=-1,
-                     SER_PORT0=0, SER_PORT1, SER_PORT2, SER_PORT3,
-                     SER_PORT4, SER_PORT5, SER_PORT6, SER_PORT7,
-                     PWR_28V, PWR_AUX, PWR_BANK1, PWR_BANK2, PWR_BTCON,
-                     DEFAULT_SW, WIFI_SW};
+static const char* STR_POWER_ON = "POWER_ON";
+static const char* STR_POWER_OFF = "POWER_OFF";
 
-/**
- * Return the name of the GPIO_PORT_DEFS enum as a string.
- */
-std::string gpio2Str(GPIO_PORT_DEFS gpio);
-
-
-/*
- *  FtdiDevice interface class
- */
-class GpioIF
+// This utility converts a string to the POWER_STATE enum
+POWER_STATE strToPowerState(const std::string& powerStr)
 {
-public:
-    virtual ~GpioIF() {}
+    std::string xformStr(powerStr);
+    std::transform(powerStr.begin(), powerStr.end(), xformStr.begin(), ::toupper);
+    if (xformStr == std::string(STR_POWER_OFF)
+        || xformStr == std::string("OFF")
+        || xformStr == std::string("0")) {
+        return POWER_OFF;
+    }
 
-    /*
-     *  Method return whether the interface was found on the platform.
-     */
-    virtual bool ifaceFound() = 0;
+    if (powerStr == std::string(STR_POWER_ON)
+        || xformStr == std::string("ON")
+        || xformStr == std::string("1")) {
+        return POWER_ON;
+    }
 
-    /*
-     *  Method reads the interface and returns the value of the port pin(s) last written.
-     */
-    virtual unsigned char read() = 0;
+    return ILLEGAL_POWER;
+}
 
-    /*
-     *  Method writes the pin(s) to the pre-selected interface.
-     */
-    virtual void write(unsigned char pins) = 0;
-};
+std::string powerStateToStr(POWER_STATE sensorState)
+{
+    switch (sensorState) {
+        case POWER_OFF:
+            return std::string(STR_POWER_OFF);
+            break;
+        case POWER_ON:
+            return std::string(STR_POWER_ON);
+            break;
+        default:
+            std::ostringstream sstrm("Unknown sensor power state: ");
+            sstrm << sensorState;
+            return sstrm.str();
+            break;
+    }
+}
+
+PowerCtrlIf::~PowerCtrlIf() {}
 
 
 }} //namespace nidas { namespace util {
-
-#endif //NIDAS_UTIL_GPIOIF_H

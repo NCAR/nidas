@@ -35,6 +35,7 @@ headers = [ Split("""
     Exception.h
     FileSet.h
     FtdiHW.h
+    GpioIF.h
     Inet4Address.h
     Inet4NetworkInterface.h
     Inet4PacketInfo.h
@@ -95,6 +96,7 @@ sources = [ Split("""
     FtdiHW.cc
     FtdiDSMPowerCtrl.cc
     FtdiSensorPowerCtrl.cc
+    GpioIF.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
@@ -103,6 +105,7 @@ sources = [ Split("""
     McSocket.cc
     PPoll.cc
     PowerCtrlAbs.cc
+    PowerCtrlIf.cc
     Process.cc
     ptytools.cc
     SPoll.cc
