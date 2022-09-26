@@ -32,25 +32,14 @@ namespace nidas { namespace util {
 
 const std::string FtdiSensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
-    std::string powerStr("");
-    if (powerCfg & SENSOR_BITS_POWER) {
-        powerStr.append(STR_POWER_ON);
-    }
-    else {
-        powerStr.append(STR_POWER_OFF);
-    }
-
-    return powerStr;
+    return powerStateToStr((powerCfg & SENSOR_BITS_POWER) ?
+                           POWER_ON : POWER_OFF);
 }
+
 
 POWER_STATE FtdiSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
-    POWER_STATE retval = POWER_OFF;
-    if (powerCfg & SENSOR_BITS_POWER) {
-        retval = POWER_ON;
-    }
-
-    return retval;
+    return (powerCfg & SENSOR_BITS_POWER) ? POWER_ON : POWER_OFF;
 }
 
 

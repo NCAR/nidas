@@ -54,7 +54,7 @@ public:
     virtual void updatePowerState();
 
     // This utility converts a binary power configuration to a string
-    static const std::string rawPowerToStr(unsigned char powerCfg);
+    static std::string rawPowerToStr(unsigned char powerCfg);
     // This utility converts a binary power configuration to state representation
     static POWER_STATE rawPowerToState(unsigned char powerCfg);
 

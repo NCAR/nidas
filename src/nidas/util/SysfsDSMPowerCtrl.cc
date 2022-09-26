@@ -29,24 +29,16 @@
 
 namespace nidas { namespace util {
 
+
 const std::string SysfsDSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
-    std::string powerStr = STR_POWER_OFF;
-    if (powerCfg == '1') {
-        powerStr.append(STR_POWER_ON);
-    }
-
-    return powerStr;
+    return powerStateToStr((powerCfg == '1') ? POWER_ON : POWER_OFF);
 }
+
 
 POWER_STATE SysfsDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
-    POWER_STATE pwrState = POWER_OFF;
-    if (powerCfg == '1') {
-        pwrState = POWER_ON;
-    }
-
-    return pwrState;
+    return (powerCfg == '1') ? POWER_ON : POWER_OFF;
 }
 
 

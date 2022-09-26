@@ -29,6 +29,8 @@
 #include <fstream>
 
 #include "GpioIF.h"
+#include "ThreadSupport.h"
+
 
 namespace nidas { namespace util {
 
@@ -37,55 +39,7 @@ enum RPI_PWR_GPIO {RPI_PWR_SER_0=7, RPI_PWR_SER_1=8, RPI_PWR_SER_2=6, RPI_PWR_SE
                    RPI_PWR_SER_4=13, RPI_PWR_SER_5=12, RPI_PWR_SER_6=16, RPI_PWR_SER_7=19,
                    RPI_PWR_28V=4, RPI_PWR_AUX=17, RPI_PWR_BANK1=23, RPI_PWR_BANK2=27, RPI_PWR_BTCON=21};
 
-inline RPI_PWR_GPIO gpioPort2RpiGpio(GPIO_PORT_DEFS gpio)
-{
-    RPI_PWR_GPIO rpiGpio = static_cast<RPI_PWR_GPIO>(-1);
-
-    switch (gpio) {
-    case SER_PORT0:
-        rpiGpio = RPI_PWR_SER_0;
-        break;
-    case SER_PORT1:
-        rpiGpio = RPI_PWR_SER_1;
-        break;
-    case SER_PORT2:
-        rpiGpio = RPI_PWR_SER_2;
-        break;
-    case SER_PORT3:
-        rpiGpio = RPI_PWR_SER_3;
-        break;
-    case SER_PORT4:
-        rpiGpio = RPI_PWR_SER_4;
-        break;
-    case SER_PORT5:
-        rpiGpio = RPI_PWR_SER_5;
-        break;
-    case SER_PORT6:
-        rpiGpio = RPI_PWR_SER_6;
-        break;
-    case SER_PORT7:
-        rpiGpio = RPI_PWR_SER_7;
-        break;
-    case PWR_28V:
-        rpiGpio = RPI_PWR_28V;
-        break;
-    case PWR_AUX:
-        rpiGpio = RPI_PWR_AUX;
-        break;
-    case PWR_BANK1:
-        rpiGpio = RPI_PWR_BANK1;
-        break;
-    case PWR_BANK2:
-        rpiGpio = RPI_PWR_BANK2;
-        break;
-    case ILLEGAL_PORT:
-    default:
-        DLOG(("gpioPort2RpiPwrGpio(): unknown GPIO_PORT_DEFS value: ") << gpio);
-        break;
-    }
-
-    return rpiGpio;
-}
+RPI_PWR_GPIO gpioPort2RpiGpio(GPIO_PORT_DEFS gpio);
 
 /*
  *  Proc filesystem GPIO interface class for Rpi2
@@ -103,28 +57,21 @@ public:
     class Sync : public Synchronized
     {
     public:
-        Sync(SysfsGpio* me) : Synchronized(Sync::_sysfsCondVar), _me(me)
-        {
-            DLOG(("Synced on SysfsGpio"));
-        }
-        ~Sync()
-        {
-            DLOG(("Sync released on SysfsGpio"));
-            _me = 0;
-        }
+        Sync(SysfsGpio* me);
+        ~Sync();
+
+        Sync(const Sync& rRight) = delete;
+        Sync& operator=(const Sync& rRight) = delete;
+
     private:
         static Cond _sysfsCondVar;
         SysfsGpio* _me;
 
-        // no copying
-        Sync(const Sync& rRight);
-        Sync& operator=(const Sync& rRight);
-        Sync& operator=(Sync& rRight);
     };
 
     SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION direction = RPI_GPIO_OUTPUT);
-    virtual ~SysfsGpio() {}
-    virtual bool ifaceFound() {return _foundInterface;}
+    virtual ~SysfsGpio();
+    virtual bool ifaceFound();
 
     /*
      *  reads the pre-specified sysfs GPIO
@@ -139,10 +86,9 @@ public:
 private:
     RPI_PWR_GPIO _rpiGpio;
     bool _foundInterface;
-    std::ostringstream _gpioValueFile;
+    std::string _gpioValueFile;
     RPI_GPIO_DIRECTION _direction;
     unsigned char _shadow;
-
 };
 
 

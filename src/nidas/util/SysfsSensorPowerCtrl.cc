@@ -31,28 +31,15 @@
 
 namespace nidas { namespace util {
 
-const std::string SysfsSensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
+std::string SysfsSensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
-    std::string powerStr("");
-    if (powerCfg == '1') {
-        powerStr.append(STR_POWER_ON);
-    }
-    else {
-        powerStr.append(STR_POWER_OFF);
-    }
-
-    return powerStr;
+    return powerStateToStr((powerCfg == '1') ? POWER_ON : POWER_OFF);
 }
 
 POWER_STATE SysfsSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
     DLOG(("SysfsSensorPowerCtrl::rawPowerToState(): powerCfg = 0x%02X", powerCfg));
-    POWER_STATE retval = POWER_OFF;
-    if (powerCfg == '1') {
-        retval = POWER_ON;
-    }
-
-    return retval;
+    return (powerCfg == '1') ? POWER_ON : POWER_OFF;
 }
 
 SysfsSensorPowerCtrl::SysfsSensorPowerCtrl(GPIO_PORT_DEFS port)
