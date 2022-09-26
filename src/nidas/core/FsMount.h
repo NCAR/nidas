@@ -59,7 +59,7 @@ public:
      */
     FsMount(const FsMount& x);
 
-    ~FsMount() {}
+    ~FsMount();
 
     /**
      * Assignment.
@@ -127,7 +127,12 @@ public:
 
     void cancel();
 
-    void finished();
+    /**
+     * FsMountWorkerThread (and only that) calls this method when it is done
+     * and will no longer need this FsMount instance.  @p mounted is passed as
+     * true if a mount attempt has completed without error.
+     */
+    void finished(bool mounted);
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
@@ -154,7 +159,7 @@ protected:
 
     FsMountWorkerThread* _worker;
 
-    nidas::util::Mutex _workerLock;
+    nidas::util::Cond _workerLock;
 
     nidas::util::Process _mountProcess;
 
@@ -163,13 +168,19 @@ protected:
 };
 
 /**
- * Filesystem mounter/unmounter.
+ * Filesystem mounter/unmounter.  The lifetime is tied closely to the FsMount
+ * for which it is working.  If FsMount must die first, then it will cancel
+ * the thread, but it cannot finish destruction until the worker calls
+ * FsMount::finished() and signals that it will not dereference fsmount.
  */
 class FsMountWorkerThread : public nidas::util::Thread
 {
 public:
     FsMountWorkerThread(FsMount* fsm);
     int run() throw(nidas::util::Exception);
+
+    virtual
+    ~FsMountWorkerThread();
 
 private:
     FsMount* fsmount;

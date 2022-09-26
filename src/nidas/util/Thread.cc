@@ -670,9 +670,7 @@ int ThreadJoiner::run() throw() {
     catch (const Exception& e) {
         PLOG(("") << _thread->getName() << ": " << e.what());
     }
-#ifdef DEBUG
-    cerr << "joined " << _thread->getName() << " deleting" << endl;
-#endif
+    DLOG(("") << "joined " << _thread->getName() << ", deleting it");
     delete _thread;
     return RUN_OK;
 }
