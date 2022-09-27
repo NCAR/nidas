@@ -1,0 +1,71 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: ${0##*/} [-h] [-l] [period]"
+    echo "Print interrupts per second, as read from /proc/interrupts
+-h: this help
+-l: loop until ctrl-C
+period: number of seconds accumulate IRQs, default=5"
+    exit 0
+}
+
+delay=5
+loop=false
+while [ $# -gt 0 ]; do
+    case $1 in
+        -h)
+            usage
+            ;;
+        -l)
+            loop=true
+            ;;
+        [0-9]*)
+            delay=$1
+            ;;
+    esac
+    shift
+done
+
+if $loop; then
+    echo "Do ctrl-C to quit"
+    while true; do $0 $delay || exit 0; done
+    exit 0
+fi
+
+echo "Counting interrupts over $delay seconds ..."
+awk -v wait_time=$delay \
+'BEGIN { 
+	# check for initial amount of interrupts
+	procirqs="/proc/interrupts";
+	# grab the number of interrupts
+	while ((getline < procirqs) > 0) {
+		arr[$1] = $2 
+	}
+	close(procirqs)
+	
+        # tried and failed to detect ctrl-C with system("sleep")
+        # Tried "/bin/sleep", "/bin/sleep || exit 1", "sh -c sleep...", etc
+        # So use getline
+        cmd = "sleep " wait_time "|| echo failed"
+        cmd | getline status
+        if (status == "failed") exit 1
+        close(cmd)
+        # ret = system("sleep " wait_time kk )
+        # print("ret=",ret,", ERRNO=", ERRNO)
+        # if (ret != 0 || length(ERRNO) > 0) exit 1
+	
+	printf "\n"
+	printf "%-8s %-25s %-10s %-10s\n", "IRQ", "Interrupt Type", "Total Int", "Int/sec"
+	print "------------------------------------------------------"
+	# if a different number of interrupts occur, get interrupts/sec and display
+	while ((getline < procirqs) > 0) {
+		diff = $2 - arr[$1]
+		if(diff > 0) {
+			printf "%-8s %-25s %-10s %-10s\n", $1, $3 " " $4 ":", diff, diff/wait_time 
+		}
+	}
+	close(procirqs)
+	printf "\n"
+}'
+
+exit $?
