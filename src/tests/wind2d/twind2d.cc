@@ -113,26 +113,26 @@ BOOST_AUTO_TEST_CASE(test_make_sample)
     {
         SampleT<char> sample;
         sample << "\x02""A,324,001.28,M,+008.10,00,\x03""10\r";
-        BOOST_TEST(sample.getDataLength() == 32);
+        BOOST_CHECK(sample.getDataLength() == 32);
     }
     {
         SampleT<float> sample;
         sample << 1 << 2 << 3;
-        BOOST_TEST(sample.getDataLength() == 3);
-        BOOST_TEST(sample.getDataValue(0) == 1);
-        BOOST_TEST(sample.getDataValue(1) == 2);
-        BOOST_TEST(sample.getDataValue(2) == 3);
+        BOOST_CHECK(sample.getDataLength() == 3);
+        BOOST_CHECK(sample.getDataValue(0) == 1);
+        BOOST_CHECK(sample.getDataValue(1) == 2);
+        BOOST_CHECK(sample.getDataValue(2) == 3);
     }
     {
         SampleT<float> sample { 3, 2, 1 };
-        BOOST_TEST(sample.getDataLength() == 3);
-        BOOST_TEST(sample.getDataValue(0) == 3);
-        BOOST_TEST(sample.getDataValue(1) == 2);
-        BOOST_TEST(sample.getDataValue(2) == 1);
+        BOOST_CHECK(sample.getDataLength() == 3);
+        BOOST_CHECK(sample.getDataValue(0) == 3);
+        BOOST_CHECK(sample.getDataValue(1) == 2);
+        BOOST_CHECK(sample.getDataValue(2) == 1);
     }
     {
         SampleChar sample("\x02""A,324,001.28,M,+008.10,00,\x03""10\r");
-        BOOST_TEST(sample.getDataLength() == 32);
+        BOOST_CHECK(sample.getDataLength() == 32);
     }
 }
 
