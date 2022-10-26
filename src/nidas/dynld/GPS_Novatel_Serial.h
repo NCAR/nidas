@@ -85,6 +85,15 @@ private:
      * Number of variables requested from Novatel BESTVEL record (sample id == 5)
      */
     int _bestVelNvars;
+    
+    /**
+     * Calculate time of solution in UTC from the Novatel BESTVEL record 
+     * All Novatel packets have the same header (first 10 fields?), which has
+     * GPS time in weeks and seconds in week.  The Novatel packets do not
+     * store the leap seconds unfortunately.
+     */
+    dsm_time_t gps_to_utc(const char* input, dsm_time_t _ttgps)
+        throw();
 
     /**
      * Full sample id of Novatel BESTVEL variables.
