@@ -214,7 +214,12 @@ dsm_time_t GPS_Novatel_Serial::gps_to_utc(const char* input, dsm_time_t _ttgps)
 
     // leapsecond calculation gps_usec-_ttgps
     // GPS has leapseconds, UTC does not
-    return gps_usec + (gps_usec-_ttgps);
+    dsm_time_t utc_from_gps = gps_usec + (gps_usec-_ttgps);
+    // For backward compatability when BESTVEL comes after RMC packet
+    if ((utc_from_gps - _ttgps)>50000000)
+        return utc_from_gps;
+    else
+        return _ttgps;
 }
 
 dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int nvars,
