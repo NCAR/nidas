@@ -200,26 +200,23 @@ dsm_time_t GPS_Novatel_Serial::gps_to_utc(const char* input, dsm_time_t _ttgps)
 {
     // scan GPS string for gps_weeks, gps_secconds_in_week
     // Novatel Packet headers have these at positions 4 and 5  
-    int gps_weeks=0;
-    float sec_in_week=0;
+    int gps_weeks = 0;
+    double sec_in_week = 0.0;
 
     const char * word = strchr(input, ',')+1;
-    for (int i = 1; i < 4; ++i)
-    {
+    for (int i = 1; i < 4; ++i) {
         word = strchr(word, ',')+1;
     }
-    sscanf(word, "%4d,%f", &gps_weeks, &sec_in_week);
-    dsm_time_t gps_offset = 315964800.0; //10 years between epochs in seconds
+    sscanf(word, "%d,%lf", &gps_weeks, &sec_in_week);
+
+    dsm_time_t gps_offset = 315964800.0; //10 years between unix and gps epochs, in seconds
     dsm_time_t gps_usec = (gps_offset + (gps_weeks * 604800.0) + sec_in_week) * USECS_PER_SEC;
 
     // leapsecond calculation gps_usec-_ttgps
     // GPS has leapseconds, UTC does not
-    dsm_time_t utc_from_gps = gps_usec + (gps_usec-_ttgps);
-    // For backward compatability when BESTVEL comes after RMC packet
-    if ((utc_from_gps - _ttgps)>50000000)
-        return utc_from_gps;
-    else
-        return _ttgps;
+    dsm_time_t utc_from_gps = gps_usec - (gps_usec-_ttgps);
+
+    return utc_from_gps;
 }
 
 dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int nvars,
