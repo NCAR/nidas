@@ -739,10 +739,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      * element, then parse the catalog element, then do a full parse
      * of the actual element.
      */
-    setStation(getDSMConfig()->getSite()->getNumber());
-
-    /* Check the site as to whether we apply variable conversions. */
-    setApplyVariableConversions(getSite()->getApplyVariableConversions());
+    if (getSite())
+    {
+        setStation(getSite()->getNumber());
+        /* Check the site as to whether we apply variable conversions. */
+        setApplyVariableConversions(getSite()->getApplyVariableConversions());
+    }
 
     XDOMElement xnode(node);
 
@@ -894,14 +896,14 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
         const string& elname = xchild.getNodeName();
 
         if (elname == "sample") {
-            SampleTag* newtag = new SampleTag(this);
-                // add sensor name to any InvalidParameterException thrown by sample.
-                try {
-                    newtag->fromDOMElement((xercesc::DOMElement*)child);
-                }
-                catch (const n_u::InvalidParameterException& e) {
-                    throw n_u::InvalidParameterException(getName() + ": " + e.what());
-                }
+            std::unique_ptr<SampleTag> newtag(new SampleTag(this));
+            // add sensor name to any InvalidParameterException thrown by sample.
+            try {
+                newtag->fromDOMElement((xercesc::DOMElement*)child);
+            }
+            catch (const n_u::InvalidParameterException& e) {
+                throw n_u::InvalidParameterException(getName() + ": " + e.what());
+            }
             if (newtag->getSampleId() == 0)
                 newtag->setSampleId(static_cast<unsigned int>(getSampleTags().size()+1));
 
@@ -917,13 +919,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                     catch (const n_u::InvalidParameterException& e) {
                         throw n_u::InvalidParameterException(getName() + ": " + e.what());
                     }
-
-                    delete newtag;
-                    newtag = 0;
+                    newtag.reset();
                     break;
                 }
             }
-            if (newtag) addSampleTag(newtag);
+            if (newtag.get())
+                addSampleTag(newtag.release());
         }
         else if (elname == "parameter") {
             Parameter* parameter =
@@ -947,7 +948,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     _rawSampleTag.setSampleId(0);
     _rawSampleTag.setSensorId(getSensorId());
-    _rawSampleTag.setDSMId(getDSMConfig()->getId());
+    _rawSampleTag.setDSMId(getDSMId());
     _rawSampleTag.setDSMSensor(this);
     _rawSampleTag.setDSMConfig(getDSMConfig());
     _rawSampleTag.setSuffix(getFullSuffix());
