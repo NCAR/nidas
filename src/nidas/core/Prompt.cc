@@ -14,7 +14,9 @@ Prompt::Prompt(const std::string& promptString, double promptRate,
                double promptOffset):
     _promptString(promptString),
     _promptRate(promptRate),
-    _promptOffset(promptOffset)
+    _promptOffset(promptOffset),
+    _prefix(),
+    _prefixValid(false)
 {}
 
 
@@ -52,7 +54,7 @@ double Prompt::getOffset() const {
 
 bool Prompt::valid() const
 {
-    return (_promptRate > 0.0) && _promptString.size();
+    return (_promptRate > 0.0) && (hasPrompt() || hasPrefix());
 }
 
 bool Prompt::hasPrompt() const
@@ -69,8 +71,7 @@ Prompt::fromDOMElement(const xercesc::DOMElement* node)
 
     if (node->hasAttribute(XMLStringConverter("string")))
     {
-        std::string prompt = xchild.getAttributeValue("string");
-        setString(prompt);
+        setString(xchild.getAttributeValue("string"));
     }
     if (node->hasAttribute(XMLStringConverter("rate")))
     {
@@ -98,6 +99,10 @@ Prompt::fromDOMElement(const xercesc::DOMElement* node)
         }
         setOffset(offset);
     }
+    if (node->hasAttribute(XMLStringConverter("prefix")))
+    {
+        setPrefix(xchild.getAttributeValue("prefix"));
+    }
 }
 
 bool
@@ -105,7 +110,9 @@ Prompt::operator==(const Prompt& right) const
 {
     return (_promptString == right._promptString) &&
            (_promptRate == right._promptRate) &&
-           (_promptOffset == right._promptOffset);
+           (_promptOffset == right._promptOffset) &&
+           (_prefix == right._prefix) &&
+           (_prefixValid == right._prefixValid);
 }
 
 std::string
@@ -119,6 +126,8 @@ Prompt::toXML() const
         out << " rate='" << _promptRate << "'";
     if (_promptOffset)
         out << " offset='" << _promptOffset << "'";
+    if (_prefixValid)
+        out << " prefix='" << _prefix << "'";
     out << "/>";
     return out.str();
 }
@@ -129,5 +138,29 @@ operator<<(std::ostream& out, const Prompt& prompt)
     out << prompt.toXML();
     return out;
 }
+
+
+void
+Prompt::setPrefix(const std::string& prefix)
+{
+    _prefix = prefix;
+    _prefixValid = true;
+}
+
+
+const std::string& Prompt::getPrefix() const
+{
+    return _prefix;
+}
+
+
+/**
+ * Return true if the prefix has been set, even if set to empty.
+ */
+bool Prompt::hasPrefix() const
+{
+    return _prefixValid;
+}
+
 
 }} // namespace core, namespace nidas

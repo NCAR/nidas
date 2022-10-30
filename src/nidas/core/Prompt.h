@@ -34,7 +34,15 @@
 namespace nidas { namespace core {
 
 /**
- *  Class to contain prompt information - string and rate
+ * Prompt contains properties for prompting sensors.
+ *
+ * The prompt string gets sent to the sensor, at a certain rate, with an
+ * offset into the rate interval.  The prompt can also specify a response
+ * prefix to be inserted into any subsequent sensor responses.  A prompt is
+ * not considered valid, or actionable, unless it has a rate, and it must also
+ * have a non-empty prompt string or an activated prefix.  In other words, a
+ * prompt can reset any previously set prefix without writing anything to the
+ * sensor.
  */
 class Prompt {
 
@@ -51,6 +59,18 @@ public:
     void setString(const std::string& val);
 
     const std::string& getString() const;
+
+    /**
+     * Set the prefix.  The prefix will be marked valid even if empty.
+     */
+    void setPrefix(const std::string& prefix);
+
+    const std::string& getPrefix() const;
+
+    /**
+     * Return true if the prefix has been set, even if set to empty.
+     */
+    bool hasPrefix() const;
 
     /**
      * Convenience check for a non-empty prompt string.
@@ -76,7 +96,7 @@ public:
 
     /**
      * This is a valid prompt if it has a non-zero rate and a non-empty prompt
-     * string.
+     * string, or else it has a non-zero rate and a prefix.
      */
     bool valid() const;
 
@@ -105,6 +125,11 @@ private:
     std::string _promptString;
     double _promptRate;
     double _promptOffset;
+
+    // _prefixValid indicates this is a prefix that should be implemented by
+    // the sensor, even if the string is empty.
+    std::string _prefix;
+    bool _prefixValid;
 
 };
 

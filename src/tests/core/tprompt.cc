@@ -197,3 +197,29 @@ BOOST_AUTO_TEST_CASE(prompt_rate_mismatch)
         BOOST_CHECK(true);
     }
 }
+
+
+BOOST_AUTO_TEST_CASE(prompt_prefix)
+{
+    Prompt prompt;
+
+    std::string xml = "<prompt string='4D0!' rate='0.002' prefix='S1:'/>";
+    load_prompt_xml(prompt, xml);
+    BOOST_CHECK_EQUAL(prompt.getString(), "4D0!");
+    BOOST_CHECK_EQUAL(prompt.getRate(), 0.002);
+    BOOST_CHECK_EQUAL(prompt.getOffset(), 0);
+    BOOST_TEST(prompt.getPrefix() == "S1:");
+    BOOST_TEST(prompt.hasPrefix());
+    BOOST_TEST(prompt.toXML() == xml);
+    BOOST_CHECK(prompt.valid());
+
+    prompt = Prompt();
+    xml = "<prompt rate='0.002' prefix=''/>";
+    load_prompt_xml(prompt, xml);
+    BOOST_CHECK_EQUAL(prompt.getString(), "");
+    BOOST_CHECK_EQUAL(prompt.getRate(), 0.002);
+    BOOST_TEST(prompt.getPrefix() == "");
+    BOOST_TEST(prompt.hasPrefix());
+    BOOST_TEST(prompt.toXML() == xml);
+    BOOST_CHECK(prompt.valid());
+}
