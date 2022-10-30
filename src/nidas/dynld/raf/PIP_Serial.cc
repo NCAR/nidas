@@ -384,7 +384,7 @@ void PIP_Serial::derivedDataNotify(const nidas::core::DerivedDataReader * s) thr
     temp[12] = 0;
 
     try {
-        setPromptString(temp);
+        setPrompt(Prompt(temp));
     }
     catch(const n_u::IOException & e)
     {

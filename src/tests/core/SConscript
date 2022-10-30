@@ -1,14 +1,15 @@
 # -*- python -*-
 
 Import('env')
-env = env.Clone(tools = ['nidas', 'valgrind'])
+env = env.Clone(tools = ['nidas', 'nidasutil', 'valgrind'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
 tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
-                              "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc"])
+                              "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc",
+                              "tprompt.cc"])
 # env.Depends(tests, libs)
 #
 

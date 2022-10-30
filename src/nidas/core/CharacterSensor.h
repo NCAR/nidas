@@ -147,23 +147,10 @@ public:
     /**
      * Prompting Sensors can have multiple prompts and rates.
      * Add another prompt and rate to this sensor.
-     * @param promptString May contain backslash escape sequences.
-     * @param promptRate prompts/sec.
      */
-    virtual void addPrompt(const std::string& promptString, double promptRate,
-            double promptOffset)
-    {
-        Prompt prompt;
-        prompt.setString(promptString);
-        prompt.setRate(promptRate);
-        prompt.setOffset(promptOffset);
+    virtual void addPrompt(const Prompt& prompt);
 
-        _prompts.push_back(prompt);
-        _prompted = true;
-//cerr<< "pushed back prompt.  String = "<<promptString<<" rate= "<<promptRate;
-    }
-
-    const std::list<Prompt>& getPrompts() const { return _prompts;}
+    const std::list<Prompt>& getPrompts() const;
 
     /**
      * Is this a prompted sensor.  Will be true if setPromptString()
@@ -268,29 +255,22 @@ public:
      */
     bool doesAsciiSscanfs();
 
-protected:
-
     /**
-     * Set the rate at which `<sensor>` prompts are sent to this sensor.
+     * @brief Set the <sensor> prompt for this sensor.
+     * 
      * This will be set on a CharacterSensor if a `<prompt>` element
      * is found for `<sensor>`, not as a sub-element of `<sample>`.
      */
-    void setPromptRate(const double val) {_promptRate = val;}
-
-    double getPromptRate() const { return (_promptRate);}
-
-    void setPromptOffset(const double val) {_promptOffset = val;}
-
-    double getPromptOffset()const { return (_promptOffset);}
+    void setPrompt(const Prompt& prompt);
 
     /**
-     * Set the `<sensor>` prompt string for this sensor.
-     * The prompt string may contain backslash escape sequences and
-     * null characters, so be carefull when copying to a char*.
+     * @brief Return the <sensor> prompt for this sensor.
+     * 
+     * @return const Prompt& 
      */
-    void setPromptString(const std::string& val) { _promptString = val; }
+    const Prompt& getPrompt() const;
 
-    const std::string& getPromptString() const { return (_promptString);}
+protected:
 
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
 			   float* data_ptr);
@@ -332,12 +312,8 @@ private:
 
     std::list<Prompt> _prompts;
 
-    std::string _promptString;
+    Prompt _sensorPrompt;
 
-    double _promptRate;
-
-    double _promptOffset;
-   
     std::list<AsciiSscanf*> _sscanfers;
 
     std::list<AsciiSscanf*>::const_iterator _nextSscanfer;
