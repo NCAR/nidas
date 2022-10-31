@@ -52,6 +52,9 @@ def main():
             sys.stdout.write(response + "\n")
             sys.stdout.flush()
             icmd = (icmd + 1) % len(sequence)
+        else:
+            # need to re-sync
+            icmd = None
 
 
 if __name__ == "__main__":
