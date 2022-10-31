@@ -223,3 +223,17 @@ BOOST_AUTO_TEST_CASE(prompt_prefix)
     BOOST_TEST(prompt.toXML() == xml);
     BOOST_CHECK(prompt.valid());
 }
+
+
+BOOST_AUTO_TEST_CASE(load_snow_pillow_xml)
+{
+    std::string xmlpath = "snow_pillow_sensor.xml";
+    Project project;
+    project.parseXMLConfigFile(xmlpath);
+    project.initSensors();
+    DSMSensor* ds = project.findSensor(SET_DSM_ID(SET_SPS_ID(0, 1052), 40));
+    DSMSerialSensor* dss = dynamic_cast<DSMSerialSensor*>(ds);
+    BOOST_REQUIRE(dss);
+
+
+}
