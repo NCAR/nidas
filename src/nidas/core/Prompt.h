@@ -26,55 +26,115 @@
 #ifndef NIDAS_CORE_PROMPT_H 
 #define NIDAS_CORE_PROMPT_H 
 
-#include <iostream>
+#include "XDOM.h"
+
 #include <string>
+#include <iosfwd>
 
 namespace nidas { namespace core {
 
 /**
- *  Class to contain prompt information - string and rate
+ * Prompt contains properties for prompting sensors.
+ *
+ * The prompt string gets sent to the sensor, at a certain rate, with an
+ * offset into the rate interval.  The prompt can also specify a response
+ * prefix to be inserted into any subsequent sensor responses.  A prompt is
+ * not considered valid, or actionable, unless it has a rate, and it must also
+ * have a non-empty prompt string or an activated prefix.  In other words, a
+ * prompt can reset any previously set prefix without writing anything to the
+ * sensor.
  */
-
 class Prompt {
 
 public: 
-    Prompt(): _promptString(),_promptRate(0.0), _promptOffset(0.0) {}
+    Prompt(const std::string& promptString = "",
+           double promptRate = 0.0,
+           double promptOffset = 0.0);
 
-    void setString(const std::string& val) { 
-        _promptString = val; }
+    /**
+     * Set the prompt string for this prompt.
+     * The prompt string may contain backslash escape sequences and
+     * null characters, so be carefull when copying to a char*.
+     */
+    void setString(const std::string& val);
 
-    const std::string& getString() const { 
-        return _promptString; }
+    const std::string& getString() const;
+
+    /**
+     * Set the prefix.  The prefix will be marked valid even if empty.
+     */
+    void setPrefix(const std::string& prefix);
+
+    const std::string& getPrefix() const;
+
+    /**
+     * Return true if the prefix has been set, even if set to empty.
+     */
+    bool hasPrefix() const;
+
+    /**
+     * Convenience check for a non-empty prompt string.
+     */
+    bool hasPrompt() const;
 
     /**
      * Set rate of desired prompting, in Hz (sec^-1).
      */
-    void setRate(const double val) {
-         _promptRate = val; }
+    void setRate(const double val);
 
-    double getRate() const {
-         return _promptRate; }
+    double getRate() const;
 
     /**
-     * Set prompt offset in seconds.  For example, for a rate of 10Hz, an offset
-     * of 0 would result in prompts at 0.0, 0.1, 0.2 seconds after each second.
-     * An offset of 0.01 would result in prompts at 0.01, 0.11, 0.21 seconds after the second.
+     * Set prompt offset in seconds.  For example, for a rate of 10Hz, an
+     * offset of 0 would result in prompts at 0.0, 0.1, 0.2 seconds after each
+     * second.  An offset of 0.01 would result in prompts at 0.01, 0.11, 0.21
+     * seconds after the second.
      */
-    void setOffset(const double val) {
-         _promptOffset = val; }
+    void setOffset(const double val);
 
-    double getOffset() const {
-         return _promptOffset; }
+    double getOffset() const;
+
+    /**
+     * This is a valid prompt if it has a non-zero rate and a non-empty prompt
+     * string, or else it has a non-zero rate and a prefix.
+     */
+    bool valid() const;
+
+    /**
+     * Load Prompt settings from the xml node.  Everything not specified in
+     * the xml is reset to the default.
+     */
+    void fromDOMElement(const xercesc::DOMElement* node);
+
+    /**
+     * Prompt equality is member-wise equality, without any tolerance allowed
+     * in the floating point comparisons.
+     */
+    bool operator==(const Prompt& right) const;
+
+    /**
+     * @brief Return the xml string for this Prompt.
+     */
+    std::string toXML() const;
+
+    Prompt(const Prompt& right) = default;
+    Prompt& operator=(const Prompt& right) = default;
 
 private:
 
-    std::string  _promptString;
+    std::string _promptString;
+    double _promptRate;
+    double _promptOffset;
 
-    double        _promptRate;
-
-    double        _promptOffset;
+    // _prefixValid indicates this is a prefix that should be implemented by
+    // the sensor, even if the string is empty.
+    std::string _prefix;
+    bool _prefixValid;
 
 };
+
+std::ostream&
+operator<<(std::ostream& out, const Prompt& prompt);
 
 }} // namespace nidas namespace core
 

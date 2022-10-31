@@ -329,15 +329,18 @@ void SerialSensor::initPrompting() throw(n_u::IOException)
         const list<Prompt>& prompts = getPrompts();
         list<Prompt>::const_iterator pi = prompts.begin();
         for (; pi != prompts.end(); ++pi) {
-           const Prompt& prompt = *pi;
+           Prompt prompt = *pi;
            Prompter* prompter = new Prompter(this);
-           prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
-           prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
-           prompter->setPromptOffsetMsec((int) rint(MSECS_PER_SEC * prompt.getOffset()));
-
+           prompt.setString(n_u::replaceBackslashSequences(prompt.getString()));
+           prompter->setPrompt(prompt);
+           int periodms = (int) rint(MSECS_PER_SEC / prompt.getRate());
+           int offsetms = (int) rint(MSECS_PER_SEC * prompt.getOffset());
+           prompter->setPromptPeriodMsec(periodms);
+           prompter->setPromptOffsetMsec(offsetms);
            _prompters.push_back(prompter);
-           //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
-           // cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
+           DLOG(("") << "sensor " << getName() << " prompter: "
+                     << prompt << " @ period=" << periodms << "ms, "
+                     << "offset=" << offsetms << "ms");
         }
         startPrompting();
     }
@@ -347,7 +350,10 @@ void SerialSensor::shutdownPrompting() throw(n_u::IOException)
 {
     stopPrompting();
     list<Prompter*>::const_iterator pi = _prompters.begin();
-    for (; pi != _prompters.end(); ++pi) delete *pi;
+    for (; pi != _prompters.end(); ++pi)
+    {
+        delete *pi;
+    }
     _prompters.clear();
 }
 
@@ -362,7 +368,7 @@ void SerialSensor::startPrompting() throw(n_u::IOException)
                     prompter->getPromptPeriodMsec(),
                     prompter->getPromptOffsetMsec());
         }
-	_prompting = true;
+        _prompting = true;
     }
 }
 
@@ -1263,20 +1269,13 @@ void SerialSensor::printResponseHex(int numCharsRead, const char* respBuf)
 }
 
 
-
 SerialSensor::Prompter::~Prompter()
 {
-    delete [] _prompt;
 }
 
-void SerialSensor::Prompter::setPrompt(const string& val)
+void SerialSensor::Prompter::setPrompt(const Prompt& prompt)
 {
-    delete [] _prompt;
-    _promptLen = val.length();
-    _prompt = new char[_promptLen+1];
-    // Use memcpy, not strcpy since the prompt may contain
-    // null chars.
-    memcpy(_prompt,val.c_str(),_promptLen);
+    _prompt = prompt;
 }
 
 void SerialSensor::Prompter::setPromptPeriodMsec(const int val)
@@ -1291,14 +1290,24 @@ void SerialSensor::Prompter::setPromptOffsetMsec(const int val)
 
 void SerialSensor::Prompter::looperNotify() throw()
 {
-    if (!_prompt) return;
-    try {
-	_sensor->write(_prompt,_promptLen);
+    // Set the response prefix before writing the prompt, to avoid a race
+    // condition with the response.  Presumably the prompt has been timed so
+    // that setting the prefix now will not interfere with any messages coming
+    // from the sensor.
+    if (_prompt.hasPrefix())
+    {
+        _sensor->setPrefix(_prompt.getPrefix());
     }
-    catch(const n_u::IOException& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: write prompt: %s",_sensor->getName().c_str(),
-	    e.what());
+    const std::string& msg = _prompt.getString();
+    if (msg.size())
+    {
+        try {
+            _sensor->write(msg.data(), msg.size());
+        }
+        catch(const n_u::IOException& e) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "%s: write prompt: %s",_sensor->getName().c_str(),
+                e.what());
+        }
     }
 }
-

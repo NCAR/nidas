@@ -43,22 +43,23 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag() :
-        _id(0), _sampleId(0), _sensorId(0), _suffix(), _station(-1), _rate(0.0), _processed(
-                true), _dsm(0), _sensor(0), _constVariables(), _variables(), _variableNames(), _scanfFormat(), _promptString(), _promptOffset(
-                0.0), _parameters(), _constParameters(), _enabled(true), _ttAdjustPeriod(
-                0), _ttAdjustSampleGap(1.9)
+    _id(0), _sampleId(0), _sensorId(0), _suffix(), _station(-1),
+    _rate(0.0), _processed(true), _dsm(0), _sensor(0), _constVariables(),
+    _variables(), _variableNames(), _scanfFormat(), _prompt(),
+    _parameters(), _constParameters(), _enabled(true), _ttAdjustPeriod(0),
+    _ttAdjustSampleGap(1.9)
 {
 }
 
 SampleTag::SampleTag(const DSMSensor* sensor) :
     _id(0), _sampleId(0), _sensorId(0), _suffix(), _station(sensor->getStation()),
     _rate(0.0), _processed(true), _dsm(sensor->getDSMConfig()), _sensor(sensor),
-    _constVariables(), _variables(), _variableNames(), _scanfFormat(), _promptString(),
-    _promptOffset(0.0), _parameters(), _constParameters(), _enabled(true),
+    _constVariables(), _variables(), _variableNames(), _scanfFormat(),
+    _prompt(), _parameters(), _constParameters(), _enabled(true),
     _ttAdjustPeriod(0), _ttAdjustSampleGap(1.9)
 {
     setSensorId(_sensor->getId());
-    setDSMId(_dsm->getId());
+    setDSMId(_sensor->getDSMId());
 }
 
 /* copy constructor */
@@ -66,8 +67,8 @@ SampleTag::SampleTag(const SampleTag& x) :
         DOMable(), _id(x._id), _sampleId(x._sampleId), _sensorId(x._sensorId), _suffix(
                 x._suffix), _station(x._station), _rate(x._rate), _processed(
                 x._processed), _dsm(x._dsm), _sensor(x._sensor), _constVariables(), _variables(), _variableNames(), _scanfFormat(
-                x._scanfFormat), _promptString(x._promptString), _promptOffset(
-                x._promptOffset), _parameters(), _constParameters(), _enabled(
+                x._scanfFormat), _prompt(x._prompt),
+                _parameters(), _constParameters(), _enabled(
                 x._enabled), _ttAdjustPeriod(x._ttAdjustPeriod), _ttAdjustSampleGap(
                 x._ttAdjustSampleGap)
 {
@@ -102,8 +103,7 @@ SampleTag& SampleTag::operator=(const SampleTag& rhs)
         _dsm = rhs._dsm;
         _sensor = rhs._sensor;
         _scanfFormat = rhs._scanfFormat;
-        _promptString = rhs._promptString;
-        _promptOffset = rhs._promptOffset;
+        _prompt = rhs._prompt;
         _enabled = rhs._enabled;
 
         const vector<const Variable*>& vars = rhs.getVariables();
@@ -458,36 +458,11 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
         }
 
         else if (elname == "prompt") {
-            std::string prompt = xchild.getAttributeValue("string");
-            setPromptString(prompt);
-            istringstream ist(xchild.getAttributeValue("rate"));
-            double promptrate;
-            ist >> promptrate;
-            if (ist.fail() || promptrate < 0.0
-                    || (getRate() != 0 && getRate() != promptrate)) {
-                ostringstream ost;
-                ost << "sample id=" << GET_DSM_ID(getId()) << ','
-                        << GET_SPS_ID(getId());
-                throw n_u::InvalidParameterException(ost.str(), "prompt rate",
-                        xchild.getAttributeValue("rate"));
-            }
-            setRate(promptrate);
-
-            std::string offsetStr = xchild.getAttributeValue("offset");
-            if (!offsetStr.empty()) {
-                istringstream ist(offsetStr);
-                double offset;
-                ist >> offset;
-                if (ist.fail()) {
-                    ostringstream ost;
-                    ost << "sample id=" << GET_DSM_ID(getId()) << ','
-                            << GET_SPS_ID(getId());
-                    throw n_u::InvalidParameterException(ost.str(),
-                            "prompt offset", offsetStr);
-                }
-                setPromptOffset(offset);
-            }
+            Prompt prompt;
+            prompt.fromDOMElement((xercesc::DOMElement*) child);
+            setPrompt(prompt);
         }
+
         else {
             ostringstream ost;
             ost << "sample id=" << GET_DSM_ID(getId()) << ','
@@ -527,4 +502,35 @@ xercesc::DOMElement* SampleTag::toDOMElement(xercesc::DOMElement* elem,
         var->toDOMParent(elem, complete);
     }
     return elem;
+}
+
+
+const Prompt& SampleTag::getPrompt() const
+{
+    return _prompt;
+}
+
+
+void SampleTag::setPrompt(const Prompt& prompt_in)
+{
+    Prompt prompt(prompt_in);
+    // Either the sample and prompt rates match, or one is non-zero and sets
+    // the other.  It's ok for both to be zero, because the rate can be
+    // implied by the sensor prompt for the sensor which contains this sample.
+    if ((getRate() != 0) && (prompt.getRate() == 0)) {
+        prompt.setRate(getRate());
+    }
+    if ((getRate() == 0) && (prompt.getRate() != 0)) {
+        setRate(prompt.getRate());
+    }
+    if (getRate() != prompt.getRate()) {
+        ostringstream ost;
+        ost << "sample id=" << GET_DSM_ID(getId()) << ','
+            << GET_SPS_ID(getId()) << ", "
+            << "prompt rate " << prompt.getRate()
+            << " and sensor rate " << getRate() << " must be equal unless "
+            << "one is 0.";
+        throw n_u::InvalidParameterException(ost.str());
+    }
+    _prompt = prompt;
 }

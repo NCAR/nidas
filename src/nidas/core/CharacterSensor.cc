@@ -54,9 +54,7 @@ CharacterSensor::CharacterSensor():
     _separatorAtEOM(true),
     _messageLength(0),
     _prompts(),
-    _promptString(),
-    _promptRate(0.0),
-    _promptOffset(0.0),
+    _sensorPrompt(),
     _sscanfers(),
     _nextSscanfer(),
     _maxScanfFields(0),
@@ -290,71 +288,43 @@ void CharacterSensor::fromDOMElement(
                 }
         }
         else if (elname == "prompt") {
-            xercesc::DOMNamedNodeMap *promptAttrs = child->getAttributes();
-            int nSize = promptAttrs->getLength();
 
-            for(int i=0;i<nSize;++i) {
-                XDOMAttr attr((xercesc::DOMAttr*) promptAttrs->item(i));
-                const string& aname = attr.getName();
-                const string aval = attr.getValue();
-                // get attribute name
-                if (aname == "string") {
-                    setPromptString(aval);
-                }
-                else if (aname == "rate") {
-                    istringstream ist(aval);
-                    double rate;
-                    ist >> rate;
-                    if (ist.fail())
-                        throw n_u::InvalidParameterException(getName(),
-                            "prompt rate", aval);
-
-                    if (rate < 0.0)
-                        throw n_u::InvalidParameterException
-                                (getName(),"prompt rate", aval);
-                    setPromptRate(rate);
-                }
-                else if (aname == "offset") {
-                    istringstream ist(aval);
-                    double offset;
-                    ist >> offset;
-                    if (ist.fail())
-                        throw n_u::InvalidParameterException(getName(),
-                            "prompt offset", aval);
-
-                    if (offset < 0.0)
-                        throw n_u::InvalidParameterException
-                                (getName(),"prompt offset", aval);
-                    setPromptOffset(offset);
-                }
-            }
+            Prompt prompt;
+            prompt.fromDOMElement((xercesc::DOMElement*)child);
+            setPrompt(prompt);
         }
     }
 
     VLOG(("CharacterSensor::fromDOMElement(): exit..."));
 }
 
+
 void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
 {
     DSMSensor::validate();
 
-    if (!getPromptString().empty()) addPrompt(getPromptString(),
-            getPromptRate(), getPromptOffset());
+    // If the sensor prompt does something, then add it as the first prompt.
+    if (_sensorPrompt.valid())
+        addPrompt(_sensorPrompt);
 
     /* determine if any of the samples have associated prompts */
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
-	SampleTag* samp = *si;
-	if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
-	    samp->setRate(getPromptRate());
-	if (!samp->getPromptString().empty()) {
-	    addPrompt(samp->getPromptString(),
-                    samp->getRate(), samp->getPromptOffset());
-	    if (samp->getRate() <= 0.0)
-	        throw n_u::InvalidParameterException(
-		    getName() + " prompted sensor has sample rate <= 0.0");
+        SampleTag* samp = *si;
+        // if the sample has a prompt string without a rate, inherit the
+        // rate from the sensor prompt.
+        Prompt prompt(samp->getPrompt());
+        if (prompt.hasPrompt() && prompt.getRate() == 0 &&
+            _sensorPrompt.getRate())
+        {
+            prompt.setRate(_sensorPrompt.getRate());
+            samp->setPrompt(prompt);
         }
+        // If the prompt is valid, add it.  A valid prompt may not have a 
+        // prompt string if all it does is reset the prefix.
+        if (prompt.valid())
+            addPrompt(prompt);
     }
 
     _prompted = !getPrompts().empty();
@@ -484,7 +454,6 @@ process(const Sample* samp, list<const Sample*>& results) throw()
 }
 
 
-
 void
 CharacterSensor::
 adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
@@ -499,3 +468,30 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
     }
 }
 
+
+void
+CharacterSensor::addPrompt(const Prompt& prompt)
+{
+    _prompts.push_back(prompt);
+    _prompted = true;
+    VLOG(("") << "pushed back prompt.  String = " << prompt.getString()
+              << " rate= " << prompt.getRate());
+}
+
+
+void CharacterSensor::setPrompt(const Prompt& prompt)
+{
+    _sensorPrompt = prompt;
+}
+
+
+const Prompt& CharacterSensor::getPrompt() const
+{
+    return _sensorPrompt;
+}
+
+
+const std::list<Prompt>& CharacterSensor::getPrompts() const
+{
+    return _prompts;
+}

@@ -29,6 +29,7 @@
 #include "CharacterSensor.h"
 #include "LooperClient.h"
 #include "SerialPortIODevice.h"
+#include "Prompt.h"
 
 using namespace nidas::util; 
 
@@ -431,17 +432,20 @@ private:
      */
     SerialPortIODevice* _serialDevice;
 
+    /**
+     * Prompter attaches a Prompt to a SerialSensor as a LooperClient.
+     */
     class Prompter: public nidas::core::LooperClient
     {
     public:
         Prompter(SerialSensor* sensor): _sensor(sensor),
-            _prompt(0),_promptLen(0), _promptPeriodMsec(0),
-            _promptOffsetMsec(0) {}
+            _prompt(), _promptPeriodMsec(0), _promptOffsetMsec(0)
+        {}
 
         ~Prompter();
 
-        void setPrompt(const std::string& val);
-        const std::string getPrompt() const { return _prompt; }
+        void setPrompt(const Prompt& prompt);
+        const Prompt& getPrompt() const { return _prompt; }
 
         void setPromptPeriodMsec(const int);
         int getPromptPeriodMsec() const { return _promptPeriodMsec; }
@@ -453,10 +457,10 @@ private:
          * Method called by Looper in order to send a prompt.
          */
         void looperNotify() throw();
+
     private:
         SerialSensor* _sensor;
-        char* _prompt;
-        int _promptLen;
+        Prompt _prompt;
         int _promptPeriodMsec;
         int _promptOffsetMsec;
 

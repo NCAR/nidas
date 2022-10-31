@@ -29,6 +29,7 @@
 #include "DOMable.h"
 #include "Sample.h"
 #include "NidsIterators.h"
+#include "Prompt.h"
 
 #include <vector>
 #include <list>
@@ -247,19 +248,18 @@ public:
 
     const std::string& getScanfFormat() const { return _scanfFormat; }
 
-    void setPromptString(const std::string& val)
-    {
-        _promptString = val;
-    }
+    /**
+     * @brief Set the prompt for this sample.
+     *
+     * Either the sample and prompt rates match, or one is non-zero and sets
+     * the other.
+     *
+     * @throws InvalidParameterException
+     *
+     */
+    void setPrompt(const Prompt& prompt);
 
-    const std::string& getPromptString() const { return _promptString; }
-
-    void setPromptOffset(double val)
-    {
-        _promptOffset = val;
-    }
-
-    double getPromptOffset() const { return _promptOffset; }
+    const Prompt& getPrompt() const;
 
     /**
      * Add a variable to this SampleTag.  SampleTag
@@ -375,9 +375,7 @@ private:
 
     std::string _scanfFormat;
 
-    std::string _promptString;
-
-    double _promptOffset;
+    Prompt _prompt;
 
     /**
      * List of pointers to Parameters.

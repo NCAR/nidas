@@ -129,6 +129,7 @@
     <xsd:attribute name="string" type="xsd:string" use="required"/>
     <xsd:attribute name="rate" type="xsd:positiveInteger" use="required"/>
     <xsd:attribute name="offset" type="xsd:float" default="0"/>
+    <xsd:attribute name="prefix" type="xsd:string"/>
 </xsd:complexType>
 
 <xsd:complexType name="calfile">

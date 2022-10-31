@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2021 UCAR, NCAR, All Rights Reserved -->
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="SOS"
+    system="ISFS"
+    maxStation="1"
+    version="$Revision: 4555 $">
+
+<site name="c" class="isff.GroundStation" suffix=".$SITE">
+<dsm name="cb" rserialPort="30002" id="40">
+
+<output class="RawSampleOutputStream">
+    <socket type="server" port="30000" maxIdle="60" block="false"/>
+</output>
+
+<!-- 4 Snow pillows (Alpine Hydromet FSP5) all through SDI-12 to RS232 converter -->
+<serialSensor ID="PILLOWS" class="DSMSerialSensor"
+              baud="9600" parity="none" databits="8" stopbits="1"
+              devicename="/tmp/ttySPIUSB" id="1050" suffix="">
+    <!-- set the rate which all sample prompts will inherit, so it only needs
+         to be set in one place, which is especially useful since they usually
+         all need to be the same anyway -->
+    <prompt rate='0.05'/>
+    <!-- the snow pillow responses contain the SDI-12 address ID, but they do
+         not contain enough to differentiate responses to different prompts
+         for different measurements.  so use a prompt prefix to insert into
+         the front of each response message a string which identifies the
+         measurement that was prompted.           There are four measurements:
+         Load, SWE, Excitation current, Status.  The first character of the
+         prefix identifies the particular measurement being made: L, W, E, S.
+         Each measurement requires one prompt to start the measurement, S, and
+         a second to get the measurement, M.  For good measure, the prefix
+         includes the specific pillow ID, just to help idenfity if anything is
+         getting out of sync, eg, a prompt gets a response from a different
+         pillow.
+         -->
+    <sample id="1" scanfFormat="LS1:10%d">
+        <prompt string="1M1!\n" offset="0" prefix="LS1:"/>
+        <variable name="status.p1" units="" longname="Status"></variable>
+    </sample>
+    <sample id="2" scanfFormat="LM1:1%f%f%f%f">
+        <prompt string="1D0!\n" offset="3" prefix="LM1:"/>
+        <variable name="Load.1.p1" units="kg" longname="Load cell 1" plotrange="0 500"></variable>
+        <variable name="Load.2.p1" units="kg" longname="Load cell 2" plotrange="0 500"></variable>
+        <variable name="Load.3.p1" units="kg" longname="Load cell 3" plotrange="0 500"></variable>
+        <variable name="Load.4.p1" units="kg" longname="Load cell 4" plotrange="0 500"></variable>
+    </sample>
+    <sample id="11" scanfFormat="WS1:10%d">
+        <prompt string="1M!\n" offset="4"  prefix="WS1:"/>
+        <variable name="status1.p1" units="" longname="Status"></variable>
+    </sample>
+    <sample id="12" scanfFormat="WM1:1%f%f%f">
+        <prompt string="1D0!\n" offset="7" prefix="WM1:"/>
+        <variable name="SWE.p1" units="cm" longname="Snow Water Equivalent" plotrange="0 50"></variable>
+        <variable name="Text.p1" units="degC" longname="External temperature" plotrange="$T_RANGE"></variable>
+        <variable name="Tint.p1" units="degC" longname="Internal temperature" plotrange="$T_RANGE"></variable>
+    </sample>
+    <sample id="21" scanfFormat="ES1:10%d">
+        <prompt string="1M2!\n" offset="8" prefix="ES1:"/>
+        <variable name="status2.p1" units="" longname="Status"></variable>
+    </sample>
+    <sample id="22" scanfFormat="EM1:1%f%f%f%f">
+        <prompt string="1D0!\n" offset="11" prefix="EM1:"/>
+        <variable name="Iexc.1.p1" units="mA" longname="Cell 1 excitation current" plotrange="0 50"></variable>
+        <variable name="Iexc.2.p1" units="mA" longname="Cell 2 excitation current" plotrange="0 50"></variable>
+        <variable name="Iexc.3.p1" units="mA" longname="Cell 3 excitation current" plotrange="0 50"></variable>
+        <variable name="Iexc.4.p1" units="mA" longname="Cell 4 excitation current" plotrange="0 50"></variable>
+    </sample>
+    <sample id="31" scanfFormat="SS1:10%d">
+        <prompt string="1M3!\n" offset="12" prefix="SS1:"/>
+        <variable name="status3.p1" units="" longname="Status"></variable>
+    </sample>
+    <sample id="32" scanfFormat="SM1:1%f%f%f%f%f%f">
+        <prompt string="1D0!\n" offset="15" prefix="SM1:"/>
+        <variable name="Status.1.p1" units="" longname="Status cell 1" plotrange="0 10"></variable>
+        <variable name="Status.2.p1" units="" longname="Status cell 2" plotrange="0 10"></variable>
+        <variable name="Status.3.p1" units="" longname="Status cell 3" plotrange="0 10"></variable>
+        <variable name="Status.4.p1" units="" longname="Status cell 4" plotrange="0 10"></variable>
+        <variable name="Status.Text.p1" units="" longname="Status Text" plotrange="0 10"></variable>
+        <variable name="Status.Tint.p1" units="" longname="Status Tint" plotrange="0 10"></variable>
+    </sample>
+    <message separator="\n" position="end" length="0"/>
+</serialSensor>
+</dsm>
+</site>
+</project>

@@ -40,6 +40,7 @@
 #include "CalFile.h"
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 #include <cmath>
 #include <cfloat>
@@ -122,7 +123,9 @@ DSMSensor::DSMSensor() :
     _qcCheckPeriod(DEFAULT_QC_CHECK_PERIOD),
 	_lastSampleSurveillance(0),
     _pSensrPwrCtrl(0),
-    _sensorState(SENSOR_CLOSED)
+    _sensorState(SENSOR_CLOSED),
+    _prefix(),
+    _prefixEnabled(false)
 {
 }
 
@@ -415,6 +418,62 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
     DLOG(("Calling DSMSensor::init() as subclass does not override."));
 }
 
+
+Sample* DSMSensor::nextSample()
+{
+    Sample* sample = _scanner->nextSample(this);
+
+    // no prefix checking needed if it has never been set.
+    if (!_prefixEnabled)
+        return sample;
+
+    // This is the easiest place to inject a prefix if specified, rather than
+    // trying to modify the complicated SampleScanner state and logic, except
+    // that it requires possibly switching samples to make room for the
+    // prefix.  Make sure this uses a copy of the prefix rather than the
+    // _prefix member, so it can't change while being used to calculate sample
+    // lengths.  The other option is to lock the looper mutex.
+    std::string prefix = getPrefix();
+    if (sample && prefix.size())
+    {
+        unsigned int newlen = sample->getDataLength() + prefix.size();
+        Sample* newsamp = sample;
+        VLOG(("") << "prefix " << prefix << ": sample has alloc length "
+                  << sample->getAllocLength() 
+                  << ", data length " << sample->getDataLength()
+                  << ", need " << newlen
+                  << ", data='" << n_u::addBackslashSequences(std::string((char*)sample->getVoidDataPtr(),
+                                                              (char*)sample->getVoidDataPtr() + sample->getDataLength()))
+                  << "'");
+        if (sample->getAllocLength() < newlen)
+        {
+            // Replace this sample with one possibly from a different pool.
+            newsamp = getSample<char>(newlen);
+            newsamp->setTimeTag(sample->getTimeTag());
+            newsamp->setId(sample->getId());
+        }
+        // First make room for the prefix in case the same sample is being
+        // used, then copy in the prefix.  Use the mem functions because the
+        // prefix string, like the prompt, could contain null bytes.
+        memmove((char *)newsamp->getVoidDataPtr() + prefix.size(),
+                (char *)sample->getVoidDataPtr(), sample->getDataLength());
+        memcpy((char *)newsamp->getVoidDataPtr(), prefix.data(), prefix.size());
+        newsamp->setDataLength(newlen);
+        VLOG(("") << "new data after prefix inserted: '"
+                  << n_u::addBackslashSequences(std::string((char*)newsamp->getVoidDataPtr(),
+                                                            (char*)newsamp->getVoidDataPtr() + newlen))
+                  << "'");
+        if (sample != newsamp)
+        {
+            sample->freeReference();
+            sample = newsamp;
+        }
+    }
+    return sample;
+}
+
+
+
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
 {
     bool exhausted = readBuffer();
@@ -451,6 +510,25 @@ bool DSMSensor::receive(const Sample *samp) throw()
 
     _source.distribute(results);	// distribute does the freeReference
     return true;
+}
+
+
+void
+DSMSensor::
+setPrefix(const std::string& prefix)
+{
+    n_u::Synchronized autosync(_looperMutex);
+    _prefix = prefix;
+    _prefixEnabled = true;
+}
+
+
+std::string
+DSMSensor::
+getPrefix()
+{
+    n_u::Synchronized autosync(_looperMutex);
+    return _prefix;
 }
 
 
@@ -739,10 +817,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      * element, then parse the catalog element, then do a full parse
      * of the actual element.
      */
-    setStation(getDSMConfig()->getSite()->getNumber());
-
-    /* Check the site as to whether we apply variable conversions. */
-    setApplyVariableConversions(getSite()->getApplyVariableConversions());
+    if (getSite())
+    {
+        setStation(getSite()->getNumber());
+        /* Check the site as to whether we apply variable conversions. */
+        setApplyVariableConversions(getSite()->getApplyVariableConversions());
+    }
 
     XDOMElement xnode(node);
 
@@ -894,14 +974,14 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
         const string& elname = xchild.getNodeName();
 
         if (elname == "sample") {
-            SampleTag* newtag = new SampleTag(this);
-                // add sensor name to any InvalidParameterException thrown by sample.
-                try {
-                    newtag->fromDOMElement((xercesc::DOMElement*)child);
-                }
-                catch (const n_u::InvalidParameterException& e) {
-                    throw n_u::InvalidParameterException(getName() + ": " + e.what());
-                }
+            std::unique_ptr<SampleTag> newtag(new SampleTag(this));
+            // add sensor name to any InvalidParameterException thrown by sample.
+            try {
+                newtag->fromDOMElement((xercesc::DOMElement*)child);
+            }
+            catch (const n_u::InvalidParameterException& e) {
+                throw n_u::InvalidParameterException(getName() + ": " + e.what());
+            }
             if (newtag->getSampleId() == 0)
                 newtag->setSampleId(static_cast<unsigned int>(getSampleTags().size()+1));
 
@@ -917,13 +997,12 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                     catch (const n_u::InvalidParameterException& e) {
                         throw n_u::InvalidParameterException(getName() + ": " + e.what());
                     }
-
-                    delete newtag;
-                    newtag = 0;
+                    newtag.reset();
                     break;
                 }
             }
-            if (newtag) addSampleTag(newtag);
+            if (newtag.get())
+                addSampleTag(newtag.release());
         }
         else if (elname == "parameter") {
             Parameter* parameter =
@@ -947,7 +1026,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     _rawSampleTag.setSampleId(0);
     _rawSampleTag.setSensorId(getSensorId());
-    _rawSampleTag.setDSMId(getDSMConfig()->getId());
+    _rawSampleTag.setDSMId(getDSMId());
     _rawSampleTag.setDSMSensor(this);
     _rawSampleTag.setDSMConfig(getDSMConfig());
     _rawSampleTag.setSuffix(getFullSuffix());

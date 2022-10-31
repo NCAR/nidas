@@ -183,6 +183,7 @@ sources = Split("""
     NidsIterators.cc
     Parameter.cc
     Project.cc
+    Prompt.cc
     ProjectConfigs.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc

@@ -122,7 +122,7 @@ void Looper::setupClientMaps()
 	unsigned int per = ci->second;
 	unsigned int offset = _clientOffsets[clnt];
 
-        DLOG(("sleepval=%u, per=%u offset=%u\n",
+        DLOG(("sleepval=%u, per=%u offset=%u",
                     sleepval, per, offset));
 
 	assert((per % sleepval) == 0);
@@ -180,7 +180,7 @@ int Looper::run() throw(n_u::Exception)
             unsigned int cdiv = _clientDivs[clnt];
             unsigned int cmod = _clientMods[clnt];
             _clientMutex.unlock();
-            VLOG(("cntr=%u, cdiv=%u cmod=%u\n",
+            VLOG(("cntr=%u, cdiv=%u cmod=%u",
                     cntr, cdiv, cmod));
             if (cdiv > 0 && (cntr % cdiv) == cmod) clnt->looperNotify();
 	}

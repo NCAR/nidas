@@ -857,10 +857,7 @@ public:
      * Extract the next sample from the buffer. Returns a
      * null pointer if there are no samples left in the buffer.
      */
-    virtual Sample* nextSample()
-    {
-        return _scanner->nextSample(this);
-    }
+    virtual Sample* nextSample();
 
     /**
      * A DSMSensor can be used as a SampleClient,
@@ -1380,6 +1377,18 @@ public:
         return _openable;
     }
 
+    /**
+     * Set a message prefix to be inserted at the beginning of each raw sample
+     * read from this sensor.
+     */
+    void
+    setPrefix(const std::string& prefix);
+
+    /**
+     * Get the current message prefix.
+     */
+    std::string
+    getPrefix();
 
 protected:
 
@@ -1733,6 +1742,14 @@ private:
      * Sensor state
      */
     DSM_SENSOR_STATE _sensorState;
+
+    // the prefix is modified by the looper, so access to it must be protected
+    // by the looper mutex.
+    std::string _prefix;
+
+    // only rarely will prefixes be used, so this allows that code to be
+    // subverted quickly and without accessing _prefix.
+    bool _prefixEnabled;
 
     // no copying
     DSMSensor(const DSMSensor& x);

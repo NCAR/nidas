@@ -27,7 +27,9 @@
 #ifndef NIDAS_CORE_XMLSTRINGCONVERTER_H
 #define NIDAS_CORE_XMLSTRINGCONVERTER_H
 
-#include<xercesc/util/XMLString.hpp>
+#include <xercesc/util/XMLString.hpp>
+
+#include <string>
 
 namespace nidas { namespace core {
 
