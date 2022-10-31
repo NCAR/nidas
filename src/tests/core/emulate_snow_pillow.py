@@ -1,7 +1,12 @@
 #! /bin/env python
 
-# Given snow pillow prompts on stdin, write out the appropriate response on
-# stdout.
+"""
+Given snow pillow prompts on stdin, write out corresponding responses on
+stdout.  Use socat to connect this to a pty which dsm can open like a serial
+port:
+
+socat PTY,link=/tmp/ttySPIUSB,raw,echo=0 EXEC:./emulate_snow_pillow.py
+"""
 
 from collections import namedtuple
 import sys
