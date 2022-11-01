@@ -70,9 +70,9 @@ void GPS_Novatel_Serial::validate()
         switch(stag->getSampleId()) {
         case BESTPOS_SAMPLE_ID:
             _bestPosNvars = stag->getVariables().size();
-            if (_bestPosNvars != 10) {
+            if (_bestPosNvars != 13) {
                 throw n_u::InvalidParameterException(getName(),
-                        "number of variables in BESTPOS sample","must be 10");
+                        "number of variables in BESTPOS sample","must be 13");
             }
             _bestPosId = stag->getId();
             break;
@@ -174,7 +174,22 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             else dout[iout++] = doubleNAN;
             break;
 
-        case 22:        //number of satellites used in solution
+        case 21:        // Number of satellites tracked - GGNSATTRK
+            if (sscanf(input,"%f",&sol_age) == 1) dout[iout++] = double(sol_age);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 22:        //number of satellites used in solution - GGNSAT
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
+            else dout[iout++] = doubleNAN;
+            break;
+    
+        case 23:        //number of satellites with L1/E1/B1 signals used in solution - GGNSATL1
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 24:        //number of satellites with multi-frequency signals used in solution - GGNSATMULTI
             if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
