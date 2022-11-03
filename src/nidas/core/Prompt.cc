@@ -3,6 +3,7 @@
 
 #include <nidas/util/InvalidParameterException.h>
 #include "XDOM.h"
+#include <nidas/util/util.h>
 #include <sstream>
 
 namespace n_u = nidas::util;
@@ -121,7 +122,8 @@ Prompt::toXML() const
     std::ostringstream out;
     out << "<prompt";
     if (_promptString.size())
-        out << " string='" << _promptString << "'";
+        out << " string='"
+            << n_u::addBackslashSequences(_promptString) << "'";
     if (_promptRate)
         out << " rate='" << _promptRate << "'";
     if (_promptOffset)
