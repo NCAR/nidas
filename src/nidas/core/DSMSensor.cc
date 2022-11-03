@@ -424,15 +424,22 @@ Sample* DSMSensor::nextSample()
     Sample* sample = _scanner->nextSample(this);
 
     // no prefix checking needed if it has never been set.
-    if (!_prefixEnabled)
-        return sample;
+    if (_prefixEnabled)
+    {
+        sample = prefixSample(sample);
+    }
+    return sample;
+}
 
-    // This is the easiest place to inject a prefix if specified, rather than
-    // trying to modify the complicated SampleScanner state and logic, except
-    // that it requires possibly switching samples to make room for the
-    // prefix.  Make sure this uses a copy of the prefix rather than the
-    // _prefix member, so it can't change while being used to calculate sample
-    // lengths.  The other option is to lock the looper mutex.
+
+Sample* DSMSensor::prefixSample(Sample* sample)
+{
+    // Inject a prefix if specified, rather than trying to modify the
+    // complicated SampleScanner state and logic, except that it requires
+    // possibly switching samples to make room for the prefix.  Make sure this
+    // uses a copy of the prefix rather than the _prefix member, so it can't
+    // change while being used to calculate sample lengths.  The other option
+    // is to lock the looper mutex.
     std::string prefix = getPrefix();
     if (sample && prefix.size())
     {
@@ -471,7 +478,6 @@ Sample* DSMSensor::nextSample()
     }
     return sample;
 }
-
 
 
 bool DSMSensor::readSamples() throw(nidas::util::IOException)

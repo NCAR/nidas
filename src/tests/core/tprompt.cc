@@ -34,6 +34,7 @@ load_prompt_xml(Prompt& prompt, const std::string& pxml)
     prompt.fromDOMElement(doc->getDocumentElement());
     doc.reset();
     XMLImplementation::terminate();
+    Project::destroyInstance();
 }
 
 
@@ -298,4 +299,37 @@ BOOST_AUTO_TEST_CASE(multi_sensor_prompts)
     BOOST_TEST(it->getOffset() == 5);
     BOOST_TEST((++it)->getOffset() == 5);
     BOOST_TEST((++it)->getOffset() == 8);
+}
+
+
+BOOST_AUTO_TEST_CASE(sensor_prefix)
+{
+    DSMSerialSensor dss;
+    BOOST_TEST(dss.getPrefix().size() == 0);
+    dss.setPrefix("42:");
+    BOOST_TEST(dss.getPrefix() == "42:");
+
+    // test all kinds of combinations of lengths and throw in some embedded
+    // null bytes for good measure.
+    std::string data(512, 'x');
+    for (unsigned int c = 0; c < data.size(); ++c)
+    {
+        data[c] = (c % 10) ? c % 256 : 0;
+    }
+
+    for (unsigned int i = 0; i < data.size(); ++i)
+    {
+        dss.setPrefix(data.substr(0, i));
+        for (unsigned int j = 1; j < data.size(); ++j)
+        {
+            Sample* sample = getSample<char>(j);
+            memcpy(sample->getVoidDataPtr(), data.data(), j);
+            sample = dss.prefixSample(sample);
+            BOOST_TEST(sample->getDataLength() == i + j);
+            BOOST_TEST(memcmp(sample->getVoidDataPtr(), data.data(), i) == 0);
+            BOOST_TEST(memcmp(((char*)sample->getVoidDataPtr())+i,
+                              data.data(), j) == 0);
+            sample->freeReference();
+        }
+    }
 }

@@ -860,6 +860,15 @@ public:
     virtual Sample* nextSample();
 
     /**
+     * If a prefix is active, insert it in front of the data in the given
+     * Sample.  The Sample may have to be reallocated, so the return value may
+     * be the same or a different Sample instance.
+     *
+     * @return Sample* 
+     */
+    virtual Sample* prefixSample(Sample* sample);
+
+    /**
      * A DSMSensor can be used as a SampleClient,
      * meaning it receives its own raw samples.
      * In real-time operations, a DSMSensor can be added
