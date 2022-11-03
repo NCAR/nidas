@@ -162,9 +162,9 @@ BOOST_AUTO_TEST_CASE(prompt_inherits_rates)
     BOOST_TEST(tag.getPrompt() == Prompt("4D0!", 0.002, 55));
     BOOST_TEST(tag.getRate() == 0.002);
 
-    // there should be one prompt associated with this sensor
-    const std::list<Prompt>& prompts = dss.getPrompts();
-    BOOST_TEST(prompts.size() == 1);
+    // there should be two prompts associated with this sensor, even though
+    // the first is invalid.
+    BOOST_TEST(dss.getPrompts().size() == 2);
 }
 
 
@@ -236,4 +236,66 @@ BOOST_AUTO_TEST_CASE(load_snow_pillow_xml)
     BOOST_REQUIRE(dss);
 
 
+}
+
+
+// XML for a snow pillow sensor with multiple prompts outside of samples.
+const char* multi_sensor_prompts_xml = R"XML(
+<serialSensor ID="PILLOWS" class="DSMSerialSensor"
+              baud="9600" parity="none" databits="8" stopbits="1"
+              devicename="/dev/ttySPIUSB" id="1050" suffix="">
+
+    <prompt rate='0.05'/>
+    <prompt string="1M1!\n" offset="0" prefix="LS1:"/>
+    <sample id="2" scanfFormat="LM1:1%f%f%f%f">
+        <prompt string="1D0!\n" offset="3" prefix="LM1:"/>
+        <variable name="Load.1.p1" units="kg" longname="Load cell 1" plotrange="0 500"></variable>
+        <variable name="Load.2.p1" units="kg" longname="Load cell 2" plotrange="0 500"></variable>
+        <variable name="Load.3.p1" units="kg" longname="Load cell 3" plotrange="0 500"></variable>
+        <variable name="Load.4.p1" units="kg" longname="Load cell 4" plotrange="0 500"></variable>
+    </sample>
+</serialSensor>
+)XML";
+
+
+BOOST_AUTO_TEST_CASE(multi_sensor_prompts)
+{
+    // make sure a sample prompt can inherit the rate of the sensor prompt.
+    DSMSerialSensor dss;
+    BOOST_TEST(dss.isPrompted() == false);
+    BOOST_TEST(dss.getPrompts().size() == 1);
+    BOOST_TEST(dss.getPrompt() == Prompt());
+
+    load_sensor_xml(dss, multi_sensor_prompts_xml);
+    BOOST_TEST(dss.getPrompt() == Prompt("", 0.05));
+    BOOST_TEST(! dss.getPrompt().valid());
+    BOOST_TEST(dss.isPrompted());
+
+    // there should be three prompts associated with this sensor, even though
+    // the first is invalid and only serves to set the rate for the rest.
+    const std::list<Prompt>& prompts = dss.getPrompts();
+    BOOST_TEST(prompts.size() == 3);
+    auto it = prompts.begin();
+    BOOST_TEST(*it == Prompt("", 0.05));
+    BOOST_TEST(*(++it) == Prompt("1M1!\\n", 0.05, 0).setPrefix("LS1:"));
+    BOOST_TEST(*(++it) == Prompt("1D0!\\n", 0.05, 3).setPrefix("LM1:"));
+
+    std::list<SampleTag*>& stags = dss.getSampleTags();
+    BOOST_REQUIRE(stags.size() == 1);
+
+    SampleTag& tag = *(stags.front());
+    // the sample should have a rate which matches the sensor prompt, since it
+    // wasn't set otherwise, and the sample prompt also inherits the rate.
+    BOOST_TEST(tag.getPrompt() == Prompt("1D0!\\n", 0.05, 3).setPrefix("LM1:"));
+    BOOST_TEST(tag.getRate() == 0.05);
+
+    // make sure auto range iterator can be used to modify each prompt
+    for (auto& pi : const_cast<std::list<Prompt>&>(dss.getPrompts()))
+    {
+        pi.setOffset(pi.getOffset() + 5);
+    }
+    it = prompts.begin();
+    BOOST_TEST(it->getOffset() == 5);
+    BOOST_TEST((++it)->getOffset() == 5);
+    BOOST_TEST((++it)->getOffset() == 8);
 }

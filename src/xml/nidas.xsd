@@ -304,7 +304,9 @@
 	<xsd:extension base="sensorT">
 	    <xsd:choice minOccurs="1" maxOccurs="2">
 		<xsd:element name="message" type="messageDesc" minOccurs="1" maxOccurs="1"/>
-		<xsd:element name="prompt" type="promptType" minOccurs="0" maxOccurs="1"/>
+        <!-- A sensor can have multiple prompts, specified as children of the
+             sensor element or inside a sample. -->
+        <xsd:element name="prompt" type="promptType" minOccurs="0" maxOccurs="unbounded"/>
 	    </xsd:choice>
 	    <!-- these attributes must occur after the above sequence -->
 	    <!-- Currently can't provide defaults here, because the defaults

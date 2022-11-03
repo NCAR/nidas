@@ -325,64 +325,52 @@ void SerialSensor::printPortConfig(bool flush)
 
 void SerialSensor::initPrompting() throw(n_u::IOException)
 {
-    if (isPrompted()) {
-        const list<Prompt>& prompts = getPrompts();
-        list<Prompt>::const_iterator pi = prompts.begin();
-        for (; pi != prompts.end(); ++pi) {
-           Prompt prompt = *pi;
-           Prompter* prompter = new Prompter(this);
-           prompt.setString(n_u::replaceBackslashSequences(prompt.getString()));
-           prompter->setPrompt(prompt);
-           int periodms = (int) rint(MSECS_PER_SEC / prompt.getRate());
-           int offsetms = (int) rint(MSECS_PER_SEC * prompt.getOffset());
-           prompter->setPromptPeriodMsec(periodms);
-           prompter->setPromptOffsetMsec(offsetms);
-           _prompters.push_back(prompter);
-           DLOG(("") << "sensor " << getName() << " prompter: "
-                     << prompt << " @ period=" << periodms << "ms, "
-                     << "offset=" << offsetms << "ms");
-        }
-        startPrompting();
+    for (auto& pi : getPrompts())
+    {
+        if (! pi.valid())
+            continue;
+        Prompt prompt = pi;
+        Prompter* prompter = new Prompter(this);
+        prompt.setString(n_u::replaceBackslashSequences(prompt.getString()));
+        prompter->setPrompt(prompt);
+        int periodms = (int) rint(MSECS_PER_SEC / prompt.getRate());
+        int offsetms = (int) rint(MSECS_PER_SEC * prompt.getOffset());
+        prompter->setPromptPeriodMsec(periodms);
+        prompter->setPromptOffsetMsec(offsetms);
+        _prompters.push_back(prompter);
+        DLOG(("") << "sensor " << getName() << " prompter: "
+                    << prompt << " @ period=" << periodms << "ms, "
+                    << "offset=" << offsetms << "ms");
     }
+    startPrompting();
 }
 
 void SerialSensor::shutdownPrompting() throw(n_u::IOException)
 {
     stopPrompting();
-    list<Prompter*>::const_iterator pi = _prompters.begin();
-    for (; pi != _prompters.end(); ++pi)
+    for (auto prompter : _prompters)
     {
-        delete *pi;
+        delete prompter;
     }
     _prompters.clear();
 }
 
 void SerialSensor::startPrompting() throw(n_u::IOException)
 {
-    if (isPrompted()) {
-        list<Prompter*>::const_iterator pi;
-        //for (pi = getPrompters().begin(); pi != getPrompters.end(); ++pi) {
-        for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
-            Prompter* prompter = *pi;
-            getLooper()->addClient(prompter,
-                    prompter->getPromptPeriodMsec(),
-                    prompter->getPromptOffsetMsec());
-        }
+    for (auto prompter : _prompters) {
+        getLooper()->addClient(prompter,
+                prompter->getPromptPeriodMsec(),
+                prompter->getPromptOffsetMsec());
         _prompting = true;
     }
 }
 
 void SerialSensor::stopPrompting() throw(n_u::IOException)
 {
-    if (isPrompted()) {
-        list<Prompter*>::const_iterator pi;
-        //for (pi = getPrompters().begin(); pi = getPrompters().end(); ++pi) {
-        for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
-            Prompter* prompter = *pi;
-            getLooper()->removeClient(prompter);
-        }
-	_prompting = false;
+    for (auto prompter : _prompters) {
+        getLooper()->removeClient(prompter);
     }
+    _prompting = false;
 }
 
 void SerialSensor::printStatus(std::ostream& ostr) throw()

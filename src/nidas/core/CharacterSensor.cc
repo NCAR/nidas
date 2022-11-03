@@ -54,15 +54,15 @@ CharacterSensor::CharacterSensor():
     _separatorAtEOM(true),
     _messageLength(0),
     _prompts(),
-    _sensorPrompt(),
     _sscanfers(),
     _nextSscanfer(),
     _maxScanfFields(0),
     _scanfFailures(0),
     _scanfPartials(0),
-    _prompted(false),
-    _initString(),_emptyString()
+    _initString(),
+    _emptyString()
 {
+    addPrompt(Prompt());
 }
 
 CharacterSensor::~CharacterSensor() {
@@ -256,8 +256,10 @@ void CharacterSensor::fromDOMElement(
         }
     }
     xercesc::DOMNode* child;
+    // the first prompt replaces the primary prompt.
+    bool first_prompt = true;
     for (child = node->getFirstChild(); child != 0;
-	    child=child->getNextSibling())
+         child=child->getNextSibling())
     {
         if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
         XDOMElement xchild((xercesc::DOMElement*) child);
@@ -291,7 +293,15 @@ void CharacterSensor::fromDOMElement(
 
             Prompt prompt;
             prompt.fromDOMElement((xercesc::DOMElement*)child);
-            setPrompt(prompt);
+            if (first_prompt)
+            {
+                setPrompt(prompt);
+                first_prompt = false;
+            }
+            else
+            {
+                addPrompt(prompt);
+            }
         }
     }
 
@@ -303,31 +313,17 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
 {
     DSMSensor::validate();
 
-    // If the sensor prompt does something, then add it as the first prompt.
-    if (_sensorPrompt.valid())
-        addPrompt(_sensorPrompt);
-
-    /* determine if any of the samples have associated prompts */
+    /* add prompts from the samples */
     const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         SampleTag* samp = *si;
-        // if the sample has a prompt string without a rate, inherit the
-        // rate from the sensor prompt.
-        Prompt prompt(samp->getPrompt());
-        if (prompt.hasPrompt() && prompt.getRate() == 0 &&
-            _sensorPrompt.getRate())
-        {
-            prompt.setRate(_sensorPrompt.getRate());
-            samp->setPrompt(prompt);
-        }
-        // If the prompt is valid, add it.  A valid prompt may not have a 
-        // prompt string if all it does is reset the prefix.
-        if (prompt.valid())
-            addPrompt(prompt);
+        // if the sample has a prompt string without a rate, addPrompt() will
+        // inherit a non-zero rate from the primary prompt, so pass any
+        // updates back to the sample tag.
+        addPrompt(samp->getPrompt());
+        samp->setPrompt(_prompts.back());
     }
-
-    _prompted = !getPrompts().empty();
 }
 
 
@@ -470,10 +466,14 @@ adjustTimeTag(SampleTag* stag, SampleT<float>* outs)
 
 
 void
-CharacterSensor::addPrompt(const Prompt& prompt)
+CharacterSensor::addPrompt(const Prompt& prompt_in)
 {
+    Prompt prompt(prompt_in);
+    if (prompt.hasPrompt() && prompt.getRate() == 0)
+    {
+        prompt.setRate(getPrompt().getRate());
+    }
     _prompts.push_back(prompt);
-    _prompted = true;
     VLOG(("") << "pushed back prompt.  String = " << prompt.getString()
               << " rate= " << prompt.getRate());
 }
@@ -481,17 +481,58 @@ CharacterSensor::addPrompt(const Prompt& prompt)
 
 void CharacterSensor::setPrompt(const Prompt& prompt)
 {
-    _sensorPrompt = prompt;
+    _prompts.front() = prompt;
 }
 
 
 const Prompt& CharacterSensor::getPrompt() const
 {
-    return _sensorPrompt;
+    return _prompts.front();
 }
 
 
 const std::list<Prompt>& CharacterSensor::getPrompts() const
 {
     return _prompts;
+}
+
+
+bool CharacterSensor::isPrompting() const
+{
+    return false;
+}
+
+
+bool CharacterSensor::isPrompted() const
+{
+    // see if any prompts are valid
+    bool prompted = false;
+    for (auto pi = _prompts.begin(); !prompted && pi != _prompts.end(); ++pi)
+    {
+        prompted = pi->valid();
+    }
+    return prompted;
+}
+
+
+void CharacterSensor::startPrompting() throw(nidas::util::IOException)
+{
+    throw nidas::util::IOException(getName(),
+                                   "startPrompting","not supported");
+}
+
+
+void CharacterSensor::stopPrompting() throw(nidas::util::IOException)
+{
+    throw nidas::util::IOException(getName(),
+                                   "stopPrompting","not supported");
+}
+
+
+void CharacterSensor::togglePrompting() throw(nidas::util::IOException)
+{
+    if (isPrompting())
+        stopPrompting();
+    else
+        startPrompting();
 }

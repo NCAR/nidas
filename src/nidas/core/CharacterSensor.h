@@ -145,43 +145,87 @@ public:
     }
 
     /**
-     * Prompting Sensors can have multiple prompts and rates.
-     * Add another prompt and rate to this sensor.
+     * @name Prompts
+     *
+     * Methods for managing the Prompt instances attached to a sensor.
+     *
+     * A sensor can be assigned multiple prompts, where the very first prompt
+     * is known as the primary prompt, mostly because originally a sensor
+     * could only ever have one prompt.  A sensor always contains at least the
+     * primary prompt, but it starts out empty and invalid.  setPrompt() sets
+     * that first prompt, and getPrompt() returns it.  All calls to
+     * addPrompt() add successive prompts.  The first prompt can always be
+     * modified by setPrompt() without replacing any prompts added by
+     * addPrompt().  Generally, the first <prompt> element in a sensor is
+     * assigned to the primary prompt slot.  All subsequent <prompt> elements
+     * are added with addPrompt(), followed by all prompts within sample tags.
+     * Any prompts which are not valid, including the default unmodified
+     * primary prompt, are not assigned to any prompters and will not be used.
+     */
+    /** @{ */
+
+    /**
+     * @brief Set the primary sensor prompt.
+     *
+     * The primary prompt on a sensor is the first `<prompt>` element found in
+     * a `<sensor>` XML element.  More prompts can be added with addPrompt().
+     * If the primary prompt is never set or is not valid, then it will not be
+     * used to prompt the sensor.  However, the primary prompt can be used to
+     * inherit a rate for subsequent prompts.  The notion of a primary prompt
+     * is mostly historical, since the same effect can also be achieved by
+     * adding a single prompt with addPrompt().
+     */
+    void setPrompt(const Prompt& prompt);
+
+    /**
+     * @brief Return the primary prompt for this sensor.
+     *
+     * @return const Prompt& 
+     */
+    const Prompt& getPrompt() const;
+
+    /**
+     * Prompting Sensors can have multiple prompts and rates.  Add another
+     * prompt and rate to this sensor.  If the prompt has a string but no
+     * rate, then the rate will be set from the primary prompt before being
+     * added.
      */
     virtual void addPrompt(const Prompt& prompt);
 
+    /**
+     * @brief Return a list of all Prompts attached to this sensor.
+     *
+     * This includes the primary prompt and all other prompts either within
+     * the sensor or within samples of this sensor.  The sample tag prompts
+     * are not added until after validate() is called.  Since this list can
+     * include invalid prompts, especially if the primary prompt is used to
+     * set the rate but is not valid itself, this list may contain prompts
+     * which should not be assigned to prompters.
+     *
+     * @return const std::list<Prompt>& 
+     */
     const std::list<Prompt>& getPrompts() const;
 
     /**
-     * Is this a prompted sensor.  Will be true if setPromptString()
-     * has been called with a non-empty string, and setPromptRate()
-     * has been called with a rate other than IRIG_ZERO_HZ.
+     * Is this a prompted sensor.  Will be true if there are any
+     * Prompt::valid() prompts set in the <sensor> element or sample tags.
+     * See setPrompt() and addPrompt().
      */
-    virtual bool isPrompted() const { return _prompted; }
+    virtual bool isPrompted() const;
 
     /**
      * Is prompting active, i.e. isPrompted() is true, and startPrompting
      * has been called?
      */
-    virtual bool isPrompting() const { return false; }
+    virtual bool isPrompting() const;
 
-    virtual void startPrompting() throw(nidas::util::IOException)
-    {
-        throw nidas::util::IOException(getName(),
-		"startPrompting","not supported");
-    }
+    virtual void startPrompting() throw(nidas::util::IOException);
 
-    virtual void stopPrompting() throw(nidas::util::IOException)
-    {
-        throw nidas::util::IOException(getName(),
-		"stopPrompting","not supported");
-    }
+    virtual void stopPrompting() throw(nidas::util::IOException);
 
-    virtual void togglePrompting() throw(nidas::util::IOException)
-    {
-	if (isPrompting()) stopPrompting();
-	else startPrompting();
-    }
+    virtual void togglePrompting() throw(nidas::util::IOException);
+
+    /** @} */
 
     /**
      * Set the initialization string(s) for this sensor.
@@ -255,21 +299,6 @@ public:
      */
     bool doesAsciiSscanfs();
 
-    /**
-     * @brief Set the <sensor> prompt for this sensor.
-     * 
-     * This will be set on a CharacterSensor if a `<prompt>` element
-     * is found for `<sensor>`, not as a sub-element of `<sample>`.
-     */
-    void setPrompt(const Prompt& prompt);
-
-    /**
-     * @brief Return the <sensor> prompt for this sensor.
-     * 
-     * @return const Prompt& 
-     */
-    const Prompt& getPrompt() const;
-
 protected:
 
     virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
@@ -312,8 +341,6 @@ private:
 
     std::list<Prompt> _prompts;
 
-    Prompt _sensorPrompt;
-
     std::list<AsciiSscanf*> _sscanfers;
 
     std::list<AsciiSscanf*>::const_iterator _nextSscanfer;
@@ -323,8 +350,6 @@ private:
     int _scanfFailures;
 
     int _scanfPartials;
-
-    bool _prompted;
 
     /**
      * String that is sent once after sensor is opened.
