@@ -910,7 +910,7 @@ int DataPrep::run() throw()
 
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
+        pipeline.setRawSorterLength(_sorterLength);
         pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(HeapSize.asInt() * 1024);
         pipeline.setProcHeapMax(HeapSize.asInt() * 1024);
