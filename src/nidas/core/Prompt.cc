@@ -140,11 +140,12 @@ operator<<(std::ostream& out, const Prompt& prompt)
 }
 
 
-void
+Prompt&
 Prompt::setPrefix(const std::string& prefix)
 {
     _prefix = prefix;
     _prefixValid = true;
+    return *this;
 }
 
 

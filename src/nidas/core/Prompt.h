@@ -62,8 +62,14 @@ public:
 
     /**
      * Set the prefix.  The prefix will be marked valid even if empty.
+     * Returns a reference to this Prompt, as convenience to add a prefix to a
+     * constructor call:
+     * 
+     * @code {.C++.}
+     * Prompt prompt = Prompt("ask why?", 10).setPrefix("answer:")
+     * @endcode
      */
-    void setPrefix(const std::string& prefix);
+    Prompt& setPrefix(const std::string& prefix);
 
     const std::string& getPrefix() const;
 
