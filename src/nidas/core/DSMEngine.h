@@ -205,8 +205,9 @@ private:
     void disconnect(SampleInput*) throw() { assert(false); }
 
     /**
-     *  Scan the DOM and pull out any <autoconfig> tags, as well as change the 
-     *  autoconfig classes back to DSMSerialSensor, or isff.PropVane as needed.
+     *  Scan the DOM and pull out any `<autoconfig>` tags, as well as change
+     *  the autoconfig classes back to DSMSerialSensor, or isff.PropVane as
+     *  needed.
      */
     void removeAutoConfigObjects(xercesc::DOMNode* node, bool bumpRecursion=false);
 

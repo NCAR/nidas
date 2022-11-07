@@ -319,7 +319,7 @@ protected:
 private:
 
     /**
-     * Scan the DOM and pull out any <autoconfig> tags, as well as change
+     * Scan the DOM and pull out any `<autoconfig>` tags, as well as change
      * the autoconfig classes back to DSMSerialSensor, or isff.PropVane as
      * needed, and remove porttype attributes.
      */

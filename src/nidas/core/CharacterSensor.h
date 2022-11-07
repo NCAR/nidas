@@ -156,11 +156,12 @@ public:
      * that first prompt, and getPrompt() returns it.  All calls to
      * addPrompt() add successive prompts.  The first prompt can always be
      * modified by setPrompt() without replacing any prompts added by
-     * addPrompt().  Generally, the first <prompt> element in a sensor is
-     * assigned to the primary prompt slot.  All subsequent <prompt> elements
-     * are added with addPrompt(), followed by all prompts within sample tags.
-     * Any prompts which are not valid, including the default unmodified
-     * primary prompt, are not assigned to any prompters and will not be used.
+     * addPrompt().  Generally, the first `<prompt>` element in a sensor is
+     * assigned to the primary prompt slot.  All subsequent `<prompt>`
+     * elements are added with addPrompt(), followed by all prompts within
+     * sample tags.  Any prompts which are not valid, including the default
+     * unmodified primary prompt, are not assigned to any prompters and will
+     * not be used.
      */
     /** @{ */
 
@@ -208,7 +209,7 @@ public:
 
     /**
      * Is this a prompted sensor.  Will be true if there are any
-     * Prompt::valid() prompts set in the <sensor> element or sample tags.
+     * Prompt::valid() prompts set in the `<sensor>` element or sample tags.
      * See setPrompt() and addPrompt().
      */
     virtual bool isPrompted() const;

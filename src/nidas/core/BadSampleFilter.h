@@ -166,7 +166,7 @@ public:
     setRules(const std::string& rule);
 
     /**
-     * Return true if @sheader matches any of the criteria for an invalid
+     * Return true if @p sheader matches any of the criteria for an invalid
      * sample.
      **/
     bool
@@ -176,13 +176,13 @@ public:
     operator==(const BadSampleFilter& right) const;
 
 private:
-    
+
     /**
-     * Set a single filter setting as a string in the form 'on', 'off', or
-     * <field>=<value>.  See setRules().  Like setRules(), throw
+     * Set a single filter setting as a string in the form `on`, `off`, or
+     * `<field>=<value>`.  See setRules().  Like setRules(), throw
      * NidasAppException if the rule cannot be parsed.  This is an internal
-     * implementation method.  Anything valid for setRule() can be passed
-     * to setRules() instead.
+     * implementation method.  Anything valid for setRule() can be passed to
+     * setRules() instead.
      **/
     void
     setRule(const std::string& rule);

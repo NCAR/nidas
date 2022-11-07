@@ -757,7 +757,7 @@ namespace nidas { namespace util {
         getShowFieldsString () const;
 
         /**
-         * Parse a parameter setting using syntax <name>=<value>.
+         * Parse a parameter setting using syntax `<name>=<value>`.
          **/
         bool
         parseParameter(const std::string& text);
