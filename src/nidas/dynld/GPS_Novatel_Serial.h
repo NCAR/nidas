@@ -54,8 +54,7 @@ public:
      * single precision values because the latitude and longitude
      * reported by GPS's may have more than 7 digits of precision.
      */
-    bool process(const Sample* samp,std::list<const Sample*>& results)
-        throw();
+    bool process(const Sample* samp,std::list<const Sample*>& results) throw();
 
     /**
      * Calculate the checksum of the Novatel message and return a logical
@@ -65,11 +64,19 @@ public:
 
 private:
 
-    dsm_time_t parseBESTPOS(const char* input,double *dout,int nvars,dsm_time_t tt)
-        throw();
+    dsm_time_t parseBESTPOS(const char* input,double *dout,int nvars);
 
-    dsm_time_t parseBESTVEL(const char* input,double *dout,int nvars,dsm_time_t tt)
-        throw();
+    dsm_time_t parseBESTVEL(const char* input,double *dout,int nvars);
+
+    /**
+     * Calculate time of solution in UTC from the Novatel #BESTxxx packets.
+     * All Novatel packets have the same header (first 11 fields, a semi-colon
+     * separates header from data portion), which has GPS time in weeks and
+     * seconds in week.  The Novatel packets do not store the leap seconds
+     * unfortunately.
+     */
+    dsm_time_t gps_to_utc(const char* input);
+
 
     /**
      * Number of variables requested from Novatel BESTPOS record (sample id == 4)
@@ -87,18 +94,11 @@ private:
     int _bestVelNvars;
     
     /**
-     * Calculate time of solution in UTC from the Novatel BESTVEL record 
-     * All Novatel packets have the same header (first 10 fields?), which has
-     * GPS time in weeks and seconds in week.  The Novatel packets do not
-     * store the leap seconds unfortunately.
-     */
-    dsm_time_t gps_to_utc(const char* input, dsm_time_t _ttgps)
-        throw();
-
-    /**
      * Full sample id of Novatel BESTVEL variables.
      */
     dsm_sample_id_t _bestVelId;
+
+    dsm_time_t _leapSeconds;
 
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 4.
