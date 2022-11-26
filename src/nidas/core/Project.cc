@@ -609,15 +609,16 @@ dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 
     if (_usedIds.empty()) {
         // initialize _usedIds
-	SampleTagIterator sti = getSampleTagIterator();
-	for (; sti.hasNext(); ) {
-	    const SampleTag* stag = sti.next();
-	    dsm_sample_id_t id = stag->getId();
-	    if (!_usedIds.insert(id).second) 
-		n_u::Logger::getInstance()->log(LOG_ERR,
-			"sample %d,%d(%#x) is not unique",
-			GET_DSM_ID(id),GET_SPS_ID(id),GET_SPS_ID(id));
-	}
+        SampleTagIterator sti = getSampleTagIterator();
+        for (; sti.hasNext(); ) {
+            const SampleTag* stag = sti.next();
+            dsm_sample_id_t id = stag->getId();
+            if (!_usedIds.insert(id).second)
+            {
+                PLOG(("sample %d,%d(%#x) is not unique",
+                      GET_DSM_ID(id), GET_SPS_ID(id), GET_SPS_ID(id)));
+            }
+        }
     }
     dsm_sample_id_t id = 0;
     id = SET_DSM_ID(id,dsmid);
