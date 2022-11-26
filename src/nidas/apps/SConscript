@@ -96,7 +96,7 @@ raf/extractDMT
 ir104
 lidar_vel
 merge_verify
-nidas_udp_relay
+nidas_udp_relay/nidas_udp_relay
 nidsmerge
 n_hdr_util
 proj_configs
@@ -117,7 +117,8 @@ isff/datasets
 env['PREFIX'] = env.subst('$ARCHPREFIX')
 
 for prog in programs:
-    env.Alias(prog, env.NidasProgram(prog+'.cc'))
+    prog = env.NidasProgram(prog+'.cc')
+    env.Alias(prog[0].name, prog)
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
