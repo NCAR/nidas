@@ -141,10 +141,9 @@ public:
   // Return the appropriate setting for the given context's active flag
   // according to all the current log configs.
   static bool
-  get_active_flag(LogScheme& scheme, LogContext* lc, bool& matched)
+  get_active_flag(LogScheme& scheme, LogContext* lc)
   {
     bool active = false;
-    matched = false;
     LogScheme::log_configs_v& log_configs = scheme.log_configs;
     LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
     LogScheme::log_configs_v::iterator ic;
@@ -163,9 +162,8 @@ public:
           cerr << "reconfig: =="
                << (ic->activate ? " on" : "off") << "==> "
                << lc->_file << ":" << lc->_line
-               << ":" << lc->_function << endl;
+               << ":" << lc->_function << ":" << lc->levelName() << endl;
         }
-        matched = true;
         active = ic->activate;
       }
     }
@@ -187,9 +185,7 @@ public:
     log_points_v::iterator it;
     for (it = firstpoint ; it != log_points.end(); ++it)
     {
-      bool matched;
-      bool active = get_active_flag(scheme, (*it), matched);
-      (*it)->_active = active;
+      (*it)->_active = get_active_flag(scheme, (*it));
     }
   }
 };
@@ -1029,22 +1025,19 @@ LogContext (int level, const char* file, const char* function, int line,
   _active(false),
   _threadId(Thread::currentThreadId())
 {
-  bool matched;
+  Synchronized sync(Logger::mutex);
+  log_points.push_back(this);
+  // At one point the active flag was set outside the critical section,
+  // so concurrency checkers would not complain when later on the same
+  // flag was tested by other threads without a lock.  However, in case
+  // the log point will be shown by the current log scheme, the flag
+  // should be set before showing it.  And it seemed excessive to release
+  // the lock just to set the flag and then lock again to show the log
+  // point.
+  _active = LoggerPrivate::get_active_flag(current_scheme, this);
+  if (current_scheme.getShowLogPoints())
   {
-    Synchronized sync(Logger::mutex);
-    log_points.push_back(this);
-    // At one point the active flag was set outside the critical section,
-    // so concurrency checkers would not complain when later on the same
-    // flag was tested by other threads without a lock.  However, in case
-    // the log point will be shown by the current log scheme, the flag
-    // should be set before showing it.  And it seemed excessive to release
-    // the lock just to set the flag and then lock again to show the log
-    // point.
-    _active = LoggerPrivate::get_active_flag(current_scheme, this, matched);
-    if (current_scheme.getShowLogPoints())
-    {
-      current_scheme.show_log_point(*this);
-    }
+    current_scheme.show_log_point(*this);
   }
 }
 
