@@ -66,5 +66,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tz
 # when installing local packages, must first do apt-get update to see new packages
 RUN if [ $dolocal = yes ]; then apt-get update; apt-get install -y --no-install-recommends nidas-dev uio48-dev; fi
 
+# make default python version 3
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && update-alternatives --install /usr/bin/python python /usr/bin/python3.6 2
+
+# Need newer scons than 3.0.1, but it isn't on the bionic repos,
+# so install it with pip3. Point /usr/bin/scons to the new version.
+# Don't uninstall the old scons because eol-scons requires it
+# and will bring it back in on an update.
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && pip3 install scons && mv /usr/bin/scons /usr/bin/scons3.0.1 && update-alternatives --install /usr/bin/scons scons /usr/bin/scons3.0.1 1 && update-alternatives --install /usr/bin/scons scons /usr/local/bin/scons 2 && apt-get upgrade -y eol-scons
+
 WORKDIR /root
 
