@@ -87,7 +87,7 @@ opts.Add('PKG_CONFIG_PATH', '\n'
 # scons pre-sets it to lib/x86_64-linux-gnu to be similar with
 # the arm libs and be more Debian-multiarch-like.
 opts.Add('ARCHLIBDIR', '\n'
-         '  Where to install NIDAS libraries relative to $PREFIX')
+         '  Where to install NIDAS libraries relative to $PREFIX', None)
 
 opts.Update(env)
 env.Tool('gitinfo')
@@ -281,9 +281,14 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     hostarch = 'host'
     if hostarch not in BUILDS:
         hostarch = 'x86'
+
+    ald = env.get('ARCHLIBDIR')
+    if not ald:
+        ald = 'lib64'
+
     print("Setting up for host builds...")
     host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
-                         ARCH='', ARCHLIBDIR='lib64', MACHS=[''])
+                         ARCH='', ARCHLIBDIR=ald, MACHS=[''])
 
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
             '-Wformat', '-Werror=format-security',
