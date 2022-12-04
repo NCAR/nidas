@@ -398,8 +398,8 @@ if 'armel' in BUILDS:
     CheckStackProtectorOptions(armel_env)
     armel_env.AppendUnique(CCFLAGS = ['-g', '-fpie',
             '-Wformat', '-Werror=format-security',
-            '-D_FORTIFY_SOURCE=2'])
-    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++', libftdi_cross_include_flag])
+            '-D_FORTIFY_SOURCE=2', '-std=c++11'])
+    armel_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     armel_env.AppendUnique(LINKFLAGS = ['-pie', '-Wl,-z,relro', '-Wl,-z,now'])
 
     if 'DEBUG' not in armel_env or not armel_env['DEBUG']:
