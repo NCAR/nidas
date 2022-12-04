@@ -12,7 +12,7 @@ usage() {
     exit 1
 }
 
-dir=${0%%/*}
+dir=${0%/*}
 pushd $dir > /dev/null
 
 cacheFlag=""

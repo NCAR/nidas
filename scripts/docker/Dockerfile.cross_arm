@@ -100,12 +100,13 @@ RUN export PYENV_ROOT=/root/.pyenv && \
 RUN grep -F -q pyenv /root/.bashrc || echo 'export PYENV_ROOT=/root/.pyenv; export PATH=/root/.pyenv/bin:$PATH; eval "$(pyenv init -)"' >> /root/.bashrc
 
 # Setup pyenv for python3, then install eol-scons
-RUN export PYENV_ROOT=/root/.pyenv && \
+# Add the version number, eol-scons=W.X.Y.Z so that a new image is created
+RUN apt-get update && export PYENV_ROOT=/root/.pyenv && \
     export PATH=/root/.pyenv/bin:$PATH && \
     eval "$(pyenv init -)" && \
     which python && \
     python --version && \
-    apt-get install -y --no-install-recommends eol-scons
+    apt-get install -y --no-install-recommends eol-scons=4.2.1.4
 
 
 # GPG_TTY is needed for package signing

@@ -12,7 +12,7 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-dir=${0%%/*}
+dir=${0%/*}
 pushd $dir > /dev/null
 
 dopush=false
