@@ -16,78 +16,97 @@ RUN echo "hostarch == $hostarch"
 
 RUN sudo dpkg --add-architecture ${hostarch}
 
-# Rip out jessie updates repos as they no longer exist. 
-# See https://www.lucas-nussbaum.net/blog/?p=947
-
 # We're using podman, so set USER to root:root
 USER root:root
 
+# Rip out jessie updates repos as they no longer exist. 
+# See https://www.lucas-nussbaum.net/blog/?p=947
 RUN sed -i "/updates/d" /etc/apt/sources.list
 
+# http://emdebian.org/tools/debian/ no longer exists
+RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
+
 # Also, backports has moved to archive, so fix that
-RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
+# RUN sed -i "s/ftp.debian.org/archive.debian.org/g" /etc/apt/sources.list
+RUN echo deb http://archive.debian.org/debian/ jessie main >> /etc/apt/sources.list
+
 RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
+RUN cat /etc/apt/sources.list
 
 # Used for some build stuff in container
 #ENV CROSS_ARCH $hostarch
 #RUN echo "CROSS_ARCH == $CROSS_ARCH"
 
-# RUN apt-get -y update || echo "failed"
-RUN apt-get -y update || echo "update failed" && apt-get --force-yes -y --no-install-recommends install eol-scons
-
 # add boost-regex/filesystem
-RUN apt-get -y --no-install-recommends install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
+RUN apt-get -y --no-install-recommends --allow-unauthenticated install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
 
 # add libi2c-dev as original docker image didn't have correct one
 # don't need an ${hostarch} variant, as all the functions are in-line
 # in a single header.
-RUN apt-get -y install libi2c-dev
+RUN apt-get -y --allow-unauthenticated install libi2c-dev
 
-# install ftdi and depends libusb-1.0
-RUN apt-get -y install wget
-# RUN apt-get -y install cmake
-# RUN apt-get -y install libusb-1.0:${hostarch}
-# reprepro is a debian repo maintenance command
-RUN apt-get -y install --no-install-recommends reprepro xmlto rsync
+# 12/3/22:  Add :amd64 to wget. Otherwise because we've done a
+# "dpkg add-architecture=armel" apt also looks for wget:armel
+# and apparently can't find it in jessie repos.
+RUN apt-get update && apt-get -y --no-install-recommends --allow-unauthenticated install wget:amd64
 
-ENV CROSS_ARCH=$hostarch
+# RUN apt-get -y --no-install-recommends --allow-unauthenticated install libftdi-dev:${hostarch}
+
+# 12/3/22: As with wget above, add :amd64 to the package name for rsync
+RUN apt-get update && apt-get -y install --no-install-recommends --allow-unauthenticated reprepro xmlto rsync:amd64 lintian
+
+# ENV CROSS_ARCH=$hostarch
 
 # RUN addgroup --gid $gid $group || echo "add group failed"
 # RUN adduser --ingroup $group --disabled-password --uid $uid --gecos '' $user && echo "${user}:${user}" | chpasswd && adduser $user sudo
 
 WORKDIR /root
 
-# RUN mkdir -p libftdi
-# COPY ./build-libftdi-pkg.sh libftdi
-# COPY ./crosstoolchain-$hostarch.cmake libftdi
-# RUN cd libftdi && ./build-libftdi-pkg.sh $hostarch
-
-# Everything commented out below should already be in the image in the FROM line above
-#RUN apt-get update
-#RUN apt-get install -y --no-install-recommends apt-utils sudo vim curl sudo git ca-certificates build-essential fakeroot libncurses-dev bc dh-make
-
 # Get cross tools from emdebian
 #RUN echo "deb http://emdebian.org/tools/debian/ jessie main" >> /etc/apt/sources.list.d/crosstools.list
 #RUN curl http://emdebian.org/tools/debian/emdebian-toolchain-archive.key | apt-key add -
-
-# Add EOL repository for some local packages
-#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
-#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
-
 #RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
 
-#RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
+# Add EOL repository for some local packages
+RUN grep -q ftp.eol /etc/aps/sources.list.d/eol.list || echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list && curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
-# Local packages
+# local packages
 # hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
 # finds the xmlrpc++ pkg-config file (xmlrpcpp.pc). Need to fix xmlrpc++ to add
 # a correct pkg-config file for cross building.
-RUN apt-get install -y --no-install-recommends eol-scons xmlrpc++-dev:${hostarch} xmlrpc++-dev
+RUN apt-get install -y --no-install-recommends xmlrpc++-dev:${hostarch} xmlrpc++-dev
+
+# other development packages
+#RUN apt-get install -y --no-install-recommends git scons flex gawk devscripts pkg-config libbz2-dev:${hostarch} libgsl0ldbl:${hostarch} libgsl0-dev:${hostarch} libcap-dev:${hostarch} libxerces-c-dev:${hostarch} libbluetooth-dev:${hostarch} libnetcdf-dev:${hostarch}
 
 # viper, titan headers
 RUN /bin/bash -c "if [ ${hostarch} == armel ]; then apt-get -y install linux-headers-3.16.0-titan2:${hostarch} linux-headers-3.16.0-viper2:${hostarch}; fi"
 
-#RUN echo "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudo_group
+# Scons now needs at least python 3.6 and the jessie repo only has 3.4.2
+# Install python using pyenv.
+# Install dev packages needed by pyenv
+RUN apt-get update && apt-get install -y --allow-unauthenticated --no-install-recommends \
+        libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev
+
+RUN curl -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
+
+RUN export PYENV_ROOT=/root/.pyenv && \
+    export PATH=/root/.pyenv/bin:$PATH && \
+    eval "$(pyenv init -)" && \
+    pyenv install 3.6.3 && \
+    pyenv global 3.6.3 && \
+    pip3 install scons
+
+RUN grep -F -q pyenv /root/.bashrc || echo 'export PYENV_ROOT=/root/.pyenv; export PATH=/root/.pyenv/bin:$PATH; eval "$(pyenv init -)"' >> /root/.bashrc
+
+# Setup pyenv for python3, then install eol-scons
+RUN export PYENV_ROOT=/root/.pyenv && \
+    export PATH=/root/.pyenv/bin:$PATH && \
+    eval "$(pyenv init -)" && \
+    which python && \
+    python --version && \
+    apt-get install -y --no-install-recommends eol-scons
+
 
 # GPG_TTY is needed for package signing
 RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
