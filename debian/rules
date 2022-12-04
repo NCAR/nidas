@@ -70,6 +70,9 @@ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl\
 override_dh_auto_install:
 	dh_auto_install -- BUILDS=$(BUILDS) REPO_TAG=v$(DEBVER) PREFIX=/opt/nidas
 
+override_dh_shlibdeps:
+	dh_shlibdeps -l/opt/nc_server/lib/$(DEB_HOST_MULTIARCH):$(shell pwd)/debian/tmp/opt/nidas/lib/$(DEB_HOST_MULTIARCH)
+
 override_dh_installinit:
 	dh_installinit --no-start --name=emerald
 	dh_installinit --no-start --name=pcmcom8
@@ -80,3 +83,17 @@ override_dh_installudev:
 
 override_dh_auto_clean:
 	dh_auto_clean -- BUILDS=$(BUILDS)
+	# one should place these paths in debian/clean
+	# but it appears that the old dh_clean in jessie
+	# will not remove a directory, even if the path
+	# ends in a slash, contrary to the documentation
+	# So, nuke them here
+	rm -rf debian/nidas-viper
+	rm -rf debian/nidas-modules-viper
+	rm -rf debian/nidas-titan
+	rm -rf debian/nidas-modules-titan
+	rm -rf debian/nidas-vortex
+	rm -rf debian/nidas-modules-vortex
+	rm -rf debian/nidas-amd64
+	rm -rf debian/nidas-modules-amd64
+

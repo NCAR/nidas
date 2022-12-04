@@ -1,8 +1,14 @@
 # remove directories created for packages of specific architectures
-debian/nidas-titan/
-debian/nidas-modules-titan/
-debian/nidas-viper/
-debian/nidas-modules-viper/
-debian/nidas-vortex/
-debian/nidas-modules-vortex/
-debian/nidas-modules-amd64/
+#
+# Paths ending in a slash are directories to be removed,
+# but the version of dh_clean in jessie tries to remove them,
+# with a "rm -f" rather then -rf, which fails.
+# So they are removed in the clean target of debian/rules instead
+# and commented here for posterity
+# debian/nidas-titan/
+# debian/nidas-modules-titan/
+# debian/nidas-viper/
+# debian/nidas-modules-viper/
+# debian/nidas-vortex/
+# debian/nidas-modules-vortex/
+# debian/nidas-modules-amd64/
