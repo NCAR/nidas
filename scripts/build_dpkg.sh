@@ -25,17 +25,6 @@ fi
 
 arch=amd64
 
-# For some reason on my Fedora laptop, dpkg_build.sh takes forever 
-# from within a podman container, sitting at the
-#   "dpkg-source: info: building nidas in nidas_1.2+xxxx.tar.xz"
-# step for 30 minutes or so.  top shows "xz" is using a bunch of
-# CPU time, but very little memory.
-# Have tried adding -J and -I options, no effect.
-# Also --compression-level=1 seems to have no effect
-# The only solution found is not to build source packages, -b
-
-# args="--no-tgz-check"
-
 use_chroot=false
 binary=false
 
@@ -43,6 +32,9 @@ binary=false
 # Otherwise I don't know how to pass options through to debian/rules and the
 # Makefile from debuild
 export DEB_GCJFLAGS_MAINT_SET=--config=force
+
+# Add to path for pyenv support of python 3
+args="--prepend-path=/root/.pyenv/shims:/root/.pyenv/bin"
 
 while [ $# -gt 0 ]; do
     case $1 in
