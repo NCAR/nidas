@@ -287,7 +287,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
         ald = 'lib64'
 
     print("Setting up for host builds...")
-    host_env = env.Clone(tools = ['symlink','sharedlibrary', 'xmlrpc'],
+    host_env = env.Clone(tools = ['symlink','sharedlibrary'],
                          ARCH='', ARCHLIBDIR=ald, MACHS=[''])
 
     host_env.AppendUnique(CCFLAGS = ['-g', '-fpic',
@@ -316,7 +316,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 if 'arm' in BUILDS:
     print("Setting up for arm build ...")
     machs = getMachineTypes('arm', MACHS)
-    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary', 'xmlrpc'],
+    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary'],
         ARCH = 'arm', ARCHLIBDIR='lib', MACHS=machs,
         ARCHPREFIX='$PREFIX/arm')
 
@@ -338,7 +338,7 @@ if 'arm' in BUILDS:
 if 'armbe' in BUILDS:
     print("Setting up for armbe build ...")
     machs = getMachineTypes('armbe', MACHS)
-    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary', 'xmlrpc'],
+    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary'],
         ARCH = 'armbe', ARCHLIBDIR='lib', MACHS=machs,
         ARCHPREFIX='$PREFIX/armbe')
 
@@ -383,7 +383,7 @@ if 'armbe' in BUILDS:
 if 'armel' in BUILDS:
     print("Setting up for armel build ...")
     machs = getMachineTypes('armel', MACHS)
-    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary', 'xmlrpc'],
+    armel_env = env.Clone(tools = ['armelcross','symlink','sharedlibrary'],
         ARCH = 'armel', MACHS=machs)
 
     if 'ARCHLIBDIR' not in armel_env:
@@ -405,7 +405,7 @@ if 'armel' in BUILDS:
 if 'armhf' in BUILDS:
     print("Setting up for armhf build ...")
     machs = getMachineTypes('armhf', MACHS)
-    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary', 'xmlrpc'],
+    armhf_env = env.Clone(tools = ['armhfcross','symlink','sharedlibrary'],
         ARCH = 'armhf', MACHS=machs)
 
     if 'ARCHLIBDIR' not in armhf_env:
