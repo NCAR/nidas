@@ -32,69 +32,32 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 # print '_LIBDIRFLAGS=' + str(env['_LIBDIRFLAGS'])
 # print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
 
-# Check for headers and libraries
-# Results will be in build/include/nidas/Config.h
-#
-# Can't seem to put the log_file in any directory other than the current
-# source directory.
-# log_file=Dir('#build').File('quack.log'),
-# log_file=Dir('#log' + arch).File('quack.log').abspath,
-tmp_env = env.Clone()
-conf = tmp_env.Configure(conf_dir=".sconf_temp",
-        log_file='#/config' + arch +'.log',
-        config_h="include/nidas/Config.h")
+# Create a node for the Config.h file, so all Configure contexts append their
+# settings to this exact file.
+configh = env.File("include/nidas/Config.h")
 
-conf.CheckCHeader('sys/capability.h')
+def NidasConfigure(env):
+    """
+    Return a Configure context whose settings will be appended to a single
+    global config header file.  This does not create a temporary environment,
+    since the settings and build flags for all the config checks are meant to
+    be added to the given environment.  SConscripts only need to use this if
+    the configure settings need to be added to Config.h.
+    """
+    conf = env.Configure(conf_dir="#/.sconf_temp",
+                         log_file='#/config' + arch +'.log',
+                         config_h=configh)
+    return conf
 
-conf.CheckCHeader('sys/inotify.h')
+def nidasconfig(env):
+    env.AddMethod(NidasConfigure)
 
-conf.CheckCHeader('bzlib.h')
-
-conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
-                      'bluetooth/rfcomm.h'],"<>")
-
-conf.CheckCHeader(['time.h','sys/timepps.h'])
-
-# glibcs on Eurotech systems don't currently have ppoll or epoll_pwait
-conf.CheckFunc("ppoll")
-
-conf.CheckFunc("epoll_pwait")
-
-# linux/i2c-dev.h exists on RedHat systems, but does not contain
-# macros such as i2c_smbus_read_byte_data
-conf.CheckCHeader('linux/i2c-dev.h')
-conf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C')
-
-# uio48.h is a header file with ioctl definitions for a UIO48
-# digital I/O chip, as found on a PCM-C418 Vortex.
-if conf.CheckCHeader('uio48.h'):
-    env["HAVE_UIO48"] = True
-
-# It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
-# accordingly, or maybe the path to pkg-config needs to be set, such as
-# /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
-# this I've found is in scripts/build_nidas.sh.  Maybe that kind of
-# customization should be in the scons arm*cross tools.
-pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
-if conf.CheckLib('nc_server_rpc') and conf.CheckLibWithHeader(
-        'nc_server_rpc', 'nc_server_rpc.h','C++',
-        'xdr_connection(0,0);'):
-    # append nc_server library to build environment
-    # Removed RPATH=conf.env['LIBPATH'] setting here.  Both RedHat and Debian
-    # advise against it, and an rpmbuild now fails in Fedora 35.
-    env.AppendUnique(CPPPATH=conf.env['CPPPATH'])
-    env.AppendUnique(LIBS=conf.env['LIBS'],LIBPATH=conf.env['LIBPATH'])
-
-conf.CheckLib('modbus')
-
-pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
-if conf.CheckCXXHeader('gsl/gsl_linalg.h') and conf.CheckLibWithHeader(
-        'gsl', 'gsl/gsl_linalg.h','C',
-        'gsl_linalg_LU_solve(0,0,0,0);'):
-    # append gsl library to build environment
-    env.AppendUnique(LIBS=conf.env['LIBS'], LIBPATH=conf.env.get('LIBPATH',[]))
-
-tmp_env = conf.Finish()
+# All the configure checks that were here have been moved to the SConscript
+# files where the dependencies are needed.  For example, nc_server is now in
+# dynld, and all the lower-level system header checks are in util. Instead,
+# the nidasconfig tool can be applied to get the NidasConfigureContext method
+# added.
+Export('nidasconfig')
 
 env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 

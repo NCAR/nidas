@@ -1,6 +1,7 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+import eol_scons.parseconfig as pc
 
 ##
 ##  Import the build environment.
@@ -112,6 +113,45 @@ else:
 
 SConscript(dirs="psql", duplicate=0, exports={'env':env})
 
+env.Tool('nidasconfig')
+conf = env.NidasConfigure()
+
+# It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
+# accordingly, or maybe the path to pkg-config needs to be set, such as
+# /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
+# this I've found is in scripts/build_nidas.sh.  Maybe that kind of
+# customization should be in the scons arm*cross tools.
+pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
+conf.CheckLib('nc_server_rpc')
+conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
+                        'xdr_connection(0,0);')
+# The nc_server build flags and library are added to the build environment
+# without the RPATH=conf.env['LIBPATH'] setting.  Both RedHat and Debian
+# advise against it, and an rpmbuild now fails in Fedora 35.
+
+pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
+conf.CheckCXXHeader('gsl/gsl_linalg.h')
+conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
+                        'gsl_linalg_LU_solve(0,0,0,0);')
+
+conf.CheckCHeader('sys/inotify.h')
+
+# uio48.h is a header file with ioctl definitions for a UIO48
+# digital I/O chip, as found on a PCM-C418 Vortex.
+have_uio48 = False
+if conf.CheckCHeader('uio48.h'):
+    have_uio48 = True
+
+conf.CheckLib('modbus')
+env = conf.Finish()
+
+# Provide a tool function which apps SConscript can use to check if UIO48 is
+# enabled.
+def uio48(env):
+    env["HAVE_UIO48"] = have_uio48
+
+Export('uio48')
+
 ##
 ##  Build the nidas_dynld library.
 ##
@@ -134,3 +174,17 @@ nodes += env.Install('$ARCHPREFIX/include/nidas/dynld',headers + archheaders)
 
 Alias('install',nodes)
 Clean('install',nodes)
+
+def nidasdynld(xenv):
+    "Tool to apply dynld link settings to an environemnt."
+    # Eventually this would be the place to add the dynld library itself to
+    # the link command, but for the moment only apps/SConscript uses this, and
+    # the dynld library is already added by the NidasProgram() pseudo-builder.
+    #
+    # xenv.AppendUnique(LIBS=['nidas_dynld'])
+    xenv.AppendUnique(LIBS=env.get('LIBS', []))
+    xenv.AppendUnique(LIBPATH=env.get('LIBPATH', []))
+    # CPPPATH needed also for nc_server includes
+    xenv.AppendUnique(CPPPATH=env.get('CPPPATH', []))
+
+Export('nidasdynld')

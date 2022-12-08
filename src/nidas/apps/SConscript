@@ -116,6 +116,19 @@ isff/datasets
 # ARCHPREFIX instead.
 env['PREFIX'] = env.subst('$ARCHPREFIX')
 
+env.Tool('nidasconfig')
+conf = env.NidasConfigure()
+# tee_tty requires timepps.
+conf.CheckCHeader(['time.h', 'sys/timepps.h'])
+# tee_i2c requires i2c-dev
+# linux/i2c-dev.h exists on RedHat systems, but does not contain
+# macros such as i2c_smbus_read_byte_data
+conf.CheckCHeader('linux/i2c-dev.h')
+env = conf.Finish()
+
+utilenv = env.Clone()
+env.Tool('nidasdynld')
+
 for prog in programs:
     prog = env.NidasProgram(prog+'.cc')
     env.Alias(prog[0].name, prog)
@@ -139,7 +152,7 @@ sdconf = env.Configure()
 # check for existence of i2c_smbus_read_byte, typically a macro in
 # linux/i2c-dev.h
 has_i2c = False
-if sdconf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C'):
+if sdconf.CheckFunc('i2c_smbus_read_byte', '#include <linux/i2c-dev.h>', 'C'):
     has_i2c = True
     # check if i2c API has 3(old) or 4(new) arguments in
     # i2c_smbus_read_i2c_block_data
@@ -148,20 +161,15 @@ if sdconf.CheckFunc('i2c_smbus_read_byte', 'linux/i2c-dev.h', 'C'):
         env.Append(CPPDEFINES="OLD_I2C_API")
 sdconf.Finish()
 
-ncenv = env.Clone()
-try:
-    if pc.CheckConfig(env, 'pkg-config nc_server'):
-        ncenv.MergeFlags('!pkg-config --cflags nc_server')
-except OSError:
-    pass
-
-ncenv.NidasProgram('isff/prep.cc')
+env.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
-env.NidasUtilProgram('sing.cc')
-env.NidasUtilProgram('tee_tty.cc')
+utilenv.NidasUtilProgram('sing.cc')
+utilenv.NidasUtilProgram('tee_tty.cc')
 
-if 'HAVE_UIO48' in env:
+# Only build uio48 if it was enabled for the dynld library.
+env.Tool('uio48')
+if env.get('HAVE_UIO48'):
     env.NidasProgram('uio48.cc')
 
 # tee_i2c has a read-from-text-file test mode which doesn't
@@ -170,9 +178,9 @@ env.NidasProgram('tee_i2c.cc')
 
 # ublox requires the I2C API
 if has_i2c:
-    env.Alias('ublox', env.NidasUtilProgram('ublox.cc'))
+    env.Alias('ublox', utilenv.NidasUtilProgram('ublox.cc'))
 
-env.NidasUtilProgram('utime.cc')
+utilenv.NidasUtilProgram('utime.cc')
 
 if 'viper' in machs:
     # controls DIO pins on a Viper
@@ -181,13 +189,13 @@ if 'viper' in machs:
 if arch != '':
     # Programs which just do ioctls to NIDAS driver modules, and don't
     # otherwise use anything in the nidas libraries.
-    env.NidasPlainProgram('set_pcmcom8.c')
-    env.NidasPlainProgram('serial_loopback_test.c')
-    env.NidasPlainProgram('isff/set_emerald.c')
-    env.NidasPlainProgram('isff/emerald_dio.cc')
+    utilenv.NidasPlainProgram('set_pcmcom8.c')
+    utilenv.NidasPlainProgram('serial_loopback_test.c')
+    utilenv.NidasPlainProgram('isff/set_emerald.c')
+    utilenv.NidasPlainProgram('isff/emerald_dio.cc')
 
     # nidas_util
-    env.NidasUtilProgram('gps_nmea_sysclock.cc')
-    env.NidasUtilProgram('garmin.cc')
+    utilenv.NidasUtilProgram('gps_nmea_sysclock.cc')
+    utilenv.NidasUtilProgram('garmin.cc')
 
 env.Alias('install', ['$PREFIX/bin'])
