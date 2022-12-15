@@ -41,6 +41,20 @@ using namespace std;
 namespace n_u = nidas::util;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
+using nidas::util::Logger;
+
+bool stats_log_variable(const Variable* variable)
+{
+    // use a static to setup the name to match once, since it's unlikely to
+    // change after the first call.
+    static std::string log_variable_name =
+        Logger::getScheme().getParameterT("stats_log_variable_name",
+                                          std::string("Vbatt"));
+    static bool default_match = (log_variable_name == ".");
+    return default_match ||
+        variable->getName().find(log_variable_name) != string::npos;
+}
+
 
 StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
                                        const SampleTag* stag,
@@ -103,17 +117,18 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     // a match for the first variable in a statistics group with a SampleSource.
     // StatisticsProcessor then sets that site on all the requested variables.
     _site = _reqVariables[0]->getSite();
-
-#ifdef DEBUG
-    if (_reqVariables.front()->getName().substr(0,5) == "Vbatt") {
-        cerr << "StatisticsCruncher ctor: dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
-        for (unsigned int i = 0; i < _reqVariables.size(); i++)
-            cerr << _reqVariables[i]->getName() << ':' <<
-                _reqVariables[i]->getSite()->getName() << '(' << _reqVariables[i]->getStation() << "), ";
-        cerr << endl;
+    {
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(_reqVariables.front())) {
+            LogMessage msg(&lp, "StatisticsCruncher ctor: ");
+            msg << "dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
+            for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+                msg << _reqVariables[i]->getName() << ':'
+                    << _reqVariables[i]->getSite()->getName()
+                    << '(' << _reqVariables[i]->getStation() << "), ";
+            }
+        }
     }
-#endif
-
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
 
@@ -203,17 +218,17 @@ void StatisticsCruncher::connect(SampleSource* source)
             for ( ; vi.hasNext(); ) {
                 const Variable* var = vi.next();
                 if (*var == *_reqVariables[i]) {
-#ifdef DEBUG
-                    if (_reqVariables[0]->getName().substr(0,5) == "Vbatt") {
-                        cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
+                    static LogContext lp(LOG_VERBOSE);
+                    if (lp.active() && stats_log_variable(_reqVariables[0]))
+                    {
+                        lp.log() << "StatisticsCruncher::connect, var=" << var->getName() <<
                             "(" << var->getSite()->getName() << ")" <<
                             "(" << var->getStation() << ")" <<
                             ", reqVar=" << _reqVariables[i]->getName() <<
                             "(" << _reqVariables[i]->getSite()->getName() << ")" <<
                             "(" << _reqVariables[i]->getStation() << ")" <<
-                            ", match=" << (*var == *_reqVariables[i]) << endl;
+                            ", match=" << (*var == *_reqVariables[i]);
                     }
-#endif
                     _reqTag.getVariable(i) = *var;
                     match = true;
                     matchingTags.insert(intag->getId());
@@ -231,12 +246,10 @@ void StatisticsCruncher::connect(SampleSource* source)
             WLOG(("StatisticsCruncher: no match for variable: ") << ost.str());
         }
     }
-#ifdef DEBUG
-    cerr << _reqVariables[0]->getName() << " " <<
-        "(" << _reqVariables[0]->getSite()->getName() << ")" <<
-        "(" << _reqVariables[0]->getStation() << 
-        ", matchingTags.size()=" << matchingTags.size() << endl;
-#endif
+    VLOG(("") << _reqVariables[0]->getName() << " " <<
+         "(" << _reqVariables[0]->getSite()->getName() << ")" <<
+         "(" << _reqVariables[0]->getStation() << 
+         ", matchingTags.size()=" << matchingTags.size());
     if (matchingTags.empty()) return;
 
     // If there are cross terms in requested statistics, and
@@ -245,21 +258,19 @@ void StatisticsCruncher::connect(SampleSource* source)
         needResampler = true;
 
     if (needResampler && !_resampler) {
-#ifdef DEBUG
-        if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
-            cerr << "StatisticsCruncher::connect: reqVars= ";
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active() && stats_log_variable(_reqVariables[0])) {
+            lp.log() << "StatisticsCruncher::connect: reqVars= ";
             for (unsigned int i = 0; i < _reqVariables.size(); i++)
                 cerr << _reqVariables[i]->getName() << "(" <<
                     _reqVariables[i]->getStation() << "), ";
-            cerr << endl;
         }
-#endif
         _resampler = new NearestResampler(_reqVariables);
     }
 
     if (_resampler) {
         _resampler->connect(source);
-	attach(_resampler);
+        attach(_resampler);
     }
     else attach(source);
 
@@ -346,11 +357,9 @@ void StatisticsCruncher::attach(SampleSource* source)
 		    sptr->weightsIndex = vindex;
 		    continue;
 		}
-#ifdef DEBUG
-		cerr << "invar=" << invar->getName() <<
-			" rvar=" << reqvar.getName() << endl;
-#endif
-			
+		VLOG(("") << "invar=" << invar->getName() <<
+              " reqvar=" << reqvar.getName());
+
 		// variable match
 		if (*invar == reqvar) {
                     if (!varMatches[rv]) {
@@ -366,8 +375,7 @@ void StatisticsCruncher::attach(SampleSource* source)
                     }
 		    // Variable matched by name and site, copy other stuff
 		    // reqvar = *invar;
-#ifdef DEBUG
-                    cerr << "StatisticsCruncher::attach, id=" <<
+                    VLOG(("") << "StatisticsCruncher::attach, id=" <<
                         _outSample.getDSMId() << ',' << _outSample.getSpSId() <<
                         ", match, invar=" << invar->getName() <<
                         " (" << invar->getSampleTag()->getDSMId() << ',' <<
@@ -377,10 +385,8 @@ void StatisticsCruncher::attach(SampleSource* source)
                         " (" << reqvar.getSampleTag()->getDSMId() << ',' <<
                         reqvar.getSampleTag()->getSpSId() << "), " <<
                         " stn=" << reqvar.getStation() <<
-                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) <<
                         ", sourceStation=" << sourceStation <<
-                        ", _station=" << _station << endl;
-#endif
+                        ", _station=" << _station);
 
 		    unsigned int j;
 		    // paranoid check that this variable hasn't been added
@@ -401,30 +407,40 @@ void StatisticsCruncher::attach(SampleSource* source)
 			varIndices.push_back(idxs);
 		    }
 
-#ifdef DEBUG
-		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
-		    	rv << "]=" << reqvar.getName() << 
-		    	" (" << reqvar.getUnits() <<
-		    	"), " << reqvar.getLongName() << 
-			" station=" << reqvar.getStation() <<
-			endl;
-#endif
+		    VLOG(("") << "StatisticsCruncher::attach, reqVariables[" <<
+                  rv << "]=" << reqvar.getName() << 
+                  " (" << reqvar.getUnits() <<
+                  "), " << reqvar.getLongName() << 
+                  " station=" << reqvar.getStation());
 		}
 	    }
 	}
-	if (varIndices.size() > 0) {
-#ifdef DEBUG
-            cerr << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id) <<  dec << " varIndices.size()=" << varIndices.size() << endl;
-#endif
+	if (varIndices.size() > 0)
+	{
+	    static LogContext lp(LOG_VERBOSE);
+	    if (lp.active())
+	    {
+	        LogMessage msg(&lp);
+		msg << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id)
+	            <<  dec << " varIndices.size()=" << varIndices.size()
+		    << " _reqVariables.size()=" << _reqVariables.size();
+	        msg.log();
+		msg << " varIndices:";
+		for (unsigned int i = 0; i < varIndices.size(); ++i)
+		    msg << " " << *varIndices[i];
+		msg.log();
+		msg << " reqVariables:";
+		for (unsigned int i = 0; i < _reqVariables.size(); ++i)
+		    msg << " " << _reqVariables[i]->getName();
+		msg.log();
+	    }
             _sampleMap[id] = sinfo;
 	    // Should have one input sample if cross terms
 	    if (_crossTerms) {
 	        assert(_sampleMap.size() == 1);
 	        assert(varIndices.size() == _reqVariables.size());
 	    }
-#ifdef DEBUG
-            cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')' << endl;
-#endif
+            VLOG(("") << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')');
             source->addSampleClientForTag(this,intag);
 	}
     }
@@ -444,15 +460,17 @@ void StatisticsCruncher::attach(SampleSource* source)
     }
         
     if (_station >= 0) _outSample.setStation(_station);
-    
-#ifdef DEBUG
-    ostringstream ost;
-    for (unsigned int i = 0; i < _reqVariables.size(); i++) {
-        if (i > 0) ost << ", ";
-        ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+    {
+        static LogContext lp(LOG_VERBOSE);
+        if (lp.active()) {
+            LogMessage ost(&lp, "StatisticsCruncher: ");
+            for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+                if (i > 0) ost << ", ";
+                ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+            }
+            ost << ", _station=" << _station;
+        }
     }
-    ILOG(("StatisticsCruncher: ") << ost.str() << ", _station=" << _station);
-#endif
 }
 
 void StatisticsCruncher::splitNames()
