@@ -48,7 +48,8 @@ SampleOutputBase::SampleOutputBase():
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2),
+    _startTime((time_t)0),_endTime((time_t)0)
 {
 }
 
@@ -61,7 +62,8 @@ SampleOutputBase::SampleOutputBase(IOChannel* ioc,SampleConnectionRequester* rqs
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2),
+    _startTime((time_t)0),_endTime((time_t)0)
 {
 }
 
@@ -77,7 +79,8 @@ SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
     _headerSource(x._headerSource),_dsm(x._dsm),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(&x),_latency(x._latency),_reconnectDelaySecs(x._reconnectDelaySecs)
+    _original(&x),_latency(x._latency),_reconnectDelaySecs(x._reconnectDelaySecs),
+    _startTime((time_t)0),_endTime((time_t)0)
 {
     _iochan->setDSMConfig(getDSMConfig());
 
@@ -372,5 +375,26 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 		"output", "must have one child element");
     setName(className + ": " + getIOChannel()->getName());
 
+}
+
+
+bool SampleOutputBase::receive(const Sample* samp)
+{
+    dsm_time_t tt = samp->getTimeTag();
+    if (_startTime && tt < _startTime)
+        return true;
+    if (_endTime && tt >= _endTime)
+        return true;
+    return false;
+}
+
+
+void
+SampleOutputBase::
+setTimeClippingWindow(const nidas::util::UTime& startTime,
+                      const nidas::util::UTime& endTime)
+{
+    _startTime = startTime.toUsecs();
+    _endTime = endTime.toUsecs();
 }
 

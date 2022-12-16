@@ -42,15 +42,13 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,NetcdfRPCOutput)
 
 NetcdfRPCOutput::NetcdfRPCOutput():
-    SampleOutputBase(),_ncChannel(0),
-    _startTime((time_t)0),_endTime((time_t)0)
+    SampleOutputBase(),_ncChannel(0)
 {
 }
 
 NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
     SampleOutputBase(ioc,rqstr),
-    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel())),
-    _startTime((time_t)0),_endTime((time_t)0)
+    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
     // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
     setName("NetcdfRPCOutput");
@@ -59,8 +57,7 @@ NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc,SampleConnectionRequester* rqstr
 /* copy constructor */
 NetcdfRPCOutput::NetcdfRPCOutput(NetcdfRPCOutput& x,IOChannel*ioc):
     SampleOutputBase(x,ioc),
-    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel())),
-    _startTime((time_t)0),_endTime((time_t)0)
+    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
     // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
     setName("NetcdfRPCOutput");
@@ -96,11 +93,9 @@ void NetcdfRPCOutput::setIOChannel(IOChannel* val)
 
 bool NetcdfRPCOutput::receive(const Sample* samp)
 {
-    dsm_time_t tt = samp->getTimeTag();
-    if (_startTime && tt < _startTime)
+    if (SampleOutputBase::receive(samp))
         return true;
-    if (_endTime && tt >= _endTime)
-        return true;
+
     // cerr << "NetcdfRPCOutput::receive, samp=" << samp->getDSMId() << ',' << samp->getSpSId() << endl;
     try {
 	_ncChannel->write(samp);
@@ -145,16 +140,6 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
                 "parse", "must have one child element");
     // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
     setName("NetcdfRPCOutput");
-}
-
-
-void
-NetcdfRPCOutput::
-setTimeClippingWindow(const nidas::util::UTime& startTime,
-                      const nidas::util::UTime& endTime)
-{
-    _startTime = startTime.toUsecs();
-    _endTime = endTime.toUsecs();
 }
 
 #endif  // HAVE_LIBNC_SERVER_RPC
