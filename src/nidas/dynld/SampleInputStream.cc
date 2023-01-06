@@ -40,7 +40,7 @@
 
 using namespace nidas::core;
 using namespace nidas::dynld;
-using namespace std;
+using std::string;
 
 namespace n_u = nidas::util;
 using nidas::util::LogScheme;
@@ -125,9 +125,12 @@ endBadBlock(Sample* samp, long long offset)
     nbytes = offset - block_start;
 }
 
+namespace nidas { namespace dynld {
 
+// make sure the stream operator for BlockStats is in the same namespace, so
+// it will be found by argument-dependant lookup.
 std::ostream&
-operator<<(std::ostream& out, const BlockStats& bs)
+operator<<(std::ostream& out, const ::nidas::dynld::BlockStats& bs)
 {
     std::ostringstream buf;
 
@@ -169,13 +172,7 @@ operator<<(std::ostream& out, const BlockStats& bs)
     return out;
 }
 
-namespace nidas {
-    namespace util {
-        // Put stream operator for BlockStats in scope where it can be
-        // resolved by logging templates in nidas::util.
-        using ::operator<<;
-    }
-}
+}} // namespace nidas::dynld
 
 /*
  * Constructor
