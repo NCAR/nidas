@@ -131,7 +131,7 @@ int parseRunString(int argc, char* argv[])
 
 void printDevice(GPIO_PORT_DEFS port)
 {
-    if (port < PWR_28V) {
+    if (port < PWR_DCDC) {
         SensorPowerCtrl(port).print();
     }
     else {
@@ -148,7 +148,7 @@ void printAll()
     for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
          iter != deviceArgMap.end();
          iter++) {
-        if (iter->second < PWR_28V) {
+        if (iter->second < PWR_DCDC) {
             printDevice(iter->second);
         }
     }
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
     deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
     deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("DCDC"), PWR_28V));
+    deviceArgMap.insert(DeviceArgMapPair(std::string("DCDC"), PWR_DCDC));
     deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
 
     PowerCtrlIf* pPwrCtrl = 0;
     DSMSwitchCtrl* pSwCtrl = 0;
-    if (deviceArg < PWR_28V) {
+    if (deviceArg < PWR_DCDC) {
         DLOG(("Instantiating SensorPowerCtrl object..."));
         pPwrCtrl = new SensorPowerCtrl(deviceArg);
     }

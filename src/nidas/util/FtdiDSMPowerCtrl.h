@@ -31,7 +31,7 @@
 
 namespace nidas { namespace util {
 
-const unsigned char PWR_BITS_28V =   0b00000001;
+const unsigned char PWR_BITS_DCDC =   0b00000001;
 const unsigned char PWR_BITS_AUX =   0b00000010;
 const unsigned char PWR_BITS_BANK2 = 0b00000100;
 const unsigned char PWR_BITS_BANK1 = 0b00001000;
@@ -40,8 +40,8 @@ inline unsigned char pwrGpio2bits(GPIO_PORT_DEFS gpio) {
 	unsigned char retval = 0;
 
 	switch (gpio) {
-	case PWR_28V:
-		retval = PWR_BITS_28V;
+	case PWR_DCDC:
+		retval = PWR_BITS_DCDC;
 		break;
 	case PWR_AUX:
 		retval = PWR_BITS_AUX;
