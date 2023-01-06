@@ -837,9 +837,8 @@ checkCmdResponse(TRH_SENSOR_COMMANDS cmd, SensorCmdArg arg)
             break;
     }
 
-    std::auto_ptr<char> respBuf(new char[BUF_SIZE]);
-    char* buf = respBuf.get();
-    memset(buf, 0, BUF_SIZE);
+    std::vector<char> respBuf(BUF_SIZE, 0);
+    char* buf = &(respBuf[0]);
     int numCharsRead = readEntireResponse(buf, BUF_SIZE-1, selectTimeout,
                                           checkForUnprintables, retryTimeoutFactor);
     // regular expression specific to the cmd
