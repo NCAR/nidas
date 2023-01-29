@@ -111,8 +111,6 @@ else:
     archheaders=Split("""
     """)
 
-SConscript(dirs="psql", duplicate=0, exports={'env':env})
-
 env.Tool('nidasconfig')
 conf = env.NidasConfigure()
 

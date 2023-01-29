@@ -65,17 +65,9 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
         }
     	domable = DOMObjectFactory::createObject(classAttr);
     }
-    else if (elname == "postgresdb")
-    	domable = DOMObjectFactory::createObject("psql.PSQLChannel");
-
     else if (elname == "ncserver")
     	domable = DOMObjectFactory::createObject("isff.NcServerRPC");
 
-    else if (elname == "goes") {
-	string classAttr = xnode.getAttributeValue("class");
-	if (classAttr.length() == 0) classAttr = "isff.SE_GOESXmtr";
-	domable = DOMObjectFactory::createObject(classAttr);
-    }
     else throw n_u::InvalidParameterException(
 	    "IOChannel::createIOChannel","unknown element",elname);
 
