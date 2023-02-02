@@ -26,8 +26,6 @@
 
 #include <nidas/Config.h> 
 
-#ifdef HAVE_LIBNC_SERVER_RPC
-
 #ifndef NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 #define NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 
@@ -43,17 +41,21 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
-using namespace nidas::core;
-
 class NcVarGroupFloat;
 
 /**
  * A perversion of a simple IOChannel.  This sends data
  * to a nc_server via RPC calls.
  */
-class NetcdfRPCChannel: public IOChannel {
+class NetcdfRPCChannel: public nidas::core::IOChannel {
 
 public:
+    using IOChannelRequester = nidas::core::IOChannelRequester;
+    using IOChannel = nidas::core::IOChannel;
+    using SampleTag = nidas::core::SampleTag;
+    template <typename T>
+    using ParameterT = nidas::core::ParameterT<T>;
+    using dsm_sample_id_t = nidas::core::dsm_sample_id_t;
 
     /**
      * Constructor.
@@ -95,31 +97,22 @@ public:
     /**
      * Basic read is not implemented. Always throws IOException.
      */
-    size_t read(void*, size_t)
-    {
-	throw nidas::util::IOException(getName(),"read","not supported");
-    }
-
-    /**
-     * Basic write is not implemented. Always throws IOException.
-    */
-    size_t write(const void*, size_t)
-    {
-	throw nidas::util::IOException(getName(),"default write","not supported");
-    }
+    size_t read(void*, size_t);
 
     /**
      * Basic write is not implemented. Always throws IOException.
      */
-    size_t write(const struct iovec*, int)
-    {
-	throw nidas::util::IOException(getName(),"default write","not supported");
-    }
+    size_t write(const void*, size_t);
+
+    /**
+     * Basic write is not implemented. Always throws IOException.
+     */
+    size_t write(const struct iovec*, int);
 
     /**
      * Send a data record to the RPC server.
     */
-    void write(const Sample*);
+    void write(const nidas::core::Sample*);
 
     /**
      * Send a data record to the RPC server.
@@ -284,9 +277,9 @@ private:
 
     time_t _lastNonBatchWrite;
 
-    std::map<dsm_sample_id_t,NcVarGroupFloat*> _groupById;
+    std::map<dsm_sample_id_t, NcVarGroupFloat*> _groupById;
 
-    std::map<dsm_sample_id_t,int> _stationIndexById;
+    std::map<dsm_sample_id_t, int> _stationIndexById;
 
     std::list<NcVarGroupFloat*> _groups;
     
@@ -306,17 +299,17 @@ private:
 
 class NcVarGroupFloat {
 public:
-    NcVarGroupFloat(const std::vector<ParameterT<int> >& dims,
-    	const SampleTag* stag,float fillValue);
-    
+    NcVarGroupFloat(const std::vector<nidas::core::ParameterT<int> >& dims,
+    	const nidas::core::SampleTag* stag,float fillValue);
+
     ~NcVarGroupFloat();
 
-    const std::vector<const Variable*>& getVariables() const
+    const std::vector<const nidas::core::Variable*>& getVariables() const
     {
         return _sampleTag.getVariables();
     }
 
-    const std::vector<ParameterT<int> >& getDimensions()
+    const std::vector<nidas::core::ParameterT<int> >& getDimensions()
     {
         return _dimensions;
     }
@@ -332,14 +325,14 @@ protected:
 
     void connect(NetcdfRPCChannel* conn,float fillValue);
 
-    void write(NetcdfRPCChannel* conn,const Sample* samp,
+    void write(NetcdfRPCChannel* conn,const nidas::core::Sample* samp,
                int stationNumber);
 
 private:
 
-    std::vector<ParameterT<int> > _dimensions;
+    std::vector<nidas::core::ParameterT<int> > _dimensions;
 
-    SampleTag _sampleTag;
+    nidas::core::SampleTag _sampleTag;
 
     datarec_float _rec;
 
@@ -365,4 +358,3 @@ private:
 }}}	// namespace nidas namespace dynld namespace isff
 
 #endif
-#endif  // HAVE_LIBNC_SERVER_RPC

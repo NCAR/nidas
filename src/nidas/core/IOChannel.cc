@@ -29,6 +29,7 @@
 #include "IOChannel.h"
 #include "Socket.h"
 #include <nidas/util/Process.h>
+#include "SampleTag.h"
 
 using namespace nidas::core;
 using namespace std;
@@ -65,15 +66,17 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
         }
     	domable = DOMObjectFactory::createObject(classAttr);
     }
-    else if (elname == "ncserver")
-    	domable = DOMObjectFactory::createObject("isff.NcServerRPC");
-
     else throw n_u::InvalidParameterException(
-	    "IOChannel::createIOChannel","unknown element",elname);
+        "IOChannel::createIOChannel", "unknown element", elname);
 
     IOChannel* channel;
     if (!(channel = dynamic_cast<IOChannel*>(domable)))
-	throw n_u::InvalidParameterException(
-	    "IOChannel::createIOChannel",elname,"is not an IOChannel");
+        throw n_u::InvalidParameterException(
+            "IOChannel::createIOChannel", elname, "is not an IOChannel");
     return channel;
 }
+
+
+void
+IOChannel::addSampleTag(const nidas::core::SampleTag*)
+{}

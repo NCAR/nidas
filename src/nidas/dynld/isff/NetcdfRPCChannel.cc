@@ -26,8 +26,6 @@
 
 #include "NetcdfRPCChannel.h"
 
-#ifdef HAVE_LIBNC_SERVER_RPC
-
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/Project.h>
@@ -42,10 +40,15 @@
 
 using namespace nidas::dynld::isff;
 using namespace std;
+using namespace nidas::core;
 
 namespace n_u = nidas::util;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
+
+
+NIDAS_CREATOR_FUNCTION_NS(isff,NetcdfRPCChannel)
+
 
 NetcdfRPCChannel::NetcdfRPCChannel():
     _name(),_server(),_fileNameFormat(),_directory(),_cdlFileName(),
@@ -975,4 +978,27 @@ void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
 
     conn->write(&_rec);
 }
-#endif  // HAVE_LIBNC_SERVER_RPC
+
+/**
+ * Basic read is not implemented. Always throws IOException.
+ */
+size_t NetcdfRPCChannel::read(void*, size_t)
+{
+    throw n_u::IOException(getName(), "read","not supported");
+}
+
+/**
+ * Basic write is not implemented. Always throws IOException.
+*/
+size_t NetcdfRPCChannel::write(const void*, size_t)
+{
+    throw n_u::IOException(getName(), "default write","not supported");
+}
+
+/**
+ * Basic write is not implemented. Always throws IOException.
+ */
+size_t NetcdfRPCChannel::write(const struct iovec*, int)
+{
+    throw n_u::IOException(getName(), "default write","not supported");
+}

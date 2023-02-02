@@ -184,8 +184,8 @@ int SampleOutputBase::getFd() const
 void SampleOutputBase::setIOChannel(IOChannel* val)
 {
     if (val != _iochan) {
-	delete _iochan;
-	_iochan = val;
+        delete _iochan;
+        _iochan = val;
     }
     _iochan->setDSMConfig(getDSMConfig());
 }
