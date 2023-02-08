@@ -24,8 +24,6 @@
  ********************************************************************
 */
 
-#include <nidas/Config.h> 
-
 #ifndef NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 #define NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 

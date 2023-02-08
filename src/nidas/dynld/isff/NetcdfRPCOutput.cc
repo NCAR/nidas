@@ -26,9 +26,6 @@
 
 
 #include "NetcdfRPCOutput.h"
-
-#ifdef HAVE_LIBNC_SERVER_RPC
-
 #include "NetcdfRPCChannel.h"
 #include <nidas/util/Logger.h>
 
@@ -141,5 +138,3 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
     // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
     setName("NetcdfRPCOutput");
 }
-
-#endif  // HAVE_LIBNC_SERVER_RPC
