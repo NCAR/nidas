@@ -19,8 +19,6 @@ sources = Split("""
     metek.cc
     MOSMote.cc
     NCAR_TRH.cc
-    NetcdfRPCChannel.cc
-    NetcdfRPCOutput.cc
     PropVane.cc
     RebsLinear.cc
     SonicAnemometer.cc
@@ -45,8 +43,6 @@ headers = Split("""
     metek.h
     MOSMote.h
     NCAR_TRH.h
-    NetcdfRPCChannel.h
-    NetcdfRPCOutput.h
     PropVane.h
     RebsLinear.h
     SonicAnemometer.h
@@ -62,3 +58,27 @@ env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
 env.Install('$ARCHPREFIX/include/nidas/dynld/isff', headers)
 
+
+# The NetcdfRPC classes have dependencies between each other, so they cannot
+# be loaded individually as shared objects. It should work to put them into
+# their own namespace with their own library, like nidas_dynld_ncrpc, so the
+# nidas dynamic loader will find the shared library under the namespace name,
+# but then all the configs have to change which load with the
+# isff.NetcdfRPCOutput class name.  So instead, create two libraries, each
+# with both modules in them.  First to get loaded will provide both
+# dependencies.
+ncrpcheaders = env.Split("""
+    NetcdfRPCChannel.h
+    NetcdfRPCOutput.h
+""")
+
+env.Install('$ARCHPREFIX/include/nidas/dynld/isff', ncrpcheaders)
+
+instlibs = []
+ncrpcchannel = env.SharedLibrary3("nidas_dynld_isff_NetcdfRPCOutput",
+                                  ["NetcdfRPCChannel.cc", "NetcdfRPCOutput.cc"])
+ncrpcoutput  = env.SharedLibrary3("nidas_dynld_isff_NetcdfRPCChannel",
+                                  ["NetcdfRPCChannel.cc", "NetcdfRPCOutput.cc"])
+instlibs = env.SharedLibrary3Install('$ARCHPREFIX', ncrpcchannel)
+instlibs += env.SharedLibrary3Install('$ARCHPREFIX', ncrpcoutput)
+env.Clean('install', instlibs)
