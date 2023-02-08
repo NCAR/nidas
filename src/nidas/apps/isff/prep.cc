@@ -28,9 +28,6 @@
 
 #include <nidas/dynld/RawSampleInputStream.h>
 
-#include <nidas/dynld/isff/NetcdfRPCOutput.h>
-#include <nidas/dynld/isff/NetcdfRPCChannel.h>
-
 #include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
@@ -752,8 +749,11 @@ DataPrep::matchVariables(const Project& project,
 
 
 template <typename T>
+using xatt = std::pair<std::string, T>;
+
+template <typename T>
 std::ostream&
-operator<<(std::ostream& out, const std::pair<const std::string&, const T&>& x)
+operator<<(std::ostream& out, const xatt<T>& x)
 {
     out << " " << x.first << "=\"" << x.second << "\"";
     return out;
@@ -761,9 +761,9 @@ operator<<(std::ostream& out, const std::pair<const std::string&, const T&>& x)
 
 
 template <typename T>
-std::pair<const std::string&, const T&>
+xatt<T>
 make_xatt(const std::string& name, const T& value){
-    return std::make_pair(name, value);
+    return xatt<T>(name, value);
 }
 
 
