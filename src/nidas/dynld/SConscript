@@ -114,19 +114,6 @@ else:
 env.Tool('nidasconfig')
 conf = env.NidasConfigure()
 
-# It seems like for cross-builds the PKG_CONFIG_PATH needs to be adjusted
-# accordingly, or maybe the path to pkg-config needs to be set, such as
-# /opt/arcom/bin/armbe-linux-pkg-config.  However, the closest thing to
-# this I've found is in scripts/build_nidas.sh.  Maybe that kind of
-# customization should be in the scons arm*cross tools.
-pc.ParseConfig(conf.env, 'pkg-config --cflags --libs nc_server')
-conf.CheckLib('nc_server_rpc')
-conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
-                        'xdr_connection(0,0);')
-# The nc_server build flags and library are added to the build environment
-# without the RPATH=conf.env['LIBPATH'] setting.  Both RedHat and Debian
-# advise against it, and an rpmbuild now fails in Fedora 35.
-
 pc.ParseConfig(conf.env, 'pkg-config --libs gsl')
 conf.CheckCXXHeader('gsl/gsl_linalg.h')
 conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
@@ -180,9 +167,11 @@ def nidasdynld(xenv):
     # the dynld library is already added by the NidasProgram() pseudo-builder.
     #
     # xenv.AppendUnique(LIBS=['nidas_dynld'])
+    #
+    # These may not be necessary now that nc_server is not a dependency of
+    # dynld, but they remain until proven harmful.
     xenv.AppendUnique(LIBS=env.get('LIBS', []))
     xenv.AppendUnique(LIBPATH=env.get('LIBPATH', []))
-    # CPPPATH needed also for nc_server includes
     xenv.AppendUnique(CPPPATH=env.get('CPPPATH', []))
 
 Export('nidasdynld')

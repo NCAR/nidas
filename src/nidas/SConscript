@@ -53,10 +53,9 @@ def nidasconfig(env):
     env.AddMethod(NidasConfigure)
 
 # All the configure checks that were here have been moved to the SConscript
-# files where the dependencies are needed.  For example, nc_server is now in
-# dynld, and all the lower-level system header checks are in util. Instead,
-# the nidasconfig tool can be applied to get the NidasConfigureContext method
-# added.
+# files where the dependencies are needed.  For example, all the lower-level
+# system header checks are in util. Instead, the nidasconfig tool can be
+# applied to get the NidasConfigureContext method added.
 Export('nidasconfig')
 
 env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
