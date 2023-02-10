@@ -76,8 +76,6 @@ public:
 
     int listOutputSamples();
 
-    Dataset getDataset();
-
     void
     requireConfigsXML()
     {
@@ -126,8 +124,6 @@ private:
     bool _doListOutputSamples;
 
     vector<unsigned int> _selectedOutputSampleIds;
-
-    string _datasetName;
 
     NidasApp _app;
     NidasAppArg NiceValue;
@@ -179,7 +175,7 @@ StatsProcess::StatsProcess():
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
     _fillGaps(false),_doListOutputSamples(false),
-    _selectedOutputSampleIds(),_datasetName(),
+    _selectedOutputSampleIds(),
     _app("statsproc"),
     NiceValue("-n,--nice", "<nice>",
               "Run at a lower priority (nice > 0)", "0"),
@@ -267,7 +263,7 @@ int StatsProcess::parseRunstring(int argc, char** argv)
     _endTime = app.getEndTime();
     _xmlFileName = app.xmlHeaderFile();
     _dsmName = DSMName.getValue();
-    
+
     if (_sorterLength < 0.0 || _sorterLength > 1800.0)
     {
         throw NidasAppException("Invalid sorter length: " +
@@ -420,40 +416,6 @@ int StatsProcess::usage(const char* argv0)
 }
 
 
-Dataset StatsProcess::getDataset()
-{
-    string XMLName;
-    const char* ndptr = getenv("NIDAS_DATASETS");
-
-    if (ndptr) XMLName = string(ndptr);
-    else {
-        const char* isffDatasetsXML =
-            "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
-        const char* isfsDatasetsXML =
-            "$ISFS/projects/$PROJECT/ISFS/config/datasets.xml";
-        const char* ie = ::getenv("ISFS");
-        const char* ieo = ::getenv("ISFF");
-        const char* pe = ::getenv("PROJECT");
-        if (ie && pe)
-            XMLName = n_u::Process::expandEnvVars(isfsDatasetsXML);
-        else if (ieo && pe)
-            XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
-    }
-
-    if (XMLName.length() == 0)
-        throw n_u::InvalidParameterException("environment variables",
-            "NIDAS_DATASETS, ISFS, PROJECT","not found");
-    Datasets datasets;
-    datasets.parseXML(XMLName);
-
-    Dataset dataset = datasets.getDataset(_datasetName);
-    dataset.putenv();
-
-    _period = dataset.getResolutionSecs();
-
-    return dataset;
-}
-
 int StatsProcess::run() throw()
 {
     _app.setupDaemon(_daemonMode);
@@ -470,7 +432,12 @@ int StatsProcess::run() throw()
 
         Project project;
 
-        if (_datasetName.length() > 0) project.setDataset(getDataset());
+        if (_app.DatasetName.specified())
+        {
+            Dataset dataset = _app.getDataset(_app.DatasetName.getValue());
+            _period = dataset.getResolutionSecs();
+            project.setDataset(dataset);
+        }
 
         IOChannel* iochan = 0;
 
