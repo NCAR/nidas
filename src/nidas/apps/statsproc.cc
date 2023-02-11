@@ -573,7 +573,7 @@ int StatsProcess::run() throw()
 
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
+        pipeline.setRawSorterLength(_sorterLength);
         pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(1 * 1000 * 1000);
         pipeline.setProcHeapMax(1 * 1000 * 1000);
