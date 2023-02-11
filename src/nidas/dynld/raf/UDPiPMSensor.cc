@@ -74,7 +74,6 @@ void UDPiPMSensor::validate()
 
 void UDPiPMSensor::open(int flags)
 {
-    ILOG(("*******In UDPiPMSensor::open *****************************"));
     UDPSocketSensor::open(flags);
 
     _ctrl_pid = fork();
@@ -88,10 +87,12 @@ void UDPiPMSensor::open(int flags)
     {
         char *args[20], port[32];
         int argc = 0;
+        char cmd[256] = "";
+        int cmd_len = 0;
 
         args[argc++] = (char *)"ipm_ctrl";
         if (_deviceAddr.length() > 0) {
-            args[argc++] = (char *)"--device";
+            args[argc++] = (char *)"-p";
             args[argc++] = (char *)_deviceAddr.c_str();
         }
 
@@ -102,8 +103,25 @@ void UDPiPMSensor::open(int flags)
         } */
 
         args[argc] = (char *)0;
-        ILOG(("forking command %s", args[0], args));
-        execvp(args[0], args);
+
+        // Create a string containing the entire command for logging
+        // purposes.
+        for (int i=0; i < argc; i++)
+        {
+            cmd_len += strlen(args[i]) + 1;
+            if (cmd_len < 255)  // prevent memory overrun (unlikely)
+            {
+                strcat(cmd, args[i]);
+                strcat(cmd, " ");
+            }
+        }
+        ILOG(("UDPiPMSensor: forking command %s", cmd));
+
+        if (execvp(args[0], args) == -1)
+        {
+            ILOG(("UDPiPMSensor: error executing command %s", cmd));
+            exit(1);
+        }
     }
 }
 
