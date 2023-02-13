@@ -42,19 +42,6 @@ Prefix: %{nidas_prefix}
 %description
 NCAR In-Situ Data Acquistion Software programs
 
-# It works to name /sbin/ldconfig as a post- scriptlet requirement, but it
-# does not work to name /sbin/selinuxenabled, even though rpm figures it
-# out:
-#
-# [root@ustar daq]# rpm -q --whatprovides /sbin/selinuxenabled
-# libselinux-utils-2.9-5.fc31.x86_64
-# [root@ustar daq]# rpm -q --whatprovides /sbin/semanage
-# policycoreutils-python-utils-2.9-5.fc31.noarch
-# [root@ustar daq]# rpm -q --whatprovides /sbin/restorecon
-# policycoreutils-2.9-5.fc31.x86_64
-#
-# So back to having to use different package names on different releases...
-#
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
@@ -86,40 +73,6 @@ Requires: nidas
 Prefix: %{nidas_prefix}
 %description modules
 NIDAS kernel modules.
-%endif
-
-%if %{with autocal}
-
-%package autocal
-Summary: Auto-calibration program, with Qt GUI, for NCAR RAF A2D board
-Requires: nidas
-%if 0%{?rhel} < 8
-BuildRequires: qt-devel
-%else
-BuildRequires: qt5-devel
-%endif
-Group: Applications/Engineering
-Prefix: %{nidas_prefix}
-%description autocal
-Auto-calibration program, with Qt GUI, for NCAR A2D board.
-
-%endif
-
-%if %{with configedit}
-
-%package configedit
-Summary: GUI editor for NIDAS configurations
-Requires: nidas
-%if 0%{?rhel} < 8
-BuildRequires: qt-devel
-%else
-BuildRequires: qt5-devel
-%endif
-Group: Applications/Engineering
-Prefix: %{nidas_prefix}
-%description configedit
-GUI editor for NIDAS configurations
-
 %endif
 
 %package daq
@@ -339,18 +292,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
 %{nidas_prefix}/firmware
-%endif
-
-%if %{with autocal}
-%files autocal
-%defattr(0775,root,root,2775)
-%{nidas_prefix}/bin/auto_cal
-%endif
-
-%if %{with configedit}
-%files configedit
-%defattr(0775,root,root,2775)
-%{nidas_prefix}/bin/configedit
 %endif
 
 %files daq
