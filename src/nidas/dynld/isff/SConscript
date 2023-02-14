@@ -19,8 +19,6 @@ sources = Split("""
     metek.cc
     MOSMote.cc
     NCAR_TRH.cc
-    NetcdfRPCChannel.cc
-    NetcdfRPCOutput.cc
     PropVane.cc
     RebsLinear.cc
     SonicAnemometer.cc
@@ -45,8 +43,6 @@ headers = Split("""
     metek.h
     MOSMote.h
     NCAR_TRH.h
-    NetcdfRPCChannel.h
-    NetcdfRPCOutput.h
     PropVane.h
     RebsLinear.h
     SonicAnemometer.h
@@ -61,4 +57,3 @@ headers = Split("""
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
 env.Install('$ARCHPREFIX/include/nidas/dynld/isff', headers)
-

@@ -32,6 +32,7 @@
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/dom/DOMImplementationRegistry.hpp>
 #include <xercesc/framework/Wrapper4InputSource.hpp>
+#include <xercesc/framework/MemBufInputSource.hpp>
 #include <xercesc/dom/DOMLocator.hpp>
 
 #include <iostream>
@@ -406,4 +407,25 @@ time_t XMLCachingParser::getFileModTime(const string&  name)
     if (::stat(name.c_str(),&filestat) < 0)
 	throw n_u::IOException(name,"stat",errno);
     return filestat.st_mtime;
+}
+
+
+xercesc::DOMDocument*
+XMLParser::
+parseString(const std::string& xml)
+{
+    xercesc::MemBufInputSource mbis((const XMLByte *)xml.c_str(),
+                                    xml.size(), "buffer", false);
+    xercesc::DOMDocument* doc = this->parse(mbis);
+    return doc;
+}
+
+
+/* static */
+xercesc::DOMDocument*
+XMLParser::
+ParseString(const std::string& xml)
+{
+    XMLParser parser;
+    return parser.parseString(xml);
 }

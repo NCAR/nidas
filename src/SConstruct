@@ -71,8 +71,6 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('ENABLE_VALGRIND',
                       'Enable valgrind run-time hints.',
                       'off'))
-opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
-                      'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
                       'Build linux modules when possible.', 'on'))
 opts.Add('REPO_TAG', '\n'

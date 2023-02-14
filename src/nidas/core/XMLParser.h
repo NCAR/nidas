@@ -233,6 +233,27 @@ public:
      **/
     xercesc::DOMDocument* parse(xercesc::InputSource& source);
 
+    /**
+     * @brief Parse XML string into a document.
+     *
+     * The returned DOMDocument pointer needs to be deleted, and before the
+     * XMLImplementation is terminated.
+     *
+     * @param xml 
+     * @return xercesc::DOMDocument* 
+     **/
+    xercesc::DOMDocument* parseString(const std::string& xml);
+
+    /**
+     * @brief Call parseString() on a default XMLParser instance.
+     * 
+     * @param xml 
+     * @return xercesc::DOMDocument* 
+     **/
+    static
+    xercesc::DOMDocument*
+    ParseString(const std::string& xml);
+
 protected:
     
     xercesc::DOMImplementation *_impl;

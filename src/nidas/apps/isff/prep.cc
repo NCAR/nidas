@@ -28,9 +28,6 @@
 
 #include <nidas/dynld/RawSampleInputStream.h>
 
-#include <nidas/dynld/isff/NetcdfRPCOutput.h>
-#include <nidas/dynld/isff/NetcdfRPCChannel.h>
-
 #include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
@@ -56,7 +53,9 @@
 #include <map>
 #include <iostream>
 #include <iomanip>
-
+#include <sstream>
+#include <utility>
+#include <memory>
 #include <unistd.h>
 
 using namespace nidas::core;
@@ -561,13 +560,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
         }
         else if (arg == &NetcdfOutput)
         {
-#ifdef HAVE_LIBNC_SERVER_RPC
             parseNcServerSpec(arg->getValue());
-#else
-            cerr << "-n option is not supported on this version of " << argv[0]
-                 << ", which was built without nc_server-devel package" << endl;
-            return 1;
-#endif
         }
     }
     _app.parseInputs(_app.unparsedArgs());
@@ -754,6 +747,24 @@ DataPrep::matchVariables(const Project& project,
     return variables;
 }
 
+
+template <typename T>
+using xatt = std::pair<std::string, T>;
+
+template <typename T>
+std::ostream&
+operator<<(std::ostream& out, const xatt<T>& x)
+{
+    out << " " << x.first << "=\"" << x.second << "\"";
+    return out;
+}
+
+
+template <typename T>
+xatt<T>
+make_xatt(const std::string& name, const T& value){
+    return xatt<T>(name, value);
+}
 
 
 int DataPrep::run() throw()
@@ -1106,7 +1117,6 @@ int DataPrep::run() throw()
                 (*ri)->removeSampleClient(&dumper);
             }
         }
-#ifdef HAVE_LIBNC_SERVER_RPC
         else {
             map<Resampler*, double> ratesByResampler;
             map<double, vector<const Variable*> >::const_iterator mi =
@@ -1149,16 +1159,55 @@ int DataPrep::run() throw()
                 (*ri)->connect(pipeline.getProcessedSampleSource());
             }
 
-            nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
-            ncchan->setServer(_ncserver);
-            ncchan->setDirectory(_ncdir);
-            ncchan->setFileNameFormat(_ncfile);
-            ncchan->setTimeInterval(_ncinterval);
-            ncchan->setFileLength(_nclength);
-            ncchan->setCDLFileName(_nccdl);
-            ncchan->setFillValue(_ncfill);
-            ncchan->setRPCTimeout(_nctimeout);
-            ncchan->setRPCBatchPeriod(_ncbatchperiod);
+            // Create a NetcdfRPCChannel instance from a dynamically loaded
+            // shared object.  The instance is allocated dynamically and must
+            // be deleted unless it is passed to NetcdfRPCOutput, in which
+            // case NetcdfRPCOutput owns it and will delete it.  This throws
+            // an exception if the shared object cannot be loaded.
+            DOMable* domable = DOMObjectFactory::createObject("isff.NetcdfRPCChannel");
+            nidas::core::IOChannel* ncchan = dynamic_cast<nidas::core::IOChannel*>(domable);
+
+            // Create the equivalent XML configuration for the
+            // NetcdfRPCChannel, so it can be configured through the virtual
+            // fromDOMElement() method.
+
+            //   <ncserver
+            //      server="$NC_SERVER"
+            //      dir="$NETCDF_DIR"
+            //      file="$NETCDF_FILE"
+            //      length="86400"
+            //      cdl="$ISFS/projects/$PROJECT/$SYSTEM/config/$NETCDL_FILE"
+            //      floatFill="1.e37"
+            //      timeout="300"
+            //      batchPeriod="300"/>
+            std::ostringstream xml;
+            xml << "<ncserver"
+                << make_xatt("server", _ncserver)
+                << make_xatt("dir", _ncdir)
+                << make_xatt("file", _ncfile)
+                << make_xatt("interval", _ncinterval)
+                << make_xatt("length", _nclength)
+                << make_xatt("cdl", _nccdl)
+                << make_xatt("floatFill", _ncfill)
+                << make_xatt("timeout", _nctimeout)
+                << make_xatt("batchPeriod", _ncbatchperiod)
+                << "/>";
+            DLOG(("") << "created xml config for NetcdfRPCChannel: " << xml.str());
+
+            std::unique_ptr<xercesc::DOMDocument> doc(XMLParser::ParseString(xml.str()));
+            ncchan->fromDOMElement(doc->getDocumentElement());
+            doc.reset();
+
+            // nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
+            // ncchan->setServer(_ncserver);
+            // ncchan->setDirectory(_ncdir);
+            // ncchan->setFileNameFormat(_ncfile);
+            // ncchan->setTimeInterval(_ncinterval);
+            // ncchan->setFileLength(_nclength);
+            // ncchan->setCDLFileName(_nccdl);
+            // ncchan->setFillValue(_ncfill);
+            // ncchan->setRPCTimeout(_nctimeout);
+            // ncchan->setRPCBatchPeriod(_ncbatchperiod);
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
                 Resampler* smplr = *ri;
@@ -1185,7 +1234,14 @@ int DataPrep::run() throw()
                 throw e;
             }
 
-            nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
+            // Replace the value instance with a unique_ptr to an instance
+            // allocated dynamically from a dynamically loaded shared object.
+
+            // nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
+            DOMable* domchannel = DOMObjectFactory::createObject("isff.NetcdfRPCOutput");
+            std::unique_ptr<SampleOutputBase> output
+                (dynamic_cast<SampleOutputBase*>(domchannel));
+            output->setIOChannel(ncchan);
             if (_clipping)
             {
                 ILOG(("clipping netcdf output [")
@@ -1193,11 +1249,11 @@ int DataPrep::run() throw()
                      << ","
                      << _endTime.format(true,"%Y %m %d %H:%M:%S")
                      << ")");
-                output.setTimeClippingWindow(_startTime, _endTime);
+                output->setTimeClippingWindow(_startTime, _endTime);
             }
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
-                (*ri)->addSampleClient(&output);
+                (*ri)->addSampleClient(output.get());
 
             try {
                 if (_startTime.toUsecs() != 0) {
@@ -1216,12 +1272,12 @@ int DataPrep::run() throw()
             }
             catch (n_u::IOException& e) {
                 for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
-                    (*ri)->removeSampleClient(&output);
+                    (*ri)->removeSampleClient(output.get());
                     (*ri)->disconnect(pipeline.getProcessedSampleSource());
                 }
                 pipeline.disconnect(&sis);
                 sis.close();
-                output.close();
+                output->close();
                 throw e;
             }
 
@@ -1229,11 +1285,10 @@ int DataPrep::run() throw()
             sis.close();
             pipeline.flush();
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
-                (*ri)->removeSampleClient(&output);
+                (*ri)->removeSampleClient(output.get());
             }
-            output.close();
+            output->close();
         }
-#endif  // HAVE_LIBNC_SERVER_RPC
         for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
             (*ri)->disconnect(pipeline.getProcessedSampleSource());
         }
