@@ -56,14 +56,14 @@ if not ARGUMENTS.get('NIDAS_PATH'):
     Import('env')
     env = env.Clone(tools=['nidas'])
     arch = env['ARCH']  # empty string for native builds
-    machs = env['MACHS']
+    mach = env.get('MACH')
 else:
     env = Environment(tools=['default', 'nidas'])
     # We do this here because we don't get the setting from the top-level
     # SConstruct.
     pc.PassPkgConfigPath(env)
-    arch = ''
-    machs = []
+    arch = 'host'
+    mach = 'host'
     # If this path exists, then probably we're building on a Pi and it
     # needs to be on the path.
     xlibs = env.subst("${NIDAS_PATH}/lib/arm-linux-gnueabihf")
@@ -182,11 +182,11 @@ if has_i2c:
 
 utilenv.NidasUtilProgram('utime.cc')
 
-if 'viper' in machs:
+if mach == 'viper':
     # controls DIO pins on a Viper
     env.NidasProgram('viper_dio.cc')
 
-if arch != '':
+if arch != 'host':
     # Programs which just do ioctls to NIDAS driver modules, and don't
     # otherwise use anything in the nidas libraries.
     utilenv.NidasPlainProgram('set_pcmcom8.c')

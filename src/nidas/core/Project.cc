@@ -855,9 +855,6 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
     }
 
     XDOMElement xnode(node);
-#ifdef XML_DEBUG
-    cerr << "element name=" << xnode.getNodeName() << endl;
-#endif
     
     if (xnode.getNodeName() != "project")
 	    throw n_u::InvalidParameterException(
@@ -896,9 +893,6 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
 	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
-#ifdef XML_DEBUG
-	cerr << "element name=" << elname << endl;
-#endif
 
 	if (elname == "site") {
 	    DOMable* domable;
