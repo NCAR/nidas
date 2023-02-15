@@ -71,7 +71,7 @@ else:
         env.Append(LIBPATH=xlibs)
 
 # Add jsoncpp to the environment for all now that a few apps use it.
-jsoncpp_enabled = ('armbe' not in arch) and check_pkg_config(env, 'jsoncpp')
+jsoncpp_enabled = (arch != 'armbe') and check_pkg_config(env, 'jsoncpp')
 if jsoncpp_enabled:
     env.PrintProgress("jsoncpp enabled for data_stats and sync_dump.")
     env.AppendUnique(CPPDEFINES=['NIDAS_JSONCPP_ENABLED=1'])
@@ -137,7 +137,7 @@ didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)
 if not dbconf.CheckCpp11():
     env.PrintProgress("No C++11 support, data_influxdb will not be built.")
-elif bool(not arch and jsoncpp_enabled and
+elif bool(arch == 'host' and jsoncpp_enabled and
           check_pkg_config(didbenv, 'libcurl')):
     env.PrintProgress("C++11, jsoncpp, and libcurl found, "
                       "building data_influxdb.")
