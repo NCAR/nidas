@@ -1,12 +1,11 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-import eol_scons.parseconfig as pc
+from SCons.Script import Environment, Import, SConscript, Export
 
-##
-##  Import the build environment.
-##
 Import('env')
+env: Environment
+
 arch = env['ARCH']  # empty string for native builds
 
 # Use the OTHER_ prefix only if it exists and is different than PREFIX
@@ -26,14 +25,8 @@ if env.get('OTHER_PREFIX'):
 # See "man dlopen" for more info.
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
-
-# To decipher the link statement:
-# print 'LINKCOM=' + str(env['LINKCOM'])
-# print '_LIBDIRFLAGS=' + str(env['_LIBDIRFLAGS'])
-# print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
-
-# Create a node for the Config.h file, so all Configure contexts append their
-# settings to this exact file.
+# Create a node for the Config.h file, so all Configure contexts for this
+# variant append their settings to this exact file under the variant dir.
 configh = env.File("include/nidas/Config.h")
 
 def NidasConfigure(env):
@@ -42,10 +35,12 @@ def NidasConfigure(env):
     global config header file.  This does not create a temporary environment,
     since the settings and build flags for all the config checks are meant to
     be added to the given environment.  SConscripts only need to use this if
-    the configure settings need to be added to Config.h.
+    the configure settings need to be added to Config.h.  However, all
+    SConscript files have to be careful to put the configure files under
+    VARIANT_DIR, so configuration for different variants is cached separately.
     """
-    conf = env.Configure(conf_dir="#/.sconf_temp",
-                         log_file='#/config' + arch +'.log',
+    conf = env.Configure(conf_dir="$VARIANT_DIR/.sconf_temp",
+                         log_file='$VARIANT_DIR/config.log',
                          config_h=configh)
     return conf
 
@@ -58,14 +53,12 @@ def nidasconfig(env):
 # applied to get the NidasConfigureContext method added.
 Export('nidasconfig')
 
-env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
+installs = []
+installs += env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 
 # Update Revision.h from git describe
-info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
-info2 = env.GitInfo("include/nidas/linux/Revision.h", "#/nidas/linux")
-
-env.Install('$ARCHPREFIX/include/nidas',info1)
-env.Install('$ARCHPREFIX/include/nidas/linux',info2)
+info = env.GitInfo("include/nidas/Revision.h", "#/nidas")
+installs += env.Install('$ARCHPREFIX/include/nidas', info)
 
 # When duplicate=0, the variant_dir of this SConscript, 
 # ("build","build_arm" or "build_armbe") is not duplicated using
@@ -82,20 +75,13 @@ env.Install('$ARCHPREFIX/include/nidas/linux',info2)
 #   -Ibuild/include
 env.PrependUnique(CPPPATH = ['#', Dir('.').Dir('include')])
 
-subdirs=Split("""util core dynld apps linux""")
+subdirs = env.Split("""util core dynld apps linux""")
 
 for dir in subdirs:
-    SConscript('%s/SConscript' % dir,
-               duplicate=0,exports=['env'])
+    SConscript('%s/SConscript' % (dir), exports=['env'])
 
-Alias('lib', subdirs[0:3])
-Clean('lib', subdirs[0:3])
+env.Alias('lib', subdirs[0:3])
 
-env.Alias('install', ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR'])
+installs += ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR']
 
-# Don't want to do a Clean of $ARCHPREFIX here, in case there is
-# other stuff there from other packages: we won't own $ARCHPREFIX.
-# We can nuke $ARCHPREFIX/include/nidas, but don't do a global
-# Clean of $ARCHPREFIX/bin and lib.  Also we don't assume we
-# own $ARCHPREFIX/modules.
-env.Clean('install','$ARCHPREFIX/include/nidas')
+env.Alias('install', installs)

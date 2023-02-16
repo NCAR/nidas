@@ -1,18 +1,18 @@
 # -*- python -*-
 ## 2004, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import, Export
 
-##
-##  Import the build environment.
-##
 Import('env')
+env: Environment
+
 env = env.Clone(tools = ['nidas'])
-arch = env['ARCH']  # empty string for native builds
+arch = env['ARCH']
 
 ##
 ##  List of header files
 ##
-headers = Split("""
+headers = env.Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
     BadSampleFilter.h
@@ -129,9 +129,7 @@ headers = Split("""
     XMLStringConverter.h
 """)
 
-# print(["headers="] + [str(h) for h in headers])
-
-sources = Split("""
+sources = env.Split("""
     AdaptiveDespiker.cc
     BadSampleFilter.cc
     BluetoothRFCommSocketIODevice.cc
@@ -258,8 +256,5 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ##
 nodes = []
 nodes.extend(env.SharedLibrary3Install('$ARCHPREFIX',lib))
-nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core',headers))
-
-Alias('install', nodes)
-Clean('install', nodes)
-
+nodes.extend(env.Install('$ARCHPREFIX/include/nidas/core', headers))
+env.Alias('install', nodes)

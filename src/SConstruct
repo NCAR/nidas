@@ -167,12 +167,12 @@ if env.get('GDBDEBUG'):
 ##
 ##  Install firmware
 ##
-SConscript("firmware/anythingIO/SConscript",exports={'env':env})
+SConscript("firmware/anythingIO/SConscript", exports={'env': env})
 
 ##
 ##  Install a2d filters
 ##
-SConscript("../filters/SConscript",exports={'env':env})
+SConscript("../filters/SConscript", exports={'env': env})
 
 
 def get_variant_dir(env):
@@ -196,11 +196,14 @@ env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
 if not env.get('DEBUG'):
     env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-SConscript('nidas/SConscript',
-            variant_dir=get_variant_dir(env),
-            duplicate=0, exports={'env': env})
+env['VARIANT_DIR'] = env.Dir('#/' + get_variant_dir(env))
 
-# env.Default([BUILDS])
+SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
+           duplicate=1, exports={'env': env})
+
+# need at least one default target, else scons will build everything.  this
+# makes the default everything built into the variant dir.
+env.Default(get_variant_dir(env))
 
 if ARCH == 'host' and env.File("tests/SConscript").exists():
     # Testing targets, built and run only on host. When building packages,
@@ -208,9 +211,7 @@ if ARCH == 'host' and env.File("tests/SConscript").exists():
     SConscript("tests/SConscript", exports={'env': env})
 
 # Install the schema where it can be referenced globally on the system.
-env.Alias('install',
-          env.Alias('xml_install',
-                  env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
+env.Alias('install', env.Install('$PREFIX/share/xml','#xml/nidas.xsd'))
 
 dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
@@ -232,8 +233,7 @@ env.SetHelp()
 nidas_help = """
 Main Targets (use -c to clean targets):
 
- (none)     -- build libraries, executables and kernel modules for ARM, ARMBE, 
-               and native systems.
+ (none)     -- build libraries, executables and kernel modules for native system.
  host       -- build libraries, executable programs and modules for host system.
  arm        -- build libraries, executables and kernel modules for Eurotech Viper 
                and Titan, running (obsolete) Arcom Embedded Linux
@@ -245,8 +245,5 @@ Main Targets (use -c to clean targets):
                such as R Pi2, running Raspian
  install    -- build and install all modules, libraries, headers and executables.
  -c install -- clean targets from $PREFIX
-
-Some targets will not exist if the corresponding architecture has not been
-specified in the BUILDS variable.
 """
 env.AddHelp(nidas_help)

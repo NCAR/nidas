@@ -1,41 +1,18 @@
 # -*- python -*-
 ## 2007, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import
 
-##
-##  Import the build environment.
-##
 Import(['env'])
+env: Environment
 mach = env['MACH']
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
+if mach == 'viper':
+    env.NidasKernelModule(
+        ['viper_dio.ko'],
+        ['viper_dio.c', *env.SymbolModules('revinfo')],
+        'viper_dio.h')
 
-if mach == 'viper' and 'LINUX_MODULES_INST_PATH' in env and \
-    'KERNELDIR' in env and env['KERNELDIR'] != '':
-
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-
-    modules = ['viper_dio.ko']
-    env.Kmake(modules,['viper_dio.c','viper_dio.h','Makefile', revinfo])
-
-    env.Install('$LINUX_MODULES_INST_PATH',modules)
-
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $ARCHPREFIX/include
-headers = Split("""
-    viper_dio.h
-""")
-
-env.Install('$ARCHPREFIX/include/nidas/linux/viper', headers)
+# Technically this is not quite equivalent to the previous setup, where the
+# header was installed even when the module build was disabled and the target
+# machine was not a viper.  That seems unlikely to be needed at this point.

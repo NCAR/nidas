@@ -1,23 +1,22 @@
 # -*- python -*-
 ## 2008, Copyright University Corporation for Atmospheric Research
 
-##
-##  Import the build environment.
-##
-Import(['env'])
-mach = env['MACH']
-
-import re
-import os
 import SCons
+from SCons.Script import Environment, EnumVariable, Return, Import
+
+Import(['env'])
+
+env: Environment
+
 
 variables = env.GlobalVariables()
-bahelp="""Control building of the arinc Linux kernel driver.  If 'yes', then the
-build fails if the arinc driver cannot be built because the Condor source
-is not present.  If 'auto', the default, then the arinc driver is built if
-the Condor source is present, but the build does not fail if not.  Set it
-to 'no' to disable building the arinc driver even if the Condor source is
-present."""
+bahelp="""
+ Control building of the arinc Linux kernel driver.  If 'yes', then the build
+ fails if the arinc driver cannot be built because the Condor source is not
+ present.  If 'auto', the default, then the arinc driver is built if the
+ Condor source is present, but the build does not fail if not.  Set it to 'no'
+ to disable building the arinc driver even if the Condor source is present.
+"""
 variables.Add(EnumVariable('BUILD_ARINC', bahelp, 'auto',
                            allowed_values=('yes', 'auto', 'no')))
 variables.Update(env)
@@ -27,23 +26,7 @@ if buildarinc == 'no':
     print("arinc build disabled.")
     Return()
 
-# The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the variant_dir.
-# The Kmake builder runs the make command in variant_dir.
-#
-# For some reason some versions of scons fail with an error:
-# scons: *** 'NoneType' object has no attribute 'select'
-# if the Makefile is the first source file.
-#
-# Also, the SConscript command that invokes this SConscript
-# file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the variant_dir.
-# so that make can find them and do its work outside of the
-# source tree.
-
-arinc_files = Split("""
-    main.c
-    arinc.h
+arinc_files = env.Split("""
     Condor/CEI420A/Source/api220.c
     Condor/CEI420A/Source/api220.h
     Condor/CEI420A/Source/apiutils.c
@@ -52,93 +35,17 @@ arinc_files = Split("""
     Condor/CEI420A/Source/fpga420a_16mhz_v100.h
     Condor/CEI420A/Source/i960_220.h
     Condor/CEI420A/Include/utildefs.h
-    Makefile
+    main.c
 """)
 
-# Some kernel module header files define symbols that are needed
-# by user code. These must also be installed in $PREFIX/include
-headers = Split("""
-    arinc.h
-""")
+headers = env.Split("arinc.h")
 
-env.Install('$ARCHPREFIX/include/nidas/linux/arinc', headers)
+targets = env.NidasKernelModule(
+    ['arinc.ko'],
+    arinc_files + env.SymbolModules('revinfo', 'util', 'irig'),
+    headers)
 
-modules = ['arinc.ko']
-condor = next(x for x in arinc_files if re.match('Condor',x))
-csrc = env.Dir("#/nidas/linux/arinc").File(condor)
-
-# It seems reasonable to me (gjg) to shortcut all the targets by checking
-# for the Condor source directly rather than accounting for the variant dir
-# complications, but maybe there are other issues.  Someday it might be
-# worth revisting this, using __file__ to find the Condor source dir, or
-# maybe there's a way to get it from scons that's been missed.
-if False and not csrc.exists():
-    print("Condor file %s not found, %s will not be built " %
-          (csrc, str(modules)))
-
-# Proceed with building the module only if we have the needed settings
-# and files.
-elif env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
-
-    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
-    utilsyms = Dir('./../util_' + mach).File('Module.symvers')
-    irigsyms = Dir('./../irig_' + mach).File('Module.symvers')
-
-    arincmod = env.Kmake(modules,[arinc_files, revinfo, utilsyms, irigsyms])
-
-    # The Condor code is in a separate, private git submodule since
-    # the license says it must not be redistributed.
-
-    # Check for existence of a Condor source file.
-    # If not found, don't build the module.
-
-    # Because this build is happening in a variant dir, we
-    # have to first create the above Kmake dependency, which
-    # duplicates all the source files to the variant dir.
-    # Then we can check if the Condor/CEI420A files exist,
-    # and if not found, remove the target with Ignore().
-    # Otherwise I haven't found a simple way to know the path to the
-    # source of the variant dir without hardcoding it as
-    # '#/nidas/linux/arinc', which is to be avoided.
-
-    # FindFile is supposed to return None if the file is not found.
-    # However sometimes a file-not-found OSError is raised
-    # instead. This seems to happen if a variant dir with a Condor
-    # subdirectory from a prior build has not been cleaned
-    # and the Condor source files are no longer available.
-    try:
-        found = FindFile(condor,'.')
-    except OSError as exc:
-        # print exc
-        found = None
-
-    if not found and buildarinc == 'yes':
-        raise SCons.Errors.StopError("Condor source not found, "
-                                     "but BUILD_ARINC is set to 'yes'.")
-    elif not found:
-        print("Condor file %s not found, %s will not be built " %
-              (condor, str(modules)))
-        env.Ignore('.', arincmod)
-    else:
-        print("Condor code found, %s will be built " % (str(modules)))
-        env.Install('$LINUX_MODULES_INST_PATH', modules)
-
-    # It might be nice to create a clean target to remove the arinc.ko
-    # module if it had been installed, even if arinc.ko cannot be built
-    # here because the source is missing.  However, creating a SCons
-    # Node under the nidas modules install path, either to clean it or
-    # even to check if it exists, causes SCons to report an error about
-    # a missing 'implicit dependency' for the install target.  So the
-    # check has to happen with os.path and without the help of scons,
-    # and only if a file exists is it added to the clean target.  Really,
-    # though, this could be skipped entirely in favor of a more global
-    # clean target which cleans the entire nidas/modules install directory,
-    # eg, env.Clean('install', '$LINUX_MODULES_INST_PATH'), but maybe
-    # that was deemed too drastic.
-
-    installed = [env.subst('$LINUX_MODULES_INST_PATH/' + l) for l in modules]
-    installed = [i for i in installed if os.path.exists(i)]
-    if installed:
-        env.Clean('install', installed)
-
-
+if not targets and buildarinc == 'yes':
+    raise SCons.Errors.StopError(
+        "Condor source not found or LINUX_MODULES disabled, "
+        "but BUILD_ARINC is set to 'yes'.")
