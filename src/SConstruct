@@ -30,10 +30,6 @@ opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
-opts.AddVariables(('OTHER_PREFIX',
-                   'Optional prefix for other dependencies.',
-                   None, None, eol_scons.PathToAbsolute))
-
 # Only one target architecture can be built in a single scons run, but each
 # target uses a different variant build dir.
 opts.Add(EnumVariable('ARCH',

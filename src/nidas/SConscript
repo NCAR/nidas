@@ -6,20 +6,6 @@ from SCons.Script import Environment, Import, SConscript, Export
 Import('env')
 env: Environment
 
-arch = env['ARCH']  # empty string for native builds
-
-# Use the OTHER_ prefix only if it exists and is different than PREFIX
-if env.get('OTHER_PREFIX'):
-    import os
-    other_include = env.subst("$OTHER_PREFIX/include")
-    other_lib = env.subst("$OTHER_PREFIX/lib")
-    if os.path.exists(other_include):
-        print("Adding OTHER_PREFIX %s to CPPPATH." % (other_include))
-        env.AppendUnique(CPPPATH = [ other_include ])
-    if os.path.exists(other_lib):
-        print("Adding OTHER_PREFIX %s to LIBPATH." % (other_lib))
-        env.AppendUnique(LIBPATH = [ other_lib ])
-
 # -rdynamic: Export all dynamic symbols in the executables, so that libraries
 # loaded with dlopen() can resolve symbols already in the executable.
 # See "man dlopen" for more info.
