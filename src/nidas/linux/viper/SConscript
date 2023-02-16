@@ -11,7 +11,7 @@ if mach == 'viper':
     env.NidasKernelModule(
         ['viper_dio.ko'],
         ['viper_dio.c', *env.SymbolModules('revinfo')],
-        'viper_dio.h')
+        ['viper_dio.h'])
 
 # Technically this is not quite equivalent to the previous setup, where the
 # header was installed even when the module build was disabled and the target
