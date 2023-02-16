@@ -46,20 +46,7 @@ installs += env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 info = env.GitInfo("include/nidas/Revision.h", "#/nidas")
 installs += env.Install('$ARCHPREFIX/include/nidas', info)
 
-# When duplicate=0, the variant_dir of this SConscript, 
-# ("build","build_arm" or "build_armbe") is not duplicated using
-# symbolic or hard links from the source dir, "nidas".
-# Instead scons puts the two paths in the compile runstring where
-# appropriate, including possibly duplicating items in the CPPPATH
-# to search for headers in both the variant_dir and the source dir.
-# If you specify CPPPATH="include", scons adds the successive
-# SConscript dirs to the path, and creates two -I options in the compiles:
-#   -Ibuild/core/include and -Inidas/core/include
-
-# This hack using Dir() results in the CPPPATH not being duplicated
-# in the compile and successive variant_dirs not being added:
-#   -Ibuild/include
-env.PrependUnique(CPPPATH = ['#', Dir('.').Dir('include')])
+env.PrependUnique(CPPPATH=['$VARIANT_DIR/include'])
 
 subdirs = env.Split("""util core dynld apps linux""")
 

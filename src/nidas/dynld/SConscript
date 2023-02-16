@@ -152,8 +152,7 @@ nodes = []
 nodes += env.SharedLibrary3Install('$ARCHPREFIX',lib)
 nodes += env.Install('$ARCHPREFIX/include/nidas/dynld',headers + archheaders)
 
-Alias('install',nodes)
-Clean('install',nodes)
+Alias('install', nodes)
 
 def nidasdynld(xenv):
     "Tool to apply dynld link settings to an environemnt."

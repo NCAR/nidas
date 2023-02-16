@@ -192,14 +192,15 @@ env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
 if not env.get('DEBUG'):
     env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
-env['VARIANT_DIR'] = env.Dir('#/' + get_variant_dir(env))
+# VARIANT_DIR holds the path to the variant build dir
+env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
 
 SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
            duplicate=1, exports={'env': env})
 
 # need at least one default target, else scons will build everything.  this
 # makes the default everything built into the variant dir.
-env.Default(get_variant_dir(env))
+env.Default(env['VARIANT_DIR'])
 
 if ARCH == 'host' and env.File("tests/SConscript").exists():
     # Testing targets, built and run only on host. When building packages,

@@ -1,21 +1,18 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
+from SCons.Script import Environment, Import, Export
 
-##
-##  Import the build environment.
-##
 Import('env')
-env = env.Clone()
-arch = env['ARCH']  # empty string for native builds
+env: Environment
 
-# env.AppendUnique(CXXFLAGS = Split("""
-# """))
+env = env.Clone()
+arch = env['ARCH']
 
 ##
 ##  List of headers files
 ##
-headers = [ Split("""
+headers = env.Split("""
     auto_ptr.h
     BitArray.h
     BluetoothAddress.h
@@ -54,10 +51,8 @@ headers = [ Split("""
     UTime.h
     util.h
     """)
-]
-# print(["headers="] + [str(h) for h in headers])
 
-sources = [ Split("""
+sources = env.Split("""
     BitArray.cc
     BluetoothAddress.cc
     BluetoothRFCommSocket.cc
@@ -83,8 +78,6 @@ sources = [ Split("""
     UTime.cc
     util.cc
     """)
-]
-# print(["sources="] + [str(h) for h in sources])
 
 objects = env.SharedObject(sources)
 
