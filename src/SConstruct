@@ -1,10 +1,28 @@
 # -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import re
-from SCons.Script import Environment, SConscript, BoolVariable, EnumVariable
-from SCons.Script import COMMAND_LINE_TARGETS
+import textwrap
+import SCons
+from SCons.Script import Environment, SConscript, BoolVariable, Variables
+from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 import eol_scons
+
+# Here are the supported build targets, expressed in the form arch-machine,
+# which loosely follows the GNU GCC machine configuration name of
+# arch-company-system, where system is implied to be linux.  Only one of these
+# targets can be built in a single scons build.  This dictionary of arch-mach
+# names maps to a tuple of (arch, mach).
+
+targets = {
+    'arm-viper': ('arm', 'viper'),
+    'arm-titan': ('arm', 'titan'),
+    'armbe-vulcan': ('armbe', 'vulcan'),
+    'armel-titan': ('armel', 'titan'),
+    'armel-viper': ('armel', 'viper'),
+    'armhf-rpi2': ('armhf', 'rpi2'),
+    'armhf-rpi3': ('armhf', 'rpi3'), # not actually different, but accept it
+    'host-host': ('host', 'host')
+}
 
 eol_scons.EnableInstallAlias(False)
 
@@ -26,29 +44,25 @@ if False:
 # Create the eol_scons global variables and the NIDAS variables from the
 # same config file.
 opts = eol_scons.GlobalVariables('nidas.conf')
+opts: Variables
 opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
-# Only one target architecture can be built in a single scons run, but each
+# Only one target architecture can be built in a single scons run, and each
 # target uses a different variant build dir.
-opts.Add(EnumVariable('ARCH',
+opts.Add('BUILD',
 """
- Architecture to build and install.  'host' is a native build, everything else
- requires a cross-compiler.
-""",
-         'host', allowed_values=('host', 'arm', 'armbe', 'armel', 'armhf')))
-
-opts.Add('BUILDS', 'Backwards-compatible alias for ARCH, deprecated.')
-
-opts.Add(EnumVariable('MACH',
-"""
- Name of target machine for the architecture in ARCH, for building and
- installing machine-specific code, such as kernel modules.  If not specified,
- then a default is chosen among the targets for the given ARCH.
-""",
-         None, allowed_values=('host', 'viper', 'vulcan', 'titan', 'rpi2', 'rpi3')))
-opts.Add('MACHS', 'Backwards compatible alias for MACH, deprecated.')
+ Target architecture and machine to build and install.  The default, 'host',
+ is a native build, everything else requires a cross-compiler.  BUILD can be a
+ fully qualified target name, or it can be just the machine name or
+ architecture.  If there is more than one match, the first found is used.  If
+ BUILD is not set, then it can be implied by using the target name as a
+ command-line target, as in 'scons armhf'.  For backwards compatibility,
+ BUILDS and MACHS are checked for a matching target if BUILD is not set and no
+ command-line targets match.  Here are the supported targets, in the form
+ architecture-machine:%s
+""" % ("\n" + ",".join(targets.keys())))
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
@@ -72,8 +86,9 @@ opts.Add('PKG_CONFIG_PATH',
 # a Debian package for x86_64 (amd64), the Makefile that calls
 # scons pre-sets it to lib/x86_64-linux-gnu to be similar with
 # the arm libs and be more Debian-multiarch-like.
-opts.Add('ARCHLIBDIR', '\n'
-         '  Where to install NIDAS libraries relative to $PREFIX', None)
+opts.Add('ARCHLIBDIR', """
+ Where to install NIDAS libraries relative to $PREFIX.
+""", None)
 
 opts.Update(env)
 env.Tool('gitinfo')
@@ -84,44 +99,60 @@ env.MergeFlags('-pthread')
 if 'PKG_CONFIG_PATH' in env:
     env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
-# Here are the supported build targets, expressed in the form arch-machine,
-# which loosely follows the GNU GCC machine configuration name of
-# arch-company-system, where system is implied to be linux.  Only one of these
-# targets can be built in a single scons build.
+
+def lookup_target(target):
+    """
+    Look for target name among supported targets, where the name has to match
+    either arch or mach or the whole target name.  Return the full target
+    name, the key into the dictionary of supported targets.
+    """
+    for k, v in targets.items():
+        if k == target or v[0] == target or v[1] == target:
+            return k
+    return None
+
 
 def check_target(env):
     """
-    Check that the ARCH and MACH settings match a supported target, and handle
-    backwards compatibility with BUILDS and MACHS.
+    Check that the BUILD setting or a command-line target matches a supported
+    target, handling backwards compatibility with BUILDS and MACHS, and then
+    derive the MACH and ARCH settings from that.
     """
-    # dictionary of arch-mach pairs which map to a tuple of (arch, mach)
-    targets = {
-        'arm-viper': ('arm', 'viper'),
-        'arm-titan': ('arm', 'titan'),
-        'armbe-vulcan': ('armbe', 'vulcan'),
-        'armel-titan': ('armel', 'titan'),
-        'armel-viper': ('armel', 'viper'),
-        'armhf-rpi2': ('armhf', 'rpi2'),
-        'armhf-rpi3': ('armhf', 'rpi2'), # until there's a difference
-        'host-host': ('host', 'host')
-    }
-    arch = env.get('ARCH') or env.get('BUILDS')
-    mach = env.get('MACH') or env.get('MACHS')
-    if not mach:
-        # find a default machine matching against just the arch.
-        machs = [m for a, m in targets.values() if a == arch]
-        mach = machs[0]
-    name = f"{arch}-{mach}"
-    target = targets.get(name)
-    if not target:
-        raise Exception(f'target {name} is not a supported target')
+    # command-line targets take precedence, so look for that first.
+    build = None
+    for target in COMMAND_LINE_TARGETS:
+        build = lookup_target(target)
+        if build:
+            break
+    # if no command-line targets matched, look for a variable setting
+    if not build:
+        for v in ['BUILD', 'BUILDS', 'MACHS']:
+            target = ARGUMENTS.get(v)
+            build = lookup_target(target)
+            if build:
+                break
+            if target:
+                msg = f"{v}={target} does not match a supported target"
+                raise SCons.Errors.StopError(msg)
+    # no command-line target and no variable setting, so default to host
+    if not build:
+        build = 'host-host'
+        target = build
+
+    # build is now the name of one of the supported targets, target is the
+    # name by which it was matched from the command-line or in a variable.
+    # target will become an alias.  anything else on the command-line which
+    # was an extra target or did not match will cause an error from scons
+    # about unknown target, as expected.
+
+    (arch, mach) = targets.get(build)
     env['ARCH'] = arch
     env['MACH'] = mach
-    # 'TARGET' is a reserved variable in SCons
-    env['NIDAS_TARGET'] = name
+    env['NIDAS_BUILD'] = build
+    return target
 
 
-check_target(env)
+build = check_target(env)
 
 ARCH = env['ARCH']
 MACH = env['MACH']
@@ -199,8 +230,9 @@ SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
            duplicate=1, exports={'env': env})
 
 # need at least one default target, else scons will build everything.  this
-# makes the default everything built into the variant dir.
-env.Default(env['VARIANT_DIR'])
+# makes the default everything built into the variant dir.  the alias allows
+# scons to a build the target when specified as a command-line target.
+env.Default(env.Alias(build, env['VARIANT_DIR']))
 
 if ARCH == 'host' and env.File("tests/SConscript").exists():
     # Testing targets, built and run only on host. When building packages,
@@ -223,24 +255,42 @@ if 'doxinstall' in COMMAND_LINE_TARGETS:
     env.Alias('doxinstall',
               env.InstallAs('$PREFIX/doxygen','#/../doc/doxygen'))
 
+
+# Override the SCons variable help formatter before calling SetHelp(), since
+# that actually generates all the text.
+def BriefVariableHelpText(env, key, help, default, actual, aliases=None) -> str:
+    briefs = ['PREFIX', 'BUILD', 'LINUX_MODULES',
+              'PKG_CONFIG_PATH', 'BUILD_ARINC']
+    if key not in briefs:
+        return ''
+    brief = help or ''
+    (first, dot, _) = brief.partition('. ')
+    brief = (first + '.') if dot else first
+    brief = textwrap.shorten(brief, width=60, placeholder='...')
+    brief = f'  {brief}\n' if brief else brief
+    text = "%s [%s]\n%s" % (key, actual, brief)
+    return text
+
+AddOption("--help-all", dest="helpall", action="store_true")
+if not env.GetOption("helpall"):
+    opts.FormatVariableHelpText = BriefVariableHelpText
+
 # Use the eol_scons SetHelp() method to generate all the help text,
 # including the directory of aliases, but then append a custom summary of
 # nidas targets.
 env.SetHelp()
 nidas_help = """
-Main Targets (use -c to clean targets):
+Main targets:
 
- (none)     -- build libraries, executables and kernel modules for native system.
- host       -- build libraries, executable programs and modules for host system.
- arm        -- build libraries, executables and kernel modules for Eurotech Viper 
-               and Titan, running (obsolete) Arcom Embedded Linux
- armbe      -- build libraries, executables and kernel modules for Eurotech Vulcan, 
-               running Arcom Embedded Linux
- armel      -- build libraries, executables and kernel modules for Eurotech Viper 
-               and Titan, Debian 8
- armhf      -- build libraries, executables and kernel modules for ARMv6/7 systems, 
-               such as R Pi2, running Raspian
- install    -- build and install all modules, libraries, headers and executables.
- -c install -- clean targets from $PREFIX
+<target> or BUILD=<target>
+  Build libraries, executables and kernel modules for target system.  See BUILD.
+install
+  Build and install all modules, libraries, headers and executables.
+-c install
+  Clean targets from $PREFIX.
+-c .
+  Clean builds in source tree for the selected target.
+
+Use scons -h --help-all to see all variables with full help info.
 """
 env.AddHelp(nidas_help)
