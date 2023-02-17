@@ -5,7 +5,7 @@ Maintainer: Gordon Maclean <maclean@ucar.edu>
 # This Build-Depends is being parsed (a syntax error causes a failure) but it doesn't
 # seem to have any effect in the debuild.  If a non-existent package is specified, the build
 # still succeeds
-Build-Depends: debhelper (>= 9), scons (>= 2.3), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[i386], libcap-dev, eol-scons, xmlrpc++-dev[armel], libxmlrpcpp-dev[i386 amd64], libmodbus-dev[i386], libboost-regex-dev, libboost-test-dev, tzdata, net-tools, valgrind[i386 amd64], uio48-dev[i386]
+Build-Depends: debhelper (>= 9), flex, pkg-config, libxerces-c-dev (>= 3.0), libbluetooth-dev, libbz2-dev, libgsl0ldbl[armel], libgsl0-dev[armel], libgsl-dev[i386], libcap-dev, xmlrpc++-dev[armel], libxmlrpcpp-dev[i386 amd64], libmodbus-dev[i386], libboost-regex-dev, libboost-test-dev, tzdata, net-tools, valgrind[i386 amd64], uio48-dev[i386]
 Standards-Version: 3.9.6
 Homepage: https://github.com/ncareol/nidas.git
 Vcs-Git: git://github.com/ncareol/nidas.git

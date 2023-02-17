@@ -34,7 +34,7 @@ binary=false
 export DEB_GCJFLAGS_MAINT_SET=--config=force
 
 # Add to path for pyenv support of python 3
-args="--prepend-path=/root/.pyenv/shims:/root/.pyenv/bin"
+args="--prepend-path=/usr/local/bin:/root/.pyenv/shims:/root/.pyenv/bin"
 
 while [ $# -gt 0 ]; do
     case $1 in
