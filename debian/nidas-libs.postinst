@@ -36,3 +36,14 @@ esac
 
 #DEBHELPER#
 
+if [ "$1" = configure ]; then
+    # Debian doesn't like ld.so.conf.d files, and instead
+    # wants packagers to use RPATH. Until that is done for
+    # nidas, we seem to have to force the installation of this
+    # file.
+    cf=/etc/ld.so.conf.d/nidas-arm-linux-gnueabi.conf
+    if ! [ -f $cf ]; then
+        echo "/opt/nidas/lib/arm-linux-gnueabi" > $cf
+        ldconfig
+    fi
+fi
