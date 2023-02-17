@@ -374,7 +374,7 @@ clone_local() # tag source dest
         (cd "$dest"
         git submodule init "$path"
         git config --local submodule."$path".url "$absource"/.git/modules/"$path"
-        git submodule update "$path")
+        git -c protocol.file.allow=always submodule update "$path")
      done)
 }
 
