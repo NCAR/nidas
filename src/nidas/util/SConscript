@@ -108,6 +108,8 @@ Export({'LIBNIDAS_UTIL' + arch: lib[0]})
 
 slib = env.StaticLibrary('nidas_util' , objects)
 
+env.Default([lib, slib])
+
 ##
 ## Install targets for libraries and headers.
 ##

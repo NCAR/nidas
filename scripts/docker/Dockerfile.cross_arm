@@ -3,11 +3,6 @@ ARG hostarch=armel
 FROM docker.io/ncar/nidas-build-debian-base-${hostarch}:jessie
 LABEL organization="NCAR EOL"
 
-# ARG user=ads
-# ARG uid=12900
-# ARG group=eol
-# ARG gid=1342
-
 # FROM line above "consumes" hostarch arg, unless we re-declare it header
 # But don't re-assign it!!!
 ARG hostarch
@@ -33,9 +28,8 @@ RUN echo deb http://archive.debian.org/debian/ jessie main >> /etc/apt/sources.l
 RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
 RUN cat /etc/apt/sources.list
 
-# Used for some build stuff in container
-#ENV CROSS_ARCH $hostarch
-#RUN echo "CROSS_ARCH == $CROSS_ARCH"
+# The emdebian repo is no longer reachable, so disable it.
+RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
 
 # add boost-regex/filesystem
 RUN apt-get -y --no-install-recommends --allow-unauthenticated install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
@@ -68,7 +62,7 @@ WORKDIR /root
 #RUN apt-get install -y --no-install-recommends crossbuild-essential-${hostarch}
 
 # Add EOL repository for some local packages
-RUN grep -q ftp.eol /etc/aps/sources.list.d/eol.list || echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list && curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list && curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
 
 # local packages
 # hack: also install xmlrpc++-dev for build (amd64) architecture, so that scons
@@ -115,4 +109,3 @@ RUN printf 'umask 0002\nexport GPG_TTY=$(tty)\n' >> .bashrc
 # with host. gpg-agent returns value for GPG_AGENT_INFO which has the name
 # of the socket.  .profile is not sourced on startup, only .bashrc.
 RUN printf 'gpg-connect-agent /bye 2>/dev/null || eval $(gpg-agent --daemon --no-use-standard-socket)\n' >> .bashrc
-

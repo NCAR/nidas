@@ -1,0 +1,31 @@
+FROM docker.io/amd64/ubuntu:latest
+LABEL organization="NCAR EOL"
+
+# Because tzdata gets installed as a dependency...
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
+    apt-utils sudo vim curl \
+    build-essential fakeroot libncurses-dev bc dh-make ca-certificates \
+    git ssh scons doxygen graphviz \
+    flex libfl-dev gawk devscripts pkg-config \
+    libbz2-dev libgsl23 libgslcblas0 libgsl0-dev libcap-dev \
+    libxerces-c-dev libbluetooth-dev libnetcdf-dev \
+    rsync quilt lsb-release reprepro
+
+# Add EOL repository for some local packages
+#RUN echo "deb ftp://ftp.eol.ucar.edu/pub/archive/software/debian/ jessie main" > /etc/apt/sources.list.d/eol.list 
+#RUN curl ftp://ftp.eol.ucar.edu/pub/archive/software/debian/conf/eol-prog.gpg.key | apt-key add -
+
+USER root:root
+WORKDIR /root
+
+# Install the xmlrpc++ dependency by building and installing inside the
+# container, and if /packages is mounted then move the packages there too.
+
+RUN git clone https://github.com:/NCAR/xmlrpcpp
+RUN cd xmlrpcpp && ./build_dpkg_std.sh results amd64 && cd results && \
+  dpkg -i xmlrpc++-dev_0.7-3_amd64.deb xmlrpc++_0.7-3_amd64.deb && \
+  (test ! -d /packages || mv -f xmlrpc++-dev_0.7-3_amd64.deb xmlrpc++_0.7-3_amd64.deb /packages)

@@ -19,7 +19,10 @@ def CheckStackProtectorOptions(env: Environment):
     for opt in ['-fstack-protector-strong', '-fstack-protector']:
         if add_stack_option(env, opt):
             break
-    add_stack_option(env, '-fstack-check')
+    # On ubuntu20 adding this option causes this warning:
+    # cc1plus: warning: '-fstack-check=' and '-fstack-clash_protection' are mutually exclusive.  Disabling '-fstack-check='
+    # So leave it out.
+    #add_stack_option(env, '-fstack-check')
 
 
 def generate(env):

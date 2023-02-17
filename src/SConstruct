@@ -7,6 +7,8 @@ from SCons.Script import Environment, SConscript, BoolVariable, Variables
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 from SCons.Script import SConsignFile
 import eol_scons
+import subprocess as sp
+import platform
 
 # Here are the supported build targets, expressed in the form arch-machine,
 # which loosely follows the GNU GCC machine configuration name of
