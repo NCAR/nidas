@@ -9,7 +9,7 @@ def CheckStackProtectorOptions(env: Environment):
     def add_stack_option(env, opt):
         test_env = env.Clone()
         test_env.AppendUnique(CCFLAGS = [opt])
-        conf = Configure(test_env)
+        conf = test_env.NidasConfigure()
         env.PrintProgress('Checking gcc option ' + opt + '...')
         ok = conf.CheckCC()
         conf.Finish()

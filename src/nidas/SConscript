@@ -11,38 +11,11 @@ env: Environment
 # See "man dlopen" for more info.
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
-# Create a node for the Config.h file, so all Configure contexts for this
-# variant append their settings to this exact file under the variant dir.
-configh = env.File("include/nidas/Config.h")
-
-def NidasConfigure(env):
-    """
-    Return a Configure context whose settings will be appended to a single
-    global config header file.  This does not create a temporary environment,
-    since the settings and build flags for all the config checks are meant to
-    be added to the given environment.  SConscripts only need to use this if
-    the configure settings need to be added to Config.h.  However, all
-    SConscript files have to be careful to put the configure files under
-    VARIANT_DIR, so configuration for different variants is cached separately.
-    """
-    conf = env.Configure(conf_dir="$VARIANT_DIR/.sconf_temp",
-                         log_file='$VARIANT_DIR/config.log',
-                         config_h=configh)
-    return conf
-
-def nidasconfig(env):
-    env.AddMethod(NidasConfigure)
-
-# All the configure checks that were here have been moved to the SConscript
-# files where the dependencies are needed.  For example, all the lower-level
-# system header checks are in util. Instead, the nidasconfig tool can be
-# applied to get the NidasConfigureContext method added.
-Export('nidasconfig')
-
 installs = []
 installs += env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 
 # Update Revision.h from git describe
+env.Tool('gitinfo')
 info = env.GitInfo("include/nidas/Revision.h", "#/nidas")
 installs += env.Install('$ARCHPREFIX/include/nidas', info)
 

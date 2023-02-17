@@ -5,6 +5,7 @@ import textwrap
 import SCons
 from SCons.Script import Environment, SConscript, BoolVariable, Variables
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
+from SCons.Script import SConsignFile
 import eol_scons
 
 # Here are the supported build targets, expressed in the form arch-machine,
@@ -91,13 +92,6 @@ opts.Add('ARCHLIBDIR', """
 """, None)
 
 opts.Update(env)
-env.Tool('gitinfo')
-
-# Threads
-env.MergeFlags('-pthread')
-
-if 'PKG_CONFIG_PATH' in env:
-    env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 
 def lookup_target(target):
@@ -154,10 +148,39 @@ def check_target(env):
 
 build = check_target(env)
 
+
+def get_variant_dir(env):
+    """
+    Derive the variant build dir for the arch and mach of the given
+    environment.
+    """
+    arch = env.get('ARCH')
+    mach = env.get('MACH')
+    vdir = "build"
+    if arch and arch != 'host':
+        vdir += "_" + arch
+    if mach and mach != 'host':
+        vdir += "_" + mach
+    return vdir
+
+
+# as soon as we know the target, we can set the path to the variant build dir
+env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
+
+# it might be ok to use the same database for different variant builds, since
+# all the paths are different, and presumably that way the source signatures
+# can be shared.  however, if that ever seems to cause problems, this puts the
+# .sconsign database in the variant dir also.
+if False:
+    SConsignFile(get_variant_dir(env) + "/.sconsign")
+
 ARCH = env['ARCH']
 MACH = env['MACH']
 
 env.PrintProgress(f"Setting up for {ARCH} build, {MACH} target machine...")
+
+if 'PKG_CONFIG_PATH' in env:
+    env.PrependENVPath('PKG_CONFIG_PATH', env['PKG_CONFIG_PATH'])
 
 # NIDAS uses PREFIX as the root install prefix, but since it's a
 # Variable that SCons sets, that means it should only have one value
@@ -191,6 +214,20 @@ env['CCFLAGS'] = []
 if env.get('GDBDEBUG'):
     env.AppendUnique(CCFLAGS=['-ggdb'])
 
+# Load nidasconfig tool before any Configure contexts are created in this tree
+# or external tools, so the settings can be stored in the variant dirs.
+env.Tool('nidasconfig')
+env.Tool(f'nidas_{ARCH}')
+env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
+
+# Threads
+env.MergeFlags('-pthread')
+
+if not env.get('DEBUG'):
+    env.AppendUnique(CPPDEFINES = ['NDEBUG'])
+
+# Now start loading SConscript files...
+
 ##
 ##  Install firmware
 ##
@@ -201,30 +238,6 @@ SConscript("firmware/anythingIO/SConscript", exports={'env': env})
 ##
 SConscript("../filters/SConscript", exports={'env': env})
 
-
-def get_variant_dir(env):
-    """
-    Derive the variant build dir for the arch and mach of the given
-    environment.
-    """
-    arch = env.get('ARCH')
-    mach = env.get('MACH')
-    vdir = "build"
-    if arch and arch != 'host':
-        vdir += "_" + arch
-    if mach and mach != 'host':
-        vdir += "_" + mach
-    return vdir
-
-
-env.Tool(f'nidas_{ARCH}')
-env.Require(['symlink', 'sharedlibrary', 'stackprotector'])
-
-if not env.get('DEBUG'):
-    env.AppendUnique(CPPDEFINES = ['NDEBUG'])
-
-# VARIANT_DIR holds the path to the variant build dir
-env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
 
 SConscript('nidas/SConscript', variant_dir=env['VARIANT_DIR'],
            duplicate=1, exports={'env': env})
