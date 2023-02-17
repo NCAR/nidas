@@ -20,6 +20,7 @@ Description: Executable programs for NIDAS
 Package: nidas-libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Replaces: nidas-min, nidas-build, nidas-buildeol
 Description: NIDAS shareable libraries
  Shareable libraries used by NIDAS, libnidas*.so.x.y
 

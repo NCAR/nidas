@@ -45,6 +45,7 @@ NCAR In-Situ Data Acquistion Software programs
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
+Obsoletes: nidas-min <= 1.2, nidas-buildeol <= 1.2, nidas-build <= 1.2
 Requires: xerces-c xmlrpc++
 Requires (post): /sbin/ldconfig
 Requires (postun): /sbin/ldconfig
