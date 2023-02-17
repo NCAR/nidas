@@ -269,7 +269,7 @@ run_image() # command...
       --volume "$install":/opt/nidas:rw,Z \
       --volume "$HOME/.scons":/root/.scons:rw,Z \
       --volume "$packagepath":/packages:rw,Z \
-      --volume "$scripts":/nidas/scripts \
+      --volume "$scripts":/nidas/scripts:rw,Z \
       $repomount \
       $imagetag "$@"
 }
