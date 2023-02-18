@@ -7,8 +7,6 @@ from SCons.Script import Environment, SConscript, BoolVariable, Variables
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
 from SCons.Script import SConsignFile
 import eol_scons
-import subprocess as sp
-import platform
 
 # Here are the supported build targets, expressed in the form arch-machine,
 # which loosely follows the GNU GCC machine configuration name of
@@ -150,31 +148,16 @@ def check_target(env):
 
 build = check_target(env)
 
-
-def get_variant_dir(env):
-    """
-    Derive the variant build dir for the arch and mach of the given
-    environment.
-    """
-    arch = env.get('ARCH')
-    mach = env.get('MACH')
-    vdir = "build"
-    if arch and arch != 'host':
-        vdir += "_" + arch
-    if mach and mach != 'host':
-        vdir += "_" + mach
-    return vdir
-
-
-# as soon as we know the target, we can set the path to the variant build dir
-env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
+# as soon as we know the target, apply the tool to set the variant build dir
+# in the VARIANT_DIR environment variable.
+env.Tool('variant_dir')
 
 # it might be ok to use the same database for different variant builds, since
 # all the paths are different, and presumably that way the source signatures
 # can be shared.  however, if that ever seems to cause problems, this puts the
 # .sconsign database in the variant dir also.
 if False:
-    SConsignFile(get_variant_dir(env) + "/.sconsign")
+    SConsignFile("$VARIANT_DIR/.sconsign")
 
 ARCH = env['ARCH']
 MACH = env['MACH']
