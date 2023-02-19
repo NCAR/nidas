@@ -203,7 +203,10 @@ int ExtractFast2D::run() throw()
                 list<DSMSensor *>::const_iterator dsm_it;
                 for (dsm_it = sensors.begin(); dsm_it != sensors.end(); ++dsm_it)
                 {
-                    if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
+//cout << "Sensor = " << (*dsm_it)->getCatalogName() << (*dsm_it)->getSuffix() << endl;
+                    if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) &&
+                         (*dsm_it)->getCatalogName().compare(0, 5, "TWODS") != 0 &&
+                         ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
                         continue;
 
                     cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName()
@@ -233,7 +236,7 @@ int ExtractFast2D::run() throw()
                     if ((*dsm_it)->getCatalogName().find("_v2") != std::string::npos)
                     {
                         p->clockFreq = 33.333;  // 33 Mhz clock for the second version
-                        p->waveLength = 660;// New laser is 660 
+                        p->waveLength = 660;    // New laser is 660
                     }
 
                     parm = p->sensor->getParameter("ClockFrequency");
@@ -257,6 +260,14 @@ int ExtractFast2D::run() throw()
                     }
                     else
                         p->nDiodes = 32;	// Old probe, should only be 2DP on ADS3.
+
+                    if ((*dsm_it)->getCatalogName().compare("TWODS") == 0)
+                    {
+                        p->id = htons(0x5331);
+                        p->nDiodes = 128;
+                        p->clockFreq = 20;      // 20 Mhz clock
+                        p->waveLength = 785;    // nano meters
+                    }
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
                         p->id = htons(0x4331 + Ccnt++);
@@ -301,6 +312,7 @@ int ExtractFast2D::run() throw()
 
 		if (includeIds.size() > 0) {
 		    if (includeIds.find(id) != includeIds.end()) {
+//cout << "length=" << samp->getDataByteLength() << "\n";
                         if (samp->getDataByteLength() == 4104) {
                             const int * dp = (const int *) samp->getConstVoidDataPtr();
                             int stype = bigEndian->int32Value(*dp++);
@@ -363,6 +375,17 @@ int ExtractFast2D::run() throw()
                                 outFile.write((char *)&record, sizeof(record));
                             else
                                 ++probe->rejectRecordCount;
+                        }
+                        if (samp->getDataByteLength() == 4121) {    // SPEC compressed data.
+                            const int * dp = (const int *) samp->getConstVoidDataPtr();
+                            P2d_rec record;
+                            Probe *probe = probeList[id];
+
+                            record.id = probe->id;
+                            setTimeStamp(record, samp);
+
+                            ++probe->recordCount;
+                            outFile.write((char *)dp, 4121);
                         }
 		    }
 		}
@@ -492,8 +515,8 @@ size_t ExtractFast2D::computeDiodeCount(Probe * probe, const unsigned char * rec
       {
         for (size_t j = 0; j < 8; ++j) // 8 bits.
           if (((slice[i] << j) & 0x80) == 0x00) {
-            probe->diodeCount[i*nBytes + j]++;
-            diodeCnt[i*nBytes + j]++;
+            probe->diodeCount[i*8 + j]++;
+            diodeCnt[i*8 + j]++;
           }
       }
     }
