@@ -16,6 +16,7 @@ def setup_variables(env: Environment):
     global _variables
     if _variables:
         _variables.Update(env)
+        return
     _variables = env.GlobalVariables()
     _variables.Add('KERNELDIR', """
  Path to linux kernel headers for native builds of kernel modules.  Use
