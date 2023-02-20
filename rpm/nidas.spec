@@ -104,26 +104,21 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 %build
 
 cd src
-%{scons} -j 4 --config=force gitinfo=off BUILDS=host REPO_TAG=v%{version} %{buildarinc} %{buildmodules} PREFIX=%{nidas_prefix}
-
+%{scons} -j 4 --config=force gitinfo=off BUILD=host \
+ REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
+ PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
+ SYSCONFIGDIR=%{_sysconfdir}
 
 %install
 rm -rf $RPM_BUILD_ROOT
 
 cd src
-%{scons} -j 4 BUILDS=host gitinfo=off PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} %{buildarinc} %{buildmodules} REPO_TAG=v%{version} install
+%{scons} -j 4 --config=force gitinfo=off BUILD=host \
+ REPO_TAG=v%{version} %{buildarinc} %{buildmodules} \
+ PREFIX=%{nidas_prefix} PKGCONFIGDIR=%{_libdir}/pkgconfig \
+ SYSCONFIGDIR=%{_sysconfdir} \
+ INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
 cd -
-
-install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
-echo "%{nidas_prefix}/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
-
-install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
-# scons puts entire $RPM_BUILD_ROOT string in nidas.pc, remove it for package
-sed -r -i "s,$RPM_BUILD_ROOT,," \
-        $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
-
-cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
-        $RPM_BUILD_ROOT%{_libdir}/pkgconfig
 
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
