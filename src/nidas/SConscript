@@ -28,6 +28,25 @@ for dir in subdirs:
 
 env.Alias('lib', subdirs[0:3])
 
-installs += ['$ARCHPREFIX/include', '$ARCHPREFIX/$ARCHLIBDIR']
+installs += ['${INSTALL_ROOT}$ARCHPREFIX/include',
+             '${INSTALL_ROOT}$ARCHPREFIX/$ARCHLIBDIR']
 
 env.Alias('install', installs)
+
+ldc = env.Substfile('nidas.conf.in')
+etcldc = env.Install('${SYSCONFIGDIR}/ld.so.conf.d', ldc)
+env.Alias('install.root', etcldc)
+
+# Build nidas.pc.  This substitutes PREFIX as the intended installation
+# location, even if everything is being installed under INSTALL_ROOT.  It gets
+# installed two places: the nidas lib directory and the system pkg-config
+# directory, using two separate aliases, install and install.root.
+env['SUBST_DICT'] = {
+    '@PREFIX@': '$PREFIX',
+    '@ARCHLIBDIR@': '$ARCHLIBDIR',
+    '@ARCHPREFIX@': '$ARCHPREFIX',
+    '@REPO_TAG@': '$REPO_TAG'
+}
+pc = env.Substfile('nidas.pc.in')
+env.Alias('install', env.Install('$ARCHPREFIX/$ARCHLIBDIR/pkgconfig', pc))
+env.Alias('install.root', env.Install('${PKGCONFIGDIR}', pc))

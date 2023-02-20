@@ -198,6 +198,6 @@ if arch != 'host':
     utilenv.NidasUtilProgram('gps_nmea_sysclock.cc')
     utilenv.NidasUtilProgram('garmin.cc')
 
-env.Alias('install', ['$PREFIX/bin'])
+env.Alias('install', ['${INSTALL_ROOT}$PREFIX/bin'])
 
 env.Default(['.'])

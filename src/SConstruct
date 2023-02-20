@@ -3,9 +3,9 @@
 
 import textwrap
 import SCons
-from SCons.Script import Environment, SConscript, BoolVariable, Variables
+from SCons.Script import SConsignFile, Variables
+from SCons.Script import Environment, SConscript, BoolVariable
 from SCons.Script import COMMAND_LINE_TARGETS, ARGUMENTS, AddOption
-from SCons.Script import SConsignFile
 import eol_scons
 
 # Here are the supported build targets, expressed in the form arch-machine,
@@ -49,6 +49,8 @@ opts: Variables
 opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
+
+env.Tool('install_root')
 
 # Only one target architecture can be built in a single scons run, and each
 # target uses a different variant build dir.
@@ -238,7 +240,7 @@ if ARCH == 'host' and env.File("tests/SConscript").exists():
     SConscript("tests/SConscript", exports={'env': env})
 
 # Install the schema where it can be referenced globally on the system.
-env.Alias('install', env.Install('$PREFIX/share/xml','#xml/nidas.xsd'))
+env.Alias('install', env.Install('$PREFIX/share/xml', '#xml/nidas.xsd'))
 
 dox = env.Command('#/../doc/doxygen',
               '#/../doc/doxygen_conf/nidas.doxy',
