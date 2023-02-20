@@ -128,9 +128,6 @@ cp $RPM_BUILD_ROOT%{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc \
 install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
 
-install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
-install -m 0664 pkg_files/root/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
-
 install -m 0755 -d $RPM_BUILD_ROOT/usr/lib/udev/rules.d
 install -m 0664 pkg_files/udev/rules.d/* $RPM_BUILD_ROOT/usr/lib/udev/rules.d
 
@@ -255,9 +252,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/scripts/*
 %{nidas_prefix}/bin/data_influxdb
-
-%config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
-%config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
 
