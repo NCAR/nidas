@@ -240,7 +240,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/test_irig
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
-%{nidas_prefix}/scripts/*
 %{nidas_prefix}/bin/data_influxdb
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd

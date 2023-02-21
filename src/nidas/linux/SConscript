@@ -38,9 +38,9 @@ subdirs = env.Split("""
 """)
 
 
-# create a Revision header specifically for the kernel modules to include
-info = env.GitInfo("$VARIANT_DIR/include/nidas/linux/Revision.h",
-                   "#/nidas/linux")
+# Create a Revision header specifically for the kernel modules to include.
+# Like for nidas/Revision.h, this is not built into the variant dir.
+info = env.GitInfo("#/nidas/linux/Revision.h", "#/nidas/linux")
 env.Alias('install', env.Install('$ARCHPREFIX/include/nidas/linux', info))
 
 

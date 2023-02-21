@@ -130,7 +130,7 @@ EOD
     cd -    # back to top
 
     tar czf $topdir/SOURCES/${dopkg}-${version}.tar.gz \
-            rpm pkg_files filters src/SConstruct src/nidas src/tools src/firmware src/nidas.pc.in src/build/include \
+            rpm pkg_files filters src/SConstruct src/nidas src/tools src/firmware \
             src/xml doc/doxygen_conf || exit $?
 
     # edit_cal has an rpath of /usr/{lib,lib64}

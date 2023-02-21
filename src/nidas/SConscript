@@ -14,9 +14,11 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 installs = []
 installs += env.Install('$ARCHPREFIX/include/nidas','include/nidas/Config.h')
 
-# Update Revision.h from git describe
+# Build Revision.h from git describe.  This does not depend on the target,
+# only the source repo, so it is not installed in the variant dir but in the
+# source tree, where it can be included easily in source archives.
 env.Tool('gitinfo')
-info = env.GitInfo("include/nidas/Revision.h", "#/nidas")
+info = env.GitInfo("#/nidas/Revision.h", "#/nidas")
 installs += env.Install('$ARCHPREFIX/include/nidas', info)
 
 env.PrependUnique(CPPPATH=['$VARIANT_DIR/include'])
