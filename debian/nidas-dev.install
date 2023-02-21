@@ -1,3 +1,4 @@
 opt/nidas/include/*
 opt/nidas/lib/*/*.so
 usr/lib/*/pkgconfig/*
+opt/nidas/bin/start_podman

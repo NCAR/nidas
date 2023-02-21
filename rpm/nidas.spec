@@ -120,9 +120,6 @@ cd src
  INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
 cd -
 
-install -m 0755 -d $RPM_BUILD_ROOT%{nidas_prefix}/scripts
-install -m 0775 pkg_files%{nidas_prefix}/scripts/* $RPM_BUILD_ROOT%{nidas_prefix}/scripts
-
 install -m 0755 -d $RPM_BUILD_ROOT/usr/lib/udev/rules.d
 install -m 0664 pkg_files/udev/rules.d/* $RPM_BUILD_ROOT/usr/lib/udev/rules.d
 
@@ -130,8 +127,6 @@ cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
-
-install -m 0664 pkg_files%{nidas_prefix}/bin/start_podman $RPM_BUILD_ROOT%{nidas_prefix}/bin
 
 %post libs
 
@@ -288,8 +283,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(0775,root,root,0775)
 %config /usr/lib/udev/rules.d/99-nidas.rules
 %config(noreplace) %{_sysconfdir}/default/nidas-daq
-# %%config(noreplace) %%{_sysconfdir}/init.d/dsm_server
-# %%config(noreplace) %%{_sysconfdir}/init.d/dsm
 
 %files devel
 %defattr(0664,root,root,2775)
@@ -303,8 +296,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/%{_lib}/libnidas_util.a
 %{nidas_prefix}/%{_lib}/libnidas.so
 %{nidas_prefix}/%{_lib}/libnidas_dynld.so
-# %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_TiltSensor.so
-# %%{nidas_prefix}/%%{_lib}/nidas_dynld_iss_WICORSensor.so
 %config %{nidas_prefix}/%{_lib}/pkgconfig/nidas.pc
 %config %{_libdir}/pkgconfig/nidas.pc
 %attr(0775,-,-) %{nidas_prefix}/bin/start_podman
