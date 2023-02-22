@@ -35,7 +35,9 @@ def _os_from_settings(settings):
 
 def get_os():
     """
-    Return a string identifying host OS.  The string is empty if lsb_release
+    Return a string identifying host OS using parameters from the
+    /etc/os-release file.  The form is <ID><VERSION_ID>, like fedora37 or
+    raspbian10.
     """
     global _os
     if _os is None:
@@ -72,6 +74,10 @@ def get_variant_dir(env):
 
 def generate(env):
     env['VARIANT_DIR'] = '#/' + get_variant_dir(env)
+    # stash the variant identifiers for use elsewhere, qualified by the name
+    # of this tool.
+    env['VARIANT_OS'] = get_os()
+    env['VARIANT_ARCH'] = get_arch()
 
 
 def exists(env):

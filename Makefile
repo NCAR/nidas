@@ -88,8 +88,6 @@ BUILDS ?= "host"
 REPO_TAG ?= v1.2
 PREFIX=/opt/nidas
 
-LDCONF := $(DESTDIR)/etc/ld.so.conf.d/nidas-$(DEB_HOST_MULTIARCH).conf
-
 ARCHLIBDIR := lib/$(DEB_HOST_MULTIARCH)
 
 MODDIR := $(DESTDIR)/lib/modules
@@ -118,11 +116,7 @@ endif
 # Where to find pkg-configs of other software
 PKG_CONFIG_PATH := /usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
-# Copy nidas.pc from $(PREFIX) to /usr/lib
-PKGCONFIG := $(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/nidas.pc
-SCONSPKGCONFIG := $(DESTDIR)$(PREFIX)/$(ARCHLIBDIR)/pkgconfig/nidas.pc
-
-.PHONY : build clean scons_install $(LDCONF)
+.PHONY : build clean scons_install
 
 $(info DESTDIR=$(DESTDIR))
 $(info DEB_BUILD_GNU_TYPE=$(DEB_BUILD_GNU_TYPE))
@@ -141,26 +135,15 @@ build:
 		LINUX_MODULES=$(LINUX_MODULES) \
 		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH)
 
-$(LDCONF):
-	@mkdir -p $(@D); \
-	echo "/opt/nidas/lib/$(DEB_HOST_MULTIARCH)" > $@
-
 scons_install:
 	cd src; $(SCONS) -j 4 BUILDS=$(BUILDS) \
 		REPO_TAG=$(REPO_TAG) \
 		PREFIX=$(DESTDIR)$(PREFIX) \
 		ARCHLIBDIR=$(ARCHLIBDIR) \
 		LINUX_MODULES=$(LINUX_MODULES) \
-		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install
+		PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) install install.root
 
-$(SCONSPKGCONFIG): scons_install
-
-$(PKGCONFIG): $(SCONSPKGCONFIG)
-	mkdir -p $(@D); \
-	sed -i -e "s,$(DESTDIR),," $<; \
-	cp $< $@
-
-install: scons_install $(LDCONF) $(PKGCONFIG)
+install: scons_install
 	if [ -n "$(TITAN_KERN)" ]; then\
 	    mkdir -p $(MODDIR)/$(TITAN_KERN)/nidas;\
 	    mv $(SCONSMODDIR)/titan/* $(MODDIR)/$(TITAN_KERN)/nidas;\
