@@ -28,9 +28,6 @@ RUN echo deb http://archive.debian.org/debian/ jessie main >> /etc/apt/sources.l
 RUN echo "Acquire::Check-Valid-Until no;" > /etc/apt/apt.conf.d/99no-check-valid-until
 RUN cat /etc/apt/sources.list
 
-# The emdebian repo is no longer reachable, so disable it.
-RUN mv /etc/apt/sources.list.d/crosstools.list /etc/apt/sources.list.d/crosstools.list.disable
-
 # add boost-regex/filesystem
 RUN apt-get -y --no-install-recommends --allow-unauthenticated install libboost-regex1.55-dev:${hostarch} libboost-filesystem1.55-dev:${hostarch}
 
