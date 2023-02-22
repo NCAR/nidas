@@ -55,6 +55,16 @@ FsMount::FsMount(const FsMount& x): DOMable(),
     _mountProcess(),_umountProcess()
 {}
 
+FsMount::~FsMount()
+{
+    DLOG(("FsMount destructor: %s at %s", _deviceMsg.c_str(),
+          _dirMsg.c_str()));
+    // make sure worker thread quits and is prevented from calling back into
+    // this object by cancelling it.
+    cancel();
+}
+
+
 FsMount& FsMount::operator=(const FsMount& rhs)
 {
     if (&rhs != this) {
@@ -178,7 +188,7 @@ void FsMount::mount(FileSet* fset)
     _fileset = fset;
     if (isMounted()) {
         _fileset->mounted();
-	return;
+        return;
     }
     cancel();		// cancel previous request if running
     n_u::Synchronized autolock(_workerLock);
@@ -197,20 +207,19 @@ void FsMount::cancel()
 {
     n_u::Synchronized autolock(_workerLock);
     if (_worker) {
-	// since we have the workerLock and worker is non-null
-	// the joiner will not delete the worker
-	if (!_worker->isJoined()) {
-	    if (_worker->isRunning()) {
-#ifdef DEBUG
-		DLOG(("cancelling previous mount of %s with SIGUSR1 signal",getDevice().c_str()));
-#endif
-		try {
-		    _worker->kill(SIGUSR1);
+        // since we have the workerLock and worker is non-null
+        // the joiner will not delete the worker
+        if (!_worker->isJoined()) {
+            if (_worker->isRunning()) {
+                DLOG(("cancelling previous mount of ")
+                     << getDevice() << "with SIGUSR1 signal");
+                try {
+                    _worker->kill(SIGUSR1);
                 }
-		catch(const n_u::Exception& e) {
-		    PLOG(("cannot cancel mount of %s: %s",
-			    getDevice().c_str(),e.what()));
-		}
+                catch(const n_u::Exception& e) {
+                    PLOG(("cannot cancel mount of %s: %s",
+                          getDevice().c_str(), e.what()));
+                }
                 int status;
                 // kill any mount process
                 try {
@@ -224,10 +233,10 @@ void FsMount::cancel()
                         }
                     }
                 }
-		catch(const n_u::Exception& e) {
-		    PLOG(("cannot kill mount of %s: %s",
-			    getDevice().c_str(),e.what()));
-		}
+                catch(const n_u::Exception& e) {
+                    PLOG(("cannot kill mount of %s: %s",
+                          getDevice().c_str(), e.what()));
+                }
                 // kill any unmount process
                 try {
                     if (_umountProcess.getPid() > 0) {
@@ -240,24 +249,38 @@ void FsMount::cancel()
                         }
                     }
                 }
-		catch(const n_u::Exception& e) {
-		    PLOG(("cannot kill umount of %s: %s",
-			    getDevice().c_str(),e.what()));
-		}
-	    }
-	    // worker run method starts the ThreadJoiner
-	}
+                catch(const n_u::Exception& e) {
+                    PLOG(("cannot kill umount of %s: %s",
+                          getDevice().c_str(), e.what()));
+                }
+                // this does not return until the worker thread has called
+                // finished().
+                _workerLock.wait();
+            }
+            // worker run method starts the ThreadJoiner
+        }
     }
 }
 
-void FsMount::finished()
+void FsMount::finished(bool mounted)
 {
-    // cerr << "FsMount::finished" << endl;
+    // the worker thread has finished successfully or has been interrupted.
+    // either way it is going away and the connection should be severed.  this
+    // runs inside the worker thread, possibly at the same time a different
+    // thread is running the FsMount destructor.  this cannot access the
+    // object memory once the lock has been released, because then cancel()
+    // finishes and the destructor returns.  thus the FileSet::mounted()
+    // callback happens while holding the lock, and that's ok because that
+    // method just calls isMounted() on this object.  It does seem like this
+    // could be a little less convoluted...
+    DLOG(("") << "FsMount::finished()");
     _workerLock.lock();
     _worker = 0;
+    if (mounted)
+        _fileset->mounted();
+    _workerLock.signal();
     _workerLock.unlock();
-    _fileset->mounted();
-    // cerr << "FsMount::finished finished" << endl;
+    DLOG(("") << "FsMount::finished() finished");
 }
 
 void FsMount::unmount()
@@ -290,13 +313,13 @@ bool FsMount::isMounted() {
     ifstream mfile("/proc/mounts");
 
     for (;;) {
-	string mdev,mpt;
-	mfile >> mdev >> mpt;
+        string mdev,mpt;
+        mfile >> mdev >> mpt;
         // cerr << "mdev=" << mdev << " mpt=" << mpt << endl;
-	mfile.ignore(1000,'\n');
-	if (mfile.fail()) return false;
-	if (mfile.eof()) return false;
-	if (mpt == getDirExpanded()) return true;
+        mfile.ignore(1000,'\n');
+        if (mfile.fail()) return false;
+        if (mfile.eof()) return false;
+        if (mpt == getDirExpanded()) return true;
     }
 }
 
@@ -305,7 +328,7 @@ void FsMount::fromDOMElement(const xercesc::DOMElement* node)
 {
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
-	// get all the attributes of the node
+        // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
         for(int i=0;i<nSize;++i) {
@@ -313,35 +336,79 @@ void FsMount::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "dir") setDir(aval);
-	    else if (aname == "dev") setDevice(aval);
-	    else if (aname == "type") setType(aval);
-	    else if (aname == "options") setOptions(aval);
-	    else throw n_u::InvalidParameterException("mount",
-			"unrecognized attribute", aname);
-	}
+            if (aname == "dir") setDir(aval);
+            else if (aname == "dev") setDevice(aval);
+            else if (aname == "type") setType(aval);
+            else if (aname == "options") setOptions(aval);
+            else throw n_u::InvalidParameterException("mount",
+                        "unrecognized attribute", aname);
+        }
     }
 }
 
-FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
-    n_u::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt)
+FsMountWorkerThread::
+FsMountWorkerThread(FsMount* fsmnt):
+    n_u::Thread(string("mount:") + fsmnt->getDevice()),
+    fsmount(fsmnt)
 {
     unblockSignal(SIGUSR1);
 }
 
+
+FsMountWorkerThread::~FsMountWorkerThread()
+{
+    DLOG(("") << "FsMountWorkerThread destructor.");
+}
+
+
+/**
+ * We want finished() to be called even if the worker thread run() method
+ * happens to throw an uncaught exception, so use a scoped guard to make sure
+ * it gets called automatically if not explicitly.
+ */
+struct FinishedGuard
+{
+    FsMount* _fsmount;
+
+    FinishedGuard(FsMount* fsmount): _fsmount(fsmount) {}
+
+    void finished(bool mounted)
+    {
+        if (_fsmount)
+            _fsmount->finished(mounted);
+        _fsmount = nullptr;
+    }
+
+    ~FinishedGuard()
+    {
+        finished(false);
+    }
+
+    FinishedGuard(const FinishedGuard&) = delete;
+    FinishedGuard& operator=(const FinishedGuard&) = delete;
+};
+
+
 int FsMountWorkerThread::run() throw(n_u::Exception)
 {
+    FinishedGuard guard(fsmount);
+    DLOG(("") << "FsMountWorkerThread::run()...");
     int sleepsecs = 30;
+    bool ok = false;
     for (int i = 0;; i++) {
         if (isInterrupted()) break;
-	try {
+        try {
             // try "real" mount first, then autoMount
-	    if (!(i % 2)) fsmount->mount();
-            else fsmount->autoMount();
-	    break;
-	}
-	catch(const n_u::IOException& e) {
-	    if (e.getErrno() == EINTR) break;
+            if (!(i % 2))
+                fsmount->mount();
+            else
+                fsmount->autoMount();
+            // mount attempt succeeded without an exception
+            ok = true;
+            break;
+        }
+        catch(const n_u::IOException& e) {
+            if (e.getErrno() == EINTR) break;
             if (isInterrupted()) break;
             if (i == 0) PLOG(("%s mount: %s", getName().c_str(),e.what()));
             else {
@@ -350,12 +417,15 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
                 struct timespec slp = { sleepsecs, 0};
                 ::nanosleep(&slp,0);
             }
-	}
-	catch(const n_u::Exception& e) {
+        }
+        catch(const n_u::Exception& e) {
             PLOG(("%s mount: %s", getName().c_str(),e.what()));
         }
     }
-    fsmount->finished();
+    guard.finished(ok);
+    // make it clear that we cannot use fsmount past this point, because we
+    // just signalled that it's ok for it to finish a destruction in progress.
+    fsmount = 0;
     n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
     joiner->start();
     return RUN_OK;

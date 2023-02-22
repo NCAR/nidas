@@ -27,6 +27,8 @@
 #include "DSMPowerCtrl.h"
 #include "FtdiDSMPowerCtrl.h"
 #include "SysfsDSMPowerCtrl.h"
+#include "Logger.h"
+
 
 namespace nidas { namespace util {
 
@@ -56,5 +58,98 @@ DSMPowerCtrl::DSMPowerCtrl(GPIO_PORT_DEFS gpio)
     }
     updatePowerState();
 }
+
+
+DSMPowerCtrl::~DSMPowerCtrl()
+{
+    DLOG(("DSMPowerCtrl::~DSMPowerCtrl(): destructing..."));
+}
+
+void DSMPowerCtrl::pwrOn()
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrOn();
+    }
+    updatePowerState();
+}
+
+void DSMPowerCtrl::pwrOff()
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrOff();
+    }
+    updatePowerState();
+}
+
+void DSMPowerCtrl::updatePowerState()
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->updatePowerState();
+    }
+}
+
+void DSMPowerCtrl::print()
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->print();
+    }
+}
+
+bool DSMPowerCtrl::ifaceAvailable()
+{
+    return _pPwrCtrl ? _pPwrCtrl->ifaceAvailable() : false;
+}
+
+void DSMPowerCtrl::enablePwrCtrl(bool enable)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->enablePwrCtrl(enable);
+    }
+}
+
+bool DSMPowerCtrl::pwrCtrlEnabled()
+{
+    return _pPwrCtrl ? _pPwrCtrl->pwrCtrlEnabled() : false;
+}
+
+void DSMPowerCtrl::setPower(POWER_STATE newPwrState)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->setPower(newPwrState);
+    }
+}
+
+void DSMPowerCtrl::setPowerState(POWER_STATE pwrState)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->setPowerState(pwrState);
+    }
+}
+
+POWER_STATE DSMPowerCtrl::getPowerState()
+{
+    POWER_STATE retval = ILLEGAL_POWER;
+    if (_pPwrCtrl) {
+        retval = _pPwrCtrl->getPowerState();
+    }
+    return retval;
+}
+
+void DSMPowerCtrl::pwrReset(uint32_t pwrOnDelayMs, uint32_t pwrOffDelayMs)
+{
+    if (_pPwrCtrl) {
+        _pPwrCtrl->pwrReset(pwrOnDelayMs, pwrOffDelayMs);
+    }
+}
+
+bool DSMPowerCtrl::pwrIsOn()
+{
+    bool retval = false;
+    if (_pPwrCtrl) {
+        retval = _pPwrCtrl->pwrIsOn();
+    }
+    return retval;
+}
+
 
 }} //namespace nidas { namespace util {

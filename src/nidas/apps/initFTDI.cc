@@ -137,6 +137,6 @@ main(int argc, char* argv[])
             }
         }
     }
-
+    ftdi_free(ftdi);
 }
 

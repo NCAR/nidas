@@ -9,7 +9,12 @@ env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
-tests = env.Program('tSerialSensorAutoConfig', ["tSerialSensor.cc", "tgill.cc"])
+sources = env.Split("""
+tSerialSensor.cc
+tgill.cc
+tgpio.cc
+""")
+tests = env.Program('tSerialSensorAutoConfig', sources)
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()

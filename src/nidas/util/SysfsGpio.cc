@@ -41,13 +41,15 @@
 #include "InvalidParameterException.h"
 #include "util.h"
 
+#include <map>
+
 using namespace std;
 namespace bf = boost::filesystem;
 
 namespace nidas { namespace util {
 
-static const std::string PROCFS_CPUINFO = "/proc/cpuinfo";
-static std::ostringstream SYSFS_GPIO_ROOT_PATH("/sys/class/gpio");
+static const std::string PROCFS_CPUINFO{"/proc/cpuinfo"};
+static const std::string SYSFS_GPIO_ROOT_PATH{"/sys/class/gpio"};
 static const int RPI_GPIO_MIN = 2;
 static const int RPI_GPIO_MAX = 27;
 
@@ -58,7 +60,7 @@ Cond SysfsGpio::Sync::_sysfsCondVar;
  */
 SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
 : _rpiGpio(rpiGPIO), _foundInterface(false),
-  _gpioValueFile(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app),
+  _gpioValueFile{},
   _direction(dir), _shadow(0)
 {
     bool gpioNAlreadyExists = false;
@@ -93,16 +95,16 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
 
             if (isRaspberryPi) {
                 DLOG(("SysfsGpio::SysfsGpio(): Found Raspberry Pi system, checking to see if GPIO is already exported."));
-                std::ostringstream sysfsGpioN(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
+                std::ostringstream sysfsGpioN(SYSFS_GPIO_ROOT_PATH);
                 sysfsGpioN << "/gpio" << _rpiGpio;
 
                 // check to see if gpioN has been exported, and export if needed
                 if (!bf::exists(bf::path(sysfsGpioN.str().c_str()))) {
                     DLOG(("SysfsGpio::SysfsGpio(): GPIO is not exported - attempting export to: ") << sysfsGpioN.str());
-                    std::ostringstream sysfsGpioExport(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
+                    std::ostringstream sysfsGpioExport(SYSFS_GPIO_ROOT_PATH);
                     sysfsGpioExport << "/export";
                     DLOG(("SysfsGpio::SysfsGpio(): Export to: ") << sysfsGpioExport.str());
-                    std::ofstream exportStrm(sysfsGpioExport.str().c_str(), std::ios_base::out|std::ios_base::app);
+                    std::ofstream exportStrm(sysfsGpioExport.str().c_str());
 
                     // Find the export executable?
                     if (exportStrm.good()) {
@@ -178,7 +180,7 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
     std::fstream gpioFileStream;
 
     if (_foundInterface || gpioNAlreadyExists) {
-        std::ostringstream gpioDirFile(SYSFS_GPIO_ROOT_PATH.str(), std::ios_base::out|std::ios_base::app);
+        std::ostringstream gpioDirFile(SYSFS_GPIO_ROOT_PATH);
         gpioDirFile << "/gpio" << _rpiGpio << "/direction";
         DLOG(("SysfsGpio::SysfsGpio(): Attempting to open Rpi GPIO") << _rpiGpio << " direction control on this sysfs path: " << gpioDirFile.str());
         gpioFileStream.open(gpioDirFile.str().c_str(), std::_S_in| std::_S_out);
@@ -208,9 +210,11 @@ SysfsGpio::SysfsGpio(RPI_PWR_GPIO rpiGPIO, RPI_GPIO_DIRECTION dir)
             DLOG(("SysfsGpio::SysfsGpio(): Could not open gpio direction file:") << gpioDirFile.str());
         }
 
-        _gpioValueFile << "/gpio" << _rpiGpio << "/value";
-        DLOG(("SysfsGpio::SysfsGpio(): Attempting to open Rpi GPIO value file on this sysfs path: ") << _gpioValueFile.str());
-        gpioFileStream.open(_gpioValueFile.str().c_str(), std::_S_in| std::_S_out);
+        std::ostringstream buf(SYSFS_GPIO_ROOT_PATH);
+        buf << "/gpio" << _rpiGpio << "/value";
+        _gpioValueFile = buf.str();
+        DLOG(("SysfsGpio::SysfsGpio(): Attempting to open Rpi GPIO value file on this sysfs path: ") << _gpioValueFile);
+        gpioFileStream.open(_gpioValueFile.c_str(), std::_S_in| std::_S_out);
         if (gpioFileStream.good()) {
             _foundInterface = true;
             DLOG(("SysfsGpio::SysfsGpio(): Interface found: GPIO") << _rpiGpio);
@@ -230,13 +234,13 @@ unsigned char SysfsGpio::read()
 {
     unsigned char retval = _shadow;
     if (ifaceFound()) {
-        DLOG(("SysfsGpio::read(): Reading gpio from ") << _gpioValueFile.str());
-        std::fstream gpioFileStream(_gpioValueFile.str().c_str(), std::ios_base::in);
+        DLOG(("SysfsGpio::read(): Reading gpio from ") << _gpioValueFile);
+        std::fstream gpioFileStream(_gpioValueFile.c_str(), std::ios_base::in);
         if (gpioFileStream.good()) {
             gpioFileStream.seekg(0, std::ios::beg);
             gpioFileStream >> retval;
             _shadow = retval;
-            DLOG(("SysfsGpio::read(): Value read from") << _gpioValueFile.str() << " is " << (char)retval);
+            DLOG(("SysfsGpio::read(): Value read from") << _gpioValueFile << " is " << (char)retval);
             gpioFileStream.close();
         }
     }
@@ -249,14 +253,62 @@ unsigned char SysfsGpio::read()
 void SysfsGpio::write(unsigned char pins)
 {
     if (ifaceFound()) {
-        std::fstream gpioFileStream(_gpioValueFile.str().c_str(), std::ios_base::out|std::ios_base::app);
+        std::fstream gpioFileStream(_gpioValueFile.c_str(), std::ios_base::out|std::ios_base::app);
         if (gpioFileStream.good()) {
             gpioFileStream << pins;
-            DLOG(("SysfsGpio::write(): Value written to ") << _gpioValueFile.str() << " is " << (char)pins);
+            DLOG(("SysfsGpio::write(): Value written to ") << _gpioValueFile << " is " << (char)pins);
             gpioFileStream.close();
         }
     }
     _shadow = pins;
+}
+
+
+RPI_PWR_GPIO gpioPort2RpiGpio(GPIO_PORT_DEFS gpio)
+{
+    static std::map<GPIO_PORT_DEFS, RPI_PWR_GPIO> names
+    {
+        { SER_PORT0, RPI_PWR_SER_0 },
+        { SER_PORT1, RPI_PWR_SER_1 },
+        { SER_PORT2, RPI_PWR_SER_2 },
+        { SER_PORT3, RPI_PWR_SER_3 },
+        { SER_PORT4, RPI_PWR_SER_4 },
+        { SER_PORT5, RPI_PWR_SER_5 },
+        { SER_PORT6, RPI_PWR_SER_6 },
+        { SER_PORT7, RPI_PWR_SER_7 },
+        { PWR_DCDC, RPI_PWR_DCDC },
+        { PWR_AUX, RPI_PWR_AUX },
+        { PWR_BANK1, RPI_PWR_BANK1 },
+        { PWR_BANK2, RPI_PWR_BANK2 },
+    };
+
+    auto iter = names.find(gpio);
+    if (iter != names.end())
+        return iter->second;
+    DLOG(("gpioPort2RpiPwrGpio(): unknown GPIO_PORT_DEFS value: ") << gpio);
+    return static_cast<RPI_PWR_GPIO>(-1);
+}
+
+
+SysfsGpio::Sync::Sync(SysfsGpio* me):
+    Synchronized(Sync::_sysfsCondVar),
+    _me(me)
+{
+    DLOG(("Synced on SysfsGpio"));
+}
+
+SysfsGpio::Sync::~Sync()
+{
+    DLOG(("Sync released on SysfsGpio"));
+    _me = 0;
+}
+
+SysfsGpio::~SysfsGpio()
+{}
+
+bool SysfsGpio::ifaceFound()
+{
+    return _foundInterface;
 }
 
 

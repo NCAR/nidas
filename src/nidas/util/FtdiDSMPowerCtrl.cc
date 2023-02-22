@@ -30,25 +30,12 @@ namespace nidas { namespace util {
 
 const std::string FtdiDSMPowerCtrl::rawPowerToStr(unsigned char powerCfg)
 {
-    std::string powerStr("");
-    if (powerCfg & _pwrBit) {
-        powerStr.append(STR_POWER_ON);
-    }
-    else {
-        powerStr.append(STR_POWER_OFF);
-    }
-
-    return powerStr;
+    return powerStateToStr((powerCfg & _pwrBit) ? POWER_ON : POWER_OFF);
 }
 
 POWER_STATE FtdiDSMPowerCtrl::rawPowerToState(unsigned char powerCfg)
 {
-    POWER_STATE retval = POWER_OFF;
-    if (powerCfg & _pwrBit) {
-        retval = POWER_ON;
-    }
-
-    return retval;
+    return (powerCfg & _pwrBit) ? POWER_ON : POWER_OFF;
 }
 
 

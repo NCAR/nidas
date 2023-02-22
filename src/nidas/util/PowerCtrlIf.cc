@@ -24,57 +24,54 @@
  ********************************************************************
 */
 
-#include "FtdiSensorPowerCtrl.h"
+#include "PowerCtrlIf.h"
 
-#include <string>
+#include <algorithm>
+#include <sstream>
 
 namespace nidas { namespace util {
 
-const std::string FtdiSensorPowerCtrl::rawPowerToStr(unsigned char powerCfg)
+static const char* STR_POWER_ON = "POWER_ON";
+static const char* STR_POWER_OFF = "POWER_OFF";
+
+// This utility converts a string to the POWER_STATE enum
+POWER_STATE strToPowerState(const std::string& powerStr)
 {
-    return powerStateToStr((powerCfg & SENSOR_BITS_POWER) ?
-                           POWER_ON : POWER_OFF);
-}
-
-
-POWER_STATE FtdiSensorPowerCtrl::rawPowerToState(unsigned char powerCfg)
-{
-    return (powerCfg & SENSOR_BITS_POWER) ? POWER_ON : POWER_OFF;
-}
-
-
-FtdiSensorPowerCtrl::FtdiSensorPowerCtrl(GPIO_PORT_DEFS port)
-: FtdiXcvrGPIO(port), PowerCtrlAbs(), _port(port)
-{
-    updatePowerState();
-}
-
-void FtdiSensorPowerCtrl::pwrOn()
-{
-    if (pwrCtrlEnabled()) {
-        write(SENSOR_BITS_POWER, SENSOR_BITS_POWER);
+    std::string xformStr(powerStr);
+    std::transform(powerStr.begin(), powerStr.end(), xformStr.begin(), ::toupper);
+    if (xformStr == std::string(STR_POWER_OFF)
+        || xformStr == std::string("OFF")
+        || xformStr == std::string("0")) {
+        return POWER_OFF;
     }
-    else {
-        ILOG(("FtdiSensorPowerCtrl::FtdiSensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
+
+    if (powerStr == std::string(STR_POWER_ON)
+        || xformStr == std::string("ON")
+        || xformStr == std::string("1")) {
+        return POWER_ON;
     }
-    updatePowerState();
+
+    return ILLEGAL_POWER;
 }
 
-void FtdiSensorPowerCtrl::pwrOff()
+std::string powerStateToStr(POWER_STATE sensorState)
 {
-    if (pwrCtrlEnabled()) {
-        write(0, SENSOR_BITS_POWER);
+    switch (sensorState) {
+        case POWER_OFF:
+            return std::string(STR_POWER_OFF);
+            break;
+        case POWER_ON:
+            return std::string(STR_POWER_ON);
+            break;
+        default:
+            std::ostringstream sstrm("Unknown sensor power state: ");
+            sstrm << sensorState;
+            return sstrm.str();
+            break;
     }
-    else {
-        ILOG(("FtdiSensorPowerCtrl::FtdiSensorPowerCtrl(): Power control for device: ") << _port << " is not enabled");
-    }
-    updatePowerState();
 }
 
-void FtdiSensorPowerCtrl::updatePowerState()
-{
-    setPowerState(rawPowerToState(read()));
-    DLOG(("power state: %s", powerStateToStr(getPowerState()).c_str()));
-}
+PowerCtrlIf::~PowerCtrlIf() {}
+
 
 }} //namespace nidas { namespace util {
