@@ -6,11 +6,13 @@ using boost::unit_test_framework::test_suite;
 
 #include <nidas/dynld/isff/GILL2D.h>
 
+#include <memory>
+
 using namespace nidas::dynld::isff;
 
 BOOST_AUTO_TEST_CASE(test_gill_outputrate)
 {
-    GILL2D* gill = new GILL2D();
+    std::unique_ptr<GILL2D> gill(new GILL2D());
 
     BOOST_CHECK_EQUAL(gill->validOutputRate(10), true);
     BOOST_CHECK_EQUAL(gill->validOutputRate(9), false);
