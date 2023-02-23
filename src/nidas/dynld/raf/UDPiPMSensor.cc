@@ -44,7 +44,8 @@ const int UDPiPMSensor::MAX_CHANNELS = 8;
 
 
 UDPiPMSensor::UDPiPMSensor() :
-    _deviceAddr(), _statusPort(0), _ctrl_pid(0)
+    _deviceAddr(), _statusPort(0), _measureRate(0), _recordPeriod(0),
+    _baudRate(0), _numAddr(0), _addrInfo(8), _ctrl_pid(0)
 {
 
 }
@@ -70,6 +71,44 @@ void UDPiPMSensor::validate()
           "status_port", "not found");
     _statusPort = (unsigned int)p->getNumericValue(0);
     ILOG(("status_port is %u", _statusPort));
+
+    p = getParameter("measurerate"); // STATUS & MEASURE collection rate (hz)
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "measurerate", "not found");
+    _measureRate = (unsigned int)p->getNumericValue(0);
+    ILOG(("measurerate is %u", _measureRate));
+
+    p = getParameter("recordperiod"); // Period of RECORD queries (minutes)
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "recordperiod", "not found");
+    _recordPeriod = (unsigned int)p->getNumericValue(0);
+    if (_recordPeriod < 10) throw n_u::InvalidParameterException(getName(),
+          "recordperiod", "must be >= 10");
+    ILOG(("recordperiod is %u", _recordPeriod));
+
+    p = getParameter("baudrate"); // Baud rate
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "baudrate", "not found");  // TBD: default to 115200
+    _baudRate = (unsigned int)p->getNumericValue(0);
+    ILOG(("baudrate is %u", _baudRate));
+
+    p = getParameter("num_addr"); // Number of addresses being used
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "num_addr", "not found");
+    _numAddr = (unsigned int)p->getNumericValue(0);
+    ILOG(("%u addresses in use on port %u", _numAddr, _statusPort));
+
+    for (int i=0; i < _numAddr; i++)
+    {
+        p = getParameter("dev" + std::to_string(i));  // details of address i
+        if (!p) throw n_u::InvalidParameterException(getName(),
+              "dev", "not found");
+        // addrInfo string contains addr, numphases, procquery, port,
+        // eg 0,1,5,30101
+        _addrInfo[i] = p->getStringValue(0);
+        ILOG(("device info for addresses %d: %s", i, _addrInfo[i].c_str()));
+    }
+
 }
 
 void UDPiPMSensor::open(int flags)
@@ -85,7 +124,13 @@ void UDPiPMSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        char *args[20], port[32];
+        char *args[40];
+        //char port[32];
+        char m_rate[32];
+        char r_period[32];
+        char baud[32];
+        char num_addr[32];
+        std::vector<std::string> addrnum(8);
         int argc = 0;
         char cmd[256] = "";
         int cmd_len = 0;
@@ -101,6 +146,37 @@ void UDPiPMSensor::open(int flags)
             args[argc++] = (char *)"--port";
             args[argc++] = (char *)port;
         } */
+
+        if (_measureRate > 0) {
+            sprintf(m_rate, "%u", _measureRate);
+            args[argc++] = (char *)"-m";
+            args[argc++] = (char *)m_rate;
+        }
+
+        if (_recordPeriod > 0) {
+            sprintf(r_period, "%u", _recordPeriod);
+            args[argc++] = (char *)"-r";
+            args[argc++] = (char *)r_period;
+        }
+
+        if (_baudRate > 0) {
+            sprintf(baud, "%u", _baudRate);
+            args[argc++] = (char *)"-b";
+            args[argc++] = (char *)baud;
+        }
+
+        if (_numAddr > 0) {
+            sprintf(num_addr, "%u", _numAddr);
+            args[argc++] = (char *)"-n";
+            args[argc++] = (char *)num_addr;
+        }
+
+        for (int i=0; i < _numAddr; i++)
+        {
+            addrnum[i] = "-" + std::to_string(i);
+            args[argc++] = (char *)addrnum[i].c_str();
+            args[argc++] = (char *)_addrInfo[i].c_str();
+        }
 
         args[argc] = (char *)0;
 
@@ -121,6 +197,8 @@ void UDPiPMSensor::open(int flags)
         {
             ILOG(("UDPiPMSensor: error executing command %s", cmd));
             exit(1);
+        } else {
+            ILOG(("UDPiPMSensor: success!!! %s", cmd));
         }
     }
 }
