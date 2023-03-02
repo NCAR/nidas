@@ -664,9 +664,9 @@ float
 CalFile::
 getFloatField(int column, const std::vector<std::string>* fields)
 {
-    float data;
-    getFields(column, column+1, &data, fields);
-    return data;
+    float data[1];
+    getFields(column, column+1, data, fields);
+    return data[0];
 }
 
 
