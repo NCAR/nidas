@@ -26,7 +26,6 @@
 
 #include "DSMPowerCtrl.h"
 #include "FtdiDSMPowerCtrl.h"
-#include "SysfsDSMPowerCtrl.h"
 #include "Logger.h"
 
 
@@ -41,18 +40,10 @@ DSMPowerCtrl::DSMPowerCtrl(GPIO_PORT_DEFS gpio)
         if (!_pPwrCtrl->ifaceAvailable()) {
             DLOG(("FTDI Power Control not found, tear it down..."));
             delete _pPwrCtrl;
-            DLOG(("Attempting to use Sysfs Power Control..."));
-            _pPwrCtrl = new SysfsDSMPowerCtrl(gpio);
-            if (!_pPwrCtrl) {
-                DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Failed to instantiate SysfsDSMPowerCtrl object!!"));
-                throw Exception("DSMPowerCtrl::DSMPowerCtrl()", "Failed to reserve memory for SysfsDSMPowerCtrl object.");
-            }
-            else {
-                DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Instantiated SysfsDSMPowerCtrl object and it is ") << (ifaceAvailable() ? "" : "NOT ") << "available.");
-            }
+            _pPwrCtrl = 0;
         }
     }
-    else {
+    if (!_pPwrCtrl) {
         DLOG(("DSMPowerCtrl::DSMPowerCtrl(): Failed to instantiate FtdiDSMPowerCtrl object!!"));
         throw Exception("DSMPowerCtrl::DSMPowerCtrl()", "Failed to reserve memory for FtdiDSMPowerCtrl object.");
     }

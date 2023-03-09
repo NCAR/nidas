@@ -26,9 +26,8 @@
 */
 /* pio.cc
 
-    User space code that uses libusb and libftdi to bit bang specific FT4243 devices in the DSM.
-    It uses these devices to programmatically manage the power state of the sensor serial ports, 
-    as well as other power controllable entities in the DSM.
+    User space code to manage the power state of the sensor serial ports, as
+    well as other power controllable entities in the DSM.
 
     Original Author: Paul Ourada
 
@@ -42,8 +41,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <libusb-1.0/libusb.h>
-#include "ftdi.h"
 #include "nidas/core/NidasApp.h"
 #include "nidas/util/SensorPowerCtrl.h"
 #include "nidas/util/DSMPowerCtrl.h"
@@ -52,9 +49,6 @@
 
 using namespace nidas::core;
 using namespace nidas::util;
-
-// global bool used to determine whether to use the old /proc filesystem control, or the new FTDI control.
-bool useFTDICtrl = true;
 
 typedef std::map<std::string, GPIO_PORT_DEFS> DeviceArgMapType;
 typedef std::pair<std::string, GPIO_PORT_DEFS> DeviceArgMapPair;

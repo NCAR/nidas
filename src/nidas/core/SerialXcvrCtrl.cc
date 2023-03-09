@@ -26,6 +26,7 @@
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 #include "SerialXcvrCtrl.h"
+#include <ftdi.h>
 
 #include <algorithm>
 #include <limits>

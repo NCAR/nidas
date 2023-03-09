@@ -26,7 +26,6 @@
 #ifndef NIDAS_CORE_SERIALXCVRCONTROL_H
 #define NIDAS_CORE_SERIALXCVRCONTROL_H
 
-#include <ftdi.h>
 #include <sstream>
 
 #include "nidas/util/FtdiXcvrGPIO.h"

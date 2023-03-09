@@ -26,7 +26,6 @@
 
 #include "SensorPowerCtrl.h"
 #include "FtdiSensorPowerCtrl.h"
-#include "SysfsSensorPowerCtrl.h"
 
 namespace nidas { namespace util {
 
@@ -50,15 +49,10 @@ SensorPowerCtrl::SensorPowerCtrl(GPIO_PORT_DEFS port)
     if (_pPwrCtrl) {
         if (!_pPwrCtrl->ifaceAvailable()) {
             delete _pPwrCtrl;
-
-            _pPwrCtrl = new SysfsSensorPowerCtrl(port);
-            if (!_pPwrCtrl) {
-                DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Failed to instantiate SysfsSensorPowerCtrl object!!"));
-                throw Exception("SensorPowerCtrl::SensorPowerCtrl()", "Failed to reserve memory for SysfsSensorPowerCtrl object.");
-            }
+            _pPwrCtrl = 0;
         }
     }
-    else {
+    if (!_pPwrCtrl) {
         DLOG(("SensorPowerCtrl::SensorPowerCtrl(): Failed to instantiate FtdiSensorPowerCtrl object!!"));
         throw Exception("SensorPowerCtrl::SensorPowerCtrl()", "Failed to reserve memory for FtdiSensorPowerCtrl object.");
     }

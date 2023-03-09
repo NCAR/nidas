@@ -27,7 +27,6 @@
 #define NIDAS_UTIL_SERIALPOWERCTRL_H
 
 #include "FtdiXcvrGPIO.h"
-#include "SysfsGpio.h"
 #include "PowerCtrlIf.h"
 
 namespace nidas { namespace util {

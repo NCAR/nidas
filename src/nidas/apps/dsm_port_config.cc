@@ -26,32 +26,33 @@
 */
 /* dsm_port_config.cc
 
-    User space code that uses libusb and libftdi to bit bang the third FT4243 device in 
-    the DSM to programmatically configure the UARTS attached to the other two FT4232H devices 
-    for port type (RS23, RS422).
+    User space code programmatically configures serial ports for port type
+    (RS232, RS422).
 
-    NOTE: The FTDI used for the bit banging cannot be bound to the libftdi_sio kernel mode 
-          driver. See the manpage for bind/unbind and lsusb.
+    NOTE: The FTDI used for the bit banging cannot be bound to the libftdi_sio
+          kernel mode driver. See the manpage for bind/unbind and lsusb.
 
-    The DSM uses two FTDI FT4232H USB-Serial devices. Each of these devices has four TTL 
-    level serial outputs. Each of the FT4232H devices' outputs are sent to one of four Exar SP339
-    DUART devices which results in a total of 8 serial devices.
+    The DSM uses two FTDI FT4232H USB-Serial devices. Each of these devices
+    has four TTL level serial outputs. Each of the FT4232H devices' outputs
+    are sent to one of four Exar SP339 DUART devices which results in a total
+    of 8 serial devices.
 
-    The Exar SP339 devices are capable of operating in one of four distinct modes: 
+    The Exar SP339 devices are capable of operating in one of four distinct
+    modes: 
 
-    Loopback
-    RS232
-    RS485 half duplex
-    RS485/RS422 full duplex
+    Loopback RS232 RS485 half duplex RS485/RS422 full duplex
 
-    The Exar SP339 uses two mode pin inputs M0/M1 to determine whether the device is in Loopback, 
-    RS232, RS485 half/full duplex or RS422 full duplex modes. It has a third pin, TERM, which defines whether it
-    is configured for 100 ohm or 96 kohm line termination schemes. The DSM currently uses dual 
-    header connectors and jumpers to configure the Exar SP339 device ports.
+    The Exar SP339 uses two mode pin inputs M0/M1 to determine whether the
+    device is in Loopback, RS232, RS485 half/full duplex or RS422 full duplex
+    modes. It has a third pin, TERM, which defines whether it is configured
+    for 100 ohm or 96 kohm line termination schemes. The DSM currently uses
+    dual header connectors and jumpers to configure the Exar SP339 device
+    ports.
 
-    The future DSM uses a third FT4232H device configured for bit banging mode to provide 
-    general I/O capability to control the Exar SP339 port configuration via its M0/1, TERM and DIR input pins.    
-    
+    The future DSM uses a third FT4232H device configured for bit banging mode
+    to provide general I/O capability to control the Exar SP339 port
+    configuration via its M0/1, TERM and DIR input pins.    
+
     Original Author: Paul Ourada
 
 */
@@ -62,8 +63,6 @@
 #include <sstream>
 #include <vector>
 #include <unistd.h>
-#include <libusb-1.0/libusb.h>
-#include <ftdi.h>
 #include <termios.h>
 
 #include "nidas/core/NidasApp.h"

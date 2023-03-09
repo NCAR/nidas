@@ -66,9 +66,6 @@ headers = [ Split("""
     SerialPort.h
     SocketAddress.h
     Socket.h
-    SysfsGpio.h
-    SysfsDSMPowerCtrl.h
-    SysfsSensorPowerCtrl.h
     Termios.h
     Thread.h
     ThreadSupport.h
@@ -113,9 +110,6 @@ sources = [ Split("""
     SerialOptions.cc
     SerialPort.cc
     Socket.cc
-    SysfsGpio.cc
-    SysfsDSMPowerCtrl.cc
-    SysfsSensorPowerCtrl.cc
     Termios.cc
     Thread.cc
     ThreadSupport.cc
