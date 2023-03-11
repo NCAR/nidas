@@ -57,14 +57,13 @@ DeviceArgMapType deviceArgMap;
 
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|btcon|default_sw|wifi_sw",
+NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|default_sw|wifi_sw",
         		 "DSM devices for which power setting is managed - \n"
 		         "     0-7         - Sensors 0-7 port power \n"
                  "     dcdc|DCDC   - programmable DC power port\n"
                  "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
                  "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
                  "     bank2|BANK2 - bank2 12V power port - resets the RPi\n"
-                 "     btcon|BTCON - bluetooth console hat board on Rpi\n"
                  "     def_sw      - detects default switch, SW1 on FTDI USB Serial Board\n"
                  "     wifi_sw  -    detects wifi switch, SW2 on FTDI USB Serial Board\n",
                  "");
@@ -170,7 +169,6 @@ int main(int argc, char* argv[]) {
     deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
     deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BTCON"), PWR_BTCON));
     deviceArgMap.insert(DeviceArgMapPair(std::string("DEF_SW"), DEFAULT_SW));
     deviceArgMap.insert(DeviceArgMapPair(std::string("WIFI_SW"), WIFI_SW));
 
