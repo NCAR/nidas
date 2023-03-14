@@ -67,8 +67,6 @@ NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|default_s
                  "     def_sw      - detects default switch, SW1 on FTDI USB Serial Board\n"
                  "     wifi_sw  -    detects wifi switch, SW2 on FTDI USB Serial Board\n",
                  "");
-NidasAppArg Map("-m,--map", "",
-			      "Output the devices for which power can be controlled and exit", "");
 NidasAppArg View("-v,--view", "",
 			      "Output the current power settings for all devices and exit",
                   "");
@@ -98,7 +96,7 @@ int usage(const char* argv0)
 int parseRunString(int argc, char* argv[])
 {
     app.enableArguments(app.loggingArgs() | app.Help
-    		            | Device | Map | View | Power);
+    		            | Device | View | Power);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
@@ -111,7 +109,7 @@ int parseRunString(int argc, char* argv[])
     }
 
     // implement positional arguments, as per Jira ticket ISFS-410
-    if ( !(Map.specified() || View.specified() || Device.specified() || Power.specified()) ) {
+    if ( !(View.specified() || Device.specified() || Power.specified()) ) {
         ArgVector unknowns = app.unparsedArgs();
         if (unknowns.size() >= 2) {
             Device.parse(ArgVector{"-d", unknowns[0]});
@@ -174,13 +172,6 @@ int main(int argc, char* argv[]) {
 
     if (parseRunString(argc, argv))
         exit(1);
-
-    // check the options first
-    DLOG(("Map Option Flag Set: ") << (Map.specified() ? "true" : "false"));
-    if (Map.specified()) {
-        std::cout << Device.usage();
-        return 0;
-    }
 
     DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
     if (View.specified()) {
