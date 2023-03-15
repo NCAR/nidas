@@ -23,3 +23,5 @@ env.NidasKernelModule(
     ['emerald.c', 'dmd_mmat.c', 'gpio_mm.c', 'gpio_mm_regs.h', 'ir104.c',
      *env.SymbolModules('revinfo', 'util', 'filters', 'irig')],
      headers)
+
+env.InstallModuleConf('diamond.conf')

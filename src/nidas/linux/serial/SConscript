@@ -16,3 +16,5 @@ env.NidasKernelModule(
     ['pcmcom8.ko'],
     ['pcmcom8.c', *env.SymbolModules('revinfo')],
     headers)
+
+env.InstallModuleConf('pcmcom8.conf')

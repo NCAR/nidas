@@ -121,11 +121,18 @@ def NidasKernelModule(env, modules, sources, headers=None):
     return targets
 
 
+def InstallModuleConf(env: Environment, modconf):
+    "Pseudo-builder to install modprobe.d conf files."
+    if env.get("LINUX_MODULES", True):
+        conf = env.Install('${INSTALL_ROOT}/etc/modprobe.d', modconf)
+        env.Alias('install.root', conf)
+
+
 def nidas_kernel_modules(env: Environment):
     "Tool to add the ModuleSymbols method to an Environment."
     env.AddMethod(SymbolModules)
     env.AddMethod(NidasKernelModule)
-
+    env.AddMethod(InstallModuleConf)
 
 #
 # Invoke SConscripts in subdirs to create linux modules.
@@ -159,3 +166,5 @@ for subdir in subdirs:
     env.SConscript('%s/SConscript' % subdir, exports=[{'env': env}])
 
 env.Alias('install', env.Install('$LINUX_MODULES_INC', headers))
+
+env.InstallModuleConf('nidas.conf')
