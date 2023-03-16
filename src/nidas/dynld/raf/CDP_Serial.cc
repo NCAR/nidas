@@ -195,7 +195,8 @@ bool CDP_Serial::process(const Sample* samp, list<const Sample*>& results)
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (5.0 / 4095),ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (10.0 / 4095),ivar++);
     value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
-    *dout++ = convert(ttag, 0.06401 * value - 50.0, ivar++);
+//    *dout++ = convert(ttag, 0.06401 * value - 50.0, ivar++);
+    *dout++ = convert(ttag, -0.04782 * value + 153.97, ivar++);
 
     *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualBndwdth),ivar++);
