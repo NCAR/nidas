@@ -25,3 +25,6 @@ env.NidasKernelModule(
      headers)
 
 env.InstallModuleConf('diamond.conf')
+
+install = env.Install("$PREFIX/bin", ['irout', 'vout'])
+env.Alias('install', install)
