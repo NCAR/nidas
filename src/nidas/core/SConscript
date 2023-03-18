@@ -57,6 +57,7 @@ headers = Split("""
     DynamicLoader.h
     FileSet.h
     FsMount.h
+    HardwareInterface.h
     HeaderSource.h
     IOChannel.h
     IODevice.h
@@ -170,6 +171,8 @@ sources = Split("""
     DynamicLoader.cc
     FileSet.cc
     FsMount.cc
+    HardwareInterface.cc
+    HardwareInterfaceFTDI.cc
     HeaderSource.cc
     IOChannel.cc
     IOStream.cc
