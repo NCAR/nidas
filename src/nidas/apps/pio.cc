@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include "nidas/core/NidasApp.h"
+#include "nidas/core/HardwareInterface.h"
 #include "nidas/util/SensorPowerCtrl.h"
 #include "nidas/util/DSMPowerCtrl.h"
 #include "nidas/util/DSMSwitchCtrl.h"
@@ -50,10 +51,8 @@
 using namespace nidas::core;
 using namespace nidas::util;
 
-typedef std::map<std::string, GPIO_PORT_DEFS> DeviceArgMapType;
-typedef std::pair<std::string, GPIO_PORT_DEFS> DeviceArgMapPair;
-
-DeviceArgMapType deviceArgMap;
+using std::cout;
+using std::endl;
 
 NidasApp app("pio");
 
@@ -77,19 +76,15 @@ NidasAppArg Power("-p,--power", "<on>",
 
 int usage(const char* argv0)
 {
-    std::cerr
-<< argv0 << " is a utility to control the power of various DSM devices." << std::endl
-<< "It detects the presence of the FTDI USB Serial Interface board and uses it if " << std::endl
-<< "it is available. Otherwise, it attempts to use the Rpi GPIO script to do the same " << std::endl
-<< "function. If the utility is not executed on a Rpi device, it will exit with an error." << std::endl
-<< std::endl
-<< "Usage: " << argv0 << " -d <device ID> -p <power state> -l <log level>" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -m -l <log level>" << std::endl
-<< "       " << argv0 << " # same as " << argv0 << " --view" << std::endl << std::endl
-<< app.usage();
+    const char* text = R""""(
+Query and control power relays, sensor power, LEDs, and pushbutton switches.
 
+Examples:
+  Turn off power to the sensor in port 0: pio 0 off
+  Turn on the LED for the wifi button: pio wifi on
+  Turn off the auxiliary power port: pio aux off
+)"""";
+    std::cerr << text << app.usage();
     return 1;
 }
 
@@ -120,55 +115,25 @@ int parseRunString(int argc, char* argv[])
     return 0;
 }
 
-void printDevice(GPIO_PORT_DEFS port)
-{
-    if (port < PWR_DCDC) {
-        SensorPowerCtrl(port).print();
-    }
-    else {
-        DSMPowerCtrl(port).print();
-    }
-}
 
 void printAll()
 {
-    std::cout << "Current Power Settings" << std::endl
-              << "----------------------" << std::endl
+    std::cout << "Current Output Settings" << std::endl
+              << "-----------------------" << std::endl
               << "Device          Setting"<< std::endl;
-    // Print out serial port power settings first
-    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
-         iter != deviceArgMap.end();
-         iter++) {
-        if (iter->second < PWR_DCDC) {
-            printDevice(iter->second);
-        }
-    }
-
-    // Then print out DSM power settings
-    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
-         iter != deviceArgMap.end();
-         iter++) {
-        if (iter->second > SER_PORT7) {
-            printDevice(iter->second);
+    // Print the current state for all power outputs.
+    HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
+    for (auto device: hwi->devices())
+    {
+        if (auto oi = device.iOutput())
+        {
+            cout << device.id() << " " << oi->getState() << endl;
         }
     }
 }
 
+
 int main(int argc, char* argv[]) {
-    deviceArgMap.insert(DeviceArgMapPair(std::string("0"), SER_PORT0));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("1"), SER_PORT1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("2"), SER_PORT2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("3"), SER_PORT3));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("4"), SER_PORT4));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("DCDC"), PWR_DCDC));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("DEF_SW"), DEFAULT_SW));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("WIFI_SW"), WIFI_SW));
 
     if (parseRunString(argc, argv))
         exit(1);
@@ -182,25 +147,15 @@ int main(int argc, char* argv[]) {
     DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
     GPIO_PORT_DEFS deviceArg = ILLEGAL_PORT;
     if (Device.specified()) {
-        std::string deviceArgStr(Device.getValue());
-        std::transform(deviceArgStr.begin(), deviceArgStr.end(), deviceArgStr.begin(), ::toupper);
-        if (deviceArgMap.find(deviceArgStr) != deviceArgMap.end()) {
-            deviceArg = deviceArgMap[deviceArgStr];
-            DLOG(("deviceArg == %d", deviceArg));
-            DLOG(("Found %s in deviceArgMap...", gpio2Str(deviceArg).c_str()));
-            if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, WIFI_SW))) {
-                std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
-                usage(argv[0]);
-                return 2;
-            }
-        }
-        else {
-            std::cerr << deviceArgStr << " is not a valid device type!" << std::endl;
+        HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
+        HardwareDevice device = hwi->lookupDevice(Device.getValue());
+        if (device.isEmpty())
+        {
+            std::cerr << "Device '" << Device.getValue() << "' not recognized." << endl;
             usage(argv[0]);
-            return 6;
+            return 2;
         }
     }
-
     else 
     {
         std::cerr << "Must provide the device ID option on the command line.\n" << std::endl;
