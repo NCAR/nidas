@@ -1,6 +1,3 @@
-/**
- * @file HardwareInterface.h
- */
 /*
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
@@ -24,12 +21,12 @@
  **
  ********************************************************************
  */
-
 #ifndef _HARDWAREINTERFACE_H_
 #define _HARDWAREINTERFACE_H_
 
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace nidas {
 namespace core {
@@ -62,10 +59,24 @@ class ButtonInterface;
 class HardwareDevice
 {
 public:
-    HardwareDevice(const std::string& id="",
-                   const std::string& description="");
+    HardwareDevice(const std::string& id="");
 
+    /**
+     * Return the string id for this device.  The id is unique for all
+     * hardware devices, but the id is not unique for all interfaces, since a
+     * single device may provide multiple interfaces.
+     *
+     * @return std::string 
+     */
     std::string id() const;
+
+    /**
+     * Lookup the description for this device in the current implementation,
+     * or else return the default description if there is no current
+     * implementation.
+     *
+     * @return std::string 
+     */
     std::string description() const;
 
     /**
@@ -82,8 +93,11 @@ public:
 
 private:
     std::string _id;
-    std::string _description;
 };
+
+
+class HardwareDeviceImpl;
+class HardwareDeviceMap;
 
 
 /**
@@ -97,28 +111,28 @@ private:
  * serial card says P1.  So symbols for both are defined here, but they refer
  * to the same device, with string id "p1".
  */
-struct Devices {
+namespace Devices {
     // On DSM3, these serial ports have power and serial port interfaces.
-    static const HardwareDevice PORT0;
-    static const HardwareDevice PORT1;
-    static const HardwareDevice PORT2;
-    static const HardwareDevice PORT3;
-    static const HardwareDevice PORT4;
-    static const HardwareDevice PORT5;
-    static const HardwareDevice PORT6;
-    static const HardwareDevice PORT7;
+    extern const HardwareDevice PORT0;
+    extern const HardwareDevice PORT1;
+    extern const HardwareDevice PORT2;
+    extern const HardwareDevice PORT3;
+    extern const HardwareDevice PORT4;
+    extern const HardwareDevice PORT5;
+    extern const HardwareDevice PORT6;
+    extern const HardwareDevice PORT7;
 
     // On DSM3, these are power relays with only output interfaces.
-    static const HardwareDevice DCDC;
-    static const HardwareDevice BANK1;
-    static const HardwareDevice BANK2;
-    static const HardwareDevice AUX;
+    extern const HardwareDevice DCDC;
+    extern const HardwareDevice BANK1;
+    extern const HardwareDevice BANK2;
+    extern const HardwareDevice AUX;
 
     // On DSM3, these are the button/LED pairs with both output and button
     // interfaces.
-    static const HardwareDevice P1;
-    static const HardwareDevice DEF;
-    static const HardwareDevice WIFI;
+    extern const HardwareDevice P1;
+    extern const HardwareDevice DEF;
+    extern const HardwareDevice WIFI;
 };
 
 
@@ -159,6 +173,16 @@ struct Devices {
 class HardwareInterface
 {
 public:
+    /**
+     * The path name for a HardwareInterface which returns no specific device
+     * interfaces.
+     */
+    static const std::string NULL_INTERFACE;
+
+    /**
+     * The path name for a HardwareInterface implemented entirely in software.
+     */
+    static const std::string MOCK_INTERFACE;
 
     /**
      * @brief Return a HardwareInterface implementation.
@@ -170,7 +194,10 @@ public:
      * interfaces to query and control them.
      *
      * If a specific implementation was named and is not available, or if no
-     * default implementation is available, then return null.
+     * default implementation is available, then an interface is returned
+     * which has no implementations, with the name "null".  This way callers
+     * can always count on getting a non-null pointer value from this
+     * function, even if there are no hardware devices available.
      *
      * The returned pointer may or may not be a singleton, but either way the
      * caller should not delete it.  The pointer is owned by the
@@ -214,12 +241,33 @@ public:
 
     virtual ~HardwareInterface();
 
+    /**
+     * Return a SerialPortInterface for the given @p device if one exists in
+     * the current HardwareInterface implementation.  Usually this interface
+     * should be accessed through the HardwareDevice::iSerial() method.  The
+     * pointer lifetime is limited to the life of the HardwareInterface
+     * implementation.
+     */
     virtual SerialPortInterface*
     getSerialPortInterface(const HardwareDevice& device);
 
+    /**
+     * Return an OutputInterface for the given @p device if one exists in the
+     * current HardwareInterface implementation.  Usually this interface
+     * should be accessed through the HardwareDevice::iOutput() method.  The
+     * pointer lifetime is limited to the life of the HardwareInterface
+     * implementation.
+     */
     virtual OutputInterface*
     getOutputInterface(const HardwareDevice& device);
 
+    /**
+     * Return a ButtonInterface for the given @p device if one exists in the
+     * current HardwareInterface implementation.  Usually this interface
+     * should be accessed through the HardwareDevice::iButton() method.  The
+     * pointer lifetime is limited to the life of the HardwareInterface
+     * implementation.
+     */
     virtual ButtonInterface*
     getButtonInterface(const HardwareDevice& device);
 
@@ -250,6 +298,9 @@ public:
      */
     virtual HardwareDevice
     lookupDevice(const std::string& id);
+
+    static std::string
+    lookupDescription(const HardwareDevice& device);
 
     /**
      * @brief Return all the standard devices in a vector.
@@ -288,9 +339,48 @@ public:
      */
     virtual std::vector<HardwareDevice> buttons();
 
-private:
+protected:
+
+    /**
+     * Subclass implementations can cache HardwareDeviceImpl objects with the
+     * base class so they can be returned automatically the next time an
+     * interface is needed.  Also all cached devices will be deleted when the
+     * HardwareInterface is destroyed.
+     *
+     * @param device 
+     */
+    void
+    add_device_impl(const HardwareDeviceImpl& device);
+
+    /**
+     * Return a pointer to the cached HardwareDeviceImpl with the same id as
+     * @p device, or else return null.  The pointer is only valid until the
+     * device map changes.
+     *
+     * @param device 
+     * @return HardwareDeviceImpl* 
+     */
+    HardwareDeviceImpl*
+    lookup_device_impl(const HardwareDevice& device);
+
+    virtual OutputInterface*
+    createOutputInterface(HardwareDeviceImpl* dimpl);
+
+    virtual SerialPortInterface*
+    createSerialPortInterface(HardwareDeviceImpl* dimpl);
+
+    virtual ButtonInterface*
+    createButtonInterface(HardwareDeviceImpl* dimpl);
 
     std::string _path;
+
+    /**
+     * Use the pimpl pattern so the HardwareDeviceImpl definition is not
+     * exposed.  The reference is for convenience.
+     */
+    std::unique_ptr<HardwareDeviceMap> _devices_ptr;
+    HardwareDeviceMap& _devices;
+
 };
 
 
@@ -325,17 +415,21 @@ public:
     virtual
     ~SerialPortInterface();
 
-    PORT_TYPES
-    getMode();
+    /**
+     * Return the current port configuration in @p ptype and @p term.
+     * 
+     * Parameters can be passed as null if not wanted.
+     */
+    virtual void
+    getConfig(PORT_TYPES* ptype, TERM* term);
 
-    TERM
-    getTermination();
-
-    virtual bool
-    setMode(PORT_TYPES mode);
-
-    virtual bool
-    setTermination(TERM term);
+    /**
+     * Set the port configuration in @p ptype and @p term.
+     *
+     * Parameters passed as null will not be changed.
+     */
+    virtual void
+    setConfig(PORT_TYPES* ptype, TERM* term);
 
 private:
 
@@ -362,11 +456,17 @@ public:
 
     virtual STATE getState();
 
+    virtual void setState(STATE state);
+
+    /**
+     * Base implementation calls setState(ON).
+     */
     virtual void on();
 
+    /**
+     * Base implementation calls setState(OFF).
+     */
     virtual void off();
-
-    virtual void setState(STATE state);
 
     static std::string stateToString(STATE state);
     static STATE stringToState(const std::string& text);
@@ -391,6 +491,16 @@ public:
     ~ButtonInterface();
 
     virtual STATE getState();
+
+    /**
+     * Base implementation returns true if getState() returns UP.
+     */
+    virtual bool isUp();
+
+    /**
+     * Base implementation returns true if getState() returns DOWN.
+     */
+    virtual bool isDown();
 
     /**
      * @brief Set the mock state when used as a mock interface.

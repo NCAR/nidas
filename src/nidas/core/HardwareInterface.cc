@@ -22,18 +22,17 @@
  ********************************************************************
  */
 
-#include "HardwareInterface.h"
+#include "HardwareInterfaceImpl.h"
 #include <algorithm>
 #include <memory>
+#include <map>
+#include <iostream>
 
+#include <nidas/util/Logger.h>
 
 namespace {
 
     using namespace nidas::core;
-
-    SerialPortInterface noop_serial_interface;
-    OutputInterface noop_output_interface;
-    ButtonInterface noop_button_interface;
 
     std::string default_interface_path;
 
@@ -45,64 +44,67 @@ namespace {
 namespace nidas {
 namespace core {
 
-const HardwareDevice Devices::DCDC{"dcdc", "DC-DC converter relay"};
-const HardwareDevice Devices::BANK1{"bank1",
-    "Bank1 12V to serial card and IO panel, not connected on DSM3"};
-const HardwareDevice Devices::BANK2{"bank2",
-    "Bank2 12V socket, for accessories."};
-const HardwareDevice Devices::AUX{"aux",
-    "Auxiliary 12V power, typically chained to other DSMs"};
-const HardwareDevice Devices::PORT0{"port0",
-    "Sensor power on DSM serial port 0"};
-const HardwareDevice Devices::PORT1{"port1",
-    "Sensor power on DSM serial port 1"};
-const HardwareDevice Devices::PORT2{"port2",
-    "Sensor power on DSM serial port 2"};
-const HardwareDevice Devices::PORT3{"port3",
-    "Sensor power on DSM serial port 3"};
-const HardwareDevice Devices::PORT4{"port4",
-    "Sensor power on DSM serial port 4"};
-const HardwareDevice Devices::PORT5{"port5",
-    "Sensor power on DSM serial port 5"};
-const HardwareDevice Devices::PORT6{"port6",
-    "Sensor power on DSM serial port 6"};
-const HardwareDevice Devices::PORT7{"port7",
-    "Sensor power on DSM serial port 7"};
-const HardwareDevice Devices::P1{"p1",
-    "p1 button and LED, also known as default switch."};
-const HardwareDevice Devices::WIFI{"wifi", "wifi button and LED."};
-const HardwareDevice Devices::DEF{P1};
+const std::string HardwareInterface::NULL_INTERFACE("null");
+const std::string HardwareInterface::MOCK_INTERFACE("mock");
+
+namespace Devices
+{
+    const HardwareDevice DCDC("dcdc");
+    const HardwareDevice BANK1("bank1");
+    const HardwareDevice BANK2("bank2");
+    const HardwareDevice AUX("aux");
+    const HardwareDevice PORT0("port0");
+    const HardwareDevice PORT1("port1");
+    const HardwareDevice PORT2("port2");
+    const HardwareDevice PORT3("port3");
+    const HardwareDevice PORT4("port4");
+    const HardwareDevice PORT5("port5");
+    const HardwareDevice PORT6("port6");
+    const HardwareDevice PORT7("port7");
+    const HardwareDevice P1("p1");
+    const HardwareDevice WIFI("wifi");
+    const HardwareDevice DEF(P1);
+}
+
+using namespace Devices;
+
+
+class HardwareDeviceMap: public std::map<std::string, HardwareDeviceImpl>
+{
+public:
+    std::string
+    to_string()
+    {
+        std::ostringstream out;
+        for (auto& pairs: *this)
+        {
+            out << pairs.first << ": (" << pairs.second._id << ","
+                << pairs.second._description << ");";
+        }
+        return out.str();
+    }
+};
 
 
 std::vector<HardwareDevice> HardwareInterface::ports()
 {
     return std::vector<HardwareDevice>{
-        Devices::PORT0,
-        Devices::PORT1,
-        Devices::PORT2,
-        Devices::PORT3,
-        Devices::PORT4,
-        Devices::PORT5,
-        Devices::PORT6,
-        Devices::PORT7
+        PORT0, PORT1, PORT2, PORT3,
+        PORT4, PORT5, PORT6, PORT7
     };
 }
 
 std::vector<HardwareDevice> HardwareInterface::relays()
 {
     return std::vector<HardwareDevice>{
-        Devices::DCDC,
-        Devices::BANK1,
-        Devices::BANK2,
-        Devices::AUX
+        DCDC, BANK1, BANK2, AUX
     };
 }
 
 std::vector<HardwareDevice> HardwareInterface::buttons()
 {
     return std::vector<HardwareDevice>{
-        Devices::P1,
-        Devices::WIFI
+        P1, WIFI
     };
 }
 
@@ -123,10 +125,8 @@ std::vector<HardwareDevice> HardwareInterface::devices()
 
 
 HardwareDevice::
-HardwareDevice(const std::string& id,
-               const std::string& description):
-    _id(id),
-    _description(description)
+HardwareDevice(const std::string& id):
+    _id(id)
 {}
 
 std::string
@@ -138,7 +138,7 @@ HardwareDevice::id() const
 std::string
 HardwareDevice::description() const
 {
-    return _description;
+    return HardwareInterface::lookupDescription(*this);
 }
 
 bool
@@ -172,8 +172,24 @@ HardwareDevice::iButton() const
 
 HardwareInterface::
 HardwareInterface(const std::string& path):
-    _path(path)
+    _path(path),
+    _devices_ptr(new HardwareDeviceMap),
+    _devices(*_devices_ptr)
 {
+    add_device_impl(HardwareDeviceImpl(DCDC, "DC-DC converter relay"));
+    add_device_impl(HardwareDeviceImpl(BANK1, "Bank1 12V to serial card and IO panel, not connected on DSM3"));
+    add_device_impl(HardwareDeviceImpl(BANK2, "Bank2 12V socket, for accessories."));
+    add_device_impl(HardwareDeviceImpl(AUX, "Auxiliary 12V power, typically chained to other DSMs"));
+    add_device_impl(HardwareDeviceImpl(PORT0, "Sensor power on DSM serial port 0"));
+    add_device_impl(HardwareDeviceImpl(PORT1, "Sensor power on DSM serial port 1"));
+    add_device_impl(HardwareDeviceImpl(PORT2, "Sensor power on DSM serial port 2"));
+    add_device_impl(HardwareDeviceImpl(PORT3, "Sensor power on DSM serial port 3"));
+    add_device_impl(HardwareDeviceImpl(PORT4, "Sensor power on DSM serial port 4"));
+    add_device_impl(HardwareDeviceImpl(PORT5, "Sensor power on DSM serial port 5"));
+    add_device_impl(HardwareDeviceImpl(PORT6, "Sensor power on DSM serial port 6"));
+    add_device_impl(HardwareDeviceImpl(PORT7, "Sensor power on DSM serial port 7"));
+    add_device_impl(HardwareDeviceImpl(P1, "p1 button and LED, also known as default switch."));
+    add_device_impl(HardwareDeviceImpl(WIFI, "wifi button and LED."));
 }
 
 
@@ -211,19 +227,88 @@ resetInterface()
 
 
 SerialPortInterface*
-HardwareInterface::getSerialPortInterface(const HardwareDevice&)
+HardwareInterface::getSerialPortInterface(const HardwareDevice& device)
+{
+    HardwareDeviceImpl* dimpl = lookup_device_impl(device);
+    // If this is not already a known device, meaning it's a "standard" device
+    // or one the implementation has already added, then don't bother.
+    if (!dimpl)
+        return nullptr;
+    // return an existing interface
+    if (dimpl->_iserial)
+    {
+        return dimpl->_iserial.get();
+    }
+    // otherwise ask the implementation to create one.
+    if (auto iserial = createSerialPortInterface(dimpl))
+    {
+        dimpl->_iserial.reset(iserial);
+    }
+    return dimpl->_iserial.get();
+}
+
+
+OutputInterface*
+HardwareInterface::getOutputInterface(const HardwareDevice& device)
+{
+    HardwareDeviceImpl* dimpl = lookup_device_impl(device);
+    // If this is not already a known device, meaning it's a "standard" device
+    // or one the implementation has already added, then don't bother.
+    if (!dimpl)
+        return nullptr;
+    // return an existing interface
+    if (dimpl->_ioutput)
+    {
+        return dimpl->_ioutput.get();
+    }
+    // otherwise ask the implementation to create one.
+    if (auto ioutput = createOutputInterface(dimpl))
+    {
+        dimpl->_ioutput.reset(ioutput);
+    }
+    return dimpl->_ioutput.get();
+}
+
+
+ButtonInterface*
+HardwareInterface::getButtonInterface(const HardwareDevice& device)
+{
+    HardwareDeviceImpl* dimpl = lookup_device_impl(device);
+    // If this is not already a known device, meaning it's a "standard" device
+    // or one the implementation has already added, then don't bother.
+    if (!dimpl)
+        return nullptr;
+    // return an existing interface
+    if (dimpl->_ibutton)
+    {
+        return dimpl->_ibutton.get();
+    }
+    // otherwise ask the implementation to create one.
+    if (auto ibutton = createButtonInterface(dimpl))
+    {
+        dimpl->_ibutton.reset(ibutton);
+    }
+    return dimpl->_ibutton.get();
+}
+
+
+OutputInterface*
+HardwareInterface::
+createOutputInterface(HardwareDeviceImpl*)
 {
     return nullptr;
 }
 
-OutputInterface*
-HardwareInterface::getOutputInterface(const HardwareDevice&)
+SerialPortInterface*
+HardwareInterface::
+createSerialPortInterface(HardwareDeviceImpl*)
 {
     return nullptr;
 }
 
 ButtonInterface*
-HardwareInterface::getButtonInterface(const HardwareDevice&)
+HardwareInterface::
+createButtonInterface(HardwareDeviceImpl*)
 {
     return nullptr;
 }
@@ -255,6 +340,43 @@ lookupDevice(const std::string& id)
 }
 
 
+std::string
+HardwareInterface::
+lookupDescription(const HardwareDevice& device)
+{
+    static HardwareInterface default_interface("");
+
+    auto hwi = hardware_interface_singleton.get();
+    if (!hwi)
+        hwi = &default_interface;
+    if (auto dimpl = hwi->lookup_device_impl(device))
+        return dimpl->_description;
+    return "";
+}
+
+
+void
+HardwareInterface::
+add_device_impl(const HardwareDeviceImpl& device)
+{
+    DLOG(("") << "adding " << device._id << ": " << device._description);
+    _devices[device._id] = device;
+    VLOG(("current device impls: ") << _devices.to_string());
+}
+
+
+HardwareDeviceImpl*
+HardwareInterface::
+lookup_device_impl(const HardwareDevice& device)
+{
+    auto it = _devices.find(device.id());
+    if (it != _devices.end())
+        return &(it->second);
+    return nullptr;
+}
+
+
+
 OutputInterface::OutputInterface() :
     _current(STATE::UNKNOWN)
 {}
@@ -275,14 +397,14 @@ void
 OutputInterface::
 on()
 {
-    _current = ON;
+    setState(ON);
 }
 
 void
 OutputInterface::
 off()
 {
-    _current = OFF;
+    setState(OFF);
 }
 
 void
@@ -334,6 +456,22 @@ ButtonInterface::
 {}
 
 
+bool
+ButtonInterface::
+isUp()
+{
+    return getState() == UP;
+}
+
+
+bool
+ButtonInterface::
+isDown()
+{
+    return getState() == DOWN;
+}
+
+
 void
 ButtonInterface::
 mockState(STATE state)
@@ -363,34 +501,25 @@ SerialPortInterface::
 {}
 
 
-SerialPortInterface::PORT_TYPES
+void
 SerialPortInterface::
-getMode()
+getConfig(PORT_TYPES* ptype, TERM* term)
 {
-    return _port_type;
+    if (ptype)
+        *ptype = _port_type;
+    if (term)
+        *term = _termination;
 }
 
-SerialPortInterface::TERM
-SerialPortInterface::
-getTermination()
-{
-    return _termination;
-}
 
-bool
+void
 SerialPortInterface::
-setMode(PORT_TYPES mode)
+setConfig(PORT_TYPES* ptype, TERM* term)
 {
-    _port_type = mode;
-    return true;
-}
-
-bool
-SerialPortInterface::
-setTermination(TERM term)
-{
-    _termination = term;
-    return true;
+    if (ptype)
+        _port_type = *ptype;
+    if (term)
+        _termination = *term;
 }
 
 
@@ -405,36 +534,39 @@ class MockHardwareInterface: public HardwareInterface
 {
 public:
     MockHardwareInterface():
-        HardwareInterface("mock")
+        HardwareInterface(HardwareInterface::MOCK_INTERFACE)
     {}
 
     SerialPortInterface*
-    getSerialPortInterface(const HardwareDevice& device) override
+    createSerialPortInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(device.id(), ports()).isEmpty())
+        if (lookupDevice(dimpl->_id, ports()).isEmpty())
             return nullptr;
-        return &noop_serial_interface;
+        return new SerialPortInterface;
     }
 
     OutputInterface*
-    getOutputInterface(const HardwareDevice& device) override
+    createOutputInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(device.id(), ports()).isEmpty() &&
-            lookupDevice(device.id(), relays()).isEmpty() &&
-            lookupDevice(device.id(), buttons()).isEmpty())
+        if (lookupDevice(dimpl->_id, ports()).isEmpty() &&
+            lookupDevice(dimpl->_id, relays()).isEmpty() &&
+            lookupDevice(dimpl->_id, buttons()).isEmpty())
             return nullptr;
-        return &noop_output_interface;
+        return new OutputInterface;
     }
 
     ButtonInterface*
-    getButtonInterface(const HardwareDevice& device) override
+    createButtonInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(device.id(), buttons()).isEmpty())
+        if (lookupDevice(dimpl->_id, buttons()).isEmpty())
             return nullptr;
-        return &noop_button_interface;
+        return new ButtonInterface;
     }
 
 };
+
+
+extern HardwareInterface* get_hardware_interface_ftdi();
 
 
 HardwareInterface*
@@ -442,11 +574,24 @@ HardwareInterface::getHardwareInterface()
 {
     if (!hardware_interface_singleton)
     {
+        HardwareInterface* hwi = 0;
         // if mock requested, then return it.
-        if (default_interface_path == "mock")
+        if (default_interface_path == MOCK_INTERFACE)
         {
-            hardware_interface_singleton.reset(new MockHardwareInterface());
+            hwi = new MockHardwareInterface();
         }
+        else if (default_interface_path == "ftdi")
+        {
+            hwi = get_hardware_interface_ftdi();
+        }
+        else
+        {
+            // always set the implementation to something, even if a null
+            // implementation, so there is only ever one attempt to find the
+            // default implementation.
+            hwi = new HardwareInterface(NULL_INTERFACE);
+        }
+        hardware_interface_singleton.reset(hwi);
     }
     return hardware_interface_singleton.get();
 }

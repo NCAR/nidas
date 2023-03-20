@@ -43,10 +43,6 @@
 
 #include "nidas/core/NidasApp.h"
 #include "nidas/core/HardwareInterface.h"
-#include "nidas/util/SensorPowerCtrl.h"
-#include "nidas/util/DSMPowerCtrl.h"
-#include "nidas/util/DSMSwitchCtrl.h"
-#include "nidas/util/util.h"
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -99,13 +95,13 @@ int parseRunString(int argc, char* argv[])
         return usage(argv[0]);
     }
 
-    if (argc == 1) {
+    ArgVector unknowns = app.unparsedArgs();
+    if (unknowns.empty()) {
         View.parse(ArgVector{"-v"});
     }
 
     // implement positional arguments, as per Jira ticket ISFS-410
     if ( !(View.specified() || Device.specified() || Power.specified()) ) {
-        ArgVector unknowns = app.unparsedArgs();
         if (unknowns.size() >= 2) {
             Device.parse(ArgVector{"-d", unknowns[0]});
             Power.parse(ArgVector{"-p", unknowns[1]});
@@ -138,6 +134,8 @@ int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
+    HardwareInterface::selectInterface("ftdi");
+
     DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
     if (View.specified()) {
         printAll();
@@ -145,10 +143,10 @@ int main(int argc, char* argv[]) {
     }
 
     DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
-    GPIO_PORT_DEFS deviceArg = ILLEGAL_PORT;
+    HardwareDevice device;
     if (Device.specified()) {
         HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
-        HardwareDevice device = hwi->lookupDevice(Device.getValue());
+        device = hwi->lookupDevice(Device.getValue());
         if (device.isEmpty())
         {
             std::cerr << "Device '" << Device.getValue() << "' not recognized." << endl;
@@ -163,69 +161,49 @@ int main(int argc, char* argv[]) {
         return 3;
     }
 
-    PowerCtrlIf* pPwrCtrl = 0;
-    DSMSwitchCtrl* pSwCtrl = 0;
-    if (deviceArg < PWR_DCDC) {
-        DLOG(("Instantiating SensorPowerCtrl object..."));
-        pPwrCtrl = new SensorPowerCtrl(deviceArg);
-    }
-    else if (deviceArg < DEFAULT_SW) {
-        DLOG(("Instantiating DSMPowerCtrl object..."));
-        pPwrCtrl = new DSMPowerCtrl(deviceArg);
-    }
-
-    else {
-        DLOG(("Instantiating DSMSwitchCtrl object..."));
-        pSwCtrl = new DSMSwitchCtrl(deviceArg);
-    }
-
-    if (pPwrCtrl) {
-        PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
-
+    auto ioutput = device.iOutput();
+    auto ibutton = device.iButton();
+    if (ioutput)
+    {
         // print out the existing power state of the device
         std::cout << std::endl << "Current Device Power State"
                 << std::endl << "========================"
                 << std::endl;
-        rPwrCtrl.print();
+        std::cout << device.id() << " " << ioutput->getState() << endl;
 
         // just display power state if -p X is not provided
         if (!Power.specified()) {
             return 0;
         }
-
-        else {
-            std::string pwrStr(Power.getValue());
-            DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
-            std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-            POWER_STATE power = strToPowerState(pwrStr);
-            DLOG(("Transformed Power State Value: ") << powerStateToStr(power));
-            if (power != ILLEGAL_POWER) {
-                rPwrCtrl.enablePwrCtrl(true);
-                power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
-            }
-            else
-            {
-                std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
-                usage(argv[0]);
-                return 5;
-            }
+        OutputInterface::STATE power = OutputInterface::stringToState(Power.getValue());
+        if (power != OutputInterface::UNKNOWN)
+        {
+            ioutput->setState(power);
+        }
+        else
+        {
+            std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
+            usage(argv[0]);
+            return 5;
         }
 
         // print out the new power state
         std::cout << std::endl << "New Power State"
                 << std::endl << "===================="
                 << std::endl;
-        rPwrCtrl.print();
+        std::cout << device.id() << " " << ioutput->getState() << endl;
     }
-    else if (pSwCtrl) {
+
+    if (false)
+    {
         timespec decayStart, decayStop, pressWaitStart, pressWaitNow;
-        std::cout << "Waiiting for " << gpio2Str(deviceArg) << " switch to be pressed..." << std::endl;
+        std::cout << "Waiiting for " << device.id() << " switch to be pressed..." << std::endl;
         int waiting = 0;
+        bool timeout = false;
         clock_gettime(CLOCK_MONOTONIC_RAW, &pressWaitStart);
         // Wait for the switch to be pressed...
-        bool switchPressed = pSwCtrl->switchIsPressed();
-        while (!switchPressed) {
-            switchPressed = pSwCtrl->switchIsPressed();
+        do
+        {
             // continously get start of decay until switch is pressed
             // for better accuracy.
             clock_gettime(CLOCK_MONOTONIC_RAW, &decayStart);
@@ -240,24 +218,25 @@ int main(int argc, char* argv[]) {
 
             if (waiting >= 60) {
                 std::cout << std::endl;
-                break;
+                timeout = true;
             }
         }
+        while (!ibutton->isDown() && !timeout);
 
-        if (!switchPressed) {
+        if (timeout)
+        {
             std::cout << "Did not detect a switch pressed..." << std::endl;
             return 7;
         }
         else {
-            std::cout << std::endl << "Detected " << gpio2Str(deviceArg) << " switch pressed..." << std::endl;
+            std::cout << std::endl << "Detected " << device.id() << " switch pressed..." << std::endl;
         }
 
-        pSwCtrl->ledOn();
+        if (ioutput)
+            ioutput->on();
         int decaySecs = 0;
         int decayMSecs = 0;
-        bool switchIsPressed = false;
         do {
-            switchIsPressed = pSwCtrl->switchIsPressed();
             timespec requestedSleep = {0, NSECS_PER_MSEC*10};
             nanosleep(&requestedSleep, 0);
 
@@ -269,10 +248,13 @@ int main(int argc, char* argv[]) {
                 nsec += NSECS_PER_SEC;
             }
             decayMSecs = nsec/NSECS_PER_MSEC;
-        } while (switchIsPressed && decaySecs < 10);
-        pSwCtrl->ledOff();
+        } while (ibutton->isDown() && decaySecs < 10);
 
-        if (pSwCtrl->switchIsPressed()) {
+        if (ioutput)
+            ioutput->off();
+
+        if (decaySecs >= 10)
+        {
             std::cout << "Switch RC decay time > 10 Sec" << std::endl;
         }
         else {
@@ -280,8 +262,10 @@ int main(int argc, char* argv[]) {
                       << decaySecs << "." << decayMSecs << " Sec" << std::endl;
         }
     }
-    else {
-        std::cerr << "pio: failed to instantiate either power or switch control object for: " << gpio2Str(deviceArg);
+
+    if (!ibutton && !ioutput)
+    {
+        std::cerr << "pio: failed to instantiate either power or switch control object for: " << device.id();
         return -1;
     }
 
