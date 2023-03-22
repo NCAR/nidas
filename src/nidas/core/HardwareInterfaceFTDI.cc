@@ -35,7 +35,7 @@ namespace {
 using namespace nidas::core;
 
 std::string
-ifaceToString(ftdi_interface iface)
+iface_to_string(ftdi_interface iface)
 {
     static std::map<ftdi_interface, std::string> strings{
         { INTERFACE_A, "A" },
@@ -153,13 +153,19 @@ namespace core {
 
 
 /**
- * @brief Adapter for the libftdi interface.
+ * @brief Wrap libftdi interface to control specific bits on one interface.
  *
- * This associates a specific DSM device and interface with a libftdi context.
- * It is based on the original FtdiGpio<DEVICE, IFACE> template
- * implementation, but it is simplified by not using templates and not using
- * shared or weak pointers.
+ * This manages specific bits on one FTDI USB device, specified as one of the
+ * four interfaces of a FTDI chip identified by the manufacturer and product
+ * strings.  libftdi can only create one context for an interface at a time,
+ * so multiple devices (different bit fields) on the same interface have to
+ * share a pointer to the context and synchronize access.  The synchronization
+ * is also required to implement read-modify-write transactions on the
+ * bitfields without interfering with each other.
  *
+ * This is based on the original FtdiGpio<DEVICE, IFACE> template
+ * implementation, but it is simplified by not using templates and not
+ * exposing the use of shared or weak pointers.
  */
 class FTDI_Device
 {
@@ -238,7 +244,7 @@ FTDI_Device::
 description()
 {
     std::ostringstream out;
-    out << "ftdi(" << _product + "," << ifaceToString(_iface);
+    out << "ftdi(" << _product + "," << iface_to_string(_iface);
     out << ",pins=" << std::hex << (int)_pinDirection
         << ",mask=" << std::hex << (int)_mask
         << ",shift=" << std::dec << _shift << ")";
