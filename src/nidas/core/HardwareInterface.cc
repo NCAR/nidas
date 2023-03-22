@@ -376,6 +376,13 @@ lookup_device_impl(const HardwareDevice& device)
 }
 
 
+void
+HardwareInterface::
+delete_devices()
+{
+    _devices.clear();
+}
+
 
 OutputInterface::OutputInterface() :
     _current(STATE::UNKNOWN)
@@ -503,23 +510,19 @@ SerialPortInterface::
 
 void
 SerialPortInterface::
-getConfig(PORT_TYPES* ptype, TERM* term)
+getConfig(PORT_TYPES& ptype, TERM& term)
 {
-    if (ptype)
-        *ptype = _port_type;
-    if (term)
-        *term = _termination;
+    ptype = _port_type;
+    term = _termination;
 }
 
 
 void
 SerialPortInterface::
-setConfig(PORT_TYPES* ptype, TERM* term)
+setConfig(PORT_TYPES ptype, TERM term)
 {
-    if (ptype)
-        _port_type = *ptype;
-    if (term)
-        _termination = *term;
+    _port_type = ptype;
+    _termination = term;
 }
 
 

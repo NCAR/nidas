@@ -24,15 +24,22 @@
 
 #include "HardwareInterfaceImpl.h"
 #include "nidas/util/Logger.h"
+#include "nidas/util/ThreadSupport.h"
 
 #include <ftdi.h>
 #include <map>
 #include <memory>
 #include <sstream>
 
-namespace {
-
 using namespace nidas::core;
+using namespace nidas::core::Devices;
+
+using nidas::util::Mutex;
+using nidas::util::Synchronized;
+
+
+
+namespace {
 
 std::string
 iface_to_string(ftdi_interface iface)
@@ -58,6 +65,7 @@ const std::string PRODUCT_I2C{"I2C"};
 const std::string PRODUCT_P0_P3{"P0-P3"};
 const std::string PRODUCT_P4_P7{"P4-P7"};
 
+enum InterfaceType { OUTPUT, PORT, BUTTON };
 
 /**
  * Each DSM3 FTDI device is controlled through one of the interfaces of a
@@ -70,6 +78,7 @@ const std::string PRODUCT_P4_P7{"P4-P7"};
 struct ftdi_location
 {
     HardwareDevice device;
+    InterfaceType itype;
     const std::string product;
     enum ftdi_interface iface;
     unsigned char mask;
@@ -79,12 +88,14 @@ struct ftdi_location
 /**
  * Every serial port sensor gets half of an ftdi interface on the GPIO chip.
  * Port 0 is the low 4 bits of interface A, and port 1 is the high 4 bits, and
- * so on up to port 7 as the high 4 bits of interface D.  These masks are for
- * the 4 bits after they have been shifted to low nybble.
+ * so on up to port 7 as the high 4 bits of interface D.  These masks pick off
+ * the particular bitfields for power and port config from the 4-bit masks.
+ * They are and'ed with the ftdi_location mask to get the specific bits.
  */
-const unsigned char XCVR_BITS_PORT_TYPE = 0b00000011;
-const unsigned char XCVR_BITS_TERM =      0b00000100;
-const unsigned char SENSOR_BITS_POWER =   0b00001000;
+const unsigned char XCVR_BITS_PORT_TYPE = 0b00110011;
+const unsigned char XCVR_BITS_TERM =      0b01000100;
+const unsigned char PORT_CONFIG_BITS = XCVR_BITS_PORT_TYPE | XCVR_BITS_TERM;
+const unsigned char SENSOR_POWER_BITS =   0b10001000;
 
 /**
  * These are the specific bits on INTERFACE_C of FTDI chip I2C to control
@@ -103,8 +114,6 @@ const unsigned char P1_BUTTON_BITS   = 0b00100000;
 const unsigned char WIFI_LED_BITS    = 0b01000000;
 const unsigned char P1_LED_BITS      = 0b10000000;
 
-using namespace nidas::core::Devices;
-
 /**
  * Return the information needed to address the specific bits for the given
  * device.  The mask should be and'ed with the bits above to get the
@@ -112,29 +121,38 @@ using namespace nidas::core::Devices;
  * is not recognized.
  */
 const ftdi_location*
-get_ftdi_address(const HardwareDevice& device)
+get_ftdi_address(const HardwareDevice& device, InterfaceType itype)
 {
     static std::vector<ftdi_location> locations
     {
-        { PORT0, PRODUCT_GPIO, INTERFACE_A, 0b00001111 },
-        { PORT1, PRODUCT_GPIO, INTERFACE_A, 0b11110000 },
-        { PORT2, PRODUCT_GPIO, INTERFACE_A, 0b00001111 },
-        { PORT3, PRODUCT_GPIO, INTERFACE_A, 0b11110000 },
-        { PORT4, PRODUCT_GPIO, INTERFACE_A, 0b00001111 },
-        { PORT5, PRODUCT_GPIO, INTERFACE_A, 0b11110000 },
-        { PORT6, PRODUCT_GPIO, INTERFACE_A, 0b00001111 },
-        { PORT7, PRODUCT_GPIO, INTERFACE_A, 0b11110000 },
-        { DCDC, PRODUCT_I2C, INTERFACE_C, PWR_BITS_DCDC },
-        { AUX, PRODUCT_I2C, INTERFACE_C, PWR_BITS_AUX },
-        { BANK1, PRODUCT_I2C, INTERFACE_C, PWR_BITS_BANK1 },
-        { BANK2, PRODUCT_I2C, INTERFACE_C, PWR_BITS_BANK2 },
-        { WIFI, PRODUCT_I2C, INTERFACE_C,
-          WIFI_LED_BITS | WIFI_BUTTON_BITS },
-        { P1, PRODUCT_I2C, INTERFACE_C, P1_LED_BITS | P1_BUTTON_BITS }
+        { PORT0, PORT, PRODUCT_GPIO, INTERFACE_A, 0b00001111 & PORT_CONFIG_BITS },
+        { PORT1, PORT, PRODUCT_GPIO, INTERFACE_A, 0b11110000 & PORT_CONFIG_BITS },
+        { PORT2, PORT, PRODUCT_GPIO, INTERFACE_B, 0b00001111 & PORT_CONFIG_BITS },
+        { PORT3, PORT, PRODUCT_GPIO, INTERFACE_B, 0b11110000 & PORT_CONFIG_BITS },
+        { PORT4, PORT, PRODUCT_GPIO, INTERFACE_C, 0b00001111 & PORT_CONFIG_BITS },
+        { PORT5, PORT, PRODUCT_GPIO, INTERFACE_C, 0b11110000 & PORT_CONFIG_BITS },
+        { PORT6, PORT, PRODUCT_GPIO, INTERFACE_D, 0b00001111 & PORT_CONFIG_BITS },
+        { PORT7, PORT, PRODUCT_GPIO, INTERFACE_D, 0b11110000 & PORT_CONFIG_BITS },
+        { PORT0, OUTPUT, PRODUCT_GPIO, INTERFACE_A, 0b00001111 & SENSOR_POWER_BITS },
+        { PORT1, OUTPUT, PRODUCT_GPIO, INTERFACE_A, 0b11110000 & SENSOR_POWER_BITS },
+        { PORT2, OUTPUT, PRODUCT_GPIO, INTERFACE_B, 0b00001111 & SENSOR_POWER_BITS },
+        { PORT3, OUTPUT, PRODUCT_GPIO, INTERFACE_B, 0b11110000 & SENSOR_POWER_BITS },
+        { PORT4, OUTPUT, PRODUCT_GPIO, INTERFACE_C, 0b00001111 & SENSOR_POWER_BITS },
+        { PORT5, OUTPUT, PRODUCT_GPIO, INTERFACE_C, 0b11110000 & SENSOR_POWER_BITS },
+        { PORT6, OUTPUT, PRODUCT_GPIO, INTERFACE_D, 0b00001111 & SENSOR_POWER_BITS },
+        { PORT7, OUTPUT, PRODUCT_GPIO, INTERFACE_D, 0b11110000 & SENSOR_POWER_BITS },
+        { DCDC, OUTPUT, PRODUCT_I2C, INTERFACE_C, PWR_BITS_DCDC },
+        { AUX, OUTPUT, PRODUCT_I2C, INTERFACE_C, PWR_BITS_AUX },
+        { BANK1, OUTPUT, PRODUCT_I2C, INTERFACE_C, PWR_BITS_BANK1 },
+        { BANK2, OUTPUT, PRODUCT_I2C, INTERFACE_C, PWR_BITS_BANK2 },
+        { WIFI, OUTPUT, PRODUCT_I2C, INTERFACE_C, WIFI_LED_BITS },
+        { P1, OUTPUT, PRODUCT_I2C, INTERFACE_C, P1_LED_BITS },
+        { WIFI, BUTTON, PRODUCT_I2C, INTERFACE_C, WIFI_BUTTON_BITS },
+        { P1, BUTTON, PRODUCT_I2C, INTERFACE_C, P1_BUTTON_BITS }
     };
     for (auto& lp : locations)
     {
-        if (lp.device.id() == device.id())
+        if (lp.device.id() == device.id() && lp.itype == itype)
             return &lp;
     }
     return nullptr;
@@ -151,9 +169,8 @@ namespace core {
  * HardwareInterface implementation for the FTDI devices on DSM3.
  */
 
-
 /**
- * @brief Wrap libftdi interface to control specific bits on one interface.
+ * FTDI_Device wraps libftdi to control specific bits on one interface.
  *
  * This manages specific bits on one FTDI USB device, specified as one of the
  * four interfaces of a FTDI chip identified by the manufacturer and product
@@ -161,7 +178,10 @@ namespace core {
  * so multiple devices (different bit fields) on the same interface have to
  * share a pointer to the context and synchronize access.  The synchronization
  * is also required to implement read-modify-write transactions on the
- * bitfields without interfering with each other.
+ * bitfields without interfering with each other.  Technically the two
+ * synchronizations could be done with separate mutexes, but really there
+ * should rarely be contention and no harm if a modification on one interface
+ * has to wait for the other.
  *
  * This is based on the original FtdiGpio<DEVICE, IFACE> template
  * implementation, but it is simplified by not using templates and not
@@ -170,27 +190,44 @@ namespace core {
 class FTDI_Device
 {
 public:
+    /**
+     * Mutex to synchronize context and device sharing.
+     */
+    static Mutex ftdi_device_mutex;
+
+    /**
+     * Keep track of open FTDI_Device instances to know when a context can be
+     * closed.
+     */
+    static std::vector<FTDI_Device*> ftdi_devices;
 
     /**
      * Create and open the FTDI_Device instance for the given device, or else
-     * return null if it fails.
+     * return null if it fails.  If this device only wants a subset of the
+     * bits from ftdi_location, then it passes them in submask.  In
+     * particular, this allows serial ports to mask the 4 GPIO bits for each
+     * serial port into the output power bit and serial port config bits.
      */
     static FTDI_Device*
-    create(const HardwareDevice& device);
+    create(const HardwareDevice& device, InterfaceType itype);
 
     /**
-     * Setup but do not open() a FTDI_Device for @p iface on the USB device with
-     * the given @p manufacturer and @p product.  The specific bits to be
-     * managed on the interface must be set with set_mask().
+     * Return a pointer to a ftdi_context for the USB interface @p iface on
+     * the chip which matches the given @p product and @p manufacturer
+     * strings. the FTDI device, returning false if the open fails.  If that
+     * context does not exist yet, create it and open it and set the reference
+     * count to 1.  Otherwise just increment the reference count.  If the open
+     * fails, return null.
      */
-    FTDI_Device(enum ftdi_interface iface, const std::string& product,
-             const std::string& manufacturer=MANUFACTURER_UCAR);
+    static bool
+    open_interface(FTDI_Device* device);
 
     /**
-     * Open the FTDI device, returning false if the open fails.
+     * Decrement the reference count for the given @p context, and if zero
+     * close it and release it.
      */
-    bool
-    open();
+    static void
+    close_interface(FTDI_Device* device);
 
     /**
      * The bits which will be controlled by this adapter.  All other (output)
@@ -211,6 +248,32 @@ public:
     std::string
     description();
 
+   ~FTDI_Device();
+
+ private:
+
+    /**
+     * Setup but do not open() a FTDI_Device for @p iface on the USB device
+     * with the given @p manufacturer and @p product.  The specific bits to be
+     * managed on the interface must be set with set_mask().
+     *
+     * This is private since all instances should be created by create().
+     */
+    FTDI_Device(enum ftdi_interface iface, const std::string& product,
+                const std::string& manufacturer=MANUFACTURER_UCAR);
+
+    bool
+    open();
+
+    void
+    close();
+
+    /** 
+     * read_bits() without locking first and without shifting.
+     */
+    bool
+    _read_bits(unsigned char* pins);
+
     /**
      * Format an ftdi error message, including the given context, the
      * description of this FTDI_DSM object, the error string from the ftdi
@@ -220,11 +283,6 @@ public:
      */
     std::string
     error_string(const std::string& context="", int status=0);
-
-    void
-    close();
-
-    ~FTDI_Device();
 
     FTDI_Device(const FTDI_Device&) = delete;
     FTDI_Device& operator=(const FTDI_Device&) = delete;
@@ -237,6 +295,10 @@ public:
     unsigned char _mask;
     unsigned int _shift;
 };
+
+
+Mutex FTDI_Device::ftdi_device_mutex;
+std::vector<FTDI_Device*> FTDI_Device::ftdi_devices;
 
 
 std::string
@@ -255,7 +317,8 @@ description()
 FTDI_Device::
 ~FTDI_Device()
 {
-    close();
+    if (_pContext)
+        close_interface(this);
 }
 
 
@@ -263,6 +326,8 @@ void
 FTDI_Device::
 close()
 {
+    // This is only called by close_interface() when the interface is ready to
+    // be closed and released, and while the mutex is already locked.
     if (_pContext)
     {
         ftdi_usb_close(_pContext);
@@ -274,7 +339,7 @@ close()
 
 FTDI_Device::
 FTDI_Device(enum ftdi_interface iface, const std::string& product,
-         const std::string& manufacturer):
+            const std::string& manufacturer):
     _pContext(0),
     _iface(iface),
     _manufacturer(manufacturer),
@@ -288,9 +353,84 @@ FTDI_Device(enum ftdi_interface iface, const std::string& product,
 
 bool
 FTDI_Device::
+open_interface(FTDI_Device* device)
+{
+    // Look for an existing device with the same context, and if none exists,
+    // then let the caller open that context, otherwise just set it directly.
+    Synchronized sync(ftdi_device_mutex);
+
+    FTDI_Device* found = nullptr;
+    for (auto dp: ftdi_devices)
+    {
+        if (dp->_iface == device->_iface &&
+            dp->_manufacturer == device->_manufacturer &&
+            dp->_product == device->_product)
+        {
+            found = dp;
+            break;
+        }
+    }
+    if (!found)
+    {
+        if (!device->open())
+        {
+            return false;
+        }
+    }
+    else
+    {
+        DLOG(("") << "sharing existing context with "
+                  << device->description());
+        // just assign the existing context
+        device->_pContext = found->_pContext;
+    }
+    ftdi_devices.push_back(device);
+    return true;
+}
+
+
+void
+FTDI_Device::
+close_interface(FTDI_Device* device)
+{
+    Synchronized sync(ftdi_device_mutex);
+    ftdi_context* context = device->_pContext;
+
+    auto it = ftdi_devices.begin();
+    auto found = ftdi_devices.end();
+    unsigned int ncount = 0;
+    for ( ; it != ftdi_devices.end(); ++it)
+    {
+        if ((*it) == device)
+            found = it;
+        else if ((*it)->_pContext == context)
+            ++ncount;
+    }
+    if (ncount == 0)
+    {
+        // no more references, close it.
+        device->close();
+    }
+    else
+    {
+        DLOG(("") << "unsharing context without closing for "
+                  << device->description());
+        // reset the context pointer just to be sure it isn't used by this
+        // device again.
+        device->_pContext = 0;
+    }
+    // and remove this device from the list.
+    ftdi_devices.erase(found);
+}
+
+
+bool
+FTDI_Device::
 open()
 {
-    close();
+    // This is called by open_interface() only when the interface this device
+    // needs has not already been created and setup, and it is called while
+    // the mutex is locked.
     int status;
     _pContext = ftdi_new();
     if (!_pContext)
@@ -383,9 +523,10 @@ void
 FTDI_Device::
 write_bits(unsigned char bits)
 {
+    Synchronized sync(ftdi_device_mutex);
     unsigned char pins = 0;
     int status;
-    if (!read_bits(&pins))
+    if (!_read_bits(&pins))
     {
         return;
     }
@@ -404,6 +545,21 @@ bool
 FTDI_Device::
 read_bits(unsigned char* pins)
 {
+    Synchronized sync(ftdi_device_mutex);
+    auto good = _read_bits(pins);
+    if (good)
+    {
+        // return just the interested bitfield in the rightmost bits.
+        *pins = *pins >> _shift;
+    }
+    return good;
+}
+
+
+bool
+FTDI_Device::
+_read_bits(unsigned char* pins)
+{
     // Note that we call ftdi_read_pins() and not ftdi_read_data() to
     // "circumvent the read buffer, useful for bitbang mode".  There is no
     // corresponding ftdi_write_pins(), only ftdi_write_data().
@@ -415,8 +571,6 @@ read_bits(unsigned char* pins)
     }
     return true;
 }
-
-
 
 
 std::string
@@ -443,25 +597,27 @@ error_string(const std::string& context, int status)
 
 
 FTDI_Device*
-FTDI_Device::create(const HardwareDevice& device)
+FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
 {
     // figure out the ftdi device and interface.  to return an actual
     // implementation for this interface and this device, we must be able to
     // find it in the address table.  outputs are easy because every device is
     // an output.
     const ftdi_location* location;
-    location = get_ftdi_address(device);
+    location = get_ftdi_address(device, itype);
     if (!location)
     {
-        DLOG(("") << "device does not have an interface for ftdi:"
-                  << device.id());
+        const char* itypename = (itype == OUTPUT ? "output" :
+                                 (itype == PORT ? "port" : "button"));
+        DLOG(("") << "device does not have a ftdi " << itypename
+                  << " interface:" << device.id());
         return nullptr;
     }
     std::unique_ptr<FTDI_Device> ftdi(new FTDI_Device(location->iface, location->product));
     // no harm in setting mask before opening, and it makes the mask settings
     // visible in log messages sooner.
     ftdi->set_mask(location->mask);
-    if (!ftdi->open())
+    if (!open_interface(ftdi.get()))
     {
         DLOG(("") << "ftdi open failed, "
                   << "no output interface available for device: "
@@ -551,7 +707,6 @@ bits_to_ptype(unsigned char bits)
 }
 
 
-
 class SerialPortInterfaceFTDI : public SerialPortInterface
 {
 public:
@@ -560,39 +715,23 @@ public:
     {}
 
     void
-    getConfig(PORT_TYPES* ptype, TERM* term)
+    getConfig(PORT_TYPES& ptype, TERM& term)
     {
-        unsigned char bits;
+        unsigned char bits{0};
         if (_ftdi->read_bits(&bits))
         {
-            bits >>= _ftdi->_shift;
-            if (ptype)
-                *ptype = bits_to_ptype(bits);
-            if (term)
-                *term = (bits & TERM_120_OHM_BIT) ? TERM_120_OHM : NO_TERM;
+            ptype = bits_to_ptype(bits);
+            term = (bits & TERM_120_OHM_BIT) ? TERM_120_OHM : NO_TERM;
         }
     }
 
     void
-    setConfig(PORT_TYPES* ptype, TERM* term)
+    setConfig(PORT_TYPES ptype, TERM term)
     {
-        unsigned char bits;
-        if (_ftdi->read_bits(&bits))
-        {
-            bits >>= _ftdi->_shift;
-            if (ptype)
-            {
-                bits &= ~0x03;
-                bits |= ptype_to_bits(*ptype);
-            }
-            if (term)
-            {
-                bits &= ~TERM_120_OHM_BIT;
-                bits |= (*term == TERM_120_OHM) ? TERM_120_OHM_BIT : 0;
-            }
-            bits <<= _ftdi->_shift;
-            _ftdi->write_bits(bits);
-        }
+        unsigned char bits{0};
+        bits |= ptype_to_bits(ptype);
+        bits |= (term == TERM_120_OHM) ? TERM_120_OHM_BIT : 0;
+        _ftdi->write_bits(bits);
     }
 
 private:
@@ -665,7 +804,7 @@ createSerialPortInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id)))
+    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), PORT))
         return new SerialPortInterfaceFTDI(ftdi);
     return nullptr;
 }
@@ -676,7 +815,7 @@ createOutputInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id)))
+    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), OUTPUT))
         return new OutputInterfaceFTDI(ftdi);
     return nullptr;
 }
@@ -687,19 +826,22 @@ createButtonInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id)))
+    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), BUTTON))
         return new ButtonInterfaceFTDI(ftdi);
     return nullptr;
 }
 
 
-
 HardwareInterfaceFTDI::
 ~HardwareInterfaceFTDI()
 {
-    // XXXX make sure all the interface implementations get deleted.
+    // All the interface implementations should be deleted when the base class
+    // cache is destroyed.  However, those implementations depend on the mutex
+    // defined in this module, and that might be destroyed before the
+    // implementations.
+    DLOG(("") << "deleting HardwareInterfaceFTDI and devices...");
+    delete_devices();
 }
-
 
 
 } // namespace core

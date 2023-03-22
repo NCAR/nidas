@@ -363,6 +363,13 @@ protected:
     HardwareDeviceImpl*
     lookup_device_impl(const HardwareDevice& device);
 
+    /**
+     * Erase all cached devices.  Subclasses can use this when their
+     * implementations should not outlive the subclass.
+     */
+    void
+    delete_devices();
+
     virtual OutputInterface*
     createOutputInterface(HardwareDeviceImpl* dimpl);
 
@@ -417,19 +424,15 @@ public:
 
     /**
      * Return the current port configuration in @p ptype and @p term.
-     * 
-     * Parameters can be passed as null if not wanted.
      */
     virtual void
-    getConfig(PORT_TYPES* ptype, TERM* term);
+    getConfig(PORT_TYPES& ptype, TERM& term);
 
     /**
      * Set the port configuration in @p ptype and @p term.
-     *
-     * Parameters passed as null will not be changed.
      */
     virtual void
-    setConfig(PORT_TYPES* ptype, TERM* term);
+    setConfig(PORT_TYPES ptype, TERM term);
 
 private:
 
