@@ -30,6 +30,7 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <iomanip>
 
 using namespace nidas::core;
 using namespace nidas::core::Devices;
@@ -208,7 +209,7 @@ public:
      * particular, this allows serial ports to mask the 4 GPIO bits for each
      * serial port into the output power bit and serial port config bits.
      */
-    static FTDI_Device*
+    static std::unique_ptr<FTDI_Device>
     create(const HardwareDevice& device, InterfaceType itype);
 
     /**
@@ -307,9 +308,11 @@ description()
 {
     std::ostringstream out;
     out << "ftdi(" << _product + "," << iface_to_string(_iface);
-    out << ",pins=" << std::hex << (int)_pinDirection
-        << ",mask=" << std::hex << (int)_mask
-        << ",shift=" << std::dec << _shift << ")";
+    out << ",pindir=0x" << std::hex << std::setw(2) << std::setfill('0')
+        << (int)_pinDirection
+        << ",mask=0x"  << std::hex << std::setw(2) << std::setfill('0')
+        << (int)_mask
+        << ",shift=" << std::dec << std::setw(0) << _shift << ")";
     return out.str();
 }
 
@@ -330,6 +333,7 @@ close()
     // be closed and released, and while the mutex is already locked.
     if (_pContext)
     {
+        DLOG(("") << "closing " << description());
         ftdi_usb_close(_pContext);
         ftdi_free(_pContext);
     }
@@ -596,7 +600,7 @@ error_string(const std::string& context, int status)
 }
 
 
-FTDI_Device*
+std::unique_ptr<FTDI_Device>
 FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
 {
     // figure out the ftdi device and interface.  to return an actual
@@ -613,7 +617,9 @@ FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
                   << " interface:" << device.id());
         return nullptr;
     }
-    std::unique_ptr<FTDI_Device> ftdi(new FTDI_Device(location->iface, location->product));
+    // we could use make_unique here, except the constructor is private.
+    std::unique_ptr<FTDI_Device> ftdi;
+    ftdi.reset(new FTDI_Device(location->iface, location->product));
     // no harm in setting mask before opening, and it makes the mask settings
     // visible in log messages sooner.
     ftdi->set_mask(location->mask);
@@ -624,7 +630,7 @@ FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
                   << device.id());
         return nullptr;
     }
-    return ftdi.release();
+    return ftdi;
 }
 
 
@@ -634,8 +640,8 @@ FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
 class OutputInterfaceFTDI: public OutputInterface
 {
 public:
-    OutputInterfaceFTDI(FTDI_Device* ftdi):
-        _ftdi(ftdi)
+    OutputInterfaceFTDI(std::unique_ptr<FTDI_Device>& ftdi):
+        _ftdi(std::move(ftdi))
     {
     }
 
@@ -710,8 +716,8 @@ bits_to_ptype(unsigned char bits)
 class SerialPortInterfaceFTDI : public SerialPortInterface
 {
 public:
-    SerialPortInterfaceFTDI(FTDI_Device* ftdi):
-        _ftdi(ftdi)
+    SerialPortInterfaceFTDI(std::unique_ptr<FTDI_Device>& ftdi):
+        _ftdi(std::move(ftdi))
     {}
 
     void
@@ -743,8 +749,8 @@ class ButtonInterfaceFTDI : public ButtonInterface
 {
 public:
 
-    ButtonInterfaceFTDI(FTDI_Device* ftdi):
-        _ftdi(ftdi)
+    ButtonInterfaceFTDI(std::unique_ptr<FTDI_Device>& ftdi):
+        _ftdi(std::move(ftdi))
     {}
 
     STATE getState() override
@@ -804,7 +810,8 @@ createSerialPortInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), PORT))
+    auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), PORT);
+    if (ftdi)
         return new SerialPortInterfaceFTDI(ftdi);
     return nullptr;
 }
@@ -815,7 +822,8 @@ createOutputInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), OUTPUT))
+    auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), OUTPUT);
+    if (ftdi)
         return new OutputInterfaceFTDI(ftdi);
     return nullptr;
 }
@@ -826,7 +834,8 @@ createButtonInterface(HardwareDeviceImpl* dimpl)
 {
     // Create the interface implementation with the FTDI_Device.  The returned
     // pointer will be cached by the base class.
-    if (auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), BUTTON))
+    auto ftdi = FTDI_Device::create(HardwareDevice(dimpl->_id), BUTTON);
+    if (ftdi)
         return new ButtonInterfaceFTDI(ftdi);
     return nullptr;
 }
