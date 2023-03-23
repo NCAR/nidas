@@ -34,7 +34,7 @@ namespace core {
 class SerialPortInterface;
 class OutputInterface;
 class ButtonInterface;
-
+class HardwareInterface;
 
 /**
  * @brief Hardware devices have an identifier, description, and interfaces.
@@ -87,17 +87,53 @@ public:
      */
     bool isEmpty() const;
 
-    SerialPortInterface* iSerial() const;
-    OutputInterface* iOutput() const;
-    ButtonInterface* iButton() const;
+    /**
+     * Get a pointer to the SerialPortInterface of this device, if available.
+     *
+     * This is the same as passing this device to
+     * HardwareInterface::getSerialPortInterface().  It is not a const call
+     * because this object keeps a shared pointer to the hardware interface.
+     * The hardware interface will not be closed until reset() is called or
+     * the instance is destroyed, thus it's important to limit the lifetime of
+     * this object to avoid holding the hardware interfaces open longer than
+     * needed.  The interface pointer is only valid during the lifetime of the
+     * HardwareInterface implementation which owns it.
+     *
+     * Since the standard devices are const, they must be copied into a local
+     * (scoped) instance to call the interfaces:
+     *
+     * @code
+     * HardwareDevice port(Devices::PORT0);
+     * if (auto ioutput = port.iOutput())
+     *     ioutput->on();
+     * @endcode
+     *
+     * @return SerialPortInterface* 
+     */
+    SerialPortInterface* iSerial();
+
+    /**
+     * Same as iSerial(), except for the OutputInterface.
+     * 
+     * @return OutputInterface* 
+     */
+    OutputInterface* iOutput();
+
+    /**
+     * Same is iSerial(), except for the ButtonInterface.
+     * 
+     * @return ButtonInterface* 
+     */
+    ButtonInterface* iButton();
 
 private:
     std::string _id;
+    std::shared_ptr<HardwareInterface> _hwi;
 };
 
 
 class HardwareDeviceImpl;
-class HardwareDeviceMap;
+class HardwareDevices;
 
 
 /**
@@ -199,13 +235,12 @@ public:
      * can always count on getting a non-null pointer value from this
      * function, even if there are no hardware devices available.
      *
-     * The returned pointer may or may not be a singleton, but either way the
-     * caller should not delete it.  The pointer is owned by the
-     * implementation.
-     *
-     * @return HardwareInterface* 
+     * The returned shared pointer determines the lifetime of the hardware
+     * interface implementation.  Implementations should not be kept open any
+     * longer than necessary.  Normally they can be tied to a scoped
+     * HardwareDevice object or the HardwareInterface shared pointer.
      */
-    static HardwareInterface*
+    static std::shared_ptr<HardwareInterface>
     getHardwareInterface();
 
     /**
@@ -226,7 +261,13 @@ public:
     selectInterface(const std::string& path);
 
     /**
-     * @brief Release any current implementation and reset the default.
+     * @brief Release any current implementation and reset the default path.
+     *
+     * This cannot release an implementation which has already been returned
+     * in a shared pointer and still has references.  This just ensures that
+     * any subsequent call to getHardwareInterface() will return a new
+     * implementation, which may or may not interfere with a previous
+     * implementation.
      */
     static void
     resetInterface();
@@ -354,8 +395,9 @@ protected:
 
     /**
      * Return a pointer to the cached HardwareDeviceImpl with the same id as
-     * @p device, or else return null.  The pointer is only valid until the
-     * device map changes.
+     * @p device, or else return null.  This method is *not* synchronized, the
+     * HardwareInterface mutex must be locked *before* calling this method, so
+     * that the returned pointer stays valid while the lock is held.
      *
      * @param device 
      * @return HardwareDeviceImpl* 
@@ -385,8 +427,8 @@ protected:
      * Use the pimpl pattern so the HardwareDeviceImpl definition is not
      * exposed.  The reference is for convenience.
      */
-    std::unique_ptr<HardwareDeviceMap> _devices_ptr;
-    HardwareDeviceMap& _devices;
+    std::unique_ptr<HardwareDevices> _devices_ptr;
+    HardwareDevices& _devices;
 
 };
 

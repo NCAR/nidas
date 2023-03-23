@@ -25,18 +25,29 @@
 #include "HardwareInterfaceImpl.h"
 #include <algorithm>
 #include <memory>
-#include <map>
+#include <list>
 #include <iostream>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/ThreadSupport.h>
+
+
+using namespace nidas::core;
+using nidas::util::Mutex;
+using nidas::util::Synchronized;
+
 
 namespace {
 
-    using namespace nidas::core;
+    Mutex hardware_interface_mutex;
 
     std::string default_interface_path;
 
-    std::unique_ptr<HardwareInterface> hardware_interface_singleton;
+    // This is just a cache pointer so the same interface can be returned if
+    // an implementation is already available.  The lifetime of the
+    // implementation is tied to the lifetime of the caller's shared pointer
+    // and the hardware device objects that cache it.
+    std::weak_ptr<HardwareInterface> hardware_interface_singleton;
 }
 
 
@@ -69,17 +80,17 @@ namespace Devices
 using namespace Devices;
 
 
-class HardwareDeviceMap: public std::map<std::string, HardwareDeviceImpl>
+class HardwareDevices: public std::list<HardwareDeviceImpl>
 {
 public:
     std::string
     to_string()
     {
         std::ostringstream out;
-        for (auto& pairs: *this)
+        for (auto& device: *this)
         {
-            out << pairs.first << ": (" << pairs.second._id << ","
-                << pairs.second._description << ");";
+            out << "{" << device._id << ","
+                << device._description << "}";
         }
         return out.str();
     }
@@ -126,7 +137,8 @@ std::vector<HardwareDevice> HardwareInterface::devices()
 
 HardwareDevice::
 HardwareDevice(const std::string& id):
-    _id(id)
+    _id(id),
+    _hwi()
 {}
 
 std::string
@@ -149,31 +161,40 @@ isEmpty() const
 }
 
 SerialPortInterface*
-HardwareDevice::iSerial() const
+HardwareDevice::iSerial()
 {
-    auto hwi = HardwareInterface::getHardwareInterface();
-    return !hwi ? nullptr : hwi->getSerialPortInterface(*this);
+    if (!_hwi)
+    {
+        _hwi = HardwareInterface::getHardwareInterface();
+    }
+    return !_hwi ? nullptr : _hwi->getSerialPortInterface(*this);
 }
 
 OutputInterface*
-HardwareDevice::iOutput() const
+HardwareDevice::iOutput()
 {
-    auto hwi = HardwareInterface::getHardwareInterface();
-    return !hwi ? nullptr : hwi->getOutputInterface(*this);
+    if (!_hwi)
+    {
+        _hwi = HardwareInterface::getHardwareInterface();
+    }
+    return !_hwi ? nullptr : _hwi->getOutputInterface(*this);
 }
 
 ButtonInterface*
-HardwareDevice::iButton() const
+HardwareDevice::iButton()
 {
-    auto hwi = HardwareInterface::getHardwareInterface();
-    return !hwi ? nullptr : hwi->getButtonInterface(*this);
+    if (!_hwi)
+    {
+        _hwi = HardwareInterface::getHardwareInterface();
+    }
+    return !_hwi ? nullptr : _hwi->getButtonInterface(*this);
 }
 
 
 HardwareInterface::
 HardwareInterface(const std::string& path):
     _path(path),
-    _devices_ptr(new HardwareDeviceMap),
+    _devices_ptr(new HardwareDevices),
     _devices(*_devices_ptr)
 {
     add_device_impl(HardwareDeviceImpl(DCDC, "DC-DC converter relay"));
@@ -210,10 +231,11 @@ void
 HardwareInterface::
 selectInterface(const std::string& path)
 {
-    if (!hardware_interface_singleton.get())
-    {
-        default_interface_path = path;
-    }
+    // We don't really care if there is already an implementation with a
+    // different path, just set the path for the next time an implementation
+    // will be loaded.
+    Synchronized sync(hardware_interface_mutex);
+    default_interface_path = path;
 }
 
 
@@ -221,7 +243,12 @@ void
 HardwareInterface::
 resetInterface()
 {
-    hardware_interface_singleton.reset(nullptr);
+    // if an interface has already been returned to a caller, then that
+    // instance will remain even if the singleton reference is reset.
+    // however, whether that other instance interferes with a new one depends
+    // on the implementations.
+    Synchronized sync(hardware_interface_mutex);
+    hardware_interface_singleton.reset();
     default_interface_path = "";
 }
 
@@ -229,6 +256,7 @@ resetInterface()
 SerialPortInterface*
 HardwareInterface::getSerialPortInterface(const HardwareDevice& device)
 {
+    Synchronized sync(hardware_interface_mutex);
     HardwareDeviceImpl* dimpl = lookup_device_impl(device);
     // If this is not already a known device, meaning it's a "standard" device
     // or one the implementation has already added, then don't bother.
@@ -251,6 +279,7 @@ HardwareInterface::getSerialPortInterface(const HardwareDevice& device)
 OutputInterface*
 HardwareInterface::getOutputInterface(const HardwareDevice& device)
 {
+    Synchronized sync(hardware_interface_mutex);
     HardwareDeviceImpl* dimpl = lookup_device_impl(device);
     // If this is not already a known device, meaning it's a "standard" device
     // or one the implementation has already added, then don't bother.
@@ -273,6 +302,7 @@ HardwareInterface::getOutputInterface(const HardwareDevice& device)
 ButtonInterface*
 HardwareInterface::getButtonInterface(const HardwareDevice& device)
 {
+    Synchronized sync(hardware_interface_mutex);
     HardwareDeviceImpl* dimpl = lookup_device_impl(device);
     // If this is not already a known device, meaning it's a "standard" device
     // or one the implementation has already added, then don't bother.
@@ -344,11 +374,12 @@ std::string
 HardwareInterface::
 lookupDescription(const HardwareDevice& device)
 {
-    static HardwareInterface default_interface("");
+    static auto default_interface = std::make_shared<HardwareInterface>("");
 
-    auto hwi = hardware_interface_singleton.get();
+    Synchronized sync(hardware_interface_mutex);
+    auto hwi = hardware_interface_singleton.lock();
     if (!hwi)
-        hwi = &default_interface;
+        hwi = default_interface;
     if (auto dimpl = hwi->lookup_device_impl(device))
         return dimpl->_description;
     return "";
@@ -359,9 +390,10 @@ void
 HardwareInterface::
 add_device_impl(const HardwareDeviceImpl& device)
 {
+    Synchronized sync(hardware_interface_mutex);
     DLOG(("") << "adding " << device._id << ": " << device._description);
-    _devices[device._id] = device;
-    VLOG(("current device impls: ") << _devices.to_string());
+    _devices.push_back(device);
+    VLOG(("current devices: ") << _devices.to_string());
 }
 
 
@@ -369,9 +401,11 @@ HardwareDeviceImpl*
 HardwareInterface::
 lookup_device_impl(const HardwareDevice& device)
 {
-    auto it = _devices.find(device.id());
-    if (it != _devices.end())
-        return &(it->second);
+    for (auto& dimpl: _devices)
+    {
+        if (dimpl._id == device.id())
+            return &dimpl;
+    }
     return nullptr;
 }
 
@@ -380,6 +414,7 @@ void
 HardwareInterface::
 delete_devices()
 {
+    Synchronized sync(hardware_interface_mutex);
     _devices.clear();
 }
 
@@ -572,31 +607,31 @@ public:
 extern HardwareInterface* get_hardware_interface_ftdi();
 
 
-HardwareInterface*
+std::shared_ptr<HardwareInterface>
 HardwareInterface::getHardwareInterface()
 {
-    if (!hardware_interface_singleton)
+    auto hwi = hardware_interface_singleton.lock();
+    if (!hwi)
     {
-        HardwareInterface* hwi = 0;
         // if mock requested, then return it.
         if (default_interface_path == MOCK_INTERFACE)
         {
-            hwi = new MockHardwareInterface();
+            hwi = std::make_shared<MockHardwareInterface>();
         }
         else if (default_interface_path == "ftdi")
         {
-            hwi = get_hardware_interface_ftdi();
+            hwi.reset(get_hardware_interface_ftdi());
         }
         else
         {
             // always set the implementation to something, even if a null
             // implementation, so there is only ever one attempt to find the
             // default implementation.
-            hwi = new HardwareInterface(NULL_INTERFACE);
+            hwi = std::make_shared<HardwareInterface>(NULL_INTERFACE);
         }
-        hardware_interface_singleton.reset(hwi);
+        hardware_interface_singleton = hwi;
     }
-    return hardware_interface_singleton.get();
+    return hwi;
 }
 
 

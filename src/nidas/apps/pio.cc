@@ -37,6 +37,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <vector>
 #include <time.h>
 #include <unistd.h>
@@ -52,79 +53,96 @@ using std::endl;
 
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|default_sw|wifi_sw",
-        		 "DSM devices for which power setting is managed - \n"
-		         "     0-7         - Sensors 0-7 port power \n"
-                 "     dcdc|DCDC   - programmable DC power port\n"
-                 "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
-                 "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
-                 "     bank2|BANK2 - bank2 12V power port - resets the RPi\n"
-                 "     def_sw      - detects default switch, SW1 on FTDI USB Serial Board\n"
-                 "     wifi_sw  -    detects wifi switch, SW2 on FTDI USB Serial Board\n",
-                 "");
-NidasAppArg View("-v,--view", "",
-			      "Output the current power settings for all devices and exit",
-                  "");
-NidasAppArg Power("-p,--power", "<on>",
-                  "Controls whether the DSM sends power to the DSM device - \n"
-                  "    (0|off|power_off)\n"
-                  "    (1|on|power_on)", "power_on");
+NidasAppArg List("--list", "",
+                 "List all known devices with descriptions.", "");
 
-int usage(const char* argv0)
+std::string Device;
+std::string Operation;
+
+void
+usage()
 {
-    const char* text = R""""(
+    std::cerr
+        << R""""(
+Usage: pio [device [op]]]
+
+  device:
+
+    Device id, use --list to list known devices.
+
+  op: {on|off|switch}
+
+    Turn the output on or off, or wait for a switch to be pressed.
+    If not specified, show the current status of just that output.
+
 Query and control power relays, sensor power, LEDs, and pushbutton switches.
+If no arguments, show the status of all output devices.
+)""""
+        << app.usage()
+        << R""""()
 
 Examples:
-  Turn off power to the sensor in port 0: pio 0 off
-  Turn on the LED for the wifi button: pio wifi on
-  Turn off the auxiliary power port: pio aux off
+
+  pio              - Show status of all output devices.
+  pio --list       - List devices with descriptions.
+  pio 0 off        - Turn off power to the sensor in port 0.
+  pio wifi on      - Turn on the LED for the wifi button.
+  pio aux off      - Turn off the auxiliary power port.
 )"""";
-    std::cerr << text << app.usage();
-    return 1;
 }
 
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.loggingArgs() | app.Help
-    		            | Device | View | Power);
+    app.enableArguments(app.loggingArgs() | app.Help | List);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
-        return usage(argv[0]);
+        usage();
+        return 1;
     }
 
-    ArgVector unknowns = app.unparsedArgs();
-    if (unknowns.empty()) {
-        View.parse(ArgVector{"-v"});
+    // Get positional args
+    ArgVector pargs = app.unparsedArgs();
+    if (pargs.size() > 2)
+    {
+        std::cerr << "Too many arguments.  Use -h for help." << endl;
+        return 1;
     }
-
-    // implement positional arguments, as per Jira ticket ISFS-410
-    if ( !(View.specified() || Device.specified() || Power.specified()) ) {
-        if (unknowns.size() >= 2) {
-            Device.parse(ArgVector{"-d", unknowns[0]});
-            Power.parse(ArgVector{"-p", unknowns[1]});
+    if (pargs.size() > 0)
+        Device = pargs[0];
+    if (pargs.size() > 1)
+    {
+        Operation = pargs[1];
+        if (Operation != "on" && Operation != "off" && Operation != "switch")
+        {
+            std::cerr << "unknown operation: " << Operation << endl;
+            return 1;
         }
     }
-
     return 0;
+}
+
+
+void
+print_status(HardwareDevice& device)
+{
+    cout << std::setw(10) << device.id() << "  ";
+    if (auto oi = device.iOutput())
+        cout << oi->getState();
+    else
+        cout << "could-not-open";
+    cout << endl;
 }
 
 
 void printAll()
 {
-    std::cout << "Current Output Settings" << std::endl
-              << "-----------------------" << std::endl
-              << "Device          Setting"<< std::endl;
     // Print the current state for all power outputs.
-    HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
-    for (auto device: hwi->devices())
+    auto hwi = HardwareInterface::getHardwareInterface();
+    for (auto& device: hwi->devices())
     {
-        if (auto oi = device.iOutput())
-        {
-            cout << device.id() << " " << oi->getState() << endl;
-        }
+        print_status(device);
     }
 }
 
@@ -135,66 +153,55 @@ int main(int argc, char* argv[]) {
         exit(1);
 
     HardwareInterface::selectInterface("ftdi");
+    auto hwi = HardwareInterface::getHardwareInterface();
 
-    DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
-    if (View.specified()) {
+    if (List.asBool())
+    {
+        // Dump a list of devies with descriptions.
+        for (auto& device: hwi->devices())
+        {
+            cout << std::setw(10) << device.id() << ":  "
+                 << device.description() << endl;
+        }
+        return 0;
+    }
+
+    if (Device.empty())
+    {
         printAll();
         return 0;
     }
 
-    DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
     HardwareDevice device;
-    if (Device.specified()) {
-        HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
-        device = hwi->lookupDevice(Device.getValue());
-        if (device.isEmpty())
-        {
-            std::cerr << "Device '" << Device.getValue() << "' not recognized." << endl;
-            usage(argv[0]);
-            return 2;
-        }
-    }
-    else 
+    device = hwi->lookupDevice(Device);
+    if (device.isEmpty())
     {
-        std::cerr << "Must provide the device ID option on the command line.\n" << std::endl;
-        usage(argv[0]);
-        return 3;
+        std::cerr << "unrecognized device: " << Device << endl;
+        return 2;
     }
 
     auto ioutput = device.iOutput();
     auto ibutton = device.iButton();
     if (ioutput)
     {
-        // print out the existing power state of the device
-        std::cout << std::endl << "Current Device Power State"
-                << std::endl << "========================"
-                << std::endl;
-        std::cout << device.id() << " " << ioutput->getState() << endl;
+        if (Operation == "on")
+            ioutput->on();
+        else if (Operation == "off")
+            ioutput->off();
+        // print current status, whether just changed or not.
+        print_status(device);
 
-        // just display power state if -p X is not provided
-        if (!Power.specified()) {
+        if (Operation.empty())
             return 0;
-        }
-        OutputInterface::STATE power = OutputInterface::stringToState(Power.getValue());
-        if (power != OutputInterface::UNKNOWN)
-        {
-            ioutput->setState(power);
-        }
-        else
-        {
-            std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
-            usage(argv[0]);
-            return 5;
-        }
-
-        // print out the new power state
-        std::cout << std::endl << "New Power State"
-                << std::endl << "===================="
-                << std::endl;
-        std::cout << device.id() << " " << ioutput->getState() << endl;
     }
 
-    if (false)
+    if (Operation == "switch" && !ibutton)
+    {
+        std::cerr << "device " << device.id() << " is not a switch." << endl;
+        return 1;
+    }
+
+    if (Operation == "switch" && ibutton)
     {
         timespec decayStart, decayStop, pressWaitStart, pressWaitNow;
         std::cout << "Waiiting for " << device.id() << " switch to be pressed..." << std::endl;
@@ -248,7 +255,8 @@ int main(int argc, char* argv[]) {
                 nsec += NSECS_PER_SEC;
             }
             decayMSecs = nsec/NSECS_PER_MSEC;
-        } while (ibutton->isDown() && decaySecs < 10);
+        }
+        while (ibutton->isDown() && decaySecs < 10);
 
         if (ioutput)
             ioutput->off();
@@ -265,8 +273,9 @@ int main(int argc, char* argv[]) {
 
     if (!ibutton && !ioutput)
     {
-        std::cerr << "pio: failed to instantiate either power or switch control object for: " << device.id();
-        return -1;
+        std::cerr << "pio: failed to instantiate either power or switch "
+                  << "control object for: " << device.id() << endl;
+        return 9;
     }
 
     // all good, return 0
