@@ -167,10 +167,6 @@ namespace nidas {
 namespace core {
 
 /**
- * HardwareInterface implementation for the FTDI devices on DSM3.
- */
-
-/**
  * FTDI_Device wraps libftdi to control specific bits on one interface.
  *
  * This manages specific bits on one FTDI USB device, specified as one of the
@@ -769,7 +765,28 @@ private:
 
 
 
-
+/**
+ * HardwareInterface implementation for the FTDI devices on DSM3.
+ *
+ * The USB interfaces on the ftdi chips can only be claimed once, so the
+ * hardware interface cannot keep the devices open for the duration of the
+ * program.  Technically it would be better if there were a single daemon
+ * (perhaps a systemd unit which started on access to a unix port or dbus
+ * endpoint) which could claim the interfaces and synchronize access from
+ * multiple processes.  However, short of that, and perhaps even in that case,
+ * the devices are kept open only long enough to handle calls on the
+ * interface.  That's the point of using a scoped shared pointer to access the
+ * hardware interface implementation.  The interfaces for all the hardware
+ * devices are implemented using the FTDI_Device adapter.  The adapter takes
+ * care of sharing contexts across devices which share a GPIO 8-bit interface
+ * on a FTDI chip, and it takes share of letting the specific interface
+ * manipulate only it's specific bit field on that interface.
+ *
+ * The device interfaces are cached in the HardwareInterface base class, and
+ * each interface keeps a smart pointer to it's FTDI_Device instance.  When
+ * the implementation goes out of scope and is destroyed, all the devices are
+ * destroyed and all the ftdi contexts are closed.
+ */
 class HardwareInterfaceFTDI: public HardwareInterface
 {
 public:
@@ -847,7 +864,9 @@ HardwareInterfaceFTDI::
     // All the interface implementations should be deleted when the base class
     // cache is destroyed.  However, those implementations depend on the mutex
     // defined in this module, and that might be destroyed before the
-    // implementations.
+    // implementations.  That shouldn't happen as long as the implementation
+    // is not open when the program exits, but it doesn't hurt to leave it
+    // here.
     DLOG(("") << "deleting HardwareInterfaceFTDI and devices...");
     delete_devices();
 }

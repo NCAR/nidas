@@ -126,6 +126,17 @@ public:
      */
     ButtonInterface* iButton();
 
+    /**
+     * Release any cached pointer to the HardwareInterface.
+     *
+     * This allows the hardware interface to be closed when all other
+     * references are released, even if this device is not destroyed.  No
+     * interface pointers from this device should be used after this call
+     * without retrieving them again from the interface methods, in which case
+     * the hardware interface will be cached again.
+     */
+    void reset();
+
 private:
     std::string _id;
     std::shared_ptr<HardwareInterface> _hwi;

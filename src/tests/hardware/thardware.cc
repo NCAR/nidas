@@ -39,14 +39,15 @@ BOOST_AUTO_TEST_CASE(test_interface)
     BOOST_CHECK_EQUAL(DCDC.description(), "DC-DC converter relay");
 
     HardwareInterface::selectInterface(HardwareInterface::MOCK_INTERFACE);
-    HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
+    auto hwi = HardwareInterface::getHardwareInterface();
     // should not be null pointer
     BOOST_CHECK(hwi);
     BOOST_CHECK_EQUAL(hwi->getPath(), "mock");
     auto spi = hwi->getSerialPortInterface(Devices::PORT0);
     // should not be null
     BOOST_CHECK(spi);
-    BOOST_CHECK(spi == Devices::PORT0.iSerial());
+    HardwareDevice port(Devices::PORT0);
+    BOOST_CHECK(spi == port.iSerial());
 
     // a button is an output and button but not a port
     HardwareDevice p1(Devices::P1);
@@ -69,7 +70,7 @@ BOOST_AUTO_TEST_CASE(test_interface)
 BOOST_AUTO_TEST_CASE(test_lookup)
 {
     HardwareInterface::resetInterface();
-    HardwareInterface* hwi = HardwareInterface::getHardwareInterface();
+    auto hwi = HardwareInterface::getHardwareInterface();
     BOOST_CHECK_EQUAL(hwi->lookupDevice("PORT0").id(), "port0");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("1").id(), "port1");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("DCDC").id(), "dcdc");

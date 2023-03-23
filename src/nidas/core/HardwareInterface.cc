@@ -190,6 +190,12 @@ HardwareDevice::iButton()
     return !_hwi ? nullptr : _hwi->getButtonInterface(*this);
 }
 
+void
+HardwareDevice::reset()
+{
+    _hwi.reset();
+}
+
 
 HardwareInterface::
 HardwareInterface(const std::string& path):
