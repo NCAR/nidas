@@ -51,9 +51,7 @@ namespace nidas { namespace core {
 std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 {
     rOutStrm << "Termios: baud: " << rObj.termios.getBaudRate()
-         << " word: " << rObj.termios.getDataBits()
-                      << rObj.termios.getParityChar()
-                      << rObj.termios.getStopBits() << std::endl;
+         << " word: " << rObj.termios.getBitsString() << std::endl;
     rOutStrm << "RTS485: " << rObj.rts485 << std::endl;
     rOutStrm << rObj.xcvrConfig;
 

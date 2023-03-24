@@ -100,9 +100,7 @@ struct PortConfig {
     void print(bool printApplied=false)
     {
         std::cout << "Termios: baud: " << termios.getBaudRate()
-             << " word: " << termios.getDataBits()
-                          << termios.getParityChar()
-                          << termios.getStopBits() << std::endl;
+             << " word: " << termios.getBitsString() << std::endl;
         std::cout << "RTS485: " << rts485 << std::endl;
         if (printApplied) {
             std::cout << "PortConfig " << (applied ? "IS " : "IS NOT " ) << "applied" << std::endl;

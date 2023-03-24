@@ -105,6 +105,12 @@ public:
     std::string getParityChar() const;
 
     /**
+     * Return the three-character code with data bits, parity, and stop bits,
+     * like 8N1 or 7E1, for the current settings.
+     */
+    std::string getBitsString() const;
+
+    /**
      * Convert parity @p par to a string: none, odd, or even.
      */
     static std::string parityToString(parity par);

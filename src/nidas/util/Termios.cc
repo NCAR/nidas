@@ -385,6 +385,13 @@ std::string Termios::getParityChar() const
     return parityToChar(getParity());
 }
 
+std::string Termios::getBitsString() const
+{
+    std::ostringstream out;
+    out << getDataBits() << getParityChar() << getStopBits();
+    return out.str();
+}
+
 std::string Termios::parityToString(parity par)
 {
     switch(par) {

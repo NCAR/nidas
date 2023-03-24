@@ -452,9 +452,7 @@ bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
         
         std::ostringstream baudStr;
         baudStr << rDesiredPortConfig.termios.getBaudRate()
-                << " " << rDesiredPortConfig.termios.getParityChar()
-                << " " << rDesiredPortConfig.termios.getDataBits()
-                << " " << rDesiredPortConfig.termios.getStopBits()
+                << " " << rDesiredPortConfig.termios.getBitsString()
                 << " F";
 
         DLOG(("PTB220::installDesiredSensorConfig(): serial command string: ") << baudStr.str());
