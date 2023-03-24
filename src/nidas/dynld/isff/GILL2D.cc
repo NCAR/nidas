@@ -609,16 +609,17 @@ bool GILL2D::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
             DLOG(("Changing parity to: ") << rDesiredConfig.termios.getParityString());
             // GILL2D only supports three combinations of word format - all based on parity
             // So just force it based on parity.
-            switch (rDesiredConfig.termios.getParityString(true).c_str()[0]) {
-                case 'O':
+            switch (rDesiredConfig.termios.getParity())
+            {
+                case Termios::ODD:
                     sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
                     break;
 
-                case 'E':
+                case Termios::EVEN:
                     sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(E81));
                     break;
 
-                case 'N':
+                case Termios::NONE:
                     sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(N81));
                     break;
 

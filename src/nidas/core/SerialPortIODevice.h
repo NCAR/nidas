@@ -99,9 +99,9 @@ struct PortConfig {
         {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
     void print(bool printApplied=false)
     {
-        std::cout << "Termios: baud: " << termios.getBaudRate() 
-             << " word: " << termios.getDataBits() 
-                          << termios.getParityString(true) 
+        std::cout << "Termios: baud: " << termios.getBaudRate()
+             << " word: " << termios.getDataBits()
+                          << termios.getParityChar()
                           << termios.getStopBits() << std::endl;
         std::cout << "RTS485: " << rts485 << std::endl;
         if (printApplied) {

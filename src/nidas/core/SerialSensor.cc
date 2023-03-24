@@ -817,7 +817,7 @@ bool SerialSensor::sweepCommParameters()
             	 ++wordSpecIter) {
                 WordSpec wordSpec = *wordSpecIter;
                 DLOG(("Checking serial word spec: ") << wordSpec.dataBits
-                									 << Termios::parityToString(wordSpec.parity, true)
+                									 << Termios::parityToChar(wordSpec.parity)
                 									 << wordSpec.stopBits);
 
                 // get the existing port config to preserve the port

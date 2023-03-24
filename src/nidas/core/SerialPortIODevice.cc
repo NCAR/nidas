@@ -52,7 +52,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 {
     rOutStrm << "Termios: baud: " << rObj.termios.getBaudRate()
          << " word: " << rObj.termios.getDataBits()
-                      << rObj.termios.getParityString(true)
+                      << rObj.termios.getParityChar()
                       << rObj.termios.getStopBits() << std::endl;
     rOutStrm << "RTS485: " << rObj.rts485 << std::endl;
     rOutStrm << rObj.xcvrConfig;

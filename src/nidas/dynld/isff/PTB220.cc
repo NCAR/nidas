@@ -452,7 +452,7 @@ bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
         
         std::ostringstream baudStr;
         baudStr << rDesiredPortConfig.termios.getBaudRate()
-                << " " << rDesiredPortConfig.termios.getParityString(true)
+                << " " << rDesiredPortConfig.termios.getParityChar()
                 << " " << rDesiredPortConfig.termios.getDataBits()
                 << " " << rDesiredPortConfig.termios.getStopBits()
                 << " F";

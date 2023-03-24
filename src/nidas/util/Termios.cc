@@ -375,19 +375,34 @@ Termios::getRawTimeout() const
     return _tio.c_cc[VTIME];
 }
 
-std::string Termios::getParityString(bool retChar) const
+std::string Termios::getParityString() const
 {
-    return parityToString(getParity(), retChar);
+    return parityToString(getParity());
 }
 
-std::string Termios::parityToString(parity par, bool retChar)
+std::string Termios::getParityChar() const
+{
+    return parityToChar(getParity());
+}
+
+std::string Termios::parityToString(parity par)
 {
     switch(par) {
-    case NONE: return (retChar ? "N" : "none");
-    case ODD: return (retChar ? "O" : "odd");
-    case EVEN: return (retChar ? "E" : "even");
+    case NONE: return "none";
+    case ODD: return "odd";
+    case EVEN: return "even";
     }
     return "unknown";
+}
+
+std::string Termios::parityToChar(parity par)
+{
+    switch(par) {
+    case NONE: return "N";
+    case ODD: return "O";
+    case EVEN: return "E";
+    }
+    return "_";
 }
 
 std::string Termios::getFlowControlString() const
@@ -400,3 +415,28 @@ std::string Termios::getFlowControlString() const
     return "unknown";
 }
 
+bool
+Termios::
+operator!=(const Termios& rRight) const
+{
+    return !((*this) == rRight);
+}
+
+
+bool
+Termios::
+operator==(const Termios& rRight) const
+{
+    return (this == &rRight || 
+            (getBaudRate() == rRight.getBaudRate()
+            && getParity() == rRight.getParity()
+            && getDataBits() == rRight.getDataBits()
+            && getStopBits() == rRight.getStopBits()
+            && getLocal() == rRight.getLocal()
+            && getFlowControl() == rRight.getFlowControl()
+            && getRaw() == rRight.getRaw()
+            && getRawLength() == rRight.getRawLength()
+            && getRawTimeout() == rRight.getRawTimeout()
+            && getIflag() == rRight.getIflag()
+            && getOflag() == rRight.getOflag()));
+}

@@ -386,16 +386,17 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
         // PTB210 only supports three combinations of word format - all based on parity
         // So just force it based on parity. Go ahead and reset now, so we can see if we're
         // still talking to each other...
-        switch (rDesiredConfig.termios.getParityString(true).c_str()[0]) {
-            case 'O':
+        switch (rDesiredConfig.termios.getParity())
+        {
+            case Termios::ODD:
                 sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
-            case 'E':
+            case Termios::EVEN:
                 sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
-            case 'N':
+            case Termios::NONE:
                 sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, n_c::SensorCmdArg(0), true);
                 break;
 
