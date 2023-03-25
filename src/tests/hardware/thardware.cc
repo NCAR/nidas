@@ -70,8 +70,12 @@ BOOST_AUTO_TEST_CASE(test_interface)
 BOOST_AUTO_TEST_CASE(test_lookup)
 {
     HardwareInterface::resetInterface();
+    HardwareInterface::selectInterface(HardwareInterface::MOCK_INTERFACE);
     auto hwi = HardwareInterface::getHardwareInterface();
     BOOST_CHECK_EQUAL(hwi->lookupDevice("PORT0").id(), "port0");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("1").id(), "port1");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("DCDC").id(), "dcdc");
+    BOOST_CHECK_EQUAL(hwi->lookupDevice("/dev/ttyDSM1").id(), "port1");
+    BOOST_CHECK_EQUAL(hwi->lookupDevice("/tmp/ttyDSM1").id(), "port1");
+    BOOST_CHECK_EQUAL(hwi->lookupDevice("/dev/ttyDSM12").id(), "");
 }

@@ -55,6 +55,10 @@ namespace {
 namespace nidas {
 namespace core {
 
+const OutputState OutputState::UNKNOWN(EUNKNOWN);
+const OutputState OutputState::OFF(EOFF);
+const OutputState OutputState::ON(EON);
+
 const std::string HardwareInterface::NULL_INTERFACE("null");
 const std::string HardwareInterface::MOCK_INTERFACE("mock");
 
@@ -80,6 +84,46 @@ namespace Devices
 using namespace Devices;
 
 
+namespace DSM3
+{
+    const HardwareDevice OUTPUTS[] {
+        DCDC, BANK1, BANK2, AUX,
+        PORT0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7,
+        P1, WIFI
+    };
+
+    const HardwareDevice RELAYS[] {
+        DCDC, BANK1, BANK2, AUX
+    };
+
+    const HardwareDevice PORTS[] {
+        PORT0, PORT1, PORT2, PORT3, PORT4, PORT5, PORT6, PORT7,
+    };
+
+    const HardwareDevice BUTTONS[] {
+        P1, WIFI
+    };
+}
+
+
+
+/**
+ * Search an iterable of devices for the given id and return it.  This is a
+ * template so the iterable can be an array type with a length.
+ */
+template <typename T>
+HardwareDevice lookup_device(const std::string& id, const T& arrayd)
+{
+    for (auto& dp: arrayd)
+    {
+        if (dp.id() == id)
+            return dp;
+    }
+    return HardwareDevice();
+}
+
+
+
 class HardwareDevices: public std::list<HardwareDeviceImpl>
 {
 public:
@@ -97,41 +141,17 @@ public:
 };
 
 
-std::vector<HardwareDevice> HardwareInterface::ports()
-{
-    return std::vector<HardwareDevice>{
-        PORT0, PORT1, PORT2, PORT3,
-        PORT4, PORT5, PORT6, PORT7
-    };
-}
-
-std::vector<HardwareDevice> HardwareInterface::relays()
-{
-    return std::vector<HardwareDevice>{
-        DCDC, BANK1, BANK2, AUX
-    };
-}
-
-std::vector<HardwareDevice> HardwareInterface::buttons()
-{
-    return std::vector<HardwareDevice>{
-        P1, WIFI
-    };
-}
-
-template <typename T>
-std::vector<T>& append(std::vector<T>& dest, const std::vector<T>& src)
-{
-    dest.insert(dest.end(), src.begin(), src.end());
-    return dest;
-}
-
 std::vector<HardwareDevice> HardwareInterface::devices()
 {
-    std::vector<HardwareDevice> all;
-    append(all, ports());
-    append(all, relays());
-    return append(all, buttons());
+    Synchronized sync(hardware_interface_mutex);
+    // create a vector of devices bound to this interface.
+    std::vector<HardwareDevice> devs;
+    for (auto& dimpl: _devices)
+    {
+        auto hwi = hardware_interface_singleton.lock();
+        devs.push_back(HardwareDevice(dimpl._id).bind(hwi));
+    }
+    return devs;
 }
 
 
@@ -140,6 +160,16 @@ HardwareDevice(const std::string& id):
     _id(id),
     _hwi()
 {}
+
+
+HardwareDevice&
+HardwareDevice::
+bind(std::shared_ptr<HardwareInterface> hwi)
+{
+    _hwi = hwi;
+    return *this;
+}
+
 
 std::string
 HardwareDevice::id() const
@@ -153,12 +183,32 @@ HardwareDevice::description() const
     return HardwareInterface::lookupDescription(*this);
 }
 
+OutputState
+HardwareDevice::
+getOutputState()
+{
+    if (auto ioutput = iOutput())
+        return ioutput->getState();
+    return OutputState::UNKNOWN;
+}
+
+
 bool
 HardwareDevice::
 isEmpty() const
 {
     return _id.empty();
 }
+
+
+HardwareDevice
+HardwareDevice::
+lookupDevice(const std::string& id)
+{
+    auto hwi = HardwareInterface:: getHardwareInterface();
+    return hwi->lookupDevice(id);
+}
+
 
 SerialPortInterface*
 HardwareDevice::iSerial()
@@ -352,27 +402,31 @@ createButtonInterface(HardwareDeviceImpl*)
 
 HardwareDevice
 HardwareInterface::
-lookupDevice(const std::string& id, const std::vector<HardwareDevice>& devs)
+lookupDevice(const std::string& target)
 {
-    std::string lower(id);
-    std::for_each(lower.begin(), lower.end(),
-                  [](char &c){ c = std::tolower(c); });
-    if (id.size() == 1 && id[0] >= '0' && id[0] <= '7')
-        lower = "port" + lower;
-    for (auto device: devs)
+    DLOG(("") << "lookupDevice(" << target << ")");
+    std::string id(target);
+    // translate device names like ttyDSM0 to the hardware id port0
+    auto n = id.rfind("ttyDSM");
+    if (n != std::string::npos)
     {
-        if (device.id() == lower)
+        auto port = id.substr(n);
+        DLOG(("") << "found port device: " << port);
+        if (port.size() == 7 && port.back() >= '0' && port.back() <= '7')
+        {
+            id = port.back();
+        }
+    }
+    std::for_each(id.begin(), id.end(), [](char &c){ c = std::tolower(c); });
+    if (id.size() == 1 && id[0] >= '0' && id[0] <= '7')
+        id = "port" + id;
+    DLOG(("") << "searching for resolved id: " << id);
+    for (auto& device: devices())
+    {
+        if (device.id() == id)
             return device;
     }
     return HardwareDevice();
-}
-
-
-HardwareDevice
-HardwareInterface::
-lookupDevice(const std::string& id)
-{
-    return lookupDevice(id, devices());
 }
 
 
@@ -426,7 +480,7 @@ delete_devices()
 
 
 OutputInterface::OutputInterface() :
-    _current(STATE::UNKNOWN)
+    _current()
 {}
 
 OutputInterface::
@@ -434,7 +488,7 @@ OutputInterface::
 {}
 
 
-OutputInterface::STATE
+OutputState
 OutputInterface::
 getState()
 {
@@ -445,51 +499,52 @@ void
 OutputInterface::
 on()
 {
-    setState(ON);
+    setState(OutputState::ON);
 }
 
 void
 OutputInterface::
 off()
 {
-    setState(OFF);
+    setState(OutputState::OFF);
 }
 
 void
 OutputInterface::
-setState(STATE state)
+setState(OutputState state)
 {
     _current = state;
 }
 
 std::string
-OutputInterface::
-stateToString(STATE state)
+OutputState::
+toString() const
 {
-    if (state == ON)
+    if (id == EON)
         return "on";
-    else if (state == OFF)
+    else if (id == EOFF)
         return "off";
     return "unknown";
 }
 
 
-OutputInterface::STATE
-OutputInterface::
-stringToState(const std::string& text)
+OutputState&
+OutputState::
+fromString(const std::string& text)
 {
     if (text == "on")
-        return ON;
+        id = EON;
     else if (text == "off")
-        return OFF;
-    return UNKNOWN;
+        id = EOFF;
+    id = EUNKNOWN;
+    return *this;
 }
 
 
 std::ostream&
-operator<<(std::ostream& out, OutputInterface::STATE state)
+operator<<(std::ostream& out, const OutputState& state)
 {
-    out << OutputInterface::stateToString(state);
+    out << state.toString();
     return out;
 }
 
@@ -584,7 +639,7 @@ public:
     SerialPortInterface*
     createSerialPortInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(dimpl->_id, ports()).isEmpty())
+        if (lookup_device(dimpl->_id, DSM3::PORTS).isEmpty())
             return nullptr;
         return new SerialPortInterface;
     }
@@ -592,9 +647,7 @@ public:
     OutputInterface*
     createOutputInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(dimpl->_id, ports()).isEmpty() &&
-            lookupDevice(dimpl->_id, relays()).isEmpty() &&
-            lookupDevice(dimpl->_id, buttons()).isEmpty())
+        if (lookup_device(dimpl->_id, DSM3::OUTPUTS).isEmpty())
             return nullptr;
         return new OutputInterface;
     }
@@ -602,7 +655,7 @@ public:
     ButtonInterface*
     createButtonInterface(HardwareDeviceImpl* dimpl) override
     {
-        if (lookupDevice(dimpl->_id, buttons()).isEmpty())
+        if (lookup_device(dimpl->_id, DSM3::BUTTONS).isEmpty())
             return nullptr;
         return new ButtonInterface;
     }
@@ -626,6 +679,12 @@ HardwareInterface::getHardwareInterface()
         }
         else if (default_interface_path == "ftdi")
         {
+            hwi.reset(get_hardware_interface_ftdi());
+        }
+        else if (default_interface_path == "")
+        {
+            // really there is only one real implementation, so try that one
+            // if nothing else specified.
             hwi.reset(get_hardware_interface_ftdi());
         }
         else

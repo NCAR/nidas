@@ -47,6 +47,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <memory>
 
 using namespace std;
 using namespace nidas::core;
@@ -122,7 +123,6 @@ DSMSensor::DSMSensor() :
     _nSamplesTested(0), _nSamplesGood(0),
     _qcCheckPeriod(DEFAULT_QC_CHECK_PERIOD),
 	_lastSampleSurveillance(0),
-    _pSensrPwrCtrl(0),
     _sensorState(SENSOR_CLOSED),
     _prefix(),
     _prefixEnabled(false)
@@ -143,8 +143,6 @@ DSMSensor::~DSMSensor()
         delete pi->second;
 
     removeCalFiles();
-    delete _pSensrPwrCtrl;
-    _pSensrPwrCtrl = 0;
 }
 
 void DSMSensor::setDSMConfig(const DSMConfig* val)

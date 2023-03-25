@@ -641,19 +641,19 @@ public:
     {
     }
 
-    STATE getState() override
+    OutputState getState() override
     {
         unsigned char bits;
         if (_ftdi->read_bits(&bits))
         {
-            return (bits != 0) ? ON : OFF;
+            return (bits != 0) ? OutputState::ON : OutputState::OFF;
         }
-        return UNKNOWN;
+        return OutputState::UNKNOWN;
     }
 
-    void setState(STATE state) override
+    void setState(OutputState state) override
     {
-        _ftdi->write_bits((state == ON) ? 1 : 0);
+        _ftdi->write_bits((state == OutputState::ON) ? 1 : 0);
     }
 
 private:

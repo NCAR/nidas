@@ -31,7 +31,7 @@
 #include "Looper.h"
 #include "Prompt.h"
 
-#include <nidas/util/PowerCtrlIf.h>
+#include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/SPoll.h>
 
@@ -125,20 +125,12 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
         // this is needed for future comparisons.
         _desiredPortConfig = getPortConfig();
 
-        /*
-         *  Create sensor power control object here...
-         */
-
-        GPIO_PORT_DEFS portID = _desiredPortConfig.xcvrConfig.port;
-        DLOG(("SerialSensor::buildIODevice() : Instantiating SensorPowerCtrl object: ") << n_u::gpio2Str(portID));
-        SensorPowerCtrl* pSensorPwrCtrl = new SensorPowerCtrl(portID);
-        if (pSensorPwrCtrl == 0)
+        // If this port has hardware power control, turn it on here.
+        auto port = HardwareDevice::lookupDevice(getDeviceName());
+        if (auto ipower = port.iOutput())
         {
-            throw n_u::Exception("SerialPortIODevice: Cannot construct SensorPowerCtrl object");
+            ipower->on();
         }
-        setPowerCtrl(pSensorPwrCtrl);
-        enablePwrCtrl(true);
-        setPower(_initPowerState);
     }
 
     return device;
@@ -284,10 +276,6 @@ void SerialSensor::applyTermios() throw(nidas::util::IOException)
 void SerialSensor::applyPortConfig() 
 {
     static LogContext lp(LOG_DEBUG);
-    if (lp.active()) {
-        lp.log() << "SerialSensor::applyPortConfig(): Initial power state.";
-        printPowerState();
-    }
 
     if (_serialDevice) {
         _serialDevice->applyPortConfig();
@@ -300,8 +288,9 @@ void SerialSensor::applyPortConfig()
     }
 
     if (lp.active()) {
-        lp.log() << "SerialSensor::applyPortConfig(): Current power state.";
-        printPowerState();
+        HardwareDevice port(HardwareDevice::lookupDevice(getDeviceName()));
+        lp.log() << "SerialSensor::applyPortConfig(): Current power state: "
+                 << port.getOutputState();
     }
 }
 
@@ -309,7 +298,6 @@ void SerialSensor::printPortConfig(bool flush)
 {
     if (_serialDevice) {
         _serialDevice->printPortConfig();
-        printPowerState();
         if (flush) {
         	std::cerr << std::flush;
         	std::cout << std::flush;
@@ -844,7 +832,6 @@ bool SerialSensor::sweepCommParameters()
 
 				NLOG((""));
 				NLOG(("Testing PortConfig: ") << getPortConfig());
-				NLOG(("Power State: ") << getPowerStateStr());
 
 				cfgMode = enterConfigMode();
 				if (cfgMode == ENTERED) {

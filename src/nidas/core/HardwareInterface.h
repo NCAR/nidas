@@ -36,6 +36,45 @@ class OutputInterface;
 class ButtonInterface;
 class HardwareInterface;
 
+
+/**
+ * Outputs can have one of three states: UNKNOWN, OFF, ON.
+ */
+struct OutputState
+{
+    enum STATE {
+        EUNKNOWN, EOFF, EON
+    } id;
+
+    static const OutputState UNKNOWN;
+    static const OutputState OFF;
+    static const OutputState ON;
+
+    OutputState(STATE state = EUNKNOWN):
+        id(state)
+    {}
+
+    /**
+     * Return "on", "off", or "unknown".
+     */
+    std::string toString() const;
+
+    /**
+     * Set state if text is "on" or "off", otherwise set to UNKNOWN, and
+     * return this instance.
+     */
+    OutputState&
+    fromString(const std::string& text);
+
+    bool operator==(const OutputState& right)
+    {
+        return this->id == right.id;
+    }
+};
+
+std::ostream&
+operator<<(std::ostream& out, const OutputState& state);
+
 /**
  * @brief Hardware devices have an identifier, description, and interfaces.
  *
@@ -46,15 +85,20 @@ class HardwareInterface;
  * power relays), sharing the device namespace across kinds of hardware
  * control allows the same device ID to be used to get multiple hardware
  * interfaces.  The id is a unique handle which identifies a specific hardware
- * component on a DSM.  Finally, the device IDs are frequently referenced as
- * strings for program and configuration arguments, so it is just simpler to
- * keep them as strings.  However, the symbol should always be used to refer
- * to standard DSM devices in code.
+ * component on a DSM.  Device IDs are frequently referenced as strings for
+ * program and configuration arguments, so it is just simpler to keep them as
+ * strings.  However, the symbols should always be used to refer to standard
+ * DSM devices in code.
  *
  * HardwareDevice objects specifically are not virtual and are not meant to be
- * subclasses.  They are meant to passed around freely like tokens or
- * enumerations to identify a specific hardware component through which
- * callers can access one or more specific hardware interfaces.
+ * subclassed.  They are meant to be used like tokens to identify a specific
+ * hardware component through which callers can access one or more specific
+ * hardware interfaces.  Once a HardwareDevice is bound to a HardwareInterface
+ * implementation, either through HardwareDevice::lookupDevice() or by
+ * requesting one of the interfaces through iSerial(), iOutput(), or iPort(),
+ * then the HardwareDevice object holds a reference to the HardwareInterface.
+ * The HardwareInterface will not be released (and hardware devices may be
+ * held open) until the HardwareDevice goes out of scope or reset() is called.
  */
 class HardwareDevice
 {
@@ -126,6 +170,36 @@ public:
      */
     ButtonInterface* iButton();
 
+#ifdef notdef
+    /**
+     * Return true if this device has an output interface.  Most
+     * implementations will have to open the hardware to make sure the
+     * interface is available.
+     */
+    bool isOutput();
+
+    /**
+     * Return true if this device is a serial port, meaning it has a
+     * SerialPortInterface.  Most implementations will have to open the
+     * hardware to make sure the interface is available.
+     */
+    bool isPort();
+
+    /**
+     * Return true if this device is a relay, meaning it has only an
+     * OutputInterface and is not a button or port.  Most implementations will
+     * have to open the hardware to check which interfaces are available.
+     */
+    bool isRelay();
+
+    /**
+     * Return true if this device is a button, meaning it has a
+     * ButtonInterface.  Most implementations will have to open the hardware
+     * to check which interfaces are available.
+     */
+    bool isButton();
+#endif
+
     /**
      * Release any cached pointer to the HardwareInterface.
      *
@@ -137,9 +211,38 @@ public:
      */
     void reset();
 
+    /**
+     * Convenience method to return a power state for this device.
+     * 
+     * If the device does not have a power interface or the current power
+     * state could not be retrieved, then return OutputInterface::UNKNOWN.
+     */
+    OutputState getOutputState();
+
+    /**
+     * Return a HardwareDevice for the given @p id.
+     *
+     * This gets a reference to the hardware implementation with
+     * HardwareInterface::getHardwareInterface(), then calls lookupDevice()
+     * with the given @p id.  The returned HardwareDevice will have a
+     * reference to the HardwareInterface implementation, so the interface
+     * will be valid until the returned device is destroyed or reset() is
+     * called.  If no such device is found for @p id, then the returned device
+     * still holds a reference to the implementation, and isEmpty() will
+     * return true.
+     */
+    static HardwareDevice
+    lookupDevice(const std::string& id);
+
 private:
     std::string _id;
     std::shared_ptr<HardwareInterface> _hwi;
+
+    // Only HardwareInterface is allowed to bind itself to a HardwareDevice.
+    HardwareDevice&
+    bind(std::shared_ptr<HardwareInterface> hwi);
+
+    friend class HardwareInterface;
 };
 
 
@@ -148,7 +251,7 @@ class HardwareDevices;
 
 
 /**
- * @brief Standard DSM devices, including relays, ports, buttons, and LEDs.
+ * @brief Standard DSM devices: relays, ports, buttons, LEDs.
  *
  * These are not grouped into the kinds of device, like ports or buttons,
  * because some devices have multiple control and query interfaces.
@@ -176,7 +279,7 @@ namespace Devices {
     extern const HardwareDevice AUX;
 
     // On DSM3, these are the button/LED pairs with both output and button
-    // interfaces.
+    // interfaces.  DEF is an alias for P1.
     extern const HardwareDevice P1;
     extern const HardwareDevice DEF;
     extern const HardwareDevice WIFI;
@@ -327,25 +430,16 @@ public:
      * @brief Lookup a hardware device by it's ID and return it.
      *
      * For backwards compatibility, the given id will be converted to lower
-     * case to compare against the standard lower-case IDs.  @p devices is the
-     * vector of devices to search, typically selected from a list provided by
-     * the HardwareInterface implementation, like relays() or ports().
+     * case to compare against the standard lower-case IDs.  Also, device
+     * paths can be used to lookup the corresponding hardware device.  For
+     * example, /dev/ttyDSM1 will return PORT1.
+     *
+     * The returned device will already be bound to this HardwareInterface.
      *
      * If the device is not found, then a default HardwareDevice is returned,
      * for which isEmpty() returns true.
      *
      * @param id device identifier
-     * @param devices vector of devices to search
-     * @return HardwareDevice 
-     */
-    virtual HardwareDevice
-    lookupDevice(const std::string& id,
-                 const std::vector<HardwareDevice>& devices);
-
-    /**
-     * @brief Like lookupDevice(), but search devices().
-     *
-     * @param id 
      * @return HardwareDevice 
      */
     virtual HardwareDevice
@@ -355,41 +449,16 @@ public:
     lookupDescription(const HardwareDevice& device);
 
     /**
-     * @brief Return all the standard devices in a vector.
+     * @brief Return the known devices for this HardwareInterface.
      *
      * The base implementation returns all the standard DSM devices, but a
-     * subclass could override it to add more if they are available for a
-     * specific implementation.
+     * subclass can override it to return a different set according to the
+     * specific implementation.  The returned devices will already have a
+     * reference to this HardwareInterface, so the HardwareInterface will not
+     * be released until the returned vector or all of its elements go out of
+     * scope.
      */
     virtual std::vector<HardwareDevice> devices();
-
-    /**
-     * @brief Return iterable of all serial port devices, PORT0...PORT7.
-     *
-     * These are both outputs and serial ports.
-     * 
-     * @return std::vector<HardwareDevice> 
-     */
-    virtual std::vector<HardwareDevice> ports();
-
-    /**
-     * @brief Return iterable of all relays: DCDC, BANK1, BANK2, AUX.
-     * 
-     * These are all outputs.
-     * 
-     * @return std::vector<HardwareDevice> 
-     */
-    virtual std::vector<HardwareDevice> relays();
-
-    /**
-     * @brief Return iterable of all buttons.
-     *
-     * These have button interfaces and also output interfaces for the
-     * corresponding LED.
-     *
-     * @return std::vector<HardwareDevice> 
-     */
-    virtual std::vector<HardwareDevice> buttons();
 
 protected:
 
@@ -503,16 +572,14 @@ private:
 class OutputInterface
 {
 public:
-    enum STATE { UNKNOWN, OFF, ON };
-
     OutputInterface();
 
     virtual
     ~OutputInterface();
 
-    virtual STATE getState();
+    virtual OutputState getState();
 
-    virtual void setState(STATE state);
+    virtual void setState(OutputState state);
 
     /**
      * Base implementation calls setState(ON).
@@ -524,16 +591,11 @@ public:
      */
     virtual void off();
 
-    static std::string stateToString(STATE state);
-    static STATE stringToState(const std::string& text);
-
 private:
-    STATE _current;
+    OutputState _current;
 };
 
 
-std::ostream&
-operator<<(std::ostream& out, OutputInterface::STATE state);
 
 
 class ButtonInterface
