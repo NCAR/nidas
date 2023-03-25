@@ -549,6 +549,135 @@ operator<<(std::ostream& out, const OutputState& state)
 }
 
 
+const PortType PortType::LOOPBACK(ELOOPBACK);
+const PortType PortType::RS232(ERS232);
+const PortType PortType::RS422(ERS422);
+const PortType PortType::RS485_FULL(ERS485_FULL);
+const PortType PortType::RS485_HALF(ERS485_HALF);
+
+
+struct port_type_aliases_t
+{
+    PortType ptype;
+    std::vector<std::string> aliases;
+};
+
+
+// Associate port types with names.  The first alias is the short form, the
+// last is the long form.
+std::vector<port_type_aliases_t> port_type_aliases{
+    { PortType::LOOPBACK,    { "loop", "loopback", "LOOPBACK" } },
+    { PortType::RS232,       { "232", "rs232", "RS232" } },
+    { PortType::RS422,       { "422", "rs422", "RS422" } },
+    { PortType::RS485_FULL,  { "485f", "rs485f", "485F", "rs485_full", "RS485_FULL" } },
+    { PortType::RS485_HALF,  { "485h", "rs485h", "485H", "rs485_half", "RS485_HALF" } }
+};
+
+
+std::string
+PortType::
+toShortString() const
+{
+    for (auto& pa: port_type_aliases)
+    {
+        if (pa.ptype == *this)
+            return pa.aliases.front();
+    }
+    // something is really wrong...
+    return "undefined";
+}
+
+
+std::string
+PortType::
+toLongString() const
+{
+    for (auto& pa: port_type_aliases)
+    {
+        if (pa.ptype == *this)
+            return pa.aliases.back();
+    }
+    // shouldn't happen...
+    return "undefined";
+}
+
+
+PortType&
+PortType::
+fromString(const std::string& text)
+{
+    for (auto& pa: port_type_aliases)
+    {
+        for (auto& alias: pa.aliases)
+        {
+            if (text == alias)
+            {
+                ptype = pa.ptype.ptype;
+                return *this;
+            }
+        }
+    }
+    ptype = ELOOPBACK;
+    return *this;
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const PortType& ptype)
+{
+    out << ptype.toShortString();
+    return out;
+}
+
+
+const PortTermination PortTermination::NO_TERM(ENO_TERM);
+const PortTermination PortTermination::TERM_ON(ETERM_ON);
+
+
+std::string
+PortTermination::
+toShortString() const
+{
+    if (term == ETERM_ON)
+        return "term";
+    return "noterm";
+}
+
+
+std::string
+PortTermination::
+toLongString() const
+{
+    if (term == ETERM_ON)
+        return "TERM_ON";
+    return "NO_TERM";
+}
+
+
+PortTermination&
+PortTermination::
+fromString(const std::string& text)
+{
+    if (text == "term" || text == "TERM_ON" || text == "TERM")
+    {
+        term = ETERM_ON;
+    }
+    else
+    {
+        term = ENO_TERM;
+    }
+    return *this;
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const PortTermination& pterm)
+{
+    out << pterm.toShortString();
+    return out;
+}
+
+
 ButtonInterface::
 ButtonInterface():
     _current(UNKNOWN)
@@ -593,8 +722,8 @@ getState()
 
 SerialPortInterface::
 SerialPortInterface():
-    _port_type(RS232),
-    _termination(NO_TERM)
+    _port_type(PortType::RS232),
+    _termination(PortTermination::NO_TERM)
 {
 }
 
@@ -606,7 +735,7 @@ SerialPortInterface::
 
 void
 SerialPortInterface::
-getConfig(PORT_TYPES& ptype, TERM& term)
+getConfig(PortType& ptype, PortTermination& term)
 {
     ptype = _port_type;
     term = _termination;
@@ -615,7 +744,7 @@ getConfig(PORT_TYPES& ptype, TERM& term)
 
 void
 SerialPortInterface::
-setConfig(PORT_TYPES ptype, TERM term)
+setConfig(PortType ptype, PortTermination term)
 {
     _port_type = ptype;
     _termination = term;

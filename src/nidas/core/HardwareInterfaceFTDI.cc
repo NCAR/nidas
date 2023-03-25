@@ -662,10 +662,8 @@ private:
 };
 
 
-using PORT_TYPES = SerialPortInterface::PORT_TYPES;
-
 struct portbits_t {
-    PORT_TYPES ptype;
+    PortType ptype;
     unsigned char bits;
 };
 
@@ -679,14 +677,14 @@ static const unsigned char TERM_120_OHM_BIT = 0x04;
 static const unsigned char SENSOR_POWER_ON_BIT = 0x08;
 
 static portbits_vector_t PORTBITS {
-    { SerialPortInterface::RS422, RS422_RS485_BITS },
-    { SerialPortInterface::RS485_HALF, RS485_HALF_BITS },
-    { SerialPortInterface::RS232, RS232_BITS },
-    { SerialPortInterface::LOOPBACK, LOOPBACK_BITS }
+    { PortType::RS422, RS422_RS485_BITS },
+    { PortType::RS485_HALF, RS485_HALF_BITS },
+    { PortType::RS232, RS232_BITS },
+    { PortType::LOOPBACK, LOOPBACK_BITS }
 };
 
 unsigned char
-ptype_to_bits(PORT_TYPES ptype)
+ptype_to_bits(PortType ptype)
 {
     for (auto& pbits: PORTBITS)
     {
@@ -696,7 +694,7 @@ ptype_to_bits(PORT_TYPES ptype)
     return 0;
 }
 
-PORT_TYPES
+PortType
 bits_to_ptype(unsigned char bits)
 {
     bits = bits & 0x03;
@@ -705,7 +703,7 @@ bits_to_ptype(unsigned char bits)
         if (pbits.bits == bits)
             return pbits.ptype;
     }
-    return SerialPortInterface::LOOPBACK;
+    return PortType::LOOPBACK;
 }
 
 
@@ -717,22 +715,23 @@ public:
     {}
 
     void
-    getConfig(PORT_TYPES& ptype, TERM& term)
+    getConfig(PortType& ptype, PortTermination& term)
     {
         unsigned char bits{0};
         if (_ftdi->read_bits(&bits))
         {
             ptype = bits_to_ptype(bits);
-            term = (bits & TERM_120_OHM_BIT) ? TERM_120_OHM : NO_TERM;
+            term = (bits & TERM_120_OHM_BIT) ? PortTermination::TERM_ON :
+                                               PortTermination::NO_TERM;
         }
     }
 
     void
-    setConfig(PORT_TYPES ptype, TERM term)
+    setConfig(PortType ptype, PortTermination term)
     {
         unsigned char bits{0};
         bits |= ptype_to_bits(ptype);
-        bits |= (term == TERM_120_OHM) ? TERM_120_OHM_BIT : 0;
+        bits |= (term == PortTermination::TERM_ON) ? TERM_120_OHM_BIT : 0;
         _ftdi->write_bits(bits);
     }
 

@@ -42,10 +42,12 @@ class HardwareInterface;
  */
 struct OutputState
 {
+private:
     enum STATE {
         EUNKNOWN, EOFF, EON
     } id;
 
+public:
     static const OutputState UNKNOWN;
     static const OutputState OFF;
     static const OutputState ON;
@@ -74,6 +76,85 @@ struct OutputState
 
 std::ostream&
 operator<<(std::ostream& out, const OutputState& state);
+
+
+struct PortType
+{
+private:
+    enum PORT_TYPES {
+        ELOOPBACK=0,
+        ERS232=232,
+        ERS422=422,
+        ERS485_FULL=422,
+        ERS485_HALF=484
+    }
+    ptype;
+
+public:
+    static const PortType LOOPBACK;
+    static const PortType RS232;
+    static const PortType RS422;
+    static const PortType RS485_FULL;
+    static const PortType RS485_HALF;
+
+    PortType(PORT_TYPES pt=ELOOPBACK):
+        ptype(pt)
+    {}
+
+    std::string toShortString() const;
+
+    std::string toLongString() const;
+
+    PortType&
+    fromString(const std::string& text);
+
+    bool operator==(const PortType& right)
+    {
+        return this->ptype == right.ptype;
+    }
+
+};
+
+
+std::ostream&
+operator<<(std::ostream& out, const PortType& ptype);
+
+
+struct PortTermination
+{
+private:
+    enum TERM {
+        ENO_TERM=0,
+        ETERM_ON
+    }
+    term;
+
+public:
+    static const PortTermination NO_TERM;
+    static const PortTermination TERM_ON;
+
+    PortTermination(TERM eterm=ENO_TERM):
+        term(eterm)
+    {}
+
+    std::string toShortString() const;
+
+    std::string toLongString() const;
+
+    PortTermination&
+    fromString(const std::string& text);
+
+    bool operator==(const PortTermination& right)
+    {
+        return this->term == right.term;
+    }
+
+};
+
+
+std::ostream&
+operator<<(std::ostream& out, const PortTermination& pterm);
+
 
 /**
  * @brief Hardware devices have an identifier, description, and interfaces.
@@ -230,6 +311,15 @@ public:
      * called.  If no such device is found for @p id, then the returned device
      * still holds a reference to the implementation, and isEmpty() will
      * return true.
+     *
+     * This does that mean that unless a reference to the HardwareInterface is
+     * held elsewhere, such as by first calling
+     * HardwareInterface::getHardwareInterface(), then looking up one device
+     * after another could cause the HardwareInterface implementation to be
+     * created then destroyed for each lookup.  For now this is an accepted
+     * trade-off, since it should not happen frequently.  Creating the
+     * interface does not (currently) require opening any hardware.  Hardware
+     * is only accessed when a device interface is requested.
      */
     static HardwareDevice
     lookupDevice(const std::string& id);
@@ -520,25 +610,6 @@ class SerialPortInterface
 {
 public:
 
-    /**
-     * @brief Port modes.
-     */
-    enum PORT_TYPES {
-        LOOPBACK=0,
-        RS232=232,
-        RS422=422,
-        RS485_FULL=422,
-        RS485_HALF=484
-    };
-
-    /**
-     * @brief Termination settings.
-     */
-    enum TERM {
-        NO_TERM=0,
-        TERM_120_OHM
-    };
-
     SerialPortInterface();
 
     virtual
@@ -548,18 +619,18 @@ public:
      * Return the current port configuration in @p ptype and @p term.
      */
     virtual void
-    getConfig(PORT_TYPES& ptype, TERM& term);
+    getConfig(PortType& ptype, PortTermination& term);
 
     /**
      * Set the port configuration in @p ptype and @p term.
      */
     virtual void
-    setConfig(PORT_TYPES ptype, TERM term);
+    setConfig(PortType ptype, PortTermination term);
 
 private:
 
-    PORT_TYPES _port_type;
-    TERM _termination;
+    PortType _port_type;
+    PortTermination _termination;
 };
 
 

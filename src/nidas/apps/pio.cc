@@ -64,7 +64,7 @@ usage()
 {
     std::cerr
         << R""""(
-Usage: pio [device [op]]]
+Usage: pio [device [op ...]]
 
   device:
 
@@ -75,19 +75,30 @@ Usage: pio [device [op]]]
     Turn the output on or off, or wait for a switch to be pressed.
     If not specified, show the current status of just that output.
 
-Query and control power relays, sensor power, LEDs, and pushbutton switches.
-If no arguments, show the status of all output devices.
+  op: set {232|422|485h|485f|loop} {term|noterm} {rts0|rts1}
+
+    Configure a serial port with (term) or without (noterm) 120 Ohm
+    termination, and set the signal protocol: RS232, RS422, RS485 half duplex,
+    RS485 full duplex, loopback.  Set (rts1) or clear (rts0) the RTS bit.
+    Protocol and termination are always set together, so if only
+    one is specified, the other defaults to noterm or rs232.
+
+Query and control power relays, sensor power, LEDs, serial ports, and
+pushbutton switches.  If no arguments, show the status of all devices.
 )""""
         << app.usage()
         << R""""()
 
 Examples:
 
-  pio              - Show status of all output devices.
+  pio              - Show status of all devices.
   pio --list       - List devices with descriptions.
   pio 0 off        - Turn off power to the sensor in port 0.
   pio wifi on      - Turn on the LED for the wifi button.
   pio aux off      - Turn off the auxiliary power port.
+  pio 0 232        - Put port 0 in RS232 mode.
+  pio 7 485h       - Put port 7 in RS485 half-duplex mode, no termination.
+
 )"""";
 }
 
@@ -129,7 +140,20 @@ print_status(HardwareDevice& device)
 {
     cout << std::setw(10) << device.id() << "  ";
     if (auto oi = device.iOutput())
+    {
         cout << oi->getState();
+        if (auto iserial = device.iSerial())
+        {
+            PortType ptype;
+            PortTermination term;
+            iserial->getConfig(ptype, term);
+            cout << " " << ptype << " " << term;
+        }
+        if (auto ibutton = device.iButton())
+        {
+            cout << " " << (ibutton->isDown() ? "down" : "up");
+        }
+    }
     else
         cout << "could-not-open";
     cout << endl;
@@ -152,7 +176,6 @@ int main(int argc, char* argv[]) {
     if (parseRunString(argc, argv))
         exit(1);
 
-    HardwareInterface::selectInterface("ftdi");
     auto hwi = HardwareInterface::getHardwareInterface();
 
     if (List.asBool())
