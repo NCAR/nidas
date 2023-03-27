@@ -95,7 +95,7 @@ struct ftdi_location
  */
 const unsigned char XCVR_BITS_PORT_TYPE = 0b00110011;
 const unsigned char XCVR_BITS_TERM =      0b01000100;
-const unsigned char PORT_CONFIG_BITS = XCVR_BITS_PORT_TYPE | XCVR_BITS_TERM;
+const unsigned char PORT_CONFIG_BITS = (XCVR_BITS_PORT_TYPE | XCVR_BITS_TERM);
 const unsigned char SENSOR_POWER_BITS =   0b10001000;
 
 /**
@@ -510,11 +510,13 @@ FTDI_Device::
 set_mask(unsigned char mask)
 {
     _mask = mask;
-    unsigned int i;
-    for (i = 0; (i < 8) && ((_mask >> i) ^ 0b1); ++i);
-    _shift = i;
-    VLOG(("") << "set_mask " << description()
-              << ": mask=" << std::hex << _mask
+    for (_shift = 0; _shift <= 8; ++_shift)
+    {
+        if ((_mask >> _shift) & 0x01)
+            break;
+    }
+    DLOG(("") << "set_mask " << description()
+              << ": mask=0x" << std::hex << int(_mask)
               << ", shift=" << std::dec << _shift);
 }
 
@@ -534,6 +536,8 @@ write_bits(unsigned char bits)
     // to set after shifting them to line up with the mask.
     pins &= ~_mask;
     pins |= (bits << _shift);
+    DLOG(("") << "(after shift) write_data=0x" << std::hex << int(pins) << ", "
+              << description());
     if ((status = ftdi_write_data(_pContext, &pins, 1)) != 1)
     {
         PLOG(("") << error_string("ftdi_write_data", status));
@@ -550,7 +554,10 @@ read_bits(unsigned char* pins)
     if (good)
     {
         // return just the interested bitfield in the rightmost bits.
+        *pins &= _mask;
         *pins = *pins >> _shift;
+        DLOG(("") << "(after shift) read_bits=0x" << std::hex << int(*pins)
+                  << ", " << description());
     }
     return good;
 }
@@ -569,6 +576,8 @@ _read_bits(unsigned char* pins)
         PLOG(("") << error_string("ftdi_read_pins", status));
         return false;
     }
+    DLOG(("") << "read_data=0x" << std::hex << int(*pins) << ", "
+                << description());
     return true;
 }
 
@@ -610,7 +619,7 @@ FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
         const char* itypename = (itype == OUTPUT ? "output" :
                                  (itype == PORT ? "port" : "button"));
         DLOG(("") << "device does not have a ftdi " << itypename
-                  << " interface:" << device.id());
+                  << " interface: " << device);
         return nullptr;
     }
     // we could use make_unique here, except the constructor is private.
@@ -623,7 +632,7 @@ FTDI_Device::create(const HardwareDevice& device, InterfaceType itype)
     {
         DLOG(("") << "ftdi open failed, "
                   << "no output interface available for device: "
-                  << device.id());
+                  << device);
         return nullptr;
     }
     return ftdi;
@@ -643,6 +652,7 @@ public:
 
     OutputState getState() override
     {
+        DLOG(("") << "Output::getState()");
         unsigned char bits;
         if (_ftdi->read_bits(&bits))
         {
@@ -653,6 +663,7 @@ public:
 
     void setState(OutputState state) override
     {
+        DLOG(("") << "Output::setState(" << state << ")");
         _ftdi->write_bits((state == OutputState::ON) ? 1 : 0);
     }
 
@@ -669,12 +680,13 @@ struct portbits_t {
 
 using portbits_vector_t = std::vector<portbits_t>;
 
+// These are the bit values for the port tansceiver mode, two bits for the
+// Exar SP339 transceiver control lines M0 and M1 and one bit for termination.
 static const unsigned char LOOPBACK_BITS = 0x00;
 static const unsigned char RS232_BITS = 0x01;
 static const unsigned char RS485_HALF_BITS = 0x02;
 static const unsigned char RS422_RS485_BITS = 0x03;
 static const unsigned char TERM_120_OHM_BIT = 0x04;
-static const unsigned char SENSOR_POWER_ON_BIT = 0x08;
 
 static portbits_vector_t PORTBITS {
     { PortType::RS422, RS422_RS485_BITS },
@@ -717,6 +729,7 @@ public:
     void
     getConfig(PortType& ptype, PortTermination& term)
     {
+        DLOG(("") << "getConfig()");
         unsigned char bits{0};
         if (_ftdi->read_bits(&bits))
         {
@@ -729,6 +742,7 @@ public:
     void
     setConfig(PortType ptype, PortTermination term)
     {
+        DLOG(("") << "setConfig(" << ptype << "," << term << ")");
         unsigned char bits{0};
         bits |= ptype_to_bits(ptype);
         bits |= (term == PortTermination::TERM_ON) ? TERM_120_OHM_BIT : 0;

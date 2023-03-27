@@ -44,9 +44,11 @@ class HardwareDeviceImpl
 {
 public:
     HardwareDeviceImpl(const HardwareDevice& device=HardwareDevice(),
-                       const std::string& description=""):
+                       const std::string& description="",
+                       const std::string& path=""):
         _id(device.id()),
         _description(description),
+        _path(path),
         _iserial(0),
         _ioutput(0),
         _ibutton(0)
@@ -54,6 +56,7 @@ public:
 
     std::string _id;
     std::string _description;
+    std::string _path;
 
     // These are smart pointers so they will be deleted when the device
     // implementation cache in the base HardwareInterface is destroyed.

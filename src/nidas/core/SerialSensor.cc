@@ -53,7 +53,7 @@ SerialSensor::SerialSensor():
     _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(), _portTypeList(), 
     _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
-    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(n_u::POWER_ON),
+    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
     _defaultPortConfig(),_serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
@@ -65,11 +65,11 @@ SerialSensor::SerialSensor():
     _defaultPortConfig.termios.setRawTimeout(0);
 }
 
-SerialSensor::SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState):
+SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
     _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(rInitPortConfig), 
     _portTypeList(), _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
-    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED), _initPowerState(initPowerState),
+    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
     _defaultPortConfig(rInitPortConfig),_serialDevice(0), _prompters(), _prompting(false)
 {
     setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);

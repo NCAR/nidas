@@ -89,7 +89,6 @@ data_dump
 data_stats
 dmd_mmat_test
 dsm_auto_config
-dsm_port_config
 dsm_server
 dsm
 extract2d

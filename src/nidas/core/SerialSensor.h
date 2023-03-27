@@ -154,7 +154,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
-    SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState=POWER_ON);
+    SerialSensor(const PortConfig& rInitPortConfig);
 
     ~SerialSensor();
 
@@ -419,7 +419,6 @@ protected:
     AUTOCONFIG_STATE _scienceState;
     AUTOCONFIG_STATE _deviceState;
     CFG_MODE_STATUS _configMode;
-    POWER_STATE _initPowerState;
 
 private:
     /*

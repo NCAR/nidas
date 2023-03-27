@@ -183,6 +183,12 @@ HardwareDevice::description() const
     return HardwareInterface::lookupDescription(*this);
 }
 
+std::string
+HardwareDevice::path() const
+{
+    return HardwareInterface::lookupPath(*this);
+}
+
 OutputState
 HardwareDevice::
 getOutputState()
@@ -207,6 +213,13 @@ lookupDevice(const std::string& id)
 {
     auto hwi = HardwareInterface:: getHardwareInterface();
     return hwi->lookupDevice(id);
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const HardwareDevice& device)
+{
+    return (out << device.id());
 }
 
 
@@ -253,20 +266,36 @@ HardwareInterface(const std::string& path):
     _devices_ptr(new HardwareDevices),
     _devices(*_devices_ptr)
 {
-    add_device_impl(HardwareDeviceImpl(DCDC, "DC-DC converter relay"));
-    add_device_impl(HardwareDeviceImpl(BANK1, "Bank1 12V to serial card and IO panel, not connected on DSM3"));
-    add_device_impl(HardwareDeviceImpl(BANK2, "Bank2 12V socket, for accessories."));
-    add_device_impl(HardwareDeviceImpl(AUX, "Auxiliary 12V power, typically chained to other DSMs"));
-    add_device_impl(HardwareDeviceImpl(PORT0, "Sensor power on DSM serial port 0"));
-    add_device_impl(HardwareDeviceImpl(PORT1, "Sensor power on DSM serial port 1"));
-    add_device_impl(HardwareDeviceImpl(PORT2, "Sensor power on DSM serial port 2"));
-    add_device_impl(HardwareDeviceImpl(PORT3, "Sensor power on DSM serial port 3"));
-    add_device_impl(HardwareDeviceImpl(PORT4, "Sensor power on DSM serial port 4"));
-    add_device_impl(HardwareDeviceImpl(PORT5, "Sensor power on DSM serial port 5"));
-    add_device_impl(HardwareDeviceImpl(PORT6, "Sensor power on DSM serial port 6"));
-    add_device_impl(HardwareDeviceImpl(PORT7, "Sensor power on DSM serial port 7"));
-    add_device_impl(HardwareDeviceImpl(P1, "p1 button and LED, also known as default switch."));
-    add_device_impl(HardwareDeviceImpl(WIFI, "wifi button and LED."));
+    using HDI = HardwareDeviceImpl;
+    add_device_impl(
+        HDI(DCDC, "DC-DC converter relay"));
+    add_device_impl(
+        HDI(BANK1, "Bank1 12V to serial card and IO panel, "
+                   "not connected on DSM3"));
+    add_device_impl(
+        HDI(BANK2, "Bank2 12V socket, for accessories."));
+    add_device_impl(
+        HDI(AUX, "Auxiliary 12V power, typically chained to other DSMs"));
+    add_device_impl(
+        HDI(PORT0, "Sensor power on DSM serial port 0", "/dev/ttyDSM0"));
+    add_device_impl(
+        HDI(PORT1, "Sensor power on DSM serial port 1", "/dev/ttyDSM1"));
+    add_device_impl(
+        HDI(PORT2, "Sensor power on DSM serial port 2", "/dev/ttyDSM2"));
+    add_device_impl(
+        HDI(PORT3, "Sensor power on DSM serial port 3", "/dev/ttyDSM3"));
+    add_device_impl(
+        HDI(PORT4, "Sensor power on DSM serial port 4", "/dev/ttyDSM4"));
+    add_device_impl(
+        HDI(PORT5, "Sensor power on DSM serial port 5", "/dev/ttyDSM5"));
+    add_device_impl(
+        HDI(PORT6, "Sensor power on DSM serial port 6", "/dev/ttyDSM6"));
+    add_device_impl(
+        HDI(PORT7, "Sensor power on DSM serial port 7", "/dev/ttyDSM7"));
+    add_device_impl(
+        HDI(P1, "p1 button and LED, also known as default switch."));
+    add_device_impl(
+        HDI(WIFI, "wifi button and LED."));
 }
 
 
@@ -420,6 +449,10 @@ lookupDevice(const std::string& target)
     std::for_each(id.begin(), id.end(), [](char &c){ c = std::tolower(c); });
     if (id.size() == 1 && id[0] >= '0' && id[0] <= '7')
         id = "port" + id;
+    // "def" is an alias for p1, but we have to check for the string id
+    // because the symbol DEF already has the same id as P1.
+    if (id == "def")
+        id = P1.id();
     DLOG(("") << "searching for resolved id: " << id);
     for (auto& device: devices())
     {
@@ -430,12 +463,20 @@ lookupDevice(const std::string& target)
 }
 
 
+
+auto
+get_default_interface()
+{
+    static auto default_interface = std::make_shared<HardwareInterface>("");
+    return default_interface;
+}
+
+
 std::string
 HardwareInterface::
 lookupDescription(const HardwareDevice& device)
 {
-    static auto default_interface = std::make_shared<HardwareInterface>("");
-
+    static auto default_interface = get_default_interface();
     Synchronized sync(hardware_interface_mutex);
     auto hwi = hardware_interface_singleton.lock();
     if (!hwi)
@@ -446,14 +487,28 @@ lookupDescription(const HardwareDevice& device)
 }
 
 
+std::string
+HardwareInterface::
+lookupPath(const HardwareDevice& device)
+{
+    static auto default_interface = get_default_interface();
+    Synchronized sync(hardware_interface_mutex);
+    auto hwi = hardware_interface_singleton.lock();
+    if (!hwi)
+        hwi = default_interface;
+    if (auto dimpl = hwi->lookup_device_impl(device))
+        return dimpl->_path;
+    return "";
+}
+
+
 void
 HardwareInterface::
 add_device_impl(const HardwareDeviceImpl& device)
 {
     Synchronized sync(hardware_interface_mutex);
-    DLOG(("") << "adding " << device._id << ": " << device._description);
+    VLOG(("") << "adding " << device._id << ": " << device._description);
     _devices.push_back(device);
-    VLOG(("current devices: ") << _devices.to_string());
 }
 
 
@@ -528,16 +583,17 @@ toString() const
 }
 
 
-OutputState&
+bool
 OutputState::
-fromString(const std::string& text)
+parse(const std::string& text)
 {
-    if (text == "on")
+    if (text == "on" || text == "ON")
         id = EON;
-    else if (text == "off")
+    else if (text == "off" || text == "OFF")
         id = EOFF;
-    id = EUNKNOWN;
-    return *this;
+    else
+        return false;
+    return true;
 }
 
 
@@ -602,9 +658,9 @@ toLongString() const
 }
 
 
-PortType&
+bool
 PortType::
-fromString(const std::string& text)
+parse(const std::string& text)
 {
     for (auto& pa: port_type_aliases)
     {
@@ -613,12 +669,11 @@ fromString(const std::string& text)
             if (text == alias)
             {
                 ptype = pa.ptype.ptype;
-                return *this;
+                return true;
             }
         }
     }
-    ptype = ELOOPBACK;
-    return *this;
+    return false;
 }
 
 
@@ -654,19 +709,23 @@ toLongString() const
 }
 
 
-PortTermination&
+bool
 PortTermination::
-fromString(const std::string& text)
+parse(const std::string& text)
 {
     if (text == "term" || text == "TERM_ON" || text == "TERM")
     {
         term = ETERM_ON;
     }
-    else
+    else if (text == "noterm" || text == "NO_TERM")
     {
         term = ENO_TERM;
     }
-    return *this;
+    else
+    {
+        return false;
+    }
+    return true;
 }
 
 

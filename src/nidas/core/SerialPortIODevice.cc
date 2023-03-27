@@ -59,7 +59,7 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 }
 
 SerialPortIODevice::SerialPortIODevice():
-    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0),
     _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
@@ -68,7 +68,7 @@ SerialPortIODevice::SerialPortIODevice():
 }
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
-    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
@@ -80,7 +80,6 @@ SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
 SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
     UnixIODevice(x.getName()), _workingPortConfig(x._workingPortConfig), 
     _pXcvrCtrl((const_cast<SerialPortIODevice&>(x).getXcvrCtrl())),
-    _pSensorPwrCtrl((const_cast<SerialPortIODevice&>(x).getPwrCtrl())),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
 {
     checkXcvrCtrlAvailable(getName());
@@ -88,7 +87,7 @@ SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
 
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
-    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
@@ -105,10 +104,6 @@ SerialPortIODevice::~SerialPortIODevice()
 
     if (_pXcvrCtrl) {
         delete _pXcvrCtrl;
-    }
-
-    if (_pSensorPwrCtrl) {
-        delete _pSensorPwrCtrl;
     }
 }
 

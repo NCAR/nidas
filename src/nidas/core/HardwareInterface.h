@@ -52,32 +52,37 @@ public:
     static const OutputState OFF;
     static const OutputState ON;
 
-    OutputState(STATE state = EUNKNOWN):
-        id(state)
-    {}
-
     /**
      * Return "on", "off", or "unknown".
      */
     std::string toString() const;
 
     /**
-     * Set state if text is "on" or "off", otherwise set to UNKNOWN, and
-     * return this instance.
+     * Set state if text is "on" or "off" and return true, otherwise return
+     * false.
      */
-    OutputState&
-    fromString(const std::string& text);
+    bool
+    parse(const std::string& text);
 
     bool operator==(const OutputState& right)
     {
         return this->id == right.id;
     }
+
+    OutputState(STATE state = EUNKNOWN):
+        id(state)
+    {}
 };
 
 std::ostream&
 operator<<(std::ostream& out, const OutputState& state);
 
 
+/**
+ * PortType is an enumerated class.  It wraps a private enumeration type and
+ * adds methods for converting to and from text.  The RS485_FULL instance is
+ * set deliberately to RS422, so they can be used interchangeably.
+ */
 struct PortType
 {
 private:
@@ -86,7 +91,7 @@ private:
         ERS232=232,
         ERS422=422,
         ERS485_FULL=422,
-        ERS485_HALF=484
+        ERS485_HALF=485
     }
     ptype;
 
@@ -97,22 +102,21 @@ public:
     static const PortType RS485_FULL;
     static const PortType RS485_HALF;
 
-    PortType(PORT_TYPES pt=ELOOPBACK):
-        ptype(pt)
-    {}
-
     std::string toShortString() const;
 
     std::string toLongString() const;
 
-    PortType&
-    fromString(const std::string& text);
+    bool
+    parse(const std::string& text);
 
     bool operator==(const PortType& right)
     {
         return this->ptype == right.ptype;
     }
 
+    PortType(PORT_TYPES pt=ELOOPBACK):
+        ptype(pt)
+    {}
 };
 
 
@@ -141,8 +145,8 @@ public:
 
     std::string toLongString() const;
 
-    PortTermination&
-    fromString(const std::string& text);
+    bool
+    parse(const std::string& text);
 
     bool operator==(const PortTermination& right)
     {
@@ -196,9 +200,19 @@ public:
     std::string id() const;
 
     /**
+     * Return the canonical device path, like /dev/ttyDSM0 for PORT0.
+     *
+     * Call lookupPath() on the current HardwareInterface implementation, or
+     * else a standard default.  Like description(), this does not create and
+     * hold the HardwareInterface pointer if it does not exist yet.
+     */
+    std::string path() const;
+
+    /**
      * Lookup the description for this device in the current implementation,
      * or else return the default description if there is no current
-     * implementation.
+     * implementation.  This does not hold a reference to the
+     * HardwareInterface.
      *
      * @return std::string 
      */
@@ -307,19 +321,18 @@ public:
      * HardwareInterface::getHardwareInterface(), then calls lookupDevice()
      * with the given @p id.  The returned HardwareDevice will have a
      * reference to the HardwareInterface implementation, so the interface
-     * will be valid until the returned device is destroyed or reset() is
-     * called.  If no such device is found for @p id, then the returned device
-     * still holds a reference to the implementation, and isEmpty() will
-     * return true.
+     * will be valid until the returned device is destroyed or reset().  If no
+     * such device is found for @p id, then the returned device still holds a
+     * reference to the implementation, and isEmpty() will return true.
      *
-     * This does that mean that unless a reference to the HardwareInterface is
-     * held elsewhere, such as by first calling
-     * HardwareInterface::getHardwareInterface(), then looking up one device
-     * after another could cause the HardwareInterface implementation to be
-     * created then destroyed for each lookup.  For now this is an accepted
-     * trade-off, since it should not happen frequently.  Creating the
-     * interface does not (currently) require opening any hardware.  Hardware
-     * is only accessed when a device interface is requested.
+     * Unless a reference to the HardwareInterface is held elsewhere, such as
+     * by first calling HardwareInterface::getHardwareInterface(), then
+     * looking up one device after another could cause the HardwareInterface
+     * implementation to be created then destroyed for each lookup.  For now
+     * this is an accepted trade-off, since it should not happen frequently.
+     * Creating the interface does not (currently) require opening any
+     * hardware.  Hardware is only accessed when a device interface is
+     * requested.
      */
     static HardwareDevice
     lookupDevice(const std::string& id);
@@ -334,6 +347,13 @@ private:
 
     friend class HardwareInterface;
 };
+
+
+/**
+ * Write the device id() to the stream.
+ */
+std::ostream&
+operator<<(std::ostream& out, const HardwareDevice& device);
 
 
 class HardwareDeviceImpl;
@@ -535,8 +555,32 @@ public:
     virtual HardwareDevice
     lookupDevice(const std::string& id);
 
+    /**
+     * Return the description for @p device.
+     *
+     * If the device is not a standard device or not known to the current
+     * implementation, return an empty string.  This is static so that if an
+     * implementation has not been created, then a standard description will
+     * be returned without needing to create an implementation.
+     */
     static std::string
     lookupDescription(const HardwareDevice& device);
+
+    /**
+     * Return the canonical device path for @p device.
+     *
+     * For example, this returns /dev/ttyDSM0 for DSM3 serial port
+     * Devices::PORT0.  If the device is not a standard device or not known to
+     * the current implementation, return an empty string.  Like for
+     * lookupDescription(), this is static so that if an implementation has
+     * not been created, then the path for a standard device will be returned
+     * without needing to create an implementation.  If the
+     * implementation-specific path is needed, make sure the implementation
+     * exists first by holding the reference returned by
+     * getHardwareInterface().
+     */
+    static std::string
+    lookupPath(const HardwareDevice& device);
 
     /**
      * @brief Return the known devices for this HardwareInterface.

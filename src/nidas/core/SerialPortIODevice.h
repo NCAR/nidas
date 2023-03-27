@@ -31,9 +31,7 @@
 #include "SerialXcvrCtrl.h"
 #include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
-#include <nidas/util/Termios.h>
 #include <nidas/util/IOException.h>
-#include <nidas/util/SensorPowerCtrl.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -222,12 +220,6 @@ public:
     void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl = pXcvrCtrl;}
 
     /**
-     *  Get the SerialPowerCtrl object for direct updating
-     */
-    SensorPowerCtrl* getPwrCtrl() {return _pSensorPwrCtrl;}
-    void setPwrCtrl(SensorPowerCtrl* pPwrCtrl) {_pSensorPwrCtrl = pPwrCtrl;}
-
-    /**
      *  Set and retrieve the _portType member attribute 
      */
     void setPortType( const PORT_TYPES thePortType) {_workingPortConfig.xcvrConfig.portType = thePortType;}
@@ -240,14 +232,8 @@ public:
     TERM getTermination() const {return _workingPortConfig.xcvrConfig.termination;}
 
     /**
-     *  Set and retrieve the _power member attribute 
-     */
-//    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_workingPortConfig.xcvrConfig.sensorPower = thePowerState;}
-//    SENSOR_POWER_STATE getPowerState() const {return _workingPortConfig.xcvrConfig.sensorPower;}
-
-    /**
      *  Commands the serial board to set the GPIO switches to configure for 
-     *  the port type, termination, and power according to the member attributes.
+     *  the port type and termination according to the member attributes.
      */
     void setPortConfig(const PortConfig newPortConfig) 
     {
@@ -499,8 +485,6 @@ protected:
     PortConfig _workingPortConfig;
 
     SerialXcvrCtrl* _pXcvrCtrl;
-
-    SensorPowerCtrl* _pSensorPwrCtrl;
 
     unsigned int _usecsperbyte;
 
