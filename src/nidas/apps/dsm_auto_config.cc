@@ -60,6 +60,8 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/NidasApp.h>
+#include <nidas/core/HardwareInterface.h>
+
 
 using namespace nidas::core;
 using namespace nidas::dynld::isff;
@@ -178,8 +180,8 @@ int main(int argc, char* argv[]) {
             NLOG(("Set device name: ") << pSerialSensor->getDeviceName());
 
             NLOG(("Printing sensor power State..."));
-            pSerialSensor->updatePowerState();
-            pSerialSensor->printPowerState();
+            auto device = HardwareDevice::lookupDevice(pSerialSensor->getDeviceName());
+            std::cout << "power state: " << device.getOutputState() << std::endl;
 
             if (pSerialSensor->supportsAutoConfig()) {
                 NLOG(("Setting sensor to enable AutoConfig..."));
