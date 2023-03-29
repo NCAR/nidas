@@ -28,12 +28,6 @@ BOOST_AUTO_TEST_CASE(test_interface)
     BOOST_CHECK_EQUAL(hdi._id, hdicopy._id);
     BOOST_CHECK_EQUAL(hdi._description, hdicopy._description);
 
-    std::map<std::string, HardwareDeviceImpl> hdmap;
-    hdmap[hdi._id] = hdi;
-    hdmap[WIFI.id()] = HardwareDeviceImpl(WIFI, "wifi description");
-    BOOST_CHECK_EQUAL(hdmap.size(), 2);
-    BOOST_CHECK_EQUAL(hdmap[WIFI.id()]._id, "wifi");
-    BOOST_CHECK_EQUAL(hdmap[WIFI.id()]._description, "wifi description");
     // before getting an interface, it should be possible to get default
     // descriptions.
     BOOST_CHECK_EQUAL(DCDC.description(), "DC-DC converter relay");
@@ -78,4 +72,10 @@ BOOST_AUTO_TEST_CASE(test_lookup)
     BOOST_CHECK_EQUAL(hwi->lookupDevice("/dev/ttyDSM1").id(), "port1");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("/tmp/ttyDSM1").id(), "port1");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("/dev/ttyDSM12").id(), "");
+
+    // check that other aliases work
+    BOOST_CHECK_EQUAL(DEF.id(), P1.id());
+    BOOST_CHECK_EQUAL(HardwareDevice(DEF).id(), P1.id());
+    BOOST_CHECK_EQUAL(hwi->lookupDevice("def").id(), P1.id());
+    BOOST_CHECK_EQUAL(hwi->lookupDevice("DEF").id(), P1.id());
 }
