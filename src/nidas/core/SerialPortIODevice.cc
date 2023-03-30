@@ -623,27 +623,4 @@ int SerialPortIODevice::createPtyLink(const std::string& link)
 }
 
 
-void
-PortConfig::
-update_termios()
-{
-    if (!termios.getLocal()) {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
-        termios.setLocal(true);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
-    }
-
-    if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
-        termios.setFlowControl(Termios::NOFLOWCONTROL);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
-    }
-}
-
-
-
 }} // namespace nidas { namespace core

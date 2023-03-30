@@ -34,8 +34,6 @@ headers = [ Split("""
     EPoll.h
     Exception.h
     FileSet.h
-    FtdiHW.h
-    GpioIF.h
     Inet4Address.h
     Inet4NetworkInterface.h
     Inet4PacketInfo.h
@@ -50,18 +48,11 @@ headers = [ Split("""
     McSocket.h
     MutexCount.h
     ParseException.h
-    PowerCtrlIf.h
-    PowerCtrlAbs.h
-    FtdiDSMPowerCtrl.h
-    FtdiDSMPowerGPIO.h
-    FtdiSensorPowerCtrl.h
-    FtdiSwitchGPIO.h
     IoPoller.h
     PPoll.h
     Process.h
     ptytools.h
     SPoll.h
-    SensorPowerCtrl.h
     SerialOptions.h
     SerialPort.h
     SocketAddress.h
@@ -74,7 +65,6 @@ headers = [ Split("""
     UnknownHostException.h
     UTime.h
     util.h
-    FtdiXcvrGPIO.h
     """)
 ]
 # print(["headers="] + [str(h) for h in headers])
@@ -85,15 +75,10 @@ sources = [ Split("""
     BluetoothRFCommSocket.cc
     BluetoothRFCommSocketAddress.cc
     Bzip2FileSet.cc
-    DSMPowerCtrl.cc
     EndianConverter.cc
     EPoll.cc
     Exception.cc
     FileSet.cc
-    FtdiHW.cc
-    FtdiDSMPowerCtrl.cc
-    FtdiSensorPowerCtrl.cc
-    GpioIF.cc
     Inet4Address.cc
     Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
@@ -101,12 +86,9 @@ sources = [ Split("""
     Logger.cc
     McSocket.cc
     PPoll.cc
-    PowerCtrlAbs.cc
-    PowerCtrlIf.cc
     Process.cc
     ptytools.cc
     SPoll.cc
-    SensorPowerCtrl.cc
     SerialOptions.cc
     SerialPort.cc
     Socket.cc

@@ -64,6 +64,9 @@ namespace n_c = nidas::core;
 using nidas::util::LogScheme;
 using nidas::util::Logger;
 using nidas::util::LogConfig;
+using nidas::util::SPoll;
+using nidas::util::IOException;
+using nidas::util::Exception;
 
 static const bool SENDING = true;
 static const bool ECHOING = false;

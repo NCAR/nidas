@@ -28,10 +28,9 @@
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include "UnixIODevice.h"
-#include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/IOException.h>
-#include <nidas/core/HardwareInterface.h>
+#include "PortConfig.h"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -41,68 +40,7 @@
 #include <iostream>
 #include <sys/ioctl.h>
 
-using namespace nidas::util;
-
 namespace nidas { namespace core {
-
-struct PortConfig {
-    PortConfig(const int baudRate, const int dataBits, const nidas::util::Termios::parity parity, const int stopBits, 
-               const PortType ptype, const PortTermination term, const int initRts485, const bool initApplied)
-        : termios(), port_type(ptype), port_term(term), rts485(initRts485), applied(initApplied)
-    {
-        update_termios();
-
-        termios.setBaudRate(baudRate);
-        termios.setParity(parity);
-        termios.setDataBits(dataBits);
-        termios.setStopBits(stopBits);
-    }
-
-    PortConfig(const PortConfig& rInitPortConfig)
-        : termios(rInitPortConfig.termios), port_type(rInitPortConfig.port_type), port_term(rInitPortConfig.port_term),
-          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied)
-    {
-        update_termios();
-    }
-
-    PortConfig& operator=(const PortConfig& rInitPortConfig)
-    {
-        termios = rInitPortConfig.termios;
-        port_type = rInitPortConfig.port_type;
-        port_term = rInitPortConfig.port_term;
-        rts485 = rInitPortConfig.rts485;
-        applied = rInitPortConfig.applied;
-        update_termios();
-        return *this;
-    }
-
-    PortConfig() : termios(), port_type(nidas::core::RS232), port_term(nidas::core::NO_TERM), rts485(0), applied(false) 
-    {
-        update_termios();
-    }
-    PortConfig(const std::string& rDeviceName, const int fd)
-        : termios(fd, rDeviceName), port_type(), port_term(), rts485(0), applied(false) 
-    {
-        update_termios();
-    }
-
-    bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
-    bool operator==(const PortConfig& rRight) const
-        {return (termios == rRight.termios && port_type == rRight.port_type && port_term == rRight.port_term && rts485 == rRight.rts485);} 
-
-    Termios termios;
-    PortType port_type;
-    PortTermination port_term;
-    int rts485;
-    bool applied;
-
-private:
-    void update_termios();
-
-};
-
-
-std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj);
 
 /**
  *  A serial port and all associated configurations. Typically these are enumerated by the 
@@ -370,8 +308,9 @@ public:
     {
         int bytesWaiting = 0;
         if (::ioctl(getFd(), FIONREAD, &bytesWaiting) < 0) {
-            throw IOException("SerialPortIODevice::bytesReadyToRead()",
-                              "ioctl failed on FIONREAD for fd");
+            throw nidas::util::IOException(
+                "SerialPortIODevice::bytesReadyToRead()",
+                "ioctl failed on FIONREAD for fd");
         }
 
         return bytesWaiting;

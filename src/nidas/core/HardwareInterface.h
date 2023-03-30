@@ -24,6 +24,8 @@
 #ifndef _HARDWAREINTERFACE_H_
 #define _HARDWAREINTERFACE_H_
 
+#include "PortType.h"
+
 #include <string>
 #include <vector>
 #include <memory>
@@ -76,109 +78,6 @@ public:
 
 std::ostream&
 operator<<(std::ostream& out, const OutputState& state);
-
-
-/**
- * PortType is an enumerated class.  It wraps a private enumeration type and
- * adds methods for converting to and from text.  The RS485_FULL instance is
- * set deliberately to RS422, so they can be used interchangeably.
- */
-struct PortType
-{
-private:
-    enum PORT_TYPES {
-        ELOOPBACK=0,
-        ERS232=232,
-        ERS422=422,
-        ERS485_FULL=422,
-        ERS485_HALF=485
-    }
-    ptype;
-
-public:
-    static const PortType LOOPBACK;
-    static const PortType RS232;
-    static const PortType RS422;
-    static const PortType RS485_FULL;
-    static const PortType RS485_HALF;
-
-    std::string toShortString() const;
-
-    std::string toLongString() const;
-
-    bool
-    parse(const std::string& text);
-
-    bool operator==(const PortType& right) const
-    {
-        return this->ptype == right.ptype;
-    }
-
-    bool operator!=(const PortType& right) const
-    {
-        return this->ptype != right.ptype;
-    }
-
-    PortType(PORT_TYPES pt=ELOOPBACK):
-        ptype(pt)
-    {}
-};
-
-// for compatibility with code that uses the enumerations in namespace scope.
-const PortType LOOPBACK(PortType::LOOPBACK);
-const PortType RS232(PortType::RS232);
-const PortType RS422(PortType::RS422);
-const PortType RS485_FULL(PortType::RS485_FULL);
-const PortType RS485_HALF(PortType::RS485_HALF);
-
-std::ostream&
-operator<<(std::ostream& out, const PortType& ptype);
-
-
-struct PortTermination
-{
-private:
-    enum TERM {
-        ENO_TERM=0,
-        ETERM_ON
-    }
-    term;
-
-public:
-    static const PortTermination NO_TERM;
-    static const PortTermination TERM_ON;
-
-    PortTermination(TERM eterm=ENO_TERM):
-        term(eterm)
-    {}
-
-    std::string toShortString() const;
-
-    std::string toLongString() const;
-
-    bool
-    parse(const std::string& text);
-
-    bool operator==(const PortTermination& right) const
-    {
-        return this->term == right.term;
-    }
-
-    bool operator!=(const PortTermination& right) const
-    {
-        return this->term != right.term;
-    }
-};
-
-// for compatibility with code which put the enumeration in the namespace, and
-// for the more verbose TERM_120_OHM which is equivalent to TERM_ON.
-const PortTermination NO_TERM(PortTermination::NO_TERM);
-const PortTermination TERM_ON(PortTermination::TERM_ON);
-const PortTermination TERM_120_OHM(PortTermination::TERM_ON);
-
-
-std::ostream&
-operator<<(std::ostream& out, const PortTermination& pterm);
 
 
 /**

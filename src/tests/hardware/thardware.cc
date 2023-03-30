@@ -98,3 +98,32 @@ BOOST_AUTO_TEST_CASE(test_null_hardware)
     device = HardwareDevice::lookupDevice(DCDC);
     BOOST_CHECK(device.hasReference());
 }
+
+
+BOOST_AUTO_TEST_CASE(test_port_type)
+{
+    PortType pt;
+    BOOST_CHECK(pt.parse("232"));
+    BOOST_CHECK_EQUAL(RS232, pt);
+
+    PortType p2(pt);
+    BOOST_CHECK_EQUAL(RS232, pt);
+    BOOST_CHECK_EQUAL(RS422.toLongString(), "RS422");
+    BOOST_CHECK_EQUAL(RS232.toShortString(), "232");
+    BOOST_CHECK_EQUAL(RS485_HALF.toLongString(), "RS485_HALF");
+    BOOST_CHECK_EQUAL(RS485_FULL.toShortString(), "422");
+
+    BOOST_CHECK_EQUAL(nidas::core::RS422.toShortString(), "422");
+    BOOST_CHECK_EQUAL(nidas::core::RS232.toShortString(), "232");
+    BOOST_CHECK_EQUAL(nidas::core::RS485_HALF.toShortString(), "485h");
+    BOOST_CHECK_EQUAL(nidas::core::RS485_FULL.toShortString(), "422");
+
+    BOOST_CHECK_EQUAL(PortType::RS422.toShortString(), "422");
+    BOOST_CHECK_EQUAL(PortType::RS232.toShortString(), "232");
+    BOOST_CHECK_EQUAL(PortType::RS485_HALF.toShortString(), "485h");
+    BOOST_CHECK_EQUAL(PortType::RS485_FULL.toShortString(), "422");
+
+    const PortType cpt(PortType::RS232);
+    BOOST_CHECK_EQUAL(cpt, PortType::RS232);
+}
+

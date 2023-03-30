@@ -74,6 +74,8 @@ headers = Split("""
     Parameter.h
     PhysConstants.h
     Polled.h
+    PortConfig.h
+    PortType.h
     Project.h
     ProjectConfigs.h
     Prompt.h
@@ -109,7 +111,6 @@ headers = Split("""
     SensorHandler.h
     SensorOpener.h
     SerialPortIODevice.h
-    SerialXcvrCtrl.h
     SerialSensor.h
     ServiceCatalog.h
     Site.h
@@ -185,6 +186,8 @@ sources = Split("""
     NidasApp.cc
     NidsIterators.cc
     Parameter.cc
+    PortConfig.cc
+    PortType.cc
     Project.cc
     Prompt.cc
     ProjectConfigs.cc
@@ -210,7 +213,6 @@ sources = Split("""
     SensorHandler.cc
     SensorOpener.cc
     SerialPortIODevice.cc
-    SerialXcvrCtrl.cc
     SerialSensor.cc
     ServiceCatalog.cc
     Site.cc
