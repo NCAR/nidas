@@ -109,9 +109,14 @@ public:
     bool
     parse(const std::string& text);
 
-    bool operator==(const PortType& right)
+    bool operator==(const PortType& right) const
     {
         return this->ptype == right.ptype;
+    }
+
+    bool operator!=(const PortType& right) const
+    {
+        return this->ptype != right.ptype;
     }
 
     PortType(PORT_TYPES pt=ELOOPBACK):
@@ -119,6 +124,12 @@ public:
     {}
 };
 
+// for compatibility with code that uses the enumerations in namespace scope.
+const PortType LOOPBACK(PortType::LOOPBACK);
+const PortType RS232(PortType::RS232);
+const PortType RS422(PortType::RS422);
+const PortType RS485_FULL(PortType::RS485_FULL);
+const PortType RS485_HALF(PortType::RS485_HALF);
 
 std::ostream&
 operator<<(std::ostream& out, const PortType& ptype);
@@ -148,12 +159,22 @@ public:
     bool
     parse(const std::string& text);
 
-    bool operator==(const PortTermination& right)
+    bool operator==(const PortTermination& right) const
     {
         return this->term == right.term;
     }
 
+    bool operator!=(const PortTermination& right) const
+    {
+        return this->term != right.term;
+    }
 };
+
+// for compatibility with code which put the enumeration in the namespace, and
+// for the more verbose TERM_120_OHM which is equivalent to TERM_ON.
+const PortTermination NO_TERM(PortTermination::NO_TERM);
+const PortTermination TERM_ON(PortTermination::TERM_ON);
+const PortTermination TERM_120_OHM(PortTermination::TERM_ON);
 
 
 std::ostream&

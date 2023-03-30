@@ -211,7 +211,7 @@ HardwareDevice
 HardwareDevice::
 lookupDevice(const std::string& id)
 {
-    auto hwi = HardwareInterface:: getHardwareInterface();
+    auto hwi = HardwareInterface::getHardwareInterface();
     return hwi->lookupDevice(id);
 }
 

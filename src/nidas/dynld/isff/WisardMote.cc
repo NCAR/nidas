@@ -47,6 +47,8 @@ using namespace nidas::core;
 using namespace nidas::util;
 using namespace std;
 
+namespace n_u = nidas::util;
+
 #define MSECS_PER_HALF_DAY 43200000
 
 ///*
@@ -1822,6 +1824,9 @@ const float WisardMote::I3_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e
 const float WisardMote::IIN_GAIN_CAL_MIN = 0.0f;
 const float WisardMote::IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
 
+const PortType WisardMote::DEFAULT_PORT_TYPE = RS232;
+const PortTermination WisardMote::DEFAULT_SENSOR_TERMINATION = NO_TERM;
+
 
 const PortConfig WisardMote::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS,
                                              	 DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
@@ -1833,7 +1838,7 @@ const WordSpec WisardMote::SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
 {
 	WordSpec(8,Termios::NONE,1),
 };
-const PORT_TYPES WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+const PortType WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 //Default message parameters for the WisardMote
 const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";

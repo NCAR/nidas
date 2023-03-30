@@ -292,7 +292,7 @@ public:
     static const nidas::util::EndianConverter * fromLittle;
 
 protected:
-    virtual void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+    virtual void fromDOMElement(const xercesc::DOMElement* node) throw(nidas::util::InvalidParameterException);
 
     /*
      * AutoConfig helpers
@@ -584,9 +584,8 @@ private:
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 8;
     static const int DEFAULT_RTS485 = 0;
-    static const PORT_TYPES DEFAULT_PORT_TYPE = RS232;
-//    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
-    static const TERM DEFAULT_SENSOR_TERMINATION = NO_TERM;
+    static const PortType DEFAULT_PORT_TYPE;
+    static const PortTermination DEFAULT_SENSOR_TERMINATION;
     static const bool DEFAULT_CONFIG_APPLIED = false;
     static const PortConfig DEFAULT_PORT_CONFIG;
 
@@ -595,7 +594,7 @@ private:
     static const int NUM_SENSOR_WORD_SPECS = 1;
     static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 1;
-    static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+    static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;

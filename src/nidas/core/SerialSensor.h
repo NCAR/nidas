@@ -274,7 +274,6 @@ public:
     void setDesiredPortConfig(const PortConfig& newDesiredPortConfig) {_desiredPortConfig = newDesiredPortConfig;}
 
     void applyPortConfig();
-    void printPortConfig(bool flush=true);
 
     AUTOCONFIG_STATE getAutoConfigState() {return _autoConfigState; }
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
@@ -326,7 +325,7 @@ protected:
      */
     void doAutoConfig();
     void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-												 int rts485, PORT_TYPES portType, TERM termination);
+												 int rts485, PortType ptype, PortTermination termination);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
@@ -343,13 +342,6 @@ protected:
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
-    static void printTargetConfig(PortConfig target)
-    {
-        target.print();
-        target.xcvrConfig.print();
-        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        std::cout << std::endl;
-    }
 
     static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
 
@@ -406,7 +398,7 @@ protected:
     /*
      * Containers for holding the possible serial port parameters which may be used by a sensor
      */
-    typedef std::list<PORT_TYPES> PortTypeList;
+    typedef std::list<PortType> PortTypeList;
     typedef std::list<int> BaudRateList;
     typedef std::list<WordSpec> WordSpecList;
 

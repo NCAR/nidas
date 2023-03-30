@@ -39,6 +39,11 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
 
 namespace nidas { namespace dynld { namespace isff {
 
+const n_c::PortType PTB210::DEFAULT_PORT_TYPE = n_c::RS232;
+const n_c::PortTermination PTB210::DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+
+
+
 const char* PTB210::DEFAULT_MSG_SEP_CHARS = "\r\n";
 
 const char* PTB210::SENSOR_RESET_CMD_STR = ".RESET\r";
@@ -100,7 +105,7 @@ const WordSpec PTB210::SENSOR_WORD_SPECS[PTB210::NUM_SENSOR_WORD_SPECS] = {
     WordSpec(7,Termios::ODD,1),
     WordSpec(8,Termios::NONE,1)
 };
-const n_c::PORT_TYPES PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
+const n_c::PortType PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
 
 // static default configuration to send to base class...

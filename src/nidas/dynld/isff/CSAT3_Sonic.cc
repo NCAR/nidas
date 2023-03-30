@@ -53,18 +53,37 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 /**
  * AUTOCONFIG Stuff
  */
+/**
+ * Serial port autoconfig items
+ */
+static const PortType DEFAULT_PORT_TYPE = RS232;
+static const int DEFAULT_BAUD_RATE = 9600;
+static const int DEFAULT_DATA_BITS = 8;
+static const Termios::parity DEFAULT_PARITY = Termios::NONE;
+static const int DEFAULT_STOP_BITS = 1;
+static const PortTermination DEFAULT_LINE_TERMINATION = NO_TERM;
+//    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
+static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
+static const bool DEFAULT_CONFIG_APPLIED = false;
+
+// default message parameters for the PB210
+static const int DEFAULT_MESSAGE_LENGTH = 10;
+static const bool DEFAULT_MSG_SEP_EOM = true;
+
+static const int NUM_SENSOR_BAUDS = 2;
+static const int NUM_WORD_SPECS = 1;
+static const int NUM_PORT_TYPES = 1;
+static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
 												  DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
 											      DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
-const char* CSAT3_Sonic::DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
-const int CSAT3_Sonic::SENSOR_BAUDS[CSAT3_Sonic::NUM_SENSOR_BAUDS] = {9600, 19200};
-const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
+static const char* DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
+static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200};
+static const WordSpec SENSOR_WORD_SPECS[NUM_WORD_SPECS] =
 {
 	WordSpec(8,Termios::NONE,1),
 };
-
-const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 /*
  *  AutoConfig stuff

@@ -95,15 +95,15 @@ static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
 
 // TRH instruments only use RS232
 static const int NUM_PORT_TYPES = 1;
-static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 // static default configuration to send to base class...
 static const int DEFAULT_BAUD_RATE = SENSOR_BAUDS[0];
 static const int DEFAULT_DATA_BITS = SENSOR_WORD_SPECS[0].dataBits;
 static const n_u::Termios::parity DEFAULT_PARITY = SENSOR_WORD_SPECS[0].parity;
 static const int DEFAULT_STOP_BITS = SENSOR_WORD_SPECS[0].stopBits;
-static const PORT_TYPES DEFAULT_PORT_TYPE = SENSOR_PORT_TYPES[0];
-static const TERM DEFAULT_SENSOR_TERMINATION = NO_TERM;
+static const PortType DEFAULT_PORT_TYPE = SENSOR_PORT_TYPES[0];
+static const PortTermination DEFAULT_SENSOR_TERMINATION = NO_TERM;
 static const int DEFAULT_RTS485 = 0;
 static const bool DEFAULT_CONFIG_APPLIED = false;
 

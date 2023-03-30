@@ -49,6 +49,8 @@ using namespace std;
 using namespace nidas::core;
 using namespace nidas::util;
 
+namespace n_u = nidas::util;
+
 SerialSensor::SerialSensor():
     _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(), _portTypeList(), 
     _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
@@ -294,23 +296,6 @@ void SerialSensor::applyPortConfig()
     }
 }
 
-void SerialSensor::printPortConfig(bool flush)
-{
-    if (_serialDevice) {
-        _serialDevice->printPortConfig();
-        if (flush) {
-        	std::cerr << std::flush;
-        	std::cout << std::flush;
-        }
-    }
-    else {
-        NLOG(("SerialSensor::printPortConfig(): device, ") << getName() 
-             << (", is trying to print a PortConfig too early, "
-                 "or is newer type serial device such as USB or socket-oriented, "
-                 " which has no need of a PortConfig."));
-    }
-}
-
 void SerialSensor::initPrompting() throw(n_u::IOException)
 {
     for (auto& pi : getPrompts())
@@ -460,13 +445,13 @@ void SerialSensor::checkXcvrConfigAttribute(const XDOMAttr& rAttr)
     DLOG(("SerialSensor:checkXcvrConfigAttribute(): attribute: ") << aname << " : " << upperAval);
     if (aname == "porttype") {
         if (upperAval == "RS232")
-            _desiredPortConfig.xcvrConfig.portType = RS232;
+            _desiredPortConfig.port_type = RS232;
         else if (upperAval == "RS422")
-            _desiredPortConfig.xcvrConfig.portType = RS422;
+            _desiredPortConfig.port_type = RS422;
         else if (upperAval == "RS485_HALF")
-            _desiredPortConfig.xcvrConfig.portType = RS485_HALF;
+            _desiredPortConfig.port_type = RS485_HALF;
         else if (upperAval == "RS485_FULL")
-            _desiredPortConfig.xcvrConfig.portType = RS485_FULL;
+            _desiredPortConfig.port_type = RS485_FULL;
         else
             throw n_u::InvalidParameterException(
                     getName(), aname, aval);
@@ -474,10 +459,10 @@ void SerialSensor::checkXcvrConfigAttribute(const XDOMAttr& rAttr)
     else if (aname == "termination") {
         if (upperAval == "NO_TERM" || upperAval == "NO"
                 || upperAval == "FALSE")
-            _desiredPortConfig.xcvrConfig.termination = NO_TERM;
+            _desiredPortConfig.port_term = NO_TERM;
         else if (upperAval == "TERM_120_OHM" || upperAval == "YES"
                 || upperAval == "TRUE")
-            _desiredPortConfig.xcvrConfig.termination =
+            _desiredPortConfig.port_term =
                     TERM_120_OHM;
         else
             throw n_u::InvalidParameterException(
@@ -786,8 +771,8 @@ bool SerialSensor::sweepCommParameters()
     	 portTypeIter != _portTypeList.end() && !foundIt;
     	 ++portTypeIter) {
         int rts485 = 0;
-        PORT_TYPES portType = *portTypeIter;
-        DLOG(("Checking port type: ") << SerialPortIODevice::portTypeToStr(portType));
+        PortType portType = *portTypeIter;
+        DLOG(("Checking port type: ") << portType);
 
         if (portType == RS485_HALF)
             rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
@@ -885,6 +870,16 @@ bool SerialSensor::sweepCommParameters()
             }
         }
 
+        // There's not really any harm in trying the other port configs even
+        // if the the port does not have hardware control.  The separate
+        // porttypelist and wordspec lists and baud rate lists are probably
+        // going to move to one list of port configs, in which case it will be
+        // simpler to just iterate through all the port configs without regard
+        // for which ones have port types which cannot be applied.  If the
+        // port type cannot be changed in hardware, then we have to assume the
+        // device already supports that mode, and all the other port configs
+        // (ie, different baud rates and word specs) should still be tried.
+#ifdef notdef
         /*
          *  If this is running on a DSM which doesn't support serial port transceiver control,
          *  then just break out after first round of serial port parameter checks
@@ -896,21 +891,21 @@ bool SerialSensor::sweepCommParameters()
             NLOG(("Couldn't find working serial port parameters. Try changing the device type or transceiver jumpers."));
             break;
         }
+#endif
     }
-
     return foundIt;
 }
 
 void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-														   int rts485, PORT_TYPES portType, TERM termination)
+														   int rts485, PortType portType, PortTermination termination)
 {
     target.termios.setBaudRate(baud);
     target.termios.setDataBits(dataBits);
     target.termios.setParity(parity);
     target.termios.setStopBits(stopBits);
     target.rts485 = (rts485);
-    target.xcvrConfig.portType = portType;
-    target.xcvrConfig.termination = termination;
+    target.port_type = portType;
+    target.port_term = termination;
 
     target.applied =false;
 }
@@ -928,17 +923,17 @@ bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
           << (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits() ? "true" : "false"));
     VLOG(("rTestConfig.rts485 == _defaultPortConfig.rts485: ")
           << (rTestConfig.rts485 == _defaultPortConfig.rts485 ? "true" : "false"));
-    VLOG(("rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType: ")
-          << (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType ? "true" : "false"));
-    VLOG(("rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination: ")
-          << (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination ? "true" : "false"));
+    VLOG(("rTestConfig.port_type == _defaultPortConfig.port_type: ")
+          << (rTestConfig.port_type == _defaultPortConfig.port_type ? "true" : "false"));
+    VLOG(("rTestConfig.port_term == _defaultPortConfig.port_term: ")
+          << (rTestConfig.port_term == _defaultPortConfig.port_term ? "true" : "false"));
     return ((rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate())
             && (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity())
             && (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits())
             && (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits())
             && (rTestConfig.rts485 == _defaultPortConfig.rts485)
-            && (rTestConfig.xcvrConfig.portType == _defaultPortConfig.xcvrConfig.portType)
-            && (rTestConfig.xcvrConfig.termination == _defaultPortConfig.xcvrConfig.termination));
+            && (rTestConfig.port_type == _defaultPortConfig.port_type)
+            && (rTestConfig.port_term == _defaultPortConfig.port_term));
 }
 
 bool SerialSensor::testDefaultPortConfig()
@@ -953,8 +948,8 @@ bool SerialSensor::testDefaultPortConfig()
 						_defaultPortConfig.termios.getParity(),
 						_defaultPortConfig.termios.getStopBits(),
 						_defaultPortConfig.rts485,
-						_defaultPortConfig.xcvrConfig.portType,
-						_defaultPortConfig.xcvrConfig.termination);
+						_defaultPortConfig.port_type,
+						_defaultPortConfig.port_term);
 
 
     // send it back up the hierarchy

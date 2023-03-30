@@ -40,6 +40,9 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
 
 namespace nidas { namespace dynld { namespace isff {
 
+const n_c::PortType PTB220::DEFAULT_PORT_TYPE = n_c::RS232;
+const n_c::PortTermination PTB220::DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+
 const char* PTB220::DEFAULT_MSG_SEP_CHARS = "\r\n";
 
 const char* PTB220::SENSOR_SEND_MODE_CMD_STR = "SMODE \r\n";
@@ -162,7 +165,7 @@ const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
     WordSpec(8,Termios::NONE,2)
 };
 
-const n_c::PORT_TYPES PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
+const n_c::PortType PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
 // static default configuration to send to base class...
 const PortConfig PTB220::DEFAULT_PORT_CONFIG(PTB220::DEFAULT_BAUD_RATE, PTB220::DEFAULT_DATA_BITS,

@@ -102,6 +102,10 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
     SENSOR_ALIGNMENT_CMD_STR,
 };
 
+const nidas::core::PortType GILL2D::DEFAULT_PORT_TYPE = nidas::core::RS422;
+const nidas::core::PortTermination GILL2D::DEFAULT_SENSOR_TERMINATION = nidas::core::NO_TERM;
+
+
 // NOTE: list sensor bauds from highest to lowest as the higher
 //       ones are the most likely
 const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
@@ -113,7 +117,7 @@ const n_c::WordSpec GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] =
 };
 
 // GIL instruments do not use RS232
-const n_c::PORT_TYPES GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
+const n_c::PortType GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
 
 
 // static default configuration to send to base class...

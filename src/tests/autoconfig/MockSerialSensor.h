@@ -3,9 +3,11 @@
 #define MOCK_SERIAL_SENSOR_HPP
 
 #include "nidas/core/SerialSensor.h"
+#include "nidas/core/HardwareInterface.h"
 #include "nidas/util/SerialPort.h"
 
 using namespace nidas::core;
+namespace n_u = nidas::util;
 
 extern PortConfig defaultPortConfig;
 extern PortConfig deviceOperatingPortConfig;
@@ -80,7 +82,6 @@ public:
     PortConfig getPortConfig() {return SerialSensor::getPortConfig(); }
     void setPortConfig(const PortConfig newPortConfig){SerialSensor::setPortConfig(newPortConfig);}
     void applyPortConfig() {SerialSensor::applyPortConfig();}
-    void printPortConfig(bool flush=true){SerialSensor::printPortConfig(flush);}
 
     bool getAutoConfigSupport() {return supportsAutoConfig(); }
     void initAutoconfig() {initAutoConfig();}
@@ -97,7 +98,7 @@ public:
      */
     void doAutoConfig() {SerialSensor::doAutoConfig();}
     void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-                                                 int rts485, PORT_TYPES portType, TERM termination); //,
+                                                 int rts485, nidas::core::PortType portType, nidas::core::PortTermination termination); //,
 //                                                 SENSOR_POWER_STATE power);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig() {return SerialSensor::findWorkingSerialPortConfig();}

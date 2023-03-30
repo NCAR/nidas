@@ -190,9 +190,8 @@ private:
     static const int DEFAULT_STOP_BITS = 1;
     static const int DEFAULT_DATA_BITS = 7;
     static const int DEFAULT_RTS485 = 0;
-    static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS232;
-//    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
-    static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
+    static const n_c::PortType DEFAULT_PORT_TYPE;
+    static const n_c::PortTermination DEFAULT_SENSOR_TERMINATION;
     static const bool DEFAULT_CONFIG_APPLIED = false;
 
     // default message parameters for the PB210
@@ -256,7 +255,7 @@ private:
     static const int NUM_SENSOR_WORD_SPECS = 3;
     static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
-    static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+    static const n_c::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 

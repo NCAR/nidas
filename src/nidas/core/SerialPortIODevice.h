@@ -28,10 +28,10 @@
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include "UnixIODevice.h"
-#include "SerialXcvrCtrl.h"
 #include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/IOException.h>
+#include <nidas/core/HardwareInterface.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -40,20 +40,15 @@
 #include <string>
 #include <iostream>
 #include <sys/ioctl.h>
-#include <nidas/util/Termios.h>
-
-#ifdef DEBUG
-#include <iostream>
-#endif
 
 using namespace nidas::util;
 
 namespace nidas { namespace core {
 
 struct PortConfig {
-    PortConfig(const int baudRate, const int dataBits, const n_u::Termios::parity parity, const int stopBits, 
-               const PORT_TYPES portType, const TERM term, const int initRts485, const bool initApplied)
-        : termios(), xcvrConfig(), rts485(initRts485), applied(initApplied)
+    PortConfig(const int baudRate, const int dataBits, const nidas::util::Termios::parity parity, const int stopBits, 
+               const PortType ptype, const PortTermination term, const int initRts485, const bool initApplied)
+        : termios(), port_type(ptype), port_term(term), rts485(initRts485), applied(initApplied)
     {
         update_termios();
 
@@ -61,12 +56,10 @@ struct PortConfig {
         termios.setParity(parity);
         termios.setDataBits(dataBits);
         termios.setStopBits(stopBits);
-        xcvrConfig.portType = portType;
-        xcvrConfig.termination = term;
     }
 
     PortConfig(const PortConfig& rInitPortConfig)
-        : termios(rInitPortConfig.termios), xcvrConfig(rInitPortConfig.xcvrConfig), 
+        : termios(rInitPortConfig.termios), port_type(rInitPortConfig.port_type), port_term(rInitPortConfig.port_term),
           rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied)
     {
         update_termios();
@@ -75,41 +68,31 @@ struct PortConfig {
     PortConfig& operator=(const PortConfig& rInitPortConfig)
     {
         termios = rInitPortConfig.termios;
-        xcvrConfig = rInitPortConfig.xcvrConfig;
+        port_type = rInitPortConfig.port_type;
+        port_term = rInitPortConfig.port_term;
         rts485 = rInitPortConfig.rts485;
         applied = rInitPortConfig.applied;
         update_termios();
         return *this;
     }
 
-    PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) 
+    PortConfig() : termios(), port_type(nidas::core::RS232), port_term(nidas::core::NO_TERM), rts485(0), applied(false) 
     {
         update_termios();
     }
     PortConfig(const std::string& rDeviceName, const int fd)
-        : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) 
+        : termios(fd, rDeviceName), port_type(), port_term(), rts485(0), applied(false) 
     {
         update_termios();
     }
 
     bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
     bool operator==(const PortConfig& rRight) const
-        {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
-    void print(bool printApplied=false)
-    {
-        std::cout << "Termios: baud: " << termios.getBaudRate()
-             << " word: " << termios.getBitsString() << std::endl;
-        std::cout << "RTS485: " << rts485 << std::endl;
-        if (printApplied) {
-            std::cout << "PortConfig " << (applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        }
-
-        std::cout << "Serial port transceiver configuration:" << std::endl;
-        xcvrConfig.print();
-    }
+        {return (termios == rRight.termios && port_type == rRight.port_type && port_term == rRight.port_term && rts485 == rRight.rts485);} 
 
     Termios termios;
-    XcvrConfig xcvrConfig;
+    PortType port_type;
+    PortTermination port_term;
     int rts485;
     bool applied;
 
@@ -170,7 +153,6 @@ public:
     virtual void setName(const std::string& name)
     {
         UnixIODevice::setName(name);
-        checkXcvrCtrlAvailable(name);
     }
 
     /**
@@ -206,30 +188,17 @@ public:
 
     int getFd() const { return _fd; }
 
-//    void flush();
-
-    /* 
-     * Check whether this serial port is using a device which needs port control
-     */
-    void checkXcvrCtrlAvailable(const std::string& name);
-
-    /**
-     *  Get the SerialXcvrCtrl object for direct updating
-     */
-    SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
-    void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl = pXcvrCtrl;}
-
     /**
      *  Set and retrieve the _portType member attribute 
      */
-    void setPortType( const PORT_TYPES thePortType) {_workingPortConfig.xcvrConfig.portType = thePortType;}
-    PORT_TYPES getPortType() const {return _workingPortConfig.xcvrConfig.portType;}
+    void setPortType(PortType ptype) {_workingPortConfig.port_type = ptype;}
+    PortType getPortType() const {return _workingPortConfig.port_type;}
 
     /**
      *  Set and retrieve the _term member attribute 
      */
-    void setTermination( const TERM theTermState) {_workingPortConfig.xcvrConfig.termination = theTermState;}
-    TERM getTermination() const {return _workingPortConfig.xcvrConfig.termination;}
+    void setTermination(PortTermination pterm) {_workingPortConfig.port_term = pterm;}
+    PortTermination getTermination() const {return _workingPortConfig.port_term;}
 
     /**
      *  Commands the serial board to set the GPIO switches to configure for 
@@ -238,31 +207,18 @@ public:
     void setPortConfig(const PortConfig newPortConfig) 
     {
         _workingPortConfig = newPortConfig;
-        if (getXcvrCtrl()) {
-            getXcvrCtrl()->setXcvrConfig(_workingPortConfig.xcvrConfig);
-        }
         _workingPortConfig.applied = false;
     }
     
     PortConfig getPortConfig() 
     {
         PortConfig retVal = _workingPortConfig;
-        if (_pXcvrCtrl) {
-            retVal.xcvrConfig = _pXcvrCtrl->getXcvrConfig();
-        }
         return retVal;
     }
 
     void applyPortConfig();
 
     void setPortConfigApplied(bool applied=true) {_workingPortConfig.applied = applied;}
-
-    void printPortConfig(bool readFirst=true);
-
-    static std::string portTypeToStr(PORT_TYPES portType)
-    {
-        return SerialXcvrCtrl::portTypeToStr(portType);
-    }
 
    /**
      * Calculate the transmission time of each byte from this
@@ -483,8 +439,6 @@ public:
 protected:
 
     PortConfig _workingPortConfig;
-
-    SerialXcvrCtrl* _pXcvrCtrl;
 
     unsigned int _usecsperbyte;
 
