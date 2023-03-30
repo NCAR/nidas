@@ -897,7 +897,7 @@ bool SerialSensor::sweepCommParameters()
 }
 
 void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-														   int rts485, PortType portType, PortTermination termination)
+                                       int rts485, PortType portType, PortTermination termination)
 {
     target.termios.setBaudRate(baud);
     target.termios.setDataBits(dataBits);
@@ -906,8 +906,6 @@ void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBit
     target.rts485 = (rts485);
     target.port_type = portType;
     target.port_term = termination;
-
-    target.applied =false;
 }
 
 bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const

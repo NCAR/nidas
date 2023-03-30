@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2006, Copyright University Corporation for Atmospheric Research
+ ** 2023, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -32,14 +32,6 @@
 #include <nidas/util/IOException.h>
 #include "PortConfig.h"
 
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string>
-#include <iostream>
-#include <sys/ioctl.h>
-
 namespace nidas { namespace core {
 
 /**
@@ -52,7 +44,8 @@ namespace nidas { namespace core {
  *  deployment via manually installed jumpers. Now there is GPIO to manage this task, and so 
  *  serial ports need to configure the serial line drivers to support the desired serial 
  *  port type, termination and power status. 
- */class SerialPortIODevice : public UnixIODevice
+ */
+class SerialPortIODevice : public UnixIODevice
 {
 
 public:
@@ -67,18 +60,6 @@ public:
      * the device.
      */
     SerialPortIODevice(const std::string& name, PortConfig initPortConfig);
-
-    /**
-     * Copy constructor.  The attributes of the port are copied,
-     * but if the original is opened, the copy will not be
-     * opened.
-     */
-    SerialPortIODevice(const SerialPortIODevice&);
-
-    /**
-     * For serial port that is already open (stdin for example).
-     * */
-    SerialPortIODevice(const std::string& name, int fd);
 
     /**
      * Does not close the file descriptor if is is open.
@@ -145,18 +126,14 @@ public:
     void setPortConfig(const PortConfig newPortConfig) 
     {
         _workingPortConfig = newPortConfig;
-        _workingPortConfig.applied = false;
     }
     
     PortConfig getPortConfig() 
     {
-        PortConfig retVal = _workingPortConfig;
-        return retVal;
+        return _workingPortConfig;
     }
 
     void applyPortConfig();
-
-    void setPortConfigApplied(bool applied=true) {_workingPortConfig.applied = applied;}
 
    /**
      * Calculate the transmission time of each byte from this
@@ -381,10 +358,8 @@ protected:
 
     unsigned int _usecsperbyte;
 
-    /**
-     * No assignment.
-     */
-    SerialPortIODevice& operator=(const SerialPortIODevice&);
+    SerialPortIODevice& operator=(const SerialPortIODevice&) = delete;
+    SerialPortIODevice(const SerialPortIODevice&) = delete;
 
     enum state { OK, TIMEOUT_OR_EOF} _state;
 

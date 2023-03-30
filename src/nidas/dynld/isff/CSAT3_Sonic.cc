@@ -64,7 +64,6 @@ static const int DEFAULT_STOP_BITS = 1;
 static const PortTermination DEFAULT_LINE_TERMINATION = NO_TERM;
 //    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
 static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
-static const bool DEFAULT_CONFIG_APPLIED = false;
 
 // default message parameters for the PB210
 static const int DEFAULT_MESSAGE_LENGTH = 10;
@@ -77,7 +76,7 @@ static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
 												  DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
-											      DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+											      DEFAULT_RTS485);
 static const char* DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
 static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200};
 static const WordSpec SENSOR_WORD_SPECS[NUM_WORD_SPECS] =

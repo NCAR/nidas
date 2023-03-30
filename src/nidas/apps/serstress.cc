@@ -36,6 +36,7 @@
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 #include <nidas/core/SerialPortIODevice.h>
+#include <nidas/core/HardwareInterface.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>

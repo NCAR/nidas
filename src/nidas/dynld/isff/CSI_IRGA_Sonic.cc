@@ -54,15 +54,13 @@ static const int DEFAULT_STOP_BITS = 1;
 static const PortTermination DEFAULT_LINE_TERMINATION = NO_TERM;
 //    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
 static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
-static const bool DEFAULT_CONFIG_APPLIED = false;
-
 
 
 // The default for IRGA is different from CSAT3.
 static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
-												     DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
-											         DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
-
+                                            DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
+                                            DEFAULT_RTS485);
+        
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(false, ::DEFAULT_PORT_CONFIG),

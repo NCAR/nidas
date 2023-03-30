@@ -586,7 +586,6 @@ private:
     static const int DEFAULT_RTS485 = 0;
     static const PortType DEFAULT_PORT_TYPE;
     static const PortTermination DEFAULT_SENSOR_TERMINATION;
-    static const bool DEFAULT_CONFIG_APPLIED = false;
     static const PortConfig DEFAULT_PORT_CONFIG;
 
     static const int NUM_SENSOR_BAUDS = 1;

@@ -345,7 +345,6 @@ private:
     static const int DEFAULT_RTS485 = 0;
     static const n_c::PortType DEFAULT_PORT_TYPE;
     static const n_c::PortTermination DEFAULT_SENSOR_TERMINATION;
-    static const bool DEFAULT_CONFIG_APPLIED = false;
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;

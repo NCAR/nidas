@@ -33,7 +33,7 @@ namespace nidas { namespace core {
 struct PortConfig
 {
     PortConfig(const int baudRate, const int dataBits, const nidas::util::Termios::parity parity, const int stopBits, 
-               const PortType ptype, const PortTermination term, const int initRts485, const bool initApplied);
+               const PortType ptype, const PortTermination term, const int initRts485);
 
     PortConfig(const PortConfig& rInitPortConfig);
 
@@ -50,7 +50,6 @@ struct PortConfig
     PortType port_type;
     PortTermination port_term;
     int rts485;
-    bool applied;
 
 private:
     void update_termios();

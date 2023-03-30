@@ -69,22 +69,6 @@ SerialPortIODevice::SerialPortIODevice():
     _workingPortConfig.termios.setRawTimeout(0);
 }
 
-SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
-    UnixIODevice(name), _workingPortConfig(name, fd),
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
-{
-    _workingPortConfig.termios.setRaw(true);
-    _workingPortConfig.termios.setRawLength(1);
-    _workingPortConfig.termios.setRawTimeout(0);
-}
-
-SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
-    UnixIODevice(x.getName()), _workingPortConfig(x._workingPortConfig), 
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
-{
-}
-
-
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
     UnixIODevice(name), _workingPortConfig(initPortConfig),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
@@ -157,8 +141,6 @@ void SerialPortIODevice::applyPortConfig()
         DLOG(("") << "serial device " << getName()
                   << ": no serial hardware control");
     }
-
-    setPortConfigApplied();
 }
 
 int SerialPortIODevice::getUsecsPerByte() const

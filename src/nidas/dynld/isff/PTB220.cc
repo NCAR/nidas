@@ -171,8 +171,7 @@ const n_c::PortType PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS
 const PortConfig PTB220::DEFAULT_PORT_CONFIG(PTB220::DEFAULT_BAUD_RATE, PTB220::DEFAULT_DATA_BITS,
                                              PTB220::DEFAULT_PARITY, PTB220::DEFAULT_STOP_BITS,
                                              PTB220::DEFAULT_PORT_TYPE, PTB220::DEFAULT_SENSOR_TERMINATION,
-                                             PTB220::DEFAULT_RTS485,
-                                             PTB220::DEFAULT_CONFIG_APPLIED);
+                                             PTB220::DEFAULT_RTS485);
 
 const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_PRESS_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),

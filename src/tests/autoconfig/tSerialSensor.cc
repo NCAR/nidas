@@ -47,9 +47,9 @@ public:
     Project& operator()() {return *Project::getInstance();}
 };
 
-PortConfig _defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM,-1, false);
+PortConfig _defaultPortConfig(19200, 7, Termios::EVEN, 1, RS422, TERM_120_OHM,-1);
 PortConfig defaultPortConfig(_defaultPortConfig);
-PortConfig _deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, 0, false);
+PortConfig _deviceOperatingPortConfig(38400, 8, Termios::NONE, 1, RS232, NO_TERM, 0);
 PortConfig deviceOperatingPortConfig(_deviceOperatingPortConfig);
 
 void resetPortConfigs()

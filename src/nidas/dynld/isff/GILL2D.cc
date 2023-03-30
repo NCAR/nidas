@@ -124,7 +124,7 @@ const n_c::PortType GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS
 const PortConfig GILL2D::DEFAULT_PORT_CONFIG(GILL2D::DEFAULT_BAUD_RATE, GILL2D::DEFAULT_DATA_BITS,
                                              GILL2D::DEFAULT_PARITY, GILL2D::DEFAULT_STOP_BITS,
                                              GILL2D::DEFAULT_PORT_TYPE, GILL2D::DEFAULT_SENSOR_TERMINATION,
-                                             GILL2D::DEFAULT_RTS485, GILL2D::DEFAULT_CONFIG_APPLIED);
+                                             GILL2D::DEFAULT_RTS485);
 
 const n_c::SensorCmdData GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {

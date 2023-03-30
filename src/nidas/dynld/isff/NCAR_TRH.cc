@@ -105,12 +105,11 @@ static const int DEFAULT_STOP_BITS = SENSOR_WORD_SPECS[0].stopBits;
 static const PortType DEFAULT_PORT_TYPE = SENSOR_PORT_TYPES[0];
 static const PortTermination DEFAULT_SENSOR_TERMINATION = NO_TERM;
 static const int DEFAULT_RTS485 = 0;
-static const bool DEFAULT_CONFIG_APPLIED = false;
 
 static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS,
                                              DEFAULT_PARITY, DEFAULT_STOP_BITS,
                                              DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
-                                             DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+                                             DEFAULT_RTS485);
 
 // default message parameters for the TRH
 static const int DEFAULT_MESSAGE_LENGTH = 0;

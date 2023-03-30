@@ -31,8 +31,8 @@ using nidas::util::Termios;
 
 PortConfig::
 PortConfig(const int baudRate, const int dataBits, const Termios::parity parity, const int stopBits, 
-           const PortType ptype, const PortTermination term, const int initRts485, const bool initApplied)
-        : termios(), port_type(ptype), port_term(term), rts485(initRts485), applied(initApplied)
+           const PortType ptype, const PortTermination term, const int initRts485)
+        : termios(), port_type(ptype), port_term(term), rts485(initRts485)
 {
     update_termios();
 
@@ -43,9 +43,11 @@ PortConfig(const int baudRate, const int dataBits, const Termios::parity parity,
 }
 
 PortConfig::
-PortConfig(const PortConfig& rInitPortConfig)
-        : termios(rInitPortConfig.termios), port_type(rInitPortConfig.port_type), port_term(rInitPortConfig.port_term),
-          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied)
+PortConfig(const PortConfig& rInitPortConfig):
+    termios(rInitPortConfig.termios),
+    port_type(rInitPortConfig.port_type),
+    port_term(rInitPortConfig.port_term),
+    rts485(rInitPortConfig.rts485)
 {
     update_termios();
 }
@@ -58,7 +60,6 @@ operator=(const PortConfig& rInitPortConfig)
     port_type = rInitPortConfig.port_type;
     port_term = rInitPortConfig.port_term;
     rts485 = rInitPortConfig.rts485;
-    applied = rInitPortConfig.applied;
     update_termios();
     return *this;
 }
@@ -68,15 +69,17 @@ PortConfig():
     termios(),
     port_type(nidas::core::RS232),
     port_term(nidas::core::NO_TERM),
-    rts485(0),
-    applied(false) 
+    rts485(0)
 {
     update_termios();
 }
 
 PortConfig::
-PortConfig(const std::string& rDeviceName, const int fd)
-    : termios(fd, rDeviceName), port_type(), port_term(), rts485(0), applied(false) 
+PortConfig(const std::string& rDeviceName, const int fd):
+    termios(fd, rDeviceName),
+    port_type(),
+    port_term(),
+    rts485(0)
 {
     update_termios();
 }
