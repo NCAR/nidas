@@ -268,6 +268,11 @@ public:
      *     ioutput->on();
      * @endcode
      *
+     * There is no point creating and caching a HardwareInterface
+     * implementation for a null device (isEmpty() returns true), so in that
+     * case all the returned interface pointers are null and no
+     * HardwareInterface implementation is created.
+     *
      * @return SerialPortInterface* 
      */
     SerialPortInterface* iSerial();
@@ -354,9 +359,29 @@ public:
      * Creating the interface does not (currently) require opening any
      * hardware.  Hardware is only accessed when a device interface is
      * requested.
+     *
+     * This method avoids unnecessarily creating a hardware interface
+     * implementation for a device which has no known interfaces.  It first
+     * looks up @p id in the default HardwareInterface, since that contains a
+     * registry of all known devices.  If the device is not there, then this
+     * returns an empty HardwareDevice, and all the interface methods return
+     * null pointers without holding onto an implementation reference.
      */
     static HardwareDevice
     lookupDevice(const std::string& id);
+
+    /**
+     * Lookup a const HardwareDevice (eg PORT0 or DCDC) and return the non-const
+     * copy with a reference to the hardare implementation.  This just calls
+     * lookupDevice() on the id of @p device.
+     */
+    static HardwareDevice
+    lookupDevice(const HardwareDevice& device);
+
+    /**
+     * Return true if this instance holds a reference to a HardwareInterface.
+     */
+    bool hasReference();
 
 private:
     std::string _id;
@@ -365,6 +390,9 @@ private:
     // Only HardwareInterface is allowed to bind itself to a HardwareDevice.
     HardwareDevice&
     bind(std::shared_ptr<HardwareInterface> hwi);
+
+    HardwareInterface*
+    get_hardware_interface();
 
     friend class HardwareInterface;
 };
@@ -568,13 +596,26 @@ public:
      * The returned device will already be bound to this HardwareInterface.
      *
      * If the device is not found, then a default HardwareDevice is returned,
-     * for which isEmpty() returns true.
+     * for which isEmpty() returns true.  Unlike for
+     * HardwareDevice::lookupDevice(), where there may not already be a
+     * HardwareInterface implementation, the returned empty HardwareDevice
+     * still holds a reference to this instance, in case the caller intends to
+     * use this device to keep the implementation alive without first having
+     * to call getHardwareInterface() and hold that result.
      *
      * @param id device identifier
      * @return HardwareDevice 
      */
     virtual HardwareDevice
     lookupDevice(const std::string& id);
+
+    /**
+     * Lookup the id() of @p device to return a non-const HardwareDevice with
+     * a reference to this HardwareInterface implementation.  See
+     * lookupDevice(const std::string&).
+     */
+    HardwareDevice
+    lookupDevice(const HardwareDevice& device);
 
     /**
      * Return the description for @p device.

@@ -831,7 +831,9 @@ get_hardware_interface_ftdi()
 HardwareInterfaceFTDI::
 HardwareInterfaceFTDI():
     HardwareInterface("ftdi")
-{}
+{
+    DLOG(("") << "creating HardwareInterfaceFTDI and devices...");
+}
 
 
 SerialPortInterface*

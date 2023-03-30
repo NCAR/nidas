@@ -39,15 +39,28 @@ using nidas::util::Synchronized;
 
 namespace {
 
-    Mutex hardware_interface_mutex;
+Mutex hardware_interface_mutex;
 
-    std::string default_interface_path;
+std::string default_interface_path;
 
-    // This is just a cache pointer so the same interface can be returned if
-    // an implementation is already available.  The lifetime of the
-    // implementation is tied to the lifetime of the caller's shared pointer
-    // and the hardware device objects that cache it.
-    std::weak_ptr<HardwareInterface> hardware_interface_singleton;
+// This is just a cache pointer so the same interface can be returned if
+// an implementation is already available.  The lifetime of the
+// implementation is tied to the lifetime of the caller's shared pointer
+// and the hardware device objects that cache it.
+std::weak_ptr<HardwareInterface> hardware_interface_singleton;
+
+// Create a default HardwareInterface attached to a static local shared
+// pointer.  This can be used to lookup standard device information for which
+// a full HardwareInterface implementation is not needed.  It returns a shared
+// pointer, and the result is not meant to be kept.  The default
+// implementation will be released when static local objects are destroyed.
+auto
+get_default_interface()
+{
+    static auto default_interface = std::make_shared<HardwareInterface>("");
+    return default_interface;
+}
+
 }
 
 
@@ -162,6 +175,14 @@ HardwareDevice(const std::string& id):
 {}
 
 
+bool
+HardwareDevice::
+hasReference()
+{
+    return bool(_hwi);
+}
+
+
 HardwareDevice&
 HardwareDevice::
 bind(std::shared_ptr<HardwareInterface> hwi)
@@ -170,6 +191,18 @@ bind(std::shared_ptr<HardwareInterface> hwi)
     return *this;
 }
 
+HardwareInterface*
+HardwareDevice::
+get_hardware_interface()
+{
+    if (isEmpty())
+        return nullptr;
+    if (!_hwi)
+    {
+        _hwi = HardwareInterface::getHardwareInterface();
+    }
+    return _hwi.get();
+}
 
 std::string
 HardwareDevice::id() const
@@ -211,8 +244,23 @@ HardwareDevice
 HardwareDevice::
 lookupDevice(const std::string& id)
 {
+    // As a short cut, to avoid creating a hardware interface just to look up
+    // a device we know won't exist, first check if the device exists in the
+    // default.
+    if (get_default_interface()->lookupDevice(id).isEmpty())
+    {
+        return HardwareDevice();
+    }
     auto hwi = HardwareInterface::getHardwareInterface();
     return hwi->lookupDevice(id);
+}
+
+
+HardwareDevice
+HardwareDevice::
+lookupDevice(const HardwareDevice& device)
+{
+    return lookupDevice(device.id());
 }
 
 
@@ -226,31 +274,22 @@ operator<<(std::ostream& out, const HardwareDevice& device)
 SerialPortInterface*
 HardwareDevice::iSerial()
 {
-    if (!_hwi)
-    {
-        _hwi = HardwareInterface::getHardwareInterface();
-    }
-    return !_hwi ? nullptr : _hwi->getSerialPortInterface(*this);
+    auto hwi = get_hardware_interface();
+    return !hwi ? nullptr : hwi->getSerialPortInterface(*this);
 }
 
 OutputInterface*
 HardwareDevice::iOutput()
 {
-    if (!_hwi)
-    {
-        _hwi = HardwareInterface::getHardwareInterface();
-    }
-    return !_hwi ? nullptr : _hwi->getOutputInterface(*this);
+    auto hwi = get_hardware_interface();
+    return !hwi ? nullptr : hwi->getOutputInterface(*this);
 }
 
 ButtonInterface*
 HardwareDevice::iButton()
 {
-    if (!_hwi)
-    {
-        _hwi = HardwareInterface::getHardwareInterface();
-    }
-    return !_hwi ? nullptr : _hwi->getButtonInterface(*this);
+    auto hwi = get_hardware_interface();
+    return !hwi ? nullptr : hwi->getButtonInterface(*this);
 }
 
 void
@@ -431,6 +470,14 @@ createButtonInterface(HardwareDeviceImpl*)
 
 HardwareDevice
 HardwareInterface::
+lookupDevice(const HardwareDevice& device)
+{
+    return lookupDevice(device.id());
+}
+
+
+HardwareDevice
+HardwareInterface::
 lookupDevice(const std::string& target)
 {
     DLOG(("") << "lookupDevice(" << target << ")");
@@ -462,14 +509,6 @@ lookupDevice(const std::string& target)
     return HardwareDevice();
 }
 
-
-
-auto
-get_default_interface()
-{
-    static auto default_interface = std::make_shared<HardwareInterface>("");
-    return default_interface;
-}
 
 
 std::string

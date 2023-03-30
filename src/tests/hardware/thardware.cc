@@ -67,6 +67,7 @@ BOOST_AUTO_TEST_CASE(test_lookup)
     HardwareInterface::selectInterface(HardwareInterface::MOCK_INTERFACE);
     auto hwi = HardwareInterface::getHardwareInterface();
     BOOST_CHECK_EQUAL(hwi->lookupDevice("PORT0").id(), "port0");
+    BOOST_CHECK_EQUAL(hwi->lookupDevice(PORT0).id(), "port0");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("1").id(), "port1");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("DCDC").id(), "dcdc");
     BOOST_CHECK_EQUAL(hwi->lookupDevice("/dev/ttyDSM1").id(), "port1");
@@ -78,4 +79,22 @@ BOOST_AUTO_TEST_CASE(test_lookup)
     BOOST_CHECK_EQUAL(HardwareDevice(DEF).id(), P1.id());
     BOOST_CHECK_EQUAL(hwi->lookupDevice("def").id(), P1.id());
     BOOST_CHECK_EQUAL(hwi->lookupDevice("DEF").id(), P1.id());
+}
+
+
+
+BOOST_AUTO_TEST_CASE(test_null_hardware)
+{
+    // test the hwi short-circuit for unknown hardware.  looking up an unknown
+    // device should not create a hardware implementation.
+    HardwareInterface::resetInterface();
+
+    auto device = HardwareDevice::lookupDevice("/dev/ttyUSB1");
+    BOOST_CHECK(!device.hasReference());
+    BOOST_CHECK(!device.iSerial());
+    BOOST_CHECK(!device.iOutput());
+    BOOST_CHECK(!device.iButton());
+    BOOST_CHECK(!device.hasReference());
+    device = HardwareDevice::lookupDevice(DCDC);
+    BOOST_CHECK(device.hasReference());
 }
