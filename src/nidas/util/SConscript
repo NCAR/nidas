@@ -1,8 +1,6 @@
 # -*- python -*-
 ## 2006, Copyright University Corporation for Atmospheric Research
 
-import os
-
 ##
 ##  Import the build environment.
 ##
@@ -27,8 +25,6 @@ headers = [ Split("""
     BluetoothRFCommSocketAddress.h
     Bzip2FileSet.h
     DatagramPacket.h
-    DSMPowerCtrl.h
-    DSMSwitchCtrl.h
     EndianConverter.h
     EOFException.h
     EPoll.h
@@ -113,39 +109,8 @@ if conf.CheckLib('bluetooth'):
     conf.env.AppendUnique(LIBS = 'bluetooth')
 env = conf.Finish()
 
-def libusb1(env):
-    # There may be a way to check and set both header and library in the
-    # environment using Configure(), but I haven't checked...
-    cfenv = env.Clone()
-    cfenv.Replace(LIBS=[])
-    conf = Configure(cfenv)
-    conf.CheckLib('usb-1.0')
-    cfenv = conf.Finish()
-    env.Append(LIBS=cfenv.get('LIBS', []))
-    # Fedora installs header into a subdirectory.
-    usbpath = env.Dir("/usr/include/libusb-1.0").abspath
-    if os.path.exists(usbpath):
-        env.Append(CPPPATH=[usbpath])
-
-def libftdi(env):
-    # Force link libftdi.a.  Prepend rel path w/# to escape the confines of
-    # scons root directory w/SConstruct.
-    #libftdi = File('#../../libftdi/libftdi1-1.4/build-' + targetArch +
-    #               '/src/libftdi1.a')
-    cfenv = env.Clone()
-    cfenv.Replace(LIBS=[])
-    conf = Configure(cfenv)
-    conf.CheckLib('ftdi1')
-    cfenv = conf.Finish()
-    env.Append(LIBS=cfenv.get('LIBS', []))
-    # On Fedora, libftdi-devel installs headers under /usr/include/libftdi1.
-    hdir = env.Dir("/usr/include/libftdi1").abspath
-    if os.path.exists(hdir):
-        env.Append(CPPPATH=[hdir])
-    env.Require([libusb1])
-
 # Required to build nidas_util
-deps = [libftdi, 'boost_system', 'boost_filesystem', 'boost_regex']
+deps = ['boost_system', 'boost_filesystem', 'boost_regex']
 env.Require(deps)
 env.Append(LIBS=['pthread'])
 arch = env['ARCH']
