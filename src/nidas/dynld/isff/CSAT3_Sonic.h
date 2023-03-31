@@ -36,17 +36,6 @@ class TimetagAdjuster;
 namespace nidas { namespace dynld { namespace isff {
 
 /**
- * AutoConig stuff....
- */
-enum CSAT_COMMANDS {
-	TERMINAL_MODE_CMD,
-	DATA_MODE_CMD,
-	SYSCFG_QRY_CMD,
-	BAUD_RATE_CMD,
-	NUM_SENSOR_CMDS
-};
-
-/**
  * A class for making sense of data from a Campbell Scientific Inc
  * CSAT3 3D sonic anemometer.
  * This also supports records which have been altered by an NCAR/EOL
