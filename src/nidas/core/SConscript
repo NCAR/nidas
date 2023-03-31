@@ -305,7 +305,6 @@ hwenv = env.Clone()
 hwenv.Require([libftdi])
 shobjs += hwenv.SharedObject('HardwareInterfaceFTDI.cc')
 
-
 ##
 ##  Build the libnidas library. Search other needed libraries.
 ##
@@ -328,6 +327,6 @@ Clean('install', nodes)
 def nidascore(env):
     env.Append(LIBS=[libnidas_core])
     env.Require(['nidasutil', nidas_xmlrpcpp])
-    env.Append(LIBS=['dl', 'xerces-c'])
+    env.Append(LIBS=['dl', 'xerces-c', 'ftdi1'])
 
 Export('nidascore')
