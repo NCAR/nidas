@@ -186,7 +186,7 @@ public:
     const Prompt& getPrompt() const;
 
     /**
-     * Prompting Sensors can have multiple prompts and rates.  Add another
+     * Prompting sensors can have multiple prompts and rates.  Add another
      * prompt and rate to this sensor.  If the prompt has a string but no
      * rate, then the rate will be set from the primary prompt before being
      * added.

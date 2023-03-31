@@ -188,11 +188,16 @@ layoutSyncRecord()
     for (vi = _variables.begin(); vi != _variables.end(); ++vi)
     {
         const Variable* var = *vi;
-	const SampleTag* tag = var->getSampleTag();
-	dsm_sample_id_t sampleId = tag->getId();
-	float rate = tag->getRate();
+        const SampleTag* tag = var->getSampleTag();
+        dsm_sample_id_t sampleId = tag->getId();
+        float rate = tag->getRate();
         int nvars = tag->getVariables().size();
-	int sampleIndex = _varsByIndex.size();
+        int sampleIndex = _varsByIndex.size();
+
+        DLOG(("") << "laying out variable " << var->getName() << " tag "
+                  << GET_DSM_ID(sampleId) << "," << GET_SPS_ID(sampleId) << ": "
+                  << "rate=" << rate << ", nvars=" << nvars
+                  << ", sample index=" << sampleIndex);
 
         if (lasttag == tag)
         {
@@ -754,6 +759,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
             n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
         ", _current=" << _current <<
         ", isync=" << isync <<
+        ", intSamplesPerSec=" << intSamplesPerSec <<
         ", usecsPerSamp=" << usecsPerSamp <<
         ", offsetUsec=" << offsetUsec <<
         ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<

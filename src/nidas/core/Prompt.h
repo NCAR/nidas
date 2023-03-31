@@ -53,8 +53,9 @@ public:
 
     /**
      * Set the prompt string for this prompt.
-     * The prompt string may contain backslash escape sequences and
-     * null characters, so be carefull when copying to a char*.
+     *
+     * The prompt string may contain backslash escape sequences and null
+     * characters, so be careful when copying to a char*.
      */
     void setString(const std::string& val);
 
@@ -62,6 +63,7 @@ public:
 
     /**
      * Set the prefix.  The prefix will be marked valid even if empty.
+     * 
      * Returns a reference to this Prompt, as convenience to add a prefix to a
      * constructor call:
      * 

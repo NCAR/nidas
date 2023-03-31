@@ -323,6 +323,12 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
         // updates back to the sample tag.
         addPrompt(samp->getPrompt());
         samp->setPrompt(_prompts.back());
+        // Samples without their own prompts or rates still inherit a rate
+        // from a primary prompt, if any.
+        if (samp->getRate() == 0)
+        {
+            samp->setRate(getPrompt().getRate());
+        }
     }
 }
 
