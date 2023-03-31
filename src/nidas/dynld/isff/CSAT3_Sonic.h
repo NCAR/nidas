@@ -133,6 +133,8 @@ protected:
      */
     virtual CFG_MODE_STATUS enterConfigMode() throw(nidas::util::IOException);
 
+    bool dataMode();
+
     /**
      * @return: none.
      */

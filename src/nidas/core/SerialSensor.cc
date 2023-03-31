@@ -58,7 +58,17 @@ SerialSensor::SerialSensor():
     _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
     _defaultPortConfig(),_serialDevice(0), _prompters(), _prompting(false)
 {
+    // XXX
+    //
+    // I'm not sure this is the right way to do this.  Before autoconfig the
+    // default mode was just O_RDWR.  O_NOCTTY gets added in open(), so I
+    // don't think that has any effect here.  Autoconfig also added the
+    // _blocking flag and api to SerialPortIODevice, so adding O_NDELAY seems
+    // redundant or superfluous to this, if a SerialSensor device will always
+    // be opened non-blocking anyway.  Really with judicious use of a select()
+    // or poll() based api the blocking setting becomes entirely irrelevant.
     setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
+
     _desiredPortConfig.termios.setRaw(true);
     _desiredPortConfig.termios.setRawLength(1);
     _desiredPortConfig.termios.setRawTimeout(0);
@@ -680,12 +690,7 @@ void SerialSensor::doAutoConfig()
 		printDeviceMetaData();
 	}
 	else {
-	    NLOG(("Autoconfig is not enabled or is not supported."));
-	    NLOG(("But we must still set the termios, xcvr config, turn it on, etc."));
-        DLOG(("If the board is an older FTDI board which doesn't support "));
-        DLOG(("AutoConfig xcvr control, then only termios is set."));
-	    DLOG(("SerialSensor constructor and fromDomElement() should have "));
-	    DLOG(("already specified the details."));
+	    NLOG(("") << getName() << ": autoconfig not enabled or not supported.");
         applyPortConfig();
 	}
 }
