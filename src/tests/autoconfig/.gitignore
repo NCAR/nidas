@@ -1,4 +1,4 @@
 /libs.sh
 /tSerialSensorAutoConfig
 /vg.memcheck.log
-
+/vg.threadcheck.log
