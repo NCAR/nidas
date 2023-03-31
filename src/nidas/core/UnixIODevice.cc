@@ -53,7 +53,6 @@ size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout) throw(nidas::u
 #ifdef HAVE_PPOLL
     struct pollfd fds;
     fds.fd =  _fd;
-    DLOG(("UnixIODevice::read(w/timeout): _fd = ") << _fd);
 #ifdef POLLRDHUP
     fds.events = POLLIN | POLLRDHUP;
 #else
@@ -72,12 +71,12 @@ size_t UnixIODevice::read(void *buf, size_t len, int msecTimeout) throw(nidas::u
 
 #ifdef HAVE_PPOLL
     if ((res = ::ppoll(&fds,1,&tmpto,&sigmask)) < 0)
-        throw nidas::util::IOException(getName(),"read(ppoll)",errno);
+        throw nidas::util::IOException(getName(),"read",errno);
     if (res == 0)
-        throw nidas::util::IOTimeoutException(getName(),"read(ppoll)");
+        throw nidas::util::IOTimeoutException(getName(),"read");
 
     if (fds.revents & POLLERR)
-        throw nidas::util::IOException(getName(),"read(ppoll)",errno);
+        throw nidas::util::IOException(getName(),"read",errno);
 
 #ifdef POLLRDHUP
     if (fds.revents & (POLLHUP | POLLRDHUP)) return 0;

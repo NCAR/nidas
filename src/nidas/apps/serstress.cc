@@ -36,14 +36,13 @@
 #include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 #include <nidas/core/SerialPortIODevice.h>
+#include <nidas/core/HardwareInterface.h>
 #include <nidas/util/SerialOptions.h>
-#include <nidas/util/SensorPowerCtrl.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 #include <nidas/util/auto_ptr.h>
 #include <nidas/util/SPoll.h>
-#include <nidas/core/SerialXcvrCtrl.h>
 
 #include <vector>
 #include <cstring>
@@ -66,6 +65,10 @@ namespace n_c = nidas::core;
 using nidas::util::LogScheme;
 using nidas::util::Logger;
 using nidas::util::LogConfig;
+using nidas::util::SPoll;
+using nidas::util::IOException;
+using nidas::util::Exception;
+using nidas::util::Parity;
 
 static const bool SENDING = true;
 static const bool ECHOING = false;
@@ -87,8 +90,8 @@ static int timeoutSecs = -1;
 static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
-static n_c::PORT_TYPES portType = n_c::LOOPBACK;
-static n_c::PORT_TYPES skipped_portType = n_c::RS485_HALF;
+static n_c::PortType portType = n_c::LOOPBACK;
+static n_c::PortType skipped_portType = n_c::RS485_HALF;
 static n_c::SerialPortIODevice port;
 static string shortName;
 static n_c::SerialPortIODevice echoPort;
@@ -861,8 +864,11 @@ int parseRunstring(int argc, char** argv)
             return usage(argv[0]);
             break;
         case 'm': 
-            portType = n_c::SerialXcvrCtrl::strToPortType(optarg);
-            cout << "serstress: cmd line parsing: \'m\': " << n_c::SerialXcvrCtrl::portTypeToStr(portType) << endl;
+            if (!portType.parse(optarg))
+            {
+                std::cerr << "unrecognized port type: " << optarg << std::endl;
+                return 1;
+            }
             if (portType == n_c::RS485_HALF) {
                 // don't skip the default skipped port type
                 skipped_portType = n_c::LOOPBACK;
@@ -890,10 +896,10 @@ int parseRunstring(int argc, char** argv)
             verbose = true;
             break;
         case 'x':
-            skipped_portType = n_c::SerialXcvrCtrl::strToPortType(optarg);
-            if (skipped_portType == n_c::LOOPBACK) {
-                cout << "-x option specifies unknown port type to skip." << endl << endl;
-                return usage(argv[0]);
+            if (!skipped_portType.parse(optarg))
+            {
+                std::cerr << "unrecognized port type for -x: " << optarg << std::endl;
+                return 1;
             }
             break;
         case '?':
@@ -935,24 +941,25 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
         throw n_u::Exception(std::string("serstress: port open error: " + myPort.getName() + e.what()));
     }
 
-    GPIO_PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
-    n_u::SensorPowerCtrl sensorPower(sensorPortID);
-    sensorPower.enablePwrCtrl(true);
-    sensorPower.pwrOn();
-
+    std::string devname = isSender ? port.getName() : echoPort.getName();
+    auto device = n_c::HardwareDevice::lookupDevice(devname);
+    if (auto ioutput = device.iOutput())
+    {
+        ioutput->on();
+    }
     myPort.setPortConfig(myPortConfig);
     myPort.applyPortConfig();
 
 
     cout << endl << "Testing " << (isSender ? "Sender " : "Echo ") << "Port Configuration" << endl << "======================" << endl;
-    myPort.getPortConfig().print();
-    sensorPower.print();
+    // myPort.getPortConfig().print();
+    // sensorPower.print();
 
     int setBaud = myPortConfig.termios.getBaudRate() * 1.0;
     int bytesPerPacket = MIN_PACKET_LENGTH + dataSize;
     int dataBits = myPortConfig.termios.getDataBits();
     int stopBits = myPortConfig.termios.getStopBits();
-    int parityBits = myPortConfig.termios.getParity() == n_u::Termios::NONE ? 0 : 1;
+    int parityBits = myPortConfig.termios.getParity() == Parity::NONE ? 0 : 1;
     float bytesPerSec = setBaud / ((dataBits + stopBits + parityBits) * 1.0);
 
     float calcRate = rate;
@@ -1005,6 +1012,8 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
         cout << "Receiver timeout (sec): " << rcvrTimeout << endl << endl;
     }
 
+    // This code has no purpose on any current hardware.
+#ifdef notdef
     if (myPort.getPortType() == n_c::RS485_HALF) {
         ILOG(("Port is set to RS485_HALF"));
         if (!n_c::SerialXcvrCtrl::xcvrCtrlSupported(myPort.getPortConfig().xcvrConfig.port)) {
@@ -1026,6 +1035,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
             ILOG(("RS485 Half Duplex transmission direction is controlled by the hardware."));
         }
     }
+#endif
 
     int modembits = myPort.getModemStatus();
     cout << "On Open " << (isSender ? "Sender " : "Echo ") << "Modem flags: " << myPort.modemFlagsToString(modembits) << endl;
@@ -1039,10 +1049,12 @@ void closePort(bool isSender) throw(n_u::IOException, n_u::ParseException)
     myPort.flushBoth();
     myPort.close();
 
-    GPIO_PORT_DEFS sensorPortID = isSender ? port.getPortConfig().xcvrConfig.port : echoPort.getPortConfig().xcvrConfig.port;
-    n_u::SensorPowerCtrl sensorPower(sensorPortID);
-    sensorPower.enablePwrCtrl(true);
-    sensorPower.pwrOff();
+    std::string devname = isSender ? port.getName() : echoPort.getName();
+    auto device = n_c::HardwareDevice::lookupDevice(devname);
+    if (auto ioutput = device.iOutput())
+    {
+        ioutput->off();
+    }
 }
 
 static void sigAction(int sig, siginfo_t* siginfo, void*) {
@@ -1091,7 +1103,7 @@ int main(int argc, char**argv)
     cout         << "**        SerStress Test Start        **" << endl;
     cout         << "****************************************" << endl;
 
-    n_c::PORT_TYPES portTypeList[] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF};
+    n_c::PortType portTypeList[] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF};
 
     int status = 0;
     int calcRecvrTimeout = -1;
@@ -1162,11 +1174,10 @@ int main(int argc, char**argv)
         looptest = 1;
     }
 
-
-    DLOG(("portType == ") << n_c::SerialXcvrCtrl::portTypeToStr(portType) << ", looptest == " << looptest);
+    DLOG(("portType == ") << portType << ", looptest == " << looptest);
 
     for (int i=0; i<looptest; ++i) {
-        n_c::PORT_TYPES nextPortType = portType;
+        n_c::PortType nextPortType = portType;
         // change port type only if it wasn't specified on the command line
         if (looptest != INT_MAX && nextPortType != n_c::RS485_HALF) {
             nextPortType = portTypeList[i];
@@ -1197,15 +1208,13 @@ int main(int argc, char**argv)
             portConfig.termios.setRaw(true);
             portConfig.termios.setRawLength(1);
             portConfig.termios.setRawTimeout(0);
-            portConfig.xcvrConfig.port = static_cast<n_u::GPIO_PORT_DEFS>(senderPortNum);
-            portConfig.xcvrConfig.portType = nextPortType;
+            portConfig.port_type = nextPortType;
 
             // echo PortConfig is identical, but for the port ID
             echoPortConfig = portConfig;
             if (echoPortConfig != portConfig) {
                 throw Exception("Sender and Echo PortConfigs don't match!!!");
             }
-            echoPortConfig.xcvrConfig.port = static_cast<n_u::GPIO_PORT_DEFS>(echoPortNum);
 
             try {
                 openPort(SENDING, calcRecvrTimeout);
@@ -1310,7 +1319,7 @@ int main(int argc, char**argv)
             }
 
             cout << endl << "Finished test run for:" << endl;
-            port.getPortConfig().print(true);
+            // port.getPortConfig().print(true);
             cout << endl;
 
             sendRcvr.reportBulkStats();

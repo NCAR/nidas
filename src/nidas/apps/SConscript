@@ -89,12 +89,10 @@ data_dump
 data_stats
 dmd_mmat_test
 dsm_auto_config
-dsm_port_config
 dsm_server
 dsm
 extract2d
 extractDMT
-initFTDI
 ir104
 lidar_vel
 merge_verify
@@ -103,7 +101,6 @@ nidsmerge
 n_hdr_util
 pio
 proj_configs
-readFTDIpins
 rserial
 sensor_extract
 sensor_sim
@@ -130,6 +127,11 @@ env.Require('nidasdynld')
 
 for prog in programs:
     env.Alias(prog, env.NidasProgram(prog+'.cc', libs=[]))
+
+hwenv = env.Clone()
+hwenv.Require('libftdi')
+hwenv.NidasPlainProgram('initFTDI.cc')
+hwenv.NidasPlainProgram('readFTDIpins.cc')
 
 didbenv = env.Clone()
 dbconf = didbenv.Configure(custom_tests=custom_tests)

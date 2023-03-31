@@ -119,23 +119,6 @@ private:
 
     nidas::core::TimetagAdjuster* _ttadjust;
 
-    // Although we do not actually go through AutoConfig for IRGA, 
-    // we need to set up the port appropriately. This will
-    // work for both old FTDI boards, and new Rev C+ FTDI boards.
-    // The older boards will just set the termios parameters, while 
-    // the newer boards will also set up the transceiver mode
-    // (RS232/422/485_half, etc).
-    static const PortConfig DEFAULT_PORT_CONFIG;
-    static const PORT_TYPES DEFAULT_PORT_TYPE = RS485_FULL;
-    static const int DEFAULT_BAUD_RATE = 115200;
-    static const int DEFAULT_DATA_BITS = 8;
-    static const Termios::parity DEFAULT_PARITY = Termios::NONE;
-    static const int DEFAULT_STOP_BITS = 1;
-    static const TERM DEFAULT_LINE_TERMINATION = NO_TERM;
-//    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
-    static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
-    static const bool DEFAULT_CONFIG_APPLIED = false;
-
     /// No copying
     CSI_IRGA_Sonic(const CSI_IRGA_Sonic &);
 

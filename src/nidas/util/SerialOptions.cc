@@ -116,11 +116,11 @@ void SerialOptions::parse(const string& input) throw(ParseException)
             string("parity value not found in \"") + input + "\"");
     val = input.substr(matches[imtch].rm_so,
             matches[imtch].rm_eo-matches[imtch].rm_so);
-    Termios::parity parity;
+    Parity parity;
     switch(val.at(0)) {
-    case 'n': parity = Termios::NONE; break;
-    case 'e': parity = Termios::EVEN; break;
-    case 'o': parity = Termios::ODD; break;
+    case 'n': parity = Parity::NONE; break;
+    case 'e': parity = Parity::EVEN; break;
+    case 'o': parity = Parity::ODD; break;
     default:
               throw ParseException(
                       string("invalid parity value \'") + val + "\' in \"" + input + "\"");
@@ -232,8 +232,7 @@ string SerialOptions::toString() const {
     ostringstream ost;
 
     ost << "baud=" << _termios.getBaudRate() << endl;
-    ost << "parity=" << (_termios.getParity() == Termios::EVEN ? "even" :
-            _termios.getParity() == Termios::ODD ? "odd " : "none") << endl;
+    ost << "parity=" << _termios.getParity() << endl;
     ost << "databits=" << _termios.getDataBits() << endl;
     ost << "stopbits=" << _termios.getStopBits() << endl;
     ost << "local=" << _termios.getLocal() << endl;

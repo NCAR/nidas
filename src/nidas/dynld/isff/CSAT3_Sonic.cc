@@ -53,18 +53,26 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 /**
  * AUTOCONFIG Stuff
  */
+/**
+ * Serial port autoconfig items
+ */
 
-const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
-												  DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
-											      DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
-const char* CSAT3_Sonic::DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
-const int CSAT3_Sonic::SENSOR_BAUDS[CSAT3_Sonic::NUM_SENSOR_BAUDS] = {9600, 19200};
-const WordSpec CSAT3_Sonic::SENSOR_WORD_SPECS[CSAT3_Sonic::NUM_WORD_SPECS] =
+// default message parameters for the PB210
+static const int DEFAULT_MESSAGE_LENGTH = 10;
+static const bool DEFAULT_MSG_SEP_EOM = true;
+
+static const int NUM_SENSOR_BAUDS = 2;
+static const int NUM_WORD_SPECS = 1;
+static const int NUM_PORT_TYPES = 1;
+static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+
+const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS232);
+static const char* DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
+static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200};
+static const WordSpec SENSOR_WORD_SPECS[NUM_WORD_SPECS] =
 {
-	WordSpec(8,Termios::NONE,1),
+	WordSpec(8,Parity::NONE,1),
 };
-
-const PORT_TYPES CSAT3_Sonic::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
 /*
  *  AutoConfig stuff
@@ -556,6 +564,23 @@ void CSAT3_Sonic::open(int flags) throw(n_u::IOException,n_u::InvalidParameterEx
 	// AutoConfig happens here...
 	SerialSensor::open(flags);
 
+    // If autoconfig not active, then revert to the past behavior of
+    // automatically trying to enter data mode in open().  This is sort of the
+    // complement to sendInitString(), whose intention is to put the sensor in
+    // "measurement mode", except the CSAT3 does not use the init string
+    // setting, and if autoconfig is not enabled then exitConfigMode() is not
+    // called, whose intention despite the name is also to put the sensor in
+    // measurement mode.
+    //
+    // The dataMode() method, as it was before being removed on the autoconfig
+    // branch, does more than just send the D command.  It also retries it and
+    // then tries D&, all of which experience must have shown is necessary.
+    // Thus the same method is used in exitConfigMode().
+    if (!getAutoConfigEnabled())
+    {
+        dataMode();
+    }
+
 	if (!_checkConfiguration) return;
 
 //	const int NOPEN_TRY = 5;
@@ -980,12 +1005,67 @@ n_c::CFG_MODE_STATUS CSAT3_Sonic::enterConfigMode() throw(n_u::IOException)
     return cfgStatus;
 }
 
-void CSAT3_Sonic::exitConfigMode() throw(n_u::IOException)
+
+bool CSAT3_Sonic::dataMode()
 {
     clearBuffer();
 
-    DLOG(("%s:%s sending D (nocr)",getName().c_str(), getClassName().c_str()));
+    DLOG(("%s: sending D (nocr)",getName().c_str()));
     write("D",1);
+    usleep(250 * USECS_PER_MSEC);
+    size_t ml = getMessageLength() + getMessageSeparator().length();
+
+    // read until we get an actual sample or 5 seconds have elapsed.
+    n_u::UTime quit;
+    quit += USECS_PER_SEC * 5;
+
+    int nbad = 0;
+
+    for (int ntimeout = 0; ; ) {
+        try {
+            for (;;) {
+                bool goodsample = false;
+                readBuffer(1 * MSECS_PER_SEC);
+                DLOG(("%s: CSAT3 buffer read",getName().c_str()));
+                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                    // Sample might be slightly larger that what is configured
+                    // if a serializer is adding some bytes
+                    // Or if a port is configured for serializer, but no serializer
+                    // is present, the records will be of length 24 (2*12) instead
+                    // of the expected 14.
+                    if (samp->getDataByteLength() >= ml &&
+                        samp->getDataByteLength() < ml*2) goodsample = true;
+                    else nbad++;
+
+                    distributeRaw(samp);
+                }
+                if (goodsample) return true;
+                if (nbad > 0) ILOG(("%s: %d unrecognized samples", getName().c_str(),nbad));
+                if (n_u::UTime() > quit) {
+                    ILOG(("%s: timeout reading CSAT3 samples",getName().c_str()));
+                    return false;
+                }
+            }
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            if ((++ntimeout % 3)) {
+                ILOG(("%s: timeout reading CSAT3 data, sending D (nocr)",getName().c_str()));
+                write("D",1);
+            }
+            else {
+                ILOG(("%s: timeout reading CSAT3 data, sending D& (nocr)",getName().c_str()));
+                write("D&",2);
+            }
+            if (n_u::UTime() > quit) return false;
+        }
+    }
+    return false;
+}
+
+
+void CSAT3_Sonic::exitConfigMode() throw(n_u::IOException)
+{
+    dataMode();
 }
 
 bool CSAT3_Sonic::checkResponse()

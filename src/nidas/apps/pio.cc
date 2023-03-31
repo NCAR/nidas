@@ -26,11 +26,18 @@
 */
 /* pio.cc
 
-    User space code that uses libusb and libftdi to bit bang specific FT4243 devices in the DSM.
-    It uses these devices to programmatically manage the power state of the sensor serial ports, 
-    as well as other power controllable entities in the DSM.
+    User space code to manage the power state of the sensor serial ports, as
+    well as other power controllable entities in the DSM.
 
     Original Author: Paul Ourada
+
+    Refactored later to use the HardwareInterface API and incorporate the
+    functionality of the dsm_port_config utility, so pio now can set the
+    transceiver mode and termination for DSM sensor ports. dsm_port_config, in
+    addition to controlling transceiver settings, would change and report the
+    RTS line status, so pio can do that also.  However, I'm not sure how
+    useful this is, because it seems like RTS is always set when the terminal
+    device is opened, even if cleared in a previous run.
 
 */
 
@@ -38,256 +45,341 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <vector>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-#include <libusb-1.0/libusb.h>
-#include "ftdi.h"
-#include "nidas/core/NidasApp.h"
-#include "nidas/util/SensorPowerCtrl.h"
-#include "nidas/util/DSMPowerCtrl.h"
-#include "nidas/util/DSMSwitchCtrl.h"
-#include "nidas/util/util.h"
+#include <nidas/core/NidasApp.h>
+#include <nidas/core/HardwareInterface.h>
+#include <nidas/util/Termios.h>
+
 
 using namespace nidas::core;
 using namespace nidas::util;
 
-// global bool used to determine whether to use the old /proc filesystem control, or the new FTDI control.
-bool useFTDICtrl = true;
-
-typedef std::map<std::string, GPIO_PORT_DEFS> DeviceArgMapType;
-typedef std::pair<std::string, GPIO_PORT_DEFS> DeviceArgMapPair;
-
-DeviceArgMapType deviceArgMap;
+using std::cerr;
+using std::cout;
+using std::endl;
 
 NidasApp app("pio");
 
-NidasAppArg Device("-d,--device-id", "<blank>|0-7|dcdc|aux|bank1|bank2|btcon|default_sw|wifi_sw",
-        		 "DSM devices for which power setting is managed - \n"
-		         "     0-7         - Sensors 0-7 port power \n"
-                 "     dcdc|DCDC   - programmable DC power port\n"
-                 "     aux|AUX     - auxiliary power port - typically used to power another DSM\n"
-                 "     bank1|BANK1 - bank1 12V power port - powers Serial IO Panel\n"
-                 "     bank2|BANK2 - bank2 12V power port - resets the RPi\n"
-                 "     btcon|BTCON - bluetooth console hat board on Rpi\n"
-                 "     def_sw      - detects default switch, SW1 on FTDI USB Serial Board\n"
-                 "     wifi_sw  -    detects wifi switch, SW2 on FTDI USB Serial Board\n",
-                 "");
-NidasAppArg Map("-m,--map", "",
-			      "Output the devices for which power can be controlled and exit", "");
-NidasAppArg View("-v,--view", "",
-			      "Output the current power settings for all devices and exit",
-                  "");
-NidasAppArg Power("-p,--power", "<on>",
-                  "Controls whether the DSM sends power to the DSM device - \n"
-                  "    (0|off|power_off)\n"
-                  "    (1|on|power_on)", "power_on");
+// set for the list, status, or switch operations
+std::string Operation;
 
-int usage(const char* argv0)
+// if set, act on one device
+std::string Device;
+// if set, perform the output setting on the named device.
+std::string Output;
+// if set, apply the port configs to the named device.
+std::string Serial;
+
+
+PortType PTYPE(PortType::RS232);
+PortTermination PTERM(PortTermination::NO_TERM);
+std::string RTS;
+
+
+void
+usage()
 {
     std::cerr
-<< argv0 << " is a utility to control the power of various DSM devices." << std::endl
-<< "It detects the presence of the FTDI USB Serial Interface board and uses it if " << std::endl
-<< "it is available. Otherwise, it attempts to use the Rpi GPIO script to do the same " << std::endl
-<< "function. If the utility is not executed on a Rpi device, it will exit with an error." << std::endl
-<< std::endl
-<< "Usage: " << argv0 << " -d <device ID> -p <power state> -l <log level>" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -d <device ID> -l <log level>" << std::endl
-<< "       " << argv0 << " -m -l <log level>" << std::endl
-<< "       " << argv0 << " # same as " << argv0 << " --view" << std::endl << std::endl
-<< app.usage();
+        << R""""(
+Usage: pio [list|status] [device [op ...]]
 
+Query and control power relays, sensor power, LEDs, serial ports, and
+pushbutton switches.  If no arguments, show the status of all devices.
+
+  {list|status}:
+
+    List the known devices, without opening the hardware, or else
+    open all the hardware devices and show their status.
+    If no other devices or operations specified, the default is 'status'.
+
+  device:
+
+    Device name.  Use 'list' to show the known device names.
+
+  op: {on|off|switch}
+
+    Turn the output on or off, wait for a switch to be pressed, or set the
+    serial port mode.
+    If not specified, show the current status of just that output.
+
+  op: [{232|422|485h|485f|loop}] [{term|noterm}] [{rts0|rts1}]
+
+    Configure a serial port with (term) or without (noterm) 120 Ohm
+    termination, and set the signal protocol: RS232, RS422, RS485 half duplex,
+    RS485 full duplex, loopback.  Set (rts1) or clear (rts0) the RTS bit.
+    Protocol and termination are always set together, so if only
+    one is specified, the other defaults to noterm or rs232.
+)""""
+        << app.usage()
+        << R""""()
+
+Examples:
+
+  pio              - Show status of all devices.
+  pio list         - List devices with descriptions.
+  pio 0 off        - Turn off power to the sensor in port 0.
+  pio wifi on      - Turn on the LED for the wifi button.
+  pio aux off      - Turn off the auxiliary power port.
+  pio 0 232 on     - Put port 0 in RS232 mode and turn on sensor power.
+  pio 7 485h       - Put port 7 in RS485 half-duplex mode, no termination.
+  pio 7            - Show the status of just port7.
+
+)"""";
+}
+
+
+int toomany(const std::string& msg)
+{
+    cerr << msg << ": too many arguments.  Use -h for help." << endl;
     return 1;
 }
 
+
 int parseRunString(int argc, char* argv[])
 {
-    app.enableArguments(app.loggingArgs() | app.Help
-    		            | Device | Map | View | Power);
+    app.enableArguments(app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
     if (app.helpRequested())
     {
-        return usage(argv[0]);
+        usage();
+        return 1;
     }
 
-    if (argc == 1) {
-        View.parse(ArgVector{"-v"});
-    }
+    // Get positional args
+    ArgVector pargs = app.unparsedArgs();
+    Operation = "status";
 
-    // implement positional arguments, as per Jira ticket ISFS-410
-    if ( !(Map.specified() || View.specified() || Device.specified() || Power.specified()) ) {
-        ArgVector unknowns = app.unparsedArgs();
-        if (unknowns.size() >= 2) {
-            Device.parse(ArgVector{"-d", unknowns[0]});
-            Power.parse(ArgVector{"-p", unknowns[1]});
+    for (auto& arg: pargs)
+    {
+        if (arg == "list" || arg == "status")
+        {
+            Operation = arg;
+            if (pargs.size() > 1)
+            {
+                return toomany(Operation);
+            }
         }
+        if (Device.empty())
+        {
+            Device = arg;
+            continue;
+        }
+        Operation = arg;
+        if (Operation == "on" || Operation == "off")
+        {
+            Output = Operation;
+            continue;
+        }
+        if (Operation == "switch")
+        {
+            // it doesn't really make sense to set anything else when testing
+            // a switch.
+            if (pargs.size() > 2)
+            {
+                return toomany(Operation);
+            }
+            continue;
+        }
+        if (arg == "rts0" || arg == "rts1")
+        {
+            RTS = arg;
+            continue;
+        }
+        if (PTYPE.parse(arg) || PTERM.parse(arg))
+        {
+            Serial = arg;
+            continue;
+        }
+        std::cerr << "operation unknown: " << arg << endl;
+        return 1;
     }
-
     return 0;
 }
 
-void printDevice(GPIO_PORT_DEFS port)
+
+int unsupported(const HardwareDevice& device, const std::string& op)
 {
-    if (port < PWR_DCDC) {
-        SensorPowerCtrl(port).print();
+    cerr << "unsupported operation on device "
+         << device << ": " << op << endl;
+    return 1;
+}
+
+
+bool
+set_rts(int fd, bool rts)
+{
+    if (fd < 0)
+        return false;
+    struct termios attr;
+    tcgetattr(fd, &attr);
+    attr.c_cflag |= CRTSCTS | CLOCAL;
+    if (tcflush(fd, TCIOFLUSH) == -1) {
+        perror("RTS: tcflush()");
+        return false;
     }
-    else {
-        DSMPowerCtrl(port).print();
+    if (tcsetattr(fd, TCSANOW, &attr) == -1) {
+        perror("RTS: tcsetattr()");
+        return false;
+    }
+
+    int cmd = TIOCMBIC;
+    int bit = TIOCM_RTS;
+
+    if (rts) {
+        cmd = TIOCMBIS;
+    }
+
+    if (ioctl(fd, cmd, &bit) == -1) {
+        std::string errStr("set_rts(): ");
+        if (cmd == TIOCMBIC) {
+            errStr.append("TIOCMBIC");
+        }
+        else {
+            errStr.append("TIOCMBIS");
+        }
+        perror(errStr.c_str());
+        return false;
+    }
+    return true;
+}
+
+
+int openDevice(const std::string& path)
+{
+    int fd = ::open(path.c_str(), O_RDONLY);
+    if (fd < 0)
+    {
+        perror(path.c_str());
+    }
+    return fd;
+}
+
+
+/**
+ * Open @p device and return the current rts setting in @p rts.  Return false
+ * if there is no path for this device or there was an error trying to
+ * retrieve rts.
+ */
+bool
+read_rts(int fd, bool& rts)
+{
+    bool result = false;
+    int status = 0;
+    if (fd < 0)
+    {
+        return false;
+    }
+    if (ioctl(fd, TIOCMGET, &status) == -1)
+    {
+        perror("set_rts(): TIOCMGET");
+    }
+    else
+    {
+        rts = ((status & TIOCM_RTS) != 0);
+        result = true;
+    }
+    return result;
+}
+
+
+void
+print_status(HardwareDevice& device, int fd=-1)
+{
+    cout << std::setw(10) << device << "  ";
+    if (auto oi = device.iOutput())
+    {
+        cout << std::setw(3) << oi->getState();
+        if (auto iserial = device.iSerial())
+        {
+            PortType ptype;
+            PortTermination term;
+            iserial->getConfig(ptype, term);
+            cout << "  " << ptype;
+            if (ptype == PortType::RS422)
+                cout << "/485f";
+            cout << " " << term;
+            bool rts;
+            if (read_rts(fd, rts))
+            {
+                cout << " " << (rts ? "rts1" : "rts0");
+            }
+        }
+        if (auto ibutton = device.iButton())
+        {
+            cout << "  " << (ibutton->isDown() ? "down" : "up");
+        }
+    }
+    else
+        cout << "could-not-open";
+    cout << endl;
+}
+
+
+void print_all()
+{
+    // Print the current state for all power outputs.
+    auto hwi = HardwareInterface::getHardwareInterface();
+    for (auto& device: hwi->devices())
+    {
+        print_status(device);
     }
 }
 
-void printAll()
-{
-    std::cout << "Current Power Settings" << std::endl
-              << "----------------------" << std::endl
-              << "Device          Setting"<< std::endl;
-    // Print out serial port power settings first
-    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
-         iter != deviceArgMap.end();
-         iter++) {
-        if (iter->second < PWR_DCDC) {
-            printDevice(iter->second);
-        }
-    }
-
-    // Then print out DSM power settings
-    for (DeviceArgMapType::iterator iter = deviceArgMap.begin();
-         iter != deviceArgMap.end();
-         iter++) {
-        if (iter->second > SER_PORT7) {
-            printDevice(iter->second);
-        }
-    }
-}
 
 int main(int argc, char* argv[]) {
-    deviceArgMap.insert(DeviceArgMapPair(std::string("0"), SER_PORT0));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("1"), SER_PORT1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("2"), SER_PORT2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("3"), SER_PORT3));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("4"), SER_PORT4));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("5"), SER_PORT5));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("6"), SER_PORT6));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("7"), SER_PORT7));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("DCDC"), PWR_DCDC));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("AUX"), PWR_AUX));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK1"), PWR_BANK1));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BANK2"), PWR_BANK2));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("BTCON"), PWR_BTCON));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("DEF_SW"), DEFAULT_SW));
-    deviceArgMap.insert(DeviceArgMapPair(std::string("WIFI_SW"), WIFI_SW));
 
     if (parseRunString(argc, argv))
         exit(1);
 
-    // check the options first
-    DLOG(("Map Option Flag Set: ") << (Map.specified() ? "true" : "false"));
-    if (Map.specified()) {
-        std::cout << Device.usage();
-        return 0;
-    }
+    auto hwi = HardwareInterface::getHardwareInterface();
 
-    DLOG(("View Option Flag/Value: ") << (View.specified() ? View.getValue() : "no value"));
-    if (View.specified()) {
-        printAll();
-        return 0;
-    }
-
-    DLOG(("Device Option Flag/Value: ") << Device.getFlag() << ": " << Device.getValue());
-    GPIO_PORT_DEFS deviceArg = ILLEGAL_PORT;
-    if (Device.specified()) {
-        std::string deviceArgStr(Device.getValue());
-        std::transform(deviceArgStr.begin(), deviceArgStr.end(), deviceArgStr.begin(), ::toupper);
-        if (deviceArgMap.find(deviceArgStr) != deviceArgMap.end()) {
-            deviceArg = deviceArgMap[deviceArgStr];
-            DLOG(("deviceArg == %d", deviceArg));
-            DLOG(("Found %s in deviceArgMap...", gpio2Str(deviceArg).c_str()));
-            if (!(RANGE_CHECK_INC(SER_PORT0, deviceArg, WIFI_SW))) {
-                std::cerr << "Something went wrong, as the device arg wasn't recognized" << std::endl;
-                usage(argv[0]);
-                return 2;
-            }
-        }
-        else {
-            std::cerr << deviceArgStr << " is not a valid device type!" << std::endl;
-            usage(argv[0]);
-            return 6;
-        }
-    }
-
-    else 
+    if (Operation == "list")
     {
-        std::cerr << "Must provide the device ID option on the command line.\n" << std::endl;
-        usage(argv[0]);
-        return 3;
-    }
-
-    PowerCtrlIf* pPwrCtrl = 0;
-    DSMSwitchCtrl* pSwCtrl = 0;
-    if (deviceArg < PWR_DCDC) {
-        DLOG(("Instantiating SensorPowerCtrl object..."));
-        pPwrCtrl = new SensorPowerCtrl(deviceArg);
-    }
-    else if (deviceArg < DEFAULT_SW) {
-        DLOG(("Instantiating DSMPowerCtrl object..."));
-        pPwrCtrl = new DSMPowerCtrl(deviceArg);
-    }
-
-    else {
-        DLOG(("Instantiating DSMSwitchCtrl object..."));
-        pSwCtrl = new DSMSwitchCtrl(deviceArg);
-    }
-
-    if (pPwrCtrl) {
-        PowerCtrlIf& rPwrCtrl = *pPwrCtrl;
-
-        // print out the existing power state of the device
-        std::cout << std::endl << "Current Device Power State"
-                << std::endl << "========================"
-                << std::endl;
-        rPwrCtrl.print();
-
-        // just display power state if -p X is not provided
-        if (!Power.specified()) {
-            return 0;
+        // Dump a list of devies with descriptions.
+        for (auto& device: hwi->devices())
+        {
+            cout << std::setw(10) << device << ":  "
+                 << device.description() << endl;
         }
-
-        else {
-            std::string pwrStr(Power.getValue());
-            DLOG(("Power State Option Flag/Value: ") << Power.getFlag() << ": " << pwrStr);
-            std::transform(pwrStr.begin(), pwrStr.end(), pwrStr.begin(), ::toupper);
-            POWER_STATE power = strToPowerState(pwrStr);
-            DLOG(("Transformed Power State Value: ") << powerStateToStr(power));
-            if (power != ILLEGAL_POWER) {
-                rPwrCtrl.enablePwrCtrl(true);
-                power == POWER_ON ? rPwrCtrl.pwrOn() : rPwrCtrl.pwrOff();
-            }
-            else
-            {
-                std::cerr << "Unknown/Illegal/Missing power state argument: " << Power.getValue() << std::endl;
-                usage(argv[0]);
-                return 5;
-            }
-        }
-
-        // print out the new power state
-        std::cout << std::endl << "New Power State"
-                << std::endl << "===================="
-                << std::endl;
-        rPwrCtrl.print();
+        return 0;
     }
-    else if (pSwCtrl) {
+
+    if (Operation == "status" && Device.empty())
+    {
+        print_all();
+        return 0;
+    }
+
+    HardwareDevice device;
+    device = hwi->lookupDevice(Device);
+    if (device.isEmpty())
+    {
+        std::cerr << "unrecognized device: " << Device << endl;
+        return 2;
+    }
+    int fd = -1;
+
+    auto ioutput = device.iOutput();
+
+    if (Operation == "switch")
+    {
+        auto ibutton = device.iButton();
+        if (!ibutton)
+            return unsupported(device, "switch");
         timespec decayStart, decayStop, pressWaitStart, pressWaitNow;
-        std::cout << "Waiiting for " << gpio2Str(deviceArg) << " switch to be pressed..." << std::endl;
+        std::cout << "Waiiting for " << device << " switch to be pressed..." << std::endl;
         int waiting = 0;
+        bool timeout = false;
         clock_gettime(CLOCK_MONOTONIC_RAW, &pressWaitStart);
         // Wait for the switch to be pressed...
-        bool switchPressed = pSwCtrl->switchIsPressed();
-        while (!switchPressed) {
-            switchPressed = pSwCtrl->switchIsPressed();
+        do
+        {
             // continously get start of decay until switch is pressed
             // for better accuracy.
             clock_gettime(CLOCK_MONOTONIC_RAW, &decayStart);
@@ -302,24 +394,25 @@ int main(int argc, char* argv[]) {
 
             if (waiting >= 60) {
                 std::cout << std::endl;
-                break;
+                timeout = true;
             }
         }
+        while (!ibutton->isDown() && !timeout);
 
-        if (!switchPressed) {
+        if (timeout)
+        {
             std::cout << "Did not detect a switch pressed..." << std::endl;
             return 7;
         }
         else {
-            std::cout << std::endl << "Detected " << gpio2Str(deviceArg) << " switch pressed..." << std::endl;
+            std::cout << std::endl << "Detected " << device << " switch pressed..." << std::endl;
         }
 
-        pSwCtrl->ledOn();
+        if (ioutput)
+            ioutput->on();
         int decaySecs = 0;
         int decayMSecs = 0;
-        bool switchIsPressed = false;
         do {
-            switchIsPressed = pSwCtrl->switchIsPressed();
             timespec requestedSleep = {0, NSECS_PER_MSEC*10};
             nanosleep(&requestedSleep, 0);
 
@@ -331,10 +424,14 @@ int main(int argc, char* argv[]) {
                 nsec += NSECS_PER_SEC;
             }
             decayMSecs = nsec/NSECS_PER_MSEC;
-        } while (switchIsPressed && decaySecs < 10);
-        pSwCtrl->ledOff();
+        }
+        while (ibutton->isDown() && decaySecs < 10);
 
-        if (pSwCtrl->switchIsPressed()) {
+        if (ioutput)
+            ioutput->off();
+
+        if (decaySecs >= 10)
+        {
             std::cout << "Switch RC decay time > 10 Sec" << std::endl;
         }
         else {
@@ -342,10 +439,39 @@ int main(int argc, char* argv[]) {
                       << decaySecs << "." << decayMSecs << " Sec" << std::endl;
         }
     }
-    else {
-        std::cerr << "pio: failed to instantiate either power or switch control object for: " << gpio2Str(deviceArg);
-        return -1;
+
+    std::string path = hwi->lookupPath(device);
+    if (!path.empty())
+    {
+        fd = openDevice(path);
     }
+
+    if (!Serial.empty() || !RTS.empty())
+    {
+        auto iserial = device.iSerial();
+        if (!iserial)
+            return unsupported(device, Operation);
+
+        if (!Serial.empty())
+            iserial->setConfig(PTYPE, PTERM);
+
+        if (!RTS.empty())
+            set_rts(fd, (RTS == "rts1"));
+    }
+
+    if (!Output.empty())
+    {
+        if (!ioutput)
+            return unsupported(device, Operation);
+        if (Output == "on")
+            ioutput->on();
+        else
+            ioutput->off();
+    }
+
+    print_status(device, fd);
+    if (fd >= 0)
+        ::close(fd);
 
     // all good, return 0
     return 0;

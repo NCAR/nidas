@@ -42,6 +42,61 @@
 
 namespace nidas { namespace util {
 
+
+class Parity
+{
+    enum eparity
+    {
+        ENONE, EODD, EEVEN
+    } parity;
+
+    explicit Parity(eparity ep):
+        parity(ep)
+    {}
+public:
+
+    Parity(): parity(ENONE)
+    {}
+
+    Parity(const Parity&) = default;
+    Parity& operator=(const Parity&) = default;
+
+    static const Parity NONE;
+    static const Parity ODD;
+    static const Parity EVEN;
+
+    static const Parity N;
+    static const Parity O;
+    static const Parity E;
+
+    /**
+     * Return the parity setting as a string: none, odd, or even.
+     */
+    std::string toString() const;
+
+    /**
+     * Return the parity setting as a char: N, O, or E.
+     */
+    std::string toChar() const;
+
+    bool
+    parse(const std::string& text);
+
+    bool operator==(const Parity& right) const
+    {
+        return this->parity == right.parity;
+    }
+
+    bool operator!=(const Parity& right) const
+    {
+        return this->parity != right.parity;
+    }
+};
+
+std::ostream&
+operator<<(std::ostream& out, const Parity& parity);
+
+
 /**
  * A class providing get/set methods into a termios structure.
  */
@@ -67,20 +122,8 @@ public:
 
     virtual ~Termios() {}
 
-    bool operator!=(const Termios& rRight) const {return !((*this) == rRight);}
-    bool operator==(const Termios& rRight) const
-        {return (this == &rRight || 
-                (getBaudRate() == rRight.getBaudRate()
-                && getParity() == rRight.getParity()
-                && getDataBits() == rRight.getDataBits()
-				&& getStopBits() == rRight.getStopBits()
-                && getLocal() == rRight.getLocal()
-				&& getFlowControl() == rRight.getFlowControl()
-                && getRaw() == rRight.getRaw()
-				&& getRawLength() == rRight.getRawLength()
-                && getRawTimeout() == rRight.getRawTimeout()
-				&& getIflag() == rRight.getIflag()
-                && getOflag() == rRight.getOflag()));}
+    bool operator!=(const Termios& rRight) const;
+    bool operator==(const Termios& rRight) const;
 
     /**
      * Set the termios options on a serial port.
@@ -101,12 +144,14 @@ public:
     bool setBaudRate(int val);
     int getBaudRate() const;
 
-    enum parity { NONE, ODD, EVEN};
+    void setParity(Parity parity);
+    Parity getParity() const;
 
-    void setParity(enum parity val);
-    parity getParity() const;
-    std::string getParityString(bool retChar=false) const;
-    static std::string parityToString(parity par, bool retChar=false);
+    /**
+     * Return the three-character code with data bits, parity, and stop bits,
+     * like 8N1 or 7E1, for the current settings.
+     */
+    std::string getBitsString() const;
 
     /**
      * Set number of data bits to 5,6,7 or 8.

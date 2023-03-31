@@ -143,6 +143,13 @@ rm -f $TEST/dsm.log
 export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
+# XXX
+#
+# There are some issues here.  If the dsm command is run with -n or is not
+# running inside valgrind, then the test fails with no samples received from
+# any sensor, and of course the kill also fails so the dsm process keeps
+# running after the script exits.
+
 # start dsm data collection
 ( valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full dsm -d -l 6 config/test.xml 2>&1 | tee $TEST/dsm.log ) &
 dsmpid=$!
@@ -221,7 +228,7 @@ if [ $ns -ne $nsensors ]; then
 fi
 
 # should see these numbers of raw samples
-nsamps=(53 52 257 6 5 5)
+nsamps=(53 52 256 6 5 5)
 rawok=true
 rawsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
@@ -274,6 +281,10 @@ fi
 # see one less processed sample.
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
+
+# Without autoconfig enabled, the CSAT3 no longer sends a query sample.  Maybe
+# it should, but at the moment it doesn't.  Thus instead of 257 samples
+# expected above, only 256 are expected.
 
 # we sometimes see less than the expected number of samples.
 # Needs investigation.

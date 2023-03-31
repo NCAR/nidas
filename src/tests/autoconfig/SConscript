@@ -12,7 +12,6 @@ env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
 sources = env.Split("""
 tSerialSensor.cc
 tgill.cc
-tgpio.cc
 """)
 tests = env.Program('tSerialSensorAutoConfig', sources)
 

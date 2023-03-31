@@ -6,6 +6,7 @@
 #include "nidas/util/SerialPort.h"
 
 using namespace nidas::core;
+namespace n_u = nidas::util;
 
 extern PortConfig defaultPortConfig;
 extern PortConfig deviceOperatingPortConfig;
@@ -37,9 +38,9 @@ public:
         _baudRateList.push_back(19200);
         _baudRateList.push_back(38400);
 
-        _serialWordSpecList.push_back(WordSpec(7, Termios::EVEN, 1));
-        _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
-        _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
+        _serialWordSpecList.push_back(WordSpec(7, Parity::EVEN, 1));
+        _serialWordSpecList.push_back(WordSpec(7, Parity::ODD, 1));
+        _serialWordSpecList.push_back(WordSpec(8, Parity::NONE, 1));
 
         initAutoConfig();
     }
@@ -60,9 +61,9 @@ public:
 //        _baudRateList.push_back(19200);
 //        _baudRateList.push_back(38400);
 //
-//        _serialWordSpecList.push_back(WordSpec(7, Termios::EVEN, 1));
-//        _serialWordSpecList.push_back(WordSpec(7, Termios::ODD, 1));
-//        _serialWordSpecList.push_back(WordSpec(8, Termios::NONE, 1));
+//        _serialWordSpecList.push_back(WordSpec(7, Parity::EVEN, 1));
+//        _serialWordSpecList.push_back(WordSpec(7, Parity::ODD, 1));
+//        _serialWordSpecList.push_back(WordSpec(8, Parity::NONE, 1));
 //
 //        initAutoConfig();
 //    }
@@ -80,14 +81,12 @@ public:
     PortConfig getPortConfig() {return SerialSensor::getPortConfig(); }
     void setPortConfig(const PortConfig newPortConfig){SerialSensor::setPortConfig(newPortConfig);}
     void applyPortConfig() {SerialSensor::applyPortConfig();}
-    void printPortConfig(bool flush=true){SerialSensor::printPortConfig(flush);}
 
     bool getAutoConfigSupport() {return supportsAutoConfig(); }
     void initAutoconfig() {initAutoConfig();}
     AUTOCONFIG_STATE getAutoConfigState() {return SerialSensor::getAutoConfigState(); }
     AUTOCONFIG_STATE getSerialConfigState() {return SerialSensor::getSerialConfigState(); }
     AUTOCONFIG_STATE getScienceConfigState() {return SerialSensor::getScienceConfigState(); }
-    static std::string autoCfgToStr(AUTOCONFIG_STATE autoState){return SerialSensor::autoCfgToStr(autoState);}
 
     PortConfig getDefaultPortConfig() {return SerialSensor::getDefaultPortConfig();}
     PortConfig getDesiredPortConfig() {return SerialSensor::getDesiredPortConfig();}
@@ -96,8 +95,8 @@ public:
      * autoconfig specific methods
      */
     void doAutoConfig() {SerialSensor::doAutoConfig();}
-    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-                                                 int rts485, PORT_TYPES portType, TERM termination); //,
+    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Parity parity, int stopBits,
+                                                 int rts485, nidas::core::PortType portType, nidas::core::PortTermination termination); //,
 //                                                 SENSOR_POWER_STATE power);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig() {return SerialSensor::findWorkingSerialPortConfig();}

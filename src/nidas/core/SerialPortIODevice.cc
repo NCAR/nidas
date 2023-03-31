@@ -27,12 +27,12 @@
 #include "SerialPortIODevice.h"
 #include "Looper.h"
 #include "Prompt.h"
-#include <nidas/util/FtdiHW.h>
+#include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/util/Exception.h>
-#include <nidas/util/SensorPowerCtrl.h>
 #include <nidas/util/ptytools.h>
+#include <nidas/util/util.h>
 
 #include <cmath>
 #include <sys/ioctl.h>
@@ -46,22 +46,22 @@
 using namespace std;
 using namespace nidas::util;
 
+namespace n_u = nidas::util;
+
 namespace nidas { namespace core {
 
 std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 {
     rOutStrm << "Termios: baud: " << rObj.termios.getBaudRate()
-         << " word: " << rObj.termios.getDataBits()
-                      << rObj.termios.getParityString(true)
-                      << rObj.termios.getStopBits() << std::endl;
-    rOutStrm << "RTS485: " << rObj.rts485 << std::endl;
-    rOutStrm << rObj.xcvrConfig;
-
+         << " word: " << rObj.termios.getBitsString() << "; ";
+    rOutStrm << "RTS485: " << rObj.rts485 << "; ";
+    rOutStrm << "port_type: " << rObj.port_type << "; ";
+    rOutStrm << "port_term: " << rObj.port_term;
     return rOutStrm;
 }
 
 SerialPortIODevice::SerialPortIODevice():
-    UnixIODevice(), _workingPortConfig(), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    UnixIODevice(), _workingPortConfig(),
     _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
@@ -69,91 +69,19 @@ SerialPortIODevice::SerialPortIODevice():
     _workingPortConfig.termios.setRawTimeout(0);
 }
 
-SerialPortIODevice::SerialPortIODevice(const std::string& name, int fd):
-    UnixIODevice(name), _workingPortConfig(name, fd), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
-{
-    _workingPortConfig.termios.setRaw(true);
-    _workingPortConfig.termios.setRawLength(1);
-    _workingPortConfig.termios.setRawTimeout(0);
-    checkXcvrCtrlAvailable(getName());
-}
-
-SerialPortIODevice::SerialPortIODevice(const SerialPortIODevice& x):
-    UnixIODevice(x.getName()), _workingPortConfig(x._workingPortConfig), 
-    _pXcvrCtrl((const_cast<SerialPortIODevice&>(x).getXcvrCtrl())),
-    _pSensorPwrCtrl((const_cast<SerialPortIODevice&>(x).getPwrCtrl())),
-    _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(x._blocking)
-{
-    checkXcvrCtrlAvailable(getName());
-}
-
-
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
-    UnixIODevice(name), _workingPortConfig(initPortConfig), _pXcvrCtrl(0), _pSensorPwrCtrl(0),
+    UnixIODevice(name), _workingPortConfig(initPortConfig),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
     _workingPortConfig.termios.setRaw(true);
     _workingPortConfig.termios.setRawLength(1);
     _workingPortConfig.termios.setRawTimeout(0);
-
-    checkXcvrCtrlAvailable(name);
 }
 
 SerialPortIODevice::~SerialPortIODevice()
 {
     close();
     delete [] _savebuf;
-
-    if (_pXcvrCtrl) {
-        delete _pXcvrCtrl;
-    }
-
-    if (_pSensorPwrCtrl) {
-        delete _pSensorPwrCtrl;
-    }
-}
-
-void SerialPortIODevice::checkXcvrCtrlAvailable(const std::string& name)
-{
-    // if a port control object already exists, delete it first
-    if (getXcvrCtrl()) {
-        VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): _pXcvrCtrl is not NULL..."));
-        if (getName() != name) {
-            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): device names are different. Delete and start over..."));
-            delete _pXcvrCtrl;
-        }
-
-        else {
-            // names are the same, so don't do it again...
-            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): Seems like the names are the same, so don't instantiate it again..."));
-            VLOG(("SerialPortIODevice::checkXcvrCtrlAvailable(): But make sure the port is captured correctly..."));
-            XcvrConfig xcvrConfig = _pXcvrCtrl->getXcvrConfig();
-            xcvrConfig.port = SerialXcvrCtrl::devName2PortDef(name);
-            _pXcvrCtrl->setXcvrConfig(xcvrConfig);
-            return;
-        }
-    }
-
-    DLOG(("SerialPortIODevice::checkXcvrCtrlAvailable() : check if device xcvr is controlled by GPIO"));
-    n_u::GPIO_PORT_DEFS portID = SerialXcvrCtrl::devName2PortDef(name);
-
-    // Determine if this needs SP339 port type control
-    if (SerialXcvrCtrl::xcvrCtrlSupported(portID)) {
-        VLOG(("SerialPortIODevice: Instantiating SerialXcvrCtrl object on PORT") << portID 
-            << "; Port type: " << _workingPortConfig.xcvrConfig.portType);
-        _workingPortConfig.xcvrConfig.port = portID;
-        _pXcvrCtrl = new SerialXcvrCtrl(_workingPortConfig.xcvrConfig.port, 
-                                        _workingPortConfig.xcvrConfig.portType, 
-                                        _workingPortConfig.xcvrConfig.termination);
-        if (_pXcvrCtrl == 0)
-        {
-            throw n_u::Exception("SerialPortIODevice: Cannot construct SerialXcvrCtrl object");
-        }
-    }
-    else {
-        DLOG(("SerialPortIODevice::checkXcvrCtrlRequired() : Device doesn't support SerialXcvrCtrl object: ") << name);
-    }
 }
 
 void SerialPortIODevice::open(int flags) throw(n_u::IOException)
@@ -164,6 +92,11 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
     applyPortConfig();
     setBlocking(_blocking);
 
+    // Not sure why rts485 had to be forced to -1 on ports that did not have
+    // serial transceiver control.  Seems like this code should always do what
+    // the config specifies.  For DSM3 ports that do have transceiver control,
+    // then rts485 should not have any effect anyway.
+#ifdef notdef
     // Set rts485 flag RS422/RS485 to always xmit for full RS422/485
     if (!_pXcvrCtrl) {
         if ( getPortType() == RS422) {
@@ -172,6 +105,7 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
         }
 
         else {
+#endif
             // set RTS according to how it's been set by the client regardless of the port type.
             // However, if the port type is RS485 half duplex, then the user needs to be sure of
             // how it needs to be set for the particular device.
@@ -182,50 +116,30 @@ void SerialPortIODevice::open(int flags) throw(n_u::IOException)
                           " RTS is \"do not care\""));
             DLOG((dStrm.str().c_str()));
             setRTS485(getRTS485());
+#ifdef notdef
         }
     }
+#endif
 
     VLOG(("SerialPortIODevice::open : exit"));
 }
 
-void SerialPortIODevice::printPortConfig(bool readFirst) 
-{
-    std::cout << "Device: " << getName() << endl;
-    _workingPortConfig.print();
-
-    // ignore for those sensors who do not use HW xcvr auto-config
-    if (getXcvrCtrl()) {
-        getXcvrCtrl()->printXcvrConfig(readFirst);
-    }
-
-    std::cout << "PortConfig " << (_workingPortConfig.applied ? "IS " : "IS NOT ") << "applied" << std::endl;
-    std::cout << std::flush;
-}
-
 void SerialPortIODevice::applyPortConfig()
 {
-    static LogContext lp(LOG_DEBUG);
-    if (lp.active()) {
-        lp.log() << "SerialPortIODevice::applyPortConfig(): desired port config...";
-        printPortConfig();
-        lp.log() << "SerialPortIODevice::applyPortConfig(): current installed port config...";
-        printPortConfig(true);
-    }
     applyTermios();
 
-    // ignore if not controlled by FT4232H GPIO
-    if (getXcvrCtrl()) {
-        getXcvrCtrl()->applyXcvrConfig();
+    HardwareDevice port(HardwareDevice::lookupDevice(getName()));
+    if (auto iserial = port.iSerial())
+    {
+        PortConfig& pc = _workingPortConfig;
+        DLOG(("") << "serial device " << getName() << ": setting "
+                  << pc.port_type << ", " << pc.port_term);
+        iserial->setConfig(pc.port_type, pc.port_term);
     }
-    else {
-        DLOG(("No SerialXcvrCtrl object to apply the XcvrConfig."));
-    }
-
-    setPortConfigApplied();
-
-    if (lp.active()) {
-        lp.log() << "SerialPortIODevice::applyPortConfig(): newly installed port config...";
-        printPortConfig(true);
+    else
+    {
+        DLOG(("") << "serial device " << getName()
+                  << ": no serial hardware control");
     }
 }
 
@@ -234,13 +148,9 @@ int SerialPortIODevice::getUsecsPerByte() const
     int usecs = 0;
     if (::isatty(_fd)) {
         int bits = _workingPortConfig.termios.getDataBits() + _workingPortConfig.termios.getStopBits() + 1;
-        switch(_workingPortConfig.termios.getParity()) {
-        case n_u::Termios::ODD:
-        case n_u::Termios::EVEN:
+        if (_workingPortConfig.termios.getParity() != Parity::NONE)
+        {
             bits++;
-            break;
-        case n_u::Termios::NONE:
-            break;
         }
         usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
     }
@@ -481,54 +391,64 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
 {
     ssize_t result;
 
-    // Current production FTDI board (the version that requires jumpers to set the transceiver
-    // mode) does not directly manipulate RTS to control transmission/reception on RS485 
-    // half duplex devices. And so the below method was created to implement this control.
+    // The notdef code was removed when xcvrConfig was replaced with
+    // HardwareInterface.  The code limited rts485 to half-duplex port types
+    // for ports which did not have hardware control.  That does not seem
+    // useful to me (Gary).  A port which does not have hardware control is
+    // not likely to have been assigned a port type, and old configs or
+    // configs for ports which are not DSM3 serial card ports could still rely
+    // on just rts485 to enable the transmitter.  So in this revision, just
+    // always honor the rts485 config setting and do what it says.  It is up
+    // to the config to be correct for the kind of port in use.  For DSM3
+    // serial ports, the rts485 setting should have no effect, since the
+    // transmitter is enabled separately from the RTS line, using the
+    // connection from TXDEN on the FTDI to DIR1 on the SP339.
+    //
+    // There may not be any hardware left where nidas needs to control rts485,
+    // so maybe all the rts485 handling could be removed someday soon.
+#ifdef notdef
+    // Current production FTDI board (the version that requires jumpers to set
+    // the transceiver mode) does not directly manipulate RTS to control
+    // transmission/reception on RS485 half duplex devices. And so the below
+    // method was created to implement this control.
 
-    // The current iteration of the FTDI board does control transmission/reception on RS485 
-    // Half Duplex devices. However it is not yet production ready (as of 02/27/2019).
+    // The current iteration of the FTDI board does control
+    // transmission/reception on RS485 Half Duplex devices. However it is not
+    // yet production ready (as of 02/27/2019).
 
-    // The point being that soon the code needs to ascertain which regime should be used, and 
-    // then use that regime.
-    if (getPortType() == RS485_HALF) {
+    // The point being that soon the code needs to ascertain which regime
+    // should be used, and then use that regime.
+    if (getPortType() == PortType::RS485_HALF) {
         if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
-            // remember that setting the FT4232H register has the opposite effect on
-            // the RTS line signal which it outputs. Other UARTS may behave differently. 
-            // YMMV.
+            // remember that setting the FT4232H register has the opposite
+            // effect on the RTS line signal which it outputs. Other UARTS may
+            // behave differently.  YMMV.
             //
-            // see the above discussion about RTS and 485. Here we
-            // try an in-exact set/clear of RTS on either side of a write.
-            if (getRTS485() > 0) {
-                // set RTS before write
-                setModemBits(TIOCM_RTS);
-            }
-            else if (getRTS485() < 0) {
-                // clear RTS before write
-                clearModemBits(TIOCM_RTS);
-            }
-
-            // else rts485 == 0, so do nothing
+            // see the above discussion about RTS and 485. Here we try an
+            // in-exact set/clear of RTS on either side of a write.
+#endif
+    if (getRTS485() != 0)
+    {
+        if (getRTS485() > 0) {
+            // set RTS before write
+            setModemBits(TIOCM_RTS);
         }
-
+        else if (getRTS485() < 0) {
+            // clear RTS before write
+            clearModemBits(TIOCM_RTS);
+        }
         VLOG(("Pre RS485 Half SerialPortIODevice::write() RTS state: ")
                 << modemFlagsToString(getModemStatus() & TIOCM_RTS));
     }
 
-    else {
-        VLOG(("SerialPortIODevice supports automatic control of RTS state "
-              "during RS485 Half Duplex writes"));
+    static LogContext lp(LOG_VERBOSE);
+    if (lp.active())
+    {
+        auto data = std::string((char*)buf, ((char*)buf) + len);
+        lp.log() << "SerialPortIODevice::write(): device: " << getName()
+                 << " data: " << n_u::addBackslashSequences(data);
     }
 
-    std::string data((char*)buf, 1);
-    if (data == "\r") {
-        data = "\\r";
-    }
-
-    if (data == "\n") {
-        data = "\\n";
-    }
-
-    VLOG(("SerialPortIODevice::write(): device: ") << getName() << " data: " << data);
     result = ::write(_fd, buf, len);
     if (result < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -541,6 +461,7 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
         }
     }
 
+#ifdef notdef
     if (getPortType() == RS485_HALF) {
         if (!SerialXcvrCtrl::xcvrCtrlSupported(getPortConfig().xcvrConfig.port)) {
             // Sleep until we think the last bit has been transmitted.
@@ -560,8 +481,23 @@ std::size_t SerialPortIODevice::write(const void *buf, std::size_t len) throw(ni
                     << modemFlagsToString(getModemStatus() & TIOCM_RTS));
         }
    }
-
-   return result;
+#endif
+    if (getRTS485() != 0)
+    {
+        ::usleep(len * _usecsperbyte + _usecsperbyte/4);
+        // set the RTS opposite of what was set before xmitting...
+        if (getRTS485() > 0) {
+            // then clear RTS
+            clearModemBits(TIOCM_RTS);
+        }
+        else if (getRTS485() < 0) {
+            // then set RTS
+            setModemBits(TIOCM_RTS);
+        }
+        VLOG(("Post SerialPortIODevice::write() RTS state: ")
+                << modemFlagsToString(getModemStatus() & TIOCM_RTS));
+    }
+    return result;
 }
 
 int SerialPortIODevice::read(char *buf, int len, int timeout) throw(nidas::util::IOException)
@@ -663,29 +599,6 @@ int SerialPortIODevice::createPtyLink(const std::string& link)
     }
     return fd;
 }
-
-
-void
-PortConfig::
-update_termios()
-{
-    if (!termios.getLocal()) {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL wasn't set, so set it now..."));
-        termios.setLocal(true);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): CLOCAL *was* set already..."));
-    }
-
-    if (termios.getFlowControl() != Termios::NOFLOWCONTROL) {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control  wasn't turned off, so set it now..."));
-        termios.setFlowControl(Termios::NOFLOWCONTROL);
-    }
-    else {
-        VLOG(("PortConfig::PortConfig(devName, fd): Flow control *was* turned off..."));
-    }
-}
-
 
 
 }} // namespace nidas { namespace core

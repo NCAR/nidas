@@ -40,10 +40,10 @@ namespace nidas { namespace core {
  */
 struct WordSpec
 {
-	WordSpec(int dbits, Termios::parity prty, int stopbits)
+	WordSpec(int dbits, Parity prty, int stopbits)
 	: dataBits(dbits), parity(prty), stopBits(stopbits) {}
     int dataBits;
-    Termios::parity parity;
+    Parity parity;
     int stopBits;
 };
 
@@ -117,6 +117,9 @@ enum AUTOCONFIG_STATE {
 	AUTOCONFIG_UNSUCCESSFUL
 };
 
+std::string to_string(AUTOCONFIG_STATE autoState);
+
+
 /**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
  * Bluetooth RF Comm socket, or a good old RS232/422/485 serial port.
@@ -154,7 +157,7 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
-    SerialSensor(const PortConfig& rInitPortConfig, POWER_STATE initPowerState=POWER_ON);
+    SerialSensor(const PortConfig& rInitPortConfig);
 
     ~SerialSensor();
 
@@ -258,14 +261,22 @@ public:
     int getUsecsPerByte() const;
 
     /**
-     * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
-     * 
-     * Assumption: If SerialSensor is a traditional, RS232/422/485, device, then the associated PortConfig in 
-     *             SerialPortIODevice is all that matters. This should cover "non-sensor" devices such as GPS, cell 
-     *             modems, etc, since they may be traditional serial devices, but not have a SerialXcvrCtrl object 
-     *             associated with them. 
+     * Get the working PortConfig.  The _working_ PortConfig is the one
+     * attached to the SerialPortIODevice as it was last applied.  If no
+     * SerialPortIODevice has been created for this SerialSensor yet, then a
+     * default PortConfig is returned.
+     *
      */
     PortConfig getPortConfig();
+
+    /**
+     * Set the _working_ PortConfig, the one which the attached
+     * SerialPortIODevice will apply, but do not apply any changes to an open
+     * serial device.  See applyPortConfig().  This has no effect if a
+     * SerialPortIODevice is not attached to this SerialSensor.
+     *
+     * @param newPortConfig 
+     */
     void setPortConfig(const PortConfig newPortConfig);
 
     PortConfig getDefaultPortConfig() {return _defaultPortConfig;}
@@ -274,7 +285,6 @@ public:
     void setDesiredPortConfig(const PortConfig& newDesiredPortConfig) {_desiredPortConfig = newDesiredPortConfig;}
 
     void applyPortConfig();
-    void printPortConfig(bool flush=true);
 
     AUTOCONFIG_STATE getAutoConfigState() {return _autoConfigState; }
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
@@ -325,8 +335,8 @@ protected:
      *  SerialSensor.
      */
     void doAutoConfig();
-    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
-												 int rts485, PORT_TYPES portType, TERM termination);
+    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Parity parity, int stopBits,
+												 int rts485, PortType ptype, PortTermination termination);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig();
     bool testDefaultPortConfig();
@@ -343,15 +353,6 @@ protected:
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
-    static void printTargetConfig(PortConfig target)
-    {
-        target.print();
-        target.xcvrConfig.print();
-        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        std::cout << std::endl;
-    }
-
-    static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
 
     /**
      * These autoconfig methods do nothing, unless overridden in a subclass
@@ -380,8 +381,6 @@ protected:
 
     void initAutoConfig();
     void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
-    void checkXcvrConfigAttribute(const XDOMAttr& rAttr);
-    void checkTermiosConfigAttribute(const XDOMAttr& rAttr);
 
     // Autoconfig subclasses calls supportsAutoConfig() to set this to true
     bool _autoConfigSupported;
@@ -406,7 +405,7 @@ protected:
     /*
      * Containers for holding the possible serial port parameters which may be used by a sensor
      */
-    typedef std::list<PORT_TYPES> PortTypeList;
+    typedef std::list<PortType> PortTypeList;
     typedef std::list<int> BaudRateList;
     typedef std::list<WordSpec> WordSpecList;
 
@@ -419,7 +418,6 @@ protected:
     AUTOCONFIG_STATE _scienceState;
     AUTOCONFIG_STATE _deviceState;
     CFG_MODE_STATUS _configMode;
-    POWER_STATE _initPowerState;
 
 private:
     /*

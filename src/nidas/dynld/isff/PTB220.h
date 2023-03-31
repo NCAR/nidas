@@ -324,13 +324,6 @@ protected:
     void sendSensorCmd(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0), bool resetNow=false);
     bool compareScienceParameter(int cmd, const char* match);
 //    size_t readResponse(void *buf, size_t len, int msecTimeout);
-    void printTargetConfig(n_c::PortConfig target)
-    {
-        target.print();
-        target.xcvrConfig.print();
-        std::cout << "PortConfig " << (target.applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        std::cout << std::endl;
-    }
     void updateDesiredScienceParameter(int cmd, n_c::SensorCmdArg arg=n_c::SensorCmdArg(0));
     n_c::SensorCmdData getDesiredCmd(int cmd);
 
@@ -344,17 +337,6 @@ protected:
     void initCustomMetaData();
 
 private:
-    // default serial parameters for the PB210
-    static const int DEFAULT_BAUD_RATE = 9600;
-    static const Termios::parity DEFAULT_PARITY = Termios::ODD;
-    static const int DEFAULT_STOP_BITS = 1;
-    static const int DEFAULT_DATA_BITS = 7;
-    static const int DEFAULT_RTS485 = 0;
-    static const n_c::PORT_TYPES DEFAULT_PORT_TYPE = n_c::RS232;
-//    static const n_c::SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = n_c::SENSOR_POWER_ON;
-    static const n_c::TERM DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
-    static const bool DEFAULT_CONFIG_APPLIED = false;
-
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
     static const bool DEFAULT_MSG_SEP_EOM = true;
@@ -458,7 +440,7 @@ private:
     static const int NUM_SENSOR_WORD_SPECS = 9;
     static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
     static const int NUM_PORT_TYPES = 3;
-    static const n_c::PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES];
+    static const n_c::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
 
     static const n_c::PortConfig DEFAULT_PORT_CONFIG;
 

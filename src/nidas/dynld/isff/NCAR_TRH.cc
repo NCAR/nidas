@@ -90,33 +90,17 @@ static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600};
 static const int NUM_SENSOR_WORD_SPECS = 1;
 static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
 {
-    WordSpec(8, Termios::NONE, 1),
+    WordSpec(8, Parity::NONE, 1),
 };
 
 // TRH instruments only use RS232
 static const int NUM_PORT_TYPES = 1;
-static const PORT_TYPES SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
+static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 
-// static default configuration to send to base class...
-static const int DEFAULT_BAUD_RATE = SENSOR_BAUDS[0];
-static const int DEFAULT_DATA_BITS = SENSOR_WORD_SPECS[0].dataBits;
-static const n_u::Termios::parity DEFAULT_PARITY = SENSOR_WORD_SPECS[0].parity;
-static const int DEFAULT_STOP_BITS = SENSOR_WORD_SPECS[0].stopBits;
-static const PORT_TYPES DEFAULT_PORT_TYPE = SENSOR_PORT_TYPES[0];
-static const TERM DEFAULT_SENSOR_TERMINATION = NO_TERM;
-static const int DEFAULT_RTS485 = 0;
-static const bool DEFAULT_CONFIG_APPLIED = false;
-
-static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS,
-                                             DEFAULT_PARITY, DEFAULT_STOP_BITS,
-                                             DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
-                                             DEFAULT_RTS485, DEFAULT_CONFIG_APPLIED);
+static const PortConfig DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS232);
 
 // default message parameters for the TRH
-static const int DEFAULT_MESSAGE_LENGTH = 0;
-static const bool DEFAULT_MSG_SEP_EOM = true;
-static const char* DEFAULT_MSG_SEP_CHARS = "\n";
-static MessageConfig defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM);
+static MessageConfig defaultMessageConfig(0, "\n", true);
 
 NCAR_TRH::NCAR_TRH():
     SerialSensor(DEFAULT_PORT_CONFIG),

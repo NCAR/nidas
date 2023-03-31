@@ -35,6 +35,7 @@
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/auto_ptr.h>
+#include <nidas/util/Logger.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -84,7 +85,7 @@ public:
     void
     writeMessage(const std::string& msg) throw(n_u::IOException)
     {
-	_port->write(msg.c_str(), msg.length());
+        _port->write(msg.c_str(), msg.length());
     }
 
     /** overloaded function useful for writing binary data */
@@ -92,7 +93,7 @@ public:
     void
     writeMessage(const char* buf,std::streamsize l) throw(n_u::IOException)
     {
-	_port->write(buf,l);
+        _port->write(buf,l);
     }
 
     /**
@@ -181,9 +182,9 @@ void SensorSimulator::run() throw(n_u::Exception)
         readPrompts();
     }
     else {
-	unsigned long msecPeriod =
-		(unsigned long)rint(MSECS_PER_SEC / _rate);
-	// cerr << "msecPeriod=" << msecPeriod << endl;
+        unsigned long msecPeriod =
+                (unsigned long)rint(MSECS_PER_SEC / _rate);
+        // cerr << "msecPeriod=" << msecPeriod << endl;
 
         getLooper();
         _looper->addClient(this,msecPeriod,0);
@@ -241,94 +242,94 @@ public:
         bool prompted,string prompt,float rate, int nmessages,
         bool once,bool verbose = false):
         SensorSimulator(p,prompted,prompt,rate,nmessages),
-	_path(path),_infile(),_in(0),_msg(),
+        _path(path),_infile(),_in(0),_msg(),
         _septype(septype),_separator(separator),
         _reopen(false),_onceThru(once),_verbose(verbose),
         _binary(false)
     {
-	open();
+        open();
     }
 
     FileSim(n_u::SerialPort* p, const string& path, float rate, bool once,bool verbose=false):
         SensorSimulator(p,false,"",rate,-1),
-	_path(path),_infile(),_in(0),_msg(),
+        _path(path),_infile(),_in(0),_msg(),
         _septype(UNK_SEPARATOR),_separator(""),
         _reopen(false),_onceThru(once),_verbose(verbose),
         _binary(true)
     {
-	open();
+        open();
     }
 
 
     void
     open()
     {
-	close();
-	if (_verbose)
-	    std::cerr << "opening " << _path << " ...\n";
-	if (_path.length() == 0)
-	{
-	    throw n_u::Exception("FileSim requires an input file.");
-	}
-	if (_path == "-")
-	{
-	    _in = &std::cin;
-	}
-	else
-	{
-	    // Enable exceptions to get at any failure messages on open,
-	    // then disable them again.  If opening ever fails, disable
-	    // reopen flag so we don't keep attempting it.
-	    try {
-		_infile.clear();
-		_infile.exceptions(ios::failbit | ios::badbit);
-		_infile.open(_path.c_str());
-		_infile.exceptions(std::ios::goodbit);
-		_in = &_infile;
-		_reopen = true;
-	    }
-	    catch (const std::exception& failure)
-	    {
-		_reopen = false;
-		throw n_u::IOException(_path,"open",errno);
-	    }
-	}
-	if (_verbose)
-	    std::cerr << _path << " opened.\n";
+        close();
+        if (_verbose)
+            std::cerr << "opening " << _path << " ...\n";
+        if (_path.length() == 0)
+        {
+            throw n_u::Exception("FileSim requires an input file.");
+        }
+        if (_path == "-")
+        {
+            _in = &std::cin;
+        }
+        else
+        {
+            // Enable exceptions to get at any failure messages on open,
+            // then disable them again.  If opening ever fails, disable
+            // reopen flag so we don't keep attempting it.
+            try {
+                _infile.clear();
+                _infile.exceptions(ios::failbit | ios::badbit);
+                _infile.open(_path.c_str());
+                _infile.exceptions(std::ios::goodbit);
+                _in = &_infile;
+                _reopen = true;
+            }
+            catch (const std::exception& failure)
+            {
+                _reopen = false;
+                throw n_u::IOException(_path,"open",errno);
+            }
+        }
+        if (_verbose)
+            std::cerr << _path << " opened.\n";
     }
 
     void
     close()
     {
-	_in = 0;
-	_infile.close();
+        _in = 0;
+        _infile.close();
     }
 
     void
     rewind()
     {
-	// Implement rewind with a seek rather than re-opening.
-	if (_reopen)
-	{
-	    if (_verbose)
-		std::cerr << "FileSim: rewinding " << _path << std::endl;
-	    _infile.clear();
-	    _infile.seekg(0);
-	    return;
-	}
-	close();
-	if (_reopen) try
-	{
-	    if (_verbose)
-		std::cerr << "FileSim: re-opening input file " 
-			  << _path << std::endl;
-	    open();
-	}
-	catch (n_u::Exception& e)
-	{
-	    std::cerr << "FileSim: exception on file input: " 
-		      << e.what() << std::endl;
-	}
+        // Implement rewind with a seek rather than re-opening.
+        if (_reopen)
+        {
+            if (_verbose)
+                std::cerr << "FileSim: rewinding " << _path << std::endl;
+            _infile.clear();
+            _infile.seekg(0);
+            return;
+        }
+        close();
+        if (_reopen) try
+        {
+            if (_verbose)
+                std::cerr << "FileSim: re-opening input file " 
+                          << _path << std::endl;
+            open();
+        }
+        catch (n_u::Exception& e)
+        {
+            std::cerr << "FileSim: exception on file input: " 
+                      << e.what() << std::endl;
+        }
     }
 
     void sendMessage() throw(n_u::IOException);
@@ -382,14 +383,14 @@ void FileSim::sendASCIIMessage() throw(n_u::IOException)
             interrupt();
             return;
         }
-	rewind();
-	if (_in && !std::getline(*_in, msg))
-	{
-	    // empty file, quit trying
-	    std::cerr << "FileSim: file is empty, reopens disabled.\n";
-	    close();
-	    _reopen = false;
-	}
+        rewind();
+        if (_in && !std::getline(*_in, msg))
+        {
+            // empty file, quit trying
+            std::cerr << "FileSim: file is empty, reopens disabled.\n";
+            close();
+            _reopen = false;
+        }
     }
     // if file is still open, then we read a new message
     if (_in)
@@ -404,8 +405,8 @@ void FileSim::sendASCIIMessage() throw(n_u::IOException)
         default:
             break;
         }
-	n_u::replaceBackslashSequences(msg);
-	_msg = msg;
+        n_u::replaceBackslashSequences(msg);
+        _msg = msg;
     }
     if (_verbose) std::cout << _msg;
     writeMessage(_msg);
@@ -559,7 +560,7 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
     int opt_char;     /* option character */
 
     while ((opt_char = getopt(argc, argv, "b:B:ce:f:F:igm:n:o:p:r:tvC")) != -1) {
-	switch (opt_char) {
+        switch (opt_char) {
         case 'b':
             _septype = BOM_SEPARATOR;
             _separator = n_u::replaceBackslashSequences(optarg);
@@ -569,10 +570,10 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
             _inputFile = optarg;
             _onceThru = true;
             break;
-	case 'c':
-	    _type = CSAT3;
+        case 'c':
+            _type = CSAT3;
             _termioOpts = "9600n81lnr";
-	    break;
+            break;
         case 'e':
             _septype = EOM_SEPARATOR;
             _separator = n_u::replaceBackslashSequences(optarg);
@@ -582,44 +583,44 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
             _inputFile = optarg;
             _onceThru = true;
             break;
-	case 'F':
+        case 'F':
             _type = FROM_FILE;
             _inputFile = optarg;
             _onceThru = false;
-	    break;
-	case 'i':
-	    _type = ISS_CAMPBELL;
+            break;
+        case 'i':
+            _type = ISS_CAMPBELL;
             _termioOpts = "9600n81lnr";
-	    break;
-	case 'm':
-	    _type = FIXED;
-	    _outputMessage = optarg;
-	    break;
-	case 'n':
-	    _nmessages = atoi(optarg);
-	    break;
+            break;
+        case 'm':
+            _type = FIXED;
+            _outputMessage = optarg;
+            break;
+        case 'n':
+            _nmessages = atoi(optarg);
+            break;
         case 'o':
             _termioOpts = optarg;
             break;
-	case 'p':
-	    _prompted = true;
+        case 'p':
+            _prompted = true;
             _prompt = n_u::replaceBackslashSequences(optarg);
-	    break;
-	case 'r':
-	    _rate = atof(optarg);
-	    break;
-	case 't':
-	    _openpty = true;
-	    break;
-	case 'v':
-	    _verbose = true;
-	    break;
-	case 'C':
-	    _continue = true;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
+            break;
+        case 'r':
+            _rate = atof(optarg);
+            break;
+        case 't':
+            _openpty = true;
+            break;
+        case 'v':
+            _verbose = true;
+            break;
+        case 'C':
+            _continue = true;
+            break;
+        case '?':
+            return usage(argv[0]);
+        }
     }
     if (optind == argc - 1) _device = string(argv[optind++]);
     if (_device.length() == 0) return usage(argv[0]);
@@ -683,11 +684,11 @@ int SensorSimApp::main()
         n_u::auto_ptr<n_u::SerialPort> port;
         n_u::auto_ptr<SensorSimulator> sim;
 
-	if (_openpty) {
-	    int fd = n_u::SerialPort::createPtyLink(_device);
-	    port.reset(new n_u::SerialPort("/dev/ptmx",fd));
-	}
-	else {
+        if (_openpty) {
+            int fd = n_u::SerialPort::createPtyLink(_device);
+            port.reset(new n_u::SerialPort("/dev/ptmx",fd));
+        }
+        else {
             port.reset(new n_u::SerialPort(_device));
             port->open(O_RDWR);
         }
@@ -698,37 +699,37 @@ int SensorSimApp::main()
         port->termios() = options.getTermios();
         port->applyTermios();
 
-	switch (_type) {
-	case CSAT3:
-	    sim.reset(new Csat3Sim(port.get(),_rate,_nmessages));
-	    break;
-	case FROM_FILE:
-	    sim.reset(new FileSim(port.get(),_inputFile,_septype,_separator,
+        switch (_type) {
+        case CSAT3:
+            sim.reset(new Csat3Sim(port.get(),_rate,_nmessages));
+            break;
+        case FROM_FILE:
+            sim.reset(new FileSim(port.get(),_inputFile,_septype,_separator,
                 _prompted,_prompt,_rate,_nmessages,_onceThru,_verbose));
-	    break;
-	case FROM_BINARY_FILE:
-	    sim.reset(new FileSim(port.get(),_inputFile,_rate,_onceThru,_verbose));
-	    break;
-	case FIXED:
-	    sim.reset(new FixedSim(port.get(),_outputMessage,_septype,_separator,
+            break;
+        case FROM_BINARY_FILE:
+            sim.reset(new FileSim(port.get(),_inputFile,_rate,_onceThru,_verbose));
+            break;
+        case FIXED:
+            sim.reset(new FixedSim(port.get(),_outputMessage,_septype,_separator,
                 _prompted,_prompt,_rate,_nmessages));
-	    break;
-	case ISS_CAMPBELL:
-	    sim.reset(new FileSim(port.get(), _inputFile,_septype,_separator,
+            break;
+        case ISS_CAMPBELL:
+            sim.reset(new FileSim(port.get(), _inputFile,_septype,_separator,
                 _prompted,_prompt,_rate,_nmessages,_onceThru,_verbose));
-	    break;
-	case UNKNOWN:
-	    return 1;
-	}
+            break;
+        case UNKNOWN:
+            return 1;
+        }
 
-	if (!_openpty) port->open(O_RDWR);
+        if (!_openpty) port->open(O_RDWR);
 
         // After terminal is opened, STOP and wait for instructions...
         if (!_continue && (_nmessages >= 0 || _onceThru)) {
-	    if (_verbose)
-		cerr << "stopping, continue with kill -CONT %1 ..." << endl;
-	    kill(getpid(),SIGSTOP);
-	}
+            if (_verbose)
+                cerr << "stopping, continue with kill -CONT %1 ..." << endl;
+            kill(getpid(),SIGSTOP);
+        }
 
         // sleep(1);
 
@@ -738,9 +739,9 @@ int SensorSimApp::main()
         port->close();
     }
     catch(n_u::Exception& ex) {
-	cerr << ex.what() << endl;
-	if (_openpty) ::unlink(_device.c_str());
-	return 1;
+        cerr << ex.what() << endl;
+        if (_openpty) ::unlink(_device.c_str());
+        return 1;
     }
     if (_openpty) ::unlink(_device.c_str());
     return 0;

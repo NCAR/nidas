@@ -4,7 +4,7 @@
  ********************************************************************
  ** NIDAS: NCAR In-situ Data Acquistion Software
  **
- ** 2006, Copyright University Corporation for Atmospheric Research
+ ** 2023, Copyright University Corporation for Atmospheric Research
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -28,102 +28,11 @@
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include "UnixIODevice.h"
-#include "SerialXcvrCtrl.h"
-#include <nidas/util/Termios.h>
 #include <nidas/util/IOTimeoutException.h>
-#include <nidas/util/Termios.h>
 #include <nidas/util/IOException.h>
-#include <nidas/util/SensorPowerCtrl.h>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string>
-#include <iostream>
-#include <sys/ioctl.h>
-#include <nidas/util/Termios.h>
-
-#ifdef DEBUG
-#include <iostream>
-#endif
-
-using namespace nidas::util;
+#include "PortConfig.h"
 
 namespace nidas { namespace core {
-
-struct PortConfig {
-    PortConfig(const int baudRate, const int dataBits, const n_u::Termios::parity parity, const int stopBits, 
-               const PORT_TYPES portType, const TERM term, const int initRts485, const bool initApplied)
-        : termios(), xcvrConfig(), rts485(initRts485), applied(initApplied)
-    {
-        update_termios();
-
-        termios.setBaudRate(baudRate);
-        termios.setParity(parity);
-        termios.setDataBits(dataBits);
-        termios.setStopBits(stopBits);
-        xcvrConfig.portType = portType;
-        xcvrConfig.termination = term;
-    }
-
-    PortConfig(const PortConfig& rInitPortConfig)
-        : termios(rInitPortConfig.termios), xcvrConfig(rInitPortConfig.xcvrConfig), 
-          rts485(rInitPortConfig.rts485), applied(rInitPortConfig.applied)
-    {
-        update_termios();
-    }
-
-    PortConfig& operator=(const PortConfig& rInitPortConfig)
-    {
-        termios = rInitPortConfig.termios;
-        xcvrConfig = rInitPortConfig.xcvrConfig;
-        rts485 = rInitPortConfig.rts485;
-        applied = rInitPortConfig.applied;
-        update_termios();
-        return *this;
-    }
-
-    PortConfig() : termios(), xcvrConfig(), rts485(0), applied(false) 
-    {
-        update_termios();
-    }
-    PortConfig(const std::string& rDeviceName, const int fd)
-        : termios(fd, rDeviceName), xcvrConfig(), rts485(0), applied(false) 
-    {
-        update_termios();
-    }
-
-    bool operator!=(const PortConfig& rRight) const {return !((*this) == rRight);}
-    bool operator==(const PortConfig& rRight) const
-        {return (termios == rRight.termios && xcvrConfig == rRight.xcvrConfig && rts485 == rRight.rts485);} 
-    void print(bool printApplied=false)
-    {
-        std::cout << "Termios: baud: " << termios.getBaudRate() 
-             << " word: " << termios.getDataBits() 
-                          << termios.getParityString(true) 
-                          << termios.getStopBits() << std::endl;
-        std::cout << "RTS485: " << rts485 << std::endl;
-        if (printApplied) {
-            std::cout << "PortConfig " << (applied ? "IS " : "IS NOT " ) << "applied" << std::endl;
-        }
-
-        std::cout << "Serial port transceiver configuration:" << std::endl;
-        xcvrConfig.print();
-    }
-
-    Termios termios;
-    XcvrConfig xcvrConfig;
-    int rts485;
-    bool applied;
-
-private:
-    void update_termios();
-
-};
-
-
-std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj);
 
 /**
  *  A serial port and all associated configurations. Typically these are enumerated by the 
@@ -135,7 +44,8 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj);
  *  deployment via manually installed jumpers. Now there is GPIO to manage this task, and so 
  *  serial ports need to configure the serial line drivers to support the desired serial 
  *  port type, termination and power status. 
- */class SerialPortIODevice : public UnixIODevice
+ */
+class SerialPortIODevice : public UnixIODevice
 {
 
 public:
@@ -152,18 +62,6 @@ public:
     SerialPortIODevice(const std::string& name, PortConfig initPortConfig);
 
     /**
-     * Copy constructor.  The attributes of the port are copied,
-     * but if the original is opened, the copy will not be
-     * opened.
-     */
-    SerialPortIODevice(const SerialPortIODevice&);
-
-    /**
-     * For serial port that is already open (stdin for example).
-     * */
-    SerialPortIODevice(const std::string& name, int fd);
-
-    /**
      * Does not close the file descriptor if is is open.
      */
     virtual ~SerialPortIODevice();
@@ -174,7 +72,6 @@ public:
     virtual void setName(const std::string& name)
     {
         UnixIODevice::setName(name);
-        checkXcvrCtrlAvailable(name);
     }
 
     /**
@@ -210,75 +107,33 @@ public:
 
     int getFd() const { return _fd; }
 
-//    void flush();
-
-    /* 
-     * Check whether this serial port is using a device which needs port control
-     */
-    void checkXcvrCtrlAvailable(const std::string& name);
-
-    /**
-     *  Get the SerialXcvrCtrl object for direct updating
-     */
-    SerialXcvrCtrl* getXcvrCtrl() {return _pXcvrCtrl;}
-    void setXcvrCtrl(SerialXcvrCtrl* pXcvrCtrl) {_pXcvrCtrl = pXcvrCtrl;}
-
-    /**
-     *  Get the SerialPowerCtrl object for direct updating
-     */
-    SensorPowerCtrl* getPwrCtrl() {return _pSensorPwrCtrl;}
-    void setPwrCtrl(SensorPowerCtrl* pPwrCtrl) {_pSensorPwrCtrl = pPwrCtrl;}
-
     /**
      *  Set and retrieve the _portType member attribute 
      */
-    void setPortType( const PORT_TYPES thePortType) {_workingPortConfig.xcvrConfig.portType = thePortType;}
-    PORT_TYPES getPortType() const {return _workingPortConfig.xcvrConfig.portType;}
+    void setPortType(PortType ptype) {_workingPortConfig.port_type = ptype;}
+    PortType getPortType() const {return _workingPortConfig.port_type;}
 
     /**
      *  Set and retrieve the _term member attribute 
      */
-    void setTermination( const TERM theTermState) {_workingPortConfig.xcvrConfig.termination = theTermState;}
-    TERM getTermination() const {return _workingPortConfig.xcvrConfig.termination;}
-
-    /**
-     *  Set and retrieve the _power member attribute 
-     */
-//    void setPowerState( const SENSOR_POWER_STATE thePowerState) {_workingPortConfig.xcvrConfig.sensorPower = thePowerState;}
-//    SENSOR_POWER_STATE getPowerState() const {return _workingPortConfig.xcvrConfig.sensorPower;}
+    void setTermination(PortTermination pterm) {_workingPortConfig.port_term = pterm;}
+    PortTermination getTermination() const {return _workingPortConfig.port_term;}
 
     /**
      *  Commands the serial board to set the GPIO switches to configure for 
-     *  the port type, termination, and power according to the member attributes.
+     *  the port type and termination according to the member attributes.
      */
     void setPortConfig(const PortConfig newPortConfig) 
     {
         _workingPortConfig = newPortConfig;
-        if (getXcvrCtrl()) {
-            getXcvrCtrl()->setXcvrConfig(_workingPortConfig.xcvrConfig);
-        }
-        _workingPortConfig.applied = false;
     }
     
     PortConfig getPortConfig() 
     {
-        PortConfig retVal = _workingPortConfig;
-        if (_pXcvrCtrl) {
-            retVal.xcvrConfig = _pXcvrCtrl->getXcvrConfig();
-        }
-        return retVal;
+        return _workingPortConfig;
     }
 
     void applyPortConfig();
-
-    void setPortConfigApplied(bool applied=true) {_workingPortConfig.applied = applied;}
-
-    void printPortConfig(bool readFirst=true);
-
-    static std::string portTypeToStr(PORT_TYPES portType)
-    {
-        return SerialXcvrCtrl::portTypeToStr(portType);
-    }
 
    /**
      * Calculate the transmission time of each byte from this
@@ -430,8 +285,9 @@ public:
     {
         int bytesWaiting = 0;
         if (::ioctl(getFd(), FIONREAD, &bytesWaiting) < 0) {
-            throw IOException("SerialPortIODevice::bytesReadyToRead()",
-                              "ioctl failed on FIONREAD for fd");
+            throw nidas::util::IOException(
+                "SerialPortIODevice::bytesReadyToRead()",
+                "ioctl failed on FIONREAD for fd");
         }
 
         return bytesWaiting;
@@ -500,16 +356,10 @@ protected:
 
     PortConfig _workingPortConfig;
 
-    SerialXcvrCtrl* _pXcvrCtrl;
-
-    SensorPowerCtrl* _pSensorPwrCtrl;
-
     unsigned int _usecsperbyte;
 
-    /**
-     * No assignment.
-     */
-    SerialPortIODevice& operator=(const SerialPortIODevice&);
+    SerialPortIODevice& operator=(const SerialPortIODevice&) = delete;
+    SerialPortIODevice(const SerialPortIODevice&) = delete;
 
     enum state { OK, TIMEOUT_OR_EOF} _state;
 

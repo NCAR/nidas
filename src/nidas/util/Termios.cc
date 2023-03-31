@@ -37,7 +37,9 @@
 #include <cstring>
 
 using namespace std;
-using namespace nidas::util;
+
+namespace nidas { namespace util {
+
 
 /* static */
 Termios::baudtable Termios::bauds[] = {
@@ -184,36 +186,37 @@ int Termios::getBaudRate() const
     return 0;
 }
 
-void Termios::setParity(enum parity val)
+void Termios::setParity(Parity parity)
 {
-    switch (val) {
-    case NONE:
+    if (parity == Parity::NONE)
+    {
         _tio.c_cflag &= ~PARENB;
         // disable parity checking
         _tio.c_iflag &= ~(INPCK);
-        break;
-    case EVEN:
+    }
+    else if (parity == Parity::EVEN)
+    {
         _tio.c_cflag |= PARENB;
         _tio.c_cflag &= ~PARODD;
         _tio.c_iflag |= INPCK;
         // don't ignore parity errors, but don't mark them either
         _tio.c_iflag &= ~(IGNPAR | PARMRK);
-        break;
-    case ODD:
+    }
+    else if (parity == Parity::ODD)
+    {
         _tio.c_cflag |= PARENB;
         _tio.c_cflag |= PARODD;
         _tio.c_iflag |= INPCK;
         _tio.c_iflag &= ~(IGNPAR | PARMRK);
-        break;
     }
 }
 
-Termios::parity
+Parity
 Termios::getParity() const
 {
-    if (!(_tio.c_cflag & PARENB)) return NONE;
-    if (_tio.c_cflag & PARODD) return ODD;
-    return EVEN;
+    if (!(_tio.c_cflag & PARENB)) return Parity::NONE;
+    if (_tio.c_cflag & PARODD) return Parity::ODD;
+    return Parity::EVEN;
 }
 
 void
@@ -375,19 +378,11 @@ Termios::getRawTimeout() const
     return _tio.c_cc[VTIME];
 }
 
-std::string Termios::getParityString(bool retChar) const
+std::string Termios::getBitsString() const
 {
-    return parityToString(getParity(), retChar);
-}
-
-std::string Termios::parityToString(parity par, bool retChar)
-{
-    switch(par) {
-    case NONE: return (retChar ? "N" : "none");
-    case ODD: return (retChar ? "O" : "odd");
-    case EVEN: return (retChar ? "E" : "even");
-    }
-    return "unknown";
+    std::ostringstream out;
+    out << getDataBits() << getParity().toChar() << getStopBits();
+    return out.str();
 }
 
 std::string Termios::getFlowControlString() const
@@ -400,3 +395,96 @@ std::string Termios::getFlowControlString() const
     return "unknown";
 }
 
+bool
+Termios::
+operator!=(const Termios& rRight) const
+{
+    return !((*this) == rRight);
+}
+
+
+bool
+Termios::
+operator==(const Termios& rRight) const
+{
+    return (this == &rRight || 
+            (getBaudRate() == rRight.getBaudRate()
+            && getParity() == rRight.getParity()
+            && getDataBits() == rRight.getDataBits()
+            && getStopBits() == rRight.getStopBits()
+            && getLocal() == rRight.getLocal()
+            && getFlowControl() == rRight.getFlowControl()
+            && getRaw() == rRight.getRaw()
+            && getRawLength() == rRight.getRawLength()
+            && getRawTimeout() == rRight.getRawTimeout()
+            && getIflag() == rRight.getIflag()
+            && getOflag() == rRight.getOflag()));
+}
+
+
+const Parity Parity::NONE(ENONE);
+const Parity Parity::ODD(EODD);
+const Parity Parity::EVEN(EEVEN);
+const Parity Parity::N(Parity::NONE);
+const Parity Parity::O(Parity::ODD);
+const Parity Parity::E(Parity::EVEN);
+
+
+std::string
+Parity::
+toChar() const
+{
+    switch (parity)
+    {
+        case ENONE: return "N";
+        case EODD: return "O";
+        case EEVEN: return "E";
+    }
+    return "_";
+}
+
+std::string
+Parity::
+toString() const
+{
+    switch (parity) {
+        case ENONE: return "none";
+        case EODD: return "odd";
+        case EEVEN: return "even";
+    }
+    return "unknown";
+}
+
+
+bool
+Parity::
+parse(const std::string& text)
+{
+    if (text == "odd" || text == "ODD" || text == "O")
+    {
+        parity = EODD;
+    }
+    else if (text == "even" || text == "EVEN" || text == "E")
+    {
+        parity = EEVEN;
+    }
+    else if (text == "none" || text == "NONE" || text == "N")
+    {
+        parity = ENONE;
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
+
+std::ostream&
+operator<<(std::ostream& out, const Parity& parity)
+{
+    return (out << parity.toString());
+}
+
+} // namespace util
+} // namespace nidas

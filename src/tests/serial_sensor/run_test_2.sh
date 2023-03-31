@@ -245,7 +245,7 @@ for fp in $HOSTNAME server; do
     fi
 
     # should see these numbers of raw samples
-    nsamps=(53 52 257 6 5 5)
+    nsamps=(53 52 256 6 5 5)
     rawok=true
     rawsampsok=true
     for (( i = 0; i < $nsensors; i++)); do

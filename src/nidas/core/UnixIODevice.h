@@ -30,7 +30,6 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/time_constants.h>
-#include <nidas/util/Logger.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -83,13 +82,10 @@ public:
     /**
      * open the device.
      */
-    virtual void open(int flags) throw(nidas::util::IOException)
+    void open(int flags) throw(nidas::util::IOException)
     {
-        ILOG(("UnixIODevice::open : entry"));
-        if ((_fd = ::open(getName().c_str(),flags)) < 0) {
-            throw nidas::util::IOException(getName(), getName().c_str(), errno);
-        }
-        ILOG(("UnixIODevice::open : exit"));
+        if ((_fd = ::open(getName().c_str(),flags)) < 0)
+		throw nidas::util::IOException(getName(),"open",errno);
     }
 
     /**
@@ -97,19 +93,14 @@ public:
      */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
-    	ssize_t result;
+	ssize_t result;
         if ((result = ::read(_fd,buf,len)) < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
-            DLOG(("UnixIODevice::read(): low level read failed: result < 0"));
-            sleep(1);
             throw nidas::util::IOException(getName(),"read",errno);
         }
-        if (result == 0) {
-            DLOG(("UnixIODevice::read(): low level read failed: result == 0"));
-            sleep(1);
-            throw nidas::util::EOFException(getName(),"read");
-        }
-        return result;
+	if (result == 0) 
+		throw nidas::util::EOFException(getName(),"read");
+	return result;
     }
 
     /**
