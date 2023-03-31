@@ -235,7 +235,7 @@ SE_GOESXmtr::SE_GOESXmtr():
 {
     n_u::Termios& tio = _port.termios();
     tio.setBaudRate(9600);
-    tio.setParity(n_u::Termios::NONE);
+    tio.setParity(n_u::Parity::NONE);
     tio.setDataBits(8);
     tio.setStopBits(1);
     tio.setFlowControl(n_u::Termios::NOFLOWCONTROL);
@@ -262,7 +262,7 @@ SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
 {
     n_u::Termios& tio = _port.termios();
     tio.setBaudRate(9600);
-    tio.setParity(n_u::Termios::NONE);
+    tio.setParity(n_u::Parity::NONE);
     tio.setDataBits(8);
     tio.setStopBits(1);
     tio.setFlowControl(n_u::Termios::NOFLOWCONTROL);

@@ -131,9 +131,9 @@ void GOESXmtr::fromDOMElement(
 			aname,aval);
 	    }
 	    else if (aname == "parity") {
-		if (aval == "odd") tio.setParity(n_u::Termios::ODD);
-		else if (aval == "even") tio.setParity(n_u::Termios::EVEN);
-		else if (aval == "none") tio.setParity(n_u::Termios::NONE);
+		if (aval == "odd") tio.setParity(n_u::Parity::ODD);
+		else if (aval == "even") tio.setParity(n_u::Parity::EVEN);
+		else if (aval == "none") tio.setParity(n_u::Parity::NONE);
 		else throw n_u::InvalidParameterException(
 		    string("GOESXmtr:") + getName(),
 		    aname,aval);

@@ -40,10 +40,10 @@ namespace nidas { namespace core {
  */
 struct WordSpec
 {
-	WordSpec(int dbits, Termios::parity prty, int stopbits)
+	WordSpec(int dbits, Parity prty, int stopbits)
 	: dataBits(dbits), parity(prty), stopBits(stopbits) {}
     int dataBits;
-    Termios::parity parity;
+    Parity parity;
     int stopBits;
 };
 
@@ -116,6 +116,9 @@ enum AUTOCONFIG_STATE {
 	AUTOCONFIG_SUCCESSFUL,
 	AUTOCONFIG_UNSUCCESSFUL
 };
+
+std::string to_string(AUTOCONFIG_STATE autoState);
+
 
 /**
  * Support for a sensor that is sending packets on a TCP socket, a UDP socket, a
@@ -258,14 +261,22 @@ public:
     int getUsecsPerByte() const;
 
     /**
-     * Get/set the working PortConfig - this means the ones in SerialPortIODevice and SerialXcvrCtrl, if they exist.
-     * 
-     * Assumption: If SerialSensor is a traditional, RS232/422/485, device, then the associated PortConfig in 
-     *             SerialPortIODevice is all that matters. This should cover "non-sensor" devices such as GPS, cell 
-     *             modems, etc, since they may be traditional serial devices, but not have a SerialXcvrCtrl object 
-     *             associated with them. 
+     * Get the working PortConfig.  The _working_ PortConfig is the one
+     * attached to the SerialPortIODevice as it was last applied.  If no
+     * SerialPortIODevice has been created for this SerialSensor yet, then a
+     * default PortConfig is returned.
+     *
      */
     PortConfig getPortConfig();
+
+    /**
+     * Set the _working_ PortConfig, the one which the attached
+     * SerialPortIODevice will apply, but do not apply any changes to an open
+     * serial device.  See applyPortConfig().  This has no effect if a
+     * SerialPortIODevice is not attached to this SerialSensor.
+     *
+     * @param newPortConfig 
+     */
     void setPortConfig(const PortConfig newPortConfig);
 
     PortConfig getDefaultPortConfig() {return _defaultPortConfig;}
@@ -324,7 +335,7 @@ protected:
      *  SerialSensor.
      */
     void doAutoConfig();
-    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Termios::parity parity, int stopBits,
+    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Parity parity, int stopBits,
 												 int rts485, PortType ptype, PortTermination termination);
     bool isDefaultConfig(const PortConfig& rTestConfig) const;
     bool findWorkingSerialPortConfig();
@@ -342,8 +353,6 @@ protected:
     bool doubleCheckResponse();
     bool configureScienceParameters();
     void printResponseHex(int numCharsRead, const char* respBuf);
-
-    static std::string autoCfgToStr(AUTOCONFIG_STATE autoState);
 
     /**
      * These autoconfig methods do nothing, unless overridden in a subclass
@@ -372,8 +381,6 @@ protected:
 
     void initAutoConfig();
     void fromDOMElementAutoConfig(const xercesc::DOMElement* node);
-    void checkXcvrConfigAttribute(const XDOMAttr& rAttr);
-    void checkTermiosConfigAttribute(const XDOMAttr& rAttr);
 
     // Autoconfig subclasses calls supportsAutoConfig() to set this to true
     bool _autoConfigSupported;

@@ -42,6 +42,61 @@
 
 namespace nidas { namespace util {
 
+
+class Parity
+{
+    enum eparity
+    {
+        ENONE, EODD, EEVEN
+    } parity;
+
+    explicit Parity(eparity ep):
+        parity(ep)
+    {}
+public:
+
+    Parity(): parity(ENONE)
+    {}
+
+    Parity(const Parity&) = default;
+    Parity& operator=(const Parity&) = default;
+
+    static const Parity NONE;
+    static const Parity ODD;
+    static const Parity EVEN;
+
+    static const Parity N;
+    static const Parity O;
+    static const Parity E;
+
+    /**
+     * Return the parity setting as a string: none, odd, or even.
+     */
+    std::string toString() const;
+
+    /**
+     * Return the parity setting as a char: N, O, or E.
+     */
+    std::string toChar() const;
+
+    bool
+    parse(const std::string& text);
+
+    bool operator==(const Parity& right) const
+    {
+        return this->parity == right.parity;
+    }
+
+    bool operator!=(const Parity& right) const
+    {
+        return this->parity != right.parity;
+    }
+};
+
+std::ostream&
+operator<<(std::ostream& out, const Parity& parity);
+
+
 /**
  * A class providing get/set methods into a termios structure.
  */
@@ -89,36 +144,14 @@ public:
     bool setBaudRate(int val);
     int getBaudRate() const;
 
-    enum parity { NONE, ODD, EVEN};
-
-    void setParity(enum parity val);
-    parity getParity() const;
-
-    /**
-     * Return the parity setting as a string: none, odd, or even.
-     */
-    std::string getParityString() const;
-
-    /**
-     * Return the parity setting as a char: N, O, or E.
-     */
-    std::string getParityChar() const;
+    void setParity(Parity parity);
+    Parity getParity() const;
 
     /**
      * Return the three-character code with data bits, parity, and stop bits,
      * like 8N1 or 7E1, for the current settings.
      */
     std::string getBitsString() const;
-
-    /**
-     * Convert parity @p par to a string: none, odd, or even.
-     */
-    static std::string parityToString(parity par);
-
-    /**
-     * Convert parity @p par to a character code: N, O, E.
-     */
-    static std::string parityToChar(parity par);
 
     /**
      * Set number of data bits to 5,6,7 or 8.

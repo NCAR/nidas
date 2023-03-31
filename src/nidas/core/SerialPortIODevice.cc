@@ -148,13 +148,9 @@ int SerialPortIODevice::getUsecsPerByte() const
     int usecs = 0;
     if (::isatty(_fd)) {
         int bits = _workingPortConfig.termios.getDataBits() + _workingPortConfig.termios.getStopBits() + 1;
-        switch(_workingPortConfig.termios.getParity()) {
-        case n_u::Termios::ODD:
-        case n_u::Termios::EVEN:
+        if (_workingPortConfig.termios.getParity() != Parity::NONE)
+        {
             bits++;
-            break;
-        case n_u::Termios::NONE:
-            break;
         }
         usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
     }

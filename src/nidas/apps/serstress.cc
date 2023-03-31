@@ -68,6 +68,7 @@ using nidas::util::LogConfig;
 using nidas::util::SPoll;
 using nidas::util::IOException;
 using nidas::util::Exception;
+using nidas::util::Parity;
 
 static const bool SENDING = true;
 static const bool ECHOING = false;
@@ -958,7 +959,7 @@ void openPort(bool isSender, int& rcvrTimeout) throw(n_u::IOException, n_u::Pars
     int bytesPerPacket = MIN_PACKET_LENGTH + dataSize;
     int dataBits = myPortConfig.termios.getDataBits();
     int stopBits = myPortConfig.termios.getStopBits();
-    int parityBits = myPortConfig.termios.getParity() == n_u::Termios::NONE ? 0 : 1;
+    int parityBits = myPortConfig.termios.getParity() == Parity::NONE ? 0 : 1;
     float bytesPerSec = setBaud / ((dataBits + stopBits + parityBits) * 1.0);
 
     float calcRate = rate;

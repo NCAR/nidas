@@ -67,10 +67,32 @@ public:
     static const PortType RS485_FULL;
     static const PortType RS485_HALF;
 
+    /**
+     * Return the short version of the port type.
+     * 
+     * loop, 232, 422, 485h.  422 is returned instead of 485f.
+     * 
+     * @return std::string 
+     */
     std::string toShortString() const;
 
+    /**
+     * Return the long version of the port type as a string, like RS485_HALF.
+     */
     std::string toLongString() const;
 
+    /**
+     * Parse @p text and set this port type to the parsed value.
+     * 
+     * loopback:   "loop", "loopback", "LOOP", "LOOPBACK"
+     * rs232:      "232", "rs232", "RS232"
+     * rs422:      "422", "rs422", "RS422"
+     * rs485_full: "485f", "rs485f", "485F", "rs485_full", "RS485_FULL"
+     * rs485_half: "485h", "rs485h", "485H", "rs485_half", "RS485_HALF"
+     * 
+     * @return true if the text parses and the value is set, otherwise
+     * return false.
+     */
     bool
     parse(const std::string& text);
 
@@ -124,10 +146,24 @@ public:
     static const PortTermination NO_TERM;
     static const PortTermination TERM_ON;
 
+    /**
+     * Return "term" or "noterm".
+     */
     std::string toShortString() const;
 
+    /**
+     * Return "TERM_ON" or "NO_TERM".
+     */
     std::string toLongString() const;
 
+    /**
+     * Parse @p text and assign the value to this PortTermination.
+     *
+     * Accepts upper or lower case forms of term, term_on, noterm, no_term.
+     *
+     * @return true if the text parsed and the setting was applied, otherwise
+     * false.
+     */
     bool
     parse(const std::string& text);
 

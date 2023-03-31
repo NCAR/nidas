@@ -39,11 +39,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const n_c::PortType PTB210::DEFAULT_PORT_TYPE = n_c::RS232;
-const n_c::PortTermination PTB210::DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
-
-
-
 const char* PTB210::DEFAULT_MSG_SEP_CHARS = "\r\n";
 
 const char* PTB210::SENSOR_RESET_CMD_STR = ".RESET\r";
@@ -101,18 +96,14 @@ const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
 //       ones are the most likely
 const int PTB210::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
 const WordSpec PTB210::SENSOR_WORD_SPECS[PTB210::NUM_SENSOR_WORD_SPECS] = {
-    WordSpec(7,Termios::EVEN,1),
-    WordSpec(7,Termios::ODD,1),
-    WordSpec(8,Termios::NONE,1)
+    WordSpec(7, Parity::EVEN, 1),
+    WordSpec(7, Parity::ODD, 1),
+    WordSpec(8, Parity::NONE, 1)
 };
 const n_c::PortType PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
-
 // static default configuration to send to base class...
-const PortConfig PTB210::DEFAULT_PORT_CONFIG(PTB210::DEFAULT_BAUD_RATE, PTB210::DEFAULT_DATA_BITS,
-                                             PTB210::DEFAULT_PARITY, PTB210::DEFAULT_STOP_BITS,
-                                             PTB210::DEFAULT_PORT_TYPE, PTB210::DEFAULT_SENSOR_TERMINATION, 
-                                             PTB210::DEFAULT_RTS485);
+static const PortConfig DEFAULT_PORT_CONFIG(9600, 7, Parity::ODD, 1, RS232);
 
 const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
     n_c::SensorCmdData(DEFAULT_PRESSURE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_PRESSURE_UNITS)),
@@ -390,24 +381,13 @@ bool PTB210::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
         // PTB210 only supports three combinations of word format - all based on parity
         // So just force it based on parity. Go ahead and reset now, so we can see if we're
         // still talking to each other...
-        switch (rDesiredConfig.termios.getParity())
-        {
-            case Termios::ODD:
-                sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, n_c::SensorCmdArg(0), true);
-                break;
-
-            case Termios::EVEN:
-                sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, n_c::SensorCmdArg(0), true);
-                break;
-
-            case Termios::NONE:
-                sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, n_c::SensorCmdArg(0), true);
-                break;
-
-            default:
-                break;
-        }
-
+        Parity parity = rDesiredConfig.termios.getParity();
+        if (parity == Parity::ODD)
+            sendSensorCmd(SENSOR_SERIAL_ODD_WORD_CMD, n_c::SensorCmdArg(0), true);
+        else if (parity == Parity::EVEN)
+            sendSensorCmd(SENSOR_SERIAL_EVEN_WORD_CMD, n_c::SensorCmdArg(0), true);
+        else if (parity == Parity::NONE)
+            sendSensorCmd(SENSOR_SERIAL_NO_WORD_CMD, n_c::SensorCmdArg(0), true);
         serPortFlush(O_RDWR);
 
         // wait for the sensor to reset - ~1 second

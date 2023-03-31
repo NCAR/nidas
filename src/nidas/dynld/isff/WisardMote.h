@@ -576,18 +576,6 @@ private:
     };
     std::map<dsm_sample_id_t, TsoilData> _tsoilData;
 
-    /*
-     * AutoConfig attributes
-     */
-    static const int DEFAULT_BAUD_RATE = 38400;
-    static const Termios::parity DEFAULT_PARITY = Termios::NONE;
-    static const int DEFAULT_STOP_BITS = 1;
-    static const int DEFAULT_DATA_BITS = 8;
-    static const int DEFAULT_RTS485 = 0;
-    static const PortType DEFAULT_PORT_TYPE;
-    static const PortTermination DEFAULT_SENSOR_TERMINATION;
-    static const PortConfig DEFAULT_PORT_CONFIG;
-
     static const int NUM_SENSOR_BAUDS = 1;
     static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
     static const int NUM_SENSOR_WORD_SPECS = 1;

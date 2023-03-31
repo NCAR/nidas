@@ -337,15 +337,6 @@ protected:
     void initCustomMetaData();
 
 private:
-    // default serial parameters for the PB210
-    static const int DEFAULT_BAUD_RATE = 9600;
-    static const Termios::parity DEFAULT_PARITY = Termios::ODD;
-    static const int DEFAULT_STOP_BITS = 1;
-    static const int DEFAULT_DATA_BITS = 7;
-    static const int DEFAULT_RTS485 = 0;
-    static const n_c::PortType DEFAULT_PORT_TYPE;
-    static const n_c::PortTermination DEFAULT_SENSOR_TERMINATION;
-
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
     static const bool DEFAULT_MSG_SEP_EOM = true;

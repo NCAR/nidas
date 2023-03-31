@@ -51,6 +51,8 @@ NIDAS_CREATOR_FUNCTION_NS(isff,GILL2D)
 
 namespace nidas { namespace dynld { namespace isff {
 
+using nidas::util::Parity;
+
 const char* GILL2D::DEFAULT_MSG_SEP_CHAR = "\n";
 
 const char* GILL2D::SENSOR_CONFIG_MODE_CMD_STR = "*";
@@ -102,18 +104,15 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
     SENSOR_ALIGNMENT_CMD_STR,
 };
 
-const nidas::core::PortType GILL2D::DEFAULT_PORT_TYPE = nidas::core::RS422;
-const nidas::core::PortTermination GILL2D::DEFAULT_SENSOR_TERMINATION = nidas::core::NO_TERM;
-
 
 // NOTE: list sensor bauds from highest to lowest as the higher
 //       ones are the most likely
 const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
 const n_c::WordSpec GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] =
 {
-    WordSpec(8, Termios::NONE, 1),
-    WordSpec(8, Termios::EVEN, 1),
-    WordSpec(8, Termios::ODD, 1),
+    WordSpec(8, Parity::NONE, 1),
+    WordSpec(8, Parity::EVEN, 1),
+    WordSpec(8, Parity::ODD, 1),
 };
 
 // GIL instruments do not use RS232
@@ -121,10 +120,7 @@ const n_c::PortType GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS
 
 
 // static default configuration to send to base class...
-const PortConfig GILL2D::DEFAULT_PORT_CONFIG(GILL2D::DEFAULT_BAUD_RATE, GILL2D::DEFAULT_DATA_BITS,
-                                             GILL2D::DEFAULT_PARITY, GILL2D::DEFAULT_STOP_BITS,
-                                             GILL2D::DEFAULT_PORT_TYPE, GILL2D::DEFAULT_SENSOR_TERMINATION,
-                                             GILL2D::DEFAULT_RTS485);
+static const PortConfig DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS422);
 
 const n_c::SensorCmdData GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {
@@ -609,27 +605,18 @@ bool GILL2D::installDesiredSensorConfig(const PortConfig& rDesiredConfig)
             sendSensorCmd(SENSOR_SERIAL_BAUD_CMD, n_c::SensorCmdArg(newBaudArg));
         }
 
-        if (rDesiredConfig.termios.getParity() | sensorPortConfig.termios.getParity()) {
-            DLOG(("Changing parity to: ") << rDesiredConfig.termios.getParityString());
+        if (rDesiredConfig.termios.getParity() != sensorPortConfig.termios.getParity())
+        {
+            DLOG(("Changing parity to: ") << rDesiredConfig.termios.getParity());
             // GILL2D only supports three combinations of word format - all based on parity
             // So just force it based on parity.
-            switch (rDesiredConfig.termios.getParity())
-            {
-                case Termios::ODD:
-                    sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
-                    break;
-
-                case Termios::EVEN:
-                    sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(E81));
-                    break;
-
-                case Termios::NONE:
-                    sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(N81));
-                    break;
-
-                default:
-                    break;
-            }
+            Parity parity = rDesiredConfig.termios.getParity();
+            if (parity == Parity::ODD)
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(O81));
+            else if (parity == Parity::EVEN)
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(E81));
+            else if (parity == Parity::NONE)
+                sendSensorCmd(SENSOR_SERIAL_DATA_WORD_CMD, n_c::SensorCmdArg(N81));
         }
 
         if (!doubleCheckResponse()) {
@@ -1153,13 +1140,13 @@ bool GILL2D::confirmGillSerialPortChange(int cmd, int arg)
         DLOG(("Setting the new serial word command..."));
         switch (static_cast<GILL2D_DATA_WORD_ARGS>(arg)) {
             case N81:
-                currentPortConfig.termios.setParity(Termios::NONE);
+                currentPortConfig.termios.setParity(Parity::NONE);
                 break;
             case E81:
-                currentPortConfig.termios.setParity(Termios::EVEN);
+                currentPortConfig.termios.setParity(Parity::EVEN);
                 break;
             case O81:
-                currentPortConfig.termios.setParity(Termios::ODD);
+                currentPortConfig.termios.setParity(Parity::ODD);
                 break;
         }
     }

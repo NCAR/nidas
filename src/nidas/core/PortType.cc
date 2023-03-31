@@ -52,7 +52,7 @@ struct port_type_aliases_t
 // Associate port types with names.  The first alias is the short form, the
 // last is the long form.
 std::vector<port_type_aliases_t> port_type_aliases{
-    { PortType::LOOPBACK,    { "loop", "loopback", "LOOPBACK" } },
+    { PortType::LOOPBACK,    { "loop", "loopback", "LOOP", "LOOPBACK" } },
     { PortType::RS232,       { "232", "rs232", "RS232" } },
     { PortType::RS422,       { "422", "rs422", "RS422" } },
     { PortType::RS485_FULL,  { "485f", "rs485f", "485F", "rs485_full", "RS485_FULL" } },
@@ -158,11 +158,13 @@ bool
 PortTermination::
 parse(const std::string& text)
 {
-    if (text == "term" || text == "TERM_ON" || text == "TERM")
+    if (text == "term" || text == "term_on" ||
+        text == "TERM_ON" || text == "TERM" ||
+        text == "TERM_120_OHM" || text == "term_120_ohm")
     {
         term = ETERM_ON;
     }
-    else if (text == "noterm" || text == "NO_TERM")
+    else if (text == "noterm" || text == "no_term" || text == "NO_TERM")
     {
         term = ENO_TERM;
     }

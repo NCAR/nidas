@@ -40,9 +40,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const n_c::PortType PTB220::DEFAULT_PORT_TYPE = n_c::RS232;
-const n_c::PortTermination PTB220::DEFAULT_SENSOR_TERMINATION = n_c::NO_TERM;
-
 const char* PTB220::DEFAULT_MSG_SEP_CHARS = "\r\n";
 
 const char* PTB220::SENSOR_SEND_MODE_CMD_STR = "SMODE \r\n";
@@ -152,26 +149,23 @@ const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 4800, 2400, 1200, 600}
 // list the possible word specifications - most likely first
 
 const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
-    WordSpec(7,Termios::EVEN,1),
-    WordSpec(7,Termios::ODD,1),
-    WordSpec(8,Termios::NONE,1),
-    WordSpec(8,Termios::EVEN,1),
-    WordSpec(8,Termios::ODD,1),
+    WordSpec(7,Parity::EVEN,1),
+    WordSpec(7,Parity::ODD,1),
+    WordSpec(8,Parity::NONE,1),
+    WordSpec(8,Parity::EVEN,1),
+    WordSpec(8,Parity::ODD,1),
 
 	// put 2 stop bits last because these are really rarely used.
-    WordSpec(7,Termios::NONE,2),
-    WordSpec(7,Termios::EVEN,2),
-    WordSpec(7,Termios::ODD,2),
-    WordSpec(8,Termios::NONE,2)
+    WordSpec(7,Parity::NONE,2),
+    WordSpec(7,Parity::EVEN,2),
+    WordSpec(7,Parity::ODD,2),
+    WordSpec(8,Parity::NONE,2)
 };
 
 const n_c::PortType PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
 // static default configuration to send to base class...
-const PortConfig PTB220::DEFAULT_PORT_CONFIG(PTB220::DEFAULT_BAUD_RATE, PTB220::DEFAULT_DATA_BITS,
-                                             PTB220::DEFAULT_PARITY, PTB220::DEFAULT_STOP_BITS,
-                                             PTB220::DEFAULT_PORT_TYPE, PTB220::DEFAULT_SENSOR_TERMINATION,
-                                             PTB220::DEFAULT_RTS485);
+const PortConfig PTB220::DEFAULT_PORT_CONFIG(9600, 7, Parity::ODD, 1, RS232);
 
 const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_PRESS_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),

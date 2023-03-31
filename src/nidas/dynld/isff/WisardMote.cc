@@ -76,6 +76,8 @@ map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
+static const PortConfig DEFAULT_PORT_CONFIG(38400, 8, Parity::NONE, 1, RS232);
+
 WisardMote::WisardMote() :
 	SerialSensor(DEFAULT_PORT_CONFIG),
 	_sampleTagsById(),
@@ -1824,19 +1826,12 @@ const float WisardMote::I3_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e
 const float WisardMote::IIN_GAIN_CAL_MIN = 0.0f;
 const float WisardMote::IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
 
-const PortType WisardMote::DEFAULT_PORT_TYPE = RS232;
-const PortTermination WisardMote::DEFAULT_SENSOR_TERMINATION = NO_TERM;
-
-
-const PortConfig WisardMote::DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY, DEFAULT_STOP_BITS,
-                                             	 DEFAULT_PORT_TYPE, DEFAULT_SENSOR_TERMINATION,
-												 DEFAULT_RTS485);
 
 const int WisardMote::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {38400};
 
 const WordSpec WisardMote::SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
 {
-	WordSpec(8,Termios::NONE,1),
+	WordSpec(8, Parity::NONE, 1),
 };
 const PortType WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
 

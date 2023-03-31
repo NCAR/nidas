@@ -127,7 +127,7 @@ void RemoteSerialConnection::setSensor(CharacterSensor* val)
 
     if (_serSensor) {
 	ost << _serSensor->getTermios().getBaudRate() << ' ' <<
-	    _serSensor->getTermios().getParityString() << ' ' <<
+	    _serSensor->getTermios().getParity() << ' ' <<
 	    _serSensor->getTermios().getDataBits() << ' ' <<
 	    _serSensor->getTermios().getStopBits() << endl;
 	_socket->send(ost.str().c_str(),ost.str().size());

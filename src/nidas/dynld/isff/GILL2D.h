@@ -311,14 +311,7 @@ protected:
     void transformEmbeddedNulls(std::string& respStr, bool allowStxEtx=false);
 
 private:
-    // default serial parameters for the GIL 2D Wind Observer
-    static const int DEFAULT_BAUD_RATE = 9600;
-    static const Termios::parity DEFAULT_PARITY = Termios::NONE;
-    static const int DEFAULT_STOP_BITS = 1;
-    static const int DEFAULT_DATA_BITS = 8;
-    static const int DEFAULT_RTS485 = 0;
     static const nidas::core::PortType DEFAULT_PORT_TYPE;
-    static const nidas::core::PortTermination DEFAULT_SENSOR_TERMINATION;
 
     // default message parameters for the PB210
     static const int DEFAULT_MESSAGE_LENGTH = 0;
@@ -364,8 +357,6 @@ private:
     static const nidas::core::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
     static const int NUM_PORT_TYPES = 2;
     static const nidas::core::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
-
-    static const nidas::core::PortConfig DEFAULT_PORT_CONFIG;
 
     nidas::core::PortConfig testPortConfig;
     nidas::core::PortConfig _desiredPortConfig;

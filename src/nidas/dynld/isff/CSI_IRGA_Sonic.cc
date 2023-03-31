@@ -46,21 +46,10 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 // The older boards will just set the termios parameters, while 
 // the newer boards will also set up the transceiver mode
 // (RS232/422/485_half, etc).
-static const PortType DEFAULT_PORT_TYPE = RS485_FULL;
-static const int DEFAULT_BAUD_RATE = 115200;
-static const int DEFAULT_DATA_BITS = 8;
-static const Termios::parity DEFAULT_PARITY = Termios::NONE;
-static const int DEFAULT_STOP_BITS = 1;
-static const PortTermination DEFAULT_LINE_TERMINATION = NO_TERM;
-//    static const SENSOR_POWER_STATE DEFAULT_SENSOR_POWER = SENSOR_POWER_ON;
-static const int DEFAULT_RTS485 = 0; // De-assert, but don't mess w/this when writing to the port
-
 
 // The default for IRGA is different from CSAT3.
-static const PortConfig DEFAULT_PORT_CONFIG(DEFAULT_BAUD_RATE, DEFAULT_DATA_BITS, DEFAULT_PARITY,
-                                            DEFAULT_STOP_BITS, DEFAULT_PORT_TYPE, DEFAULT_LINE_TERMINATION,
-                                            DEFAULT_RTS485);
-        
+static const PortConfig DEFAULT_PORT_CONFIG(115200, 8, Parity::NONE, 1, RS485_FULL);
+
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(false, ::DEFAULT_PORT_CONFIG),

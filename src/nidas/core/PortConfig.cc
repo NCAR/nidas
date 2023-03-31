@@ -24,15 +24,27 @@
 
 #include "PortConfig.h"
 #include "nidas/util/Logger.h"
+#include "nidas/util/InvalidParameterException.h"
+
+#include <sstream>
+#include <algorithm>
 
 namespace nidas { namespace core {
 
 using nidas::util::Termios;
+using nidas::util::Parity;
+using nidas::util::InvalidParameterException;
+
 
 PortConfig::
-PortConfig(const int baudRate, const int dataBits, const Termios::parity parity, const int stopBits, 
-           const PortType ptype, const PortTermination term, const int initRts485)
-        : termios(), port_type(ptype), port_term(term), rts485(initRts485)
+PortConfig(const int baudRate, const int dataBits, const Parity parity,
+           const int stopBits,
+           const PortType ptype, const PortTermination term,
+           const int initRts485):
+    termios(),
+    port_type(ptype),
+    port_term(term),
+    rts485(initRts485)
 {
     update_termios();
 
@@ -74,15 +86,6 @@ PortConfig():
     update_termios();
 }
 
-PortConfig::
-PortConfig(const std::string& rDeviceName, const int fd):
-    termios(fd, rDeviceName),
-    port_type(),
-    port_term(),
-    rts485(0)
-{
-    update_termios();
-}
 
 bool
 PortConfig::
@@ -99,6 +102,75 @@ operator==(const PortConfig& rRight) const
             port_type == rRight.port_type &&
             port_term == rRight.port_term &&
             rts485 == rRight.rts485);
+}
+
+
+bool
+PortConfig::
+setAttribute(const std::string& context, const std::string& name,
+             const std::string& value_in)
+{
+    // xform everything to uppercase - this shouldn't affect numbers
+    std::string value = value_in;
+    std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+    std::istringstream ist(value);
+    int ivalue;
+    ist >> ivalue;
+    bool found = true;
+    bool parsed = true;
+    DLOG(("PortConfig checking attribute: ") << name << " : " << value_in);
+    if (name == "porttype")
+    {
+        parsed = port_type.parse(value);
+    }
+    else if (name == "termination")
+    {
+        parsed = port_term.parse(value);
+    }
+    else if (name == "rts485")
+    {
+        if (value == "true" || value == "1") {
+            rts485 = 1;
+        }
+        else if (value == "false" || value == "0")
+        {
+            rts485 = 0;
+        }
+        else if (value == "-1")
+        {
+            rts485 = -1;
+        }
+        else
+        {
+            parsed = false;
+        }
+    }
+    else if (name == "baud")
+    {
+        parsed = (!ist.fail() && termios.setBaudRate(ivalue));
+    }
+    else if (name == "parity")
+    {
+        Parity parity;
+        if ((parsed = parity.parse(value)))
+            termios.setParity(parity);
+    }
+    else if (name == "databits") {
+        parsed = !(ist.fail() || ivalue < 5 || ivalue > 8);
+        if (parsed)
+            termios.setDataBits(ivalue);
+    }
+    else if (name == "stopbits") {
+        parsed = !(ist.fail() || ivalue < 1 || ivalue > 2);
+        if (parsed)
+            termios.setStopBits(ivalue);
+    }
+    else {
+        found = false;
+    }
+    if (found && !parsed)
+        throw InvalidParameterException(context, name, value_in);
+    return found;
 }
 
 
