@@ -4,7 +4,6 @@
 //#define BOOST_AUTO_TEST_MAIN
 //#define BOOST_TEST_MODULE SerialSensorAutoConfig
 #include <boost/test/unit_test.hpp>
-#include <boost/test/tools/interface.hpp>
 
 // handle older boost libs...
 // #if !defined( BOOST_TEST )
@@ -15,8 +14,6 @@
 // #endif
 
 using boost::unit_test_framework::test_suite;
-
-#include <boost/regex.hpp>
 
 #include "nidas/core/Project.h"
 #include <nidas/core/DSMConfig.h>
