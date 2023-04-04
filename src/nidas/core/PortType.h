@@ -29,6 +29,15 @@
 namespace nidas {
 namespace core {
 
+enum pt_format_flags_t {
+    /// use default short form and 422 for 485f
+    ptf_none=0,
+    /// use 485f form for 422
+    ptf_485=1,
+    // use long form
+    ptf_long=2
+};
+
 /**
  * PortType is an enumerated class.  It wraps a private enumeration type and
  * adds methods for converting to and from text.  The RS485_FULL instance is
@@ -68,18 +77,32 @@ public:
     static const PortType RS485_HALF;
 
     /**
-     * Return the short version of the port type.
-     * 
-     * loop, 232, 422, 485h.  422 is returned instead of 485f.
-     * 
-     * @return std::string 
+     * Format this PortType according to the flags.
+     *
+     * Rather the OR the flags together, allow them to be passed as individual
+     * parameters so the argument type can be checked by the compiler.
+     *
+     * The short format is the default, returned as one of these: loop, 232,
+     * 422, 485h, 485f.  Since 422 and 485f are considered equivalent, 422 is
+     * returned unless the rtf_485 flag is passed.
+     *
+     * The long format is selected if ptf_long is passed as one of the flags.
+     * The port type is returned as a string like RS485_HALF.  The RS485_FULL
+     * string is returned for RS422 if ptf_485 is passed as one of the flags.
      */
-    std::string toShortString() const;
+    std::string toString(pt_format_flags_t bit1=ptf_none,
+                         pt_format_flags_t bit2=ptf_none,
+                         pt_format_flags_t bit3=ptf_none) const;
 
     /**
-     * Return the long version of the port type as a string, like RS485_HALF.
+     * Return the short format of the port type.  See toString().
      */
-    std::string toLongString() const;
+    std::string toShortString(bool rs485=false) const;
+
+    /**
+     * Return the long format of the port type.  See toString().
+     */
+    std::string toLongString(bool rs485=false) const;
 
     /**
      * Parse @p text and set this port type to the parsed value.
@@ -115,6 +138,9 @@ extern const PortType RS422;
 extern const PortType RS485_FULL;
 extern const PortType RS485_HALF;
 
+/**
+ * Write PortType as a string in the default format.
+ */
 std::ostream&
 operator<<(std::ostream& out, const PortType& ptype);
 

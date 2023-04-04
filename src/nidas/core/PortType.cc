@@ -67,12 +67,20 @@ PortType(): ptype(ELOOPBACK)
 
 std::string
 PortType::
-toShortString() const
+toString(pt_format_flags_t bit1,
+         pt_format_flags_t bit2,
+         pt_format_flags_t bit3) const
 {
+    unsigned int flags = bit1 | bit2 | bit3;
+    bool rs485 = (flags & ptf_485);
+    bool longform = (flags & ptf_long);
+
     for (auto& pa: port_type_aliases)
     {
+        if (*this == RS422 && rs485 && pa.aliases.front() == "422")
+            continue;
         if (pa.ptype == *this)
-            return pa.aliases.front();
+            return longform ? pa.aliases.back() : pa.aliases.front();
     }
     // something is really wrong...
     return "undefined";
@@ -81,15 +89,17 @@ toShortString() const
 
 std::string
 PortType::
-toLongString() const
+toShortString(bool rs485) const
 {
-    for (auto& pa: port_type_aliases)
-    {
-        if (pa.ptype == *this)
-            return pa.aliases.back();
-    }
-    // shouldn't happen...
-    return "undefined";
+    return toString(rs485 ? ptf_485 : ptf_none);
+}
+
+
+std::string
+PortType::
+toLongString(bool rs485) const
+{
+    return toString(ptf_long, rs485 ? ptf_485 : ptf_none);
 }
 
 

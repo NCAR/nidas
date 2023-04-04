@@ -62,6 +62,8 @@ using namespace nidas::util;
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::setw;
+using std::left;
 
 NidasApp app("pio");
 
@@ -291,28 +293,26 @@ read_rts(int fd, bool& rts)
 void
 print_status(HardwareDevice& device, int fd=-1)
 {
-    cout << std::setw(10) << device << "  ";
+    cout << left << setw(8) << device;
     if (auto oi = device.iOutput())
     {
-        cout << std::setw(3) << oi->getState();
+        cout << left << setw(5) << oi->getState();
         if (auto iserial = device.iSerial())
         {
             PortType ptype;
             PortTermination term;
             iserial->getConfig(ptype, term);
-            cout << "  " << ptype;
-            if (ptype == PortType::RS422)
-                cout << "/485f";
-            cout << " " << term;
+            cout << left << setw(5) << ptype.toString(ptf_485);
+            cout << left << setw(8) << term;
             bool rts;
             if (read_rts(fd, rts))
             {
-                cout << " " << (rts ? "rts1" : "rts0");
+                cout << left << setw(5) << (rts ? "rts1" : "rts0");
             }
         }
         if (auto ibutton = device.iButton())
         {
-            cout << "  " << (ibutton->isDown() ? "down" : "up");
+            cout << (ibutton->isDown() ? "down" : "up");
         }
     }
     else
