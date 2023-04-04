@@ -549,56 +549,5 @@ char SerialPortIODevice::readchar()
     return *_savep++;
 }
 
-/* static */
-int SerialPortIODevice::createPtyLink(const std::string& link)
-{
-    int fd;
-    const char* ptmx = "/dev/ptmx";
-
-    // could also use getpt() here.
-    if ((fd = ::open(ptmx,O_RDWR|O_NOCTTY)) < 0) 
-        throw IOException(ptmx,"open",errno);
-
-    char* slave = ptsname(fd);
-    if (!slave) throw IOException(ptmx,"ptsname",errno);
-
-    // cerr << "slave pty=" << slave << endl;
-
-    if (grantpt(fd) < 0) throw IOException(ptmx,"grantpt",errno);
-    if (unlockpt(fd) < 0) throw IOException(ptmx,"unlockpt",errno);
-
-    bool dolink = true;
-    struct stat linkstat;
-    if (lstat(link.c_str(),&linkstat) < 0) {
-        if (errno != ENOENT)
-            throw IOException(link,"stat",errno);
-    }
-    else {
-        if (S_ISLNK(linkstat.st_mode)) {
-            char linkdest[MAXPATHLEN];
-            int ld = readlink(link.c_str(),linkdest,MAXPATHLEN-1);
-            if (ld < 0)
-                throw IOException(link,"readlink",errno);
-            linkdest[ld] = 0;
-            if (strcmp(slave,linkdest)) {
-                cerr << "Deleting " << link << " (a symbolic link to " << linkdest << ")" << endl;
-                if (unlink(link.c_str()) < 0)
-                    throw IOException(link,"unlink",errno);
-            }
-            else dolink = false;
-        }
-        else
-            throw IOException(link,
-                    "exists and is not a symbolic link","");
-
-    }
-    if (dolink) {
-        cerr << "Linking " << slave << " to " << link << endl;
-        if (symlink(slave,link.c_str()) < 0)
-            throw IOException(link,"symlink",errno);
-    }
-    return fd;
-}
-
 
 }} // namespace nidas { namespace core
