@@ -337,11 +337,6 @@ protected:
     void initCustomMetaData();
 
 private:
-    // default message parameters for the PB210
-    static const int DEFAULT_MESSAGE_LENGTH = 0;
-    static const bool DEFAULT_MSG_SEP_EOM = true;
-    static const char* DEFAULT_MSG_SEP_CHARS;
-
     // default science parameters for the PB210
     static const PTB220_COMMANDS DEFAULT_SENSOR_SEND_MODE_CMD = SENSOR_SEND_MODE_CMD;
     static const char* DEFAULT_SENSOR_SEND_MODE;
@@ -433,21 +428,6 @@ private:
 	// table to hold the strings for easy lookup
 	static const char* cmdTable[NUM_SENSOR_CMDS];
 
-	// NOTE: list sensor bauds from highest to lowest as the higher
-    //       ones are the most likely
-    static const int NUM_SENSOR_BAUDS = 5;
-    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_SENSOR_WORD_SPECS = 9;
-    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
-    static const int NUM_PORT_TYPES = 3;
-    static const n_c::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
-
-    static const n_c::PortConfig DEFAULT_PORT_CONFIG;
-
-    static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 3;
-
-    n_c::PortConfig testPortConfig;
-    n_c::PortConfig desiredPortConfig;
     n_c::MessageConfig defaultMessageConfig;
 
     n_c::SensorCmdData* desiredScienceParameters;

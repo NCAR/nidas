@@ -25,7 +25,7 @@
 #ifndef NIDAS_CORE_PORTCONFIG_H
 #define NIDAS_CORE_PORTCONFIG_H
 
-#include "nidas/util/Termios.h"
+#include <nidas/util/Termios.h>
 #include "PortType.h"
 
 namespace nidas { namespace core {

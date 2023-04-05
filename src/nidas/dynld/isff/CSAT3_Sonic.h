@@ -47,7 +47,7 @@ class CSAT3_Sonic: public Wind3D
 {
 public:
 
-    CSAT3_Sonic(const bool supportsAutoConfig=true, const PortConfig portConfig=DEFAULT_PORT_CONFIG);
+    CSAT3_Sonic();
 
     ~CSAT3_Sonic();
 

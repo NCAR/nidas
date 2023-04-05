@@ -238,20 +238,8 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    // NOTE: list sensor bauds from highest to lowest as the higher  
-    //       ones are the most likely
-    static const int NUM_SENSOR_BAUDS = 5;
-    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_SENSOR_WORD_SPECS = 3;
-    static const n_c::WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
-    static const int NUM_PORT_TYPES = 3;
-    static const n_c::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
-
-    static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 2.5;
-
     n_c::MessageConfig defaultMessageConfig;
     n_c::SensorCmdData* desiredScienceParameters;
-
 
     // no copying
     PTB210(const PTB210& x);

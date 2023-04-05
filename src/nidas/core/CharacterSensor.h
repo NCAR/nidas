@@ -64,12 +64,18 @@ public:
 
     /**
      * Creates an IODevice depending on the device name prefix:
+     * 
      * name prefix      type of IODevice
      * inet:            TCPSocketIODevice
      * sock:            TCPSocketIODevice
      * usock:           UDPSocketIODevice
      * btspp:           BluetoothRFCommSocketIODevice
-     * all others       UnixIODevice
+     * all others       nullptr
+     * 
+     * A subclass can call this method first to see if the normal IO device
+     * should be subverted by one of the device types with the recognized
+     * prefix.  If the return value is a nullptr, then the subclass should
+     * create the IO device itself.
      */
     IODevice* buildIODevice() throw(nidas::util::IOException);
 

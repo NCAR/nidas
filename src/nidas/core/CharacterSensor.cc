@@ -120,7 +120,7 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
     else if (getDeviceName().find("btspp:") == 0)
         return new BluetoothRFCommSocketIODevice();
 #endif
-    else return new UnixIODevice();
+    return nullptr;
 }
 
 SampleScanner* CharacterSensor::buildSampleScanner()

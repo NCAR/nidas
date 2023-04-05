@@ -76,10 +76,8 @@ map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
-static const PortConfig DEFAULT_PORT_CONFIG(38400, 8, Parity::NONE, 1, RS232);
-
 WisardMote::WisardMote() :
-	SerialSensor(DEFAULT_PORT_CONFIG),
+	SerialSensor(),
 	_sampleTagsById(),
     _processorSensor(0),
     _sensorSerialNumbersByMoteIdAndType(),
@@ -92,11 +90,13 @@ WisardMote::WisardMote() :
     _ignoredSensorTypes(),
     _nowarnSensorTypes(),
     _tsoilData(),
-    defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    defaultMessageConfig(0, "\x03\x04\r", true),
     _scienceParameters(), _epilogScienceParameters(),
     _scienceParametersOk(false),
     _commandTable(), _cfgParameters(), _configMetaData()
 {
+    addPortConfig(PortConfig(38400, 8, Parity::NONE, 1, RS232));
+
     setDuplicateIdOK(true);
     initFuncMap();
 
@@ -108,7 +108,8 @@ WisardMote::WisardMote() :
      */
     setMessageParameters(defaultMessageConfig);
 
-    initAutoCfg();
+    initCmdTable();
+    initScienceParams();
     initCustomMetaData();
     setAutoConfigSupported();
 }
@@ -1827,16 +1828,6 @@ const float WisardMote::IIN_GAIN_CAL_MIN = 0.0f;
 const float WisardMote::IIN_GAIN_CAL_MAX = 3.40282346638528859811704183484516925e+38;
 
 
-const int WisardMote::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {38400};
-
-const WordSpec WisardMote::SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
-{
-	WordSpec(8, Parity::NONE, 1),
-};
-const PortType WisardMote::SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
-
-//Default message parameters for the WisardMote
-const char* WisardMote::DEFAULT_MSG_SEP_CHARS = "\x03\x04\r";
 
 // Data output after reset
 static string MODEL_ID_REGEX_SPEC("ID[[:digit:]]+:(?:\x01\x02|[[:blank:]]+)[[:digit:]]{1,3}-[[:digit:]]{1,2}:[[:digit:]]{1,2}:[[:digit:]]{1,2} (Wisard(?:_[[:alnum:]]+)+) ResetSource = Software Reset");
@@ -2135,22 +2126,6 @@ void WisardMote::initScienceParams()
     updateScienceParameter(MSG_FMT_CMD, SensorCmdArg(MSG_FMT_DEFAULT));
     // update the eeprom w/the configs
     updateScienceParameter(EE_UPDATE_CMD);
-}
-
-void WisardMote::initPortCfgParams()
-{
-    // Let the SerialSensor base class know about WisardMote serial port limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-    	_baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
-    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
 }
 
 void WisardMote::fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException)

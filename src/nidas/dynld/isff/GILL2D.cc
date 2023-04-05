@@ -105,22 +105,8 @@ const char* GILL2D::cmdTable[NUM_SENSOR_CMDS] =
 };
 
 
-// NOTE: list sensor bauds from highest to lowest as the higher
-//       ones are the most likely
-const int GILL2D::SENSOR_BAUDS[NUM_BAUD_ARGS] = {9600, 19200, 4800, 38400, 2400, 1200, 300};
-const n_c::WordSpec GILL2D::SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS] =
-{
-    WordSpec(8, Parity::NONE, 1),
-    WordSpec(8, Parity::EVEN, 1),
-    WordSpec(8, Parity::ODD, 1),
-};
-
-// GIL instruments do not use RS232
-const n_c::PortType GILL2D::SENSOR_PORT_TYPES[GILL2D::NUM_PORT_TYPES] = {n_c::RS422, n_c::RS485_HALF };
 
 
-// static default configuration to send to base class...
-static const PortConfig DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS422);
 
 const n_c::SensorCmdData GILL2D::DEFAULT_SCIENCE_PARAMETERS[] =
 {
@@ -211,28 +197,24 @@ static const std::string VERT_MEAS_PAD_CFG_DESC("Vert Pad");
 static const std::string ALIGN_45_DEG_CFG_DESC("Align/45 Deg");
 
 GILL2D::GILL2D()
-    : Wind2D(DEFAULT_PORT_CONFIG),
-      testPortConfig(),
-      _desiredPortConfig(DEFAULT_PORT_CONFIG),
+    : Wind2D(),
       _defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
-      _desiredScienceParameters(), _sosEnabled(false), _unitId('\0'), _polling(false)
+      _desiredScienceParameters(), _sosEnabled(false), _unitId('\0')
 {
+    // Build the alternate configs from all the combinations, since there are so many.
+    for (int baud: {9600, 19200, 4800, 38400, 2400, 1200, 300})
+    {
+        for (auto pt: { RS422, RS485_HALF })
+        {
+            addPortConfig(PortConfig(baud, 8, Parity::N, 1, pt));
+            addPortConfig(PortConfig(baud, 8, Parity::E, 1, pt));
+            addPortConfig(PortConfig(baud, 8, Parity::O, 1, pt));
+        }
+    }
+
     // We set the defaults at construction,
     // letting the base class modify according to fromDOMElement()
     setMessageParameters(_defaultMessageConfig);
-
-    // Let the base class know about PTB210 RS232 limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-        _portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
-
-    for (int i=0; i<NUM_BAUD_ARGS; ++i) {
-        _baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
-
-    for (int i=0; i<NUM_DATA_WORD_ARGS; ++i) {
-        _serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
 
     _desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {

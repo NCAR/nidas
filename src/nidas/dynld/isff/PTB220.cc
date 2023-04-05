@@ -40,8 +40,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB220)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const char* PTB220::DEFAULT_MSG_SEP_CHARS = "\r\n";
-
 const char* PTB220::SENSOR_SEND_MODE_CMD_STR = "SMODE \r\n";
 // Requires SW4 set to write enable
 //const char* PTB220::SENSOR_MEAS_MODE_CMD_STR = "MMODE \r\n";
@@ -143,30 +141,6 @@ const char* PTB220::cmdTable[NUM_SENSOR_CMDS] =
 	// SENSOR_PULSE_MODE_TEST_CMD_STR
 };
 
-// NOTE: list sensor bauds from highest to lowest as the higher 
-//       ones are the most likely
-const int PTB220::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 4800, 2400, 1200, 600};
-// list the possible word specifications - most likely first
-
-const WordSpec PTB220::SENSOR_WORD_SPECS[PTB220::NUM_SENSOR_WORD_SPECS] = {
-    WordSpec(7,Parity::EVEN,1),
-    WordSpec(7,Parity::ODD,1),
-    WordSpec(8,Parity::NONE,1),
-    WordSpec(8,Parity::EVEN,1),
-    WordSpec(8,Parity::ODD,1),
-
-	// put 2 stop bits last because these are really rarely used.
-    WordSpec(7,Parity::NONE,2),
-    WordSpec(7,Parity::EVEN,2),
-    WordSpec(7,Parity::ODD,2),
-    WordSpec(8,Parity::NONE,2)
-};
-
-const n_c::PortType PTB220::SENSOR_PORT_TYPES[PTB220::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
-
-// static default configuration to send to base class...
-const PortConfig PTB220::DEFAULT_PORT_CONFIG(9600, 7, Parity::ODD, 1, RS232);
-
 const n_c::SensorCmdData PTB220::DEFAULT_SCIENCE_PARAMETERS[] = {
 	n_c::SensorCmdData(DEFAULT_PRESS_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_PRESS_UNITS))),
 	n_c::SensorCmdData(DEFAULT_TEMP_UNITS_CMD, n_c::SensorCmdArg(pressTempUnitsArgsToStr(DEFAULT_TEMP_UNITS))),
@@ -182,6 +156,8 @@ const int PTB220::NUM_DEFAULT_SCIENCE_PARAMETERS = sizeof(DEFAULT_SCIENCE_PARAME
 const char* PTB220::DEFAULT_SENSOR_OUTPUT_FORMAT = "\"B\" ADDR \" \" 4.3 P1 3.1 T1 #r #n";
 const char* PTB220::DEFAULT_SENSOR_SEND_MODE = "RUN";
 const char* PTB220::DEFAULT_OUTPUT_RATE_UNIT = "s";
+
+static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 3;
 
 
 /* Typical PTB220 ? query response. All line endings are \r\n
@@ -295,26 +271,32 @@ static const std::string PTB220_AVG_TIME_CFG_DESC("Averaging time");
 
 
 PTB220::PTB220()
-    : SerialSensor(DEFAULT_PORT_CONFIG), testPortConfig(), desiredPortConfig(DEFAULT_PORT_CONFIG),
-      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    : SerialSensor(),
+      defaultMessageConfig(0, "\r\n", true),
       desiredScienceParameters(), sensorSWVersion(""), sensorSerialNumber("")
 {
+    auto bauds = {9600, 4800, 2400, 1200, 600};
+    for (int baud: bauds)
+    {
+        addPortConfig(PortConfig(baud, 7, Parity::ODD, 1, RS232));
+        addPortConfig(PortConfig(baud, 7, Parity::EVEN, 1, RS232));
+        addPortConfig(PortConfig(baud, 8, Parity::NONE, 1, RS232));
+        addPortConfig(PortConfig(baud, 8, Parity::EVEN, 1, RS232));
+        addPortConfig(PortConfig(baud, 8, Parity::ODD, 1, RS232));
+    }
+
+    // put 2 stop bits last because these are really rarely used.
+    for (int baud: bauds)
+    {
+        addPortConfig(PortConfig(baud, 7, Parity::N, 2, RS232));
+        addPortConfig(PortConfig(baud, 7, Parity::E, 2, RS232));
+        addPortConfig(PortConfig(baud, 7, Parity::O, 2, RS232));
+        addPortConfig(PortConfig(baud, 8, Parity::N, 2, RS232));
+    }
+
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
-
-    // Let the base class know about PTB210 RS232 limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-    	_baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
-    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
 
     desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
@@ -487,7 +469,7 @@ bool PTB220::installDesiredSensorConfig(const PortConfig& rDesiredPortConfig)
 
         else {
             DLOG(("Attempt to set PortConfig to desiredPortConfig failed."));
-            DLOG(("Desired PortConfig: ") << desiredPortConfig);
+            DLOG(("Desired PortConfig: ") << rDesiredPortConfig);
             DLOG(("Actual set PortConfig: ") << getPortConfig());
         }
     }

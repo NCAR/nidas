@@ -52,7 +52,7 @@ static const PortConfig DEFAULT_PORT_CONFIG(115200, 8, Parity::NONE, 1, RS485_FU
 
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
-    CSAT3_Sonic(false, ::DEFAULT_PORT_CONFIG),
+    CSAT3_Sonic(),
     _numOut(0),
     _timeDelay(0),
     _badCRCs(0),

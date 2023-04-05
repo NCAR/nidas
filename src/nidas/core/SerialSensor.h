@@ -35,18 +35,6 @@ using namespace nidas::util;
 
 namespace nidas { namespace core {
 
-/**
- *  Autoconfig helpers
- */
-struct WordSpec
-{
-	WordSpec(int dbits, Parity prty, int stopbits)
-	: dataBits(dbits), parity(prty), stopBits(stopbits) {}
-    int dataBits;
-    Parity parity;
-    int stopBits;
-};
-
 struct SensorCmdArg
 {
 	std::string strArg;
@@ -146,6 +134,116 @@ std::string to_string(AUTOCONFIG_STATE autoState);
  *         scanr = buildSampleScanner();
  *              Calls CharacterSensor::buildSampleScanner().
  *         scanr->init()
+ *
+ * SerialSensor, for when it is actually connected to a serial port, can
+ * specify multiple possible configurations for the serial port.  These serial
+ * port configurations can be added when the SerialSensor subclass is
+ * constructed, or they can be added from the XML configuration.  They are
+ * meant to be typical or likely serial port configurations used by a sensor.
+ * For sensors which support autoconfiguration, where the sensor class knows
+ * how to test that sensor communication settings are working, the sensor can
+ * search the port configurations to find the one which works.
+ *
+ * Port configurations from the XML are inserted ahead of the configurations
+ * added in the code.  Once all port configurations are added, the first one
+ * becomes the active configuration by default.
+ *
+ * For sensors which know how to query and possible change the settings in the
+ * sensor, those settings can be specified in a default SensorConfig object.
+ * The SensorConfig can be modified by the XML.  When the sensor is opened,
+ * and after the serial communication parameters have been settled on both
+ * sides of the connection, autoconfig sensors can then apply the SensorConfig
+ * settings to the sensor.
+ *
+ * Here is the nominal sequence for opening a sensor with a serial connection:
+ *
+ * :open: Open sensor device.
+ *
+ * :set active config:
+ *
+ * Set the first serial config as the active config, identified by index 0.
+ * If the sensor does not support searching ("sweeping") port configs, skip to
+ * :query:
+ *
+ * :test: Test that the sensor is responding.
+ *
+ * If not responding, set active config to the next config, go back to :test:
+ * If no working config found, go back to first config, and skip to :query:
+ *
+ * :change sensor serial config:
+ *
+ * If the working portconfig is not the required one, and the sensor supports
+ * changing the sensor communications parameters, change the sensor to that
+ * config.  Either way, continue to :query:
+ *
+ * :query:
+ *
+ * If sensor supports it, query for the metadata, record it, and publish it.
+ * This can fail if no working serial communications could be established or
+ * if there are sensor problems.  Either way, continue to the next step.
+ *
+ * :data:
+ *
+ * Put sensor into data mode, such as with an init string or command.  This
+ * step may not do anything if the sensor is expected to come up sending data
+ * and has no init string.
+ *
+ * :done:
+ *
+ * Sensor open, start reading samples.
+ *
+ * The sensor XML config can be used to extend the default serial port configs
+ * in the <autoconfig> element.  The serial port configs are in a separate
+ * element, <portconfig>, since they are specific to serial connections to the
+ * sensor.  Sensor configuration settings are specified in a <sensorconfig>
+ * element.  Any serial settings in the <serialSensor> element automatically
+ * become the first serial config in the list of settings, followed by serial
+ * settings in the <autoconfig> element (for backwards compatibility with the
+ * original scheme), followed by <portconfig> elements inside <autoconfig>.
+ *
+ * For example, here is an example of the planned XML scheme to specify
+ * autoconfiguration settings for the Gill 2D sonic:
+ *
+ * @code
+ * <autoconfig>
+ *
+ * <sensorconfig outputrate='10'/>
+ *
+ * <portconfig baud="19200" parity="none" databits="8" stopbits="1"/>
+ *
+ * <portconfig baud="9600" parity="none" databits="8" stopbits="1"/>
+ *
+ * <portconfig baud="9600" parity="even" databits="7" stopbits="1"/>
+ *
+ * </autoconfig>
+ * @endcode
+ *
+ * For reference, the full <portconfig> element can have these attributes:
+ *
+ *   baud="9600" databits="7" parity="even" stopbits="1" porttype="rs232"
+ *   termination="noterm" rts485="0"
+ *
+ * Note that serial port configurations can have porttype and termination
+ * settings even if the sensor is not connected to a DSM port where those
+ * settings can be changed.  However, if a DSM port does need those settings,
+ * then the ones in the active <portconfig> will be uesd, even if just the
+ * default of RS232.
+ *
+ * In future iterations, we may want to add a 'disable' or 'ignore' flag to
+ * elements like autoconfig, portconfig, and sensorconfig, so they can be left
+ * in the XML config for reference but easily disabled for a specific
+ * deployment.  Also, rather than a sensor class always trying to force a
+ * sensor into the first communications settings, that might be better if
+ * explicitly requested in the config, such as with an attribute like
+ * required=true.
+ *
+ * At any time a SerialSensor has an _active_ serial port config and a set of
+ * alternate configs.  The _active_ config is the one applied to the
+ * SerialPortIODevice when one has been attached to this sensor.  The _active_
+ * config can be changed at any time with setPortConfig().
+ *
+ * The set of alternate configs is modified and accessed with
+ * getPortConfigs(), addPortConfig(), and replacePortConfigs().
  */
 class SerialSensor : public CharacterSensor
 {
@@ -157,7 +255,6 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     SerialSensor();
-    SerialSensor(const PortConfig& rInitPortConfig);
 
     ~SerialSensor();
 
@@ -165,12 +262,12 @@ public:
      * Expose the Termios. One must call applyTermios() to
      * apply any changes to the serial port.
      */
-    nidas::util::Termios& termios() { return _desiredPortConfig.termios; }
+    nidas::util::Termios& termios() { return _portconfig.termios; }
 
     /**
      * Get a read-only copy of the Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _desiredPortConfig.termios; }
+    const nidas::util::Termios& getTermios() const { return _portconfig.termios; }
 
     /**
      * Calls CharacterSensor::buildSampleScanner(), and then sets the 
@@ -196,8 +293,6 @@ public:
      * copied to the device, which will then be applied when the device is opened.
      */
     IODevice* buildIODevice() throw(nidas::util::IOException);
-    void setSerialPortIODevice(SerialPortIODevice* pSerialPortIODevice) {_serialDevice = pSerialPortIODevice;}
-    SerialPortIODevice* getSerialPortIODevice() {return _serialDevice;}
 
     /**
      * Open the device connected to the sensor. This calls
@@ -260,32 +355,6 @@ public:
      */
     int getUsecsPerByte() const;
 
-    /**
-     * Get the working PortConfig.  The _working_ PortConfig is the one
-     * attached to the SerialPortIODevice as it was last applied.  If no
-     * SerialPortIODevice has been created for this SerialSensor yet, then a
-     * default PortConfig is returned.
-     *
-     */
-    PortConfig getPortConfig();
-
-    /**
-     * Set the _working_ PortConfig, the one which the attached
-     * SerialPortIODevice will apply, but do not apply any changes to an open
-     * serial device.  See applyPortConfig().  This has no effect if a
-     * SerialPortIODevice is not attached to this SerialSensor.
-     *
-     * @param newPortConfig 
-     */
-    void setPortConfig(const PortConfig newPortConfig);
-
-    PortConfig getDefaultPortConfig() {return _defaultPortConfig;}
-    void setDefaultPortConfig(const PortConfig& newDefaultPortConfig) {_defaultPortConfig = newDefaultPortConfig;}
-    PortConfig getDesiredPortConfig() {return _desiredPortConfig;}
-    void setDesiredPortConfig(const PortConfig& newDesiredPortConfig) {_desiredPortConfig = newDesiredPortConfig;}
-
-    void applyPortConfig();
-
     AUTOCONFIG_STATE getAutoConfigState() {return _autoConfigState; }
     AUTOCONFIG_STATE getSerialConfigState() {return _serialState; }
     AUTOCONFIG_STATE getScienceConfigState() {return _scienceState; }
@@ -315,6 +384,83 @@ public:
              ++i);
     }
 
+    /**
+     * @defgroup PortConfig Serial port configuration methods
+     */
+    /**@{*/
+
+    /**
+     * Container type for alternate serial port configs for this sensor.
+     */
+    using PortConfigList = std::vector<PortConfig>;
+
+    /**
+     * Return the serial port configs associated with this sensor as a vector.
+     * The reference is only valid until the list is changed with
+     * addPortConfig() or replacePortConfigs().
+     */
+    PortConfigList
+    getPortConfigs();
+
+    /**
+     * Return the first PortConfig associated with this sensor.  This is the
+     * config that would be tried first as the active config when the sensor
+     * serial port is opened.  If the list of available port configs is empty,
+     * this returns a default PortConfig().
+     */
+    PortConfig
+    getFirstPortConfig();
+
+    /**
+     * Add @p pc to the end of available serial port configs for this sensor.
+     * This does not affect the active port config.
+     */
+    void
+    addPortConfig(const PortConfig& pc);
+
+    /**
+     * Replace the entire list of available serial port configs.  This does
+     * not affect the active port config.
+     */
+    void
+    replacePortConfigs(const PortConfigList& pconfigs);
+
+    /**
+     * Get the _active_ PortConfig, the one last set by setPortConfig().  As
+     * mentioned for setPortConfig(), the _active_ PortConfig may or may not
+     * be in the list of available port configs for this sensor.  The _active_
+     * PortConfig is just an empty default until the sensor is opened (when
+     * the first of the requested port configs becomes active) or until
+     * setPortConfig() is called.
+     */
+    PortConfig getPortConfig();
+
+    /**
+     * Set the _active_ PortConfig on this SerialSensor, and apply it to a
+     * SerialPortIODevice if attached.  If a SerialPortIODevice is not
+     * attached to this SerialSensor, then the _active_ PortConfig is what
+     * will be applied when one is created.  See applyPortConfig().
+     *
+     * The _active_ config is typically set from among the set of available
+     * configs.  When the SerialSensor is opened, the first of the available
+     * configs becomes the active config, but a sensor may also cycle through
+     * available configs by setting each one as the active config with
+     * setPortConfig().
+     *
+     * Setting the active config does not change the list of available
+     * configs, so the active config may or may not appear in the available
+     * configs.
+     *
+     * When the active port config is changed, it is explicitly set to raw
+     * mode with a raw length of 1, and then it is applied to the
+     * SerialPortIODevice, if any.
+     */
+    void setPortConfig(const PortConfig& portconfig);
+
+    void applyPortConfig();
+
+    /**@}*/
+
 protected:
 
     /**
@@ -335,12 +481,18 @@ protected:
      *  SerialSensor.
      */
     void doAutoConfig();
-    void setTargetPortConfig(PortConfig& target, int baud, int dataBits, Parity parity, int stopBits,
-												 int rts485, PortType ptype, PortTermination termination);
-    bool isDefaultConfig(const PortConfig& rTestConfig) const;
+
+    /**
+     * Search the available serial port configurations for one which works.
+     *
+     * The sensor must implement autoconfig methods to indicate when a sensor
+     * is successfully communicating over the active port config.
+     * 
+     * @return true A working PortConfig was found and is currently active.
+     * @return false No working PortConfig, last tried config is active.
+     */
     bool findWorkingSerialPortConfig();
-    bool testDefaultPortConfig();
-    bool sweepCommParameters();
+
     int bytesAvailable()
     {
         int bytesInReadBuffer = 0;
@@ -388,30 +540,10 @@ protected:
     // autoconfig XML tag.
     bool _autoConfigEnabled;
 
-    /*******************************************************
-     * Aggregate serial port configuration
-     * 
-     * Holds a default port config (both Termios config and XcvrConfig) 
-     * which may be passed down by an auto-config subclass, 
-     * which may be further updated by fromDOMElement().
-     * 
-     * No other operations occur on this attribute, since if 
-     * this SerialSensor truly is a traditional serial port, then 
-     * all the necessary operations such as set/get/applyPortConfig
-     * occur in SerialPortIODevice. 
-     *******************************************************/
-    PortConfig _desiredPortConfig;
+    // _active_ port config
+    PortConfig _portconfig;
 
-    /*
-     * Containers for holding the possible serial port parameters which may be used by a sensor
-     */
-    typedef std::list<PortType> PortTypeList;
-    typedef std::list<int> BaudRateList;
-    typedef std::list<WordSpec> WordSpecList;
-
-	PortTypeList _portTypeList;			// list of PortTypes this sensor may make use of
-    BaudRateList _baudRateList;			// list of baud rates this sensor may make use of
-    WordSpecList _serialWordSpecList;	// list of serial word specifications (databits, parity, stopbits) this sensor may make use of
+    PortConfigList _portconfigs;
 
     AUTOCONFIG_STATE _autoConfigState;
     AUTOCONFIG_STATE _serialState;
@@ -420,11 +552,6 @@ protected:
     CFG_MODE_STATUS _configMode;
 
 private:
-    /*
-     *  The initial PortConfig sent by the subclass when constructing SerialSensor
-     */
-    PortConfig _defaultPortConfig;
-
     /**
      *  Non-null if the underlying IODevice is a SerialPortIODevice.
      */
@@ -473,11 +600,8 @@ private:
 
     bool _prompting;
 
-    /** No copying. */
-    SerialSensor(const SerialSensor&);
-
-    /** No assignment. */
-    SerialSensor& operator=(const SerialSensor&);
+    SerialSensor(const SerialSensor&) = delete;
+    SerialSensor& operator=(const SerialSensor&) = delete;
 
 };
 

@@ -80,30 +80,11 @@ enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
 };
 
 
-/* 
- *  Autoconfig port defintions
- */
-// NOTE: list sensor bauds from highest to lowest as the higher
-//       ones are the most likely
-static const int NUM_SENSOR_BAUDS = 1;
-static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600};
-static const int NUM_SENSOR_WORD_SPECS = 1;
-static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS] =
-{
-    WordSpec(8, Parity::NONE, 1),
-};
-
-// TRH instruments only use RS232
-static const int NUM_PORT_TYPES = 1;
-static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
-
-static const PortConfig DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS232);
-
 // default message parameters for the TRH
 static MessageConfig defaultMessageConfig(0, "\n", true);
 
 NCAR_TRH::NCAR_TRH():
-    SerialSensor(DEFAULT_PORT_CONFIG),
+    SerialSensor(),
     _ifan(),
     _minIfan(-numeric_limits<float>::max()),
     _maxIfan(numeric_limits<float>::max()),
@@ -117,6 +98,9 @@ NCAR_TRH::NCAR_TRH():
     _raw_rh_handler(0),
     _compute_order()
 {
+    // There is only one port config for TRH.
+    addPortConfig(PortConfig(9600, 8, Parity::NONE, 1, RS232));
+
     _raw_t_handler = makeCalFileHandler
         (std::bind1st(std::mem_fun(&NCAR_TRH::handleRawT), this));
     _raw_rh_handler = makeCalFileHandler
@@ -125,19 +109,6 @@ NCAR_TRH::NCAR_TRH():
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
-
-    // Let the base class know about PTB210 RS232 limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-    	_baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
-    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
 
     setManufacturer("NCAR");
     setModel("TRH");

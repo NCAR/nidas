@@ -36,9 +36,6 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
-class HandleRawT;
-class HandleRawRH;
-
 enum TRH_SENSOR_COMMANDS : unsigned short;
 
 /**
