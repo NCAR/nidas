@@ -18,7 +18,7 @@ tests = env.Program('tSerialSensorAutoConfig', sources)
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()
 runtest = env.Command("xtest", tests,
-                      env.ChdirActions(["./$SOURCE.file --log_level=message"]))
+                      env.ChdirActions(["./$SOURCE.file --log_level=all -- --log debug"]))
 env.Precious(runtest)
 env.AlwaysBuild(runtest)
 env.Alias('test', runtest)

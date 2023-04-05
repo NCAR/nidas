@@ -412,15 +412,30 @@ public:
     getFirstPortConfig();
 
     /**
-     * Add @p pc to the end of available serial port configs for this sensor.
-     * This does not affect the active port config.
+     * Insert @p pc into the available configs at the port config index.
+     * 
+     * See setPortConfigIndex().  This does not affect the active port config.
      */
     void
     addPortConfig(const PortConfig& pc);
 
     /**
+     * Set the port config index to @p idx.
+     * 
+     * The port config index starts at zero and is incremented on each call to
+     * addPortConfig().  Setting it to zero allows new configs to be inserted
+     * ahead of any existing configs.  This is used to add XML port configs in
+     * front of any configs added by the sensor subclass, so the XML configs
+     * take precedence.  Pass @p idx as 0 to start adding at the front, pass
+     * -1 to set it to the end.
+     */
+    void
+    setPortConfigIndex(int idx=0);
+
+    /**
      * Replace the entire list of available serial port configs.  This does
-     * not affect the active port config.
+     * not affect the active port config.  The index is set to add new port
+     * configs to the end of the list, as in setPortConfigIndex(-1).
      */
     void
     replacePortConfigs(const PortConfigList& pconfigs);
@@ -544,6 +559,7 @@ protected:
     PortConfig _portconfig;
 
     PortConfigList _portconfigs;
+    unsigned int _pcindex;
 
     AUTOCONFIG_STATE _autoConfigState;
     AUTOCONFIG_STATE _serialState;

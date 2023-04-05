@@ -59,7 +59,10 @@
 		baud="9600" 
         parity="even" 
         databits="7" 
-        stopbits="1">
+        stopbits="1"
+        porttype="232"
+        termination="term"
+        rts485="1">
         <autoconfig />
         <!-- 838.26\r\n -->
         <sample 

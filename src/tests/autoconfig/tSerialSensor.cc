@@ -46,7 +46,7 @@ public:
     Project& operator()() {return *Project::getInstance();}
 };
 
-PortConfig _defaultPortConfig(19200, 7, Parity::EVEN, 1, RS422, TERM_120_OHM,-1);
+PortConfig _defaultPortConfig(19200, 7, Parity::EVEN, 1, RS422, TERM_120_OHM, -1);
 PortConfig defaultPortConfig(_defaultPortConfig);
 PortConfig _deviceOperatingPortConfig(38400, 8, Parity::NONE, 1, RS232, NO_TERM, 0);
 PortConfig deviceOperatingPortConfig(_deviceOperatingPortConfig);
@@ -98,15 +98,12 @@ bool init_unit_test()
 // entry point:
 int main(int argc, char* argv[])
 {
+    nidas::core::NidasApp napp(argv[0]);
+    napp.enableArguments(napp.loggingArgs());
+    napp.allowUnrecognized(true);
+    ArgVector args = napp.parseArgs(argc, argv);
+    DLOG(("main entered, args parsed, debugging enabled..."));
     int retval = boost::unit_test::unit_test_main( &init_unit_test, argc, argv );
-    if (retval == 0)
-    {
-        nidas::core::NidasApp napp(argv[0]);
-        napp.enableArguments(napp.loggingArgs());
-        napp.allowUnrecognized(true);
-        ArgVector args = napp.parseArgs(argc, argv);
-        DLOG(("main entered, args parsed, debugging enabled..."));
-    }
     return retval;
 }
 
@@ -231,8 +228,8 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         pSerialSensor->setIODevice(pSerialSensor->buildIODevice());
         auto* ios = dynamic_cast<SerialPortIODevice*>(pSerialSensor->getIODevice());
         BOOST_TEST(ios);
-        BOOST_TEST(ios->getPortConfig() == pSerialSensor->getPortConfig());
-        PortConfig pc = pSerialSensor->getFirstPortConfig();
+        PortConfig pc = pSerialSensor->getPortConfig();
+        BOOST_TEST(ios->getPortConfig() == pc);
         BOOST_TEST(pc.termios.getBaudRate() == 9600);
         BOOST_TEST(pc.termios.getParity() == Parity::EVEN);
         BOOST_TEST(pc.termios.getDataBits() == 7);
@@ -259,11 +256,18 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
         pMockSerialSensor->init();
         // Don't open/close because the pty being for mock can't handle termios details
-        PortConfig pc = pMockSerialSensor->getFirstPortConfig();
+
+        // This sensor has no port config in the xml, so the one activated should be the
+        // first hardcoded option, ie, _defaultPortConfig.
+        pMockSerialSensor->setIODevice(pMockSerialSensor->buildIODevice());
+        PortConfig pc = pMockSerialSensor->getPortConfig();
         BOOST_TEST(pc.termios.getBaudRate() == 19200);
         BOOST_TEST(pc.termios.getParity() == Parity::EVEN);
         BOOST_TEST(pc.termios.getDataBits() == 7);
-        BOOST_TEST(pc.termios.getStopBits() ==1);
+        BOOST_TEST(pc.termios.getStopBits() == 1);
+        BOOST_TEST(pc.port_term == TERM_120_OHM);
+        BOOST_TEST(pc.port_type == RS422);
+        BOOST_TEST(pc.rts485 == -1);
         BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor0TestInitString"));
     }
 
@@ -286,11 +290,15 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
         pMockSerialSensor->init();
         // Don't open/close because the pty being for mock can't handle termios details
-        PortConfig pc = pMockSerialSensor->getFirstPortConfig();
+        pMockSerialSensor->setIODevice(pMockSerialSensor->buildIODevice());
+        PortConfig pc = pMockSerialSensor->getPortConfig();
         BOOST_TEST(pc.termios.getBaudRate() == 9600);
         BOOST_TEST(pc.termios.getParity() == Parity::EVEN);
         BOOST_TEST(pc.termios.getDataBits() == 7);
-        BOOST_TEST(pc.termios.getStopBits() ==1);
+        BOOST_TEST(pc.termios.getStopBits() == 1);
+        BOOST_TEST(pc.port_term == TERM_120_OHM);
+        BOOST_TEST(pc.port_type == RS232);
+        BOOST_TEST(pc.rts485 == 1);
         BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor1TestInitString"));
     }
 
@@ -310,14 +318,28 @@ BOOST_AUTO_TEST_CASE(test_serialsensor_fromDOMElement)
         SensorIterator sensIter = ap().getSensorIterator();
         BOOST_REQUIRE(sensIter.hasNext() == true );
         MockSerialSensor* pMockSerialSensor = dynamic_cast<MockSerialSensor*>(sensIter.next());
-        BOOST_TEST(pMockSerialSensor != static_cast<MockSerialSensor*>(0));
+        BOOST_REQUIRE(pMockSerialSensor);
+
+        for (auto pc : pMockSerialSensor->getPortConfigs())
+        {
+            std::cerr << pc << std::endl;
+        }
+
+        // at this point the active port config has not changed, and the first port config is
+        // from the autoconfig element:
+        BOOST_TEST(pMockSerialSensor->getPortConfig() == PortConfig());
+        BOOST_TEST(pMockSerialSensor->getFirstPortConfig() == PortConfig(19200, 8, Parity::O, 2, RS232));
+
         pMockSerialSensor->init();
-        // Don't open/close because the pty being for mock can't handle termios details
-        PortConfig pc = pMockSerialSensor->getFirstPortConfig();
+        pMockSerialSensor->setIODevice(pMockSerialSensor->buildIODevice());
+        PortConfig pc = pMockSerialSensor->getPortConfig();
+        // this sensor has no port config in the sensor element, only in the
+        // autoconfig element, so those are the settings that should be
+        // activated.
         BOOST_TEST(pc.termios.getBaudRate() == 19200);
-        BOOST_TEST(pc.termios.getParity() == Parity::EVEN);
-        BOOST_TEST(pc.termios.getDataBits() == 7);
-        BOOST_TEST(pc.termios.getStopBits() == 1);
+        BOOST_TEST(pc.termios.getParity() == Parity::ODD);
+        BOOST_TEST(pc.termios.getDataBits() == 8);
+        BOOST_TEST(pc.termios.getStopBits() == 2);
         BOOST_TEST(pMockSerialSensor->getInitString() == std::string("MockSensor2TestInitString"));
     }
 }

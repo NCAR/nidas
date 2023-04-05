@@ -49,7 +49,7 @@ namespace nidas { namespace core {
 
 SerialSensor::SerialSensor():
     _autoConfigSupported(false), _autoConfigEnabled(false),
-    _portconfig(), _portconfigs(),
+    _portconfig(), _portconfigs(), _pcindex(0),
     _autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
     _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
@@ -219,18 +219,36 @@ PortConfig
 SerialSensor::
 getFirstPortConfig()
 {
-    auto it = _portconfigs.begin();
-    if (it != _portconfigs.end())
-        return *it;
+    if (_portconfigs.size())
+        return _portconfigs.front();
     return PortConfig();
 }
 
+void
+SerialSensor::
+setPortConfigIndex(int idx)
+{
+    if (idx == -1)
+    {
+        _pcindex = _portconfigs.size();
+    }
+    else if (0 <= idx && idx <= (int)_portconfigs.size())
+    {
+        _pcindex = idx;
+    }
+    else
+    {
+        _pcindex = 0;
+    }
+}
 
 void
 SerialSensor::
 addPortConfig(const PortConfig& pc)
 {
-    _portconfigs.insert(_portconfigs.end(), pc);
+    auto it = _portconfigs.begin() + _pcindex;
+    _portconfigs.insert(it, pc);
+    ++_pcindex;
 }
 
 void
@@ -238,8 +256,8 @@ SerialSensor::
 replacePortConfigs(const PortConfigList& pconfigs)
 {
     _portconfigs = pconfigs;
+    setPortConfigIndex(-1);
 }
-
 
 void SerialSensor::setPortConfig(const PortConfig& pc)
 {
@@ -406,18 +424,20 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
             if (supportsAutoConfig()) {
                 setAutoConfigEnabled();
 
+                PortConfig pc;
+                bool found_portconfig = false;
                 // get all the attributes of the node
                 xercesc::DOMNamedNodeMap* pAttributes = child->getAttributes();
                 int nSize = pAttributes->getLength();
                 for (int i = 0; i < nSize; ++i) {
                     XDOMAttr attr((xercesc::DOMAttr*) (pAttributes->item(i)));
-                    // XXX
-                    //
-                    // This is wrong because any new port configs in the xml
-                    // need to be added to the library, and in the right
-                    // position.  Since no configs use this yet, just skip it.
-                    //
-                    // _portconfig.setAttribute(getName(), attr.getName(), attr.getValue());
+                    if (pc.setAttribute(getName(), attr.getName(), attr.getValue()))
+                        found_portconfig = true;
+                }
+                if (found_portconfig)
+                {
+                    addPortConfig(pc);
+                    DLOG(("") << "added port config from autoconfig element: " << pc);
                 }
             }
         }
@@ -442,6 +462,12 @@ void SerialSensor::fromDOMElement(
     CharacterSensor::fromDOMElement(node);
 
     DLOG(("SuperClass::fromDOMElement() methods done..."));
+
+    // this is called before any sensor calls fromDOMElementAutoConfig(), so
+    // reset the port config index so that all port configs from the xml get
+    // inserted ahead of any existing configs, in the order read from the xml.
+    DLOG(("") << "SerialSensor::fromDOMElement resetting port config index");
+    setPortConfigIndex(0);
 
     if(node->hasAttributes()) {
         // get all the attributes of the node
@@ -476,8 +502,9 @@ void SerialSensor::fromDOMElement(
         }
         if (found_portconfig)
         {
-            // insert this port config in the front of the known configs.
-            _portconfigs.insert(_portconfigs.begin(), portconfig);
+            // insert this port config in the front of any built-in configs.
+            addPortConfig(portconfig);
+            DLOG(("") << "added port config from sensor element: " << portconfig);
         }
     }
 

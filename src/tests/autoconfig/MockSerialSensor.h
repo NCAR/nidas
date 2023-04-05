@@ -47,6 +47,13 @@ public:
 
     ~MockSerialSensor() {}
 
+    void fromDOMElement(const xercesc::DOMElement* node)
+        throw(nidas::util::InvalidParameterException) override
+    {
+        SerialSensor::fromDOMElement(node);
+        fromDOMElementAutoConfig(node);
+    }
+
 protected:
     MessageConfig defaultMessageConfig;
 
