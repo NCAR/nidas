@@ -3,6 +3,7 @@
 from SCons.Script import Import
 
 Import('env')
+mdenv = env.Clone()
 env = env.Clone(tools = ['nidas', 'valgrind', 'nidasdynld'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
@@ -14,6 +15,21 @@ tSerialSensor.cc
 tgill.cc
 """)
 tests = env.Program('tSerialSensorAutoConfig', sources)
+
+mdenv.Require('nidasutil')
+mdenv.Append(LIBS = ['boost_unit_test_framework'])
+mdtest = mdenv.Program('tmetadata', 'tmetadata.cc')
+# mdenv.NidasRuntimeENV()
+env.Alias('test_metadata', 
+          env.Command("test_metadata", mdtest,
+                      env.ChdirActions(["./$SOURCE.file --log_level=all -- --log debug"])))
+env.ValgrindLog('memcheck_metadata', 
+                env.Command('vg.memcheck_metadata.log', mdtest,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --leak-check=full --show-leak-kinds=all"
+                            " --gen-suppressions=all"
+                            " ./${SOURCE.file} --log_level=message"
+                            " >& ${TARGET.abspath}"))
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 env.NidasRuntimeENV()
