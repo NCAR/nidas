@@ -92,18 +92,8 @@ const char* PTB210::cmdTable[NUM_SENSOR_CMDS] =
     SENSOR_CONFIG_QRY_CMD_STR
 };
 
-// NOTE: list sensor bauds from highest to lowest as the higher 
-//       ones are the most likely
-const int PTB210::SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {19200, 9600, 4800, 2400, 1200};
-const WordSpec PTB210::SENSOR_WORD_SPECS[PTB210::NUM_SENSOR_WORD_SPECS] = {
-    WordSpec(7, Parity::EVEN, 1),
-    WordSpec(7, Parity::ODD, 1),
-    WordSpec(8, Parity::NONE, 1)
-};
-const n_c::PortType PTB210::SENSOR_PORT_TYPES[PTB210::NUM_PORT_TYPES] = {n_c::RS232, n_c::RS422, n_c::RS485_HALF };
 
-// static default configuration to send to base class...
-static const PortConfig DEFAULT_PORT_CONFIG(9600, 7, Parity::ODD, 1, RS232);
+static const int SENSOR_RESET_WAIT_TIME = USECS_PER_SEC * 2.5;
 
 const n_c::SensorCmdData PTB210::DEFAULT_SCIENCE_PARAMETERS[] = {
     n_c::SensorCmdData(DEFAULT_PRESSURE_UNITS_CMD, n_c::SensorCmdArg(DEFAULT_PRESSURE_UNITS)),
@@ -184,26 +174,22 @@ static const std::string PTB210_RS485_RES_CFG_DESC("RS485 RESISTOR");
 
 
 PTB210::PTB210()
-    : SerialSensor(DEFAULT_PORT_CONFIG),
+    : SerialSensor(),
       defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
+    // At one point the available configs included 422 and 485, but afaik the
+    // PTBs are always 232.
+    for (int baud: {19200, 9600, 4800, 2400, 1200})
+    {
+        addPortConfig(PortConfig(baud, 7, Parity::E, 1, RS232));
+        addPortConfig(PortConfig(baud, 7, Parity::O, 1, RS232));
+        addPortConfig(PortConfig(baud, 8, Parity::N, 1, RS232));
+    }
+
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
     setMessageParameters(defaultMessageConfig);
-
-    // Let the base class know about PTB210 RS232 limitations
-    for (int i=0; i<NUM_PORT_TYPES; ++i) {
-    	_portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-    	_baudRateList.push_back(SENSOR_BAUDS[i]);
-    }
-
-    for (int i=0; i<NUM_SENSOR_WORD_SPECS; ++i) {
-    	_serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-    }
 
     desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {

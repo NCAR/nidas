@@ -25,8 +25,6 @@
 */
 
 #include "SerialSensor.h"
-#include "TCPSocketIODevice.h"
-#include "UDPSocketIODevice.h"
 
 #include "Looper.h"
 #include "Prompt.h"
@@ -34,10 +32,6 @@
 #include <nidas/core/HardwareInterface.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/SPoll.h>
-
-#ifdef HAVE_BLUETOOTH_RFCOMM_H
-#include "BluetoothRFCommSocketIODevice.h"
-#endif
 
 #include <cmath>
 #include <iostream>
@@ -54,11 +48,12 @@ namespace n_u = nidas::util;
 namespace nidas { namespace core {
 
 SerialSensor::SerialSensor():
-    _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(), _portTypeList(), 
-    _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
+    _autoConfigSupported(false), _autoConfigEnabled(false),
+    _portconfig(), _portconfigs(), _pcindex(0),
+    _autoConfigState(AUTOCONFIG_UNSUPPORTED),
     _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
     _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
-    _defaultPortConfig(),_serialDevice(0), _prompters(), _prompting(false)
+    _serialDevice(0), _prompters(), _prompting(false)
 {
     // XXX
     //
@@ -71,28 +66,6 @@ SerialSensor::SerialSensor():
     // or poll() based api the blocking setting becomes entirely irrelevant.
     setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
 
-    _desiredPortConfig.termios.setRaw(true);
-    _desiredPortConfig.termios.setRawLength(1);
-    _desiredPortConfig.termios.setRawTimeout(0);
-    _defaultPortConfig.termios.setRaw(true);
-    _defaultPortConfig.termios.setRawLength(1);
-    _defaultPortConfig.termios.setRawTimeout(0);
-}
-
-SerialSensor::SerialSensor(const PortConfig& rInitPortConfig):
-    _autoConfigSupported(false), _autoConfigEnabled(false), _desiredPortConfig(rInitPortConfig), 
-    _portTypeList(), _baudRateList(), _serialWordSpecList(),_autoConfigState(AUTOCONFIG_UNSUPPORTED),
-    _serialState(AUTOCONFIG_UNSUPPORTED),_scienceState(AUTOCONFIG_UNSUPPORTED),
-    _deviceState(AUTOCONFIG_UNSUPPORTED),_configMode(NOT_ENTERED),
-    _defaultPortConfig(rInitPortConfig),_serialDevice(0), _prompters(), _prompting(false)
-{
-    setDefaultMode(O_RDWR|O_NOCTTY|O_NDELAY);
-    _desiredPortConfig.termios.setRaw(true);
-    _desiredPortConfig.termios.setRawLength(1);
-    _desiredPortConfig.termios.setRawTimeout(0);
-    _defaultPortConfig.termios.setRaw(true);
-    _defaultPortConfig.termios.setRawLength(1);
-    _defaultPortConfig.termios.setRawTimeout(0);
 }
 
 SerialSensor::~SerialSensor()
@@ -116,30 +89,21 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
 {
     IODevice* device = CharacterSensor::buildIODevice();
 
-    // Did we get the default UnixIODevice from Character Sensor?
-    if (!dynamic_cast<TCPSocketIODevice*>(device)
-        && !dynamic_cast<UDPSocketIODevice*>(device)
-#ifdef HAVE_BLUETOOTH_RFCOMM_H
-        && !dynamic_cast<BluetoothRFCommSocketIODevice*>(device)
-#endif
-       ) {
-        // yes, meaning it didn't find a non-serial port device.
-        delete device;
-        device = 0;
-        DLOG(("SerialSensor: Instantiating a SerialPortIODevice on device ") << getDeviceName());
-        // auto-config may have passed down a default port config. No harm if a non-auto-config sensor
-        // does not pass down the port config, as later it will be filled in by the XML.
-        _serialDevice = new SerialPortIODevice(getDeviceName(), _desiredPortConfig);
-        if (!_serialDevice) {
-            throw Exception("SerialSensor::buildIODevice(): failed to instantiate SerialPortIODevice object.");
-        }
+    if (!device)
+    {
+        DLOG(("creating SerialPortIODevice on ") << getDeviceName());
+
+        // activate the first port config
+        setPortConfig(getFirstPortConfig());
+        DLOG(("") << "set first port config as active config on "
+                  << getDeviceName() << ": " << _portconfig);
+
+        _serialDevice = new SerialPortIODevice(getDeviceName(), _portconfig);
         device = _serialDevice;
 
-        // update desiredPortConfig with the port ID data which is populated in the SerialPortIODevice ctor
-        // this is needed for future comparisons.
-        _desiredPortConfig = getPortConfig();
-
-        // If this port has hardware power control, turn it on here.
+        // If this port has hardware power control, turn it on here.  Not sure
+        // this is the most logical place for this, but until there's a good
+        // reason to move it...
         auto port = HardwareDevice::lookupDevice(getDeviceName());
         if (auto ipower = port.iOutput())
         {
@@ -243,31 +207,79 @@ void SerialSensor::close() throw(n_u::IOException)
     DSMSensor::close();
 }
 
-void SerialSensor::setPortConfig(const PortConfig newPortConfig)
+
+SerialSensor::PortConfigList
+SerialSensor::
+getPortConfigs()
 {
-    if (_serialDevice) {
-        _serialDevice->setPortConfig(newPortConfig);
+    return _portconfigs;
+}
+
+PortConfig
+SerialSensor::
+getFirstPortConfig()
+{
+    if (_portconfigs.size())
+        return _portconfigs.front();
+    return PortConfig();
+}
+
+void
+SerialSensor::
+setPortConfigIndex(int idx)
+{
+    if (idx == -1)
+    {
+        _pcindex = _portconfigs.size();
+    }
+    else if (0 <= idx && idx <= (int)_portconfigs.size())
+    {
+        _pcindex = idx;
     }
     else
     {
-        NLOG(("SerialSensor::setPortConfig(): device, ") << getName() 
-             << (", is trying to set a PortConfig too early, "
-                 "or is a newer type serial device such as USB or socket-oriented, "
-                 " which has no need of a PortConfig."));
+        _pcindex = 0;
+    }
+}
+
+void
+SerialSensor::
+addPortConfig(const PortConfig& pc)
+{
+    auto it = _portconfigs.begin() + _pcindex;
+    _portconfigs.insert(it, pc);
+    ++_pcindex;
+}
+
+void
+SerialSensor::
+replacePortConfigs(const PortConfigList& pconfigs)
+{
+    _portconfigs = pconfigs;
+    setPortConfigIndex(-1);
+}
+
+void SerialSensor::setPortConfig(const PortConfig& pc)
+{
+    _portconfig = pc;
+    _portconfig.termios.setRaw(true);
+    _portconfig.termios.setRawLength(1);
+    _portconfig.termios.setRawTimeout(0);
+
+    if (_serialDevice) {
+        _serialDevice->setPortConfig(pc);
+    }
+    else
+    {
+        DLOG(("") << getName()
+                  << ": setPortConfig() but without serial io device.");
     }
 }
 
 
 PortConfig SerialSensor::getPortConfig() 
 {
-    if (_serialDevice) {
-        return _serialDevice->getPortConfig();
-    }
-    NLOG(("SerialSensor::getPortConfig(): device, ") << getName() 
-            << (", is trying to obtain a PortConfig too early, "
-                "or is newer type serial device such as USB or socket-oriented, "
-                " which has no need of a PortConfig."));
-    return PortConfig();
+    return _portconfig;
 }
 
 void SerialSensor::applyTermios() throw(nidas::util::IOException)
@@ -412,12 +424,20 @@ void SerialSensor::fromDOMElementAutoConfig(const xercesc::DOMElement* node)
             if (supportsAutoConfig()) {
                 setAutoConfigEnabled();
 
+                PortConfig pc;
+                bool found_portconfig = false;
                 // get all the attributes of the node
                 xercesc::DOMNamedNodeMap* pAttributes = child->getAttributes();
                 int nSize = pAttributes->getLength();
                 for (int i = 0; i < nSize; ++i) {
                     XDOMAttr attr((xercesc::DOMAttr*) (pAttributes->item(i)));
-                    _desiredPortConfig.setAttribute(getName(), attr.getName(), attr.getValue());
+                    if (pc.setAttribute(getName(), attr.getName(), attr.getValue()))
+                        found_portconfig = true;
+                }
+                if (found_portconfig)
+                {
+                    addPortConfig(pc);
+                    DLOG(("") << "added port config from autoconfig element: " << pc);
                 }
             }
         }
@@ -443,10 +463,18 @@ void SerialSensor::fromDOMElement(
 
     DLOG(("SuperClass::fromDOMElement() methods done..."));
 
+    // this is called before any sensor calls fromDOMElementAutoConfig(), so
+    // reset the port config index so that all port configs from the xml get
+    // inserted ahead of any existing configs, in the order read from the xml.
+    DLOG(("") << "SerialSensor::fromDOMElement resetting port config index");
+    setPortConfigIndex(0);
+
     if(node->hasAttributes()) {
         // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
         int nSize = pAttributes->getLength();
+        PortConfig portconfig;
+        bool found_portconfig = false;
         for(int i=0;i<nSize;++i) {
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
@@ -457,7 +485,8 @@ void SerialSensor::fromDOMElement(
             else if (aname == "class");
             else if (aname == "devicename");
             else if (aname == "id");
-            else if (_desiredPortConfig.setAttribute(getName(), aname, attr.getValue()));
+            else if (portconfig.setAttribute(getName(), aname, attr.getValue()))
+                found_portconfig = true;
             else if (aname == "nullterm");
             else if (aname == "init_string");
             else if (aname == "suffix");
@@ -470,6 +499,12 @@ void SerialSensor::fromDOMElement(
             else if (aname == "xml:base" || aname == "xmlns") {}
             else throw n_u::InvalidParameterException(
                     getName(), "unknown attribute", aname);
+        }
+        if (found_portconfig)
+        {
+            // insert this port config in the front of any built-in configs.
+            addPortConfig(portconfig);
+            DLOG(("") << "added port config from sensor element: " << portconfig);
         }
     }
 
@@ -503,12 +538,12 @@ void SerialSensor::doAutoConfig()
 			NLOG((""));
 			NLOG(("Checking whether found working port config is the desired port config"));
 			PortConfig foundWorkingConfig = getPortConfig();
-			if (foundWorkingConfig != _desiredPortConfig) {
+			if (foundWorkingConfig != _portconfig) {
 				NLOG(("found working config not equal to desired config"));
 				NLOG(("found working config: ") << foundWorkingConfig);
-				NLOG(("desired port config: ") << _desiredPortConfig);
+				NLOG(("desired port config: ") << _portconfig);
 				NLOG(("Attempting to install the desired sensor serial parameter configuration"));
-				if (installDesiredSensorConfig(_desiredPortConfig)) {
+				if (installDesiredSensorConfig(_portconfig)) {
 					NLOG(("Desired sensor serial port configuration successfully installed"));
 					_serialState = COMM_PARAMETER_CFG_SUCCESSFUL;
 				}
@@ -567,280 +602,31 @@ bool SerialSensor::findWorkingSerialPortConfig()
 {
     bool foundIt = false;
 
-    // first see if the current configuration is working. If so, all done!
-    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Testing initial config which may be custom ") << _desiredPortConfig);
+    // Iterate through the available port configs looking for one that works.
+    for (auto& pc : _portconfigs)
+    {
+        DLOG(("checking for working port config:") << pc);
+        setPortConfig(pc);
+        applyPortConfig();
 
-    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Entering sensor config mode()"));
-    CFG_MODE_STATUS cfgMode = enterConfigMode();
-
-    if (cfgMode == NOT_ENTERED || cfgMode == ENTERED) {
-        if (cfgMode == ENTERED) {
-            foundIt = doubleCheckResponse();
-        }
-
-        if (!foundIt) {
-            // initial config didn't work, so sweep through all parameters starting w/the default
-            if (!isDefaultConfig(getPortConfig())) {
-                // it's a custom config, so test default first
-                NLOG(("SerialSensor::findWorkingSerialPortConfig(): Testing default config because SerialSensor applied a custom config which failed"));
-                if (!testDefaultPortConfig()) {
-                    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig failed. Now testing all the other serial parameter configurations..."));
-                    foundIt = sweepCommParameters();
-                }
-                else {
-                    // found it!! Tell someone!!
-                    foundIt = true;
-                    NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig was successfull!!!") << getPortConfig());
-                }
-            }
-            else {
-                NLOG(("SerialSensor::findWorkingSerialPortConfig(): Default PortConfig was not changed and failed. Now testing all the other serial "
-                      "parameter configurations..."));
-                foundIt = sweepCommParameters();
-            }
-        }
-        else {
-            // Found it! Tell someone!
-            if (!isDefaultConfig(getPortConfig())) {
-                NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor customized the default PortConfig and it succeeded!!"));
-            }
-            else {
-                NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor did not customize the default PortConfig and it succeeded!!"));
-            }
-
+        CFG_MODE_STATUS cfgMode = enterConfigMode();
+        if (cfgMode == ENTERED && doubleCheckResponse())
+        {
             foundIt = true;
-            NLOG(("") << getPortConfig());
-        }
-    }
-    else if (cfgMode == ENTERED_RESP_CHECKED) {
-        // Found it! Tell someone!
-        if (!isDefaultConfig(getPortConfig())) {
-            NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor customized the default PortConfig and it succeeded!!"));
-        }
-        else {
-            NLOG(("SerialSensor::findWorkingSerialPortConfig(): SerialSensor did not customize the default PortConfig and it succeeded!!"));
-        }
-
-        foundIt = true;
-        NLOG(("") << getPortConfig());
-    }
-
-    else {
-        NLOG(("SerialSensor::findWorkingSerialPortConfig(): %s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
-              getName().c_str(),getClassName().c_str()));
-        throw n_u::IOException(getName()+":"+getClassName(),
-                               "SerialSensor::findWorkingPortConfig(): unknown response returned by enterConfigMode(): ",
-                               cfgMode);
-    }
-    return foundIt;
-}
-
-bool SerialSensor::sweepCommParameters()
-{
-    bool foundIt = false;
-    CFG_MODE_STATUS cfgMode = NOT_ENTERED;
-
-    for (PortTypeList::iterator portTypeIter = _portTypeList.begin();
-    	 portTypeIter != _portTypeList.end() && !foundIt;
-    	 ++portTypeIter) {
-        int rts485 = 0;
-        PortType portType = *portTypeIter;
-        DLOG(("Checking port type: ") << portType);
-
-        if (portType == RS485_HALF)
-            rts485 = -1; // ??? TODO check this out: start low. Let write manage setting high
-        else if (portType == RS422)
-            rts485 = -1; // always high, since there are two drivers going both ways
-
-        for (BaudRateList::iterator baudRateIter = _baudRateList.begin();
-        	 baudRateIter != _baudRateList.end() && !foundIt;
-        	 ++baudRateIter) {
-            int baud = *baudRateIter;
-            DLOG(("Checking baud rate: ") << baud);
-
-            for (WordSpecList::iterator wordSpecIter = _serialWordSpecList.begin();
-            	 wordSpecIter != _serialWordSpecList.end() && !foundIt;
-            	 ++wordSpecIter) {
-                WordSpec wordSpec = *wordSpecIter;
-                DLOG(("Checking serial word spec: ") << wordSpec.dataBits
-                									 << wordSpec.parity.toChar()
-                									 << wordSpec.stopBits);
-
-                // get the existing port config to preserve the port
-                // which only gets set on construction
-                PortConfig testPortConfig = getPortConfig();
-
-                // now set it to the new parameters
-                setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                    wordSpec.stopBits, rts485, portType, NO_TERM);
-
-				DLOG(("Asking for PortConfig:") << testPortConfig);
-
-                // don't test the default as it's already tested.
-                if (isDefaultConfig(testPortConfig))
-                {
-                    // skip
-                    NLOG((""));
-                    NLOG(("Skipping default configuration since it's already tested..."));
-                    continue;
-                }
-
-                setPortConfig(testPortConfig);
-                applyPortConfig();
-
-				NLOG((""));
-				NLOG(("Testing PortConfig: ") << getPortConfig());
-
-				cfgMode = enterConfigMode();
-				if (cfgMode == ENTERED) {
-                    if (doubleCheckResponse()) {
-                        foundIt = true;
-                        break;
-                    }
-
-                    else if (portType == RS485_HALF || portType == RS422) {
-                        DLOG(("If 422/485, one more try - test the connection w/termination turned on."));
-                        setTargetPortConfig(testPortConfig, baud, wordSpec.dataBits, wordSpec.parity,
-                                                            wordSpec.stopBits, rts485, portType, TERM_120_OHM);
-                        DLOG(("Asking for PortConfig:") << testPortConfig);
-
-                        setPortConfig(testPortConfig);
-                        applyPortConfig();
-
-                        NLOG(("Testing PortConfig on RS422/RS485 with termination: ") << getPortConfig());
-
-                        cfgMode = enterConfigMode();
-                        if (cfgMode == ENTERED) {
-                            if (doubleCheckResponse()) {
-                                foundIt = true;
-                                break;
-                            }
-                        }
-                        else if (cfgMode == ENTERED_RESP_CHECKED) {
-                            foundIt = true;
-                            break;
-                        }
-                        else if (cfgMode != NOT_ENTERED){
-                            NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
-                                  getName().c_str(),getClassName().c_str()));
-                            throw n_u::IOException(getName()+":"+getClassName(),
-                                                   "SerialSensor::sweepCommParameters(): unknown response returned by enterConfigMode(): ",
-                                                   cfgMode);
-                        }
-                    }
-                }
-                else if (cfgMode == ENTERED_RESP_CHECKED) {
-                    foundIt = true;
-                    break;
-                }
-                else if (cfgMode != NOT_ENTERED){
-                    NLOG(("%s:%s: SerialSensor: subclass returned an unknown response from enterConfigMode()",
-                          getName().c_str(),getClassName().c_str()));
-                    throw n_u::IOException(getName()+":"+getClassName(),
-                                           "SerialSensor::sweepCommParameters(): unknown response returned by enterConfigMode(): ",
-                                           cfgMode);
-                }
-            }
-        }
-
-        // There's not really any harm in trying the other port configs even
-        // if the the port does not have hardware control.  The separate
-        // porttypelist and wordspec lists and baud rate lists are probably
-        // going to move to one list of port configs, in which case it will be
-        // simpler to just iterate through all the port configs without regard
-        // for which ones have port types which cannot be applied.  If the
-        // port type cannot be changed in hardware, then we have to assume the
-        // device already supports that mode, and all the other port configs
-        // (ie, different baud rates and word specs) should still be tried.
-#ifdef notdef
-        /*
-         *  If this is running on a DSM which doesn't support serial port transceiver control,
-         *  then just break out after first round of serial port parameter checks
-         */
-        if (!foundIt && !_serialDevice->getXcvrCtrl()) {
-            DLOG(("SerialSensor::sweepCommParameters(): "
-                  "SerialXcvrCtrl not instantiated, so done "
-                  "after first round of serial parameter checks."));
-            NLOG(("Couldn't find working serial port parameters. Try changing the device type or transceiver jumpers."));
             break;
         }
-#endif
+        // At one point there was a lot of extra code here to try alternate
+        // termination and rts485 settings if the port type was differential
+        // or half-duplex.  However, I'm not sure the rts485 setting makes any
+        // difference now on DSM3 ports, and those are the only differential
+        // or half-duplex ports in use.  And sensors which might need specific
+        // termination settings should specify those in the alternate port
+        // configs.  This allows this algorithm to be much more
+        // straightforward with a lot less duplicate code.
     }
     return foundIt;
 }
 
-void SerialSensor::setTargetPortConfig(PortConfig& target, int baud, int dataBits, Parity parity, int stopBits,
-                                       int rts485, PortType portType, PortTermination termination)
-{
-    target.termios.setBaudRate(baud);
-    target.termios.setDataBits(dataBits);
-    target.termios.setParity(parity);
-    target.termios.setStopBits(stopBits);
-    target.rts485 = (rts485);
-    target.port_type = portType;
-    target.port_term = termination;
-}
-
-bool SerialSensor::isDefaultConfig(const PortConfig& rTestConfig) const
-{
-    DLOG(("SerialSensor::isDefaultConfig(): default is - ") << _defaultPortConfig);
-    VLOG(("rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate(): ")
-          << (rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate() ? "true" : "false"));
-    VLOG(("rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity(): ")
-          << (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity() ? "true" : "false"));
-    VLOG(("rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits(): ")
-          << (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits() ? "true" : "false"));
-    VLOG(("rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits(): ")
-          << (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits() ? "true" : "false"));
-    VLOG(("rTestConfig.rts485 == _defaultPortConfig.rts485: ")
-          << (rTestConfig.rts485 == _defaultPortConfig.rts485 ? "true" : "false"));
-    VLOG(("rTestConfig.port_type == _defaultPortConfig.port_type: ")
-          << (rTestConfig.port_type == _defaultPortConfig.port_type ? "true" : "false"));
-    VLOG(("rTestConfig.port_term == _defaultPortConfig.port_term: ")
-          << (rTestConfig.port_term == _defaultPortConfig.port_term ? "true" : "false"));
-    return ((rTestConfig.termios.getBaudRate() == _defaultPortConfig.termios.getBaudRate())
-            && (rTestConfig.termios.getParity() == _defaultPortConfig.termios.getParity())
-            && (rTestConfig.termios.getDataBits() == _defaultPortConfig.termios.getDataBits())
-            && (rTestConfig.termios.getStopBits() == _defaultPortConfig.termios.getStopBits())
-            && (rTestConfig.rts485 == _defaultPortConfig.rts485)
-            && (rTestConfig.port_type == _defaultPortConfig.port_type)
-            && (rTestConfig.port_term == _defaultPortConfig.port_term));
-}
-
-bool SerialSensor::testDefaultPortConfig()
-{
-	// get the existing PortConfig to preserve the serial device
-    PortConfig testPortConfig = getPortConfig();
-
-    // copy in the defaults
-    setTargetPortConfig(testPortConfig,
-						_defaultPortConfig.termios.getBaudRate(),
-						_defaultPortConfig.termios.getDataBits(),
-						_defaultPortConfig.termios.getParity(),
-						_defaultPortConfig.termios.getStopBits(),
-						_defaultPortConfig.rts485,
-						_defaultPortConfig.port_type,
-						_defaultPortConfig.port_term);
-
-
-    // send it back up the hierarchy
-    setPortConfig(testPortConfig);
-
-    // apply it to the hardware
-    applyPortConfig();
-
-    // print it out
-    DLOG(("Testing default port config: ") << testPortConfig);
-
-    if (enterConfigMode()) {
-        // test it
-        return doubleCheckResponse();
-    }
-    else {
-        DLOG(("SerialSensor::testDefaultPortConfig(): Failed to get into config mode..."));
-    }
-    return false;
-}
 
 int SerialSensor::readResponse(void *buf, int len, int msecTimeout, bool checkPrintable,
                                bool backOffTimeout, int retryTimeoutFactor)

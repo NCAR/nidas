@@ -80,42 +80,6 @@ Wind3D::Wind3D():
     }
 }
 
-Wind3D::Wind3D(nidas::core::PortConfig initPortConfig):
-	SerialSensor(initPortConfig),
-    _allBiasesNaN(false),
-    _despike(false),
-    _metek(false),
-    _rotator(), _tilter(), _orienter(),
-    _tcOffset(0.0),_tcSlope(1.0),
-    _horizontalRotation(true),_tiltCorrection(true),
-    _sampleId(0),
-    _diagIndex(-1), _ldiagIndex(-1),
-    _spdIndex(-1), _dirIndex(-1),
-    _noutVals(0),
-    _numParsed(0),
-    _oaCalFile(0),
-#ifdef HAVE_LIBGSL
-    _atCalFile(0),
-    _atMatrix(),
-#ifdef COMPUTE_ABC2UVW_INVERSE
-    _atInverse(),
-#else
-    _atVectorGSL1(gsl_vector_alloc(3)),
-    _atVectorGSL2(gsl_vector_alloc(3)),
-#endif
-    _atMatrixGSL(gsl_matrix_alloc(3,3)),
-    _atPermutationGSL(gsl_permutation_alloc(3)),
-#endif
-    _shadowFactor(0.0)
-{
-    for (int i = 0; i < 3; i++) {
-        _bias[i] = 0.0;
-    }
-    for (int i = 0; i < 4; i++) {
-        _ttlast[i] = 0;
-    }
-
-}
 
 Wind3D::~Wind3D()
 {

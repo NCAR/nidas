@@ -61,21 +61,21 @@ std::ostream& operator <<(std::ostream& rOutStrm, const PortConfig& rObj)
 }
 
 SerialPortIODevice::SerialPortIODevice():
-    UnixIODevice(), _workingPortConfig(),
+    UnixIODevice(), _portconfig(),
     _usecsperbyte(0), _state(OK), _savep(0), _savebuf(0), _savelen(0), _savealloc(0), _blocking(false)
 {
-    _workingPortConfig.termios.setRaw(true);
-    _workingPortConfig.termios.setRawLength(1);
-    _workingPortConfig.termios.setRawTimeout(0);
+    _portconfig.termios.setRaw(true);
+    _portconfig.termios.setRawLength(1);
+    _portconfig.termios.setRawTimeout(0);
 }
 
 SerialPortIODevice::SerialPortIODevice(const std::string& name, PortConfig initPortConfig):
-    UnixIODevice(name), _workingPortConfig(initPortConfig),
+    UnixIODevice(name), _portconfig(initPortConfig),
     _usecsperbyte(0), _state(OK), _savep(0),_savebuf(0),_savelen(0),_savealloc(0),_blocking(false)
 {
-    _workingPortConfig.termios.setRaw(true);
-    _workingPortConfig.termios.setRawLength(1);
-    _workingPortConfig.termios.setRawTimeout(0);
+    _portconfig.termios.setRaw(true);
+    _portconfig.termios.setRawLength(1);
+    _portconfig.termios.setRawTimeout(0);
 }
 
 SerialPortIODevice::~SerialPortIODevice()
@@ -131,7 +131,7 @@ void SerialPortIODevice::applyPortConfig()
     HardwareDevice port(HardwareDevice::lookupDevice(getName()));
     if (auto iserial = port.iSerial())
     {
-        PortConfig& pc = _workingPortConfig;
+        PortConfig& pc = _portconfig;
         DLOG(("") << "serial device " << getName() << ": setting "
                   << pc.port_type << ", " << pc.port_term);
         iserial->setConfig(pc.port_type, pc.port_term);
@@ -147,12 +147,12 @@ int SerialPortIODevice::getUsecsPerByte() const
 {
     int usecs = 0;
     if (::isatty(_fd)) {
-        int bits = _workingPortConfig.termios.getDataBits() + _workingPortConfig.termios.getStopBits() + 1;
-        if (_workingPortConfig.termios.getParity() != Parity::NONE)
+        int bits = _portconfig.termios.getDataBits() + _portconfig.termios.getStopBits() + 1;
+        if (_portconfig.termios.getParity() != Parity::NONE)
         {
             bits++;
         }
-        usecs = (bits * USECS_PER_SEC +_workingPortConfig.termios.getBaudRate() / 2) / _workingPortConfig.termios.getBaudRate();
+        usecs = (bits * USECS_PER_SEC +_portconfig.termios.getBaudRate() / 2) / _portconfig.termios.getBaudRate();
     }
     return usecs;
 }
@@ -177,7 +177,7 @@ void SerialPortIODevice::setRTS485(int val)
 
     // NOTE: if the value is 0, don't do anything. This is the default. This allows HW to do the heavy lifting 
     //       w/o getting the software involved.
-    _workingPortConfig.rts485 = val;
+    _portconfig.rts485 = val;
 	if (getRTS485() > 0) {
 		// clear RTS
 		clearModemBits(TIOCM_RTS);
@@ -547,57 +547,6 @@ char SerialPortIODevice::readchar()
     }
     _savelen--;
     return *_savep++;
-}
-
-/* static */
-int SerialPortIODevice::createPtyLink(const std::string& link)
-{
-    int fd;
-    const char* ptmx = "/dev/ptmx";
-
-    // could also use getpt() here.
-    if ((fd = ::open(ptmx,O_RDWR|O_NOCTTY)) < 0) 
-        throw IOException(ptmx,"open",errno);
-
-    char* slave = ptsname(fd);
-    if (!slave) throw IOException(ptmx,"ptsname",errno);
-
-    // cerr << "slave pty=" << slave << endl;
-
-    if (grantpt(fd) < 0) throw IOException(ptmx,"grantpt",errno);
-    if (unlockpt(fd) < 0) throw IOException(ptmx,"unlockpt",errno);
-
-    bool dolink = true;
-    struct stat linkstat;
-    if (lstat(link.c_str(),&linkstat) < 0) {
-        if (errno != ENOENT)
-            throw IOException(link,"stat",errno);
-    }
-    else {
-        if (S_ISLNK(linkstat.st_mode)) {
-            char linkdest[MAXPATHLEN];
-            int ld = readlink(link.c_str(),linkdest,MAXPATHLEN-1);
-            if (ld < 0)
-                throw IOException(link,"readlink",errno);
-            linkdest[ld] = 0;
-            if (strcmp(slave,linkdest)) {
-                cerr << "Deleting " << link << " (a symbolic link to " << linkdest << ")" << endl;
-                if (unlink(link.c_str()) < 0)
-                    throw IOException(link,"unlink",errno);
-            }
-            else dolink = false;
-        }
-        else
-            throw IOException(link,
-                    "exists and is not a symbolic link","");
-
-    }
-    if (dolink) {
-        cerr << "Linking " << slave << " to " << link << endl;
-        if (symlink(slave,link.c_str()) < 0)
-            throw IOException(link,"symlink",errno);
-    }
-    return fd;
 }
 
 

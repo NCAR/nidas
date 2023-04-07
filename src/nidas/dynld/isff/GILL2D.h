@@ -351,23 +351,12 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    // NOTE: list sensor bauds from highest to lowest as the higher
-    //       ones are the most likely
-    static const int SENSOR_BAUDS[NUM_BAUD_ARGS];
-    static const nidas::core::WordSpec SENSOR_WORD_SPECS[NUM_DATA_WORD_ARGS];
-    static const int NUM_PORT_TYPES = 2;
-    static const nidas::core::PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
-
-    nidas::core::PortConfig testPortConfig;
-    nidas::core::PortConfig _desiredPortConfig;
     nidas::core::MessageConfig _defaultMessageConfig;
 
     nidas::core::SensorCmdData* _desiredScienceParameters;
     bool _sosEnabled;
 
     char _unitId;
-    bool _polling;
-
 
     // no copying
     GILL2D(const GILL2D&);

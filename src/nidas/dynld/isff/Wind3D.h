@@ -52,8 +52,6 @@ public:
 
     Wind3D();
 
-    Wind3D(nidas::core::PortConfig initPortConfig);
-
     ~Wind3D();
 
     /**

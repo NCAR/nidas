@@ -50,34 +50,6 @@ namespace n_c = nidas::core;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
-/**
- * AUTOCONFIG Stuff
- */
-/**
- * Serial port autoconfig items
- */
-
-// default message parameters for the PB210
-static const int DEFAULT_MESSAGE_LENGTH = 10;
-static const bool DEFAULT_MSG_SEP_EOM = true;
-
-static const int NUM_SENSOR_BAUDS = 2;
-static const int NUM_WORD_SPECS = 1;
-static const int NUM_PORT_TYPES = 1;
-static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES] = {RS232};
-
-const PortConfig CSAT3_Sonic::DEFAULT_PORT_CONFIG(9600, 8, Parity::NONE, 1, RS232);
-static const char* DEFAULT_MSG_SEP_CHARS = "\x55\xaa";
-static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS] = {9600, 19200};
-static const WordSpec SENSOR_WORD_SPECS[NUM_WORD_SPECS] =
-{
-	WordSpec(8,Parity::NONE,1),
-};
-
-/*
- *  AutoConfig stuff
- */
-
 /*  Typical ?? response
  *
  *  v3.0-v3.9
@@ -152,8 +124,8 @@ std::string BAUD_RATE_CFG_DESC("Baud");
  */
 const float CSAT3_Sonic::GAMMA_R = 402.684;
 
-CSAT3_Sonic::CSAT3_Sonic(const bool supportsAutoConfig, const PortConfig portConfig):
-    Wind3D(portConfig),
+CSAT3_Sonic::CSAT3_Sonic():
+    Wind3D(),
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),
@@ -173,7 +145,7 @@ CSAT3_Sonic::CSAT3_Sonic(const bool supportsAutoConfig, const PortConfig portCon
     _checkConfiguration(true),
     _checkCounter(true),
     _ttadjuster(0),
-    defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
+    defaultMessageConfig(10, "\x55\xaa", true),
     rateCmd(""),
     acqrate(0),
     serialNumber(""),
@@ -183,28 +155,15 @@ CSAT3_Sonic::CSAT3_Sonic(const bool supportsAutoConfig, const PortConfig portCon
     recSep(-1),
     baudRate(-1)
 {
+    addPortConfig(PortConfig(9600, 8, Parity::N, 1, RS232));
+    addPortConfig(PortConfig(19200, 8, Parity::N, 1, RS232));
+
     // We set the defaults at construction,
     // letting the base class modify according to fromDOMElement()
     setMessageParameters(defaultMessageConfig);
 
-    if (supportsAutoConfig) {
-        // copy the serial comm parameters to the SerialSensor lists
-        // Let the base class know about PTB210 RS232 limitations
-        for (int i=0; i<NUM_PORT_TYPES; ++i) {
-            _portTypeList.push_back(SENSOR_PORT_TYPES[i]);
-        }
-
-        for (int i=0; i<NUM_SENSOR_BAUDS; ++i) {
-            _baudRateList.push_back(SENSOR_BAUDS[i]);
-        }
-
-        for (int i=0; i<NUM_WORD_SPECS; ++i) {
-            _serialWordSpecList.push_back(SENSOR_WORD_SPECS[i]);
-        }
-
-        initCustomMetaData();
-        setAutoConfigSupported();
-    }
+    initCustomMetaData();
+    setAutoConfigSupported();
 }
 
 CSAT3_Sonic::~CSAT3_Sonic()

@@ -52,15 +52,6 @@ Wind2D::Wind2D():
 {
 }
 
-Wind2D::Wind2D(const PortConfig& rInitPortConfig):
-	nidas::core::SerialSensor(rInitPortConfig),
-	_speedName("Spd"),_dirName("Dir"),_uName("U"),_vName("V"),
-    _speedIndex(-1),_dirIndex(-1),_uIndex(-1),_vIndex(-1),
-    _outlen(0),_wind_sample_id(0),
-    _dirConverter(0),_speedConverter(0)
-{
-}
-
 Wind2D::~Wind2D()
 {
 }

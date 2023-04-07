@@ -61,14 +61,6 @@ SerialPort::SerialPort(const std::string& name, int fd) throw(IOException):
     getBlocking();
 }
 
-SerialPort::SerialPort(const SerialPort& x):
-    _termios(x._termios),
-    _fd(0),_name(x._name), _state(OK),
-    _savep(0),_savebuf(0),_savelen(0),
-    _savealloc(0),_blocking(x._blocking)
-{
-}
-
 SerialPort::~SerialPort()
 {
     close();

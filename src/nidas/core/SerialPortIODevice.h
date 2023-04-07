@@ -79,19 +79,19 @@ public:
      * If the SerialPortIODevice is open, the user should call
      * applyTermios() for any modifications to take effect.
      */
-    nidas::util::Termios& termios() { return _workingPortConfig.termios; }
+    nidas::util::Termios& termios() { return _portconfig.termios; }
     
     /**
      * Readonly reference to Termios.
      */
-    const nidas::util::Termios& getTermios() const { return _workingPortConfig.termios; }
+    const nidas::util::Termios& getTermios() const { return _portconfig.termios; }
 
     /**
      * Apply the Termios settings to an opened serial port.
      */
     virtual void applyTermios()
     {
-        _workingPortConfig.termios.apply(_fd, getName());
+        _portconfig.termios.apply(_fd, getName());
     }
 
     /**
@@ -110,29 +110,35 @@ public:
     /**
      *  Set and retrieve the _portType member attribute 
      */
-    void setPortType(PortType ptype) {_workingPortConfig.port_type = ptype;}
-    PortType getPortType() const {return _workingPortConfig.port_type;}
+    void setPortType(PortType ptype) {_portconfig.port_type = ptype;}
+    PortType getPortType() const {return _portconfig.port_type;}
 
     /**
      *  Set and retrieve the _term member attribute 
      */
-    void setTermination(PortTermination pterm) {_workingPortConfig.port_term = pterm;}
-    PortTermination getTermination() const {return _workingPortConfig.port_term;}
+    void setTermination(PortTermination pterm) {_portconfig.port_term = pterm;}
+    PortTermination getTermination() const {return _portconfig.port_term;}
 
     /**
-     *  Commands the serial board to set the GPIO switches to configure for 
-     *  the port type and termination according to the member attributes.
+     * Set the PortConfig to use, but do not apply it.  See applyPortConfig().
      */
     void setPortConfig(const PortConfig newPortConfig) 
     {
-        _workingPortConfig = newPortConfig;
+        _portconfig = newPortConfig;
     }
     
     PortConfig getPortConfig() 
     {
-        return _workingPortConfig;
+        return _portconfig;
     }
 
+    /**
+     * Apply all the current PortConfig settings to the open port, including
+     * termios, port type, and port termination.
+     *
+     * Port type and termination can only be changed on ports with support for
+     * it on the current hardware with the available HardwareInterface.
+     */
     void applyPortConfig();
 
    /**
@@ -233,7 +239,7 @@ public:
      *       inject the RTS line control in the write command.
      */
     void setRTS485(int val=0);
-    int getRTS485() const {return _workingPortConfig.rts485;}
+    int getRTS485() const {return _portconfig.rts485;}
 
     /**
      * Get the current state of the modem bits.
@@ -333,28 +339,9 @@ public:
 
     virtual std::size_t write(const void *buf, std::size_t len) throw(nidas::util::IOException);
 
-    /**
-     * Static utility that creates a pseudo-terminal, returning the
-     * file descriptor of the master side and creating a symbolic
-     * link with the given name to the slave side.
-     * @param linkname: Name of symbolic link to be created that links to the
-     *	slave side of the pseudo-terminal. If a symbolic link already exists
-     *	with that name it will be removed and re-created. If linkname already
-     *	exists and it isn't a symbolic link, an error will be returned.
-     * @return The file descriptor of the master side of the pseudo-terminal.
-     *
-     * Note: the symbolic link should be deleted when the file descriptor to
-     * the master pseudo-terminal is closed. Otherwise, because of the way
-     * the system recycles pseudo-terminal devices, the link may at some
-     * time point to a different pseudo-terminal, probably created by a
-     * different process, like sshd. Opening and reading/writing to the symbolic
-     * link would then effect the other process, if the open was permitted.
-     */
-    static int createPtyLink(const std::string& linkname);
-
 protected:
 
-    PortConfig _workingPortConfig;
+    PortConfig _portconfig;
 
     unsigned int _usecsperbyte;
 

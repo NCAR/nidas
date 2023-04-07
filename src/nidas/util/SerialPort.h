@@ -47,12 +47,7 @@ public:
 
     SerialPort();
 
-    /**
-     * Copy constructor.  The attributes of the port are copied,
-     * but if the original is opened, the copy will not be
-     * opened.
-     */
-    SerialPort(const SerialPort&);
+    SerialPort(const SerialPort&) = delete;
 
     /**
      * Constructor, given a device name. The device is *NOT* opened, mainly

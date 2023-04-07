@@ -309,13 +309,6 @@ protected:
     void initCmdTable();
     void initCustomMetaData();
     void initScienceParams();
-    void initPortCfgParams();
-    inline void initAutoCfg()
-    {
-    	initCmdTable();
-    	initPortCfgParams();
-    	initScienceParams();
-    }
     void updateScienceParameter(const MOTE_CMDS cmd, const SensorCmdArg& arg = SensorCmdArg());
     void sendSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
     bool sendAndCheckSensorCmd(MOTE_CMDS cmd, SensorCmdArg arg = SensorCmdArg());
@@ -575,18 +568,6 @@ private:
         }
     };
     std::map<dsm_sample_id_t, TsoilData> _tsoilData;
-
-    static const int NUM_SENSOR_BAUDS = 1;
-    static const int SENSOR_BAUDS[NUM_SENSOR_BAUDS];
-    static const int NUM_SENSOR_WORD_SPECS = 1;
-    static const WordSpec SENSOR_WORD_SPECS[NUM_SENSOR_WORD_SPECS];
-    static const int NUM_PORT_TYPES = 1;
-    static const PortType SENSOR_PORT_TYPES[NUM_PORT_TYPES];
-
-    // default message parameters for the PB210
-    static const int DEFAULT_MESSAGE_LENGTH = 0;
-    static const bool DEFAULT_MSG_SEP_EOM = true;
-    static const char* DEFAULT_MSG_SEP_CHARS;
 
     // Sample rate range/default
     static const int DATA_RATE_MIN = 0;
