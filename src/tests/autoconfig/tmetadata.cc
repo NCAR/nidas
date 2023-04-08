@@ -219,6 +219,24 @@ BOOST_AUTO_TEST_CASE(test_metadata_clear)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_metadata_output)
+{
+    MetadataTest md;
+
+    {
+        md.pi = 3.1415927;
+        std::ostringstream buf;
+        buf << md.pi;
+        BOOST_TEST(buf.str() == "3.14");
+    }
+    {
+        std::ostringstream buf;
+        buf << md.serial_number;
+        BOOST_TEST(buf.str() == "UNSET");
+    }
+}
+
+
 // BOOST_AUTO_TEST_SUITE_END()
 
 

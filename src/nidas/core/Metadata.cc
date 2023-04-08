@@ -83,6 +83,13 @@ erase()
 }
 
 
+std::ostream&
+operator<<(std::ostream& out, const MetadataItem& item)
+{
+    return (out << item.string_value());
+}
+
+
 MetadataItem::
 ~MetadataItem()
 {
@@ -233,6 +240,15 @@ MetadataNumber<T>::
 set(const T& value)
 {
     return check_assign_string(to_string(value));
+}
+
+template <typename T>
+MetadataNumber<T>&
+MetadataNumber<T>::
+operator=(const std::string& value)
+{
+    check_assign_string(value);
+    return *this;
 }
 
 template <typename T>

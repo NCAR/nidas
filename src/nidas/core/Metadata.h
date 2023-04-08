@@ -247,6 +247,12 @@ protected:
 
 
 /**
+ * Write string_value() to the stream.
+ */
+std::ostream& operator<<(std::ostream&, const MetadataItem&);
+
+
+/**
  * A MetadataItem whose value is just a string.
  */
 class MetadataString : public MetadataItem
@@ -340,6 +346,11 @@ public:
     // implicitly calls get(), but that might make it too easy to neglect that
     // this is an object with other properties to compare and not _just_ a
     // number.
+
+    /**
+     * Call check_assign_string().
+     */
+    MetadataNumber<T>& operator=(const std::string& value);
 
     virtual bool check_assign_string(const std::string& incoming) override;
 
