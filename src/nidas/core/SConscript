@@ -67,6 +67,7 @@ headers = Split("""
     Looper.h
     McSocket.h
     McSocketUDP.h
+    Metadata.h
     MultipleUDPSockets.h
     NearestResampler.h
     NearestResamplerAtRate.h
@@ -180,6 +181,7 @@ sources = Split("""
     Looper.cc
     McSocket.cc
     McSocketUDP.cc
+    Metadata.cc
     MultipleUDPSockets.cc
     NearestResampler.cc
     NearestResamplerAtRate.cc

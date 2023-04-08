@@ -589,8 +589,6 @@ void SerialSensor::doAutoConfig()
 			_autoConfigState = AUTOCONFIG_UNSUCCESSFUL;
 			setSensorState(SENSOR_CONFIGURE_FAILED);
 		}
-
-		printDeviceMetaData();
 	}
 	else {
 	    NLOG(("") << getName() << ": autoconfig not enabled or not supported.");
@@ -625,6 +623,12 @@ bool SerialSensor::findWorkingSerialPortConfig()
         // straightforward with a lot less duplicate code.
     }
     return foundIt;
+}
+
+
+void SerialSensor::updateMetaData()
+{
+    NLOG(("Sensor does not support metadata collection."));
 }
 
 

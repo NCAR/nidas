@@ -29,6 +29,8 @@
 
 #include <nidas/dynld/isff/Wind2D.h>
 
+#include <memory>
+
 namespace nidas { namespace dynld { namespace isff {
 
 enum GILL2D_OUTPUT_MODE
@@ -186,6 +188,8 @@ enum GILL2D_ALIGNMENT_ARGS
     NUM_ALIGNMENT_ARGS = UPSIDE_DOWN_PLUS_45
 };
 
+class GILL2D_Metadata;
+
 /**
  * Sensor class for the GIL 2D sonic anemometers.
  *
@@ -307,7 +311,6 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
-    void initCustomMetadata();
     void transformEmbeddedNulls(std::string& respStr, bool allowStxEtx=false);
 
 private:
@@ -357,6 +360,8 @@ private:
     bool _sosEnabled;
 
     char _unitId;
+
+    std::unique_ptr<GILL2D_Metadata> _metadata;
 
     // no copying
     GILL2D(const GILL2D&);

@@ -34,6 +34,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/core/Metadata.h>
 
 #include <math.h>
 
@@ -113,16 +114,45 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 //      "xp=[[:digit:]] xx=[[:digit:]]+ ZZ=[[:digit:]]"
 //      );
 
-std::string DATA_RATE_CFG_DESC("Data Rate");
-std::string OVERSAMPLE_CFG_DESC("Over Sampling");
-std::string RTS_INDEP_CFG_DESC("RTSIdep");
-std::string BAUD_RATE_CFG_DESC("Baud");
-
+namespace nidas {
+namespace dynld {
+namespace isff {
 
 /*
  * CSAT3 stuff
  */
 const float CSAT3_Sonic::GAMMA_R = 402.684;
+
+
+class CSAT3_Sonic_Metadata: public Metadata
+{
+public:
+    CSAT3_Sonic_Metadata():
+        Metadata("CSAT3_Sonic_Metadata"),
+        data_rate(MetadataItem::READWRITE, "data_rate", "Data Rate"),
+        oversample(MetadataItem::READWRITE, "oversample", "Oversample setting character"),
+        rts_indep(MetadataItem::READWRITE, "RTSIndep")
+    {
+        manufacturer = "Campbell Scientific, Inc.";
+    }
+
+    void enumerate(item_list& items) override
+    {
+        items.push_back(&data_rate);
+        items.push_back(&oversample);
+        items.push_back(&rts_indep);
+    }
+
+    MetadataInt data_rate;
+    // this is the oversample character setting
+    MetadataString oversample;
+    MetadataInt rts_indep;
+
+    CSAT3_Sonic_Metadata(const CSAT3_Sonic_Metadata&) = default;
+    CSAT3_Sonic_Metadata& operator=(const CSAT3_Sonic_Metadata&) = default;
+};
+
+
 
 CSAT3_Sonic::CSAT3_Sonic():
     Wind3D(),
@@ -153,7 +183,8 @@ CSAT3_Sonic::CSAT3_Sonic():
     revision(""),
     rtsIndep(-1),
     recSep(-1),
-    baudRate(-1)
+    baudRate(-1),
+    _metadata(new CSAT3_Sonic_Metadata())
 {
     addPortConfig(PortConfig(9600, 8, Parity::N, 1, RS232));
     addPortConfig(PortConfig(19200, 8, Parity::N, 1, RS232));
@@ -162,7 +193,6 @@ CSAT3_Sonic::CSAT3_Sonic():
     // letting the base class modify according to fromDOMElement()
     setMessageParameters(defaultMessageConfig);
 
-    initCustomMetaData();
     setAutoConfigSupported();
 }
 
@@ -1070,7 +1100,7 @@ bool CSAT3_Sonic::checkResponse()
 
 		// On rate or serial number change, log to file.
 		if (!serialNumber.empty()
-		    && (!rateOK || serialNumber != getSerialNumber())
+		    && (!rateOK || serialNumber != _metadata->serial_number.get())
 		    && _sonicLogFile.length() > 0) {
 			n_u::UTime now;
 			string fname = getDSMConfig()->expandString(_sonicLogFile);
@@ -1217,46 +1247,33 @@ bool CSAT3_Sonic::checkScienceParameters()
 	return doubleCheckResponse();
 }
 
+
+Metadata* CSAT3_Sonic::getMetadata()
+{
+    return _metadata.get();
+}
+
+
 void CSAT3_Sonic::updateMetaData()
 {
-    setManufacturer("Campbell Scientific, Inc.");
-
     /*
      *  All these details should already be available at this point in the process.
      */
+    CSAT3_Sonic_Metadata& md = *_metadata.get();
 
     if (!serialNumber.empty()) {
-        setSerialNumber(serialNumber);
+        md.serial_number = serialNumber;
     }
 
     if (!revision.empty()) {
-        setFwVersion(revision);
+        md.firmware_version = revision;
     }
-
-    std::ostringstream tmpCfg;
-    tmpCfg << osc;
-    updateMetaDataItem(MetaDataItem(OVERSAMPLE_CFG_DESC, tmpCfg.str()));
-
-    tmpCfg.str("");
-    tmpCfg << acqrate;
-    updateMetaDataItem(MetaDataItem(DATA_RATE_CFG_DESC, tmpCfg.str()));
-
-    tmpCfg.str("");
-    tmpCfg << rtsIndep;
-    updateMetaDataItem(MetaDataItem(RTS_INDEP_CFG_DESC, tmpCfg.str()));
-
-    tmpCfg.str("");
-    tmpCfg << baudRate;
-    updateMetaDataItem(MetaDataItem(BAUD_RATE_CFG_DESC, tmpCfg.str()));
-
+    md.oversample = std::string({osc});
+    md.data_rate = acqrate;
+    md.rts_indep = rtsIndep;
 }
 
 
-void CSAT3_Sonic::initCustomMetaData()
-{
-    addMetaDataItem(MetaDataItem(DATA_RATE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(OVERSAMPLE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(RTS_INDEP_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(BAUD_RATE_CFG_DESC, ""));
-}
-
+} // namespace isff
+} // namespace dynld
+} // namespace nidas

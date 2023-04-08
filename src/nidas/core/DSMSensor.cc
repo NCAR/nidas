@@ -54,39 +54,6 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-CustomMetaData::iterator MetaDataBase::findCustomMetaData(const std::string& rFirst)
-{
-    VLOG(("MetaDataBase::findCustomMetaData(): starting at the beginning..."));
-    CustomMetaData::iterator iter = customMetaData.begin();
-    while (iter != customMetaData.end()) {
-        VLOG(("MetaDataBase::findCustomMetaData(): testing customMetaData item ")
-              << iter->first << " against " << rFirst);
-        if (iter->first == rFirst) {
-            VLOG(("MetaDataBase::findCustomMetaData(): Found a match!"));
-            break;
-        }
-        iter++;
-    }
-    if (iter == customMetaData.end()) {
-        VLOG(("MetaDataBase::findCustomMetaData(): No match found!"));
-    }
-
-    return iter;
-}
-
-void MetaDataBase::addMetaDataItem(const MetaDataItem& rItem)
-{
-    if (findCustomMetaData(rItem.first) == customMetaData.end()) {
-        VLOG(("MetaDataBase::addMetaDataItem(): Didn't find ")
-              << rItem.first << " so adding it.");
-        customMetaData.push_back(rItem);
-    }
-    else {
-        VLOG(("MetaDataBase::addMetaDataItem(): ")
-              << rItem.first << " already exists so not adding it.");
-    }
-}
-
 /* static */
 const dsm_time_t DSMSensor::DEFAULT_QC_CHECK_PERIOD =
     (uint64_t)USECS_PER_SEC * 3660; //SECS_PER_HOUR;
@@ -117,7 +84,6 @@ DSMSensor::DSMSensor() :
     _driverTimeTagUsecs(USECS_PER_TMSEC),
     _nTimeouts(0), _nRealTimeouts(0),
 	_lag(0),_station(-1),
-	_manufMetaData(), _configMetaData(),
 	_nSamplesToTest(DEFAULT_NUM_SAMPLES_TO_TEST),
 	_nSamplesRead(0),
     _nSamplesTested(0), _nSamplesGood(0),
@@ -575,6 +541,12 @@ void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
             results += (fp - start);
         }
     }
+}
+
+
+Metadata* DSMSensor::getMetadata()
+{
+    return nullptr;
 }
 
 

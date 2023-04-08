@@ -55,6 +55,7 @@ class DSMConfig;
 class Parameter;
 class CalFile;
 class Looper;
+class Metadata;
 
 const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
@@ -70,91 +71,6 @@ enum DSM_SENSOR_STATE {
 	SENSOR_REQUEST_RESTART,     // failing, start over
 	SENSOR_HEALTHY,			    // playing well
 };
-
-/*
- *  first is a short description, second is the data
- */
-typedef std::pair<std::string, std::string> MetaDataItem;
-/*
- *  used to allow client classes to add on to metadata structs
- */
-typedef std::vector<MetaDataItem> CustomMetaData;
-
-struct MetaDataBase {
-    MetaDataBase() : customMetaData() {/*Intentionally left blank*/}
-    virtual ~MetaDataBase() {}
-
-    CustomMetaData::iterator findCustomMetaData(const std::string& rFirst);
-    void addMetaDataItem(const MetaDataItem& rItem);
-
-    CustomMetaData customMetaData;
-};
-
-// This structure contains any information about the sensor make/model, HW or SW version, etc
-struct SensorManufacturerMetaData : public MetaDataBase
-{
-    SensorManufacturerMetaData()
-    : manufacturer("Not Available"), model("Not Available"),
-      serialNum("Not Available"), hwVersion("Not Available"),
-      manufactureDate("Not Available"),
-      fwVersion("Not Available"), fwBuild("Not Available"),
-      calDate("Not Available")
-    {/*intentionally left blank*/}
-    ~SensorManufacturerMetaData() {/*intentionally left blank*/}
-
-    std::string manufacturer;
-    std::string model;
-    std::string serialNum;
-    std::string hwVersion;
-    std::string manufactureDate;
-    std::string fwVersion;
-    std::string fwBuild;
-    std::string calDate;
-
-    friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorManufacturerMetaData& rObj)
-    {
-        rOutStrm << "Sensor Manufacturer MetaData" << std::endl;
-        rOutStrm << "Manufacturer:  " << rObj.manufacturer << std::endl;
-        rOutStrm << "Model:         " << rObj.model << std::endl;
-        rOutStrm << "Serial Number: " << rObj.serialNum << std::endl;
-        rOutStrm << "HW Version:    " << rObj.hwVersion << std::endl;
-        rOutStrm << "Manufacture Date: " << rObj.manufactureDate << std::endl;
-        rOutStrm << "FW Version:    " << rObj.fwVersion << std::endl;
-        rOutStrm << "FW Build:      " << rObj.fwBuild << std::endl;
-        rOutStrm << "Cal Date:      " << rObj.calDate << std::endl;
-
-        for (unsigned int i=0; i<rObj.customMetaData.size(); ++i ) {
-            MetaDataItem rItem = rObj.customMetaData[i];
-            rOutStrm << rItem.first << ": " << rItem.second << std::endl;
-        }
-
-        return rOutStrm;
-    }
-};
-
-/**
- * Designed to be subclassed by AutoConfig subclasses to provide the specifics of that
- * particular sensor. Subclasses of this struct also must also provide their own
- * output stream operator.
- */
-struct SensorConfigMetaData : public MetaDataBase
-{
-    SensorConfigMetaData()
-    {/*Intentionally Left Blank*/}
-    virtual ~SensorConfigMetaData() {}
-
-    friend inline std::ostream& operator <<(std::ostream& rOutStrm, const SensorConfigMetaData& rObj)
-    {
-        rOutStrm << "Sensor Config MetaData" << std::endl;
-        for (unsigned int i=0; i< rObj.customMetaData.size(); ++i ) {
-            MetaDataItem rItem = rObj.customMetaData[i];
-            rOutStrm << rItem.first << ": " << rItem.second << std::endl;
-        }
-
-        return rOutStrm;
-    }
-};
-
 
 /**
  * DSMSensor provides the basic support for reading, processing
@@ -953,25 +869,23 @@ public:
         toDOMElement(xercesc::DOMElement* node,bool complete) const
                 throw(xercesc::DOMException);
 
-    //************************************************************
-    //** Deprecated: Use _manufMetaData and helper methods
-    //************************************************************
     /**
      * Set the type name of this sensor, e.g.:
      * "ACME Model 99 Mach7 Particle Disambiguator".
      * This is meant for descriptive purposes only,
      * and is not meant to change the behavior of a sensor object.
+     * 
+     * In particular, it only comes from the XML and is not related to the
+     * metadata that can be queried from the sensor or used to apply
+     * configuration settings to the sensor.
      */
     virtual void setTypeName(const std::string& val)
     {
         _typeName = val;
     }
 
-    //************************************************************
-    //** Deprecated: Use _manufMetaData and helper methods
-    //************************************************************
     /**
-     * Get the type name of this sensor.
+     * Get the type name of this sensor.  See setTypeName().
      */
     virtual const std::string& getTypeName(void) const
     {
@@ -1068,105 +982,13 @@ public:
 
     IODevice* getIODevice() const { return _iodev; }
 
-    /*
-     * AutoConfig helpers - Need to record some sensor metadata, if it's available.
-     * This will be done in the AutoConfig subclasses of SerialSensor. If the sensor
-     * has no such subclass, then these values will likely be set to "Not Queryable",
-     * unless some other mechanism sets them.
-     *
-     * NOTE: The getters are supplied as a means to pull the individual values. The
-     *       entire data set can be output via standard streaming mechanisms.
-     *
+    /**
+     * Return the latest Metadata for this sensor.  If the sensor subclass
+     * does not implement any metadata, this returns null.  The returned
+     * pointer is owned by the DSMSensor.  Whether it is allowed to be
+     * modified depends on the sensor.
      */
-    void setManufacturer(const std::string& rManufacturer)
-    {
-        _manufMetaData.manufacturer = rManufacturer;
-    }
-
-    const std::string getManufacturer() const
-    {
-        return _manufMetaData.manufacturer;
-    }
-
-    void setModel(const std::string& rModel)
-    {
-        _manufMetaData.model = rModel;
-    }
-
-    const std::string getModel() const
-    {
-        return _manufMetaData.model;
-    }
-
-    void setSerialNumber(const std::string& rSerialNumber)
-    {
-        _manufMetaData.serialNum = rSerialNumber;
-    }
-
-    const std::string getSerialNumber() const
-    {
-        return _manufMetaData.serialNum;
-    }
-
-    void setFwVersion(const std::string& rFwVersion)
-    {
-        _manufMetaData.fwVersion = rFwVersion;
-    }
-
-    const std::string getFwVersion()
-    {
-        return _manufMetaData.fwVersion;
-    }
-
-    void setHwVersion(const std::string& rHwVersion)
-    {
-        _manufMetaData.hwVersion = rHwVersion;
-    }
-
-    const std::string getHwVersion()
-    {
-        return _manufMetaData.hwVersion;
-    }
-
-    void setManufactureDate(const std::string& rMfgDate)
-    {
-        _manufMetaData.manufactureDate = rMfgDate;
-    }
-
-    const std::string getManufactureDate() const
-    {
-        return _manufMetaData.manufactureDate;
-    }
-
-    void setFwBuild(const std::string& rFwBuild)
-    {
-        _manufMetaData.fwBuild = rFwBuild;
-    }
-
-    const std::string getFwBuild()
-    {
-        return _manufMetaData.fwBuild;
-    }
-
-    void setCalDate(const std::string& rCalDate)
-    {
-        _manufMetaData.calDate = rCalDate;
-    }
-
-    const std::string getCalDate() const
-    {
-    	return _manufMetaData.calDate;
-    }
-
-    const SensorManufacturerMetaData& getSensorManufMetaData()
-    {
-        return _manufMetaData;
-    }
-
-    virtual const SensorConfigMetaData& getSensorConfigMetaData() const
-    {
-        return _configMetaData;
-    }
+    virtual Metadata* getMetadata();
 
     void setSensorState(const DSM_SENSOR_STATE sensorState)
     {
@@ -1205,55 +1027,6 @@ public:
      * of samples cause the QC cycle to exceed the QC period.
      */
     void calcNumQCSamples(double sampleRate);
-
-    virtual void addMetaDataItem(const MetaDataItem& rItem, bool config=true)
-    {
-        if (config) {
-            VLOG(("DSMSensor::addMetaDataItem() to config metadata: ") << rItem.first);
-            _configMetaData.addMetaDataItem(rItem);
-        }
-        else {
-            VLOG(("DSMSensor::addMetaDataItem() to mfg metadata: ") << rItem.first);
-            _manufMetaData.addMetaDataItem(rItem);
-        }
-    }
-
-    /*
-     *  Updates a MetaDataItem in the CustomMetaData member for either config or
-     *  manufacturing metadata.
-     */
-    virtual void updateMetaDataItem(const MetaDataItem& rItem, bool config=true)
-    {
-        if (config) {
-            VLOG(("DSMSensor::updateMetaDataItem(): Looking for config metadata item: ") << rItem.first);
-            CustomMetaData::iterator iter = _configMetaData.findCustomMetaData(rItem.first);
-            if (iter != _configMetaData.customMetaData.end()) {
-                VLOG(("DSMSensor::updateMetaDataItem(): Found and updating config metadata item: ")
-                      << rItem.first << ": " << rItem.second);
-                iter->second = rItem.second;
-            }
-        }
-        else {
-            CustomMetaData::iterator iter = _manufMetaData.findCustomMetaData(rItem.first);
-            if (iter != _manufMetaData.customMetaData.end()) {
-                iter->second = rItem.second;
-            }
-        }
-    }
-
-    virtual void printDeviceMetaData(bool log=true)
-    {
-        if (log) {
-            ILOG(("") << _manufMetaData);
-            ILOG(("On Device: ") << getDeviceName());
-            ILOG(("") << _configMetaData);
-        }
-        else {
-            std::cout << _manufMetaData;
-            std::cout << "On Device: " << getDeviceName() << std::endl;
-            std::cout << _configMetaData;
-        }
-    }
 
     bool allowOpen()
     {
@@ -1564,14 +1337,6 @@ private:
     int _lag;
 
     int _station;
-
-    // contains manufacturer, device name, device version, hw version, fw version
-    // Object is iostream capable
-    SensorManufacturerMetaData _manufMetaData;
-
-    // base sensor config meta data object. Usually gets nothing, as sensor config
-    // doesn't happen at this level.
-    SensorConfigMetaData _configMetaData;
 
     /*
      * Number of samples to process when surveilling for healthy operation

@@ -33,6 +33,8 @@
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/util/util.h>
 
+#include <nidas/core/Metadata.h>
+
 #include <limits>
 
 using boost::regex;
@@ -80,9 +82,6 @@ enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
 };
 
 
-// default message parameters for the TRH
-static MessageConfig defaultMessageConfig(0, "\n", true);
-
 NCAR_TRH::NCAR_TRH():
     SerialSensor(),
     _ifan(),
@@ -108,11 +107,8 @@ NCAR_TRH::NCAR_TRH():
 
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
-    setMessageParameters(defaultMessageConfig);
+    setMessageParameters(MessageConfig(0, "\n", true));
 
-    setManufacturer("NCAR");
-    setModel("TRH");
-    initCustomMetadata();
     setAutoConfigSupported();
 }
 
@@ -705,35 +701,59 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
     writePause(snsrCmd.c_str(), snsrCmd.length());
 }
 
-/*
- *  Metadata 
- */
-static const string FAN_DUTY_CYCLE_DESC("Fan Duty Cycle");
-static const string FAN_MIN_RPM_DESC("Fan Min RPM");
-static const string TA0_COEFF_DESC("Ta0");
-static const string TA1_COEFF_DESC("Ta1");
-static const string TA2_COEFF_DESC("Ta2");
-static const string HA0_COEFF_DESC("Ha0");
-static const string HA1_COEFF_DESC("Ha1");
-static const string HA2_COEFF_DESC("Ha2");
-static const string HA3_COEFF_DESC("Ha3");
-static const string HA4_COEFF_DESC("Ha4");
 
-void 
-NCAR_TRH::
-initCustomMetadata()
+class MetadataTRH : public Metadata
 {
-    addMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, ""), false);
-    addMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, ""), false);
-    addMetaDataItem(MetaDataItem(TA0_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(TA1_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(TA2_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(HA0_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(HA1_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(HA2_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(HA3_COEFF_DESC, ""));
-    addMetaDataItem(MetaDataItem(HA4_COEFF_DESC, ""));
-}
+public:
+    MetadataTRH():
+        Metadata("NCAR_TRH"),
+        fan_duty_cycle(MetadataItem::READWRITE, "fan_duty_cycle", "Fan Duty Cycle"),
+        fan_min_rpm(MetadataItem::READWRITE, "fan_min_rpm", "Fan Min RPM"),
+        Ta0(MetadataItem::READWRITE, "Ta0", "Ta0"),
+        Ta1(MetadataItem::READWRITE, "Ta1", "Ta1"),
+        Ta2(MetadataItem::READWRITE, "Ta2", "Ta2"),
+        Ha0(MetadataItem::READWRITE, "Ha0", "Ha0"),
+        Ha1(MetadataItem::READWRITE, "Ha1", "Ha1"),
+        Ha2(MetadataItem::READWRITE, "Ha2", "Ha2"),
+        Ha3(MetadataItem::READWRITE, "Ha3", "Ha3"),
+        Ha4(MetadataItem::READWRITE, "Ha4", "Ha4")
+    {
+        manufacturer = "NCAR";
+        model = "TRH";
+    }
+
+    MetadataFloat fan_duty_cycle;
+    MetadataFloat fan_min_rpm;
+    MetadataFloat Ta0;
+    MetadataFloat Ta1;
+    MetadataFloat Ta2;
+    MetadataFloat Ha0;
+    MetadataFloat Ha1;
+    MetadataFloat Ha2;
+    MetadataFloat Ha3;
+    MetadataFloat Ha4;
+
+    virtual void enumerate(item_list& items) override
+    {
+        for (auto mi: { 
+            &fan_duty_cycle,
+            &fan_min_rpm,
+            &Ta0,
+            &Ta1,
+            &Ta2,
+            &Ha0,
+            &Ha1,
+            &Ha2,
+            &Ha3,
+            &Ha4 })
+        items.push_back(mi);
+    }
+
+    MetadataTRH(const MetadataTRH& source) = default;
+    MetadataTRH& operator=(const MetadataTRH& source) = default;
+};
+
+
 
 bool 
 NCAR_TRH::
@@ -750,18 +770,19 @@ captureEepromMetaData(const char* buf)
         return regexFound;
     }
 
-    setSerialNumber(results[trhid].str());
-    setFwVersion(results[codeversion].str());
-    updateMetaDataItem(MetaDataItem(FAN_DUTY_CYCLE_DESC, results[fandutycycle].str()), false);
-    updateMetaDataItem(MetaDataItem(FAN_MIN_RPM_DESC, results[fanminrpm].str()), false);
-    updateMetaDataItem(MetaDataItem(TA0_COEFF_DESC, results[Ta0].str()));
-    updateMetaDataItem(MetaDataItem(TA1_COEFF_DESC, results[Ta1].str()));
-    updateMetaDataItem(MetaDataItem(TA2_COEFF_DESC, results[Ta2].str()));
-    updateMetaDataItem(MetaDataItem(HA0_COEFF_DESC, results[Ha0].str()));
-    updateMetaDataItem(MetaDataItem(HA1_COEFF_DESC, results[Ha1].str()));
-    updateMetaDataItem(MetaDataItem(HA2_COEFF_DESC, results[Ha2].str()));
-    updateMetaDataItem(MetaDataItem(HA3_COEFF_DESC, results[Ha3].str()));
-    updateMetaDataItem(MetaDataItem(HA4_COEFF_DESC, results[Ha4].str()));
+    MetadataTRH md;
+    md.serial_number = results[trhid].str();
+    md.firmware_version = results[codeversion].str();
+    md.fan_duty_cycle = results[fandutycycle].str();
+    md.fan_min_rpm = results[fanminrpm].str();
+    md.Ta0 = results[Ta0].str();
+    md.Ta1 = results[Ta1].str();
+    md.Ta2 = results[Ta2].str();
+    md.Ha0 = results[Ha0].str();
+    md.Ha1 = results[Ha1].str();
+    md.Ha2 = results[Ha2].str();
+    md.Ha3 = results[Ha3].str();
+    md.Ha4 = results[Ha4].str();
     return regexFound;
 }
 

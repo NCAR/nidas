@@ -29,6 +29,7 @@
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/ParseException.h>
 #include <nidas/util/IosFlagSaver.h>
+#include <nidas/core/Metadata.h>
 
 #include <vector>
 #include <algorithm>
@@ -183,23 +184,71 @@ static const regex GILL2D_SERNO_REGEX(GILL2D_SERNO_SPEC, std::regex_constants::e
 static const string GILL2D_FW_VER_SPEC("D2[[:space:]]+([[:digit:]]+\\.[[:digit:]]+)");
 static const regex GILL2D_FW_VER_REGEX(GILL2D_FW_VER_SPEC, std::regex_constants::extended);
 
-static const std::string AVERAGING_CFG_DESC("Avg secs");
-static const std::string SOS_TEMP_CFG_DESC("SpdOfSnd/Temp Rprt");
-static const std::string HEATING_CFG_DESC("Heater");
-static const std::string NMEA_ID_STR_CFG_DESC("NMEA");
-static const std::string MSG_TERM_CFG_DESC("Msg Term");
-static const std::string MSG_STREAM_CFG_DESC("Msg Stream");
-static const std::string FIELD_FMT_CFG_DESC("Field Fmt");
-static const std::string OUTPUT_RATE_CFG_DESC("Output Rate Hz");
-static const std::string MEAS_UNITS_CFG_DESC("Meas Units");
-static const std::string NODE_ADDR_CFG_DESC("Node Addr");
-static const std::string VERT_MEAS_PAD_CFG_DESC("Vert Pad");
-static const std::string ALIGN_45_DEG_CFG_DESC("Align/45 Deg");
+
+
+class GILL2D_Metadata: public Metadata
+{
+public:
+    GILL2D_Metadata():
+        Metadata("GILL2D_Metadata"),
+        averaging(MetadataItem::READWRITE, "averaging", "Avg secs"),
+        sos_temp(MetadataItem::READWRITE, "sos_temp", "SpdOfSnd/Temp Rprt"),
+        heating(MetadataItem::READWRITE, "heating", "Heater"),
+        nmea_id_str(MetadataItem::READWRITE, "nmea_id_str", "NMEA"),
+        msg_term(MetadataItem::READWRITE, "msg_term", "Msg Term"),
+        msg_stream(MetadataItem::READWRITE, "msg_stream", "Msg Stream"),
+        field_fmt(MetadataItem::READWRITE, "field_fmt", "Field Fmt"),
+        output_rate(MetadataItem::READWRITE, "output_rate", "Output Rate Hz"),
+        meas_units(MetadataItem::READWRITE, "meas_units", "Meas Units"),
+        node_addr(MetadataItem::READWRITE, "node_addr", "Node Addr"),
+        vert_meas_pad(MetadataItem::READWRITE, "vert_meas_pad", "Vert Pad"),
+        align_45_deg(MetadataItem::READWRITE, "align_45_deg", "Align/45 Deg")
+    {
+    }
+
+    MetadataInt averaging;
+    MetadataString sos_temp;
+    MetadataString heating;
+    MetadataString nmea_id_str;
+    MetadataString msg_term;
+    MetadataString msg_stream;
+    MetadataString field_fmt;
+    MetadataInt output_rate;
+    MetadataString meas_units;
+    MetadataString node_addr;
+    MetadataString vert_meas_pad;
+    MetadataString align_45_deg;
+
+    void enumerate(item_list& items) override
+    {
+        
+        for (auto mi: std::vector<MetadataItem*>({
+            &averaging,
+            &sos_temp,
+            &heating,
+            &nmea_id_str,
+            &msg_term,
+            &msg_stream,
+            &field_fmt,
+            &output_rate,
+            &meas_units,
+            &node_addr,
+            &vert_meas_pad,
+            &align_45_deg }))
+        {
+            items.push_back(mi);
+        }
+    }
+
+};
+
+
 
 GILL2D::GILL2D()
     : Wind2D(),
       _defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHAR, DEFAULT_MSG_SEP_EOM),
-      _desiredScienceParameters(), _sosEnabled(false), _unitId('\0')
+      _desiredScienceParameters(), _sosEnabled(false), _unitId('\0'),
+      _metadata(new GILL2D_Metadata())
 {
     // Build the alternate configs from all the combinations, since there are so many.
     for (int baud: {9600, 19200, 4800, 38400, 2400, 1200, 300})
@@ -221,7 +270,6 @@ GILL2D::GILL2D()
         _desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
 
-    initCustomMetadata();
     setAutoConfigSupported();
 }
 
@@ -708,53 +756,54 @@ parseConfigResponse(const std::string& respStr)
     // unless all the parameters were found in the output and match the desired parameters.
     int scienceParametersOK = 0;
     int checked = 0;
+    GILL2D_Metadata& md = *_metadata.get();
 
     if (++checked && results[A_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking SOS/Temp status(A) with argument: ") << results.str(A_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_SOS_TEMP_CMD, results.str(A_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, results.str(A_VAL_CAPTURE_IDX)));
+        md.sos_temp = results.str(A_VAL_CAPTURE_IDX);
+        VLOG(("Checking SOS/Temp status(A) with argument: ") << md.sos_temp);
+        scienceParametersOK += compareScienceParameter(SENSOR_SOS_TEMP_CMD, md.sos_temp.string_value());
     }
 
     if (++checked && results[G_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking sample averaging time(G) with argument: ") << results.str(G_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_AVG_PERIOD_CMD, results.str(G_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, results.str(G_VAL_CAPTURE_IDX)));
+        md.averaging = results.str(G_VAL_CAPTURE_IDX);
+        VLOG(("Checking sample averaging time(G) with argument: ") << md.averaging);
+        scienceParametersOK += compareScienceParameter(SENSOR_AVG_PERIOD_CMD, md.averaging.string_value());
     }
 
     if (++checked && results[H_FIELD_CAPTURE_IDX].matched) {
-        VLOG(("Checking heater status(H) with argument: ") << results.str(H_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_HEATING_CMD, results.str(H_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(HEATING_CFG_DESC, results.str(H_VAL_CAPTURE_IDX)));
+        md.heating = results.str(H_VAL_CAPTURE_IDX);
+        VLOG(("Checking heater status(H) with argument: ") << md.heating);
+        scienceParametersOK += compareScienceParameter(SENSOR_HEATING_CMD, md.heating.string_value());
     }
 
     if (++checked && results[K_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking NMEA string(K) with argument: ") << results.str(K_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, results.str(K_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, results.str(K_VAL_CAPTURE_IDX)));
+        md.nmea_id_str = results.str(K_VAL_CAPTURE_IDX);
+        VLOG(("Checking NMEA string(K) with argument: ") << md.nmea_id_str);
+        scienceParametersOK += compareScienceParameter(SENSOR_NMEA_ID_STR_CMD, md.nmea_id_str.string_value());
     }
 
     if (++checked && results[L_VAL_CAPTURE_IDX].matched) {
         VLOG(("Checking message termination(L) with argument: ") << results.str(L_VAL_CAPTURE_IDX));
         scienceParametersOK += compareScienceParameter(SENSOR_MSG_TERM_CMD, results.str(L_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, results.str(L_VAL_CAPTURE_IDX)));
+        md.msg_term = results.str(L_VAL_CAPTURE_IDX);
     }
 
     if (++checked && results[M_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking message stream format(M) with argument: ") << results.str(M_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_MSG_STREAM_CMD, results.str(M_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, results.str(M_VAL_CAPTURE_IDX)));
+        md.msg_stream = results.str(M_VAL_CAPTURE_IDX);
+        VLOG(("Checking message stream format(M) with argument: ") << md.msg_stream);
+        scienceParametersOK += compareScienceParameter(SENSOR_MSG_STREAM_CMD, md.msg_stream.string_value());
     }
 
     if (++checked && results[N_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking node address(N) with argument: ") << results.str(N_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_NODE_ADDR_CMD, results.str(N_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, results.str(N_VAL_CAPTURE_IDX)));
+        md.node_addr = results.str(N_VAL_CAPTURE_IDX);
+        VLOG(("Checking node address(N) with argument: ") << md.node_addr);
+        scienceParametersOK += compareScienceParameter(SENSOR_NODE_ADDR_CMD, md.node_addr.string_value());
     }
 
     if (++checked && results[O_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking output field format(O) with argument: ") << results.str(O_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, results.str(O_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, results.str(O_VAL_CAPTURE_IDX)));
+        md.field_fmt = results.str(O_VAL_CAPTURE_IDX);
+        VLOG(("Checking output field format(O) with argument: ") << md.field_fmt);
+        scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_FIELD_FMT_CMD, md.field_fmt.string_value());
     }
 
     if (++checked && results[P_VAL_CAPTURE_IDX].matched) {
@@ -764,30 +813,28 @@ parseConfigResponse(const std::string& respStr)
         int rate = 0;
         if (pcodeToOutputRate(pcode, rate))
         {
-            std::ostringstream out;
-            out << rate;
-            updateMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, out.str()));
+            md.output_rate = rate;
             // We need to compare the rate in Hz, not the pcode.
-            scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, out.str());
+            scienceParametersOK += compareScienceParameter(SENSOR_OUTPUT_RATE_CMD, md.output_rate.string_value());
         }
     }
 
     if (++checked && results[U_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking wind speed units(U) with argument: ") << results.str(U_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_MEAS_UNITS_CMD, results.str(U_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, results.str(U_VAL_CAPTURE_IDX)));
+        md.meas_units = results.str(U_VAL_CAPTURE_IDX);
+        VLOG(("Checking wind speed units(U) with argument: ") << md.meas_units);
+        scienceParametersOK += compareScienceParameter(SENSOR_MEAS_UNITS_CMD, md.meas_units.string_value());
     }
 
     if (++checked && results[V_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking vertical output pad(V) with argument: ") << results.str(V_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, results.str(V_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, results.str(V_VAL_CAPTURE_IDX)));
+        md.vert_meas_pad = results.str(V_VAL_CAPTURE_IDX);
+        VLOG(("Checking vertical output pad(V) with argument: ") << md.vert_meas_pad);
+        scienceParametersOK += compareScienceParameter(SENSOR_VERT_MEAS_PADDING_CMD, md.vert_meas_pad.string_value());
     }
 
     if (++checked && results[X_VAL_CAPTURE_IDX].matched) {
-        VLOG(("Checking sensor alignment(X) with argument: ") << results.str(X_VAL_CAPTURE_IDX));
-        scienceParametersOK += compareScienceParameter(SENSOR_ALIGNMENT_CMD, results.str(X_VAL_CAPTURE_IDX));
-        updateMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, results.str(X_VAL_CAPTURE_IDX)));
+        md.align_45_deg = results.str(X_VAL_CAPTURE_IDX);
+        VLOG(("Checking sensor alignment(X) with argument: ") << md.align_45_deg);
+        scienceParametersOK += compareScienceParameter(SENSOR_ALIGNMENT_CMD, md.align_45_deg.string_value());
     }
     return scienceParametersOK == checked;
 }
@@ -1264,7 +1311,8 @@ void GILL2D::exitConfigMode()
 
 void GILL2D::updateMetaData()
 {
-    setManufacturer("GILL Instruments, Ltd");
+    GILL2D_Metadata& md = *_metadata.get();
+    md.manufacturer = "GILL Instruments, Ltd";
 
     static const int BUF_SIZE = 75;
     char respBuf[BUF_SIZE];
@@ -1290,7 +1338,7 @@ void GILL2D::updateMetaData()
         if (matchFound) {
             std::string serNoStr;
             serNoStr.append(results[1].first, results[1].second - results[1].first);
-            setSerialNumber(serNoStr);
+            md.serial_number = serNoStr;
         } else {
             DLOG(("GILL2D::updateMetaData(): Didn't find serial number string as expected."));
         }
@@ -1312,28 +1360,12 @@ void GILL2D::updateMetaData()
         if (matchFound) {
             std::string fwVerStr;
             fwVerStr.append(results[1].first, results[1].second - results[1].first);
-            setFwVersion(fwVerStr);
+            md.firmware_version = fwVerStr;
         }
         else {
             DLOG(("GILL2D::updateMetaData(): Didn't find firmware version string as expected."));
         }
     }
-}
-
-void GILL2D::initCustomMetadata()
-{
-    addMetaDataItem(MetaDataItem(SOS_TEMP_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(AVERAGING_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(HEATING_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(NMEA_ID_STR_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(MSG_TERM_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(MSG_STREAM_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(FIELD_FMT_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(OUTPUT_RATE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(MEAS_UNITS_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(NODE_ADDR_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(VERT_MEAS_PAD_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(ALIGN_45_DEG_CFG_DESC, ""));
 }
 
 

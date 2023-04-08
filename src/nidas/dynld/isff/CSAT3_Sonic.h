@@ -30,10 +30,14 @@
 #include "Wind3D.h"
 #include "CS_Krypton.h"
 
+#include <memory>
+
 class TimetagAdjuster;
 
 
 namespace nidas { namespace dynld { namespace isff {
+
+class CSAT3_Sonic_Metadata;
 
 /**
  * A class for making sense of data from a Campbell Scientific Inc
@@ -110,6 +114,8 @@ public:
     std::string parseSerialNumber(const std::string& str,
             std::string::size_type & index );
 
+    virtual Metadata* getMetadata() override;
+
 protected:
 
     void checkSampleTags() throw(nidas::util::InvalidParameterException);
@@ -133,7 +139,6 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
-    virtual void initCustomMetaData();
     bool findConfigPrompt(bool drain=false, bool prompt=false);
 
 private:
@@ -207,9 +212,6 @@ private:
 
     bool _oversample;
 
-//    Move to DSMSensor so that all sensors can collect this metadata
-//    std::string _serialNumber;
-
     std::string _sonicLogFile;
 
     /**
@@ -269,6 +271,9 @@ private:
     int rtsIndep;
     int recSep;
     int baudRate;
+
+    // Use a pointer just to avoid defining the class in the header.
+    std::unique_ptr<CSAT3_Sonic_Metadata> _metadata;
 
     /**
      * No copying.
