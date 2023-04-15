@@ -30,4 +30,3 @@ env.ValgrindLog('threadcheck',
                             "${VALGRIND_PATH} --tool=helgrind"
                             " --gen-suppressions=all ./${SOURCE.file}"
                             " >& ${TARGET.abspath}"))
-

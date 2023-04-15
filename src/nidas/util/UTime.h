@@ -84,6 +84,11 @@ public:
     /**
      * Constructor.
      * isUTC() will be set to true.
+     * 
+     * This is a useful constructor to create a "zero" UTime(0l) that will be
+     * initialized separately, such as by parsing from a string, since it
+     * avoids the call to get the current time.
+     * 
      * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
     UTime(long long t): _utime(t),_fmt(),_utc(true) {}
@@ -258,6 +263,23 @@ public:
      *
      */
     std::string format() const;
+
+    /**
+     * Format into ISO-compatible format "%Y-%m-%dT%H:%M:%S.%3fZ".  UTC is implied.
+     */
+    std::string
+    to_iso();
+
+    /**
+     * Parse the time in ISO8601 format, "%Y-%m-%dT%H:%M:%S[.%3f]Z", with or
+     * without the fractional seconds.  UTC is implied.  Calling the static
+     * parse() method works also, except that will accept other formats.  Use
+     * this method if ISO format is expected and required.  If parsing fails
+     * and @p throwx is true, throw ParseException.  If @p throwx is false,
+     * then return true if parse succeeded and false if it failed.
+     */
+    bool
+    from_iso(const std::string& text, bool throwx=false);
 
     UTime& operator=(const UTime& u)
     {

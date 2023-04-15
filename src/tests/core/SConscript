@@ -8,7 +8,7 @@ env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core", "#/nidas/dynld" ])
 tests = env.Program('tcore', ["tcore.cc", "tsamples.cc",
-                              "tutil.cc", "tcalfile.cc", "tbadsamplefilter.cc",
+                              "tcalfile.cc", "tbadsamplefilter.cc",
                               "tprompt.cc"])
 # env.Depends(tests, libs)
 #

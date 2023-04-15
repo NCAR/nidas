@@ -200,8 +200,10 @@ UTime UTime::parse(bool utc, const std::string& str, int *ncharp)
     // scanf("%d %d %d") will parse "YYYY-mm-dd", and the month and days
     // will be negative.
     static const char* formats[] =
-        { "%Y-%m-%dT%H:%M:%S.%f",
+        { "%Y-%m-%dT%H:%M:%S.%fZ",
+          "%Y-%m-%dT%H:%M:%S.%f",
           "%Y-%m-%d %H:%M:%S.%f",
+          "%Y-%m-%dT%H:%M:%SZ",
           "%Y-%m-%dT%H:%M:%S",
           "%Y-%m-%d %H:%M:%S",
           "%Y-%m-%dT%H:%M",
@@ -574,6 +576,27 @@ string UTime::getTZ()
     Process::getEnvVar("TZ",curval);
     return curval;
 }
+
+
+std::string
+UTime::
+to_iso()
+{
+    return this->format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
+}
+
+bool
+UTime::
+from_iso(const std::string& text, bool throwx)
+{
+    if (checkParse(true, text, "%Y-%m-%dT%H:%M:%S.%fZ", 0) ||
+        checkParse(true, text, "%Y-%m-%dT%H:%M:%SZ", 0))
+        return true;
+    if (throwx)
+        throw ParseException(text, "unrecognized ISO8601 format");
+    return false;
+}
+
 
 /*
  * Return month number in the range 1-12, corresponding to a string.

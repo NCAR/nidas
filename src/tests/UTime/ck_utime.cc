@@ -280,12 +280,16 @@ int main(int, char** argv)
     cases_t cases;
     cases.push_back(make_pair("2019-11-07T16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
+    cases.push_back(make_pair("2019-11-07T16:10:55.001Z",
+                              UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.001",
                               UTime(true, 2019, 11, 7, 16, 10, 55.001)));
     cases.push_back(make_pair("2019-11-07 16:10:55.124000",
                               UTime(true, 2019, 11, 7, 16, 10, 55.124)));
     // Make sure shortened forms handled correctly too.
     cases.push_back(make_pair("2019-11-07 16:10:55",
+                              UTime(true, 2019, 11, 7, 16, 10, 55)));
+    cases.push_back(make_pair("2019-11-07T16:10:55Z",
                               UTime(true, 2019, 11, 7, 16, 10, 55)));
     cases.push_back(make_pair("2019-11-07 16:10",
                               UTime(true, 2019, 11, 7, 16, 10, 0)));
@@ -303,6 +307,29 @@ int main(int, char** argv)
         }
     }
     cout << "OK." << endl;
+
+    {
+        UTime ut(0l);
+        assert(ut.from_iso("2019-11-07T16:10:55Z"));
+        assert(ut == UTime(true, 2019, 11, 7, 16, 10, 55));
+    }
+    {
+        UTime ut(0l);
+        assert(ut.from_iso("2019-11-07T16:10:55.321Z"));
+        assert(ut == UTime(true, 2019, 11, 7, 16, 10, 55.321));
+    }
+    {
+        UTime ut(0l);
+        try {
+            ut.from_iso("2019-11-07 16:10:55Z", true);
+            cerr << "expected exception\n";
+            assert(0);
+        }
+        catch (const ParseException& px)
+        {
+            assert(ut == UTime(0l));
+        }
+    }
 
     cout << "Success: " << argv[0] << endl;
     return 0;
