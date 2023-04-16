@@ -25,7 +25,14 @@
 #include "Metadata.h"
 #include <nidas/util/Logger.h>
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+
+
 namespace nidas { namespace core {
+
+using nidas::util::UTime;
 
 const std::string MetadataItem::UNSET{"UNSET"};
 const std::string MetadataItem::FAILED{"FAILED"};
@@ -58,7 +65,7 @@ bool
 MetadataItem::
 check_assign_string(const std::string& incoming)
 {
-    _error.clear();
+    set_error();
     update_string_value(incoming);
     return true;
 }
@@ -76,9 +83,25 @@ update_string_value(const std::string& value)
 
 void
 MetadataItem::
+set_error(const std::string& msg)
+{
+    _error = msg;
+}
+
+
+void
+MetadataItem::
+set_error(const std::ostringstream& buf)
+{
+    _error = buf.str();
+}
+
+
+void
+MetadataItem::
 erase()
 {
-    _error.clear();
+    set_error();
     update_string_value(UNSET);
 }
 
@@ -110,7 +133,9 @@ std::string
 MetadataString::
 get()
 {
-    return _string_value;
+    if (unset())
+        return "";
+    return string_value();
 }
 
 MetadataString::
@@ -156,7 +181,7 @@ MetadataBool::
 check_assign_string(const std::string& incoming)
 {
     bool target = from_string(incoming);
-    if (!_error.empty())
+    if (!error().empty())
         return false;
     update_string_value(to_string(target));
     return true;
@@ -166,7 +191,9 @@ bool
 MetadataBool::
 get()
 {
-    return from_string(_string_value);
+    if (unset())
+        return false;
+    return from_string(string_value());
 }
 
 MetadataBool::
@@ -179,7 +206,7 @@ bool
 MetadataBool::
 from_string(const std::string& incoming)
 {
-    _error.clear();
+    set_error();
     bool target{false};
     if (incoming == "true")
         target = true;
@@ -187,7 +214,7 @@ from_string(const std::string& incoming)
         target = false;
     else
     {
-        _error = "could not parse as bool: " + incoming;
+        set_error("could not parse as bool: " + incoming);
     }
     return target;
 }
@@ -224,7 +251,9 @@ T
 MetadataNumber<T>::
 get()
 {
-    return from_string(_string_value);
+    if (unset())
+        return T();
+    return from_string(string_value());
 }
 
 template <typename T>
@@ -265,17 +294,16 @@ bool
 MetadataNumber<T>::
 check_assign_string(const std::string& incoming)
 {
-    _error.clear();
+    set_error();
     T target = from_string(incoming);
-    if (!_error.empty())
+    if (!error().empty())
     {
         return false;
     }
     if (target < min || max < target)
     {
-        std::ostringstream msg;
-        msg << target << " is not in range [" << min << ", " << max << "]";
-        _error = msg.str();
+        set_error(errbuf() << target << " is not in range ["
+                           << min << ", " << max << "]");
         return false;
     }
     update_string_value(to_string(target));
@@ -297,14 +325,12 @@ T
 MetadataNumber<T>::
 from_string(const std::string& value)
 {
-    _error.clear();
+    set_error();
     std::istringstream inb(value);
     T target{0};
     if (!(inb >> target))
     {
-        std::ostringstream msg;
-        msg << "could not parse as a number: " << value;
-        _error = msg.str();
+        set_error(errbuf("could not parse as a number: ") << value);
     }
     return target;
 }
@@ -324,11 +350,85 @@ template class MetadataNumber<double>;
 template class MetadataNumber<int>;
 
 
+// MetadataTime implementation
+
+MetadataTime::
+MetadataTime(enum MODE mode,
+                const std::string& name,
+                const std::string& description):
+    MetadataItem(mode, name, description)
+{
+}
+
+UTime
+MetadataTime::
+get()
+{
+    // no point trying to parse an unset value.
+    if (unset())
+        return UTime(0l);
+    return from_string(string_value());
+}
+
+bool
+MetadataTime::
+set(const UTime& value)
+{
+    // no need to convert to a string just to call check_assign_string() and
+    // convert it back, because we know we get a valid string from to_iso().
+    set_error();
+    update_string_value(value.to_iso());
+    return true;
+}
+
+MetadataTime&
+MetadataTime::
+operator=(const UTime& ut)
+{
+    set(ut);
+    return *this;
+}
+
+MetadataTime&
+MetadataTime::
+operator=(const std::string& value)
+{
+    check_assign_string(value);
+    return *this;
+}
+
+bool
+MetadataTime::
+check_assign_string(const std::string& incoming)
+{
+    set_error();
+    UTime ut(from_string(incoming));
+    if (!error().empty())
+        return false;
+    update_string_value(ut.to_iso());
+    return true;
+}
+
+UTime
+MetadataTime::
+from_string(const std::string& value)
+{
+    UTime ut(0l);
+    if (!ut.from_iso(value))
+    {
+        set_error("could not parse time: " + value);
+    }
+    return ut;
+};
+
+
 // Metadata implementation
 
 Metadata::
 Metadata(const std::string& classname):
     _classname(classname),
+    record_type(MetadataItem::READWRITE, "record_type"),
+    timestamp(MetadataItem::READWRITE, "timestamp"),
     manufacturer(MetadataItem::READONLY, "manufacturer", "Manufacturer"),
     model(MetadataItem::READONLY, "model", "Model"),
     serial_number(MetadataItem::READONLY, "serial_number", "Serial Number"),
@@ -353,7 +453,9 @@ Metadata::
 get_items()
 {
     item_list items;
-    auto members = {
+    auto members = std::vector<MetadataItem*>{
+        &record_type,
+        &timestamp,
         &manufacturer,
         &model,
         &serial_number,

@@ -577,10 +577,9 @@ string UTime::getTZ()
     return curval;
 }
 
-
 std::string
 UTime::
-to_iso()
+to_iso() const
 {
     return this->format(true, "%Y-%m-%dT%H:%M:%S.%3fZ");
 }

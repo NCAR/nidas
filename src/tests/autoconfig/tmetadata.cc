@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(test_metadata_constraints)
 
     BOOST_TEST(md.dice.unset());
     BOOST_TEST(md.dice.get() == 0);
-    BOOST_TEST(!md.dice.error().empty());
+    BOOST_TEST(md.dice.error().empty());
     DLOG(("") << md.dice.error());
 
     md.dice = 1;
@@ -235,6 +235,51 @@ BOOST_AUTO_TEST_CASE(test_metadata_output)
         BOOST_TEST(buf.str() == "UNSET");
     }
 }
+
+
+BOOST_AUTO_TEST_CASE(test_metadata_timestamp)
+{
+    {
+        MetadataTest md;
+
+        UTime ut(true, 2023, 4, 15, 12, 30, 59);
+        md.timestamp = ut;
+        BOOST_TEST(md.timestamp.error().empty());
+        BOOST_TEST(md.timestamp.string_value() == "2023-04-15T12:30:59.000Z");
+
+        md.timestamp = "2023-03-30T09:00:00Z";
+        BOOST_TEST(md.timestamp.error().empty());
+        BOOST_TEST(md.timestamp.get() == UTime(true, 2023, 3, 30, 9, 0, 0));
+    }
+    {
+        MetadataTest md;
+
+        // get() on unset returns a default value and no error.
+        BOOST_TEST(md.timestamp.get() == UTime(0l));
+
+        UTime ut(true, 2023, 4, 15, 12, 30, 59);
+        BOOST_TEST(md.timestamp.set(ut));
+    }
+
+}
+
+
+BOOST_AUTO_TEST_CASE(test_metadata_get)
+{
+    // get() on unset values should return a default with no error.
+    MetadataTest md;
+
+    BOOST_TEST(md.serial_number.get() == "");
+    BOOST_TEST(md.serial_number.error().empty());
+    BOOST_TEST(md.number.get() == 0);
+    BOOST_TEST(md.number.error().empty());
+    BOOST_TEST(md.pi.get() == 0);
+    BOOST_TEST(md.pi.error().empty());
+    BOOST_TEST(md.timestamp.get() == UTime(0l));
+    BOOST_TEST(md.timestamp.error().empty());
+
+}
+
 
 
 // BOOST_AUTO_TEST_SUITE_END()

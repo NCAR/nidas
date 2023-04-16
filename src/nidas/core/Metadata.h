@@ -24,11 +24,13 @@
 #ifndef NIDAS_CORE_METADATA_H
 #define NIDAS_CORE_METADATA_H
 
+#include <nidas/util/UTime.h>
+
 #include <string>
 #include <vector>
 #include <exception>
 #include <limits>
-#include <iomanip>
+#include <iosfwd>
 
 namespace nidas { namespace core {
 
@@ -96,6 +98,16 @@ class Metadata;
  * 
  * <value>: the value of the metadata, stored in string format.
  *
+ * MetadataItem subclasses implement typed interfaces to set and get the
+ * stored string value with different constraints, such as a native type or
+ * value limits.  Typically a get() method returns the string value converted
+ * to a typed value.  If the value is unset(), then get() returns some default
+ * value for the subclass type.  Callers have to remember to test unset() if
+ * necessary.  There is usually also a set() method which accepts a typed
+ * parameter.  If the typed parameter fails the constraints, then the string
+ * value does not change and the error() message is set.  See
+ * check_assign_string().
+ * 
  * MetadataItem implementations can check for valid assignments and accumulate
  * error messages for invalid assignments in an error buffer.  Call error() to
  * retrieve the error message.
@@ -141,7 +153,7 @@ public:
         return _description;
     }
 
-    std::string
+    const std::string&
     string_value() const
     {
         return _string_value;
@@ -151,10 +163,10 @@ public:
      * Return the current error message.  If an attempt to assign a new value
      * fails, such as when a set() call in a subclass returns false, the
      * return value will be a non-empty explanation of the error.  Subclasses
-     * should clear the error message before each assignment attempt or
-     * validity check.
+     * should clear the error message with set_error() before each assignment
+     * attempt or validity check.
      */
-    std::string
+    const std::string&
     error() const
     {
         return _error;
@@ -176,25 +188,28 @@ protected:
      * MetadataItem subclasses with no members or only a typed value member
      * can just expose the default assignment method.
      * 
-     * The base implementation calls check_assign_string() to assign the string
-     * value, since the constraints in this item may be different than in the
-     * source item.  This means that if the check fails, error() will be set
-     * and this value will not change.
+     * The base implementation calls check_assign_string() to assign the
+     * string value, since the constraints in this item may be different than
+     * in the source item.  This means that if the check fails, error() will
+     * be set and the value in this item will not change.
      * 
      * If the source value is unset(), then it is not assigned.  To erase a
      * value, call erase().
      * 
      * There is no check that the other MetadataItem has the same name, since
-     * it wouldn't be unusual to want to copy the same value for some metadata
-     * into multiple items.
+     * it seems reasonable to want to copy the same value from one metadata
+     * item into multiple items.  However, this is protected to prevent one
+     * subclass value from being assigned to a different subclass.  If a
+     * subclass wants to allow that, then it can provide a public assignment
+     * method accepting a MetadataItem reference.
      */
     MetadataItem& operator=(const MetadataItem& source);
 
     /**
-     * Copy construction is allowed.  Note that even the current error message
-     * from the source is preserved in the copy.  Like assignment, this is
-     * protected so that a subclass of MetadataItem cannot be sliced by
-     * assignment.
+     * Default copy construction works but subclasses have to allow it.  Note
+     * that even the current error message from the source is preserved in the
+     * copy.  Like assignment, this is protected so that a subclass of
+     * MetadataItem cannot be sliced by assignment.
      */
     MetadataItem(const MetadataItem&) = default;
 
@@ -208,35 +223,61 @@ protected:
                  const std::string& description="");
 
     /**
-     * Check if string value @p incoming is valid, and if so, update the
-     * string value for this item, possibly reformatted.
+     * Check if @p incoming is a valid string value, and if so, assign it.
      * 
-     * If invalid, do not change the item value, but set a message in string
-     * @p error.  When valid, @p error will be unchanged, so it is up to the
-     * caller to make sure it is empty if that's how an error will be
-     * detected.  The error string in the interface allows implementations to
-     * return a meaningful message, but if an implementation thinks an invalid
-     * setting is important enough, it could choose to throw that message in
-     * an exception.
+     * Implementations of this method must check that the attempted assignment
+     * satisfies the constraints for the values of this item, if necessary by
+     * first converting the string to a different type.  Valid values may also
+     * need to be reformatted into the corrent string format before being
+     * passed to update_string_value().
+     * 
+     * Implementations should also clear the error string upon entry.  If @p
+     * incoming is invalid, do not change the item value, but set the error
+     * message.  When the value is valid and assignment succeeds, @p error
+     * will be empty and the return value will be true.  The error string in
+     * the interface allows implementations to return a meaningful message,
+     * but if an implementation thinks an invalid setting is important enough,
+     * it could choose to throw that message in an exception.
      * 
      * The reformat allows the MetadataItem to control how valid values are
      * formatted when stored as a string.  For example, setting a string value
      * of "3.1415927" to a float would be stored as "3.14" if a precision of 3
      * is enforced.
      * 
-     * The default implementation in the base class does no checking, it just
-     * assigns the string value.
-     * 
-     * Typed interfaces convert an incoming typed value to a string
-     * and then pass it to this method.  Otherwise, if the 
+     * The base class implementation does no checking, it just assigns the
+     * string value.  So if that's the behavior wanted by a subclass, it can
+     * just call this implementation.
      */
     virtual bool
     check_assign_string(const std::string& incoming);
 
-    // Subclasses call this to change the string value.
+    /**
+     * Subclasses call this to change the string value.
+     * 
+     * Unlike check_assign_string(), this just updates the string value and
+     * does no checks.
+     */
     void
     update_string_value(const std::string& value);
 
+    /**
+     * Set the error message to @p msg.
+     * 
+     * The default value of @p msg clears the error message.
+     */
+    void
+    set_error(const std::string& msg="");
+
+    void
+    set_error(const std::ostringstream& buf);
+
+    /**
+     * A shorter type alias to build error messages with std::ostringstream,
+     * like set_error(errbuf() << msg << parameter);
+     */
+    using errbuf = std::ostringstream;
+
+private:
     enum MODE _mode;
     std::string _name;
     std::string _description;
@@ -262,6 +303,12 @@ public:
                    const std::string& name,
                    const std::string& description="");
 
+    /**
+     * Return the string value or else an empty string if unset.
+     * 
+     * Call unset() to check if the string value was explicitly set to an
+     * empty string.
+     */
     std::string
     get();
 
@@ -298,14 +345,31 @@ public:
                  const std::string& name,
                  const std::string& description="");
 
-    virtual bool check_assign_string(const std::string& incoming);
+    /**
+     * If the string @p incoming can be converted to a bool by from_string(),
+     * convert the bool value to a string with to_string() and set the value
+     * of this item to that string.
+     */
+    virtual bool check_assign_string(const std::string& incoming) override;
 
+    /**
+     * Return the value of this item as a bool, or false if unset().
+     */
     bool get();
 
     operator bool();
 
+    /**
+     * If @p incoming is "true" or "false", return the bool equivalent.
+     * 
+     * If @p incoming is not a recognized string value, then return false and
+     * set the error message.
+     */
     bool from_string(const std::string& incoming);
 
+    /**
+     * Return "true" if @p value is true, else return "false".
+     */
     std::string to_string(bool value);
 
     bool set(bool value);
@@ -334,6 +398,9 @@ public:
                    T min_ = std::numeric_limits<T>::min(),
                    T max_ = std::numeric_limits<T>::max());
 
+    /**
+     * Return the string value as the native type, or else T() if unset().
+     */
     T get();
 
     operator T();
@@ -348,7 +415,7 @@ public:
     // number.
 
     /**
-     * Call check_assign_string().
+     * Call check_assign_string() with @p value.
      */
     MetadataNumber<T>& operator=(const std::string& value);
 
@@ -385,6 +452,38 @@ private:
 using MetadataDouble = MetadataNumber<float>;
 using MetadataFloat = MetadataNumber<float>;
 using MetadataInt = MetadataNumber<int>;
+
+
+/**
+ * MetadataTime is a time stored as a string in ISO8601 format.
+ */
+class MetadataTime: public MetadataItem
+{
+public:
+    using UTime = nidas::util::UTime;
+
+    MetadataTime(enum MODE mode,
+                 const std::string& name,
+                 const std::string& description="");
+
+    /**
+     * Return the value as a UTime, or if unset(), return UTime(0l).
+     */
+    UTime get();
+
+    bool set(const UTime& value);
+
+    MetadataTime& operator=(const UTime& ut);
+
+    MetadataTime& operator=(const std::string& value);
+
+    virtual bool check_assign_string(const std::string& incoming) override;
+
+    UTime from_string(const std::string& value);
+
+    MetadataTime& operator=(const MetadataTime& right) = default;
+    MetadataTime(const MetadataTime& right) = default;
+};
 
 
 /**
@@ -472,6 +571,8 @@ public:
 
     std::string classname();
 
+    MetadataString record_type;
+    MetadataTime timestamp;
     MetadataString manufacturer;
     MetadataString model;
     MetadataString serial_number;

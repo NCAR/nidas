@@ -265,10 +265,11 @@ public:
     std::string format() const;
 
     /**
-     * Format into ISO-compatible format "%Y-%m-%dT%H:%M:%S.%3fZ".  UTC is implied.
+     * Return this time in ISO8601 format "%Y-%m-%dT%H:%M:%S.%3fZ".  The
+     * fractional seconds are included in the output even if zero.
      */
     std::string
-    to_iso();
+    to_iso() const;
 
     /**
      * Parse the time in ISO8601 format, "%Y-%m-%dT%H:%M:%S[.%3f]Z", with or
