@@ -37,14 +37,16 @@ namespace nidas { namespace core {
 
 class Metadata;
 
-// class MetadataException: public std::exception
-// {
-// public:
-//     MetadataException(const std::string& what):
-//         std::exception(what)
-//     {}
-// };
 
+class MetadataException: public std::runtime_error
+{
+public:
+    MetadataException(const std::string& what);
+    MetadataException(const std::ostringstream& buf);
+};
+
+
+class MetadataItemVisitor;
 
 /**
  * MetadataItem is basically a name, description, and string value.
@@ -181,6 +183,8 @@ public:
     virtual
     ~MetadataItem();
 
+    virtual void visit(MetadataItemVisitor*) = 0;
+
 protected:
     /**
      * MetadataItem assignment means assigning just the value from @p source.
@@ -241,8 +245,8 @@ protected:
      * 
      * The reformat allows the MetadataItem to control how valid values are
      * formatted when stored as a string.  For example, setting a string value
-     * of "3.1415927" to a float would be stored as "3.14" if a precision of 3
-     * is enforced.
+     * of "3.1415927" to a double would be stored as "3.14" if a precision of
+     * 3 is enforced.
      * 
      * The base class implementation does no checking, it just assigns the
      * string value.  So if that's the behavior wanted by a subclass, it can
@@ -321,6 +325,8 @@ public:
     bool
     set(const std::string& value);
 
+    virtual void visit(MetadataItemVisitor*) override;
+
     /**
      * Allow direct string assignment.  If the assignment fails because of
      * constraint checks, then error() will be non-empty.
@@ -373,6 +379,10 @@ public:
     std::string to_string(bool value);
 
     bool set(bool value);
+
+    virtual void visit(MetadataItemVisitor*) override;
+
+    MetadataBool& operator=(bool value) { set(value); return *this; }
 
     /**
      * There is no state in this class to preserve, so only MetatdataItem
@@ -431,6 +441,8 @@ public:
      */
     MetadataNumber<T>& operator=(const MetadataNumber<T>& right);
 
+    virtual void visit(MetadataItemVisitor*) override;
+
     /**
      * Allow default copy construction, so that a Metadata dictionary can be
      * copied, which unlike assignment means keeping all the item properties
@@ -448,9 +460,11 @@ private:
 };
 
 
-// These will be common, so give them aliases.
-using MetadataDouble = MetadataNumber<float>;
-using MetadataFloat = MetadataNumber<float>;
+/**
+ * Type aliases for the two numeric types.  A separate float type is not
+ * needed since double can have a precision.
+ */
+using MetadataDouble = MetadataNumber<double>;
 using MetadataInt = MetadataNumber<int>;
 
 
@@ -481,9 +495,24 @@ public:
 
     UTime from_string(const std::string& value);
 
+    virtual void visit(MetadataItemVisitor*) override;
+
     MetadataTime& operator=(const MetadataTime& right) = default;
     MetadataTime(const MetadataTime& right) = default;
 };
+
+
+class MetadataItemVisitor
+{
+public:
+    virtual void visit_double(MetadataDouble*);
+    virtual void visit_int(MetadataInt*);
+    virtual void visit_string(MetadataString*);
+    virtual void visit_bool(MetadataBool*);
+    virtual void visit_time(MetadataTime*);
+    virtual ~MetadataItemVisitor();
+};
+
 
 
 /**
@@ -569,7 +598,7 @@ public:
      */
     item_list get_items();
 
-    std::string classname();
+    const std::string& classname();
 
     MetadataString record_type;
     MetadataTime timestamp;
@@ -593,6 +622,28 @@ public:
      * allocation does not change.
      */
     MetadataItem* lookup(const std::string& name);
+
+    /**
+     * Serialize the Metadata object to ostream @p out in JSON format.
+     * 
+     * If @p indent is zero, return a single line of JSON, as appropriate for
+     * line-delimited JSON messages, but without a trailing newline.
+     * Otherwise return multiple lines using the given amount of indentation,
+     * as might be appropriate for writing to a file, also without a trailing
+     * newline.
+     */
+    virtual std::string
+    to_buffer(int indent=0);
+
+    /**
+     * Parse the string buffer for metadata item settings.
+     * 
+     * The buffer can be in JSON or some other format supported by the
+     * implementing subclass.  @p return true if the parse succeeded, false
+     * otherwise.
+     */
+    virtual bool
+    from_buffer(const std::string& buffer);
 
     virtual ~Metadata();
 

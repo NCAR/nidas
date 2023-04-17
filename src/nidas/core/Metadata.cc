@@ -29,10 +29,24 @@
 #include <sstream>
 #include <iomanip>
 
+#include <boost/json/src.hpp>
+namespace json = boost::json;
+
 
 namespace nidas { namespace core {
 
 using nidas::util::UTime;
+
+MetadataException::
+MetadataException(const std::string& what):
+    std::runtime_error(what)
+{}
+
+MetadataException::
+MetadataException(const std::ostringstream& buf):
+    std::runtime_error(buf.str())
+{}
+
 
 const std::string MetadataItem::UNSET{"UNSET"};
 const std::string MetadataItem::FAILED{"FAILED"};
@@ -344,8 +358,7 @@ operator=(const MetadataNumber<T>& right)
     return *this;
 }
 
-// explicit instantiation of the types with aliases.
-template class MetadataNumber<float>;
+// explicit instantiation of the numeric types with aliases.
 template class MetadataNumber<double>;
 template class MetadataNumber<int>;
 
@@ -440,7 +453,7 @@ Metadata(const std::string& classname):
 {}
 
 
-std::string
+const std::string&
 Metadata::
 classname()
 {
@@ -452,8 +465,7 @@ Metadata::item_list
 Metadata::
 get_items()
 {
-    item_list items;
-    auto members = std::vector<MetadataItem*>{
+    item_list items{
         &record_type,
         &timestamp,
         &manufacturer,
@@ -465,7 +477,6 @@ get_items()
         &firmware_build,
         &calibration_date
     };
-    std::copy(begin(members), end(members), std::back_inserter(items));
     enumerate(items);
     // any items added at runtime and stored by the base class would be
     // appended here.
@@ -504,6 +515,212 @@ operator=(const Metadata& right)
 Metadata::
 ~Metadata()
 {}
+
+
+std::string
+Metadata::
+to_buffer(int nindent)
+{
+    std::ostringstream buf;
+    std::string indent(nindent, ' ');
+    std::string separator{' '};
+    std::string comma;
+    if (nindent)
+        separator = '\n';
+    buf << "{";
+    for (auto mdi: get_items())
+    {
+        if (mdi->unset())
+            continue;
+        buf << comma << separator << indent << "\"" << mdi->name() << "\": ";
+        if (auto si = dynamic_cast<MetadataString*>(mdi))
+        {
+            // have to surround strings with quotes and escape embedded
+            // quotes, so let the json library take care of that.
+            json::value v;
+            v.emplace_string() = si->get();
+            buf << v;
+        }
+        else if (auto ti = dynamic_cast<MetadataTime*>(mdi))
+        {
+            json::value v;
+            v.emplace_string() = ti->string_value();
+            buf << v;
+        }
+        else
+        {
+            // the string value is good enough
+            buf << mdi->string_value();
+        }
+        comma = ",";
+    }
+    buf << separator << "}";
+    return buf.str();
+}
+
+
+void
+MetadataBool::
+visit(MetadataItemVisitor* visitor)
+{
+    visitor->visit_bool(this);
+}
+
+template <>
+void
+MetadataNumber<double>::
+visit(MetadataItemVisitor* visitor)
+{
+    visitor->visit_double(this);
+}
+
+template <>
+void
+MetadataNumber<int>::
+visit(MetadataItemVisitor* visitor)
+{
+    visitor->visit_int(this);
+}
+
+void
+MetadataString::
+visit(MetadataItemVisitor* visitor)
+{
+    visitor->visit_string(this);
+}
+
+void
+MetadataTime::
+visit(MetadataItemVisitor* visitor)
+{
+    visitor->visit_time(this);
+}
+
+
+void MetadataItemVisitor::visit_double(MetadataDouble*) {}
+void MetadataItemVisitor::visit_int(MetadataInt*) {}
+void MetadataItemVisitor::visit_string(MetadataString*) {}
+void MetadataItemVisitor::visit_bool(MetadataBool*) {}
+void MetadataItemVisitor::visit_time(MetadataTime*) {}
+MetadataItemVisitor::~MetadataItemVisitor() {}
+
+
+class FillValue: public MetadataItemVisitor
+{
+public:
+    json::value v{};
+
+    virtual void visit_double(MetadataDouble* di)
+    {
+        v.emplace_double() = di->get();
+    }
+
+    virtual void visit_int(MetadataInt* ii)
+    {
+        v.emplace_int64() = ii->get();
+    }
+
+    virtual void visit_string(MetadataString* si)
+    {
+        v.emplace_string() = si->get();
+    }
+
+    virtual void visit_bool(MetadataBool* bi)
+    {
+        v.emplace_bool() = bi->get();
+    }
+    virtual void visit_time(MetadataTime* ti)
+    {
+        v.emplace_string() = ti->string_value();
+    }
+
+    virtual ~FillValue() {}
+};
+
+
+/**
+ * Rather than check the underlying value type in every implementation, expect
+ * the caller to catch an exception if any of the accesses do not match.
+ */
+class LoadValue: public MetadataItemVisitor
+{
+public:
+    json::value v{};
+
+    virtual void visit_double(MetadataDouble* di)
+    {
+        // json::value does not cast for us
+        if (v.is_int64())
+            di->set(v.as_int64());
+        else if (v.is_uint64())
+            di->set(v.as_uint64());
+        else
+            di->set(v.as_double());
+    }
+
+    virtual void visit_int(MetadataInt* ii)
+    {
+        if (v.is_uint64())
+            ii->set(v.as_uint64());
+        else
+            ii->set(v.as_int64());
+    }
+
+    virtual void visit_string(MetadataString* si)
+    {
+        si->set(v.as_string().c_str());
+    }
+
+    virtual void visit_bool(MetadataBool* bi)
+    {
+        bi->set(v.as_bool());
+    }
+
+    virtual void visit_time(MetadataTime* ti)
+    {
+        ti->check_assign_string(v.as_string().c_str());
+    }
+
+    virtual ~LoadValue() {}
+};
+
+
+bool
+Metadata::
+from_buffer(const std::string& buffer)
+{
+    bool ok = true;
+    json::error_code ec;
+    json::value obj = json::parse(buffer, ec);
+    if (ec)
+    {
+        PLOG(("json parse failed: ") << buffer);
+        return false;
+    }
+    try {
+        for (auto& mp: obj.as_object())
+        {
+            MetadataItem* mdi = lookup(mp.key_c_str());
+            if (!mdi)
+            {
+                throw MetadataException(
+                    std::ostringstream("unknown metadata item: ") << mp.key());
+            }
+            else
+            {
+                LoadValue lv;
+                lv.v = mp.value();
+                mdi->visit(&lv);
+            }
+        }
+    }
+    catch (std::exception& ex)
+    {
+        PLOG(("") << ex.what());
+        ok = false;
+    }
+    return ok;
+}
 
 
 } // namespace core

@@ -58,9 +58,9 @@ public:
         pi(MetadataItem::READWRITE, "pi", "Pi with precision 3", 3)
     {}
 
-    MetadataFloat number;
+    MetadataDouble number;
     MetadataBool flag;
-    MetadataFloat positive;
+    MetadataDouble positive;
     MetadataInt dice;
     MetadataDouble pi;
 
@@ -119,17 +119,22 @@ BOOST_AUTO_TEST_CASE(test_metadata_bool)
 {
     MetadataTest md;
 
-    md.number = 2.0;
-    md.serial_number = "ABC123";
+    BOOST_TEST(md.flag.unset());
+    BOOST_TEST(md.flag.get() == false);
+    md.flag = false;
+    BOOST_TEST(!md.flag.unset());
+    BOOST_TEST(md.flag.get() == false);
+    md.flag = true;
+    BOOST_TEST(!md.flag.unset());
+    BOOST_TEST(md.flag.get() == true);
 
-    MetadataTest md2;
-    md2 = md;
-
-    BOOST_TEST(!md2.number.unset());
-    BOOST_TEST(!md2.serial_number.unset());
-    BOOST_TEST(md2.number.get() == 2.0);
-    BOOST_TEST(md2.serial_number.get() == "ABC123");
-
+    BOOST_TEST(md.flag.error().empty());
+    md.flag.check_assign_string("x");
+    BOOST_TEST(!md.flag.error().empty());
+    BOOST_TEST(md.flag.string_value() == "true");
+    md.flag.check_assign_string("false");
+    BOOST_TEST(md.flag.error().empty());
+    BOOST_TEST(md.flag.get() == false);
 }
 
 BOOST_AUTO_TEST_CASE(test_metadata_lookup)
@@ -281,7 +286,37 @@ BOOST_AUTO_TEST_CASE(test_metadata_get)
 }
 
 
+BOOST_AUTO_TEST_CASE(test_metadata_json)
+{
+    MetadataTest md;
+
+    md.number = 2.0;
+    md.flag = true;
+    md.pi = 3.1415927;
+    md.serial_number = "ABC123";
+    md.firmware_version = "cygnus 'X1' \"alpha\" 42";
+
+    std::string xbuf =
+    R"""({ "serial_number": "ABC123", "firmware_version": "cygnus 'X1' \"alpha\" 42", "number": 2, "flag": true, "pi": 3.14 })""";
+    BOOST_TEST(md.to_buffer() == xbuf);
+
+    xbuf = R"""({
+  "serial_number": "ABC123",
+  "firmware_version": "cygnus 'X1' \"alpha\" 42",
+  "number": 2,
+  "flag": true,
+  "pi": 3.14
+})""";
+    BOOST_TEST(md.to_buffer(2) == xbuf);
+
+    MetadataTest mdf;
+    std::cerr << md.to_buffer(2) << std::endl;
+    BOOST_TEST(mdf.from_buffer(md.to_buffer()));
+    BOOST_TEST(mdf.number.get() == 2.0);
+    BOOST_TEST(mdf.flag.get() == true);
+    BOOST_TEST(mdf.pi.get() == 3.14);
+    BOOST_TEST(mdf.serial_number.get() == "ABC123");
+    BOOST_TEST(mdf.firmware_version.get() == "cygnus 'X1' \"alpha\" 42");
+}
 
 // BOOST_AUTO_TEST_SUITE_END()
-
-
