@@ -723,5 +723,65 @@ from_buffer(const std::string& buffer)
 }
 
 
+#ifdef notdef
+/**
+ * This version relies solely on boost::json for formatting, and that does not
+ * offer an indentation setting.  The floats are at least written to the
+ * minimal precision, but with an exponent suffix to differentiate floats from
+ * ints.
+ */
+std::string
+Metadata::
+to_buffer(int nindent)
+{
+    json::object obj;
+    for (auto mdi: get_items())
+    {
+        if (mdi->unset())
+            continue;
+        FillValue fv;
+        mdi->visit(&fv);
+        obj[mdi->name()] = fv.v;
+    }
+    std::ostringstream buf;
+    buf << json::serialize(obj);
+    return buf.str();
+}
+#endif
+
+
+#ifdef notdef
+/**
+ * This implementation uses visitor instead of dynamic_cast to get at the item
+ * type, but still performs formatting manually. boost::json explicilty writes
+ * floats with exponents, so this version includes that.
+ */
+std::string
+Metadata::
+to_buffer(int nindent)
+{
+    std::ostringstream buf;
+    std::string indent(nindent, ' ');
+    std::string separator{' '};
+    std::string comma;
+    if (nindent)
+        separator = '\n';
+    buf << "{";
+    for (auto mdi: get_items())
+    {
+        if (mdi->unset())
+            continue;
+        buf << comma << separator << indent << "\"" << mdi->name() << "\": ";
+        FillValue fv;
+        mdi->visit(&fv);
+        buf << fv.v;
+        comma = ",";
+    }
+    buf << separator << "}";
+    return buf.str();
+}
+#endif
+
+
 } // namespace core
 } // namespace nidas
