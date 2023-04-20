@@ -104,10 +104,42 @@ static DECLARE_MUTEX(twod_open_lock);
 
 #endif
 
+/*
+ * If BUFFER_USER_READS is true, then don't call wake_up_interruptible() every
+ * time an URB is received. Instead, only call it if half of the available
+ * URBS are available to be read or dev->latencyJiffies has elapsed since the last read.
+#define BUFFER_USER_READS
+ */
+
+/*
+ * For info in whether to set USE_DMA_COHERENT_FOR_IMG_URBS, see
+ * https://www.kernel.org/doc/html/latest/driver-api/usb/dma.html.
+ * https://www.kernel.org/doc/html/latest/core-api/dma-api-howto.html
+ * dma.html says:
+ *    If you’re doing lots of small data transfers from the same buffer all the time,
+ *    that can really burn up resources on systems which use an IOMMU to manage the
+ *    DMA mappings. It can cost MUCH more to set up and tear down the IOMMU mappings
+ *    with each request than perform the I/O!
+ *
+ * To avoid these issues, one can use usb_alloc_coherent() instead of kmalloc()
+ * and set URB_NO_TRANSFER_DMA_MAP in transfer flags.
+ *
+ * However, in our case we're not doing lots of small transfers from the same buffer, and so
+ * it seems we should use the default DMA handling supported by kmalloc() and not use
+ * URB_NO_TRANSFER_DMA_MAP.  As the doc says;
+ *     Most drivers should NOT be using these primitives; they don’t need to use
+ *     this type of memory (“dma-coherent”), and memory returned from kmalloc() will work just fine.
+ *
+ * This is perhaps one area where you'd see differences in performance between ARM and X86.
+ * Other web posts indicate that it could depend on the USB controller.
+ * Using usb_alloc_coherent and URB_NO_TRANSFER_DMA_MAP was in effect up until 2023, on ARM Vulcans.
+ * #define USE_DMA_COHERENT_FOR_IMG_URBS
+ */
+
 static unsigned int throttleRate = 0;
 
 MODULE_PARM_DESC(throttleRate,
-    "desired sampling rate (image/sec). 100/N or 100*N where N is integer, or 0 to sample as fast as possible");
+    "desired sampling rate (buffer/sec), 0:no throttling, or N*MAX_THROTTLE_FUNC_RATE which is currently 10");
 module_param(throttleRate, uint, 0);
 
 static struct usb_driver twod_driver;
@@ -149,7 +181,7 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
          */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
 
-        // there must be space, since TAIL was incremented before
+        // there must be space, since TAIL was incremented
         // when this urb was submitted.
         BUG_ON(CIRC_SPACE(dev->tas_urb_q.head, READ_ONCE(dev->tas_urb_q.tail),
                           TAS_URB_QUEUE_SIZE) == 0);
@@ -406,7 +438,6 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
         return retval;
 }
 
-
 /* -------------------------------------------------------------------- */
 static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 {
@@ -493,6 +524,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
          */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
+        dsm_sample_time_t timetag = getSystemTimeTMsecs();
 
 	/*
 	 * One should do one of the following here:
@@ -616,7 +648,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
-                osamp->timetag = getSystemTimeTMsecs();
+                osamp->timetag = timetag;
                 osamp->length = sizeof(osamp->stype) +
 				sizeof(osamp->data) +
 				urb->actual_length;
@@ -631,7 +663,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                  * It is little-endian, since it was converted
                  * before being sent to the probe. For 64_v3
                  * tas will be tas*10. Currently all three tas
-                 * varients are the same size.
+                 * variants are the same size.
                  */
                 spin_lock(&dev->taslock);
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
@@ -644,7 +676,7 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
 
-#ifdef TRY_TO_BUFFER
+#ifdef BUFFER_USER_READS
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
                         CIRC_SPACE(dev->sampleq.head, READ_ONCE(dev->sampleq.tail), SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
@@ -664,6 +696,7 @@ resubmit:
 static struct urb *twod_make_img_urb(struct usb_twod *dev)
 {
         struct urb *urb;
+        char *buf = NULL;
 
         // We're doing GFP_KERNEL memory allocations, so it is a
         // bug if this is running from interrupt context.
@@ -674,13 +707,17 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
                 return urb;
 
         if (!
-            (urb->transfer_buffer =
+            (buf =
+#ifdef USE_DMA_COHERENT_FOR_IMG_URBS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
              usb_alloc_coherent(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
                               &urb->transfer_dma)
 #else
              usb_buffer_alloc(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
                               &urb->transfer_dma)
+#endif
+#else
+             kmalloc(TWOD_IMG_BUFF_SIZE, GFP_KERNEL)
 #endif
                               )) {
                 KLOG_ERR("%s: out of memory for read buf\n",
@@ -690,12 +727,14 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
                 return urb;
         }
 
-        urb->transfer_flags = URB_NO_TRANSFER_DMA_MAP;
+#ifdef USE_DMA_COHERENT_FOR_IMG_URBS
+        urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+#endif
 
         usb_fill_bulk_urb(urb, dev->udev,
                           usb_rcvbulkpipe(dev->udev,
                                           dev->img_in_endpointAddr),
-                          urb->transfer_buffer, TWOD_IMG_BUFF_SIZE,
+                          buf, TWOD_IMG_BUFF_SIZE,
                           twod_img_rx_bulk_callback,dev);
         return urb;
 }
@@ -714,6 +753,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
          */
         struct usb_twod *dev = (struct usb_twod *) urb->context;
         struct twod_urb_sample *osamp;
+        dsm_sample_time_t timetag = getSystemTimeTMsecs();
 
 	/*
 	 * One should do one of the following here:
@@ -818,7 +858,15 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 // resubmit the urb (current data is lost)
                 goto resubmit;
         } else {
-                osamp->timetag = getSystemTimeTMsecs();
+
+#ifdef SOR_DEBUG
+                if (dev->SORdebugmessages++ < 5) {
+                        KLOG_INFO("%s: SOR received, transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
+                                dev->dev_name, urb->transfer_buffer_length,
+                                urb->number_of_packets, urb->actual_length);
+                }
+#endif
+                osamp->timetag = timetag;
                 osamp->length = sizeof(osamp->stype) +
 				urb->actual_length;
                 if (dev->ptype == TWOD_64_V3){
@@ -832,7 +880,7 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
-#ifdef TRY_TO_BUFFER
+#ifdef BUFFER_USER_READS
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
                         CIRC_SPACE(dev->sampleq.head, READ_ONCE(dev->sampleq.tail), SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
@@ -872,15 +920,17 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
         }
 
         urb->transfer_flags = 0;
-        KLOG_INFO("%s: transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
-                dev->dev_name, urb->transfer_buffer_length,
-                urb->number_of_packets, urb->actual_length);
 
         usb_fill_bulk_urb(urb, dev->udev,
                           usb_rcvbulkpipe(dev->udev,
                                           dev->sor_in_endpointAddr), buf,
                           TWOD_SOR_BUFF_SIZE, twod_sor_rx_bulk_callback,
                           dev);
+
+        KLOG_INFO("%s: transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
+                dev->dev_name, urb->transfer_buffer_length,
+                urb->number_of_packets, urb->actual_length);
+
         return urb;
 }
 
@@ -962,9 +1012,15 @@ static int twod_open(struct inode *inode, struct file *file)
                 dev->sampleq.buf[i] = samp++;
         EMPTY_CIRC_BUF(dev->sampleq);
 
-        /* In order to support throttling of the image urbs, we create
-         * a circular buffer of the image urbs.
+        /*
+         * In order to support throttling of the image urbs, we create
+         * a circular buffer of the image urbs. The circular buffer
+         * should be large enough to accept all the urbs in flight.
          */
+        BUG_ON(IMG_URBS_IN_FLIGHT > IMG_URB_QUEUE_SIZE - 1);
+
+        BUG_ON(IMG_URBS_IN_FLIGHT > IMG_URB_QUEUE_SIZE - 1);
+
         dev->img_urb_q.buf = 0;
         if (throttleRate > 0) {
                 dev->img_urb_q.buf =
@@ -992,7 +1048,7 @@ static int twod_open(struct inode *inode, struct file *file)
 
         /* Allocate the shadow OR urbs and submit them */
         for (i = 0; i < SOR_URBS_IN_FLIGHT; ++i) {
-            /* Only submit sor in urbs if we have an SOR endpoint */
+            /* Only submit SOR in urbs if we have an SOR endpoint */
             if (dev->sor_in_endpointAddr) {
                     dev->sor_urbs[i] = twod_make_sor_urb(dev);
                     if (!dev->sor_urbs[i]) {
@@ -1007,6 +1063,11 @@ static int twod_open(struct inode *inode, struct file *file)
 
 
         if (throttleRate > 0) {
+                if (throttleRate > MAX_THROTTLE_RATE)
+                        KLOG_WARNING("%s: the max throttleRate is %d/s at the current values of MAX_THROTTLE_FUNC_RATE \
+and IMG_URB_QUEUE_SIZE",
+                                dev->dev_name, MAX_THROTTLE_RATE);
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->urbThrottle);
                 dev->urbThrottle.function = urb_throttle_func;
@@ -1016,26 +1077,22 @@ static int twod_open(struct inode *inode, struct file *file)
 #endif
 
                 /*
-                 * to reduce the overhead of throttling, schedule the
-                 * throttle function about every THROTTLE_JIFFIES,
-                 * and submit a number of urbs to achieve the throttleRate.
-                 * For some throttle rates, such as 25 or 33 Hz,
-                 * throttleJiffies will not be exactly THROTTLE_JIFFIES:
-                 * throttRate=33, nurbPerTimer = 3, throtteJiffies= 9
-                 * throttRate=25, nurbPerTimer = 2, throtteJiffies= 8
-                 * This code should work for throttleRates of HZ/N or HZ*N
-                 * where N is integer.
+                 * Don't call the throttle timer function faster than MAX_THROTTLE_FUNC_RATE.
+                 * Units:
+                 *      HZ: jiffies/sec.
+                 *      MAX_THROTTLE_FUNC_RATE: timer/sec
+                 *      throttleJiffies: jiffies/timer
+                 *      throttleRate: urb/sec
                  */
-                if (throttleRate >= HZ) {
-                        dev->throttleJiffies = THROTTLE_JIFFIES;
-                        dev->nurbPerTimer = dev->throttleJiffies * throttleRate / HZ;
+                BUG_ON(MAX_THROTTLE_FUNC_RATE > HZ);
+                if (throttleRate < MAX_THROTTLE_FUNC_RATE) {
+                        dev->throttleJiffies = HZ / throttleRate;
+                        dev->nurbPerTimer = 1;
                 }
                 else {
-                        dev->nurbPerTimer =
-                                THROTTLE_JIFFIES * throttleRate / HZ;
-                        if (dev->nurbPerTimer < 1) dev->nurbPerTimer = 1;
-                        dev->throttleJiffies = dev->nurbPerTimer * HZ / throttleRate;
-                }
+                        dev->throttleJiffies = HZ / MAX_THROTTLE_FUNC_RATE;
+                        dev->nurbPerTimer = dev->throttleJiffies * throttleRate / HZ;
+                }       
 
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
                 add_timer(&dev->urbThrottle);
@@ -1063,7 +1120,7 @@ static int twod_open(struct inode *inode, struct file *file)
                         goto error;
                 }
         }
-        for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
+        for (i = 0; i < TAS_URB_QUEUE_SIZE - 1; ++i)
                 INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
@@ -1076,11 +1133,11 @@ static int twod_open(struct inode *inode, struct file *file)
         /* save our object in the file's private structure */
         file->private_data = dev;
 
-        KLOG_INFO("%s: nowo opened sucessfully, throttleRate=%d\n", dev->dev_name,
+        KLOG_INFO("%s: open, throttleRate=%d\n", dev->dev_name,
              throttleRate);
         if (throttleRate > 0)
-	    KLOG_INFO("%s: throttleJiffies=%d, nurb=%d\n", dev->dev_name,
-		dev->throttleJiffies,dev->nurbPerTimer);
+	    KLOG_INFO("%s: HZ=%d, throttleJiffies=%d, nurb=%d\n", dev->dev_name,
+		HZ, dev->throttleJiffies,dev->nurbPerTimer);
 
         return 0;
 error:
@@ -1115,12 +1172,16 @@ static int twod_release(struct inode *inode, struct file *file)
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
                         usb_kill_urb(urb);
+#ifdef USE_DMA_COHERENT_FOR_IMG_URBS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
                         usb_free_coherent(dev->udev, urb->transfer_buffer_length,
                                         urb->transfer_buffer, urb->transfer_dma);
 #else
                         usb_buffer_free(dev->udev, urb->transfer_buffer_length,
                                         urb->transfer_buffer, urb->transfer_dma);
+#endif
+#else
+                        kfree(urb->transfer_buffer);
 #endif
                         usb_free_urb(urb);
                 }
@@ -1365,6 +1426,9 @@ static int twod_probe(struct usb_interface *interface,
         if (dev == NULL) return -ENOMEM;
         memset(dev,0,sizeof(*dev));
 
+        /* fill in with complete info later */
+        sprintf(dev->dev_name, "/dev/usbtwod_64");
+
         kref_init(&dev->kref);
         rwlock_init(&dev->usb_iface_lock);
 
@@ -1384,48 +1448,48 @@ static int twod_probe(struct usb_interface *interface,
 		((dev->udev->speed == USB_SPEED_HIGH) ? "high (480 mbps)" : "unknown"))),
                   interface->num_altsetting);
 	
-        /* use the first sor-in and tas-out endpoints */
-        /* use the second img_in endpoint */
         iface_desc = interface->cur_altsetting;
         dev->ptype = TWOD_64; 
 
-        if (id->idProduct ==USB2D_64_V3_PRODUCT_ID)
+        if (id->idProduct == USB2D_64_V3_PRODUCT_ID)
         {
                 dev->ptype = TWOD_64_V3;
         }
-
-        /*
-         * The 32 bit 2DP not longer exists. It was converted to 64 bit.
-         * So support for TWOD_32 could be removed from this driver
-         */
-        if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
+        else if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
+                /*
+                 * The 32 bit 2DP not longer exists. It was converted to 64 bit.
+                 * So support for TWOD_32 could be removed from this driver
+                 */
         	dev->ptype = TWOD_32;
         }
-      
+
+        /* scan endpoints to use for images, SOR, TAS. */
         for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
 		int psize,dir,type;
+                int buflen = 0;
+                const char* use = "";
                 endpoint = &iface_desc->endpoint[i].desc;
 		// wMaxPacketSize is little endian
                 psize = le16_to_cpu(endpoint->wMaxPacketSize);
 		dir = endpoint->bEndpointAddress & USB_ENDPOINT_DIR_MASK;
 		type = endpoint-> bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
-                KLOG_INFO("endpoint %d, dir=%s,type=%s,wMaxPackeSize=%d\n\n",
-                          i, ((dir == USB_DIR_IN) ? "IN" : "OUT"),
-                          ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
-				psize);
-
-			
                 if (!dev->img_in_endpointAddr && dir == USB_DIR_IN &&
                            type == USB_ENDPOINT_XFER_BULK) {
 			switch(dev->ptype) {
                         case TWOD_64_V3:
 			case TWOD_64:
-				/* we found a big bulk in endpoint on the USB2D_N0 64bit, use it for images */
-				if (psize >= 512)
+				/* we found a big bulk in endpoint on the USB2D_N0 64bit, use 
+                                 * t for images */
+				if (psize >= 512) {
 					dev->img_in_endpointAddr = endpoint->bEndpointAddress;
+                                        use = "64 bit images";
+                                        buflen = TWOD_IMG_BUFF_SIZE;
+                                }
 				break;
 			case TWOD_32:
 				dev->img_in_endpointAddr = endpoint->bEndpointAddress;
+                                use = "32 bit images";
+                                buflen = TWOD_IMG_BUFF_SIZE;
 				break;
 			}
                 } else if (!dev->sor_in_endpointAddr &&
@@ -1439,14 +1503,31 @@ static int twod_probe(struct usb_interface *interface,
                          * We found a small bulk in endpoint, use it for the SOR */
                         dev->sor_in_endpointAddr =
                             endpoint->bEndpointAddress;
-                } else if (!dev->tas_out_endpointAddr &&
+                        use = "SOR";
+                        buflen = TWOD_SOR_BUFF_SIZE;
+                }
+                else if (!dev->tas_out_endpointAddr &&
                            dir == USB_DIR_OUT &&
                            type == USB_ENDPOINT_XFER_BULK) {
                         /* we found a bulk out endpoint for true air speed */
                         dev->tas_out_endpointAddr =
                             endpoint->bEndpointAddress;
+                        use = "TAS";
+                        buflen = TWOD_TAS_BUFF_SIZE;
                 }
 
+                if (strlen(use) > 0) {
+                        KLOG_INFO("%s: endpoint for %s: dir=%s, type=%s, wMaxPackeSize=%d, buflen=%d\n",
+                                dev->dev_name, use, ((dir == USB_DIR_IN) ? "IN" : "OUT"),
+                                ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
+                                psize, buflen);
+                }
+                else {
+                        KLOG_INFO("%s: endpoint not used, dir=%s,type=%s,wMaxPackeSize=%d\n",
+                                dev->dev_name, ((dir == USB_DIR_IN) ? "IN" : "OUT"),
+                                ((type  == USB_ENDPOINT_XFER_BULK) ? "BULK" : "OTHER"),
+                                psize);
+                }
         }
 
         if (!dev->img_in_endpointAddr || !dev->tas_out_endpointAddr) {
