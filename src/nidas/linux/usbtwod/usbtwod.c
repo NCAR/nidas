@@ -862,9 +862,9 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
 
 #ifdef SOR_DEBUG
                 if (dev->SORdebugmessages++ < 5) {
-                        KLOG_INFO("%s: SOR received, transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
-                                dev->dev_name, urb->transfer_buffer_length,
-                                urb->number_of_packets, urb->actual_length);
+                        KLOG_INFO("%s: SOR received, transfer_buffer_length: %d, actual length: %d, #packets: %d\n",
+                                dev->dev_name, urb->transfer_buffer_length, urb->actual_length,
+                                urb->number_of_packets);
                 }
 #endif
                 osamp->timetag = timetag;
@@ -927,11 +927,6 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
                                           dev->sor_in_endpointAddr), buf,
                           TWOD_SOR_BUFF_SIZE, twod_sor_rx_bulk_callback,
                           dev);
-
-        KLOG_INFO("%s: transfer_buffer_length: %d  Number of Packets: %d  Actual Length: %d\n ",
-                dev->dev_name, urb->transfer_buffer_length,
-                urb->number_of_packets, urb->actual_length);
-
         return urb;
 }
 
@@ -1364,8 +1359,6 @@ static long twod_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                    ((char *) &sor_rate, (const void __user *) arg,
                         sizeof (int)) != 0) retval = -EFAULT;
                 else retval = twod_set_sor_rate(dev, sor_rate);
-//changed from debug to info
-                KLOG_INFO("%s: SET_SOR_RATE, rate=%d\n",dev->dev_name, sor_rate);
                 }
                 break;
        case USB2D_GET_STATUS:      /* user get of status struct */
@@ -1548,20 +1541,26 @@ static int twod_probe(struct usb_interface *interface,
 
         /* We can register the device now, as it is ready.
          * Then create device name for log messages.
+         *
+         * From: https://www.kernel.org/doc/html/v4.14/driver-api/usb/usb.html#c.usb_register_dev
+         * If CONFIG_USB_DYNAMIC_MINORS is enabled, the minor number will be dynamically
+         * allocated out of the list of available ones. If it is not enabled, the minor
+         * number will be based on the next available free minor, starting at the
+         * class_driver->minor_base.
+         *
+         * On Vortex, fgrep CONFIG_USB_DYNAMIC_MIN /boot/config-4.15.18-vortex86dx3  returns y.
          */
         switch(dev->ptype) {
                 case TWOD_64_V3:
        	  	case TWOD_64:
             		retval = usb_register_dev(interface, &usbtwod_64);
                         sprintf(dev->dev_name, "/dev/usbtwod_64_%d (%x/%x)",
-                                interface->minor - USB_TWOD_64_MINOR_BASE,
-                                id->idVendor, id->idProduct);
+                                interface->minor, id->idVendor, id->idProduct);
  	    		break;
           	case TWOD_32:
  	    		retval = usb_register_dev(interface, &usbtwod_32);
                         sprintf(dev->dev_name, "/dev/usbtwod_32_%d (%x/%x)",
-                                interface->minor - USB_TWOD_32_MINOR_BASE,
-                                id->idVendor, id->idProduct);
+                                interface->minor, id->idVendor, id->idProduct);
         }
 
         if (retval) {
@@ -1570,7 +1569,7 @@ static int twod_probe(struct usb_interface *interface,
                 usb_set_intfdata(interface, NULL);
                 goto error;
         }
-        KLOG_INFO("%s: connected\n", dev->dev_name);
+        KLOG_INFO("%s: %s connected\n", __func__, dev->dev_name);
         return 0;
 
 error:
@@ -1609,7 +1608,7 @@ static void twod_disconnect(struct usb_interface *interface)
         dev->interface = NULL;
         write_unlock_bh(&dev->usb_iface_lock);
 
-        KLOG_INFO("%s: disconnected\n", dev->dev_name);
+        KLOG_INFO("%s: %s: disconnected\n", __func__, dev->dev_name);
         kref_put(&dev->kref, twod_dev_delete);
 }
 
@@ -1655,9 +1654,9 @@ static int __init usb_twod_init(void)
         /* register this driver with the USB subsystem */
         result = usb_register(&twod_driver);
         if (result)
-                KLOG_ERR("usbtwod_register failed. Error number %d\n", result);
+                KLOG_ERR("usb_register failed. Error number %d\n", result);
 
-        KLOG_INFO("usbtwod_register sucess");
+        KLOG_INFO("%s success", __func__);
 
         return result;
 }
