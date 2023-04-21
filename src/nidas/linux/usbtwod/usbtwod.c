@@ -139,7 +139,8 @@ static DECLARE_MUTEX(twod_open_lock);
 static unsigned int throttleRate = 0;
 
 MODULE_PARM_DESC(throttleRate,
-    "desired sampling rate (buffer/sec), 0:no throttling, or N*MAX_THROTTLE_FUNC_RATE which is currently 10");
+    "image/sec: 0 for no throttling, or (N X " __stringify(MAX_THROTTLE_FUNC_RATE) \
+    "), for N in [1:" __stringify(IMG_URBS_IN_FLIGHT) "]");
 module_param(throttleRate, uint, 0);
 
 static struct usb_driver twod_driver;
@@ -1019,8 +1020,6 @@ static int twod_open(struct inode *inode, struct file *file)
          */
         BUG_ON(IMG_URBS_IN_FLIGHT > IMG_URB_QUEUE_SIZE - 1);
 
-        BUG_ON(IMG_URBS_IN_FLIGHT > IMG_URB_QUEUE_SIZE - 1);
-
         dev->img_urb_q.buf = 0;
         if (throttleRate > 0) {
                 dev->img_urb_q.buf =
@@ -1063,10 +1062,12 @@ static int twod_open(struct inode *inode, struct file *file)
 
 
         if (throttleRate > 0) {
-                if (throttleRate > MAX_THROTTLE_RATE)
+                if (throttleRate > MAX_THROTTLE_RATE) {
                         KLOG_WARNING("%s: the max throttleRate is %d/s at the current values of MAX_THROTTLE_FUNC_RATE \
 and IMG_URB_QUEUE_SIZE",
                                 dev->dev_name, MAX_THROTTLE_RATE);
+                        throttleRate = MAX_THROTTLE_RATE;
+                }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
                 init_timer(&dev->urbThrottle);
@@ -1091,7 +1092,7 @@ and IMG_URB_QUEUE_SIZE",
                 }
                 else {
                         dev->throttleJiffies = HZ / MAX_THROTTLE_FUNC_RATE;
-                        dev->nurbPerTimer = dev->throttleJiffies * throttleRate / HZ;
+                        dev->nurbPerTimer = min((int)(dev->throttleJiffies * throttleRate / HZ), IMG_URBS_IN_FLIGHT);
                 }       
 
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
