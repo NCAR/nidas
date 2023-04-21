@@ -200,16 +200,9 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                 /*
                  * URB was synchronously unlinked by usb_unlink_urb
                  */
-		KLOG_ERR("%s: tas urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                break;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-		KLOG_ERR("%s: tas urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_ERR("%s: tas urb->status=-ENOENT\n",dev->dev_name);
+                dev->stats.shutdowns++;
                 dev->errorStatus = urb->status;
                 break;
         case -ESHUTDOWN:
@@ -218,7 +211,16 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                  * to some problem that could not be worked around,
                  * such as a physical disconnect.
                  */
-		KLOG_ERR("%s: tas urb->status=-ESHUTDOWN\n", dev->dev_name);
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_INFO("%s: tas urb->status=-ESHUTDOWN\n", dev->dev_name);
+                dev->stats.shutdowns++;
+                dev->errorStatus = urb->status;
+                break;
+        case -ECONNRESET:
+                /*
+                 * URB was asynchronously unlinked by usb_unlink_urb
+                 */
+                KLOG_ERR("%s: tas urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
                 dev->errorStatus = urb->status;
                 break;
@@ -329,13 +331,21 @@ static int write_tas(struct usb_twod *dev)
 
                 /* must use GFP_ATOMIC since we hold a rwlock */
                 if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
-                else retval = -ENODEV;         /* disconnect() was called */
+                else retval = -ENODEV;         /* disconnect() was called, errno 19 */
 
                 read_unlock(&dev->usb_iface_lock);
                 if (retval < 0) {
-                        dev->stats.urbErrors++;
-                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
-                                dev->dev_name,retval,dev->stats.urbErrors);
+                        if (retval == -ENODEV) {
+                                if (!dev->stats.shutdowns)
+                                        KLOG_INFO("%s: %s: retval=-ENODEV\n",
+                                        __func__, dev->dev_name);
+                                dev->stats.shutdowns++;
+                        }
+                        else {
+                                dev->stats.urbErrors++;
+                                KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
+                                        __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                        }
 			dev->errorStatus = retval;
                 }
         } else {
@@ -432,9 +442,18 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
 
         read_unlock(&dev->usb_iface_lock);
         if (retval < 0) {
-                dev->stats.urbErrors++;
-                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
-                    dev->dev_name,retval,dev->stats.urbErrors);
+                if (retval == -ENODEV) {
+                        if (!dev->stats.shutdowns)
+                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
+                                __func__, dev->dev_name);
+                        dev->stats.shutdowns++;
+                }
+                else {
+                        dev->stats.urbErrors++;
+                        KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
+                            __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                }
+                dev->errorStatus = retval;
         }
         return retval;
 }
@@ -451,9 +470,18 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 
         read_unlock(&dev->usb_iface_lock);
         if (retval < 0) {
-                dev->stats.urbErrors++;
-                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
-                    dev->dev_name,retval,dev->stats.urbErrors);
+                if (retval == -ENODEV) {
+                        if (!dev->stats.shutdowns)
+                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
+                                __func__, dev->dev_name);
+                        dev->stats.shutdowns++;
+                }
+                else {
+                        dev->stats.urbErrors++;
+                        KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
+                            __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                }
+                dev->errorStatus = retval;
         }
         return retval;
 }
@@ -499,9 +527,17 @@ static void urb_throttle_func(struct timer_list* tlist)
 
                         read_unlock(&dev->usb_iface_lock);
                         if (retval < 0) {
-                                dev->stats.urbErrors++;
-                                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
-                                        dev->dev_name,retval,dev->stats.urbErrors);
+                                if (retval == -ENODEV) {
+                                        if (!dev->stats.shutdowns)
+                                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
+                                                __func__, dev->dev_name);
+                                        dev->stats.shutdowns++;
+                                }
+                                else {
+                                        dev->stats.urbErrors++;
+                                        KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
+                                                __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                                }
                                 dev->errorStatus = retval;
                         }
                         INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
@@ -558,16 +594,9 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 /*
                  * URB was synchronously unlinked by usb_unlink_urb
                  */
-		KLOG_ERR("%s: image urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-		KLOG_ERR("%s: image urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_ERR("%s: image urb->status=-ENOENT\n",dev->dev_name);
+                dev->stats.shutdowns++;
                 dev->errorStatus = urb->status;
                 return;
         case -ESHUTDOWN:
@@ -576,7 +605,16 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                  * to some problem that could not be worked around,
                  * such as a physical disconnect.
                  */
-		KLOG_ERR("%s: image urb->status=-ESHUTDOWN\n", dev->dev_name);
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_INFO("%s: image urb->status=-ESHUTDOWN\n", dev->dev_name);
+                dev->stats.urbErrors++;
+                dev->errorStatus = urb->status;
+                return;
+        case -ECONNRESET:
+                /*
+                 * URB was asynchronously unlinked by usb_unlink_urb
+                 */
+                KLOG_ERR("%s: image urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
                 dev->errorStatus = urb->status;
                 return;
@@ -778,16 +816,9 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 /*
                  * URB was synchronously unlinked by usb_unlink_urb
                  */
-		KLOG_ERR("%s: sor urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-		KLOG_ERR("%s: sor urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_ERR("%s: sor urb->status=-ENOENT\n",dev->dev_name);
+                dev->stats.shutdowns++;
                 dev->errorStatus = urb->status;
                 return;
         case -ESHUTDOWN:
@@ -796,7 +827,16 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                  * to some problem that could not be worked around,
                  * such as a physical disconnect.
                  */
-		KLOG_ERR("%s: sor urb->status=-ESHUTDOWN\n", dev->dev_name);
+		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
+                        KLOG_INFO("%s: sor urb->status=-ESHUTDOWN\n", dev->dev_name);
+                dev->stats.shutdowns++;
+                dev->errorStatus = urb->status;
+                return;
+        case -ECONNRESET:
+                /*
+                 * URB was asynchronously unlinked by usb_unlink_urb
+                 */
+                KLOG_ERR("%s: sor urb->status=-ECONNRESET\n", dev->dev_name);
                 dev->stats.urbErrors++;
                 dev->errorStatus = urb->status;
                 return;
@@ -1156,6 +1196,7 @@ static int twod_release(struct inode *inode, struct file *file)
         KLOG_INFO("%s: Lost SORs = %d\n",dev->dev_name, dev->stats.lostSORs);
         KLOG_INFO("%s: Lost TASs = %d\n",dev->dev_name, dev->stats.lostTASs);
         KLOG_INFO("%s: urb errors = %d\n",dev->dev_name, dev->stats.urbErrors);
+        KLOG_INFO("%s: shutdown indications = %d\n",dev->dev_name, dev->stats.shutdowns);
         KLOG_INFO("%s: urb timeouts = %d\n",dev->dev_name, dev->stats.urbTimeouts);
 
         if (throttleRate > 0) 
@@ -1611,8 +1652,6 @@ static void twod_disconnect(struct usb_interface *interface)
         KLOG_INFO("%s: %s: disconnected\n", __func__, dev->dev_name);
         kref_put(&dev->kref, twod_dev_delete);
 }
-
-
 
 /* -------------------------------------------------------------------- */
 static struct usb_driver twod_driver = {
