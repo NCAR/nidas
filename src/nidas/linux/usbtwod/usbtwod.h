@@ -56,7 +56,7 @@ struct usb_twod_stats
         unsigned int lostSORs;
         unsigned int lostTASs;
         unsigned int urbErrors;
-        unsigned int shutdowns;         /* received indications of shutdown */
+        unsigned int shutdowns;         /* number of detected indications of USB shutdown */
         unsigned int urbTimeouts;
 };
 

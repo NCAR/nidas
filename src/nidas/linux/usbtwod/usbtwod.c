@@ -143,6 +143,130 @@ MODULE_PARM_DESC(throttleRate,
     "), for N in [1:" __stringify(IMG_URBS_IN_FLIGHT) "]");
 module_param(throttleRate, uint, 0);
 
+/*
+ * Report apparent USB shutdowns/disconnects.
+ */
+static void klog_shutdown(const char* devname, const char* func, const char* status)
+{
+        KLOG_NOTICE("%s: %s: status=%s\n", devname, func, status);
+}
+
+/*
+ * Report USB URB errors.
+ */
+static void klog_error(const char* devname, const char* func, const char* status, int err)
+{
+        KLOG_ERR("%s: %s: status=%s (%d)\n", devname, func, status, err);
+}
+
+static int check_urb_status(int urbstatus, struct usb_twod *dev, const char* func)
+{
+        /*
+         * The error handling for all three types of urbs, received images and SORs, and
+         * sent TASs, is basically the same. If the urb->status is an error value,
+         * then set dev->errorStatus, which will result in an error in the user-side
+         * poll or read.  The user can then try to reopen.
+         *
+         * For status values that indicate that the device was disconnected or shutdown,
+         * just report that situation once.
+         *
+         * Return values: 
+         *      0: urb OK
+         *      1: urb error
+         *      2: urb timeout. For received urbs, resubmit.
+         *
+         * See https://www.kernel.org/doc/html/latest/driver-api/usb/error-codes.html
+         * in section "Error codes returned by in urb->status".
+         */
+
+        switch (urbstatus) {
+        case 0:
+                dev->consecTimeouts = 0;
+                return 0;
+        case -ENOENT:
+                /*
+                 * URB was synchronously unlinked by usb_unlink_urb
+                 */
+		if (!dev->stats.shutdowns)    /* don't report shutdown more than once */
+                        klog_shutdown(dev->dev_name, func, "-ENOENT");
+                dev->stats.shutdowns++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        case -ESHUTDOWN:
+                /*
+                 * The device or host controller has been disabled due
+                 * to some problem that could not be worked around,
+                 * such as a physical disconnect.
+                 */
+		if (!dev->stats.shutdowns)
+                        klog_shutdown(dev->dev_name, func, "-ESHUTDOWN");
+                dev->stats.shutdowns++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        case -ECONNRESET:
+                /*
+                 * URB was asynchronously unlinked by usb_unlink_urb
+                 */
+                klog_error(dev->dev_name, func, "-ECONNRESET", urbstatus);
+                dev->stats.urbErrors++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        case -EOVERFLOW:
+                /*
+                 * -EOVERFLOW (*)
+                 * The amount of data returned by the endpoint was
+                 * greater than either the max packet size of the
+                 * endpoint or the remaining buffer size.  "Babble".
+                 */
+                klog_error(dev->dev_name, func, "-EOVERFLOW", urbstatus);
+                dev->stats.urbErrors++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        case -EPROTO:
+                /*
+                 * -EPROTO (*, **)
+                 *     a: bitstuff error
+                 *     b: no response packet received within the prescribed
+                 *        bus turn-around time
+                 *     c: unknown USB error 
+                 */
+                klog_error(dev->dev_name, func, "-EPROTO", urbstatus);
+                dev->stats.urbErrors++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        case -ETIMEDOUT:
+                /*
+                 * Synchronous USB message functions use this code
+                 * to indicate timeout expired before the transfer
+                 * completed, and no other error was reported by HC.
+                 *
+                 * We're using asynchronous functions (callbacks) so we probably
+                 * shouldn't see ETIMEDOUTs.
+                 *
+                 * The following is an old comment that perhaps was related to
+                 * early use of synchronous USB I/O functions:
+		 *      Sometimes we see one urb ETIMEDOUT and things continue working.
+		 *      Other times the probe (or usb controller, not sure which)
+		 *      never recovers and returns ETIMEDOUT for every returned urb.
+		 *      We'll give up resubmitting after 10 in a row.
+                 */
+                dev->consecTimeouts++;
+                KLOG_WARNING("%s: %s: image urbstatus=-ETIMEDOUT, consecutive=%d\n",
+			func, dev->dev_name,dev->consecTimeouts);
+                dev->stats.urbTimeouts++;
+                if (dev->consecTimeouts >= 10) {
+                    dev->errorStatus = urbstatus;
+		    return 1;
+		}
+		return 2;
+        default:
+                klog_error(dev->dev_name, func, "", urbstatus);
+                dev->stats.urbErrors++;
+                dev->errorStatus = urbstatus;
+                return 1;
+        }
+}
+
 static struct usb_driver twod_driver;
 
 static void twod_dev_free(struct usb_twod *dev)
@@ -188,77 +312,7 @@ static void twod_tas_tx_bulk_callback(struct urb *urb,
                           TAS_URB_QUEUE_SIZE) == 0);
         INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
-        /*
-         * See: /usr/share/doc/kernel-doc-x.y.z/Documentation/usb/error-codes.txt 
-         * in section "Error codes returned by in urb->status".
-         */
-        switch (urb->status) {
-        case 0:
-                dev->consecTimeouts = 0;
-                break;
-        case -ENOENT:
-                /*
-                 * URB was synchronously unlinked by usb_unlink_urb
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_ERR("%s: tas urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.shutdowns++;
-                dev->errorStatus = urb->status;
-                break;
-        case -ESHUTDOWN:
-                /*
-                 * The device or host controller has been disabled due
-                 * to some problem that could not be worked around,
-                 * such as a physical disconnect.
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_INFO("%s: tas urb->status=-ESHUTDOWN\n", dev->dev_name);
-                dev->stats.shutdowns++;
-                dev->errorStatus = urb->status;
-                break;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-                KLOG_ERR("%s: tas urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                break;
-        case -EOVERFLOW:
-                /*
-                 * -EOVERFLOW (*)
-                 * The amount of data returned by the endpoint was
-                 * greater than either the max packet size of the
-                 * endpoint or the remaining buffer size.  "Babble".
-                 */
-		KLOG_ERR("%s: tas urb->status=-EOVERFLOW\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                break;
-        case -EPROTO:
-                /*
-                 * -EPROTO (*, **)
-                 *     a: bitstuff error
-                 *     b: no response packet received within the prescribed
-                 *        bus turn-around time
-                 *     c: unknown USB error 
-                 */
-		KLOG_ERR("%s: tas urb->status=-EPROTO\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                break;
-        case -ETIMEDOUT:
-                KLOG_WARNING("%s: tas urb->status=-ETIMEDOUT\n", dev->dev_name);
-                dev->stats.urbTimeouts++;
-                if (dev->consecTimeouts++ >= 10)
-                    dev->errorStatus = urb->status;
-		break;
-        default:
-		KLOG_ERR("%s: tas urb->status=%d\n",dev->dev_name, urb->status);
-                dev->stats.urbErrors++;
-		dev->errorStatus = urb->status;
-		return;
-        }
+        check_urb_status(urb->status, dev, __func__);
 }
 
 /* -------------------------------------------------------------------- */
@@ -277,7 +331,8 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 
         buf = kmalloc(TWOD_TAS_BUFF_SIZE, GFP_KERNEL);
         if (!buf) {
-                KLOG_ERR("%s: out of memory for TAS output buf\n", dev->dev_name);
+                KLOG_ERR("%s: %s: out of memory for TAS output buf\n",
+                                dev->dev_name, __func__);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -337,14 +392,13 @@ static int write_tas(struct usb_twod *dev)
                 if (retval < 0) {
                         if (retval == -ENODEV) {
                                 if (!dev->stats.shutdowns)
-                                        KLOG_INFO("%s: %s: retval=-ENODEV\n",
-                                        __func__, dev->dev_name);
+                                        klog_shutdown(dev->dev_name, __func__, "-ENODEV");
                                 dev->stats.shutdowns++;
                         }
                         else {
                                 dev->stats.urbErrors++;
                                 KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
-                                        __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                                        dev->dev_name, __func__,retval,dev->stats.urbErrors);
                         }
 			dev->errorStatus = retval;
                 }
@@ -376,6 +430,9 @@ static void send_tas_timer_func(struct timer_list* tlist)
 
 static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 {
+        if (dev->sendTASJiffies > 0)
+                del_timer_sync(&dev->sendTASTimer);
+        dev->sendTASJiffies = 0;
         if (rate > 0) {
                 /* how many jiffies we are into the second */
 //
@@ -393,12 +450,7 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                 dev->sendTASTimer.expires = jiffies + 2 * dev->sendTASJiffies -
                         (jif % dev->sendTASJiffies);
                 add_timer(&dev->sendTASTimer);
-        } else {
-                if (dev->sendTASJiffies > 0)
-                        del_timer_sync(&dev->sendTASTimer);
-                dev->sendTASJiffies = 0;
         }
-
         return 0;
 }
 
@@ -411,7 +463,8 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
                  * in flight */
                 if (CIRC_SPACE(dev->img_urb_q.head, READ_ONCE(dev->img_urb_q.tail),
                        IMG_URB_QUEUE_SIZE) == 0)
-                    KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
+                    KLOG_ERR("%s: %s: programming error: no space in queue for resubmitting urbs\n",
+                                    dev->dev_name, __func__);
                 else {
                         dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
                         INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
@@ -444,16 +497,16 @@ static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
         if (retval < 0) {
                 if (retval == -ENODEV) {
                         if (!dev->stats.shutdowns)
-                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
-                                __func__, dev->dev_name);
+                                klog_shutdown(dev->dev_name, __func__, "-ENODEV");
                         dev->stats.shutdowns++;
                 }
                 else {
                         dev->stats.urbErrors++;
                         KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
-                            __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                                dev->dev_name, __func__, retval,dev->stats.urbErrors);
                 }
                 dev->errorStatus = retval;
+                wake_up_interruptible(&dev->read_wait);
         }
         return retval;
 }
@@ -472,16 +525,16 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
         if (retval < 0) {
                 if (retval == -ENODEV) {
                         if (!dev->stats.shutdowns)
-                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
-                                __func__, dev->dev_name);
+                                klog_shutdown(dev->dev_name, __func__, "-ENODEV");
                         dev->stats.shutdowns++;
                 }
                 else {
                         dev->stats.urbErrors++;
                         KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
-                            __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                                dev->dev_name, __func__, retval,dev->stats.urbErrors);
                 }
                 dev->errorStatus = retval;
+                wake_up_interruptible(&dev->read_wait);
         }
         return retval;
 }
@@ -529,16 +582,16 @@ static void urb_throttle_func(struct timer_list* tlist)
                         if (retval < 0) {
                                 if (retval == -ENODEV) {
                                         if (!dev->stats.shutdowns)
-                                                KLOG_INFO("%s: %s: retval=-ENODEV\n",
-                                                __func__, dev->dev_name);
+                                                klog_shutdown(dev->dev_name, __func__, "-ENODEV");
                                         dev->stats.shutdowns++;
                                 }
                                 else {
                                         dev->stats.urbErrors++;
                                         KLOG_ERR("%s: %s: retval=%d, stats.urbErrors=%d\n",
-                                                __func__, dev->dev_name,retval,dev->stats.urbErrors);
+                                                dev->dev_name, __func__, retval,dev->stats.urbErrors);
                                 }
                                 dev->errorStatus = retval;
+                                wake_up_interruptible(&dev->read_wait);
                         }
                         INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
@@ -563,110 +616,16 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
         struct twod_urb_sample *osamp;
         dsm_sample_time_t timetag = getSystemTimeTMsecs();
 
-	/*
-	 * One should do one of the following here:
-	 * 1. urb OK: check if an empty sample is available at head of dev->sampleq
-	 *	a. sample available, fill it in, add to tail of dev->sampleq
-	 *	b. no sample available, resubmit urb
-         * 2. urb status bad, and situation probably not repairable:
-         *      set dev->errorStatus = urb->status, return.
-	 *	In this case the user select() or read() will return
-         *	an error, and the user can try to re-open().
-         * 3. urb bad, but if the situation might possibly improve on its own:
-         *      resubmit urb
-         *
-         * See: /usr/share/doc/kernel-doc-x.y.z/Documentation/usb/error-codes.txt 
-         * in section "Error codes returned by in urb->status".
-         *
-         * (*) Error codes like -EPROTO, -EILSEQ and -EOVERFLOW normally indicate
-         * hardware problems such as bad devices (including firmware) or cables.
-         *
-         * (**) This is also one of several codes that different kinds of host
-         * controller use to indicate a transfer has failed because of device
-         * disconnect.  In the interval before the hub driver starts disconnect
-         * processing, devices may receive such fault reports for every request.
-         */
-        switch (urb->status) {
-        case 0:
-                dev->consecTimeouts = 0;
-                break;
-        case -ENOENT:
-                /*
-                 * URB was synchronously unlinked by usb_unlink_urb
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_ERR("%s: image urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.shutdowns++;
-                dev->errorStatus = urb->status;
+        switch (check_urb_status(urb->status, dev, __func__)) {
+        case 0: /* OK */
+                break;  
+        case 1: /* error */
+                wake_up_interruptible(&dev->read_wait);
                 return;
-        case -ESHUTDOWN:
-                /*
-                 * The device or host controller has been disabled due
-                 * to some problem that could not be worked around,
-                 * such as a physical disconnect.
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_INFO("%s: image urb->status=-ESHUTDOWN\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-                KLOG_ERR("%s: image urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -EOVERFLOW:
-                /*
-                 * -EOVERFLOW (*)
-                 * The amount of data returned by the endpoint was
-                 * greater than either the max packet size of the
-                 * endpoint or the remaining buffer size.  "Babble".
-                 */
-		KLOG_ERR("%s: image urb->status=-EOVERFLOW\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -EPROTO:
-                /*
-                 * -EPROTO (*, **)
-                 *     a: bitstuff error
-                 *     b: no response packet received within the prescribed
-                 *        bus turn-around time
-                 *     c: unknown USB error 
-                 */
-		KLOG_ERR("%s: image urb->status=-EPROTO\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ETIMEDOUT:
-                /*
-                 * Synchronous USB message functions use this code
-                 * to indicate timeout expired before the transfer
-                 * completed, and no other error was reported by HC.
-                 *
-		 * Sometimes we see one urb ETIMEDOUT and things continue working.
-		 * Other times the probe (or usb controller, not sure which)
-		 * never recovers and returns ETIMEDOUT for every returned urb.
-		 * We'll give up resubmitting after 10 in a row.
-                 */
-                dev->consecTimeouts++;
-                KLOG_WARNING("%s: image urb->status=-ETIMEDOUT, consecutive=%d\n",
-			dev->dev_name,dev->consecTimeouts);
-                dev->stats.urbTimeouts++;
-                if (dev->consecTimeouts >= 10) {
-                    dev->errorStatus = urb->status;
-		    return;
-		}
-		else goto resubmit;
-        default:
-		KLOG_ERR("%s: image urb->status=%d\n", dev->dev_name, urb->status);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
+        case 2: /* timeout, try again */
+                goto resubmit;
         }
+
         dev->stats.numImages++;
 
         /*
@@ -759,8 +718,8 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
              kmalloc(TWOD_IMG_BUFF_SIZE, GFP_KERNEL)
 #endif
                               )) {
-                KLOG_ERR("%s: out of memory for read buf\n",
-                        dev->dev_name);
+                KLOG_ERR("%s: %s: out of memory for read buf\n",
+                                dev->dev_name, __func__);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -794,91 +753,16 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
         struct twod_urb_sample *osamp;
         dsm_sample_time_t timetag = getSystemTimeTMsecs();
 
-	/*
-	 * One should do one of the following here:
-	 * 1. urb OK: check if an empty sample is available at head of dev->sampleq
-	 *	a. sample available, fill it in, add to tail of dev->sampleq
-	 *	b. no sample available, resubmit urb
-         * 2. urb status bad, and situation probably not repairable: set dev->errorStatus = urb->status, return
-	 *	In this case the user select() or read() will return an error, and the user can
-	 *      try to re-open().
-         * 3. urb bad, but if the situation might possibly improve on its own: resubmit urb
-         *
-         * See: /usr/share/doc/kernel-doc-x.y.z/Documentation/usb/error-codes.txt 
-         * in section "Error codes returned by in urb->status".
-         */
-        //KLOG_INFO("urb status: %s\n",urb->status);
-        switch (urb->status) {
-        case 0:
-                dev->consecTimeouts = 0;
-                break;
-        case -ENOENT:
-                /*
-                 * URB was synchronously unlinked by usb_unlink_urb
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_ERR("%s: sor urb->status=-ENOENT\n",dev->dev_name);
-                dev->stats.shutdowns++;
-                dev->errorStatus = urb->status;
+        switch (check_urb_status(urb->status, dev, __func__)) {
+        case 0: /* OK */
+                break;  
+        case 1: /* error */
+                wake_up_interruptible(&dev->read_wait);
                 return;
-        case -ESHUTDOWN:
-                /*
-                 * The device or host controller has been disabled due
-                 * to some problem that could not be worked around,
-                 * such as a physical disconnect.
-                 */
-		if (!dev->stats.shutdowns)    /* don't KLOG_ERR more than once */
-                        KLOG_INFO("%s: sor urb->status=-ESHUTDOWN\n", dev->dev_name);
-                dev->stats.shutdowns++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ECONNRESET:
-                /*
-                 * URB was asynchronously unlinked by usb_unlink_urb
-                 */
-                KLOG_ERR("%s: sor urb->status=-ECONNRESET\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -EOVERFLOW:
-                /*
-                 * -EOVERFLOW (*)
-                 * The amount of data returned by the endpoint was
-                 * greater than either the max packet size of the
-                 * endpoint or the remaining buffer size.  "Babble".
-                 */
-		KLOG_ERR("%s: sor urb->status=-EOVERFLOW\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -EPROTO:
-                /*
-                 * -EPROTO (*, **)
-                 *     a: bitstuff error
-                 *     b: no response packet received within the prescribed
-                 *        bus turn-around time
-                 *     c: unknown USB error 
-                 */
-		KLOG_ERR("%s: sor urb->status=-EPROTO\n", dev->dev_name);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
-        case -ETIMEDOUT:
-                dev->consecTimeouts++;
-                KLOG_WARNING("%s: sor urb->status=-ETIMEDOUT, consecutive=%d\n",
-			dev->dev_name,dev->consecTimeouts);
-                dev->stats.urbTimeouts++;
-                if (dev->consecTimeouts >= 10) {
-                    dev->errorStatus = urb->status;
-		    return;
-		}
-		else goto resubmit;
-        default:
-		KLOG_ERR("%s: urb->status=%d\n",dev->dev_name, urb->status);
-                dev->stats.urbErrors++;
-                dev->errorStatus = urb->status;
-                return;
+        case 2: /* timeout, try again */
+                goto resubmit;
         }
+
         dev->stats.numSORs++;
 
         /*
@@ -954,7 +838,8 @@ static struct urb *twod_make_sor_urb(struct usb_twod *dev)
 
         buf = kmalloc(TWOD_SOR_BUFF_SIZE, GFP_KERNEL);
         if (!buf) {
-                KLOG_ERR("%s: out of memory for read buf\n",dev->dev_name);
+                KLOG_ERR("%s: %s: out of memory for read buf\n",
+                                dev->dev_name, __func__);
                 usb_free_urb(urb);
                 urb = NULL;
                 return urb;
@@ -987,8 +872,8 @@ static int twod_open(struct inode *inode, struct file *file)
         TWOD_MUTEX_LOCK(&twod_open_lock);
         interface = usb_find_interface(&twod_driver, subminor);
         if (!interface) {
-                KLOG_ERR("error, can't find device for minor %d\n",
-                     subminor);
+                KLOG_ERR("%s: error, can't find device for minor %d\n",
+                     __func__, subminor);
                 TWOD_MUTEX_UNLOCK(&twod_open_lock);
                 return -ENODEV;
         }
@@ -1571,7 +1456,7 @@ static int twod_probe(struct usb_interface *interface,
                 goto error;
         }
 
-        if ((dev->ptype == TWOD_64|| dev->ptype ==TWOD_64_V3) && !dev->sor_in_endpointAddr) {
+        if ((dev->ptype == TWOD_64 || dev->ptype == TWOD_64_V3) && !dev->sor_in_endpointAddr) {
                 KLOG_ERR("Could not find sor-in endpoint for 64 bit probe\n");
                 retval = -ENOENT;
                 goto error;
@@ -1610,7 +1495,7 @@ static int twod_probe(struct usb_interface *interface,
                 usb_set_intfdata(interface, NULL);
                 goto error;
         }
-        KLOG_INFO("%s: %s connected\n", __func__, dev->dev_name);
+        KLOG_INFO("%s: %s connected\n", dev->dev_name, __func__);
         return 0;
 
 error:
@@ -1649,7 +1534,7 @@ static void twod_disconnect(struct usb_interface *interface)
         dev->interface = NULL;
         write_unlock_bh(&dev->usb_iface_lock);
 
-        KLOG_INFO("%s: %s: disconnected\n", __func__, dev->dev_name);
+        KLOG_INFO("%s: %s: disconnected\n", dev->dev_name, __func__);
         kref_put(&dev->kref, twod_dev_delete);
 }
 
