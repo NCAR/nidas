@@ -118,8 +118,6 @@ cd src
  INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
 cd -
 
-cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
-
 %post libs
 
 # If selinux is Enforcing, ldconfig can fail with permission denied if the
