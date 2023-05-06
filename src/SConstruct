@@ -251,7 +251,7 @@ env.AlwaysBuild(dox)
 # Install the systemd unit files.  For now they are installed under prefix,
 # but it's feasible they could be installed onto the default search path for
 # systemd user unit files, like /usr/lib/systemd/user.  See the README.
-for sysdfile in ['README', 'dsm.service', 'dsm_server.service']:
+for sysdfile in ['README.md', 'dsm.service', 'dsm_server.service']:
     env.Alias('install',
               env.Install('$PREFIX/systemd/user', 'systemd/user/' + sysdfile))
 
