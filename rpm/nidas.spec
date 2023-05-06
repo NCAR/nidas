@@ -228,6 +228,11 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/bin/data_influxdb
+%{nidas_prefix}/bin/cktty
+%{nidas_prefix}/bin/irout
+%{nidas_prefix}/bin/irqs
+%{nidas_prefix}/bin/vout
+%{nidas_prefix}/bin/setup_nidas.sh
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
 
@@ -263,14 +268,19 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
 %{nidas_prefix}/firmware
+%{_sysconfdir}/default/emerald
+%{_sysconfdir}/default/pcmcom8
+%{_sysconfdir}/modprobe.d/diamond.conf
+%{_sysconfdir}/modprobe.d/nidas.conf
+%{_sysconfdir}/modprobe.d/pcmcom8.conf
 %endif
 
 %files daq
 %defattr(0775,root,root,0775)
 %config /usr/lib/udev/rules.d/99-nidas.rules
-# Note that debian includes /etc/defaults files in nidas-daq for the emerald
-# and diamond modules, but apparently those are not include for rpm systems
-# because those modules have never been used on those systems.
+# Note that debian includes /etc/default files in nidas-daq for the emerald
+# and diamond modules, but for rpm they are just included as part of the
+# modules package.
 
 %files devel
 %defattr(0664,root,root,2775)

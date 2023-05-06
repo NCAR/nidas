@@ -124,14 +124,14 @@ def NidasKernelModule(env, modules, sources, headers=None):
 def InstallModuleConf(env: Environment, modconf):
     "Pseudo-builder to install modprobe.d conf files."
     if env.get("LINUX_MODULES", True):
-        conf = env.Install('/etc/modprobe.d', modconf)
+        conf = env.Install('$SYSCONFIGDIR/modprobe.d', modconf)
         env.Alias('install.root', conf)
 
 
 def InstallEtcDefaults(env: Environment, target, source):
     "Pseudo-builder to install /etc/default files for modules."
     if env.get("LINUX_MODULES", True):
-        conf = env.InstallAs('/etc/default/'+target, source)
+        conf = env.InstallAs('$SYSCONFIGDIR/default/'+target, source)
         env.Alias('install.root', conf)
 
 
