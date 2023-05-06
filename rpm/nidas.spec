@@ -231,13 +231,9 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/irqs
 %{nidas_prefix}/bin/vout
 %{nidas_prefix}/bin/setup_nidas.sh
-%{nidas_prefix}/systemd/user/README.md
-%{nidas_prefix}/systemd/user/dsm.service
-%{nidas_prefix}/systemd/user/dsm_server.service
+%{nidas_prefix}/systemd
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
-
-%{nidas_prefix}/systemd
 
 %files libs
 %defattr(0775,root,root,2775)
