@@ -86,8 +86,6 @@ BuildArch: noarch
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
 expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
-Edit /etc/default/nidas-daq to specify the desired user
-to run NIDAS real-time data acquisition processes.
 
 %package devel
 Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
@@ -120,13 +118,7 @@ cd src
  INSTALL_ROOT=$RPM_BUILD_ROOT install install.root
 cd -
 
-install -m 0755 -d $RPM_BUILD_ROOT/usr/lib/udev/rules.d
-install -m 0664 pkg_files/udev/rules.d/* $RPM_BUILD_ROOT/usr/lib/udev/rules.d
-
 cp -r pkg_files/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
-
-install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/default
-install -m 0664 pkg_files/root/etc/default/nidas-* $RPM_BUILD_ROOT%{_sysconfdir}/default
 
 %post libs
 
@@ -193,11 +185,6 @@ if /sbin/selinuxenabled; then
     /sbin/restorecon -R %{nidas_prefix}/%{_lib} || :
 fi
 /sbin/ldconfig
-
-%pre daq
-if [ "$1" -eq 1 ]; then
-    echo "Edit %{_sysconfdir}/default/nidas-daq to set the DAQ_USER and DAQ_GROUP"
-fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -281,7 +268,9 @@ rm -rf $RPM_BUILD_ROOT
 %files daq
 %defattr(0775,root,root,0775)
 %config /usr/lib/udev/rules.d/99-nidas.rules
-%config(noreplace) %{_sysconfdir}/default/nidas-daq
+# Note that debian includes /etc/defaults files in nidas-daq for the emerald
+# and diamond modules, but apparently those are not include for rpm systems
+# because those modules have never been used on those systems.
 
 %files devel
 %defattr(0664,root,root,2775)

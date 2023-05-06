@@ -124,7 +124,14 @@ def NidasKernelModule(env, modules, sources, headers=None):
 def InstallModuleConf(env: Environment, modconf):
     "Pseudo-builder to install modprobe.d conf files."
     if env.get("LINUX_MODULES", True):
-        conf = env.Install('${INSTALL_ROOT}/etc/modprobe.d', modconf)
+        conf = env.Install('/etc/modprobe.d', modconf)
+        env.Alias('install.root', conf)
+
+
+def InstallEtcDefaults(env: Environment, target, source):
+    "Pseudo-builder to install /etc/default files for modules."
+    if env.get("LINUX_MODULES", True):
+        conf = env.InstallAs('/etc/default/'+target, source)
         env.Alias('install.root', conf)
 
 
@@ -133,6 +140,8 @@ def nidas_kernel_modules(env: Environment):
     env.AddMethod(SymbolModules)
     env.AddMethod(NidasKernelModule)
     env.AddMethod(InstallModuleConf)
+    env.AddMethod(InstallEtcDefaults)
+
 
 #
 # Invoke SConscripts in subdirs to create linux modules.
@@ -168,3 +177,9 @@ for subdir in subdirs:
 env.Alias('install', env.Install('$LINUX_MODULES_INC', headers))
 
 env.InstallModuleConf('nidas.conf')
+
+# The 99-nidas.rules file contains tty rules which are useful even if modules
+# are not built, so go ahead and install it so it can be included in the
+# nidas-daq package.
+rules = env.Install('/usr/lib/udev/rules.d', 'udev/99-nidas.rules')
+env.Alias('install.root', rules)

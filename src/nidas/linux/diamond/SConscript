@@ -17,7 +17,6 @@ headers = env.Split("""
     ir104.h
 """)
 
-
 env.NidasKernelModule(
     ['emerald.ko', 'dmd_mmat.ko','gpio_mm.ko','ir104.ko'],
     ['emerald.c', 'dmd_mmat.c', 'gpio_mm.c', 'gpio_mm_regs.h', 'ir104.c',
@@ -25,6 +24,7 @@ env.NidasKernelModule(
      headers)
 
 env.InstallModuleConf('diamond.conf')
+env.InstallEtcDefaults('emerald', 'emerald.defaults')
 
 install = env.Install("$PREFIX/bin", ['irout', 'vout'])
 env.Alias('install', install)

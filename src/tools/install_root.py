@@ -34,7 +34,6 @@ def _setup_variables(env: Environment):
 
 
 def Install(self: Environment, dest: str, *args, **kw):
-    """Add 'install' alias to targets created with standard Install() method."""
     # the first argument is always the destination, but this assumes it is a
     # string.
     dest = "${INSTALL_ROOT}" + dest
@@ -42,9 +41,8 @@ def Install(self: Environment, dest: str, *args, **kw):
 
 
 def InstallAs(self: Environment, dest: str, *args, **kw):
-    """Add 'install' alias to targets created with standard Install() method."""
     dest = "${INSTALL_ROOT}" + dest
-    return self._install_root_Install(dest, *args, **kw)
+    return self._install_root_InstallAs(dest, *args, **kw)
 
 
 def generate(env: Environment):
