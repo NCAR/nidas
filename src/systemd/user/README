@@ -61,6 +61,11 @@
         cp /opt/nidas/systemd/user/dsm_server.service \
             $HOME/.local/share/systemd/user 
 
+    There is also a convenient way to link the unit file into the search path
+    for user units:
+
+        systemctl --user link /opt/nidas/systemd/user/dsm_server.service
+
 ** Setup user environment and add options to dsm_server
 
    Any required environment variables must be imported to the
@@ -105,6 +110,9 @@
    users in the files:
       /etc/systemd/user.conf
       /etc/systemd/system/user@.service.d/*.conf
+
+   Also see `systemctl --user edit dsm_server.service`, which automatically
+   creates an override file, if necessary, and opens it in an editor.
 
 ** Change runstring options for dsm_server if necessary:
 
