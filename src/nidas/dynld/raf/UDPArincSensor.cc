@@ -149,8 +149,17 @@ void UDPArincSensor::close()
 
     if (_ctrl_pid > 0)
     {
-        int rc = kill(_ctrl_pid, SIGTERM);
-        wait(&rc);
+        if (kill(_ctrl_pid, SIGTERM) == -1)
+        {
+            ELOG(("UDPArincSensor: kill() error: ") << ": error " << errno
+			<< " : " << Exception::errnoToString(errno));
+        }
+
+        if (waitpid(_ctrl_pid, 0, 0) == -1)
+        {
+            ELOG(("UDPArincSensor: waitpid() error: ") << ": error " << errno
+			<< " : " << Exception::errnoToString(errno));
+        }
     }
     _ctrl_pid = 0;
 }
