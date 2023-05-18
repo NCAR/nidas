@@ -27,6 +27,7 @@
 #include "UDPiPMSensor.h"
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 
 #include <csignal>
@@ -64,19 +65,19 @@ void UDPiPMSensor::validate()
     if (!p) throw n_u::InvalidParameterException(getName(),
           "device", "not found");
     _deviceAddr = p->getStringValue(0);
-    ILOG(("device is %s", _deviceAddr.c_str()));
+    ILOG(("device is ") << _deviceAddr);
 
     p = getParameter("status_port"); // Port for IPM
     if (!p) throw n_u::InvalidParameterException(getName(),
           "status_port", "not found");
     _statusPort = (unsigned int)p->getNumericValue(0);
-    ILOG(("status_port is %u", _statusPort));
+    ILOG(("status_port is ") << _statusPort);
 
     p = getParameter("measurerate"); // STATUS & MEASURE collection rate (hz)
     if (!p) throw n_u::InvalidParameterException(getName(),
           "measurerate", "not found");
     _measureRate = (unsigned int)p->getNumericValue(0);
-    ILOG(("measurerate is %u", _measureRate));
+    ILOG(("measurerate is ") << _measureRate);
 
     p = getParameter("recordperiod"); // Period of RECORD queries (minutes)
     if (!p) throw n_u::InvalidParameterException(getName(),
@@ -84,19 +85,19 @@ void UDPiPMSensor::validate()
     _recordPeriod = (unsigned int)p->getNumericValue(0);
     if (_recordPeriod < 10) throw n_u::InvalidParameterException(getName(),
           "recordperiod", "must be >= 10");
-    ILOG(("recordperiod is %u", _recordPeriod));
+    ILOG(("recordperiod is ") << _recordPeriod);
 
     p = getParameter("baudrate"); // Baud rate
     if (!p) throw n_u::InvalidParameterException(getName(),
           "baudrate", "not found");  // TBD: default to 115200
     _baudRate = (unsigned int)p->getNumericValue(0);
-    ILOG(("baudrate is %u", _baudRate));
+    ILOG(("baudrate is ") << _baudRate);
 
     p = getParameter("num_addr"); // Number of addresses being used
     if (!p) throw n_u::InvalidParameterException(getName(),
           "num_addr", "not found");
     _numAddr = (unsigned int)p->getNumericValue(0);
-    ILOG(("%u addresses in use on port %u", _numAddr, _statusPort));
+    ILOG(("") << _numAddr << (" addresses in use on port ") << _statusPort);
 
     for (int i=0; i < _numAddr; i++)
     {
@@ -106,7 +107,7 @@ void UDPiPMSensor::validate()
         // addrInfo string contains addr, numphases, procquery, port,
         // eg 0,1,5,30101
         _addrInfo[i] = p->getStringValue(0);
-        ILOG(("device info for addresses %d: %s", i, _addrInfo[i].c_str()));
+        ILOG(("device info for addresses ") << i << (": ") << _addrInfo[i]);
     }
 
 }
@@ -119,7 +120,7 @@ void UDPiPMSensor::open(int flags)
 
     if (_ctrl_pid == -1)
     {
-        PLOG(("UDPiPMSensor: error forking errno = %d", errno));
+        PLOG(("UDPiPMSensor: error forking errno = ") << errno);
     }
     else
     if (_ctrl_pid == 0)
@@ -191,14 +192,15 @@ void UDPiPMSensor::open(int flags)
                 strcat(cmd, " ");
             }
         }
-        ILOG(("UDPiPMSensor: forking command %s", cmd));
+        ILOG(("UDPiPMSensor: forking command ") << cmd);
 
         if (execvp(args[0], args) == -1)
         {
-            ILOG(("UDPiPMSensor: error executing command %s", cmd));
-            exit(1);
+            ELOG(("UDPiPMSensor: error executing command: ") << args[0] <<
+            ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
+            close();
         } else {
-            ILOG(("UDPiPMSensor: success!!! %s", cmd));
+            ILOG(("UDPiPMSensor: success!!! ") << cmd);
         }
     }
 }
@@ -209,8 +211,14 @@ void UDPiPMSensor::close()
 
     if (_ctrl_pid > 0)
     {
-        int rc = kill(_ctrl_pid, SIGTERM);
-        wait(&rc);
+        ELOG(("UDPiPMSensor: kill() error: ") << ": error " << errno
+        << " : " << n_u::Exception::errnoToString(errno));
+    }
+
+    if (waitpid(_ctrl_pid, 0, 0) == -1)
+    {
+        ELOG(("UDPiPMSensor: waitpid() error: ") << ": error " << errno
+        << " : " << n_u::Exception::errnoToString(errno));
     }
     _ctrl_pid = 0;
 }

@@ -143,8 +143,9 @@ void UDPArincSensor::open(int flags)
         ILOG(("forking command %s", args[0]));
         if (execvp(args[0], args) == -1)
         {
-            ILOG(("UDPArincSensor: error executing command %s", args[0]));
-            exit(1);
+            ELOG(("UDPArincSensor: error executing command: ") << args[0] <<
+            ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
+            close();
         }
     }
 }
