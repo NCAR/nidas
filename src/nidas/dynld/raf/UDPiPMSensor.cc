@@ -211,14 +211,17 @@ void UDPiPMSensor::close()
 
     if (_ctrl_pid > 0)
     {
-        ELOG(("UDPiPMSensor: kill() error: ") << ": error " << errno
-        << " : " << n_u::Exception::errnoToString(errno));
-    }
+        if (kill(_ctrl_pid, SIGTERM) == -1)
+        {
+            ELOG(("UDPiPMSensor: kill() error: ") << ": error " << errno
+            << " : " << n_u::Exception::errnoToString(errno));
+        }
 
-    if (waitpid(_ctrl_pid, 0, 0) == -1)
-    {
-        ELOG(("UDPiPMSensor: waitpid() error: ") << ": error " << errno
-        << " : " << n_u::Exception::errnoToString(errno));
+        if (waitpid(_ctrl_pid, 0, 0) == -1)
+        {
+            ELOG(("UDPiPMSensor: waitpid() error: ") << ": error " << errno
+            << " : " << n_u::Exception::errnoToString(errno));
+        }
     }
     _ctrl_pid = 0;
 }
