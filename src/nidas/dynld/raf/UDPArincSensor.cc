@@ -145,7 +145,7 @@ void UDPArincSensor::open(int flags)
         {
             ELOG(("UDPArincSensor: error executing command: ") << args[0] <<
             ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
-            close();
+            exit();
         }
     }
 }
