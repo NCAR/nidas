@@ -198,7 +198,7 @@ void UDPiPMSensor::open(int flags)
         {
             ELOG(("UDPiPMSensor: error executing command: ") << args[0] <<
             ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
-            exit();
+            exit(1);
         } else {
             ILOG(("UDPiPMSensor: success!!! ") << cmd);
         }
