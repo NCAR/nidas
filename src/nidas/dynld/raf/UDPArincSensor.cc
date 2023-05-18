@@ -28,6 +28,7 @@
 #include "DSMArincSensor.h"
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Exception.h>
 #include <nidas/util/Logger.h>
 
 #include <csignal>
@@ -154,8 +155,17 @@ void UDPArincSensor::close()
 
     if (_ctrl_pid > 0)
     {
-        int rc = kill(_ctrl_pid, SIGTERM);
-        wait(&rc);
+        if (kill(_ctrl_pid, SIGTERM) == -1)
+        {
+            ELOG(("UDPArincSensor: kill() error: ") << ": error " << errno
+			<< " : " << n_u::Exception::errnoToString(errno));
+        }
+
+        if (waitpid(_ctrl_pid, 0, 0) == -1)
+        {
+            ELOG(("UDPArincSensor: waitpid() error: ") << ": error " << errno
+			<< " : " << n_u::Exception::errnoToString(errno));
+        }
     }
     _ctrl_pid = 0;
 }
