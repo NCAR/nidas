@@ -116,6 +116,76 @@ void UDPiPMSensor::open(int flags)
 {
     UDPSocketSensor::open(flags);
 
+    // Construct command for child process
+    char *args[40];
+    //char port[32];
+    char m_rate[32];
+    char r_period[32];
+    char baud[32];
+    char num_addr[32];
+    std::vector<std::string> addrnum(8);
+    int argc = 0;
+    char cmd[256] = "";
+    int cmd_len = 0;
+
+    args[argc++] = (char *)"ipm_ctrl";
+    if (_deviceAddr.length() > 0) {
+        args[argc++] = (char *)"-p";
+        args[argc++] = (char *)_deviceAddr.c_str();
+    }
+
+    /*if (_statusPort > 0) {
+        sprintf(port, "%u", _statusPort);
+        args[argc++] = (char *)"--port";
+        args[argc++] = (char *)port;
+    } */
+
+    if (_measureRate > 0) {
+        sprintf(m_rate, "%u", _measureRate);
+        args[argc++] = (char *)"-m";
+        args[argc++] = (char *)m_rate;
+    }
+
+    if (_recordPeriod > 0) {
+        sprintf(r_period, "%u", _recordPeriod);
+        args[argc++] = (char *)"-r";
+        args[argc++] = (char *)r_period;
+    }
+
+    if (_baudRate > 0) {
+        sprintf(baud, "%u", _baudRate);
+        args[argc++] = (char *)"-b";
+        args[argc++] = (char *)baud;
+    }
+
+    if (_numAddr > 0) {
+        sprintf(num_addr, "%u", _numAddr);
+        args[argc++] = (char *)"-n";
+        args[argc++] = (char *)num_addr;
+    }
+
+    for (int i=0; i < _numAddr; i++)
+    {
+        addrnum[i] = "-" + std::to_string(i);
+        args[argc++] = (char *)addrnum[i].c_str();
+        args[argc++] = (char *)_addrInfo[i].c_str();
+    }
+
+    args[argc] = (char *)0;
+
+    // Create a string containing the entire command for logging
+    // purposes.
+    for (int i=0; i < argc; i++)
+    {
+        cmd_len += strlen(args[i]) + 1;
+        if (cmd_len < 255)  // prevent memory overrun (unlikely)
+        {
+            strcat(cmd, args[i]);
+            strcat(cmd, " ");
+        }
+    }
+
+    // Fork child process
     _ctrl_pid = fork();
 
     if (_ctrl_pid == -1)
@@ -125,82 +195,15 @@ void UDPiPMSensor::open(int flags)
     else
     if (_ctrl_pid == 0)
     {
-        char *args[40];
-        //char port[32];
-        char m_rate[32];
-        char r_period[32];
-        char baud[32];
-        char num_addr[32];
-        std::vector<std::string> addrnum(8);
-        int argc = 0;
-        char cmd[256] = "";
-        int cmd_len = 0;
-
-        args[argc++] = (char *)"ipm_ctrl";
-        if (_deviceAddr.length() > 0) {
-            args[argc++] = (char *)"-p";
-            args[argc++] = (char *)_deviceAddr.c_str();
-        }
-
-        /*if (_statusPort > 0) {
-            sprintf(port, "%u", _statusPort);
-            args[argc++] = (char *)"--port";
-            args[argc++] = (char *)port;
-        } */
-
-        if (_measureRate > 0) {
-            sprintf(m_rate, "%u", _measureRate);
-            args[argc++] = (char *)"-m";
-            args[argc++] = (char *)m_rate;
-        }
-
-        if (_recordPeriod > 0) {
-            sprintf(r_period, "%u", _recordPeriod);
-            args[argc++] = (char *)"-r";
-            args[argc++] = (char *)r_period;
-        }
-
-        if (_baudRate > 0) {
-            sprintf(baud, "%u", _baudRate);
-            args[argc++] = (char *)"-b";
-            args[argc++] = (char *)baud;
-        }
-
-        if (_numAddr > 0) {
-            sprintf(num_addr, "%u", _numAddr);
-            args[argc++] = (char *)"-n";
-            args[argc++] = (char *)num_addr;
-        }
-
-        for (int i=0; i < _numAddr; i++)
-        {
-            addrnum[i] = "-" + std::to_string(i);
-            args[argc++] = (char *)addrnum[i].c_str();
-            args[argc++] = (char *)_addrInfo[i].c_str();
-        }
-
-        args[argc] = (char *)0;
-
-        // Create a string containing the entire command for logging
-        // purposes.
-        for (int i=0; i < argc; i++)
-        {
-            cmd_len += strlen(args[i]) + 1;
-            if (cmd_len < 255)  // prevent memory overrun (unlikely)
-            {
-                strcat(cmd, args[i]);
-                strcat(cmd, " ");
-            }
-        }
         ILOG(("UDPiPMSensor: forking command ") << cmd);
 
+        // The exec function only returns if an error has occurred and the
+        // return value is always -1. errno is set to indicate the error
         if (execvp(args[0], args) == -1)
         {
             ELOG(("UDPiPMSensor: error executing command: ") << args[0] <<
             ": error " << errno << ": " << n_u::Exception::errnoToString(errno));
             exit(1);
-        } else {
-            ILOG(("UDPiPMSensor: success!!! ") << cmd);
         }
     }
 }
