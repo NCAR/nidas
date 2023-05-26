@@ -579,6 +579,7 @@ const std::string boardversion{"boardversion"};
 const std::string trhid{"trhid"};
 const std::string fandutycycle{"fandutycycle"};
 const std::string fanminrpm{"fanminrpm"};
+const std::string sht85id{"sht85id"};
 const std::string Ta0{"Ta0"};
 const std::string Ta1{"Ta1"};
 const std::string Ta2{"Ta2"};
@@ -595,7 +596,7 @@ const regex trh_parameters_rx(replace_specifiers(
 "Sensor ID(?<"+trhid+">%d)\\s+"
 "fan PWM duty cycle \\(%\\):\\s+(?<"+fandutycycle+">%f)\\s+"
 "fan min RPM: (?<"+fanminrpm+">%f)\\s+"
-"SHT85 ID \\S+\\s+"
+"SHT85 ID (?<"+sht85id+">\\S+)\\s+"
 "calibration coefficients:\\s+"
 "Ta0 = (?<"+Ta0+">%f)\\s+"
 "Ta1 = (?<"+Ta1+">%f)\\s+"
@@ -707,35 +708,38 @@ class MetadataTRH : public Metadata
 public:
     MetadataTRH():
         Metadata("NCAR_TRH"),
+        sht85id(MetadataItem::READONLY, "sh585id", "SHT85 ID"),
         fan_duty_cycle(MetadataItem::READWRITE, "fan_duty_cycle", "Fan Duty Cycle"),
         fan_min_rpm(MetadataItem::READWRITE, "fan_min_rpm", "Fan Min RPM"),
-        Ta0(MetadataItem::READWRITE, "Ta0", "Ta0"),
-        Ta1(MetadataItem::READWRITE, "Ta1", "Ta1"),
-        Ta2(MetadataItem::READWRITE, "Ta2", "Ta2"),
-        Ha0(MetadataItem::READWRITE, "Ha0", "Ha0"),
-        Ha1(MetadataItem::READWRITE, "Ha1", "Ha1"),
-        Ha2(MetadataItem::READWRITE, "Ha2", "Ha2"),
-        Ha3(MetadataItem::READWRITE, "Ha3", "Ha3"),
-        Ha4(MetadataItem::READWRITE, "Ha4", "Ha4")
+        Ta0(MetadataItem::READWRITE, "Ta0", "Ta0", 7),
+        Ta1(MetadataItem::READWRITE, "Ta1", "Ta1", 7),
+        Ta2(MetadataItem::READWRITE, "Ta2", "Ta2", 7),
+        Ha0(MetadataItem::READWRITE, "Ha0", "Ha0", 7),
+        Ha1(MetadataItem::READWRITE, "Ha1", "Ha1", 7),
+        Ha2(MetadataItem::READWRITE, "Ha2", "Ha2", 7),
+        Ha3(MetadataItem::READWRITE, "Ha3", "Ha3", 7),
+        Ha4(MetadataItem::READWRITE, "Ha4", "Ha4", 7)
     {
         manufacturer = "NCAR";
         model = "TRH";
     }
 
-    MetadataFloat fan_duty_cycle;
-    MetadataFloat fan_min_rpm;
-    MetadataFloat Ta0;
-    MetadataFloat Ta1;
-    MetadataFloat Ta2;
-    MetadataFloat Ha0;
-    MetadataFloat Ha1;
-    MetadataFloat Ha2;
-    MetadataFloat Ha3;
-    MetadataFloat Ha4;
+    MetadataString sht85id;
+    MetadataDouble fan_duty_cycle;
+    MetadataDouble fan_min_rpm;
+    MetadataDouble Ta0;
+    MetadataDouble Ta1;
+    MetadataDouble Ta2;
+    MetadataDouble Ha0;
+    MetadataDouble Ha1;
+    MetadataDouble Ha2;
+    MetadataDouble Ha3;
+    MetadataDouble Ha4;
 
     virtual void enumerate(item_list& items) override
     {
-        for (auto mi: { 
+        for (auto mi: item_list{
+            &sht85id,
             &fan_duty_cycle,
             &fan_min_rpm,
             &Ta0,
@@ -773,6 +777,7 @@ captureEepromMetaData(const char* buf)
     MetadataTRH md;
     md.serial_number = results[trhid].str();
     md.firmware_version = results[codeversion].str();
+    md.sht85id = results[sht85id].str();
     md.fan_duty_cycle = results[fandutycycle].str();
     md.fan_min_rpm = results[fanminrpm].str();
     md.Ta0 = results[Ta0].str();
