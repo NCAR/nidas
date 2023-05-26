@@ -159,7 +159,7 @@ int parseRunString(int argc, char* argv[])
 
     for (auto& arg: pargs)
     {
-        if (arg == "list" || arg == "status" || arg=="wifi_test")
+        if (arg == "list" || arg == "status")
         {
             Operation = arg;
             if (pargs.size() > 1)
@@ -186,6 +186,13 @@ int parseRunString(int argc, char* argv[])
             {
                 return toomany(Operation);
             }
+            continue;
+        }
+        if(Operation=="wifi_test")
+        {
+            cout<<"wifi test"<<endl;
+            Output="on";
+            Device="wifi";
             continue;
         }
         if (arg == "rts0" || arg == "rts1")
