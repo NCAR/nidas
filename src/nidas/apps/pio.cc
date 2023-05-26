@@ -144,6 +144,7 @@ int toomany(const std::string& msg)
 
 int parseRunString(int argc, char* argv[])
 {
+
     app.enableArguments(app.loggingArgs() | app.Help);
 
     ArgVector args = app.parseArgs(argc, argv);
@@ -167,6 +168,12 @@ int parseRunString(int argc, char* argv[])
                 return toomany(Operation);
             }
         }
+        if(arg=="wifi_test")
+        {
+            Operation=arg;
+            Device="wifi";
+            continue;
+        }
         if (Device.empty())
         {
             Device = arg;
@@ -188,13 +195,7 @@ int parseRunString(int argc, char* argv[])
             }
             continue;
         }
-        if(Operation=="wifi_test")
-        {
-            cout<<"wifi test"<<endl;
-            Output="on";
-            Device="wifi";
-            continue;
-        }
+        
         if (arg == "rts0" || arg == "rts1")
         {
             RTS = arg;
@@ -345,7 +346,7 @@ int main(int argc, char* argv[]) {
         exit(1);
 
     auto hwi = HardwareInterface::getHardwareInterface();
-
+  
     if (Operation == "list")
     {
         // Dump a list of devies with descriptions.
@@ -376,11 +377,21 @@ int main(int argc, char* argv[]) {
     if(Operation == "wifi_test")
     {
         auto ibutton = device.iButton();
+        auto buttonState=device.iOutput()->getState();
         do{
-            std::cout<<"Waiting for button press"<<std::endl;
+            
         }while(!ibutton->isDown());
-        std::cout<<"test"<<std::endl;
-        ioutput->on();
+
+       cout<<"test"<<endl;
+       if(buttonState.toString()=="off")
+       {
+            ioutput->on();
+       }
+       else
+       {
+            ioutput->off();
+       }
+        cout<<buttonState<<endl;
 
     }
     if (Operation == "switch")
