@@ -222,7 +222,7 @@ public:
     void enumerate(item_list& items) override
     {
         
-        for (auto mi: std::vector<MetadataItem*>({
+        for (auto mi: item_list{
             &averaging,
             &sos_temp,
             &heating,
@@ -234,7 +234,7 @@ public:
             &meas_units,
             &node_addr,
             &vert_meas_pad,
-            &align_45_deg }))
+            &align_45_deg })
         {
             items.push_back(mi);
         }

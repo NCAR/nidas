@@ -16,11 +16,11 @@ tgill.cc
 """)
 tests = env.Program('tSerialSensorAutoConfig', sources)
 
-mdenv.Require('nidasutil')
+mdenv.Require('nidas')
 mdenv.Append(LIBS = ['boost_unit_test_framework'])
-mdtest = mdenv.Program('tmetadata', 'tmetadata.cc')
+mdtest = mdenv.NidasProgram('tmetadata', 'tmetadata.cc')
 # mdenv.NidasRuntimeENV()
-env.Alias('test_metadata', 
+env.Alias('test_metadata',
           env.Command("test_metadata", mdtest,
                       env.ChdirActions(["./$SOURCE.file --log_level=all -- --log debug"])))
 env.ValgrindLog('memcheck_metadata', 

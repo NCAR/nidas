@@ -1,22 +1,14 @@
 // -*- mode: C++; c-basic-offset: 4 -*-
 
 #define BOOST_TEST_DYN_LINK
-//#define BOOST_AUTO_TEST_MAIN
-//#define BOOST_TEST_MODULE SerialSensorAutoConfig
 #include <boost/test/unit_test.hpp>
-
-// handle older boost libs...
-// #if !defined( BOOST_TEST )
-//     #define BOOST_TEST( P ) BOOST_CHECK( P )
-// #endif
-// #if !defined( BOOT_TEST_REQUIRE )
-//     #define BOOST_TEST_REQUIRE( P ) BOOST_REQUIRE( P )
-// #endif
 
 using boost::unit_test_framework::test_suite;
 
 #include <nidas/core/Metadata.h>
-#include <nidas/core/Metadata.cc>
+
+#include <nidas/dynld/isff/NCAR_TRH.h>
+using nidas::dynld::isff::NCAR_TRH;
 
 #include <nidas/util/Logger.h>
 
