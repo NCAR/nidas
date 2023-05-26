@@ -159,7 +159,7 @@ int parseRunString(int argc, char* argv[])
 
     for (auto& arg: pargs)
     {
-        if (arg == "list" || arg == "status")
+        if (arg == "list" || arg == "status" || arg=="wifi_test")
         {
             Operation = arg;
             if (pargs.size() > 1)
@@ -366,7 +366,16 @@ int main(int argc, char* argv[]) {
     int fd = -1;
 
     auto ioutput = device.iOutput();
+    if(Operation == "wifi_test")
+    {
+        auto ibutton = device.iButton();
+        do{
+            std::cout<<"Waiting for button press"<<std::endl;
+        }while(!ibutton->isDown());
+        std::cout<<"test"<<std::endl;
+        ioutput->on();
 
+    }
     if (Operation == "switch")
     {
         auto ibutton = device.iButton();
