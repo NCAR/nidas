@@ -184,10 +184,6 @@ protected:
     void initCustomMetaData();
 
 private:
-    // default message parameters for the PB210
-    static const int DEFAULT_MESSAGE_LENGTH = 0;
-    static const bool DEFAULT_MSG_SEP_EOM = true;
-    static const char* DEFAULT_MSG_SEP_CHARS;
 
     // default science parameters for the PB210
     static const PTB_COMMANDS DEFAULT_PRESSURE_UNITS_CMD = SENSOR_SAMP_UNIT_CMD;
@@ -238,7 +234,6 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    n_c::MessageConfig defaultMessageConfig;
     n_c::SensorCmdData* desiredScienceParameters;
 
     // no copying

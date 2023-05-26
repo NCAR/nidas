@@ -39,8 +39,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
 
 namespace nidas { namespace dynld { namespace isff {
 
-const char* PTB210::DEFAULT_MSG_SEP_CHARS = "\r\n";
-
 const char* PTB210::SENSOR_RESET_CMD_STR = ".RESET\r";
 const char* PTB210::SENSOR_SERIAL_BAUD_CMD_STR = ".BAUD.\r";
 const char* PTB210::SENSOR_SERIAL_EVENP_WORD_CMD_STR = ".E71\r";
@@ -172,10 +170,8 @@ static const std::string PTB210_CURR_MODE_CFG_DESC("CURRENT MODE");
 static const std::string PTB210_RS485_RES_CFG_DESC("RS485 RESISTOR");
 
 
-
 PTB210::PTB210()
     : SerialSensor(),
-      defaultMessageConfig(DEFAULT_MESSAGE_LENGTH, DEFAULT_MSG_SEP_CHARS, DEFAULT_MSG_SEP_EOM),
       desiredScienceParameters()
 {
     // At one point the available configs included 422 and 485, but afaik the
@@ -189,7 +185,7 @@ PTB210::PTB210()
 
     // We set the defaults at construction, 
     // letting the base class modify according to fromDOMElement() 
-    setMessageParameters(defaultMessageConfig);
+    setMessageParameters(MessageConfig(0, "\r\n", true));
 
     desiredScienceParameters = new n_c::SensorCmdData[NUM_DEFAULT_SCIENCE_PARAMETERS];
     for (int i=0; i<NUM_DEFAULT_SCIENCE_PARAMETERS; ++i) {
