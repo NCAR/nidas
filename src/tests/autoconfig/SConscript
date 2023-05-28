@@ -16,9 +16,16 @@ tgill.cc
 """)
 tests = env.Program('tSerialSensorAutoConfig', sources)
 
-mdenv.Require('nidas')
-mdenv.Append(LIBS = ['boost_unit_test_framework'])
-mdtest = mdenv.NidasProgram('tmetadata', 'tmetadata.cc')
+standalone = True
+mdenv.Append(LIBS = ['boost_unit_test_framework', 'jsoncpp'])
+if (standalone):
+    mdenv.Append(CPPDEFINES=['STANDALONE'])
+    mdenv.Require('nidasutil')
+    mdtest = mdenv.Program('tmetadata', 'tmetadata.cc')
+else:
+    mdenv.Require('nidas')
+    mdtest = mdenv.NidasProgram('tmetadata', 'tmetadata.cc')
+
 # mdenv.NidasRuntimeENV()
 env.Alias('test_metadata',
           env.Command("test_metadata", mdtest,

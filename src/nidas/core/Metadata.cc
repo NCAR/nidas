@@ -22,20 +22,27 @@
  ********************************************************************
 */
 
-#include "Metadata.h"
 #include <nidas/util/Logger.h>
 
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 
-#include <boost/json/src.hpp>
-namespace json = boost::json;
+#include "Metadata.h"
 
+#include <json/value.h>
+#include <json/writer.h>
+#include <json/reader.h>
 
-namespace nidas { namespace core {
+namespace nidas {
+namespace core {
 
 using nidas::util::UTime;
+
+
+struct MetadataImpl: public Json::Value
+{};
+
 
 MetadataException::
 MetadataException(const std::string& what):
@@ -53,24 +60,64 @@ const std::string MetadataItem::FAILED{"FAILED"};
 
 
 MetadataItem::
-MetadataItem(enum MODE mode,
+MetadataItem(MetadataInterface* mdi, enum MODE mode,
              const std::string& name,
              const std::string& description):
+    _mdi(mdi),
     _mode(mode),
     _name(name),
-    _description(description),
-    _string_value(UNSET),
-    _error()
+    _description(description)
 {
+    mdi->add_item(this);
 }
 
+MetadataInterface*
+MetadataItem::mdi()
+{
+    return _mdi;
+}
+
+/**
+ * Also convenient to give subclasses access directly to the dictionary.
+ */
+MetadataImpl&
+MetadataItem::mdict()
+{
+    return _mdi->metadata().mdict();
+}
+
+
+bool
+MetadataItem::
+unset() const
+{
+    MetadataImpl& jd = const_cast<MetadataItem*>(this)->mdict();
+    // an item is unset if it is not a member or set to null.
+    return jd.get(_name, Json::Value()).isNull();
+}
+
+void
+MetadataItem::
+erase()
+{
+    // this is a little ambiguous in that the key could either be set to null
+    // or removed to erase it, but this explicitly removes it.
+    MetadataImpl& jd = mdict();
+    jd.removeMember(_name);
+}
 
 MetadataItem&
 MetadataItem::
 operator=(const MetadataItem& right)
 {
+    // just copy the underlying json value if set.  we don't care if the
+    // assignment makes sense, validation is separate.
     if (!right.unset())
-        check_assign_string(right._string_value);
+    {
+        MetadataImpl& jd = mdict();
+        MetadataImpl& jd2 = const_cast<MetadataItem*>(&right)->mdict();
+        jd[_name] = jd2[right._name];
+    }
     return *this;
 }
 
@@ -79,7 +126,6 @@ bool
 MetadataItem::
 check_assign_string(const std::string& incoming)
 {
-    set_error();
     update_string_value(incoming);
     return true;
 }
@@ -89,35 +135,12 @@ void
 MetadataItem::
 update_string_value(const std::string& value)
 {
-    _string_value = value;
+    MetadataImpl& jd = mdict();
+    jd[_name] = Json::Value(value);
     // someday this could be a more elaborate kind of notification.
-    DLOG(("") << "updated metadata: " << _name << "=" << _string_value);
+    DLOG(("") << "updated metadata: " << _name << "=" << value);
 }
 
-
-void
-MetadataItem::
-set_error(const std::string& msg)
-{
-    _error = msg;
-}
-
-
-void
-MetadataItem::
-set_error(const std::ostringstream& buf)
-{
-    _error = buf.str();
-}
-
-
-void
-MetadataItem::
-erase()
-{
-    set_error();
-    update_string_value(UNSET);
-}
 
 
 std::ostream&
@@ -125,6 +148,16 @@ operator<<(std::ostream& out, const MetadataItem& item)
 {
     return (out << item.string_value());
 }
+
+
+std::string
+MetadataItem::
+string_value() const
+{
+    Metadata& md = const_cast<MetadataItem*>(this)->mdi()->metadata();
+    return md.string_value(name());
+}
+
 
 
 MetadataItem::
@@ -137,10 +170,10 @@ MetadataItem::
 // MetadataString implementation
 
 MetadataString::
-MetadataString(enum MODE mode,
+MetadataString(MetadataInterface* mdi, enum MODE mode,
                 const std::string& name,
                 const std::string& description):
-    MetadataItem(mode, name, description)
+    MetadataItem(mdi, mode, name, description)
 {}
 
 std::string
@@ -151,6 +184,7 @@ get()
         return "";
     return string_value();
 }
+
 
 MetadataString::
 operator std::string()
@@ -184,20 +218,28 @@ operator=(const std::string& value)
 // MetadataBool implementation
 
 MetadataBool::
-MetadataBool(enum MODE mode,
+MetadataBool(MetadataInterface* mdi, enum MODE mode,
                 const std::string& name,
                 const std::string& description):
-    MetadataItem(mode, name, description)
+    MetadataItem(mdi, mode, name, description)
 {}
 
 bool
 MetadataBool::
 check_assign_string(const std::string& incoming)
 {
-    bool target = from_string(incoming);
-    if (!error().empty())
+    bool target{false};
+    if (incoming == "true")
+        target = true;
+    else if (incoming == "false")
+        target = false;
+    else
+    {
+        mdi()->metadata().add_error("could not parse as bool: " + incoming);
         return false;
-    update_string_value(to_string(target));
+    }
+    MetadataImpl& jd = mdict();
+    jd[name()] = Json::Value(target);
     return true;
 }
 
@@ -205,9 +247,8 @@ bool
 MetadataBool::
 get()
 {
-    if (unset())
-        return false;
-    return from_string(string_value());
+    MetadataImpl& jd = mdict();
+    return jd.get(name(), Json::Value(false)).asBool();
 }
 
 MetadataBool::
@@ -216,11 +257,11 @@ operator bool()
     return get();
 }
 
+#ifdef notdef
 bool
 MetadataBool::
 from_string(const std::string& incoming)
 {
-    set_error();
     bool target{false};
     if (incoming == "true")
         target = true;
@@ -228,7 +269,7 @@ from_string(const std::string& incoming)
         target = false;
     else
     {
-        set_error("could not parse as bool: " + incoming);
+        mdi()->metadata().add_error("could not parse as bool: " + incoming);
     }
     return target;
 }
@@ -239,12 +280,15 @@ to_string(bool value)
 {
     return value ? "true" : "false";
 }
+#endif
 
 bool
 MetadataBool::
 set(bool value)
 {
-    return check_assign_string(to_string(value));
+    MetadataImpl& jd = mdict();
+    jd[name()] = Json::Value(value);
+    return true;
 }
 
 
@@ -252,22 +296,23 @@ set(bool value)
 
 template <typename T>
 MetadataNumber<T>::
-MetadataNumber(enum MODE mode,
+MetadataNumber(MetadataInterface* mdi, enum MODE mode,
                const std::string& name,
                const std::string& description,
                int precision_, T min_, T max_):
-    MetadataItem(mode, name, description),
+    MetadataItem(mdi, mode, name, description),
     precision(precision_), min(min_), max(max_)
 {}
 
 template <typename T>
 T
 MetadataNumber<T>::
-get()
+get() const
 {
     if (unset())
         return T();
-    return from_string(string_value());
+    MetadataImpl& jd = const_cast<MetadataNumber<T>*>(this)->mdict();
+    return jd[name()].asDouble();
 }
 
 template <typename T>
@@ -282,7 +327,16 @@ bool
 MetadataNumber<T>::
 set(const T& value)
 {
-    return check_assign_string(to_string(value));
+    if (value < min || max < value)
+    {
+        Metadata& md = mdi()->metadata();
+        md.add_error(errbuf() << value << " is not in range ["
+                           << min << ", " << max << "]");
+        return false;
+    }
+    MetadataImpl& jd = mdict();
+    jd[name()] = value;
+    return true;
 }
 
 template <typename T>
@@ -308,15 +362,15 @@ bool
 MetadataNumber<T>::
 check_assign_string(const std::string& incoming)
 {
-    set_error();
+    Metadata& md = mdi()->metadata();
     T target = from_string(incoming);
-    if (!error().empty())
+    if (!md.errors().empty())
     {
         return false;
     }
     if (target < min || max < target)
     {
-        set_error(errbuf() << target << " is not in range ["
+        md.add_error(errbuf() << target << " is not in range ["
                            << min << ", " << max << "]");
         return false;
     }
@@ -327,7 +381,7 @@ check_assign_string(const std::string& incoming)
 template <typename T>
 std::string
 MetadataNumber<T>::
-to_string(const T& value)
+to_string(const T& value) const
 {
     std::ostringstream outb;
     outb << std::setprecision(precision) << value;
@@ -335,16 +389,25 @@ to_string(const T& value)
 }
 
 template <typename T>
+std::string
+MetadataNumber<T>::
+string_value() const
+{
+    return to_string(get());
+}
+
+
+template <typename T>
 T
 MetadataNumber<T>::
 from_string(const std::string& value)
 {
-    set_error();
+    Metadata& md = mdi()->metadata();
     std::istringstream inb(value);
     T target{0};
     if (!(inb >> target))
     {
-        set_error(errbuf("could not parse as a number: ") << value);
+        md.add_error(errbuf("could not parse as a number: ") << value);
     }
     return target;
 }
@@ -366,10 +429,10 @@ template class MetadataNumber<int>;
 // MetadataTime implementation
 
 MetadataTime::
-MetadataTime(enum MODE mode,
+MetadataTime(MetadataInterface* mdi, enum MODE mode,
                 const std::string& name,
                 const std::string& description):
-    MetadataItem(mode, name, description)
+    MetadataItem(mdi, mode, name, description)
 {
 }
 
@@ -389,7 +452,6 @@ set(const UTime& value)
 {
     // no need to convert to a string just to call check_assign_string() and
     // convert it back, because we know we get a valid string from to_iso().
-    set_error();
     update_string_value(value.to_iso());
     return true;
 }
@@ -414,9 +476,9 @@ bool
 MetadataTime::
 check_assign_string(const std::string& incoming)
 {
-    set_error();
+    Metadata& md = mdi()->metadata();
     UTime ut(from_string(incoming));
-    if (!error().empty())
+    if (!md.errors().empty())
         return false;
     update_string_value(ut.to_iso());
     return true;
@@ -426,10 +488,11 @@ UTime
 MetadataTime::
 from_string(const std::string& value)
 {
+    Metadata& md = mdi()->metadata();
     UTime ut(0l);
     if (!ut.from_iso(value))
     {
-        set_error("could not parse time: " + value);
+        md.add_error("could not parse time: " + value);
     }
     return ut;
 };
@@ -438,31 +501,48 @@ from_string(const std::string& value)
 // Metadata implementation
 
 Metadata::
-Metadata(const std::string& classname):
-    _classname(classname),
-    record_type(MetadataItem::READWRITE, "record_type"),
-    timestamp(MetadataItem::READWRITE, "timestamp"),
-    manufacturer(MetadataItem::READONLY, "manufacturer", "Manufacturer"),
-    model(MetadataItem::READONLY, "model", "Model"),
-    serial_number(MetadataItem::READONLY, "serial_number", "Serial Number"),
-    hardware_version(MetadataItem::READONLY, "hardware_version", "Hardware Version"),
-    manufacture_date(MetadataItem::READONLY, "manufacture_date", "Manufacture Date"),
-    firmware_version(MetadataItem::READONLY, "firmware_version", "Firmware Version"),
-    firmware_build(MetadataItem::READONLY, "firmware_build", "Firmware Build"),
-    calibration_date(MetadataItem::READONLY, "calibration_date", "Calibration Date")
+Metadata():
+    _errors(),
+    _interfaces(),
+    _dict(new MetadataImpl)
 {}
 
 
-const std::string&
 Metadata::
-classname()
+Metadata(const Metadata& right):
+    _errors(right._errors),
+    _interfaces(),
+    _dict(new MetadataImpl(*right._dict.get()))
 {
-    return _classname;
+    for (auto& iface: right._interfaces)
+    {
+        _interfaces.emplace_back(iface->clone());
+        // _interfaces.back().get()->bind(this);
+    }
 }
 
 
-Metadata::item_list
+Metadata&
 Metadata::
+operator=(const Metadata& right)
+{
+    if (this == &right)
+        return *this;
+    *_dict = *right._dict;
+    _errors = right._errors;
+    _interfaces.clear();
+    for (auto& iface: right._interfaces)
+    {
+        _interfaces.emplace_back(iface->clone());
+    }
+    return *this;
+}
+
+
+
+#ifdef notdef
+SensorMetadata::item_list
+SensorMetadata::
 get_items()
 {
     item_list items{
@@ -482,35 +562,7 @@ get_items()
     // appended here.
     return items;
 }
-
-
-MetadataItem*
-Metadata::
-lookup(const std::string& name)
-{
-    for (auto mi: get_items())
-    {
-        if (mi->name() == name)
-            return mi;
-    }
-    return nullptr;
-}
-
-
-Metadata&
-Metadata::
-operator=(const Metadata& right)
-{
-    manufacturer = right.manufacturer;
-    model = right.model;
-    serial_number = right.serial_number;
-    hardware_version = right.hardware_version;
-    manufacture_date = right.manufacture_date;
-    firmware_version = right.firmware_version;
-    firmware_build = right.firmware_build;
-    calibration_date = right.calibration_date;
-    return *this;
-}
+#endif
 
 Metadata::
 ~Metadata()
@@ -519,8 +571,54 @@ Metadata::
 
 std::string
 Metadata::
+string_value(const std::string& name)
+{
+    MetadataImpl& jd = mdict();
+    Json::Value value = jd.get(name, Json::Value(""));
+    if (value.isString())
+    {
+        return value.asString();
+    }
+    std::ostringstream buf;
+    buf << value;
+    return buf.str();
+}
+
+
+
+std::string
+Metadata::
 to_buffer(int nindent)
 {
+    Json::StreamWriterBuilder wbuilder;
+    wbuilder["indentation"] = std::string(nindent, ' ');
+    return Json::writeString(wbuilder, *_dict.get());
+}
+
+
+bool
+Metadata::
+from_buffer(const std::string& buffer)
+{
+    Json::CharReaderBuilder rbuilder;
+    std::string errs;
+    std::istringstream inbuf(buffer);
+    bool ok = Json::parseFromStream(rbuilder, inbuf, _dict.get(), &errs);
+    if (!ok)
+    {
+        add_error(errs);
+        PLOG(("json parse failed: ") << buffer);
+    }
+    return ok;
+}
+
+
+#ifdef notdef
+std::string
+Metadata::
+to_buffer(int nindent)
+{
+    
     std::ostringstream buf;
     std::string indent(nindent, ' ');
     std::string separator{' '};
@@ -557,8 +655,9 @@ to_buffer(int nindent)
     buf << separator << "}";
     return buf.str();
 }
+#endif
 
-
+#ifdef notdef
 void
 MetadataBool::
 visit(MetadataItemVisitor* visitor)
@@ -721,6 +820,25 @@ from_buffer(const std::string& buffer)
     }
     return ok;
 }
+#endif
+
+
+
+SensorMetadata::
+SensorMetadata(const std::string& classname):
+    MetadataInterface(classname),
+    record_type(this, MetadataItem::READWRITE, "record_type"),
+    timestamp(this, MetadataItem::READWRITE, "timestamp"),
+    manufacturer(this, MetadataItem::READONLY, "manufacturer", "Manufacturer"),
+    model(this, MetadataItem::READONLY, "model", "Model"),
+    serial_number(this, MetadataItem::READONLY, "serial_number", "Serial Number"),
+    hardware_version(this, MetadataItem::READONLY, "hardware_version", "Hardware Version"),
+    manufacture_date(this, MetadataItem::READONLY, "manufacture_date", "Manufacture Date"),
+    firmware_version(this, MetadataItem::READONLY, "firmware_version", "Firmware Version"),
+    firmware_build(this, MetadataItem::READONLY, "firmware_build", "Firmware Build"),
+    calibration_date(this, MetadataItem::READONLY, "calibration_date", "Calibration Date")
+{}
+
 
 
 #ifdef notdef
@@ -781,6 +899,76 @@ to_buffer(int nindent)
     return buf.str();
 }
 #endif
+
+
+MetadataInterface::
+MetadataInterface(const std::string& classname):
+    _md(),
+    _classname(classname),
+    _items()
+{
+}
+
+
+std::string
+MetadataInterface::
+string_value(const std::string& name)
+{
+    return metadata().string_value(name);
+}
+
+MetadataItem*
+MetadataInterface::
+lookup(const std::string& name)
+{
+    VLOG(("") << "lookup(" << name << ") in interface " << classname() << " with " << get_items().size() << " items.");
+    for (auto mi: get_items())
+    {
+        VLOG(("...checking ") << mi->name());
+        if (mi->name() == name)
+            return mi;
+    }
+    return nullptr;
+}
+
+
+MetadataInterface::item_list
+MetadataInterface::
+get_items()
+{
+    return _items;
+}
+
+MetadataItem*
+MetadataInterface::
+add_item(MetadataItem* item)
+{
+    DLOG(("adding item '") << item->name() << "' to interface '" << classname() << "'");
+    _items.push_back(item);
+    return item;
+}
+
+
+Metadata&
+MetadataInterface::
+metadata()
+{
+    if (!_md)
+        _md = std::make_shared<Metadata>();
+    return *_md.get();
+}
+
+
+bool
+MetadataInterface::
+validate()
+{
+    return true;
+}
+
+MetadataInterface::
+~MetadataInterface()
+{}
 
 
 } // namespace core

@@ -28,14 +28,15 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <exception>
 #include <limits>
 #include <iosfwd>
 
+
+
 namespace nidas { namespace core {
 
-
-class Metadata;
 
 
 class MetadataException: public std::runtime_error
@@ -46,11 +47,20 @@ public:
 };
 
 
+class Metadata;
+class MetadataInterface;
+class MetadataImpl;
+
+#ifdef notdef
 class MetadataItemVisitor;
+#endif
 
 /**
- * MetadataItem is basically a name, description, and string value.
- * 
+ * MetadataItem is basically a name, description, and a typed interface to set
+ * and get values from a Metadata object.  Each item belongs to a
+ * MetadataInterface object, through which the item gets access to the
+ * dictionary storage.
+ *
  * It is meant to be used as a member of a Metadata object, usually defined as
  * a member in a Metadata subclass associated with something like a sensor or
  * event.  However, they also need to be added dynamically, for example to
@@ -138,10 +148,7 @@ public:
      * Return true if this item has not been set.
      */
     bool
-    unset() const
-    {
-        return _string_value == UNSET;
-    }
+    unset() const;
 
     std::string
     name() const
@@ -155,24 +162,19 @@ public:
         return _description;
     }
 
-    const std::string&
-    string_value() const
-    {
-        return _string_value;
-    }
+    /**
+     * A shorter type alias to build error messages with std::ostringstream,
+     * like set_error(errbuf() << msg << parameter);
+     */
+    using errbuf = std::ostringstream;
 
     /**
-     * Return the current error message.  If an attempt to assign a new value
-     * fails, such as when a set() call in a subclass returns false, the
-     * return value will be a non-empty explanation of the error.  Subclasses
-     * should clear the error message with set_error() before each assignment
-     * attempt or validity check.
+     * Return the metadata value as text, as might be written to a sensor or a
+     * log message.  This is not necessarily the same form as in the backing
+     * store.
      */
-    const std::string&
-    error() const
-    {
-        return _error;
-    }
+    virtual std::string
+    string_value() const;
 
     /**
      * Reset the value to UNSET.
@@ -183,7 +185,9 @@ public:
     virtual
     ~MetadataItem();
 
+#ifdef notdef
     virtual void visit(MetadataItemVisitor*) = 0;
+#endif
 
 protected:
     /**
@@ -222,7 +226,7 @@ protected:
      * reason to instantiate the base class, since it has no public methods to
      * modify the value.
      */
-    MetadataItem(enum MODE mode,
+    MetadataItem(MetadataInterface* mdi, enum MODE mode,
                  const std::string& name,
                  const std::string& description="");
 
@@ -265,29 +269,20 @@ protected:
     update_string_value(const std::string& value);
 
     /**
-     * Set the error message to @p msg.
-     * 
-     * The default value of @p msg clears the error message.
+     * Give subclasses access to the MetadataInterface.
      */
-    void
-    set_error(const std::string& msg="");
-
-    void
-    set_error(const std::ostringstream& buf);
+    MetadataInterface* mdi();
 
     /**
-     * A shorter type alias to build error messages with std::ostringstream,
-     * like set_error(errbuf() << msg << parameter);
+     * Also convenient to give subclasses access directly to the dictionary.
      */
-    using errbuf = std::ostringstream;
+    MetadataImpl& mdict();
 
 private:
+    MetadataInterface* _mdi;
     enum MODE _mode;
     std::string _name;
     std::string _description;
-    std::string _string_value;
-    std::string _error;
-
 };
 
 
@@ -303,7 +298,7 @@ std::ostream& operator<<(std::ostream&, const MetadataItem&);
 class MetadataString : public MetadataItem
 {
 public:
-    MetadataString(enum MODE mode,
+    MetadataString(MetadataInterface* mdi, enum MODE mode,
                    const std::string& name,
                    const std::string& description="");
 
@@ -325,7 +320,9 @@ public:
     bool
     set(const std::string& value);
 
+#ifdef notdef
     virtual void visit(MetadataItemVisitor*) override;
+#endif
 
     /**
      * Allow direct string assignment.  If the assignment fails because of
@@ -347,7 +344,7 @@ public:
 class MetadataBool : public MetadataItem
 {
 public:
-    MetadataBool(enum MODE mode,
+    MetadataBool(MetadataInterface* mdi, enum MODE mode,
                  const std::string& name,
                  const std::string& description="");
 
@@ -365,6 +362,7 @@ public:
 
     operator bool();
 
+#ifdef notdef
     /**
      * If @p incoming is "true" or "false", return the bool equivalent.
      * 
@@ -377,10 +375,13 @@ public:
      * Return "true" if @p value is true, else return "false".
      */
     std::string to_string(bool value);
+#endif
 
     bool set(bool value);
 
+#ifdef notdef
     virtual void visit(MetadataItemVisitor*) override;
+#endif
 
     MetadataBool& operator=(bool value) { set(value); return *this; }
 
@@ -401,7 +402,7 @@ template <typename T>
 class MetadataNumber : public MetadataItem
 {
 public:
-    MetadataNumber(enum MODE mode,
+    MetadataNumber(MetadataInterface* mdi, enum MODE mode,
                    const std::string& name,
                    const std::string& description="",
                    int precision_=12,
@@ -409,9 +410,9 @@ public:
                    T max_ = std::numeric_limits<T>::max());
 
     /**
-     * Return the string value as the native type, or else T() if unset().
+     * Return the value or T() if unset().
      */
-    T get();
+    T get() const;
 
     operator T();
 
@@ -431,9 +432,14 @@ public:
 
     virtual bool check_assign_string(const std::string& incoming) override;
 
-    std::string to_string(const T& value);
+    std::string to_string(const T& value) const;
 
     T from_string(const std::string& value);
+
+    /**
+     * Return the string value with the specified precision.
+     */
+    std::string string_value() const override;
 
     /**
      * Allow the value to be copied from another kind of metadata without
@@ -441,7 +447,9 @@ public:
      */
     MetadataNumber<T>& operator=(const MetadataNumber<T>& right);
 
+#ifdef notdef
     virtual void visit(MetadataItemVisitor*) override;
+#endif
 
     /**
      * Allow default copy construction, so that a Metadata dictionary can be
@@ -476,7 +484,7 @@ class MetadataTime: public MetadataItem
 public:
     using UTime = nidas::util::UTime;
 
-    MetadataTime(enum MODE mode,
+    MetadataTime(MetadataInterface* mdi, enum MODE mode,
                  const std::string& name,
                  const std::string& description="");
 
@@ -495,13 +503,16 @@ public:
 
     UTime from_string(const std::string& value);
 
+#ifdef notdef
     virtual void visit(MetadataItemVisitor*) override;
+#endif
 
     MetadataTime& operator=(const MetadataTime& right) = default;
     MetadataTime(const MetadataTime& right) = default;
 };
 
 
+#ifdef notdef
 class MetadataItemVisitor
 {
 public:
@@ -512,30 +523,32 @@ public:
     virtual void visit_time(MetadataTime*);
     virtual ~MetadataItemVisitor();
 };
-
+#endif
 
 
 /**
- * Metadata is a MetadataItem dictionary.
+ * Metadata is a dictionary of key-value pairs with schema interfaces.
  * 
- * The idea is to implement a kind of reflection so that metadata can be
- * managed like a dictionary of properties, serialized to and from string
- * forms, like for JSON, queried and printed, while allowing convenient and
- * safe typed access in subclasses of Metadata for specific sensors or events.
+ * The Metadata object holds all the portable state and can be managed like a
+ * dictionary of properties, serialized to and from string forms like JSON,
+ * queried and printed.  MetadataInterface objects can be attached to the
+ * dictionary to provide safe typed access to the dictionary and implement
+ * validation.
  * 
- * In the most basic sense it is a dictionary of metadata items keyed by a
- * name each with a string value.  It can be translated to and from persistent
- * formats like json, to be stored or exchanged in a human-readable form.
- * 
+ * If errors are detected in the metadata, they will be added to this object
+ * and methods like errors() can be used to inspect them.
+ *
  * Metadata can contain information read from the sensor and also
  * configuration settings that need to be written to the sensor and verified.
  * A MetadataItem identified as readwrite can be used to verify that settings
- * have been applied to a sensor successfully.  For example, a Metadata 
+ * have been applied to a sensor successfully.  For example, a Metadata
  * subclass can add members for a specific kind of sensor, and then use this
  * algorithm to test that settings were applied:
- * 
- * - Create a Metadata object.
- * 
+ *
+ * - Create a Metadata object.  As needed, attach the MetadataInterface
+ *   subclass for the sensor to provide typed, named access to the metadata
+ *   values.
+ *
  * - Query the sensor and record the settings in the object.
  * 
  * - Compare the object from the sensor with a target configuration.  The
@@ -543,13 +556,13 @@ public:
  *   readwrite properties set to specific values.  If any of those explicit
  *   settings differ from the sensor metadata, then the sensor needs to be
  *   updated.
- * 
+ *
  * - To update the sensor, the differing settings can be enumerated and
  *   applied individually to the sensor.  Or, the differing members can be
  *   applied to the metadata object from the sensor, and then the metadata can
  *   be applied to the sensor, specifically all the properties which are
  *   readwrite and can be changed.
- * 
+ *
  * Essentially the same algorithm works to verify that a sensor configuration
  * still matches the target.
  * 
@@ -577,51 +590,58 @@ public:
  */
 class Metadata
 {
-    std::string _classname;
+    std::vector<std::string> _errors;
+    std::vector< std::unique_ptr<MetadataInterface> > _interfaces;
+
+    // This is the actual storage, using pimpl idiom to hide the json api.
+    std::unique_ptr<MetadataImpl> _dict;
 
 public:
 
     /**
-     * Construct a Metadata dictionary with a set of standard items which may
-     * or may not be applicable to the subclasses, but they are available to
-     * use if relevant.  The @p classname is set by the subclass.
-     * 
-     * @param classname
+     * Return the current error message.  If an attempt to assign a new value
+     * fails, such as when a set() call in a subclass returns false, the
+     * return value will be a non-empty explanation of the error.  Subclasses
+     * should clear the error message with set_error() before each assignment
+     * attempt or validity check.
      */
-    Metadata(const std::string& classname);
-
-    using item_list = std::vector<MetadataItem*>;
+    const std::vector<std::string>&
+    errors() const
+    {
+        return _errors;
+    }
 
     /**
-     * Return a list of pointers to all metadata items that belong to this
-     * Metadata dictionary.
+     * Set the error message to @p msg.
+     * 
+     * The default value of @p msg clears the error message.
      */
-    item_list get_items();
+    void
+    add_error(const std::string& msg="")
+    {
+        _errors.emplace_back(msg);
+    }
 
-    const std::string& classname();
-
-    MetadataString record_type;
-    MetadataTime timestamp;
-    MetadataString manufacturer;
-    MetadataString model;
-    MetadataString serial_number;
-    MetadataString hardware_version;
-    MetadataString manufacture_date;
-    MetadataString firmware_version;
-    MetadataString firmware_build;
-    MetadataString calibration_date;
+    void
+    add_error(const std::ostringstream& buf)
+    {
+        _errors.emplace_back(buf.str());
+    }
 
     /**
-     * Return a pointer to the MetadataItem with name @p name.
-     * 
-     * If @p name is not found, return nullptr.  The item can be modified
-     * through the pointer same as if it were accessed as an object member,
-     * but if there is a typed interface to the item (ie, the MetadataItem is
-     * a subclass), then the pointer would have to be narrowed to that class.
-     * The pointer is only valid of course while the Metadata object memory
-     * allocation does not change.
+     * A shorter type alias to build error messages with std::ostringstream,
+     * like set_error(errbuf() << msg << parameter);
      */
-    MetadataItem* lookup(const std::string& name);
+    using errbuf = std::ostringstream;
+
+    /**
+     * Construct a Metadata dictionary.  It has no items and no interfaces, it
+     * starts out as an anonymous dictionary with no keys and no values.
+     */
+    Metadata();
+
+    virtual std::string
+    string_value(const std::string& name);
 
     /**
      * Serialize the Metadata object to ostream @p out in JSON format.
@@ -647,21 +667,11 @@ public:
 
     virtual ~Metadata();
 
-protected:
-
     /**
-     * Every subclass needs to be able to enumerate pointers to it's metadata
-     * item members.
+     * Construct Metadata by copying.  The dictionary storage is copied,
+     * interfaces are cloned, and errors are copied also.
      */
-    virtual void enumerate(item_list&) = 0;
-
-    /** XXX
-     * There is no easy way to implement copy construction in the base class
-     * and all the subclasses, because the pointers to the members need to be
-     * enumerated for each new instance.  So prohibit it, but allow
-     * assignment.
-     */
-    Metadata(const Metadata&) = default;
+    Metadata(const Metadata& right);
 
     /**
      * Assignment must be protected to make it harder to slice the type.  It's
@@ -675,8 +685,232 @@ protected:
      * in this dictionary
      */
     Metadata& operator=(const Metadata& source);
+
+    /**
+     * Add the given interface to this Metadata object.  This object takes
+     * ownership and will delete the interface when it is destroyed.
+     */
+    MetadataInterface*
+    add_interface(MetadataInterface* mdi)
+    {
+        _interfaces.emplace_back(mdi);
+        return mdi;
+    }
+
+    /**
+     * Find a matching interface return a pointer to it, or else nullptr.  The
+     * class name must match and the interface must implement the given class.
+     */
+    template <typename T>
+    T* get_interface(const T& prototype)
+    {
+        T* found = nullptr;
+        for (auto& iface: _interfaces)
+        {
+            found = dynamic_cast<T*>(iface.get());
+            if (found && found->classname() == prototype.classname())
+                break;
+        }
+        return found;
+    }
+
+    /**
+     * Get a reference to the dictionary storage.  Only items use this.
+     */
+    MetadataImpl& mdict() { return *_dict; }
+
 };
 
+
+/**
+ * MetadataInterface adds a schema to a metadata dictionary, allowing named
+ * items to be accessed through their typed interfaces and also adding
+ * functionality to verify that the dictionary is a valid instance of the
+ * given interface.
+ * 
+ * An interface must be added to a Metadata instance, and the Metadata
+ * instance takes ownership of it.  This allows a Metadata instance to be
+ * passed around by value without losing the schema information about valid
+ * settings.
+ * 
+ * Thus interfaces must only be allocated dynamically.
+ */
+class MetadataInterface
+{
+public:
+
+    /**
+     * Construct a MetadataInterface with no schema and its own copy of an
+     * empty Metadata dictionary.
+     */
+    MetadataInterface(const std::string& classname = "");
+
+    /**
+     * Return true if the metadata dictionary has valid settings for this interface.
+     * If false, then there will be error messages explaining the failures.
+     */
+    virtual bool validate();
+
+    virtual std::string
+    to_buffer(int indent=0)
+    {
+        return metadata().to_buffer(indent);
+    }
+
+    virtual bool
+    from_buffer(const std::string& buffer)
+    {
+        return metadata().from_buffer(buffer);
+    }
+
+    /**
+     * Return the value as a string for the metadata with name @p name.
+     * 
+     * Unset values are returned as an empty string.
+     */
+    virtual std::string
+    string_value(const std::string& name);
+
+    using item_list = std::vector<MetadataItem*>;
+
+#ifdef notdef
+    /**
+     * Every subclass needs to be able to enumerate pointers to it's metadata
+     * item members.
+     */
+    virtual void enumerate(item_list&) = 0;
+#endif
+
+    /**
+     * Return a list of pointers to all metadata items that belong to this
+     * Metadata dictionary.
+     */
+    item_list get_items();
+
+    /**
+     * Return a pointer to the MetadataItem with name @p name.
+     * 
+     * If @p name is not found, return nullptr.  The item can be modified
+     * through the pointer same as if it were accessed as an object member,
+     * but if there is a typed interface to the item (ie, the MetadataItem is
+     * a subclass), then the pointer would have to be narrowed to that class.
+     * The pointer is only valid of course while the Metadata object memory
+     * allocation does not change.
+     */
+    MetadataItem* lookup(const std::string& name);
+
+    /**
+     * Allocate a new MetadataInterface of type T and add it to this Metadata
+     * object.  The interface must be dynamically allocated so it can be owned
+     * by this instance and cloned when this object is copied.  Assign the
+     * return value to keep a reference to this interface backed by this
+     * Metadata.
+     */
+    template <typename T>
+    T* add_interface(const T& prototype)
+    {
+        T* mdi = metadata().get_interface(prototype);
+        if (!mdi)
+        {
+            mdi = dynamic_cast<T*>(prototype.clone());
+            // _md cannot be null because metadata() would have allocated it
+            // above if not.
+            _md->add_interface(mdi);
+            mdi->bind(_md);
+        }
+        return mdi;
+    }
+
+    /**
+     * Return a reference to the Metadata dictionary bound for this interface.
+     * If there is no dictionary yet, then this will allocate one.
+     */
+    Metadata& metadata();
+
+    /**
+     * Clone this interface onto a different Metadata object.
+     */
+    virtual MetadataInterface*
+    clone() const = 0;
+
+    std::string
+    classname() const { return _classname; }
+
+    virtual ~MetadataInterface();
+
+    /**
+     * Replace the storage backend for this interface.  Any existing metadata
+     * values are lost.
+     */
+    void
+    bind(std::shared_ptr<Metadata>& md)
+    {
+        _md = md;
+    }
+
+private:
+
+    /**
+     * Register an item with this interface.  this is assumed to be a value
+     * member of this object, so the pointer will not be released, it will
+     * just be added to the list of items which can be iterated.
+     */
+    MetadataItem*
+    add_item(MetadataItem* item);
+
+    friend class MetadataItem;
+
+    std::shared_ptr<Metadata> _md;
+    std::string _classname;
+    item_list _items;
+
+};
+
+
+/**
+ * SensorMetadata is a MetadataInterface for adding metadata typical for a
+ * sensor.  Not all of them will be used by all sensors, but it is convenient
+ * to group the most common ones in this interface.
+ */
+class SensorMetadata: public MetadataInterface
+{
+protected:
+
+    // let Metadata construct an interface
+    friend class Metadata;
+
+    SensorMetadata(Metadata& md, const std::string& classname = "sensor");
+
+    virtual MetadataInterface*
+    clone() const override
+    {
+        // Create a new instance of this class with the same name classname.
+        // When this is called to add this interface to a Metadata object,
+        // then the Metadata object will bind this interface to itself.
+        return new SensorMetadata(classname());
+    }
+
+public:
+
+    /**
+     * Construct SensorMetadata object with its own Metadata storage.
+     * 
+     * @param classname 
+     */
+    SensorMetadata(const std::string& classname = "sensor");
+
+    MetadataString record_type;
+    MetadataTime timestamp;
+    MetadataString manufacturer;
+    MetadataString model;
+    MetadataString serial_number;
+    MetadataString hardware_version;
+    MetadataString manufacture_date;
+    MetadataString firmware_version;
+    MetadataString firmware_build;
+    MetadataString calibration_date;
+
+};
 
 } // namespace core
 } // namespace nidas

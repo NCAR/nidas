@@ -5,10 +5,14 @@
 
 using boost::unit_test_framework::test_suite;
 
-#include <nidas/core/Metadata.h>
-
+#ifdef STANDALONE
+#include <nidas/core/Metadata.cc>
+#else
 #include <nidas/dynld/isff/NCAR_TRH.h>
 using nidas::dynld::isff::NCAR_TRH;
+#endif
+#include <nidas/core/Metadata.h>
+
 
 #include <nidas/util/Logger.h>
 
@@ -38,16 +42,16 @@ int main(int argc, char* argv[])
 }
 
 
-class MetadataTest: public Metadata
+class MetadataTest: public SensorMetadata
 {
 public:
     MetadataTest():
-        Metadata("Test"),
-        number(MetadataItem::READWRITE, "number", "This is a floating point number."),
-        flag(MetadataItem::READWRITE, "flag"),
-        positive(MetadataItem::READWRITE, "positive", "Positive", 4, 0.0),
-        dice(MetadataItem::READWRITE, "dice", "Dice", 1, 1, 6),
-        pi(MetadataItem::READWRITE, "pi", "Pi with precision 3", 3)
+        SensorMetadata("Test"),
+        number(this, MetadataItem::READWRITE, "number", "This is a floating point number."),
+        flag(this, MetadataItem::READWRITE, "flag"),
+        positive(this, MetadataItem::READWRITE, "positive", "Positive", 4, 0.0),
+        dice(this, MetadataItem::READWRITE, "dice", "Dice", 1, 1, 6),
+        pi(this, MetadataItem::READWRITE, "pi", "Pi with precision 3", 3)
     {}
 
     MetadataDouble number;
@@ -56,6 +60,14 @@ public:
     MetadataInt dice;
     MetadataDouble pi;
 
+    virtual MetadataInterface*
+    clone() const override
+    {
+        return new MetadataTest();
+    }
+
+
+#ifdef notdef
     void enumerate(item_list& items) override
     {
         items.push_back(&number);
@@ -69,6 +81,7 @@ public:
     // construction.
     MetadataTest& operator=(const MetadataTest&) = default;
     MetadataTest(const MetadataTest&) = default;
+#endif
 };
 
 
@@ -89,6 +102,48 @@ BOOST_AUTO_TEST_CASE(test_metadata_simple)
     BOOST_TEST(md.serial_number.get() == "ABC123");
 
 }
+
+
+class LinearCalMetadata: public MetadataInterface
+{
+public:
+
+    MetadataDouble slope;
+    MetadataDouble offset;
+
+    LinearCalMetadata():
+        MetadataInterface("linearcal"),
+        slope(this, MetadataItem::READWRITE, "slope"),
+        offset(this, MetadataItem::READWRITE, "offset")
+    {}
+
+    MetadataInterface* clone() const override
+    {
+        return new LinearCalMetadata;
+    }
+};
+
+
+BOOST_AUTO_TEST_CASE(test_metadata_interfaces)
+{
+    // It should be possible to get at metadata values from multiple interfaces.
+    MetadataTest mdt;
+
+    auto& mdc = *mdt.add_interface(LinearCalMetadata());
+    mdc.slope = 2;
+    mdc.offset = 1;
+
+    BOOST_REQUIRE(mdc.lookup("slope"));
+    BOOST_REQUIRE(mdc.lookup("offset"));
+    BOOST_TEST(mdc.lookup("slope")->string_value() == "2");
+    BOOST_TEST(mdc.lookup("offset")->string_value() == "1");
+
+    // should also be able to retrieve them from "null" interface, except the
+    // string values will be json syntax without the precision setting.
+    BOOST_TEST(mdt.string_value("slope") == "2.0");
+    BOOST_TEST(mdt.string_value("offset") == "1.0");
+}
+
 
 BOOST_AUTO_TEST_CASE(test_metadata_assign)
 {
@@ -120,12 +175,12 @@ BOOST_AUTO_TEST_CASE(test_metadata_bool)
     BOOST_TEST(!md.flag.unset());
     BOOST_TEST(md.flag.get() == true);
 
-    BOOST_TEST(md.flag.error().empty());
+    // BOOST_TEST(md.flag.error().empty());
     md.flag.check_assign_string("x");
-    BOOST_TEST(!md.flag.error().empty());
+    // BOOST_TEST(!md.flag.error().empty());
     BOOST_TEST(md.flag.string_value() == "true");
     md.flag.check_assign_string("false");
-    BOOST_TEST(md.flag.error().empty());
+    // BOOST_TEST(md.flag.error().empty());
     BOOST_TEST(md.flag.get() == false);
 }
 
@@ -175,18 +230,18 @@ BOOST_AUTO_TEST_CASE(test_metadata_constraints)
 
     BOOST_TEST(md.dice.unset());
     BOOST_TEST(md.dice.get() == 0);
-    BOOST_TEST(md.dice.error().empty());
-    DLOG(("") << md.dice.error());
+    //BOOST_TEST(md.dice.error().empty());
+    //DLOG(("") << md.dice.error());
 
     md.dice = 1;
     BOOST_TEST(md.dice.get() == 1);
     BOOST_TEST(md.dice.string_value() == "1");
     BOOST_TEST(!md.dice.unset());
-    BOOST_TEST(md.dice.error().empty());
+    //BOOST_TEST(md.dice.error().empty());
 
     BOOST_TEST(md.dice.set(0) == false);
-    BOOST_TEST(!md.dice.error().empty());
-    DLOG(("") << md.dice.error());
+    //BOOST_TEST(!md.dice.error().empty());
+    //DLOG(("") << md.dice.error());
     BOOST_TEST(md.dice.get() == 1);
 
 }
@@ -204,7 +259,7 @@ BOOST_AUTO_TEST_CASE(test_metadata_clear)
 
     md.pi.erase();
     BOOST_TEST(md.pi.unset());
-    BOOST_TEST(md.pi.string_value() == MetadataItem::UNSET);
+    BOOST_TEST(md.pi.string_value() == "");
 
     // make sure an unset value cannot be assigned
     BOOST_TEST(!md2.pi.unset());
@@ -241,11 +296,11 @@ BOOST_AUTO_TEST_CASE(test_metadata_timestamp)
 
         UTime ut(true, 2023, 4, 15, 12, 30, 59);
         md.timestamp = ut;
-        BOOST_TEST(md.timestamp.error().empty());
+        //BOOST_TEST(md.timestamp.error().empty());
         BOOST_TEST(md.timestamp.string_value() == "2023-04-15T12:30:59.000Z");
 
         md.timestamp = "2023-03-30T09:00:00Z";
-        BOOST_TEST(md.timestamp.error().empty());
+        //BOOST_TEST(md.timestamp.error().empty());
         BOOST_TEST(md.timestamp.get() == UTime(true, 2023, 3, 30, 9, 0, 0));
     }
     {
@@ -267,13 +322,13 @@ BOOST_AUTO_TEST_CASE(test_metadata_get)
     MetadataTest md;
 
     BOOST_TEST(md.serial_number.get() == "");
-    BOOST_TEST(md.serial_number.error().empty());
+    //BOOST_TEST(md.serial_number.error().empty());
     BOOST_TEST(md.number.get() == 0);
-    BOOST_TEST(md.number.error().empty());
+    //BOOST_TEST(md.number.error().empty());
     BOOST_TEST(md.pi.get() == 0);
-    BOOST_TEST(md.pi.error().empty());
+    //BOOST_TEST(md.pi.error().empty());
     BOOST_TEST(md.timestamp.get() == UTime(0l));
-    BOOST_TEST(md.timestamp.error().empty());
+    //BOOST_TEST(md.timestamp.error().empty());
 
 }
 
@@ -306,9 +361,32 @@ BOOST_AUTO_TEST_CASE(test_metadata_json)
     BOOST_TEST(mdf.from_buffer(md.to_buffer()));
     BOOST_TEST(mdf.number.get() == 2.0);
     BOOST_TEST(mdf.flag.get() == true);
-    BOOST_TEST(mdf.pi.get() == 3.14);
+    BOOST_TEST(mdf.pi.string_value() == "3.14");
     BOOST_TEST(mdf.serial_number.get() == "ABC123");
     BOOST_TEST(mdf.firmware_version.get() == "cygnus 'X1' \"alpha\" 42");
 }
+
+#ifndef STANDALONE
+BOOST_AUTO_TEST_CASE(test_trh_metadata_load)
+{
+    NCAR_TRH trh;
+
+    Metadata md;
+
+    // Load the sensor config from a json string.
+    md.load();
+
+    // now how do we check it? get an implementation from the sensor, copied by value
+    // but with pointers to the static function which can check it.
+    //
+    Metadata trhmd = trh.getMetadata();
+    // Pass it to the TRH, with a way to 
+    // trh.
+    trhmd.load();
+    // check on errors.  if it passes, update sensor.
+    trh.setSensorConfig(trhmd);
+
+}
+#endif
 
 // BOOST_AUTO_TEST_SUITE_END()
