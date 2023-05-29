@@ -57,19 +57,9 @@ class MetadataItemVisitor;
 
 /**
  * MetadataItem is basically a name, description, and a typed interface to set
- * and get values from a Metadata object.  Each item belongs to a
+ * and get named values in a metadata dictionary.  Each item belongs to a
  * MetadataInterface object, through which the item gets access to the
  * dictionary storage.
- *
- * It is meant to be used as a member of a Metadata object, usually defined as
- * a member in a Metadata subclass associated with something like a sensor or
- * event.  However, they also need to be added dynamically, for example to
- * make it possible to define or extend a metadata dictionary from XML.  Thus
- * MetadataItem subclasses mostly add only the typed interface to
- * MetadataItem, but they can also check for valid values.
- * 
- * The MetadataItem name can be unique to a sensor or it can be one of the
- * standard names provided by the Metadata base class.
  *
  * There are different kinds of metadata.  Manufacturing metadata can only be
  * read from the sensor and cannot be changed, or perhaps it might have to be
@@ -78,14 +68,7 @@ class MetadataItemVisitor;
  * changed.  Sensor configurations need to be recorded, but also written to
  * the sensor and verified.
  * 
- * Since changes to metadata likely need to be tracked and validated closely,
- * all value access goes through methods.  Invalid values will not be stored,
- * and errors can be checked with the error() method.
- * 
- * Both manufacturing and configuration metadata are important to recording
- * the state of a sensor.  Rather than try to manage them separately, they can
- * be combined into one Metadata object by differentiating the items
- * themselves.  Thus metadata items can have these "settability" settings:
+ * Thus metadata items can have these "settability" settings:
  *
  * READONLY: The value will be queried from the sensor, but it cannot be
  * changed, such as the serial number.  There may be settings which can
@@ -100,43 +83,24 @@ class MetadataItemVisitor;
  * sensor, meaning it can also be configured in the sensor XML to be installed
  * when the sensor is opened.
  * 
- * Metadata items can have these values:
- *
- * UNSET: It has not been set, not by the user, and not retrieved from the
- * sensor.
- * 
- * FAILED: A read from the sensor was attempted but it failed.  Is this
- * necessary?
- * 
- * <value>: the value of the metadata, stored in string format.
- *
  * MetadataItem subclasses implement typed interfaces to set and get the
  * stored string value with different constraints, such as a native type or
- * value limits.  Typically a get() method returns the string value converted
- * to a typed value.  If the value is unset(), then get() returns some default
- * value for the subclass type.  Callers have to remember to test unset() if
- * necessary.  There is usually also a set() method which accepts a typed
- * parameter.  If the typed parameter fails the constraints, then the string
- * value does not change and the error() message is set.  See
- * check_assign_string().
+ * value limits.  Typically a get() method returns the typed value.  If the
+ * value is unset(), then get() returns some default value for the subclass
+ * type.  Callers can test unset() to differentiate a default value from an
+ * actual set value.  There is usually also a set() method which accepts a
+ * typed parameter.  If the typed parameter fails the constraints, then the
+ * string value does not change and an error message is added to the metadata.
+ * See check_assign_string().
  * 
- * MetadataItem implementations can check for valid assignments and accumulate
- * error messages for invalid assignments in an error buffer.  Call error() to
- * retrieve the error message.
- * 
- * Other implementation attempts included a pointer to the containing Metadata
- * dictionary in each MetadataItem.  However, that makes it harder to allow
- * Metadata and MetadataItem to be copy constructed and members of other
- * objects.  So currently there is no way for the MetadataItem to call back to
- * the dictionary to notify of a change and trigger other behavior.
+ * Once a MetadataItem has been assigned a pointer to its containing
+ * MetadataInterface instance, that pointer will not be changed by copy
+ * construction or by assignment.
  */
 class MetadataItem
 {
 public:
     enum MODE { READONLY, USERSET, READWRITE };
-
-    static const std::string UNSET;
-    static const std::string FAILED;
 
     enum MODE
     mode() const
@@ -177,7 +141,7 @@ public:
     string_value() const;
 
     /**
-     * Reset the value to UNSET.
+     * Remove this item from the metadata, after which unset() will be true.
      */
     void
     erase();
@@ -192,24 +156,22 @@ public:
 protected:
     /**
      * MetadataItem assignment means assigning just the value from @p source.
-     * The other metadata (like name and description) are not modified.
-     * MetadataItem subclasses with no members or only a typed value member
-     * can just expose the default assignment method.
-     * 
-     * The base implementation calls check_assign_string() to assign the
-     * string value, since the constraints in this item may be different than
-     * in the source item.  This means that if the check fails, error() will
-     * be set and the value in this item will not change.
-     * 
+     * The other metadata (like name and description) are not modified.  If a
+     * MetadataItem subclass wants to allow this type of assignment from the
+     * same or other item types, and typically if the subclass has no other
+     * members anyway, then it can just expose the default assignment method.
+     *
      * If the source value is unset(), then it is not assigned.  To erase a
      * value, call erase().
      * 
      * There is no check that the other MetadataItem has the same name, since
-     * it seems reasonable to want to copy the same value from one metadata
-     * item into multiple items.  However, this is protected to prevent one
-     * subclass value from being assigned to a different subclass.  If a
-     * subclass wants to allow that, then it can provide a public assignment
-     * method accepting a MetadataItem reference.
+     * it is reasonable to copy the same value from one metadata item into
+     * multiple items.  However, this is protected to prevent one subclass
+     * value from being assigned to a different subclass.  If a subclass wants
+     * to allow that, then it can provide a public assignment method accepting
+     * other MetadataItem subclass types.
+     * 
+     * The assigned value is not checked.
      */
     MetadataItem& operator=(const MetadataItem& source);
 
@@ -219,7 +181,7 @@ protected:
      * copy.  Like assignment, this is protected so that a subclass of
      * MetadataItem cannot be sliced by assignment.
      */
-    MetadataItem(const MetadataItem&) = default;
+    MetadataItem(const MetadataItem&) = delete;
 
     /**
      * Construct a MetadataItem.  This is protected because there's really no
@@ -232,42 +194,37 @@ protected:
 
     /**
      * Check if @p incoming is a valid string value, and if so, assign it.
-     * 
+     *
      * Implementations of this method must check that the attempted assignment
-     * satisfies the constraints for the values of this item, if necessary by
-     * first converting the string to a different type.  Valid values may also
-     * need to be reformatted into the corrent string format before being
-     * passed to update_string_value().
-     * 
-     * Implementations should also clear the error string upon entry.  If @p
-     * incoming is invalid, do not change the item value, but set the error
-     * message.  When the value is valid and assignment succeeds, @p error
-     * will be empty and the return value will be true.  The error string in
-     * the interface allows implementations to return a meaningful message,
-     * but if an implementation thinks an invalid setting is important enough,
-     * it could choose to throw that message in an exception.
-     * 
-     * The reformat allows the MetadataItem to control how valid values are
-     * formatted when stored as a string.  For example, setting a string value
-     * of "3.1415927" to a double would be stored as "3.14" if a precision of
-     * 3 is enforced.
-     * 
+     * satisfies the constraints for the values of this item.  Valid values
+     * stored as strings may also need to be reformatted into the corrent
+     * string format before being passed to update_string_value().
+     *
+     * If @p incoming is invalid, do not change the item value, but add an
+     * error message to the metadata with add_error().  When the value is
+     * valid and assignment succeeds, the return value will be true.  The
+     * error string allows implementations to return a meaningful message, but
+     * if an implementation thinks an invalid setting is important enough, it
+     * could choose to throw that message in an exception.
+     *
      * The base class implementation does no checking, it just assigns the
-     * string value.  So if that's the behavior wanted by a subclass, it can
-     * just call this implementation.
+     * string value.  If a subclass wants that behavior, it can just call this
+     * implementation.
      */
     virtual bool
     check_assign_string(const std::string& incoming);
 
     /**
-     * Subclasses call this to change the string value.
+     * Subclasses call this to set a string value.
      * 
      * Unlike check_assign_string(), this just updates the string value and
-     * does no checks.
+     * does no checks.  This is a convenience method for item subclasses which
+     * enforce a schema but store the value as a string type.
      */
     void
     update_string_value(const std::string& value);
 
+public:
     /**
      * Give subclasses access to the MetadataInterface.
      */
@@ -326,7 +283,7 @@ public:
 
     /**
      * Allow direct string assignment.  If the assignment fails because of
-     * constraint checks, then error() will be non-empty.
+     * constraint checks, then an error will be added to the metadata.
      */
     MetadataString&
     operator=(const std::string& value);
@@ -501,7 +458,7 @@ public:
 
     virtual bool check_assign_string(const std::string& incoming) override;
 
-    UTime from_string(const std::string& value);
+    bool from_string(UTime& ut, const std::string& value);
 
 #ifdef notdef
     virtual void visit(MetadataItemVisitor*) override;
@@ -599,16 +556,23 @@ class Metadata
 public:
 
     /**
-     * Return the current error message.  If an attempt to assign a new value
-     * fails, such as when a set() call in a subclass returns false, the
-     * return value will be a non-empty explanation of the error.  Subclasses
-     * should clear the error message with set_error() before each assignment
-     * attempt or validity check.
+     * Return the current error messages.
+     * 
+     * Error messages are added to this metadata when item assignments or
+     * interface validations fail.  The messages can be cleared with
+     * reset_errors(), such as to test if any errors are reported after a
+     * specific assignment or validation.
      */
     const std::vector<std::string>&
     errors() const
     {
         return _errors;
+    }
+
+    void
+    reset_errors()
+    {
+        _errors.clear();
     }
 
     /**
@@ -640,7 +604,14 @@ public:
      */
     Metadata();
 
-    virtual std::string
+    /**
+     * Return the value of the given property name as a string.
+     * 
+     * This does not go through an interface, this is the string form of the
+     * value taken directly from the metadata dictionary.  If the name is not
+     * set, return an empty string.
+     */
+    std::string
     string_value(const std::string& name);
 
     /**
@@ -652,37 +623,36 @@ public:
      * as might be appropriate for writing to a file, also without a trailing
      * newline.
      */
-    virtual std::string
+    std::string
     to_buffer(int indent=0);
 
     /**
-     * Parse the string buffer for metadata item settings.
-     * 
-     * The buffer can be in JSON or some other format supported by the
-     * implementing subclass.  @p return true if the parse succeeded, false
-     * otherwise.
+     * Parse a metadata dictionary from @p buffer in json format.
+     *
+     * This automatically resets the errors before parsing and replaces all of
+     * the values in the current dictionary.  The new metadata values
+     * themselves are not checked in any way.  The json document preserves
+     * comments and other settings, even if not associated with any of the
+     * interfaces attached to the metadata.
+     *
+     * @return true if the parse succeeded, false otherwise.
      */
-    virtual bool
+    bool
     from_buffer(const std::string& buffer);
 
-    virtual ~Metadata();
+    ~Metadata();
 
     /**
-     * Construct Metadata by copying.  The dictionary storage is copied,
-     * interfaces are cloned, and errors are copied also.
+     * Construct Metadata by copying.  The metadata dictionary and errors are
+     * copied, but the interfaces are not.
      */
     Metadata(const Metadata& right);
 
     /**
-     * Assignment must be protected to make it harder to slice the type.  It's
-     * up to the most derived subclasses to expose the assignment operator, if
-     * it makes sense.  The base class takes care of assigning metadata values
-     * to each member without changing the pointers in the table.
-     * 
-     * This does not change the classname or any other metadata, it just
-     * assigns the values from the standard metadata members in @p source.
-     * This means an unset value in @p source does not change the item value
-     * in this dictionary
+     * Assigning from another Metadata is like copy construction, except any
+     * matching interfaces already attached to this Metadata are not replaced
+     * with clones from the @p source, in case there are already references to
+     * those interfaces outside this object.
      */
     Metadata& operator=(const Metadata& source);
 
@@ -691,11 +661,13 @@ public:
      * ownership and will delete the interface when it is destroyed.
      */
     MetadataInterface*
-    add_interface(MetadataInterface* mdi)
-    {
-        _interfaces.emplace_back(mdi);
-        return mdi;
-    }
+    add_interface(MetadataInterface* mdi);
+
+    /**
+     * Return the interface matching the given name, or else nullptr.
+     */
+    MetadataInterface*
+    get_interface(const std::string& name);
 
     /**
      * Find a matching interface return a pointer to it, or else nullptr.  The
@@ -704,15 +676,19 @@ public:
     template <typename T>
     T* get_interface(const T& prototype)
     {
-        T* found = nullptr;
-        for (auto& iface: _interfaces)
-        {
-            found = dynamic_cast<T*>(iface.get());
-            if (found && found->classname() == prototype.classname())
-                break;
-        }
+        T* found = dynamic_cast<T*>(get_interface(prototype.classname()));
         return found;
     }
+
+    typedef std::vector<MetadataInterface*> interface_list;
+
+    /**
+     * Return a vector of pointers to all the interfaces attached to this
+     * Metadata object.  The pointers are still owned by this object and will
+     * be invalid when the object is destroyed.
+     */
+    interface_list
+    interfaces();
 
     /**
      * Get a reference to the dictionary storage.  Only items use this.
@@ -738,6 +714,11 @@ public:
 class MetadataInterface
 {
 public:
+
+    // Import item mode settings.
+    static const auto READONLY = MetadataItem::READONLY;
+    static const auto USERSET = MetadataItem::USERSET;
+    static const auto READWRITE = MetadataItem::READWRITE;
 
     /**
      * Construct a MetadataInterface with no schema and its own copy of an
@@ -839,16 +820,44 @@ public:
     virtual ~MetadataInterface();
 
     /**
-     * Replace the storage backend for this interface.  Any existing metadata
-     * values are lost.
+     * Copy the metadata from interface @p right, but do not copy the item
+     * list, since those pointers are to the item instances created and
+     * contained by this interface.  Subclass interfaces typically can use
+     * default copy constructors, because member items also do not change
+     * their interface pointer when copied.
+     * 
+     * It is ok to copy or assign from a subclass type.  The righthand
+     * interface has already been attached to the metadata being copied, and
+     * so the same interface (albeit a clone) will be accessible after the
+     * assignment.
+     * 
+     * Also, since all of the metadata are copied here, it may seem
+     * unnecessary to do the memberwise copy of any MetadataItem members in
+     * the subclasses.  Typically there will be no difference.  However, the
+     * memberwise assignments and copies do allow a MetadataItem subclass to
+     * enforce schema constraints on the copy.
+     * 
+     * See operator=().
      */
-    void
-    bind(std::shared_ptr<Metadata>& md)
-    {
-        _md = md;
-    }
+    MetadataInterface(const MetadataInterface& right) = delete;
+
+    /**
+     * See the copy constructor.
+     */
+    MetadataInterface& operator=(const MetadataInterface& right);
 
 private:
+
+    /**
+     * Replace the storage backend for this interface.  Any existing metadata
+     * values are lost.  Metadata objects call this to replace any existing
+     * binding when attaching an interface.  Thus the friend access for the
+     * Metadata class.
+     */
+    void
+    bind(Metadata* md);
+
+    friend class Metadata;
 
     /**
      * Register an item with this interface.  this is assumed to be a value
@@ -860,7 +869,13 @@ private:
 
     friend class MetadataItem;
 
-    std::shared_ptr<Metadata> _md;
+    // Each MetadataInterface can own it's own Metadata backing store, or it
+    // can shared the Metadata dictionary with another interface, in which
+    // case the lifetime of this interface is tied to that Metadata.  _md is
+    // the Metadata storage used by this instance, and if that instance
+    // belongs to this object, then it is managed by _owned_md.
+    Metadata* _md;
+    std::unique_ptr<Metadata> _owned_md;
     std::string _classname;
     item_list _items;
 
@@ -878,8 +893,6 @@ protected:
 
     // let Metadata construct an interface
     friend class Metadata;
-
-    SensorMetadata(Metadata& md, const std::string& classname = "sensor");
 
     virtual MetadataInterface*
     clone() const override
@@ -899,17 +912,16 @@ public:
      */
     SensorMetadata(const std::string& classname = "sensor");
 
-    MetadataString record_type;
-    MetadataTime timestamp;
-    MetadataString manufacturer;
-    MetadataString model;
-    MetadataString serial_number;
-    MetadataString hardware_version;
-    MetadataString manufacture_date;
-    MetadataString firmware_version;
-    MetadataString firmware_build;
-    MetadataString calibration_date;
-
+    MetadataString record_type{this, READWRITE, "record_type"};
+    MetadataTime timestamp{this, READWRITE, "timestamp"};
+    MetadataString manufacturer{this, READONLY, "manufacturer", "Manufacturer"};
+    MetadataString model{this, READONLY, "model", "Model"};
+    MetadataString serial_number{this, READONLY, "serial_number", "Serial Number"};
+    MetadataString hardware_version{this, READONLY, "hardware_version", "Hardware Version"};
+    MetadataString manufacture_date{this, READONLY, "manufacture_date", "Manufacture Date"};
+    MetadataString firmware_version{this, READONLY, "firmware_version", "Firmware Version"};
+    MetadataString firmware_build{this, READONLY, "firmware_build", "Firmware Build"};
+    MetadataString calibration_date{this, READONLY, "calibration_date", "Calibration Date"};
 };
 
 } // namespace core

@@ -45,20 +45,16 @@ int main(int argc, char* argv[])
 class MetadataTest: public SensorMetadata
 {
 public:
-    MetadataTest():
-        SensorMetadata("Test"),
-        number(this, MetadataItem::READWRITE, "number", "This is a floating point number."),
-        flag(this, MetadataItem::READWRITE, "flag"),
-        positive(this, MetadataItem::READWRITE, "positive", "Positive", 4, 0.0),
-        dice(this, MetadataItem::READWRITE, "dice", "Dice", 1, 1, 6),
-        pi(this, MetadataItem::READWRITE, "pi", "Pi with precision 3", 3)
+    MetadataTest(): SensorMetadata("Test")
     {}
 
-    MetadataDouble number;
-    MetadataBool flag;
-    MetadataDouble positive;
-    MetadataInt dice;
-    MetadataDouble pi;
+    MetadataDouble number{this, READWRITE, "number", "This is a floating point number."};
+    MetadataBool flag{this, READWRITE, "flag"};
+    MetadataDouble positive{this, READWRITE, "positive", "Positive", 4, 0.0};
+    MetadataInt dice{this, READWRITE, "dice", "Dice", 1, 1, 6};
+    MetadataDouble pi{this, READWRITE, "pi", "Pi with precision 3", 3};
+
+protected:
 
     virtual MetadataInterface*
     clone() const override
@@ -66,8 +62,9 @@ public:
         return new MetadataTest();
     }
 
-
 #ifdef notdef
+    MetadataTest(const MetadataTest&) = default;
+
     void enumerate(item_list& items) override
     {
         items.push_back(&number);
@@ -107,14 +104,11 @@ BOOST_AUTO_TEST_CASE(test_metadata_simple)
 class LinearCalMetadata: public MetadataInterface
 {
 public:
-
-    MetadataDouble slope;
-    MetadataDouble offset;
+    MetadataDouble slope{this, MetadataItem::READWRITE, "slope"};
+    MetadataDouble offset{this, MetadataItem::READWRITE, "offset"};
 
     LinearCalMetadata():
-        MetadataInterface("linearcal"),
-        slope(this, MetadataItem::READWRITE, "slope"),
-        offset(this, MetadataItem::READWRITE, "offset")
+        MetadataInterface("linearcal")
     {}
 
     MetadataInterface* clone() const override
@@ -130,6 +124,9 @@ BOOST_AUTO_TEST_CASE(test_metadata_interfaces)
     MetadataTest mdt;
 
     auto& mdc = *mdt.add_interface(LinearCalMetadata());
+    BOOST_TEST(mdc.slope.name() == "slope");
+    BOOST_TEST(mdc.slope.mdi() == &mdc);
+    BOOST_TEST(&mdc.slope.mdict() == &mdt.metadata().mdict());
     mdc.slope = 2;
     mdc.offset = 1;
 
@@ -199,7 +196,11 @@ BOOST_AUTO_TEST_CASE(test_metadata_lookup)
     BOOST_TEST(md.lookup("calibration_date")->unset());
 
     // the same should work on a copy.
-    MetadataTest md2(md);
+    MetadataTest md2;
+    md2 = md;
+    BOOST_REQUIRE(md2.serial_number.mdi());
+    BOOST_TEST(md2.serial_number.get() == "ABC123");
+    BOOST_REQUIRE(md2.lookup("number"));
     BOOST_TEST(md2.lookup("number")->string_value() == "2");
     BOOST_TEST(md2.lookup("serial_number")->string_value() == "ABC123");
 
@@ -255,7 +256,7 @@ BOOST_AUTO_TEST_CASE(test_metadata_clear)
     md.pi = 3.1415927;
     BOOST_TEST(!md.pi.unset());
     BOOST_TEST(md.pi.string_value() == "3.14");
-    MetadataTest md2(md);
+    MetadataTest md2; md2 = md;
 
     md.pi.erase();
     BOOST_TEST(md.pi.unset());
@@ -284,7 +285,7 @@ BOOST_AUTO_TEST_CASE(test_metadata_output)
     {
         std::ostringstream buf;
         buf << md.serial_number;
-        BOOST_TEST(buf.str() == "UNSET");
+        BOOST_TEST(buf.str() == "");
     }
 }
 
@@ -343,16 +344,18 @@ BOOST_AUTO_TEST_CASE(test_metadata_json)
     md.serial_number = "ABC123";
     md.firmware_version = "cygnus 'X1' \"alpha\" 42";
 
+    // compact single-line json with no spaces.  the dictionary is in order of
+    // assignment rather than in interface order, not sure if that matters.
     std::string xbuf =
-    R"""({ "serial_number": "ABC123", "firmware_version": "cygnus 'X1' \"alpha\" 42", "number": 2, "flag": true, "pi": 3.14 })""";
+    R"""({"firmware_version":"cygnus 'X1' \"alpha\" 42","flag":true,"number":2.0,"pi":3.1415927,"serial_number":"ABC123"})""";
     BOOST_TEST(md.to_buffer() == xbuf);
 
     xbuf = R"""({
-  "serial_number": "ABC123",
-  "firmware_version": "cygnus 'X1' \"alpha\" 42",
-  "number": 2,
-  "flag": true,
-  "pi": 3.14
+  "firmware_version" : "cygnus 'X1' \"alpha\" 42",
+  "flag" : true,
+  "number" : 2.0,
+  "pi" : 3.1415927,
+  "serial_number" : "ABC123"
 })""";
     BOOST_TEST(md.to_buffer(2) == xbuf);
 

@@ -55,10 +55,6 @@ MetadataException(const std::ostringstream& buf):
 {}
 
 
-const std::string MetadataItem::UNSET{"UNSET"};
-const std::string MetadataItem::FAILED{"FAILED"};
-
-
 MetadataItem::
 MetadataItem(MetadataInterface* mdi, enum MODE mode,
              const std::string& name,
@@ -121,6 +117,23 @@ operator=(const MetadataItem& right)
     return *this;
 }
 
+
+#ifdef notdef
+MetadataItem::
+MetadataItem(const MetadataItem&)
+{
+    // The default initializers for the MetadataItem members should take
+    // precedence, so we don't want to change any of that state, especially
+    // not the pointer to the containing interface.  And since any metadata
+    // values are copied by containing interface, there's no point to copy
+    // that here either.
+
+    // According to the standard, default member initializers are used if a
+    // member is not in the initialization list.  Unfortunately, that can
+    // cause warnings about "NNN should be initialized in the member
+    // initialization list".
+}
+#endif
 
 bool
 MetadataItem::
@@ -393,6 +406,8 @@ std::string
 MetadataNumber<T>::
 string_value() const
 {
+    if (unset())
+        return "";
     return to_string(get());
 }
 
@@ -441,9 +456,10 @@ MetadataTime::
 get()
 {
     // no point trying to parse an unset value.
-    if (unset())
-        return UTime(0l);
-    return from_string(string_value());
+    UTime ut(0l);
+    if (!unset())
+        from_string(ut, string_value());
+    return ut;
 }
 
 bool
@@ -476,25 +492,24 @@ bool
 MetadataTime::
 check_assign_string(const std::string& incoming)
 {
-    Metadata& md = mdi()->metadata();
-    UTime ut(from_string(incoming));
-    if (!md.errors().empty())
+    UTime ut(0l);
+    if (!from_string(ut, incoming))
         return false;
     update_string_value(ut.to_iso());
     return true;
 }
 
-UTime
+bool
 MetadataTime::
-from_string(const std::string& value)
+from_string(UTime& ut, const std::string& value)
 {
     Metadata& md = mdi()->metadata();
-    UTime ut(0l);
     if (!ut.from_iso(value))
     {
         md.add_error("could not parse time: " + value);
+        return false;
     }
-    return ut;
+    return true;
 };
 
 
@@ -505,7 +520,17 @@ Metadata():
     _errors(),
     _interfaces(),
     _dict(new MetadataImpl)
-{}
+{
+    DLOG(("") << "Metadata constructor");
+}
+
+
+Metadata::
+~Metadata()
+{
+    DLOG(("") << "Metadata destructor");
+}
+
 
 
 Metadata::
@@ -514,11 +539,9 @@ Metadata(const Metadata& right):
     _interfaces(),
     _dict(new MetadataImpl(*right._dict.get()))
 {
-    for (auto& iface: right._interfaces)
-    {
-        _interfaces.emplace_back(iface->clone());
-        // _interfaces.back().get()->bind(this);
-    }
+    // The interfaces are not copied here, since they need to be bound to this
+    // Metadata instance through it's shared pointer.  That happens in the
+    // MetadataInterface assignment method.
 }
 
 
@@ -530,13 +553,49 @@ operator=(const Metadata& right)
         return *this;
     *_dict = *right._dict;
     _errors = right._errors;
-    _interfaces.clear();
     for (auto& iface: right._interfaces)
     {
-        _interfaces.emplace_back(iface->clone());
+        if (!get_interface(iface->classname()))
+            _interfaces.emplace_back(iface->clone());
     }
     return *this;
 }
+
+
+MetadataInterface*
+Metadata::
+add_interface(MetadataInterface* mdi)
+{
+    _interfaces.emplace_back(mdi);
+    return mdi;
+}
+
+
+MetadataInterface*
+Metadata::
+get_interface(const std::string& name)
+{
+    for (auto& iface: _interfaces)
+    {
+        if (iface->classname() == name)
+            return iface.get();
+    }
+    return nullptr;
+}
+
+
+Metadata::interface_list
+Metadata::
+interfaces()
+{
+    interface_list interfaces;
+    for (auto& iface: _interfaces)
+    {
+        interfaces.push_back(iface.get());
+    }
+    return interfaces;
+}
+
 
 
 
@@ -564,17 +623,13 @@ get_items()
 }
 #endif
 
-Metadata::
-~Metadata()
-{}
-
 
 std::string
 Metadata::
 string_value(const std::string& name)
 {
     MetadataImpl& jd = mdict();
-    Json::Value value = jd.get(name, Json::Value(""));
+    Json::Value value = jd.get(name, Json::Value(std::string()));
     if (value.isString())
     {
         return value.asString();
@@ -591,7 +646,9 @@ Metadata::
 to_buffer(int nindent)
 {
     Json::StreamWriterBuilder wbuilder;
-    wbuilder["indentation"] = std::string(nindent, ' ');
+    wbuilder[std::string("indentation")] = std::string(nindent, ' ');
+    // since this is the default precision for number items.
+    wbuilder[std::string("precision")] = 12;
     return Json::writeString(wbuilder, *_dict.get());
 }
 
@@ -823,22 +880,10 @@ from_buffer(const std::string& buffer)
 #endif
 
 
-
 SensorMetadata::
 SensorMetadata(const std::string& classname):
-    MetadataInterface(classname),
-    record_type(this, MetadataItem::READWRITE, "record_type"),
-    timestamp(this, MetadataItem::READWRITE, "timestamp"),
-    manufacturer(this, MetadataItem::READONLY, "manufacturer", "Manufacturer"),
-    model(this, MetadataItem::READONLY, "model", "Model"),
-    serial_number(this, MetadataItem::READONLY, "serial_number", "Serial Number"),
-    hardware_version(this, MetadataItem::READONLY, "hardware_version", "Hardware Version"),
-    manufacture_date(this, MetadataItem::READONLY, "manufacture_date", "Manufacture Date"),
-    firmware_version(this, MetadataItem::READONLY, "firmware_version", "Firmware Version"),
-    firmware_build(this, MetadataItem::READONLY, "firmware_build", "Firmware Build"),
-    calibration_date(this, MetadataItem::READONLY, "calibration_date", "Calibration Date")
+    MetadataInterface(classname)
 {}
-
 
 
 #ifdef notdef
@@ -903,10 +948,65 @@ to_buffer(int nindent)
 
 MetadataInterface::
 MetadataInterface(const std::string& classname):
-    _md(),
+    _md(nullptr),
+    _owned_md(),
     _classname(classname),
     _items()
 {
+    DLOG(("") << _classname << " constructor");
+}
+
+
+MetadataInterface::
+~MetadataInterface()
+{
+    static nidas::util::LogContext lp(LOG_DEBUG);
+    if (lp.active())
+    {
+        lp.log()
+         << _classname << " destructor: "
+         << "owned metadata ptr is " << _owned_md.get();
+    }
+}
+
+
+
+#ifdef notdef
+MetadataInterface::
+MetadataInterface(const MetadataInterface& right):
+    _md(),
+    _classname(right._classname),
+    _items()
+{
+    // make sure to call metadata() to create our own metadata instance,
+    // into which the right metadata can be copied.  this will copy the
+    // interfaces on the right metadata also, unless this one already has
+    // it.  note that no subclass items have been added yet, but that's ok
+    // since their initialization doesn't matter here.
+    *this = right;
+}
+#endif
+
+
+MetadataInterface&
+MetadataInterface::
+operator=(const MetadataInterface& right)
+{
+    Metadata& md = const_cast<MetadataInterface*>(&right)->metadata();
+    metadata() = md;
+
+    // now copy any additional interfaces from the right Metadata and bind
+    // them to the Metadata in this instance.
+    for (auto& iface: md.interfaces())
+    {
+        add_interface(*iface);
+    }
+
+    // because the interface being copied may have been the actual
+    // instance type and not attached to the metadata yet, make a point of
+    // attaching it to this copy.
+    add_interface(right);
+    return *this;
 }
 
 
@@ -943,9 +1043,20 @@ MetadataItem*
 MetadataInterface::
 add_item(MetadataItem* item)
 {
-    DLOG(("adding item '") << item->name() << "' to interface '" << classname() << "'");
+    VLOG(("adding item '") << item->name() << "' to interface '" << classname() << "'");
     _items.push_back(item);
     return item;
+}
+
+
+void
+MetadataInterface::
+bind(Metadata* md)
+{
+    DLOG(("") << classname() << " binding new metadata");
+    _md = md;
+    // may as well release anything that was owned
+    _owned_md.release();
 }
 
 
@@ -953,9 +1064,27 @@ Metadata&
 MetadataInterface::
 metadata()
 {
+    // The only way this object does not already have a metadata reference is
+    // if it was created on its own and not by attaching it to the metadata of
+    // an existing interface.  Typically this will be a local value instance.
+    // So if this interface creates the metadata, then attach a clone of this
+    // interface also.  That way it will be carried along with any copies of
+    // this metadata.  Technically callers might have access to two of the
+    // same interfaces on this metadata, but that is inconsequential since
+    // both interfaces will modify the same metadata.
+    //
+    // actually we can't do that here, because if this is being called in the
+    // base class constructor, then the virtual clone() will not dispatch to
+    // the subclass yet.  so defer this until this interface is copied, and
+    // then make a point of including a clone of this interface in the target.
     if (!_md)
-        _md = std::make_shared<Metadata>();
-    return *_md.get();
+    {
+        DLOG(("") << classname() << ": creating metadata");
+        _md = new Metadata();
+        _owned_md.reset(_md);
+        // add_interface(*this);
+    }
+    return *_md;
 }
 
 
@@ -965,10 +1094,6 @@ validate()
 {
     return true;
 }
-
-MetadataInterface::
-~MetadataInterface()
-{}
 
 
 } // namespace core
