@@ -334,7 +334,6 @@ protected:
     virtual void sendScienceParameters();
     virtual bool checkScienceParameters();
     virtual void updateMetaData();
-    void initCustomMetaData();
 
 private:
     // default science parameters for the PB210

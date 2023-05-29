@@ -27,6 +27,7 @@
 #include "PTB210.h"
 #include <nidas/core/SerialPortIODevice.h>
 #include <nidas/util/ParseException.h>
+#include <nidas/core/Metadata.h>
 
 #include <sstream>
 #include <limits>
@@ -38,6 +39,9 @@ using namespace std;
 NIDAS_CREATOR_FUNCTION_NS(isff,PTB210)
 
 namespace nidas { namespace dynld { namespace isff {
+
+namespace n_c = nidas::core;
+namespace n_u = nidas::util;
 
 const char* PTB210::SENSOR_RESET_CMD_STR = ".RESET\r";
 const char* PTB210::SENSOR_SERIAL_BAUD_CMD_STR = ".BAUD.\r";
@@ -160,15 +164,6 @@ static const regex PTB210_CURR_MODE_REGEX(PTB210_CURR_MODE_REGEX_SPEC, regex_con
 static const string PTB210_RS485_RES_REGEX_SPEC("RS485 RESISTOR (ON|OFF)");
 static const regex PTB210_RS485_RES_REGEX(PTB210_RS485_RES_REGEX_SPEC, regex_constants::extended);
 
-static const std::string PTB210_ID_CODE_CFG_DESC("ID CODE");
-static const std::string PTB210_MULTI_PT_CORR_CFG_DESC("MULTIPOINT CORR");
-static const std::string PTB210_MEAS_PER_MIN_CFG_DESC("MEAS PER MINUTE");
-static const std::string PTB210_NUM_SMPLS_AVG_CFG_DESC("AVERAGING");
-static const std::string PTB210_PRESS_UNIT_CFG_DESC("PRESSURE UNIT");
-static const std::string PTB210_PRESS_MINMAX_CFG_DESC("Pressure Min...Max");
-static const std::string PTB210_CURR_MODE_CFG_DESC("CURRENT MODE");
-static const std::string PTB210_RS485_RES_CFG_DESC("RS485 RESISTOR");
-
 
 PTB210::PTB210()
     : SerialSensor(),
@@ -192,7 +187,6 @@ PTB210::PTB210()
         desiredScienceParameters[i] = DEFAULT_SCIENCE_PARAMETERS[i];
     }
 
-    initCustomMetaData();
     setAutoConfigSupported();
 }
 
@@ -463,6 +457,8 @@ bool PTB210::checkScienceParameters() {
     VLOG(("PTB210::checkScienceParameters() - Read the entire response"));
     int numCharsRead = readEntireResponse(&(respBuf[0]), BUF_SIZE-1, MSECS_PER_SEC);
 
+    MetadataPTB210 md;
+
     std::string respStr;
     if (numCharsRead > 0) {
         respStr.append(&respBuf[0], numCharsRead);
@@ -478,7 +474,7 @@ bool PTB210::checkScienceParameters() {
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Checking sample averaging with argument: ") << results.str(1));
             scienceParametersOK = compareScienceParameter(SENSOR_NUM_SAMP_AVG_CMD, results.str(1).c_str());
-            updateMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, results.str(1)));
+            md.averaging = results.str(1);
         }
         else {
             DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
@@ -494,7 +490,7 @@ bool PTB210::checkScienceParameters() {
             if (regexFound && results[0].matched && results[1].matched) {
                 VLOG(("Checking measurement rate with argument: ") << results.str(1));
                 scienceParametersOK = compareScienceParameter(SENSOR_MEAS_RATE_CMD, results.str(1).c_str());
-                updateMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, results.str(1)));
+                md.mpm = results.str(1);
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find measurement rate RE")
@@ -508,7 +504,7 @@ bool PTB210::checkScienceParameters() {
             if (regexFound && results[0].matched && results[1].matched) {
                 VLOG(("Checking pressure units with argument: ") << results.str(1));
                 scienceParametersOK = compareScienceParameter(SENSOR_SAMP_UNIT_CMD, results.str(1).c_str());
-                updateMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, results.str(1)));
+                md.pressure_units = results.str(1);
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find pressure unit RE")
@@ -523,7 +519,7 @@ bool PTB210::checkScienceParameters() {
                 VLOG(("Checking multi-point correction with argument: ") << results.str(1));
                 scienceParametersOK = (results.str(1) == "ON" ? compareScienceParameter(SENSOR_CORRECTION_ON_CMD, results.str(1).c_str())
                                                               : compareScienceParameter(SENSOR_CORRECTION_OFF_CMD, results.str(1).c_str()));
-                updateMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, results.str(1)));
+                md.multipoint = results.str(1);
             }
             else {
                 DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find multi-point correction RE")
@@ -536,7 +532,7 @@ bool PTB210::checkScienceParameters() {
         regexFound = regex_search(respStr.c_str(), results, PTB210_PRESS_MINMAX_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing min/max pressures for metadata: ") << results.str(1));
-            updateMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, results.str(1)));
+            md.pressure_range = results.str(1);
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find min/max pressure RE")
@@ -547,7 +543,7 @@ bool PTB210::checkScienceParameters() {
         regexFound = regex_search(respStr.c_str(), results, PTB210_CURR_MODE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing sensor current mode for metadata: ") << results.str(1));
-            updateMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, results.str(1)));
+            md.mode = results.str(1);
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find current mode RE")
@@ -558,7 +554,7 @@ bool PTB210::checkScienceParameters() {
         regexFound = regex_search(respStr.c_str(), results, PTB210_RS485_RES_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
             VLOG(("Collecing sensor RS422 line termination for metadata: ") << results.str(1));
-            updateMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, results.str(1)));
+            md.resistor = results.str(1);
         }
         else {
             DLOG(("PTB210::checkScienceParameters() - regex_search(): failed to find RS422 termination RE")
@@ -789,7 +785,8 @@ void PTB210::updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg) {
 
 void PTB210::updateMetaData()
 {
-    setManufacturer("Vaisala Inc.");
+    MetadataPTB210 md;
+    md.manufacturer = "Vaisala Inc.";
 
     // flush the serial port - read and write
     serPortFlush(O_RDWR);
@@ -813,17 +810,17 @@ void PTB210::updateMetaData()
         cmatch results;
         bool regexFound = regex_search(respStr.c_str(), results, PTB210_MODEL_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
-            setModel(results.str(1));
+            md.model = results.str(1);
         }
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_VER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
-            setFwVersion(results.str(1));
+            md.firmware_version = results.str(1);
         }
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_CAL_DATE_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
-            setCalDate(results.str(1));
+            md.calibration_date = results.str(1);
         }
         else {
             DLOG(("regexFound: ") << (regexFound ? "true" : "false"));
@@ -834,23 +831,9 @@ void PTB210::updateMetaData()
 
         regexFound = regex_search(respStr.c_str(), results, PTB210_SERIAL_NUMBER_REGEX);
         if (regexFound && results[0].matched && results[1].matched) {
-            setSerialNumber(results.str(1));
+            md.serial_number = results.str(1);
         }
     }
-}
-
-void PTB210::initCustomMetaData()
-{
-    DLOG(("PTB210::initCustomMetaData(): start"));
-    addMetaDataItem(MetaDataItem(PTB210_ID_CODE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_MULTI_PT_CORR_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_MEAS_PER_MIN_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_NUM_SMPLS_AVG_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_PRESS_UNIT_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_PRESS_MINMAX_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_CURR_MODE_CFG_DESC, ""));
-    addMetaDataItem(MetaDataItem(PTB210_RS485_RES_CFG_DESC, ""));
-    DLOG(("PTB210::initCustomMetaData(): end"));
 }
 
 }}} //namespace nidas { namespace dynld { namespace isff {

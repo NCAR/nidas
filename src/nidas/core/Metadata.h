@@ -48,6 +48,18 @@ public:
 
 class MetadataStore;
 class MetadataInterface;
+class MetadataString;
+class MetadataBool;
+class MetadataTime;
+
+template <typename T> class MetadataNumber;
+
+/**
+ * Type aliases for the two numeric types.  A separate float type is not
+ * needed since double can have a precision.
+ */
+using MetadataDouble = MetadataNumber<double>;
+using MetadataInt = MetadataNumber<int>;
 
 
 /**
@@ -235,6 +247,14 @@ private:
 
 
 /**
+ * MDITEM macro makes it easier to generate the item initializer by setting
+ * the item name to the symbol name, and inserting the common READWRITE and
+ * this parameters.
+ */
+#define MDITEM(name, desc) name{this, READWRITE, #name, desc}
+
+
+/**
  * MetadataStore are implemented as a key-value dictionary with schema
  * interfaces.  The metadata storage is created and accessed through at least
  * one MetadataInterface, keeping the underlying storage type hidden.
@@ -312,6 +332,13 @@ public:
     static const auto READONLY = MetadataItem::READONLY;
     static const auto USERSET = MetadataItem::USERSET;
     static const auto READWRITE = MetadataItem::READWRITE;
+
+    // Aliases for item types so subclasses do not need to qualify them.
+    using MetadataString = nidas::core::MetadataString;
+    using MetadataBool = nidas::core::MetadataBool;
+    using MetadataDouble = nidas::core::MetadataDouble;
+    using MetadataInt = nidas::core::MetadataInt;
+    using MetadataTime = nidas::core::MetadataTime;
 
     /**
      * Construct a MetadataInterface with no schema and its own copy of an
@@ -636,13 +663,6 @@ private:
 
 };
 
-
-/**
- * Type aliases for the two numeric types.  A separate float type is not
- * needed since double can have a precision.
- */
-using MetadataDouble = MetadataNumber<double>;
-using MetadataInt = MetadataNumber<int>;
 
 
 /**

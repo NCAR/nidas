@@ -28,9 +28,8 @@
 #define NIDAS_DYNLD_ISFF_PTB_210_H
 
 #include <nidas/core/SerialSensor.h>
+#include <nidas/core/Metadata.h>
 
-namespace n_c = nidas::core;
-namespace n_u = nidas::util;
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -86,6 +85,28 @@ struct PTB210_ARG_RANGE {
 };
 
 
+class MetadataPTB210: public nidas::core::SensorMetadata
+{
+public:
+    MetadataPTB210(): nidas::core::SensorMetadata("PTB210")
+    {}
+
+    MetadataString idcode{this, READWRITE, "idcode", "ID code"};
+    MetadataString multipoint{this, READWRITE, "multipoint", "Multipoint Correlation"};
+    MetadataString mpm{this, READWRITE, "mpm", "Measurements per minute"};
+    MetadataString averaging{this, READWRITE, "averaging", "Averaging"};
+    MetadataString pressure_units{this, READWRITE, "pressure_units", "Pressure Units"};
+    MetadataString pressure_range{this, READWRITE, "pressure_range", "Pressures Min...Max"};
+    MetadataString mode{this, READWRITE, "mode", "Current mode"};
+    MetadataString resistor{this, READWRITE, "resistor", "RS485 Resistor"};
+
+    MetadataInterface* clone() const override
+    {
+        return new MetadataPTB210;
+    }
+};
+
+
 /**
  * Sensor class for the PTB210 barometer, built by Vaisala.
  * 
@@ -122,8 +143,10 @@ public:
 
     ~PTB210();
 
+    using InvalidParameterException = nidas::util::InvalidParameterException;
+
     // override fromDOMElement() to provide a means to intercept custom auto config instructions from the XML
-    void fromDOMElement(const xercesc::DOMElement* node) throw(n_u::InvalidParameterException);
+    void fromDOMElement(const xercesc::DOMElement* node) throw(InvalidParameterException);
 
     // utility to turn a pressure unit string designation into a PRESS_UNIT enum
     static PTB_PRESSURE_UNITS pressUnitStr2PressUnit(const char* unitStr) {
@@ -165,23 +188,26 @@ public:
         else {
             std::stringstream errMsg;
             errMsg << "Requested units not found: " << units;
-            throw n_u::InvalidParameterException("AutoConfig", "PTB210::pressUnitStr2PressUnit() ", (errMsg.str()));
+            throw InvalidParameterException("AutoConfig", "PTB210::pressUnitStr2PressUnit() ", (errMsg.str()));
         }
     }
 
+    using SensorCmdArg = nidas::core::SensorCmdArg;
+    using PortConfig = nidas::core::PortConfig;
+    using SensorCmdData = nidas::core::SensorCmdData;
+
 protected:
     virtual bool checkResponse();
-    virtual void sendSensorCmd(int cmd, n_c::SensorCmdArg arg = n_c::SensorCmdArg(0), bool resetNow=false);
-    virtual bool installDesiredSensorConfig(const n_c::PortConfig& rDesiredConfig);
+    virtual void sendSensorCmd(int cmd, SensorCmdArg arg = SensorCmdArg(0), bool resetNow=false);
+    virtual bool installDesiredSensorConfig(const PortConfig& rDesiredConfig);
     void sendScienceParameters();
     bool checkScienceParameters();
     bool compareScienceParameter(PTB_COMMANDS cmd, const char* match);
     void updateDesiredScienceParameter(PTB_COMMANDS cmd, int arg=0);
-    n_c::SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
+    SensorCmdData getDesiredCmd(PTB_COMMANDS cmd);
     virtual nidas::core::CFG_MODE_STATUS enterConfigMode();
     virtual void exitConfigMode();
     virtual void updateMetaData();
-    void initCustomMetaData();
 
 private:
 
@@ -203,7 +229,7 @@ private:
 
     static const PTB_COMMANDS DEFAULT_USE_CORRECTION_CMD = SENSOR_CORRECTION_ON_CMD;
     static const int NUM_DEFAULT_SCIENCE_PARAMETERS;
-    static const n_c::SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
+    static const SensorCmdData DEFAULT_SCIENCE_PARAMETERS[];
 
     // PB210 pre-packaged commands
     static const char* SENSOR_RESET_CMD_STR;
@@ -234,7 +260,7 @@ private:
     // table to hold the strings for easy lookup
     static const char* cmdTable[NUM_SENSOR_CMDS];
 
-    n_c::SensorCmdData* desiredScienceParameters;
+    SensorCmdData* desiredScienceParameters;
 
     // no copying
     PTB210(const PTB210& x);
