@@ -51,7 +51,7 @@ MetadataException(const std::ostringstream& buf):
 {}
 
 
-class Metadata
+class MetadataStore
 {
     std::vector<std::string> _errors;
     std::vector< std::unique_ptr<MetadataInterface> > _interfaces;
@@ -105,10 +105,11 @@ public:
     using errbuf = std::ostringstream;
 
     /**
-     * Construct a Metadata dictionary.  It has no items and no interfaces, it
-     * starts out as an anonymous dictionary with no keys and no values.
+     * Construct a MetadataStore dictionary.  It has no items and no
+     * interfaces, it starts out as an anonymous dictionary with no keys and
+     * no values.
      */
-    Metadata();
+    MetadataStore();
 
     /**
      * Return the value of the given property name as a string.
@@ -121,7 +122,7 @@ public:
     string_value(const std::string& name);
 
     /**
-     * Serialize the Metadata object to ostream @p out in JSON format.
+     * Serialize the MetadataStore object to ostream @p out in JSON format.
      * 
      * If @p indent is zero, return a single line of JSON, as appropriate for
      * line-delimited JSON messages, but without a trailing newline.
@@ -146,25 +147,25 @@ public:
     bool
     from_buffer(const std::string& buffer);
 
-    ~Metadata();
+    ~MetadataStore();
 
     /**
-     * Construct Metadata by copying.  The metadata dictionary and errors are
+     * Construct MetadataStore by copying.  The metadata dictionary and errors are
      * copied, but the interfaces are not.
      */
-    Metadata(const Metadata& right);
+    MetadataStore(const MetadataStore& right);
 
     /**
-     * Assigning from another Metadata is like copy construction, except any
-     * matching interfaces already attached to this Metadata are not replaced
-     * with clones from the @p source, in case there are already references to
-     * those interfaces outside this object.
+     * Assigning from another MetadataStore is like copy construction, except
+     * any matching interfaces already attached to this MetadataStore are not
+     * replaced with clones from the @p source, in case there are already
+     * references to those interfaces outside this object.
      */
-    Metadata& operator=(const Metadata& source);
+    MetadataStore& operator=(const MetadataStore& source);
 
     /**
-     * Add the given interface to this Metadata object.  This object takes
-     * ownership and will delete the interface when it is destroyed.
+     * Add the given interface to this MetadataStore object.  This object
+     * takes ownership and will delete the interface when it is destroyed.
      */
     MetadataInterface*
     add_interface(MetadataInterface* mdi);
@@ -190,8 +191,8 @@ public:
 
     /**
      * Return a vector of pointers to all the interfaces attached to this
-     * Metadata object.  The pointers are still owned by this object and will
-     * be invalid when the object is destroyed.
+     * MetadataStore object.  The pointers are still owned by this object and
+     * will be invalid when the object is destroyed.
      */
     interface_list
     interfaces();
@@ -224,7 +225,7 @@ MetadataItem::mdi()
 }
 
 
-Metadata&
+MetadataStore&
 MetadataItem::
 metadata()
 {
@@ -299,7 +300,7 @@ std::string
 MetadataItem::
 string_value() const
 {
-    Metadata& md = const_cast<MetadataItem*>(this)->mdi()->metadata();
+    MetadataStore& md = const_cast<MetadataItem*>(this)->mdi()->metadata();
     return md.string_value(name());
 }
 
@@ -459,7 +460,7 @@ set(const T& value)
 {
     if (value < min || max < value)
     {
-        Metadata& md = mdi()->metadata();
+        MetadataStore& md = mdi()->metadata();
         md.add_error(errbuf() << value << " is not in range ["
                            << min << ", " << max << "]");
         return false;
@@ -492,7 +493,7 @@ bool
 MetadataNumber<T>::
 check_assign_string(const std::string& incoming)
 {
-    Metadata& md = metadata();
+    MetadataStore& md = metadata();
     T target = from_string(incoming);
     if (!md.errors().empty())
     {
@@ -534,7 +535,7 @@ T
 MetadataNumber<T>::
 from_string(const std::string& value)
 {
-    Metadata& md = mdi()->metadata();
+    MetadataStore& md = mdi()->metadata();
     std::istringstream inb(value);
     T target{0};
     if (!(inb >> target))
@@ -620,7 +621,7 @@ bool
 MetadataTime::
 from_string(UTime& ut, const std::string& value)
 {
-    Metadata& md = mdi()->metadata();
+    MetadataStore& md = mdi()->metadata();
     if (!ut.from_iso(value))
     {
         md.add_error("could not parse time: " + value);
@@ -630,40 +631,40 @@ from_string(UTime& ut, const std::string& value)
 };
 
 
-// Metadata implementation
+// MetadataStore implementation
 
-Metadata::
-Metadata():
+MetadataStore::
+MetadataStore():
     _errors(),
     _interfaces(),
     _dict()
 {
-    DLOG(("") << "Metadata constructor");
+    DLOG(("") << "MetadataStore constructor");
 }
 
 
-Metadata::
-~Metadata()
+MetadataStore::
+~MetadataStore()
 {
-    DLOG(("") << "Metadata destructor");
+    DLOG(("") << "MetadataStore destructor");
 }
 
 
-Metadata::
-Metadata(const Metadata& right):
+MetadataStore::
+MetadataStore(const MetadataStore& right):
     _errors(right._errors),
     _interfaces(),
     _dict(right._dict)
 {
     // The interfaces are not copied here, since they need to be bound to this
-    // Metadata instance through it's shared pointer.  That happens in the
-    // MetadataInterface assignment method.
+    // MetadataStore instance through it's shared pointer.  That happens in
+    // the MetadataInterface assignment method.
 }
 
 
-Metadata&
-Metadata::
-operator=(const Metadata& right)
+MetadataStore&
+MetadataStore::
+operator=(const MetadataStore& right)
 {
     if (this == &right)
         return *this;
@@ -679,7 +680,7 @@ operator=(const Metadata& right)
 
 
 MetadataInterface*
-Metadata::
+MetadataStore::
 add_interface(MetadataInterface* mdi)
 {
     mdi->bind(this);
@@ -689,7 +690,7 @@ add_interface(MetadataInterface* mdi)
 
 
 MetadataInterface*
-Metadata::
+MetadataStore::
 get_interface(const std::string& name)
 {
     for (auto& iface: _interfaces)
@@ -701,8 +702,8 @@ get_interface(const std::string& name)
 }
 
 
-Metadata::interface_list
-Metadata::
+MetadataStore::interface_list
+MetadataStore::
 interfaces()
 {
     interface_list interfaces;
@@ -715,7 +716,7 @@ interfaces()
 
 
 std::string
-Metadata::
+MetadataStore::
 string_value(const std::string& name)
 {
     Json::Value& jd = mdict();
@@ -732,7 +733,7 @@ string_value(const std::string& name)
 
 
 std::string
-Metadata::
+MetadataStore::
 to_buffer(int nindent)
 {
     Json::StreamWriterBuilder wbuilder;
@@ -744,7 +745,7 @@ to_buffer(int nindent)
 
 
 bool
-Metadata::
+MetadataStore::
 from_buffer(const std::string& buffer)
 {
     Json::CharReaderBuilder rbuilder;
@@ -794,12 +795,24 @@ MetadataInterface&
 MetadataInterface::
 operator=(const MetadataInterface& right)
 {
-    Metadata& md = const_cast<MetadataInterface*>(&right)->metadata();
-    metadata() = md;
+    return assign(right);
+}
 
-    // now copy any additional interfaces from the right Metadata and bind
-    // them to the Metadata in this instance.
-    for (auto& iface: md.interfaces())
+
+MetadataInterface&
+MetadataInterface::
+assign(const MetadataInterface& right)
+{
+    MetadataStore& mdr = const_cast<MetadataInterface*>(&right)->metadata();
+    MetadataStore& mdl = metadata();
+    if (&mdr == &mdl)
+        return *this;
+
+    mdl = mdr;
+
+    // now copy any additional interfaces from the right MetadataStore and bind
+    // them to the MetadataStore in this instance.
+    for (auto& iface: mdr.interfaces())
     {
         add_interface(*iface);
     }
@@ -862,7 +875,8 @@ MetadataInterface*
 MetadataInterface::
 attach_interface(MetadataInterface* mdi)
 {
-    // adding an interface to Metadata also binds it to that Metadata.
+    // adding an interface to MetadataStore also binds it to that
+    // MetadataStore.
     metadata().add_interface(mdi);
     return mdi;
 }
@@ -887,7 +901,7 @@ add_item(MetadataItem* item)
 
 void
 MetadataInterface::
-bind(Metadata* md)
+bind(MetadataStore* md)
 {
     DLOG(("") << classname() << " binding new metadata");
     _md = md;
@@ -896,14 +910,14 @@ bind(Metadata* md)
 }
 
 
-Metadata&
+MetadataStore&
 MetadataInterface::
 metadata()
 {
     if (!_md)
     {
         DLOG(("") << classname() << ": creating metadata");
-        _md = new Metadata();
+        _md = new MetadataStore();
         _owned_md.reset(_md);
     }
     return *_md;

@@ -46,7 +46,7 @@ public:
 };
 
 
-class Metadata;
+class MetadataStore;
 class MetadataInterface;
 
 
@@ -221,10 +221,10 @@ protected:
     MetadataInterface* mdi();
 
     /**
-     * Return reference to the underlying Metadata store for this item, accessed
+     * Return reference to the underlying MetadataStore store for this item, accessed
      * through the owning MetadataInterface.
      */
-    Metadata& metadata();
+    MetadataStore& metadata();
 
 private:
     MetadataInterface* _mdi;
@@ -235,33 +235,33 @@ private:
 
 
 /**
- * Metadata are implemented as a key-value dictionary with schema interfaces.
- * The metadata storage is created and accessed through at least one
- * MetadataInterface, keeping the underlying storage type hidden.
+ * MetadataStore are implemented as a key-value dictionary with schema
+ * interfaces.  The metadata storage is created and accessed through at least
+ * one MetadataInterface, keeping the underlying storage type hidden.
  * 
- * The Metadata object holds all the portable state and can be managed like a
- * dictionary of properties, serialized to and from string forms like JSON,
- * queried and printed.  MetadataInterface objects can be attached to the
- * dictionary to provide safe typed access to the dictionary and implement
+ * The MetadataStore object holds all the portable state and can be managed
+ * like a dictionary of properties, serialized to and from string forms like
+ * JSON, queried and printed.  MetadataInterface objects can be attached to
+ * the dictionary to provide safe typed access to the dictionary and implement
  * validation, and those interfaces stay with the metadata so it can be
  * validated even when callers do not have access to the actual interface
  * definition.
  * 
- * Metadata can contain information read from the sensor and also
+ * MetadataStore can contain information read from the sensor and also
  * configuration settings that need to be written to the sensor and verified.
  * A MetadataItem identified as readwrite can be used to verify that settings
- * have been applied to a sensor successfully.  For example, a Metadata
+ * have been applied to a sensor successfully.  For example, a MetadataStore
  * subclass can add members for a specific kind of sensor, and then use this
  * algorithm to test that settings were applied:
  *
- * - Create a Metadata object.  As needed, attach the MetadataInterface
+ * - Create a MetadataStore object.  As needed, attach the MetadataInterface
  *   subclass for the sensor to provide typed, named access to the metadata
  *   values.
  *
  * - Query the sensor and record the settings in the object.
  * 
  * - Compare the object from the sensor with a target configuration.  The
- *   target configuration is an instance of Metadata with some number of
+ *   target configuration is an instance of MetadataStore with some number of
  *   readwrite properties set to specific values.  If any of those explicit
  *   settings differ from the sensor metadata, then the sensor needs to be
  *   updated.
@@ -275,27 +275,28 @@ private:
  * Essentially the same algorithm works to verify that a sensor configuration
  * still matches the target.
  * 
- * - Create a Metadata object.
+ * - Create a MetadataStore object.
  * 
  * - Query the sensor and record the settings in the object.
  * 
  * - Compare the sensor metadata with a copy of the previous sensor state.
  *   Any difference indicates the sensor or its configuration has changed.
  * 
- * Finally, since the Metadata dictionary for a sensor should comprise whatever
- * properties are useful about a sensor or which could affect the measurements,
- * the Metadata encapsulates all that information and it can be published
- * in human-readable messages and logs.
+ * Finally, since the MetadataStore dictionary for a sensor should comprise
+ * whatever properties are useful about a sensor or which could affect the
+ * measurements, the MetadataStore encapsulates all that information and it
+ * can be published in human-readable messages and logs.
  * 
- * - Create a Metadata object.
+ * - Create a MetadataStore object.
  * 
  * - Query the sensor and record the settings in the object.
  * 
- * - Convert the Metadata to a JSON string and publish it in an event record.
+ * - Convert the MetadataStore to a JSON string and publish it in an event
+ *   record.
  * 
- * Subclasses can add typed members which are registered with the Metadata
- * base class, allowing generic access to the string values without needing
- * access to the subclass type.
+ * Subclasses can add typed members which are registered with the
+ * MetadataStore base class, allowing generic access to the string values
+ * without needing access to the subclass type.
  *
  * MetadataInterface adds a schema to a metadata dictionary, allowing named
  * items to be accessed through their typed interfaces and also adding
@@ -314,7 +315,7 @@ public:
 
     /**
      * Construct a MetadataInterface with no schema and its own copy of an
-     * empty Metadata dictionary.
+     * empty MetadataStore dictionary.
      */
     MetadataInterface(const std::string& classname = "");
 
@@ -342,7 +343,7 @@ public:
 
     /**
      * Return a list of pointers to all metadata items that belong to this
-     * Metadata dictionary.
+     * MetadataStore dictionary.
      */
     item_list get_items();
 
@@ -353,8 +354,8 @@ public:
      * through the pointer same as if it were accessed as an object member,
      * but if there is a typed interface to the item (ie, the MetadataItem is
      * a subclass), then the pointer would have to be narrowed to that class.
-     * The pointer is only valid of course while the Metadata object memory
-     * allocation does not change.
+     * The pointer is only valid of course while the MetadataStore object
+     * memory allocation does not change.
      */
     MetadataItem* lookup(const std::string& name);
 
@@ -362,11 +363,11 @@ public:
     get_interface(const std::string& name);
 
     /**
-     * Allocate a new MetadataInterface of type T and add it to this Metadata
-     * object.  The interface must be dynamically allocated so it can be owned
-     * by this instance and cloned when this object is copied.  Assign the
-     * return value to keep a reference to this interface backed by this
-     * Metadata.
+     * Allocate a new MetadataInterface of type T and add it to this
+     * MetadataStore object.  The interface must be dynamically allocated so
+     * it can be owned by this instance and cloned when this object is copied.
+     * Assign the return value to keep a reference to this interface backed by
+     * this MetadataStore.
      */
     template <typename T>
     T* add_interface(const T& prototype)
@@ -382,13 +383,13 @@ public:
     }
 
     /**
-     * Return a reference to the Metadata dictionary bound for this interface.
-     * If there is no dictionary yet, then this will allocate one.
+     * Return a reference to the MetadataStore dictionary bound for this
+     * interface.  If there is no dictionary yet, then this will allocate one.
      */
-    Metadata& metadata();
+    MetadataStore& metadata();
 
     /**
-     * Clone this interface onto a different Metadata object.
+     * Clone this interface onto a different MetadataStore object.
      */
     virtual MetadataInterface*
     clone() const = 0;
@@ -418,7 +419,7 @@ public:
      * added this interface, whether it's the same interface as this interface
      * or not.
      *
-     * Also, since the Metadata dictionary is copied here, it may seem
+     * Also, since the MetadataStore dictionary is copied here, it may seem
      * unnecessary to do the memberwise assignment of the MetadataItem members
      * in the subclasses.  Typically there will be no difference.  However,
      * the memberwise assignments and copies do allow a MetadataItem subclass
@@ -427,6 +428,14 @@ public:
      * See operator=().
      */
     MetadataInterface& operator=(const MetadataInterface& right);
+
+    /**
+     * Allow any interface type to be assigned to another interface type.
+     * 
+     * This is the same as the assignment operator, but it can assign any
+     * interface to this interface.
+     */
+    virtual MetadataInterface& assign(const MetadataInterface& right);
 
 private:
 
@@ -441,14 +450,14 @@ private:
 
     /**
      * Replace the storage backend for this interface.  Any existing metadata
-     * values are lost.  Metadata objects call this to replace any existing
-     * binding when attaching an interface.  Thus the friend access for the
-     * Metadata class.
+     * values are lost.  MetadataStore objects call this to replace any
+     * existing binding when attaching an interface.  Thus the friend access
+     * for the MetadataStore class.
      */
     void
-    bind(Metadata* md);
+    bind(MetadataStore* md);
 
-    friend class Metadata;
+    friend class MetadataStore;
 
     /**
      * Register an item with this interface.  this is assumed to be a value
@@ -460,13 +469,14 @@ private:
 
     friend class MetadataItem;
 
-    // Each MetadataInterface can own it's own Metadata backing store, or it
-    // can shared the Metadata dictionary with another interface, in which
-    // case the lifetime of this interface is tied to that Metadata.  _md is
-    // the Metadata storage used by this instance, and if that instance
-    // belongs to this object, then it is managed by _owned_md.
-    Metadata* _md;
-    std::unique_ptr<Metadata> _owned_md;
+    // Each MetadataInterface can own it's own MetadataStore backing store, or
+    // it can shared the MetadataStore dictionary with another interface, in
+    // which case the lifetime of this interface is tied to that
+    // MetadataStore.  _md is the MetadataStore storage used by this instance,
+    // and if that instance belongs to this object, then it is managed by
+    // _owned_md.
+    MetadataStore* _md;
+    std::unique_ptr<MetadataStore> _owned_md;
     std::string _classname;
     item_list _items;
 };
@@ -640,6 +650,23 @@ public:
 };
 
 
+class Metadata: public MetadataInterface
+{
+protected:
+    virtual MetadataInterface*
+    clone() const override
+    {
+        return new Metadata(classname());
+    }
+
+public:
+    Metadata(const std::string& classname = ""):
+        MetadataInterface(classname)
+    {};
+
+};
+
+
 /**
  * SensorMetadata is a MetadataInterface for adding metadata typical for a
  * sensor.  Not all of them will be used by all sensors, but it is convenient
@@ -650,25 +677,14 @@ class SensorMetadata: public MetadataInterface
 {
 protected:
 
-    // let Metadata construct an interface
-    friend class Metadata;
-
     virtual MetadataInterface*
     clone() const override
     {
-        // Create a new instance of this class with the same name classname.
-        // When this is called to add this interface to a Metadata object,
-        // then the Metadata object will bind this interface to itself.
         return new SensorMetadata(classname());
     }
 
 public:
 
-    /**
-     * Construct SensorMetadata object with its own Metadata storage.
-     * 
-     * @param classname 
-     */
     SensorMetadata(const std::string& classname = "sensor");
 
     MetadataString record_type{this, READWRITE, "record_type"};

@@ -138,6 +138,15 @@ BOOST_AUTO_TEST_CASE(test_metadata_interfaces)
     // string values will be json syntax without the precision setting.
     BOOST_TEST(mdt.string_value("slope") == "2.0");
     BOOST_TEST(mdt.string_value("offset") == "1.0");
+
+    // try out the "null" metadata
+    Metadata md("x");
+    md.assign(mdc);
+    BOOST_TEST(md.string_value("slope") == "2.0");
+    BOOST_TEST(md.string_value("offset") == "1.0");
+
+    BOOST_TEST(md.get_interface("linearcal"));
+    BOOST_TEST(md.get_interface("linearcal") != &mdc);
 }
 
 
@@ -373,19 +382,16 @@ BOOST_AUTO_TEST_CASE(test_trh_metadata_load)
     NCAR_TRH trh;
 
     Metadata md;
+    trh.getMetadata(md);
 
     // Load the sensor config from a json string.
-    md.load();
+    //md.load();
 
-    // now how do we check it? get an implementation from the sensor, copied by value
-    // but with pointers to the static function which can check it.
-    //
-    Metadata trhmd = trh.getMetadata();
     // Pass it to the TRH, with a way to 
     // trh.
-    trhmd.load();
+    //trhmd.load();
     // check on errors.  if it passes, update sensor.
-    trh.setSensorConfig(trhmd);
+    //trh.setSensorConfig(trhmd);
 
 }
 #endif
