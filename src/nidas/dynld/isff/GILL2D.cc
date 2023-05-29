@@ -186,62 +186,26 @@ static const regex GILL2D_FW_VER_REGEX(GILL2D_FW_VER_SPEC, std::regex_constants:
 
 
 
-class GILL2D_Metadata: public Metadata
+class GILL2D_Metadata: public SensorMetadata
 {
 public:
-    GILL2D_Metadata():
-        Metadata("GILL2D_Metadata"),
-        averaging(MetadataItem::READWRITE, "averaging", "Avg secs"),
-        sos_temp(MetadataItem::READWRITE, "sos_temp", "SpdOfSnd/Temp Rprt"),
-        heating(MetadataItem::READWRITE, "heating", "Heater"),
-        nmea_id_str(MetadataItem::READWRITE, "nmea_id_str", "NMEA"),
-        msg_term(MetadataItem::READWRITE, "msg_term", "Msg Term"),
-        msg_stream(MetadataItem::READWRITE, "msg_stream", "Msg Stream"),
-        field_fmt(MetadataItem::READWRITE, "field_fmt", "Field Fmt"),
-        output_rate(MetadataItem::READWRITE, "output_rate", "Output Rate Hz"),
-        meas_units(MetadataItem::READWRITE, "meas_units", "Meas Units"),
-        node_addr(MetadataItem::READWRITE, "node_addr", "Node Addr"),
-        vert_meas_pad(MetadataItem::READWRITE, "vert_meas_pad", "Vert Pad"),
-        align_45_deg(MetadataItem::READWRITE, "align_45_deg", "Align/45 Deg")
+    GILL2D_Metadata(): SensorMetadata("GILL2D_Metadata")
     {
     }
 
-    MetadataInt averaging;
-    MetadataString sos_temp;
-    MetadataString heating;
-    MetadataString nmea_id_str;
-    MetadataString msg_term;
-    MetadataString msg_stream;
-    MetadataString field_fmt;
-    MetadataInt output_rate;
-    MetadataString meas_units;
-    MetadataString node_addr;
-    MetadataString vert_meas_pad;
-    MetadataString align_45_deg;
-
-    void enumerate(item_list& items) override
-    {
-        
-        for (auto mi: item_list{
-            &averaging,
-            &sos_temp,
-            &heating,
-            &nmea_id_str,
-            &msg_term,
-            &msg_stream,
-            &field_fmt,
-            &output_rate,
-            &meas_units,
-            &node_addr,
-            &vert_meas_pad,
-            &align_45_deg })
-        {
-            items.push_back(mi);
-        }
-    }
-
+    MetadataInt averaging{this, READWRITE, "averaging", "Avg secs"};
+    MetadataString sos_temp{this, READWRITE, "sos_temp", "SpdOfSnd/Temp Rprt"};
+    MetadataString heating{this, READWRITE, "heating", "Heater"};
+    MetadataString nmea_id_str{this, READWRITE, "nmea_id_str", "NMEA"};
+    MetadataString msg_term{this, READWRITE, "msg_term", "Msg Term"};
+    MetadataString msg_stream{this, READWRITE, "msg_stream", "Msg Stream"};
+    MetadataString field_fmt{this, READWRITE, "field_fmt", "Field Fmt"};
+    MetadataInt output_rate{this, READWRITE, "output_rate", "Output Rate Hz"};
+    MetadataString meas_units{this, READWRITE, "meas_units", "Meas Units"};
+    MetadataString node_addr{this, READWRITE, "node_addr", "Node Addr"};
+    MetadataString vert_meas_pad{this, READWRITE, "vert_meas_pad", "Vert Pad"};
+    MetadataString align_45_deg{this, READWRITE, "align_45_deg", "Align/45 Deg"};
 };
-
 
 
 GILL2D::GILL2D()

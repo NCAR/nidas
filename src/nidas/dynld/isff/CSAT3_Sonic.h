@@ -114,7 +114,7 @@ public:
     std::string parseSerialNumber(const std::string& str,
             std::string::size_type & index );
 
-    virtual Metadata* getMetadata() override;
+    virtual void getMetadata(MetadataInterface&) override;
 
 protected:
 

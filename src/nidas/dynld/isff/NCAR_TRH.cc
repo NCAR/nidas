@@ -41,7 +41,6 @@ using boost::regex;
 using boost::regex_replace;
 using boost::cmatch;
 
-using namespace nidas::dynld::isff;
 using std::string;
 using std::numeric_limits;
 using std::list;
@@ -53,10 +52,13 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,NCAR_TRH)
 
+
+namespace nidas { namespace dynld { namespace isff {
+
 /* 
  *  AutoConfig: TRH Commands
  */
-enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
+enum TRH_SENSOR_COMMANDS : unsigned short
 {
     NULL_CMD,
     ENTER_EEPROM_MENU_CMD,
@@ -82,6 +84,34 @@ enum nidas::dynld::isff::TRH_SENSOR_COMMANDS : unsigned short
 };
 
 
+class MetadataTRH : public SensorMetadata
+{
+public:
+    MetadataTRH(): SensorMetadata("NCAR_TRH")
+    {
+        manufacturer = "NCAR";
+        model = "TRH";
+    }
+
+    MetadataString sht85id{this, READONLY, "sh585id", "SHT85 ID"};
+    MetadataDouble fan_duty_cycle{this, READWRITE, "fan_duty_cycle", "Fan Duty Cycle"};
+    MetadataDouble fan_min_rpm{this, READWRITE, "fan_min_rpm", "Fan Min RPM"};
+    MetadataDouble Ta0{this, READWRITE, "Ta0", "Ta0", 7};
+    MetadataDouble Ta1{this, READWRITE, "Ta1", "Ta1", 7};
+    MetadataDouble Ta2{this, READWRITE, "Ta2", "Ta2", 7};
+    MetadataDouble Ha0{this, READWRITE, "Ha0", "Ha0", 7};
+    MetadataDouble Ha1{this, READWRITE, "Ha1", "Ha1", 7};
+    MetadataDouble Ha2{this, READWRITE, "Ha2", "Ha2", 7};
+    MetadataDouble Ha3{this, READWRITE, "Ha3", "Ha3", 7};
+    MetadataDouble Ha4{this, READWRITE, "Ha4", "Ha4", 7};
+
+    MetadataInterface* clone() const override
+    {
+        return new MetadataTRH();
+    }
+};
+
+
 NCAR_TRH::NCAR_TRH():
     SerialSensor(),
     _ifan(),
@@ -95,7 +125,9 @@ NCAR_TRH::NCAR_TRH():
     _Ha(),
     _raw_t_handler(0),
     _raw_rh_handler(0),
-    _compute_order()
+    _compute_order(),
+    _metadata(),
+    _md(*_metadata.add_interface(MetadataTRH()))
 {
     // There is only one port config for TRH.
     addPortConfig(PortConfig(9600, 8, Parity::NONE, 1, RS232));
@@ -116,6 +148,14 @@ NCAR_TRH::~NCAR_TRH()
 {
     delete _raw_t_handler;
     delete _raw_rh_handler;
+}
+
+
+void
+NCAR_TRH::
+getMetadata(MetadataInterface& md)
+{
+    md.assign(_metadata);
 }
 
 
@@ -703,61 +743,6 @@ sendSensorCmd(int cmd, SensorCmdArg arg, bool /* resetNow */)
 }
 
 
-class MetadataTRH : public Metadata
-{
-public:
-    MetadataTRH():
-        Metadata("NCAR_TRH"),
-        sht85id(MetadataItem::READONLY, "sh585id", "SHT85 ID"),
-        fan_duty_cycle(MetadataItem::READWRITE, "fan_duty_cycle", "Fan Duty Cycle"),
-        fan_min_rpm(MetadataItem::READWRITE, "fan_min_rpm", "Fan Min RPM"),
-        Ta0(MetadataItem::READWRITE, "Ta0", "Ta0", 7),
-        Ta1(MetadataItem::READWRITE, "Ta1", "Ta1", 7),
-        Ta2(MetadataItem::READWRITE, "Ta2", "Ta2", 7),
-        Ha0(MetadataItem::READWRITE, "Ha0", "Ha0", 7),
-        Ha1(MetadataItem::READWRITE, "Ha1", "Ha1", 7),
-        Ha2(MetadataItem::READWRITE, "Ha2", "Ha2", 7),
-        Ha3(MetadataItem::READWRITE, "Ha3", "Ha3", 7),
-        Ha4(MetadataItem::READWRITE, "Ha4", "Ha4", 7)
-    {
-        manufacturer = "NCAR";
-        model = "TRH";
-    }
-
-    MetadataString sht85id;
-    MetadataDouble fan_duty_cycle;
-    MetadataDouble fan_min_rpm;
-    MetadataDouble Ta0;
-    MetadataDouble Ta1;
-    MetadataDouble Ta2;
-    MetadataDouble Ha0;
-    MetadataDouble Ha1;
-    MetadataDouble Ha2;
-    MetadataDouble Ha3;
-    MetadataDouble Ha4;
-
-    virtual void enumerate(item_list& items) override
-    {
-        for (auto mi: item_list{
-            &sht85id,
-            &fan_duty_cycle,
-            &fan_min_rpm,
-            &Ta0,
-            &Ta1,
-            &Ta2,
-            &Ha0,
-            &Ha1,
-            &Ha2,
-            &Ha3,
-            &Ha4 })
-        items.push_back(mi);
-    }
-
-    MetadataTRH(const MetadataTRH& source) = default;
-    MetadataTRH& operator=(const MetadataTRH& source) = default;
-};
-
-
 
 bool 
 NCAR_TRH::
@@ -1085,3 +1070,6 @@ enterConfigMode()
 {
     return sendAndCheckSensorCmd(ENTER_EEPROM_MENU_CMD) ? ENTERED : NOT_ENTERED;
 }
+
+
+}}} // namespace nidas namespace dynld namespace isff

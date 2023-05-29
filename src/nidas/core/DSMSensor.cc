@@ -544,9 +544,10 @@ void DSMSensor::applyConversions(SampleTag* stag, SampleT<float>* outs,
 }
 
 
-Metadata* DSMSensor::getMetadata()
+void
+DSMSensor::getMetadata(MetadataInterface&)
 {
-    return nullptr;
+    return;
 }
 
 

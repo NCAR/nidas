@@ -16,7 +16,7 @@ tgill.cc
 """)
 tests = env.Program('tSerialSensorAutoConfig', sources)
 
-standalone = True
+standalone = False
 mdenv.Append(LIBS = ['boost_unit_test_framework', 'jsoncpp'])
 if (standalone):
     mdenv.Append(CPPDEFINES=['STANDALONE'])

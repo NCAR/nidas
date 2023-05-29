@@ -33,8 +33,11 @@
 
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/VariableConverter.h>
+#include <nidas/core/Metadata.h>
 
 namespace nidas { namespace dynld { namespace isff {
+
+class MetadataTRH;
 
 enum TRH_SENSOR_COMMANDS : unsigned short;
 
@@ -112,6 +115,10 @@ public:
     bool captureEepromMetaData(const char* buf);
     void updateMetaData();
 
+    using MetadataInterface = nidas::core::MetadataInterface;
+
+    void getMetadata(MetadataInterface&) override;
+
     /**
      * @brief Tell the TRH sensor to enter eeprom menu mode.
      * 
@@ -182,7 +189,10 @@ private:
     CalFileHandler* _raw_rh_handler;
 
     std::vector<VariableIndex> _compute_order;
-    
+
+    nidas::core::Metadata _metadata;
+    MetadataTRH& _md;
+
     void convertNext(const VariableIndex& vi);
 
     /*

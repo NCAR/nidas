@@ -124,34 +124,20 @@ namespace isff {
 const float CSAT3_Sonic::GAMMA_R = 402.684;
 
 
-class CSAT3_Sonic_Metadata: public Metadata
+class CSAT3_Sonic_Metadata: public SensorMetadata
 {
 public:
     CSAT3_Sonic_Metadata():
-        Metadata("CSAT3_Sonic_Metadata"),
-        data_rate(MetadataItem::READWRITE, "data_rate", "Data Rate"),
-        oversample(MetadataItem::READWRITE, "oversample", "Oversample setting character"),
-        rts_indep(MetadataItem::READWRITE, "RTSIndep")
+        SensorMetadata("CSAT3_Sonic")
     {
         manufacturer = "Campbell Scientific, Inc.";
     }
 
-    void enumerate(item_list& items) override
-    {
-        items.push_back(&data_rate);
-        items.push_back(&oversample);
-        items.push_back(&rts_indep);
-    }
-
-    MetadataInt data_rate;
+    MetadataInt data_rate{this, READWRITE, "data_rate", "Data Rate"};
     // this is the oversample character setting
-    MetadataString oversample;
-    MetadataInt rts_indep;
-
-    CSAT3_Sonic_Metadata(const CSAT3_Sonic_Metadata&) = default;
-    CSAT3_Sonic_Metadata& operator=(const CSAT3_Sonic_Metadata&) = default;
+    MetadataString oversample{this, READWRITE, "oversample", "Oversample setting character"};
+    MetadataInt rts_indep{this, READWRITE, "RTSIndep"};
 };
-
 
 
 CSAT3_Sonic::CSAT3_Sonic():
@@ -1248,9 +1234,9 @@ bool CSAT3_Sonic::checkScienceParameters()
 }
 
 
-Metadata* CSAT3_Sonic::getMetadata()
+void CSAT3_Sonic::getMetadata(MetadataInterface& md)
 {
-    return _metadata.get();
+    md.assign(*_metadata.get());
 }
 
 

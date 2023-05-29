@@ -55,7 +55,7 @@ class DSMConfig;
 class Parameter;
 class CalFile;
 class Looper;
-class Metadata;
+class MetadataInterface;
 
 const int CHAR_WRITE_DELAY = USECS_PER_MSEC * 110; // 110mSec
 
@@ -983,12 +983,13 @@ public:
     IODevice* getIODevice() const { return _iodev; }
 
     /**
-     * Return the latest Metadata for this sensor.  If the sensor subclass
-     * does not implement any metadata, this returns null.  The returned
-     * pointer is owned by the DSMSensor.  Whether it is allowed to be
-     * modified depends on the sensor.
+     * Assign the latest metadata from the sensor to metadata reference @p md.
+     *
+     * This does not access the sensor, only returns what was read from the
+     * sensor the last time readMetadata() was called.  The returned metadata
+     * will have all of the interfaces attached which the sensor uses.
      */
-    virtual Metadata* getMetadata();
+    virtual void getMetadata(MetadataInterface& md);
 
     void setSensorState(const DSM_SENSOR_STATE sensorState)
     {

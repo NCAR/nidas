@@ -384,6 +384,8 @@ BOOST_AUTO_TEST_CASE(test_trh_metadata_load)
     Metadata md;
     trh.getMetadata(md);
 
+    BOOST_TEST(md.get_interface("NCAR_TRH"));
+
     // Load the sensor config from a json string.
     //md.load();
 
